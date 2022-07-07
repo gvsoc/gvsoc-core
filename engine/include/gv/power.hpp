@@ -196,8 +196,8 @@ namespace vp
             power_trace *trace;      // Power trace where the power consumption should be reported.
             bool is_dynamic_power_started = false;      // True is the source consuming dynamic backgroun power
             bool is_leakage_power_started = false;      // True is the source should start consuming leakage power
-            bool is_on = false;      // True is the power domain containing the power source is on and backgroun-power and leakage should be reported
-            bool is_dynamic_power_on = false;      // True is the power domain containing the power source is on and backgroun-power and leakage should be reported
+            bool is_on = true;      // True is the power domain containing the power source is on and backgroun-power and leakage should be reported
+            bool is_dynamic_power_on = true;      // True is the power domain containing the power source is on and backgroun-power and leakage should be reported
             bool dynamic_power_is_on_sync = false;
             bool leakage_power_is_on_sync = false;
         };

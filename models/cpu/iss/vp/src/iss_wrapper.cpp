@@ -1384,6 +1384,7 @@ int iss_wrapper::build()
     this->insn_groups_power.resize(1);
     power.new_power_source("power_insn", &this->insn_groups_power[0], this->get_js_config()->get("**/insn"));
   }
+
   power.new_power_source("background", &background_power, this->get_js_config()->get("**/power_models/background"));
 
   data.set_resp_meth(&iss_wrapper::data_response);

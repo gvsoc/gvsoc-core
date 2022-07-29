@@ -69,7 +69,8 @@ public:
   unsigned long long remove_offset = 0;
   unsigned long long add_offset = 0;
   uint32_t latency = 0;
-  int64_t next_packet_time = 0;
+  int64_t next_read_packet_time = 0;
+  int64_t next_write_packet_time = 0;
   MapEntry *left = NULL;
   MapEntry *right = NULL;
   vp::io_slave *port = NULL;
@@ -233,11 +234,11 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
         // slower router on the path
         req->set_duration(packet_duration);
 
-
         // Update the request latency.
         int64_t latency = req->get_latency();
-        // First check if the latency should be increased due to bandwidth limitation
-        int64_t router_latency = entry->next_packet_time - _this->get_cycles();
+        // First check if the latency should be increased due to bandwidth 
+        int64_t *next_packet_time = req->get_is_write() ? &entry->next_write_packet_time : &entry->next_read_packet_time;
+        int64_t router_latency = *next_packet_time - _this->get_cycles();
         if (router_latency > latency)
         {
           latency = router_latency;
@@ -247,11 +248,11 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
 
         // Update the bandwidth information
         int64_t router_time = _this->get_cycles();
-        if (router_time < entry->next_packet_time)
+        if (router_time < *next_packet_time)
         {
-          router_time = entry->next_packet_time;
+          router_time = *next_packet_time;
         }
-        entry->next_packet_time = router_time + packet_duration;
+        *next_packet_time = router_time + packet_duration;
       }
       else
       {

@@ -68,6 +68,7 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
   bool is_write = req->get_is_write();
   uint64_t size = req->get_size();
   uint8_t *data = req->get_data();
+  int64_t latency = req->get_latency();
 
   uint8_t *init_data = data;
   uint64_t init_size = size;
@@ -100,6 +101,7 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
     req->set_addr(new_offset);
     req->set_size(loop_size);
     req->set_data(data);
+    req->set_latency(0);
 
     vp::io_req_status_e err = _this->out[output_id]->req_forward(req);
     if (err != vp::IO_REQ_OK)
@@ -116,6 +118,12 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
       }
     }
     
+    int64_t iter_latency = req->get_latency();
+    if (iter_latency > latency)
+    {
+      latency = iter_latency;
+    }
+    
     size -= loop_size;
     offset += loop_size;
     if (data)
@@ -125,6 +133,7 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
   req->set_addr(init_offset);
   req->set_size(init_size);
   req->set_data(init_data);
+  req->set_latency(latency);
 
 
   return vp::IO_REQ_OK;

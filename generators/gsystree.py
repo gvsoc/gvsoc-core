@@ -17,6 +17,7 @@ import json_tools as js
 import collections
 import os
 import json
+import sys
 
 
 
@@ -383,11 +384,10 @@ class Component(object):
             The absolute path or None is the file is not found
         """
 
-        if os.environ.get('PYTHONPATH') is not None:
-            for dirpath in os.environ.get('PYTHONPATH').split(':'):
-                path = os.path.join(dirpath, json)
-                if os.path.exists(path):
-                    return path
+        for dirpath in sys.path:
+            path = os.path.join(dirpath, json)
+            if os.path.exists(path):
+                return path
 
         return None
 

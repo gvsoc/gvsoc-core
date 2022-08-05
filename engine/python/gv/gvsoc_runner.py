@@ -25,11 +25,36 @@ import json_tools as js
 import os.path
 
 
-def gen_config(config):
+def gen_config(args, config):
 
     full_config =  js.import_config(config, interpret=True, gen=True)
 
     gvsoc_config = full_config.get('gvsoc')
+
+    for trace in args.traces:
+        gvsoc_config.set('traces/include_regex', trace)
+
+    if args.trace_level is not None:
+        gvsoc_config.set('traces/level', args.trace_level)
+
+    if args.trace_format is not None:
+        gvsoc_config.set('traces/format', args.trace_format)
+
+    if args.vcd:
+        gvsoc_config.set('events/enabled', True)
+        gvsoc_config.set('events/gen_gtkw', True)
+
+    for event in args.events:
+        gvsoc_config.set('events/include_regex', event)
+
+    for tag in args.event_tags:
+        gvsoc_config.set('events/tags', tag)
+
+    if args.format is not None:
+        gvsoc_config.set('events/format', args.format)
+
+    if args.gtkwi:
+        gvsoc_config.set('events/gtkw', True)
 
     debug_mode = gvsoc_config.get_bool('debug-mode') or \
         gvsoc_config.get_bool('traces/enabled') or \
@@ -42,8 +67,8 @@ def gen_config(config):
     if debug_mode:
         debug_binaries = []
 
-        # if args.binary is not None:
-        #     debug_binaries.append(args.binary)
+        if args.binary is not None:
+            debug_binaries.append(args.binary)
 
         rom_binary = full_config.get_str('**/soc/rom/config/binary')
 
@@ -67,10 +92,11 @@ def dump_config(full_config, gvsoc_config_path):
         file.write(full_config.dump_to_string())
 
 
-class Runner(st.Component):
+class Runner(gapylib.target.Target, st.Component):
 
     def __init__(self, parent, name, options):
 
+        gapylib.target.Target.__init__(self, options)
         st.Component.__init__(self, parent, name, options)
 
     def append_args(self, parser):
@@ -154,35 +180,7 @@ class Runner(st.Component):
             "gvsoc": gvsoc_config_dict
         }
 
-        self.full_config, self.gvsoc_config_path = gen_config(config)
-
-        gvsoc_config = self.full_config.get('gvsoc')
-
-
-        for trace in args.traces:
-            gvsoc_config.set('traces/include_regex', trace)
-
-        if args.trace_level is not None:
-            gvsoc_config.set('traces/level', args.trace_level)
-
-        if args.trace_format is not None:
-            gvsoc_config.set('traces/format', args.trace_format)
-
-        if args.vcd:
-            gvsoc_config.set('events/enabled', True)
-            gvsoc_config.set('events/gen_gtkw', True)
-
-        for event in args.events:
-            gvsoc_config.set('events/include_regex', event)
-
-        for tag in args.event_tags:
-            gvsoc_config.set('events/tags', tag)
-
-        if args.format is not None:
-            gvsoc_config.set('events/format', args.format)
-
-        if args.gtkwi:
-            gvsoc_config.set('events/gtkw', True)
+        self.full_config, self.gvsoc_config_path = gen_config(args, config)
 
 
     def handle_command(self, cmd):
@@ -202,11 +200,21 @@ class Runner(st.Component):
             return gapylib.target.Target.handle_command(self, cmd)
 
 
+
+    def __gen_debug_info(self, full_config, gvsoc_config):
+        for binary in full_config.get('**/debug_binaries').get_dict():
+            if os.system('gen-debug-info %s %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
+            # if os.system('pulp-pc-info --file %s --all-file %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
+                raise errors.InputError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+
+
     def run(self):
 
         gvsoc_config = self.full_config.get('gvsoc')
 
-        dump_config(self.full_config, self.gvsoc_config_path)
+        dump_config(self.full_config, self.get_abspath(self.gvsoc_config_path))
+
+        self.__gen_debug_info(self.full_config, self.full_config.get('gvsoc'))
 
         if gvsoc_config.get_bool("debug-mode"):
             launcher = gvsoc_config.get_str('launchers/debug')
@@ -218,5 +226,7 @@ class Runner(st.Component):
         if True: #self.verbose:
             print ('Launching GVSOC with command: ')
             print (' '.join(command))
+
+        os.chdir(self.get_working_dir())
 
         return os.execvp(launcher, command)

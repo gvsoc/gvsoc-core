@@ -28,6 +28,8 @@ class Mram(Flash):
             'size': size
         })
 
+        self.add_property('content/image', self.get_image_path())
+        
         self.add_property('content/partitions/readfs/files', [])
         self.add_property('content/partitions/readfs/type', 'readfs')
         self.add_property('content/partitions/readfs/enabled', False)

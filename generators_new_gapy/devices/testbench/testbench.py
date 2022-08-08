@@ -69,7 +69,7 @@ class Testbench(st.Component):
         def __init__(self, parent, name, uart_id=0, uart_baudrate=115200):
             super(Testbench.Testbench_implem, self).__init__(parent, name)
 
-        # Register all parameters as properties so that they can be overwritten from the command-line
+            # Register all parameters as properties so that they can be overwritten from the command-line
             self.add_property('uart_id', uart_id)
             self.add_property('uart_baudrate', 115200)
 
@@ -82,6 +82,8 @@ class Testbench(st.Component):
                 "nb_uart": 5,
                 "nb_i2c": 3,
                 "nb_i2s": 3,
+                "uart_id": self.get_property('uart_id'),
+                "uart_baudrate": self.get_property('uart_baudrate'),
 
                 "spislave_boot": {
                     "enabled": False,

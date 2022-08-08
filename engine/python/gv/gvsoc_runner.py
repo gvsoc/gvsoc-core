@@ -99,6 +99,10 @@ class Runner(gapylib.target.Target, st.Component):
         gapylib.target.Target.__init__(self, options)
         st.Component.__init__(self, parent, name, options)
 
+        self.add_property("debug-mode", False)
+        self.add_property("events/gen_gtkw", False)
+
+
     def append_args(self, parser):
         super().append_args(parser)
 
@@ -142,7 +146,7 @@ class Runner(gapylib.target.Target, st.Component):
                 "active": False,
                 "all": True,
                 "gtkw": False,
-                "gen_gtkw": False,
+                "gen_gtkw": self.get_property("gen_gtkw"),
                 "files": [ ],
                 "traces": {},
                 "tags": [ "overview" ],
@@ -156,7 +160,7 @@ class Runner(gapylib.target.Target, st.Component):
             "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
         
             "verbose": True,
-            "debug-mode": False,
+            "debug-mode": self.get_property("debug-mode"),
             "sa-mode": True,
         
             "launchers": {
@@ -188,6 +192,9 @@ class Runner(gapylib.target.Target, st.Component):
         if cmd == 'run':
             return self.run()
 
+        # elif cmd == 'prepare':
+        #     return self.run(norun=True)
+
         elif cmd == 'image':
             if gapylib.target.Target.handle_command(self, cmd) != 0:
                 return -1
@@ -208,13 +215,16 @@ class Runner(gapylib.target.Target, st.Component):
                 raise errors.InputError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
-    def run(self):
+    def run(self, norun=False):
 
         gvsoc_config = self.full_config.get('gvsoc')
 
         dump_config(self.full_config, self.get_abspath(self.gvsoc_config_path))
 
         self.__gen_debug_info(self.full_config, self.full_config.get('gvsoc'))
+
+        if norun:
+            return 0
 
         if gvsoc_config.get_bool("debug-mode"):
             launcher = gvsoc_config.get_str('launchers/debug')

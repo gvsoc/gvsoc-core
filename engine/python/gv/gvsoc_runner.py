@@ -99,8 +99,10 @@ class Runner(gapylib.target.Target, st.Component):
         gapylib.target.Target.__init__(self, options)
         st.Component.__init__(self, parent, name, options)
 
-        self.add_property("debug-mode", False)
-        self.add_property("events/gen_gtkw", False)
+        self.add_property("gvsoc/debug-mode", False)
+        self.add_property("gvsoc/events/gen_gtkw", False)
+        self.add_property("gvsoc/proxy/enabled", False)
+        self.add_property("gvsoc/proxy/port", 42951)
 
 
     def append_args(self, parser):
@@ -134,8 +136,8 @@ class Runner(gapylib.target.Target, st.Component):
 
         gvsoc_config_dict = {
             "proxy": {
-                "enabled": False,
-                "port": 42951
+                "enabled": self.get_property("gvsoc/proxy/enabled"),
+                "port": self.get_property("gvsoc/proxy/port")
             },
             "events": {
                 "enabled": False,
@@ -146,7 +148,7 @@ class Runner(gapylib.target.Target, st.Component):
                 "active": False,
                 "all": True,
                 "gtkw": False,
-                "gen_gtkw": self.get_property("gen_gtkw"),
+                "gen_gtkw": self.get_property("gvsoc/events/gen_gtkw"),
                 "files": [ ],
                 "traces": {},
                 "tags": [ "overview" ],
@@ -160,7 +162,7 @@ class Runner(gapylib.target.Target, st.Component):
             "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
         
             "verbose": True,
-            "debug-mode": self.get_property("debug-mode"),
+            "debug-mode": self.get_property("gvsoc/debug-mode"),
             "sa-mode": True,
         
             "launchers": {
@@ -192,8 +194,8 @@ class Runner(gapylib.target.Target, st.Component):
         if cmd == 'run':
             return self.run()
 
-        # elif cmd == 'prepare':
-        #     return self.run(norun=True)
+        elif cmd == 'prepare':
+            return self.run(norun=True)
 
         elif cmd == 'image':
             if gapylib.target.Target.handle_command(self, cmd) != 0:

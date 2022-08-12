@@ -584,3 +584,11 @@ class Component(object):
                 return int(value)
         else:
             return value
+
+
+    def get_target(self):
+
+        if self.parent is not None:
+            return self.parent.get_target()
+
+        return None

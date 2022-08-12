@@ -108,6 +108,9 @@ class Runner(gapylib.target.Target, st.Component):
     def append_args(self, parser):
         super().append_args(parser)
 
+        parser.add_argument("--platform", dest="platform", required=True, choices=['gvsoc'],
+            type=str, help="specify the platform used for the target")
+
         parser.add_argument("--trace", dest="traces", default=[], action="append",
             help="Specify gvsoc trace")
 
@@ -192,21 +195,18 @@ class Runner(gapylib.target.Target, st.Component):
     def handle_command(self, cmd):
 
         if cmd == 'run':
-            return self.run()
+            self.run()
 
         elif cmd == 'prepare':
-            return self.run(norun=True)
+            self.run(norun=True)
 
         elif cmd == 'image':
-            if gapylib.target.Target.handle_command(self, cmd) != 0:
-                return -1
+            gapylib.target.Target.handle_command(self, cmd)
 
             self.gen_stimuli()
 
-            return 0
-
         else:
-            return gapylib.target.Target.handle_command(self, cmd)
+            gapylib.target.Target.handle_command(self, cmd)
 
 
 
@@ -242,3 +242,7 @@ class Runner(gapylib.target.Target, st.Component):
         os.chdir(self.get_working_dir())
 
         return os.execvp(launcher, command)
+
+
+    def get_target(self):
+        return self

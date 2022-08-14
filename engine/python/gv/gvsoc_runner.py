@@ -214,7 +214,7 @@ class Runner(gapylib.target.Target, st.Component):
         for binary in full_config.get('**/debug_binaries').get_dict():
             if os.system('gen-debug-info %s %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
             # if os.system('pulp-pc-info --file %s --all-file %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
-                raise errors.InputError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+                raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
     def run(self, norun=False):

@@ -22,6 +22,8 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/power/power_trace.cpp"
     "src/power/power_source.cpp"
     "src/launcher.cpp"
+    "src/jsmn.cpp"
+    "src/json.cpp"
     )
 
 set(GVSOC_ENGINE_C_SRCS
@@ -45,7 +47,7 @@ set(GVSOC_ENGINE_INC_DIRS "include")
 if(${BUILD_OPTIMIZED})
     add_library(gvsoc SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
     target_include_directories(gvsoc PUBLIC ${GVSOC_ENGINE_INC_DIRS})
-    target_link_libraries(gvsoc PUBLIC json-tools z pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(gvsoc PUBLIC z pthread ${CMAKE_DL_LIBS})
     set_target_properties(gvsoc PROPERTIES OUTPUT_NAME "pulpvp")
     install(TARGETS gvsoc
         LIBRARY DESTINATION lib
@@ -55,7 +57,7 @@ if(${BUILD_OPTIMIZED})
         )
 
     add_executable(gvsoc_launcher "src/main.cpp")
-    target_link_libraries(gvsoc_launcher PRIVATE gvsoc json-tools z pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(gvsoc_launcher PRIVATE gvsoc z pthread ${CMAKE_DL_LIBS})
     install(TARGETS gvsoc_launcher
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
@@ -71,7 +73,7 @@ endif()
 if(${BUILD_DEBUG})
     add_library(gvsoc_debug SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
     target_include_directories(gvsoc_debug PUBLIC ${GVSOC_ENGINE_INC_DIRS})
-    target_link_libraries(gvsoc_debug PUBLIC json-tools z pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(gvsoc_debug PUBLIC z pthread ${CMAKE_DL_LIBS})
     set_target_properties(gvsoc_debug PROPERTIES OUTPUT_NAME "pulpvp-debug")
     install(TARGETS gvsoc_debug
         LIBRARY DESTINATION lib
@@ -82,7 +84,7 @@ if(${BUILD_DEBUG})
     target_compile_definitions(gvsoc_debug PRIVATE "-DVP_TRACE_ACTIVE=1")
 
     add_executable(gvsoc_launcher_debug "src/main.cpp")
-    target_link_libraries(gvsoc_launcher_debug PRIVATE gvsoc_debug json-tools z pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(gvsoc_launcher_debug PRIVATE gvsoc_debug z pthread ${CMAKE_DL_LIBS})
     install(TARGETS gvsoc_launcher_debug
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
@@ -99,7 +101,7 @@ endif()
 if(${BUILD_RTL})
     add_library(gvsoc_sv SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
     target_include_directories(gvsoc_sv PUBLIC ${GVSOC_ENGINE_INC_DIRS})
-    target_link_libraries(gvsoc_sv PUBLIC json-tools z pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(gvsoc_sv PUBLIC z pthread ${CMAKE_DL_LIBS})
     set_target_properties(gvsoc_sv PROPERTIES OUTPUT_NAME "pulpvp-sv")
     install(TARGETS gvsoc_sv
         LIBRARY DESTINATION lib

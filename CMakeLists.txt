@@ -2,13 +2,10 @@ cmake_minimum_required(VERSION 3.16.3)
 
 project(gvsoc-core)
 
-# gap_archi
-add_library(gap_archi INTERFACE)
-target_include_directories(gap_archi INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../../rtos/pulp/gap_archi/include")
-
-# archi_pulp
-add_library(archi_pulp INTERFACE)
-target_include_directories(archi_pulp INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../../rtos/pulp/archi_pulp/include")
+foreach(subdir ${VP_MODEL_ROOT_DIRS})
+    if(IS_DIRECTORY ${subdir})
+    endif()
+endforeach()
 
 # install sub folder
 set(GVSOC_MODELS_INSTALL_FOLDER       "python")
@@ -53,13 +50,6 @@ vp_set_target_types(
     )
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-set(JSON_TOOLS_SRCS "../../utils/json-tools/src/jsmn.cpp"
-                    "../../utils/json-tools/src/json.cpp")
-set(JSON_TOOLS_INC_DIRS "../../utils/json-tools/include/")
-
-add_library(json-tools OBJECT ${JSON_TOOLS_SRCS})
-target_include_directories(json-tools PUBLIC ${JSON_TOOLS_INC_DIRS})
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 

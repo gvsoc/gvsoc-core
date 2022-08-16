@@ -243,8 +243,9 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
         {
           latency = router_latency;
         }
+
         // Then apply the router latency
-        req->set_latency(latency + entry->latency);
+        req->set_latency(latency + entry->latency + _this->latency);
 
         // Update the bandwidth information
         int64_t router_time = _this->get_cycles();

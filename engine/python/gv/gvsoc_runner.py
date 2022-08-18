@@ -27,7 +27,7 @@ import os.path
 
 def gen_config(args, config):
 
-    full_config =  js.import_config(config, interpret=True, gen=True)
+    full_config =  js.import_config(config, interpret=False, gen=False)
 
     gvsoc_config = full_config.get('gvsoc')
 

@@ -134,6 +134,9 @@ class Runner(gapylib.target.Target, st.Component):
         parser.add_argument("--gtkwi", dest="gtkwi", action="store_true",
             help="Dump events to pipe and open gtkwave in interactive mode")
 
+        parser.add_argument("--component-file", dest="component_file", default=None,
+            help="Component file")
+
     def parse_args(self, args):
         super().parse_args(args)
 
@@ -204,6 +207,12 @@ class Runner(gapylib.target.Target, st.Component):
             gapylib.target.Target.handle_command(self, cmd)
 
             self.gen_stimuli()
+
+        elif cmd == 'components':
+
+            with open(self.get_args().component_file, "w") as file:
+                for comp in self.get_component_list() + ['vp.trace_domain_impl', 'vp.time_domain_impl', 'vp.power_domain_impl', 'utils.composite_impl']:
+                    file.write(f'CONFIG_{comp}=1\n')
 
         else:
             gapylib.target.Target.handle_command(self, cmd)

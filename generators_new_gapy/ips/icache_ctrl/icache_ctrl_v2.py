@@ -22,6 +22,4 @@ class Icache_ctrl(st.Component):
 
         super(Icache_ctrl, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'pulp.icache_ctrl.icache_ctrl_v2_impl',
-        })
+        self.set_component('pulp.icache_ctrl.icache_ctrl_v2_impl')

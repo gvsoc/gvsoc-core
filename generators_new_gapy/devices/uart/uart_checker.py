@@ -35,6 +35,8 @@ class Uart_checker(st.Component):
         def __init__(self, parent, name):
             super(Uart_checker.Uart_checker_implem, self).__init__(parent, name)
 
+            self.set_component('devices.uart.uart_checker')
+
             self.add_property('verbose', False)
             self.add_property('baudrate', 115200)
             self.add_property('loopback', False)
@@ -42,5 +44,4 @@ class Uart_checker(st.Component):
             self.add_property('stdin', False)
             self.add_property('telnet', False)
             self.add_property('tx_file', 'tx_uart.log')
-            self.add_property('vp_component', 'devices.uart.uart_checker')
 

@@ -22,8 +22,9 @@ class Itc_v1(st.Component):
 
         super(Itc_v1, self).__init__(parent, name)
 
+        self.set_component('pulp.itc.itc_v1_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.itc.itc_v1_impl',
             "nb_fifo_events": 8,
             "fifo_irq": 26
         })

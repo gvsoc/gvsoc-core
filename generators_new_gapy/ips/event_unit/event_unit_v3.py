@@ -22,8 +22,6 @@ class Event_unit(st.Component):
 
         super(Event_unit, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'pulp.event_unit.eu_v3_impl'
-        })
+        self.set_component('pulp.event_unit.eu_v3_impl')
 
         self.add_properties(config)

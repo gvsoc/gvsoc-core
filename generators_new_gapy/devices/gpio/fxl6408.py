@@ -20,5 +20,5 @@ class Fxl6408(st.Component):
     def __init__(self, parent, name):
         super(Fxl6408, self).__init__(parent, name)
 
-        self.add_property('vp_component', 'devices.gpio.fxl6408')
+        self.set_component('devices.gpio.fxl6408')
 

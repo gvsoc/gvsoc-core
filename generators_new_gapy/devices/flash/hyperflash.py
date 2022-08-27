@@ -46,7 +46,7 @@ class Hyperflash(Flash):
         self.add_property('content/partitions/lfs/type', 'lfs')
         self.add_property('content/partitions/lfs/enabled', False)
 
-        self.add_property('vp_component', "devices.hyperbus.hyperflash_impl")
+        self.set_component('devices.hyperbus.hyperflash_impl')
 
         self.add_property('writeback', True)
         self.add_property('size', size)

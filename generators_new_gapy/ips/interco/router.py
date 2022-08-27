@@ -21,8 +21,9 @@ class Router(st.Component):
     def __init__(self, parent, name, latency=0, bandwidth=0, remove_offset=0, config=None):
         super(Router, self).__init__(parent, name)
 
+        self.set_component('interco.router_impl')
+
         self.add_property('mappings', {})
-        self.add_property('vp_component', 'interco.router_impl')
         self.add_property('latency', latency)
         self.add_property('bandwidth', bandwidth)
         self.add_property('remove_offset', remove_offset)

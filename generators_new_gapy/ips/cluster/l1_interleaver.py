@@ -22,8 +22,9 @@ class L1_interleaver(st.Component):
 
         super(L1_interleaver, self).__init__(parent, slave)
 
+        self.set_component('pulp.cluster.l1_interleaver_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.cluster.l1_interleaver_impl',
             'nb_slaves': nb_slaves,
             'nb_masters': nb_masters,
             'stage_bits': stage_bits,

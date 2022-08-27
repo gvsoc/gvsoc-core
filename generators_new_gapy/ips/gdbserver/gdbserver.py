@@ -25,6 +25,4 @@ class Gdbserver(st.Component):
         self.add_property('enabled', enabled)
         self.add_property('port', port)
 
-        self.add_properties({
-            'vp_component': 'gdbserver.gdbserver'
-        })
+        self.set_component('gdbserver.gdbserver')

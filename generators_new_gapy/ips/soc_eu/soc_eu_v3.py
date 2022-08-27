@@ -22,8 +22,9 @@ class Soc_eu(st.Component):
 
         super(Soc_eu, self).__init__(parent, name)
 
+        self.set_component('pulp.soc_eu.soc_eu_v3_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.soc_eu.soc_eu_v3_impl',
             'ref_clock_event': ref_clock_event,
             "irq_redirect": irq_redirect
         })

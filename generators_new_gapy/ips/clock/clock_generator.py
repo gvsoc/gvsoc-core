@@ -21,8 +21,9 @@ class Clock_generator(st.Component):
     def __init__(self, parent, name, powered_on=True, powerup_time=0):
         super(Clock_generator, self).__init__(parent, name)
 
+        self.set_component('utils.clock_impl')
+
         self.add_properties({
-            'vp_component': "utils.clock_impl",
             'powered_on': powered_on,
             'powerup_time': powerup_time
         })

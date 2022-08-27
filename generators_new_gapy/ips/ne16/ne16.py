@@ -22,9 +22,7 @@ class Ne16(st.Component):
 
         super(Ne16, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'pulp.ne16.ne16',
-        })
+        self.set_component('pulp.ne16.ne16')
 
     def gen_gtkw(self, tree, traces):
         if tree.get_view() == 'overview':

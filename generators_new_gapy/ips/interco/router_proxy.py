@@ -21,4 +21,4 @@ class Router_proxy(st.Component):
     def __init__(self, parent, name):
         super(Router_proxy, self).__init__(parent, name)
 
-        self.add_property('vp_component', 'interco.router_proxy')
+        self.set_component('interco.router_proxy')

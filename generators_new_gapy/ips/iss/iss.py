@@ -78,8 +78,9 @@ class Iss(st.Component):
         if power_models_file is not None:
             power_models = self.load_property_file(power_models_file)
 
+        self.set_component(vp_component)
+
         self.add_properties({
-            'vp_component': vp_component,
             'isa': isa,
             'misa': misa,
             'first_external_pcer': first_external_pcer,

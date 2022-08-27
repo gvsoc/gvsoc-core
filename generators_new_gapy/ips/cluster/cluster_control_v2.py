@@ -22,7 +22,8 @@ class Cluster_control(st.Component):
 
         super(Cluster_control, self).__init__(parent, name)
 
+        self.set_component('pulp.cluster.cluster_ctrl_v2_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.cluster.cluster_ctrl_v2_impl',
             'nb_core': nb_core,
         })

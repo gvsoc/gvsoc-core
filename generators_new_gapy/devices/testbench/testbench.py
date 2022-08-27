@@ -73,8 +73,9 @@ class Testbench(st.Component):
             self.add_property('uart_id', uart_id)
             self.add_property('uart_baudrate', 115200)
 
+            self.set_component('devices.testbench.testbench')
+            
             self.add_properties({
-                'vp_component': 'devices.testbench.testbench',
                 "verbose": False,
                 "ctrl_type": "uart",
                 "nb_gpio": 90,

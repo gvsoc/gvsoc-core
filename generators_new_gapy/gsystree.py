@@ -51,6 +51,7 @@ class Component(object):
         self.is_top = is_top
         self.vcd_group_create = True
         self.vcd_group_closed = True
+        self.component = None
 
         if len(options) > 0:
             options_list = []
@@ -339,6 +340,24 @@ class Component(object):
         with open(self.get_file_path(path), 'r') as fd:
             return json.load(fd)
 
+    def set_component(self, name):
+        self.component = name
+        self.add_property('vp_component', name)
+
+    def get_component_list(self):
+        result = []
+        
+        if self.component is not None:
+            result.append(self.component)
+
+        def Union(lst1, lst2):
+            final_list = list(set(lst1) | set(lst2))
+            return final_list
+
+        for child in self.components.values():
+            result = Union(result, child.get_component_list())
+
+        return result
 
     def get_config(self):
         """Generates and return the system configuration.

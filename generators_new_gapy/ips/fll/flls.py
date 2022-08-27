@@ -33,8 +33,9 @@ class Memory(st.Component):
 
         super(Memory, self).__init__(parent, name)
 
+        self.set_component('memory.memory_impl')
+
         self.add_properties({
-            'vp_component': 'memory.memory_impl',
             'size': size,
             'stim_file': stim_file
         })

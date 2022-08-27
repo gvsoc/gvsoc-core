@@ -22,8 +22,9 @@ class Efuse(st.Component):
 
         super(Efuse, self).__init__(parent, name)
 
+        self.set_component('pulp.efuse.efuse_v1_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.efuse.efuse_v1_impl',
             'stim_file': self.get_path(is_efuse=True),
             'format': 'binary',
             'nb_regs': nb_regs

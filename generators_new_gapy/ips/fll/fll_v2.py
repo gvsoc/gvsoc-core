@@ -22,6 +22,4 @@ class Fll(st.Component):
 
         super(Fll, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'pulp.fll.fll_v2_impl'
-        })
+        self.set_component('pulp.fll.fll_v2_impl')

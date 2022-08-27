@@ -34,4 +34,5 @@ class Corruptor(st.Component):
 
         def __init__(self, parent, name, address):
             super(Corruptor.Corruptor_implem, self).__init__(parent, name)
-            self.add_property('vp_component', 'devices.i2c.corruptor.i2c_corruptor')
+
+            self.set_component('devices.i2c.corruptor.i2c_corruptor')

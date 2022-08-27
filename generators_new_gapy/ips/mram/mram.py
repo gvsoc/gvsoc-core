@@ -23,8 +23,8 @@ class Mram(Flash):
 
         super(Mram, self).__init__(parent, name)
 
+        self.set_component('pulp.mram.mram_v1_impl')
         self.add_properties({
-            'vp_component': 'pulp.mram.mram_v1_impl',
             'size': size
         })
 

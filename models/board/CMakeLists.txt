@@ -1,3 +1,2 @@
-vp_model(NAME switch_impl
-    PREFIX "board"
+vp_model(NAME board.switch_impl
     SOURCES "switch_impl.cpp")

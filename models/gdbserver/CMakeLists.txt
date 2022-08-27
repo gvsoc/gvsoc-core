@@ -3,7 +3,6 @@ set(GDB_SERVER_SRCS "gdbserver.cpp"
     "rsp-packet-codec.cpp"
     "circular-buffer.cpp")
 
-vp_model(NAME gdbserver
-    PREFIX "gdbserver"
+vp_model(NAME gdbserver.gdbserver
     SOURCES ${GDB_SERVER_SRCS}
     )

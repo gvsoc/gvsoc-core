@@ -1,4 +1,3 @@
-vp_model(NAME cache_impl
-    PREFIX "cache"
+vp_model(NAME cache.cache_impl
     SOURCES "cache_impl.cpp"
     )

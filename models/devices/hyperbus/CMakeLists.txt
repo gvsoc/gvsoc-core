@@ -1,8 +1,5 @@
-set(HYPER_PREFIX "devices/hyperbus")
-vp_model(NAME hyperram_impl
-    PREFIX ${HYPER_PREFIX}
+vp_model(NAME devices.hyperbus.hyperram_impl
     SOURCES "hyperram_impl.cpp")
 
-vp_model(NAME hyperflash_impl
-    PREFIX ${HYPER_PREFIX}
+vp_model(NAME devices.hyperbus.hyperflash_impl
     SOURCES "hyperflash_impl.cpp")

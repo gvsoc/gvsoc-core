@@ -1,5 +1,4 @@
-vp_model(NAME i2c_bus
-    PREFIX "devices/i2c"
+vp_model(NAME devices.i2c.i2c_bus
     SOURCES "i2c_bus.cpp"
     )
 

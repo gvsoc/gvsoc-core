@@ -1,6 +1,2 @@
-
-set(DAC_PREFIX "devices/sound/dac")
-
-vp_model(NAME ak4332
-         PREFIX ${DAC_PREFIX}
+vp_model(NAME devices.sound.dac.ak4332
          SOURCES "ak4332.cpp")

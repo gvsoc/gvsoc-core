@@ -1,6 +1,5 @@
-vp_model(NAME i2c_eeprom
-    PREFIX "devices/i2c/eeprom"
+vp_model(NAME devices.i2c.eeprom.i2c_eeprom
     SOURCES "i2c_eeprom.cpp"
     )
 
-vp_model_link_libraries(NAME i2c_eeprom LIBRARY i2c_helper)
+vp_model_link_libraries(NAME devices.i2c.eeprom.i2c_eeprom LIBRARY i2c_helper)

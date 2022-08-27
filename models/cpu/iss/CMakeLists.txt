@@ -4,7 +4,7 @@ function(generate_isa)
     cmake_parse_arguments(
         GEN_ISA
         ""
-        "NAME;THINGY;PREFIX"
+        "NAME;THINGY"
         "SOURCES"
         ${ARGN}
         )
@@ -32,7 +32,6 @@ function(generate_isa)
         )
 
     vp_model(NAME ${GEN_ISA_NAME}
-        PREFIX "${GEN_ISA_PREFIX}"
         SOURCES ${GEN_ISA_SOURCES} ${GEN_ISA_FILES} ${ISS_FILES}
         )
     vp_model_include_directories(

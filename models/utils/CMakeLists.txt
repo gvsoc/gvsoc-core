@@ -1,35 +1,20 @@
-set(UTILS_PREFIX "utils")
-
-vp_model(NAME loader_impl
-    PREFIX ${UTILS_PREFIX}
+vp_model(NAME utils.loader_impl
     SOURCES "loader_impl.cpp"
     )
 
-if(NOT DEFINED ENV{GVSOC_SKIP_DPI})
-    message(STATUS "TODO dpi_wrapper_impl")
-    #vp_model(NAME dpi_wrapper_impl
-    #    PREFIX ${UTILS_PREFIX}
-    #    SOURCES "dpi_wrapper_impl.cpp"
-    #    )
-endif()
-
-vp_model(NAME injector_impl
-    PREFIX ${UTILS_PREFIX}
+vp_model(NAME utils.injector_impl
     SOURCES "injector_impl.cpp"
     )
-vp_model_link_libraries(NAME injector_impl LIBRARY gvsoc_launcher_lib)
+vp_model_link_libraries(NAME utils.injector_impl LIBRARY gvsoc_launcher_lib)
 
-vp_model(NAME composite_impl
-    PREFIX ${UTILS_PREFIX}
+vp_model(NAME utils.composite_impl
     SOURCES "composite_impl.cpp"
     )
 
-vp_model(NAME clock_impl
-    PREFIX ${UTILS_PREFIX}
+vp_model(NAME utils.clock_impl
     SOURCES "clock_impl.cpp"
     )
 
-vp_model(NAME dpi_chip_wrapper
-    PREFIX ${UTILS_PREFIX}
+vp_model(NAME utils.dpi_chip_wrapper
     SOURCES "dpi_chip_wrapper.cpp"
     )

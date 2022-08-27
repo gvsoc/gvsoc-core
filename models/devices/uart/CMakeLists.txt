@@ -1,4 +1,3 @@
-vp_model(NAME uart_checker
-    PREFIX "devices/uart"
+vp_model(NAME devices.uart.uart_checker
     SOURCES "uart_checker.cpp"
     )

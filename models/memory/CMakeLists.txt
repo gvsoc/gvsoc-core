@@ -1,11 +1,7 @@
-set(MEMORY_PREFIX "memory")
-
-vp_model(NAME memory_impl
-    PREFIX ${MEMORY_PREFIX}
+vp_model(NAME memory.memory_impl
     SOURCES "memory_impl.cpp"
     )
 
-vp_model(NAME ddr_impl
-    PREFIX ${MEMORY_PREFIX}
+vp_model(NAME memory.ddr_impl
     SOURCES "memory_impl.cpp"
     )

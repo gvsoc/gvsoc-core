@@ -1,6 +1,3 @@
 
-set(GPIO_PREFIX "devices/gpio")
-
-vp_model(NAME fxl6408
-         PREFIX ${GPIO_PREFIX}
+vp_model(NAME devices.gpio.fxl6408
          SOURCES "fxl6408.cpp")

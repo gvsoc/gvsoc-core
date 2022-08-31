@@ -52,11 +52,6 @@ set(CONFIG_BUILD_ALL 1)
 endif()
 
 
-foreach(subdir ${VP_MODEL_ROOT_DIRS})
-    if(IS_DIRECTORY ${subdir})
-    endif()
-endforeach()
-
 # install sub folder
 set(GVSOC_MODELS_INSTALL_FOLDER       "python")
 set(GVSOC_MODELS_OPTIM_INSTALL_FOLDER "")

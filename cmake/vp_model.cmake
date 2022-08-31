@@ -422,7 +422,6 @@ function(vp_model_link_libraries)
     
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
-            message(STATUS ${VP_MODEL_NO_M32} ${TARGET_TYPE})
             if (VP_MODEL_NO_M32 AND (TARGET_TYPE STREQUAL _debug_m32 OR TARGET_TYPE STREQUAL _optim_m32))
             else()
                 set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")

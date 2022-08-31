@@ -23,6 +23,7 @@
 #include "vp/trace/trace.hpp"
 #include "vp/trace/trace_engine.hpp"
 #include <string.h>
+#include <inttypes.h>
 
 vp::component_trace::component_trace(vp::component &top)
     : top(top)
@@ -127,14 +128,17 @@ void vp::trace::dump_header()
     int format = comp->traces.get_trace_manager()->get_format();
     if (format == TRACE_FORMAT_SHORT)
     {
-        fprintf(this->trace_file, "%ldps %ld ", time, cycles);
+        fprintf(this->trace_file, "%" PRId64 "ps %" PRId64 " ", time, cycles);
     }
     else
     {
         int max_trace_len = comp->traces.get_trace_manager()->get_max_path_len();
-        fprintf(this->trace_file, "%ld: %ld: [\033[34m%-*.*s\033[0m] ", time, cycles, max_trace_len, max_trace_len, path.c_str());
+        fprintf(this->trace_file, "%" PRId64 ": %" PRId64": [\033[34m%-*.*s\033[0m] ", time, cycles, max_trace_len, max_trace_len, path.c_str());
     }
 }
+
+
+
 
 void vp::trace::dump_warning_header()
 {
@@ -146,7 +150,7 @@ void vp::trace::dump_warning_header()
         cycles = comp->get_clock()->get_cycles();
         time = comp->get_clock()->get_time();
     }
-    fprintf(this->trace_file, "%ld: %ld: [\033[31m%-*.*s\033[0m] ", time, cycles, max_trace_len, max_trace_len, path.c_str());
+    fprintf(this->trace_file, "%" PRId64 ": %" PRId64 ": [\033[31m%-*.*s\033[0m] ", time, cycles, max_trace_len, max_trace_len, path.c_str());
 }
 
 void vp::trace::dump_fatal_header()

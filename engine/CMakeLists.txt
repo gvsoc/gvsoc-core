@@ -66,6 +66,20 @@ if(${BUILD_OPTIMIZED})
         )
 endif()
 
+if(${BUILD_OPTIMIZED_M32})
+    add_library(gvsoc_m32 SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
+    target_include_directories(gvsoc_m32 PUBLIC ${GVSOC_ENGINE_INC_DIRS})
+    target_link_libraries(gvsoc_m32 PUBLIC z pthread ${CMAKE_DL_LIBS})
+    set_target_properties(gvsoc_m32 PROPERTIES OUTPUT_NAME "pulpvp-m32")
+    install(TARGETS gvsoc_m32   
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include
+        )
+    target_compile_options(gvsoc_m32 PRIVATE -m32 -D__M32_MODE__)
+    target_link_options(gvsoc_m32 PRIVATE -m32)
+endif()
+
 # ==============
 # Debug launcher
 # ==============
@@ -92,6 +106,21 @@ if(${BUILD_DEBUG})
         INCLUDES DESTINATION include
         )
     target_compile_definitions(gvsoc_launcher_debug PRIVATE "-DVP_TRACE_ACTIVE=1")
+endif()
+
+if(${BUILD_DEBUG_M32})
+    add_library(gvsoc_debug_m32 SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
+    target_include_directories(gvsoc_debug_m32 PUBLIC ${GVSOC_ENGINE_INC_DIRS})
+    target_link_libraries(gvsoc_debug_m32 PUBLIC z pthread ${CMAKE_DL_LIBS})
+    set_target_properties(gvsoc_debug_m32 PROPERTIES OUTPUT_NAME "pulpvp-debug-m32")
+    install(TARGETS gvsoc_debug_m32
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include
+        )
+    target_compile_definitions(gvsoc_debug_m32 PRIVATE "-DVP_TRACE_ACTIVE=1")
+    target_compile_options(gvsoc_debug_m32 PRIVATE -m32 -D__M32_MODE__)
+    target_link_options(gvsoc_debug_m32 PRIVATE "-m32")
 endif()
 
 # ==============

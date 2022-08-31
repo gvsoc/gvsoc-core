@@ -18,6 +18,13 @@ function(vp_set_target_types)
     if(${BUILD_RTL} AND NOT "_sv" IN_LIST VP_TARGET_TYPES)
         set(VP_TARGET_TYPES ${VP_TARGET_TYPES} "_sv" CACHE INTERNAL "")
     endif()
+    if(${BUILD_OPTIMIZED_M32} AND NOT "_optim_m32" IN_LIST VP_TARGET_TYPES)
+        message(STATUS "setting optimized m32")
+        set(VP_TARGET_TYPES ${VP_TARGET_TYPES} "_optim_m32" CACHE INTERNAL "")
+    endif()
+    if(${BUILD_DEBUG_M32} AND NOT "_debug_m32" IN_LIST VP_TARGET_TYPES)
+        set(VP_TARGET_TYPES ${VP_TARGET_TYPES} "_debug_m32" CACHE INTERNAL "")
+    endif()
 endfunction()
 
 # vp_block function
@@ -35,6 +42,8 @@ function(vp_block)
     set(VP_MODEL_NAME_OPTIM "${VP_MODEL_NAME}_optim")
     set(VP_MODEL_NAME_DEBUG "${VP_MODEL_NAME}_debug")
     set(VP_MODEL_NAME_SV "${VP_MODEL_NAME}_sv")
+    set(VP_MODEL_NAME_OPTIM_M32 "${VP_MODEL_NAME}_optim_m32")
+    set(VP_MODEL_NAME_DEBUG_M32 "${VP_MODEL_NAME}_debug_m32")
 
     # ==================
     # Optimized models
@@ -44,6 +53,9 @@ function(vp_block)
         target_link_libraries(${VP_MODEL_NAME_OPTIM} PRIVATE gvsoc)
         set_target_properties(${VP_MODEL_NAME_OPTIM} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_OPTIM} PRIVATE "-D__GVSOC__")
+
+        target_include_directories(${VP_MODEL_NAME_OPTIM} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
         foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
             target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${X}/models)
         endforeach()
@@ -51,21 +63,47 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${subdir})
         endforeach()
-    
+        
         if(VP_MODEL_OUTPUT_NAME)
-            set_target_properties(${VP_MODEL_NAME_OPTIM}
-                PROPERTIES OUTPUT_NAME ${VP_MODEL_OUTPUT_NAME})
+            set(RENAME_OPTIM_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
-            set_target_properties(${VP_MODEL_NAME_OPTIM}
-                PROPERTIES OUTPUT_NAME ${VP_MODEL_NAME})
+            set(RENAME_OPTIM_NAME ${VP_MODEL_NAME_OPTIM})
         endif()
 
+        install(
+            FILES $<TARGET_FILE:${VP_MODEL_NAME_OPTIM}>
+            DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
+            RENAME "${RENAME_OPTIM_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+            )
+    endif()
 
-        install(TARGETS ${VP_MODEL_NAME_OPTIM}
-            LIBRARY DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
-            ARCHIVE DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
-            RUNTIME DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_PREFIX}/bin"
-            INCLUDES DESTINATION "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_PREFIX}/include"
+    if(${BUILD_OPTIMIZED_M32})
+        add_library(${VP_MODEL_NAME_OPTIM_M32} STATIC ${VP_MODEL_SOURCES})
+        target_link_libraries(${VP_MODEL_NAME_OPTIM_M32} PRIVATE gvsoc_m32)
+        set_target_properties(${VP_MODEL_NAME_OPTIM_M32} PROPERTIES PREFIX "")
+        target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE "-D__GVSOC__")
+        target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32 -D__M32_MODE__=1)
+
+        target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${X}/models)
+        endforeach()
+
+        foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
+            target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${subdir})
+        endforeach()
+        
+        if(VP_MODEL_OUTPUT_NAME)
+            set(RENAME_OPTIM_M32_NAME ${VP_MODEL_OUTPUT_NAME})
+        else()
+            set(RENAME_OPTIM_M32_NAME ${VP_MODEL_NAME_OPTIM_M32})
+        endif()
+
+        install(
+            FILES $<TARGET_FILE:${VP_MODEL_NAME_OPTIM_M32}>
+            DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_M32_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
+            RENAME "${RENAME_OPTIM_M32_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
             )
     endif()
 
@@ -78,6 +116,9 @@ function(vp_block)
         set_target_properties(${VP_MODEL_NAME_DEBUG} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_DEBUG} PRIVATE "-D__GVSOC__")
         target_compile_definitions(${VP_MODEL_NAME_DEBUG} PRIVATE "-DVP_TRACE_ACTIVE=1")
+
+        target_include_directories(${VP_MODEL_NAME_DEBUG} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
         foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
             target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE ${X}/models)
         endforeach()
@@ -89,13 +130,44 @@ function(vp_block)
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_DEBUG_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
-            set(RENAME_DEBUG_NAME ${VP_MODEL_NAME})
+            set(RENAME_DEBUG_NAME ${VP_MODEL_NAME_DEBUG})
         endif()
 
         install(
             FILES $<TARGET_FILE:${VP_MODEL_NAME_DEBUG}>
             DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_DEBUG_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
             RENAME "${RENAME_DEBUG_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+            )
+    endif()
+
+    if(${BUILD_DEBUG_M32})
+        add_library(${VP_MODEL_NAME_DEBUG_M32} STATIC ${VP_MODEL_SOURCES})
+        target_link_libraries(${VP_MODEL_NAME_DEBUG_M32} PRIVATE gvsoc_debug_m32)
+        set_target_properties(${VP_MODEL_NAME_DEBUG_M32} PROPERTIES PREFIX "")
+        target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE "-D__GVSOC__")
+        target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32 -D__M32_MODE__=1)
+        target_compile_definitions(${VP_MODEL_NAME_DEBUG_M32} PRIVATE "-DVP_TRACE_ACTIVE=1")
+
+        target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${X}/models)
+        endforeach()
+
+        foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
+            target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${subdir})
+        endforeach()
+    
+        if(VP_MODEL_OUTPUT_NAME)
+            set(RENAME_DEBUG_M32_NAME ${VP_MODEL_OUTPUT_NAME})
+        else()
+            set(RENAME_DEBUG_M32_NAME ${VP_MODEL_NAME_DEBUG_M32})
+        endif()
+
+        install(
+            FILES $<TARGET_FILE:${VP_MODEL_NAME_DEBUG_M32}>
+            DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_DEBUG_M32_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
+            RENAME "${RENAME_DEBUG_M32_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
             )
     endif()
 
@@ -108,6 +180,9 @@ function(vp_block)
         target_link_libraries(${VP_MODEL_NAME_SV} PRIVATE gvsoc_sv)
         set_target_properties(${VP_MODEL_NAME_SV} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_SV} PRIVATE "-D__GVSOC__")
+
+        target_include_directories(${VP_MODEL_NAME_SV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
         target_compile_definitions(${VP_MODEL_NAME_SV}
             PRIVATE
             "-DVP_TRACE_ACTIVE=1"
@@ -141,7 +216,7 @@ function(vp_model)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;PREFIX;OUTPUT_NAME"
+        "NAME;PREFIX;OUTPUT_NAME;FORCE_BUILD;"
         "SOURCES;INCLUDES"
         ${ARGN}
         )
@@ -152,12 +227,14 @@ function(vp_model)
     get_filename_component(VP_MODEL_FILENAME ${VP_MODEL_PATH} NAME)
     get_filename_component(VP_MODEL_DIRECTORY ${VP_MODEL_PATH} DIRECTORY)
 
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
 
         # TODO verify arguments
         set(VP_MODEL_NAME_OPTIM "${VP_MODEL_NAME}_optim")
         set(VP_MODEL_NAME_DEBUG "${VP_MODEL_NAME}_debug")
         set(VP_MODEL_NAME_SV "${VP_MODEL_NAME}_sv")
+        set(VP_MODEL_NAME_OPTIM_M32 "${VP_MODEL_NAME}_optim_m32")
+        set(VP_MODEL_NAME_DEBUG_M32 "${VP_MODEL_NAME}_debug_m32")
  
         # ==================
         # Optimized models
@@ -176,19 +253,43 @@ function(vp_model)
             endforeach()
         
             if(VP_MODEL_OUTPUT_NAME)
-                set_target_properties(${VP_MODEL_NAME_OPTIM}
-                    PROPERTIES OUTPUT_NAME ${VP_MODEL_OUTPUT_NAME})
+                set(RENAME_OPTIM_NAME ${VP_MODEL_OUTPUT_NAME})
             else()
-                set_target_properties(${VP_MODEL_NAME_OPTIM}
-                    PROPERTIES OUTPUT_NAME ${VP_MODEL_FILENAME})
+                set(RENAME_OPTIM_NAME ${VP_MODEL_FILENAME})
             endif()
 
+            install(
+                FILES $<TARGET_FILE:${VP_MODEL_NAME_OPTIM}>
+                DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
+                RENAME "${RENAME_OPTIM_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                )
+        endif()
 
-            install(TARGETS ${VP_MODEL_NAME_OPTIM}
-                LIBRARY DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
-                ARCHIVE DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
-                RUNTIME DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}/bin"
-                INCLUDES DESTINATION "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}/include"
+        if(${BUILD_OPTIMIZED_M32})
+            add_library(${VP_MODEL_NAME_OPTIM_M32} MODULE ${VP_MODEL_SOURCES})
+            target_link_libraries(${VP_MODEL_NAME_OPTIM_M32} PRIVATE gvsoc_m32)
+            set_target_properties(${VP_MODEL_NAME_OPTIM_M32} PROPERTIES PREFIX "")
+            target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE "-D__GVSOC__")
+            target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32 -D__M32_MODE__=1)
+            target_link_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32)
+            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+                target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${X}/models)
+            endforeach()
+
+            foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
+                target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${subdir})
+            endforeach()
+        
+            if(VP_MODEL_OUTPUT_NAME)
+                set(RENAME_OPTIM_M32_NAME ${VP_MODEL_OUTPUT_NAME})
+            else()
+                set(RENAME_OPTIM_M32_NAME ${VP_MODEL_FILENAME})
+            endif()
+
+            install(
+                FILES $<TARGET_FILE:${VP_MODEL_NAME_OPTIM_M32}>
+                DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_OPTIM_M32_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
+                RENAME "${RENAME_OPTIM_M32_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                 )
         endif()
 
@@ -219,6 +320,35 @@ function(vp_model)
                 FILES $<TARGET_FILE:${VP_MODEL_NAME_DEBUG}>
                 DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_DEBUG_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
                 RENAME "${RENAME_DEBUG_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                )
+        endif()
+
+        if(${BUILD_DEBUG_M32})
+            add_library(${VP_MODEL_NAME_DEBUG_M32} MODULE ${VP_MODEL_SOURCES})
+            target_link_libraries(${VP_MODEL_NAME_DEBUG_M32} PRIVATE gvsoc_debug_m32)
+            set_target_properties(${VP_MODEL_NAME_DEBUG_M32} PROPERTIES PREFIX "")
+            target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE "-D__GVSOC__")
+            target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32 -D__M32_MODE__=1)
+            target_link_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32)
+            target_compile_definitions(${VP_MODEL_NAME_DEBUG_M32} PRIVATE "-DVP_TRACE_ACTIVE=1")
+            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+                target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${X}/models)
+            endforeach()
+
+            foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
+                target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${subdir})
+            endforeach()
+        
+            if(VP_MODEL_OUTPUT_NAME)
+                set(RENAME_DEBUG_M32_NAME ${VP_MODEL_OUTPUT_NAME})
+            else()
+                set(RENAME_DEBUG_M32_NAME ${VP_MODEL_FILENAME})
+            endif()
+
+            install(
+                FILES $<TARGET_FILE:${VP_MODEL_NAME_DEBUG_M32}>
+                DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_DEBUG_M32_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
+                RENAME "${RENAME_DEBUG_M32_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                 )
         endif()
 
@@ -259,6 +389,23 @@ function(vp_model)
     endif()
 endfunction()
 
+function(vp_model_link_gvsoc)
+    cmake_parse_arguments(
+        VP_MODEL
+        ""
+        "NAME;"
+        "LIBRARY"
+        ${ARGN}
+        )
+
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
+        foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
+            set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
+            target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE gvsoc${TARGET_TYPE})
+        endforeach()
+    endif()
+endfunction()
+
 function(vp_model_link_libraries)
     cmake_parse_arguments(
         VP_MODEL
@@ -268,7 +415,7 @@ function(vp_model_link_libraries)
         ${ARGN}
         )
 
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE ${VP_MODEL_LIBRARY})
@@ -285,7 +432,7 @@ function(vp_model_link_blocks)
         ${ARGN}
         )
 
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE ${VP_MODEL_BLOCK}${TARGET_TYPE})
@@ -302,7 +449,7 @@ function(vp_model_compile_options)
         ${ARGN}
         )
 
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_compile_options(${VP_MODEL_NAME_TYPE} PRIVATE ${VP_MODEL_OPTIONS})
@@ -319,7 +466,7 @@ function(vp_model_link_options)
         ${ARGN}
         )
         
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_link_options(${VP_MODEL_NAME_TYPE} PRIVATE ${VP_MODEL_OPTIONS})
@@ -336,7 +483,7 @@ function(vp_model_compile_definitions)
         ${ARGN}
         )
         
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_compile_definitions(${VP_MODEL_NAME_TYPE} PRIVATE ${VP_MODEL_DEFINITIONS})
@@ -353,7 +500,7 @@ function(vp_model_include_directories)
         ${ARGN}
         )
        
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_include_directories(${VP_MODEL_NAME_TYPE} PRIVATE ${VP_MODEL_DIRECTORY})
@@ -370,7 +517,7 @@ function(vp_model_sources)
         ${ARGN}
         )
         
-    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL)
+    if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
             target_sources(${VP_MODEL_NAME_TYPE} PRIVATE ${VP_MODEL_SOURCES})

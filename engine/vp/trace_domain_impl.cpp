@@ -119,6 +119,7 @@ vp::trace_engine::trace_engine(js::config *config)
 trace_domain::trace_domain(js::config *config)
     : vp::trace_engine(config)
 {
+    this->trace_format = TRACE_FORMAT_LONG;
     std::string path = "trace_file.txt";
     this->trace_file = fopen(path.c_str(), "w");
     if (this->trace_file == NULL)
@@ -256,6 +257,7 @@ void trace_domain::reg_trace(vp::trace *trace, int event, string path, string na
     trace->id = this->traces_array.size() - 1;
 
     int len = path.size() + name.size() + 1;
+
     if (len > max_path_len)
         max_path_len = len;
 

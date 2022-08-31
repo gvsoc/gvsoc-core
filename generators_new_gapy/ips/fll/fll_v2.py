@@ -18,8 +18,10 @@ import gsystree as st
 
 class Fll(st.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, check_oscillator_stability: bool=True):
 
         super(Fll, self).__init__(parent, name)
 
         self.set_component('pulp.fll.fll_v2_impl')
+
+        self.add_property('check_oscillator_stability', check_oscillator_stability)

@@ -32,6 +32,16 @@ namespace gv {
         Io_request_ko
     };
 
+    /**
+     * IO request type.
+     */
+    enum Io_request_type {
+        // Request was successfull
+        Io_request_read = 0,
+        // Request failed
+        Io_request_write = 1
+    };
+
 
     /**
      * Class used to represent a memory-mapped request.
@@ -41,14 +51,14 @@ namespace gv {
     class Io_request
     {
     public:
-        Io_request() : data(NULL), size(0), is_write(false), addr(0) {}
+        Io_request() : data(NULL), size(0), type(gv::Io_request_read), addr(0) {}
 
         // Pointer to the area containing the data
         uint8_t *data;
         // Size in bytes of the access
         size_t size;
         // True if the request is a write
-        bool is_write;
+        Io_request_type type;
         // Address of the access
         uint64_t addr;
         // Status of the access

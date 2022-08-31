@@ -134,6 +134,9 @@ class Runner(gapylib.target.Target, st.Component):
         parser.add_argument("--gtkwi", dest="gtkwi", action="store_true",
             help="Dump events to pipe and open gtkwave in interactive mode")
 
+        parser.add_argument("--emulation", dest="emulation", action="store_true",
+            help="Launch in emulation mode")
+
         parser.add_argument("--component-file", dest="component_file", default=None,
             help="Component file")
 
@@ -250,20 +253,34 @@ class Runner(gapylib.target.Target, st.Component):
         if norun:
             return 0
 
-        if gvsoc_config.get_bool("debug-mode"):
-            launcher = gvsoc_config.get_str('launchers/debug')
-        else:
-            launcher = gvsoc_config.get_str('launchers/default')
+        if self.get_args().emulation:
 
-        command = [launcher, '--config=' + self.gvsoc_config_path]
+            launcher = self.get_args().binary
+            command = [launcher]
 
-        if True: #self.verbose:
             print ('Launching GVSOC with command: ')
             print (' '.join(command))
 
-        os.chdir(self.get_working_dir())
+            os.chdir(self.get_working_dir())
 
-        return os.execvp(launcher, command)
+            return os.execvp(launcher, command)
+
+        else:
+
+            if gvsoc_config.get_bool("debug-mode"):
+                launcher = gvsoc_config.get_str('launchers/debug')
+            else:
+                launcher = gvsoc_config.get_str('launchers/default')
+
+            command = [launcher, '--config=' + self.gvsoc_config_path]
+
+            if True: #self.verbose:
+                print ('Launching GVSOC with command: ')
+                print (' '.join(command))
+
+            os.chdir(self.get_working_dir())
+
+            return os.execvp(launcher, command)
 
 
     def get_target(self):

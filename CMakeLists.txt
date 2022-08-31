@@ -62,6 +62,8 @@ set(GVSOC_MODELS_INSTALL_FOLDER       "python")
 set(GVSOC_MODELS_OPTIM_INSTALL_FOLDER "")
 set(GVSOC_MODELS_DEBUG_INSTALL_FOLDER "debug")
 set(GVSOC_MODELS_SV_INSTALL_FOLDER    "sv")
+set(GVSOC_MODELS_OPTIM_M32_INSTALL_FOLDER "m32")
+set(GVSOC_MODELS_DEBUG_M32_INSTALL_FOLDER "debug_m32")
 
 # ================
 # Utility includes
@@ -71,9 +73,11 @@ include(cmake/vp_model.cmake)
 # =======
 # Options
 # =======
-option(BUILD_OPTIMIZED "build GVSOC with optimizations"               ON)
-option(BUILD_DEBUG     "build GVSOC with debug information"           ON)
-option(BUILD_RTL       "build GVSOC for RTL simulation optimizations" ON)
+option(BUILD_OPTIMIZED     "build GVSOC with optimizations"                    ON)
+option(BUILD_DEBUG         "build GVSOC with debug information"                ON)
+option(BUILD_RTL           "build GVSOC for RTL simulation optimizations"      ON)
+option(BUILD_OPTIMIZED_M32 "build GVSOC with optimizations in 32bits mode"     OFF)
+option(BUILD_DEBUG_M32     "build GVSOC with debug information in 32bits mode" OFF)
 option(SKIP_DPI "Do not build DPI" OFF)
 
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O3")
@@ -85,13 +89,14 @@ vp_set_target_types(
     BUILD_DEBUG ${BUILD_DEBUG}
     BUILD_OPTIMIZED ${BUILD_OPTIMIZED}
     BUILD_RTL ${BUILD_RTL}
+    BUILD_OPTIMIZED_M32 ${BUILD_OPTIMIZED_M32}
+    BUILD_DEBUG_M32 ${BUILD_DEBUG_M32}
     )
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 
-add_subdirectory(dpi-wrapper)
 add_subdirectory(engine)
 add_subdirectory(launcher)
 add_subdirectory(models)

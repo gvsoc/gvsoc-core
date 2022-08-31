@@ -394,7 +394,7 @@ static inline unsigned int lib_CNT(iss_cpu_state_t *s, unsigned int t) {
 
 static inline unsigned int lib_CNT_64(iss_cpu_state_t *s, uint64_t t) {
 #if 1
-  return __builtin_popcount((t >> 32) & ((1l<<32)-1)) + __builtin_popcount(t & ((1l<<32)-1));
+  return __builtin_popcount((t >> 32) & ((1ll<<32)-1)) + __builtin_popcount(t & ((1ll<<32)-1));
 #else
   uint64_t v = cpu->regs[pc->inReg[0]];
   v = v - ((v >> 1) & 0x55555555);

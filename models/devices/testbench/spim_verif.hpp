@@ -35,7 +35,7 @@
 #define SPIM_VERIF_CMD_ADDR_BIT 0
 #define SPIM_VERIF_CMD_ADDR_WIDTH 32
 
-#define SPIM_VERIF_FIELD_GET(value, bit, width) (((value) >> (bit)) & ((1UL << (width)) - 1))
+#define SPIM_VERIF_FIELD_GET(value, bit, width) (((value) >> (bit)) & ((1ULL << (width)) - 1))
 
 typedef enum
 {

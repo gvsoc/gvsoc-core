@@ -4,6 +4,7 @@ set(TESTBENCH_SRCS "i2s_verif.cpp"
     )
 
 vp_model(NAME devices.testbench.testbench
+    FORCE_BUILD 1
     SOURCES ${TESTBENCH_SRCS}
     )
 

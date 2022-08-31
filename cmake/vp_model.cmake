@@ -410,15 +410,24 @@ function(vp_model_link_libraries)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;NO_M32;"
         "LIBRARY"
         ${ARGN}
         )
 
+        if(TARGET_TYPES)
+        else()
+            set(TARGET_TYPES ${VP_TARGET_TYPES})
+        endif()
+    
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
-            set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
-            target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE ${VP_MODEL_LIBRARY})
+            message(STATUS ${VP_MODEL_NO_M32} ${TARGET_TYPE})
+            if (VP_MODEL_NO_M32 AND (TARGET_TYPE STREQUAL _debug_m32 OR TARGET_TYPE STREQUAL _optim_m32))
+            else()
+                set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
+                target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE ${VP_MODEL_LIBRARY})
+            endif()
         endforeach()
     endif()
 endfunction()

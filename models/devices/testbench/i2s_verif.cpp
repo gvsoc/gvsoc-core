@@ -19,6 +19,10 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#if defined(USE_SNDFILE) && defined(__M32_MODE)
+#undef USE_SNDFILE
+#endif
+
 #include <vp/vp.hpp>
 #include "i2s_verif.hpp"
 #ifdef USE_SNDFILE

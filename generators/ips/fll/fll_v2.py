@@ -25,3 +25,5 @@ class Fll(st.Component):
         self.add_properties({
             'vp_component': 'pulp.fll.fll_v2_impl'
         })
+
+        self.add_property('check_oscillator_stability', True)

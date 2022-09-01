@@ -92,6 +92,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 
+add_subdirectory(dpi-wrapper)
 add_subdirectory(engine)
 add_subdirectory(launcher)
 add_subdirectory(models)

@@ -55,6 +55,8 @@ private:
     static void irq_req_sync(void *__this, int irq);
     static void data_grant(void *__this, vp::io_req *req);
     static void data_response(void *__this, vp::io_req *req);
+    static void flush_cache_sync(void *__this, bool active);
+    static void flush_cache_ack_sync(void *__this, bool active);
 
     vp::trace trace;
 
@@ -88,6 +90,11 @@ private:
     bool clock_value;
     bool is_active;
     bool stalled;
+    bool sleeping;
+    bool irq_enabled;
+
+    uint32_t pending_irq;
+    void (*irq_handler[32])();
 };
 
 
@@ -104,6 +111,7 @@ void emulation::reset(bool active)
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting reset (active: 0x%x)\n", active);
     if (active)
     {
+        this->pending_irq = -1;
     }
 
     this->reset_value = active;
@@ -128,12 +136,10 @@ void *emulation::external_bind(std::string comp_name, std::string itf_name, void
 
 void emulation::grant(gv::Io_request *io_req)
 {
-    printf("%s %d\n", __FILE__, __LINE__);
 }
 
 void emulation::reply(gv::Io_request *io_req)
 {
-    printf("%s %d\n", __FILE__, __LINE__);
 }
 
 void emulation::access(gv::Io_request *req)
@@ -142,12 +148,48 @@ void emulation::access(gv::Io_request *req)
         "Received IO req  (offset: 0x%llx, size: 0x%x, type: %d)\n",
         req->addr, req->size, req->type);
 
+    // Sync state request
     if (req->type == 2)
     {
         std::unique_lock<std::mutex> lock(this->mutex);
         this->sync_state(lock);
         lock.unlock();
     }
+    // WFI request
+    else if (req->type == 3)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        this->sync_state(lock);
+        this->sleeping = true;
+        this->check_state();
+        this->sync_state(lock);
+        lock.unlock();
+    }
+    // IRQ DISABLE
+    else if (req->type == 4)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        *(uint32_t *)req->data = this->irq_enabled;
+        this->irq_enabled = false;
+        this->sync_state(lock);
+        lock.unlock();
+    }
+    // IRQ RESTORE
+    else if (req->type == 5)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        this->irq_enabled = *(uint32_t *)req->data;
+        this->sync_state(lock);
+        lock.unlock();
+    }
+    // IRQ SET HANDLER
+    else if (req->type == 6)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        this->irq_handler[req->addr] = (void (*)())req->data;
+        lock.unlock();
+    }
+    // Read write request
     else
     {
         this->core_req.init();
@@ -178,13 +220,37 @@ void emulation::access(gv::Io_request *req)
 
 void emulation::sync_state(std::unique_lock<std::mutex> &lock)
 {
+    if (this->irq_enabled && this->pending_irq != -1)
+    {
+        int irq = this->pending_irq;
+        void (*handler)() = this->irq_handler[irq];
+
+        this->pending_irq = -1;
+
+        lock.unlock();
+        this->get_engine()->lock();
+        this->irq_ack_itf.sync(irq);
+        this->get_engine()->unlock();
+
+        if (handler)
+        {
+            handler();
+        }
+
+        lock.lock();
+
+    }
+
+
     if (!this->is_active)
     {
         nb_running--;
         if (nb_running == 0)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Running engine\n");
+            lock.unlock();
             this->get_engine()->run();
+            lock.lock();
         }
 
         while(!this->is_active)
@@ -196,7 +262,9 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         if (nb_running == 1)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Stopping engine\n");
+            lock.unlock();
             this->get_engine()->pause();
+            lock.lock();
         }
     }
 }
@@ -204,13 +272,13 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
 void emulation::check_state()
 {
     this->trace.msg(vp::trace::LEVEL_DEBUG,
-        "Checking core state (is_active: %d, reset: %d, fetchen: %d, clock: %d, stalled: %d)\n",
-        this->is_active, this->reset_value, this->fetchen_value, this->clock_value, this->stalled
+        "Checking core state (is_active: %d, reset: %d, fetchen: %d, clock: %d, stalled: %d, sleeping: %d)\n",
+        this->is_active, this->reset_value, this->fetchen_value, this->clock_value, this->stalled, this->sleeping
     );
 
     if (this->is_active)
     {
-        if (this->reset_value || !this->fetchen_value || !this->clock_value || this->stalled)
+        if (this->reset_value || !this->fetchen_value || !this->clock_value || this->stalled || this->sleeping)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Deactivating core\n");
             this->is_active = false;
@@ -218,7 +286,7 @@ void emulation::check_state()
     }
     else
     {
-        if (!this->reset_value && this->fetchen_value && this->clock_value && !this->stalled)
+        if (!this->reset_value && this->fetchen_value && this->clock_value && !this->stalled && !this->sleeping)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Activating core\n");
             this->is_active = true;
@@ -245,6 +313,13 @@ void emulation::stop()
 {
 }
 
+void emulation::flush_cache_sync(void *__this, bool active)
+{
+}
+
+void emulation::flush_cache_ack_sync(void *__this, bool active)
+{
+}
 
 int emulation::build()
 {
@@ -264,7 +339,10 @@ int emulation::build()
     new_slave_port("irq_req", &irq_req_itf);
     new_master_port("irq_ack", &this->irq_ack_itf);
 
+    this->flush_cache_itf.set_sync_meth(&emulation::flush_cache_sync);
     new_slave_port("flush_cache", &this->flush_cache_itf);
+
+    this->flush_cache_ack_itf.set_sync_meth(&emulation::flush_cache_ack_sync);
     new_slave_port("flush_cache_ack", &this->flush_cache_ack_itf);
     new_master_port("flush_cache_req", &this->flush_cache_req_itf);
 
@@ -289,6 +367,8 @@ int emulation::build()
     this->is_active = true;
     this->clock_value = true;
     this->stalled = false;
+    this->sleeping = false;
+    this->irq_enabled = false;
     this->fetchen_value = get_js_config()->get("fetch_enable")->get_bool();
 
     return 0;
@@ -305,7 +385,13 @@ void emulation::bootaddr_sync(void *__this, uint32_t value)
 void emulation::irq_req_sync(void *__this, int irq)
 {
     emulation *_this = (emulation *)__this;
-    _this->trace.msg(vp::trace::LEVEL_DEBUG, "IRQ request (irq: %d) %d)\n", irq);
+    _this->trace.msg(vp::trace::LEVEL_DEBUG, "IRQ request (irq: %d)\n", irq);
+
+    std::unique_lock<std::mutex> lock(_this->mutex);
+    _this->pending_irq = irq;
+    _this->sleeping = false;
+    _this->check_state();
+    lock.unlock();
 }
 
 
@@ -313,8 +399,8 @@ void emulation::fetchen_sync(void *__this, bool active)
 {
     emulation *_this = (emulation *)__this;
     _this->trace.msg(vp::trace::LEVEL_DEBUG,"Setting fetch enable (active: %d)\n", active);
-    _this->fetchen_value = active;
     std::unique_lock<std::mutex> lock(_this->mutex);
+    _this->fetchen_value = active;
     _this->check_state();
     lock.unlock();
 }
@@ -324,8 +410,8 @@ void emulation::clock_sync(void *__this, bool active)
 {
     emulation *_this = (emulation *)__this;
     _this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting clock (active: %d)\n", active);
-    _this->clock_value = active;
     std::unique_lock<std::mutex> lock(_this->mutex);
+    _this->clock_value = active;
     _this->check_state();
     lock.unlock();
 }

@@ -41,6 +41,7 @@ public:
 private:
 
   static void power_ctrl_sync(void *__this, bool value);
+  static void meminfo_sync(void *__this, void **value);
 
   vp::trace     trace;
   vp::io_slave in;
@@ -55,6 +56,7 @@ private:
   int64_t next_packet_start;
 
   vp::wire_slave<bool> power_ctrl_itf;
+  vp::wire_slave<void *> meminfo_itf;
 
   bool power_trigger;
   bool powered_up;
@@ -196,6 +198,12 @@ void memory::power_ctrl_sync(void *__this, bool value)
     _this->powered_up = value;
 }
 
+void memory::meminfo_sync(void *__this, void **value)
+{
+    memory *_this = (memory *)__this;
+    *value = _this->mem_data;
+}
+
 
 int memory::build()
 {
@@ -205,6 +213,9 @@ int memory::build()
 
   this->power_ctrl_itf.set_sync_meth(&memory::power_ctrl_sync);
   new_slave_port("power_ctrl", &this->power_ctrl_itf);
+
+  this->meminfo_itf.set_sync_back_meth(&memory::meminfo_sync);
+  new_slave_port("meminfo", &this->meminfo_itf);
 
   js::config *config = get_js_config()->get("power_trigger");
   this->power_trigger = config != NULL && config->get_bool();
@@ -225,11 +236,18 @@ void memory::start()
   size = get_config_int("size");
   check = get_config_bool("check");
   width_bits = get_config_int("width_bits");
+  int align = get_config_int("align");
 
   trace.msg("Building memory (size: 0x%x, check: %d)\n", size, check);
 
-  mem_data = new uint8_t[size];
-
+  if (align)
+  {
+    mem_data = (uint8_t *)aligned_alloc(align, size);
+  }
+  else
+  {
+    mem_data = new uint8_t[size];
+  }
 
   // Special option to check for uninitialized accesses
   if (check)

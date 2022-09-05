@@ -64,6 +64,7 @@ private:
     vp::wire_slave<uint32_t> bootaddr_itf;
     vp::io_master data;
     vp::io_master fetch;
+    vp::wire_master<void *>     meminfo_0;
     vp::wire_slave<int>      irq_req_itf;
     vp::wire_master<int>     irq_ack_itf;
     vp::wire_slave<bool>     flush_cache_itf;
@@ -92,6 +93,9 @@ private:
     bool stalled;
     bool sleeping;
     bool irq_enabled;
+
+    int core_id;
+    int cluster_id;
 
     uint32_t pending_irq;
     void (*irq_handler[32])();
@@ -188,6 +192,18 @@ void emulation::access(gv::Io_request *req)
         std::unique_lock<std::mutex> lock(this->mutex);
         this->irq_handler[req->addr] = (void (*)())req->data;
         lock.unlock();
+    }
+    // MEMINFO
+    else if (req->type == 7)
+    {
+        this->get_engine()->lock();
+        this->meminfo_0.sync_back((void **)&req->data);
+        this->get_engine()->unlock();
+    }
+    // CORE ID
+    else if (req->type == 8)
+    {
+        req->addr = this->core_id;
     }
     // Read write request
     else
@@ -335,6 +351,8 @@ int emulation::build()
     new_master_port("data", &this->data);
     new_master_port("fetch", &this->fetch);
 
+    new_master_port("meminfo_0", &this->meminfo_0);
+
     this->irq_req_itf.set_sync_meth(&emulation::irq_req_sync);
     new_slave_port("irq_req", &irq_req_itf);
     new_master_port("irq_ack", &this->irq_ack_itf);
@@ -370,6 +388,8 @@ int emulation::build()
     this->sleeping = false;
     this->irq_enabled = false;
     this->fetchen_value = get_js_config()->get("fetch_enable")->get_bool();
+    this->core_id = get_config_int("core_id");
+    this->cluster_id = get_config_int("cluster_id");
 
     return 0;
 }

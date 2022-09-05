@@ -31,7 +31,7 @@ class Memory(st.Component):
     
     """
 
-    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False):
+    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False, align:int=0):
 
         super(Memory, self).__init__(parent, name)
 
@@ -41,5 +41,6 @@ class Memory(st.Component):
             'size': size,
             'stim_file': stim_file,
             'power_trigger': power_trigger,
-            'width_bits': 2
+            'width_bits': 2,
+            'align': align
         })

@@ -45,5 +45,7 @@ class Mx25uw6445g(Flash):
 
         self.set_component('devices.flash.mx25uw6445g')
 
+        self.add_property('content/image', self.get_image_path())
+
         self.add_property('writeback', True)
         self.add_property('size', size)

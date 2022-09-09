@@ -29,6 +29,8 @@ static inline iss_insn_t *csrrw_exec(iss_t *iss, iss_insn_t *insn)
   iss_reg_t value;
   iss_reg_t reg_value = REG_GET(0);
 
+  iss_perf_account_dependency_stall(iss, 4);
+
   if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
   { 
     if (insn->out_regs[0] != 0) 
@@ -49,6 +51,8 @@ static inline iss_insn_t *csrrc_exec(iss_t *iss, iss_insn_t *insn)
   iss_reg_t value;
   iss_reg_t reg_value = REG_GET(0);
 
+  iss_perf_account_dependency_stall(iss, 4);
+
   if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
   { 
     if (insn->out_regs[0] != 0) REG_SET(0, value);
@@ -64,6 +68,8 @@ static inline iss_insn_t *csrrs_exec(iss_t *iss, iss_insn_t *insn)
   iss_reg_t value;
   iss_reg_t reg_value = REG_GET(0);
 
+  iss_perf_account_dependency_stall(iss, 4);
+
   if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
   { 
     if (insn->out_regs[0] != 0) REG_SET(0, value);
@@ -77,6 +83,9 @@ static inline iss_insn_t *csrrs_exec(iss_t *iss, iss_insn_t *insn)
 static inline iss_insn_t *csrrwi_exec(iss_t *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
+
+  iss_perf_account_dependency_stall(iss, 4);
+
   if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
   { 
     if (insn->out_regs[0] != 0) REG_SET(0, value);
@@ -90,6 +99,9 @@ static inline iss_insn_t *csrrwi_exec(iss_t *iss, iss_insn_t *insn)
 static inline iss_insn_t *csrrci_exec(iss_t *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
+  
+  iss_perf_account_dependency_stall(iss, 4);
+
   if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
   { 
     if (insn->out_regs[0] != 0) REG_SET(0, value);
@@ -103,6 +115,9 @@ static inline iss_insn_t *csrrci_exec(iss_t *iss, iss_insn_t *insn)
 static inline iss_insn_t *csrrsi_exec(iss_t *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
+
+  iss_perf_account_dependency_stall(iss, 4);
+
   if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
   { 
     if (insn->out_regs[0] != 0) REG_SET(0, value);

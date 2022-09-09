@@ -82,7 +82,6 @@ static inline iss_insn_t *iss_exec_stalled_insn(iss_t *iss, iss_insn_t *insn)
 
 #define ISS_EXEC_NO_FETCH_COMMON(iss,func) \
 do { \
-  iss->cpu.state.insn_cycles = 1; \
   iss_insn_t *insn = iss->cpu.current_insn; \
   if (iss->cpu.state.fetch_cycles) \
   { \
@@ -97,6 +96,7 @@ do { \
 
 static inline int iss_exec_step_nofetch(iss_t *iss)
 {
+  iss->cpu.state.insn_cycles = 1;
   ISS_EXEC_NO_FETCH_COMMON(iss,iss_exec_insn_fast);
   prefetcher_fetch(iss, iss->cpu.current_insn);
 
@@ -144,6 +144,7 @@ static inline int iss_exec_account_cycles(iss_t *iss, int cycles)
 
 static inline int iss_exec_step_nofetch_perf(iss_t *iss)
 {
+  iss->cpu.state.insn_cycles = 1;
   if (iss_irq_check(iss))
     return -1;
   ISS_EXEC_NO_FETCH_COMMON(iss,iss_exec_insn);

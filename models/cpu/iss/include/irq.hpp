@@ -61,6 +61,8 @@ static inline int iss_irq_check(iss_t *iss)
 
       iss->cpu.state.elw_insn = NULL;
 
+      iss_perf_account_dependency_stall(iss, 4);
+
       prefetcher_fetch(iss, iss->cpu.current_insn);
 
       return iss->stalled.get() ? -1 : 0;

@@ -61,6 +61,7 @@ typedef enum
 {
     OCTOSPI_STATE_CMD,
     OCTOSPI_STATE_ADDR,
+    OCTOSPI_STATE_LATENCY,
     OCTOSPI_STATE_DATA
 } octospi_state_e;
 
@@ -83,7 +84,9 @@ public:
 
     int get_nb_word() { return nb_word; }
 
-protected:
+private:
+    int get_latency_from_code(uint32_t code);
+
     vp::trace trace;
     vp::hyper_slave in_itf;
     vp::wire_slave<bool> cs_itf;
@@ -116,6 +119,10 @@ protected:
 
     bool is_register_access;
     bool is_write;
+
+    int latency;
+    uint32_t latency_code;
+    int latency_count;
 
     uint32_t confreg_2_0;
 };
@@ -335,6 +342,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             else if (_this->cmd == 0x05fa)
             {
                 _this->addr_count = 32;
+                _this->latency_count = 4;
             }
             // Program
             else if (_this->cmd == 0x12ed)
@@ -346,6 +354,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             else if (_this->cmd == 0xee11)
             {
                 _this->addr_count = 32;
+                _this->latency_count = _this->latency;
             }
             else
             {
@@ -392,36 +401,45 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             }
             _this->octospi_state = OCTOSPI_STATE_DATA;
         }
+
+        _this->latency_count *= 2;
     }
     else if (_this->octospi_state == OCTOSPI_STATE_DATA)
     {
-        if (_this->cmd == 0x5fa)
+        if (_this->latency_count > 0)
         {
-            uint32_t status = _this->write_enable << 1;
-            _this->in_itf.sync_cycle(status);
-        }
-        else if (_this->cmd == 0x72)
-        {
-            if (_this->addr == 0)
-            {
-                _this->confreg_2_0 = data;
-                int spi_mode = data & 0x3;
-
-                _this->ospi_mode = spi_mode != 0;
-                _this->dtr_mode = spi_mode == 2;
-
-                _this->trace.msg(vp::trace::LEVEL_INFO, "Writing configuration register 2 (value: 0x%x, ospi_mode: %d, dtr mode: %d)\n",
-                    _this->confreg_2_0, _this->ospi_mode, _this->dtr_mode);
-            }
-            else
-            {
-                _this->trace.fatal("Unsupported address for configuration register 2 (address: 0x%x)\n", _this->addr);
-            }
+            _this->latency_count--;
         }
         else
         {
-            _this->handle_access(_this->current_address, _this->is_write, data);
-            _this->current_address++;
+            if (_this->cmd == 0x5fa)
+            {
+                uint32_t status = _this->write_enable << 1;
+                _this->in_itf.sync_cycle(status);
+            }
+            else if (_this->cmd == 0x72)
+            {
+                if (_this->addr == 0)
+                {
+                    _this->confreg_2_0 = data;
+                    int spi_mode = data & 0x3;
+
+                    _this->ospi_mode = spi_mode != 0;
+                    _this->dtr_mode = spi_mode == 2;
+
+                    _this->trace.msg(vp::trace::LEVEL_INFO, "Writing configuration register 2 (value: 0x%x, ospi_mode: %d, dtr mode: %d)\n",
+                        _this->confreg_2_0, _this->ospi_mode, _this->dtr_mode);
+                }
+                else
+                {
+                    _this->trace.fatal("Unsupported address for configuration register 2 (address: 0x%x)\n", _this->addr);
+                }
+            }
+            else
+            {
+                _this->handle_access(_this->current_address, _this->is_write, data);
+                _this->current_address++;
+            }
         }
     }
 }
@@ -466,6 +484,11 @@ void Mx25uw6445g::cs_sync(void *__this, bool value)
     }
 }
 
+int Mx25uw6445g::get_latency_from_code(uint32_t code)
+{
+    return 20 - code * 2;
+}
+
 int Mx25uw6445g::build()
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
@@ -496,6 +519,7 @@ int Mx25uw6445g::build()
     this->dtr_mode = false;
     this->write_enable = false;
     this->confreg_2_0 = 0;
+    this->latency_count = 0;
 
     js::config *preload_file_conf = conf->get("preload_file");
     if (preload_file_conf == NULL)
@@ -516,6 +540,9 @@ int Mx25uw6445g::build()
         if (this->setup_writeback_file(writeback_file_conf->get_str().c_str()))
             return -1;
     }
+
+    this->latency_code = 0;
+    this->latency = this->get_latency_from_code(this->latency_code);
 
     return 0;
 }

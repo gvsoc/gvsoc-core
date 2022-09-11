@@ -399,10 +399,12 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
                 _this->erase_sector(_this->addr);
                 _this->write_enable = false;
             }
+
+            _this->latency_count *= 2;
+
             _this->octospi_state = OCTOSPI_STATE_DATA;
         }
 
-        _this->latency_count *= 2;
     }
     else if (_this->octospi_state == OCTOSPI_STATE_DATA)
     {

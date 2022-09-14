@@ -327,7 +327,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
                 _this->addr_count = 0;
             }
             // Write configuration register 2
-            else if (_this->cmd == 0x72)
+            else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
             {
                 _this->is_register_access = true;
                 _this->is_write = true;
@@ -336,7 +336,13 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             // Erase sector
             else if (_this->cmd == 0x21de)
             {
+                _this->is_write = true;
                 _this->addr_count = 32;
+            }
+            // Erase chip
+            else if (_this->cmd == 0x609f)
+            {
+                _this->is_write = true;
             }
             // Read status
             else if (_this->cmd == 0x05fa)
@@ -399,6 +405,11 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
                 _this->erase_sector(_this->addr);
                 _this->write_enable = false;
             }
+            else if (_this->cmd == 0x609f)
+            {
+                _this->erase_chip();
+                _this->write_enable = false;
+            }
 
             _this->latency_count *= 2;
 
@@ -419,7 +430,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
                 uint32_t status = _this->write_enable << 1;
                 _this->in_itf.sync_cycle(status);
             }
-            else if (_this->cmd == 0x72)
+            else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
             {
                 if (_this->addr == 0)
                 {

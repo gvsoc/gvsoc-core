@@ -31,7 +31,7 @@ class Router(st.Component):
         if config is not None:
             self.add_properties(config)
 
-    def add_mapping(self, name, base=None, size=None, remove_offset=None, add_offset=None, id=None):
+    def add_mapping(self, name, base=None, size=None, remove_offset=None, add_offset=None, id=None, latency=None):
 
         mapping = {}
 
@@ -46,6 +46,9 @@ class Router(st.Component):
 
         if add_offset is not None:
             mapping['add_offset'] = add_offset
+
+        if latency is not None:
+            mapping['latency'] = latency
 
         if id is not None:
             mapping['id'] = id

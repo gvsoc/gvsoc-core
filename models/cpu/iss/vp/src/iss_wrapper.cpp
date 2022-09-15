@@ -743,7 +743,7 @@ void iss_wrapper::handle_riscv_ebreak()
         if (write(args[0], (void *)(long)buffer, iter_size) != iter_size)
           break;
 
-        fflush(NULL);
+        fsync(args[0]);
 
         size -= iter_size;
         addr += iter_size;

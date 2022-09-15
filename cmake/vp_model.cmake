@@ -393,7 +393,7 @@ function(vp_model_link_gvsoc)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;FORCE_BUILD;"
         "LIBRARY"
         ${ARGN}
         )
@@ -410,7 +410,7 @@ function(vp_model_link_libraries)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;NO_M32;"
+        "NAME;NO_M32;FORCE_BUILD;"
         "LIBRARY"
         ${ARGN}
         )
@@ -435,7 +435,7 @@ function(vp_model_link_blocks)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;FORCE_BUILD;"
         "BLOCK"
         ${ARGN}
         )
@@ -452,7 +452,7 @@ function(vp_model_compile_options)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;FORCE_BUILD;"
         "OPTIONS"
         ${ARGN}
         )
@@ -469,7 +469,7 @@ function(vp_model_link_options)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;FORCE_BUILD;"
         "OPTIONS"
         ${ARGN}
         )
@@ -503,7 +503,7 @@ function(vp_model_include_directories)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;FORCE_BUILD;"
         "DIRECTORY"
         ${ARGN}
         )
@@ -520,7 +520,7 @@ function(vp_model_sources)
     cmake_parse_arguments(
         VP_MODEL
         ""
-        "NAME;"
+        "NAME;FORCE_BUILD;"
         "SOURCES"
         ${ARGN}
         )

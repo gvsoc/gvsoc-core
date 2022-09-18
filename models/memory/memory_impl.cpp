@@ -41,7 +41,8 @@ public:
 private:
 
   static void power_ctrl_sync(void *__this, bool value);
-  static void meminfo_sync(void *__this, void **value);
+  static void meminfo_sync_back(void *__this, void **value);
+  static void meminfo_sync(void *__this, void *value);
 
   vp::trace     trace;
   vp::io_slave in;
@@ -198,10 +199,16 @@ void memory::power_ctrl_sync(void *__this, bool value)
     _this->powered_up = value;
 }
 
-void memory::meminfo_sync(void *__this, void **value)
+void memory::meminfo_sync_back(void *__this, void **value)
 {
     memory *_this = (memory *)__this;
     *value = _this->mem_data;
+}
+
+void memory::meminfo_sync(void *__this, void *value)
+{
+    memory *_this = (memory *)__this;
+    _this->mem_data = (uint8_t *)value;
 }
 
 
@@ -214,7 +221,8 @@ int memory::build()
   this->power_ctrl_itf.set_sync_meth(&memory::power_ctrl_sync);
   new_slave_port("power_ctrl", &this->power_ctrl_itf);
 
-  this->meminfo_itf.set_sync_back_meth(&memory::meminfo_sync);
+  this->meminfo_itf.set_sync_back_meth(&memory::meminfo_sync_back);
+  this->meminfo_itf.set_sync_meth(&memory::meminfo_sync);
   new_slave_port("meminfo", &this->meminfo_itf);
 
   js::config *config = get_js_config()->get("power_trigger");

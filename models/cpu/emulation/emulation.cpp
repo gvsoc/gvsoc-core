@@ -29,6 +29,8 @@
 
 static int nb_running = 0;
 
+#define MAX_MEMINFO 64
+
 class emulation : public vp::component, public gv::Io_binding
 {
 
@@ -64,7 +66,7 @@ private:
     vp::wire_slave<uint32_t> bootaddr_itf;
     vp::io_master data;
     vp::io_master fetch;
-    vp::wire_master<void *>     meminfo_0;
+    vp::wire_master<void *>     meminfo[MAX_MEMINFO];
     vp::wire_slave<int>      irq_req_itf;
     vp::wire_master<int>     irq_ack_itf;
     vp::wire_slave<bool>     flush_cache_itf;
@@ -98,7 +100,8 @@ private:
     int cluster_id;
 
     uint32_t pending_irq;
-    void (*irq_handler[32])();
+    void (*irq_handler[32])(void *);
+    void *irq_handler_arg[32];
 };
 
 
@@ -190,20 +193,31 @@ void emulation::access(gv::Io_request *req)
     else if (req->type == 6)
     {
         std::unique_lock<std::mutex> lock(this->mutex);
-        this->irq_handler[req->addr] = (void (*)())req->data;
+        this->irq_handler[req->addr] = (void (*)(void *))req->data;
+        this->irq_handler_arg[req->addr] = (void *)req->size;
         lock.unlock();
     }
     // MEMINFO
     else if (req->type == 7)
     {
         this->get_engine()->lock();
-        this->meminfo_0.sync_back((void **)&req->data);
+        this->meminfo[0].sync_back((void **)&req->data);
         this->get_engine()->unlock();
     }
     // CORE ID
     else if (req->type == 8)
     {
         req->addr = this->core_id;
+    }
+    // Register range
+    else if (req->type == 10)
+    {
+        if (req->size >= MAX_MEMINFO)
+        {
+            throw logic_error("Invalid meminfo (index: " + std::to_string(req->size) + ")");
+        }
+
+        this->meminfo[req->size+1].sync((void *)req->addr);
     }
     // Read write request
     else
@@ -239,7 +253,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
     if (this->irq_enabled && this->pending_irq != -1)
     {
         int irq = this->pending_irq;
-        void (*handler)() = this->irq_handler[irq];
+        void (*handler)(void *) = this->irq_handler[irq];
 
         this->pending_irq = -1;
 
@@ -250,7 +264,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
 
         if (handler)
         {
-            handler();
+            handler(this->irq_handler_arg[irq]);
         }
 
         lock.lock();
@@ -351,7 +365,10 @@ int emulation::build()
     new_master_port("data", &this->data);
     new_master_port("fetch", &this->fetch);
 
-    new_master_port("meminfo_0", &this->meminfo_0);
+    for (int i=0; i<MAX_MEMINFO; i++)
+    {
+        new_master_port("meminfo_" + std::to_string(i), &this->meminfo[i]);
+    }
 
     this->irq_req_itf.set_sync_meth(&emulation::irq_req_sync);
     new_slave_port("irq_req", &irq_req_itf);

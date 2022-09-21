@@ -31,6 +31,7 @@
 
 #include <vp/itf/hyper.hpp>
 #include <vp/itf/wire.hpp>
+#include <vp/time/time_scheduler.hpp>
 
 #define REGS_AREA_SIZE 1024
 
@@ -42,7 +43,7 @@
 #define FLASH_STATE_CMD_1 5
 #define FLASH_STATE_LOAD_VCR 6
 
-#define FLASH_SECTOR_SIZE (1 << 18)
+#define FLASH_SECTOR_SIZE (1 << 12)
 
 typedef enum
 {
@@ -65,7 +66,7 @@ typedef enum
     OCTOSPI_STATE_DATA
 } octospi_state_e;
 
-class Mx25uw6445g : public vp::component
+class Mx25uw6445g : public vp::time_scheduler
 {
 
 public:
@@ -86,6 +87,8 @@ public:
 
 private:
     int get_latency_from_code(uint32_t code);
+    static void handle_event(void *__this, vp::time_event *event);
+    void set_busy(int64_t time);
 
     vp::trace trace;
     vp::hyper_slave in_itf;
@@ -125,6 +128,14 @@ private:
     int latency_count;
 
     uint32_t confreg_2_0;
+
+    bool busy;
+    bool program_ongoing;
+    bool erase_ongoing;
+    bool erase_chip_ongoing;
+    int program_size;
+
+    vp::time_event *event;
 };
 
 void Mx25uw6445g::erase_sector(unsigned int addr)
@@ -145,7 +156,7 @@ void Mx25uw6445g::erase_sector(unsigned int addr)
 void Mx25uw6445g::erase_chip()
 {
     this->trace.msg(vp::trace::LEVEL_INFO, "Erasing chip\n");
-    for (unsigned int addr = 0; addr < addr + this->size; addr += FLASH_SECTOR_SIZE)
+    for (unsigned int addr = 0; addr < this->size; addr += FLASH_SECTOR_SIZE)
     {
         this->erase_sector(addr);
     }
@@ -190,6 +201,8 @@ void Mx25uw6445g::handle_access(int address, int is_write, uint8_t data)
             }
 
             this->data[address] &= data;
+            this->program_ongoing = true;
+            this->program_size++;
         }
     }
 }
@@ -290,7 +303,7 @@ int Mx25uw6445g::setup_writeback_file(const char *path)
 }
 
 Mx25uw6445g::Mx25uw6445g(js::config *config)
-    : vp::component(config)
+    : vp::time_scheduler(config)
 {
 }
 
@@ -338,11 +351,20 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             {
                 _this->is_write = true;
                 _this->addr_count = 32;
+                if (_this->busy)
+                {
+                    _this->trace.warning("Trying to erase while flash is busy\n");
+                }
             }
             // Erase chip
             else if (_this->cmd == 0x609f)
             {
                 _this->is_write = true;
+                _this->erase_chip_ongoing = true;
+                if (_this->busy)
+                {
+                    _this->trace.warning("Trying to erase while flash is busy\n");
+                }
             }
             // Read status
             else if (_this->cmd == 0x05fa)
@@ -355,12 +377,22 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             {
                 _this->is_write = true;
                 _this->addr_count = 32;
+                _this->program_size = 0;
+                if (_this->busy)
+                {
+                    _this->trace.warning("Trying to program while flash is busy\n");
+                }
             }
             // Read
             else if (_this->cmd == 0xee11)
             {
                 _this->addr_count = 32;
                 _this->latency_count = _this->latency;
+                if (_this->busy)
+                {
+                    _this->trace.warning("Trying to read while flash is busy\n");
+                    abort();
+                }
             }
             else
             {
@@ -404,11 +436,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             {
                 _this->erase_sector(_this->addr);
                 _this->write_enable = false;
-            }
-            else if (_this->cmd == 0x609f)
-            {
-                _this->erase_chip();
-                _this->write_enable = false;
+                _this->erase_ongoing = true;
             }
 
             _this->latency_count *= 2;
@@ -427,7 +455,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
         {
             if (_this->cmd == 0x5fa)
             {
-                uint32_t status = _this->write_enable << 1;
+                uint32_t status = (_this->write_enable << 1) | _this->busy;
                 _this->in_itf.sync_cycle(status);
             }
             else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
@@ -475,26 +503,44 @@ void Mx25uw6445g::cs_sync(void *__this, bool value)
         _this->cmd_count = 8;
     }
 
-    if (value == 0)
+    if (value == 1)
     {
-        if (_this->state == MX25UW6445G_STATE_PROGRAM_START)
+        if (_this->program_ongoing)
         {
-            _this->state = MX25UW6445G_STATE_PROGRAM;
-        }
-        else if (_this->state == MX25UW6445G_STATE_PROGRAM)
-        {
-            _this->trace.msg(vp::trace::LEVEL_DEBUG, "End of program command (addr: 0x%x)\n", _this->current_address);
+            _this->program_ongoing = false;
 
-            if (_this->get_nb_word() < 0)
-            {
-                _this->state = MX25UW6445G_STATE_WAIT_CMD0;
-            }
-            else
-            {
-                _this->state = MX25UW6445G_STATE_PROGRAM;
-            }
+            int fixed = 14750000;
+            int duration = fixed + (float)(130000000 - fixed) * _this->program_size / 256;
+            _this->set_busy(duration);
+        }
+        else if (_this->erase_ongoing)
+        {
+            _this->erase_ongoing = false;
+            _this->set_busy(18086488739);
+        }
+        else if (_this->erase_chip_ongoing)
+        {
+            _this->erase_chip();
+            _this->write_enable = false;
+            _this->erase_chip_ongoing = false;
+            _this->set_busy(1209778219000);
         }
     }
+}
+
+void Mx25uw6445g::handle_event(void *__this, vp::time_event *event)
+{
+    Mx25uw6445g *_this = (Mx25uw6445g *)__this;
+
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as available\n");
+    _this->busy = false;
+}
+
+void Mx25uw6445g::set_busy(int64_t time)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as busy (duration: %lld)\n", time);
+    this->busy = true;
+    this->enqueue(this->event, time);
 }
 
 int Mx25uw6445g::get_latency_from_code(uint32_t code)
@@ -504,6 +550,10 @@ int Mx25uw6445g::get_latency_from_code(uint32_t code)
 
 int Mx25uw6445g::build()
 {
+    // Retrieve time engine so that we can post time events
+    this->engine = (vp::time_engine*)this->get_service("time");
+
+
     traces.new_trace("trace", &trace, vp::DEBUG);
 
     in_itf.set_sync_cycle_meth(&Mx25uw6445g::sync_cycle);
@@ -533,6 +583,12 @@ int Mx25uw6445g::build()
     this->write_enable = false;
     this->confreg_2_0 = 0;
     this->latency_count = 0;
+    this->busy = false;
+    this->program_ongoing = false;
+    this->erase_ongoing = false;
+    this->erase_chip_ongoing = false;
+
+    this->event = this->time_event_new(Mx25uw6445g::handle_event);
 
     js::config *preload_file_conf = conf->get("preload_file");
     if (preload_file_conf == NULL)

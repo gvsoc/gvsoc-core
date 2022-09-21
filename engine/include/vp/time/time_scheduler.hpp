@@ -69,6 +69,7 @@ namespace vp {
         inline void **get_args() { return args; }
 
         inline bool is_enqueued() { return enqueued; }
+        inline void set_enqueued(bool enqueued) { this->enqueued = enqueued; }
 
         int64_t get_time() { return time; }
 

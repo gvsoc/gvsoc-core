@@ -1955,6 +1955,7 @@ int64_t vp::time_scheduler::exec()
     while (current && current->time == this->get_time())
     {
         this->first_event = current->next;
+        current->set_enqueued(false);
 
         current->meth(current->_this, current);
 
@@ -1982,6 +1983,8 @@ vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
 {
     vp::time_event *current = this->first_event, *prev = NULL;
     int64_t full_time = time + this->get_time();
+
+    event->set_enqueued(true);
 
     while (current && current->time < full_time)
     {

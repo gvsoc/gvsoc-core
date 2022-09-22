@@ -581,8 +581,16 @@ void Mx25uw6445g::cs_sync(void *__this, bool value)
         {
             _this->program_ongoing = false;
 
-            int fixed = 14750000;
-            int duration = fixed + (float)(130000000 - fixed) * _this->program_size / 256;
+            int fixed = 8533036;
+            int duration = fixed + (float)(192025544 - fixed) * _this->program_size / 256;
+            if (_this->program_size <= 16)
+            {
+                duration += 2000000;
+            }
+            if (_this->program_size <= 4)
+            {
+                duration += 3000000;
+            }
             _this->set_busy(duration);
         }
         else if (_this->erase_ongoing)

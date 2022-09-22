@@ -74,7 +74,7 @@ public:
 
     Mx25uw6445g(js::config *config);
 
-    void handle_access(int address, int read, uint8_t data);
+    uint32_t handle_access(int address, int read, uint8_t data);
     int preload_file(char *path);
     void erase_sector(unsigned int addr);
     void erase_chip();
@@ -108,6 +108,8 @@ private:
     uint32_t addr;
     int cmd_count;
     int addr_count;
+    int data_count;
+    uint32_t pending_value;
 
     int current_address;
     int reg_access;
@@ -162,7 +164,7 @@ void Mx25uw6445g::erase_chip()
     }
 }
 
-void Mx25uw6445g::handle_access(int address, int is_write, uint8_t data)
+uint32_t Mx25uw6445g::handle_access(int address, int is_write, uint8_t data)
 {
     if (address >= this->size)
     {
@@ -187,7 +189,8 @@ void Mx25uw6445g::handle_access(int address, int is_write, uint8_t data)
                 data = this->data[address];
                 this->trace.msg(vp::trace::LEVEL_TRACE, "Sending data byte (address: 0x%x, value: 0x%x)\n", address, data);
             }
-            this->in_itf.sync_cycle(data);
+
+            return data;
         }
         else
         {
@@ -205,6 +208,8 @@ void Mx25uw6445g::handle_access(int address, int is_write, uint8_t data)
             this->program_size++;
         }
     }
+
+    return 0;
 }
 
 int Mx25uw6445g::preload_file(char *path)
@@ -347,7 +352,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
                 _this->addr_count = 32;
             }
             // Erase sector
-            else if (_this->cmd == 0x21de)
+            else if (_this->cmd == 0x21de || _this->cmd == 0x21)
             {
                 _this->is_write = true;
                 _this->addr_count = 32;
@@ -370,10 +375,21 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
             else if (_this->cmd == 0x05fa)
             {
                 _this->addr_count = 32;
-                _this->latency_count = 4;
+                if (_this->dtr_mode)
+                {
+                    _this->latency_count = 4;
+                }
+                else
+                {
+                    _this->latency_count = 5;
+                }
+            }
+            else if (_this->cmd == 0x05)
+            {
+                _this->latency_count = 0;
             }
             // Program
-            else if (_this->cmd == 0x12ed)
+            else if (_this->cmd == 0x12ed || _this->cmd == 0x12)
             {
                 _this->is_write = true;
                 _this->addr_count = 32;
@@ -384,14 +400,24 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
                 }
             }
             // Read
-            else if (_this->cmd == 0xee11)
+            else if (_this->cmd == 0xee11 || _this->cmd == 0xc || _this->cmd == 0xec13)
             {
                 _this->addr_count = 32;
-                _this->latency_count = _this->latency;
+                if (_this->cmd == 0xec13)
+                {
+                    _this->latency_count = _this->latency + 1;
+                }
+                else if (_this->cmd == 0xee11)
+                {
+                    _this->latency_count = _this->latency;
+                }
+                else
+                {
+                    _this->latency_count = 8;
+                }
                 if (_this->busy)
                 {
                     _this->trace.warning("Trying to read while flash is busy\n");
-                    abort();
                 }
             }
             else
@@ -432,15 +458,20 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
         {
             _this->current_address = _this->addr;
 
-            if (_this->cmd == 0x21de)
+            if (_this->cmd == 0x21de || _this->cmd == 0x21)
             {
-                _this->erase_sector(_this->addr);
-                _this->write_enable = false;
-                _this->erase_ongoing = true;
+                if (!_this->busy)
+                {
+                    _this->erase_sector(_this->addr);
+                    _this->write_enable = false;
+                    _this->erase_ongoing = true;
+                }
             }
 
-            _this->latency_count *= 2;
-
+            if (_this->dtr_mode)
+            {
+                _this->latency_count *= 2;
+            }
             _this->octospi_state = OCTOSPI_STATE_DATA;
         }
 
@@ -453,34 +484,75 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
         }
         else
         {
-            if (_this->cmd == 0x5fa)
+            if (_this->is_write)
             {
-                uint32_t status = (_this->write_enable << 1) | _this->busy;
-                _this->in_itf.sync_cycle(status);
-            }
-            else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
-            {
-                if (_this->addr == 0)
+                if (_this->ospi_mode)
                 {
-                    _this->confreg_2_0 = data;
-                    int spi_mode = data & 0x3;
-
-                    _this->ospi_mode = spi_mode != 0;
-                    _this->dtr_mode = spi_mode == 2;
-
-                    _this->trace.msg(vp::trace::LEVEL_INFO, "Writing configuration register 2 (value: 0x%x, ospi_mode: %d, dtr mode: %d)\n",
-                        _this->confreg_2_0, _this->ospi_mode, _this->dtr_mode);
+                    _this->data_count -= 8;
+                    _this->pending_value = (_this->pending_value << 8) | data;
                 }
                 else
                 {
-                    _this->trace.fatal("Unsupported address for configuration register 2 (address: 0x%x)\n", _this->addr);
+                    _this->data_count--;
+                    _this->pending_value = (_this->pending_value << 1) | data;
                 }
             }
-            else
+
+            if (!_this->is_write && _this->data_count == 8 || _this->is_write && _this->data_count == 0)
             {
-                _this->handle_access(_this->current_address, _this->is_write, data);
-                _this->current_address++;
+                _this->data_count = 8;
+                if (_this->cmd == 0x5fa || _this->cmd == 0x5)
+                {
+                    _this->pending_value = (_this->write_enable << 1) | _this->busy;
+                }
+                else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
+                {
+                    if (_this->addr == 0)
+                    {
+                        _this->confreg_2_0 = _this->pending_value;
+                        int spi_mode = _this->pending_value & 0x3;
+
+                        _this->ospi_mode = spi_mode != 0;
+                        _this->dtr_mode = spi_mode == 2;
+
+                        _this->trace.msg(vp::trace::LEVEL_INFO, "Writing configuration register 2 (value: 0x%x, ospi_mode: %d, dtr mode: %d)\n",
+                            _this->confreg_2_0, _this->ospi_mode, _this->dtr_mode);
+                    }
+                    else
+                    {
+                        _this->trace.fatal("Unsupported address for configuration register 2 (address: 0x%x)\n", _this->addr);
+                    }
+                }
+                else
+                {
+                    if (!_this->busy)
+                    {
+                         _this->pending_value = _this->handle_access(_this->current_address, _this->is_write, _this->pending_value);
+                        _this->current_address++;
+                    }
+                }
             }
+
+            if (!_this->is_write)
+            {
+                if (_this->ospi_mode)
+                {
+                    _this->in_itf.sync_cycle(_this->pending_value);
+                    _this->data_count -= 8;
+                }
+                else
+                {
+                    _this->in_itf.sync_cycle((_this->pending_value >> 7) & 1);
+                    _this->data_count--;
+                    _this->pending_value <<= 1;
+                }
+
+                if (_this->data_count == 0)
+                {
+                    _this->data_count = 8;
+                }
+            }
+
         }
     }
 }
@@ -587,6 +659,7 @@ int Mx25uw6445g::build()
     this->program_ongoing = false;
     this->erase_ongoing = false;
     this->erase_chip_ongoing = false;
+    this->data_count = 8;
 
     this->event = this->time_event_new(Mx25uw6445g::handle_event);
 

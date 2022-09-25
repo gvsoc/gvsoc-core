@@ -318,7 +318,7 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
 
     if (_this->octospi_state == OCTOSPI_STATE_CMD)
     {
-        _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command byte (value: 0x%x)\n", data);
+        _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command byte (value: 0x%x, cmd_count: %d)\n", data, _this->cmd_count);
 
         if (_this->ospi_mode)
         {

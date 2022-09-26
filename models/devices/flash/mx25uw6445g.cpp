@@ -443,6 +443,8 @@ void Mx25uw6445g::sync_cycle(void *__this, int data)
     }
     else if (_this->octospi_state == OCTOSPI_STATE_ADDR)
     {
+        _this->trace.msg(vp::trace::LEVEL_TRACE, "Received address byte (value: 0x%x, addr_count: %d)\n", data, _this->addr_count);
+
         if (_this->ospi_mode)
         {
             _this->addr_count -= 8;

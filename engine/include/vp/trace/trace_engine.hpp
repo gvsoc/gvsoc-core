@@ -79,10 +79,13 @@ namespace vp {
     virtual void add_exclude_trace_path(int events, std::string path) {}
     virtual void check_traces() {}
 
+    inline bool get_werror() { return this->werror; }
+
   protected:
     std::map<std::string, trace *> traces_map;
     std::vector<trace *> traces_array;
     int trace_format;
+    bool werror;
 
   private:
     void enqueue_pending(vp::trace *trace, int64_t timestamp, uint8_t *event);

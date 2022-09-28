@@ -31,6 +31,8 @@ def gen_config(args, config):
 
     gvsoc_config = full_config.get('gvsoc')
 
+    gvsoc_config.set('werror', args.werror)
+
     for trace in args.traces:
         gvsoc_config.set('traces/include_regex', trace)
 
@@ -143,6 +145,9 @@ class Runner(gapylib.target.Target, st.Component):
         parser.add_argument("--component-file-append", dest="component_file_append",
             action="store_true", help="Component file")
 
+        parser.add_argument("--no-werror", dest="werror",
+            action="store_false", help="Do not consider warnings as errors")
+
     def parse_args(self, args):
         super().parse_args(args)
 
@@ -167,12 +172,11 @@ class Runner(gapylib.target.Target, st.Component):
                 "gtkw": False,
             },
 
-            "description": "GAP simulator.",
-
             "runner_module": "gv.gvsoc",
         
             "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
         
+            "werror": True,
             "verbose": True,
             "debug-mode": self.get_property("gvsoc/debug-mode"),
             "sa-mode": True,

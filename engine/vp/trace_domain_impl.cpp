@@ -310,6 +310,7 @@ void trace_domain::pre_pre_build()
         this->add_path(1, trace_path.c_str(), true);
     }
 
+    this->werror = this->get_vp_config()->get_child_bool("werror");
     this->set_trace_level(this->get_vp_config()->get_child_str("traces/level").c_str());
 }
 

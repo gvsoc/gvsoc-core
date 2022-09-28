@@ -50,7 +50,7 @@ namespace vp {
     inline void msg(const char *fmt, ...);
     inline void user_msg(const char *fmt, ...);
     inline void warning(const char *fmt, ...);
-    inline void force_warning(const char *fmt, ...);
+    void force_warning(const char *fmt, ...);
     inline void fatal(const char *fmt, ...);
 
     inline void event(uint8_t *value);

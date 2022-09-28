@@ -19,6 +19,10 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+/**
+ * @brief Mx25 octospi flash model
+ */
+
 #include <vp/vp.hpp>
 #include <stdio.h>
 #include <string.h>
@@ -33,673 +37,1001 @@
 #include <vp/itf/wire.hpp>
 #include <vp/time/time_scheduler.hpp>
 
-#define REGS_AREA_SIZE 1024
+// Flash sector size
+#define MX25_SECTOR_SIZE (1 << 12)
 
-#define FLASH_STATE_IDLE 0
-#define FLASH_STATE_WRITE_BUFFER_WAIT_SIZE 1
-#define FLASH_STATE_WRITE_BUFFER 2
-#define FLASH_STATE_WRITE_BUFFER_WAIT_CONFIRM 3
-#define FLASH_STATE_CMD_0 4
-#define FLASH_STATE_CMD_1 5
-#define FLASH_STATE_LOAD_VCR 6
-
-#define FLASH_SECTOR_SIZE (1 << 12)
-
+// Enum for flash state
 typedef enum
 {
-    MX25UW6445G_STATE_WAIT_CMD0,
-    MX25UW6445G_STATE_WAIT_CMD1,
-    MX25UW6445G_STATE_WAIT_CMD2,
-    MX25UW6445G_STATE_WAIT_CMD3,
-    MX25UW6445G_STATE_WAIT_CMD4,
-    MX25UW6445G_STATE_WAIT_CMD5,
-    MX25UW6445G_STATE_PROGRAM_START,
-    MX25UW6445G_STATE_PROGRAM,
-    MX25UW6445G_STATE_GET_STATUS_REG
-} mx25uw6445g_state_e;
+    MX25_STATE_CMD,    // Flash is receiving command header
+    MX25_STATE_ADDR,   // Flash is receiving the address
+    MX25_STATE_DATA,   // Flash is receiving or sending data
+    MX25_STATE_DONE    // Flash is done handling the command
+} mx25_state_e;
 
-typedef enum
-{
-    OCTOSPI_STATE_CMD,
-    OCTOSPI_STATE_ADDR,
-    OCTOSPI_STATE_LATENCY,
-    OCTOSPI_STATE_DATA
-} octospi_state_e;
-
-class Mx25uw6445g : public vp::time_scheduler
+/**
+ * @brief Class for Mx25 flash model
+ * 
+ * This model derive from the time_scheduler so that it can push events based on time since
+ * the flash is not cycle-based.
+ */
+class Mx25 : public vp::time_scheduler
 {
 
 public:
+    /**
+     * @brief Construct a new Mx25 object
+     * 
+     * @param config JSON configuration of this component coming from system generators
+     */
+    Mx25(js::config *config);
+
+    // GVSOC build function overloading
     int build();
 
-    Mx25uw6445g(js::config *config);
-
-    uint32_t handle_access(int address, int read, uint8_t data);
-    int preload_file(char *path);
-    void erase_sector(unsigned int addr);
-    void erase_chip();
-    int setup_writeback_file(const char *path);
-
-    static void sync_cycle(void *_this, int data);
-    static void cs_sync(void *__this, bool value);
-
-    int get_nb_word() { return nb_word; }
+    // GVSOC reset function overloading
+    void reset(bool active);
 
 private:
+    /**
+     * @brief Handle octospi clock edges
+     *
+     * This is called everytime a usefull clock edge occurs on the octospi line.
+     * This is called on both raising and falling edges in DDR mode and only on raising edge
+     * in STR mode.
+     * This method will enqueue the incoming data and handle any impact on the flash state, like
+     * handling transmitted commands.
+     * 
+     * @param data   Data transmitted through the octospi data line.
+     */
+    void sync_cycle(int data);
+
+    /**
+     * @brief Stub for sync_cycle method
+     *
+     * This is just a stub method which is called when a useful clock cycle occurs on the
+     * octospi line.
+     * It is static since gvsoc requires static methods for handling inter-components communication.
+     * It will just call the real method handling it.
+     *
+     * @param __this This pointer used to call the real method.
+     * @param data   Data transmitted through the octospi data line.
+     */
+    static void sync_cycle_stub(void *__this, int data);
+
+    /**
+     * @brief Handle chip select update
+     *
+     * This is called everytime thechip select is updated on the octospi line.
+     * It is active low.
+     * 
+     * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
+     */
+    void cs_sync(bool value);
+
+    /**
+     * @brief Stub for cs_sync method
+     *
+     * This is just a stub method which is called when the chip select is updated on the
+     * octospi line.
+     * It is static since gvsoc requires static methods for handling inter-components communication.
+     * It will just call the real method handling it.
+     *
+     * @param __this This pointer used to call the real method.
+     * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
+     */
+    static void cs_sync_stub(void *__this, bool value);
+
+    /**
+     * @brief Preload the specified file into the flash
+     *
+     * The flash array can be preloaded with the content of a file.
+     * It can also be kept synced with it, so that the flash array can be accessed from the
+     * workstation at the end of the simulation, or to relaunch a simulation with the flash content
+     * at the end of the simulation.
+     *
+     * @param path   Path to the file
+     * @param writeback True if the file should be kept synced with the flash array so that.
+     */
+    int preload_file(char *path, bool writeback);
+
+    /**
+     * @brief Send the next output data
+     *
+     * Take the next bits to be sent from the pending value and send them to the output
+     * interface.
+     * This takes care of sending with the proper line width.
+     */
+    void send_output_data();
+
+    /**
+     * @brief Push input bits to the pending value
+     *
+     * Push incoming bits to the pending value and handle the received value if a full byte has been
+     * received.
+     * This takes cares of receiving with the proper line width.
+     * 
+     * @param data The input bits.
+     */
+    void handle_input_data(int data);
+
+    /**
+     * @brief Handle an incoming data byte
+     *
+     * This is called when command header and possibly address has already been received and a data
+     * byte is received, in order to process it.
+     * 
+     * @param byte The input data byte.
+     */
+    void handle_data_byte(uint8_t byte);
+
+    /**
+     * @brief Handle current command after address has been received.
+     *
+     * This will determine if the command does not need to send or receive data and will
+     * execute it.
+     * 
+     * @return true if the command has been fully handled.
+     * @return false if the command will receive or send data.
+     */
+    bool handle_command_address();
+
+    /**
+     * @brief Handle current command after header has been received.
+     *
+     * This will determine if the command does not need address or data and will
+     * execute it.
+     * 
+     * @return true if the command has been fully handled.
+     * @return false if the command has not been handled.
+     */
+    bool handle_command_header();
+
+    /**
+     * @brief Parse the current command.
+     *
+     * This is called once the command header has been received in order to parse it and
+     * extract useful information for FSM.
+     * 
+     * @param addr_bits  Number of expected address bits are returned here.
+     */
+    void parse_command(int &addr_bits);
+
+    /**
+     * @brief Handle an access to the flash array
+     *
+     * This is called for both read and program operations.
+     * 
+     * @param address Address of the access.
+     * @param read    True if the access is a read, false if it is a write.
+     * @param data    Data byte in case of a write
+     * @return The data byte in case of a read
+     */
+    uint32_t handle_array_access(int address, int read, uint8_t data);
+
+    /**
+     * @brief Erase the chip.
+     */
+    void erase_chip();
+
+    /**
+     * @brief Erase a sector.
+     * 
+     * @param address Address of the erase.
+     */
+    void erase_sector(unsigned int addr);
+
+    /**
+     * @brief Get the number of latency cycles out of the latency code from the register.
+     * 
+     * @param code The register latency code.
+     * @result The number of latency cycles.
+     */
     int get_latency_from_code(uint32_t code);
-    static void handle_event(void *__this, vp::time_event *event);
+
+    /**
+     * @brief Mark the flash as busy.
+     * 
+     * This can be used after erase or program operation to reject any other operation during
+     * the specified period.
+     * 
+     * @param time The duration in pico-seconds of the period during which the flash is busy.
+     */
     void set_busy(int64_t time);
 
+    /**
+     * @brief Event handler to make the flash available.
+     * 
+     * This is the handler called when the busy event has expired to make the flash available.
+     * This is a static method since GVSOC requires static method to handle time events.
+     * 
+     * @param __this The this pointer of the flash, needed as an explicit parameter as it is a
+     *      static method.
+     * @param event  The event associated to this handler.
+     */
+    static void set_available_handler(void *__this, vp::time_event *event);
+
+    // Trace for dumping debug messages.
     vp::trace trace;
+    // Input octospi interface.
     vp::hyper_slave in_itf;
+    // Inut chip select interface.
     vp::wire_slave<bool> cs_itf;
-
+    // Size of the flash, retrieved from JSON component configuration.
     int size;
+    // Flash array
     uint8_t *data;
-    bool data_is_mmapped;
-    uint8_t *reg_data;
-
-    mx25uw6445g_state_e state;
-    octospi_state_e octospi_state;
-    int pending_bytes;
-    uint16_t pending_cmd;
-
-    uint32_t cmd;
-    uint32_t addr;
-    int cmd_count;
-    int addr_count;
-    int data_count;
-    uint32_t pending_value;
-
+    // Flash state
+    mx25_state_e octospi_state;
+    // Current command being process
+    uint32_t current_command;
+    // Currrent address of the command being processed.
     int current_address;
-    int reg_access;
-
-    bool burst_write = false;
-    int nb_word = -1;
-    int sector;
-
-    bool ospi_mode;
-    bool dtr_mode;
-    bool write_enable;
-
-    bool is_register_access;
+    // True if the current command is a write command.
     bool is_write;
-
-    int latency;
-    uint32_t latency_code;
+    // Number of remaining latency cycles of the current command.
     int latency_count;
-
-    uint32_t confreg_2_0;
-
+    // Number of remaining bits to be processed. Used when receiving command header, address and
+    // sending or receiving data to know when a byte is ready.
+    int pending_bits;
+    // Current byte value containing bits which has been received or which will be sent.
+    uint32_t pending_value;
+    // True if the flash is configured in OSPI STR or DTR mode.
+    bool ospi_mode;
+    // True if the flash is configured in OSPI DTR mode.
+    bool dtr_mode;
+    // True if the flash has received a write enable command and writing to flash is allowed.
+    bool write_enable;
+    // Register latency code.
+    uint32_t latency_code;
+    // Number of latency cycle associated to the register latency code.
+    int latency;
+    // True if the flash is busy in an erase or program operation and other operations should
+    // be rejected.
     bool busy;
+    // True if a program operation is on-going. This is used when the CS is disabled to make
+    // the flash busy for a while
     bool program_ongoing;
-    bool erase_ongoing;
-    bool erase_chip_ongoing;
+    // Size of the program operation. This is used to estimate the duration of the program
+    // operation.
     int program_size;
-
-    vp::time_event *event;
+    // Time event used to make the flash available after a specific duration.
+    vp::time_event *busy_event;
 };
 
-void Mx25uw6445g::erase_sector(unsigned int addr)
+
+
+void Mx25::set_available_handler(void *__this, vp::time_event *event)
 {
-    addr &= ~(FLASH_SECTOR_SIZE - 1);
+    Mx25 *_this = (Mx25 *)__this;
+
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as available\n");
+
+    // Just make the flash as available, operations will be accepted again.
+    _this->busy = false;
+}
+
+
+
+void Mx25::set_busy(int64_t time)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as busy (duration: %lld)\n", time);
+    // Mark the flash as busy to reject other operations and enqueue an event which will make
+    // the flash available again.
+    this->busy = true;
+    this->enqueue(this->busy_event, time);
+}
+
+
+
+int Mx25::get_latency_from_code(uint32_t code)
+{
+    return 20 - code * 2;
+}
+
+
+
+void Mx25::erase_sector(unsigned int addr)
+{
+    // Align the address on a sector address since we can only erase one sector at a time.
+    addr &= ~(MX25_SECTOR_SIZE - 1);
 
     this->trace.msg(vp::trace::LEVEL_INFO, "Erasing sector (address: 0x%x)\n", addr);
 
     if (addr >= this->size)
     {
-        this->warning.force_warning("Received out-of-bound erase request (addr: 0x%x, flash_size: 0x%x)\n", addr, this->size);
+        this->warning.force_warning(
+            "Received out-of-bound erase request (addr: 0x%x, flash_size: 0x%x)\n",
+            addr, this->size);
         return;
     }
 
-    memset(&this->data[addr], 0xff, FLASH_SECTOR_SIZE);
+    // State of the array bytes after erase is 1 for each bit.
+    memset(&this->data[addr], 0xff, MX25_SECTOR_SIZE);
 }
 
-void Mx25uw6445g::erase_chip()
+
+
+void Mx25::erase_chip()
 {
     this->trace.msg(vp::trace::LEVEL_INFO, "Erasing chip\n");
-    for (unsigned int addr = 0; addr < this->size; addr += FLASH_SECTOR_SIZE)
+    for (unsigned int addr = 0; addr < this->size; addr += MX25_SECTOR_SIZE)
     {
         this->erase_sector(addr);
     }
 }
 
-uint32_t Mx25uw6445g::handle_access(int address, int is_write, uint8_t data)
+
+
+uint32_t Mx25::handle_array_access(int address, int is_write, uint8_t data)
 {
     if (address >= this->size)
     {
-        this->warning.force_warning("Received out-of-bound request (addr: 0x%x, flash_size: 0x%x)\n", address, this->size);
+        this->warning.force_warning(
+            "Received out-of-bound request (addr: 0x%x, flash_size: 0x%x)\n", address, this->size);
+        return 0;
+    }
+
+    if (!is_write)
+    {
+        uint8_t data;
+        data = this->data[address];
+        this->trace.msg(vp::trace::LEVEL_TRACE,
+            "Sending data byte (address: 0x%x, value: 0x%x)\n", address, data);
+        return data;
     }
     else
     {
-        if (!is_write)
+        this->trace.msg(vp::trace::LEVEL_TRACE,
+            "[Word Programming] Writing to flash (address: 0x%x, value: 0x%x)\n", address, data);
+
+        // The program operation can only switch bits from 1 to 0.
+        // Check if some bits can not be set to zero.
+        uint8_t new_value = this->data[address] & data;
+
+        if (new_value != data)
         {
-            uint8_t data;
-            if (this->state == MX25UW6445G_STATE_GET_STATUS_REG)
-            {
-                data = this->pending_cmd;
-                this->pending_bytes--;
-                this->pending_cmd >>= 8;
-                if (this->pending_bytes == 0)
-                    this->state = MX25UW6445G_STATE_WAIT_CMD0;
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
-            }
-            else
-            {
-                data = this->data[address];
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Sending data byte (address: 0x%x, value: 0x%x)\n", address, data);
-            }
-
-            return data;
+            this->warning.force_warning(
+                "Failed to program specified location (addr: 0x%x, flash_val: 0x%2.2x, "
+                "program_val: 0x%2.2x)\n", address, this->data[address], data);
         }
-        else
-        {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "[Word Programming] Writing to flash (address: 0x%x, value: 0x%x)\n", address, data);
 
-            uint8_t new_value = this->data[address] & data;
-
-            if (new_value != data)
-            {
-                this->warning.force_warning("Failed to program specified location (addr: 0x%x, flash_val: 0x%2.2x, program_val: 0x%2.2x)\n", address, this->data[address], data);
-            }
-
-            this->data[address] &= data;
-            this->program_ongoing = true;
-            this->program_size++;
-        }
+        this->data[address] &= data;
+        this->program_ongoing = true;
+        this->write_enable = false;
+        this->program_size++;
     }
 
     return 0;
 }
 
-int Mx25uw6445g::preload_file(char *path)
-{
-    this->get_trace()->msg(vp::trace::LEVEL_INFO, "Preloading memory with stimuli file (path: %s)\n", path);
 
-    if (this->get_js_config()->get_child_bool("writeback"))
+void Mx25::parse_command(int &addr_bits)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE,
+        "Handling command (cmd: 0x%x)\n", this->current_command);
+
+    // Init to default values so that command can override when expecting a specific value.
+    addr_bits = 0;
+    this->is_write = false;
+    this->latency_count = 0;
+
+    // Store the current command as it will be used througout the whole command
+    this->current_command = this->pending_value;
+
+    // Write enable
+    if (this->current_command == 0x06 || this->current_command == 0x06f9)
     {
+    }
+    // Write configuration register 2
+    else if (this->current_command == 0x72 || this->current_command == 0x728d)
+    {
+        this->is_write = true;
+        addr_bits = 32;
+    }
+    // Erase sector
+    else if (this->current_command == 0x21de || this->current_command == 0x21)
+    {
+        this->is_write = true;
+        addr_bits = 32;
+        if (this->busy)
+        {
+            this->trace.force_warning("Trying to erase while flash is busy\n");
+        }
+    }
+    // Erase chip
+    else if (this->current_command == 0x609f)
+    {
+        this->is_write = true;
+        if (this->busy)
+        {
+            this->trace.force_warning("Trying to erase while flash is busy\n");
+        }
+        this->erase_chip();
+    }
+    // Read status
+    else if (this->current_command == 0x05fa || this->current_command == 0x05)
+    {
+        // Latency depends on the spi mode
+        if (this->current_command == 0x05)
+        {
+        }
+        else
+        {
+            addr_bits = 32;
+            if (this->dtr_mode)
+            {
+                this->latency_count = 4;
+            }
+            else
+            {
+                this->latency_count = 5;
+            }
+        }
+    }
+    // Program
+    else if (this->current_command == 0x12ed || this->current_command == 0x12)
+    {
+        this->is_write = true;
+        addr_bits = 32;
+        this->program_size = 0;
+        if (this->busy)
+        {
+            this->trace.force_warning("Trying to program while flash is busy\n");
+        }
+    }
+    // Read
+    else if (this->current_command == 0xee11 || this->current_command == 0xc ||
+        this->current_command == 0xec13)
+    {
+        addr_bits = 32;
+        if (this->current_command == 0xec13)
+        {
+            // OSPI STR mode is adding one more latency cycle
+            this->latency_count = this->latency + 1;
+        }
+        else if (this->current_command == 0xee11)
+        {
+            this->latency_count = this->latency;
+        }
+        else
+        {
+            // SPI mode has a fixed latency count
+            this->latency_count = 8;
+        }
+        if (this->busy)
+        {
+            this->trace.force_warning("Trying to read while flash is busy\n");
+        }
+    }
+    else
+    {
+        this->trace.force_warning(
+            "Received unknown flash command (cmd: 0x%x)\n", this->current_command);
+    }
+
+    // Since the latency is a number of raising edges, we need to double it in DDR mode
+    // since the model is called at each edge.
+    if (this->dtr_mode)
+    {
+        this->latency_count *= 2;
+    }
+}
+
+
+
+bool Mx25::handle_command_header()
+{
+    // Write enable
+    if (this->current_command == 0x06 || this->current_command == 0x06f9)
+    {
+        this->write_enable = true;
+        return true;
+    }
+    // Erase chip
+    else if (this->current_command == 0x609f)
+    {
+        this->erase_chip();
+        this->write_enable = false;
+
+        // Duration of the erase has been determined with calibration
+        this->set_busy(1209778219000);
+        return true;
+    }
+
+    return false;
+}
+
+
+
+bool Mx25::handle_command_address()
+{
+    // In case the command has not been handled, store the address so that it can be used later on.
+    this->current_address = this->pending_value;
+
+    if (this->current_command == 0x21de || this->current_command == 0x21)
+    {
+        // Erase sector do not need any data and can be handled now
+        if (!this->busy)
+        {
+            this->erase_sector(this->current_address);
+            this->write_enable = false;
+
+            // The duration of the erase has been estimated with calibration
+            this->set_busy(18086488739);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+
+void Mx25::handle_data_byte(uint8_t data)
+{
+    if (this->current_command == 0x5fa || this->current_command == 0x5)
+    {
+        // Return status register
+        this->pending_value = (this->write_enable << 1) | this->busy;
+    }
+    else if (this->current_command == 0x72 || this->current_command == 0x728d)
+    {
+        if (this->current_address == 0)
+        {
+            // Return configuration register 2 address 0 value
+            int spi_mode = this->pending_value & 0x3;
+
+            this->ospi_mode = spi_mode != 0;
+            this->dtr_mode = spi_mode == 2;
+
+            this->trace.msg(vp::trace::LEVEL_INFO,
+                "Writing configuration register 2 (ospi_mode: %d, dtr mode: %d)\n",
+                this->ospi_mode, this->dtr_mode);
+        }
+        else
+        {
+            this->trace.force_warning(
+                "Unsupported address for configuration register 2 (address: 0x%x)\n",
+                this->current_address);
+        }
+    }
+    else if (this->current_command == 0x12ed || this->current_command == 0x12 ||
+        this->current_command == 0xee11 || this->current_command == 0xc ||
+        this->current_command == 0xec13)
+    {
+        // Read or program operation
+        if (!this->busy)
+        {
+                this->pending_value = this->handle_array_access(
+                    this->current_address, this->is_write, this->pending_value);
+            this->current_address++;
+        }
+    }
+    else
+    {
+        this->trace.force_warning("Received data while command does not expect data\n");
+    }
+}
+
+
+
+void Mx25::handle_input_data(int data)
+{
+    // Push the input bits to the pending value.
+    // The flash can receive either in 8 bits or 1 bit mode
+    if (this->ospi_mode)
+    {
+        this->pending_bits -= 8;
+        this->pending_value = (this->pending_value << 8) | data;
+    }
+    else
+    {
+        this->pending_bits--;
+        this->pending_value = (this->pending_value << 1) | data;
+    }
+}
+
+
+
+void Mx25::send_output_data()
+{
+    // Send the next chunk of data from the pending value
+    // The flash send either in 8 bits or 1 bit mode.
+    if (this->ospi_mode)
+    {
+        this->in_itf.sync_cycle(this->pending_value);
+        this->pending_bits -= 8;
+    }
+    else
+    {
+        this->in_itf.sync_cycle((this->pending_value >> 7) & 1);
+        this->pending_bits--;
+        this->pending_value <<= 1;
+    }
+
+    // Since the flash will send data until the CS becomes inactive, we need to rearm the send.
+    if (this->pending_bits == 0)
+    {
+        this->pending_bits = 8;
+    }
+}
+
+
+
+void Mx25::sync_cycle(int data)
+{
+    // This method is called whenever there is a usefull clock edge on the octospi line.
+    // This is called on both raising and falling edges in DDR mode and only on raising edge
+    // in STR mode.
+    // Most of the time, the model does not have to care if we are in DDR or STR mode since this
+    // method is called only for useful edges. Only the handling of latency needs to care since it
+    // is a number of full cycles, so special care needs to be taken in DDR mode.
+
+    // This method mostly implements an FSM, which is first sampling command, address and data, and
+    // is then handling the commands. It can also send back data on the octospi line for read
+    // commands.
+
+    if (this->octospi_state == MX25_STATE_CMD)
+    {
+        // State when we are sampling the command header
+
+        this->trace.msg(vp::trace::LEVEL_TRACE,
+            "Received command byte (value: 0x%x, pending_bits: %d)\n",
+            data, this->pending_bits);
+
+        // Queue the incoming bits, this function will take care of the line width
+        this->handle_input_data(data);
+
+        // Only do something once the full command is received
+        if (this->pending_bits == 0)
+        {
+            // Parse the command. This will in particular compute the number of address bits
+            // to be received
+            int addr_bits;
+            
+            this->parse_command(addr_bits);
+
+            // Check that we are not trying to write without having enabled the write
+            if (this->is_write && !this->write_enable)
+            {
+                this->trace.force_warning("Trying to write without write enable\n");
+            }
+
+            bool command_done = this->handle_command_header();
+
+            // Now compute the next state
+            if (command_done)
+            {
+                this->octospi_state = MX25_STATE_DONE;
+            }
+            else
+            {
+                // There are commands with and without an address
+                if (addr_bits)
+                {
+                    this->pending_bits = addr_bits;
+                    this->octospi_state = MX25_STATE_ADDR;
+                }
+                else
+                {
+                    this->pending_bits = 8;
+                    this->octospi_state = MX25_STATE_DATA;
+                }
+            }
+        }
+    }
+    else if (this->octospi_state == MX25_STATE_ADDR)
+    {
+        // State where we are sampling the command address
+
+        this->trace.msg(vp::trace::LEVEL_TRACE,
+            "Received address byte (value: 0x%x, addr_count: %d)\n",
+            data, this->pending_bits);
+
+        // Queue the incoming bits, this function will take care of the line width
+        this->handle_input_data(data);
+
+        // Only do something once the full address is received
+        if (this->pending_bits == 0)
+        {
+            // Handle the command now that we have the address
+            bool command_done = this->handle_command_address();
+
+            // Now compute the next state
+            if (command_done)
+            {
+                this->octospi_state = MX25_STATE_DONE;
+            }
+            else
+            {
+                this->pending_bits = 8;
+                this->octospi_state = MX25_STATE_DATA;
+            }
+        }
+
+    }
+    else if (this->octospi_state == MX25_STATE_DATA)
+    {
+        // State where we are receiving or sending data
+
+        // First check if we need to skip data due to ongoing latency
+        if (this->latency_count > 0)
+        {
+            // The latency count has already been multipled by 2 in case we are in DDR mode
+            this->latency_count--;
+        }
+        else
+        {
+            // Otherwise take care of the data
+
+            // In case we have a write operation, we need to queue the input data so that
+            // we can handle it once we have received a full byte
+            if (this->is_write)
+            {
+                // Queue the incoming bits, this function will take care of the line width
+                this->handle_input_data(data);
+            }
+
+            // We need the command to handle the data either if we have received a full byte with
+            // a write operation, or when we start sending a byte with a read operation
+            if (this->is_write && this->pending_bits == 0 ||
+                !this->is_write && this->pending_bits == 8)
+            {
+                if (this->is_write)
+                {
+                    this->pending_bits = 8;
+                }
+
+                this->handle_data_byte(data);
+            }
+
+            // For read operation the command handling should have prepared the byte to be sent,
+            // now need to stream it to the interface at each clock edge
+            if (!this->is_write)
+            {
+                this->send_output_data();
+            }
+
+        }
+    }
+    else if (this->octospi_state == MX25_STATE_DONE)
+    {
+        // This state is just here to catch errors from the SW where the command is longer
+        // than expected. Only chip select update can make use leave this state.
+        this->trace.force_warning("Received clock edge while command is over\n");
+    }
+}
+
+
+
+void Mx25::cs_sync(bool value)
+{
+    // This method is called whenever the chip select is updated.
+    // The chip select value is active low.
+
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (active: %d)\n", !value);
+
+    if (value == 0)
+    {
+        // Case where chip select is active and we start a command.
+        // Do all the required initializations.
+        this->octospi_state = MX25_STATE_CMD;
+        this->pending_value = 0;
+
+        // Commands are 16bits in octospi mode and 8bits in single spi mode.
+        if (this->ospi_mode)
+        {
+            this->pending_bits = 16;
+        }
+        else
+        {
+            this->pending_bits = 8;
+        }
+    }
+    else
+    {
+        // Chip select is inactive, take care of properly timing the program operation.
+        // This is done now since we need to know the size of the program operation, and we know it
+        // only once the chip select becomes inactive.
+
+        if (this->program_ongoing)
+        {
+            this->program_ongoing = false;
+
+            // Timing has been determined with calibration.
+            int fixed = 8533036;
+            int duration = fixed + (float)(192025544 - fixed) * this->program_size / 256;
+            if (this->program_size <= 16)
+            {
+                duration += 2000000;
+            }
+            if (this->program_size <= 4)
+            {
+                duration += 3000000;
+            }
+
+            // Set the flash as busy during the estimated duration so that no other operation is
+            // done.
+            this->set_busy(duration);
+        }
+    }
+}
+
+
+
+int Mx25::preload_file(char *path, bool writeback)
+{
+    this->get_trace()->msg(vp::trace::LEVEL_INFO,
+        "Preloading memory with stimuli file (path: %s)\n", path);
+
+    if (writeback)
+    {
+        // Writeback mode where the file is kept synced with the flash array so that it is still
+        // available at the end of the simulation.
+
+        // Create a read/write file and map it in the process to directly access the file
+        // from the flash array
         int fd = open(path, O_RDWR | O_CREAT, 0600);
         if (fd < 0)
         {
-            printf("Unable to open writeback file (path: %s, error: %s)\n", path, strerror(errno));
-            return 0;
+            this->trace.force_warning("Unable to open writeback file (path: %s, error: %s)\n",
+                path, strerror(errno));
+            return -1;
         }
 
         if (ftruncate(fd, this->size) < 0)
         {
-            printf("Unable to truncate writeback file (path: %s, error: %s)\n", path, strerror(errno));
+            this->trace.force_warning("Unable to truncate writeback file (path: %s, error: %s)\n",
+                path, strerror(errno));
             close(fd);
             return -1;
         }
         this->data = (uint8_t *)mmap(NULL, this->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (!this->data)
         {
-            printf("Unable to mmap writeback file (path: %s, error: %s)\n", path, strerror(errno));
+            this->trace.force_warning("Unable to mmap writeback file (path: %s, error: %s)\n",
+                path, strerror(errno));
             close(fd);
             return -1;
         }
 
-        /*
-         * fd is even not useful anymore and can be closed.
-         * Data are automatically write back to the file
-         * at random time during execution (depending of the kernel cache behavior)
-         * and, anyway, at the termination of the application.
-         */
+        // fd is even not useful anymore and can be closed.
+        // Data are automatically write back to the file
+        // at random time during execution (depending of the kernel cache behavior)
+        // and, anyway, at the termination of the application.
         close(fd);
     }
     else
     {
+        // Classic mode where the file is just used as an input file for the flash array.
         FILE *file = fopen(path, "r");
         if (file == NULL)
         {
-            printf("Unable to open stimulus file (path: %s, error: %s)\n", path, strerror(errno));
+            this->trace.force_warning("Unable to open preload file (path: %s, error: %s)\n",
+                path, strerror(errno));
             return -1;
         }
 
         if (fread(this->data, 1, this->size, file) == 0)
+        {
+            this->trace.force_warning
+                ("Unable to read from preload file file (path: %s, error: %s)\n",
+                path, strerror(errno));
             return -1;
+        }
     }
 
     return 0;
 }
 
-/*
- * Bback the data memory to a mmap file to provide access to the mx25uw6445g content
- * at the end of the execution.
- */
-int Mx25uw6445g::setup_writeback_file(const char *path)
+
+
+void Mx25::sync_cycle_stub(void *__this, int data)
 {
-    this->get_trace()->msg("writeback memory to an output file (path: %s)\n", path);
-    int fd = open(path, O_RDWR | O_CREAT, 0600);
-    if (fd < 0)
-    {
-        printf("Unable to open writeback file (path: %s, error: %s)\n", path, strerror(errno));
-        return 0;
-    }
-
-    if (ftruncate(fd, this->size) < 0)
-    {
-        printf("Unable to truncate writeback file (path: %s, error: %s)\n", path, strerror(errno));
-        close(fd);
-        return -1;
-    }
-    uint8_t *mmapped_data = (uint8_t *)mmap(NULL, this->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (!mmapped_data)
-    {
-        printf("Unable to mmap writeback file (path: %s, error: %s)\n", path, strerror(errno));
-        close(fd);
-        return -1;
-    }
-
-    /* copy the current data content into the mmap area and replace data pointer with the mmap pointer */
-    memcpy(mmapped_data, this->data, this->size);
-    free(this->data);
-    this->data = mmapped_data;
-    this->data_is_mmapped = true;
-
-    /*
-     * fd is even not useful anymore and can be closed.
-     * Data are automatically write back to the file
-     * at random time during execution (depending of the kernel cache behavior)
-     * and, anyway, at the termination of the application.
-     */
-    close(fd);
-    return 0;
+    // Stub for real method, just forward the call
+    Mx25 *_this = (Mx25 *)__this;
+    _this->sync_cycle(data);
 }
 
-Mx25uw6445g::Mx25uw6445g(js::config *config)
-    : vp::time_scheduler(config)
+
+
+void Mx25::cs_sync_stub(void *__this, bool value)
 {
+    // Stub for real method, just forward the call
+    Mx25 *_this = (Mx25 *)__this;
+    _this->cs_sync(value);
 }
 
-void Mx25uw6445g::sync_cycle(void *__this, int data)
+
+void Mx25::reset(bool active)
 {
-    Mx25uw6445g *_this = (Mx25uw6445g *)__this;
-
-    if (_this->octospi_state == OCTOSPI_STATE_CMD)
+    // This function is called everytime the flash is reset.
+    // Both active and inactive levels trigger a call.
+    if (active)
     {
-        _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command byte (value: 0x%x, cmd_count: %d)\n", data, _this->cmd_count);
+        // The time engine parent will take care of cleaning any ongoing activity with the events
+        vp::time_scheduler::reset(active);
 
-        if (_this->ospi_mode)
-        {
-            _this->cmd_count -= 8;
-            _this->cmd = (_this->cmd << 8) | data;
-        }
-        else
-        {
-            _this->cmd_count--;
-            _this->cmd = (_this->cmd << 1) | data;
-        }
-
-        if (_this->cmd_count == 0)
-        {
-            _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling command (cmd: 0x%x)\n", _this->cmd);
-
-            _this->is_write = false;
-            _this->is_register_access = false;
-
-            // Write enable
-            if (_this->cmd == 0x06 || _this->cmd == 0x06f9)
-            {
-                _this->write_enable = true;
-                _this->addr_count = 0;
-            }
-            // Write configuration register 2
-            else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
-            {
-                _this->is_register_access = true;
-                _this->is_write = true;
-                _this->addr_count = 32;
-            }
-            // Erase sector
-            else if (_this->cmd == 0x21de || _this->cmd == 0x21)
-            {
-                _this->is_write = true;
-                _this->addr_count = 32;
-                if (_this->busy)
-                {
-                    _this->trace.warning("Trying to erase while flash is busy\n");
-                }
-            }
-            // Erase chip
-            else if (_this->cmd == 0x609f)
-            {
-                _this->is_write = true;
-                _this->erase_chip_ongoing = true;
-                if (_this->busy)
-                {
-                    _this->trace.warning("Trying to erase while flash is busy\n");
-                }
-            }
-            // Read status
-            else if (_this->cmd == 0x05fa)
-            {
-                _this->addr_count = 32;
-                if (_this->dtr_mode)
-                {
-                    _this->latency_count = 4;
-                }
-                else
-                {
-                    _this->latency_count = 5;
-                }
-            }
-            else if (_this->cmd == 0x05)
-            {
-                _this->latency_count = 0;
-            }
-            // Program
-            else if (_this->cmd == 0x12ed || _this->cmd == 0x12)
-            {
-                _this->is_write = true;
-                _this->addr_count = 32;
-                _this->program_size = 0;
-                if (_this->busy)
-                {
-                    _this->trace.warning("Trying to program while flash is busy\n");
-                }
-            }
-            // Read
-            else if (_this->cmd == 0xee11 || _this->cmd == 0xc || _this->cmd == 0xec13)
-            {
-                _this->addr_count = 32;
-                if (_this->cmd == 0xec13)
-                {
-                    _this->latency_count = _this->latency + 1;
-                }
-                else if (_this->cmd == 0xee11)
-                {
-                    _this->latency_count = _this->latency;
-                }
-                else
-                {
-                    _this->latency_count = 8;
-                }
-                if (_this->busy)
-                {
-                    _this->trace.warning("Trying to read while flash is busy\n");
-                }
-            }
-            else
-            {
-                _this->trace.fatal("Received unknown flash command (cmd: 0x%x)\n", _this->cmd);
-            }
-
-            if (_this->is_write && !_this->write_enable)
-            {
-                _this->trace.fatal("Trying to write without write enable\n");
-            }
-
-
-            if (_this->addr_count)
-            {
-                _this->octospi_state = OCTOSPI_STATE_ADDR;
-            }
-            else
-            {
-                _this->octospi_state = OCTOSPI_STATE_DATA;
-            }
-        }
-    }
-    else if (_this->octospi_state == OCTOSPI_STATE_ADDR)
-    {
-        _this->trace.msg(vp::trace::LEVEL_TRACE, "Received address byte (value: 0x%x, addr_count: %d)\n", data, _this->addr_count);
-
-        if (_this->ospi_mode)
-        {
-            _this->addr_count -= 8;
-            _this->addr = (_this->addr << 8) | data;
-        }
-        else
-        {
-            _this->addr_count--;
-            _this->addr = (_this->addr << 1) | data;
-        }
-
-        if (_this->addr_count == 0)
-        {
-            _this->current_address = _this->addr;
-
-            if (_this->cmd == 0x21de || _this->cmd == 0x21)
-            {
-                if (!_this->busy)
-                {
-                    _this->erase_sector(_this->addr);
-                    _this->write_enable = false;
-                    _this->erase_ongoing = true;
-                }
-            }
-
-            if (_this->dtr_mode)
-            {
-                _this->latency_count *= 2;
-            }
-            _this->octospi_state = OCTOSPI_STATE_DATA;
-        }
-
-    }
-    else if (_this->octospi_state == OCTOSPI_STATE_DATA)
-    {
-        if (_this->latency_count > 0)
-        {
-            _this->latency_count--;
-        }
-        else
-        {
-            if (_this->is_write)
-            {
-                if (_this->ospi_mode)
-                {
-                    _this->data_count -= 8;
-                    _this->pending_value = (_this->pending_value << 8) | data;
-                }
-                else
-                {
-                    _this->data_count--;
-                    _this->pending_value = (_this->pending_value << 1) | data;
-                }
-            }
-
-            if (!_this->is_write && _this->data_count == 8 || _this->is_write && _this->data_count == 0)
-            {
-                _this->data_count = 8;
-                if (_this->cmd == 0x5fa || _this->cmd == 0x5)
-                {
-                    _this->pending_value = (_this->write_enable << 1) | _this->busy;
-                }
-                else if (_this->cmd == 0x72 || _this->cmd == 0x728d)
-                {
-                    if (_this->addr == 0)
-                    {
-                        _this->confreg_2_0 = _this->pending_value;
-                        int spi_mode = _this->pending_value & 0x3;
-
-                        _this->ospi_mode = spi_mode != 0;
-                        _this->dtr_mode = spi_mode == 2;
-
-                        _this->trace.msg(vp::trace::LEVEL_INFO, "Writing configuration register 2 (value: 0x%x, ospi_mode: %d, dtr mode: %d)\n",
-                            _this->confreg_2_0, _this->ospi_mode, _this->dtr_mode);
-                    }
-                    else
-                    {
-                        _this->trace.fatal("Unsupported address for configuration register 2 (address: 0x%x)\n", _this->addr);
-                    }
-                }
-                else
-                {
-                    if (!_this->busy)
-                    {
-                         _this->pending_value = _this->handle_access(_this->current_address, _this->is_write, _this->pending_value);
-                        _this->current_address++;
-                    }
-                }
-            }
-
-            if (!_this->is_write)
-            {
-                if (_this->ospi_mode)
-                {
-                    _this->in_itf.sync_cycle(_this->pending_value);
-                    _this->data_count -= 8;
-                }
-                else
-                {
-                    _this->in_itf.sync_cycle((_this->pending_value >> 7) & 1);
-                    _this->data_count--;
-                    _this->pending_value <<= 1;
-                }
-
-                if (_this->data_count == 0)
-                {
-                    _this->data_count = 8;
-                }
-            }
-
-        }
+        // When reset is active, we must put back the flash into the initial state
+        this->ospi_mode = false;
+        this->dtr_mode = false;
+        this->write_enable = false;
+        this->busy = false;
+        this->program_ongoing = false;
+        this->latency_code = 0;
+        this->latency = this->get_latency_from_code(this->latency_code);
     }
 }
 
-void Mx25uw6445g::cs_sync(void *__this, bool value)
+
+int Mx25::build()
 {
-    Mx25uw6445g *_this = (Mx25uw6445g *)__this;
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
+    // This method is called when the simulated system is built.
+    // We just need here to take care of anything which must be done once at platform startup.
 
-    _this->octospi_state = OCTOSPI_STATE_CMD;
-    _this->cmd = 0;
-
-    // Commands are 16bits in octospi mode and 8bits in single spi mode
-    if (_this->ospi_mode)
-    {
-        _this->cmd_count = 16;
-    }
-    else
-    {
-        _this->cmd_count = 8;
-    }
-
-    if (value == 1)
-    {
-        if (_this->program_ongoing)
-        {
-            _this->program_ongoing = false;
-
-            int fixed = 8533036;
-            int duration = fixed + (float)(192025544 - fixed) * _this->program_size / 256;
-            if (_this->program_size <= 16)
-            {
-                duration += 2000000;
-            }
-            if (_this->program_size <= 4)
-            {
-                duration += 3000000;
-            }
-            _this->set_busy(duration);
-        }
-        else if (_this->erase_ongoing)
-        {
-            _this->erase_ongoing = false;
-            _this->set_busy(18086488739);
-        }
-        else if (_this->erase_chip_ongoing)
-        {
-            _this->erase_chip();
-            _this->write_enable = false;
-            _this->erase_chip_ongoing = false;
-            _this->set_busy(1209778219000);
-        }
-    }
-}
-
-void Mx25uw6445g::handle_event(void *__this, vp::time_event *event)
-{
-    Mx25uw6445g *_this = (Mx25uw6445g *)__this;
-
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as available\n");
-    _this->busy = false;
-}
-
-void Mx25uw6445g::set_busy(int64_t time)
-{
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as busy (duration: %lld)\n", time);
-    this->busy = true;
-    this->enqueue(this->event, time);
-}
-
-int Mx25uw6445g::get_latency_from_code(uint32_t code)
-{
-    return 20 - code * 2;
-}
-
-int Mx25uw6445g::build()
-{
     // Retrieve time engine so that we can post time events
     this->engine = (vp::time_engine*)this->get_service("time");
 
-
+    // Trace for outputting debug messages
     traces.new_trace("trace", &trace, vp::DEBUG);
 
-    in_itf.set_sync_cycle_meth(&Mx25uw6445g::sync_cycle);
+    // Input interface for exchanging octospi data
+    in_itf.set_sync_cycle_meth(&Mx25::sync_cycle_stub);
     new_slave_port("input", &in_itf);
 
-    cs_itf.set_sync_meth(&Mx25uw6445g::cs_sync);
+    // Input interface for chip select update
+    cs_itf.set_sync_meth(&Mx25::cs_sync_stub);
     new_slave_port("cs", &cs_itf);
 
     js::config *conf = this->get_js_config();
 
+    // Prepare the event for managing the periods where the flash is busy (program and erase).
+    // It will be pushed when flash is busy and will put the flash back to available state.
+    this->busy_event = this->time_event_new(Mx25::set_available_handler);
+
+    // Now take care of the flash content
+    js::config *preload_file_conf = conf->get("preload_file");
+    bool writeback = this->get_js_config()->get_child_bool("writeback");
     this->size = conf->get("size")->get_int();
+
     this->trace.msg(vp::trace::LEVEL_INFO, "Building flash (size: 0x%x)\n", this->size);
 
-    this->data = new uint8_t[this->size];
-    memset(this->data, 0xff, this->size);
-    this->data_is_mmapped = false;
-
-    this->reg_data = new uint8_t[REGS_AREA_SIZE];
-    memset(this->reg_data, 0x57, REGS_AREA_SIZE);
-    ((uint16_t *)this->reg_data)[0] = 0x8F1F;
-
-    this->state = MX25UW6445G_STATE_WAIT_CMD0;
-    this->pending_bytes = 0;
-    this->pending_cmd = 0;
-    this->ospi_mode = false;
-    this->dtr_mode = false;
-    this->write_enable = false;
-    this->confreg_2_0 = 0;
-    this->latency_count = 0;
-    this->busy = false;
-    this->program_ongoing = false;
-    this->erase_ongoing = false;
-    this->erase_chip_ongoing = false;
-    this->data_count = 8;
-
-    this->event = this->time_event_new(Mx25uw6445g::handle_event);
-
-    js::config *preload_file_conf = conf->get("preload_file");
-    if (preload_file_conf == NULL)
+    // If there is no preload file or if the preload file is a classi input file,
+    // Allocate an array for the flash and fill it with clean state which is 1 everywhere so that
+    //. the whole flash can be programmed without being erased.
+    if (!preload_file_conf || !writeback)
     {
-        preload_file_conf = conf->get("content/image");
+        this->data = new uint8_t[this->size];
+        memset(this->data, 0xff, this->size);
     }
 
+    // The preload file can be either input file, or memory-mapped file to keep flash content
+    // on workstation
     if (preload_file_conf)
     {
-        if (this->preload_file((char *)preload_file_conf->get_str().c_str()))
+        if (this->preload_file((char *)preload_file_conf->get_str().c_str(), writeback))
+        {
             return -1;
+        }
     }
-
-    js::config *writeback_file_conf = conf->get("writeback_file");
-
-    if (writeback_file_conf)
-    {
-        if (this->setup_writeback_file(writeback_file_conf->get_str().c_str()))
-            return -1;
-    }
-
-    this->latency_code = 0;
-    this->latency = this->get_latency_from_code(this->latency_code);
 
     return 0;
 }
 
+
+
+Mx25::Mx25(js::config *config)
+    : vp::time_scheduler(config)
+{
+}
+
+
+
+// Constructor function needed by GVSOC to instantiate this module.
+// Just instantiate the flash class.
 extern "C" vp::component *vp_constructor(js::config *config)
 {
-    return new Mx25uw6445g(config);
+    return new Mx25(config);
 }

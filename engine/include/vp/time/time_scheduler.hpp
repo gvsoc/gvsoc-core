@@ -40,10 +40,17 @@ namespace vp {
 
         time_event *enqueue(time_event *event, int64_t time);
 
+        void cancel(time_event *event);
+
         int64_t exec();
+
+        void reset(bool active);
+
+        void add_event(time_event *event);
 
     private:
         time_event *first_event;
+        std::vector<time_event *> events;
     };
 
 

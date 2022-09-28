@@ -1976,8 +1976,56 @@ int64_t vp::time_scheduler::exec()
 vp::time_event::time_event(time_scheduler *comp, time_event_meth_t *meth)
     : comp(comp), _this((void *)static_cast<vp::component *>((vp::time_scheduler *)(comp))), meth(meth), enqueued(false)
 {
-
+    comp->add_event(this);
 }
+
+
+void vp::time_scheduler::reset(bool active)
+{
+    if (active)
+    {
+        for (time_event *event: this->events)
+        {
+            this->cancel(event);
+        }
+    }
+}
+
+void vp::time_scheduler::cancel(vp::time_event *event)
+{
+    if (!event->is_enqueued())
+        return;
+
+    vp::time_event *current = this->first_event, *prev = NULL;
+
+    while (current && current != event)
+    {
+        prev = current;
+        current = current->next;
+    }
+
+    if (prev)
+    {
+        prev->next = event->next;
+    }
+    else
+    {
+        this->first_event = event->next;
+    }
+
+    event->set_enqueued(false);
+
+    if (this->first_event == NULL)
+    {
+        this->dequeue_from_engine();
+    }
+}
+
+void vp::time_scheduler::add_event(time_event *event)
+{
+    this->events.push_back(event);
+}
+
 
 vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
 {

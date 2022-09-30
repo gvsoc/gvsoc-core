@@ -409,7 +409,7 @@ uint32_t Mx25::handle_array_access(int address, int is_write, uint8_t data)
 void Mx25::parse_command(int &addr_bits)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE,
-        "Handling command (cmd: 0x%x)\n", this->current_command);
+        "Handling command (cmd: 0x%x)\n", this->pending_value);
 
     // Init to default values so that command can override when expecting a specific value.
     addr_bits = 0;

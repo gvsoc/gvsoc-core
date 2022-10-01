@@ -513,6 +513,8 @@ static bool mstatus_read(iss_t *iss, iss_reg_t *value) {
 
 static bool mstatus_write(iss_t *iss, unsigned int value)
 {
+  iss_perf_account_dependency_stall(iss, 4);
+
 #if defined(SECURE)
   unsigned int mask = 0x21899;
   unsigned int or_mask = 0x0;

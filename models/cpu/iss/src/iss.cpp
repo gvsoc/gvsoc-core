@@ -273,6 +273,8 @@ void iss_reset(iss_t *iss, int active)
 
     iss->cpu.state.hwloop_end_insn[0] = NULL;
     iss->cpu.state.hwloop_end_insn[1] = NULL;
+
+    memset(iss->cpu.pulpv2.hwloop_regs, 0, sizeof(iss->cpu.pulpv2.hwloop_regs));
   }
 
   iss_csr_init(iss, active);

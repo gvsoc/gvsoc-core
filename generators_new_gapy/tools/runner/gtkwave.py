@@ -133,7 +133,7 @@ class Gtkwave_tree(object):
     def add_trace(self, comp, name, vcd_signal=None, ext='', map_file=None, map_file_path=None, tag=None, full_vcd_signal=None):
         if full_vcd_signal is None:
             full_vcd_signal = self.get_full_vcd_name(comp, vcd_signal)
-        full_vcd_signal = full_vcd_signal + ext
+        full_vcd_signal_with_ext = full_vcd_signal + ext
 
         translate_filter_file = None
         if map_file is not None:
@@ -141,7 +141,7 @@ class Gtkwave_tree(object):
         if map_file_path is not None:
             translate_filter_file = map_file_path
 
-        trace = Gtkwave_trace(name, full_vcd_signal, translate_filter_file)
+        trace = Gtkwave_trace(name, full_vcd_signal_with_ext, translate_filter_file)
         self.current_groups[-1].add_child(trace)
 
         if tag is not None and tag in self.tags:
@@ -173,6 +173,11 @@ class Gtkwave_tree(object):
 
         vector = Gtkwave_vector(self, comp, name, traces, map_file, vector_filer)
         self.current_groups[-1].add_child(vector)
+
+        if tag is not None and tag in self.tags:
+            for trace in traces:
+                full_vcd_signal = self.get_full_vcd_name(comp, trace[1])
+                self.activate_traces.append('/' + full_vcd_signal.replace('.', '/'))
 
         
     def gen(self):

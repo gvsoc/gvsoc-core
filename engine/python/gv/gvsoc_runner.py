@@ -23,6 +23,7 @@ import gapylib.target
 import gsystree as st
 import json_tools as js
 import os.path
+from tools.runner.gtkwave import Gtkwave_tree
 
 
 def gen_config(args, config):
@@ -82,7 +83,6 @@ def gen_config(args, config):
         for binary in debug_binaries:
             full_config.set('**/debug_binaries', binary + '.debugInfo')
             full_config.set('**/binaries', binary)
-
 
     gvsoc_config_path = 'gvsoc_config.json'
 
@@ -205,6 +205,31 @@ class Runner(gapylib.target.Target, st.Component):
         self.full_config, self.gvsoc_config_path = gen_config(args, config)
 
 
+
+        gvsoc_config = self.full_config.get('gvsoc')
+
+        if gvsoc_config.get_bool('events/gen_gtkw'):
+            path = os.path.join(self.get_working_dir(), 'view.gtkw')
+
+            traces = self.gen_gtkw_script(
+                work_dir=self.get_working_dir(),
+                path=path,
+                tags=gvsoc_config.get('events/tags').get_dict(),
+                level=gvsoc_config.get_child_int('events/level'),
+                gen_full_tree=False
+            )
+
+            print (traces)
+
+            gvsoc_config.get('events').set('include_raw', traces)
+
+            print ()
+            print ('A Gtkwave script has been generated and can be opened with the following command:')
+            print ('gtkwave ' + path)
+            print ()
+
+
+
     def handle_command(self, cmd):
 
         if cmd == 'run':
@@ -289,3 +314,38 @@ class Runner(gapylib.target.Target, st.Component):
 
     def get_target(self):
         return self
+
+
+    def gen_gtkw_script(self, work_dir, path, tags=[], level=0, trace_file=None, gen_full_tree=False):
+        
+        self.vcd_group_create = False
+        self.is_top = True
+
+        traces = []
+
+        if trace_file is not None:
+            with open(trace_file, 'r') as file:
+                for line in file.readlines():
+                    trace_path, trace, name = line.split(' ')
+                    if trace_path.find('/') == 0:
+                        trace_path = trace_path[1:]
+                    name = name.replace('\n', '')
+                    traces.append([trace_path.split('/'), trace.split('/'), name])
+
+        with open(path, 'w') as fd:
+            tree = Gtkwave_tree(fd, work_dir, gen_full_tree=gen_full_tree, tags=tags)
+
+            tree.begin_group('overview', closed=False)
+            tree.set_view('overview')
+            self.gen_gtkw_tree(tree, traces=traces)
+            tree.end_group('overview')
+
+            tree.begin_group('system')
+            tree.set_view('system')
+            self.gen_gtkw_tree(tree, traces=traces)
+            tree.end_group('system')
+
+
+            tree.gen()
+
+            return tree.activate_traces

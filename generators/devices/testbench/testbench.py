@@ -77,7 +77,7 @@ class Testbench(st.Component):
                 'vp_component': 'devices.testbench.testbench',
                 "verbose": False,
                 "ctrl_type": "uart",
-                "nb_gpio": 90,
+                "nb_gpio": 94,
                 "nb_spi": 5,
                 "nb_uart": 5,
                 "nb_i2c": 3,

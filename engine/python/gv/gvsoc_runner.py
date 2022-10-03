@@ -107,10 +107,30 @@ class Runner(gapylib.target.Target, st.Component):
         self.add_property("gvsoc/proxy/port", 42951)
 
 
-    def append_args(self, parser):
+    def append_args(self, parser, rtl_cosim_runner=None):
         super().append_args(parser)
 
-        parser.add_argument("--platform", dest="platform", required=True, choices=['gvsoc'],
+        choices = ['gvsoc']
+
+        self.rtl_runner = None
+
+        if rtl_cosim_runner is not None:
+
+            parser.add_argument("--rtl-cosimulation", dest="rtl_cosimulation", action="store_true",
+                help="Launch in RTL cosimulation mode")
+
+            [args, _] = parser.parse_known_args()
+
+            if args.rtl_cosimulation:
+
+                parser.add_argument("--gvsoc-path", dest="gvsoc_path", default=None,
+                    type=str, help="path to GVSOC install folder")
+
+                choices.append('rtl')
+                self.rtl_runner = rtl_cosim_runner(self)
+                self.rtl_runner.append_args(parser)
+
+        parser.add_argument("--platform", dest="platform", required=True, choices=choices,
             type=str, help="specify the platform used for the target")
 
         parser.add_argument("--trace", dest="traces", default=[], action="append",
@@ -219,8 +239,6 @@ class Runner(gapylib.target.Target, st.Component):
                 gen_full_tree=False
             )
 
-            print (traces)
-
             gvsoc_config.get('events').set('include_raw', traces)
 
             print ()
@@ -228,6 +246,15 @@ class Runner(gapylib.target.Target, st.Component):
             print ('gtkwave ' + path)
             print ()
 
+        if self.rtl_runner is not None:
+            gvsoc_config.set('sv-mode', True)
+
+            if args.gvsoc_path is None:
+                raise RuntimeError('GVSOC install path must be specified through option'
+                    ' --gvsoc-path when using RTL GVSOC cosimulation')
+
+            self.rtl_runner.parse_args(args, gvsoc_cosim=args.gvsoc_path,
+                gvsoc_config_path=self.gvsoc_config_path)
 
 
     def handle_command(self, cmd):
@@ -235,13 +262,19 @@ class Runner(gapylib.target.Target, st.Component):
         if cmd == 'run':
             self.run()
 
+        elif cmd == 'traces' and self.rtl_runner is not None:
+            self.rtl_runner.traces()
+
         elif cmd == 'prepare':
             self.run(norun=True)
 
         elif cmd == 'image':
             gapylib.target.Target.handle_command(self, cmd)
 
-            self.gen_stimuli()
+            if self.rtl_runner is not None:
+                self.rtl_runner.image()
+            else:
+                self.gen_stimuli()
 
         elif cmd == 'components':
 
@@ -265,10 +298,12 @@ class Runner(gapylib.target.Target, st.Component):
 
 
     def __gen_debug_info(self, full_config, gvsoc_config):
-        for binary in full_config.get('**/debug_binaries').get_dict():
-            if os.system('gen-debug-info %s %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
-            # if os.system('pulp-pc-info --file %s --all-file %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
-                raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+        debug_binaries_config = full_config.get('**/debug_binaries')
+        if debug_binaries_config is not None:
+            for binary in debug_binaries_config.get_dict():
+                if os.system('gen-debug-info %s %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
+                # if os.system('pulp-pc-info --file %s --all-file %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
+                    raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
     def run(self, norun=False):
@@ -282,7 +317,10 @@ class Runner(gapylib.target.Target, st.Component):
         if norun:
             return 0
 
-        if self.get_args().emulation:
+        if self.rtl_runner is not None:
+            self.rtl_runner.run()
+
+        elif self.get_args().emulation:
 
             launcher = self.get_args().binary
             command = [launcher]

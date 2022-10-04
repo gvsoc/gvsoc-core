@@ -51,19 +51,24 @@ class Component(object):
         self.is_top = is_top
         self.vcd_group_create = True
         self.vcd_group_closed = True
+        self.component = None
 
         if len(options) > 0:
+            options_list = []
+
             for option in options:
                 name, value = option.split('=', 1)
                 name_list = name.split('/')
                 name_list.append(value)
 
-                self.options.append(name_list)
+                options_list.append(name_list)
+            
+            self.__set_options(options_list)
 
         if parent is not None:
             parent.add_component(name, self)
 
-    def gen_stimuli(self, work_dir):
+    def gen_stimuli(self):
         """Generate stimuli.
 
         This method can be called to make the system described by this component hierarchy
@@ -76,7 +81,7 @@ class Component(object):
             Working directory where the stimuli should be generated
         """
         for component in self.components.values():
-            component.gen_stimuli(work_dir)
+            component.gen_stimuli()
 
 
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
@@ -110,6 +115,10 @@ class Component(object):
 
         return path
 
+
+    def register_flash(self, flash):
+        if self.parent is not None:
+            self.parent.register_flash(flash)
 
     def declare_flash(self, path=None):
         """Declare a flash.
@@ -281,7 +290,10 @@ class Component(object):
                     else:
                         property.append(option_property)
             else:
-                property = option_property
+                if not isinstance(property, type(option_property)):
+                    property = self.__convert(option_property, property)
+                else:
+                    property = option_property
 
 
         if format is not None:
@@ -328,6 +340,24 @@ class Component(object):
         with open(self.get_file_path(path), 'r') as fd:
             return json.load(fd)
 
+    def set_component(self, name):
+        self.component = name
+        self.add_property('vp_component', name)
+
+    def get_component_list(self):
+        result = []
+        
+        if self.component is not None:
+            result.append(self.component)
+
+        def Union(lst1, lst2):
+            final_list = list(set(lst1) | set(lst2))
+            return final_list
+
+        for child in self.components.values():
+            result = Union(result, child.get_component_list())
+
+        return result
 
     def get_config(self):
         """Generates and return the system configuration.
@@ -556,6 +586,28 @@ class Component(object):
 
         else:
             if options is not None:
-                return options
+                return self.__convert(src, options)
             else:
                 return src
+
+    def __convert(self, value, dest):
+        if isinstance(dest, bool):
+            if isinstance(value, str):
+                return value == 'true' or value == 'True'
+            else:
+                return bool(value)
+        elif isinstance(dest, int):
+            if isinstance(value, str):
+                return int(value, 0)
+            else:
+                return int(value)
+        else:
+            return value
+
+
+    def get_target(self):
+
+        if self.parent is not None:
+            return self.parent.get_target()
+
+        return None

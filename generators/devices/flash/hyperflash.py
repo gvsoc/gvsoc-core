@@ -33,6 +33,8 @@ class Hyperflash(Flash):
         super(Hyperflash, self).__init__(parent, name)
 
         # Register all parameters as properties so that they can be overwritten from the command-line
+        self.add_property('content/image', self.get_image_path())
+
         self.add_property('content/partitions/readfs/files', [])
         self.add_property('content/partitions/readfs/type', 'readfs')
         self.add_property('content/partitions/readfs/enabled', False)
@@ -44,7 +46,7 @@ class Hyperflash(Flash):
         self.add_property('content/partitions/lfs/type', 'lfs')
         self.add_property('content/partitions/lfs/enabled', False)
 
-        self.add_property('vp_component', "devices.hyperbus.hyperflash_impl")
+        self.set_component('devices.hyperbus.hyperflash_impl')
 
         self.add_property('writeback', True)
         self.add_property('size', size)

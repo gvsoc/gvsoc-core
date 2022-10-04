@@ -21,8 +21,9 @@ class Clock_domain(st.Component):
     def __init__(self, parent, name, frequency, factor=1):
         super(Clock_domain, self).__init__(parent, name)
 
+        self.set_component('vp.clock_domain_impl')
+
         self.add_properties({
-            'vp_component': "vp.clock_domain_impl",
             'frequency': frequency,
             'factor': factor
         })

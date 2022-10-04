@@ -31,8 +31,9 @@ class Cache(st.Component):
 
         super(Cache, self).__init__(parent, name)
 
+        self.set_component('cache.cache_impl')
+
         self.add_properties({
-            'vp_component': 'cache.cache_impl',
             'nb_sets_bits': nb_sets_bits,
             'nb_ways_bits': nb_ways_bits,
             'line_size_bits': line_size_bits,

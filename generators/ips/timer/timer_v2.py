@@ -22,6 +22,4 @@ class Timer(st.Component):
 
         super(Timer, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'pulp.timer.timer_v2_impl'
-        })
+        self.set_component('pulp.timer.timer_v2_impl')

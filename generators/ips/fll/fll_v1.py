@@ -22,8 +22,9 @@ class Fll(st.Component):
 
         super(Fll, self).__init__(parent, name)
 
+        self.set_component('pulp.fll.fll_v1_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.fll.fll_v1_impl',
             'regmap': {
                 'status': {
                     'reset': "0x00000000"

@@ -42,8 +42,9 @@ class Interleaver(st.Component):
 
         super(Interleaver, self).__init__(parent, name)
 
+        self.set_component('interco.interleaver_impl')
+
         self.add_properties({
-            'vp_component': 'interco.interleaver_impl',
             'nb_slaves': nb_slaves,
             'interleaving_bits': interleaving_bits,
             'stage_bits': stage_bits,

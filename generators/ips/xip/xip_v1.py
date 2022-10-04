@@ -22,7 +22,8 @@ class Xip(st.Component):
 
         super(Xip, self).__init__(parent, name)
 
+        self.set_component('pulp.xip.xip')
+
         self.add_properties({
-            'vp_component': 'pulp.xip.xip',
             'nb_refill_itfs': nb_refill_itfs,
         })

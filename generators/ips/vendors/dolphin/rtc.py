@@ -22,8 +22,9 @@ class Rtc(st.Component):
 
         super(Rtc, self).__init__(parent, name)
 
+        self.set_component('vendor.dolphin.rtc_impl')
+
         self.add_properties({
-            'vp_component': 'vendor/dolphin/rtc_impl',
             'apb_irq_soc_event': apb_irq_soc_event,
             'irq_soc_event': irq_soc_event,
             'calendar_time': calendar_time,

@@ -24,8 +24,9 @@ class Mchan(st.Component):
 
         self.vcd_group(self, skip=True)
 
+        self.set_component('pulp.mchan.mchan_v7_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.mchan.mchan_v7_impl',
             'nb_channels': nb_channels,
             'core_queue_depth': core_queue_depth,
             'global_queue_depth': global_queue_depth,

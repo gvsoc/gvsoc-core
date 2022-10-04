@@ -21,3 +21,6 @@ class Flash(st.Component):
         super(Flash, self).__init__(parent, name)
 
         self.declare_flash()
+
+    def get_image_path(self):
+        return self.get_path().replace('/', '.') + '.bin'

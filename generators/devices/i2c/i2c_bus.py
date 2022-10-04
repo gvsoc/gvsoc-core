@@ -22,6 +22,4 @@ class I2c_bus(st.Component):
 
         super(I2c_bus, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'devices.i2c.i2c_bus'
-        })
+        self.set_component('devices.i2c.i2c_bus')

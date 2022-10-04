@@ -22,7 +22,8 @@ class Bus_watchpoint(st.Component):
 
         super(Bus_watchpoint, self).__init__(parent, name)
 
+        self.set_component('interco.bus_watchpoint')
+
         self.add_properties({
-            'vp_component': 'interco.bus_watchpoint',
             "riscv_fesvr_tohost_addr": riscv_fesvr_tohost_addr
         })

@@ -22,8 +22,9 @@ class Pulp_tap(st.Component):
 
         super(Pulp_tap, self).__init__(parent, name)
 
+        self.set_component('pulp.adv_dbg_unit.adv_dbg_unit_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.adv_dbg_unit.adv_dbg_unit_impl',
             'confreg_instr': confreg_instr,
             'confreg_length': confreg_length,
             'idcode': idcode,

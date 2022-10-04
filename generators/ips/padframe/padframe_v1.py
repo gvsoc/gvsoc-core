@@ -24,9 +24,7 @@ class Padframe(st.Component):
 
         self.add_properties(self.load_property_file(config_file))
 
-        self.add_properties({
-            'vp_component': 'pulp.padframe.padframe_v1_impl'
-        })
+        self.set_component('pulp.padframe.padframe_v1_impl')
 
         if config_file is not None:
             self.add_properties(self.load_property_file(config_file))

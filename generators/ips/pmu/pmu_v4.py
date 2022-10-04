@@ -22,9 +22,7 @@ class Pmu(st.Component):
 
         super(Pmu, self).__init__(parent, name)
 
-        self.add_properties({
-            'vp_component': 'pulp.pmu.pmu_v4_impl',
-        })
+        self.set_component('pulp.pmu.pmu_v4_impl')
 
         if config_file is not None:
             self.add_properties(self.load_property_file(config_file))

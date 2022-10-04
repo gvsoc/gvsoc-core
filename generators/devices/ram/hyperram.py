@@ -34,4 +34,4 @@ class Hyperram(st.Component):
         # Register all parameters as properties so that they can be overwritten from the command-line
         self.add_property('size', size)
 
-        self.add_property('vp_component', "devices.hyperbus.hyperram_impl")
+        self.set_component('devices.hyperbus.hyperram_impl')

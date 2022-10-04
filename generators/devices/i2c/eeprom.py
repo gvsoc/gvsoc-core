@@ -35,7 +35,7 @@ class Eeprom(st.Component):
         def __init__(self, parent, name, address):
             super(Eeprom.Eeprom_implem, self).__init__(parent, name)
 
-            self.add_property('vp_component', 'devices.i2c.eeprom.i2c_eeprom')
+            self.set_component('devices.i2c.eeprom.i2c_eeprom')
 
             self.add_property('address', address)
             self.add_property('page_size', 16)

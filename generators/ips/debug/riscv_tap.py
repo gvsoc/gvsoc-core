@@ -22,8 +22,9 @@ class Riscv_tap(st.Component):
 
         super(Riscv_tap, self).__init__(parent, name)
 
+        self.set_component('pulp.adv_dbg_unit.riscv_dtm_impl')
+
         self.add_properties({
-            'vp_component': 'pulp.adv_dbg_unit.riscv_dtm_impl',
             'nb_harts': nb_harts,
             'idcode': idcode,
             'harts': harts

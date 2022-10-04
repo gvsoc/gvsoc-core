@@ -21,8 +21,9 @@ class Converter(st.Component):
     def __init__(self, parent, name, output_width=4, output_align=4):
         super(Converter, self).__init__(parent, name)
 
+        self.set_component('interco.converter_impl')
+
         self.add_properties({
-            'vp_component': 'interco.converter_impl',
             'output_width': output_width,
             'output_align': output_align,
         })

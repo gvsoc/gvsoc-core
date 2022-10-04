@@ -23,11 +23,13 @@ class Mram(Flash):
 
         super(Mram, self).__init__(parent, name)
 
+        self.set_component('pulp.mram.mram_v1_impl')
         self.add_properties({
-            'vp_component': 'pulp.mram.mram_v1_impl',
             'size': size
         })
 
+        self.add_property('content/image', self.get_image_path())
+        
         self.add_property('content/partitions/readfs/files', [])
         self.add_property('content/partitions/readfs/type', 'readfs')
         self.add_property('content/partitions/readfs/enabled', False)

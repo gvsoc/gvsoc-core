@@ -31,12 +31,13 @@ class Memory(st.Component):
     
     """
 
-    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False, align: int=0):
+    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False, align:int=0):
 
         super(Memory, self).__init__(parent, name)
 
+        self.set_component('memory.memory_impl')
+
         self.add_properties({
-            'vp_component': 'memory.memory_impl',
             'size': size,
             'stim_file': stim_file,
             'power_trigger': power_trigger,

@@ -20,5 +20,5 @@ class Ak4332(st.Component):
     def __init__(self, parent, name):
         super(Ak4332, self).__init__(parent, name)
 
-        self.add_property('vp_component', 'devices.sound.dac.ak4332')
+        self.set_component('devices.sound.dac.ak4332')
 

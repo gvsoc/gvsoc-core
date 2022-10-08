@@ -41,6 +41,8 @@ class Spiflash(Flash):
         self.add_property('writeback', True)
         self.add_property('size', size)
 
+        self.add_property('preload_file', self.get_image_path())
+
         # TODO this is needed by GAPY but is not aligned with the size given to model
         # That should be resolved once the flash images are built by the system tree instead of gapy
         self.add_property('datasheet/type', 'spi')

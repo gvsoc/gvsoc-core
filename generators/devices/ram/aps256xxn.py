@@ -1,5 +1,4 @@
-# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
-#                    University of Bologna
+# Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and University of Bologna
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

@@ -1011,7 +1011,15 @@ void Testbench::handle_gpio_loopback()
     if (req->gpio.enabled)
     {
         this->gpios[req->gpio.output]->loopback = req->gpio.input;
-        this->gpios[req->gpio.input]->itf.sync(this->gpios[req->gpio.output]->value);
+
+        if (!this->gpios[req->gpio.input]->itf.is_bound())
+        {
+            this->trace.force_warning("Trying to set GPIO while interface is not connected\n");
+        }
+        else
+        {
+            this->gpios[req->gpio.input]->itf.sync(this->gpios[req->gpio.output]->value);
+        }
     }
     else
     {

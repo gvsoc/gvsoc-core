@@ -35,11 +35,11 @@ class Testbench(st.Component):
 
     """
 
-    def __init__(self, parent, name, uart=[], i2s=[]):
+    def __init__(self, parent, name, uart=[], i2s=[], nb_gpio=0):
         super(Testbench, self).__init__(parent, name)
 
         # Testbench implementation as this component is just a wrapper
-        testbench = Testbench.Testbench_implem(self, 'testbench')
+        testbench = Testbench.Testbench_implem(self, 'testbench', nb_gpio=nb_gpio)
 
         # The testbench needs its owm cloc domain to enqueue clock events
         clock = Clock_domain(self, 'clock', frequency=50000000)
@@ -65,10 +65,14 @@ class Testbench(st.Component):
         for i in i2s:
             self.bind(testbench, 'i2s%d' % i, self, 'i2s%d' % i)
 
+        # GPIO
+        for i in range(0, nb_gpio):
+            self.bind(self, f'gpio{i}', testbench, f'gpio{i}')
+
 
     class Testbench_implem(st.Component):
 
-        def __init__(self, parent, name, uart_id=0, uart_baudrate=115200):
+        def __init__(self, parent, name, uart_id=0, uart_baudrate=115200, nb_gpio=0):
             super(Testbench.Testbench_implem, self).__init__(parent, name)
 
             # Register all parameters as properties so that they can be overwritten from the command-line
@@ -80,7 +84,7 @@ class Testbench(st.Component):
             self.add_properties({
                 "verbose": False,
                 "ctrl_type": "uart",
-                "nb_gpio": 90,
+                "nb_gpio": nb_gpio,
                 "nb_spi": 5,
                 "nb_uart": 5,
                 "nb_i2c": 3,

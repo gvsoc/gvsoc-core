@@ -65,7 +65,7 @@ vp::io_req_status_e Router_proxy::req(void *__this, vp::io_req *req)
     io_req->addr = req->get_addr();
     io_req->size = req->get_size();
     io_req->data = req->get_data();
-    io_req->is_write = req->get_is_write();
+    io_req->type = req->get_is_write() ? gv::Io_request_write : gv::Io_request_read;
     io_req->handle = (void *)req;
     _this->user->access(io_req);
     return vp::IO_REQ_PENDING;
@@ -129,7 +129,7 @@ void Router_proxy::access(gv::Io_request *io_req)
     req->init();
     req->set_addr(io_req->addr);
     req->set_size(io_req->size);
-    req->set_is_write(io_req->is_write);
+    req->set_is_write(io_req->type == gv::Io_request_write);
     req->set_data(io_req->data);
     req->arg_push(io_req);
 

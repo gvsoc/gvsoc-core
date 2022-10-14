@@ -22,7 +22,7 @@ class Gpio(st.Component):
 
         super(Gpio, self).__init__(parent, name)
 
-        self.set_component('pulp.gpio.gpio_v3')
+        self.set_component('pulp.gpio.gpio_v3_impl')
 
         self.add_properties({
             'nb_gpio': nb_gpio,

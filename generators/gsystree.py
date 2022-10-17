@@ -202,6 +202,7 @@ class Component(object):
                 comp_options.append(option)
 
         if len(comp_options) != 0:
+
             component.__set_options(comp_options)
 
         return component
@@ -589,7 +590,7 @@ class Component(object):
 
         else:
             if options is not None:
-                return self.__convert(src, options)
+                return self.__convert(options, src)
             else:
                 return src
 

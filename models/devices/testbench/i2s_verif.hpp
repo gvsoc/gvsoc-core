@@ -37,7 +37,7 @@ public:
     void slot_setup(pi_testbench_i2s_verif_slot_config_t *config);
     void slot_start(pi_testbench_i2s_verif_slot_start_config_t *config, std::vector<int> slots);
     void slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config);
-    void sync(int sck, int ws, int sd);
+    void sync(int sck, int ws, int sd, bool full_duplex);
     void sync_sck(int sck);
     void sync_ws(int ws);
     int64_t exec();

@@ -365,7 +365,7 @@ public:
     void i2s_verif_slot_setup(pi_testbench_i2s_verif_slot_config_t *config);
     void i2s_verif_slot_start(pi_testbench_i2s_verif_slot_start_config_t *config, std::vector<int> slots);
     void i2s_verif_slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config);
-    static void sync(void *__this, int sck, int ws, int sd);
+    static void sync(void *__this, int sck, int ws, int sd, bool full_duplex);
     void sync_sck(int sck);
     void sync_ws(int ws);
 

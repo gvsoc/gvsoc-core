@@ -1723,7 +1723,7 @@ void I2s::i2s_verif_slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
 }
 
 
-void I2s::sync(void *__this, int sck, int ws, int sd)
+void I2s::sync(void *__this, int sck, int ws, int sd, bool full_duplex)
 {
     I2s *_this = (I2s *)__this;
 
@@ -1751,7 +1751,7 @@ void I2s::sync(void *__this, int sck, int ws, int sd)
 
     if (_this->i2s_verif)
     {
-        _this->i2s_verif->sync(sck, ws, sd);
+        _this->i2s_verif->sync(sck, ws, sd, full_duplex);
     }
 }
 

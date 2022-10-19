@@ -186,7 +186,7 @@ I2s_verif::~I2s_verif()
 {
     this->trace.msg(vp::trace::LEVEL_INFO, "Closing I2S verif\n");
     this->engine->dequeue(this);
-    this->itf->sync(2, 2, (2 << 2) | 2);
+    this->itf->sync(2, 2, (2 << 2) | 2, this->is_full_duplex);
 }
 
 
@@ -288,7 +288,7 @@ I2s_verif::I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, pi_testben
 
     this->prev_frame_start_time = -1;
 
-    this->itf->sync(this->clk, this->ws_value, this->data);
+    this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
 }
 
 
@@ -361,24 +361,24 @@ void I2s_verif::slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
 void I2s_verif::sync_sck(int sck)
 {
     this->propagated_clk = sck;
-    this->sync(sck, this->ws, this->sdio);
+    this->sync(sck, this->ws, this->sdio, this->is_full_duplex);
 }
 
 void I2s_verif::sync_ws(int ws)
 {
     this->propagated_ws = ws;
-    this->sync(this->prev_sck, ws, this->sdio);
+    this->sync(this->prev_sck, ws, this->sdio, this->is_full_duplex);
 }
 
 
 void I2s_verif::set_pdm_data(int slot, int data)
 {
     this->data = (this->data & ~(0x3 << (slot * 2))) | (data << (slot * 2));
-    this->itf->sync(this->clk, 2, this->data);
+    this->itf->sync(this->clk, 2, this->data, this->is_full_duplex);
 }
 
 
-void I2s_verif::sync(int sck, int ws, int sdio)
+void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
 {
     bool got_data = false;
 
@@ -415,7 +415,7 @@ void I2s_verif::sync(int sck, int ws, int sdio)
         this->pending_bits = this->config.word_size;
         this->slots[0]->start_frame();
         this->data = this->slots[0]->get_data() | (2 << 2);
-        this->itf->sync(this->clk, this->ws_value, this->data);
+        this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
     }
 
     if (sck != this->prev_sck)
@@ -521,7 +521,7 @@ void I2s_verif::sync(int sck, int ws, int sdio)
 
                         this->trace.msg(vp::trace::LEVEL_TRACE, "I2S output data (sdi: 0x%x)\n", this->data & 3);
     
-                        this->itf->sync(this->clk, this->ws_value, this->data);
+                        this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
                     }
                 }
             }
@@ -545,7 +545,7 @@ void I2s_verif::sync(int sck, int ws, int sdio)
                             this->data = this->slots[0]->get_data() | (2 << 2);
                         }
                     }
-                    this->itf->sync(this->clk, this->ws_value, this->data);
+                    this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
                     this->ws_count--;
                 }
             }
@@ -965,7 +965,7 @@ void Slot::start(pi_testbench_i2s_verif_slot_start_config_t *config, Slot *reuse
 
         this->i2s->data = this->id < 2 ? this->i2s->data & 0xC : this->i2s->data & 0x3;
     
-        this->i2s->itf->sync(2, 2, this->i2s->data);
+        this->i2s->itf->sync(2, 2, this->i2s->data, this->i2s->is_full_duplex);
     }
 }
 
@@ -1265,7 +1265,7 @@ int64_t I2s_verif::exec()
     {
         this->clk ^= 1;
 
-        this->itf->sync(this->clk, this->ws_value, this->data);
+        this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
     
         return this->clk_period;
     }

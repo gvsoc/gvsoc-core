@@ -82,7 +82,7 @@ class Gtkwave_trace(object):
 
 class Gtkwave_vector(object):
 
-    def __init__(self, tree, comp, name, traces=[], map_file=None, vector_map_file=None):
+    def __init__(self, tree, comp, name, traces=[], map_file=None, vector_map_file=None,):
         self.comp = comp
         self.tree = tree
         self.name = name
@@ -94,16 +94,24 @@ class Gtkwave_vector(object):
         vector_traces = []
 
         for trace in self.traces:
+            width = 8
+            if len(trace) == 4:
+                width = trace[3]
             if len(trace) == 2:
                 trace.append('')
-            for i in range(0, 8):
+            if width == 1:
                 vcd_signal = self.tree.get_full_vcd_name(self.comp, trace[1] + trace[2])
-                vector_traces.append('(%d)%s' % (i,vcd_signal))
+                vector_traces.append('%s' % vcd_signal)
+            else:
+                for i in range(0, width):
+                    vcd_signal = self.tree.get_full_vcd_name(self.comp, trace[1] + trace[2])
+                    vector_traces.append('(%d)%s' % (i,vcd_signal))
 
         with self.tree.gtkw.vector(self.name, traces=vector_traces, extraflags=['popcnt', 'closed'], color='green', datafmt='dec', translate_filter_file=self.vector_map_file):
 
             for trace in self.traces:
-                self.tree.gtkw.trace(self.tree.get_full_vcd_name(self.comp, trace[1] + trace[2]), trace[0], translate_filter_file=self.map_file.get_path())
+                translate_filter_file = self.map_file.get_path() if self.map_file is not None else None
+                self.tree.gtkw.trace(self.tree.get_full_vcd_name(self.comp, trace[1] + trace[2]), trace[0], translate_filter_file=translate_filter_file)
 
 
     def has_trace(self):
@@ -172,6 +180,15 @@ class Gtkwave_tree(object):
                 file.write('%2x ?CadetBlue?ACTIVE\n' % i)
 
         vector = Gtkwave_vector(self, comp, name, traces, map_file, vector_filer)
+        self.current_groups[-1].add_child(vector)
+
+        if tag is not None and tag in self.tags:
+            for trace in traces:
+                full_vcd_signal = self.get_full_vcd_name(comp, trace[1])
+                self.activate_traces.append('/' + full_vcd_signal.replace('.', '/'))
+
+    def add_raw_vector(self, comp, name, traces=[], tag=None):
+        vector = Gtkwave_vector(self, comp, name, traces)
         self.current_groups[-1].add_child(vector)
 
         if tag is not None and tag in self.tags:

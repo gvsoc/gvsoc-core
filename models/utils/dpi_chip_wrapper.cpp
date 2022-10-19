@@ -208,7 +208,7 @@ private:
     static void i2c_rx_edge(void *__this, int scl, int sda, int id);
     static void i2c_sync(void *__this, int scl, int sda, int id);
     static void hyper_sync_cycle(void *__this, int data, int id);
-    static void i2s_slave_edge(void *__this, int sck, int ws, int sd, int id);
+    static void i2s_slave_edge(void *__this, int sck, int ws, int sd, bool full_duplex, int id);
     static void cpi_edge(void *__this, int pclk, int href, int vsync, int data, int id);
     static void gpio_rx_edge(void *__this, int data, int id);
     static void gpio_sync(void *__this, int data, int id);
@@ -420,7 +420,7 @@ void dpi_chip_wrapper::gpio_rx_edge(void *__this, int data, int id)
 }
 
 
-void dpi_chip_wrapper::i2s_slave_edge(void *__this, int sck, int ws, int sd, int id)
+void dpi_chip_wrapper::i2s_slave_edge(void *__this, int sck, int ws, int sd, bool full_duplex, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     I2s_group *group = static_cast<I2s_group *>(_this->groups[id]);
@@ -660,7 +660,7 @@ void I2s_group::edge(Dpi_chip_wrapper_callback *callback, int64_t timestamp, int
     if (this->slave.is_bound())
     {
         this->trace.msg(vp::trace::LEVEL_TRACE, "I2S clock  SYNC(name: %s, value: %d)\n", callback->name.c_str(), data);
-        this->slave.sync(this->sck, this->ws, ((this->sdo & 3) << 2) | (this->sdi & 3));
+        this->slave.sync(this->sck, this->ws, ((this->sdo & 3) << 2) | (this->sdi & 3), true);
     }
 }
 

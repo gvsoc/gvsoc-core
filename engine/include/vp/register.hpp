@@ -70,7 +70,7 @@ namespace vp
         inline uint32_t get_32() { return *(uint32_t *)this->value_bytes; }
         inline uint64_t get_64() { return *(uint64_t *)this->value_bytes; }
         uint64_t get_field(int offset, int width);
-        void register_callback(std::function<void(uint64_t, int, uint8_t *, bool)> callback) { this->callback = callback; }
+        void register_callback(std::function<void(uint64_t, int, uint8_t *, bool)> callback, bool exec_on_reset=false) { this->callback = callback; this->exec_callback_on_reset = exec_on_reset; }
         bool access_callback(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
         void register_alias(std::function<reg *()> alias) { this->alias = alias; }
 
@@ -89,6 +89,7 @@ namespace vp
         int width;
         std::function<void(uint64_t, int, uint8_t *, bool)> callback = NULL;
         std::function<reg *()> alias = NULL;
+        bool exec_callback_on_reset;
     };
 
     class reg_1 : public reg

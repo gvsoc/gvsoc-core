@@ -23,6 +23,58 @@ import json
 import sys
 
 
+class Port():
+
+    def __init__(self, comp, name):
+        self.name = name
+        self.comp = comp
+        self.remote_slave_ports = []
+        self.remote_master_ports = []
+        self.properties = {}
+
+    def get_name(self):
+        return self.name
+
+    def get_properties(self, as_master=True, as_slave=True):
+
+        properties = self.properties.copy()
+
+        if len(self.properties) != 0:
+            properties.update(self.properties)
+
+        if as_slave:
+            for port in self.remote_master_ports:
+                properties.update(port.get_properties(as_master=False, as_slave=True))
+
+        if as_master:
+            for port in self.remote_slave_ports:
+                properties.update(port.get_properties(as_master=True, as_slave=False))
+
+        return properties
+
+    def bind(self, remote_port, master_properties, slave_properties):
+
+        self.remote_slave_ports.append(remote_port)
+        if master_properties is not None:
+            self.properties.update(master_properties)
+
+        remote_port.remote_master_ports.append(self)
+        if slave_properties is not None:
+            remote_port.properties.update(slave_properties)
+
+
+class Interface:
+
+    def __init__(self, comp, name, properties):
+        self.comp = comp
+        self.name = name
+        self.remote_itf = None
+        self.properties = properties
+
+    def bind(self, remote_itf):
+        self.remote_itf = remote_itf
+        self.comp.parent.interfaces.append(self)
+
 
 class Component(object):
     """
@@ -46,15 +98,16 @@ class Component(object):
         self.components = {}
         self.properties = {}
         self.bindings = []
-        self.master_ports = []
-        self.slave_ports = []
+        self.ports = {}
         self.build_done = False
+        self.finalize_done = False
         self.options = []
         self.comp_options = {}
         self.is_top = is_top
         self.vcd_group_create = True
         self.vcd_group_closed = True
         self.component = None
+        self.interfaces = []
 
         if len(options) > 0:
             options_list = []
@@ -310,7 +363,7 @@ class Component(object):
         return property
 
 
-    def bind(self, master, master_itf, slave, slave_itf):
+    def bind(self, master, master_itf, slave, slave_itf, master_properties=None, slave_properties=None):
         """Binds 2 components together.
 
         The binding can actually also involve 1 or 2 ports of the component to model bindings with something
@@ -327,7 +380,7 @@ class Component(object):
         slave_itf : str
             Name of the port where the binding should be done on slave side.
         """
-        self.bindings.append([master, master_itf, slave, slave_itf])
+        self.bindings.append([master, master_itf, slave, slave_itf, master_properties, slave_properties])
 
 
     def load_property_file(self, path):
@@ -377,6 +430,9 @@ class Component(object):
         if not self.build_done:
             self.__build()
 
+        if not self.finalize_done:
+            self.__finalize()
+
         config = {}
 
         for json_config_file in self.json_config_files:
@@ -401,8 +457,8 @@ class Component(object):
         if len(self.components.values()) != 0:
             config = self.__merge_properties(config, { 'components' : list(self.components.keys()) })
 
-        if len(self.master_ports) != 0 or len(self.slave_ports) != 0:
-            config = self.__merge_properties(config, { 'ports' : self.master_ports + self.slave_ports })
+        if len(self.ports) != 0:
+            config = self.__merge_properties(config, { 'ports' : list(self.ports.keys()) })
 
         return config
 
@@ -528,25 +584,45 @@ class Component(object):
 
         self.options = options
 
-    def __add_master_port(self, name):
-        self.master_ports.append(name)
+    def __add_port(self, name):
+        port = self.ports.get(name)
+        if  port is None:
+            port = Port(self, name)
+            self.ports[name] = port
+        return port
 
+    def get_itf(self, name, properties=None):
+        return Interface(self, name, properties)
 
-    def __add_slave_port(self, name):
-        self.slave_ports.append(name)
-
+    def get_ports(self):
+        return list(self.ports.values())
 
     def __build(self):
+        for interface in self.interfaces:
+            self.bindings.append([interface.comp, interface.name, interface.remote_itf.comp,
+                interface.remote_itf.name, interface.properties, interface.remote_itf.properties])
+
         for component in self.components.values():
             component.__build()
 
         if len(self.bindings) != 0:
             for binding in self.bindings:
-                binding[0].__add_master_port(binding[1])
-                binding[2].__add_slave_port(binding[3])
+                master_port = binding[0].__add_port(binding[1])
+                slave_port = binding[2].__add_port(binding[3])
+                master_port.bind(slave_port, master_properties=binding[4], slave_properties=binding[5])
 
         self.build_done = True
-        
+
+    def finalize(self):
+        pass
+
+    def __finalize(self):
+        for component in self.components.values():
+            component.__finalize()
+
+        self.finalize()
+
+        self.finalize_done = True
 
     def __merge_properties(self, dst, src, options=None, is_root=True):
 

@@ -93,7 +93,7 @@ private:
      * 
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
-    void cs_sync(bool value);
+    void cs_sync(int cs, int value);
 
     /**
      * @brief Stub for cs_sync method
@@ -106,7 +106,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
-    static void cs_sync_stub(void *__this, bool value);
+    static void cs_sync_stub(void *__this, int cs, int value);
 
     /**
      * @brief Handle an access to the ram array
@@ -151,8 +151,6 @@ private:
     vp::trace trace;
     // Input octospi interface.
     vp::hyper_slave in_itf;
-    // Inut chip select interface.
-    vp::wire_slave<bool> cs_itf;
     // Size of the ram, retrieved from JSON component configuration.
     int size;
     // RAM array
@@ -238,7 +236,7 @@ void Aps::parse_command()
     }
     else
     {
-        this->trace.fatal("Received unknown RAM command (cmd: 0x%x)\n", this->current_command);
+        this->trace.force_warning("Received unknown RAM command (cmd: 0x%x)\n", this->current_command);
     }
 
     // Since the latency is a number of raising edges, we need to double it in DDR mode
@@ -421,7 +419,7 @@ void Aps::sync_cycle_stub(void *__this, int data)
 
 
 
-void Aps::cs_sync(bool value)
+void Aps::cs_sync(int cs, int value)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
 
@@ -431,11 +429,11 @@ void Aps::cs_sync(bool value)
 
 
 
-void Aps::cs_sync_stub(void *__this, bool value)
+void Aps::cs_sync_stub(void *__this, int cs, int value)
 {
     // Stub for real method, just forward the call
     Aps *_this = (Aps *)__this;
-    _this->cs_sync(value);
+    _this->cs_sync(cs, value);
 }
 
 
@@ -463,12 +461,9 @@ int Aps::build()
     traces.new_trace("trace", &trace, vp::DEBUG);
 
     // Input interface for exchanging octospi data
+    in_itf.set_cs_sync_meth(&Aps::cs_sync_stub);
     in_itf.set_sync_cycle_meth(&Aps::sync_cycle_stub);
     new_slave_port("input", &in_itf);
-
-    // Input interface for chip select update
-    cs_itf.set_sync_meth(&Aps::cs_sync_stub);
-    new_slave_port("cs", &cs_itf);
 
     js::config *conf = this->get_js_config();
 

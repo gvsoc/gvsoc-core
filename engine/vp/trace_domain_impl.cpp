@@ -25,6 +25,7 @@
 #include <regex.h>
 #include <vector>
 #include <thread>
+#include <set>
 #include <string.h>
 
 class trace_regex
@@ -91,6 +92,7 @@ private:
     vp::trace_level_e trace_level = vp::TRACE;
     std::vector<vp::trace *> init_traces;
     std::unordered_map<std::string, FILE *> trace_files;
+    std::unordered_map<std::string, std::string> active_events;
 
     vp::component *time_engine;
     FILE *trace_file;
@@ -177,20 +179,36 @@ void trace_domain::check_trace_active(vp::trace *trace, int event)
 
     if (event)
     {
-        for (auto &x : events_path_regex)
+        std::string file_path = this->active_events[full_path];
+        if (file_path != "")
         {
-            if ((x.second->is_path && x.second->path == full_path) || regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
+            vp::Event_trace *event_trace;
+            if (trace->is_real)
+                event_trace = event_dumper.get_trace_real(full_path, file_path);
+            else if (trace->is_string)
+                event_trace = event_dumper.get_trace_string(full_path, file_path);
+            else
+                event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
+            trace->set_event_active(true);
+            trace->event_trace = event_trace;
+        }
+        else
+        {
+            for (auto &x : events_path_regex)
             {
-                std::string file_path = x.second->file_path;                
-                vp::Event_trace *event_trace;
-                if (trace->is_real)
-                    event_trace = event_dumper.get_trace_real(full_path, file_path);
-                else if (trace->is_string)
-                    event_trace = event_dumper.get_trace_string(full_path, file_path);
-                else
-                    event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
-                trace->set_event_active(true);
-                trace->event_trace = event_trace;
+                if ((x.second->is_path && x.second->path == full_path) || regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
+                {
+                    std::string file_path = x.second->file_path;                
+                    vp::Event_trace *event_trace;
+                    if (trace->is_real)
+                        event_trace = event_dumper.get_trace_real(full_path, file_path);
+                    else if (trace->is_string)
+                        event_trace = event_dumper.get_trace_string(full_path, file_path);
+                    else
+                        event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
+                    trace->set_event_active(true);
+                    trace->event_trace = event_trace;
+                }
             }
         }
 
@@ -306,12 +324,32 @@ void trace_domain::pre_pre_build()
     }
     for (auto x : this->get_vp_config()->get("events/include_raw")->get_elems())
     {
-        std::string trace_path = x->get_str();
-        this->add_path(1, trace_path.c_str(), true);
+        std::string file_path, trace_path;
+    
+        std::string path = x->get_str();
+        int pos = path.find('@');
+        if (pos != std::string::npos)
+        {
+            file_path = path.substr(pos + 1);
+            trace_path = path.substr(0, pos);
+        }
+        else
+        {
+            file_path = "all.vcd";
+            trace_path = path;
+        }
+
+        this->active_events[x->get_str()] = std::string(file_path);
     }
 
     this->werror = this->get_vp_config()->get_child_bool("werror");
     this->set_trace_level(this->get_vp_config()->get_child_str("traces/level").c_str());
+
+    this->active_warnings.resize(vp::trace::WARNING_TYPE_UNCONNECTED_DEVICE + 1);
+    this->active_warnings[vp::trace::WARNING_TYPE_UNCONNECTED_DEVICE] = this->get_vp_config()->get_child_bool("wunconnected-device");
+
+    this->active_warnings.resize(vp::trace::WARNING_TYPE_UNCONNECTED_PADFUN + 1);
+    this->active_warnings[vp::trace::WARNING_TYPE_UNCONNECTED_PADFUN] = this->get_vp_config()->get_child_bool("wunconnected-padfun");
 }
 
 int trace_domain::build()

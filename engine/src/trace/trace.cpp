@@ -153,6 +153,23 @@ void vp::trace::force_warning(const char *fmt, ...)
 }
 
 
+void vp::trace::force_warning(vp::trace::warning_type_e type, const char *fmt, ...)
+{
+    if (comp->traces.get_trace_manager()->is_warning_active(type))
+    {
+        dump_warning_header();
+        va_list ap;
+        va_start(ap, fmt);
+        if (vfprintf(this->trace_file, fmt, ap) < 0) {}
+        va_end(ap);
+
+        if (comp->traces.get_trace_manager()->get_werror())
+        {
+            abort();
+        }
+    }
+}
+
 
 void vp::trace::dump_warning_header()
 {

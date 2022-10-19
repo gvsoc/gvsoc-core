@@ -80,10 +80,12 @@ namespace vp {
     virtual void check_traces() {}
 
     inline bool get_werror() { return this->werror; }
+    inline bool is_warning_active(vp::trace::warning_type_e type) { return this->active_warnings[type]; }
 
   protected:
     std::map<std::string, trace *> traces_map;
     std::vector<trace *> traces_array;
+    std::vector<bool> active_warnings;
     int trace_format;
     bool werror;
 

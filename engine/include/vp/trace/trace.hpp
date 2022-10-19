@@ -46,11 +46,18 @@ namespace vp {
     static const int LEVEL_DEBUG   = 3;
     static const int LEVEL_TRACE   = 4;
 
+    typedef enum
+    {
+      WARNING_TYPE_UNCONNECTED_DEVICE,
+      WARNING_TYPE_UNCONNECTED_PADFUN
+    } warning_type_e;
+
     inline void msg(int level, const char *fmt, ...);
     inline void msg(const char *fmt, ...);
     inline void user_msg(const char *fmt, ...);
     inline void warning(const char *fmt, ...);
     void force_warning(const char *fmt, ...);
+    void force_warning(warning_type_e type, const char *fmt, ...);
     inline void fatal(const char *fmt, ...);
 
     inline void event(uint8_t *value);

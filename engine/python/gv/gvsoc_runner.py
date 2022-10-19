@@ -33,6 +33,8 @@ def gen_config(args, config):
     gvsoc_config = full_config.get('gvsoc')
 
     gvsoc_config.set('werror', args.werror)
+    gvsoc_config.set('wunconnected-device', args.w_unconnected_device)
+    gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)
 
     for trace in args.traces:
         gvsoc_config.set('traces/include_regex', trace)
@@ -167,6 +169,11 @@ class Runner(gapylib.target.Target, st.Component):
 
         parser.add_argument("--no-werror", dest="werror",
             action="store_false", help="Do not consider warnings as errors")
+
+        parser.add_argument("--wno-unconnected-device", dest="w_unconnected_device",
+            action="store_false", help="Deactivate warnings when updating padframe with no connected device")
+        parser.add_argument("--wno-unconnected-padfun", dest="w_unconnected_padfun",
+            action="store_false", help="Deactivate warnings when updating padframe with no connected padfun")
 
     def parse_args(self, args):
         super().parse_args(args)

@@ -80,14 +80,13 @@ public:
   int setup_writeback_file(const char *path);
 
   static void sync_cycle(void *_this, int data);
-  static void cs_sync(void *__this, bool value);
+  static void cs_sync(void *__this, int cs, int value);
 
   int get_nb_word() {return nb_word;}
 
 protected:
   vp::trace     trace;
   vp::hyper_slave   in_itf;
-  vp::wire_slave<bool> cs_itf;
 
   int size;
   uint8_t *data;
@@ -456,7 +455,7 @@ void Hyperflash::sync_cycle(void *__this, int data)
   }
 }
 
-void Hyperflash::cs_sync(void *__this, bool value)
+void Hyperflash::cs_sync(void *__this, int cs, int value)
 {
   Hyperflash *_this = (Hyperflash *)__this;
   _this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
@@ -491,10 +490,9 @@ int Hyperflash::build()
   traces.new_trace("trace", &trace, vp::DEBUG);
 
   in_itf.set_sync_cycle_meth(&Hyperflash::sync_cycle);
+  in_itf.set_cs_sync_meth(&Hyperflash::cs_sync);
   new_slave_port("input", &in_itf);
 
-  cs_itf.set_sync_meth(&Hyperflash::cs_sync);
-  new_slave_port("cs", &cs_itf);
 
   js::config *conf = this->get_js_config();
 

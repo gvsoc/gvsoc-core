@@ -54,12 +54,11 @@ public:
   int build();
 
   static void sync_cycle(void *_this, int data);
-  static void cs_sync(void *__this, bool value);
+  static void cs_sync(void *__this, int cs, int value);
 
 protected:
   vp::trace     trace;
   vp::hyper_slave   in_itf;
-  vp::wire_slave<bool> cs_itf;
 
 private:
   int size;
@@ -149,7 +148,7 @@ void Hyperram::sync_cycle(void *__this, int data)
   }
 }
 
-void Hyperram::cs_sync(void *__this, bool value)
+void Hyperram::cs_sync(void *__this, int cs, int value)
 {
   Hyperram *_this = (Hyperram *)__this;
   _this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
@@ -163,10 +162,8 @@ int Hyperram::build()
   traces.new_trace("trace", &trace, vp::DEBUG);
 
   in_itf.set_sync_cycle_meth(&Hyperram::sync_cycle);
+  in_itf.set_cs_sync_meth(&Hyperram::cs_sync);
   new_slave_port("input", &in_itf);
-
-  cs_itf.set_sync_meth(&Hyperram::cs_sync);
-  new_slave_port("cs", &cs_itf);
 
   js::config *conf = this->get_js_config();
 

@@ -121,23 +121,29 @@ namespace vp {
 
   inline void vp::trace::warning(const char *fmt, ...) {
   #ifdef VP_TRACE_ACTIVE
-    dump_warning_header();
-    va_list ap;
-    va_start(ap, fmt);
-    if (vfprintf(this->trace_file, fmt, ap) < 0) {}
-    va_end(ap);
-  #endif
-  }
-
-  inline void vp::trace::warning(vp::trace::warning_type_e type, const char *fmt, ...) {
-  #ifdef VP_TRACE_ACTIVE
-    if (comp->traces.get_trace_manager()->is_warning_active(type))
+  	if (is_active && comp->traces.get_trace_manager()->get_trace_level() >= this->level)
     {
       dump_warning_header();
       va_list ap;
       va_start(ap, fmt);
       if (vfprintf(this->trace_file, fmt, ap) < 0) {}
       va_end(ap);
+    }
+  #endif
+  }
+
+  inline void vp::trace::warning(vp::trace::warning_type_e type, const char *fmt, ...) {
+  #ifdef VP_TRACE_ACTIVE
+  	if (is_active && comp->traces.get_trace_manager()->get_trace_level() >= vp::trace::LEVEL_WARNING)
+    {
+      if (comp->traces.get_trace_manager()->is_warning_active(type))
+      {
+        dump_warning_header();
+        va_list ap;
+        va_start(ap, fmt);
+        if (vfprintf(this->trace_file, fmt, ap) < 0) {}
+        va_end(ap);
+      }
     }
   #endif
   }

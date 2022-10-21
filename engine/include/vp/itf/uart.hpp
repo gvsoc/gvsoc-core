@@ -35,8 +35,8 @@ namespace vp {
   typedef void (uart_sync_meth_t)(void *, int data);
   typedef void (uart_sync_meth_muxed_t)(void *, int data, int id);
 
-  typedef void (uart_sync_full_meth_t)(void *, int data, int sck, int rtr);
-  typedef void (uart_sync_full_meth_muxed_t)(void *, int data, int sck, int rtr, int id);
+  typedef void (uart_sync_full_meth_t)(void *, int data, int sck, int rtr, unsigned int mask);
+  typedef void (uart_sync_full_meth_muxed_t)(void *, int data, int sck, int rtr, unsigned int mask, int id);
 
 
 
@@ -53,10 +53,10 @@ namespace vp {
       return sync_meth(this->get_remote_context(), data);
     }
 
-    inline void sync_full(int data, int sck, int rtr)
+    inline void sync_full(int data, int sck, int rtr, unsigned int mask)
     {
       if (sync_full_meth)
-        return sync_full_meth(this->get_remote_context(), data, sck, rtr);
+        return sync_full_meth(this->get_remote_context(), data, sck, rtr, mask);
 
       return this->sync(data);
     }
@@ -74,19 +74,19 @@ namespace vp {
   private:
 
     static inline void sync_muxed_stub(uart_master *_this, int data);
-    static inline void sync_full_muxed_stub(uart_master *_this, int data, int sck, int rtr);
+    static inline void sync_full_muxed_stub(uart_master *_this, int data, int sck, int rtr, unsigned int mask);
 
     void (*slave_sync)(void *comp, int data);
     void (*slave_sync_mux)(void *comp, int data, int mux);
 
-    void (*slave_sync_full)(void *comp, int data, int sck, int rtr);
-    void (*slave_sync_full_mux)(void *comp, int data, int sck, int rtr, int mux);
+    void (*slave_sync_full)(void *comp, int data, int sck, int rtr, unsigned int mask);
+    void (*slave_sync_full_mux)(void *comp, int data, int sck, int rtr, unsigned int mask, int mux);
 
     void (*sync_meth)(void *, int data);
     void (*sync_meth_mux)(void *, int data, int mux);
 
-    void (*sync_full_meth)(void *, int data, int sck, int rtr);
-    void (*sync_full_meth_mux)(void *, int data, int sck, int rtr, int mux);
+    void (*sync_full_meth)(void *, int data, int sck, int rtr, unsigned int mask);
+    void (*sync_full_meth_mux)(void *, int data, int sck, int rtr, unsigned int mask, int mux);
 
     static inline void sync_default(void *, int data);
 
@@ -113,11 +113,11 @@ namespace vp {
       slave_sync_meth(this->get_remote_context(), data);
     }
 
-    inline void sync_full(int data, int sck, int rtr)
+    inline void sync_full(int data, int sck, int rtr, unsigned int mask)
     {
       if (slave_sync_full_meth)
       {
-        slave_sync_full_meth(this->get_remote_context(), data, sck, rtr);
+        slave_sync_full_meth(this->get_remote_context(), data, sck, rtr, mask);
       }
       else
       {
@@ -136,19 +136,19 @@ namespace vp {
   private:
 
     static inline void sync_muxed_stub(uart_slave *_this, int data);
-    static inline void sync_full_muxed_stub(uart_slave *_this, int data, int sck, int rtr);
+    static inline void sync_full_muxed_stub(uart_slave *_this, int data, int sck, int rtr, unsigned int mask);
 
     void (*slave_sync_meth)(void *, int data);
     void (*slave_sync_meth_mux)(void *, int data, int mux);
 
-    void (*slave_sync_full_meth)(void *, int data, int sck, int rtr);
-    void (*slave_sync_full_meth_mux)(void *, int data, int sck, int rtr, int mux);
+    void (*slave_sync_full_meth)(void *, int data, int sck, int rtr, unsigned int mask);
+    void (*slave_sync_full_meth_mux)(void *, int data, int sck, int rtr, unsigned int mask, int mux);
 
     void (*sync_meth)(void *comp, int data);
     void (*sync_mux_meth)(void *comp, int data, int mux);
 
-    void (*sync_full_meth)(void *comp, int data, int sck, int rtr);
-    void (*sync_full_mux_meth)(void *comp, int data, int sck, int rtr, int mux);
+    void (*sync_full_meth)(void *comp, int data, int sck, int rtr, unsigned int mask);
+    void (*sync_full_mux_meth)(void *comp, int data, int sck, int rtr, unsigned int mask, int mux);
 
     static inline void sync_default(uart_slave *, int data);
 
@@ -174,9 +174,9 @@ namespace vp {
     return _this->sync_meth_mux(_this->comp_mux, data, _this->sync_mux);
   }
 
-  inline void uart_master::sync_full_muxed_stub(uart_master *_this, int data, int sck, int rtr)
+  inline void uart_master::sync_full_muxed_stub(uart_master *_this, int data, int sck, int rtr, unsigned int mask)
   {
-    return _this->sync_full_meth_mux(_this->comp_mux, data, sck, rtr, _this->sync_mux);
+    return _this->sync_full_meth_mux(_this->comp_mux, data, sck, rtr, rtr, _this->sync_mux);
   }
 
   inline void uart_master::bind_to(vp::port *_port, vp::config *config)
@@ -234,9 +234,9 @@ namespace vp {
     return _this->slave_sync_meth_mux(_this->comp_mux, data, _this->sync_mux);
   }
 
-  inline void uart_slave::sync_full_muxed_stub(uart_slave *_this, int data, int sck,int rtr)
+  inline void uart_slave::sync_full_muxed_stub(uart_slave *_this, int data, int sck,int rtr, unsigned int mask)
   {
-    return _this->slave_sync_full_meth_mux(_this->comp_mux, data, sck, rtr, _this->sync_mux);
+    return _this->slave_sync_full_meth_mux(_this->comp_mux, data, sck, rtr, mask, _this->sync_mux);
   }
 
   inline void uart_slave::bind_to(vp::port *_port, vp::config *config)

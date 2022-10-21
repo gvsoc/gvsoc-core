@@ -203,7 +203,7 @@ private:
     static void qspim_sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
     static void qspim_cs_sync(void *__this, bool data, int id);
     static void uart_rx_edge(void *__this, int data, int id);
-    static void uart_rx_edge_full(void *__this, int data, int sck, int rtr, int id);
+    static void uart_rx_edge_full(void *__this, int data, int sck, int rtr, unsigned int mask, int id);
     static void uart_sync(void *__this, int data, int sck, int rtr, int id);
     static void i2c_rx_edge(void *__this, int scl, int sda, int id);
     static void i2c_sync(void *__this, int scl, int sda, int id);
@@ -397,7 +397,7 @@ void dpi_chip_wrapper::uart_rx_edge(void *__this, int data, int id)
 }
 
 
-void dpi_chip_wrapper::uart_rx_edge_full(void *__this, int data, int sck, int rtr, int id)
+void dpi_chip_wrapper::uart_rx_edge_full(void *__this, int data, int sck, int rtr, unsigned int mask, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Uart_group *group = static_cast<Uart_group *>(_this->groups[id]);
@@ -800,7 +800,7 @@ void Uart_group::edge(Dpi_chip_wrapper_callback *callback, int64_t timestamp, in
 
     if (this->master.is_bound())
     {
-        this->master.sync_full(this->tx, this->sck, this->rts);
+        this->master.sync_full(this->tx, this->sck, this->rts, 0xf);
     }
 }
 

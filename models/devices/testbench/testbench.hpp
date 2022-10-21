@@ -489,7 +489,7 @@ public:
 private:
 
     static void sync(void *__this, int data);
-    static void sync_full(void *__this, int data, int clk, int rtr);
+    static void sync_full(void *__this, int data, int clk, int rtr, unsigned int mask);
 
     void uart_tx_sampling();
 

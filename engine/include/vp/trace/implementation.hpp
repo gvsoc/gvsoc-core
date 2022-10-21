@@ -126,16 +126,20 @@ namespace vp {
     va_start(ap, fmt);
     if (vfprintf(this->trace_file, fmt, ap) < 0) {}
     va_end(ap);
-  #else
   #endif
-    #if 0
-    printf("%ld: %ld: [\033[31m%-*.*s\033[0m] ", comp->get_clock()->get_time(), comp->get_clock()->get_cycles(), max_trace_len, max_trace_len, comp->get_path());
-    va_list ap;
-    va_start(ap, fmt);
-    if (vprintf(format, ap) < 0) {}
-    va_end(ap);  
-    comp->get_clock()->stop(vp::CLOCK_ENGINE_WARNING);
-    #endif
+  }
+
+  inline void vp::trace::warning(vp::trace::warning_type_e type, const char *fmt, ...) {
+  #ifdef VP_TRACE_ACTIVE
+    if (comp->traces.get_trace_manager()->is_warning_active(type))
+    {
+      dump_warning_header();
+      va_list ap;
+      va_start(ap, fmt);
+      if (vfprintf(this->trace_file, fmt, ap) < 0) {}
+      va_end(ap);
+    }
+  #endif
   }
 
   inline void vp::trace::msg(const char *fmt, ...) 

@@ -179,7 +179,10 @@ void vp::trace::dump_warning_header()
     if (comp->get_clock())
     {
         cycles = comp->get_clock()->get_cycles();
-        time = comp->get_clock()->get_time();
+    }
+    if (comp->get_time_engine())
+    {
+        time = comp->get_time();
     }
     fprintf(this->trace_file, "%" PRId64 ": %" PRId64 ": [\033[31m%-*.*s\033[0m] ", time, cycles, max_trace_len, max_trace_len, path.c_str());
 }

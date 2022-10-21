@@ -217,7 +217,7 @@ void Uart_checker::sync(void *__this, int data)
 
     if (_this->loopback)
     {
-        _this->in.sync_full(data, 2, 2);
+        _this->in.sync_full(data, 2, 2, 0xf);
     }
 
     _this->current_tx = data;

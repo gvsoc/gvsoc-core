@@ -464,7 +464,7 @@ void Uart::clk_reg(vp::component *__this, vp::component *clock)
 void Uart::init_handler(void *__this, vp::clock_event *event)
 {
     Uart *_this = (Uart *)__this;
-    _this->itf.sync_full(1, 2, 2);
+    _this->itf.sync_full(1, 2, 2, 0xf);
 }
 
 
@@ -481,7 +481,7 @@ void Uart::uart_sampling_handler(void *__this, vp::clock_event *event)
 }
 
 
-void Uart::sync_full(void *__this, int data, int clk, int rtr)
+void Uart::sync_full(void *__this, int data, int clk, int rtr, unsigned int mask)
 {
     Uart *_this = (Uart *)__this;
 
@@ -542,7 +542,7 @@ void Uart::sync(void *__this, int data)
 void Uart::set_cts(int cts)
 {
     this->tx_cts = cts;
-    this->itf.sync_full(this->tx_bit, 2, this->tx_cts);
+    this->itf.sync_full(this->tx_bit, 2, this->tx_cts, 0xf);
 }
 
 
@@ -625,7 +625,7 @@ void Uart::send_bit()
 
     this->tx_bit = bit;
     this->trace.msg(vp::trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", bit);
-    this->itf.sync_full(this->tx_bit, 2, this->tx_cts);
+    this->itf.sync_full(this->tx_bit, 2, this->tx_cts, 0xf);
 
     if (!this->is_usart && this->tx_state != UART_TX_STATE_START)
     {
@@ -731,7 +731,7 @@ void Testbench::handle_received_byte(uint8_t byte)
                 *(uint64_t *)this->tx_buff = this->get_time();
                 this->tx_buff_size = 8;
                 this->tx_buff_index = 0;
-                this->uart_ctrl->itf.sync_full(1, 2, 0);
+                this->uart_ctrl->itf.sync_full(1, 2, 0, 0xf);
                 this->uart_ctrl->send_byte(this->tx_buff[0]);
                 break;
 

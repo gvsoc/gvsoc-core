@@ -170,6 +170,15 @@ class Runner(gapylib.target.Target, st.Component):
         parser.add_argument("--no-werror", dest="werror",
             action="store_false", help="Do not consider warnings as errors")
 
+        parser.add_argument("--stub", dest="stub", default=[], action="append",
+            help="Launch GVSOC through the specified command")
+
+        parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
+            help="Launch GVSOC through gdb")
+
+        parser.add_argument("--valgrind", dest="gdb",
+            action="store_true", help="Launch GVSOC through gdb")
+
         parser.add_argument("--wno-unconnected-device", dest="w_unconnected_device",
             action="store_false", help="Deactivate warnings when updating padframe with no connected device")
         parser.add_argument("--wno-unconnected-padfun", dest="w_unconnected_padfun",
@@ -324,20 +333,28 @@ class Runner(gapylib.target.Target, st.Component):
         if norun:
             return 0
 
+        stub = self.get_args().stub
+
+        if self.get_args().gdb:
+            stub = ['gdb', '--args'] + stub
+
         if self.rtl_runner is not None:
             self.rtl_runner.run()
 
         elif self.get_args().emulation:
 
             launcher = self.get_args().binary
-            command = [launcher]
+
+            command = stub
+
+            command.append(launcher)
 
             print ('Launching GVSOC with command: ')
             print (' '.join(command))
 
             os.chdir(self.get_working_dir())
 
-            return os.execvp(launcher, command)
+            return os.execvp(command[0], command)
 
         else:
 
@@ -346,7 +363,9 @@ class Runner(gapylib.target.Target, st.Component):
             else:
                 launcher = gvsoc_config.get_str('launchers/default')
 
-            command = [launcher, '--config=' + self.gvsoc_config_path]
+            command = stub
+
+            command += [launcher, '--config=' + self.gvsoc_config_path]
 
             if True: #self.verbose:
                 print ('Launching GVSOC with command: ')
@@ -354,7 +373,7 @@ class Runner(gapylib.target.Target, st.Component):
 
             os.chdir(self.get_working_dir())
 
-            return os.execvp(launcher, command)
+            return os.execvp(command[0], command)
 
 
     def get_target(self):

@@ -56,6 +56,7 @@ namespace vp {
     inline void msg(const char *fmt, ...);
     inline void user_msg(const char *fmt, ...);
     inline void warning(const char *fmt, ...);
+    inline void warning(warning_type_e type, const char *fmt, ...);
     void force_warning(const char *fmt, ...);
     void force_warning(warning_type_e type, const char *fmt, ...);
     inline void fatal(const char *fmt, ...);

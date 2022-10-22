@@ -176,8 +176,8 @@ class Runner(gapylib.target.Target, st.Component):
         parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
             help="Launch GVSOC through gdb")
 
-        parser.add_argument("--valgrind", dest="gdb",
-            action="store_true", help="Launch GVSOC through gdb")
+        parser.add_argument("--valgrind", dest="valgrind",
+            action="store_true", help="Launch GVSOC through valgrind")
 
         parser.add_argument("--wno-unconnected-device", dest="w_unconnected_device",
             action="store_false", help="Deactivate warnings when updating padframe with no connected device")
@@ -338,6 +338,9 @@ class Runner(gapylib.target.Target, st.Component):
         if self.get_args().gdb:
             stub = ['gdb', '--args'] + stub
 
+        if self.get_args().valgrind:
+            stub = ['valgrind'] + stub
+
         if self.rtl_runner is not None:
             self.rtl_runner.run()
 
@@ -357,6 +360,9 @@ class Runner(gapylib.target.Target, st.Component):
             return os.execvp(command[0], command)
 
         else:
+
+            if self.get_args().valgrind:
+                stub = ['valgrind'] + stub
 
             if gvsoc_config.get_bool("debug-mode"):
                 launcher = gvsoc_config.get_str('launchers/debug')

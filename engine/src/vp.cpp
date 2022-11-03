@@ -1134,12 +1134,6 @@ void vp::component::elab()
     }
 }
 
-void vp::component::new_reg_any(std::string name, vp::reg *reg, int bits, uint8_t *reset_val)
-{
-    reg->init(this, name, bits, NULL, reset_val);
-    this->regs.push_back(reg);
-}
-
 void vp::component::new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset)
 {
     this->get_trace()->msg(vp::trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",

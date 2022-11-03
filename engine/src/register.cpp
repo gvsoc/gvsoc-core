@@ -217,6 +217,7 @@ void vp::reg_32::write(int reg_offset, int size, uint8_t *value)
     {
         dest[i] = (dest[i] & ~mask[i]) | (src[i] & mask[i]);
     }
+
     this->dump_after_write();
     if (this->reg_event.get_event_active())
     {

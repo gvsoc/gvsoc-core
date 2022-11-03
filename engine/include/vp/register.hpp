@@ -41,7 +41,6 @@ namespace vp
     public:
         std::string get_hw_name() { return this->hw_name; }
         std::string get_name() { return this->name != "" ? this->name : this->hw_name; }
-        void init(vp::component *top, std::string name, int bits, uint8_t *value, uint8_t *reset_val);
         void reset(bool active);
         virtual void access(uint64_t reg_offset, int size, uint8_t *value, bool is_write) {}
         virtual void update(uint64_t reg_offset, int size, uint8_t *value, bool is_write) {}
@@ -89,7 +88,10 @@ namespace vp
         int width;
         std::function<void(uint64_t, int, uint8_t *, bool)> callback = NULL;
         std::function<reg *()> alias = NULL;
-        bool exec_callback_on_reset;
+        bool exec_callback_on_reset = false;
+
+    protected:
+        void init(vp::component *top, std::string name, int bits, uint8_t *value, uint8_t *reset_val);
     };
 
     class reg_1 : public reg
@@ -149,7 +151,7 @@ namespace vp
         uint8_t write_mask = 0xFF;
 
     private:
-        uint8_t value;
+        uint8_t value = 0;
     };
 
     class reg_8 : public reg
@@ -216,7 +218,7 @@ namespace vp
         uint8_t write_mask = 0xFF;
 
     private:
-        uint8_t value;
+        uint8_t value = 0;
     };
 
     class reg_16 : public reg
@@ -283,7 +285,7 @@ namespace vp
         uint16_t write_mask = 0xFFFF;
 
     private:
-        uint16_t value;
+        uint16_t value = 0;
     };
 
     class reg_32 : public reg
@@ -339,7 +341,7 @@ namespace vp
         uint32_t write_mask = 0xFFFFFFFF;
 
     private:
-        uint32_t value;
+        uint32_t value = 0;
     };
 
     class reg_64 : public reg
@@ -398,7 +400,7 @@ namespace vp
         uint64_t reset_val;
 
     private:
-        uint64_t value;
+        uint64_t value = 0;
     };
 
 

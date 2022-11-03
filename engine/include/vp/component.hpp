@@ -199,7 +199,6 @@ namespace vp {
 
     void get_trace(std::vector<vp::trace *> &traces, std::string path);
 
-    void new_reg_any(std::string name, vp::reg *reg, int bits, uint8_t *reset_val);
     void new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset=true);
     void new_reg(std::string name, vp::reg_8 *reg, uint8_t reset_val, bool reset=true);
     void new_reg(std::string name, vp::reg_16 *reg, uint16_t reset_val, bool reset=true);

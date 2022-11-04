@@ -313,8 +313,8 @@ static inline void iss_fence_i(iss_t *iss)
 {
     if (iss->flush_cache_req_itf.is_bound())
     {
+        iss->cpu.state.cache_sync = true;
         iss_exec_insn_stall(iss);
-
         iss->flush_cache_req_itf.sync(true);
         iss_cache_flush(iss);
     }

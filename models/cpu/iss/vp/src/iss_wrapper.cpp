@@ -357,9 +357,13 @@ void iss_wrapper::flush_cache_sync(void *__this, bool active)
 void iss_wrapper::flush_cache_ack_sync(void *__this, bool active)
 {
     iss_t *_this = (iss_t *)__this;
-    //iss_exec_insn_resume(_this);
-    iss_exec_insn_terminate(_this);
-    _this->check_state();
+    if (_this->cpu.state.cache_sync)
+    {
+      _this->cpu.state.cache_sync = false;
+      _this->stalled.dec(1);
+      iss_exec_insn_terminate(_this);
+      _this->check_state();
+    }
 }
 
 

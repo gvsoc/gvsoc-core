@@ -278,6 +278,12 @@ class Runner(gapylib.target.Target, st.Component):
         if cmd == 'run':
             self.run()
 
+        elif cmd == 'regmap_copy':
+            self.regmap(copy=True)
+
+        elif cmd == 'regmap_gen':
+            self.regmap(gen=True)
+
         elif cmd == 'traces' and self.rtl_runner is not None:
             self.rtl_runner.traces()
 

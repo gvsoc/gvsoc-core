@@ -21,6 +21,11 @@ import collections
 import os
 import json
 import sys
+import shutil
+
+import regmap.regmap as rmap
+import regmap.regmap_md_mistune as regmap_md_mistune
+import regmap.regmap_c_header as regmap_c_header
 
 
 class Port():
@@ -336,7 +341,7 @@ class Component(object):
             if property is None:
                 property = self.properties.get(item)
             else:
-                property = property[item]
+                property = property.get(item)
 
         if option_property is not None:
             if property is not None and type(property) == list:
@@ -691,3 +696,30 @@ class Component(object):
             return self.parent.get_target()
 
         return None
+
+    
+    def regmap(self, copy=False, gen=False):
+
+        for component in self.components.values():
+            component.regmap(copy, gen)
+
+        spec = self.get_property('regmap/spec')
+
+        if copy:
+            spec_src = self.get_property('regmap/spec_src')
+
+            if spec_src is not None and spec is not None:
+                print (f'Copying {spec_src} to {spec}')
+                shutil.copy(spec_src, spec)
+
+        if gen:
+            header_dir = self.get_property('regmap/header_prefix')
+            name = self.get_property('regmap/name')
+            headers = self.get_property('regmap/headers')
+
+            if spec is not None and header_dir is not None and name is not None:
+                print(f'Generating archi files {headers} to {header_dir}')
+
+                regmap = rmap.Regmap(name)
+                regmap_md_mistune.import_md(regmap, spec)
+                regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)

@@ -147,6 +147,7 @@ static inline void iss_irq_init(iss_t *iss)
   iss->cpu.irq.vector_base = 0;
   iss->cpu.state.elw_interrupted = 0;
   iss->cpu.irq.irq_enable = 0;
+  iss->cpu.irq.saved_irq_enable = 0;
   iss->cpu.irq.req_irq = -1;
   iss->cpu.irq.req_debug = false;
 #if defined(PRIV_1_10)

@@ -1368,14 +1368,28 @@ void vp::component::create_bindings()
             vp::component *master_comp = master_comp_name == "self" ? this : this->get_childs_dict()[master_comp_name];
             vp::component *slave_comp = slave_comp_name == "self" ? this : this->get_childs_dict()[slave_comp_name];
 
-            vp_assert_always(master_comp != NULL, this->get_trace(), "Binding from invalid master\n");
-            vp_assert_always(slave_comp != NULL, this->get_trace(), "Binding from invalid slave\n");
+            vp_assert_always(master_comp != NULL, this->get_trace(),
+                "Binding from invalid master (master: %s / %s, slave: %s / %s)\n",
+                master_comp_name.c_str(), master_port_name.c_str(),
+                slave_comp_name.c_str(), slave_port_name.c_str());
+
+            vp_assert_always(slave_comp != NULL, this->get_trace(),
+                "Binding from invalid slave (master: %s / %s, slave: %s / %s)\n",
+                master_comp_name.c_str(), master_port_name.c_str(),
+                slave_comp_name.c_str(), slave_port_name.c_str());
 
             vp::port *master_port = master_comp->get_master_port(master_port_name);
             vp::port *slave_port = slave_comp->get_slave_port(slave_port_name);
 
-            vp_assert_always(master_port != NULL, this->get_trace(), "Binding from invalid master port\n");
-            vp_assert_always(slave_port != NULL, this->get_trace(), "Binding from invalid slave port\n");
+            vp_assert_always(master_port != NULL, this->get_trace(),
+                "Binding from invalid master port (master: %s / %s, slave: %s / %s)\n",
+                master_comp_name.c_str(), master_port_name.c_str(),
+                slave_comp_name.c_str(), slave_port_name.c_str());
+
+            vp_assert_always(slave_port != NULL, this->get_trace(),
+                "Binding from invalid slave port (master: %s / %s, slave: %s / %s)\n",
+                master_comp_name.c_str(), master_port_name.c_str(),
+                slave_comp_name.c_str(), slave_port_name.c_str());
 
             master_port->bind_to_virtual(slave_port);
         }

@@ -15,3 +15,7 @@ vp_model(NAME interco.converter_impl
 vp_model(NAME interco.bus_watchpoint
     SOURCES "bus_watchpoint.cpp"
     )
+
+vp_model(NAME interco.router_proxy
+    SOURCES "router_proxy.cpp"
+    )

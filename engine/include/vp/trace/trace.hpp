@@ -134,7 +134,8 @@ namespace vp {
     }                                                 \
     else                                              \
     {                                                 \
-      fprintf(stdout, "ASSERT FAILED: %s", msg);      \
+      fprintf(stdout, "ASSERT FAILED: ");             \
+      fprintf(stdout, msg);                           \
       abort();                                        \
     }                                                 \
   }

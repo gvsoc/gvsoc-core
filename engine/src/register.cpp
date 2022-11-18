@@ -145,12 +145,12 @@ void vp::reg::init(vp::component *top, std::string name, int bits, uint8_t *valu
 
 void vp::reg::reset(bool active)
 {
-    if (active)
+    if (active && this->reset_value_bytes)
     {
         this->trace.msg("Resetting register\n");
 
         uint64_t zero = 0;
-        uint8_t *data = this->reset_value_bytes ? this->reset_value_bytes : (uint8_t *)&zero;
+        uint8_t *data = this->reset_value_bytes;
         if (this->exec_callback_on_reset)
         {
             this->access(0, this->nb_bytes, data, true);

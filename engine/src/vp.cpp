@@ -1528,7 +1528,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
         return NULL;
     }
 
-    js::config *gv_config = js_config->get("**/gvsoc");
+    js::config *gv_config = js_config->get("target/gvsoc");
 
     std::string module_name = "vp.trace_domain_impl";
 

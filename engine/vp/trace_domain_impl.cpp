@@ -356,7 +356,7 @@ int trace_domain::build()
 {
     this->time_engine = this->new_component("", this->get_js_config(), "vp.time_domain_impl");
 
-    js::config *config = get_js_config()->get("gvsoc");
+    js::config *config = get_vp_config();
 
     string format = this->get_vp_config()->get_child_str("traces/format");
 

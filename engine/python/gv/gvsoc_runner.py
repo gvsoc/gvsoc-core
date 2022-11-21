@@ -30,7 +30,7 @@ def gen_config(args, config):
 
     full_config =  js.import_config(config, interpret=False, gen=False)
 
-    gvsoc_config = full_config.get('gvsoc')
+    gvsoc_config = full_config.get('target/gvsoc')
 
     gvsoc_config.set('werror', args.werror)
     gvsoc_config.set('wunconnected-device', args.w_unconnected_device)
@@ -103,11 +103,58 @@ class Runner(gapylib.target.Target, st.Component):
         gapylib.target.Target.__init__(self, options)
         st.Component.__init__(self, parent, name, options)
 
-        self.add_property("gvsoc/debug-mode", False)
-        self.add_property("gvsoc/events/gen_gtkw", False)
-        self.add_property("gvsoc/proxy/enabled", False)
-        self.add_property("gvsoc/proxy/port", 42951)
+        # for option in options:
+        #     key, value = option.split('=')
+        #     if key.find('gvsoc') == 0:
+        #         print (key)
+        #         print (value)
+        #         self.add_property(key, value)
 
+        self.add_properties({
+            "gvsoc": {
+                "proxy": {
+                    "enabled": False,
+                    "port": 42951
+                },
+                "events": {
+                    "enabled": False,
+                    "include_raw": [],
+                    "include_regex": [],
+                    "exclude_regex": [],
+                    "format": "fst",
+                    "active": False,
+                    "all": True,
+                    "gtkw": False,
+                    "gen_gtkw": False,
+                    "files": [ ],
+                    "traces": {},
+                    "tags": [ "overview" ],
+                    "gtkw": False,
+                },
+
+                "runner_module": "gv.gvsoc",
+            
+                "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
+            
+                "werror": True,
+                "verbose": True,
+                "debug-mode": False,
+                "sa-mode": True,
+            
+                "launchers": {
+                    "default": "gvsoc_launcher",
+                    "debug": "gvsoc_launcher_debug"
+                },
+            
+                "traces": {
+                    "level": "debug",
+                    "format": "long",
+                    "enabled": False,
+                    "include_regex": [],
+                    "exclude_regex": []
+                }
+            }
+        })
 
     def append_args(self, parser, rtl_cosim_runner=None):
         super().append_args(parser)
@@ -187,62 +234,9 @@ class Runner(gapylib.target.Target, st.Component):
     def parse_args(self, args):
         super().parse_args(args)
 
-        gvsoc_config_dict = {
-            "proxy": {
-                "enabled": self.get_property("gvsoc/proxy/enabled"),
-                "port": self.get_property("gvsoc/proxy/port")
-            },
-            "events": {
-                "enabled": False,
-                "include_raw": [],
-                "include_regex": [],
-                "exclude_regex": [],
-                "format": "fst",
-                "active": False,
-                "all": True,
-                "gtkw": False,
-                "gen_gtkw": self.get_property("gvsoc/events/gen_gtkw"),
-                "files": [ ],
-                "traces": {},
-                "tags": [ "overview" ],
-                "gtkw": False,
-            },
+        self.full_config, self.gvsoc_config_path = gen_config(args, { 'target': self.get_config() })
 
-            "runner_module": "gv.gvsoc",
-        
-            "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
-        
-            "werror": True,
-            "verbose": True,
-            "debug-mode": self.get_property("gvsoc/debug-mode"),
-            "sa-mode": True,
-        
-            "launchers": {
-                "default": "gvsoc_launcher",
-                "debug": "gvsoc_launcher_debug"
-            },
-        
-            "traces": {
-                "level": "debug",
-                "format": "long",
-                "enabled": False,
-                "include_regex": [],
-                "exclude_regex": []
-            }
-        }
-
-        target_config = self.get_config()
-
-        config = {
-            "target": target_config,
-            "gvsoc": gvsoc_config_dict
-        }
-
-        self.full_config, self.gvsoc_config_path = gen_config(args, config)
-
-
-
-        gvsoc_config = self.full_config.get('gvsoc')
+        gvsoc_config = self.full_config.get('target/gvsoc')
 
         if gvsoc_config.get_bool('events/gen_gtkw'):
             path = os.path.join(self.get_working_dir(), 'view.gtkw')
@@ -330,11 +324,11 @@ class Runner(gapylib.target.Target, st.Component):
 
     def run(self, norun=False):
 
-        gvsoc_config = self.full_config.get('gvsoc')
+        gvsoc_config = self.full_config.get('target/gvsoc')
 
         dump_config(self.full_config, self.get_abspath(self.gvsoc_config_path))
 
-        self.__gen_debug_info(self.full_config, self.full_config.get('gvsoc'))
+        self.__gen_debug_info(self.full_config, self.full_config.get('target/gvsoc'))
 
         if norun:
             return 0

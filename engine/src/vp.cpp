@@ -275,6 +275,10 @@ void vp::component_clock::clk_reg(component *_this, component *clock)
     {
         x->clk_reg(x, clock);
     }
+    for (clock_event *event: _this->events)
+    {
+        event->set_clock(_this->clock);
+    }
 }
 
 
@@ -715,6 +719,7 @@ vp::clock_event::clock_event(component_clock *comp, clock_event_meth_t *meth)
     : comp(comp), _this((void *)static_cast<vp::component *>((vp::component_clock *)(comp))), meth(meth), enqueued(false)
 {
     comp->add_clock_event(this);
+    this->clock = comp->get_clock();
 }
 
 void vp::component_clock::add_clock_event(clock_event *event)

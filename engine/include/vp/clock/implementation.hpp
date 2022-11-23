@@ -98,5 +98,15 @@ inline void vp::clock_engine::sync()
   }
 }
 
+inline void vp::clock_event::enqueue(int64_t cycles)
+{
+    if (this->is_enqueued())
+    {
+      this->clock->cancel(this);
+    }
+    this->clock->enqueue(this, cycles);
+}
+
+
 
 #endif

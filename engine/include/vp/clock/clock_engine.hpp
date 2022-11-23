@@ -53,6 +53,7 @@ namespace vp {
     inline clock_event *enqueue(clock_event *event, int64_t cycles)
     {
       vp_assert(!event->enqueued, 0, "Enqueueing already enqueued event\n");
+      vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
 
       event->enqueued = true;
 

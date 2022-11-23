@@ -29,6 +29,7 @@ namespace vp {
   class clock_event;
   class component;
   class component_clock;
+  class clock_engine;
 
   #define CLOCK_EVENT_PAYLOAD_SIZE 64
   #define CLOCK_EVENT_NB_ARGS 8
@@ -56,10 +57,13 @@ namespace vp {
     inline void **get_args() { return args; }
 
     inline bool is_enqueued() { return enqueued; }
+    inline void set_clock(clock_engine *clock) { this->clock = clock; }
 
     int64_t get_cycle() { return cycle; }
 
     void exec() { this->meth(this->_this, this); }
+
+    inline void enqueue(int64_t cycles=1);
 
   private:
     uint8_t payload[CLOCK_EVENT_PAYLOAD_SIZE];
@@ -70,6 +74,7 @@ namespace vp {
     clock_event *next;
     bool enqueued;
     int64_t cycle;
+    clock_engine *clock;
   };    
 
 };

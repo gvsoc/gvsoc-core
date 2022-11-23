@@ -587,7 +587,7 @@ void iss_wrapper::irq_req_sync(void *__this, int irq)
   // instruction has been executed
   if (!_this->irq_sync_event->is_enqueued())
   {
-    _this->event_enqueue(_this->irq_sync_event, 0);
+    _this->event_enqueue(_this->irq_sync_event, 1);
   }
 }
 

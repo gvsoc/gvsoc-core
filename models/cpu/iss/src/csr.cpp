@@ -935,6 +935,7 @@ static bool pcmr_write(iss_t *iss, unsigned int prev_val, unsigned int value) {
   return false;
 }
 
+#if defined(CSR_HWLOOP0_START)
 static bool hwloop_read(iss_t *iss, int reg, iss_reg_t *value) {
   *value = iss->cpu.pulpv2.hwloop_regs[reg];
   return false;
@@ -956,6 +957,7 @@ static bool hwloop_write(iss_t *iss, int reg, unsigned int value) {
 
   return false;
 }
+#endif
 
 #if defined(ISS_HAS_PERF_COUNTERS)
 
@@ -1244,6 +1246,7 @@ bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
     }
 #endif
 
+#if defined(CSR_HWLOOP0_START)
     else if (iss->cpu.pulpv2.hwloop)
     {
       if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
@@ -1251,6 +1254,7 @@ bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
         status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
       }
     }
+#endif
 
     else
     {
@@ -1399,10 +1403,12 @@ bool iss_csr_write(iss_t *iss, iss_reg_t reg, iss_reg_t value)
   if ((reg >= CSR_PCCR(0) && reg <= CSR_PCCR(CSR_NB_PCCR)) || reg == CSR_PCER || reg == CSR_PCMR) return perfCounters_write(iss, reg, value);
 #endif
 
+#if defined(CSR_HWLOOP0_START)
   if (iss->cpu.pulpv2.hwloop)
   {
     if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER) return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
   }
+#endif
 
 #if 0
   triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);

@@ -537,7 +537,7 @@ void trace_domain::conf_trace(int event, std::string path_str, bool enabled)
             }
             trace->set_event_active(enabled);
         }
-        else if (!trace->is_event)
+        else if (!event && !trace->is_event)
         {
             trace->set_active(enabled);
         }

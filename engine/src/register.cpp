@@ -34,10 +34,6 @@ uint64_t vp::reg::get_field(int offset, int width)
 
 void vp::regmap::reset(bool active)
 {
-    for (auto x: this->get_registers())
-    {
-        x->reset(active);
-    }
 }
 
 bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write)
@@ -101,6 +97,7 @@ void vp::regmap::build(vp::component *comp, vp::trace *trace, std::string name)
 {
     this->comp = comp;
     this->trace = trace;
+    comp->add_block(this);
 
     for (auto x: this->get_registers())
     {

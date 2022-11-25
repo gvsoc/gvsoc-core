@@ -38,7 +38,8 @@
 #include "gv/power.hpp"
 #include "json.hpp"
 #include <functional>
-#include "vp/register.hpp"
+#include <vp/block.hpp>
+#include <vp/register.hpp>
 
 
 #define   likely(x) __builtin_expect(x, 1)
@@ -65,23 +66,6 @@ namespace vp {
       virtual void notify_run() {}
   };
 
-
-    class block
-    {
-    public:
-        block(block *parent);
-        virtual void reset(bool active) {}
-        void add_signal(vp::signal *signal);
-
-    protected:
-        void reset_all(bool active);
-        void add_block(block *block);
-
-    private:
-        block *parent;
-        std::vector<block *> subblocks;
-        std::vector<signal *> signals;
-    };
 
 
   class component : public component_clock, public block

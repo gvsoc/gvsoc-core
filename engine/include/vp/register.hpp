@@ -404,7 +404,8 @@ namespace vp
     };
 
 
-    class regmap {
+    class regmap : public vp::block
+    {
     public:
         std::vector<reg *> get_registers() { return this->registers; }
         void build(vp::component *comp, vp::trace *trace, std::string name="");

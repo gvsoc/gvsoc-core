@@ -24,6 +24,8 @@
 
 namespace vp {
 
+    class block;
+
     class signal
     {
     public:

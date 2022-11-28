@@ -34,6 +34,14 @@ uint64_t vp::reg::get_field(int offset, int width)
 
 void vp::regmap::reset(bool active)
 {
+    // Once reset is properly propagated from comp to blocks, regmaps and registers, this should
+    // disappear.
+    // For now this is resetting twice the registers when the regmap is declared in the component,
+    // but is needed when the regmap is declared in a sub-block
+    for (auto x: this->get_registers())
+    {
+        x->reset(active);
+    }
 }
 
 bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write)

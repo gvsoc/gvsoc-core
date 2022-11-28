@@ -1,5 +1,6 @@
 #
-# Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and University of Bologna
+# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
+#                    University of Bologna
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +16,13 @@
 #
 
 import gsystree as st
+from vp.clock_domain import Clock_domain
 
-class Gpio(st.Component):
 
-    def __init__(self, parent, name, nb_gpio: int=32, soc_event: int=-1):
+class I2c_bus(st.Component):
 
-        super(Gpio, self).__init__(parent, name)
+    def __init__(self, parent, name):
 
-        self.set_component('pulp.gpio.gpio_v3_impl')
+        super(I2c_bus, self).__init__(parent, name)
 
-        self.add_properties({
-            'nb_gpio': nb_gpio,
-            'soc_event': soc_event,
-        })
+        self.set_component('devices.i2c.i2c_bus')

@@ -16,7 +16,7 @@
 #
 
 import gsystree as st
-from ips.clock.clock_domain import Clock_domain
+from vp.clock_domain import Clock_domain
 
 
 class Corruptor(st.Component):

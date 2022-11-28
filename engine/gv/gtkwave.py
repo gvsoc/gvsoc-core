@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import gtkw_new
+import gv.gtkw_new
 import os.path
 
 
@@ -36,7 +36,7 @@ class Gtkwave_map_file(object):
             self.gen = True
 
             with open(self.path, 'w') as file:
-                file.write(gtkw_new.make_translation_filter(self.values, size=self.width))
+                file.write(gv.gtkw_new.make_translation_filter(self.values, size=self.width))
 
         return self.path
 
@@ -122,7 +122,7 @@ class Gtkwave_tree(object):
 
     def __init__(self, fd, work_dir, gen_full_tree=False, tags=[]):
 
-        self.gtkw = gtkw_new.GTKWSave(fd)
+        self.gtkw = gv.gtkw_new.GTKWSave(fd)
         self.gtkw.dumpfile(os.path.join(work_dir, 'all.vcd'))
         self.work_dir = work_dir
         self.current_groups = []

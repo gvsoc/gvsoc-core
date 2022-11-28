@@ -23,7 +23,7 @@ import gapylib.target
 import gsystree as st
 import json_tools as js
 import os.path
-from tools.runner.gtkwave import Gtkwave_tree
+from gv.gtkwave import Gtkwave_tree
 
 
 def gen_config(args, config):

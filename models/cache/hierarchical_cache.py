@@ -15,8 +15,8 @@
 #
 
 import gsystree as st
-from ips.cache.cache import Cache
-from ips.interco.interleaver import Interleaver
+from cache.cache import Cache
+from interco.interleaver import Interleaver
 import math
 
 class Hierarchical_cache(st.Component):

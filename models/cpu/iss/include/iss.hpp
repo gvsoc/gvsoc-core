@@ -23,8 +23,10 @@
 #define __CPU_ISS_ISS_HPP
 
 #include "iss_core.hpp"
+#include "rv64i.hpp"
 #include "rv32i.hpp"
 #include "rv32c.hpp"
+#include "rv64c.hpp"
 #include "rv32m.hpp"
 #include "rvf.hpp"
 #include "rvXf16.hpp"

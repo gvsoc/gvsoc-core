@@ -19,8 +19,8 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __LIB_HPP__
-#define __LIB_HPP__
+#pragma once
+
 #include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,19 +42,19 @@ static inline unsigned int DoExtend(unsigned int R, unsigned int e, unsigned int
 #endif
 }
 
-static inline unsigned int getField(unsigned int val, int shift, int bits)
+static inline iss_uim_t getField(iss_uim_t val, int shift, int bits)
 {
   return (val >> shift) & ((1<<bits) - 1);
 }
 
-static inline int getSignedValue(unsigned int val, int bits)
+static inline int get_signed_value(iss_uim_t val, int bits)
 {
-  return ((int)val) << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
+  return ((iss_sim_t)val) << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
 }
 
 static inline iss_opcode_t getSignedField(iss_opcode_t val, int shift, int bits)
 {
-  return getSignedValue(getField(val, shift, bits), bits);
+  return get_signed_value(getField(val, shift, bits), bits);
 }
 
 
@@ -62,21 +62,57 @@ static inline iss_opcode_t getSignedField(iss_opcode_t val, int shift, int bits)
  * LOGICAL OPERATIONS
  */
 
-static inline unsigned int lib_SLL(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a << b; }
-static inline unsigned int lib_SRL(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a >> b; }
-static inline unsigned int lib_SRA(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return ((int32_t)a) >> b; }
-static inline unsigned int lib_ROR(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return (a >> b) | (a << (32 - b)); }
-static inline unsigned int lib_XOR(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a ^ b; }
-static inline unsigned int lib_OR(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a | b; }
-static inline unsigned int lib_AND(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a & b; }
+static inline iss_uim_t lib_SLL(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return a << b;
+}
 
-static inline uint64_t lib_SLL_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a << b; }
-static inline uint64_t lib_SRL_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a >> b; }
-static inline int64_t lib_SRA_64(iss_cpu_state_t *s, int64_t a, uint64_t b) { return a >> b; }
-static inline uint64_t lib_ROR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return (a >> b) | (a << (32 - b)); }
-static inline uint64_t lib_XOR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a ^ b; }
-static inline uint64_t lib_OR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a | b; }
-static inline uint64_t lib_AND_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a & b; }
+static inline iss_uim_t lib_SRL(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return a >> b;
+}
+
+static inline iss_uim_t lib_SRA(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return ((iss_sim_t)a) >> b;
+}
+
+static inline iss_uim_t lib_SLLW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return get_signed_value(a << b, 32);
+}
+
+static inline iss_uim_t lib_SRLW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return get_signed_value(a >> b, 32);
+}
+
+static inline iss_uim_t lib_SRAW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return get_signed_value(((iss_sim_t)a) >> b, 32);
+}
+
+static inline iss_uim_t lib_ROR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return (a >> b) | (a << (32 - b));
+}
+
+static inline iss_uim_t lib_XOR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return a ^ b;
+}
+
+static inline iss_uim_t lib_OR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return a | b;
+}
+
+static inline iss_uim_t lib_AND(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return a & b;
+}
+
+
 
 
 
@@ -85,62 +121,30 @@ static inline uint64_t lib_AND_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { 
  * ARITHMETIC OPERATIONS
  */
 
-#ifdef ISS_STATE_HAS_CARRY
-
-static inline unsigned int add(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline iss_uim_t lib_ADD(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
 {
-  uint64_t result = ((uint64_t)(uint32_t)a) + ((uint64_t)(uint32_t)b);
-  s->carry = (result & 0x100000000) != 0;
-  s->overflow = ((result & 0x80000000) ^ (a & 0x80000000)) != 0;
-  return result;
+    return a + b;
 }
 
-static inline unsigned int addWithCarry(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline iss_uim_t lib_ADDW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
 {
-  uint64_t result = ((uint64_t)(uint32_t)a) + ((uint64_t)(uint32_t)b) + ((uint64_t)(uint32_t)s->carry);
-  s->carry = (result & 0x100000000) != 0;
-  s->overflow = ((result & 0x80000000) ^ (a & 0x80000000)) != 0;
-  return result;
+    return get_signed_value(a + b, 32);
 }
 
-static inline unsigned int lib_ADD_C(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return add(s, a, b); }
-
-#endif
-
-static inline unsigned int lib_ADD(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a + b; }
-static inline uint64_t lib_ADD_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a + b; }
-#ifdef ISS_STATE_HAS_CARRY
-static inline unsigned int lib_ADDC_C(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return addWithCarry(s, a, b); }
-#endif
-static inline unsigned int lib_SUB(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a - b; }
-static inline uint64_t lib_SUB_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a - b; }
-
-
-#ifdef ISS_STATE_HAS_CARRY
-static inline unsigned int lib_SUB_C(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
- unsigned int result = a - b;
-  s->carry = (uint32_t)b > (uint32_t)a;
-  s->overflow = (((int32_t) a <  0) && ((int32_t) b >=  0) && ((int32_t) result >= 0)) || (((int32_t) a >= 0) && ((int32_t) b < 0) && ((int32_t) result <  0));
-  // TODO seems to be a bug on OR10N, the carry is equivalent to the overflow, whereas it should be different
-  s->carry = s->overflow;
-  //printf("SUB %x %x -> %x / %d\n", a, b, result, s->carry);
-  return result;
+static inline iss_uim_t lib_SUB(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return a - b;
 }
-#endif
+
+static inline iss_uim_t lib_SUBW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+{
+    return get_signed_value(a - b, 32);
+}
+
 
 static inline unsigned int lib_MAC(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + b * c; }
-#ifdef ISS_STATE_HAS_CARRY
-static inline unsigned int lib_MAC_C(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, b * c); }
-static inline unsigned int lib_MACC(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a, b * c); }
-#endif
 static inline unsigned int lib_MSU(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - b * c; }
 static inline unsigned int lib_MMUL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return - b * c; }
-
-
-static inline int64_t lib_MACS_64(iss_cpu_state_t *s, int64_t a, int32_t b, int32_t c) { return a + (int64_t)b * (int64_t)c; }
-static inline int64_t lib_MSUS_64(iss_cpu_state_t *s, int64_t a, int32_t b, int32_t c) { return a - (int64_t)b * (int64_t)c; }
-static inline uint64_t lib_MACU_64(iss_cpu_state_t *s, uint64_t a, uint32_t b, uint32_t c) { return a + (int64_t)b * (int64_t)c; }
-static inline uint64_t lib_MSUU_64(iss_cpu_state_t *s, uint64_t a, uint32_t b, uint32_t c) { return a - (int64_t)b * (int64_t)c; }
 
 #define SL(val) ((int16_t)((val) & 0xffff))
 #define SH(val) ((int16_t)(((val)>>16) & 0xffff))
@@ -195,34 +199,6 @@ static inline unsigned int lib_MAC_ZH_ZH_NR_R(iss_cpu_state_t *s, unsigned int a
   if (shift > 0) result = (result + (1<<(shift-1))) >> shift;
   return result;
 }
-
-#ifdef ISS_STATE_HAS_CARRY
-static inline unsigned int lib_MAC_C_SL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SL(b) * SL(c)); }
-static inline unsigned int lib_MAC_C_SL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SL(b) * SH(c)); }
-static inline unsigned int lib_MAC_C_SH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SH(b) * SL(c)); }
-static inline unsigned int lib_MAC_C_SH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SH(b) * SH(c)); }
-static inline unsigned int lib_MAC_C_ZL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZL(b) * ZL(c)); }
-static inline unsigned int lib_MAC_C_ZL_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZL(b) * ZH(c)); }
-static inline unsigned int lib_MAC_C_ZH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZH(b) * ZL(c)); }
-static inline unsigned int lib_MAC_C_ZH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZH(b) * ZH(c)); }
-
-static inline unsigned int lib_MAC_C_SL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SL(b) * ZL(c)); }
-static inline unsigned int lib_MAC_C_SL_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SL(b) * ZH(c)); }
-static inline unsigned int lib_MAC_C_SH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SH(b) * ZL(c)); }
-static inline unsigned int lib_MAC_C_SH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, SH(b) * ZH(c)); }
-static inline unsigned int lib_MAC_C_ZL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZL(b) * SL(c)); }
-static inline unsigned int lib_MAC_C_ZL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZL(b) * SH(c)); }
-static inline unsigned int lib_MAC_C_ZH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZH(b) * SL(c)); }
-static inline unsigned int lib_MAC_C_ZH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return add(s, a, ZH(b) * SH(c)); }
-
-static inline unsigned int lib_MACC_SL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , SL(b) * SL(c)); }
-static inline unsigned int lib_MACC_SH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , SH(b) * SL(c)); }
-static inline unsigned int lib_MACC_SH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , SH(b) * SH(c)); }
-static inline unsigned int lib_MACC_ZL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , ZL(b) * ZL(c)); }
-static inline unsigned int lib_MACC_ZH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , ZH(b) * ZL(c)); }
-static inline unsigned int lib_MACC_ZH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , ZH(b) * ZH(c)); }
-static inline unsigned int lib_MACC_SH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return addWithCarry(s, a , SH(b) * ZL(c)); }
-#endif
 
 static inline unsigned int lib_MSU_SL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SL(c); }
 static inline unsigned int lib_MSU_SL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SH(c); }
@@ -3381,4 +3357,21 @@ static inline int32_t lib_VEC_ABS_int2_t_to_int32_t(iss_cpu_state_t *s, int32_t 
 }
 /*end pulp_nn abs nibble and crumb */
 
-#endif
+/*
+ * GAP int64 extension
+ */
+
+static inline uint64_t lib_ADD_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a + b; }
+static inline uint64_t lib_SUB_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a - b; }
+static inline int64_t lib_MACS_64(iss_cpu_state_t *s, int64_t a, int32_t b, int32_t c) { return a + (int64_t)b * (int64_t)c; }
+static inline int64_t lib_MSUS_64(iss_cpu_state_t *s, int64_t a, int32_t b, int32_t c) { return a - (int64_t)b * (int64_t)c; }
+static inline uint64_t lib_MACU_64(iss_cpu_state_t *s, uint64_t a, uint32_t b, uint32_t c) { return a + (int64_t)b * (int64_t)c; }
+static inline uint64_t lib_MSUU_64(iss_cpu_state_t *s, uint64_t a, uint32_t b, uint32_t c) { return a - (int64_t)b * (int64_t)c; }
+
+static inline uint64_t lib_SLL_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a << b; }
+static inline uint64_t lib_SRL_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a >> b; }
+static inline int64_t lib_SRA_64(iss_cpu_state_t *s, int64_t a, uint64_t b) { return a >> b; }
+static inline uint64_t lib_ROR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return (a >> b) | (a << (32 - b)); }
+static inline uint64_t lib_XOR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a ^ b; }
+static inline uint64_t lib_OR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a | b; }
+static inline uint64_t lib_AND_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a & b; }

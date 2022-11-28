@@ -1470,7 +1470,7 @@ void iss_wrapper::start()
 
   vp_assert_always(this->data.is_bound(), &this->trace, "Data master port is not connected\n");
   vp_assert_always(this->fetch.is_bound(), &this->trace, "Fetch master port is not connected\n");
-  vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
+  // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
 
 
 

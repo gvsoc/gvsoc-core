@@ -19,3 +19,5 @@ vp_model(NAME utils.dpi_chip_wrapper
     FORCE_BUILD 1
     SOURCES "dpi_chip_wrapper.cpp"
     )
+
+add_subdirectory(loader)

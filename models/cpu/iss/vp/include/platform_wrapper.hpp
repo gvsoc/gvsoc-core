@@ -29,7 +29,7 @@
 
 static inline void iss_handle_ecall(iss_t *iss, iss_insn_t *insn)
 {
-
+  printf("ECALL\n");
 }
 
 static inline void iss_handle_ebreak(iss_t *iss, iss_insn_t *insn)

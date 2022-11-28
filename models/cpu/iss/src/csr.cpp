@@ -832,7 +832,7 @@ static bool mhpmevent_write(iss_t *iss, int id, unsigned int value) {
  *   PULP CSRS
  */
 
-static bool stack_conf_write(iss_t *iss, unsigned int value)
+static bool stack_conf_write(iss_t *iss, iss_reg_t value)
 {
   iss->cpu.csr.stack_conf = value;
 
@@ -844,31 +844,31 @@ static bool stack_conf_write(iss_t *iss, unsigned int value)
   return false;
 }
 
-static bool stack_conf_read(iss_t *iss, unsigned int *value)
+static bool stack_conf_read(iss_t *iss, iss_reg_t *value)
 {
   *value = iss->cpu.csr.stack_conf;
   return false;
 }
 
-static bool stack_start_write(iss_t *iss, unsigned int value)
+static bool stack_start_write(iss_t *iss, iss_reg_t value)
 {
   iss->cpu.csr.stack_start = value;
   return false;
 }
 
-static bool stack_start_read(iss_t *iss, unsigned int *value)
+static bool stack_start_read(iss_t *iss, iss_reg_t *value)
 {
   *value = iss->cpu.csr.stack_start;
   return false;
 }
 
-static bool stack_end_write(iss_t *iss, unsigned int value)
+static bool stack_end_write(iss_t *iss, iss_reg_t value)
 {
   iss->cpu.csr.stack_end = value;
   return false;
 }
 
-static bool stack_end_read(iss_t *iss, unsigned int *value)
+static bool stack_end_read(iss_t *iss, iss_reg_t *value)
 {
   *value = iss->cpu.csr.stack_end;
   return false;

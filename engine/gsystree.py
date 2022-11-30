@@ -23,12 +23,10 @@ import json
 import sys
 import shutil
 
-try:
-    import regmap.regmap as rmap
-    import regmap.regmap_md_mistune as regmap_md_mistune
-    import regmap.regmap_c_header as regmap_c_header
-except:
-    pass
+# This is terribly slow to import, find a way to import them only when needed
+# import regmap.regmap as rmap
+# import regmap.regmap_md_mistune as regmap_md_mistune
+# import regmap.regmap_c_header as regmap_c_header
 
 
 class Port():

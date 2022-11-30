@@ -129,7 +129,7 @@ namespace js {
 
   public:
     config_number(jsmntok_t *tokens);
-    long long int get_int() { return (int)value; }
+    long long int get_int() { return (long long int)value; }
     config *get_from_list(std::vector<std::string> name_list);
 
     void dump(std::string indent="");

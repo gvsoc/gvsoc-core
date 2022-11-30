@@ -84,12 +84,12 @@ static inline iss_uim_t lib_SLLW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
 
 static inline iss_uim_t lib_SRLW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
 {
-    return get_signed_value(a >> b, 32);
+    return get_signed_value(((uint32_t)a) >> b, 32);
 }
 
 static inline iss_uim_t lib_SRAW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
 {
-    return get_signed_value(((iss_sim_t)a) >> b, 32);
+    return get_signed_value(((int32_t)a) >> b, 32);
 }
 
 static inline iss_uim_t lib_ROR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)

@@ -34,6 +34,12 @@ static inline iss_insn_t *lui_exec(iss_t *iss, iss_insn_t *insn)
   return insn->next;
 }
 
+static inline void lui_decode(iss_t *iss, iss_insn_t *insn)
+{
+  // The immediate is extended to the xlen for rv64
+  insn->uim[0] = get_signed_value(insn->uim[0], 32);
+}
+
 
 
 static inline iss_insn_t *auipc_exec(iss_t *iss, iss_insn_t *insn)
@@ -44,7 +50,8 @@ static inline iss_insn_t *auipc_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline void auipc_decode(iss_t *iss, iss_insn_t *insn)
 {
-  insn->uim[0] += insn->addr;
+  // The immediate is extended to the xlen for rv64
+  insn->uim[0] = get_signed_value(insn->uim[0], 32) + insn->addr;
 }
 
 
@@ -184,7 +191,7 @@ static inline iss_insn_t *bne_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *blt_exec_common(iss_t *iss, iss_insn_t *insn, int perf)
 {
-  if ((int32_t)REG_GET(0) < (int32_t)REG_GET(1))
+  if ((iss_sim_t)REG_GET(0) < (iss_sim_t)REG_GET(1))
   {
     if (perf)
     {
@@ -218,7 +225,7 @@ static inline iss_insn_t *blt_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *bge_exec_common(iss_t *iss, iss_insn_t *insn, int perf)
 {
-  if ((int32_t)REG_GET(0) >= (int32_t)REG_GET(1))
+  if ((iss_sim_t)REG_GET(0) >= (iss_sim_t)REG_GET(1))
   {
     if (perf)
     {
@@ -455,7 +462,7 @@ static inline iss_insn_t *nop_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *slti_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, (int32_t)REG_GET(0) < insn->sim[0]);
+  REG_SET(0, (iss_sim_t)REG_GET(0) < insn->sim[0]);
   return insn->next;
 }
 
@@ -463,7 +470,7 @@ static inline iss_insn_t *slti_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sltiu_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, REG_GET(0) < (uint32_t)SIM_GET(0));
+  REG_SET(0, REG_GET(0) < (iss_uim_t)SIM_GET(0));
   return insn->next;
 }
 
@@ -535,7 +542,7 @@ static inline iss_insn_t *sub_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sll_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL2(lib_SLL, REG_GET(0), REG_GET(1)));
+  REG_SET(0, LIB_CALL2(lib_SLL, REG_GET(0), REG_GET(1) & ((1<<ISS_REG_WIDTH_LOG2)-1)));
   return insn->next;
 }
 
@@ -543,7 +550,7 @@ static inline iss_insn_t *sll_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *slt_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, (int32_t)REG_GET(0) < (int32_t)REG_GET(1));
+  REG_SET(0, (iss_sim_t)REG_GET(0) < (iss_sim_t)REG_GET(1));
   return insn->next;
 }
 
@@ -567,7 +574,7 @@ static inline iss_insn_t *xor_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *srl_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL2(lib_SRL, REG_GET(0), REG_GET(1)));
+  REG_SET(0, LIB_CALL2(lib_SRL, REG_GET(0), REG_GET(1) & ((1<<ISS_REG_WIDTH_LOG2)-1)));
   return insn->next;
 }
 
@@ -575,7 +582,7 @@ static inline iss_insn_t *srl_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sra_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL2(lib_SRA, REG_GET(0), REG_GET(1)));
+  REG_SET(0, LIB_CALL2(lib_SRA, REG_GET(0), REG_GET(1) & ((1<<ISS_REG_WIDTH_LOG2)-1)));
   return insn->next;
 }
 

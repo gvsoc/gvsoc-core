@@ -129,7 +129,7 @@ static inline iss_insn_t *subw_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sllw_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL2(lib_SLLW, REG_GET(0), REG_GET(1)));
+  REG_SET(0, LIB_CALL2(lib_SLLW, REG_GET(0), REG_GET(1) & ((1<<5)-1)));
   return insn->next;
 }
 
@@ -137,7 +137,7 @@ static inline iss_insn_t *sllw_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *srlw_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL2(lib_SRLW, REG_GET(0), REG_GET(1)));
+  REG_SET(0, LIB_CALL2(lib_SRLW, REG_GET(0), REG_GET(1) & ((1<<5)-1)));
   return insn->next;
 }
 
@@ -145,6 +145,6 @@ static inline iss_insn_t *srlw_exec(iss_t *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sraw_exec(iss_t *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL2(lib_SRAW, REG_GET(0), REG_GET(1)));
+  REG_SET(0, LIB_CALL2(lib_SRAW, REG_GET(0), REG_GET(1) & ((1<<5)-1)));
   return insn->next;
 }

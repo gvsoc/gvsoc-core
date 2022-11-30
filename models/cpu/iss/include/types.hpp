@@ -27,6 +27,7 @@
 #define __STDC_FORMAT_MACROS    // This is needed for some old gcc versions
 #include <inttypes.h>
 #include <vector>
+#include <string>
 
 #if defined(RISCY)
 #define ISS_HAS_PERF_COUNTERS 1
@@ -54,6 +55,7 @@ typedef uint64_t iss_reg64_t;
 
 #define ISS_OPCODE_MAX_SIZE 8
 #define ISS_REG_WIDTH 64
+#define ISS_REG_WIDTH_LOG2 6
 
 typedef uint64_t iss_reg_t;
 typedef uint64_t iss_uim_t;
@@ -69,6 +71,7 @@ typedef uint64_t iss_opcode_t;
 
 #define ISS_OPCODE_MAX_SIZE 4
 #define ISS_REG_WIDTH 32
+#define ISS_REG_WIDTH_LOG2 5
 
 typedef uint32_t iss_reg_t;
 typedef uint32_t iss_uim_t;
@@ -131,11 +134,13 @@ typedef enum {
   ISS_DECODER_ARG_FLAG_COMPRESSED = 4,
   ISS_DECODER_ARG_FLAG_FREG = 8,
   ISS_DECODER_ARG_FLAG_REG64 = 16,
+  ISS_DECODER_ARG_FLAG_DUMP_NAME = 32,
 } iss_decoder_arg_flag_e;
 
 typedef struct iss_insn_arg_s {
   iss_decoder_arg_type_e type;
   iss_decoder_arg_flag_e flags;
+  const char *name;
 
   union {
     struct {
@@ -419,8 +424,6 @@ typedef struct iss_cpu_state_s {
   iss_insn_t *hwloop_next_insn;
 
   iss_fcsr_t fcsr;
-
-  iss_reg_t fprec;
 
   bool debug_mode;
 

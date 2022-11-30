@@ -24,32 +24,32 @@
 
 #include "types.hpp"
 
-static inline iss_opcode_t iss_get_field(iss_opcode_t val, int shift, int bits)
+static inline iss_uim_t iss_get_field(iss_uim_t val, int shift, int bits)
 {
   return (val >> shift) & ((1<<bits) - 1);
 }
 
-static inline iss_opcode_t iss_get_signed_value(iss_opcode_t val, int bits)
+static inline iss_uim_t iss_get_signed_value(iss_uim_t val, int bits)
 {
-  return ((int)val) << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
+  return ((iss_sim_t)val) << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
 }
 
-static inline iss_opcode_t iss_get_zext_value(iss_opcode_t val, int bits)
+static inline iss_uim_t iss_get_zext_value(iss_uim_t val, int bits)
 {
-  return ((unsigned int)val) << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
+  return val << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
 }
 
-static inline uint64_t iss_get_field64(iss_opcode_t val, int shift, int bits)
+static inline uint64_t iss_get_field64(iss_uim_t val, int shift, int bits)
 {
   return (val >> shift) & ((1<<bits) - 1);
 }
 
-static inline int64_t iss_get_signed_value64(iss_opcode_t val, int bits)
+static inline int64_t iss_get_signed_value64(iss_uim_t val, int bits)
 {
   return ((int64_t)val) << (64-bits) >> (64-bits);
 }
 
-static inline uint64_t iss_get_zext_value64(iss_opcode_t val, int bits)
+static inline uint64_t iss_get_zext_value64(iss_uim_t val, int bits)
 {
   return ((uint64_t)val) << (64-bits) >> (64-bits);
 }

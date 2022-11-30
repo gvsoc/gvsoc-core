@@ -160,16 +160,6 @@ static bool fcsr_write(iss_t *iss, unsigned int value) {
 }
 
 
-static bool fprec_read(iss_t *iss, iss_reg_t *value) {
-  *value = iss->cpu.state.fprec;
-  return false;
-}
-
-static bool fprec_write(iss_t *iss, unsigned int value) {
-  iss->cpu.state.fprec = value & 0x1f;
-  return false;
-}
-
 
 
 static bool cycle_read(iss_t *iss, iss_reg_t *value) {
@@ -187,7 +177,7 @@ static bool instret_read(iss_t *iss, iss_reg_t *value) {
   return false;
 }
 
-static bool hpmcounter_read(iss_t *iss, int id, iss_reg_t *value) {
+static bool hpmcounter_read(iss_t *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: hpmcounter\n");
   return false;
 }
@@ -207,7 +197,7 @@ static bool instreth_read(iss_t *iss, iss_reg_t *value) {
   return false;
 }
 
-static bool hpmcounterh_read(iss_t *iss, int id, iss_reg_t *value) {
+static bool hpmcounterh_read(iss_t *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: hpmcounterh\n");
   return false;
 }
@@ -284,6 +274,16 @@ static bool stvec_write(iss_t *iss, unsigned int value) {
 }
 
 
+static bool scounteren_read(iss_t *iss, iss_reg_t *value) {
+  //*value = iss->tvec[GVSIM_MODE_SUPERVISOR];
+  return false;
+}
+
+static bool scounteren_write(iss_t *iss, unsigned int value) {
+  //iss->tvec[GVSIM_MODE_SUPERVISOR] = value;
+  return false;
+}
+
 
 static bool sscratch_read(iss_t *iss, iss_reg_t *value) {
   //*value = iss->scratch[GVSIM_MODE_SUPERVISOR];
@@ -321,12 +321,12 @@ static bool scause_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool sbadaddr_read(iss_t *iss, iss_reg_t *value) {
+static bool stval_read(iss_t *iss, iss_reg_t *value) {
   //*value = iss->badaddr[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool sbadaddr_write(iss_t *iss, unsigned int value) {
+static bool stval_write(iss_t *iss, unsigned int value) {
   //iss->badaddr[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
@@ -345,12 +345,12 @@ static bool sip_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool sptbr_read(iss_t *iss, iss_reg_t *value) {
+static bool satp_read(iss_t *iss, iss_reg_t *value) {
   //*value = iss->sptbr;
   return false;
 }
 
-static bool sptbr_write(iss_t *iss, unsigned int value) {
+static bool satp_write(iss_t *iss, unsigned int value) {
   //iss->sptbr = value;
   //sim_setPgtab(iss, value);
   return false;
@@ -359,116 +359,6 @@ static bool sptbr_write(iss_t *iss, unsigned int value) {
 
 
 
-
-/*
- *   HYPERVISOR CSRS
- */
-
-static bool hstatus_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hstatus\n");
-  return false;
-}
-
-static bool hstatus_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hstatus\n");
-  return false;
-}
-
-
-
-static bool hedeleg_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hedeleg\n");
-  return false;
-}
-
-static bool hedeleg_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hedeleg\n");
-  return false;
-}
-
-
-
-static bool hideleg_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hideleg\n");
-  return false;
-}
-
-static bool hideleg_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hideleg\n");
-  return false;
-}
-
-
-
-static bool hie_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hie\n");
-  return false;
-}
-
-static bool hie_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hie\n");
-  return false;
-}
-
-
-
-static bool htvec_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: htvec\n");
-  return false;
-}
-
-static bool htvec_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: htvec\n");
-  return false;
-}
-
-
-
-static bool hscratch_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hscratch\n");
-  return false;
-}
-
-static bool hscratch_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hscratch\n");
-  return false;
-}
-
-
-
-static bool hepc_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hepc\n");
-  return false;
-}
-
-static bool hepc_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hepc\n");
-  return false;
-}
-
-
-
-static bool hcause_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hcause\n");
-  return false;
-}
-
-static bool hcause_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hcause\n");
-  return false;
-}
-
-
-
-static bool hbadaddr_read(iss_t *iss, iss_reg_t *value) {
-  printf("WARNING UNIMPLEMENTED CSR: hbadaddr\n");
-  return false;
-}
-
-static bool hbadaddr_write(iss_t *iss, unsigned int value) {
-  printf("WARNING UNIMPLEMENTED CSR: hbadaddr\n");
-  return false;
-}
 
 
 
@@ -582,6 +472,15 @@ static bool mtvec_write(iss_t *iss, unsigned int value) {
 }
 
 
+static bool mcounteren_read(iss_t *iss, iss_reg_t *value) {
+  return false;
+}
+
+static bool mcounteren_write(iss_t *iss, unsigned int value) {
+  return false;
+}
+
+
 
 static bool mscratch_read(iss_t *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.mscratch;
@@ -619,6 +518,16 @@ static bool mcause_write(iss_t *iss, unsigned int value) {
 
 
 
+static bool mtval_read(iss_t *iss, iss_reg_t *value) {
+  return false;
+}
+
+static bool mtval_write(iss_t *iss, unsigned int value) {
+  return false;
+}
+
+
+
 static bool mbadaddr_read(iss_t *iss, iss_reg_t *value) {
   //*value = iss->badaddr[GVSIM_MODE_MACHINE];
   return false;
@@ -642,6 +551,23 @@ static bool mip_write(iss_t *iss, unsigned int value) {
   return false;
 }
 
+
+static bool pmpcfg_read(iss_t *iss, iss_reg_t *value, int id) {
+  return false;
+}
+
+static bool pmpcfg_write(iss_t *iss, unsigned int value, int id) {
+  return false;
+}
+
+
+static bool pmpaddr_read(iss_t *iss, iss_reg_t *value, int id) {
+  return false;
+}
+
+static bool pmpaddr_write(iss_t *iss, unsigned int value, int id) {
+  return false;
+}
 
 
 static bool mbase_read(iss_t *iss, iss_reg_t *value) {
@@ -736,12 +662,12 @@ static bool minstret_write(iss_t *iss, unsigned int value) {
   return false;
 }
 
-static bool mhpmcounter_read(iss_t *iss, int id, iss_reg_t *value) {
+static bool mhpmcounter_read(iss_t *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
   return false;
 }
 
-static bool mhpmcounter_write(iss_t *iss, int id, unsigned int value) {
+static bool mhpmcounter_write(iss_t *iss, unsigned int value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
   return false;
 }
@@ -814,16 +740,39 @@ static bool mhcounteren_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool mhpmevent_read(iss_t *iss, int id, iss_reg_t *value) {
+static bool mhpmevent_read(iss_t *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmevent\n");
   return false;
 }
 
-static bool mhpmevent_write(iss_t *iss, int id, unsigned int value) {
+static bool mhpmevent_write(iss_t *iss, unsigned int value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmevent\n");
   return false;
 }
 
+
+
+static bool tselect_read(iss_t *iss, iss_reg_t *value) {
+  printf("WARNING UNIMPLEMENTED CSR: tselect\n");
+  return false;
+}
+
+static bool tselect_write(iss_t *iss, unsigned int value) {
+  printf("WARNING UNIMPLEMENTED CSR: tselect\n");
+  return false;
+}
+
+
+
+static bool tdata_read(iss_t *iss, iss_reg_t *value, int id) {
+  printf("WARNING UNIMPLEMENTED CSR: tdata\n");
+  return false;
+}
+
+static bool tdata_write(iss_t *iss, unsigned int value, int id) {
+  printf("WARNING UNIMPLEMENTED CSR: tdata\n");
+  return false;
+}
 
 
 
@@ -898,6 +847,18 @@ static bool depc_read(iss_t *iss, iss_reg_t *value) {
 
 static bool depc_write(iss_t *iss, iss_reg_t value) {
   iss->cpu.csr.depc = value;
+  return false;
+}
+
+
+
+static bool dscratch_read(iss_t *iss, iss_reg_t *value) {
+  *value = iss->cpu.csr.scratch0;
+  return false;
+}
+
+static bool dscratch_write(iss_t *iss, unsigned int value) {
+  iss->cpu.csr.scratch0 = value;
   return false;
 }
 
@@ -1129,53 +1090,93 @@ bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
     case 0x001: status = fflags_read    (iss, value); break;
     case 0x002: status = frm_read       (iss, value); break;
     case 0x003: status = fcsr_read      (iss, value); break;
-    case 0x006: status = fprec_read     (iss, value); break;
 
     // User counter / timers
-    case 0xC00: status = cycle_read     (iss, value); break;
-    case 0xC01: status = time_read      (iss, value); break;
-    case 0xC02: status = instret_read   (iss, value); break;
-    case 0xC80: status = cycleh_read    (iss, value); break;
-    case 0xC81: status = timeh_read     (iss, value); break;
-    case 0xC82: status = instreth_read  (iss, value); break;
+    case 0xC00: status = cycle_read      (iss, value); break;
+    case 0xC01: status = time_read       (iss, value); break;
+    case 0xC02: status = instret_read    (iss, value); break;
+    case 0xC03: status = hpmcounter_read (iss, value, 3); break;
+    case 0xC04: status = hpmcounter_read (iss, value, 4); break;
+    case 0xC05: status = hpmcounter_read (iss, value, 5); break;
+    case 0xC06: status = hpmcounter_read (iss, value, 6); break;
+    case 0xC07: status = hpmcounter_read (iss, value, 7); break;
+    case 0xC08: status = hpmcounter_read (iss, value, 8); break;
+    case 0xC09: status = hpmcounter_read (iss, value, 9); break;
+    case 0xC0A: status = hpmcounter_read (iss, value, 10); break;
+    case 0xC0B: status = hpmcounter_read (iss, value, 11); break;
+    case 0xC0C: status = hpmcounter_read (iss, value, 12); break;
+    case 0xC0D: status = hpmcounter_read (iss, value, 13); break;
+    case 0xC0E: status = hpmcounter_read (iss, value, 14); break;
+    case 0xC0F: status = hpmcounter_read (iss, value, 15); break;
+    case 0xC10: status = hpmcounter_read (iss, value, 16); break;
+    case 0xC11: status = hpmcounter_read (iss, value, 17); break;
+    case 0xC12: status = hpmcounter_read (iss, value, 18); break;
+    case 0xC13: status = hpmcounter_read (iss, value, 19); break;
+    case 0xC14: status = hpmcounter_read (iss, value, 20); break;
+    case 0xC15: status = hpmcounter_read (iss, value, 21); break;
+    case 0xC16: status = hpmcounter_read (iss, value, 22); break;
+    case 0xC17: status = hpmcounter_read (iss, value, 23); break;
+    case 0xC18: status = hpmcounter_read (iss, value, 24); break;
+    case 0xC19: status = hpmcounter_read (iss, value, 25); break;
+    case 0xC1A: status = hpmcounter_read (iss, value, 26); break;
+    case 0xC1B: status = hpmcounter_read (iss, value, 27); break;
+    case 0xC1C: status = hpmcounter_read (iss, value, 28); break;
+    case 0xC1D: status = hpmcounter_read (iss, value, 29); break;
+    case 0xC1E: status = hpmcounter_read (iss, value, 30); break;
+    case 0xC1F: status = hpmcounter_read (iss, value, 31); break;
+    case 0xC80: status = cycleh_read     (iss, value); break;
+    case 0xC81: status = timeh_read      (iss, value); break;
+    case 0xC82: status = instreth_read   (iss, value); break;
+    case 0xC83: status = hpmcounterh_read (iss, value, 3); break;
+    case 0xC84: status = hpmcounterh_read (iss, value, 4); break;
+    case 0xC85: status = hpmcounterh_read (iss, value, 5); break;
+    case 0xC86: status = hpmcounterh_read (iss, value, 6); break;
+    case 0xC87: status = hpmcounterh_read (iss, value, 7); break;
+    case 0xC88: status = hpmcounterh_read (iss, value, 8); break;
+    case 0xC89: status = hpmcounterh_read (iss, value, 9); break;
+    case 0xC8A: status = hpmcounterh_read (iss, value, 10); break;
+    case 0xC8B: status = hpmcounterh_read (iss, value, 11); break;
+    case 0xC8C: status = hpmcounterh_read (iss, value, 12); break;
+    case 0xC8D: status = hpmcounterh_read (iss, value, 13); break;
+    case 0xC8E: status = hpmcounterh_read (iss, value, 14); break;
+    case 0xC8F: status = hpmcounterh_read (iss, value, 15); break;
+    case 0xC90: status = hpmcounterh_read (iss, value, 16); break;
+    case 0xC91: status = hpmcounterh_read (iss, value, 17); break;
+    case 0xC92: status = hpmcounterh_read (iss, value, 18); break;
+    case 0xC93: status = hpmcounterh_read (iss, value, 19); break;
+    case 0xC94: status = hpmcounterh_read (iss, value, 20); break;
+    case 0xC95: status = hpmcounterh_read (iss, value, 21); break;
+    case 0xC96: status = hpmcounterh_read (iss, value, 22); break;
+    case 0xC97: status = hpmcounterh_read (iss, value, 23); break;
+    case 0xC98: status = hpmcounterh_read (iss, value, 24); break;
+    case 0xC99: status = hpmcounterh_read (iss, value, 25); break;
+    case 0xC9A: status = hpmcounterh_read (iss, value, 26); break;
+    case 0xC9B: status = hpmcounterh_read (iss, value, 27); break;
+    case 0xC9C: status = hpmcounterh_read (iss, value, 28); break;
+    case 0xC9D: status = hpmcounterh_read (iss, value, 29); break;
+    case 0xC9E: status = hpmcounterh_read (iss, value, 30); break;
+    case 0xC9F: status = hpmcounterh_read (iss, value, 31); break;
 
 
 
 
     // Supervisor trap setup
-    case 0x100: status = sstatus_read   (iss, value); break;
-    case 0x102: status = sedeleg_read   (iss, value); break;
-    case 0x103: status = sideleg_read   (iss, value); break;
-    case 0x104: status = sie_read       (iss, value); break;
-    case 0x105: status = stvec_read     (iss, value); break;
+    case 0x100: status = sstatus_read    (iss, value); break;
+    case 0x102: status = sedeleg_read    (iss, value); break;
+    case 0x103: status = sideleg_read    (iss, value); break;
+    case 0x104: status = sie_read        (iss, value); break;
+    case 0x105: status = stvec_read      (iss, value); break;
+    case 0x106: status = scounteren_read (iss, value); break;
 
     // Supervisor trap handling
     case 0x140: status = sscratch_read  (iss, value); break;
     case 0x141: status = sepc_read      (iss, value); break;
     case 0x142: status = scause_read    (iss, value); break;
-    case 0x143: status = sbadaddr_read  (iss, value); break;
+    case 0x143: status = stval_read  (iss, value); break;
     case 0x144: status = sip_read       (iss, value); break;
 
     // Supervisor protection and translation
-    case 0x180: status = sptbr_read     (iss, value); break;
-
-
-
-
-    // Hypervisor trap setup
-    case 0x200: status = hstatus_read   (iss, value); break;
-    case 0x202: status = hedeleg_read   (iss, value); break;
-    case 0x203: status = hideleg_read   (iss, value); break;
-    case 0x204: status = hie_read       (iss, value); break;
-    case 0x205: status = htvec_read     (iss, value); break;
-
-    // Hypervisor trap handling
-    case 0x240: status = hscratch_read  (iss, value); break;
-    case 0x241: status = hepc_read      (iss, value); break;
-    case 0x242: status = hcause_read    (iss, value); break;
-    case 0x243: status = hbadaddr_read  (iss, value); break;
-
-    // Hypervisor protection and translation
+    case 0x180: status = satp_read     (iss, value); break;
 
 
 
@@ -1193,41 +1194,147 @@ bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
     case 0x303: status = mideleg_read    (iss, value); break;
     case 0x304: status = mie_read        (iss, value); break;
     case 0x305: status = mtvec_read      (iss, value); break;
+    case 0x306: status = mcounteren_read (iss, value); break;
 
     // Machine trap handling
     case 0x340: status = mscratch_read   (iss, value); break;
     case 0x341: status = mepc_read       (iss, value); break;
     case 0x342: status = mcause_read     (iss, value); break;
-    case 0x343: status = mbadaddr_read   (iss, value); break;
+    case 0x343: status = mtval_read       (iss, value); break;
     case 0x344: status = mip_read        (iss, value); break;
 
     // Machine protection and translation
-    case 0x380: status = mbase_read      (iss, value); break;
-    case 0x381: status = mbound_read     (iss, value); break;
-    case 0x382: status = mibase_read     (iss, value); break;
-    case 0x383: status = mibound_read    (iss, value); break;
-    case 0x384: status = mdbase_read     (iss, value); break;
-    case 0x385: status = mdbound_read    (iss, value); break;
+    case 0x3A0: status = pmpcfg_read   (iss, value, 0); break;
+    case 0x3A1: status = pmpcfg_read   (iss, value, 1); break;
+    case 0x3A2: status = pmpcfg_read   (iss, value, 2); break;
+    case 0x3A3: status = pmpcfg_read   (iss, value, 3); break;
+    case 0x3B0: status = pmpaddr_read  (iss, value, 0); break;
+    case 0x3B1: status = pmpaddr_read  (iss, value, 1); break;
+    case 0x3B2: status = pmpaddr_read  (iss, value, 2); break;
+    case 0x3B3: status = pmpaddr_read  (iss, value, 3); break;
+    case 0x3B4: status = pmpaddr_read  (iss, value, 4); break;
+    case 0x3B5: status = pmpaddr_read  (iss, value, 5); break;
+    case 0x3B6: status = pmpaddr_read  (iss, value, 6); break;
+    case 0x3B7: status = pmpaddr_read  (iss, value, 7); break;
+    case 0x3B8: status = pmpaddr_read  (iss, value, 8); break;
+    case 0x3B9: status = pmpaddr_read  (iss, value, 9); break;
+    case 0x3BA: status = pmpaddr_read  (iss, value, 10); break;
+    case 0x3BB: status = pmpaddr_read  (iss, value, 11); break;
+    case 0x3BC: status = pmpaddr_read  (iss, value, 12); break;
+    case 0x3BD: status = pmpaddr_read  (iss, value, 13); break;
+    case 0x3BE: status = pmpaddr_read  (iss, value, 14); break;
+    case 0x3BF: status = pmpaddr_read  (iss, value, 15); break;
 
     // Machine timers and counters
     case 0xB00: status = mcycle_read     (iss, value); break;
     case 0xB02: status = minstret_read   (iss, value); break;
-    case 0xB80: status = mcycleh_read    (iss, value); break;
-    case 0xB82: status = minstreth_read  (iss, value); break;
+    case 0xB03: status = mhpmcounter_read (iss, value, 3); break;
+    case 0xB04: status = mhpmcounter_read (iss, value, 4); break;
+    case 0xB05: status = mhpmcounter_read (iss, value, 5); break;
+    case 0xB06: status = mhpmcounter_read (iss, value, 6); break;
+    case 0xB07: status = mhpmcounter_read (iss, value, 7); break;
+    case 0xB08: status = mhpmcounter_read (iss, value, 8); break;
+    case 0xB09: status = mhpmcounter_read (iss, value, 9); break;
+    case 0xB0A: status = mhpmcounter_read (iss, value, 10); break;
+    case 0xB0B: status = mhpmcounter_read (iss, value, 11); break;
+    case 0xB0C: status = mhpmcounter_read (iss, value, 12); break;
+    case 0xB0D: status = mhpmcounter_read (iss, value, 13); break;
+    case 0xB0E: status = mhpmcounter_read (iss, value, 14); break;
+    case 0xB0F: status = mhpmcounter_read (iss, value, 15); break;
+    case 0xB10: status = mhpmcounter_read (iss, value, 16); break;
+    case 0xB11: status = mhpmcounter_read (iss, value, 17); break;
+    case 0xB12: status = mhpmcounter_read (iss, value, 18); break;
+    case 0xB13: status = mhpmcounter_read (iss, value, 19); break;
+    case 0xB14: status = mhpmcounter_read (iss, value, 20); break;
+    case 0xB15: status = mhpmcounter_read (iss, value, 21); break;
+    case 0xB16: status = mhpmcounter_read (iss, value, 22); break;
+    case 0xB17: status = mhpmcounter_read (iss, value, 23); break;
+    case 0xB18: status = mhpmcounter_read (iss, value, 24); break;
+    case 0xB19: status = mhpmcounter_read (iss, value, 25); break;
+    case 0xB1A: status = mhpmcounter_read (iss, value, 26); break;
+    case 0xB1B: status = mhpmcounter_read (iss, value, 27); break;
+    case 0xB1C: status = mhpmcounter_read (iss, value, 28); break;
+    case 0xB1D: status = mhpmcounter_read (iss, value, 29); break;
+    case 0xB1E: status = mhpmcounter_read (iss, value, 30); break;
+    case 0xB1F: status = mhpmcounter_read (iss, value, 31); break;
+    case 0xB80: status = mcycleh_read     (iss, value); break;
+    case 0xB82: status = minstreth_read   (iss, value); break;
+    case 0xB83: status = mhpmcounter_read (iss, value, 3); break;
+    case 0xB84: status = mhpmcounter_read (iss, value, 4); break;
+    case 0xB85: status = mhpmcounter_read (iss, value, 5); break;
+    case 0xB86: status = mhpmcounter_read (iss, value, 6); break;
+    case 0xB87: status = mhpmcounter_read (iss, value, 7); break;
+    case 0xB88: status = mhpmcounter_read (iss, value, 8); break;
+    case 0xB89: status = mhpmcounter_read (iss, value, 9); break;
+    case 0xB8A: status = mhpmcounter_read (iss, value, 10); break;
+    case 0xB8B: status = mhpmcounter_read (iss, value, 11); break;
+    case 0xB8C: status = mhpmcounter_read (iss, value, 12); break;
+    case 0xB8D: status = mhpmcounter_read (iss, value, 13); break;
+    case 0xB8E: status = mhpmcounter_read (iss, value, 14); break;
+    case 0xB8F: status = mhpmcounter_read (iss, value, 15); break;
+    case 0xB90: status = mhpmcounter_read (iss, value, 16); break;
+    case 0xB91: status = mhpmcounter_read (iss, value, 17); break;
+    case 0xB92: status = mhpmcounter_read (iss, value, 18); break;
+    case 0xB93: status = mhpmcounter_read (iss, value, 19); break;
+    case 0xB94: status = mhpmcounter_read (iss, value, 20); break;
+    case 0xB95: status = mhpmcounter_read (iss, value, 21); break;
+    case 0xB96: status = mhpmcounter_read (iss, value, 22); break;
+    case 0xB97: status = mhpmcounter_read (iss, value, 23); break;
+    case 0xB98: status = mhpmcounter_read (iss, value, 24); break;
+    case 0xB99: status = mhpmcounter_read (iss, value, 25); break;
+    case 0xB9A: status = mhpmcounter_read (iss, value, 26); break;
+    case 0xB9B: status = mhpmcounter_read (iss, value, 27); break;
+    case 0xB9C: status = mhpmcounter_read (iss, value, 28); break;
+    case 0xB9D: status = mhpmcounter_read (iss, value, 29); break;
+    case 0xB9E: status = mhpmcounter_read (iss, value, 30); break;
+    case 0xB9F: status = mhpmcounter_read (iss, value, 31); break;
 
     // Machine counter setup
-    case 0x320: status = mucounteren_read(iss, value); break;
-    case 0x321: status = mscounteren_read(iss, value); break;
-    case 0x322: status = mhcounteren_read(iss, value); break;
+    case 0x323: status = mhpmevent_read (iss, value, 3); break;
+    case 0x324: status = mhpmevent_read (iss, value, 4); break;
+    case 0x325: status = mhpmevent_read (iss, value, 5); break;
+    case 0x326: status = mhpmevent_read (iss, value, 6); break;
+    case 0x327: status = mhpmevent_read (iss, value, 7); break;
+    case 0x328: status = mhpmevent_read (iss, value, 8); break;
+    case 0x329: status = mhpmevent_read (iss, value, 9); break;
+    case 0x32A: status = mhpmevent_read (iss, value, 10); break;
+    case 0x32B: status = mhpmevent_read (iss, value, 11); break;
+    case 0x32C: status = mhpmevent_read (iss, value, 12); break;
+    case 0x32D: status = mhpmevent_read (iss, value, 13); break;
+    case 0x32E: status = mhpmevent_read (iss, value, 14); break;
+    case 0x32F: status = mhpmevent_read (iss, value, 15); break;
+    case 0x330: status = mhpmevent_read (iss, value, 16); break;
+    case 0x331: status = mhpmevent_read (iss, value, 17); break;
+    case 0x332: status = mhpmevent_read (iss, value, 18); break;
+    case 0x333: status = mhpmevent_read (iss, value, 19); break;
+    case 0x334: status = mhpmevent_read (iss, value, 20); break;
+    case 0x335: status = mhpmevent_read (iss, value, 21); break;
+    case 0x336: status = mhpmevent_read (iss, value, 22); break;
+    case 0x337: status = mhpmevent_read (iss, value, 23); break;
+    case 0x338: status = mhpmevent_read (iss, value, 24); break;
+    case 0x339: status = mhpmevent_read (iss, value, 25); break;
+    case 0x33A: status = mhpmevent_read (iss, value, 26); break;
+    case 0x33B: status = mhpmevent_read (iss, value, 27); break;
+    case 0x33C: status = mhpmevent_read (iss, value, 28); break;
+    case 0x33D: status = mhpmevent_read (iss, value, 29); break;
+    case 0x33E: status = mhpmevent_read (iss, value, 30); break;
+    case 0x33F: status = mhpmevent_read (iss, value, 31); break;
+
+    // Debug/Trace registers (shared with debug mode)
+    case 0x7A0: status = tselect_read (iss, value); break;
+    case 0x7A1: status = tdata_read (iss, value, 1); break;
+    case 0x7A2: status = tdata_read (iss, value, 2); break;
+    case 0x7A3: status = tdata_read (iss, value, 3); break;
+
+    // Debug mode registers
+    case 0x7B0: status = dcsr_read (iss, value); break;
+    case 0x7B1: status = depc_read (iss, value); break;
+    case 0x7B2: status = dscratch_read (iss, value); break;
 
     // PULP extensions
-    case 0xC10: status = umode_read(iss, value); break;
     case 0x014: status = mhartid_read(iss, value); break;
 
 #if CSR_HWLOOP0_START != 0x7b0
-    case 0x7b0: status = dcsr_read    (iss, value); break;
-    case 0x7b1: status = depc_read    (iss, value); break;
-    case 0x7b2: status = scratch0_read(iss, value); break;
     case 0x7b3: status = scratch1_read(iss, value); break;
 #endif
 
@@ -1309,7 +1416,6 @@ bool iss_csr_write(iss_t *iss, iss_reg_t reg, iss_reg_t value)
     case 0x001: return fflags_write    (iss, value);
     case 0x002: return frm_write       (iss, value);
     case 0x003: return fcsr_write      (iss, value);
-    case 0x006: return fprec_write     (iss, value);
 
 
 
@@ -1325,27 +1431,10 @@ bool iss_csr_write(iss_t *iss, iss_reg_t reg, iss_reg_t value)
     case 0x140: return sscratch_write  (iss, value);
     case 0x141: return sepc_write      (iss, value);
     case 0x142: return scause_write    (iss, value);
-    case 0x143: return sbadaddr_write  (iss, value);
     case 0x144: return sip_write       (iss, value);
 
     // Supervisor protection and translation
-    case 0x180: return sptbr_write     (iss, value);
 
-
-
-
-    // Hypervisor trap setup
-    case 0x200: return hstatus_write   (iss, value);
-    case 0x202: return hedeleg_write   (iss, value);
-    case 0x203: return hideleg_write   (iss, value);
-    case 0x204: return hie_write       (iss, value);
-    case 0x205: return htvec_write     (iss, value);
-
-    // Hypervisor trap handling
-    case 0x240: return hscratch_write  (iss, value);
-    case 0x241: return hepc_write      (iss, value);
-    case 0x242: return hcause_write    (iss, value);
-    case 0x243: return hbadaddr_write  (iss, value);
 
 
 
@@ -1427,4 +1516,301 @@ void iss_csr_init(iss_t *iss, int reset)
 #endif
   iss->cpu.csr.stack_conf = 0;
   iss->cpu.csr.dcsr = 4 << 28;
+}
+
+const char *iss_csr_name(iss_t *iss, iss_reg_t reg)
+{
+  switch (reg) {
+
+    // User trap setup
+    case 0x000: return "ustatus";
+    case 0x004: return "uie";
+    case 0x005: return "utvec";
+
+    // User trap handling
+    case 0x040: return "uscratch";
+    case 0x041: return "uepc";
+    case 0x042: return "ucause";
+    case 0x043: return "ubadaddr";
+    case 0x044: return "uip";
+
+    // User floating-point CSRs
+    case 0x001: return "fflags";
+    case 0x002: return "frm";
+    case 0x003: return "fcsr";
+
+    // User counter / timers
+    case 0xC00: return "cycle";
+    case 0xC01: return "time";
+    case 0xC02: return "instret";
+    case 0xC03: return "hpmcounter";
+    case 0xC04: return "hpmcounter";
+    case 0xC05: return "hpmcounter";
+    case 0xC06: return "hpmcounter";
+    case 0xC07: return "hpmcounter";
+    case 0xC08: return "hpmcounter";
+    case 0xC09: return "hpmcounter";
+    case 0xC0A: return "hpmcounter";
+    case 0xC0B: return "hpmcounter";
+    case 0xC0C: return "hpmcounter";
+    case 0xC0D: return "hpmcounter";
+    case 0xC0E: return "hpmcounter";
+    case 0xC0F: return "hpmcounter";
+    case 0xC10: return "hpmcounter";
+    case 0xC11: return "hpmcounter";
+    case 0xC12: return "hpmcounter";
+    case 0xC13: return "hpmcounter";
+    case 0xC14: return "hpmcounter";
+    case 0xC15: return "hpmcounter";
+    case 0xC16: return "hpmcounter";
+    case 0xC17: return "hpmcounter";
+    case 0xC18: return "hpmcounter";
+    case 0xC19: return "hpmcounter";
+    case 0xC1A: return "hpmcounter";
+    case 0xC1B: return "hpmcounter";
+    case 0xC1C: return "hpmcounter";
+    case 0xC1D: return "hpmcounter";
+    case 0xC1E: return "hpmcounter";
+    case 0xC1F: return "hpmcounter";
+    case 0xC80: return "cycleh";
+    case 0xC81: return "timeh";
+    case 0xC82: return "instreth";
+    case 0xC83: return "hpmcounterh3";
+    case 0xC84: return "hpmcounterh4";
+    case 0xC85: return "hpmcounterh5";
+    case 0xC86: return "hpmcounterh6";
+    case 0xC87: return "hpmcounterh7";
+    case 0xC88: return "hpmcounterh8";
+    case 0xC89: return "hpmcounterh9";
+    case 0xC8A: return "hpmcounterh10";
+    case 0xC8B: return "hpmcounterh11";
+    case 0xC8C: return "hpmcounterh12";
+    case 0xC8D: return "hpmcounterh13";
+    case 0xC8E: return "hpmcounterh14";
+    case 0xC8F: return "hpmcounterh15";
+    case 0xC90: return "hpmcounterh16";
+    case 0xC91: return "hpmcounterh17";
+    case 0xC92: return "hpmcounterh18";
+    case 0xC93: return "hpmcounterh19";
+    case 0xC94: return "hpmcounterh20";
+    case 0xC95: return "hpmcounterh21";
+    case 0xC96: return "hpmcounterh22";
+    case 0xC97: return "hpmcounterh23";
+    case 0xC98: return "hpmcounterh24";
+    case 0xC99: return "hpmcounterh25";
+    case 0xC9A: return "hpmcounterh26";
+    case 0xC9B: return "hpmcounterh27";
+    case 0xC9C: return "hpmcounterh28";
+    case 0xC9D: return "hpmcounterh29";
+    case 0xC9E: return "hpmcounterh30";
+    case 0xC9F: return "hpmcounterh31";
+
+
+
+
+    // Supervisor trap setup
+    case 0x100: return "sstatus";
+    case 0x102: return "sedeleg";
+    case 0x103: return "sideleg";
+    case 0x104: return "sie";
+    case 0x105: return "stvec";
+    case 0x106: return "scounteren";
+
+    // Supervisor trap handling
+    case 0x140: return "sscratch";
+    case 0x141: return "sepc";
+    case 0x142: return "scause";
+    case 0x143: return "stval";
+    case 0x144: return "sip";
+
+    // Supervisor protection and translation
+    case 0x180: return "satp";
+
+
+
+
+    // Machine information registers
+    case 0xF11: return "mvendorid";
+    case 0xF12: return "marchid";
+    case 0xF13: return "mimpid";
+    case 0xF14: return "mhartid";
+
+    // Machine trap setup
+    case 0x300: return "mstatus";
+    case 0x301: return "misa";
+    case 0x302: return "medeleg";
+    case 0x303: return "mideleg";
+    case 0x304: return "mie";
+    case 0x305: return "mtvec";
+    case 0x306: return "mcounteren";
+
+    // Machine trap handling
+    case 0x340: return "mscratch";
+    case 0x341: return "mepc";
+    case 0x342: return "mcause";
+    case 0x343: return "mtval";
+    case 0x344: return "mip";
+
+    // Machine protection and translation
+    case 0x3A0: return "pmpcfg0";
+    case 0x3A1: return "pmpcfg1";
+    case 0x3A2: return "pmpcfg2";
+    case 0x3A3: return "pmpcfg3";
+    case 0x3B0: return "pmpaddr0";
+    case 0x3B1: return "pmpaddr1";
+    case 0x3B2: return "pmpaddr2";
+    case 0x3B3: return "pmpaddr3";
+    case 0x3B4: return "pmpaddr4";
+    case 0x3B5: return "pmpaddr5";
+    case 0x3B6: return "pmpaddr6";
+    case 0x3B7: return "pmpaddr7";
+    case 0x3B8: return "pmpaddr8";
+    case 0x3B9: return "pmpaddr9";
+    case 0x3BA: return "pmpaddr10";
+    case 0x3BB: return "pmpaddr11";
+    case 0x3BC: return "pmpaddr12";
+    case 0x3BD: return "pmpaddr13";
+    case 0x3BE: return "pmpaddr14";
+    case 0x3BF: return "pmpaddr15";
+
+    // Machine timers and counters
+    case 0xB00: return "mcycle";
+    case 0xB02: return "minstret";
+    case 0xB03: return "mhpmcounter3";
+    case 0xB04: return "mhpmcounter4";
+    case 0xB05: return "mhpmcounter5";
+    case 0xB06: return "mhpmcounter6";
+    case 0xB07: return "mhpmcounter7";
+    case 0xB08: return "mhpmcounter8";
+    case 0xB09: return "mhpmcounter9";
+    case 0xB0A: return "mhpmcounter10";
+    case 0xB0B: return "mhpmcounter11";
+    case 0xB0C: return "mhpmcounter12";
+    case 0xB0D: return "mhpmcounter13";
+    case 0xB0E: return "mhpmcounter14";
+    case 0xB0F: return "mhpmcounter15";
+    case 0xB10: return "mhpmcounter16";
+    case 0xB11: return "mhpmcounter17";
+    case 0xB12: return "mhpmcounter18";
+    case 0xB13: return "mhpmcounter19";
+    case 0xB14: return "mhpmcounter20";
+    case 0xB15: return "mhpmcounter21";
+    case 0xB16: return "mhpmcounter22";
+    case 0xB17: return "mhpmcounter23";
+    case 0xB18: return "mhpmcounter24";
+    case 0xB19: return "mhpmcounter25";
+    case 0xB1A: return "mhpmcounter26";
+    case 0xB1B: return "mhpmcounter27";
+    case 0xB1C: return "mhpmcounter28";
+    case 0xB1D: return "mhpmcounter29";
+    case 0xB1E: return "mhpmcounter30";
+    case 0xB1F: return "mhpmcounter31";
+    case 0xB80: return "mcycleh";
+    case 0xB82: return "minstreth";
+    case 0xB83: return "mhpmcounter3";
+    case 0xB84: return "mhpmcounter4";
+    case 0xB85: return "mhpmcounter5";
+    case 0xB86: return "mhpmcounter6";
+    case 0xB87: return "mhpmcounter7";
+    case 0xB88: return "mhpmcounter8";
+    case 0xB89: return "mhpmcounter9";
+    case 0xB8A: return "mhpmcounter10";
+    case 0xB8B: return "mhpmcounter11";
+    case 0xB8C: return "mhpmcounter12";
+    case 0xB8D: return "mhpmcounter13";
+    case 0xB8E: return "mhpmcounter14";
+    case 0xB8F: return "mhpmcounter15";
+    case 0xB90: return "mhpmcounter16";
+    case 0xB91: return "mhpmcounter17";
+    case 0xB92: return "mhpmcounter18";
+    case 0xB93: return "mhpmcounter19";
+    case 0xB94: return "mhpmcounter20";
+    case 0xB95: return "mhpmcounter21";
+    case 0xB96: return "mhpmcounter22";
+    case 0xB97: return "mhpmcounter23";
+    case 0xB98: return "mhpmcounter24";
+    case 0xB99: return "mhpmcounter25";
+    case 0xB9A: return "mhpmcounter26";
+    case 0xB9B: return "mhpmcounter27";
+    case 0xB9C: return "mhpmcounter28";
+    case 0xB9D: return "mhpmcounter29";
+    case 0xB9E: return "mhpmcounter30";
+    case 0xB9F: return "mhpmcounter31";
+
+    // Machine counter setup
+    case 0x323: return "mhpmevent3";
+    case 0x324: return "mhpmevent4";
+    case 0x325: return "mhpmevent5";
+    case 0x326: return "mhpmevent6";
+    case 0x327: return "mhpmevent7";
+    case 0x328: return "mhpmevent8";
+    case 0x329: return "mhpmevent9";
+    case 0x32A: return "mhpmevent10";
+    case 0x32B: return "mhpmevent11";
+    case 0x32C: return "mhpmevent12";
+    case 0x32D: return "mhpmevent13";
+    case 0x32E: return "mhpmevent14";
+    case 0x32F: return "mhpmevent15";
+    case 0x330: return "mhpmevent16";
+    case 0x331: return "mhpmevent17";
+    case 0x332: return "mhpmevent18";
+    case 0x333: return "mhpmevent19";
+    case 0x334: return "mhpmevent20";
+    case 0x335: return "mhpmevent21";
+    case 0x336: return "mhpmevent22";
+    case 0x337: return "mhpmevent23";
+    case 0x338: return "mhpmevent24";
+    case 0x339: return "mhpmevent25";
+    case 0x33A: return "mhpmevent26";
+    case 0x33B: return "mhpmevent27";
+    case 0x33C: return "mhpmevent28";
+    case 0x33D: return "mhpmevent29";
+    case 0x33E: return "mhpmevent30";
+    case 0x33F: return "mhpmevent31";
+
+    // Debug/Trace registers (shared with debug mode)
+    case 0x7A0: return "tselect";
+    case 0x7A1: return "tdata0";
+    case 0x7A2: return "tdata1";
+    case 0x7A3: return "tdata2";
+
+    // Debug mode registers
+    case 0x7B0: return "dcsr";
+    case 0x7B1: return "depc";
+    case 0x7B2: return "dscratch";
+
+    // PULP extensions
+    case 0x014: return "mhartid";
+
+    case 0x7b3: return "scratch1";
+
+#ifdef CSR_STACK_CONF
+    case CSR_STACK_CONF:  return "stack_conf";
+    case CSR_STACK_START: return "stack_start";
+    case CSR_STACK_END:   return "stack_end";
+#endif
+
+  }
+
+#if 0
+#if defined(ISS_HAS_PERF_COUNTERS)
+    if ((reg >= CSR_PCCR(0) && reg <= CSR_PCCR(CSR_NB_PCCR)) || reg == CSR_PCER || reg == CSR_PCMR)
+    {
+      status = perfCounters_read(iss, reg, value);
+    }
+#endif
+
+#if defined(CSR_HWLOOP0_START)
+    else if (iss->cpu.pulpv2.hwloop)
+    {
+      if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
+      {
+        status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
+      }
+    }
+#endif
+#endif
+
+  return "csr";
+
 }

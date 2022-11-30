@@ -274,11 +274,25 @@ static char *iss_trace_dump_arg(iss_t *iss, iss_insn_t *insn, char *buff, iss_in
         }
         else if (arg->type == ISS_DECODER_ARG_TYPE_UIMM)
         {
-            buff += sprintf(buff, "0x%" PRIxREG, insn_arg->u.uim.value);
+            if (insn_arg->flags & ISS_DECODER_ARG_FLAG_DUMP_NAME)
+            {
+                buff += sprintf(buff, insn_arg->name);
+            }
+            else
+            {
+                buff += sprintf(buff, "0x%" PRIxREG, insn_arg->u.uim.value);
+            }
         }
         else if (arg->type == ISS_DECODER_ARG_TYPE_SIMM)
         {
-            buff += sprintf(buff, "%" PRIdREG, insn_arg->u.sim.value);
+            if (insn_arg->flags & ISS_DECODER_ARG_FLAG_DUMP_NAME)
+            {
+                buff += sprintf(buff, insn_arg->name);
+            }
+            else
+            {
+                buff += sprintf(buff, "%" PRIdREG, insn_arg->u.sim.value);
+            }
         }
         else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_IMM)
         {

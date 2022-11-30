@@ -108,11 +108,6 @@ int loader::build()
 
     new_master_port("entry", &this->entry_itf);
 
-    for (auto x:this->get_js_config()->get("binaries")->get_elems())
-    {
-        this->load_elf(x->get_str().c_str(), &this->entry);
-    }
-
     this->event = this->event_new(loader::event_handler);
 
     return 0;
@@ -128,7 +123,15 @@ void loader::reset(bool active)
 {
     if (!active)
     {
-        this->event_enqueue(this->event, 1);
+        for (auto x:this->get_js_config()->get("binary")->get_elems())
+        {
+            this->load_elf(x->get_str().c_str(), &this->entry);
+        }
+
+        if (this->sections.size() > 0)
+        {
+            this->event_enqueue(this->event, 1);
+        }
     }
 }
 

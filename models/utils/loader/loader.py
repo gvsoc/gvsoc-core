@@ -29,5 +29,5 @@ class ElfLoader(st.Component):
         self.set_component('utils.loader.loader')
 
         self.add_properties({
-            'binaries': binaries
+            'binary': binaries
         })

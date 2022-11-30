@@ -98,7 +98,7 @@ def dump_config(full_config, gvsoc_config_path):
 
 class Runner(gapylib.target.Target, st.Component):
 
-    def __init__(self, parser, parent, name, options):
+    def __init__(self, parent, name, parser, options):
 
         gapylib.target.Target.__init__(self, parser, options)
         st.Component.__init__(self, parent, name, options)

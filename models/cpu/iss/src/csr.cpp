@@ -1108,7 +1108,8 @@ bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
     case 0xC0D: status = hpmcounter_read (iss, value, 13); break;
     case 0xC0E: status = hpmcounter_read (iss, value, 14); break;
     case 0xC0F: status = hpmcounter_read (iss, value, 15); break;
-    case 0xC10: status = hpmcounter_read (iss, value, 16); break;
+    case 0xC10: status = umode_read(iss, value); break;
+    // case 0xC10: status = hpmcounter_read (iss, value, 16); break;
     case 0xC11: status = hpmcounter_read (iss, value, 17); break;
     case 0xC12: status = hpmcounter_read (iss, value, 18); break;
     case 0xC13: status = hpmcounter_read (iss, value, 19); break;

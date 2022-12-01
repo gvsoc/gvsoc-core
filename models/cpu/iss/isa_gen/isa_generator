@@ -25,6 +25,7 @@
 import argparse
 import os.path
 import importlib
+import sys
 
 
 parser = argparse.ArgumentParser(description='Generate ISA for RISCV')
@@ -33,8 +34,11 @@ parser.add_argument("--header-file", dest="header_file", default=None, metavar="
 parser.add_argument("--source-file", dest="source_file", default=None, metavar="PATH", help="Specify source output file")
 parser.add_argument("--implem", dest="implem", default=None, help="Specify implementation name")
 parser.add_argument("--core", dest="core", default=None, help="Specify core class and module")
+parser.add_argument("--inc-dir", dest="inc_dirs", action="append", help="Specify include dir")
 
 args = parser.parse_args()
+
+sys.path = args.inc_dirs + sys.path
 
 core = args.core
 

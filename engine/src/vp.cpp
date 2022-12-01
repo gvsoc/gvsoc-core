@@ -48,6 +48,7 @@
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
+#include <filesystem>
 
 
 extern "C" long long int dpi_time_ps();
@@ -1287,7 +1288,7 @@ vp::component *vp::component::new_component(std::string name, js::config *config
 
     std::replace(module_name.begin(), module_name.end(), '.', '/');
 
-    std::string path = std::string(getenv("GVSOC_PATH")) + "/" + module_name + ".so";
+    std::string path = __gv_get_component_path(this->get_vp_config(), module_name);
 
     void *module = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
     if (module == NULL)
@@ -1521,6 +1522,24 @@ void vp::component::dump_traces_recursive(FILE *file)
     }
 }
 
+std::string vp::__gv_get_component_path(js::config *gv_config, std::string relpath)
+{
+    js::config *inc_dirs = gv_config->get("include_dirs");
+    std::string inc_dirs_str = "";
+    for (auto x: inc_dirs->get_elems())
+    {
+        std::string inc_dir = x->get_str();
+        std::string path = inc_dir + "/" + relpath + ".so";
+        inc_dirs_str += inc_dirs_str == "" ? inc_dir : ":" + inc_dir;
+        if (std::filesystem::exists(path))
+        {
+            return path;
+        }
+    }
+
+     throw std::invalid_argument("Couldn't find component (name: " + relpath + ", inc_dirs: " + inc_dirs_str );
+}
+
 
 vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 {
@@ -1564,7 +1583,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 
     std::replace(module_name.begin(), module_name.end(), '.', '/');
 
-    std::string path = std::string(getenv("GVSOC_PATH")) + "/" + module_name + ".so";
+    std::string path = __gv_get_component_path(gv_config, module_name);
 
     void *module = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
     if (module == NULL)

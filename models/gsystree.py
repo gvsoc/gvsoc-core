@@ -22,11 +22,7 @@ import os
 import json
 import sys
 import shutil
-
-# This is terribly slow to import, find a way to import them only when needed
-# import regmap.regmap as rmap
-# import regmap.regmap_md_mistune as regmap_md_mistune
-# import regmap.regmap_c_header as regmap_c_header
+from importlib import import_module
 
 
 class Port():
@@ -714,6 +710,11 @@ class Component(object):
                 shutil.copy(spec_src, spec)
 
         if gen:
+
+            rmap = import_module('regmap.regmap')
+            regmap_md_mistune = import_module('regmap.regmap_md_mistune')
+            regmap_c_header = import_module('regmap.regmap_c_header')
+
             header_dir = self.get_property('regmap/header_prefix')
             name = self.get_property('regmap/name')
             headers = self.get_property('regmap/headers')

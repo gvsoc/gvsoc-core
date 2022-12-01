@@ -99,6 +99,8 @@ namespace vp {
 
     virtual void dump_traces(FILE *file) {}
 
+    std::string get_component_path(std::string);
+
     void dump_traces_recursive(FILE *file);
 
     component *get_parent() { return this->parent; }
@@ -245,6 +247,8 @@ namespace vp {
 
     time_engine *time_engine_ptr = NULL;
   };
+
+  std::string __gv_get_component_path(js::config *gv_config, std::string relpath);
 
   vp::component *__gv_create(std::string config_path, struct gv_conf *gv_conf);
 

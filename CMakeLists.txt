@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16.3)
 # GVSOC needs to be given a config file containing all the components to be compiled
 
 foreach(subdir ${GVSOC_MODULES})
-    set(GAPY_TARGETS_DIR_OPT ${GAPY_TARGETS_DIR_OPT} --target-dir=${subdir}/targets)
+    set(GAPY_TARGETS_DIR_OPT ${GAPY_TARGETS_DIR_OPT} --target-dir=${subdir}/models)
 endforeach()
 
 foreach(target ${GVSOC_TARGETS})

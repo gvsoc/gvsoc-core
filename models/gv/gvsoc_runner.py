@@ -103,63 +103,116 @@ class Runner(gapylib.target.Target, st.Component):
         gapylib.target.Target.__init__(self, parser, options)
         st.Component.__init__(self, parent, name, options)
 
-        # for option in options:
-        #     key, value = option.split('=')
-        #     if key.find('gvsoc') == 0:
-        #         print (key)
-        #         print (value)
-        #         self.add_property(key, value)
+        if parser is not None:
+            parser.add_argument("--install-dir", dest="install_dirs", action="append",
+                type=str, help="specify an installation path where to find models")
 
-        self.add_properties({
-            "gvsoc": {
-                "proxy": {
-                    "enabled": False,
-                    "port": 42951
-                },
-                "events": {
-                    "enabled": False,
-                    "include_raw": [],
-                    "include_regex": [],
-                    "exclude_regex": [],
-                    "format": "fst",
-                    "active": False,
-                    "all": True,
-                    "gtkw": False,
-                    "gen_gtkw": False,
-                    "files": [ ],
-                    "traces": {},
-                    "tags": [ "overview" ],
-                    "gtkw": False,
-                },
+            parser.add_argument("--trace", dest="traces", default=[], action="append",
+                help="Specify gvsoc trace")
 
-                "runner_module": "gv.gvsoc",
-            
-                "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
-            
-                "werror": True,
-                "verbose": True,
-                "debug-mode": False,
-                "sa-mode": True,
-            
-                "launchers": {
-                    "default": "gvsoc_launcher",
-                    "debug": "gvsoc_launcher_debug"
-                },
-            
-                "traces": {
-                    "level": "debug",
-                    "format": "long",
-                    "enabled": False,
-                    "include_regex": [],
-                    "exclude_regex": []
+            parser.add_argument("--trace-level", dest="trace_level", default=None,
+                help="Specify trace level")
+
+            parser.add_argument("--trace-format", dest="trace_format", default="long",
+                help="Specify trace format")
+
+            parser.add_argument("--vcd", dest="vcd", action="store_true", help="Activate VCD traces")
+
+            parser.add_argument("--event", dest="events", default=[], action="append",
+                help="Specify gvsoc event (for VCD traces)")
+
+            parser.add_argument("--event-tags", dest="event_tags", default=[], action="append",
+                help="Specify gvsoc event through tags(for VCD traces)")
+
+            parser.add_argument("--event-format", dest="format", default=None,
+                help="Specify events format (vcd or fst)")
+
+            parser.add_argument("--gtkwi", dest="gtkwi", action="store_true",
+                help="Dump events to pipe and open gtkwave in interactive mode")
+
+            parser.add_argument("--emulation", dest="emulation", action="store_true",
+                help="Launch in emulation mode")
+
+            parser.add_argument("--component-file", dest="component_file", default=None,
+                help="Component file")
+
+            parser.add_argument("--component-file-append", dest="component_file_append",
+                action="store_true", help="Component file")
+
+            parser.add_argument("--no-werror", dest="werror",
+                action="store_false", help="Do not consider warnings as errors")
+
+            parser.add_argument("--stub", dest="stub", default=[], action="append",
+                help="Launch GVSOC through the specified command")
+
+            parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
+                help="Launch GVSOC through gdb")
+
+            parser.add_argument("--valgrind", dest="valgrind",
+                action="store_true", help="Launch GVSOC through valgrind")
+
+            parser.add_argument("--wno-unconnected-device", dest="w_unconnected_device",
+                action="store_false", help="Deactivate warnings when updating padframe with no connected device")
+            parser.add_argument("--wno-unconnected-padfun", dest="w_unconnected_padfun",
+                action="store_false", help="Deactivate warnings when updating padframe with no connected padfun")
+
+            [args, otherArgs] = parser.parse_known_args()
+
+            self.add_properties({
+                "gvsoc": {
+                    "proxy": {
+                        "enabled": False,
+                        "port": 42951
+                    },
+                    "events": {
+                        "enabled": False,
+                        "include_raw": [],
+                        "include_regex": [],
+                        "exclude_regex": [],
+                        "format": "fst",
+                        "active": False,
+                        "all": True,
+                        "gtkw": False,
+                        "gen_gtkw": False,
+                        "files": [ ],
+                        "traces": {},
+                        "tags": [ "overview" ],
+                        "gtkw": False,
+                    },
+
+                    "include_dirs": args.install_dirs,
+
+                    "runner_module": "gv.gvsoc",
+                
+                    "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
+                
+                    "werror": True,
+                    "verbose": True,
+                    "debug-mode": False,
+                    "sa-mode": True,
+                
+                    "launchers": {
+                        "default": "gvsoc_launcher",
+                        "debug": "gvsoc_launcher_debug"
+                    },
+                
+                    "traces": {
+                        "level": "debug",
+                        "format": "long",
+                        "enabled": False,
+                        "include_regex": [],
+                        "exclude_regex": []
+                    }
                 }
-            }
-        })
+            })
 
     def append_args(self, parser, rtl_cosim_runner=None):
         super().append_args(parser)
 
         choices = ['gvsoc']
+
+        parser.add_argument("--platform", dest="platform", required=True, choices=choices,
+            type=str, help="specify the platform used for the target")
 
         self.rtl_runner = None
 
@@ -178,58 +231,6 @@ class Runner(gapylib.target.Target, st.Component):
                 choices.append('rtl')
                 self.rtl_runner = rtl_cosim_runner(self)
                 self.rtl_runner.append_args(parser)
-
-        parser.add_argument("--platform", dest="platform", required=True, choices=choices,
-            type=str, help="specify the platform used for the target")
-
-        parser.add_argument("--trace", dest="traces", default=[], action="append",
-            help="Specify gvsoc trace")
-
-        parser.add_argument("--trace-level", dest="trace_level", default=None,
-            help="Specify trace level")
-
-        parser.add_argument("--trace-format", dest="trace_format", default="long",
-            help="Specify trace format")
-
-        parser.add_argument("--vcd", dest="vcd", action="store_true", help="Activate VCD traces")
-
-        parser.add_argument("--event", dest="events", default=[], action="append",
-            help="Specify gvsoc event (for VCD traces)")
-
-        parser.add_argument("--event-tags", dest="event_tags", default=[], action="append",
-            help="Specify gvsoc event through tags(for VCD traces)")
-
-        parser.add_argument("--event-format", dest="format", default=None,
-            help="Specify events format (vcd or fst)")
-
-        parser.add_argument("--gtkwi", dest="gtkwi", action="store_true",
-            help="Dump events to pipe and open gtkwave in interactive mode")
-
-        parser.add_argument("--emulation", dest="emulation", action="store_true",
-            help="Launch in emulation mode")
-
-        parser.add_argument("--component-file", dest="component_file", default=None,
-            help="Component file")
-
-        parser.add_argument("--component-file-append", dest="component_file_append",
-            action="store_true", help="Component file")
-
-        parser.add_argument("--no-werror", dest="werror",
-            action="store_false", help="Do not consider warnings as errors")
-
-        parser.add_argument("--stub", dest="stub", default=[], action="append",
-            help="Launch GVSOC through the specified command")
-
-        parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
-            help="Launch GVSOC through gdb")
-
-        parser.add_argument("--valgrind", dest="valgrind",
-            action="store_true", help="Launch GVSOC through valgrind")
-
-        parser.add_argument("--wno-unconnected-device", dest="w_unconnected_device",
-            action="store_false", help="Deactivate warnings when updating padframe with no connected device")
-        parser.add_argument("--wno-unconnected-padfun", dest="w_unconnected_padfun",
-            action="store_false", help="Deactivate warnings when updating padframe with no connected padfun")
 
     def parse_args(self, args):
         super().parse_args(args)

@@ -1,5 +1,7 @@
 set(F_GVSOC_ISS_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "")
 
+message(STATUS "GVSOC MODULES ${GVSOC_MODULES}")
+
 function(generate_isa)
     cmake_parse_arguments(
         GEN_ISA
@@ -8,10 +10,16 @@ function(generate_isa)
         "SOURCES"
         ${ARGN}
         )
+
+    foreach(subdir ${GVSOC_MODULES})
+        set(GEN_ISA_INC_DIRS ${GEN_ISA_INC_DIRS} --inc-dir=${subdir}/models)
+    endforeach()
+
     #message(STATUS "generate_isa name=${GEN_ISA_NAME} thingy=${GEN_ISA_THINGY}")
     add_custom_command(
         OUTPUT "${GEN_ISA_NAME}_decoder_gen.cpp" "${GEN_ISA_NAME}_decoder_gen.hpp"
-        COMMAND ${F_GVSOC_ISS_DIR}/isa_gen/isa_generator.py
+        COMMAND ${F_GVSOC_ISS_DIR}/isa_gen/isa_generator
+            ${GEN_ISA_INC_DIRS}
             --source-file="${GEN_ISA_NAME}_decoder_gen.cpp"
             --header-file="${GEN_ISA_NAME}_decoder_gen.hpp" ${GEN_ISA_THINGY}
         )

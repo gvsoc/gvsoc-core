@@ -19,9 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
-#ifndef __VP_VP_HPP__
-#define __VP_VP_HPP__
+#pragma once
 
 #include "vp/vp_data.hpp"
 #include "vp/implementation.hpp"
@@ -30,5 +28,3 @@
 #include "vp/power/power_trace.hpp"
 #include "vp/power/power_source.hpp"
 #include "vp/power/power_table.hpp"
-
-#endif

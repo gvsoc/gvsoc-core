@@ -497,6 +497,15 @@ typedef struct iss_rnnext_s
 } iss_rnnext_t;
 
 
+#define COREV_HWLOOP_NB_REGS 7
+
+typedef struct iss_corev_s
+{
+  bool hwloop;
+  iss_reg_t hwloop_regs[COREV_HWLOOP_NB_REGS];
+} iss_corev_t
+
+
 typedef struct iss_cpu_s {
   iss_prefetcher_t decode_prefetcher;
   iss_prefetcher_t prefetcher;
@@ -513,6 +522,7 @@ typedef struct iss_cpu_s {
   iss_pulpv2_t pulpv2;
   iss_pulp_nn_t pulp_nn;
   iss_rnnext_t rnnext;
+  iss_corev_t corev;
   std::vector<iss_resource_instance_t *>resources;     // When accesses to the resources are scheduled statically, this gives the instance allocated to this core for each resource
 } iss_cpu_t;
 

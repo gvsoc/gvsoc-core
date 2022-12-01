@@ -56,7 +56,7 @@ function(vp_block)
 
         target_include_directories(${VP_MODEL_NAME_OPTIM} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+        foreach(X IN LISTS GVSOC_MODULES)
             target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${X}/models)
         endforeach()
 
@@ -86,7 +86,7 @@ function(vp_block)
 
         target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+        foreach(X IN LISTS GVSOC_MODULES)
             target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${X}/models)
         endforeach()
 
@@ -119,7 +119,7 @@ function(vp_block)
 
         target_include_directories(${VP_MODEL_NAME_DEBUG} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+        foreach(X IN LISTS GVSOC_MODULES)
             target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE ${X}/models)
         endforeach()
 
@@ -150,7 +150,7 @@ function(vp_block)
 
         target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+        foreach(X IN LISTS GVSOC_MODULES)
             target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${X}/models)
         endforeach()
 
@@ -188,7 +188,7 @@ function(vp_block)
             "-DVP_TRACE_ACTIVE=1"
             "-D__VP_USE_SYSTEMV=1"
             )
-        foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+        foreach(X IN LISTS GVSOC_MODULES)
             target_include_directories(${VP_MODEL_NAME_SV} PRIVATE ${X}/models)
         endforeach()
 
@@ -244,7 +244,7 @@ function(vp_model)
             target_link_libraries(${VP_MODEL_NAME_OPTIM} PRIVATE gvsoc)
             set_target_properties(${VP_MODEL_NAME_OPTIM} PROPERTIES PREFIX "")
             target_compile_options(${VP_MODEL_NAME_OPTIM} PRIVATE "-D__GVSOC__")
-            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            foreach(X IN LISTS GVSOC_MODULES)
                 target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${X}/models)
             endforeach()
 
@@ -272,7 +272,7 @@ function(vp_model)
             target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE "-D__GVSOC__")
             target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32 -D__M32_MODE__=1)
             target_link_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32)
-            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            foreach(X IN LISTS GVSOC_MODULES)
                 target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${X}/models)
             endforeach()
 
@@ -302,7 +302,7 @@ function(vp_model)
             set_target_properties(${VP_MODEL_NAME_DEBUG} PROPERTIES PREFIX "")
             target_compile_options(${VP_MODEL_NAME_DEBUG} PRIVATE "-D__GVSOC__")
             target_compile_definitions(${VP_MODEL_NAME_DEBUG} PRIVATE "-DVP_TRACE_ACTIVE=1")
-            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            foreach(X IN LISTS GVSOC_MODULES)
                 target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE ${X}/models)
             endforeach()
 
@@ -331,7 +331,7 @@ function(vp_model)
             target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32 -D__M32_MODE__=1)
             target_link_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32)
             target_compile_definitions(${VP_MODEL_NAME_DEBUG_M32} PRIVATE "-DVP_TRACE_ACTIVE=1")
-            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            foreach(X IN LISTS GVSOC_MODULES)
                 target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${X}/models)
             endforeach()
 
@@ -366,7 +366,7 @@ function(vp_model)
                 "-DVP_TRACE_ACTIVE=1"
                 "-D__VP_USE_SYSTEMV=1"
                 )
-            foreach(X IN LISTS VP_MODEL_ROOT_DIRS)
+            foreach(X IN LISTS GVSOC_MODULES)
                 target_include_directories(${VP_MODEL_NAME_SV} PRIVATE ${X}/models)
             endforeach()
 

@@ -9,3 +9,8 @@ add_subdirectory(gdbserver)
 add_subdirectory(interco)
 add_subdirectory(memory)
 add_subdirectory(utils)
+
+install(
+    FILES gv/gvsoc_control.py
+    DESTINATION  python/gv
+    )

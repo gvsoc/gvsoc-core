@@ -104,7 +104,7 @@ class Runner(gapylib.target.Target, st.Component):
         st.Component.__init__(self, parent, name, options)
 
         if parser is not None:
-            parser.add_argument("--install-dir", dest="install_dirs", action="append",
+            parser.add_argument("--model-dir", dest="install_dirs", action="append",
                 type=str, help="specify an installation path where to find models")
 
             parser.add_argument("--trace", dest="traces", default=[], action="append",

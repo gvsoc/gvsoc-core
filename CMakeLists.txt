@@ -110,7 +110,7 @@ endif()
 
 
 # install sub folder
-set(GVSOC_MODELS_INSTALL_FOLDER       "python")
+set(GVSOC_MODELS_INSTALL_FOLDER       "models")
 set(GVSOC_MODELS_OPTIM_INSTALL_FOLDER "")
 set(GVSOC_MODELS_DEBUG_INSTALL_FOLDER "debug")
 set(GVSOC_MODELS_SV_INSTALL_FOLDER    "sv")

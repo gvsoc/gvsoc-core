@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(gvsoc-models)
 
+install(DIRECTORY . DESTINATION ${CMAKE_INSTALL_PREFIX}/generators
+FILES_MATCHING PATTERN "*.py" PATTERN "*.json")
+
 add_subdirectory(board)
 add_subdirectory(cache)
 add_subdirectory(cpu)

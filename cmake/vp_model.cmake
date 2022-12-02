@@ -543,5 +543,5 @@ function(vp_files)
         )
     #message(STATUS "vp_files: prefix=\"${VP_FILES_PREFIX}\", files=\"${VP_FILES_FILES}\"")
     install(FILES ${VP_FILES_FILES}
-        DESTINATION "python/${VP_FILES_PREFIX}")
+        DESTINATION "generators/${VP_FILES_PREFIX}")
 endfunction()

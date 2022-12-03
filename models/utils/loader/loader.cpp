@@ -214,7 +214,7 @@ bool loader::load_elf(const char* file, uint64_t *entry)
     }
     close(fd);
 
-    if (file[EI_CLASS] == ELFCLASS32)
+    if (buf[EI_CLASS] == ELFCLASS32)
     {
         return this->load_elf32(buf, entry);
     }

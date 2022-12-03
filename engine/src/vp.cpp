@@ -48,7 +48,7 @@
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
-#include <filesystem>
+#include <sys/stat.h>
 
 
 extern "C" long long int dpi_time_ps();
@@ -1531,7 +1531,8 @@ std::string vp::__gv_get_component_path(js::config *gv_config, std::string relpa
         std::string inc_dir = x->get_str();
         std::string path = inc_dir + "/" + relpath + ".so";
         inc_dirs_str += inc_dirs_str == "" ? inc_dir : ":" + inc_dir;
-        if (std::filesystem::exists(path))
+        struct stat buffer;
+        if (stat(path.c_str(), &buffer) == 0)
         {
             return path;
         }

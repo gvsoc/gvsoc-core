@@ -16,46 +16,6 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 endif()
 
-# GVSOC needs to be given a config file containing all the components to be compiled
-
-foreach(subdir ${GVSOC_MODULES})
-    set(GAPY_TARGETS_DIR_OPT ${GAPY_TARGETS_DIR_OPT} --target-dir=${subdir}/models)
-endforeach()
-
-foreach(target ${GVSOC_TARGETS})
-    set(GAPY_TARGETS_OPT ${GAPY_TARGETS_OPT} --target=${target})
-    if(NOT DEFINED GAPY_TARGETS_NAME)
-        set(GAPY_TARGETS_NAME ${target})
-    else()
-        set(GAPY_TARGETS_NAME ${GAPY_TARGETS_NAME}_${target})
-    endif()
-endforeach()
-
-
-set(TARGET_CONFIG_DIR ${CMAKE_BINARY_DIR}/gvsoc/configs)
-set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${GAPY_TARGETS_NAME}.config)
-file(MAKE_DIRECTORY ${TARGET_CONFIG_DIR})
-
-message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
-
-# Gapy is used to extract the list of components out of the specified target
-set(GAPY_CMD gapy ${GAPY_TARGETS_OPT} ${GAPY_TARGETS_DIR_OPT}
-    --platform=gvsoc
-    --component-file=${TARGET_CONFIG} components
-    --py-stack
-)
-
-string(REPLACE ";"  " " GAPY_CMD_STR "    ${GAPY_CMD}")
-message(STATUS ${GAPY_CMD_STR})
-
-# We generate first the list of components for the specified target
-execute_process (
-    COMMAND ${GAPY_CMD} RESULT_VARIABLE ret
-)
-if(ret EQUAL "1")
-    message( FATAL_ERROR "Caught error while generating gvsoc config")
-endif()
-
 
 project(gvsoc-core)
 
@@ -102,10 +62,47 @@ function(import_kconfig prefix kconfig_fragment)
   endforeach()
 endfunction()
 
-if(DEFINED TARGET_CONFIG)
-import_kconfig(CONFIG_ ${TARGET_CONFIG})
+# GVSOC needs to be given a config file containing all the components to be compiled
+
+foreach(subdir ${GVSOC_MODULES})
+    set(GAPY_TARGETS_DIR_OPT ${GAPY_TARGETS_DIR_OPT} --target-dir=${subdir}/models)
+endforeach()
+
+set(TARGET_CONFIG_DIR ${CMAKE_BINARY_DIR}/gvsoc/configs)
+file(MAKE_DIRECTORY ${TARGET_CONFIG_DIR})
+
+if(DEFINED GVSOC_TARGETS)
+
+    foreach(target ${GVSOC_TARGETS})
+
+        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${target}.config)
+
+        message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
+
+        # Gapy is used to extract the list of components out of the specified target
+        set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
+            --platform=gvsoc
+            --component-file=${TARGET_CONFIG} components
+            --py-stack
+        )
+
+        string(REPLACE ";"  " " GAPY_CMD_STR "    ${GAPY_CMD}")
+        message(STATUS ${GAPY_CMD_STR})
+        
+        # We generate first the list of components for the specified target
+        execute_process (
+            COMMAND ${GAPY_CMD} RESULT_VARIABLE ret
+        )
+        if(ret EQUAL "1")
+            message( FATAL_ERROR "Caught error while generating gvsoc config")
+        endif()
+        
+        import_kconfig(CONFIG_ ${TARGET_CONFIG})
+        
+    endforeach()
+
 else()
-set(CONFIG_BUILD_ALL 1)
+    set(CONFIG_BUILD_ALL 1)
 endif()
 
 

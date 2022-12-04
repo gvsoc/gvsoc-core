@@ -113,11 +113,6 @@ static bool iss_csr_ext_counter_is_bound(iss_t *iss, int id)
     iss->trace.force_warning(fmt, ##x); \
   } while(0)
 
-#define iss_warning(iss, fmt, x...) \
-  do { \
-    iss->trace.warning(fmt, ##x); \
-  } while(0)
-
 #define iss_fatal(iss, fmt, x...) \
   do { \
     iss->trace.fatal(fmt, ##x); \
@@ -198,7 +193,7 @@ static inline void iss_csr_ext_counter_set(iss_t *iss, int id, unsigned int valu
 {
   if (!iss->ext_counter[id].is_bound())
   {
-    iss_warning(iss, "Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
+    iss->trace.warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
   }
   else
   {
@@ -210,7 +205,7 @@ static inline void iss_csr_ext_counter_get(iss_t *iss, int id, unsigned int *val
 {
   if (!iss->ext_counter[id].is_bound())
   {
-    iss_warning(iss, "Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
+    iss->trace.force_warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
   }
   else
   {

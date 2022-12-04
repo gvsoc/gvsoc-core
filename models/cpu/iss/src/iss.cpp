@@ -36,9 +36,15 @@ static int iss_parse_isa(iss_t *iss)
     len -= 4;
     arch_rv32 = true;
   }
+  else if (strncmp(current, "rv64", 4) == 0)
+  {
+    current += 4;
+    len -= 4;
+    arch_rv64 = true;
+  }
   else
   {
-    iss_warning(iss, "Unsupported ISA: %s\n", current);
+    iss->trace.force_warning("Unsupported ISA: %s\n", current);
     return -1;
   }
 
@@ -126,7 +132,7 @@ static int iss_parse_isa(iss_t *iss)
         break;
       }
       default:
-        iss_warning(iss, "Unknwon ISA descriptor: %c\n", *current);
+        iss->trace.force_warning("Unknwon ISA descriptor: %c\n", *current);
         return -1;
     }
   }

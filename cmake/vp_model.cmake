@@ -545,3 +545,16 @@ function(vp_files)
     install(FILES ${VP_FILES_FILES}
         DESTINATION "generators/${VP_FILES_PREFIX}")
 endfunction()
+
+function(vp_precompiled_models)
+    cmake_parse_arguments(
+        VP_FILES
+        ""
+        "PREFIX"
+        "FILES"
+        ${ARGN}
+        )
+    #message(STATUS "vp_files: prefix=\"${VP_FILES_PREFIX}\", files=\"${VP_FILES_FILES}\"")
+    install(FILES ${VP_FILES_FILES}
+        DESTINATION "models/${VP_FILES_PREFIX}")
+endfunction()

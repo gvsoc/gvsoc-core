@@ -86,8 +86,8 @@ do { \
   if (iss->cpu.state.fetch_cycles) \
   { \
     iss->cpu.state.insn_cycles += iss->cpu.state.fetch_cycles; \
-    iss->cpu.state.fetch_cycles = 0; \
     iss_pccr_account_event(iss, CSR_PCER_IMISS, iss->cpu.state.fetch_cycles); \
+    iss->cpu.state.fetch_cycles = 0; \
   } \
   iss->cpu.current_insn = func(iss, insn); \
   iss->cpu.prev_insn = insn; \

@@ -503,7 +503,7 @@ typedef struct iss_corev_s
 {
   bool hwloop;
   iss_reg_t hwloop_regs[COREV_HWLOOP_NB_REGS];
-} iss_corev_t
+} iss_corev_t;
 
 
 typedef struct iss_cpu_s {

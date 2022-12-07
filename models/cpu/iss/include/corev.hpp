@@ -41,9 +41,22 @@ static inline iss_insn_t *corev_hwloop_check_exec(iss_t *iss, iss_insn_t *insn)
 {
   iss_reg_t pc = insn->addr;
 
+  // Check now is the instruction has been replayed to know if it is the first
+  // time it is executed
+  bool elw_interrupted = iss->cpu.state.elw_interrupted;
+
   // First execute the instructions as it is the last one of the loop body.
   // The real handler has been saved when the loop was started.
   iss_insn_t *insn_next = iss_exec_insn_handler(iss, insn, insn->hwloop_handler);
+
+  if (elw_interrupted)
+  {
+    // This flag is 1 when the instruction has been previously interrupted and is now
+    // being replayed. In this case, return the instruction which has been computed
+    // during the first execution of the instruction, to avoid accounting several 
+    // times the end of HW loop.
+    return iss->cpu.state.hwloop_next_insn;
+  }
 
   // First check HW loop 0 as it has higher priority compared to HW loop 1
   if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0] && iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPEND0] == pc)
@@ -52,7 +65,12 @@ static inline iss_insn_t *corev_hwloop_check_exec(iss_t *iss, iss_insn_t *insn)
     iss_decoder_msg(iss, "Reached end of HW loop (index: 0, loop count: %d)\n", iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]);
 
     // If counter is not zero, we must jump back to beginning of the loop.
-    if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]) return iss->cpu.state.hwloop_start_insn[0];
+    if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0])
+    {
+      // Remember next instruction in case the current instruction is replayed
+      iss->cpu.state.hwloop_next_insn = iss->cpu.state.hwloop_start_insn[0];
+      return iss->cpu.state.hwloop_start_insn[0];
+    }
   }
 
   // We get here either if HW loop 0 was not active or if the counter reached 0.
@@ -62,13 +80,19 @@ static inline iss_insn_t *corev_hwloop_check_exec(iss_t *iss, iss_insn_t *insn)
     iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]--;
     // If counter is not zero, we must jump back to beginning of the loop.
     iss_decoder_msg(iss, "Reached end of HW loop (index: 1, loop count: %d)\n", iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]);
-    if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]) return iss->cpu.state.hwloop_start_insn[1];
+    if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1])
+    {
+      // Remember next instruction in case the current instruction is replayed
+      iss->cpu.state.hwloop_next_insn = iss->cpu.state.hwloop_start_insn[1];
+      return iss->cpu.state.hwloop_start_insn[1];
+    }
   }
 
   // In case no HW loop jumped back, just continue with the next instruction.
+  iss->cpu.state.hwloop_next_insn = insn_next;
+
   return insn_next;
 }
-
 
 static inline void corev_hwloop_set_start(iss_t *iss, iss_insn_t *insn, int index, iss_reg_t start)
 {
@@ -76,27 +100,39 @@ static inline void corev_hwloop_set_start(iss_t *iss, iss_insn_t *insn, int inde
   iss->cpu.state.hwloop_start_insn[index] = insn_cache_get(iss, start);
 }
 
+static inline void corev_hwloop_set_insn_end(iss_t *iss, iss_insn_t *insn)
+{
+  if (insn->fetched)
+  {
+    if (insn->hwloop_handler == NULL)
+    {
+      insn->hwloop_handler = insn->handler;
+      insn->handler = hwloop_check_exec;
+      insn->fast_handler = hwloop_check_exec;
+    }
+  }
+  else
+  {
+    insn->hwloop_handler = hwloop_check_exec;
+  }
+}
+
 
 static inline void corev_hwloop_set_end(iss_t *iss, iss_insn_t *insn, int index, iss_reg_t end)
 {
-  iss_insn_t *end_insn = insn_cache_get_decoded(iss, end);
+  iss_insn_t *end_insn = insn_cache_get(iss, end);
 
-  if (end_insn->hwloop_handler == NULL)
-  {
-    end_insn->hwloop_handler = end_insn->handler;
-    end_insn->handler = corev_hwloop_check_exec;
-    end_insn->fast_handler = corev_hwloop_check_exec;
-  }
+  iss->cpu.state.hwloop_end_insn[index] = end_insn;
+
+  corev_hwloop_set_insn_end(iss, end_insn);
 
   iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPEND(index)] = end;
 }
-
 
 static inline void corev_hwloop_set_count(iss_t *iss, iss_insn_t *insn, int index, iss_reg_t count)
 {
   iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(index)] = count;
 }
-
 
 static inline void corev_hwloop_set_all(iss_t *iss, iss_insn_t *insn, int index, iss_reg_t start, iss_reg_t end, iss_reg_t count)
 {

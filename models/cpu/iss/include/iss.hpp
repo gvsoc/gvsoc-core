@@ -41,5 +41,6 @@
 #include "rvXint64.hpp"
 #include "rnnext.hpp"
 #include "pulp_nn.hpp"
+#include "corev.hpp"
 
 #endif

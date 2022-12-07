@@ -162,7 +162,6 @@ void iss_wrapper::exec_instr_check_all(void *__this, vp::clock_event *event)
   }
 
   _this->iss_exec_insn_check_debug_step();
-
 }
 
 void iss_wrapper::exec_first_instr(vp::clock_event *event)
@@ -320,7 +319,13 @@ void iss_wrapper::fetchen_sync(void *__this, bool active)
   _this->fetch_enable_reg.set(active);
   if (!old_val && active)
   {
+    _this->stalled.dec(1);
     iss_pc_set(_this, _this->bootaddr_reg.get() + _this->bootaddr_offset);
+  }
+  else if (old_val && !active)
+  {
+      // In case of a falling edge, stall the core to prevent him from executing
+      _this->stalled_inc();
   }
   _this->check_state();
 }
@@ -415,7 +420,7 @@ void iss_wrapper::check_state()
     this->trace.msg(vp::trace::LEVEL_TRACE, "Checking state (active: %d, halted: %d, fetch_enable: %d, stalled: %d, wfi: %d, irq_req: %d, debug_mode: %d)\n",
       is_active_reg.get(), halted.get(), fetch_enable_reg.get(), stalled.get(), wfi.get(), irq_req, this->cpu.state.debug_mode);
 
-    if (!halted.get() && fetch_enable_reg.get() && !stalled.get() && (!wfi.get() || irq_req != -1 || this->cpu.state.debug_mode))
+    if (!halted.get() && !stalled.get() && (!wfi.get() || irq_req != -1 || this->cpu.state.debug_mode))
     {
       // Check if we can directly reenqueue next instruction because it has already
       // been fetched or we need to fetch it
@@ -1540,6 +1545,12 @@ void iss_wrapper::reset(bool active)
     if (this->gdbserver)
     {
       this->halted.set(true);
+    }
+
+    // In case, the core is not fetch-enabled, stall to prevent it from being active
+    if (fetch_enable_reg.get() == false)
+    {
+        this->stalled_inc();
     }
 
     check_state();

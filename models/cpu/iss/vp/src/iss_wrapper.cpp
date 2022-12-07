@@ -33,104 +33,6 @@
 # define O_BINARY 0
 #endif
 
-#if 0
-// Old pulp debug unit, no more supported
-#define HALT_CAUSE_EBREAK    0
-#define HALT_CAUSE_ECALL     1
-#define HALT_CAUSE_ILLEGAL   2
-#define HALT_CAUSE_INVALID   3
-#define HALT_CAUSE_INTERRUPT 4 
-#define HALT_CAUSE_HALT      15
-#define HALT_CAUSE_STEP      15
-
-#else
-
-#define HALT_CAUSE_EBREAK      1
-#define HALT_CAUSE_TRIGGER     2
-#define HALT_CAUSE_HALT        3
-#define HALT_CAUSE_STEP        4
-#define HALT_CAUSE_RESET_HALT  5
-
-#endif
-
-#ifdef USE_TRDB
-
-#define trdb_get_packet(ptr,member) \
-  ((struct tr_packet *)(((char *)(ptr)) - ((size_t) &(((struct tr_packet *)0)->member))))
-
-
-static inline void trdb_record_instruction(iss_wrapper *_this, iss_insn_t *insn)
-{
-  struct tr_instr instr;
-  instr.valid = true;
-  instr.exception = false;
-  instr.iaddr = insn->addr;
-  instr.instr = insn->opcode;
-  instr.compressed = insn->size == 2;
-  
-  if (trdb_compress_trace_step(_this->trdb, &_this->trdb_packet_list, &instr))
-  {
-    struct tr_packet *packet = trdb_get_packet(_this->trdb_packet_list.next, list);
-    size_t nb_bits = 0;
-    int alignment = 0;
-    trdb_serialize_packet(_this->trdb, packet, &nb_bits, alignment, _this->trdb_pending_word);
-    ////printf("Got nb bits %ld %lx\n", nb_bits, (*(uint64_t *)_this->trdb_pending_word) & ((1<<nb_bits)-1));
-    trdb_free_packet_list(&_this->trdb_packet_list);
-    INIT_LIST_HEAD(&_this->trdb_packet_list);
-  }
-}
-
-#else
-
-#define trdb_record_instruction
-
-#endif
-
-
-#define EXEC_INSTR_COMMON(_this, event, func) \
-do { \
-  \
-  _this->trace.msg("Executing instruction\n"); \
-  if (_this->pc_trace_event.get_event_active()) \
-  { \
-    _this->pc_trace_event.event((uint8_t *)&_this->cpu.current_insn->addr); \
-  } \
-  if (_this->active_pc_trace_event.get_event_active()) \
-  { \
-    _this->active_pc_trace_event.event((uint8_t *)&_this->cpu.current_insn->addr); \
-  } \
-  if (_this->func_trace_event.get_event_active() || _this->inline_trace_event.get_event_active() || _this->file_trace_event.get_event_active() || _this->line_trace_event.get_event_active()) \
-  { \
-    _this->dump_debug_traces(); \
-  } \
-  if (_this->ipc_stat_event.get_event_active()) \
-  { \
-    _this->ipc_stat_nb_insn++; \
-  } \
- \
-  iss_insn_t *insn = _this->cpu.current_insn; \
-  int cycles = func(_this); \
-  if (_this->power.get_power_trace()->get_active()) \
-  { \
-  _this->insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum(); \
- } \
-  trdb_record_instruction(_this, insn); \
-  if (!_this->stalled.get()) \
-  { \
-    _this->enqueue_next_instr(cycles); \
-  } \
-  else \
-  { \
-    if (_this->misaligned_access.get()) \
-    { \
-      _this->event_enqueue(_this->misaligned_event, _this->misaligned_latency); \
-    } \
-    else \
-    { \
-      _this->is_active_reg.set(false); \
-    } \
-  } \
-} while(0)
 
 void iss_wrapper::dump_debug_traces()
 {
@@ -146,12 +48,72 @@ void iss_wrapper::dump_debug_traces()
   }
 }
 
+void iss_handle_insn_profiling(iss_t *_this)
+{
+  _this->trace.msg("Executing instruction\n");
+  if (_this->pc_trace_event.get_event_active())
+  {
+    _this->pc_trace_event.event((uint8_t *)&_this->cpu.current_insn->addr);
+  }
+  if (_this->active_pc_trace_event.get_event_active())
+  {
+    _this->active_pc_trace_event.event((uint8_t *)&_this->cpu.current_insn->addr);
+  }
+  if (_this->func_trace_event.get_event_active() || _this->inline_trace_event.get_event_active() || _this->file_trace_event.get_event_active() || _this->line_trace_event.get_event_active())
+  {
+    _this->dump_debug_traces();
+  }
+  if (_this->ipc_stat_event.get_event_active())
+  {
+    _this->ipc_stat_nb_insn++;
+  }
+}
+
+
+void static inline iss_handle_insn_power(iss_t *_this, iss_insn_t *insn)
+{
+  if (_this->power.get_power_trace()->get_active())
+  {
+    _this->insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
+  }
+}
+
+
+
 void iss_wrapper::exec_instr(void *__this, vp::clock_event *event)
 {
   iss_t *_this = (iss_t *)__this;
 
-  EXEC_INSTR_COMMON(_this, event, iss_exec_step_nofetch);
+  // Takes care first of all optional features (traces, VCD and so on)
+  iss_handle_insn_profiling(_this);
+
+  iss_insn_t *insn = _this->cpu.current_insn;
+
+  // Account one cycle for the instructin. Other actions may then increase it to model stalls.
+  _this->cpu.state.insn_cycles = 1;
+
+  // Execute the instruction and replace the current one with the new one
+  _this->cpu.current_insn = iss_exec_insn_fast(_this, insn);
+  _this->cpu.prev_insn = insn;
+
+  // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
+  // this will stall the ISS, which will execute the next instruction when the response is
+  // received
+  prefetcher_fetch(_this, _this->cpu.current_insn);
+
+  // Since power instruction information is filled when the instruction is decoded,
+  // make sure we account it only after the instruction is executed
+  iss_handle_insn_power(_this, insn);
+
+  // Now that everything has been handled, we know if we can enqueue the next instruction.
+  // If not, it will be enqueued when something makes the core active again.
+  if (_this->is_active_reg.get())
+  {
+    _this->enqueue_next_instr(_this->cpu.state.insn_cycles);
+  }
 }
+
+
 
 void iss_wrapper::exec_instr_check_all(void *__this, vp::clock_event *event)
 {
@@ -164,24 +126,42 @@ void iss_wrapper::exec_instr_check_all(void *__this, vp::clock_event *event)
     _this->current_event = _this->instr_event;
   }
 
-  int debug_mode = _this->cpu.state.debug_mode;
+  iss_handle_insn_profiling(_this);
 
-  EXEC_INSTR_COMMON(_this, event, iss_exec_step_nofetch_perf);
-  if (_this->step_mode.get() && !debug_mode)
+  iss_insn_t *insn = _this->cpu.current_insn;
+  int cycles;
+
+  _this->cpu.state.insn_cycles = 1;
+  if (iss_irq_check(_this) != -1)
   {
-    _this->do_step.set(false);
-    _this->hit_reg |= 1;
-    if (_this->gdbserver)
+    iss_insn_t *insn = _this->cpu.current_insn;
+    _this->cpu.current_insn = iss_exec_insn(_this, insn);
+    _this->cpu.prev_insn = insn;
+
+    prefetcher_fetch(_this, _this->cpu.current_insn);
+
+    cycles = _this->cpu.state.insn_cycles;
+
+    iss_exec_account_cycles(_this, _this->cpu.state.insn_cycles);
+
+    if (_this->cpu.csr.pcmr & CSR_PCMR_ACTIVE)
     {
-      _this->halted.set(true);
-      _this->gdbserver->signal(_this);
+      if (_this->cpu.csr.pcer & (1<<CSR_PCER_INSTR))
+        _this->cpu.csr.pccr[CSR_PCER_INSTR] += 1;
     }
-    else
-    {
-      _this->set_halt_mode(true, HALT_CAUSE_STEP);
-    }
-    _this->check_state();
+    iss_pccr_incr(_this, CSR_PCER_INSTR, 1);
   }
+
+
+
+  iss_handle_insn_power(_this, insn);
+
+  if (_this->is_active_reg.get())
+  {
+    _this->enqueue_next_instr(cycles);
+  }
+
+  _this->iss_exec_insn_check_debug_step();
 
 }
 
@@ -545,7 +525,7 @@ int iss_wrapper::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int siz
     // As the transaction is split into 2 parts, we must tell the ISS
     // that the access is pending as the instruction must be executed
     // only when the second access is finished.
-    misaligned_latency = io_req.get_latency() + 1;
+    this->event_enqueue(this->misaligned_event, io_req.get_latency() + 1);
     return vp::IO_REQ_PENDING;
   }
   else

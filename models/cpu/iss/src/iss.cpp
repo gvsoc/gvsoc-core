@@ -306,7 +306,6 @@ int iss_open(iss_t *iss)
   iss->cpu.stall_insn = NULL;
   iss->cpu.prefetch_insn = NULL;
   iss->cpu.prev_insn = NULL;
-  iss->cpu.state.fetch_cycles = 0;
   iss->cpu.state.hwloop_end_insn[0] = NULL;
   iss->cpu.state.hwloop_end_insn[1] = NULL;
 

@@ -28,11 +28,12 @@
 #include "vp/gdbserver/gdbserver_engine.hpp"
 
 
-#ifdef USE_TRDB
-#define HAVE_DECL_BASENAME 1
-#include "trace_debugger.h"
-#endif
 
+#define HALT_CAUSE_EBREAK      1
+#define HALT_CAUSE_TRIGGER     2
+#define HALT_CAUSE_HALT        3
+#define HALT_CAUSE_STEP        4
+#define HALT_CAUSE_RESET_HALT  5
 
 typedef struct
 {
@@ -79,6 +80,7 @@ public:
   std::string read_user_string(iss_addr_t addr, int len=-1);
 
   static vp::io_req_status_e dbg_unit_req(void *__this, vp::io_req *req);
+  inline void iss_exec_insn_check_debug_step();
 
   void irq_check();
   void wait_for_interrupt();
@@ -106,6 +108,8 @@ public:
   int gdbserver_state();
 
   void declare_pcer(int index, std::string name, std::string help);
+
+  inline void stalled_inc();
 
   vp::io_master data;
   vp::io_master fetch;
@@ -201,7 +205,6 @@ private:
   uint8_t   *misaligned_data;
   iss_addr_t misaligned_addr;
   bool       misaligned_is_write;
-  int64_t    misaligned_latency;
 
   vp::wire_slave<uint32_t> bootaddr_itf;
   vp::wire_slave<bool>     clock_itf;
@@ -226,11 +229,8 @@ private:
 
 inline void iss_wrapper::enqueue_next_instr(int64_t cycles)
 {
-  if (is_active_reg.get())
-  {
     trace.msg("Enqueue next instruction (cycles: %ld)\n", cycles);
     event_enqueue(current_event, cycles);
-  }
 }
 
 void iss_wrapper::exec_misaligned(void *__this, vp::clock_event *event)
@@ -248,7 +248,6 @@ void iss_wrapper::exec_misaligned(void *__this, vp::clock_event *event)
     _this->misaligned_size, _this->misaligned_is_write) == vp::IO_REQ_OK)
   {
     iss_exec_insn_terminate(_this);
-    _this->misaligned_access.set(false);
     _this->enqueue_next_instr(_this->io_req.get_latency() + 1);
   }
   else

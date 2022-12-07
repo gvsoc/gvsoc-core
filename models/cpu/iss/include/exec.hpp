@@ -46,7 +46,7 @@ static inline void iss_exec_insn_terminate(iss_t *iss)
 static inline void iss_exec_insn_stall(iss_t *iss)
 {
   iss->cpu.stall_insn = iss->cpu.current_insn;
-  iss->stalled.inc(1);
+  iss->stalled_inc();
 }
 
 static inline iss_insn_t *iss_exec_insn_handler(iss_t *instance, iss_insn_t *insn, iss_insn_t *(*handler)(iss_t *, iss_insn_t *))
@@ -79,34 +79,6 @@ static inline iss_insn_t *iss_exec_stalled_insn(iss_t *iss, iss_insn_t *insn)
 }
 
 
-
-#define ISS_EXEC_NO_FETCH_COMMON(iss,func) \
-do { \
-  iss_insn_t *insn = iss->cpu.current_insn; \
-  if (iss->cpu.state.fetch_cycles) \
-  { \
-    iss->cpu.state.insn_cycles += iss->cpu.state.fetch_cycles; \
-    iss_pccr_account_event(iss, CSR_PCER_IMISS, iss->cpu.state.fetch_cycles); \
-    iss->cpu.state.fetch_cycles = 0; \
-  } \
-  iss->cpu.current_insn = func(iss, insn); \
-  iss->cpu.prev_insn = insn; \
-} while(0)
-
-
-static inline int iss_exec_step_nofetch(iss_t *iss)
-{
-  iss->cpu.state.insn_cycles = 1;
-  ISS_EXEC_NO_FETCH_COMMON(iss,iss_exec_insn_fast);
-  prefetcher_fetch(iss, iss->cpu.current_insn);
-
-  return iss->cpu.state.insn_cycles;
-}
-
-static inline int iss_exec_step(iss_t *iss)
-{
-  return iss_exec_step_nofetch(iss);
-}
 
 
 static inline int iss_exec_switch_to_fast(iss_t *iss)
@@ -142,40 +114,39 @@ static inline int iss_exec_account_cycles(iss_t *iss, int cycles)
   return 0;
 }
 
-static inline int iss_exec_step_nofetch_perf(iss_t *iss)
-{
-  iss->cpu.state.insn_cycles = 1;
-  if (iss_irq_check(iss))
-    return -1;
-  ISS_EXEC_NO_FETCH_COMMON(iss,iss_exec_insn);
-  prefetcher_fetch(iss, iss->cpu.current_insn);
-
-  int cycles = iss->cpu.state.insn_cycles;
-
-  iss_exec_account_cycles(iss, iss->cpu.state.insn_cycles);
-
-  if (iss->cpu.csr.pcmr & CSR_PCMR_ACTIVE)
-  {
-    if (iss->cpu.csr.pcer & (1<<CSR_PCER_INSTR))
-      iss->cpu.csr.pccr[CSR_PCER_INSTR] += 1;
-  }
-  iss_pccr_incr(iss, CSR_PCER_INSTR, 1);
-
-  return cycles;
-}
-
-
-
-static inline int iss_exec_step_check_all(iss_t *iss)
-{
-  return iss_exec_step_nofetch_perf(iss);
-}
 
 
 
 static inline int iss_exec_is_stalled(iss_t *iss)
 {
   return iss->stalled.get();
+}
+
+
+inline void iss_wrapper::iss_exec_insn_check_debug_step()
+{
+  if (this->step_mode.get() && !this->cpu.state.debug_mode)
+  {
+    this->do_step.set(false);
+    this->hit_reg |= 1;
+    if (this->gdbserver)
+    {
+      this->halted.set(true);
+      this->gdbserver->signal(this);
+    }
+    else
+    {
+      this->set_halt_mode(true, HALT_CAUSE_STEP);
+    }
+    this->check_state();
+  }
+}
+
+
+inline void iss_wrapper::stalled_inc()
+{
+  this->stalled.inc(1);
+  this->is_active_reg.set(false);
 }
 
 #endif

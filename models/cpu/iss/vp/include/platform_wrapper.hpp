@@ -171,7 +171,9 @@ static inline int iss_fetch_req(iss_t *_this, uint64_t addr, uint8_t *data, uint
     }
   }
 
-  _this->cpu.state.fetch_cycles = req->get_latency();
+  int cycles = req->get_latency();
+  _this->cpu.state.insn_cycles += cycles;
+  iss_pccr_account_event(_this, CSR_PCER_IMISS, cycles);
 
   return 0;
 }

@@ -96,7 +96,7 @@ static inline void prefetcher_fetch_value_after_fill_0(
       iss->cpu.state.fetch_stall_callback = prefetcher_fetch_value_resume_1;
       iss->cpu.state.fetch_stall_opcode = opcode;
       iss->cpu.prefetch_insn = insn;
-      iss->stalled.inc(1);
+      iss->stalled_inc();
       return;
     }
     // And append the second part from second line
@@ -136,7 +136,7 @@ static inline void __attribute__((always_inline)) prefetcher_fetch_value(
     {
       iss->cpu.state.fetch_stall_callback = prefetcher_fetch_value_resume_0;
       iss->cpu.prefetch_insn = insn;
-      iss->stalled.inc(1);
+      iss->stalled_inc();
       return;
     }
     index = addr - prefetcher->addr;
@@ -154,7 +154,7 @@ static inline void prefetcher_fetch_novalue_check_overflow(iss_prefetcher_t *pre
     {
       iss->cpu.state.fetch_stall_callback = NULL;
       iss->cpu.prefetch_insn = insn;
-      iss->stalled.inc(1);
+      iss->stalled_inc();
       return;
     }
   }
@@ -188,7 +188,7 @@ static inline void __attribute__((always_inline)) prefetcher_fetch_novalue(
       iss->cpu.state.fetch_stall_callback = prefetcher_fetch_novalue_resume_0;
       iss->cpu.state.fetch_stall_callback = NULL;
       iss->cpu.prefetch_insn = insn;
-      iss->stalled.inc(1);
+      iss->stalled_inc();
       return;
     }
     index = addr - prefetcher->addr;

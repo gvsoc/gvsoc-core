@@ -403,7 +403,6 @@ typedef struct iss_cpu_state_s {
   iss_addr_t bootaddr;
 
   int insn_cycles;
-  int fetch_cycles;
 
   void (*stall_callback)(iss_t *iss);
   void (*fetch_stall_callback)(iss_t *iss);

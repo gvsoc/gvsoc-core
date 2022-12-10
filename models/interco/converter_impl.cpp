@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -57,16 +57,17 @@ private:
 
   vp::trace     trace;
 
-  vp::io_master out;
+  vp::io_master *out;
   vp::io_slave in;
 
   int output_width;
   int output_align;
+  int nb_master_ports;
 
   vp::io_req *pending_req;
-  vp::clock_event *event;
+  vp::clock_event **event;
 
-  int64_t ready_cycle;
+  uint64_t *ready_cycle;
   int ongoing_size;
   vp::io_req *ongoing_req;
   vp::io_req *stalled_req;
@@ -83,52 +84,61 @@ converter::converter(js::config *config)
 void converter::event_handler(void *__this, vp::clock_event *event)
 {
   converter *_this = (converter *)__this;
-  vp::io_req *req = _this->pending_req;
-  _this->pending_req = req->get_next();
 
-  _this->trace.msg("Sending partial packet (req: %p, offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
-    req, req->get_addr(), req->get_size(), req->get_is_write());
-
-  vp::io_req_status_e err = _this->out.req(req);
-  if (err == vp::IO_REQ_OK)
+  if(_this->pending_req)
   {
-    _this->ready_cycle = _this->get_cycles() + req->get_latency() + 1;
-    _this->ongoing_size -= req->get_size();
-    if (_this->ongoing_size == 0)
+    vp::io_req *req = _this->pending_req;
+    _this->pending_req = req->get_next();
+
+    int port = event->get_int(0);
+
+    _this->trace.msg("Sending partial packet (req: %p, port: %d, offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+      req, port, req->get_addr(), req->get_size(), req->get_is_write());
+
+    vp::io_req_status_e err = _this->out[port].req(req);
+    if (err == vp::IO_REQ_OK)
     {
-      vp::io_req *req = _this->ongoing_req;
-      _this->trace.msg("Finished handling request (req: %p)\n", req);
-      _this->ongoing_req = NULL;
-      req->set_latency(req->get_latency() + 1);
-      req->get_resp_port()->resp(req);
-
-      if (_this->stalled_req)
+      _this->ready_cycle[port] = _this->get_cycles() + req->get_latency() + 1;
+      _this->ongoing_size -= req->get_size();
+      if (_this->ongoing_size == 0)
       {
-        req = _this->stalled_req;
-        _this->trace.msg("Unstalling request (req: %p)\n", req);
-        _this->stalled_req = req->get_next();
-        req->get_resp_port()->grant(req);
+        vp::io_req *req = _this->ongoing_req;
+        _this->trace.msg("Finished handling request (req: %p)\n", req);
+        _this->ongoing_req = NULL;
+        req->set_latency(req->get_latency() + 1);
+        req->get_resp_port()->resp(req);
 
-        _this->process_pending_req(req);
+        if (_this->stalled_req)
+        {
+          req = _this->stalled_req;
+          _this->trace.msg("Unstalling request (req: %p)\n", req);
+          _this->stalled_req = req->get_next();
+          req->get_resp_port()->grant(req);
+
+          _this->process_pending_req(req);
+        }
       }
     }
-  }
-  else
-  {
-    _this->ready_cycle = INT32_MAX;
-  }
+    else
+    {
+      _this->ready_cycle[port] = INT32_MAX;
+    }
 
-  _this->check_state();
+    _this->check_state();
+  }
 }
 
 void converter::check_state()
 {
   if (pending_req)
   {
-    int64_t cycle = get_cycles();
-    int64_t latency = 1;
-    if (ready_cycle > cycle) latency = ready_cycle - cycle;
-    if (!event->is_enqueued()) event_enqueue(event, latency);
+    for(int i=0; i<this->nb_master_ports; i++)
+    {
+      int64_t cycle = get_cycles();
+      int64_t latency = 1;
+      if (ready_cycle[i] > cycle) latency = ready_cycle[i] - cycle;
+      if (!event[i]->is_enqueued()) event_enqueue(event[i], latency);
+    }
   }
 }
 
@@ -150,10 +160,11 @@ vp::io_req_status_e converter::process_pending_req(vp::io_req *req)
     if (offset & mask) iter_size -= offset & mask;
     if (iter_size > size) iter_size = size;
 
-    vp::io_req *req = out.req_new(offset, data, iter_size, is_write);
+    // vp::io_req *req = out[i].req_new(offset, data, iter_size, is_write);
+    vp::io_req *req = out[0].req_new(offset, data, iter_size, is_write);
+
     req->set_next(pending_req);
     pending_req = req;
-
 
     size -= iter_size;
     offset += iter_size;
@@ -175,8 +186,8 @@ vp::io_req_status_e converter::process_req(vp::io_req *req)
   // Simple case where the request fit, just forward it
   if ((offset & ~mask) == ((offset + size - 1) & ~mask))
   {
-    trace.msg("No conversion applied, forwarding request (req: %p)\n", req);
-    return out.req_forward(req);
+    trace.msg("No conversion applied, forwarding request (req: %p, port: %d)\n", req, 0);
+    return out[0].req_forward(req);
   }
 
   return this->process_pending_req(req);
@@ -229,14 +240,32 @@ int converter::build()
   in.set_req_meth(&converter::req);
   new_slave_port("input", &in);
 
-  out.set_resp_meth(&converter::response);
-  out.set_grant_meth(&converter::grant);
-  new_master_port("out", &out);
+  this->nb_master_ports = get_config_int("master_ports");
+
+  this->out = new vp::io_master[this->nb_master_ports];
+
+  // this->out.set_resp_meth(&this->converter::response);
+  // this->out.set_grant_meth(&this->converter::grant);
+  // new_master_port("out", &this->out);
+  for (int i=0; i<this->nb_master_ports; i++)
+  {
+    this->out[i].set_resp_meth(&this->converter::response);
+    this->out[i].set_grant_meth(&this->converter::grant);
+    new_master_port("out_" + std::to_string(i), &this->out[i]);
+  }
+
+  ready_cycle = new uint64_t[this->nb_master_ports];
+  event = new vp::clock_event*[this->nb_master_ports];
 
   output_width = get_config_int("output_width");
   output_align = get_config_int("output_align");
 
-  event = event_new(converter::event_handler);
+  //event = event_new(converter::event_handler);
+  for (int i=0; i<this->nb_master_ports; i++)
+  {
+    event[i] = event_new(converter::event_handler);
+    event[i]->set_int(0, i);
+  }
   return 0;
 }
 
@@ -251,7 +280,7 @@ void converter::reset(bool active)
   if (active)
   {
     pending_req = NULL;
-    ready_cycle = 0;
+    memset(ready_cycle, 0, sizeof(uint64_t)*this->nb_master_ports);
     ongoing_req = NULL;
     ongoing_size = 0;
     stalled_req = NULL;

@@ -18,7 +18,7 @@ import gvsoc.systree as st
 
 class Converter(st.Component):
 
-    def __init__(self, parent, name, output_width=4, output_align=4):
+    def __init__(self, parent, name, output_width=4, output_align=4, master_ports=1):
         super(Converter, self).__init__(parent, name)
 
         self.set_component('interco.converter_impl')
@@ -26,4 +26,5 @@ class Converter(st.Component):
         self.add_properties({
             'output_width': output_width,
             'output_align': output_align,
+            'master_ports': master_ports,
         })

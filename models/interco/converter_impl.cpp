@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -61,11 +61,12 @@ private:
 
   int output_width;
   int output_align;
+  int nb_master_ports;
 
   vp::IoReq *pending_req;
   vp::ClockEvent *event;
 
-  int64_t ready_cycle;
+  uint64_t *ready_cycle;
   int ongoing_size;
   vp::IoReq *ongoing_req;
   vp::IoReq *stalled_req;
@@ -98,8 +99,10 @@ void converter::event_handler(vp::Block *__this, vp::ClockEvent *event)
   vp::IoReq *req = _this->pending_req;
   _this->pending_req = req->get_next();
 
-  _this->trace.msg("Sending partial packet (req: %p, offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
-    req, req->get_addr(), req->get_size(), req->get_is_write());
+    int port = event->get_int(0);
+
+    _this->trace.msg("Sending partial packet (req: %p, port: %d, offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+      req, port, req->get_addr(), req->get_size(), req->get_is_write());
 
   vp::IoReqStatus err = _this->out.req(req);
   if (err == vp::IO_REQ_OK)
@@ -114,23 +117,24 @@ void converter::event_handler(vp::Block *__this, vp::ClockEvent *event)
       req->set_latency(req->get_latency() + 1);
       req->get_resp_port()->resp(req);
 
-      if (_this->stalled_req)
-      {
-        req = _this->stalled_req;
-        _this->trace.msg("Unstalling request (req: %p)\n", req);
-        _this->stalled_req = req->get_next();
-        req->get_resp_port()->grant(req);
+        if (_this->stalled_req)
+        {
+          req = _this->stalled_req;
+          _this->trace.msg("Unstalling request (req: %p)\n", req);
+          _this->stalled_req = req->get_next();
+          req->get_resp_port()->grant(req);
 
-        _this->process_pending_req(req);
+          _this->process_pending_req(req);
+        }
       }
     }
-  }
-  else
-  {
-    _this->ready_cycle = INT32_MAX;
-  }
+    else
+    {
+      _this->ready_cycle[port] = INT32_MAX;
+    }
 
-  _this->check_state();
+    _this->check_state();
+  }
 }
 
 void converter::check_state()
@@ -166,7 +170,6 @@ vp::IoReqStatus converter::process_pending_req(vp::IoReq *req)
     req->set_next(pending_req);
     pending_req = req;
 
-
     size -= iter_size;
     offset += iter_size;
     data += iter_size;
@@ -187,8 +190,8 @@ vp::IoReqStatus converter::process_req(vp::IoReq *req)
   // Simple case where the request fit, just forward it
   if ((offset & ~mask) == ((offset + size - 1) & ~mask))
   {
-    trace.msg("No conversion applied, forwarding request (req: %p)\n", req);
-    return out.req_forward(req);
+    trace.msg("No conversion applied, forwarding request (req: %p, port: %d)\n", req, 0);
+    return out[0].req_forward(req);
   }
 
   return this->process_pending_req(req);
@@ -245,7 +248,7 @@ void converter::reset(bool active)
   if (active)
   {
     pending_req = NULL;
-    ready_cycle = 0;
+    memset(ready_cycle, 0, sizeof(uint64_t)*this->nb_master_ports);
     ongoing_req = NULL;
     ongoing_size = 0;
     stalled_req = NULL;

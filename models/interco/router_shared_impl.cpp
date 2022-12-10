@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
-#include <vp/proxy.hpp>
 #include <stdio.h>
 #include <math.h>
 
-class router;
+class router_shared;
 
 class Perf_counter {
 public:
@@ -58,7 +57,7 @@ public:
   MapEntry() {}
   MapEntry(unsigned long long base, MapEntry *left, MapEntry *right);
 
-  void insert(router *router);
+  void insert(router_shared *router);
 
   string target_name;
   MapEntry *next = NULL;
@@ -69,8 +68,8 @@ public:
   unsigned long long remove_offset = 0;
   unsigned long long add_offset = 0;
   uint32_t latency = 0;
-  int64_t next_read_packet_time = 0;
-  int64_t next_write_packet_time = 0;
+  int64_t next_entry_read_packet_time = 0;
+  int64_t next_entry_write_packet_time = 0;
   MapEntry *left = NULL;
   MapEntry *right = NULL;
   vp::io_slave *port = NULL;
@@ -84,19 +83,19 @@ class io_master_map : public vp::io_master
 
 };
 
-class router : public vp::component
+class router_shared : public vp::component
 {
 
   friend class MapEntry;
 
 public:
 
-  router(js::config *config);
+  router_shared(js::config *config);
 
   int build();
-  std::string handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
+  std::string handle_command(FILE *req_file, FILE *reply_file, std::vector<std::string> args);
 
-  static vp::io_req_status_e req(void *__this, vp::io_req *req);
+  static vp::io_req_status_e req(void *__this, vp::io_req *req, int port);
 
 
   static void grant(void *_this, vp::io_req *req);
@@ -107,7 +106,7 @@ private:
   vp::trace     trace;
 
   io_master_map out;
-  vp::io_slave in;
+  vp::io_slave *in;
   bool init = false;
 
   void init_entries();
@@ -119,12 +118,20 @@ private:
 
   std::map<int, Perf_counter *> counters;
 
+  int64_t *next_port_read_packet_time;
+  int64_t *next_port_write_packet_time;
   int bandwidth = 0;
   int latency = 0;
+
+  void handle_channel_id(MapEntry *entry);
+  int nb_channels;
+  MapEntry *allocated_entries;
+  int channel_id = 0;
+
   vp::io_req proxy_req;
 };
 
-router::router(js::config *config)
+router_shared::router_shared(js::config *config)
 : vp::component(config)
 {
 
@@ -133,12 +140,12 @@ router::router(js::config *config)
 MapEntry::MapEntry(unsigned long long base, MapEntry *left, MapEntry *right) : next(NULL), base(base), lowestBase(left->lowestBase), left(left), right(right) {
 }
 
-void MapEntry::insert(router *router)
+void MapEntry::insert(router_shared *router)
 {
   lowestBase = base;
 
   if (size != 0) {
-    if (port != NULL || itf != NULL) {    
+    if (port != NULL || itf != NULL) {
       MapEntry *current = router->firstMapEntry;
       MapEntry *prev = NULL;
 
@@ -146,7 +153,7 @@ void MapEntry::insert(router *router)
         prev = current;
         current = current->next;
       }
-      
+
       if (prev == NULL) {
         next = router->firstMapEntry;
         router->firstMapEntry = this;
@@ -162,11 +169,37 @@ void MapEntry::insert(router *router)
   }
 }
 
-vp::io_req_status_e router::req(void *__this, vp::io_req *req)
+void router_shared::handle_channel_id(MapEntry *entry)
 {
-  router *_this = (router *)__this;
+  int new_channel_id = this->channel_id;
+
+  for(int i=0; i<(this->nb_channels+1); i++)
+  {
+    new_channel_id++;
+    if(new_channel_id >= this->nb_channels)
+    {
+      new_channel_id = 0;
+    }
+
+    if(i != this->nb_channels)
+    {
+      if(entry == &this->allocated_entries[new_channel_id])
+      {
+        break;
+      }
+    }
+  }
+
+  this->allocated_entries[new_channel_id] = *(MapEntry *)entry;
+
+  this->channel_id = new_channel_id;
+}
+
+vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
+{
+  router_shared *_this = (router_shared *)__this;
   vp::io_req_status_e result;
-  
+
   if (!_this->init)
   {
     _this->init = true;
@@ -179,6 +212,7 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
   uint64_t req_size = size;
   uint64_t req_offset = offset;
   uint8_t *req_data = data;
+  bool isRead = !req->get_is_write();
 
   int count = 0;
   while (size)
@@ -186,8 +220,8 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
     MapEntry *entry = _this->topMapEntry;
     bool isRead = !req->get_is_write();
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, isRead: %d, bandwidth: %d)\n",
-        offset, size, isRead, _this->bandwidth);
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received IO req (port: %d, offset: 0x%lx, size: 0x%lx, isRead: %d, bandwidth: %d)\n",
+        port, offset, size, isRead, _this->bandwidth);
 
     if (entry)
     {
@@ -236,24 +270,89 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
 
         // Update the request latency.
         int64_t latency = req->get_latency();
-        // First check if the latency should be increased due to bandwidth 
-        int64_t *next_packet_time = req->get_is_write() ? &entry->next_write_packet_time : &entry->next_read_packet_time;
-        int64_t router_latency = *next_packet_time - _this->get_cycles();
-        if (router_latency > latency)
-        {
-          latency = router_latency;
-        }
+        // First check if the latency should be increased due to bandwidth limitation
+        int64_t router_latency = _this->get_cycles();
 
-        // Then apply the router latency
-        req->set_latency(latency + entry->latency + _this->latency);
+        //_this->handle_channel_id(entry);
 
-        // Update the bandwidth information
-        int64_t router_time = _this->get_cycles();
-        if (router_time < *next_packet_time)
+        if(isRead)
         {
-          router_time = *next_packet_time;
+          //int64_t port_latency  = _this->next_port_read_packet_time[_this->channel_id] - _this->get_cycles();
+          int64_t port_latency  = _this->next_port_read_packet_time[port] - _this->get_cycles();
+          int64_t entry_latency = entry->next_entry_read_packet_time - _this->get_cycles();
+          if(port_latency > entry_latency)
+          {
+            router_latency = port_latency;
+          }
+          else
+          {
+            router_latency = entry_latency;
+          }
+
+          if ((router_latency + _this->latency) > latency)
+          {
+            latency = router_latency + _this->latency;
+          }
+          // Then apply the router latency
+          req->set_latency(latency + entry->latency);
+
+          // Update the bandwidth information
+          int64_t router_time = _this->get_cycles();
+          //if (router_time < _this->next_port_read_packet_time[_this->channel_id])
+          if (router_time < _this->next_port_read_packet_time[port])
+          {
+            //router_time = _this->next_port_read_packet_time[_this->channel_id];
+            router_time = _this->next_port_read_packet_time[port];
+          }
+          //_this->next_port_read_packet_time[_this->channel_id] = router_time + packet_duration;
+          _this->next_port_read_packet_time[port] = router_time + packet_duration;
+
+          router_time = _this->get_cycles();
+          if (router_time < entry->next_entry_read_packet_time)
+          {
+            router_time = entry->next_entry_read_packet_time;
+          }
+          entry->next_entry_read_packet_time = router_time + packet_duration;
         }
-        *next_packet_time = router_time + packet_duration;
+        else
+        {
+          //int64_t port_latency  = _this->next_port_write_packet_time[_this->channel_id] - _this->get_cycles();
+          int64_t port_latency  = _this->next_port_write_packet_time[port] - _this->get_cycles();
+          int64_t entry_latency = entry->next_entry_write_packet_time - _this->get_cycles();
+          if(port_latency > entry_latency)
+          {
+            router_latency = port_latency;
+          }
+          else
+          {
+            router_latency = entry_latency;
+          }
+
+          if ((router_latency + _this->latency) > latency)
+          {
+            latency = router_latency + _this->latency;
+          }
+          // Then apply the router latency
+          req->set_latency(latency + entry->latency);
+
+          // Update the bandwidth information
+          int64_t router_time = _this->get_cycles();
+          //if (router_time < _this->next_port_write_packet_time[_this->channel_id])
+          if (router_time < _this->next_port_write_packet_time[port])
+          {
+            //router_time = _this->next_port_write_packet_time[_this->channel_id];
+            router_time = _this->next_port_write_packet_time[port];
+          }
+          //_this->next_port_write_packet_time[_this->channel_id] = router_time + packet_duration;
+          _this->next_port_write_packet_time[port] = router_time + packet_duration;
+          
+          router_time = _this->get_cycles();
+          if (router_time < entry->next_entry_write_packet_time)
+          {
+            router_time = entry->next_entry_write_packet_time;
+          }
+          entry->next_entry_write_packet_time = router_time + packet_duration;
+        }
       }
       else
       {
@@ -331,9 +430,9 @@ vp::io_req_status_e router::req(void *__this, vp::io_req *req)
   return result;
 }
 
-void router::grant(void *__this, vp::io_req *req)
+void router_shared::grant(void *__this, vp::io_req *req)
 {
-  router *_this = (router *)__this;
+  router_shared *_this = (router_shared *)__this;
 
   vp::io_slave *port = (vp::io_slave *)req->arg_pop();
   if (port != NULL)
@@ -345,9 +444,9 @@ void router::grant(void *__this, vp::io_req *req)
   req->arg_push(port);
 }
 
-void router::response(void *__this, vp::io_req *req)
+void router_shared::response(void *__this, vp::io_req *req)
 {
-  router *_this = (router *)__this;
+  router_shared *_this = (router_shared *)__this;
 
   vp::io_slave *port = (vp::io_slave *)req->arg_pop();
   if (port != NULL)
@@ -358,7 +457,7 @@ void router::response(void *__this, vp::io_req *req)
 }
 
 
-std::string router::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string cmd_req)
+std::string router_shared::handle_command(FILE *req_file, FILE *reply_file, std::vector<std::string> args)
 {
     if (args[0] == "mem_write" or args[0] == "mem_read")
     {
@@ -385,15 +484,20 @@ std::string router::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_
         req->set_addr(addr);
         req->set_debug(true);
 
-        vp::io_req_status_e result = router::req((void *)this, req);
+        vp::io_req_status_e result = router_shared::req((void *)this, req, 0);
         error |= result != vp::IO_REQ_OK;
 
         if (!is_write)
         {
-            error = proxy->send_payload(reply_file, cmd_req, buffer, size);
+            fprintf(reply_file, "router %p read\n", this);
+            int write_size = fwrite(buffer, 1, size, reply_file);
+            if (write_size != size)
+            {
+                error = 1;
+            }
         }
 
-        delete[] buffer;
+        delete buffer;
 
         return "err=" + std::to_string(error);
     }
@@ -401,15 +505,35 @@ std::string router::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_
 }
 
 
-int router::build()
+int router_shared::build()
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
-  in.set_req_meth(&router::req);
-  new_slave_port("input", &in);
+  int nb_slave_ports = get_config_int("nb_slaves");
+  //nb_channels    = get_config_int("nb_channels");
+  nb_channels    = nb_slave_ports;
 
-  out.set_resp_meth(&router::response);
-  out.set_grant_meth(&router::grant);
+  next_port_read_packet_time  = new int64_t[nb_channels];
+  next_port_write_packet_time = new int64_t[nb_channels];
+
+  allocated_entries = new MapEntry[nb_channels];
+
+  in = new vp::io_slave[nb_slave_ports];
+
+  for (int i=0; i<nb_slave_ports; i++)
+  {
+    in[i].set_req_meth_muxed(&router_shared::req, i);
+    new_slave_port("input_" + std::to_string(i), &in[i]);
+  }
+
+  for(int i=0; i<nb_channels; i++)
+  {
+    next_port_read_packet_time[i]  = 0;
+    next_port_write_packet_time[i] = 0;
+  }
+
+  out.set_resp_meth(&router_shared::response);
+  out.set_grant_meth(&router_shared::grant);
   new_master_port("out", &out);
 
   bandwidth = get_config_int("bandwidth");
@@ -431,8 +555,8 @@ int router::build()
 
       vp::io_master *itf = new vp::io_master();
 
-      itf->set_resp_meth(&router::response);
-      itf->set_grant_meth(&router::grant);
+      itf->set_resp_meth(&router_shared::response);
+      itf->set_grant_meth(&router_shared::grant);
       new_master_port(mapping.first, itf);
 
       if (mapping.first == "error")
@@ -478,7 +602,7 @@ int router::build()
         counter->stalls_itf.set_sync_back_meth(&Perf_counter::stalls_sync_back);
         counter->stalls_itf.set_sync_meth(&Perf_counter::stalls_sync);
         new_slave_port((void *)counter, "stalls[" + std::to_string(entry->id) + "]", &counter->stalls_itf);
-      }  
+      }
 
       entry->insert(this);
     }
@@ -488,7 +612,7 @@ int router::build()
 
 extern "C" vp::component *vp_constructor(js::config *config)
 {
-  return new router(config);
+  return new router_shared(config);
 }
 
 
@@ -496,7 +620,7 @@ extern "C" vp::component *vp_constructor(js::config *config)
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-void router::init_entries() {
+void router_shared::init_entries() {
 
   MapEntry *current = firstMapEntry;
   trace.msg(vp::trace::LEVEL_INFO, "Building router table\n");
@@ -577,7 +701,7 @@ inline void io_master_map::bind_to(vp::port *_port, vp::config *config)
     conf = config->get("latency");
     if (conf) entry->latency = conf->get_int();
   }
-  entry->insert((router *)get_comp());
+  entry->insert((router_shared *)get_comp());
 }
 
 void Perf_counter::nb_read_sync_back(void *__this, uint32_t *value)

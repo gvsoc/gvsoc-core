@@ -278,7 +278,7 @@ void iss_reset(iss_t *iss, int active)
     
     iss->cpu.prev_insn = NULL;
     iss->cpu.state.elw_insn = NULL;
-    iss->cpu.state.elw_stalled = false;
+    iss->elw_stalled.set(false);
     iss->cpu.state.cache_sync = false;
     iss->cpu.state.do_fetch = false;
 
@@ -308,6 +308,8 @@ int iss_open(iss_t *iss)
   iss->cpu.prev_insn = NULL;
   iss->cpu.state.hwloop_end_insn[0] = NULL;
   iss->cpu.state.hwloop_end_insn[1] = NULL;
+
+  iss->cpu.state.insn_cycles = 0;
 
   iss->cpu.state.fcsr.frm = 0;
 

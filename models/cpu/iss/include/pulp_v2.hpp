@@ -761,25 +761,40 @@ static inline iss_insn_t *SW_RR_exec(iss_t *iss, iss_insn_t *insn)
 }
 
 
-
-static inline iss_insn_t *p_elw_exec(iss_t *iss, iss_insn_t *insn)
+static inline void iss_handle_elw(iss_t *iss, iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-  uint32_t value = 0;
   // Always account the overhead of the elw
   iss->cpu.state.insn_cycles += 2;
 
   iss->cpu.state.elw_insn = insn;
   // Init this flag so that we can check afterwards that theelw has been replayed
   iss->cpu.state.elw_interrupted = 0;
-  iss_lsu_elw_perf(iss, insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+
+  iss_lsu_elw_perf(iss, insn, addr, size, reg);
+  
   if (!iss->stalled.get())
   {
-    iss->cpu.state.elw_insn = NULL;
   }
   else
   {
-    iss->cpu.state.elw_stalled = true;
+    // Since an interrupt might have happened during the execution of the elw, we need to check them
+    // in case this is waking-up the elw.
+    if (iss_irq_check(iss))
+    {
+      iss->elw_irq_unstall();
+    }
+    else
+    {
+      iss->elw_stalled.set(true);
+
+    }
   }
+}
+
+
+static inline iss_insn_t *p_elw_exec(iss_t *iss, iss_insn_t *insn)
+{
+  iss_handle_elw(iss, insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
   return insn->next;
 }
 

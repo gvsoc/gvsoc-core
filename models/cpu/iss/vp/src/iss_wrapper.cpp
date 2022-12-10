@@ -48,7 +48,7 @@ void iss_wrapper::dump_debug_traces()
   }
 }
 
-void iss_handle_insn_profiling(iss_t *_this)
+static inline void iss_handle_insn_profiling(iss_t *_this)
 {
   _this->trace.msg("Executing instruction\n");
   if (_this->pc_trace_event.get_event_active())
@@ -79,37 +79,57 @@ void static inline iss_handle_insn_power(iss_t *_this, iss_insn_t *insn)
 }
 
 
+void iss_wrapper::refetch_handler(void *__this, vp::clock_event *event)
+{
+  iss_t *_this = (iss_t *)__this;
+
+  // This handler is scheduled when we need to refetch the current instruction, for example when
+  // the PC has been modified.
+
+  // First set back normal handler
+  _this->trigger_check_all();
+
+  // And then trigger the fetch
+  // The execution of the next instruction is managed automatically depending
+  // on the value of the stall counter.
+  prefetcher_fetch(_this, _this->cpu.current_insn);
+}
+
 
 void iss_wrapper::exec_instr(void *__this, vp::clock_event *event)
 {
   iss_t *_this = (iss_t *)__this;
 
-  // Takes care first of all optional features (traces, VCD and so on)
-  iss_handle_insn_profiling(_this);
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
-  iss_insn_t *insn = _this->cpu.current_insn;
+  // Temporarly reenqueue the event until we switch to always running events
+  // In case we don't need an event, it will be canceled when this is detected, but the same way
+  // it will be done with always running events.
+  _this->instr_event->enqueue();
 
-  // Account one cycle for the instructin. Other actions may then increase it to model stalls.
-  _this->cpu.state.insn_cycles = 1;
-
-  // Execute the instruction and replace the current one with the new one
-  _this->cpu.current_insn = iss_exec_insn_fast(_this, insn);
-  _this->cpu.prev_insn = insn;
-
-  // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
-  // this will stall the ISS, which will execute the next instruction when the response is
-  // received
-  prefetcher_fetch(_this, _this->cpu.current_insn);
-
-  // Since power instruction information is filled when the instruction is decoded,
-  // make sure we account it only after the instruction is executed
-  iss_handle_insn_power(_this, insn);
-
-  // Now that everything has been handled, we know if we can enqueue the next instruction.
-  // If not, it will be enqueued when something makes the core active again.
-  if (_this->is_active_reg.get())
+  if (likely(_this->cpu.state.insn_cycles == 0))
   {
-    _this->enqueue_next_instr(_this->cpu.state.insn_cycles);
+    // Takes care first of all optional features (traces, VCD and so on)
+    iss_handle_insn_profiling(_this);
+
+    iss_insn_t *insn = _this->cpu.current_insn;
+
+    // Execute the instruction and replace the current one with the new one
+    _this->cpu.current_insn = iss_exec_insn_fast(_this, insn);
+    _this->cpu.prev_insn = insn;
+
+    // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
+    // this will stall the ISS, which will execute the next instruction when the response is
+    // received
+    prefetcher_fetch(_this, _this->cpu.current_insn);
+
+    // Since power instruction information is filled when the instruction is decoded,
+    // make sure we account it only after the instruction is executed
+    iss_handle_insn_power(_this, insn);
+  }
+  else
+  {
+    _this->cpu.state.insn_cycles--;
   }
 }
 
@@ -119,54 +139,62 @@ void iss_wrapper::exec_instr_check_all(void *__this, vp::clock_event *event)
 {
   iss_t *_this = (iss_t *)__this;
 
-  // Switch back to optimize instruction handler only
-  // if HW counters are disabled as they are checked with the slow handler
-  if (iss_exec_switch_to_fast(_this))
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler\n");
+
+  // Temporarly reenqueue the event until we switch to always running events
+  // In case we don't need an event, it will be canceled when this is detected, but the same way
+  // it will be done with always running events.
+  _this->instr_event->enqueue();
+
+  if (likely(_this->cpu.state.insn_cycles == 0))
   {
-    _this->current_event = _this->instr_event;
-  }
-
-  iss_handle_insn_profiling(_this);
-
-  iss_insn_t *insn = _this->cpu.current_insn;
-  int cycles;
-
-  _this->cpu.state.insn_cycles = 1;
-  if (iss_irq_check(_this) != -1)
-  {
-    iss_insn_t *insn = _this->cpu.current_insn;
-    _this->cpu.current_insn = iss_exec_insn(_this, insn);
-    _this->cpu.prev_insn = insn;
-
-    prefetcher_fetch(_this, _this->cpu.current_insn);
-
-    cycles = _this->cpu.state.insn_cycles;
-
-    iss_exec_account_cycles(_this, _this->cpu.state.insn_cycles);
-
-    if (_this->cpu.csr.pcmr & CSR_PCMR_ACTIVE)
+    // Switch back to optimize instruction handler only
+    // if HW counters are disabled as they are checked with the slow handler
+    if (iss_exec_switch_to_fast(_this))
     {
-      if (_this->cpu.csr.pcer & (1<<CSR_PCER_INSTR))
-        _this->cpu.csr.pccr[CSR_PCER_INSTR] += 1;
+      _this->instr_event->meth_set(&iss_wrapper::exec_instr);
     }
-    iss_pccr_incr(_this, CSR_PCER_INSTR, 1);
+
+    iss_handle_insn_profiling(_this);
+
+    int cycles;
+
+    iss_insn_t *insn = _this->cpu.current_insn;
+
+    // Don't execute the instruction if an IRQ was taken and it triggered a pending fetch
+    if (!iss_irq_check(_this) && !_this->stalled.get())
+    {
+      iss_insn_t *insn = _this->cpu.current_insn;
+      _this->cpu.current_insn = iss_exec_insn(_this, insn);
+      _this->cpu.prev_insn = insn;
+
+      prefetcher_fetch(_this, _this->cpu.current_insn);
+
+      // Since we get 0 when there is no stall and we need to account the instruction cycle,
+      // increase the count by 1
+      iss_exec_account_cycles(_this, _this->cpu.state.insn_cycles + 1);
+
+      if (_this->cpu.csr.pcmr & CSR_PCMR_ACTIVE)
+      {
+        if (_this->cpu.csr.pcer & (1<<CSR_PCER_INSTR))
+          _this->cpu.csr.pccr[CSR_PCER_INSTR] += 1;
+      }
+      iss_pccr_incr(_this, CSR_PCER_INSTR, 1);
+    }
+
+    iss_handle_insn_power(_this, insn);
+
+    _this->iss_exec_insn_check_debug_step();
   }
-
-
-
-  iss_handle_insn_power(_this, insn);
-
-  if (_this->is_active_reg.get())
+  else
   {
-    _this->enqueue_next_instr(cycles);
+    _this->cpu.state.insn_cycles--;
   }
-
-  _this->iss_exec_insn_check_debug_step();
 }
 
 void iss_wrapper::exec_first_instr(vp::clock_event *event)
 {
-  current_event = event_new(iss_wrapper::exec_instr);
+  this->instr_event->meth_set(&iss_wrapper::exec_instr);
   iss_start(this);
   exec_instr((void *)this, event);
 }
@@ -184,7 +212,10 @@ void iss_wrapper::data_grant(void *__this, vp::io_req *req)
 void iss_wrapper::data_response(void *__this, vp::io_req *req)
 {
   iss_t *_this = (iss_t *)__this;
-  _this->stalled.dec(1);
+  _this->stalled_dec();
+
+  iss_msg(_this, "Received data response (stalled: %d)\n", _this->stalled.get());
+
   _this->wakeup_latency = req->get_latency();
   if (_this->misaligned_access.get())
   {
@@ -208,7 +239,9 @@ void iss_wrapper::fetch_response(void *__this, vp::io_req *req)
 {
   iss_t *_this = (iss_t *)__this;
 
-  _this->stalled.dec(1);
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Received fetch response\n");
+
+  _this->stalled_dec();
   if (_this->cpu.state.fetch_stall_callback)
   {
     _this->cpu.state.fetch_stall_callback(_this);
@@ -276,39 +309,6 @@ void iss_wrapper::clock_sync(void *__this, bool active)
   _this->trace.msg("Setting clock (active: %d)\n", active);
 
   _this->clock_active = active;
-
-  if (_this->busy_itf.is_bound())
-  {
-    _this->busy_itf.sync(active);
-  }
-
-  // TODO this could be better handler is the clock would be taken into
-  // account in the core state machine
-  uint8_t value = active && _this->is_active_reg.get();
-  if (value)
-  {
-    _this->state_event.event((uint8_t *)&value);
-    _this->busy.set(1);
-  }
-  else
-  {
-    _this->state_event.event(NULL);
-    _this->busy.release();
-    if (_this->active_pc_trace_event.get_event_active())
-      _this->active_pc_trace_event.event(NULL);
-  }
-
-  if (_this->ipc_stat_event.get_event_active())
-  {
-    if (value)
-    {
-      _this->trigger_ipc_stat();
-    }
-    else
-    {
-      _this->stop_ipc_stat();
-    }
-  }
 }
 
 void iss_wrapper::fetchen_sync(void *__this, bool active)
@@ -319,7 +319,7 @@ void iss_wrapper::fetchen_sync(void *__this, bool active)
   _this->fetch_enable_reg.set(active);
   if (!old_val && active)
   {
-    _this->stalled.dec(1);
+    _this->stalled_dec();
     iss_pc_set(_this, _this->bootaddr_reg.get() + _this->bootaddr_offset);
   }
   else if (old_val && !active)
@@ -327,7 +327,6 @@ void iss_wrapper::fetchen_sync(void *__this, bool active)
       // In case of a falling edge, stall the core to prevent him from executing
       _this->stalled_inc();
   }
-  _this->check_state();
 }
 
 void iss_wrapper::flush_cache_sync(void *__this, bool active)
@@ -345,7 +344,7 @@ void iss_wrapper::flush_cache_ack_sync(void *__this, bool active)
     if (_this->cpu.state.cache_sync)
     {
       _this->cpu.state.cache_sync = false;
-      _this->stalled.dec(1);
+      _this->stalled_dec();
       iss_exec_insn_terminate(_this);
       _this->check_state();
     }
@@ -410,9 +409,9 @@ void iss_wrapper::halt_sync(void *__this, bool halted)
 
 void iss_wrapper::check_state()
 {
-  vp::clock_event *event = current_event;
+  return;
 
-  current_event = check_all_event;
+  this->trigger_check_all();
 
   if (!is_active_reg.get())
   {
@@ -491,9 +490,9 @@ void iss_wrapper::check_state()
 
     if (!is_active_reg.get())
     {
-      if (event->is_enqueued())
+      if (this->instr_event->is_enqueued())
       {
-        event_cancel(event);
+        event_cancel(this->instr_event);
       }
     }
   }
@@ -530,8 +529,11 @@ int iss_wrapper::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int siz
     // As the transaction is split into 2 parts, we must tell the ISS
     // that the access is pending as the instruction must be executed
     // only when the second access is finished.
-    this->event_enqueue(this->misaligned_event, io_req.get_latency() + 1);
-    return vp::IO_REQ_PENDING;
+    this->instr_event->meth_set(&iss_wrapper::exec_misaligned);
+    this->cpu.state.insn_cycles += io_req.get_latency() + 1;
+    this->dump_trace_enabled = false;
+    iss_exec_insn_stall_save_insn(this);
+    return 1;
   }
   else
   {
@@ -542,38 +544,57 @@ int iss_wrapper::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int siz
 
 void iss_wrapper::irq_check()
 {
-  current_event = check_all_event;
+  this->trigger_check_all();
 }
 
 
 void iss_wrapper::wait_for_interrupt()
 {
-  wfi.set(true);
-  check_state();
+  // The instruction loop is checking for IRQs only if interrupts are globally enable
+  // while wfi ends as soon as one interrupt is active even if interrupts are globally disabled,
+  // so we have to check now if we can really go to sleep.
+  if (this->cpu.irq.req_irq == -1)
+  {
+    wfi.set(true);
+    iss_exec_insn_stall(this);
+  }
 }
 
 
-void iss_wrapper::irq_req_sync_handler(void *__this, vp::clock_event *event)
+void iss_wrapper::elw_irq_unstall()
 {
-  iss_t *_this = (iss_t *)__this;
-  _this->irq_req = _this->irq_req_value;
-  _this->irq_check();
-  iss_irq_req(_this, _this->irq_req);
-  _this->wfi.set(false);
-  _this->check_state();
+  this->trace.msg(vp::trace::LEVEL_TRACE, "%s %d\n", __FILE__, __LINE__);
+
+  iss_msg(this, "Interrupting pending elw\n");
+  this->cpu.current_insn = this->cpu.state.elw_insn;
+  // Keep the information that we interrupted it, so that features like HW loop
+  // knows that the instruction is being replayed
+  this->cpu.state.elw_interrupted = 1;
 }
 
 
 void iss_wrapper::irq_req_sync(void *__this, int irq)
 {
   iss_t *_this = (iss_t *)__this;
-  _this->irq_req_value = irq;
-  // Handle the sync in an event with 0 delay to always take into account interrupts after the
-  // instruction has been executed
-  if (!_this->irq_sync_event->is_enqueued())
+
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Received IRQ (irq: %d)\n", irq);
+
+  _this->cpu.irq.req_irq = irq;
+
+  if (irq != -1 && _this->wfi.get())
   {
-    _this->event_enqueue(_this->irq_sync_event, 1);
+    _this->wfi.set(false);
+    _this->stalled_dec();
+    iss_exec_insn_terminate(_this);
+    iss_irq_check(_this);
   }
+
+  if (_this->elw_stalled.get() && irq != -1 && _this->cpu.irq.irq_enable)
+  {
+    _this->elw_irq_unstall();
+  }
+
+  _this->trigger_check_all();
 }
 
 void iss_wrapper::debug_req()
@@ -1360,6 +1381,8 @@ int iss_wrapper::build()
   this->new_reg("step_mode", &this->step_mode, false);
   this->new_reg("do_step", &this->do_step, false);
 
+  this->new_reg("elw_stalled", &this->elw_stalled, false);
+
   if (this->get_js_config()->get("**/insn_groups"))
   {
     js::config *config = this->get_js_config()->get("**/insn_groups");
@@ -1421,11 +1444,7 @@ int iss_wrapper::build()
     this->pcer_info[i].name  = "";
   }
 
-  current_event = event_new(iss_wrapper::exec_first_instr);
-  instr_event = event_new(iss_wrapper::exec_instr);
-  check_all_event = event_new(iss_wrapper::exec_instr_check_all);
-  misaligned_event = event_new(iss_wrapper::exec_misaligned);
-  irq_sync_event = event_new(iss_wrapper::irq_req_sync_handler);
+  instr_event = event_new(iss_wrapper::exec_first_instr);
 
   this->riscv_dbg_unit = this->get_js_config()->get_child_bool("riscv_dbg_unit");
   this->bootaddr_offset = get_config_int("bootaddr_offset");
@@ -1494,7 +1513,7 @@ void iss_wrapper::pre_reset()
 {
   if (this->is_active_reg.get())
   {
-    this->event_cancel(this->current_event);
+    this->event_cancel(this->instr_event);
   }
 }
 
@@ -1513,6 +1532,8 @@ void iss_wrapper::reset(bool active)
     this->ipc_stat_nb_insn = 0;
     this->ipc_stat_delay = 10;
     this->clock_active = false;
+
+    this->dump_trace_enabled = true;
 
     this->active_pc_trace_event.event(NULL);
 
@@ -1546,6 +1567,8 @@ void iss_wrapper::reset(bool active)
     {
       this->halted.set(true);
     }
+
+    this->instr_event->enqueue();
 
     // In case, the core is not fetch-enabled, stall to prevent it from being active
     if (fetch_enable_reg.get() == false)

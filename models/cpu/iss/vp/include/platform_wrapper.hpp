@@ -78,11 +78,6 @@ static inline void iss_set_halt_mode(iss_t *iss, bool halted, int cause)
   iss->check_state();
 }
 
-static inline void iss_wait_for_interrupt(iss_t *iss)
-{
-  iss->wait_for_interrupt();
-}
-
 static inline void iss_trigger_check_all(iss_t *iss)
 {
   iss->trigger_check_all();
@@ -152,6 +147,8 @@ static inline int iss_fetch_req(iss_t *_this, uint64_t addr, uint8_t *data, uint
 {
   vp::io_req *req = &_this->fetch_req;
 
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Fetch request (addr: 0x%x, size: 0x%x)\n", addr, size);
+
   req->init();
   req->set_addr(addr);
   req->set_size(size);
@@ -167,6 +164,7 @@ static inline int iss_fetch_req(iss_t *_this, uint64_t addr, uint8_t *data, uint
     }
     else
     {
+      _this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
       return -1;
     }
   }
@@ -215,11 +213,6 @@ static inline void iss_csr_ext_counter_get(iss_t *iss, int id, unsigned int *val
   }
 }
 
-static inline void iss_unstall(iss_t *iss)
-{
-  iss->stalled.dec(1);
-}
-
 static inline void iss_lsu_load_resume(iss_t *iss)
 {
   // Nothing to do, the zero-extension was done by initializing the register to 0
@@ -229,6 +222,7 @@ static inline void iss_lsu_elw_resume(iss_t *iss)
 {
   // Clear pending elw to not replay it when the next interrupt occurs
   iss->cpu.state.elw_insn = NULL;
+  iss->elw_stalled.set(false);
 }
 
 static inline void iss_lsu_load_signed_resume(iss_t *iss)
@@ -249,7 +243,6 @@ static inline void iss_lsu_load(iss_t *iss, iss_insn_t *insn, iss_addr_t addr, i
   {
     iss->cpu.state.stall_callback = iss_lsu_load_resume;
     iss->cpu.state.stall_reg = reg;
-    iss_exec_insn_stall(iss);
   }
 }
 
@@ -265,7 +258,6 @@ static inline void iss_lsu_elw(iss_t *iss, iss_insn_t *insn, iss_addr_t addr, in
   {
     iss->cpu.state.stall_callback = iss_lsu_elw_resume;
     iss->cpu.state.stall_reg = reg;
-    iss_exec_insn_stall(iss);
   }
 }
 
@@ -280,7 +272,6 @@ static inline void iss_lsu_load_signed(iss_t *iss, iss_insn_t *insn, iss_addr_t 
     iss->cpu.state.stall_callback = iss_lsu_load_signed_resume;
     iss->cpu.state.stall_reg = reg;
     iss->cpu.state.stall_size = size;
-    iss_exec_insn_stall(iss);
   }
 }
 
@@ -301,7 +292,6 @@ static inline void iss_lsu_store(iss_t *iss, iss_insn_t *insn, iss_addr_t addr, 
   {
     iss->cpu.state.stall_callback = iss_lsu_store_resume;
     iss->cpu.state.stall_reg = reg;
-    iss_exec_insn_stall(iss);
   }
 }
 

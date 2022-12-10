@@ -28,21 +28,14 @@
 
 static inline void prefetcher_init(iss_t *iss);
 static inline iss_opcode_t prefetcher_fill(iss_t *iss, iss_addr_t addr, bool timed);
+static inline void __attribute__((always_inline)) prefetcher_fetch(iss_t *iss, iss_insn_t *insn);
 
 
 // This can be called to force the core to refetch the current instruction,
 // for example after the pc has been modified
 static inline void prefetcher_refetch(iss_t *iss)
 {
-    // For that we tell the core to refetch
-    // and set it to inactive state to force it to recheck its state.
-    iss->cpu.state.do_fetch = true;
-    iss->is_active_reg.set(false);
-
-    if (iss->current_event->is_enqueued())
-    {
-      iss->event_cancel(iss->current_event);
-    }
+    prefetcher_fetch(iss, iss->cpu.current_insn);
 }
 
 
@@ -117,7 +110,7 @@ static inline void prefetcher_fetch_value_resume_0(iss_t *iss)
 }
 
 
-static inline void __attribute__((always_inline)) prefetcher_fetch_value(
+static void __attribute__((noinline)) prefetcher_fetch_value(
   iss_prefetcher_t *prefetcher, iss_t *iss, iss_insn_t *insn)
 {
   iss_addr_t addr = insn->addr;
@@ -170,17 +163,9 @@ static inline void prefetcher_fetch_novalue_resume_0(iss_t *iss)
 }
 
 
-static inline void __attribute__((always_inline)) prefetcher_fetch_novalue(
-  iss_prefetcher_t *prefetcher, iss_t *iss, iss_insn_t *insn)
+static void __attribute__((noinline)) prefetcher_fetch_novalue_refill(
+  iss_prefetcher_t *prefetcher, iss_t *iss, iss_insn_t *insn, iss_addr_t addr, int index)
 {
-  iss_addr_t addr = insn->addr;
-  int index = addr - prefetcher->addr;
-
-  if (likely(index >= 0 && index  <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
-  {
-    return;
-  }
-
   if (unlikely(index < 0 || index >= ISS_PREFETCHER_SIZE))
   {
     if (prefetcher_fill(prefetcher, iss, addr))
@@ -200,9 +185,27 @@ static inline void __attribute__((always_inline)) prefetcher_fetch_novalue(
 
 
 
+static inline void __attribute__((always_inline)) prefetcher_fetch_novalue(
+  iss_prefetcher_t *prefetcher, iss_t *iss, iss_insn_t *insn)
+{
+  iss_addr_t addr = insn->addr;
+  int index = addr - prefetcher->addr;
+
+  if (likely(index >= 0 && index  <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
+  {
+    return;
+  }
+
+  prefetcher_fetch_novalue_refill(prefetcher, iss, insn, addr, index);
+}
+
+
+
+
 
 static inline void __attribute__((always_inline)) prefetcher_fetch(iss_t *iss, iss_insn_t *insn)
 {
+  iss->trace.msg(vp::trace::LEVEL_TRACE, "Prefetching instruction (pc: 0x%x)\n", insn->addr);
   if (insn->fetched)
   {
     prefetcher_fetch_novalue(&iss->cpu.prefetcher, iss, insn);

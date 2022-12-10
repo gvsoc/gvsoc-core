@@ -32,23 +32,14 @@ static inline int iss_irq_check(iss_t *iss)
     iss->cpu.irq.irq_enable = 0;
     iss->cpu.irq.req_debug = false;
     iss->cpu.current_insn = iss->cpu.irq.debug_handler;
+    return 1;
   }
   else
   {
     int req_irq = iss->cpu.irq.req_irq;
     if (req_irq != -1 && iss->cpu.irq.irq_enable)
     {
-      // In case we interrupt a pending elw, we need to replay after the irq
-      // handling
-      if (iss->cpu.state.elw_insn != NULL)
-      {
-        iss_msg(iss, "Interrupting pending elw\n");
-        iss->cpu.current_insn = iss->cpu.state.elw_insn;
-        iss->cpu.state.elw_insn = NULL;
-        // Keep the information that we interrupted it, so that features like HW loop
-        // knows that the instruction is being replayed
-        iss->cpu.state.elw_interrupted = 1;
-      }
+      iss->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
       iss->cpu.csr.epc = iss->cpu.current_insn->addr;
       iss->cpu.irq.saved_irq_enable = iss->cpu.irq.irq_enable;
@@ -59,16 +50,12 @@ static inline int iss_irq_check(iss_t *iss)
 
       iss_irq_ack(iss, req_irq);
 
-      iss->cpu.state.elw_insn = NULL;
-
       iss_perf_account_dependency_stall(iss, 4);
 
       prefetcher_fetch(iss, iss->cpu.current_insn);
 
-      return iss->stalled.get() ? -1 : 0;
+      return 1;
     }
-
-    iss->cpu.state.elw_insn = NULL;
   }
 
   return 0;
@@ -102,6 +89,9 @@ static inline iss_insn_t *iss_irq_handle_dret(iss_t *iss)
 
 static inline void iss_irq_enable(iss_t *iss, int enable)
 {
+  iss->trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
+    enable);
+
   iss->cpu.irq.irq_enable = enable;
   iss_trigger_irq_check(iss);
 }
@@ -109,13 +99,6 @@ static inline void iss_irq_enable(iss_t *iss, int enable)
 static inline void iss_irq_req(iss_t *iss, int irq)
 {
   iss->cpu.irq.req_irq = irq;
-
-  if (iss->cpu.state.elw_insn != NULL && iss->cpu.state.elw_stalled)
-  {
-    iss_msg(iss, "Unstalling core due to IRQ\n");
-    iss->cpu.state.elw_stalled = false;
-    iss_unstall(iss);
-  }
 }
 
 static inline void iss_irq_set_vector_table(iss_t *iss, iss_addr_t base)

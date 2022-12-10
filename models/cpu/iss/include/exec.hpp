@@ -35,7 +35,9 @@ void iss_trace_init(iss_t *iss);
 
 static inline void iss_exec_insn_terminate(iss_t *iss)
 {
-  iss_exec_account_cycles(iss, iss->cpu.state.insn_cycles);
+  // Since we get 0 when there is no stall and we need to account the instruction cycle,
+  // increase the count by 1
+  iss_exec_account_cycles(iss, iss->cpu.state.insn_cycles + 1);
 
   if (iss_insn_trace_active(iss))
   {
@@ -43,9 +45,14 @@ static inline void iss_exec_insn_terminate(iss_t *iss)
   }
 }
 
-static inline void iss_exec_insn_stall(iss_t *iss)
+static inline void iss_exec_insn_stall_save_insn(iss_t *iss)
 {
   iss->cpu.stall_insn = iss->cpu.current_insn;
+}
+
+static inline void iss_exec_insn_stall(iss_t *iss)
+{
+  iss_exec_insn_stall_save_insn(iss);
   iss->stalled_inc();
 }
 
@@ -145,8 +152,28 @@ inline void iss_wrapper::iss_exec_insn_check_debug_step()
 
 inline void iss_wrapper::stalled_inc()
 {
+  if (this->stalled.get() == 0)
+  {
+    this->instr_event->cancel();
+  }
   this->stalled.inc(1);
-  this->is_active_reg.set(false);
+}
+
+
+inline void iss_wrapper::stalled_dec()
+{
+  if (this->stalled.get() == 0)
+  {
+    this->trace.warning("Trying to decrease zero stalled counter\n");
+    return;
+  }
+
+  this->stalled.dec(1);
+
+  if (this->stalled.get() == 0)
+  {
+    this->instr_event->enqueue();
+  }
 }
 
 #endif

@@ -530,7 +530,7 @@ iss_insn_t *iss_exec_insn_with_trace(iss_t *iss, iss_insn_t *insn)
 
         next_insn = iss_exec_insn_handler(iss, insn, insn->saved_handler);
 
-        if (!iss_exec_is_stalled(iss))
+        if (!iss_exec_is_stalled(iss) && iss->dump_trace_enabled)
             iss_trace_dump(iss, insn);
     }
     else

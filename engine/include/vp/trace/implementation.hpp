@@ -128,6 +128,12 @@ namespace vp {
       va_start(ap, fmt);
       if (vfprintf(this->trace_file, fmt, ap) < 0) {}
       va_end(ap);
+
+
+      if (comp->traces.get_trace_manager()->get_werror())
+      {
+          abort();
+      }
     }
   #endif
   }
@@ -143,6 +149,11 @@ namespace vp {
         va_start(ap, fmt);
         if (vfprintf(this->trace_file, fmt, ap) < 0) {}
         va_end(ap);
+
+        if (comp->traces.get_trace_manager()->get_werror())
+        {
+            abort();
+        }
       }
     }
   #endif

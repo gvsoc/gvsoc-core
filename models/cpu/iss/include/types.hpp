@@ -418,7 +418,8 @@ typedef struct iss_cpu_state_s {
 
   iss_insn_t *elw_insn;
   bool cache_sync;
-  bool elw_stalled;
+  // This is used by HW loop to know that we interrupted and replayed
+  // a ELW instructin so that it is not accounted twice in the loop.
   int elw_interrupted;
   iss_insn_t *hwloop_next_insn;
 

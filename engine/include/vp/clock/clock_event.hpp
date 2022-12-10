@@ -64,6 +64,8 @@ namespace vp {
     void exec() { this->meth(this->_this, this); }
 
     inline void enqueue(int64_t cycles=1);
+    inline void cancel();
+    inline void meth_set(clock_event_meth_t *meth) { this->meth = meth; }
 
   private:
     uint8_t payload[CLOCK_EVENT_PAYLOAD_SIZE];

@@ -18,10 +18,10 @@ import gsystree as st
 
 class Router(st.Component):
 
-    def __init__(self, parent, name, latency=0, bandwidth=0, remove_offset=0, config=None):
+    def __init__(self, parent, name, component='interco.router_impl', latency=0, bandwidth=0, remove_offset=0, config=None):
         super(Router, self).__init__(parent, name)
 
-        self.set_component('interco.router_impl')
+        self.set_component(component)
 
         self.add_property('mappings', {})
         self.add_property('latency', latency)

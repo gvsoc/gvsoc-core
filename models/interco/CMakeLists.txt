@@ -19,3 +19,7 @@ vp_model(NAME interco.bus_watchpoint
 vp_model(NAME interco.router_proxy
     SOURCES "router_proxy.cpp"
     )
+
+vp_model(NAME interco.router_shared_impl
+    SOURCES "router_shared_impl.cpp"
+    )

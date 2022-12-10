@@ -81,6 +81,7 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
   if (align_size) align_size = port_size - align_size;
 
   offset -= _this->remove_offset;
+  offset &= 0x00000000FFFFFFFF;
 
   while(size) {
     

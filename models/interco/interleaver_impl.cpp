@@ -114,6 +114,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
   if (align_size) align_size = port_size - align_size;
 
   offset -= _this->remove_offset;
+  offset &= 0x00000000FFFFFFFF;
 
   while(size) {
     

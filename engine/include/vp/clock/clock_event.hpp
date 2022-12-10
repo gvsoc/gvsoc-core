@@ -57,6 +57,9 @@ namespace vp {
     inline int get_nb_args() { return CLOCK_EVENT_NB_ARGS; }
     inline void **get_args() { return args; }
 
+    inline void set_int(int index, int value) { *(int *)&get_args()[index] = value; }
+    inline int get_int(int index) { return *(int *)&get_args()[index]; }
+
     inline bool is_enqueued() { return enqueued; }
     inline void set_clock(clock_engine *clock) { this->clock = clock; }
 

@@ -442,6 +442,7 @@ void vp::clock_engine::apply_frequency(int frequency)
 
         this->freq = frequency;
         this->period = 1e12 / this->freq;
+
         if (reenqueue && period > 0)
         {
             int64_t cycles = (this->next_event_time - this->get_time()) / period;
@@ -634,7 +635,9 @@ void vp::clock_engine::flush_delayed_queue()
     while (event)
     {
         if (nb_enqueued_to_cycle == 0 && this->permanent_first == NULL)
+        {
             cycles = event->cycle;
+        }
 
         uint64_t cycle_diff = event->cycle - get_cycles();
         if (cycle_diff >= CLOCK_EVENT_QUEUE_SIZE)

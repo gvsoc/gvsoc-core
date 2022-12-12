@@ -98,12 +98,58 @@ inline void vp::clock_engine::sync()
   }
 }
 
+inline int64_t vp::clock_event::get_cycle()
+{
+  return this->cycle == -1 ? this->clock->get_cycles() + 1: cycle;
+}
+
 inline void vp::clock_event::cancel()
 {
     if (this->is_enqueued())
     {
       this->clock->cancel(this);
     }
+}
+
+inline vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
+{
+  if (this->permanent_first)
+  {
+    this->permanent_first->prev = event;
+  }
+  event->next = this->permanent_first;
+  event->prev = NULL;
+  event->enqueued = true;
+  event->cycle = -1;
+
+  this->permanent_first = event;
+
+  if (!this->is_running() && this->period != 0)
+  {
+    this->enqueue_to_engine(this->period);
+  }
+
+  return event;
+}
+
+
+inline void vp::clock_engine::disable(vp::clock_event *event)
+{
+  event->enqueued = false;
+
+  if (event->prev)
+  {
+    event->prev->next = event->next;
+  }
+  else
+  {
+    this->permanent_first = event->next;
+  }
+
+  if (event->next)
+  {
+    event->next->prev = event->prev;
+  }
 }
 
 
@@ -114,6 +160,17 @@ inline void vp::clock_event::enqueue(int64_t cycles)
       this->clock->cancel(this);
     }
     this->clock->enqueue(this, cycles);
+}
+
+
+inline void vp::clock_event::enable()
+{
+    this->clock->enable(this);
+}
+
+inline void vp::clock_event::disable()
+{
+    this->clock->disable(this);
 }
 
 

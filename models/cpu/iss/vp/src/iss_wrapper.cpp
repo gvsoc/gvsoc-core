@@ -100,12 +100,7 @@ void iss_wrapper::exec_instr(void *__this, vp::clock_event *event)
 {
   iss_t *_this = (iss_t *)__this;
 
-  _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
-
-  // Temporarly reenqueue the event until we switch to always running events
-  // In case we don't need an event, it will be canceled when this is detected, but the same way
-  // it will be done with always running events.
-  _this->instr_event->enqueue();
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", _this->cpu.state.insn_cycles);
 
   if (likely(_this->cpu.state.insn_cycles == 0))
   {
@@ -140,11 +135,6 @@ void iss_wrapper::exec_instr_check_all(void *__this, vp::clock_event *event)
   iss_t *_this = (iss_t *)__this;
 
   _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler\n");
-
-  // Temporarly reenqueue the event until we switch to always running events
-  // In case we don't need an event, it will be canceled when this is detected, but the same way
-  // it will be done with always running events.
-  _this->instr_event->enqueue();
 
   if (likely(_this->cpu.state.insn_cycles == 0))
   {
@@ -486,14 +476,6 @@ void iss_wrapper::check_state()
       }
       else
         wfi.set(false);
-    }
-
-    if (!is_active_reg.get())
-    {
-      if (this->instr_event->is_enqueued())
-      {
-        event_cancel(this->instr_event);
-      }
     }
   }
 }
@@ -1513,7 +1495,7 @@ void iss_wrapper::pre_reset()
 {
   if (this->is_active_reg.get())
   {
-    this->event_cancel(this->instr_event);
+    this->instr_event->disable();
   }
 }
 
@@ -1568,7 +1550,7 @@ void iss_wrapper::reset(bool active)
       this->halted.set(true);
     }
 
-    this->instr_event->enqueue();
+    this->instr_event->enable();
 
     // In case, the core is not fetch-enabled, stall to prevent it from being active
     if (fetch_enable_reg.get() == false)

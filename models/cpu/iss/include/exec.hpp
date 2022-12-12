@@ -154,7 +154,7 @@ inline void iss_wrapper::stalled_inc()
 {
   if (this->stalled.get() == 0)
   {
-    this->instr_event->cancel();
+    this->instr_event->disable();
   }
   this->stalled.inc(1);
 }
@@ -172,7 +172,7 @@ inline void iss_wrapper::stalled_dec()
 
   if (this->stalled.get() == 0)
   {
-    this->instr_event->enqueue();
+    this->instr_event->enable();
   }
 }
 

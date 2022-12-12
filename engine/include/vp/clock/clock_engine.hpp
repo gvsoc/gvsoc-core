@@ -50,6 +50,10 @@ namespace vp {
 
     inline clock_event *reenqueue_ext(clock_event *event, int64_t cycles);
 
+    inline clock_event *enable(clock_event *event);
+
+    inline void disable(clock_event *event);
+
     inline clock_event *enqueue(clock_event *event, int64_t cycles)
     {
       vp_assert(!event->enqueued, 0, "Enqueueing already enqueued event\n");
@@ -126,7 +130,7 @@ namespace vp {
 
     int64_t get_frequency() { return freq; }
 
-    bool has_events() { return this->nb_enqueued_to_cycle || this->delayed_queue; }
+    bool has_events() { return this->nb_enqueued_to_cycle || this->delayed_queue || this->permanent_first; }
 
   protected:
 
@@ -147,6 +151,7 @@ namespace vp {
 
     clock_event *event_queue[CLOCK_EVENT_QUEUE_SIZE];
     clock_event *delayed_queue = NULL;
+    clock_event *permanent_first = NULL;
     int current_cycle = 0;
     int64_t period = 0;
     int64_t freq;

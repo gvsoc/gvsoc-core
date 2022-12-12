@@ -59,12 +59,16 @@ namespace vp {
     inline bool is_enqueued() { return enqueued; }
     inline void set_clock(clock_engine *clock) { this->clock = clock; }
 
-    int64_t get_cycle() { return cycle; }
+    inline int64_t get_cycle();
 
     void exec() { this->meth(this->_this, this); }
 
     inline void enqueue(int64_t cycles=1);
     inline void cancel();
+
+    inline void enable();
+    inline void disable();
+
     inline void meth_set(clock_event_meth_t *meth) { this->meth = meth; }
 
   private:
@@ -74,6 +78,7 @@ namespace vp {
     void *_this;
     clock_event_meth_t *meth;
     clock_event *next;
+    clock_event *prev;
     bool enqueued;
     int64_t cycle;
     clock_engine *clock;

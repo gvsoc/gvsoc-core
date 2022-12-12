@@ -26,7 +26,7 @@ import os.path
 from gv.gtkwave import Gtkwave_tree
 
 
-def gen_config(args, config):
+def gen_config(args, config, runner=None):
 
     full_config =  js.import_config(config, interpret=False, gen=False)
 
@@ -79,6 +79,9 @@ def gen_config(args, config):
 
         if rom_binary is not None:
             
+            if runner is not None:
+                rom_binary = runner.get_file_path(rom_binary)
+
             if os.path.exists(rom_binary):
                 debug_binaries.append(rom_binary)
 
@@ -235,7 +238,7 @@ class Runner(gapylib.target.Target, st.Component):
     def parse_args(self, args):
         super().parse_args(args)
 
-        self.full_config, self.gvsoc_config_path = gen_config(args, { 'target': self.get_config() })
+        self.full_config, self.gvsoc_config_path = gen_config(args, { 'target': self.get_config() }, self)
 
         gvsoc_config = self.full_config.get('target/gvsoc')
 

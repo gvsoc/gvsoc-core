@@ -546,6 +546,11 @@ vp::clock_event *vp::clock_engine::get_next_event()
     // We have to first check if there is an event in the circular buffer
     // and if not in the delayed queue
 
+    if (this->permanent_first)
+    {
+        return this->permanent_first;
+    }
+
     if (this->nb_enqueued_to_cycle)
     {
         for (int i = 0; i < CLOCK_EVENT_QUEUE_SIZE; i++)
@@ -628,7 +633,7 @@ void vp::clock_engine::flush_delayed_queue()
     this->must_flush_delayed_queue = false;
     while (event)
     {
-        if (nb_enqueued_to_cycle == 0)
+        if (nb_enqueued_to_cycle == 0 && this->permanent_first == NULL)
             cycles = event->cycle;
 
         uint64_t cycle_diff = event->cycle - get_cycles();
@@ -663,11 +668,20 @@ int64_t vp::clock_engine::exec()
 
     vp_assert(this->get_next_event(), NULL, "Executing clock engine while it has no next event\n");
 
+    clock_event *current = this->permanent_first;
+
+    while(likely(current != NULL))
+    {
+        clock_event *next = current->next;
+        current->meth(current->_this, current);
+        current = next;
+    }
+
     // Now take all events available at the current cycle and execute them all without returning
     // to the main engine to execute them faster.
-    clock_event *current = event_queue[current_cycle];
+    current = event_queue[current_cycle];
 
-    while (likely(current != NULL))
+    while (unlikely(current != NULL))
     {
         event_queue[current_cycle] = current->next;
         current->enqueued = false;
@@ -682,7 +696,7 @@ int64_t vp::clock_engine::exec()
     // in which case we just return the clock period, as we will go through
     // each element of the circular buffer, even if the next event is further in
     // the buffer.
-    if (likely(nb_enqueued_to_cycle))
+    if (likely(nb_enqueued_to_cycle > 0 || this->permanent_first != NULL))
     {
         cycles++;
         current_cycle = (current_cycle + 1) & CLOCK_EVENT_QUEUE_MASK;

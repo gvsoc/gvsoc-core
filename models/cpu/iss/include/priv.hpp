@@ -28,7 +28,7 @@
 
 
 
-static inline void csr_decode(iss_t *iss, iss_insn_t *insn)
+static inline void csr_decode(Iss *iss, iss_insn_t *insn)
 {
     // In case traces are active, convert the CSR number into a name
 #ifdef VP_TRACE_ACTIVE
@@ -38,7 +38,7 @@ static inline void csr_decode(iss_t *iss, iss_insn_t *insn)
 }
 
 
-static inline iss_insn_t *csrrw_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
   iss_reg_t reg_value = REG_GET(0);
@@ -58,7 +58,7 @@ static inline iss_insn_t *csrrw_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *csrrc_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
   iss_reg_t reg_value = REG_GET(0);
@@ -73,7 +73,7 @@ static inline iss_insn_t *csrrc_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *csrrs_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
   iss_reg_t reg_value = REG_GET(0);
@@ -88,7 +88,7 @@ static inline iss_insn_t *csrrs_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *csrrwi_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *csrrwi_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
 
@@ -102,7 +102,7 @@ static inline iss_insn_t *csrrwi_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *csrrci_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *csrrci_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
   
@@ -116,7 +116,7 @@ static inline iss_insn_t *csrrci_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *csrrsi_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *csrrsi_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_reg_t value;
 
@@ -130,7 +130,7 @@ static inline iss_insn_t *csrrsi_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *wfi_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *wfi_exec(Iss *iss, iss_insn_t *insn)
 {
   iss->wait_for_interrupt();
   return insn->next;
@@ -138,7 +138,7 @@ static inline iss_insn_t *wfi_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *mret_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *mret_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_perf_account_dependency_stall(iss, 5);
   return iss_irq_handle_mret(iss);
@@ -146,7 +146,7 @@ static inline iss_insn_t *mret_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *dret_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
 {
   return iss_irq_handle_dret(iss);
 }

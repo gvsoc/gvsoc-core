@@ -22,7 +22,7 @@
 #ifndef __CPU_ISS_IRQ_HPP
 #define __CPU_ISS_IRQ_HPP
 
-static inline int iss_irq_check(iss_t *iss)
+static inline int iss_irq_check(Iss *iss)
 {
   if (iss->cpu.irq.req_debug && !iss->cpu.state.debug_mode)
   {
@@ -48,7 +48,8 @@ static inline int iss_irq_check(iss_t *iss)
       iss->cpu.current_insn = iss->cpu.irq.vectors[req_irq];
       iss->cpu.csr.mcause = (1<<31) | (unsigned int)req_irq;
 
-      iss_irq_ack(iss, req_irq);
+      iss->decode_trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);
+      iss->irq_ack_itf.sync(req_irq);
 
       iss_perf_account_dependency_stall(iss, 4);
 
@@ -63,9 +64,9 @@ static inline int iss_irq_check(iss_t *iss)
 
 
 
-static inline iss_insn_t *iss_irq_handle_mret(iss_t *iss)
+static inline iss_insn_t *iss_irq_handle_mret(Iss *iss)
 {
-  iss_trigger_check_all(iss);
+  iss->trigger_check_all();
   iss->cpu.irq.irq_enable = iss->cpu.irq.saved_irq_enable;
   iss->cpu.csr.mcause = 0;
 
@@ -75,9 +76,9 @@ static inline iss_insn_t *iss_irq_handle_mret(iss_t *iss)
 
 
 
-static inline iss_insn_t *iss_irq_handle_dret(iss_t *iss)
+static inline iss_insn_t *iss_irq_handle_dret(Iss *iss)
 {
-  iss_trigger_check_all(iss);
+  iss->trigger_check_all();
   iss->cpu.irq.irq_enable = iss->cpu.irq.debug_saved_irq_enable;
   iss->cpu.state.debug_mode = 0;
 
@@ -87,23 +88,23 @@ static inline iss_insn_t *iss_irq_handle_dret(iss_t *iss)
 
 
 
-static inline void iss_irq_enable(iss_t *iss, int enable)
+static inline void iss_irq_enable(Iss *iss, int enable)
 {
   iss->trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
     enable);
 
   iss->cpu.irq.irq_enable = enable;
-  iss_trigger_irq_check(iss);
+  iss->irq_check();
 }
 
-static inline void iss_irq_req(iss_t *iss, int irq)
+static inline void iss_irq_req(Iss *iss, int irq)
 {
   iss->cpu.irq.req_irq = irq;
 }
 
-static inline void iss_irq_set_vector_table(iss_t *iss, iss_addr_t base)
+static inline void iss_irq_set_vector_table(Iss *iss, iss_addr_t base)
 {
-  iss_msg(iss, "Setting vector table (addr: 0x%x)\n", base);
+  iss->trace.msg("Setting vector table (addr: 0x%x)\n", base);
   for (int i=0; i<32; i++)
   {
     iss->cpu.irq.vectors[i] = insn_cache_get(iss, base + i * 4);
@@ -116,7 +117,7 @@ static inline void iss_irq_set_vector_table(iss_t *iss, iss_addr_t base)
   iss->cpu.irq.vector_base = base;
 }
 
-static inline void iss_irq_build(iss_t *iss)
+static inline void iss_irq_build(Iss *iss)
 {
   for (int i=0; i<32; i++)
   {
@@ -125,7 +126,7 @@ static inline void iss_irq_build(iss_t *iss)
 
 }
 
-static inline void iss_irq_init(iss_t *iss)
+static inline void iss_irq_init(Iss *iss)
 {
   iss->cpu.irq.vector_base = 0;
   iss->cpu.state.elw_interrupted = 0;
@@ -138,7 +139,7 @@ static inline void iss_irq_init(iss_t *iss)
 #endif
 }
 
-static inline void iss_irq_flush(iss_t *iss)
+static inline void iss_irq_flush(Iss *iss)
 {
   iss_irq_set_vector_table(iss, iss->cpu.irq.vector_base);
 #if defined(PRIV_1_10)

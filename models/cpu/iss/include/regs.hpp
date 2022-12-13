@@ -26,7 +26,7 @@
 
 static iss_reg_t null_reg = 0;
 
-static inline iss_reg_t *iss_reg_ref(iss_t *iss, int reg)
+static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg)
 {
   if (reg == 0)
     return &null_reg;
@@ -34,28 +34,28 @@ static inline iss_reg_t *iss_reg_ref(iss_t *iss, int reg)
     return &iss->cpu.regfile.regs[reg];
 }
 
-static inline iss_reg_t *iss_reg_store_ref(iss_t *iss, int reg)
+static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg)
 {
   return &iss->cpu.regfile.regs[reg];
 }
 
-static inline void iss_set_reg(iss_t *iss, int reg, iss_reg_t value)
+static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value)
 {
   if (reg != 0)
     iss->cpu.regfile.regs[reg] = value;
 }
 
-static inline iss_reg_t iss_get_reg_untimed(iss_t *iss, int reg)
+static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg)
 {
   return iss->cpu.regfile.regs[reg];
 }
 
-static inline iss_reg_t iss_get_reg(iss_t *iss, int reg)
+static inline iss_reg_t iss_get_reg(Iss *iss, int reg)
 {
   return iss_get_reg_untimed(iss, reg);
 }
 
-static inline iss_reg64_t iss_get_reg64_untimed(iss_t *iss, int reg)
+static inline iss_reg64_t iss_get_reg64_untimed(Iss *iss, int reg)
 {
   if (reg == 0)
       return 0;
@@ -63,7 +63,7 @@ static inline iss_reg64_t iss_get_reg64_untimed(iss_t *iss, int reg)
       return (((uint64_t)iss->cpu.regfile.regs[reg+1]) << 32) + iss->cpu.regfile.regs[reg];
 }
 
-static inline void iss_set_reg64(iss_t *iss, int reg, iss_reg64_t value)
+static inline void iss_set_reg64(Iss *iss, int reg, iss_reg64_t value)
 {
   if (reg != 0)
   {
@@ -72,12 +72,12 @@ static inline void iss_set_reg64(iss_t *iss, int reg, iss_reg64_t value)
   }
 }
 
-static inline iss_reg64_t iss_get_reg64(iss_t *iss, int reg)
+static inline iss_reg64_t iss_get_reg64(Iss *iss, int reg)
 {
   return iss_get_reg64_untimed(iss, reg);
 }
 
-static inline iss_reg_t iss_get_reg_for_jump(iss_t *iss, int reg) {
+static inline iss_reg_t iss_get_reg_for_jump(Iss *iss, int reg) {
   //unsigned long regCycle = cpu->regsCycle[reg];
   //if (cpu->cycles < regCycle + 1) {
   //  accountJumpStalls(cpu, regCycle + 1 - cpu->cycles);
@@ -86,13 +86,13 @@ static inline iss_reg_t iss_get_reg_for_jump(iss_t *iss, int reg) {
   return iss_get_reg_untimed(iss, reg);
 }
 
-static inline void iss_set_spec_purp_reg(iss_t *iss, int spreg, iss_reg_t value)
+static inline void iss_set_spec_purp_reg(Iss *iss, int spreg, iss_reg_t value)
 {
   if ((spreg >= 0) && (spreg < 6))
     iss->cpu.pulp_nn.spr_ml[spreg] = value;
 }
 
-static inline iss_reg_t iss_get_spec_purp_reg(iss_t *iss, int spreg)
+static inline iss_reg_t iss_get_spec_purp_reg(Iss *iss, int spreg)
 {
   if ((spreg >= 0) && (spreg < 6))
     return iss->cpu.pulp_nn.spr_ml[spreg];

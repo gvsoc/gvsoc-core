@@ -19,13 +19,23 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __PLATFORM_TYPES_HPP
-#define __PLATFORM_TYPES_HPP
+#pragma once
 
-#include "iss.hpp"
+#include "types.hpp"
 
-class iss_wrapper;
+inline void Iss::perf_event_incr(unsigned int event, int incr)
+{
+    static uint64_t zero = 0;
+    static uint64_t one = 1;
 
-typedef iss_wrapper iss_t;
+    if (this->pcer_trace_event[event].get_event_active())
+    {
+        // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
+        this->pcer_trace_event[event].event_pulse(incr*this->get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+    }
+}
 
-#endif
+inline int Iss::perf_event_is_active(unsigned int event)
+{
+  return this->pcer_trace_event[event].get_event_active() && this->ext_counter[event].is_bound();
+}

@@ -24,9 +24,9 @@
 
 extern iss_isa_tag_t __iss_isa_tags[];
 
-static int decode_item(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
+static int decode_item(Iss *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
 
-static uint64_t decode_ranges(iss_t *iss, iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed)
+static uint64_t decode_ranges(Iss *iss, iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed)
 {
   int nb_ranges = range_set->nb_ranges;
   iss_decoder_range_t *ranges = range_set->ranges;;
@@ -44,7 +44,7 @@ static uint64_t decode_ranges(iss_t *iss, iss_opcode_t opcode, iss_decoder_range
 }
 
 
-static int decode_info(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_info_t *info, bool is_signed)
+static int decode_info(Iss *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_info_t *info, bool is_signed)
 {
   if (info->type == ISS_DECODER_VALUE_TYPE_RANGE)
   {
@@ -62,7 +62,7 @@ static int decode_info(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_de
   return 0;
 }
 
-static int decode_insn(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
+static int decode_insn(Iss *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
   if (!item->is_active) return -1;
 
@@ -75,7 +75,7 @@ static int decode_insn(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_de
 
   if (insn->hwloop_handler != NULL)
   {
-      iss_insn_t *(*hwloop_handler)(iss_t *, iss_insn_t*) = insn->hwloop_handler;
+      iss_insn_t *(*hwloop_handler)(Iss *, iss_insn_t*) = insn->hwloop_handler;
       insn->hwloop_handler = insn->handler;
       insn->handler = hwloop_handler;
       insn->fast_handler = hwloop_handler;
@@ -227,7 +227,7 @@ static int decode_insn(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_de
   return 0;
 }
 
-static int decode_opcode_group(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
+static int decode_opcode_group(Iss *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
   iss_opcode_t group_opcode = (opcode >> item->u.group.bit) & ((1ULL << item->u.group.width) - 1);
   iss_decoder_item_t *group_item_other = NULL;
@@ -245,7 +245,7 @@ static int decode_opcode_group(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode
 }
 
 
-iss_decoder_item_t *iss_isa_get(iss_t *iss, const char *name)
+iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name)
 {
     for (int i=0; i<__iss_isa_set.nb_isa; i++)
     {
@@ -261,13 +261,13 @@ iss_decoder_item_t *iss_isa_get(iss_t *iss, const char *name)
 }
 
 
-static int decode_item(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
+static int decode_item(Iss *iss, iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
   if (item->is_insn) return decode_insn(iss, insn, opcode, item);
   else return decode_opcode_group(iss, insn, opcode, item);
 }
 
-static int decode_opcode(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode)
+static int decode_opcode(Iss *iss, iss_insn_t *insn, iss_opcode_t opcode)
 {
   for (int i=0; i<__iss_isa_set.nb_isa; i++)
   {
@@ -275,13 +275,13 @@ static int decode_opcode(iss_t *iss, iss_insn_t *insn, iss_opcode_t opcode)
     if (decode_item(iss, insn, opcode, isa->tree) == 0) return 0;
   }
 
-  iss_decoder_msg(iss, "Unknown instruction\n");
+  iss->decode_trace.msg("Unknown instruction\n");
 
   return -1;
 }
 
 
-void iss_decode_activate_isa(iss_t *cpu, char *name)
+void iss_decode_activate_isa(Iss *cpu, char *name)
 {
   iss_isa_tag_t *isa = &__iss_isa_tags[0];
   while(isa->name)
@@ -301,19 +301,19 @@ void iss_decode_activate_isa(iss_t *cpu, char *name)
 }
 
 
-static iss_insn_t *iss_exec_insn_illegal(iss_t *iss, iss_insn_t *insn)
+static iss_insn_t *iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn)
 {
-  iss_decoder_msg(iss, "Executing illegal instruction\n");
+  iss->decode_trace.msg("Executing illegal instruction\n");
   return iss_except_raise(iss, ISS_EXCEPT_ILLEGAL);
 }
 
-iss_insn_t *iss_decode_pc_noexec(iss_t *iss, iss_insn_t *insn)
+iss_insn_t *iss_decode_pc_noexec(Iss *iss, iss_insn_t *insn)
 {
-  iss_decoder_msg(iss, "Decoding instruction (pc: 0x%lx)\n", insn->addr);
+  iss->decode_trace.msg("Decoding instruction (pc: 0x%lx)\n", insn->addr);
 
   iss_opcode_t opcode = insn->opcode;
 
-  iss_decoder_msg(iss, "Got opcode (opcode: 0x%lx)\n", opcode);
+  iss->decode_trace.msg("Got opcode (opcode: 0x%lx)\n", opcode);
 
   if (decode_opcode(iss, insn, opcode) == -1)
   {
@@ -324,7 +324,7 @@ iss_insn_t *iss_decode_pc_noexec(iss_t *iss, iss_insn_t *insn)
 
   insn->opcode = opcode;
 
-  if (iss_insn_trace_active(iss) || iss_insn_event_active(iss))
+  if (iss->insn_trace.get_active() || iss->insn_trace_event.get_event_active())
   {
     insn->saved_handler = insn->handler;
     insn->handler = iss_exec_insn_with_trace;
@@ -334,7 +334,7 @@ iss_insn_t *iss_decode_pc_noexec(iss_t *iss, iss_insn_t *insn)
   return insn;
 }
 
-iss_insn_t *iss_decode_pc(iss_t *iss, iss_insn_t *insn)
+iss_insn_t *iss_decode_pc(Iss *iss, iss_insn_t *insn)
 {
   return iss_exec_insn(iss, iss_decode_pc_noexec(iss, insn));
 }

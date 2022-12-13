@@ -20,7 +20,7 @@
 
 #include "types.hpp"
 
-void iss_resource_init(iss_t *iss);
-iss_insn_t *iss_resource_offload(iss_t *iss, iss_insn_t *insn);
+void iss_resource_init(Iss *iss);
+iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn);
 
 #endif

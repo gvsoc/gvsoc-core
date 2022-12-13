@@ -86,7 +86,7 @@ int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_fu
     return 0;
 }
 
-void iss_register_debug_info(iss_t *iss, const char *binary)
+void iss_register_debug_info(Iss *iss, const char *binary)
 {
     if (std::find(binaries.begin(), binaries.end(), std::string(binary)) != binaries.end())
         return;
@@ -131,7 +131,7 @@ static inline char iss_trace_get_mode(int mode)
     return ' ';
 }
 
-static inline int iss_trace_dump_reg(iss_t *iss, iss_insn_t *insn, char *buff, unsigned int reg, bool is_long = true)
+static inline int iss_trace_dump_reg(Iss *iss, iss_insn_t *insn, char *buff, unsigned int reg, bool is_long = true)
 {
     if (is_long)
     {
@@ -184,7 +184,7 @@ static inline int iss_trace_dump_reg(iss_t *iss, iss_insn_t *insn, char *buff, u
     return sprintf(buff, "x%d", reg);
 }
 
-static char *iss_trace_dump_reg_value(iss_t *iss, iss_insn_t *insn, char *buff, bool is_out, int reg, uint64_t saved_value, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
+static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bool is_out, int reg, uint64_t saved_value, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
 {
     char regStr[16];
     iss_trace_dump_reg(iss, insn, regStr, reg, is_long);
@@ -204,7 +204,7 @@ static char *iss_trace_dump_reg_value(iss_t *iss, iss_insn_t *insn, char *buff, 
     return buff;
 }
 
-static char *iss_trace_dump_arg_value(iss_t *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, iss_decoder_arg_t **prev_arg, int dump_out, bool is_long)
+static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, iss_decoder_arg_t **prev_arg, int dump_out, bool is_long)
 {
     if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && insn_arg->u.reg.index != 0)
     {
@@ -255,7 +255,7 @@ static char *iss_trace_dump_arg_value(iss_t *iss, iss_insn_t *insn, char *buff, 
     return buff;
 }
 
-static char *iss_trace_dump_arg(iss_t *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
+static char *iss_trace_dump_arg(Iss *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
 {
     if (*prev_arg != NULL && (*prev_arg)->type != ISS_DECODER_ARG_TYPE_NONE && (*prev_arg)->type != ISS_DECODER_ARG_TYPE_FLAG && ((arg->type != ISS_DECODER_ARG_TYPE_IN_REG && arg->type != ISS_DECODER_ARG_TYPE_OUT_REG) || arg->u.reg.dump_name))
     {
@@ -320,7 +320,7 @@ static char *iss_trace_dump_arg(iss_t *iss, iss_insn_t *insn, char *buff, iss_in
     return buff;
 }
 
-static char *trace_dump_debug(iss_t *iss, iss_insn_t *insn, char *buff)
+static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, char *buff)
 {
     char *name = (char *)"-";
     char *file = (char *)"-";
@@ -359,7 +359,7 @@ static char *trace_dump_debug(iss_t *iss, iss_insn_t *insn, char *buff)
     return buff + MAX_DEBUG_INFO_WIDTH + 1;
 }
 
-static void iss_trace_dump_insn(iss_t *iss, iss_insn_t *insn, char *buff, int buffer_size, iss_insn_arg_t *saved_args, bool is_long, int mode, bool is_event)
+static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, char *buff, int buffer_size, iss_insn_arg_t *saved_args, bool is_long, int mode, bool is_event)
 {
 
     char *init_buff = buff;
@@ -439,7 +439,7 @@ static void iss_trace_dump_insn(iss_t *iss, iss_insn_t *insn, char *buff, int bu
     }
 }
 
-static void iss_trace_save_arg(iss_t *iss, iss_insn_t *insn, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, bool save_out)
+static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, bool save_out)
 {
     if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
     {
@@ -477,7 +477,7 @@ static void iss_trace_save_arg(iss_t *iss, iss_insn_t *insn, iss_insn_arg_t *ins
     //   }
 }
 
-static void iss_trace_save_args(iss_t *iss, iss_insn_t *insn, iss_insn_arg_t saved_args[], bool save_out)
+static void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved_args[], bool save_out)
 {
     for (int i = 0; i < insn->decoder_item->u.insn.nb_args; i++)
     {
@@ -486,18 +486,18 @@ static void iss_trace_save_args(iss_t *iss, iss_insn_t *insn, iss_insn_arg_t sav
     }
 }
 
-void iss_trace_dump(iss_t *iss, iss_insn_t *insn)
+void iss_trace_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
     iss_trace_save_args(iss, insn, iss->cpu.state.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->cpu.state.saved_args, iss_trace_format(iss) == TRACE_FORMAT_LONG, 3, 0);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->cpu.state.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
 
-    iss_insn_msg(iss, buffer);
+    iss->insn_trace.msg(buffer);
 }
 
-void iss_event_dump(iss_t *iss, iss_insn_t *insn)
+void iss_event_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
@@ -512,19 +512,19 @@ void iss_event_dump(iss_t *iss, iss_insn_t *insn)
         current++;
     }
 
-    iss_insn_event_dump(iss, buffer);
+    iss->insn_trace_event.event_string(buffer);
 }
 
-iss_insn_t *iss_exec_insn_with_trace(iss_t *iss, iss_insn_t *insn)
+iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
 {
     iss_insn_t *next_insn;
 
-    if (iss_insn_event_active(iss))
+    if (iss->insn_trace_event.get_event_active())
     {
         iss_event_dump(iss, insn);
     }
 
-    if (iss_insn_trace_active(iss))
+    if (iss->insn_trace.get_active())
     {
         iss_trace_save_args(iss, insn, iss->cpu.state.saved_args, false);
 
@@ -541,7 +541,7 @@ iss_insn_t *iss_exec_insn_with_trace(iss_t *iss, iss_insn_t *insn)
     return next_insn;
 }
 
-void iss_trace_init(iss_t *iss)
+void iss_trace_init(Iss *iss)
 {
     if (!pc_infos_is_init)
     {

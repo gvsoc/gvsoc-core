@@ -19,10 +19,11 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_TYPES_HPP
-#define __CPU_ISS_TYPES_HPP
+#ifndef __CPU_IssYPES_HPP
+#define __CPU_IssYPES_HPP
 
-#include "platform_types.hpp"
+class Iss;
+
 #include <stdint.h>
 #define __STDC_FORMAT_MACROS    // This is needed for some old gcc versions
 #include <inttypes.h>
@@ -258,9 +259,9 @@ typedef struct iss_decoder_item_s {
 
   union {
     struct {
-      iss_insn_t *(*handler)(iss_t *, iss_insn_t*);
-      iss_insn_t *(*fast_handler)(iss_t *, iss_insn_t*);
-      void (*decode)(iss_t *, iss_insn_t*);
+      iss_insn_t *(*handler)(Iss *, iss_insn_t*);
+      iss_insn_t *(*fast_handler)(Iss *, iss_insn_t*);
+      void (*decode)(Iss *, iss_insn_t*);
       char *label;
       int size;
       int nb_args;
@@ -329,12 +330,12 @@ typedef struct iss_insn_s {
   iss_addr_t addr;
   iss_reg_t opcode;
   bool fetched;
-  iss_insn_t *(*fast_handler)(iss_t *, iss_insn_t*);
-  iss_insn_t *(*handler)(iss_t *, iss_insn_t*);
-  iss_insn_t *(*resource_handler)(iss_t *, iss_insn_t*);        // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
-  iss_insn_t *(*hwloop_handler)(iss_t *, iss_insn_t*);
-  iss_insn_t *(*stall_handler)(iss_t *, iss_insn_t*);
-  iss_insn_t *(*stall_fast_handler)(iss_t *, iss_insn_t*);
+  iss_insn_t *(*fast_handler)(Iss *, iss_insn_t*);
+  iss_insn_t *(*handler)(Iss *, iss_insn_t*);
+  iss_insn_t *(*resource_handler)(Iss *, iss_insn_t*);        // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
+  iss_insn_t *(*hwloop_handler)(Iss *, iss_insn_t*);
+  iss_insn_t *(*stall_handler)(Iss *, iss_insn_t*);
+  iss_insn_t *(*stall_fast_handler)(Iss *, iss_insn_t*);
   int size;
   int nb_out_reg;
   int nb_in_reg;
@@ -352,7 +353,7 @@ typedef struct iss_insn_s {
   int input_latency;
   int input_latency_reg;
 
-  iss_insn_t *(*saved_handler)(iss_t *, iss_insn_t*);
+  iss_insn_t *(*saved_handler)(Iss *, iss_insn_t*);
   iss_insn_t *branch;
 
   int in_spregs[6];
@@ -404,8 +405,8 @@ typedef struct iss_cpu_state_s {
 
   int insn_cycles;
 
-  void (*stall_callback)(iss_t *iss);
-  void (*fetch_stall_callback)(iss_t *iss);
+  void (*stall_callback)(Iss *iss);
+  void (*fetch_stall_callback)(Iss *iss);
   iss_opcode_t fetch_stall_opcode;
   int stall_reg;
   int stall_size;
@@ -525,5 +526,216 @@ typedef struct iss_cpu_s {
   iss_corev_t corev;
   std::vector<iss_resource_instance_t *>resources;     // When accesses to the resources are scheduled statically, this gives the instance allocated to this core for each resource
 } iss_cpu_t;
+#include <vp/vp.hpp>
+#include <vp/itf/io.hpp>
+#include <vp/itf/wire.hpp>
+#include "vp/gdbserver/gdbserver_engine.hpp"
+
+
+
+#define HALT_CAUSE_EBREAK      1
+#define HALT_CAUSE_TRIGGER     2
+#define HALT_CAUSE_HALT        3
+#define HALT_CAUSE_STEP        4
+#define HALT_CAUSE_RESET_HALT  5
+
+typedef struct
+{
+    std::string name;
+    std::string help;
+} Iss_pcer_info_t;
+
+
+class Iss : public vp::component, vp::Gdbserver_core
+{
+
+public:
+
+  Iss(js::config *config);
+
+  int build();
+  void start();
+  void pre_reset();
+  void reset(bool active);
+
+  virtual void target_open();
+
+  static void data_grant(void *_this, vp::io_req *req);
+  static void data_response(void *_this, vp::io_req *req);
+
+  static void fetch_grant(void *_this, vp::io_req *req);
+  static void fetch_response(void *_this, vp::io_req *req);
+
+  static void refetch_handler(void *__this, vp::clock_event *event);
+  static void exec_instr(void *__this, vp::clock_event *event);
+  static void exec_first_instr(void *__this, vp::clock_event *event);
+  void exec_first_instr(vp::clock_event *event);
+  static void exec_instr_check_all(void *__this, vp::clock_event *event);
+  static inline void exec_misaligned(void *__this, vp::clock_event *event);
+
+  static void irq_req_sync(void *__this, int irq);
+  void elw_irq_unstall();
+  void debug_req();
+
+  inline int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write);
+  inline int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
+  int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
+
+  bool user_access(iss_addr_t addr, uint8_t *data, iss_addr_t size, bool is_write);
+  std::string read_user_string(iss_addr_t addr, int len=-1);
+
+  static vp::io_req_status_e dbg_unit_req(void *__this, vp::io_req *req);
+  inline void iss_exec_insn_check_debug_step();
+
+  void irq_check();
+  void wait_for_interrupt();
+  
+  void set_halt_mode(bool halted, int cause);
+
+  void handle_ebreak();
+  void handle_riscv_ebreak();
+
+  void dump_debug_traces();
+
+  inline void trigger_check_all() { this->instr_event->meth_set(&Iss::exec_instr_check_all); }
+
+  void insn_trace_callback();
+
+  int gdbserver_get_id();
+  std::string gdbserver_get_name();
+  int gdbserver_reg_set(int reg, uint8_t *value);
+  int gdbserver_reg_get(int reg, uint8_t *value);
+  int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value);
+  int gdbserver_stop();
+  int gdbserver_cont();
+  int gdbserver_stepi();
+  int gdbserver_state();
+
+  void declare_pcer(int index, std::string name, std::string help);
+
+  inline void stalled_inc();
+  inline void stalled_dec();
+
+  /*
+   * Performance events
+   */
+
+  inline void perf_event_incr(unsigned int event, int incr);
+  inline int perf_event_is_active(unsigned int event);
+
+  vp::io_master data;
+  vp::io_master fetch;
+  vp::io_slave  dbg_unit;
+
+  vp::wire_slave<int>      irq_req_itf;
+  vp::wire_master<int>     irq_ack_itf;
+  vp::wire_master<bool>     busy_itf;
+
+  vp::wire_master<bool>    flush_cache_req_itf;
+  vp::wire_slave<bool>     flush_cache_ack_itf;
+
+  vp::wire_master<uint32_t> ext_counter[32];
+
+  vp::io_req     io_req;
+  vp::io_req     fetch_req;
+
+  iss_cpu_t cpu;
+
+  vp::trace     trace;
+  vp::trace     gdbserver_trace;
+  vp::trace     decode_trace;
+  vp::trace     insn_trace;
+  vp::trace     csr_trace;
+  vp::trace     perf_counter_trace;
+
+  vp::reg_32    bootaddr_reg;
+  vp::reg_1     fetch_enable_reg;
+  vp::reg_1     is_active_reg;
+  vp::reg_8     stalled;
+  vp::reg_1     wfi;
+  vp::reg_1     misaligned_access;
+  vp::reg_1     halted;
+  vp::reg_1     step_mode;
+  vp::reg_1     do_step;
+
+  vp::reg_1 elw_stalled;
+
+  std::vector<vp::power::power_source> insn_groups_power;
+  vp::power::power_source background_power;
+
+  vp::trace     state_event;
+  vp::reg_1     busy;
+  vp::trace     pc_trace_event;
+  vp::trace     active_pc_trace_event;
+  vp::trace     func_trace_event;
+  vp::trace     inline_trace_event;
+  vp::trace     line_trace_event;
+  vp::trace     file_trace_event;
+  vp::trace     binaries_trace_event;
+  vp::trace     pcer_trace_event[32];
+  vp::trace     insn_trace_event;
+
+  Iss_pcer_info_t pcer_info[32];
+  int64_t cycle_count_start;
+  int64_t cycle_count;
+
+  bool dump_trace_enabled;
+
+  static void ipc_stat_handler(void *__this, vp::clock_event *event);
+  void gen_ipc_stat(bool pulse=false);
+  void trigger_ipc_stat();
+  void stop_ipc_stat();
+  int ipc_stat_nb_insn;
+  vp::trace     ipc_stat_event;
+  vp::clock_event *ipc_clock_event;
+  int ipc_stat_delay;
+  
+#ifdef USE_TRDB
+  trdb_ctx *trdb;
+  struct list_head trdb_packet_list;
+  uint8_t trdb_pending_word[16];
+#endif
+
+  vp::clock_event *instr_event;
+
+private:
+
+  int irq_req;
+  int irq_req_value;
+
+  bool iss_opened;
+  int halt_cause;
+  int64_t wakeup_latency;
+  int bootaddr_offset;
+  iss_reg_t hit_reg = 0;
+  bool riscv_dbg_unit;
+
+  iss_reg_t ppc;
+  iss_reg_t npc;
+
+  int        misaligned_size;
+  uint8_t   *misaligned_data;
+  iss_addr_t misaligned_addr;
+  bool       misaligned_is_write;
+
+  vp::wire_slave<uint32_t> bootaddr_itf;
+  vp::wire_slave<bool>     clock_itf;
+  vp::wire_slave<bool>     fetchen_itf;
+  vp::wire_slave<bool>     flush_cache_itf;
+  vp::wire_slave<bool>     halt_itf;
+  vp::wire_master<bool>    halt_status_itf;
+
+  vp::Gdbserver_engine *gdbserver;
+
+  bool clock_active;
+
+  static void clock_sync(void *_this, bool active);
+  static void bootaddr_sync(void *_this, uint32_t value);
+  static void fetchen_sync(void *_this, bool active);
+  static void flush_cache_sync(void *_this, bool active);
+  static void flush_cache_ack_sync(void *_this, bool active);
+  static void halt_sync(void *_this, bool active);
+  void halt_core();
+};
 
 #endif

@@ -18,7 +18,7 @@
 
 
 
-void iss_resource_init(iss_t *iss)
+void iss_resource_init(Iss *iss)
 {
     // Initialize all the resources and assign the first instance by default
     iss->cpu.resources.resize(iss_get_isa_set()->nb_resources);
@@ -39,7 +39,7 @@ void iss_resource_init(iss_t *iss)
 
 
 // Called when an instruction with an associated resource is scheduled
-iss_insn_t *iss_resource_offload(iss_t *iss, iss_insn_t *insn)
+iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
 {
     // First get the instance associated to this core for the resource associated to this instruction
     iss_resource_instance_t *instance = iss->cpu.resources[insn->resource_id];

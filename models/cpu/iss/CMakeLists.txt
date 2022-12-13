@@ -35,6 +35,10 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/iss.cpp"
         "${F_GVSOC_ISS_DIR}/src/resource.cpp"
         "${F_GVSOC_ISS_DIR}/src/trace.cpp"
+        "${F_GVSOC_ISS_DIR}/src/syscalls.cpp"
+        "${F_GVSOC_ISS_DIR}/src/gdbserver.cpp"
+        "${F_GVSOC_ISS_DIR}/src/dbg_unit.cpp"
+        "${F_GVSOC_ISS_DIR}/src/irq.cpp"
         "${F_GVSOC_ISS_DIR}/vp/src/iss_wrapper.cpp"
         "${F_GVSOC_ISS_DIR}/flexfloat/flexfloat.c"
         )

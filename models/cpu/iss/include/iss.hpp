@@ -23,6 +23,7 @@
 #define __CPU_ISS_ISS_HPP
 
 #include "iss_core.hpp"
+#include "perf_event.hpp"
 #include "rv64i.hpp"
 #include "rv32i.hpp"
 #include "rv32c.hpp"

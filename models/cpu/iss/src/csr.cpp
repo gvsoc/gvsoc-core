@@ -23,30 +23,30 @@
 
 
 #if defined(ISS_HAS_PERF_COUNTERS)
-void check_perf_config_change(iss_t *iss, unsigned int pcer, unsigned int pcmr);
+void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr);
 #endif
 
 /*
  *   USER CSRS
  */
 
-static bool ustatus_read(iss_t *iss, iss_reg_t *value) {
+static bool ustatus_read(Iss *iss, iss_reg_t *value) {
   *value = 0;
   return false;
 }
 
-static bool ustatus_write(iss_t *iss, unsigned int value) {
+static bool ustatus_write(Iss *iss, unsigned int value) {
   return false;
 }
 
 
 
-static bool uie_read(iss_t *iss, iss_reg_t *value) {
+static bool uie_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR READ: uie\n");
   return false;
 }
 
-static bool uie_write(iss_t *iss, unsigned int value) {
+static bool uie_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR WRITE: uie\n");
   return false;
 }
@@ -54,107 +54,107 @@ static bool uie_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool utvec_read(iss_t *iss, iss_reg_t *value) {
+static bool utvec_read(Iss *iss, iss_reg_t *value) {
   *value = 0;
   return false;
 }
 
-static bool utvec_write(iss_t *iss, unsigned int value) {
+static bool utvec_write(Iss *iss, unsigned int value) {
   return false;
 }
 
 
 
-static bool uscratch_read(iss_t *iss, iss_reg_t *value) {
+static bool uscratch_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR READ: uscratch\n");
   return false;
 }
 
-static bool uscratch_write(iss_t *iss, unsigned int value) {
+static bool uscratch_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR WRITE: uscratch\n");
   return false;
 }
 
 
 
-static bool uepc_read(iss_t *iss, iss_reg_t *value) {
+static bool uepc_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR READ: uepc\n");
   return false;
 }
 
-static bool uepc_write(iss_t *iss, unsigned int value) {
+static bool uepc_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR WRITE: uepc\n");
   return false;
 }
 
 
 
-static bool ucause_read(iss_t *iss, iss_reg_t *value) {
+static bool ucause_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR READ: ucause\n");
   return false;
 }
 
-static bool ucause_write(iss_t *iss, unsigned int value) {
+static bool ucause_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR WRITE: ucause\n");
   return false;
 }
 
 
 
-static bool ubadaddr_read(iss_t *iss, iss_reg_t *value) {
+static bool ubadaddr_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR READ: ubadaddr\n");
   return false;
 }
 
-static bool ubadaddr_write(iss_t *iss, unsigned int value) {
+static bool ubadaddr_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR WRITE: ubadaddr\n");
   return false;
 }
 
 
 
-static bool uip_read(iss_t *iss, iss_reg_t *value) {
+static bool uip_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR READ: uip\n");
   return false;
 }
 
-static bool uip_write(iss_t *iss, unsigned int value) {
+static bool uip_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR WRITE: uip\n");
   return false;
 }
 
 
 
-static bool fflags_read(iss_t *iss, iss_reg_t *value) {
+static bool fflags_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.state.fcsr.fflags.raw;
   return false;
 }
 
-static bool fflags_write(iss_t *iss, unsigned int value) {
+static bool fflags_write(Iss *iss, unsigned int value) {
   iss->cpu.state.fcsr.fflags.raw = value;
   return false;
 }
 
 
 
-static bool frm_read(iss_t *iss, iss_reg_t *value) {
+static bool frm_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.state.fcsr.frm;
   return false;
 }
 
-static bool frm_write(iss_t *iss, unsigned int value) {
+static bool frm_write(Iss *iss, unsigned int value) {
   iss->cpu.state.fcsr.frm = value;
   return false;
 }
 
 
 
-static bool fcsr_read(iss_t *iss, iss_reg_t *value) {
+static bool fcsr_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.state.fcsr.raw;
   return false;
 }
 
-static bool fcsr_write(iss_t *iss, unsigned int value) {
+static bool fcsr_write(Iss *iss, unsigned int value) {
   iss->cpu.state.fcsr.raw = value & 0xff;
   return false;
 }
@@ -162,42 +162,42 @@ static bool fcsr_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool cycle_read(iss_t *iss, iss_reg_t *value) {
+static bool cycle_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: cycle\n");
   return false;
 }
 
-static bool time_read(iss_t *iss, iss_reg_t *value) {
+static bool time_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: time\n");
   return false;
 }
 
-static bool instret_read(iss_t *iss, iss_reg_t *value) {
+static bool instret_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: instret\n");
   return false;
 }
 
-static bool hpmcounter_read(iss_t *iss, iss_reg_t *value, int id) {
+static bool hpmcounter_read(Iss *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: hpmcounter\n");
   return false;
 }
 
-static bool cycleh_read(iss_t *iss, iss_reg_t *value) {
+static bool cycleh_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: cycleh\n");
   return false;
 }
 
-static bool timeh_read(iss_t *iss, iss_reg_t *value) {
+static bool timeh_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: timeh\n");
   return false;
 }
 
-static bool instreth_read(iss_t *iss, iss_reg_t *value) {
+static bool instreth_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: instreth\n");
   return false;
 }
 
-static bool hpmcounterh_read(iss_t *iss, iss_reg_t *value, int id) {
+static bool hpmcounterh_read(Iss *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: hpmcounterh\n");
   return false;
 }
@@ -212,12 +212,12 @@ static bool hpmcounterh_read(iss_t *iss, iss_reg_t *value, int id) {
  *   SUPERVISOR CSRS
  */
 
-static bool sstatus_read(iss_t *iss, iss_reg_t *value) {
+static bool sstatus_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->status & 0x133;
   return false;
 }
 
-static bool sstatus_write(iss_t *iss, unsigned int value) {
+static bool sstatus_write(Iss *iss, unsigned int value) {
   //iss->status = (iss->status & ~0x133) | (value & 0x133);
   //checkInterrupts(iss, 1);
   return false;
@@ -225,24 +225,24 @@ static bool sstatus_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool sedeleg_read(iss_t *iss, iss_reg_t *value) {
+static bool sedeleg_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: sedeleg\n");
   return false;
 }
 
-static bool sedeleg_write(iss_t *iss, unsigned int value) {
+static bool sedeleg_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: sedeleg\n");
   return false;
 }
 
 
 
-static bool sideleg_read(iss_t *iss, iss_reg_t *value) {
+static bool sideleg_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: sideleg\n");
   return false;
 }
 
-static bool sideleg_write(iss_t *iss, unsigned int value) {
+static bool sideleg_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: sideleg\n");
   return false;
 }
@@ -250,12 +250,12 @@ static bool sideleg_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool sie_read(iss_t *iss, iss_reg_t *value) {
+static bool sie_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->ie[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool sie_write(iss_t *iss, unsigned int value) {
+static bool sie_write(Iss *iss, unsigned int value) {
   //iss->ie[GVSIM_MODE_SUPERVISOR] = value;
   //checkInterrupts(iss, 1);
   return false;
@@ -263,94 +263,94 @@ static bool sie_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool stvec_read(iss_t *iss, iss_reg_t *value) {
+static bool stvec_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->tvec[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool stvec_write(iss_t *iss, unsigned int value) {
+static bool stvec_write(Iss *iss, unsigned int value) {
   //iss->tvec[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
 
 
-static bool scounteren_read(iss_t *iss, iss_reg_t *value) {
+static bool scounteren_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->tvec[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool scounteren_write(iss_t *iss, unsigned int value) {
+static bool scounteren_write(Iss *iss, unsigned int value) {
   //iss->tvec[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
 
 
-static bool sscratch_read(iss_t *iss, iss_reg_t *value) {
+static bool sscratch_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->scratch[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool sscratch_write(iss_t *iss, unsigned int value) {
+static bool sscratch_write(Iss *iss, unsigned int value) {
   //iss->scratch[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
 
 
 
-static bool sepc_read(iss_t *iss, iss_reg_t *value) {
+static bool sepc_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->epc[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool sepc_write(iss_t *iss, unsigned int value) {
+static bool sepc_write(Iss *iss, unsigned int value) {
   //iss->epc[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
 
 
 
-static bool scause_read(iss_t *iss, iss_reg_t *value) {
+static bool scause_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->cause[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool scause_write(iss_t *iss, unsigned int value) {
+static bool scause_write(Iss *iss, unsigned int value) {
   //iss->cause[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
 
 
 
-static bool stval_read(iss_t *iss, iss_reg_t *value) {
+static bool stval_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->badaddr[GVSIM_MODE_SUPERVISOR];
   return false;
 }
 
-static bool stval_write(iss_t *iss, unsigned int value) {
+static bool stval_write(Iss *iss, unsigned int value) {
   //iss->badaddr[GVSIM_MODE_SUPERVISOR] = value;
   return false;
 }
 
 
 
-static bool sip_read(iss_t *iss, iss_reg_t *value) {
+static bool sip_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: sip\n");
   return false;
 }
 
-static bool sip_write(iss_t *iss, unsigned int value) {
+static bool sip_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: sip\n");
   return false;
 }
 
 
 
-static bool satp_read(iss_t *iss, iss_reg_t *value) {
+static bool satp_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->sptbr;
   return false;
 }
 
-static bool satp_write(iss_t *iss, unsigned int value) {
+static bool satp_write(Iss *iss, unsigned int value) {
   //iss->sptbr = value;
   //sim_setPgtab(iss, value);
   return false;
@@ -366,42 +366,42 @@ static bool satp_write(iss_t *iss, unsigned int value) {
  *   MACHINE CSRS
  */
 
-static bool misa_read(iss_t *iss, iss_reg_t *value) {
+static bool misa_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.config.misa;
   return false;
 }
 
-static bool misa_write(iss_t *iss, unsigned int value) {
+static bool misa_write(Iss *iss, unsigned int value) {
   return false;
 }
 
-static bool mvendorid_read(iss_t *iss, iss_reg_t *value) {
+static bool mvendorid_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mvendorid\n");
   return false;
 }
 
-static bool marchid_read(iss_t *iss, iss_reg_t *value) {
+static bool marchid_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: marchid\n");
   return false;
 }
 
-static bool mimpid_read(iss_t *iss, iss_reg_t *value) {
+static bool mimpid_read(Iss *iss, iss_reg_t *value) {
   *value = 0;
   return false;
 }
 
-static bool mhartid_read(iss_t *iss, iss_reg_t *value) {
+static bool mhartid_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.config.mhartid;
   return false;
 }
 
 
-static bool mstatus_read(iss_t *iss, iss_reg_t *value) {
+static bool mstatus_read(Iss *iss, iss_reg_t *value) {
   *value = (iss->cpu.csr.status & ~(1<<3)) | (iss->cpu.irq.irq_enable << 3) | (iss->cpu.irq.saved_irq_enable << 7);
   return false;
 }
 
-static bool mstatus_write(iss_t *iss, unsigned int value)
+static bool mstatus_write(Iss *iss, unsigned int value)
 {
   iss_perf_account_dependency_stall(iss, 4);
 
@@ -420,24 +420,24 @@ static bool mstatus_write(iss_t *iss, unsigned int value)
 
 
 
-static bool medeleg_read(iss_t *iss, iss_reg_t *value) {
+static bool medeleg_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->edeleg[GVSIM_MODE_MACHINE];
   return false;
 }
 
-static bool medeleg_write(iss_t *iss, unsigned int value) {
+static bool medeleg_write(Iss *iss, unsigned int value) {
   //iss->edeleg[GVSIM_MODE_MACHINE] = value;
   return false;
 }
 
 
 
-static bool mideleg_read(iss_t *iss, iss_reg_t *value) {
+static bool mideleg_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->ideleg[GVSIM_MODE_MACHINE];
   return false;
 }
 
-static bool mideleg_write(iss_t *iss, unsigned int value) {
+static bool mideleg_write(Iss *iss, unsigned int value) {
   //iss->ideleg[GVSIM_MODE_MACHINE] = value;
   //checkInterrupts(iss, 1);
   return false;
@@ -445,12 +445,12 @@ static bool mideleg_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool mie_read(iss_t *iss, iss_reg_t *value) {
+static bool mie_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->ie[GVSIM_MODE_MACHINE];
   return false;
 }
 
-static bool mie_write(iss_t *iss, unsigned int value) {
+static bool mie_write(Iss *iss, unsigned int value) {
   //iss->ie[GVSIM_MODE_MACHINE] = value;
   //checkInterrupts(iss, 1);
   return false;
@@ -458,13 +458,13 @@ static bool mie_write(iss_t *iss, unsigned int value) {
 
 
 
-static bool mtvec_read(iss_t *iss, iss_reg_t *value) {
+static bool mtvec_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->tvec[GVSIM_MODE_MACHINE];
   *value = iss->cpu.csr.mtvec;
   return false;
 }
 
-static bool mtvec_write(iss_t *iss, unsigned int value) {
+static bool mtvec_write(Iss *iss, unsigned int value) {
   iss->cpu.csr.mtvec = value;
   //iss->tvec[GVSIM_MODE_MACHINE] = value;
   iss_irq_set_vector_table(iss, value);
@@ -472,304 +472,304 @@ static bool mtvec_write(iss_t *iss, unsigned int value) {
 }
 
 
-static bool mcounteren_read(iss_t *iss, iss_reg_t *value) {
+static bool mcounteren_read(Iss *iss, iss_reg_t *value) {
   return false;
 }
 
-static bool mcounteren_write(iss_t *iss, unsigned int value) {
+static bool mcounteren_write(Iss *iss, unsigned int value) {
   return false;
 }
 
 
 
-static bool mscratch_read(iss_t *iss, iss_reg_t *value) {
+static bool mscratch_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.mscratch;
   return false;
 }
 
-static bool mscratch_write(iss_t *iss, unsigned int value) {
+static bool mscratch_write(Iss *iss, unsigned int value) {
   iss->cpu.csr.mscratch = value;
   return false;
 }
 
 
-static bool mepc_read(iss_t *iss, iss_reg_t *value) {
+static bool mepc_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.epc;
   return false;
 }
 
-static bool mepc_write(iss_t *iss, unsigned int value) {
-  iss_msg(iss, "Setting MEPC (value: 0x%x)\n", value);
+static bool mepc_write(Iss *iss, unsigned int value) {
+  iss->trace.msg("Setting MEPC (value: 0x%x)\n", value);
   iss->cpu.csr.epc = value & ~1;
   return false;
 }
 
 
 
-static bool mcause_read(iss_t *iss, iss_reg_t *value) {
+static bool mcause_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.mcause;
   return false;
 }
 
-static bool mcause_write(iss_t *iss, unsigned int value) {
+static bool mcause_write(Iss *iss, unsigned int value) {
   iss->cpu.csr.mcause = value;
   return false;
 }
 
 
 
-static bool mtval_read(iss_t *iss, iss_reg_t *value) {
+static bool mtval_read(Iss *iss, iss_reg_t *value) {
   return false;
 }
 
-static bool mtval_write(iss_t *iss, unsigned int value) {
+static bool mtval_write(Iss *iss, unsigned int value) {
   return false;
 }
 
 
 
-static bool mbadaddr_read(iss_t *iss, iss_reg_t *value) {
+static bool mbadaddr_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->badaddr[GVSIM_MODE_MACHINE];
   return false;
 }
 
-static bool mbadaddr_write(iss_t *iss, unsigned int value) {
+static bool mbadaddr_write(Iss *iss, unsigned int value) {
  // iss->badaddr[GVSIM_MODE_MACHINE] = value;
   return false;
 }
 
 
 
-static bool mip_read(iss_t *iss, iss_reg_t *value) {
+static bool mip_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->ip[GVSIM_MODE_MACHINE];
   return false;
 }
 
-static bool mip_write(iss_t *iss, unsigned int value) {
+static bool mip_write(Iss *iss, unsigned int value) {
   //iss->ip[GVSIM_MODE_MACHINE] = value;
   //checkInterrupts(iss, 1);
   return false;
 }
 
 
-static bool pmpcfg_read(iss_t *iss, iss_reg_t *value, int id) {
+static bool pmpcfg_read(Iss *iss, iss_reg_t *value, int id) {
   return false;
 }
 
-static bool pmpcfg_write(iss_t *iss, unsigned int value, int id) {
-  return false;
-}
-
-
-static bool pmpaddr_read(iss_t *iss, iss_reg_t *value, int id) {
-  return false;
-}
-
-static bool pmpaddr_write(iss_t *iss, unsigned int value, int id) {
+static bool pmpcfg_write(Iss *iss, unsigned int value, int id) {
   return false;
 }
 
 
-static bool mbase_read(iss_t *iss, iss_reg_t *value) {
+static bool pmpaddr_read(Iss *iss, iss_reg_t *value, int id) {
+  return false;
+}
+
+static bool pmpaddr_write(Iss *iss, unsigned int value, int id) {
+  return false;
+}
+
+
+static bool mbase_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mbase\n");
   return false;
 }
 
-static bool mbase_write(iss_t *iss, unsigned int value) {
+static bool mbase_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mbase\n");
   return false;
 }
 
 
 
-static bool mbound_read(iss_t *iss, iss_reg_t *value) {
+static bool mbound_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mbound\n");
   return false;
 }
 
-static bool mbound_write(iss_t *iss, unsigned int value) {
+static bool mbound_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mbound\n");
   return false;
 }
 
 
 
-static bool mibase_read(iss_t *iss, iss_reg_t *value) {
+static bool mibase_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mibase\n");
   return false;
 }
 
-static bool mibase_write(iss_t *iss, unsigned int value) {
+static bool mibase_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mibase\n");
   return false;
 }
 
 
 
-static bool mibound_read(iss_t *iss, iss_reg_t *value) {
+static bool mibound_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mibound\n");
   return false;
 }
 
-static bool mibound_write(iss_t *iss, unsigned int value) {
+static bool mibound_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mibound\n");
   return false;
 }
 
 
 
-static bool mdbase_read(iss_t *iss, iss_reg_t *value) {
+static bool mdbase_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mdbase\n");
   return false;
 }
 
-static bool mdbase_write(iss_t *iss, unsigned int value) {
+static bool mdbase_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mdbase\n");
   return false;
 }
 
 
 
-static bool mdbound_read(iss_t *iss, iss_reg_t *value) {
+static bool mdbound_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mdbound\n");
   return false;
 }
 
-static bool mdbound_write(iss_t *iss, unsigned int value) {
+static bool mdbound_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mdbound\n");
   return false;
 }
 
 
 
-static bool mcycle_read(iss_t *iss, iss_reg_t *value) {
+static bool mcycle_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mcycle\n");
   return false;
 }
 
-static bool mcycle_write(iss_t *iss, unsigned int value) {
+static bool mcycle_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mcycle\n");
   return false;
 }
 
-static bool minstret_read(iss_t *iss, iss_reg_t *value) {
+static bool minstret_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: minstret\n");
   return false;
 }
 
-static bool minstret_write(iss_t *iss, unsigned int value) {
+static bool minstret_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: minstret\n");
   return false;
 }
 
-static bool mhpmcounter_read(iss_t *iss, iss_reg_t *value, int id) {
+static bool mhpmcounter_read(Iss *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
   return false;
 }
 
-static bool mhpmcounter_write(iss_t *iss, unsigned int value, int id) {
+static bool mhpmcounter_write(Iss *iss, unsigned int value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
   return false;
 }
 
-static bool mcycleh_read(iss_t *iss, iss_reg_t *value) {
+static bool mcycleh_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mcycleh\n");
   return false;
 }
 
-static bool mcycleh_write(iss_t *iss, unsigned int value) {
+static bool mcycleh_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mcycleh\n");
   return false;
 }
 
-static bool minstreth_read(iss_t *iss, iss_reg_t *value) {
+static bool minstreth_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: \n");
   return false;
 }
 
-static bool minstreth_write(iss_t *iss, unsigned int value) {
+static bool minstreth_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: \n");
   return false;
 }
 
-static bool mhpmcounterh_read(iss_t *iss, int id, iss_reg_t *value) {
+static bool mhpmcounterh_read(Iss *iss, int id, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmcounterh\n");
   return false;
 }
 
-static bool mhpmcounterh_write(iss_t *iss, int id, unsigned int value) {
+static bool mhpmcounterh_write(Iss *iss, int id, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmcounterh\n");
   return false;
 }
 
 
 
-static bool mucounteren_read(iss_t *iss, iss_reg_t *value) {
+static bool mucounteren_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mucounteren\n");
   return false;
 }
 
-static bool mucounteren_write(iss_t *iss, unsigned int value) {
+static bool mucounteren_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mucounteren\n");
   return false;
 }
 
 
 
-static bool mscounteren_read(iss_t *iss, iss_reg_t *value) {
+static bool mscounteren_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mscounteren\n");
   return false;
 }
 
-static bool mscounteren_write(iss_t *iss, unsigned int value) {
+static bool mscounteren_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mscounteren\n");
   return false;
 }
 
 
 
-static bool mhcounteren_read(iss_t *iss, iss_reg_t *value) {
+static bool mhcounteren_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: mhcounteren\n");
   return false;
 }
 
-static bool mhcounteren_write(iss_t *iss, unsigned int value) {
+static bool mhcounteren_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: mhcounteren\n");
   return false;
 }
 
 
 
-static bool mhpmevent_read(iss_t *iss, iss_reg_t *value, int id) {
+static bool mhpmevent_read(Iss *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmevent\n");
   return false;
 }
 
-static bool mhpmevent_write(iss_t *iss, unsigned int value, int id) {
+static bool mhpmevent_write(Iss *iss, unsigned int value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: mhpmevent\n");
   return false;
 }
 
 
 
-static bool tselect_read(iss_t *iss, iss_reg_t *value) {
+static bool tselect_read(Iss *iss, iss_reg_t *value) {
   printf("WARNING UNIMPLEMENTED CSR: tselect\n");
   return false;
 }
 
-static bool tselect_write(iss_t *iss, unsigned int value) {
+static bool tselect_write(Iss *iss, unsigned int value) {
   printf("WARNING UNIMPLEMENTED CSR: tselect\n");
   return false;
 }
 
 
 
-static bool tdata_read(iss_t *iss, iss_reg_t *value, int id) {
+static bool tdata_read(Iss *iss, iss_reg_t *value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: tdata\n");
   return false;
 }
 
-static bool tdata_write(iss_t *iss, unsigned int value, int id) {
+static bool tdata_write(Iss *iss, unsigned int value, int id) {
   printf("WARNING UNIMPLEMENTED CSR: tdata\n");
   return false;
 }
@@ -781,115 +781,115 @@ static bool tdata_write(iss_t *iss, unsigned int value, int id) {
  *   PULP CSRS
  */
 
-static bool stack_conf_write(iss_t *iss, iss_reg_t value)
+static bool stack_conf_write(Iss *iss, iss_reg_t value)
 {
   iss->cpu.csr.stack_conf = value;
 
   if (iss->cpu.csr.stack_conf)
-    iss_csr_msg(iss, "Activating stack checking (start: 0x%x, end: 0x%x)\n", iss->cpu.csr.stack_start, iss->cpu.csr.stack_end);
+    iss->csr_trace.msg("Activating stack checking (start: 0x%x, end: 0x%x)\n", iss->cpu.csr.stack_start, iss->cpu.csr.stack_end);
   else
-    iss_csr_msg(iss, "Deactivating stack checking\n");
+    iss->csr_trace.msg("Deactivating stack checking\n");
 
   return false;
 }
 
-static bool stack_conf_read(iss_t *iss, iss_reg_t *value)
+static bool stack_conf_read(Iss *iss, iss_reg_t *value)
 {
   *value = iss->cpu.csr.stack_conf;
   return false;
 }
 
-static bool stack_start_write(iss_t *iss, iss_reg_t value)
+static bool stack_start_write(Iss *iss, iss_reg_t value)
 {
   iss->cpu.csr.stack_start = value;
   return false;
 }
 
-static bool stack_start_read(iss_t *iss, iss_reg_t *value)
+static bool stack_start_read(Iss *iss, iss_reg_t *value)
 {
   *value = iss->cpu.csr.stack_start;
   return false;
 }
 
-static bool stack_end_write(iss_t *iss, iss_reg_t value)
+static bool stack_end_write(Iss *iss, iss_reg_t value)
 {
   iss->cpu.csr.stack_end = value;
   return false;
 }
 
-static bool stack_end_read(iss_t *iss, iss_reg_t *value)
+static bool stack_end_read(Iss *iss, iss_reg_t *value)
 {
   *value = iss->cpu.csr.stack_end;
   return false;
 }
 
-static bool umode_read(iss_t *iss, iss_reg_t *value) {
+static bool umode_read(Iss *iss, iss_reg_t *value) {
   *value = 3;
   //*value = iss->state.mode;
   return false;
 }
 
-static bool dcsr_read(iss_t *iss, iss_reg_t *value) {
+static bool dcsr_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.dcsr;
   return false;
 }
 
-static bool dcsr_write(iss_t *iss, iss_reg_t value) {
+static bool dcsr_write(Iss *iss, iss_reg_t value) {
   iss->cpu.csr.dcsr = value;
   iss->step_mode.set((value >> 2) & 1);
   return false;
 }
 
-static bool depc_read(iss_t *iss, iss_reg_t *value) {
+static bool depc_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.depc;
   return false;
 }
 
-static bool depc_write(iss_t *iss, iss_reg_t value) {
+static bool depc_write(Iss *iss, iss_reg_t value) {
   iss->cpu.csr.depc = value;
   return false;
 }
 
 
 
-static bool dscratch_read(iss_t *iss, iss_reg_t *value) {
+static bool dscratch_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.scratch0;
   return false;
 }
 
-static bool dscratch_write(iss_t *iss, unsigned int value) {
+static bool dscratch_write(Iss *iss, unsigned int value) {
   iss->cpu.csr.scratch0 = value;
   return false;
 }
 
-static bool scratch0_read(iss_t *iss, iss_reg_t *value) {
+static bool scratch0_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.scratch0;
   return false;
 }
 
-static bool scratch0_write(iss_t *iss, iss_reg_t value) {
+static bool scratch0_write(Iss *iss, iss_reg_t value) {
   iss->cpu.csr.scratch0 = value;
   return false;
 }
 
-static bool scratch1_read(iss_t *iss, iss_reg_t *value) {
+static bool scratch1_read(Iss *iss, iss_reg_t *value) {
   *value = iss->cpu.csr.scratch1;
   return false;
 }
 
-static bool scratch1_write(iss_t *iss, iss_reg_t value) {
+static bool scratch1_write(Iss *iss, iss_reg_t value) {
   iss->cpu.csr.scratch1 = value;
   return false;
 }
 
 
-static bool pcer_write(iss_t *iss, unsigned int prev_val, unsigned int value) {
+static bool pcer_write(Iss *iss, unsigned int prev_val, unsigned int value) {
   iss->cpu.csr.pcer = value & 0x7fffffff;
   check_perf_config_change(iss, prev_val, iss->cpu.csr.pcmr);
   return false;
 }
 
-static bool pcmr_write(iss_t *iss, unsigned int prev_val, unsigned int value) {
+static bool pcmr_write(Iss *iss, unsigned int prev_val, unsigned int value) {
   iss->cpu.csr.pcmr = value;
 
   check_perf_config_change(iss, iss->cpu.csr.pcer, prev_val);
@@ -897,12 +897,12 @@ static bool pcmr_write(iss_t *iss, unsigned int prev_val, unsigned int value) {
 }
 
 #if defined(CSR_HWLOOP0_START)
-static bool hwloop_read(iss_t *iss, int reg, iss_reg_t *value) {
+static bool hwloop_read(Iss *iss, int reg, iss_reg_t *value) {
   *value = iss->cpu.pulpv2.hwloop_regs[reg];
   return false;
 }
 
-static bool hwloop_write(iss_t *iss, int reg, unsigned int value) {
+static bool hwloop_write(Iss *iss, int reg, unsigned int value) {
   iss->cpu.pulpv2.hwloop_regs[reg] = value;
 
   // Since the HW loop is using decode instruction for the HW loop start to jump faster
@@ -922,15 +922,39 @@ static bool hwloop_write(iss_t *iss, int reg, unsigned int value) {
 
 #if defined(ISS_HAS_PERF_COUNTERS)
 
-void update_external_pccr(iss_t *iss, int id, unsigned int pcer, unsigned int pcmr) {
+static inline void iss_csr_ext_counter_set(Iss *iss, int id, unsigned int value)
+{
+  if (!iss->ext_counter[id].is_bound())
+  {
+    iss->trace.warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
+  }
+  else
+  {
+    iss->ext_counter[id].sync(value);
+  }
+}
+
+static inline void iss_csr_ext_counter_get(Iss *iss, int id, unsigned int *value)
+{
+  if (!iss->ext_counter[id].is_bound())
+  {
+    iss->trace.force_warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
+  }
+  else
+  {
+    iss->ext_counter[id].sync_back(value);
+  }
+}
+
+void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr) {
   unsigned int incr = 0;
   // Only update if the counter is active as the external signal may report 
   // a different value whereas the counter must remain the same
-  if (((pcer & CSR_PCER_EVENT_MASK(id)) && (pcmr & CSR_PCMR_ACTIVE)) || iss_pccr_trace_active(iss, id))
+  if (((pcer & CSR_PCER_EVENT_MASK(id)) && (pcmr & CSR_PCMR_ACTIVE)) || iss->perf_event_is_active(id))
   {
     iss_csr_ext_counter_get(iss, id, &incr);
     iss->cpu.csr.pccr[id] += incr;
-    iss_pccr_incr(iss, id, incr);
+    iss->perf_event_incr(id, incr);
   }
   else {
     // Nothing to do if the counter is inactive, it will get reset so that
@@ -938,13 +962,13 @@ void update_external_pccr(iss_t *iss, int id, unsigned int pcer, unsigned int pc
   }
 
   // Reset the counter
-  if (iss_csr_ext_counter_is_bound(iss, id))
+  if (iss->ext_counter[id].is_bound())
     iss_csr_ext_counter_set(iss, id, 0);
 
   //if (cpu->traceEvent) sim_trace_event_incr(cpu, id, incr);
 }
 
-void check_perf_config_change(iss_t *iss, unsigned int pcer, unsigned int pcmr)
+void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr)
 {
   // In case PCER or PCMR is modified, there is a special care about external signals as they
   // are still counting whatever the event active flag is. Reset them to start again from a
@@ -959,7 +983,7 @@ void check_perf_config_change(iss_t *iss, unsigned int pcer, unsigned int pcmr)
   }
 }
 
-void flushExternalCounters(iss_t *iss)
+void flushExternalCounters(Iss *iss)
 {
   int i;
   for (i=CSR_PCER_NB_INTERNAL_EVENTS; i<CSR_PCER_NB_EVENTS; i++)
@@ -968,13 +992,13 @@ void flushExternalCounters(iss_t *iss)
   }
 }
 
-static bool perfCounters_read(iss_t *iss, int reg, iss_reg_t *value) {
+static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value) {
   // In case of counters connected to external signals, we need to synchronize first
   if (reg >= CSR_PCCR(CSR_PCER_NB_INTERNAL_EVENTS) && reg < CSR_PCCR(CSR_NB_PCCR))
   {
     update_external_pccr(iss, reg - CSR_PCCR(0), iss->cpu.csr.pcer, iss->cpu.csr.pcmr);
     *value = iss->cpu.csr.pccr[reg - CSR_PCCR(0)];
-    iss_perf_counter_msg(iss, "Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
+    iss->perf_counter_trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
   }
   else if (reg == CSR_PCER)
   {
@@ -987,23 +1011,23 @@ static bool perfCounters_read(iss_t *iss, int reg, iss_reg_t *value) {
   else
   {
     *value = iss->cpu.csr.pccr[reg - CSR_PCCR(0)];
-    iss_perf_counter_msg(iss, "Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
+    iss->perf_counter_trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
   }
 
 
   return false;
 }
 
-static bool perfCounters_write(iss_t *iss, int reg, unsigned int value)
+static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
 {
   if (reg == CSR_PCER)
   {
-    iss_perf_counter_msg(iss, "Setting PCER (value: 0x%x)\n", value);
+    iss->perf_counter_trace.msg("Setting PCER (value: 0x%x)\n", value);
     return pcer_write(iss, iss->cpu.csr.pcer, value);
   }
   else if (reg == CSR_PCMR)
   {
-    iss_perf_counter_msg(iss, "Setting PCMR (value: 0x%x)\n", value);
+    iss->perf_counter_trace.msg("Setting PCMR (value: 0x%x)\n", value);
     return pcmr_write(iss, iss->cpu.csr.pcmr, value);
   }
   // In case of counters connected to external signals, we need to synchronize the external one
@@ -1016,7 +1040,7 @@ static bool perfCounters_write(iss_t *iss, int reg, unsigned int value)
   }
   else if (reg == CSR_PCCR(CSR_NB_PCCR)) 
   {
-    iss_perf_counter_msg(iss, "Setting value to all PCCR (value: 0x%x)\n", value);
+    iss->perf_counter_trace.msg("Setting value to all PCCR (value: 0x%x)\n", value);
 
     int i;
     for (i=0; i<31; i++)
@@ -1030,7 +1054,7 @@ static bool perfCounters_write(iss_t *iss, int reg, unsigned int value)
   }
   else
   {
-    iss_perf_counter_msg(iss, "Setting PCCR value (pccr: %d, value: 0x%x)\n", reg - CSR_PCCR(0), value);
+    iss->perf_counter_trace.msg("Setting PCCR value (pccr: %d, value: 0x%x)\n", reg - CSR_PCCR(0), value);
     iss->cpu.csr.pccr[reg - CSR_PCCR(0)] = value;
   }
   return false;
@@ -1039,7 +1063,7 @@ static bool perfCounters_write(iss_t *iss, int reg, unsigned int value)
 
 
 
-static bool checkCsrAccess(iss_t *iss, int reg, bool isWrite) {
+static bool checkCsrAccess(Iss *iss, int reg, bool isWrite) {
   //bool isRw = (reg >> 10) & 0x3;
   //bool priv = (reg >> 8) & 0x3;
   //if ((isWrite && !isRw) || (priv > iss->state.mode)) {
@@ -1049,11 +1073,11 @@ static bool checkCsrAccess(iss_t *iss, int reg, bool isWrite) {
   return false;
 }
 
-bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
+bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 {
   bool status;
 
-  iss_csr_msg(iss, "Reading CSR (reg: 0x%x)\n", reg);
+  iss->csr_trace.msg("Reading CSR (reg: 0x%x)\n", reg);
 
   #if 0
   // First check permissions
@@ -1373,18 +1397,18 @@ bool iss_csr_read(iss_t *iss, iss_reg_t reg, iss_reg_t *value)
     }
   }
 
-  iss_csr_msg(iss, "Read CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
+  iss->csr_trace.msg("Read CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
 
   return status;
 }
 
-bool iss_csr_write(iss_t *iss, iss_reg_t reg, iss_reg_t value)
+bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 {
-  iss_csr_msg(iss, "Writing CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
+  iss->csr_trace.msg("Writing CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
 
   // If there is any write to a CSR, switch to full check instruction handler
   // in case something special happened (like HW counting become active)
-  iss_trigger_check_all(iss);
+  iss->trigger_check_all();
 
 #if 0
   // First check permissions
@@ -1507,7 +1531,7 @@ bool iss_csr_write(iss_t *iss, iss_reg_t reg, iss_reg_t value)
   return true;
 }
 
-void iss_csr_init(iss_t *iss, int reset)
+void iss_csr_init(Iss *iss, int reset)
 {
   iss->cpu.csr.status = 0x3 << 11;
   iss->cpu.csr.mcause = 0;
@@ -1519,7 +1543,7 @@ void iss_csr_init(iss_t *iss, int reset)
   iss->cpu.csr.dcsr = 4 << 28;
 }
 
-const char *iss_csr_name(iss_t *iss, iss_reg_t reg)
+const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 {
   switch (reg) {
 

@@ -28,12 +28,12 @@
 
 
 
-static inline iss_insn_t *c_addi4spn_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_addi4spn_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return addi_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_addi4spn_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_addi4spn_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return addi_exec(iss, insn);
@@ -41,12 +41,12 @@ static inline iss_insn_t *c_addi4spn_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_lw_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_lw_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return lw_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_lw_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_lw_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return lw_exec(iss, insn);
@@ -54,12 +54,12 @@ static inline iss_insn_t *c_lw_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_sw_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_sw_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return sw_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_sw_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_sw_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return sw_exec(iss, insn);
@@ -67,12 +67,12 @@ static inline iss_insn_t *c_sw_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_swsp_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_swsp_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return sw_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_swsp_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_swsp_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return sw_exec(iss, insn);
@@ -80,12 +80,12 @@ static inline iss_insn_t *c_swsp_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_nop_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_nop_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return nop_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_nop_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_nop_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return nop_exec(iss, insn);
@@ -93,12 +93,12 @@ static inline iss_insn_t *c_nop_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_addi_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_addi_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return addi_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_addi_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_addi_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return addi_exec(iss, insn);
@@ -106,12 +106,12 @@ static inline iss_insn_t *c_addi_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_jal_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_jal_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return jal_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_jal_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_jal_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return jal_exec(iss, insn);
@@ -119,25 +119,12 @@ static inline iss_insn_t *c_jal_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_li_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_li_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return addi_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_li_exec(iss_t *iss, iss_insn_t *insn)
-{
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return addi_exec(iss, insn);
-}
-
-
-
-static inline iss_insn_t *c_addi16sp_exec_fast(iss_t *iss, iss_insn_t *insn)
-{
-  return addi_exec(iss, insn);
-}
-
-static inline iss_insn_t *c_addi16sp_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_li_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return addi_exec(iss, insn);
@@ -145,12 +132,25 @@ static inline iss_insn_t *c_addi16sp_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_jalr_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_addi16sp_exec_fast(Iss *iss, iss_insn_t *insn)
+{
+  return addi_exec(iss, insn);
+}
+
+static inline iss_insn_t *c_addi16sp_exec(Iss *iss, iss_insn_t *insn)
+{
+  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
+  return addi_exec(iss, insn);
+}
+
+
+
+static inline iss_insn_t *c_jalr_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return jalr_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_jalr_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_jalr_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return jalr_exec(iss, insn);
@@ -158,12 +158,12 @@ static inline iss_insn_t *c_jalr_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_lui_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_lui_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return lui_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_lui_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_lui_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return lui_exec(iss, insn);
@@ -171,12 +171,12 @@ static inline iss_insn_t *c_lui_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_srli_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_srli_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return srli_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_srli_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_srli_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return srli_exec(iss, insn);
@@ -184,12 +184,12 @@ static inline iss_insn_t *c_srli_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_srai_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_srai_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return srai_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_srai_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_srai_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return srai_exec(iss, insn);
@@ -197,12 +197,12 @@ static inline iss_insn_t *c_srai_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_andi_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_andi_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return andi_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_andi_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_andi_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return andi_exec(iss, insn);
@@ -210,12 +210,12 @@ static inline iss_insn_t *c_andi_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_sub_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_sub_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return sub_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_sub_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_sub_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return sub_exec(iss, insn);
@@ -223,12 +223,12 @@ static inline iss_insn_t *c_sub_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_xor_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_xor_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return xor_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_xor_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_xor_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return xor_exec(iss, insn);
@@ -236,12 +236,12 @@ static inline iss_insn_t *c_xor_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_or_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_or_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return or_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_or_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_or_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return or_exec(iss, insn);
@@ -249,12 +249,12 @@ static inline iss_insn_t *c_or_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_and_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_and_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return and_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_and_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_and_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return and_exec(iss, insn);
@@ -262,12 +262,12 @@ static inline iss_insn_t *c_and_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_j_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_j_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return jal_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_j_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_j_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return jal_exec(iss, insn);
@@ -275,12 +275,12 @@ static inline iss_insn_t *c_j_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_beqz_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_beqz_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return beq_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_beqz_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_beqz_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return beq_exec(iss, insn);
@@ -288,12 +288,12 @@ static inline iss_insn_t *c_beqz_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_bnez_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_bnez_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return bne_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_bnez_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_bnez_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return bne_exec(iss, insn);
@@ -301,12 +301,12 @@ static inline iss_insn_t *c_bnez_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_slli_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_slli_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return slli_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_slli_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_slli_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return slli_exec(iss, insn);
@@ -314,12 +314,12 @@ static inline iss_insn_t *c_slli_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_lwsp_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_lwsp_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return lw_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_lwsp_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_lwsp_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return lw_exec(iss, insn);
@@ -327,12 +327,12 @@ static inline iss_insn_t *c_lwsp_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_jr_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_jr_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return jalr_exec_fast(iss, insn);
 }
 
-static inline iss_insn_t *c_jr_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_jr_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return jalr_exec(iss, insn);
@@ -340,25 +340,12 @@ static inline iss_insn_t *c_jr_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_mv_exec_fast(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_mv_exec_fast(Iss *iss, iss_insn_t *insn)
 {
   return add_exec(iss, insn);
 }
 
-static inline iss_insn_t *c_mv_exec(iss_t *iss, iss_insn_t *insn)
-{
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return add_exec(iss, insn);
-}
-
-
-
-static inline iss_insn_t *c_add_exec_fast(iss_t *iss, iss_insn_t *insn)
-{
-  return add_exec(iss, insn);
-}
-
-static inline iss_insn_t *c_add_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_mv_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
   return add_exec(iss, insn);
@@ -366,27 +353,40 @@ static inline iss_insn_t *c_add_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *c_ebreak_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_add_exec_fast(Iss *iss, iss_insn_t *insn)
+{
+  return add_exec(iss, insn);
+}
+
+static inline iss_insn_t *c_add_exec(Iss *iss, iss_insn_t *insn)
+{
+  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
+  return add_exec(iss, insn);
+}
+
+
+
+static inline iss_insn_t *c_ebreak_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
 
   if ((iss->cpu.csr.dcsr >> 15) & 1)
   {
-      iss_set_halt_mode(iss, true, 1);
+      iss->set_halt_mode(true, 1);
   }
   else
   {
-      iss_handle_ebreak(iss, insn);
+      iss->handle_ebreak();
   }
   return insn->next;
 }
 
 
 
-static inline iss_insn_t *c_sbreak_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *c_sbreak_exec(Iss *iss, iss_insn_t *insn)
 {
   iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  iss_set_halt_mode(iss, true, 3);
+  iss->set_halt_mode(true, 3);
   return insn->next;
 }
 

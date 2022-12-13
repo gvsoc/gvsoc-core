@@ -104,10 +104,10 @@ static void sim_io_eprintf(const char *Message, ...)
   vfprintf(stderr, Message, Args);
 }
 
-static int copy_name(iss_t *cpu, iss_insn_t *pc, unsigned int rv32_buff, char *Host_buff)
+static int copy_name(Iss *cpu, iss_insn_t *pc, unsigned int rv32_buff, char *Host_buff)
 
 {
-  iss_t *iss = (iss_t *)cpu;
+  Iss *iss = (Iss *)cpu;
   char c;
   int i = 0;
 
@@ -145,7 +145,7 @@ static int transpose_code(int code)
   return alt;
 }
 
-void handle_syscall(iss_t *iss, iss_insn_t *pc)
+void handle_syscall(Iss *iss, iss_insn_t *pc)
 {
   static int Trace = 0;
 

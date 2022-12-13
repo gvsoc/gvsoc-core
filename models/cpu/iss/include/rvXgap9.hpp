@@ -28,7 +28,7 @@
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_I_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_I_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_I, REG_GET(0), REG_GET(1), REG_GET(2), 0));
   return insn->next;
@@ -36,7 +36,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_I_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV2_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV2_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_I, REG_GET(0), REG_GET(1), REG_GET(2), 1));
   return insn->next;
@@ -44,7 +44,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV2_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV4_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV4_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_I, REG_GET(0), REG_GET(1), REG_GET(2), 2));
   return insn->next;
@@ -52,7 +52,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV4_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV8_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV8_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_I, REG_GET(0), REG_GET(1), REG_GET(2), 3));
   return insn->next;
@@ -60,7 +60,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_I_DIV8_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_R_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_R_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_R, REG_GET(0), REG_GET(1), REG_GET(2), 0));
   return insn->next;
@@ -68,7 +68,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_R_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV2_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV2_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_R, REG_GET(0), REG_GET(1), REG_GET(2), 1));
   return insn->next;
@@ -76,7 +76,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV2_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV4_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV4_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_R, REG_GET(0), REG_GET(1), REG_GET(2), 2));
   return insn->next;
@@ -84,7 +84,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV4_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV8_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV8_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL4(lib_CPLXMUL_H_R, REG_GET(0), REG_GET(1), REG_GET(2), 3));
   return insn->next;
@@ -92,7 +92,7 @@ static inline iss_insn_t *gap9_CPLXMUL_H_R_DIV8_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_CPLX_CONJ_16_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_CPLX_CONJ_16_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL1(lib_CPLX_CONJ_16, REG_GET(0)));
   return insn->next;
@@ -100,7 +100,7 @@ static inline iss_insn_t *gap9_CPLX_CONJ_16_exec(iss_t *iss, iss_insn_t *insn)
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_16_ROTMJ, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -108,7 +108,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV2_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV2_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_16_ROTMJ_DIV2, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -116,7 +116,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV2_exec(iss_t *iss, iss_insn_t
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV4_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV4_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_16_ROTMJ_DIV4, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -124,7 +124,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV4_exec(iss_t *iss, iss_insn_t
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV8_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV8_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_16_ROTMJ_DIV8, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -132,7 +132,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_ROTMJ_DIV8_exec(iss_t *iss, iss_insn_t
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_DIV2_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_DIV2_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_int16_t_to_int32_t_div2, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -140,7 +140,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_DIV2_exec(iss_t *iss, iss_insn_t *insn
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_DIV4_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_DIV4_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_int16_t_to_int32_t_div4, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -148,7 +148,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_DIV4_exec(iss_t *iss, iss_insn_t *insn
 
 
 
-static inline iss_insn_t *gap9_VEC_ADD_16_DIV8_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_ADD_16_DIV8_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_ADD_int16_t_to_int32_t_div8, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -156,7 +156,7 @@ static inline iss_insn_t *gap9_VEC_ADD_16_DIV8_exec(iss_t *iss, iss_insn_t *insn
 
 
 
-static inline iss_insn_t *gap9_VEC_SUB_16_DIV2_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_SUB_16_DIV2_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_SUB_int16_t_to_int32_t_div2, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -164,7 +164,7 @@ static inline iss_insn_t *gap9_VEC_SUB_16_DIV2_exec(iss_t *iss, iss_insn_t *insn
 
 
 
-static inline iss_insn_t *gap9_VEC_SUB_16_DIV4_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_SUB_16_DIV4_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_SUB_int16_t_to_int32_t_div4, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -172,7 +172,7 @@ static inline iss_insn_t *gap9_VEC_SUB_16_DIV4_exec(iss_t *iss, iss_insn_t *insn
 
 
 
-static inline iss_insn_t *gap9_VEC_SUB_16_DIV8_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_SUB_16_DIV8_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_SUB_int16_t_to_int32_t_div8, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -180,7 +180,7 @@ static inline iss_insn_t *gap9_VEC_SUB_16_DIV8_exec(iss_t *iss, iss_insn_t *insn
 
 
 
-static inline iss_insn_t *gap9_VEC_PACK_SC_H_16_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_VEC_PACK_SC_H_16_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL2(lib_VEC_PACK_SC_H_16, REG_GET(0), REG_GET(1)));
   return insn->next;
@@ -188,7 +188,7 @@ static inline iss_insn_t *gap9_VEC_PACK_SC_H_16_exec(iss_t *iss, iss_insn_t *ins
 
 
 
-static inline iss_insn_t *gap9_BITREV_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *gap9_BITREV_exec(Iss *iss, iss_insn_t *insn)
 {
   REG_SET(0, LIB_CALL3(lib_BITREV, REG_GET(0), UIM_GET(0), UIM_GET(1)+1));
   return insn->next;

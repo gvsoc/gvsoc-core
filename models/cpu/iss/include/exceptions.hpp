@@ -22,7 +22,7 @@
 #ifndef __CPU_ISS_EXCEPTIONS_HPP
 #define __CPU_ISS_EXCEPTIONS_HPP
 
-static inline iss_insn_t *iss_except_raise(iss_t *iss, int id)
+static inline iss_insn_t *iss_except_raise(Iss *iss, int id)
 {
 #if defined(PRIV_1_10)
   if (id == ISS_EXCEPT_DEBUG)

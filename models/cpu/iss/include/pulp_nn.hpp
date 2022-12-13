@@ -34,25 +34,25 @@
 #include "iss.hpp"
 
 #define PV_OP_RS_EXEC_NN(insn_name,lib_name)                                           \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_int4_t_to_int32_t, REG_GET(0), REG_GET(1)));    \
  return insn->next;                                                                         \
 }                                                                                            \
                                                                                             \
-static inline iss_insn_t *pv_##insn_name##_sc_n_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_sc_n_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_int4_t_to_int32_t, REG_GET(0), REG_GET(1))); \
  return insn->next;                                                                         \
 }                                                                                           \
                                                                                             \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_int2_t_to_int32_t, REG_GET(0), REG_GET(1)));    \
  return insn->next;                                                                         \
 }                                                                                            \
                                                                                             \
-static inline iss_insn_t *pv_##insn_name##_sc_c_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_sc_c_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_int2_t_to_int32_t, REG_GET(0), REG_GET(1))); \
  return insn->next;                                                                         \
@@ -60,25 +60,25 @@ static inline iss_insn_t *pv_##insn_name##_sc_c_exec(iss_t *iss, iss_insn_t *ins
 
 
 #define PV_OP_RU_EXEC_NN(insn_name,lib_name)                                           \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_uint4_t_to_uint32_t, REG_GET(0), REG_GET(1)));    \
  return insn->next;                                                                         \
 }                                                                                            \
                                                                                             \
-static inline iss_insn_t *pv_##insn_name##_sc_n_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_sc_n_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_uint4_t_to_uint32_t, REG_GET(0), REG_GET(1))); \
  return insn->next;                                                                         \
 }                                                                                           \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_uint2_t_to_uint32_t, REG_GET(0), REG_GET(1)));    \
  return insn->next;                                                                         \
 }                                                                                            \
                                                                                             \
-static inline iss_insn_t *pv_##insn_name##_sc_c_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_sc_c_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
  REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_uint2_t_to_uint32_t, REG_GET(0), REG_GET(1))); \
  return insn->next;                                                                         \
@@ -107,13 +107,13 @@ PV_OP_RS_EXEC_NN(xor,XOR)
 PV_OP_RS_EXEC_NN(and,AND)
 
 #define PV_OP1_RS_EXEC_NN(insn_name,lib_name)                          \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)      \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)      \
 {                                                                                  \
  REG_SET(0, LIB_CALL1(lib_VEC_##lib_name##_int4_t_to_int32_t, REG_GET(0)));    \
  return insn->next;                                                               \
 }                                                                                  \
                                                                                   \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)      \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)      \
 {                                                                                  \
  REG_SET(0, LIB_CALL1(lib_VEC_##lib_name##_int2_t_to_int32_t, REG_GET(0)));    \
  return insn->next;                                                               \
@@ -125,50 +125,50 @@ PV_OP1_RS_EXEC_NN(abs,ABS)
 
 
 #define PV_OP_RS_EXEC_NN_2(insn_name,lib_name)                                           \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_4, REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_n_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_4, REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_2, REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_2, REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
 }
 
 #define PV_OP_RU_EXEC_NN_2(insn_name,lib_name)                                           \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_4, REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_n_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_4, REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
 }\
                                                                                                \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_2, REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_2, REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
@@ -182,24 +182,24 @@ PV_OP_RS_EXEC_NN_2(dotusp,DOTUSP)
 
 
 #define PV_OP_RRS_EXEC_NN_2(insn_name,lib_name)                                           \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_4, REG_GET(2), REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_n_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_4, REG_GET(2), REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
 }                                                                                            \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_2, REG_GET(2), REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_2, REG_GET(2), REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
@@ -209,25 +209,25 @@ PV_OP_RRS_EXEC_NN_2(sdotsp,SDOTSP)
 PV_OP_RRS_EXEC_NN_2(sdotusp,SDOTUSP)
 
 #define PV_OP_RRU_EXEC_NN_2(insn_name,lib_name)                                           \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_4, REG_GET(2), REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_n_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_4, REG_GET(2), REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
 } \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_2, REG_GET(2), REG_GET(0), REG_GET(1)));    \
   return insn->next;                                                                         \
 }                                                                                            \
                                                                                              \
-static inline iss_insn_t *pv_##insn_name##_c_sc_exec(iss_t *iss, iss_insn_t *insn)             \
+static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn)             \
 {                                                                                            \
   REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_2, REG_GET(2), REG_GET(0), REG_GET(1))); \
   return insn->next;                                                                         \
@@ -237,19 +237,19 @@ PV_OP_RRU_EXEC_NN_2(sdotup,SDOTUP)
 
 /* Sign 0 if unsigned, 1 if signed */
 #define PV_OP_RRRU3_EXEC_NN(insn_name,lib_name,signOpA)                                                  \
-static inline void pv_##insn_name##_h_resume(iss_t *iss)                                                 \
+static inline void pv_##insn_name##_h_resume(Iss *iss)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline void pv_##insn_name##_b_resume(iss_t *iss)                                                 \
+static inline void pv_##insn_name##_b_resume(Iss *iss)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline void pv_##insn_name##_n_resume(iss_t *iss)                                                 \
+static inline void pv_##insn_name##_n_resume(Iss *iss)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline void pv_##insn_name##_c_resume(iss_t *iss)                                                 \
+static inline void pv_##insn_name##_c_resume(Iss *iss)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline iss_insn_t *pv_##insn_name##_h_exec(iss_t *iss, iss_insn_t *insn)                          \
+static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)                          \
 {                                                                                                        \
   iss_uim_t ctl_imm = UIM_GET(0);                                                                        \
                                                                                                          \
@@ -272,7 +272,7 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                    \
     {                                                                                                    \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
@@ -280,7 +280,7 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
       iss_exec_insn_stall(iss);                                                                          \
     }                                                                                                    \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else if (wt_update)                                                                                    \
@@ -288,7 +288,7 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                    \
     {                                                                                                    \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
@@ -296,16 +296,16 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
       iss_exec_insn_stall(iss);                                                                          \
     }                                                                                                    \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else                                                                                                   \
   {                                                                                                      \
-    iss_msg(iss, "No address updating\n");                                                               \
+    iss->trace.msg("No address updating\n");                                                               \
   }                                                                                                      \
   return insn->next;                                                                                     \
 }                                                                                                        \
-static inline iss_insn_t *pv_##insn_name##_b_exec(iss_t *iss, iss_insn_t *insn)                          \
+static inline iss_insn_t *pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn)                          \
 {                                                                                                        \
   iss_uim_t ctl_imm = UIM_GET(0);                                                                        \
                                                                                                          \
@@ -328,7 +328,7 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                    \
     {                                                                                                    \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
@@ -336,7 +336,7 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
       iss_exec_insn_stall(iss);                                                                          \
     }                                                                                                    \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else if (wt_update)                                                                                    \
@@ -344,7 +344,7 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                    \
     {                                                                                                    \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
@@ -352,16 +352,16 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
       iss_exec_insn_stall(iss);                                                                          \
     }                                                                                                    \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else                                                                                                   \
   {                                                                                                      \
-    iss_msg(iss, "No address updating\n");                                                               \
+    iss->trace.msg("No address updating\n");                                                               \
   }                                                                                                      \
   return insn->next;                                                                                     \
 }                                                                                                        \
-static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn)                          \
+static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                          \
 {                                                                                                        \
   iss_uim_t ctl_imm = UIM_GET(0);                                                                        \
                                                                                                          \
@@ -384,7 +384,7 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                             \
     {                                                                                                                 \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
@@ -392,7 +392,7 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
       iss_exec_insn_stall(iss);                                                                                       \
     }                                                                                                                 \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4);   \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else if (wt_update)                                                                                                 \
@@ -400,7 +400,7 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                             \
     {                                                                                                                 \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
@@ -408,16 +408,16 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
       iss_exec_insn_stall(iss);                                                                                       \
     }                                                                                                                 \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4); \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else                                                                                                                \
   {                                                                                                                   \
-    iss_msg(iss, "No address updating\n");                        \
+    iss->trace.msg("No address updating\n");                        \
   }                                                                                                                   \
   return insn->next;                                                                                                  \
 }                                                                                                                     \
-static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn)                                       \
+static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                                       \
 {                                                                                                                     \
   iss_uim_t ctl_imm = UIM_GET(0);                                                                         \
                                                                                                                       \
@@ -440,7 +440,7 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                             \
     {                                                                                                                 \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
@@ -448,7 +448,7 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
       iss_exec_insn_stall(iss);                                                                                       \
     }                                                                                                                 \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4);   \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else if (wt_update)                                                                                                 \
@@ -456,7 +456,7 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn) 
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                             \
     {                                                                                                                 \
-      iss_msg(iss, "Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
+      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
@@ -464,12 +464,12 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(iss_t *iss, iss_insn_t *insn) 
       iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
       iss_exec_insn_stall(iss);                                                                                       \
     }                                                                                                                 \
-    iss_msg(iss, "Address updating (addr: 0x%x)\n", addr + 4); \
+    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else                                                                                                                \
   {                                                                                                                   \
-    iss_msg(iss, "No address updating\n");                        \
+    iss->trace.msg("No address updating\n");                        \
   }                                                                                                                   \
   return insn->next;                                                                                                  \
 }                                                                                                                     \
@@ -480,11 +480,11 @@ PV_OP_RRRU3_EXEC_NN(mlsdotsup,SDOTUSP,1)
 PV_OP_RRRU3_EXEC_NN(mlsdotsp,SDOTSP,1)
 
 
-static inline void qnt_step_resume(iss_t *iss)
+static inline void qnt_step_resume(Iss *iss)
 {
 }
 
-static inline iss_insn_t *qnt_step(iss_t *iss, iss_insn_t *insn, iss_reg_t input, iss_addr_t addr, int reg)
+static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, iss_addr_t addr, int reg)
 {
   iss_addr_t qnt_addr = addr;// + 4 * iss->cpu.pulp_nn.qnt_step;
   uint8_t *data = (uint8_t *)&iss->cpu.pulp_nn.qnt_regs[iss->cpu.pulp_nn.qnt_step];
@@ -638,12 +638,12 @@ static inline iss_insn_t *qnt_step(iss_t *iss, iss_insn_t *insn, iss_reg_t input
 
 }
 
-static inline iss_insn_t *pv_qnt_n_exec(iss_t *iss, iss_insn_t *insn)
+static inline iss_insn_t *pv_qnt_n_exec(Iss *iss, iss_insn_t *insn)
 {
   return qnt_step(iss, insn, REG_GET(0), REG_GET(1), REG_OUT(0));
 }
 
-static inline void iss_pulp_nn_init(iss_t *iss)
+static inline void iss_pulp_nn_init(Iss *iss)
 {
   iss->cpu.pulp_nn.qnt_step = 0;
 }

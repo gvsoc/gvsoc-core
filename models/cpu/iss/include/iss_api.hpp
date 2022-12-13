@@ -26,24 +26,24 @@
 
 
 
-static inline void iss_set_reg(iss_t *iss, int reg, iss_reg_t value);
+static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value);
 
-static inline iss_reg_t iss_get_reg(iss_t *iss, int reg);
+static inline iss_reg_t iss_get_reg(Iss *iss, int reg);
 
-static inline iss_reg_t iss_get_reg_untimed(iss_t *iss, int reg);
+static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg);
 
-static inline iss_reg_t *iss_reg_ref(iss_t *iss, int reg);
+static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg);
 
-static inline iss_reg_t *iss_reg_store_ref(iss_t *iss, int reg);
+static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg);
 
 
-static inline void iss_pccr_account_event(iss_t *iss, unsigned int event, int incr);
+static inline void iss_pccr_account_event(Iss *iss, unsigned int event, int incr);
 
-static inline void iss_perf_account_taken_branch(iss_t *iss);
+static inline void iss_perf_account_taken_branch(Iss *iss);
 
-static inline void iss_perf_account_ld_stall(iss_t *iss);
+static inline void iss_perf_account_ld_stall(Iss *iss);
 
-static inline void iss_perf_account_jump(iss_t *iss);
+static inline void iss_perf_account_jump(Iss *iss);
 
 
 

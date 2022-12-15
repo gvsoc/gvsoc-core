@@ -19,26 +19,18 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_API_HPP
-#define __CPU_ISS_ISS_API_HPP
+#pragma once
 
-#include "types.hpp"
-
-
-
-static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value);
-
-static inline iss_reg_t iss_get_reg(Iss *iss, int reg);
-
-static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg);
-
-
-static inline void iss_perf_account_ld_stall(Iss *iss);
+#include <irq/irq_external.hpp>
+#include <iss.hpp>
 
 
 
-#endif
+inline void Irq::global_enable(int enable)
+{
+  this->iss.trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
+    enable);
+
+  this->iss.irq.irq_enable = enable;
+  this->iss.exec.switch_to_full_mode();
+}

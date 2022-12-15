@@ -21,7 +21,7 @@
 void iss_resource_init(Iss *iss)
 {
     // Initialize all the resources and assign the first instance by default
-    iss->cpu.resources.resize(iss_get_isa_set()->nb_resources);
+    iss->resources.resize(iss_get_isa_set()->nb_resources);
 
     for (int i=0; i<iss_get_isa_set()->nb_resources; i++)
     {
@@ -33,7 +33,7 @@ void iss_resource_init(Iss *iss)
             resource->instances.push_back(instance);
         }
 
-        iss->cpu.resources[i] = resource->instances[0];
+        iss->resources[i] = resource->instances[0];
     }
 }
 
@@ -42,7 +42,7 @@ void iss_resource_init(Iss *iss)
 iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
 {
     // First get the instance associated to this core for the resource associated to this instruction
-    iss_resource_instance_t *instance = iss->cpu.resources[insn->resource_id];
+    iss_resource_instance_t *instance = iss->resources[insn->resource_id];
     int64_t cycles = 0;
 
     // Check if the instance is ready to accept an access
@@ -50,7 +50,7 @@ iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
     {
         // If not, account the number of cycles until the instance becomes available
         cycles = instance->cycles - iss->get_cycles();
-        iss_pccr_account_event(iss, CSR_PCER_INSN_CONT, cycles);
+        iss->timing.event_insn_contention_account(cycles);
 
         // And account the access on the instance. The time taken by the access is indicated by the instruction bandwidth
         instance->cycles += insn->resource_bandwidth;
@@ -62,7 +62,7 @@ iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
     }
 
     // Account the latency of the resource on the core, as the result is available after the instruction latency
-    iss->cpu.state.insn_cycles += cycles + insn->resource_latency - 1;
+    iss->timing.stall_insn_account(cycles + insn->resource_latency - 1);
 
     // Now that timing is modeled, execute the instruction
     return insn->resource_handler(iss, insn);

@@ -28,7 +28,7 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr);
 
 static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
 {
-  prefetcher_flush(iss);
+  iss->prefetcher.flush();
 
   for (int i=0; i<ISS_INSN_NB_BLOCKS; i++)
   {
@@ -48,14 +48,14 @@ static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
 
 int insn_cache_init(Iss *iss)
 {
-  iss_insn_cache_t *cache = &iss->cpu.insn_cache;
+  iss_insn_cache_t *cache = &iss->insn_cache;
   memset(cache->blocks, 0, sizeof(iss_insn_block_t *)*ISS_INSN_NB_BLOCKS);
   return 0;
 }
 
 void insn_init(iss_insn_t *insn, iss_addr_t addr) {
-  insn->handler = iss_decode_pc;
-  insn->fast_handler = iss_decode_pc;
+  insn->handler = iss_decode_pc_handler;
+  insn->fast_handler = iss_decode_pc_handler;
   insn->addr = addr;
   insn->next = NULL;
   insn->hwloop_handler = NULL;
@@ -84,75 +84,75 @@ void iss_cache_flush(Iss *iss)
   iss_addr_t prefetch_addr = 0;
   iss_addr_t hwloop_end_addr[2] = {0};
 
-  if (iss->cpu.current_insn)
+  if (iss->current_insn)
   {
-    opcode = iss->cpu.current_insn->opcode;
-    current_addr = iss->cpu.current_insn->addr;
+    opcode = iss->current_insn->opcode;
+    current_addr = iss->current_insn->addr;
   }
 
-  if (iss->cpu.prev_insn)
+  if (iss->prev_insn)
   {
-    prev_addr = iss->cpu.prev_insn->addr;
+    prev_addr = iss->prev_insn->addr;
   }
 
-  if (iss->cpu.stall_insn)
+  if (iss->stall_insn)
   {
-    stall_addr = iss->cpu.stall_insn->addr;
+    stall_addr = iss->stall_insn->addr;
   }
 
-  if (iss->cpu.prefetch_insn)
+  // if (iss->prefetch_insn)
+  // {
+  //   stall_addr = iss->prefetch_insn->addr;
+  // }
+
+  if (iss->state.hwloop_end_insn[0])
   {
-    stall_addr = iss->cpu.prefetch_insn->addr;
+    hwloop_end_addr[0] = iss->state.hwloop_end_insn[0]->addr;
   }
 
-  if (iss->cpu.state.hwloop_end_insn[0])
+  if (iss->state.hwloop_end_insn[1])
   {
-    hwloop_end_addr[0] = iss->cpu.state.hwloop_end_insn[0]->addr;
+    hwloop_end_addr[1] = iss->state.hwloop_end_insn[1]->addr;
   }
 
-  if (iss->cpu.state.hwloop_end_insn[1])
+  flush_cache(iss, &iss->insn_cache);
+
+  if (iss->current_insn)
   {
-    hwloop_end_addr[1] = iss->cpu.state.hwloop_end_insn[1]->addr;
+    iss->current_insn = insn_cache_get(iss, current_addr);
+    iss->current_insn->opcode = opcode;
+    iss->current_insn->fetched = true;
+    iss->decode.decode_pc(iss->current_insn);
   }
 
-  flush_cache(iss, &iss->cpu.insn_cache);
-
-  if (iss->cpu.current_insn)
+  if (iss->prev_insn)
   {
-    iss->cpu.current_insn = insn_cache_get(iss, current_addr);
-    iss->cpu.current_insn->opcode = opcode;
-    iss->cpu.current_insn->fetched = true;
-    iss_decode_pc_noexec(iss, iss->cpu.current_insn);
+    iss->prev_insn = insn_cache_get(iss, prev_addr);
   }
 
-  if (iss->cpu.prev_insn)
+  if (iss->stall_insn)
   {
-    iss->cpu.prev_insn = insn_cache_get(iss, prev_addr);
+    iss->stall_insn = insn_cache_get(iss, stall_addr);
   }
 
-  if (iss->cpu.stall_insn)
+  // if (iss->prefetch_insn)
+  // {
+  //   iss->prefetch_insn = insn_cache_get(iss, stall_addr);
+  // }
+
+  if (iss->state.hwloop_end_insn[0])
   {
-    iss->cpu.stall_insn = insn_cache_get(iss, stall_addr);
+    iss->state.hwloop_end_insn[0] = insn_cache_get(iss, hwloop_end_addr[0]);
+    hwloop_set_insn_end(iss, iss->state.hwloop_end_insn[0]);
   }
 
-  if (iss->cpu.prefetch_insn)
+  if (iss->state.hwloop_end_insn[1])
   {
-    iss->cpu.prefetch_insn = insn_cache_get(iss, stall_addr);
+    iss->state.hwloop_end_insn[1] = insn_cache_get(iss, hwloop_end_addr[1]);
+    hwloop_set_insn_end(iss, iss->state.hwloop_end_insn[1]);
   }
 
-  if (iss->cpu.state.hwloop_end_insn[0])
-  {
-    iss->cpu.state.hwloop_end_insn[0] = insn_cache_get(iss, hwloop_end_addr[0]);
-    hwloop_set_insn_end(iss, iss->cpu.state.hwloop_end_insn[0]);
-  }
-
-  if (iss->cpu.state.hwloop_end_insn[1])
-  {
-    iss->cpu.state.hwloop_end_insn[1] = insn_cache_get(iss, hwloop_end_addr[1]);
-    hwloop_set_insn_end(iss, iss->cpu.state.hwloop_end_insn[1]);
-  }
-
-  iss_irq_flush(iss);
+  iss->irq.cache_flush();
 }
 
 
@@ -162,7 +162,7 @@ iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)
   iss_addr_t pc_base = pc & ~((1 << (ISS_INSN_BLOCK_SIZE_LOG2 + ISS_INSN_PC_BITS)) - 1);
   unsigned insn_id = (pc >> ISS_INSN_PC_BITS) & (ISS_INSN_BLOCK_SIZE - 1);
   unsigned int block_id = pc_base & (ISS_INSN_NB_BLOCKS - 1);
-  iss_insn_cache_t *cache = &iss->cpu.insn_cache;
+  iss_insn_cache_t *cache = &iss->insn_cache;
   iss_insn_block_t *block = cache->blocks[block_id];
   iss_insn_block_t *first_free = NULL;
 
@@ -196,4 +196,24 @@ iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)
   insn_block_init(b, pc_base);
 
   return &b->insns[insn_id];
+}
+
+void Iss::flush_cache_sync(void *__this, bool active)
+{
+  Iss *_this = (Iss *)__this;
+  if (_this->iss_opened)
+  {
+    iss_cache_flush(_this);
+  }
+}
+
+void Iss::flush_cache_ack_sync(void *__this, bool active)
+{
+    Iss *_this = (Iss *)__this;
+    if (_this->state.cache_sync)
+    {
+      _this->state.cache_sync = false;
+      _this->exec.stalled_dec();
+      _this->exec.insn_terminate();
+    }
 }

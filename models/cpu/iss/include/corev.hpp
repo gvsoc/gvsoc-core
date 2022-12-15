@@ -43,11 +43,11 @@ static inline iss_insn_t *corev_hwloop_check_exec(Iss *iss, iss_insn_t *insn)
 
   // Check now is the instruction has been replayed to know if it is the first
   // time it is executed
-  bool elw_interrupted = iss->cpu.state.elw_interrupted;
+  bool elw_interrupted = iss->state.elw_interrupted;
 
   // First execute the instructions as it is the last one of the loop body.
   // The real handler has been saved when the loop was started.
-  iss_insn_t *insn_next = iss_exec_insn_handler(iss, insn, insn->hwloop_handler);
+  iss_insn_t *insn_next = insn->hwloop_handler(iss, insn);
 
   if (elw_interrupted)
   {
@@ -55,49 +55,49 @@ static inline iss_insn_t *corev_hwloop_check_exec(Iss *iss, iss_insn_t *insn)
     // being replayed. In this case, return the instruction which has been computed
     // during the first execution of the instruction, to avoid accounting several 
     // times the end of HW loop.
-    return iss->cpu.state.hwloop_next_insn;
+    return iss->state.hwloop_next_insn;
   }
 
   // First check HW loop 0 as it has higher priority compared to HW loop 1
-  if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0] && iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPEND0] == pc)
+  if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0] && iss->corev.hwloop_regs[COREV_HWLOOP_LPEND0] == pc)
   {
-    iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]--;
-    iss->decode_trace.msg("Reached end of HW loop (index: 0, loop count: %d)\n", iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]);
+    iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]--;
+    iss->decode_trace.msg("Reached end of HW loop (index: 0, loop count: %d)\n", iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]);
 
     // If counter is not zero, we must jump back to beginning of the loop.
-    if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0])
+    if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0])
     {
       // Remember next instruction in case the current instruction is replayed
-      iss->cpu.state.hwloop_next_insn = iss->cpu.state.hwloop_start_insn[0];
-      return iss->cpu.state.hwloop_start_insn[0];
+      iss->state.hwloop_next_insn = iss->state.hwloop_start_insn[0];
+      return iss->state.hwloop_start_insn[0];
     }
   }
 
   // We get here either if HW loop 0 was not active or if the counter reached 0.
   // In both cases, HW loop 1 can jump back to the beginning of the loop.
-  if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1] && iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPEND1] == pc)
+  if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1] && iss->corev.hwloop_regs[COREV_HWLOOP_LPEND1] == pc)
   {
-    iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]--;
+    iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]--;
     // If counter is not zero, we must jump back to beginning of the loop.
-    iss->decode_trace.msg("Reached end of HW loop (index: 1, loop count: %d)\n", iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]);
-    if (iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1])
+    iss->decode_trace.msg("Reached end of HW loop (index: 1, loop count: %d)\n", iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]);
+    if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1])
     {
       // Remember next instruction in case the current instruction is replayed
-      iss->cpu.state.hwloop_next_insn = iss->cpu.state.hwloop_start_insn[1];
-      return iss->cpu.state.hwloop_start_insn[1];
+      iss->state.hwloop_next_insn = iss->state.hwloop_start_insn[1];
+      return iss->state.hwloop_start_insn[1];
     }
   }
 
   // In case no HW loop jumped back, just continue with the next instruction.
-  iss->cpu.state.hwloop_next_insn = insn_next;
+  iss->state.hwloop_next_insn = insn_next;
 
   return insn_next;
 }
 
 static inline void corev_hwloop_set_start(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start)
 {
-  iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPSTART(index)] = start;
-  iss->cpu.state.hwloop_start_insn[index] = insn_cache_get(iss, start);
+  iss->corev.hwloop_regs[COREV_HWLOOP_LPSTART(index)] = start;
+  iss->state.hwloop_start_insn[index] = insn_cache_get(iss, start);
 }
 
 static inline void corev_hwloop_set_insn_end(Iss *iss, iss_insn_t *insn)
@@ -122,16 +122,16 @@ static inline void corev_hwloop_set_end(Iss *iss, iss_insn_t *insn, int index, i
 {
   iss_insn_t *end_insn = insn_cache_get(iss, end);
 
-  iss->cpu.state.hwloop_end_insn[index] = end_insn;
+  iss->state.hwloop_end_insn[index] = end_insn;
 
   corev_hwloop_set_insn_end(iss, end_insn);
 
-  iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPEND(index)] = end;
+  iss->corev.hwloop_regs[COREV_HWLOOP_LPEND(index)] = end;
 }
 
 static inline void corev_hwloop_set_count(Iss *iss, iss_insn_t *insn, int index, iss_reg_t count)
 {
-  iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(index)] = count;
+  iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(index)] = count;
 }
 
 static inline void corev_hwloop_set_all(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start, iss_reg_t end, iss_reg_t count)
@@ -346,11 +346,7 @@ static inline iss_insn_t *cv_abs_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *cv_elw_exec(Iss *iss, iss_insn_t *insn)
 {
-  uint32_t value = 0;
-  iss->cpu.state.elw_insn = insn;
-  iss_lsu_elw_perf(iss, insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
-  if (iss->cpu.state.insn_cycles != -1)
-    iss->cpu.state.elw_insn = NULL;
+  iss_handle_elw(iss, insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
   return insn->next;
 }
 
@@ -801,19 +797,14 @@ static inline iss_insn_t *cv_bneimm_exec_common(Iss *iss, iss_insn_t *insn, int 
 {
   if ((int32_t)REG_GET(0) != SIM_GET(1))
   {
-    if (perf)
-    {
-      iss_pccr_account_event(iss, CSR_PCER_BRANCH, 1);
-      iss_pccr_account_event(iss, CSR_PCER_TAKEN_BRANCH, 1);
-    }
-    iss_perf_account_taken_branch(iss);
+    iss->timing.stall_taken_branch_account();
     return insn->branch;
   }
   else
   {
     if (perf)
     {
-      iss_pccr_account_event(iss, CSR_PCER_BRANCH, 1);
+      iss->timing.event_branch_account(1);
     }
     return insn->next;
   }
@@ -835,19 +826,14 @@ static inline iss_insn_t *cv_beqimm_exec_common(Iss *iss, iss_insn_t *insn, int 
 {
   if ((int32_t)REG_GET(0) == SIM_GET(1))
   {
-    if (perf)
-    {
-      iss_pccr_account_event(iss, CSR_PCER_BRANCH, 1);
-      iss_pccr_account_event(iss, CSR_PCER_TAKEN_BRANCH, 1);
-    }
-    iss_perf_account_taken_branch(iss);
+    iss->timing.stall_taken_branch_account();
     return insn->branch;
   }
   else
   {
     if (perf)
     {
-      iss_pccr_account_event(iss, CSR_PCER_BRANCH, 1);
+      iss->timing.event_branch_account(1);
     }
     return insn->next;
   }
@@ -1288,15 +1274,15 @@ static inline iss_insn_t *cv_bitrev_exec(Iss *iss, iss_insn_t *insn)
 
 static inline void iss_isa_corev_init(Iss *iss)
 {
-  iss->cpu.corev.hwloop = false;
+  iss->corev.hwloop = false;
 }
 
 
 static inline void iss_isa_corev_activate(Iss *iss)
 {
-  iss->cpu.corev.hwloop = true;
-  iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(0)] = 0;
-  iss->cpu.corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(1)] = 0;
+  iss->corev.hwloop = true;
+  iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(0)] = 0;
+  iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT(1)] = 0;
 
 }
 

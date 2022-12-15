@@ -77,7 +77,7 @@ static inline iss_insn_t *div_exec(Iss *iss, iss_insn_t *insn)
     cycles = __builtin_clz((~divider) + 1) + 2;
   }
 
-  iss_perf_account_dependency_stall(iss, cycles);
+  iss->timing.stall_insn_dependency_account(cycles);
 
   return insn->next;
 }
@@ -91,7 +91,7 @@ static inline iss_insn_t *divu_exec(Iss *iss, iss_insn_t *insn)
   else result = dividend / divider;
   REG_SET(0, result);
 
-  iss_perf_account_dependency_stall(iss, __builtin_clz(divider) + 3);
+  iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 
   return insn->next;
 }
@@ -118,7 +118,7 @@ static inline iss_insn_t *rem_exec(Iss *iss, iss_insn_t *insn)
     cycles = __builtin_clz((~divider) + 1) + 2;
   }
 
-  iss_perf_account_dependency_stall(iss, cycles);
+  iss->timing.stall_insn_dependency_account(cycles);
 
   return insn->next;
 }
@@ -134,7 +134,7 @@ static inline iss_insn_t *remu_exec(Iss *iss, iss_insn_t *insn)
   
   REG_SET(0, result);
 
-  iss_perf_account_dependency_stall(iss, __builtin_clz(divider) + 3);
+  iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 
   return insn->next;
 }

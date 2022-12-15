@@ -22,8 +22,14 @@
 #ifndef __CPU_ISS_ISS_HPP
 #define __CPU_ISS_ISS_HPP
 
+#include "types.hpp"
+#include "iss_class.hpp"
 #include "iss_core.hpp"
+
+#include <lsu_implem.hpp>
+
 #include "perf_event.hpp"
+#include "timing.hpp"
 #include "rv64i.hpp"
 #include "rv32i.hpp"
 #include "rv32c.hpp"
@@ -43,5 +49,11 @@
 #include "rnnext.hpp"
 #include "pulp_nn.hpp"
 #include "corev.hpp"
+
+
+#include <irq/irq_external_implem.hpp>
+#include <exec/exec_inorder_implem.hpp>
+#include <prefetch/prefetch_single_line_implem.hpp>
+
 
 #endif

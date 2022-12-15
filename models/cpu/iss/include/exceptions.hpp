@@ -27,28 +27,28 @@ static inline iss_insn_t *iss_except_raise(Iss *iss, int id)
 #if defined(PRIV_1_10)
   if (id == ISS_EXCEPT_DEBUG)
   {
-    iss->cpu.csr.depc = iss->cpu.current_insn->addr;
-    iss->cpu.irq.debug_saved_irq_enable = iss->cpu.irq.irq_enable;
-    iss->cpu.irq.irq_enable = 0;
-    return iss->cpu.irq.debug_handler;
+    iss->csr.depc = iss->current_insn->addr;
+    iss->irq.debug_saved_irq_enable = iss->irq.irq_enable;
+    iss->irq.irq_enable = 0;
+    return iss->irq.debug_handler;
   }
   else
   {
-    iss->cpu.csr.epc = iss->cpu.current_insn->addr;
-    iss->cpu.irq.saved_irq_enable = iss->cpu.irq.irq_enable;
-    iss->cpu.irq.irq_enable = 0;
-    iss->cpu.csr.mcause = 0xb;
-    iss_insn_t *insn = iss->cpu.irq.vectors[0];
+    iss->csr.epc = iss->current_insn->addr;
+    iss->irq.saved_irq_enable = iss->irq.irq_enable;
+    iss->irq.irq_enable = 0;
+    iss->csr.mcause = 0xb;
+    iss_insn_t *insn = iss->irq.vectors[0];
     if (insn == NULL)
       insn = insn_cache_get(iss, 0);
     return insn; 
   }
 #else
-  iss->cpu.csr.epc = iss->cpu.current_insn->addr;
-  iss->cpu.irq.saved_irq_enable = iss->cpu.irq.irq_enable;
-  iss->cpu.irq.irq_enable = 0;
-  iss->cpu.csr.mcause = 0xb;
-  iss_insn_t *insn = iss->cpu.irq.vectors[32 + id];
+  iss->csr.epc = iss->current_insn->addr;
+  iss->irq.saved_irq_enable = iss->irq.irq_enable;
+  iss->irq.irq_enable = 0;
+  iss->csr.mcause = 0xb;
+  iss_insn_t *insn = iss->irq.vectors[32 + id];
   if (insn == NULL)
     insn = insn_cache_get(iss, 0);
   return insn;

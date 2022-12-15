@@ -25,31 +25,4 @@
 #define CSR_PCER_MISALIGNED    29
 #define CSR_PCER_INSN_CONT     30
 
-static inline void iss_pccr_account_event(Iss *iss, unsigned int event, int incr)
-{
-  if (iss->cpu.csr.pcmr & CSR_PCMR_ACTIVE && (iss->cpu.csr.pcer & (1<<event)))
-  {
-    iss->cpu.csr.pccr[event] += incr;
-  }
-
-  iss->perf_event_incr(event, incr);
-
-  //if (cpu->traceEvent) sim_trace_event_incr(cpu, event, incr);
-}
-
-static inline void iss_perf_account_taken_branch(Iss *iss)
-{
-  iss->cpu.state.insn_cycles += 2;  
-}
-
-static inline void iss_perf_account_dependency_stall(Iss *iss, int latency)
-{
-  iss->cpu.state.insn_cycles += latency - 1;
-}
-
-static inline void iss_perf_account_jump(Iss *iss)
-{
-  iss->cpu.state.insn_cycles += 1;  
-}
-
 #endif

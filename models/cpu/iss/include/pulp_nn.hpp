@@ -237,16 +237,16 @@ PV_OP_RRU_EXEC_NN_2(sdotup,SDOTUP)
 
 /* Sign 0 if unsigned, 1 if signed */
 #define PV_OP_RRRU3_EXEC_NN(insn_name,lib_name,signOpA)                                                  \
-static inline void pv_##insn_name##_h_resume(Iss *iss)                                                 \
+static inline void pv_##insn_name##_h_resume(Lsu *lsu)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline void pv_##insn_name##_b_resume(Iss *iss)                                                 \
+static inline void pv_##insn_name##_b_resume(Lsu *lsu)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline void pv_##insn_name##_n_resume(Iss *iss)                                                 \
+static inline void pv_##insn_name##_n_resume(Lsu *lsu)                                                 \
 {                                                                                                        \
 }                                                                                                        \
-static inline void pv_##insn_name##_c_resume(Iss *iss)                                                 \
+static inline void pv_##insn_name##_c_resume(Lsu *lsu)                                                 \
 {                                                                                                        \
 }                                                                                                        \
 static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)                          \
@@ -270,15 +270,15 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)   
   if(ac_update)                                                                                          \
   {                                                                                                      \
     iss_reg_t addr = REG_GET(1);                                                                         \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                    \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                    \
     {                                                                                                    \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->cpu.state.stall_callback = pv_##insn_name##_h_resume;                                         \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
-      iss_exec_insn_stall(iss);                                                                          \
+      iss->state.stall_callback = &pv_##insn_name##_h_resume;                                         \
+      iss->pulp_nn.ml_insn = insn;                                                                   \
+      iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
@@ -286,15 +286,15 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)   
   else if (wt_update)                                                                                    \
   {                                                                                                      \
     iss_reg_t addr = REG_GET(1);                                                                         \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                    \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                    \
     {                                                                                                    \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->cpu.state.stall_callback = pv_##insn_name##_h_resume;                                         \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
-      iss_exec_insn_stall(iss);                                                                          \
+      iss->state.stall_callback = &pv_##insn_name##_h_resume;                                         \
+      iss->pulp_nn.ml_insn = insn;                                                                   \
+      iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
@@ -326,15 +326,15 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn)   
   if(ac_update)                                                                                          \
   {                                                                                                      \
     iss_reg_t addr = REG_GET(1);                                                                         \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                    \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                    \
     {                                                                                                    \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->cpu.state.stall_callback = pv_##insn_name##_b_resume;                                         \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
-      iss_exec_insn_stall(iss);                                                                          \
+      iss->state.stall_callback = &pv_##insn_name##_b_resume;                                         \
+      iss->pulp_nn.ml_insn = insn;                                                                   \
+      iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
@@ -342,15 +342,15 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn)   
   else if (wt_update)                                                                                    \
   {                                                                                                      \
     iss_reg_t addr = REG_GET(1);                                                                         \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                    \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                    \
     {                                                                                                    \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->cpu.state.stall_callback = pv_##insn_name##_b_resume;                                         \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                   \
-      iss_exec_insn_stall(iss);                                                                          \
+      iss->state.stall_callback = &pv_##insn_name##_b_resume;                                         \
+      iss->pulp_nn.ml_insn = insn;                                                                   \
+      iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
@@ -382,15 +382,15 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)   
   if(ac_update)                                                                                                       \
   {                                                                                                                   \
     iss_reg_t addr = REG_GET(1);                                                                                       \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                             \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                             \
     {                                                                                                                 \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->cpu.state.stall_callback = pv_##insn_name##_n_resume;                                                      \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
-      iss_exec_insn_stall(iss);                                                                                       \
+      iss->state.stall_callback = &pv_##insn_name##_n_resume;                                                      \
+      iss->pulp_nn.ml_insn = insn;                                                                               \
+      iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
     IN_REG_SET(1, addr + 4);                                                                                            \
@@ -398,15 +398,15 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)   
   else if (wt_update)                                                                                                 \
   {                                                                                                                   \
     iss_reg_t addr = REG_GET(1);                                                                                       \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                             \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                             \
     {                                                                                                                 \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->cpu.state.stall_callback = pv_##insn_name##_n_resume;                                                      \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
-      iss_exec_insn_stall(iss);                                                                                       \
+      iss->state.stall_callback = &pv_##insn_name##_n_resume;                                                      \
+      iss->pulp_nn.ml_insn = insn;                                                                               \
+      iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
     IN_REG_SET(1, addr + 4);                                                                                            \
@@ -438,15 +438,15 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)   
   if(ac_update)                                                                                                       \
   {                                                                                                                   \
     iss_reg_t addr = REG_GET(1);                                                                                       \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[ac_addr], 4, false))                             \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                             \
     {                                                                                                                 \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->cpu.state.stall_callback = pv_##insn_name##_c_resume;                                                      \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
-      iss_exec_insn_stall(iss);                                                                                       \
+      iss->state.stall_callback = &pv_##insn_name##_c_resume;                                                      \
+      iss->pulp_nn.ml_insn = insn;                                                                               \
+      iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
     IN_REG_SET(1, addr + 4);                                                                                            \
@@ -454,15 +454,15 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)   
   else if (wt_update)                                                                                                 \
   {                                                                                                                   \
     iss_reg_t addr = REG_GET(1);                                                                                       \
-    if (!iss->data_req(addr, (uint8_t *)&iss->cpu.pulp_nn.spr_ml[wt_addr], 4, false))                             \
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                             \
     {                                                                                                                 \
       iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->cpu.state.stall_callback = pv_##insn_name##_c_resume;                                                      \
-      iss->cpu.pulp_nn.ml_insn = insn;                                                                               \
-      iss_exec_insn_stall(iss);                                                                                       \
+      iss->state.stall_callback = &pv_##insn_name##_c_resume;                                                      \
+      iss->pulp_nn.ml_insn = insn;                                                                               \
+      iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
     iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
     IN_REG_SET(1, addr + 4);                                                                                            \
@@ -480,157 +480,157 @@ PV_OP_RRRU3_EXEC_NN(mlsdotsup,SDOTUSP,1)
 PV_OP_RRRU3_EXEC_NN(mlsdotsp,SDOTSP,1)
 
 
-static inline void qnt_step_resume(Iss *iss)
+static inline void qnt_step_resume(Lsu *lsu)
 {
 }
 
 static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, iss_addr_t addr, int reg)
 {
-  iss_addr_t qnt_addr = addr;// + 4 * iss->cpu.pulp_nn.qnt_step;
-  uint8_t *data = (uint8_t *)&iss->cpu.pulp_nn.qnt_regs[iss->cpu.pulp_nn.qnt_step];
-  iss->cpu.pulp_nn.addr_reg = qnt_addr;
+  iss_addr_t qnt_addr = addr;// + 4 * iss->pulp_nn.qnt_step;
+  uint8_t *data = (uint8_t *)&iss->pulp_nn.qnt_regs[iss->pulp_nn.qnt_step];
+  iss->pulp_nn.addr_reg = qnt_addr;
   //int16_t data;
-  if(iss->cpu.pulp_nn.qnt_step==0)
+  if(iss->pulp_nn.qnt_step==0)
   {
-    iss->cpu.pulp_nn.qnt_step++;
+    iss->pulp_nn.qnt_step++;
     return insn;
   }
-  if(iss->cpu.pulp_nn.qnt_step==1)
+  if(iss->pulp_nn.qnt_step==1)
   {
     //printf("here1\n" );
-    //iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false);
-    if (!iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false))
+    //iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false);
+    if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false))
     {
-      //printf("qnt_add: %X\n",iss->cpu.pulp_nn.addr_reg );
+      //printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
       //printf("data: %d\n", *((int16_t*)data) );
       if (input <= *((int16_t*)data))
       {
         //printf("here21\n" );
-        iss->cpu.pulp_nn.qnt_reg_out = 0x1;
-        iss->cpu.pulp_nn.addr_reg = iss->cpu.pulp_nn.addr_reg - 4 * 2;
+        iss->pulp_nn.qnt_reg_out = 0x1;
+        iss->pulp_nn.addr_reg = iss->pulp_nn.addr_reg - 4 * 2;
       }
       else
       {
         //printf("here22\n" );
-        iss->cpu.pulp_nn.qnt_reg_out = 0x0;
-        iss->cpu.pulp_nn.addr_reg = iss->cpu.pulp_nn.addr_reg + 4 * 2;
+        iss->pulp_nn.qnt_reg_out = 0x0;
+        iss->pulp_nn.addr_reg = iss->pulp_nn.addr_reg + 4 * 2;
       }
       //printf("here3\n" );
-      iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out <<1;
-      //printf("out: %X\n", iss->cpu.pulp_nn.qnt_reg_out);
+      iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out <<1;
+      //printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
 
-      iss->cpu.pulp_nn.qnt_step++;
+      iss->pulp_nn.qnt_step++;
       return insn;
     }
     else
     {
-      iss->cpu.state.stall_callback = qnt_step_resume;
-      iss->cpu.state.stall_reg = reg;
-      iss_exec_insn_stall(iss);
+      iss->state.stall_callback = qnt_step_resume;
+      iss->state.stall_reg = reg;
+      iss->exec.insn_stall();
     }
   }
 
-  if (iss->cpu.pulp_nn.qnt_step==2)
+  if (iss->pulp_nn.qnt_step==2)
   {
     //printf("qnt2,here1\n");
-    if(!iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false))
+    if(!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false))
     {
-      //printf("qnt_add: %X\n",iss->cpu.pulp_nn.addr_reg );
+      //printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
       //printf("data: %d\n", *((int16_t*)data) );
       if(input > *((int16_t*) data))
       {
         //printf("qnt2,here21\n");
-        iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out | 0x1;
-        iss->cpu.pulp_nn.addr_reg = iss->cpu.pulp_nn.addr_reg + 2 * 2;
+        iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out | 0x1;
+        iss->pulp_nn.addr_reg = iss->pulp_nn.addr_reg + 2 * 2;
       }
       else
       {
         //printf("qnt2,here22\n");
-        iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out | 0x0;
-        iss->cpu.pulp_nn.addr_reg = iss->cpu.pulp_nn.addr_reg - 2 * 2;
+        iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out | 0x0;
+        iss->pulp_nn.addr_reg = iss->pulp_nn.addr_reg - 2 * 2;
       }
       //printf("qnt2,here3\n");
-      iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out <<1;
-      //printf("out: %X\n", iss->cpu.pulp_nn.qnt_reg_out);
-      iss->cpu.pulp_nn.qnt_step++;
+      iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out <<1;
+      //printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
+      iss->pulp_nn.qnt_step++;
       return insn;
     }
     else
     {
-      iss->cpu.state.stall_callback = qnt_step_resume;
-      iss->cpu.state.stall_reg = reg;
-      iss_exec_insn_stall(iss);
+      iss->state.stall_callback = qnt_step_resume;
+      iss->state.stall_reg = reg;
+      iss->exec.insn_stall();
     }
 
   }
 
 
-  if (iss->cpu.pulp_nn.qnt_step==3)
+  if (iss->pulp_nn.qnt_step==3)
   {
     //printf("qnt3,here1\n");
-    if(!iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false))
-    //iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false);
+    if(!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false))
+    //iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false);
     {
-      //printf("qnt_add: %X\n",iss->cpu.pulp_nn.addr_reg );
+      //printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
       //printf("data: %d\n", *((int16_t*)data) );
       if(input > *((int16_t*) data))
       {
         //printf("qnt3,here21\n");
-        iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out | 0x1;
-        iss->cpu.pulp_nn.addr_reg = iss->cpu.pulp_nn.addr_reg + 1 * 2;
+        iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out | 0x1;
+        iss->pulp_nn.addr_reg = iss->pulp_nn.addr_reg + 1 * 2;
       }
       else
       {
         //printf("qnt3,here22\n");
-        iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out | 0x0;
-        iss->cpu.pulp_nn.addr_reg = iss->cpu.pulp_nn.addr_reg - 1 * 2;
+        iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out | 0x0;
+        iss->pulp_nn.addr_reg = iss->pulp_nn.addr_reg - 1 * 2;
       }
       //printf("qnt3,here3\n");
-      iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out <<1;
-      //printf("out: %X\n", iss->cpu.pulp_nn.qnt_reg_out);
-      iss->cpu.pulp_nn.qnt_step++;
+      iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out <<1;
+      //printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
+      iss->pulp_nn.qnt_step++;
       return insn;
     }
     else
     {
-      iss->cpu.state.stall_callback = qnt_step_resume;
-      iss->cpu.state.stall_reg = reg;
-      iss_exec_insn_stall(iss);
+      iss->state.stall_callback = qnt_step_resume;
+      iss->state.stall_reg = reg;
+      iss->exec.insn_stall();
     }
   }
 
-  if(iss->cpu.pulp_nn.qnt_step==4)
+  if(iss->pulp_nn.qnt_step==4)
   {
     //printf("qnt4,here1\n");
-    if(!iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false))
-    //iss->data_req(iss->cpu.pulp_nn.addr_reg, data, 2, false);
+    if(!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false))
+    //iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false);
     {
-      //printf("qnt_add: %X\n",iss->cpu.pulp_nn.addr_reg );
+      //printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
       //printf("data: %d\n", *((int16_t*)data) );
       if(input > *((int16_t*) data))
       {
         //printf("qnt4,here21\n");
-        iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out | 0x1;
+        iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out | 0x1;
       }
       else
       {
         //printf("qnt4,here22\n");
-        iss->cpu.pulp_nn.qnt_reg_out = iss->cpu.pulp_nn.qnt_reg_out | 0x0;
+        iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out | 0x0;
       }
       //printf("qnt4,here3\n");
-      iss->cpu.pulp_nn.qnt_step = 0;
-      //printf("out: %X\n", iss->cpu.pulp_nn.qnt_reg_out);
-      iss->cpu.pulp_nn.qnt_reg_out = (iss->cpu.pulp_nn.qnt_reg_out & 0x08) ? (iss->cpu.pulp_nn.qnt_reg_out | 0xFFFFFFF0) : (iss->cpu.pulp_nn.qnt_reg_out & 0x0000000F);
-      //printf("out: %X\n", iss->cpu.pulp_nn.qnt_reg_out);
-      REG_SET(0, iss->cpu.pulp_nn.qnt_reg_out);
-      iss->cpu.state.insn_cycles = 2;
+      iss->pulp_nn.qnt_step = 0;
+      //printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
+      iss->pulp_nn.qnt_reg_out = (iss->pulp_nn.qnt_reg_out & 0x08) ? (iss->pulp_nn.qnt_reg_out | 0xFFFFFFF0) : (iss->pulp_nn.qnt_reg_out & 0x0000000F);
+      //printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
+      REG_SET(0, iss->pulp_nn.qnt_reg_out);
+      iss->timing.stall_insn_account(2);
       return insn-> next;
     }
     else
     {
-      iss->cpu.state.stall_callback = qnt_step_resume;
-      iss->cpu.state.stall_reg = reg;
-      iss_exec_insn_stall(iss);
+      iss->state.stall_callback = qnt_step_resume;
+      iss->state.stall_reg = reg;
+      iss->exec.insn_stall();
     }
   }
   /* FIXME: Avoid compiling error */
@@ -645,7 +645,7 @@ static inline iss_insn_t *pv_qnt_n_exec(Iss *iss, iss_insn_t *insn)
 
 static inline void iss_pulp_nn_init(Iss *iss)
 {
-  iss->cpu.pulp_nn.qnt_step = 0;
+  iss->pulp_nn.qnt_step = 0;
 }
 
 #endif

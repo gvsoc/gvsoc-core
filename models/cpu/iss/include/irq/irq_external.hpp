@@ -19,26 +19,36 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_API_HPP
-#define __CPU_ISS_ISS_API_HPP
-
-#include "types.hpp"
+#pragma once
 
 
+#include <vp/vp.hpp>
+#include <types.hpp>
 
-static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value);
+class Irq
+{
+public:
+    Irq(Iss &iss);
 
-static inline iss_reg_t iss_get_reg(Iss *iss, int reg);
+    void vector_table_set(iss_addr_t base);
+    inline void global_enable(int enable);
+    iss_insn_t *mret_handle();
+    iss_insn_t *dret_handle();
+    void cache_flush();
+    void build();
+    void reset(bool active);
+    int check();
+    void wfi_handle();
+    void elw_irq_unstall();
+    static void irq_req_sync(void *__this, int irq);
 
-static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg);
-
-
-static inline void iss_perf_account_ld_stall(Iss *iss);
-
-
-
-#endif
+    Iss &iss;
+    iss_insn_t *vectors[35];
+    int irq_enable;
+    int saved_irq_enable;
+    int debug_saved_irq_enable;
+    int req_irq;
+    bool req_debug;
+    uint32_t vector_base;
+    iss_insn_t *debug_handler;
+};

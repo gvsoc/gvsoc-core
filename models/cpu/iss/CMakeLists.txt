@@ -29,8 +29,12 @@ function(generate_isa)
         "${GEN_ISA_NAME}_decoder_gen.hpp"
         )
     set(ISS_FILES
+        "${F_GVSOC_ISS_DIR}/src/prefetch/prefetch_single_line.cpp"
         "${F_GVSOC_ISS_DIR}/src/csr.cpp"
+        "${F_GVSOC_ISS_DIR}/src/exec/exec_inorder.cpp"
+        "${F_GVSOC_ISS_DIR}/src/irq/irq_external.cpp"
         "${F_GVSOC_ISS_DIR}/src/decoder.cpp"
+        "${F_GVSOC_ISS_DIR}/src/lsu.cpp"
         "${F_GVSOC_ISS_DIR}/src/insn_cache.cpp"
         "${F_GVSOC_ISS_DIR}/src/iss.cpp"
         "${F_GVSOC_ISS_DIR}/src/resource.cpp"
@@ -38,8 +42,6 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/syscalls.cpp"
         "${F_GVSOC_ISS_DIR}/src/gdbserver.cpp"
         "${F_GVSOC_ISS_DIR}/src/dbg_unit.cpp"
-        "${F_GVSOC_ISS_DIR}/src/irq.cpp"
-        "${F_GVSOC_ISS_DIR}/vp/src/iss_wrapper.cpp"
         "${F_GVSOC_ISS_DIR}/flexfloat/flexfloat.c"
         )
 

@@ -15,96 +15,83 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 static inline iss_insn_t *c_addiw_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return addiw_exec(iss, insn);
+    return addiw_exec(iss, insn);
 }
 
 static inline iss_insn_t *c_addiw_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return addiw_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return addiw_exec(iss, insn);
 }
-
-
 
 static inline iss_insn_t *c_ld_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return ld_exec_fast(iss, insn);
+    return ld_exec_fast(iss, insn);
 }
 
 static inline iss_insn_t *c_ld_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return ld_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return ld_exec(iss, insn);
 }
-
-
 
 static inline iss_insn_t *c_sd_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return sd_exec_fast(iss, insn);
+    return sd_exec_fast(iss, insn);
 }
 
 static inline iss_insn_t *c_sd_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return sd_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return sd_exec(iss, insn);
 }
-
-
 
 static inline iss_insn_t *c_subw_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return subw_exec(iss, insn);
+    return subw_exec(iss, insn);
 }
 
 static inline iss_insn_t *c_subw_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return subw_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return subw_exec(iss, insn);
 }
-
-
 
 static inline iss_insn_t *c_addw_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return addw_exec(iss, insn);
+    return addw_exec(iss, insn);
 }
 
 static inline iss_insn_t *c_addw_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return addw_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return addw_exec(iss, insn);
 }
-
-
 
 static inline iss_insn_t *c_ldsp_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return ld_exec_fast(iss, insn);
+    return ld_exec_fast(iss, insn);
 }
 
 static inline iss_insn_t *c_ldsp_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return ld_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return ld_exec(iss, insn);
 }
-
-
 
 static inline iss_insn_t *c_sdsp_exec_fast(Iss *iss, iss_insn_t *insn)
 {
-  return sd_exec_fast(iss, insn);
+    return sd_exec_fast(iss, insn);
 }
 
 static inline iss_insn_t *c_sdsp_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_pccr_account_event(iss, CSR_PCER_RVC, 1);
-  return sd_exec(iss, insn);
+    iss->timing.event_rvc_account(1);
+    return sd_exec(iss, insn);
 }

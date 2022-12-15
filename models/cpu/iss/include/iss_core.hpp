@@ -25,10 +25,11 @@
 #include "types.hpp"
 #include <string>
 
-static inline void iss_exec_insn_stall(Iss *iss);
-static inline void iss_exec_insn_terminate(Iss *iss);
+void iss_trace_dump(Iss *iss, iss_insn_t *insn);
+void iss_trace_init(Iss *iss);
 
-int iss_open(Iss *iss);
+iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn);
+
 void iss_reset(Iss *iss, int active);
 void iss_start(Iss *iss);
 
@@ -36,10 +37,7 @@ iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name);
 
 void iss_register_debug_info(Iss *iss, const char *binary);
 
-void iss_pc_set(Iss *iss, iss_addr_t value);
-
-iss_insn_t *iss_decode_pc(Iss *cpu, iss_insn_t *pc);
-iss_insn_t *iss_decode_pc_noexec(Iss *cpu, iss_insn_t *pc);
+iss_insn_t *iss_decode_pc_handler(Iss *cpu, iss_insn_t *pc);
 void iss_decode_activate_isa(Iss *cpu, char *isa);
 
 
@@ -65,11 +63,8 @@ static inline iss_isa_set_t *iss_get_isa_set()
 #include "regs.hpp"
 #include "perf.hpp"
 #include "lsu.hpp"
-#include "prefetcher.hpp"
 #include "insn_cache.hpp"
-#include "irq.hpp"
 #include "exceptions.hpp"
-#include "exec.hpp"
 #include "resource.hpp"
 
 

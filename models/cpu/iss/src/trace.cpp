@@ -490,9 +490,9 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
-    iss_trace_save_args(iss, insn, iss->cpu.state.saved_args, true);
+    iss_trace_save_args(iss, insn, iss->state.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->cpu.state.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->state.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
 
     iss->insn_trace.msg(buffer);
 }
@@ -501,7 +501,7 @@ void iss_event_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->cpu.state.saved_args, false, 3, 1);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->state.saved_args, false, 3, 1);
 
     char *current = buffer;
     while (*current)
@@ -526,16 +526,16 @@ iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
 
     if (iss->insn_trace.get_active())
     {
-        iss_trace_save_args(iss, insn, iss->cpu.state.saved_args, false);
+        iss_trace_save_args(iss, insn, iss->state.saved_args, false);
 
-        next_insn = iss_exec_insn_handler(iss, insn, insn->saved_handler);
+        next_insn = insn->saved_handler(iss, insn);
 
-        if (!iss_exec_is_stalled(iss) && iss->dump_trace_enabled)
+        if (!iss->exec.is_stalled() && iss->dump_trace_enabled)
             iss_trace_dump(iss, insn);
     }
     else
     {
-        next_insn = iss_exec_insn_handler(iss, insn, insn->saved_handler);
+        next_insn = insn->saved_handler(iss, insn);
     }
 
     return next_insn;
@@ -548,4 +548,18 @@ void iss_trace_init(Iss *iss)
         pc_infos_is_init = true;
         memset(pc_infos, 0, sizeof(pc_infos));
     }
+}
+
+void Iss::dump_debug_traces()
+{
+  const char *func, *inline_func, *file;
+  int line;
+
+  if (!iss_trace_pc_info(this->current_insn->addr, &func, &inline_func, &file, &line))
+  {
+    this->func_trace_event.event_string(func);
+    this->inline_trace_event.event_string(inline_func);
+    this->file_trace_event.event_string(file);
+    this->line_trace_event.event((uint8_t *)&line);
+  }
 }

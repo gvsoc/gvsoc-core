@@ -740,6 +740,13 @@ vp::clock_event::clock_event(component_clock *comp, clock_event_meth_t *meth)
     this->clock = comp->get_clock();
 }
 
+vp::clock_event::clock_event(component_clock *comp, void *_this, clock_event_meth_t *meth)
+: comp(comp), _this(_this), meth(meth), enqueued(false)
+{
+    comp->add_clock_event(this);
+    this->clock = comp->get_clock();
+}
+
 void vp::component_clock::add_clock_event(clock_event *event)
 {
     this->events.push_back(event);

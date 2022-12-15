@@ -15,30 +15,31 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_API_HPP
-#define __CPU_ISS_ISS_API_HPP
+#pragma once
 
-#include "types.hpp"
+#include <types.hpp>
 
-
-
-static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value);
-
-static inline iss_reg_t iss_get_reg(Iss *iss, int reg);
-
-static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg);
-
-
-static inline void iss_perf_account_ld_stall(Iss *iss);
-
+class Gdbserver : public vp::Gdbserver_core
+{
+public:
+    Gdbserver(Iss &iss);
+    void start();
+    int gdbserver_get_id();
+    std::string gdbserver_get_name();
+    int gdbserver_reg_set(int reg, uint8_t *value);
+    int gdbserver_reg_get(int reg, uint8_t *value);
+    int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value);
+    int gdbserver_stop();
+    int gdbserver_cont();
+    int gdbserver_stepi();
+    int gdbserver_state();
 
 
-#endif
+    Iss &iss;
+    vp::trace gdbserver_trace;
+    vp::Gdbserver_engine *gdbserver;
+};

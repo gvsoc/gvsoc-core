@@ -22,12 +22,12 @@
 #ifndef __ISA_LIB_MACROS_HPP
 #define __ISA_LIB_MACROS_HPP
 
-#define LIB_CALL1(name, s0) name(&iss->cpu.state, s0)
-#define LIB_CALL2(name, s0, s1) name(&iss->cpu.state, s0, s1)
-#define LIB_CALL3(name, s0, s1, s2) name(&iss->cpu.state, s0, s1, s2)
-#define LIB_CALL4(name, s0, s1, s2, s3) name(&iss->cpu.state, s0, s1, s2, s3)
-#define LIB_CALL5(name, s0, s1, s2, s3, s4) name(&iss->cpu.state, s0, s1, s2, s3, s4)
-#define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(&iss->cpu.state, s0, s1, s2, s3, s4, s5)
+#define LIB_CALL1(name, s0) name(&iss->state, s0)
+#define LIB_CALL2(name, s0, s1) name(&iss->state, s0, s1)
+#define LIB_CALL3(name, s0, s1, s2) name(&iss->state, s0, s1, s2)
+#define LIB_CALL4(name, s0, s1, s2, s3) name(&iss->state, s0, s1, s2, s3)
+#define LIB_CALL5(name, s0, s1, s2, s3, s4) name(&iss->state, s0, s1, s2, s3, s4)
+#define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(&iss->state, s0, s1, s2, s3, s4, s5)
 
 #define LIB_FF_CALL1(name, s0, s1, s2) LIB_CALL3(name, s0, s1, s2)
 #define LIB_FF_CALL2(name, s0, s1, s2, s3) LIB_CALL4(name, s0, s1, s2, s3)

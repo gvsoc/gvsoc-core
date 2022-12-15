@@ -20,29 +20,46 @@
  */
 
 
-#include <vp/vp.hpp>
-#include "iss.hpp"
+#include <iss.hpp>
 
 
-int Iss::gdbserver_get_id()
+Gdbserver::Gdbserver(Iss &iss)
+: iss(iss)
 {
-  return this->cpu.config.mhartid;
 }
 
 
-std::string Iss::gdbserver_get_name()
+void Gdbserver::start()
 {
-  return this->get_name();
+  this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
+
+  if (this->gdbserver)
+  {
+    this->gdbserver->register_core(this);
+    this->iss.halted.set(true);
+  }
 }
 
 
-int Iss::gdbserver_reg_set(int reg, uint8_t *value)
+int Gdbserver::gdbserver_get_id()
+{
+  return this->iss.config.mhartid;
+}
+
+
+std::string Gdbserver::gdbserver_get_name()
+{
+  return this->iss.get_name();
+}
+
+
+int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
     this->gdbserver_trace.msg(vp::trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
 
     if (reg == 32)
     {
-        iss_pc_set(this, *(uint32_t *)value);
+        this->iss.pc_set(*(uint32_t *)value);
     }
     else
     {
@@ -53,14 +70,14 @@ int Iss::gdbserver_reg_set(int reg, uint8_t *value)
 }
 
 
-int Iss::gdbserver_reg_get(int reg, uint8_t *value)
+int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 {
   fprintf(stderr, "UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
   return 0;
 }
 
 
-int Iss::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
+int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
     if (nb_regs)
     {
@@ -77,12 +94,12 @@ int Iss::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
         uint32_t *regs = (uint32_t *)value;
         for (int i=0; i<32; i++)
         {
-            regs[i] = iss_get_reg(this, i);
+            regs[i] = iss_get_reg(&this->iss, i);
         }
 
-        if (this->cpu.current_insn)
+        if (this->iss.current_insn)
         {
-            regs[32] = this->cpu.current_insn->addr;
+            regs[32] = this->iss.current_insn->addr;
         }
         else
         {
@@ -94,32 +111,32 @@ int Iss::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 }
 
 
-int Iss::gdbserver_stop()
+int Gdbserver::gdbserver_stop()
 {
-    this->halted.set(true);
+    this->iss.halted.set(true);
     this->gdbserver->signal(this);
     return 0;
 }
 
 
-int Iss::gdbserver_cont()
+int Gdbserver::gdbserver_cont()
 {
-    this->halted.set(false);
+    this->iss.halted.set(false);
 
     return 0;
 }
 
 
-int Iss::gdbserver_stepi()
+int Gdbserver::gdbserver_stepi()
 {
     fprintf(stderr, "STEP\n");
-    this->step_mode.set(true);
-    this->halted.set(false);
+    this->iss.step_mode.set(true);
+    this->iss.halted.set(false);
     return 0;
 }
 
 
-int Iss::gdbserver_state()
+int Gdbserver::gdbserver_state()
 {
     return vp::Gdbserver_core::state::running;
 }

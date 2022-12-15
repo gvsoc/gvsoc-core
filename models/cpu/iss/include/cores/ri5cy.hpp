@@ -19,26 +19,17 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_API_HPP
-#define __CPU_ISS_ISS_API_HPP
 
+#include <vp/vp.hpp>
 #include "types.hpp"
+#include <irq/irq_external.hpp>
+#include <exec/exec_inorder.hpp>
+#include <prefetch/prefetch_single_line.hpp>
+#include "iss.hpp"
 
+class Ri5cy : public Iss
+{
+public:
+    Ri5cy(js::config *config) : Iss(config) {}
 
-
-static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value);
-
-static inline iss_reg_t iss_get_reg(Iss *iss, int reg);
-
-static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg);
-
-
-static inline void iss_perf_account_ld_stall(Iss *iss);
-
-
-
-#endif
+};

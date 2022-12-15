@@ -126,36 +126,36 @@ static bool uip_write(Iss *iss, unsigned int value) {
 
 
 static bool fflags_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.state.fcsr.fflags.raw;
+  *value = iss->state.fcsr.fflags.raw;
   return false;
 }
 
 static bool fflags_write(Iss *iss, unsigned int value) {
-  iss->cpu.state.fcsr.fflags.raw = value;
+  iss->state.fcsr.fflags.raw = value;
   return false;
 }
 
 
 
 static bool frm_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.state.fcsr.frm;
+  *value = iss->state.fcsr.frm;
   return false;
 }
 
 static bool frm_write(Iss *iss, unsigned int value) {
-  iss->cpu.state.fcsr.frm = value;
+  iss->state.fcsr.frm = value;
   return false;
 }
 
 
 
 static bool fcsr_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.state.fcsr.raw;
+  *value = iss->state.fcsr.raw;
   return false;
 }
 
 static bool fcsr_write(Iss *iss, unsigned int value) {
-  iss->cpu.state.fcsr.raw = value & 0xff;
+  iss->state.fcsr.raw = value & 0xff;
   return false;
 }
 
@@ -367,7 +367,7 @@ static bool satp_write(Iss *iss, unsigned int value) {
  */
 
 static bool misa_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.config.misa;
+  *value = iss->config.misa;
   return false;
 }
 
@@ -391,19 +391,19 @@ static bool mimpid_read(Iss *iss, iss_reg_t *value) {
 }
 
 static bool mhartid_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.config.mhartid;
+  *value = iss->config.mhartid;
   return false;
 }
 
 
 static bool mstatus_read(Iss *iss, iss_reg_t *value) {
-  *value = (iss->cpu.csr.status & ~(1<<3)) | (iss->cpu.irq.irq_enable << 3) | (iss->cpu.irq.saved_irq_enable << 7);
+  *value = (iss->csr.status & ~(1<<3)) | (iss->irq.irq_enable << 3) | (iss->irq.saved_irq_enable << 7);
   return false;
 }
 
 static bool mstatus_write(Iss *iss, unsigned int value)
 {
-  iss_perf_account_dependency_stall(iss, 4);
+  iss->timing.stall_insn_dependency_account(4);
 
 #if defined(SECURE)
   unsigned int mask = 0x21899;
@@ -412,9 +412,9 @@ static bool mstatus_write(Iss *iss, unsigned int value)
   unsigned int mask = 0x88;
   unsigned int or_mask = 0x1800;
 #endif
-  iss->cpu.csr.status = (value & mask) | or_mask;
-  iss_irq_enable(iss, (value >> 3) & 1);
-  iss->cpu.irq.saved_irq_enable = (value >> 7) & 1;
+  iss->csr.status = (value & mask) | or_mask;
+  iss->irq.global_enable((value >> 3) & 1);
+  iss->irq.saved_irq_enable = (value >> 7) & 1;
   return false;
 }
 
@@ -460,14 +460,14 @@ static bool mie_write(Iss *iss, unsigned int value) {
 
 static bool mtvec_read(Iss *iss, iss_reg_t *value) {
   //*value = iss->tvec[GVSIM_MODE_MACHINE];
-  *value = iss->cpu.csr.mtvec;
+  *value = iss->csr.mtvec;
   return false;
 }
 
 static bool mtvec_write(Iss *iss, unsigned int value) {
-  iss->cpu.csr.mtvec = value;
+  iss->csr.mtvec = value;
   //iss->tvec[GVSIM_MODE_MACHINE] = value;
-  iss_irq_set_vector_table(iss, value);
+  iss->irq.vector_table_set(value);
   return false;
 }
 
@@ -483,36 +483,36 @@ static bool mcounteren_write(Iss *iss, unsigned int value) {
 
 
 static bool mscratch_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.mscratch;
+  *value = iss->csr.mscratch;
   return false;
 }
 
 static bool mscratch_write(Iss *iss, unsigned int value) {
-  iss->cpu.csr.mscratch = value;
+  iss->csr.mscratch = value;
   return false;
 }
 
 
 static bool mepc_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.epc;
+  *value = iss->csr.epc;
   return false;
 }
 
 static bool mepc_write(Iss *iss, unsigned int value) {
   iss->trace.msg("Setting MEPC (value: 0x%x)\n", value);
-  iss->cpu.csr.epc = value & ~1;
+  iss->csr.epc = value & ~1;
   return false;
 }
 
 
 
 static bool mcause_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.mcause;
+  *value = iss->csr.mcause;
   return false;
 }
 
 static bool mcause_write(Iss *iss, unsigned int value) {
-  iss->cpu.csr.mcause = value;
+  iss->csr.mcause = value;
   return false;
 }
 
@@ -783,10 +783,10 @@ static bool tdata_write(Iss *iss, unsigned int value, int id) {
 
 static bool stack_conf_write(Iss *iss, iss_reg_t value)
 {
-  iss->cpu.csr.stack_conf = value;
+  iss->csr.stack_conf = value;
 
-  if (iss->cpu.csr.stack_conf)
-    iss->csr_trace.msg("Activating stack checking (start: 0x%x, end: 0x%x)\n", iss->cpu.csr.stack_start, iss->cpu.csr.stack_end);
+  if (iss->csr.stack_conf)
+    iss->csr_trace.msg("Activating stack checking (start: 0x%x, end: 0x%x)\n", iss->csr.stack_start, iss->csr.stack_end);
   else
     iss->csr_trace.msg("Deactivating stack checking\n");
 
@@ -795,31 +795,31 @@ static bool stack_conf_write(Iss *iss, iss_reg_t value)
 
 static bool stack_conf_read(Iss *iss, iss_reg_t *value)
 {
-  *value = iss->cpu.csr.stack_conf;
+  *value = iss->csr.stack_conf;
   return false;
 }
 
 static bool stack_start_write(Iss *iss, iss_reg_t value)
 {
-  iss->cpu.csr.stack_start = value;
+  iss->csr.stack_start = value;
   return false;
 }
 
 static bool stack_start_read(Iss *iss, iss_reg_t *value)
 {
-  *value = iss->cpu.csr.stack_start;
+  *value = iss->csr.stack_start;
   return false;
 }
 
 static bool stack_end_write(Iss *iss, iss_reg_t value)
 {
-  iss->cpu.csr.stack_end = value;
+  iss->csr.stack_end = value;
   return false;
 }
 
 static bool stack_end_read(Iss *iss, iss_reg_t *value)
 {
-  *value = iss->cpu.csr.stack_end;
+  *value = iss->csr.stack_end;
   return false;
 }
 
@@ -830,90 +830,90 @@ static bool umode_read(Iss *iss, iss_reg_t *value) {
 }
 
 static bool dcsr_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.dcsr;
+  *value = iss->csr.dcsr;
   return false;
 }
 
 static bool dcsr_write(Iss *iss, iss_reg_t value) {
-  iss->cpu.csr.dcsr = value;
+  iss->csr.dcsr = value;
   iss->step_mode.set((value >> 2) & 1);
   return false;
 }
 
 static bool depc_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.depc;
+  *value = iss->csr.depc;
   return false;
 }
 
 static bool depc_write(Iss *iss, iss_reg_t value) {
-  iss->cpu.csr.depc = value;
+  iss->csr.depc = value;
   return false;
 }
 
 
 
 static bool dscratch_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.scratch0;
+  *value = iss->csr.scratch0;
   return false;
 }
 
 static bool dscratch_write(Iss *iss, unsigned int value) {
-  iss->cpu.csr.scratch0 = value;
+  iss->csr.scratch0 = value;
   return false;
 }
 
 static bool scratch0_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.scratch0;
+  *value = iss->csr.scratch0;
   return false;
 }
 
 static bool scratch0_write(Iss *iss, iss_reg_t value) {
-  iss->cpu.csr.scratch0 = value;
+  iss->csr.scratch0 = value;
   return false;
 }
 
 static bool scratch1_read(Iss *iss, iss_reg_t *value) {
-  *value = iss->cpu.csr.scratch1;
+  *value = iss->csr.scratch1;
   return false;
 }
 
 static bool scratch1_write(Iss *iss, iss_reg_t value) {
-  iss->cpu.csr.scratch1 = value;
+  iss->csr.scratch1 = value;
   return false;
 }
 
 
 static bool pcer_write(Iss *iss, unsigned int prev_val, unsigned int value) {
-  iss->cpu.csr.pcer = value & 0x7fffffff;
-  check_perf_config_change(iss, prev_val, iss->cpu.csr.pcmr);
+  iss->csr.pcer = value & 0x7fffffff;
+  check_perf_config_change(iss, prev_val, iss->csr.pcmr);
   return false;
 }
 
 static bool pcmr_write(Iss *iss, unsigned int prev_val, unsigned int value) {
-  iss->cpu.csr.pcmr = value;
+  iss->csr.pcmr = value;
 
-  check_perf_config_change(iss, iss->cpu.csr.pcer, prev_val);
+  check_perf_config_change(iss, iss->csr.pcer, prev_val);
   return false;
 }
 
 #if defined(CSR_HWLOOP0_START)
 static bool hwloop_read(Iss *iss, int reg, iss_reg_t *value) {
-  *value = iss->cpu.pulpv2.hwloop_regs[reg];
+  *value = iss->pulpv2.hwloop_regs[reg];
   return false;
 }
 
 static bool hwloop_write(Iss *iss, int reg, unsigned int value) {
-  iss->cpu.pulpv2.hwloop_regs[reg] = value;
+  iss->pulpv2.hwloop_regs[reg] = value;
 
   // Since the HW loop is using decode instruction for the HW loop start to jump faster
   // we need to recompute it when it is modified.
   if (reg == 0)
   {
-      iss->cpu.state.hwloop_start_insn[0] = insn_cache_get(iss, value);
+      iss->state.hwloop_start_insn[0] = insn_cache_get(iss, value);
   }
   else if (reg == 4)
   {
-      iss->cpu.state.hwloop_start_insn[1] = insn_cache_get(iss, value);
+      iss->state.hwloop_start_insn[1] = insn_cache_get(iss, value);
   }
 
   return false;
@@ -953,7 +953,7 @@ void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr
   if (((pcer & CSR_PCER_EVENT_MASK(id)) && (pcmr & CSR_PCMR_ACTIVE)) || iss->perf_event_is_active(id))
   {
     iss_csr_ext_counter_get(iss, id, &incr);
-    iss->cpu.csr.pccr[id] += incr;
+    iss->csr.pccr[id] += incr;
     iss->perf_event_incr(id, incr);
   }
   else {
@@ -988,7 +988,7 @@ void flushExternalCounters(Iss *iss)
   int i;
   for (i=CSR_PCER_NB_INTERNAL_EVENTS; i<CSR_PCER_NB_EVENTS; i++)
   {
-    update_external_pccr(iss, i, iss->cpu.csr.pcer, iss->cpu.csr.pcmr);
+    update_external_pccr(iss, i, iss->csr.pcer, iss->csr.pcmr);
   }
 }
 
@@ -996,21 +996,21 @@ static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value) {
   // In case of counters connected to external signals, we need to synchronize first
   if (reg >= CSR_PCCR(CSR_PCER_NB_INTERNAL_EVENTS) && reg < CSR_PCCR(CSR_NB_PCCR))
   {
-    update_external_pccr(iss, reg - CSR_PCCR(0), iss->cpu.csr.pcer, iss->cpu.csr.pcmr);
-    *value = iss->cpu.csr.pccr[reg - CSR_PCCR(0)];
+    update_external_pccr(iss, reg - CSR_PCCR(0), iss->csr.pcer, iss->csr.pcmr);
+    *value = iss->csr.pccr[reg - CSR_PCCR(0)];
     iss->perf_counter_trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
   }
   else if (reg == CSR_PCER)
   {
-    *value = iss->cpu.csr.pcer;
+    *value = iss->csr.pcer;
   }
   else if (reg == CSR_PCMR)
   {
-    *value = iss->cpu.csr.pcmr;
+    *value = iss->csr.pcmr;
   }
   else
   {
-    *value = iss->cpu.csr.pccr[reg - CSR_PCCR(0)];
+    *value = iss->csr.pccr[reg - CSR_PCCR(0)];
     iss->perf_counter_trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
   }
 
@@ -1023,12 +1023,12 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
   if (reg == CSR_PCER)
   {
     iss->perf_counter_trace.msg("Setting PCER (value: 0x%x)\n", value);
-    return pcer_write(iss, iss->cpu.csr.pcer, value);
+    return pcer_write(iss, iss->csr.pcer, value);
   }
   else if (reg == CSR_PCMR)
   {
     iss->perf_counter_trace.msg("Setting PCMR (value: 0x%x)\n", value);
-    return pcmr_write(iss, iss->cpu.csr.pcmr, value);
+    return pcmr_write(iss, iss->csr.pcmr, value);
   }
   // In case of counters connected to external signals, we need to synchronize the external one
   // with our
@@ -1036,7 +1036,7 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
   {
       // This will update out counter, which will be overwritten afterwards by the new value and
       // also set the external counter to 0 which makes sure they are synchroninez
-    update_external_pccr(iss, reg - CSR_PCCR(0), iss->cpu.csr.pcer, iss->cpu.csr.pcmr);
+    update_external_pccr(iss, reg - CSR_PCCR(0), iss->csr.pcer, iss->csr.pcmr);
   }
   else if (reg == CSR_PCCR(CSR_NB_PCCR)) 
   {
@@ -1045,7 +1045,7 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
     int i;
     for (i=0; i<31; i++)
     {
-      iss->cpu.csr.pccr[i] = value;
+      iss->csr.pccr[i] = value;
       if (i >= CSR_PCER_NB_INTERNAL_EVENTS  && i < CSR_PCER_NB_EVENTS)
       {
         update_external_pccr(iss, i, 0, 0);
@@ -1055,7 +1055,7 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
   else
   {
     iss->perf_counter_trace.msg("Setting PCCR value (pccr: %d, value: 0x%x)\n", reg - CSR_PCCR(0), value);
-    iss->cpu.csr.pccr[reg - CSR_PCCR(0)] = value;
+    iss->csr.pccr[reg - CSR_PCCR(0)] = value;
   }
   return false;
 }
@@ -1379,7 +1379,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 #endif
 
 #if defined(CSR_HWLOOP0_START)
-    else if (iss->cpu.pulpv2.hwloop)
+    else if (iss->pulpv2.hwloop)
     {
       if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
       {
@@ -1408,7 +1408,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 
   // If there is any write to a CSR, switch to full check instruction handler
   // in case something special happened (like HW counting become active)
-  iss->trigger_check_all();
+  iss->exec.switch_to_full_mode();
 
 #if 0
   // First check permissions
@@ -1518,7 +1518,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 #endif
 
 #if defined(CSR_HWLOOP0_START)
-  if (iss->cpu.pulpv2.hwloop)
+  if (iss->pulpv2.hwloop)
   {
     if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER) return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
   }
@@ -1533,14 +1533,14 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 
 void iss_csr_init(Iss *iss, int reset)
 {
-  iss->cpu.csr.status = 0x3 << 11;
-  iss->cpu.csr.mcause = 0;
+  iss->csr.status = 0x3 << 11;
+  iss->csr.mcause = 0;
 #if defined(ISS_HAS_PERF_COUNTERS)
-  iss->cpu.csr.pcmr = 0;
-  iss->cpu.csr.pcer = 3;
+  iss->csr.pcmr = 0;
+  iss->csr.pcer = 3;
 #endif
-  iss->cpu.csr.stack_conf = 0;
-  iss->cpu.csr.dcsr = 4 << 28;
+  iss->csr.stack_conf = 0;
+  iss->csr.dcsr = 4 << 28;
 }
 
 const char *iss_csr_name(Iss *iss, iss_reg_t reg)
@@ -1826,7 +1826,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 #endif
 
 #if defined(CSR_HWLOOP0_START)
-    else if (iss->cpu.pulpv2.hwloop)
+    else if (iss->pulpv2.hwloop)
     {
       if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
       {

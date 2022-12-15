@@ -25,8 +25,8 @@
 
 void Iss::debug_req()
 {
-  this->cpu.irq.req_debug = true;
-  this->irq_check();
+  this->irq.req_debug = true;
+  this->exec.switch_to_full_mode();
   this->wfi.set(false);
 }
 
@@ -35,9 +35,9 @@ void Iss::set_halt_mode(bool halted, int cause)
 {
   if (this->riscv_dbg_unit)
   {
-    if (!this->cpu.state.debug_mode)
+    if (!this->state.debug_mode)
     {
-      this->cpu.csr.dcsr = (this->cpu.csr.dcsr & ~(0x7 << 6)) | (cause << 6);
+      this->csr.dcsr = (this->csr.dcsr & ~(0x7 << 6)) | (cause << 6);
       this->debug_req();
     }
   }
@@ -67,11 +67,11 @@ void Iss::halt_core()
 {
   this->trace.msg("Halting core\n");
 
-  if (this->cpu.prev_insn == NULL)
+  if (this->prev_insn == NULL)
     this->ppc = 0;
   else
-    this->ppc = this->cpu.prev_insn->addr;
-  this->npc = this->cpu.current_insn->addr;
+    this->ppc = this->prev_insn->addr;
+  this->npc = this->current_insn->addr;
 }
 
 
@@ -129,7 +129,7 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
         // even if the core is sleeping
         iss_cache_flush(_this);
         _this->npc = *(iss_reg_t *)data;
-        iss_pc_set(_this, _this->npc);
+        _this->pc_set(_this->npc);
         _this->wfi.set(false);
       }
       else

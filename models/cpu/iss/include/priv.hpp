@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_PRIV_HPP
-#define __CPU_ISS_PRIV_HPP
-
+#pragma once
 
 #include <iss_core.hpp>
-
 
 
 
@@ -38,119 +35,121 @@ static inline void csr_decode(Iss *iss, iss_insn_t *insn)
 }
 
 
+
 static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t value;
-  iss_reg_t reg_value = REG_GET(0);
+    iss_reg_t value;
+    iss_reg_t reg_value = REG_GET(0);
 
-  if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-  { 
-    if (insn->out_regs[0] != 0) 
-      {
-        REG_SET(0, value);
-      }
-  }
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+        {
+            REG_SET(0, value);
+        }
+    }
 
-  iss_csr_write(iss, UIM_GET(0), reg_value);
+    iss_csr_write(iss, UIM_GET(0), reg_value);
 
-  return insn->next;
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t value;
-  iss_reg_t reg_value = REG_GET(0);
+    iss_reg_t value;
+    iss_reg_t reg_value = REG_GET(0);
 
-  if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-  { 
-    if (insn->out_regs[0] != 0) REG_SET(0, value);
-  }
-  iss_csr_write(iss, UIM_GET(0), value & ~reg_value);
-  return insn->next;
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+            REG_SET(0, value);
+    }
+    iss_csr_write(iss, UIM_GET(0), value & ~reg_value);
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t value;
-  iss_reg_t reg_value = REG_GET(0);
+    iss_reg_t value;
+    iss_reg_t reg_value = REG_GET(0);
 
-  if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-  { 
-    if (insn->out_regs[0] != 0) REG_SET(0, value);
-  }
-  iss_csr_write(iss, UIM_GET(0), value | reg_value);
-  return insn->next;
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+            REG_SET(0, value);
+    }
+    iss_csr_write(iss, UIM_GET(0), value | reg_value);
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *csrrwi_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t value;
+    iss_reg_t value;
 
-  if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-  { 
-    if (insn->out_regs[0] != 0) REG_SET(0, value);
-  }
-  iss_csr_write(iss, UIM_GET(0),UIM_GET(1));
-  return insn->next;
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+            REG_SET(0, value);
+    }
+    iss_csr_write(iss, UIM_GET(0), UIM_GET(1));
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *csrrci_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t value;
-  
-  if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-  { 
-    if (insn->out_regs[0] != 0) REG_SET(0, value);
-  }
-  iss_csr_write(iss, UIM_GET(0), value & ~UIM_GET(1));
-  return insn->next;
+    iss_reg_t value;
+
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+            REG_SET(0, value);
+    }
+    iss_csr_write(iss, UIM_GET(0), value & ~UIM_GET(1));
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *csrrsi_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t value;
+    iss_reg_t value;
 
-  if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-  { 
-    if (insn->out_regs[0] != 0) REG_SET(0, value);
-  }
-  iss_csr_write(iss, UIM_GET(0), value | UIM_GET(1));
-  return insn->next;
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+            REG_SET(0, value);
+    }
+    iss_csr_write(iss, UIM_GET(0), value | UIM_GET(1));
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *wfi_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss->wait_for_interrupt();
-  return insn->next;
+    iss->irq.wfi_handle();
+    return insn->next;
 }
 
 
 
 static inline iss_insn_t *mret_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_perf_account_dependency_stall(iss, 5);
-  return iss_irq_handle_mret(iss);
+    iss->timing.stall_insn_dependency_account(5);
+    return iss->irq.mret_handle();
 }
 
 
 
 static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
 {
-  return iss_irq_handle_dret(iss);
+    return iss->irq.dret_handle();
 }
-
-
-
-#endif

@@ -42,10 +42,10 @@ public:
     // Fetch the given instruction from prefetch buffer
     inline void fetch(iss_insn_t *insn);
 
-private:
     // Response callback for the refill
     static void fetch_response(void *_this, vp::io_req *req);
 
+private:
     // Fake a fetch of the given instruction from prefetch buffer (for timing).
     inline void fetch_novalue(iss_insn_t *insn);
 

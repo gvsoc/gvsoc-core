@@ -416,7 +416,8 @@ int Iss::build()
     data.set_grant_meth(&Lsu::data_grant);
     new_master_port(&this->lsu, "data", &data);
 
-    new_master_port("fetch", &fetch);
+    this->fetch.set_resp_meth(&Prefetcher::fetch_response);
+    new_master_port(&this->prefetcher, "fetch", &fetch);
 
     dbg_unit.set_req_meth(&Iss::dbg_unit_req);
     new_slave_port("dbg_unit", &dbg_unit);

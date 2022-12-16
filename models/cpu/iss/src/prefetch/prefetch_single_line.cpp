@@ -28,8 +28,6 @@
 Prefetcher::Prefetcher(Iss &iss)
     : iss(iss)
 {
-    this->iss.fetch.set_resp_meth(&Prefetcher::fetch_response);
-
     this->prefetch_insn = NULL;
 }
 

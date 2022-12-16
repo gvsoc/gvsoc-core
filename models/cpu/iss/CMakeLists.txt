@@ -35,6 +35,7 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/irq/irq_external.cpp"
         "${F_GVSOC_ISS_DIR}/src/decoder.cpp"
         "${F_GVSOC_ISS_DIR}/src/lsu.cpp"
+        "${F_GVSOC_ISS_DIR}/src/timing.cpp"
         "${F_GVSOC_ISS_DIR}/src/insn_cache.cpp"
         "${F_GVSOC_ISS_DIR}/src/iss.cpp"
         "${F_GVSOC_ISS_DIR}/src/resource.cpp"

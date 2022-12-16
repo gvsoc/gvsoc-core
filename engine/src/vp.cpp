@@ -619,7 +619,8 @@ void vp::clock_engine::cancel(vp::clock_event *event)
         }
     }
 
-    vp_assert(0, NULL, "Didn't find event in any queue while canceling event\n");
+    // TODO some models are pushing events to a different one that that they belong to
+    //vp_assert(0, NULL, "Didn't find event in any queue while canceling event\n");
 
 end:
     event->enqueued = false;

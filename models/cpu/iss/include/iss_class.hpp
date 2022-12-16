@@ -64,13 +64,6 @@ public:
 
     void pc_set(iss_addr_t value);
 
-    /*
-     * Performance events
-     */
-
-    inline void perf_event_incr(unsigned int event, int incr);
-    inline int perf_event_is_active(unsigned int event);
-
     static void clock_sync(void *_this, bool active);
     static void bootaddr_sync(void *_this, uint32_t value);
     static void fetchen_sync(void *_this, bool active);

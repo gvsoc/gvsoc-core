@@ -25,6 +25,9 @@
 #include "types.hpp"
 #include <string>
 
+
+void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr);
+
 void iss_trace_dump(Iss *iss, iss_insn_t *insn);
 void iss_trace_init(Iss *iss);
 

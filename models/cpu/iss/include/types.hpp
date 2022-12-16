@@ -541,6 +541,7 @@ typedef struct
 class Timing
 {
 public:
+    Timing(Iss &iss);
     inline void stall_fetch_account(int count);
     inline void stall_taken_branch_account();
     inline void stall_insn_account(int cycles);
@@ -560,8 +561,12 @@ public:
     inline void event_misaligned_account(int incr);
     inline void event_insn_contention_account(int incr);
 
+    inline void event_trace_account(unsigned int event, int cycles);
+    inline int event_trace_is_active(unsigned int event);
+
     inline int stall_cycles_get();
     inline void stall_cycles_dec();
+    inline void stall_cycles_account(int incr);
 
     inline void reset(bool active);
 
@@ -569,6 +574,8 @@ private:
     inline void event_account(unsigned int event, int incr);
 
     int stall_cycles;
+
+    Iss &iss;
 };
 
 

@@ -19,6 +19,13 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#pragma once
 
-#include "types.hpp"
+#include <vp/vp.hpp>
+#include "iss.hpp"
+
+
+Timing::Timing(Iss &iss)
+: iss(iss)
+{
+
+}

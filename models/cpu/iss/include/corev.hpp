@@ -60,7 +60,7 @@ static inline iss_insn_t *corev_hwloop_check_exec(Iss *iss, iss_insn_t *insn)
     if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0] && iss->corev.hwloop_regs[COREV_HWLOOP_LPEND0] == pc)
     {
         iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]--;
-        iss->decode_trace.msg("Reached end of HW loop (index: 0, loop count: %d)\n", iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]);
+        iss->decode.trace.msg("Reached end of HW loop (index: 0, loop count: %d)\n", iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0]);
 
         // If counter is not zero, we must jump back to beginning of the loop.
         if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT0])
@@ -77,7 +77,7 @@ static inline iss_insn_t *corev_hwloop_check_exec(Iss *iss, iss_insn_t *insn)
     {
         iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]--;
         // If counter is not zero, we must jump back to beginning of the loop.
-        iss->decode_trace.msg("Reached end of HW loop (index: 1, loop count: %d)\n", iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]);
+        iss->decode.trace.msg("Reached end of HW loop (index: 1, loop count: %d)\n", iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1]);
         if (iss->corev.hwloop_regs[COREV_HWLOOP_LPCOUNT1])
         {
             // Remember next instruction in case the current instruction is replayed

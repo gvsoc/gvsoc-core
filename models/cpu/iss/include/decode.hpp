@@ -33,6 +33,10 @@ public:
 
     vp::trace trace;
 
+    static void flush_cache_sync(void *_this, bool active);
+
+    int parse_isa();
+
 private:
     int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);
     int decode_item(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
@@ -41,6 +45,5 @@ private:
     uint64_t decode_ranges(iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed);
     int decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_info_t *info, bool is_signed);
 
-    // TODO to be removed
     Iss &iss;
 };

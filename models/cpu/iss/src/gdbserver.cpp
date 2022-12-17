@@ -53,7 +53,7 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 
     if (reg == 32)
     {
-        this->iss.pc_set(*(uint32_t *)value);
+        this->iss.exec.pc_set(*(uint32_t *)value);
     }
     else
     {
@@ -89,9 +89,9 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
             regs[i] = iss_get_reg(&this->iss, i);
         }
 
-        if (this->iss.current_insn)
+        if (this->iss.exec.current_insn)
         {
-            regs[32] = this->iss.current_insn->addr;
+            regs[32] = this->iss.exec.current_insn->addr;
         }
         else
         {

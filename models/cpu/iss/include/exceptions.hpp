@@ -27,14 +27,14 @@ static inline iss_insn_t *iss_except_raise(Iss *iss, int id)
 #if defined(PRIV_1_10)
     if (id == ISS_EXCEPT_DEBUG)
     {
-        iss->csr.depc = iss->current_insn->addr;
+        iss->csr.depc = iss->exec.current_insn->addr;
         iss->irq.debug_saved_irq_enable = iss->irq.irq_enable;
         iss->irq.irq_enable = 0;
         return iss->irq.debug_handler;
     }
     else
     {
-        iss->csr.epc = iss->current_insn->addr;
+        iss->csr.epc = iss->exec.current_insn->addr;
         iss->irq.saved_irq_enable = iss->irq.irq_enable;
         iss->irq.irq_enable = 0;
         iss->csr.mcause = 0xb;
@@ -44,7 +44,7 @@ static inline iss_insn_t *iss_except_raise(Iss *iss, int id)
         return insn;
     }
 #else
-    iss->csr.epc = iss->current_insn->addr;
+    iss->csr.epc = iss->exec.current_insn->addr;
     iss->irq.saved_irq_enable = iss->irq.irq_enable;
     iss->irq.irq_enable = 0;
     iss->csr.mcause = 0xb;

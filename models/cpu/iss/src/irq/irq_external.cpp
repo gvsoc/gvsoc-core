@@ -94,7 +94,7 @@ void Irq::wfi_handle()
     // so we have to check now if we can really go to sleep.
     if (this->req_irq == -1)
     {
-        this->iss.wfi.set(true);
+        this->iss.exec.wfi.set(true);
         this->iss.exec.insn_stall();
     }
 }
@@ -104,7 +104,7 @@ void Irq::elw_irq_unstall()
     this->trace.msg(vp::trace::LEVEL_TRACE, "%s %d\n", __FILE__, __LINE__);
 
     this->trace.msg("Interrupting pending elw\n");
-    this->iss.current_insn = this->iss.state.elw_insn;
+    this->iss.exec.current_insn = this->iss.state.elw_insn;
     // Keep the information that we interrupted it, so that features like HW loop
     // knows that the instruction is being replayed
     this->iss.state.elw_interrupted = 1;
@@ -118,9 +118,9 @@ void Irq::irq_req_sync(void *__this, int irq)
 
     _this->req_irq = irq;
 
-    if (irq != -1 && _this->iss.wfi.get())
+    if (irq != -1 && _this->iss.exec.wfi.get())
     {
-        _this->iss.wfi.set(false);
+        _this->iss.exec.wfi.set(false);
         _this->iss.exec.stalled_dec();
         _this->iss.exec.insn_terminate();
     }
@@ -138,11 +138,11 @@ int Irq::check()
     if (this->req_debug && !this->iss.state.debug_mode)
     {
         this->iss.state.debug_mode = true;
-        this->iss.csr.depc = this->iss.current_insn->addr;
+        this->iss.csr.depc = this->iss.exec.current_insn->addr;
         this->debug_saved_irq_enable = this->irq_enable;
         this->irq_enable = 0;
         this->req_debug = false;
-        this->iss.current_insn = this->debug_handler;
+        this->iss.exec.current_insn = this->debug_handler;
         return 1;
     }
     else
@@ -152,19 +152,19 @@ int Irq::check()
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
-            this->iss.csr.epc = this->iss.current_insn->addr;
+            this->iss.csr.epc = this->iss.exec.current_insn->addr;
             this->saved_irq_enable = this->irq_enable;
             this->irq_enable = 0;
             this->req_irq = -1;
-            this->iss.current_insn = this->vectors[req_irq];
+            this->iss.exec.current_insn = this->vectors[req_irq];
             this->iss.csr.mcause = (1 << 31) | (unsigned int)req_irq;
 
-            this->iss.decode_trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);
+            this->trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);
             this->iss.irq_ack_itf.sync(req_irq);
 
             this->iss.timing.stall_insn_dependency_account(4);
 
-            this->iss.prefetcher.fetch(this->iss.current_insn);
+            this->iss.prefetcher.fetch(this->iss.exec.current_insn);
 
             return 1;
         }

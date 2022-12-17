@@ -31,6 +31,8 @@ public:
 
     void build();
 
+    void declare_pcer(int index, std::string name, std::string help);
+
     Iss &iss;
 
     vp::trace trace;

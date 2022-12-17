@@ -33,7 +33,6 @@ void iss_trace_init(Iss *iss);
 iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn);
 
 void iss_reset(Iss *iss, int active);
-void iss_start(Iss *iss);
 
 iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name);
 

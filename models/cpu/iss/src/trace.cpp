@@ -29,6 +29,13 @@ Trace::Trace(Iss &iss)
 {
 }
 
+
+void Trace::build()
+{
+    this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
+    this->insn_trace.register_callback(std::bind(&Trace::insn_trace_callback, this));
+}
+
 #define PC_INFO_ARRAY_SIZE (64 * 1024)
 
 #define MAX_DEBUG_INFO_WIDTH 24
@@ -499,7 +506,7 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn)
 
     iss_trace_dump_insn(iss, insn, buffer, 1024, iss->state.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
 
-    iss->insn_trace.msg(buffer);
+    iss->trace.insn_trace.msg(buffer);
 }
 
 void iss_event_dump(Iss *iss, iss_insn_t *insn)
@@ -529,7 +536,7 @@ iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
         iss_event_dump(iss, insn);
     }
 
-    if (iss->insn_trace.get_active())
+    if (iss->trace.insn_trace.get_active())
     {
         iss_trace_save_args(iss, insn, iss->state.saved_args, false);
 
@@ -555,16 +562,27 @@ void iss_trace_init(Iss *iss)
     }
 }
 
-void Iss::dump_debug_traces()
+void Trace::dump_debug_traces()
 {
     const char *func, *inline_func, *file;
     int line;
 
-    if (!iss_trace_pc_info(this->current_insn->addr, &func, &inline_func, &file, &line))
+    if (!iss_trace_pc_info(this->iss.exec.current_insn->addr, &func, &inline_func, &file, &line))
     {
-        this->func_trace_event.event_string(func);
-        this->inline_trace_event.event_string(inline_func);
-        this->file_trace_event.event_string(file);
-        this->line_trace_event.event((uint8_t *)&line);
+        this->iss.func_trace_event.event_string(func);
+        this->iss.inline_trace_event.event_string(inline_func);
+        this->iss.file_trace_event.event_string(file);
+        this->iss.line_trace_event.event((uint8_t *)&line);
+    }
+}
+
+
+void Trace::insn_trace_callback()
+{
+    // This is called when the state of the instruction trace has changed, we need
+    // to flush the ISS instruction cache, as it keeps the state of the trace
+    if (this->iss.iss_opened)
+    {
+        iss_cache_flush(&this->iss);
     }
 }

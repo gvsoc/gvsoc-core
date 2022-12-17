@@ -36,7 +36,7 @@ void DbgUnit::debug_req()
 {
     this->iss.irq.req_debug = true;
     this->iss.exec.switch_to_full_mode();
-    this->iss.wfi.set(false);
+    this->iss.exec.wfi.set(false);
 }
 
 void DbgUnit::set_halt_mode(bool halted, int cause)
@@ -73,11 +73,11 @@ void DbgUnit::halt_core()
 {
     this->trace.msg("Halting core\n");
 
-    if (this->iss.prev_insn == NULL)
+    if (this->iss.exec.prev_insn == NULL)
         this->iss.ppc = 0;
     else
-        this->iss.ppc = this->iss.prev_insn->addr;
-    this->iss.npc = this->iss.current_insn->addr;
+        this->iss.ppc = this->iss.exec.prev_insn->addr;
+    this->iss.npc = this->iss.exec.current_insn->addr;
 }
 
 void DbgUnit::halt_sync(void *__this, bool halted)
@@ -133,8 +133,8 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
                 // even if the core is sleeping
                 iss_cache_flush(&_this->iss);
                 _this->iss.npc = *(iss_reg_t *)data;
-                _this->iss.pc_set(_this->iss.npc);
-                _this->iss.wfi.set(false);
+                _this->iss.exec.pc_set(_this->iss.npc);
+                _this->iss.exec.wfi.set(false);
             }
             else
                 *(iss_reg_t *)data = _this->iss.npc;

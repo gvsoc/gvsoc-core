@@ -28,7 +28,7 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     iss_addr_t addr0 = addr & ADDR_MASK;
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
 
-    this->iss.decode_trace.msg("Misaligned data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+    this->trace.msg("Misaligned data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
 
     this->iss.timing.event_misaligned_account(1);
 
@@ -118,7 +118,7 @@ void Lsu::exec_misaligned(void *__this, vp::clock_event *event)
 
 int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
 {
-    this->iss.decode_trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+    this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
     vp::io_req *req = &this->iss.io_req;
     req->init();
     req->set_addr(addr);
@@ -135,7 +135,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     {
         vp_warning_always(&this->iss.warning,
                           "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
-                          this->iss.current_insn->addr, addr, size, is_write);
+                          this->iss.exec.current_insn->addr, addr, size, is_write);
     }
 
     this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for asynchronous response\n");

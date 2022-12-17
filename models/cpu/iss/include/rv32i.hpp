@@ -488,11 +488,11 @@ static inline iss_insn_t *and_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *fence_i_exec(Iss *iss, iss_insn_t *insn)
 {
-    if (iss->flush_cache_req_itf.is_bound())
+    if (iss->exec.flush_cache_req_itf.is_bound())
     {
         iss->state.cache_sync = true;
         iss->exec.insn_stall();
-        iss->flush_cache_req_itf.sync(true);
+        iss->exec.flush_cache_req_itf.sync(true);
         iss_cache_flush(iss);
     }
     return insn->next;
@@ -506,7 +506,7 @@ static inline iss_insn_t *fence_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *ebreak_exec(Iss *iss, iss_insn_t *insn)
 {
-    iss_insn_t *prev = iss->prev_insn;
+    iss_insn_t *prev = iss->exec.prev_insn;
 
     if (prev && prev->fetched && prev->opcode == 0x01f01013)
     {

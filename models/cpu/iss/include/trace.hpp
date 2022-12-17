@@ -32,6 +32,12 @@ class Trace
 public:
     Trace(Iss &iss);
 
+    void build();
+
+    void insn_trace_callback();
+    void dump_debug_traces();
+
+    vp::trace insn_trace;
 private:
 
     Iss &iss;

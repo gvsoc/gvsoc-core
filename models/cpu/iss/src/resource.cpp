@@ -19,7 +19,7 @@
 void iss_resource_init(Iss *iss)
 {
     // Initialize all the resources and assign the first instance by default
-    iss->resources.resize(iss_get_isa_set()->nb_resources);
+    iss->exec.resources.resize(iss_get_isa_set()->nb_resources);
 
     for (int i = 0; i < iss_get_isa_set()->nb_resources; i++)
     {
@@ -31,7 +31,7 @@ void iss_resource_init(Iss *iss)
             resource->instances.push_back(instance);
         }
 
-        iss->resources[i] = resource->instances[0];
+        iss->exec.resources[i] = resource->instances[0];
     }
 }
 
@@ -39,7 +39,7 @@ void iss_resource_init(Iss *iss)
 iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
 {
     // First get the instance associated to this core for the resource associated to this instruction
-    iss_resource_instance_t *instance = iss->resources[insn->resource_id];
+    iss_resource_instance_t *instance = iss->exec.resources[insn->resource_id];
     int64_t cycles = 0;
 
     // Check if the instance is ready to accept an access

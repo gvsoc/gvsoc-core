@@ -50,21 +50,21 @@ inline iss_insn_callback_t Exec::insn_stalled_fast_callback_get()
 
 inline void Exec::insn_stall()
 {
-    this->iss.stall_insn = this->iss.current_insn;
+    this->stall_insn = this->current_insn;
     this->stalled_inc();
 }
 
 inline void Exec::insn_hold()
 {
     this->iss.dump_trace_enabled = false;
-    this->iss.stall_insn = this->iss.current_insn;
+    this->stall_insn = this->current_insn;
 }
 
 inline void Exec::insn_terminate()
 {
-    if (this->iss.insn_trace.get_active())
+    if (this->iss.trace.insn_trace.get_active())
     {
-        iss_trace_dump(&this->iss, this->iss.stall_insn);
+        iss_trace_dump(&this->iss, this->stall_insn);
     }
 }
 
@@ -122,15 +122,15 @@ inline void Exec::insn_exec_profiling()
     this->trace.msg("Executing instruction\n");
     if (this->iss.pc_trace_event.get_event_active())
     {
-        this->iss.pc_trace_event.event((uint8_t *)&this->iss.current_insn->addr);
+        this->iss.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
     }
     if (this->iss.active_pc_trace_event.get_event_active())
     {
-        this->iss.active_pc_trace_event.event((uint8_t *)&this->iss.current_insn->addr);
+        this->iss.active_pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
     }
     if (this->iss.func_trace_event.get_event_active() || this->iss.inline_trace_event.get_event_active() || this->iss.file_trace_event.get_event_active() || this->iss.line_trace_event.get_event_active())
     {
-        this->iss.dump_debug_traces();
+        this->iss.trace.dump_debug_traces();
     }
     if (this->iss.ipc_stat_event.get_event_active())
     {
@@ -149,4 +149,10 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
 inline void Exec::switch_to_full_mode()
 {
     this->instr_event->meth_set(this, &Exec::exec_instr_check_all);
+}
+
+
+inline bool Exec::clock_active_get()
+{
+    return this->clock_active;
 }

@@ -26,9 +26,50 @@ Csr::Csr(Iss &iss)
 {
 }
 
+void Csr::declare_pcer(int index, std::string name, std::string help)
+{
+    this->iss.pcer_info[index].name = name;
+    this->iss.pcer_info[index].help = help;
+}
+
 void Csr::build()
 {
     iss.traces.new_trace("csr", &this->trace, vp::DEBUG);
+
+    this->declare_pcer(CSR_PCER_CYCLES, "Cycles", "Count the number of cycles the core was running");
+    this->declare_pcer(CSR_PCER_INSTR, "instr", "Count the number of instructions executed");
+    this->declare_pcer(CSR_PCER_LD_STALL, "ld_stall", "Number of load use hazards");
+    this->declare_pcer(CSR_PCER_JMP_STALL, "jmp_stall", "Number of jump register hazards");
+    this->declare_pcer(CSR_PCER_IMISS, "imiss", "Cycles waiting for instruction fetches. i.e. the number of instructions wasted due to non-ideal caches");
+    this->declare_pcer(CSR_PCER_LD, "ld", "Number of memory loads executed. Misaligned accesses are counted twice");
+    this->declare_pcer(CSR_PCER_ST, "st", "Number of memory stores executed. Misaligned accesses are counted twice");
+    this->declare_pcer(CSR_PCER_JUMP, "jump", "Number of jump instructions seen, i.e. j, jr, jal, jalr");
+    this->declare_pcer(CSR_PCER_BRANCH, "branch", "Number of branch instructions seen, i.e. bf, bnf");
+    this->declare_pcer(CSR_PCER_TAKEN_BRANCH, "taken_branch", "Number of taken branch instructions seen, i.e. bf, bnf");
+    this->declare_pcer(CSR_PCER_RVC, "rvc", "Number of compressed instructions");
+    this->declare_pcer(CSR_PCER_LD_EXT, "ld_ext", "Number of memory loads to EXT executed. Misaligned accesses are counted twice. Every non-TCDM access is considered external");
+    this->declare_pcer(CSR_PCER_ST_EXT, "st_ext", "Number of memory stores to EXT executed. Misaligned accesses are counted twice. Every non-TCDM access is considered external");
+    this->declare_pcer(CSR_PCER_LD_EXT_CYC, "ld_ext_cycles", "Cycles used for memory loads to EXT. Every non-TCDM access is considered external");
+    this->declare_pcer(CSR_PCER_ST_EXT_CYC, "st_ext_cycles", "Cycles used for memory stores to EXT. Every non-TCDM access is considered external");
+    this->declare_pcer(CSR_PCER_TCDM_CONT, "tcdm_cont", "Cycles wasted due to TCDM/log-interconnect contention");
+
+    this->iss.traces.new_trace_event("pcer_cycles", &this->iss.pcer_trace_event[0], 1);
+    this->iss.traces.new_trace_event("pcer_instr", &this->iss.pcer_trace_event[1], 1);
+    this->iss.traces.new_trace_event("pcer_ld_stall", &this->iss.pcer_trace_event[2], 1);
+    this->iss.traces.new_trace_event("pcer_jmp_stall", &this->iss.pcer_trace_event[3], 1);
+    this->iss.traces.new_trace_event("pcer_imiss", &this->iss.pcer_trace_event[4], 1);
+    this->iss.traces.new_trace_event("pcer_ld", &this->iss.pcer_trace_event[5], 1);
+    this->iss.traces.new_trace_event("pcer_st", &this->iss.pcer_trace_event[6], 1);
+    this->iss.traces.new_trace_event("pcer_jump", &this->iss.pcer_trace_event[7], 1);
+    this->iss.traces.new_trace_event("pcer_branch", &this->iss.pcer_trace_event[8], 1);
+    this->iss.traces.new_trace_event("pcer_taken_branch", &this->iss.pcer_trace_event[9], 1);
+    this->iss.traces.new_trace_event("pcer_rvc", &this->iss.pcer_trace_event[10], 1);
+    this->iss.traces.new_trace_event("pcer_ld_ext", &this->iss.pcer_trace_event[11], 1);
+    this->iss.traces.new_trace_event("pcer_st_ext", &this->iss.pcer_trace_event[12], 1);
+    this->iss.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.pcer_trace_event[13], 1);
+    this->iss.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.pcer_trace_event[14], 1);
+    this->iss.traces.new_trace_event("pcer_tcdm_cont", &this->iss.pcer_trace_event[15], 1);
+
 }
 
 #if defined(ISS_HAS_PERF_COUNTERS)
@@ -810,9 +851,9 @@ static bool stack_conf_write(Iss *iss, iss_reg_t value)
     iss->csr.stack_conf = value;
 
     if (iss->csr.stack_conf)
-        iss->csr_trace.msg("Activating stack checking (start: 0x%x, end: 0x%x)\n", iss->csr.stack_start, iss->csr.stack_end);
+        iss->csr.trace.msg("Activating stack checking (start: 0x%x, end: 0x%x)\n", iss->csr.stack_start, iss->csr.stack_end);
     else
-        iss->csr_trace.msg("Deactivating stack checking\n");
+        iss->csr.trace.msg("Deactivating stack checking\n");
 
     return false;
 }
@@ -1038,7 +1079,7 @@ static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value)
     {
         update_external_pccr(iss, reg - CSR_PCCR(0), iss->csr.pcer, iss->csr.pcmr);
         *value = iss->csr.pccr[reg - CSR_PCCR(0)];
-        iss->perf_counter_trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
+        iss->csr.trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
     }
     else if (reg == CSR_PCER)
     {
@@ -1051,7 +1092,7 @@ static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value)
     else
     {
         *value = iss->csr.pccr[reg - CSR_PCCR(0)];
-        iss->perf_counter_trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
+        iss->csr.trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
     }
 
     return false;
@@ -1061,12 +1102,12 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
 {
     if (reg == CSR_PCER)
     {
-        iss->perf_counter_trace.msg("Setting PCER (value: 0x%x)\n", value);
+        iss->csr.trace.msg("Setting PCER (value: 0x%x)\n", value);
         return pcer_write(iss, iss->csr.pcer, value);
     }
     else if (reg == CSR_PCMR)
     {
-        iss->perf_counter_trace.msg("Setting PCMR (value: 0x%x)\n", value);
+        iss->csr.trace.msg("Setting PCMR (value: 0x%x)\n", value);
         return pcmr_write(iss, iss->csr.pcmr, value);
     }
     // In case of counters connected to external signals, we need to synchronize the external one
@@ -1079,7 +1120,7 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
     }
     else if (reg == CSR_PCCR(CSR_NB_PCCR))
     {
-        iss->perf_counter_trace.msg("Setting value to all PCCR (value: 0x%x)\n", value);
+        iss->csr.trace.msg("Setting value to all PCCR (value: 0x%x)\n", value);
 
         int i;
         for (i = 0; i < 31; i++)
@@ -1093,7 +1134,7 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
     }
     else
     {
-        iss->perf_counter_trace.msg("Setting PCCR value (pccr: %d, value: 0x%x)\n", reg - CSR_PCCR(0), value);
+        iss->csr.trace.msg("Setting PCCR value (pccr: %d, value: 0x%x)\n", reg - CSR_PCCR(0), value);
         iss->csr.pccr[reg - CSR_PCCR(0)] = value;
     }
     return false;
@@ -1115,7 +1156,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 {
     bool status;
 
-    iss->csr_trace.msg("Reading CSR (reg: 0x%x)\n", reg);
+    iss->csr.trace.msg("Reading CSR (reg: 0x%x)\n", reg);
 
 #if 0
   // First check permissions
@@ -1882,14 +1923,14 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         }
     }
 
-    iss->csr_trace.msg("Read CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
+    iss->csr.trace.msg("Read CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
 
     return status;
 }
 
 bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 {
-    iss->csr_trace.msg("Writing CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
+    iss->csr.trace.msg("Writing CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
 
     // If there is any write to a CSR, switch to full check instruction handler
     // in case something special happened (like HW counting become active)

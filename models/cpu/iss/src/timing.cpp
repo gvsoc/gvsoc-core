@@ -50,7 +50,8 @@ void Timing::ipc_stat_trigger()
         this->iss.ipc_stat_event.event_real(1.0);
     }
 
-    if (this->iss.ipc_stat_event.get_event_active() && !this->iss.ipc_clock_event->is_enqueued() && this->iss.is_active_reg.get() && this->iss.clock_active)
+    if (this->iss.ipc_stat_event.get_event_active() && !this->iss.ipc_clock_event->is_enqueued() &&
+        this->iss.exec.is_active_reg.get() && this->iss.exec.clock_active_get())
     {
         this->iss.event_enqueue(this->iss.ipc_clock_event, this->iss.ipc_stat_delay);
     }

@@ -81,20 +81,20 @@ void iss_cache_flush(Iss *iss)
     iss_addr_t prefetch_addr = 0;
     iss_addr_t hwloop_end_addr[2] = {0};
 
-    if (iss->current_insn)
+    if (iss->exec.current_insn)
     {
-        opcode = iss->current_insn->opcode;
-        current_addr = iss->current_insn->addr;
+        opcode = iss->exec.current_insn->opcode;
+        current_addr = iss->exec.current_insn->addr;
     }
 
-    if (iss->prev_insn)
+    if (iss->exec.prev_insn)
     {
-        prev_addr = iss->prev_insn->addr;
+        prev_addr = iss->exec.prev_insn->addr;
     }
 
-    if (iss->stall_insn)
+    if (iss->exec.stall_insn)
     {
-        stall_addr = iss->stall_insn->addr;
+        stall_addr = iss->exec.stall_insn->addr;
     }
 
     // if (iss->prefetch_insn)
@@ -114,22 +114,22 @@ void iss_cache_flush(Iss *iss)
 
     flush_cache(iss, &iss->insn_cache);
 
-    if (iss->current_insn)
+    if (iss->exec.current_insn)
     {
-        iss->current_insn = insn_cache_get(iss, current_addr);
-        iss->current_insn->opcode = opcode;
-        iss->current_insn->fetched = true;
-        iss->decode.decode_pc(iss->current_insn);
+        iss->exec.current_insn = insn_cache_get(iss, current_addr);
+        iss->exec.current_insn->opcode = opcode;
+        iss->exec.current_insn->fetched = true;
+        iss->decode.decode_pc(iss->exec.current_insn);
     }
 
-    if (iss->prev_insn)
+    if (iss->exec.prev_insn)
     {
-        iss->prev_insn = insn_cache_get(iss, prev_addr);
+        iss->exec.prev_insn = insn_cache_get(iss, prev_addr);
     }
 
-    if (iss->stall_insn)
+    if (iss->exec.stall_insn)
     {
-        iss->stall_insn = insn_cache_get(iss, stall_addr);
+        iss->exec.stall_insn = insn_cache_get(iss, stall_addr);
     }
 
     // if (iss->prefetch_insn)
@@ -193,22 +193,11 @@ iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)
     return &b->insns[insn_id];
 }
 
-void Iss::flush_cache_sync(void *__this, bool active)
+void Decode::flush_cache_sync(void *__this, bool active)
 {
-    Iss *_this = (Iss *)__this;
-    if (_this->iss_opened)
+    Decode *_this = (Decode *)__this;
+    if (_this->iss.iss_opened)
     {
-        iss_cache_flush(_this);
-    }
-}
-
-void Iss::flush_cache_ack_sync(void *__this, bool active)
-{
-    Iss *_this = (Iss *)__this;
-    if (_this->state.cache_sync)
-    {
-        _this->state.cache_sync = false;
-        _this->exec.stalled_dec();
-        _this->exec.insn_terminate();
+        iss_cache_flush(&_this->iss);
     }
 }

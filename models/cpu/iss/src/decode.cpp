@@ -312,7 +312,7 @@ void iss_decode_activate_isa(Iss *cpu, char *name)
 
 static iss_insn_t *iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn)
 {
-    iss->decode_trace.msg("Executing illegal instruction\n");
+    iss->decode.trace.msg("Executing illegal instruction\n");
     return iss_except_raise(iss, ISS_EXCEPT_ILLEGAL);
 }
 
@@ -333,7 +333,7 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
 
     insn->opcode = opcode;
 
-    if (iss.insn_trace.get_active() || iss.insn_trace_event.get_event_active())
+    if (iss.trace.insn_trace.get_active() || iss.insn_trace_event.get_event_active())
     {
         insn->saved_handler = insn->handler;
         insn->handler = this->iss.exec.insn_trace_callback_get();
@@ -356,4 +356,260 @@ Decode::Decode(Iss &iss)
 void Decode::build()
 {
     iss.traces.new_trace("decoder", &this->trace, vp::DEBUG);
+}
+
+
+
+int Decode::parse_isa()
+{
+    Iss *iss = &this->iss;
+    const char *current = iss->config.isa;
+    int len = strlen(current);
+
+    bool arch_rv32 = false;
+    bool arch_rv64 = false;
+
+    if (strncmp(current, "rv32", 4) == 0)
+    {
+        current += 4;
+        len -= 4;
+        arch_rv32 = true;
+    }
+    else if (strncmp(current, "rv64", 4) == 0)
+    {
+        current += 4;
+        len -= 4;
+        arch_rv64 = true;
+    }
+    else
+    {
+        iss->decode.trace.force_warning("Unsupported ISA: %s\n", current);
+        return -1;
+    }
+
+    iss_decode_activate_isa(iss, (char *)"priv");
+    iss_decode_activate_isa(iss, (char *)"priv_pulp_v2");
+
+    bool has_f = false;
+    bool has_d = false;
+    bool has_c = false;
+    bool has_f16 = false;
+    bool has_f16alt = false;
+    bool has_f8 = false;
+    bool has_fvec = false;
+    bool has_faux = false;
+
+    while (len > 0)
+    {
+        switch (*current)
+        {
+        case 'd':
+            has_d = true; // D needs F
+        case 'f':
+            has_f = true;
+        case 'i':
+        case 'm':
+        {
+            char name[2];
+            name[0] = *current;
+            name[1] = 0;
+            iss_decode_activate_isa(iss, name);
+            current++;
+            len--;
+            break;
+        }
+        case 'c':
+        {
+            iss_decode_activate_isa(iss, (char *)"c");
+            current++;
+            len--;
+            has_c = true;
+            break;
+        }
+        case 'X':
+        {
+            char *token = strtok(strdup(current), "X");
+
+            while (token)
+            {
+
+                iss_decode_activate_isa(iss, token);
+
+                if (strcmp(token, "pulpv2") == 0)
+                {
+                    iss_isa_pulpv2_activate(iss);
+                }
+                else if (strcmp(token, "corev") == 0)
+                {
+                    iss_isa_corev_activate(iss);
+                }
+                else if (strcmp(token, "gap8") == 0)
+                {
+                    iss_isa_pulpv2_activate(iss);
+                    iss_decode_activate_isa(iss, (char *)"pulpv2");
+                }
+                else if (strcmp(token, "f16") == 0)
+                {
+                    has_f16 = true;
+                }
+                else if (strcmp(token, "f16alt") == 0)
+                {
+                    has_f16alt = true;
+                }
+                else if (strcmp(token, "f8") == 0)
+                {
+                    has_f8 = true;
+                }
+                else if (strcmp(token, "fvec") == 0)
+                {
+                    has_fvec = true;
+                }
+                else if (strcmp(token, "faux") == 0)
+                {
+                    has_faux = true;
+                }
+
+                token = strtok(NULL, "X");
+            }
+
+            len = 0;
+
+            break;
+        }
+        default:
+            iss->decode.trace.force_warning("Unknwon ISA descriptor: %c\n", *current);
+            return -1;
+        }
+    }
+
+    //
+    // Activate inter-dependent ISA extension subsets
+    //
+
+    // Compressed floating-point instructions
+    if (has_c)
+    {
+        if (has_f)
+            iss_decode_activate_isa(iss, (char *)"cf");
+        if (has_d)
+            iss_decode_activate_isa(iss, (char *)"cd");
+    }
+
+    // For F Extension
+    if (has_f)
+    {
+        if (arch_rv64)
+            iss_decode_activate_isa(iss, (char *)"rv64f");
+        // Vectors
+        if (has_fvec && has_d)
+        { // make sure FLEN >= 64
+            iss_decode_activate_isa(iss, (char *)"f32vec");
+            if (!(arch_rv32 && has_d))
+                iss_decode_activate_isa(iss, (char *)"f32vecno32d");
+        }
+        // Auxiliary Ops
+        if (has_faux)
+        {
+            // nothing for scalars as expansions are to fp32
+            if (has_fvec)
+                iss_decode_activate_isa(iss, (char *)"f32auxvec");
+        }
+    }
+
+    // For Xf16 Extension
+    if (has_f16)
+    {
+        if (arch_rv64)
+            iss_decode_activate_isa(iss, (char *)"rv64f16");
+        if (has_f)
+            iss_decode_activate_isa(iss, (char *)"f16f");
+        if (has_d)
+            iss_decode_activate_isa(iss, (char *)"f16d");
+        // Vectors
+        if (has_fvec && has_f)
+        { // make sure FLEN >= 32
+            iss_decode_activate_isa(iss, (char *)"f16vec");
+            if (!(arch_rv32 && has_d))
+                iss_decode_activate_isa(iss, (char *)"f16vecno32d");
+            if (has_d)
+                iss_decode_activate_isa(iss, (char *)"f16vecd");
+        }
+        // Auxiliary Ops
+        if (has_faux)
+        {
+            iss_decode_activate_isa(iss, (char *)"f16aux");
+            if (has_fvec)
+                iss_decode_activate_isa(iss, (char *)"f16auxvec");
+        }
+    }
+
+    // For Xf16alt Extension
+    if (has_f16alt)
+    {
+        if (arch_rv64)
+            iss_decode_activate_isa(iss, (char *)"rv64f16alt");
+        if (has_f)
+            iss_decode_activate_isa(iss, (char *)"f16altf");
+        if (has_d)
+            iss_decode_activate_isa(iss, (char *)"f16altd");
+        if (has_f16)
+            iss_decode_activate_isa(iss, (char *)"f16altf16");
+        // Vectors
+        if (has_fvec && has_f)
+        { // make sure FLEN >= 32
+            iss_decode_activate_isa(iss, (char *)"f16altvec");
+            if (!(arch_rv32 && has_d))
+                iss_decode_activate_isa(iss, (char *)"f16altvecno32d");
+            if (has_d)
+                iss_decode_activate_isa(iss, (char *)"f16altvecd");
+            if (has_f16)
+                iss_decode_activate_isa(iss, (char *)"f16altvecf16");
+        }
+        // Auxiliary Ops
+        if (has_faux)
+        {
+            iss_decode_activate_isa(iss, (char *)"f16altaux");
+            if (has_fvec)
+                iss_decode_activate_isa(iss, (char *)"f16altauxvec");
+        }
+    }
+
+    // For Xf8 Extension
+    if (has_f8)
+    {
+        if (arch_rv64)
+            iss_decode_activate_isa(iss, (char *)"rv64f8");
+        if (has_f)
+            iss_decode_activate_isa(iss, (char *)"f8f");
+        if (has_d)
+            iss_decode_activate_isa(iss, (char *)"f8d");
+        if (has_f16)
+            iss_decode_activate_isa(iss, (char *)"f8f16");
+        if (has_f16alt)
+            iss_decode_activate_isa(iss, (char *)"f8f16alt");
+        // Vectors
+        if (has_fvec && (has_f16 || has_f16alt || has_f))
+        { // make sure FLEN >= 16
+            iss_decode_activate_isa(iss, (char *)"f8vec");
+            if (!(arch_rv32 && has_d))
+                iss_decode_activate_isa(iss, (char *)"f8vecno32d");
+            if (has_f)
+                iss_decode_activate_isa(iss, (char *)"f8vecf");
+            if (has_d)
+                iss_decode_activate_isa(iss, (char *)"f8vecd");
+            if (has_f16)
+                iss_decode_activate_isa(iss, (char *)"f8vecf16");
+            if (has_f16alt)
+                iss_decode_activate_isa(iss, (char *)"f8vecf16alt");
+        }
+        // Auxiliary Ops
+        if (has_faux)
+        {
+            iss_decode_activate_isa(iss, (char *)"f8aux");
+            if (has_fvec)
+                iss_decode_activate_isa(iss, (char *)"f8auxvec");
+        }
+    }
+
+    return 0;
 }

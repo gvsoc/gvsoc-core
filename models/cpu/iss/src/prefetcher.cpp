@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 #include <vp/vp.hpp>
 #include "iss.hpp"
-
-
 
 Prefetcher::Prefetcher(Iss &iss)
     : iss(iss)
@@ -33,15 +30,11 @@ Prefetcher::Prefetcher(Iss &iss)
     this->prefetch_insn = NULL;
 }
 
-
-
 int Prefetcher::build(vp::component &top)
 {
     top.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
     return 0;
 }
-
-
 
 void Prefetcher::reset(bool active)
 {
@@ -50,8 +43,6 @@ void Prefetcher::reset(bool active)
         this->flush();
     }
 }
-
-
 
 void Prefetcher::fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int index)
 {
@@ -76,8 +67,6 @@ void Prefetcher::fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int ind
     this->fetch_novalue_check_overflow(insn, index);
 }
 
-
-
 void Prefetcher::fetch_novalue_resume_after_low_refill(Prefetcher *_this)
 {
     // Now that we have received the low part of the instruction
@@ -86,8 +75,6 @@ void Prefetcher::fetch_novalue_resume_after_low_refill(Prefetcher *_this)
     int index = addr - _this->buffer_start_addr;
     _this->fetch_novalue_check_overflow(_this->prefetch_insn, index);
 }
-
-
 
 void Prefetcher::fetch_novalue_check_overflow(iss_insn_t *insn, int index)
 {
@@ -103,8 +90,6 @@ void Prefetcher::fetch_novalue_check_overflow(iss_insn_t *insn, int index)
         }
     }
 }
-
-
 
 void Prefetcher::fetch_value(iss_insn_t *insn)
 {
@@ -142,16 +127,12 @@ void Prefetcher::fetch_value(iss_insn_t *insn)
     this->fetch_value_check_overflow(insn, index);
 }
 
-
-
 void Prefetcher::fetch_value_resume_after_low_refill(Prefetcher *_this)
 {
     iss_addr_t addr = _this->prefetch_insn->addr;
     int index = addr - _this->buffer_start_addr;
     _this->fetch_value_check_overflow(_this->prefetch_insn, index);
 }
-
-
 
 void Prefetcher::fetch_value_check_overflow(iss_insn_t *insn, int index)
 {
@@ -193,8 +174,6 @@ void Prefetcher::fetch_value_check_overflow(iss_insn_t *insn, int index)
     }
 }
 
-
-
 void Prefetcher::fetch_value_resume_after_high_refill(Prefetcher *_this)
 {
     iss_addr_t addr = _this->prefetch_insn->addr;
@@ -206,8 +185,6 @@ void Prefetcher::fetch_value_resume_after_high_refill(Prefetcher *_this)
     _this->prefetch_insn->opcode = _this->fetch_stall_opcode | ((*(iss_opcode_t *)&_this->data[0]) << (nb_bytes * 8));
     _this->iss.decode.decode_pc(_this->prefetch_insn);
 }
-
-
 
 int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
 {
@@ -240,17 +217,12 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
     return 0;
 }
 
-
-
-
 int Prefetcher::fill(iss_addr_t addr)
 {
     uint32_t aligned_addr = addr & ~(ISS_PREFETCHER_SIZE - 1);
     this->buffer_start_addr = aligned_addr;
     return this->send_fetch_req(aligned_addr, this->data, ISS_PREFETCHER_SIZE, false);
 }
-
-
 
 void Prefetcher::fetch_response(void *__this, vp::io_req *req)
 {

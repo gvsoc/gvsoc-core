@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -28,76 +28,77 @@ static iss_reg_t null_reg = 0;
 
 static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg)
 {
-  if (reg == 0)
-    return &null_reg;
-  else
-    return &iss->regfile.regs[reg];
+    if (reg == 0)
+        return &null_reg;
+    else
+        return &iss->regfile.regs[reg];
 }
 
 static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg)
 {
-  return &iss->regfile.regs[reg];
+    return &iss->regfile.regs[reg];
 }
 
 static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value)
 {
-  if (reg != 0)
-    iss->regfile.regs[reg] = value;
+    if (reg != 0)
+        iss->regfile.regs[reg] = value;
 }
 
 static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg)
 {
-  return iss->regfile.regs[reg];
+    return iss->regfile.regs[reg];
 }
 
 static inline iss_reg_t iss_get_reg(Iss *iss, int reg)
 {
-  return iss_get_reg_untimed(iss, reg);
+    return iss_get_reg_untimed(iss, reg);
 }
 
 static inline iss_reg64_t iss_get_reg64_untimed(Iss *iss, int reg)
 {
-  if (reg == 0)
-      return 0;
-  else
-      return (((uint64_t)iss->regfile.regs[reg+1]) << 32) + iss->regfile.regs[reg];
+    if (reg == 0)
+        return 0;
+    else
+        return (((uint64_t)iss->regfile.regs[reg + 1]) << 32) + iss->regfile.regs[reg];
 }
 
 static inline void iss_set_reg64(Iss *iss, int reg, iss_reg64_t value)
 {
-  if (reg != 0)
-  {
-    iss->regfile.regs[reg] = value & 0xFFFFFFFF;
-    iss->regfile.regs[reg+1] = value >> 32;
-  }
+    if (reg != 0)
+    {
+        iss->regfile.regs[reg] = value & 0xFFFFFFFF;
+        iss->regfile.regs[reg + 1] = value >> 32;
+    }
 }
 
 static inline iss_reg64_t iss_get_reg64(Iss *iss, int reg)
 {
-  return iss_get_reg64_untimed(iss, reg);
+    return iss_get_reg64_untimed(iss, reg);
 }
 
-static inline iss_reg_t iss_get_reg_for_jump(Iss *iss, int reg) {
-  //unsigned long regCycle = cpu->regsCycle[reg];
-  //if (cpu->cycles < regCycle + 1) {
-  //  accountJumpStalls(cpu, regCycle + 1 - cpu->cycles);
-  //  cpu->cycles = regCycle + 1;
-  //}
-  return iss_get_reg_untimed(iss, reg);
+static inline iss_reg_t iss_get_reg_for_jump(Iss *iss, int reg)
+{
+    // unsigned long regCycle = cpu->regsCycle[reg];
+    // if (cpu->cycles < regCycle + 1) {
+    //   accountJumpStalls(cpu, regCycle + 1 - cpu->cycles);
+    //   cpu->cycles = regCycle + 1;
+    // }
+    return iss_get_reg_untimed(iss, reg);
 }
 
 static inline void iss_set_spec_purp_reg(Iss *iss, int spreg, iss_reg_t value)
 {
-  if ((spreg >= 0) && (spreg < 6))
-    iss->pulp_nn.spr_ml[spreg] = value;
+    if ((spreg >= 0) && (spreg < 6))
+        iss->pulp_nn.spr_ml[spreg] = value;
 }
 
 static inline iss_reg_t iss_get_spec_purp_reg(Iss *iss, int spreg)
 {
-  if ((spreg >= 0) && (spreg < 6))
-    return iss->pulp_nn.spr_ml[spreg];
-  else
-    return 0;
+    if ((spreg >= 0) && (spreg < 6))
+        return iss->pulp_nn.spr_ml[spreg];
+    else
+        return 0;
 }
 
 #endif

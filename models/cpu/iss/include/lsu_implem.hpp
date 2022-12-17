@@ -19,9 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 #pragma once
-
 
 #include "iss_core.hpp"
 
@@ -117,7 +115,7 @@ inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
         if (addr < this->iss.csr.stack_start || addr >= this->iss.csr.stack_end)
         {
             this->trace.fatal("SP-based access outside stack (addr: 0x%x, stack_start: 0x%x, stack_end: 0x%x)\n",
-                addr, this->iss.csr.stack_start, this->iss.csr.stack_end);
+                              addr, this->iss.csr.stack_start, this->iss.csr.stack_end);
         }
     }
 }

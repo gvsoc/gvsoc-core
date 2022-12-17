@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
 #pragma once
-
 
 #include <vp/vp.hpp>
 #include <types.hpp>

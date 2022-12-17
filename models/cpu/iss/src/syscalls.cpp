@@ -33,9 +33,8 @@
 #endif
 
 Syscalls::Syscalls(Iss &iss)
-: iss(iss)
+    : iss(iss)
 {
-
 }
 
 void Syscalls::build()

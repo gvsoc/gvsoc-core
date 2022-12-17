@@ -23,8 +23,6 @@
 
 #include <iss_core.hpp>
 
-
-
 static inline void csr_decode(Iss *iss, iss_insn_t *insn)
 {
     // In case traces are active, convert the CSR number into a name
@@ -33,8 +31,6 @@ static inline void csr_decode(Iss *iss, iss_insn_t *insn)
     insn->args[2].name = iss_csr_name(iss, UIM_GET(0));
 #endif
 }
-
-
 
 static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
 {
@@ -54,8 +50,6 @@ static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
     return insn->next;
 }
 
-
-
 static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
 {
     iss_reg_t value;
@@ -69,8 +63,6 @@ static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
     iss_csr_write(iss, UIM_GET(0), value & ~reg_value);
     return insn->next;
 }
-
-
 
 static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
 {
@@ -86,8 +78,6 @@ static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
     return insn->next;
 }
 
-
-
 static inline iss_insn_t *csrrwi_exec(Iss *iss, iss_insn_t *insn)
 {
     iss_reg_t value;
@@ -100,8 +90,6 @@ static inline iss_insn_t *csrrwi_exec(Iss *iss, iss_insn_t *insn)
     iss_csr_write(iss, UIM_GET(0), UIM_GET(1));
     return insn->next;
 }
-
-
 
 static inline iss_insn_t *csrrci_exec(Iss *iss, iss_insn_t *insn)
 {
@@ -116,8 +104,6 @@ static inline iss_insn_t *csrrci_exec(Iss *iss, iss_insn_t *insn)
     return insn->next;
 }
 
-
-
 static inline iss_insn_t *csrrsi_exec(Iss *iss, iss_insn_t *insn)
 {
     iss_reg_t value;
@@ -131,23 +117,17 @@ static inline iss_insn_t *csrrsi_exec(Iss *iss, iss_insn_t *insn)
     return insn->next;
 }
 
-
-
 static inline iss_insn_t *wfi_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->irq.wfi_handle();
     return insn->next;
 }
 
-
-
 static inline iss_insn_t *mret_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->timing.stall_insn_dependency_account(5);
     return iss->irq.mret_handle();
 }
-
-
 
 static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
 {

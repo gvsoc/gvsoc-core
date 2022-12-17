@@ -590,7 +590,7 @@ void Iss::reset(bool active)
 
 Iss::Iss(js::config *config)
     : vp::component(config), prefetcher(*this), exec(*this), decode(*this), timing(*this), irq(*this),
-        gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this)
+      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this)
 {
 }
 

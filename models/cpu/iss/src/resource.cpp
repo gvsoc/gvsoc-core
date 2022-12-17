@@ -16,17 +16,15 @@
 
 #include "iss.hpp"
 
-
-
 void iss_resource_init(Iss *iss)
 {
     // Initialize all the resources and assign the first instance by default
     iss->resources.resize(iss_get_isa_set()->nb_resources);
 
-    for (int i=0; i<iss_get_isa_set()->nb_resources; i++)
+    for (int i = 0; i < iss_get_isa_set()->nb_resources; i++)
     {
         iss_resource_t *resource = &iss_get_isa_set()->resources[i];
-        for (int j=0; j<resource->nb_instances; j++)
+        for (int j = 0; j < resource->nb_instances; j++)
         {
             iss_resource_instance_t *instance = new iss_resource_instance_t;
             instance->cycles = 0;
@@ -36,7 +34,6 @@ void iss_resource_init(Iss *iss)
         iss->resources[i] = resource->instances[0];
     }
 }
-
 
 // Called when an instruction with an associated resource is scheduled
 iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)

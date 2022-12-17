@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
-
 
 #pragma once
 
@@ -47,13 +46,11 @@ public:
     inline iss_insn_t *insn_exec(iss_insn_t *insn);
     inline iss_insn_t *insn_exec_fast(iss_insn_t *insn);
 
-
     inline iss_insn_callback_t insn_trace_callback_get();
     inline iss_insn_callback_t insn_stalled_callback_get();
     inline iss_insn_callback_t insn_stalled_fast_callback_get();
     inline bool can_switch_to_fast_mode();
     inline void switch_to_full_mode();
-
 
     void dbg_unit_step_check();
 
@@ -72,7 +69,5 @@ public:
     void exec_first_instr(vp::clock_event *event);
 
 private:
-
     Iss &iss;
-
 };

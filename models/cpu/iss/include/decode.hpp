@@ -19,9 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 #pragma once
-
 
 #include <types.hpp>
 

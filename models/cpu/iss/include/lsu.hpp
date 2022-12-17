@@ -19,15 +19,11 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 #pragma once
-
 
 #include <types.hpp>
 
-
 #define ADDR_MASK (~(ISS_REG_WIDTH / 8 - 1))
-
 
 class Lsu
 {
@@ -43,7 +39,6 @@ public:
     static void exec_misaligned(void *__this, vp::clock_event *event);
     static void data_grant(void *_this, vp::io_req *req);
     static void data_response(void *_this, vp::io_req *req);
-
 
     inline void store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline void store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
@@ -63,7 +58,6 @@ public:
     vp::trace trace;
 
 private:
-
     static void store_resume(void *_this);
     static void store_resume(Lsu *lsu);
     static void load_resume(Lsu *lsu);

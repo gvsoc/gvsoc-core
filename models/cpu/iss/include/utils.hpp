@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -26,32 +26,32 @@
 
 static inline iss_uim_t iss_get_field(iss_uim_t val, int shift, int bits)
 {
-  return (val >> shift) & ((1<<bits) - 1);
+    return (val >> shift) & ((1 << bits) - 1);
 }
 
 static inline iss_uim_t iss_get_signed_value(iss_uim_t val, int bits)
 {
-  return ((iss_sim_t)val) << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
+    return ((iss_sim_t)val) << (ISS_REG_WIDTH - bits) >> (ISS_REG_WIDTH - bits);
 }
 
 static inline iss_uim_t iss_get_zext_value(iss_uim_t val, int bits)
 {
-  return val << (ISS_REG_WIDTH-bits) >> (ISS_REG_WIDTH-bits);
+    return val << (ISS_REG_WIDTH - bits) >> (ISS_REG_WIDTH - bits);
 }
 
 static inline uint64_t iss_get_field64(iss_uim_t val, int shift, int bits)
 {
-  return (val >> shift) & ((1<<bits) - 1);
+    return (val >> shift) & ((1 << bits) - 1);
 }
 
 static inline int64_t iss_get_signed_value64(iss_uim_t val, int bits)
 {
-  return ((int64_t)val) << (64-bits) >> (64-bits);
+    return ((int64_t)val) << (64 - bits) >> (64 - bits);
 }
 
 static inline uint64_t iss_get_zext_value64(iss_uim_t val, int bits)
 {
-  return ((uint64_t)val) << (64-bits) >> (64-bits);
+    return ((uint64_t)val) << (64 - bits) >> (64 - bits);
 }
 
 #endif

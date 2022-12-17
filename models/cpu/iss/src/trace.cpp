@@ -24,11 +24,9 @@
 #include <algorithm>
 #include <vector>
 
-
 Trace::Trace(Iss &iss)
-: iss(iss)
+    : iss(iss)
 {
-
 }
 
 #define PC_INFO_ARRAY_SIZE (64 * 1024)
@@ -559,14 +557,14 @@ void iss_trace_init(Iss *iss)
 
 void Iss::dump_debug_traces()
 {
-  const char *func, *inline_func, *file;
-  int line;
+    const char *func, *inline_func, *file;
+    int line;
 
-  if (!iss_trace_pc_info(this->current_insn->addr, &func, &inline_func, &file, &line))
-  {
-    this->func_trace_event.event_string(func);
-    this->inline_trace_event.event_string(inline_func);
-    this->file_trace_event.event_string(file);
-    this->line_trace_event.event((uint8_t *)&line);
-  }
+    if (!iss_trace_pc_info(this->current_insn->addr, &func, &inline_func, &file, &line))
+    {
+        this->func_trace_event.event_string(func);
+        this->inline_trace_event.event_string(inline_func);
+        this->file_trace_event.event_string(file);
+        this->line_trace_event.event((uint8_t *)&line);
+    }
 }

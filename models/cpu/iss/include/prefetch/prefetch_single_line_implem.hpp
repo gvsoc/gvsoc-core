@@ -24,8 +24,6 @@
 #include "types.hpp"
 #include <stdio.h>
 
-
-
 inline void Prefetcher::fetch_novalue(iss_insn_t *insn)
 {
     // Compute where the instructions address falls into the prefetch buffer
@@ -41,8 +39,6 @@ inline void Prefetcher::fetch_novalue(iss_insn_t *insn)
     // Otherwise, fake a refill
     this->fetch_novalue_refill(insn, addr, index);
 }
-
-
 
 inline void Prefetcher::fetch(iss_insn_t *insn)
 {
@@ -62,8 +58,6 @@ inline void Prefetcher::fetch(iss_insn_t *insn)
     }
 }
 
-
-
 inline void Prefetcher::flush()
 {
     // Since the address is an unsigned int, the next index will be negative and will force the prefetcher
@@ -71,12 +65,10 @@ inline void Prefetcher::flush()
     this->buffer_start_addr = -1;
 }
 
-
-
 inline void Prefetcher::handle_stall(void (*callback)(Prefetcher *), iss_insn_t *current_insn)
 {
     Iss *iss = &this->iss;
-  
+
     // Function to be called when teh refill is done
     this->fetch_stall_callback = callback;
     // Remember the current instruction since the core may switch to a new one while the prefetch buffer

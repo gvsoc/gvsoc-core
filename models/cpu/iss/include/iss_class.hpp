@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -39,8 +39,6 @@ class Iss : public vp::component
 public:
     Iss(js::config *config);
 
-
-
     int build();
     void start();
     void pre_reset();
@@ -52,14 +50,11 @@ public:
     void insn_trace_callback();
     void dump_debug_traces();
 
-
     // csr
     void declare_pcer(int index, std::string name, std::string help);
 
-
     // cache
     static void flush_cache_sync(void *_this, bool active);
-
 
     // exec
     static void flush_cache_ack_sync(void *_this, bool active);
@@ -67,8 +62,6 @@ public:
     static void clock_sync(void *_this, bool active);
     static void bootaddr_sync(void *_this, uint32_t value);
     static void fetchen_sync(void *_this, bool active);
-    
-
 
     Prefetcher prefetcher;
     Exec exec;
@@ -81,7 +74,6 @@ public:
     Syscalls syscalls;
     Trace trace;
     Csr csr;
-
 
     vp::io_master data;
     vp::io_master fetch;
@@ -187,6 +179,4 @@ public:
     vp::wire_master<bool> halt_status_itf;
 
     bool clock_active;
-
 };
-

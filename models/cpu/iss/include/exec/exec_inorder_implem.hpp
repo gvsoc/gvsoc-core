@@ -21,14 +21,11 @@
 
 #pragma once
 
-
 static inline iss_insn_t *iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn)
 {
     iss->timing.stall_load_dependency_account(insn->latency);
     return insn->stall_fast_handler(iss, insn);
 }
-
-
 
 static inline iss_insn_t *iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn)
 {
@@ -36,28 +33,20 @@ static inline iss_insn_t *iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn)
     return insn->stall_handler(iss, insn);
 }
 
-
-
 inline iss_insn_callback_t Exec::insn_trace_callback_get()
 {
     return iss_exec_insn_with_trace;
 }
-
-
 
 inline iss_insn_callback_t Exec::insn_stalled_callback_get()
 {
     return iss_exec_stalled_insn;
 }
 
-
-
 inline iss_insn_callback_t Exec::insn_stalled_fast_callback_get()
 {
     return iss_exec_stalled_insn_fast;
 }
-
-
 
 inline void Exec::insn_stall()
 {
@@ -65,15 +54,11 @@ inline void Exec::insn_stall()
     this->stalled_inc();
 }
 
-
-
 inline void Exec::insn_hold()
 {
     this->iss.dump_trace_enabled = false;
     this->iss.stall_insn = this->iss.current_insn;
 }
-
-
 
 inline void Exec::insn_terminate()
 {
@@ -83,21 +68,15 @@ inline void Exec::insn_terminate()
     }
 }
 
-
-
 inline iss_insn_t *Exec::insn_exec(iss_insn_t *insn)
 {
     return insn->handler(&this->iss, insn);
 }
 
-
-
 inline iss_insn_t *Exec::insn_exec_fast(iss_insn_t *insn)
 {
     return insn->fast_handler(&this->iss, insn);
 }
-
-
 
 inline bool Exec::can_switch_to_fast_mode()
 {
@@ -108,14 +87,10 @@ inline bool Exec::can_switch_to_fast_mode()
 #endif
 }
 
-
-
 inline bool Exec::is_stalled()
 {
     return this->stalled.get();
 }
-
-
 
 inline void Exec::stalled_inc()
 {
@@ -125,8 +100,6 @@ inline void Exec::stalled_inc()
     }
     this->stalled.inc(1);
 }
-
-
 
 inline void Exec::stalled_dec()
 {
@@ -143,8 +116,6 @@ inline void Exec::stalled_dec()
         this->instr_event->enable();
     }
 }
-
-
 
 inline void Exec::insn_exec_profiling()
 {
@@ -167,8 +138,6 @@ inline void Exec::insn_exec_profiling()
     }
 }
 
-
-
 inline void Exec::insn_exec_power(iss_insn_t *insn)
 {
     if (this->iss.power.get_power_trace()->get_active())
@@ -176,8 +145,6 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
         this->iss.insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
     }
 }
-
-
 
 inline void Exec::switch_to_full_mode()
 {

@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
-
 
 #pragma once
 
@@ -38,7 +37,7 @@ public:
 
     // Flush the prefetch buffer
     inline void flush();
-    
+
     // Fetch the given instruction from prefetch buffer
     inline void fetch(iss_insn_t *insn);
 
@@ -84,7 +83,7 @@ private:
     Iss &iss;
 
     // Prefetch buffer
-    uint8_t    data[ISS_PREFETCHER_SIZE];
+    uint8_t data[ISS_PREFETCHER_SIZE];
 
     // Start address of the prefetch buffer. Can be -1 to indicate it is empty
     iss_addr_t buffer_start_addr;

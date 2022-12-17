@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -24,7 +24,6 @@
 
 #include "types.hpp"
 #include <string>
-
 
 void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr);
 
@@ -42,10 +41,6 @@ void iss_register_debug_info(Iss *iss, const char *binary);
 
 iss_insn_t *iss_decode_pc_handler(Iss *cpu, iss_insn_t *pc);
 void iss_decode_activate_isa(Iss *cpu, char *isa);
-
-
-
-
 
 void iss_csr_init(Iss *iss, int active);
 bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value);
@@ -70,6 +65,5 @@ static inline iss_isa_set_t *iss_get_isa_set()
 #include "insn_cache.hpp"
 #include "exceptions.hpp"
 #include "resource.hpp"
-
 
 #endif

@@ -22,7 +22,6 @@
 #include <vp/vp.hpp>
 #include "iss.hpp"
 
-
 int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
 {
 
@@ -134,9 +133,9 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     }
     else if (err == vp::IO_REQ_INVALID)
     {
-        vp_warning_always(&this->iss.warning, 
-            "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
-            this->iss.current_insn->addr, addr, size, is_write);
+        vp_warning_always(&this->iss.warning,
+                          "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
+                          this->iss.current_insn->addr, addr, size, is_write);
     }
 
     this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
@@ -166,13 +165,11 @@ void Lsu::build()
     iss.traces.new_trace("lsu", &this->trace, vp::DEBUG);
 }
 
-
 void Lsu::store_resume(Lsu *lsu)
 {
     // For now we don't have to do anything as the register was written directly
     // by the request but we cold support sign-extended loads here;
 }
-
 
 void Lsu::load_resume(Lsu *lsu)
 {

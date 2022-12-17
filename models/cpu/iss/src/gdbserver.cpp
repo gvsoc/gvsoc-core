@@ -15,43 +15,37 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 #include <iss.hpp>
 
-
 Gdbserver::Gdbserver(Iss &iss)
-: iss(iss)
+    : iss(iss)
 {
 }
-
 
 void Gdbserver::start()
 {
-  this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
+    this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
 
-  if (this->gdbserver)
-  {
-    this->gdbserver->register_core(this);
-    this->iss.halted.set(true);
-  }
+    if (this->gdbserver)
+    {
+        this->gdbserver->register_core(this);
+        this->iss.halted.set(true);
+    }
 }
-
 
 int Gdbserver::gdbserver_get_id()
 {
-  return this->iss.config.mhartid;
+    return this->iss.config.mhartid;
 }
-
 
 std::string Gdbserver::gdbserver_get_name()
 {
-  return this->iss.get_name();
+    return this->iss.get_name();
 }
-
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
@@ -69,13 +63,11 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
     return 0;
 }
 
-
 int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 {
-  fprintf(stderr, "UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
-  return 0;
+    fprintf(stderr, "UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
+    return 0;
 }
-
 
 int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
@@ -92,7 +84,7 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
     if (value)
     {
         uint32_t *regs = (uint32_t *)value;
-        for (int i=0; i<32; i++)
+        for (int i = 0; i < 32; i++)
         {
             regs[i] = iss_get_reg(&this->iss, i);
         }
@@ -110,14 +102,12 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
     return 0;
 }
 
-
 int Gdbserver::gdbserver_stop()
 {
     this->iss.halted.set(true);
     this->gdbserver->signal(this);
     return 0;
 }
-
 
 int Gdbserver::gdbserver_cont()
 {
@@ -126,7 +116,6 @@ int Gdbserver::gdbserver_cont()
     return 0;
 }
 
-
 int Gdbserver::gdbserver_stepi()
 {
     fprintf(stderr, "STEP\n");
@@ -134,7 +123,6 @@ int Gdbserver::gdbserver_stepi()
     this->iss.halted.set(false);
     return 0;
 }
-
 
 int Gdbserver::gdbserver_state()
 {

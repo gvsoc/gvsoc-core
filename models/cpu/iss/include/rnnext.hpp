@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -24,80 +24,68 @@
 
 static inline void pl_sdotsp_h_0_load_resume(Lsu *lsu)
 {
-  iss_insn_t *insn = lsu->iss.rnnext.sdot_insn;
-  lsu->iss.csr_trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_0);
+    iss_insn_t *insn = lsu->iss.rnnext.sdot_insn;
+    lsu->iss.csr_trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_0);
 }
 
 static inline iss_insn_t *pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t addr = REG_GET(0);
-  IN_REG_SET(0, addr + 4);
+    iss_reg_t addr = REG_GET(0);
+    IN_REG_SET(0, addr + 4);
 
-  REG_SET(0, LIB_CALL3(lib_VEC_SDOTSP_16, REG_GET(2), iss->rnnext.sdot_prefetch_0, REG_GET(1)));
+    REG_SET(0, LIB_CALL3(lib_VEC_SDOTSP_16, REG_GET(2), iss->rnnext.sdot_prefetch_0, REG_GET(1)));
 
-  if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_0, 4, false))
-  {
-    iss->csr_trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", iss->rnnext.sdot_prefetch_0);
-  }
-  else
-  {
-    iss->state.stall_callback = pl_sdotsp_h_0_load_resume;
-    iss->rnnext.sdot_insn = insn;
-    iss->exec.insn_stall();
-  }
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_0, 4, false))
+    {
+        iss->csr_trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", iss->rnnext.sdot_prefetch_0);
+    }
+    else
+    {
+        iss->state.stall_callback = pl_sdotsp_h_0_load_resume;
+        iss->rnnext.sdot_insn = insn;
+        iss->exec.insn_stall();
+    }
 
-
-
-  return insn->next;
+    return insn->next;
 }
-
-
 
 static inline void pl_sdotsp_h_1_load_resume(Lsu *lsu)
 {
-  iss_insn_t *insn = lsu->iss.rnnext.sdot_insn;
-  lsu->iss.csr_trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_1);
+    iss_insn_t *insn = lsu->iss.rnnext.sdot_insn;
+    lsu->iss.csr_trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_1);
 }
 
 static inline iss_insn_t *pl_sdotsp_h_1_exec(Iss *iss, iss_insn_t *insn)
 {
-  iss_reg_t addr = REG_GET(0);
-  IN_REG_SET(0, addr + 4);
+    iss_reg_t addr = REG_GET(0);
+    IN_REG_SET(0, addr + 4);
 
-  REG_SET(0, LIB_CALL3(lib_VEC_SDOTSP_16, REG_GET(2), iss->rnnext.sdot_prefetch_1, REG_GET(1)));
+    REG_SET(0, LIB_CALL3(lib_VEC_SDOTSP_16, REG_GET(2), iss->rnnext.sdot_prefetch_1, REG_GET(1)));
 
-  if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_1, 4, false))
-  {
-    iss->csr_trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", iss->rnnext.sdot_prefetch_1);
-  }
-  else
-  {
-    iss->state.stall_callback = pl_sdotsp_h_1_load_resume;
-    iss->rnnext.sdot_insn = insn;
-    iss->exec.insn_stall();
-  }
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_1, 4, false))
+    {
+        iss->csr_trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", iss->rnnext.sdot_prefetch_1);
+    }
+    else
+    {
+        iss->state.stall_callback = pl_sdotsp_h_1_load_resume;
+        iss->rnnext.sdot_insn = insn;
+        iss->exec.insn_stall();
+    }
 
-
-
-  return insn->next;
+    return insn->next;
 }
-
-
 
 static inline iss_insn_t *pl_tanh_exec(Iss *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL1(lib_TANH, REG_GET(0)));
-  return insn->next;
+    REG_SET(0, LIB_CALL1(lib_TANH, REG_GET(0)));
+    return insn->next;
 }
-
-
 
 static inline iss_insn_t *pl_sig_exec(Iss *iss, iss_insn_t *insn)
 {
-  REG_SET(0, LIB_CALL1(lib_SIG, REG_GET(0)));
-  return insn->next;
+    REG_SET(0, LIB_CALL1(lib_SIG, REG_GET(0)));
+    return insn->next;
 }
-
-
 
 #endif

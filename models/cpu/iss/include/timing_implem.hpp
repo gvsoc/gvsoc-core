@@ -23,8 +23,6 @@
 
 #include "types.hpp"
 
-
-
 inline void Timing::reset(bool active)
 {
     if (active)
@@ -33,29 +31,21 @@ inline void Timing::reset(bool active)
     }
 }
 
-
-
 inline int Timing::stall_cycles_get()
 {
     return this->stall_cycles;
 }
-
-
 
 inline void Timing::stall_cycles_dec()
 {
     this->stall_cycles--;
 }
 
-
-
 inline void Timing::stall_cycles_account(int cycles)
 {
     this->stall_cycles += cycles;
     this->event_account(CSR_PCER_CYCLES, cycles);
 }
-
-
 
 inline void Timing::event_trace_account(unsigned int event, int cycles)
 {
@@ -65,18 +55,14 @@ inline void Timing::event_trace_account(unsigned int event, int cycles)
     if (this->iss.pcer_trace_event[event].get_event_active())
     {
         // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
-        this->iss.pcer_trace_event[event].event_pulse(cycles*this->iss.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+        this->iss.pcer_trace_event[event].event_pulse(cycles * this->iss.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
     }
 }
-
-
 
 inline int Timing::event_trace_is_active(unsigned int event)
 {
     return this->iss.pcer_trace_event[event].get_event_active() && this->iss.ext_counter[event].is_bound();
 }
-
-
 
 inline void Timing::event_account(unsigned int event, int incr)
 {
@@ -90,8 +76,6 @@ inline void Timing::event_account(unsigned int event, int incr)
     this->event_trace_account(event, incr);
 }
 
-
-
 inline void Timing::event_load_account(int incr)
 {
     this->event_account(CSR_PCER_LD, incr);
@@ -102,49 +86,35 @@ inline void Timing::event_rvc_account(int incr)
     this->event_account(CSR_PCER_RVC, incr);
 }
 
-
-
 inline void Timing::event_store_account(int incr)
 {
     this->event_account(CSR_PCER_ST, incr);
 }
-
-
 
 inline void Timing::event_branch_account(int incr)
 {
     this->event_account(CSR_PCER_BRANCH, incr);
 }
 
-
-
 inline void Timing::event_taken_branch_account(int incr)
 {
     this->event_account(CSR_PCER_TAKEN_BRANCH, incr);
 }
-
-
 
 inline void Timing::event_jump_account(int incr)
 {
     this->event_account(CSR_PCER_JUMP, incr);
 }
 
-
-
 inline void Timing::event_misaligned_account(int incr)
 {
     this->event_account(CSR_PCER_MISALIGNED, incr);
 }
 
-
-
 inline void Timing::event_insn_contention_account(int incr)
 {
     this->event_account(CSR_PCER_INSN_CONT, incr);
 }
-
-
 
 inline void Timing::insn_account()
 {
@@ -152,7 +122,7 @@ inline void Timing::insn_account()
     this->event_account(CSR_PCER_CYCLES, 1);
 
 #if defined(ISS_HAS_PERF_COUNTERS)
-    for (int i=CSR_PCER_NB_INTERNAL_EVENTS; i<CSR_PCER_NB_EVENTS; i++)
+    for (int i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)
     {
         if (this->event_trace_is_active(i))
         {
@@ -162,15 +132,11 @@ inline void Timing::insn_account()
 #endif
 }
 
-
-
 inline void Timing::stall_fetch_account(int cycles)
 {
     this->stall_cycles_account(cycles);
     this->event_account(CSR_PCER_IMISS, cycles);
 }
-
-
 
 inline void Timing::stall_misaligned_account()
 {
@@ -178,14 +144,10 @@ inline void Timing::stall_misaligned_account()
     this->event_account(CSR_PCER_LD, 1);
 }
 
-
-
 inline void Timing::stall_load_account(int cycles)
 {
     this->stall_cycles_account(cycles);
 }
-
-
 
 inline void Timing::stall_taken_branch_account()
 {
@@ -194,29 +156,21 @@ inline void Timing::stall_taken_branch_account()
     this->event_taken_branch_account(1);
 }
 
-
-
 inline void Timing::stall_insn_account(int cycles)
 {
     this->stall_cycles_account(cycles);
 }
-
-
 
 inline void Timing::stall_insn_dependency_account(int latency)
 {
     this->stall_cycles_account(latency - 1);
 }
 
-
-
 inline void Timing::stall_load_dependency_account(int latency)
 {
     this->stall_cycles_account(latency - 1);
     this->event_account(CSR_PCER_LD_STALL, latency - 1);
 }
-
-
 
 inline void Timing::stall_jump_account()
 {

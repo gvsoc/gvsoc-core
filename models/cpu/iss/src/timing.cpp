@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
-
 
 #include <vp/vp.hpp>
 #include "iss.hpp"
 
-
 Timing::Timing(Iss &iss)
-: iss(iss)
+    : iss(iss)
 {
-
 }
-
 
 void Timing::ipc_start_gen(bool pulse)
 {

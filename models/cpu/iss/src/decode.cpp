@@ -349,7 +349,7 @@ iss_insn_t *iss_decode_pc_handler(Iss *iss, iss_insn_t *insn)
 }
 
 Decode::Decode(Iss &iss)
-: iss(iss)
+    : iss(iss)
 {
 }
 

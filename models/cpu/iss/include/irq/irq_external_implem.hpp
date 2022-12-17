@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -24,13 +24,11 @@
 #include <irq/irq_external.hpp>
 #include <iss.hpp>
 
-
-
 inline void Irq::global_enable(int enable)
 {
-  this->trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
-    enable);
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
+                    enable);
 
-  this->iss.irq.irq_enable = enable;
-  this->iss.exec.switch_to_full_mode();
+    this->iss.irq.irq_enable = enable;
+    this->iss.exec.switch_to_full_mode();
 }

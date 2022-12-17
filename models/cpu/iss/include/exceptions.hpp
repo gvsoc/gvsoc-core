@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -25,34 +25,34 @@
 static inline iss_insn_t *iss_except_raise(Iss *iss, int id)
 {
 #if defined(PRIV_1_10)
-  if (id == ISS_EXCEPT_DEBUG)
-  {
-    iss->csr.depc = iss->current_insn->addr;
-    iss->irq.debug_saved_irq_enable = iss->irq.irq_enable;
-    iss->irq.irq_enable = 0;
-    return iss->irq.debug_handler;
-  }
-  else
-  {
+    if (id == ISS_EXCEPT_DEBUG)
+    {
+        iss->csr.depc = iss->current_insn->addr;
+        iss->irq.debug_saved_irq_enable = iss->irq.irq_enable;
+        iss->irq.irq_enable = 0;
+        return iss->irq.debug_handler;
+    }
+    else
+    {
+        iss->csr.epc = iss->current_insn->addr;
+        iss->irq.saved_irq_enable = iss->irq.irq_enable;
+        iss->irq.irq_enable = 0;
+        iss->csr.mcause = 0xb;
+        iss_insn_t *insn = iss->irq.vectors[0];
+        if (insn == NULL)
+            insn = insn_cache_get(iss, 0);
+        return insn;
+    }
+#else
     iss->csr.epc = iss->current_insn->addr;
     iss->irq.saved_irq_enable = iss->irq.irq_enable;
     iss->irq.irq_enable = 0;
     iss->csr.mcause = 0xb;
-    iss_insn_t *insn = iss->irq.vectors[0];
+    iss_insn_t *insn = iss->irq.vectors[32 + id];
     if (insn == NULL)
-      insn = insn_cache_get(iss, 0);
-    return insn; 
-  }
-#else
-  iss->csr.epc = iss->current_insn->addr;
-  iss->irq.saved_irq_enable = iss->irq.irq_enable;
-  iss->irq.irq_enable = 0;
-  iss->csr.mcause = 0xb;
-  iss_insn_t *insn = iss->irq.vectors[32 + id];
-  if (insn == NULL)
-    insn = insn_cache_get(iss, 0);
-  return insn;
- #endif
+        insn = insn_cache_get(iss, 0);
+    return insn;
+#endif
 }
 
 #endif

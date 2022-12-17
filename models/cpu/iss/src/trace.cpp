@@ -24,6 +24,13 @@
 #include <algorithm>
 #include <vector>
 
+
+Trace::Trace(Iss &iss)
+: iss(iss)
+{
+
+}
+
 #define PC_INFO_ARRAY_SIZE (64 * 1024)
 
 #define MAX_DEBUG_INFO_WIDTH 24

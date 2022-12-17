@@ -22,6 +22,12 @@
 #pragma once
 
 #include <lsu.hpp>
+#include <decode.hpp>
+#include <trace.hpp>
+#include <csr.hpp>
+#include <dbgunit.hpp>
+#include <syscalls.hpp>
+#include <timing.hpp>
 #include <irq/irq_external.hpp>
 #include <exec/exec_inorder.hpp>
 #include <prefetch/prefetch_single_line.hpp>
@@ -33,49 +39,36 @@ class Iss : public vp::component
 public:
     Iss(js::config *config);
 
+
+
     int build();
     void start();
     void pre_reset();
     void reset(bool active);
-
-
     int iss_open();
     virtual void target_open();
 
-    void debug_req();
-
-    bool user_access(iss_addr_t addr, uint8_t *data, iss_addr_t size, bool is_write);
-    std::string read_user_string(iss_addr_t addr, int len = -1);
-
-    static vp::io_req_status_e dbg_unit_req(void *__this, vp::io_req *req);
-    inline void iss_exec_insn_check_debug_step();
-
-    void set_halt_mode(bool halted, int cause);
-
-    void handle_ebreak();
-    void handle_riscv_ebreak();
-
+    // trace
+    void insn_trace_callback();
     void dump_debug_traces();
 
-    void insn_trace_callback();
 
+    // csr
     void declare_pcer(int index, std::string name, std::string help);
 
 
-    void pc_set(iss_addr_t value);
+    // cache
+    static void flush_cache_sync(void *_this, bool active);
 
+
+    // exec
+    static void flush_cache_ack_sync(void *_this, bool active);
+    void pc_set(iss_addr_t value);
     static void clock_sync(void *_this, bool active);
     static void bootaddr_sync(void *_this, uint32_t value);
     static void fetchen_sync(void *_this, bool active);
-    static void flush_cache_sync(void *_this, bool active);
-    static void flush_cache_ack_sync(void *_this, bool active);
-    static void halt_sync(void *_this, bool active);
-    void halt_core();
+    
 
-    static void ipc_stat_handler(void *__this, vp::clock_event *event);
-    void gen_ipc_stat(bool pulse = false);
-    void trigger_ipc_stat();
-    void stop_ipc_stat();
 
     Prefetcher prefetcher;
     Exec exec;
@@ -84,6 +77,10 @@ public:
     Irq irq;
     Gdbserver gdbserver;
     Lsu lsu;
+    DbgUnit dbgunit;
+    Syscalls syscalls;
+    Trace trace;
+    Csr csr;
 
 
     vp::io_master data;
@@ -101,7 +98,8 @@ public:
 
     vp::io_req io_req;
 
-    vp::trace trace;
+    // vp::trace trace;
+    vp::trace wrapper_trace;
     vp::trace decode_trace;
     vp::trace insn_trace;
     vp::trace csr_trace;
@@ -144,7 +142,6 @@ public:
     iss_regfile_t regfile;
     iss_cpu_state_t state;
     iss_config_t config;
-    iss_csr_t csr;
     iss_pulpv2_t pulpv2;
     iss_pulp_nn_t pulp_nn;
     iss_rnnext_t rnnext;

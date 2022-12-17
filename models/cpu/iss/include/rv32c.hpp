@@ -318,11 +318,11 @@ static inline iss_insn_t *c_ebreak_exec(Iss *iss, iss_insn_t *insn)
 
     if ((iss->csr.dcsr >> 15) & 1)
     {
-        iss->set_halt_mode(true, 1);
+        iss->dbgunit.set_halt_mode(true, 1);
     }
     else
     {
-        iss->handle_ebreak();
+        iss->syscalls.handle_ebreak();
     }
     return insn->next;
 }
@@ -330,7 +330,7 @@ static inline iss_insn_t *c_ebreak_exec(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *c_sbreak_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->timing.event_rvc_account(1);
-    iss->set_halt_mode(true, 3);
+    iss->dbgunit.set_halt_mode(true, 3);
     return insn->next;
 }
 

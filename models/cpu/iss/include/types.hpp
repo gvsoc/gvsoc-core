@@ -466,27 +466,6 @@ typedef struct iss_config_s
     iss_addr_t debug_handler;
 } iss_config_t;
 
-typedef struct iss_csr_s
-{
-    iss_reg_t status;
-    iss_reg_t epc;
-    iss_reg_t depc;
-    iss_reg_t dcsr;
-    iss_reg_t mtvec;
-    iss_reg_t mcause;
-#if defined(ISS_HAS_PERF_COUNTERS)
-    iss_reg_t pccr[32];
-    iss_reg_t pcer;
-    iss_reg_t pcmr;
-#endif
-    iss_reg_t stack_conf;
-    iss_reg_t stack_start;
-    iss_reg_t stack_end;
-    iss_reg_t scratch0;
-    iss_reg_t scratch1;
-    iss_reg_t mscratch;
-} iss_csr_t;
-
 #define PULPV2_HWLOOP_NB_REGS 7
 
 typedef struct iss_pulpv2_s
@@ -538,66 +517,7 @@ typedef struct
 } Iss_pcer_info_t;
 
 
-class Timing
-{
-public:
-    Timing(Iss &iss);
-    inline void stall_fetch_account(int count);
-    inline void stall_taken_branch_account();
-    inline void stall_insn_account(int cycles);
-    inline void stall_insn_dependency_account(int latency);
-    inline void stall_load_dependency_account(int latency);
-    inline void stall_jump_account();
-    inline void stall_misaligned_account();
-    inline void stall_load_account(int cycles);
-    inline void insn_account();
 
-    inline void event_load_account(int incr);
-    inline void event_rvc_account(int incr);
-    inline void event_store_account(int incr);
-    inline void event_branch_account(int incr);
-    inline void event_taken_branch_account(int incr);
-    inline void event_jump_account(int incr);
-    inline void event_misaligned_account(int incr);
-    inline void event_insn_contention_account(int incr);
-
-    inline void event_trace_account(unsigned int event, int cycles);
-    inline int event_trace_is_active(unsigned int event);
-
-    inline int stall_cycles_get();
-    inline void stall_cycles_dec();
-    inline void stall_cycles_account(int incr);
-
-    inline void reset(bool active);
-
-private:
-    inline void event_account(unsigned int event, int incr);
-
-    int stall_cycles;
-
-    Iss &iss;
-};
-
-
-
-class Decode
-{
-public:
-    Decode(Iss &iss);
-    iss_insn_t *decode_pc(iss_insn_t *pc);
-
-private:
-    int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);
-    int decode_item(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
-    int decode_opcode_group(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
-    int decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
-    uint64_t decode_ranges(iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed);
-    int decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_info_t *info, bool is_signed);
-
-    // TODO to be removed
-    Iss &iss;
-    vp::trace trace;
-};
 
 
 

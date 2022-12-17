@@ -23,71 +23,82 @@
 #include <vp/vp.hpp>
 #include "iss.hpp"
 
-void Iss::debug_req()
+DbgUnit::DbgUnit(Iss &iss)
+: iss(iss)
 {
-  this->irq.req_debug = true;
-  this->exec.switch_to_full_mode();
-  this->wfi.set(false);
+}
+
+void DbgUnit::build()
+{
+    iss.traces.new_trace("dbgunit", &this->trace, vp::DEBUG);
 }
 
 
-void Iss::set_halt_mode(bool halted, int cause)
+void DbgUnit::debug_req()
 {
-  if (this->riscv_dbg_unit)
+  this->iss.irq.req_debug = true;
+  this->iss.exec.switch_to_full_mode();
+  this->iss.wfi.set(false);
+}
+
+
+void DbgUnit::set_halt_mode(bool halted, int cause)
+{
+  if (this->iss.riscv_dbg_unit)
   {
-    if (!this->state.debug_mode)
+    if (!this->iss.state.debug_mode)
     {
-      this->csr.dcsr = (this->csr.dcsr & ~(0x7 << 6)) | (cause << 6);
+      this->iss.csr.dcsr = (this->iss.csr.dcsr & ~(0x7 << 6)) | (cause << 6);
       this->debug_req();
     }
   }
   else
   {
-    this->halt_cause = cause;
+    this->iss.halt_cause = cause;
 
-    if (this->halted.get() && !halted)
+    if (this->iss.halted.get() && !halted)
     {
-      this->get_clock()->release();
+      this->iss.get_clock()->release();
     }
-    else if (!this->halted.get() && halted)
+    else if (!this->iss.halted.get() && halted)
     {
-      this->get_clock()->retain();
+      this->iss.get_clock()->retain();
     }
 
-    this->halted.set(halted);
+    this->iss.halted.set(halted);
 
-    if (this->halt_status_itf.is_bound()) 
-      this->halt_status_itf.sync(this->halted.get());
+    if (this->iss.halt_status_itf.is_bound()) 
+      this->iss.halt_status_itf.sync(this->iss.halted.get());
   }
 }
 
 
 
-void Iss::halt_core()
+void DbgUnit::halt_core()
 {
   this->trace.msg("Halting core\n");
 
-  if (this->prev_insn == NULL)
-    this->ppc = 0;
+  if (this->iss.prev_insn == NULL)
+    this->iss.ppc = 0;
   else
-    this->ppc = this->prev_insn->addr;
-  this->npc = this->current_insn->addr;
+    this->iss.ppc = this->iss.prev_insn->addr;
+  this->iss.npc = this->iss.current_insn->addr;
 }
 
 
 
-void Iss::halt_sync(void *__this, bool halted)
+void DbgUnit::halt_sync(void *__this, bool halted)
 {
-  Iss *_this = (Iss *)__this;
+  DbgUnit *_this = (DbgUnit *)__this;
 
   _this->trace.msg("Received halt signal sync (halted: 0x%d)\n", halted);
   _this->set_halt_mode(halted, HALT_CAUSE_HALT);
 }
 
 
-vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
+vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
 {
-  Iss *_this = (Iss *)__this;
+  DbgUnit *_this = (DbgUnit *)__this;
 
   uint64_t offset = req->get_addr();
   uint8_t *data = req->get_data();
@@ -107,15 +118,15 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
 
     bool err;
     if (req->get_is_write())
-      err = iss_csr_write(_this, offset / 4, *(iss_reg_t *)data);
+      err = iss_csr_write(&_this->iss, offset / 4, *(iss_reg_t *)data);
     else
-      err = iss_csr_read(_this, offset / 4, (iss_reg_t *)data);
+      err = iss_csr_read(&_this->iss, offset / 4, (iss_reg_t *)data);
 
     if (err) return vp::IO_REQ_INVALID;
   }
   else if (offset >= 0x2000)
   {
-    if (!_this->halted.get())
+    if (!_this->iss.halted.get())
     {
       _this->trace.force_warning("Trying to access debug registers while core is not halted\n");
       return vp::IO_REQ_INVALID;
@@ -127,20 +138,20 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
       {
         // Writing NPC will force the core to jump to the written PC
         // even if the core is sleeping
-        iss_cache_flush(_this);
-        _this->npc = *(iss_reg_t *)data;
-        _this->pc_set(_this->npc);
-        _this->wfi.set(false);
+        iss_cache_flush(&_this->iss);
+        _this->iss.npc = *(iss_reg_t *)data;
+        _this->iss.pc_set(_this->iss.npc);
+        _this->iss.wfi.set(false);
       }
       else
-        *(iss_reg_t *)data = _this->npc;
+        *(iss_reg_t *)data = _this->iss.npc;
     }
     else if (offset == 0x2004)
     {
       if (req->get_is_write())
         _this->trace.force_warning("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
       else
-        *(iss_reg_t *)data = _this->ppc;
+        *(iss_reg_t *)data = _this->iss.ppc;
     }
     else
     {
@@ -152,7 +163,7 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
     offset -= 0x400;
     int reg_id = offset / 4;
 
-    if (!_this->halted.get())
+    if (!_this->iss.halted.get())
     {
       _this->trace.force_warning("Trying to access GPR while core is not halted\n");
       return vp::IO_REQ_INVALID;
@@ -162,9 +173,9 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
       return vp::IO_REQ_INVALID;
 
     if (req->get_is_write())
-      iss_set_reg(_this, reg_id, *(iss_reg_t *)data);
+      iss_set_reg(&_this->iss, reg_id, *(iss_reg_t *)data);
     else
-      *(iss_reg_t *)data = iss_get_reg(_this, reg_id);
+      *(iss_reg_t *)data = iss_get_reg(&_this->iss, reg_id);
   }
   else if (offset < 0x80)
   {
@@ -177,22 +188,22 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
         _this->trace.msg("Writing DBG_CTRL (value: 0x%x, halt: %d, step: %d)\n", *(iss_reg_t *)data, halt_mode, step_mode);
 
         _this->set_halt_mode(halt_mode, HALT_CAUSE_HALT);
-        _this->step_mode.set(step_mode);
+        _this->iss.step_mode.set(step_mode);
       }
       else
       {
-        *(iss_reg_t *)data = (_this->halted.get() << 16) | _this->step_mode.get();
+        *(iss_reg_t *)data = (_this->iss.halted.get() << 16) | _this->iss.step_mode.get();
       }
     }
     else if (offset == 0x04)
     {
       if (req->get_is_write())
       {
-        _this->hit_reg = *(iss_reg_t *)data;
+        _this->iss.hit_reg = *(iss_reg_t *)data;
       }
       else
       {
-        *(iss_reg_t *)data = _this->hit_reg;
+        *(iss_reg_t *)data = _this->iss.hit_reg;
       }
     }
     else if (offset == 0x0C)
@@ -200,7 +211,7 @@ vp::io_req_status_e Iss::dbg_unit_req(void *__this, vp::io_req *req)
       if (req->get_is_write())
         return vp::IO_REQ_INVALID;
 
-      *(iss_reg_t *)data = _this->halt_cause;
+      *(iss_reg_t *)data = _this->iss.halt_cause;
     }
   }
   else

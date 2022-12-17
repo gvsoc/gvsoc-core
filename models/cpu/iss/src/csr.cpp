@@ -22,6 +22,17 @@
 #include "iss.hpp"
 
 
+Csr::Csr(Iss &iss)
+    : iss(iss)
+{
+}
+
+void Csr::build()
+{
+    iss.traces.new_trace("csr", &this->trace, vp::DEBUG);
+}
+
+
 #if defined(ISS_HAS_PERF_COUNTERS)
 void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr);
 #endif
@@ -499,7 +510,7 @@ static bool mepc_read(Iss *iss, iss_reg_t *value) {
 }
 
 static bool mepc_write(Iss *iss, unsigned int value) {
-  iss->trace.msg("Setting MEPC (value: 0x%x)\n", value);
+  iss->csr.trace.msg("Setting MEPC (value: 0x%x)\n", value);
   iss->csr.epc = value & ~1;
   return false;
 }
@@ -926,7 +937,7 @@ static inline void iss_csr_ext_counter_set(Iss *iss, int id, unsigned int value)
 {
   if (!iss->ext_counter[id].is_bound())
   {
-    iss->trace.warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
+    iss->csr.trace.warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
   }
   else
   {
@@ -938,7 +949,7 @@ static inline void iss_csr_ext_counter_get(Iss *iss, int id, unsigned int *value
 {
   if (!iss->ext_counter[id].is_bound())
   {
-    iss->trace.force_warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
+    iss->csr.trace.force_warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
   }
   else
   {

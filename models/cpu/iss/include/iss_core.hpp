@@ -66,6 +66,7 @@ static inline iss_isa_set_t *iss_get_isa_set()
 #include "regs.hpp"
 #include "perf.hpp"
 #include "lsu.hpp"
+#include <decode.hpp>
 #include "insn_cache.hpp"
 #include "exceptions.hpp"
 #include "resource.hpp"

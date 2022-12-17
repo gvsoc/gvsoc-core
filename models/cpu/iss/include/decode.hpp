@@ -15,42 +15,34 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
+
 
 #pragma once
 
 
-#include <vp/vp.hpp>
 #include <types.hpp>
 
-class Irq
+class Decode
 {
 public:
-    Irq(Iss &iss);
-
+    Decode(Iss &iss);
     void build();
 
-    void vector_table_set(iss_addr_t base);
-    inline void global_enable(int enable);
-    iss_insn_t *mret_handle();
-    iss_insn_t *dret_handle();
-    void cache_flush();
-    void reset(bool active);
-    int check();
-    void wfi_handle();
-    void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
+    iss_insn_t *decode_pc(iss_insn_t *pc);
 
-    Iss &iss;
-    iss_insn_t *vectors[35];
-    int irq_enable;
-    int saved_irq_enable;
-    int debug_saved_irq_enable;
-    int req_irq;
-    bool req_debug;
-    uint32_t vector_base;
-    iss_insn_t *debug_handler;
     vp::trace trace;
+
+private:
+    int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);
+    int decode_item(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
+    int decode_opcode_group(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
+    int decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
+    uint64_t decode_ranges(iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed);
+    int decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_info_t *info, bool is_signed);
+
+    // TODO to be removed
+    Iss &iss;
 };

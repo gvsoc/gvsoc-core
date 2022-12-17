@@ -44,7 +44,7 @@ static int iss_parse_isa(Iss *iss)
     }
     else
     {
-        iss->trace.force_warning("Unsupported ISA: %s\n", current);
+        iss->decode.trace.force_warning("Unsupported ISA: %s\n", current);
         return -1;
     }
 
@@ -138,7 +138,7 @@ static int iss_parse_isa(Iss *iss)
             break;
         }
         default:
-            iss->trace.force_warning("Unknwon ISA descriptor: %c\n", *current);
+            iss->decode.trace.force_warning("Unknwon ISA descriptor: %c\n", *current);
             return -1;
         }
     }
@@ -354,12 +354,19 @@ void Iss::pc_set(iss_addr_t value)
 
 int Iss::build()
 {
+    this->syscalls.build();
+    this->decode.build();
+    this->exec.build();
+    this->dbgunit.build();
+    this->csr.build();
+    this->lsu.build();
+    this->irq.build();
     if (this->prefetcher.build(*this))
     {
         return -1;
     }
 
-    traces.new_trace("trace", &trace, vp::DEBUG);
+    traces.new_trace("wrapper", &this->wrapper_trace, vp::DEBUG);
     traces.new_trace("gdbserver_trace", &this->gdbserver.gdbserver_trace, vp::DEBUG);
     traces.new_trace("decode_trace", &decode_trace, vp::DEBUG);
     traces.new_trace("insn", &insn_trace, vp::DEBUG);
@@ -419,8 +426,8 @@ int Iss::build()
     this->fetch.set_resp_meth(&Prefetcher::fetch_response);
     new_master_port(&this->prefetcher, "fetch", &fetch);
 
-    dbg_unit.set_req_meth(&Iss::dbg_unit_req);
-    new_slave_port("dbg_unit", &dbg_unit);
+    dbg_unit.set_req_meth(&DbgUnit::dbg_unit_req);
+    new_slave_port(&this->dbgunit, "dbg_unit", &dbg_unit);
 
     bootaddr_itf.set_sync_meth(&Iss::bootaddr_sync);
     new_slave_port("bootaddr", &bootaddr_itf);
@@ -444,8 +451,8 @@ int Iss::build()
     new_slave_port("flush_cache_ack", &flush_cache_ack_itf);
     new_master_port("flush_cache_req", &flush_cache_req_itf);
 
-    halt_itf.set_sync_meth(&Iss::halt_sync);
-    new_slave_port("halt", &halt_itf);
+    halt_itf.set_sync_meth(&DbgUnit::halt_sync);
+    new_slave_port(&this->dbgunit, "halt", &halt_itf);
 
     new_master_port("halt_status", &halt_status_itf);
 
@@ -470,7 +477,7 @@ int Iss::build()
 
     this->is_active_reg.set(false);
 
-    ipc_clock_event = this->event_new(Iss::ipc_stat_handler);
+    ipc_clock_event = this->event_new(&this->timing, Timing::ipc_stat_handler);
 
     this->ipc_stat_delay = 0;
     this->iss_opened = false;
@@ -481,8 +488,8 @@ int Iss::build()
 void Iss::start()
 {
 
-    vp_assert_always(this->data.is_bound(), &this->trace, "Data master port is not connected\n");
-    vp_assert_always(this->fetch.is_bound(), &this->trace, "Fetch master port is not connected\n");
+    vp_assert_always(this->data.is_bound(), &this->wrapper_trace, "Data master port is not connected\n");
+    vp_assert_always(this->fetch.is_bound(), &this->wrapper_trace, "Fetch master port is not connected\n");
     // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
 
     if (this->iss_open())
@@ -497,7 +504,7 @@ void Iss::start()
         iss_register_debug_info(this, x->get_str().c_str());
     }
 
-    trace.msg("ISS start (fetch: %d, is_active: %d, boot_addr: 0x%lx)\n", fetch_enable_reg.get(), is_active_reg.get(), get_config_int("boot_addr"));
+    wrapper_trace.msg("ISS start (fetch: %d, is_active: %d, boot_addr: 0x%lx)\n", fetch_enable_reg.get(), is_active_reg.get(), get_config_int("boot_addr"));
 
 #ifdef USE_TRDB
     this->trdb = trdb_new();
@@ -582,7 +589,8 @@ void Iss::reset(bool active)
 }
 
 Iss::Iss(js::config *config)
-    : vp::component(config), prefetcher(*this), exec(*this), decode(*this), timing(*this), irq(*this), gdbserver(*this), lsu(*this)
+    : vp::component(config), prefetcher(*this), exec(*this), decode(*this), timing(*this), irq(*this),
+        gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this)
 {
 }
 
@@ -634,7 +642,7 @@ void Iss::check_state()
       this->state_event.event(&one);
       this->busy.set(1);
       if (this->ipc_stat_event.get_event_active())
-        this->trigger_ipc_stat();
+        this->ipc_stat_trigger();
 
       if (step_mode.get() && !this->state.debug_mode)
       {
@@ -660,7 +668,7 @@ void Iss::check_state()
       is_active_reg.set(false);
       this->state_event.event(NULL);
       if (this->ipc_stat_event.get_event_active())
-        this->stop_ipc_stat();
+        this->ipc_stat_stop();
       this->halt_core();
     }
     else if (wfi.get())
@@ -673,7 +681,7 @@ void Iss::check_state()
         this->state_event.event(NULL);
         this->busy.release();
         if (this->ipc_stat_event.get_event_active())
-          this->stop_ipc_stat();
+          this->ipc_stat_stop();
       }
       else
         wfi.set(false);
@@ -685,7 +693,7 @@ void Iss::check_state()
 void Iss::clock_sync(void *__this, bool active)
 {
     Iss *_this = (Iss *)__this;
-    _this->trace.msg("Setting clock (active: %d)\n", active);
+    _this->wrapper_trace.msg("Setting clock (active: %d)\n", active);
 
     _this->clock_active = active;
 }
@@ -693,7 +701,7 @@ void Iss::clock_sync(void *__this, bool active)
 void Iss::fetchen_sync(void *__this, bool active)
 {
     Iss *_this = (Iss *)__this;
-    _this->trace.msg("Setting fetch enable (active: %d)\n", active);
+    _this->wrapper_trace.msg("Setting fetch enable (active: %d)\n", active);
     int old_val = _this->fetch_enable_reg.get();
     _this->fetch_enable_reg.set(active);
     if (!old_val && active)
@@ -717,55 +725,9 @@ void Iss::declare_pcer(int index, std::string name, std::string help)
 void Iss::bootaddr_sync(void *__this, uint32_t value)
 {
     Iss *_this = (Iss *)__this;
-    _this->trace.msg("Setting boot address (value: 0x%x)\n", value);
+    _this->wrapper_trace.msg("Setting boot address (value: 0x%x)\n", value);
     _this->bootaddr_reg.set(value);
     _this->irq.vector_table_set(_this->bootaddr_reg.get() & ~((1 << 8) - 1));
-}
-
-void Iss::gen_ipc_stat(bool pulse)
-{
-    if (!pulse)
-        this->ipc_stat_event.event_real((float)this->ipc_stat_nb_insn / 100);
-    else
-        this->ipc_stat_event.event_real_pulse(this->get_period(), (float)this->ipc_stat_nb_insn / 100, 0);
-
-    this->ipc_stat_nb_insn = 0;
-    if (this->ipc_stat_delay == 10)
-        this->ipc_stat_delay = 30;
-    else
-        this->ipc_stat_delay = 100;
-}
-
-void Iss::trigger_ipc_stat()
-{
-    // In case the core is resuming execution, set IPC to 1 as we are executing
-    // first instruction to not have the signal to zero.
-    if (this->ipc_stat_delay == 10)
-    {
-        this->ipc_stat_event.event_real(1.0);
-    }
-
-    if (this->ipc_stat_event.get_event_active() && !this->ipc_clock_event->is_enqueued() && this->is_active_reg.get() && this->clock_active)
-    {
-        this->event_enqueue(this->ipc_clock_event, this->ipc_stat_delay);
-    }
-}
-
-void Iss::stop_ipc_stat()
-{
-    this->gen_ipc_stat(true);
-    if (this->ipc_clock_event->is_enqueued())
-    {
-        this->event_cancel(this->ipc_clock_event);
-    }
-    this->ipc_stat_delay = 10;
-}
-
-void Iss::ipc_stat_handler(void *__this, vp::clock_event *event)
-{
-    Iss *_this = (Iss *)__this;
-    _this->gen_ipc_stat();
-    _this->trigger_ipc_stat();
 }
 
 void Iss::target_open()

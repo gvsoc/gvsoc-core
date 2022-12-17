@@ -22,6 +22,11 @@
 
 #include <vp/vp.hpp>
 #include "types.hpp"
+#include <csr.hpp>
+#include <dbgunit.hpp>
+#include <syscalls.hpp>
+#include <timing.hpp>
+#include <trace.hpp>
 #include <irq/irq_external.hpp>
 #include <exec/exec_inorder.hpp>
 #include <prefetch/prefetch_single_line.hpp>

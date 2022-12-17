@@ -272,15 +272,15 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                    \
     {                                                                                                    \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->state.stall_callback = &pv_##insn_name##_h_resume;                                         \
+      iss->state.stall_callback = pv_##insn_name##_h_resume;                                         \
       iss->pulp_nn.ml_insn = insn;                                                                   \
       iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else if (wt_update)                                                                                    \
@@ -288,20 +288,20 @@ static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                    \
     {                                                                                                    \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->state.stall_callback = &pv_##insn_name##_h_resume;                                         \
+      iss->state.stall_callback = pv_##insn_name##_h_resume;                                         \
       iss->pulp_nn.ml_insn = insn;                                                                   \
       iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else                                                                                                   \
   {                                                                                                      \
-    iss->trace.msg("No address updating\n");                                                               \
+    iss->lsu.trace.msg("No address updating\n");                                                               \
   }                                                                                                      \
   return insn->next;                                                                                     \
 }                                                                                                        \
@@ -328,15 +328,15 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                    \
     {                                                                                                    \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->state.stall_callback = &pv_##insn_name##_b_resume;                                         \
+      iss->state.stall_callback = pv_##insn_name##_b_resume;                                         \
       iss->pulp_nn.ml_insn = insn;                                                                   \
       iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else if (wt_update)                                                                                    \
@@ -344,20 +344,20 @@ static inline iss_insn_t *pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                         \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                    \
     {                                                                                                    \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr));        \
     }                                                                                                    \
     else                                                                                                 \
     {                                                                                                    \
-      iss->state.stall_callback = &pv_##insn_name##_b_resume;                                         \
+      iss->state.stall_callback = pv_##insn_name##_b_resume;                                         \
       iss->pulp_nn.ml_insn = insn;                                                                   \
       iss->exec.insn_stall();                                                                          \
     }                                                                                                    \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4);                                           \
     IN_REG_SET(1, addr + 4);                                                                             \
   }                                                                                                      \
   else                                                                                                   \
   {                                                                                                      \
-    iss->trace.msg("No address updating\n");                                                               \
+    iss->lsu.trace.msg("No address updating\n");                                                               \
   }                                                                                                      \
   return insn->next;                                                                                     \
 }                                                                                                        \
@@ -384,15 +384,15 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                             \
     {                                                                                                                 \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->state.stall_callback = &pv_##insn_name##_n_resume;                                                      \
+      iss->state.stall_callback = pv_##insn_name##_n_resume;                                                      \
       iss->pulp_nn.ml_insn = insn;                                                                               \
       iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else if (wt_update)                                                                                                 \
@@ -400,20 +400,20 @@ static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                             \
     {                                                                                                                 \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->state.stall_callback = &pv_##insn_name##_n_resume;                                                      \
+      iss->state.stall_callback = pv_##insn_name##_n_resume;                                                      \
       iss->pulp_nn.ml_insn = insn;                                                                               \
       iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else                                                                                                                \
   {                                                                                                                   \
-    iss->trace.msg("No address updating\n");                        \
+    iss->lsu.trace.msg("No address updating\n");                        \
   }                                                                                                                   \
   return insn->next;                                                                                                  \
 }                                                                                                                     \
@@ -440,15 +440,15 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], 4, false))                             \
     {                                                                                                                 \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr));   \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->state.stall_callback = &pv_##insn_name##_c_resume;                                                      \
+      iss->state.stall_callback = pv_##insn_name##_c_resume;                                                      \
       iss->pulp_nn.ml_insn = insn;                                                                               \
       iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4);   \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else if (wt_update)                                                                                                 \
@@ -456,20 +456,20 @@ static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)   
     iss_reg_t addr = REG_GET(1);                                                                                       \
     if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], 4, false))                             \
     {                                                                                                                 \
-      iss->trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
+      iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
     }                                                                                                                 \
     else                                                                                                              \
     {                                                                                                                 \
-      iss->state.stall_callback = &pv_##insn_name##_c_resume;                                                      \
+      iss->state.stall_callback = pv_##insn_name##_c_resume;                                                      \
       iss->pulp_nn.ml_insn = insn;                                                                               \
       iss->exec.insn_stall();                                                                                       \
     }                                                                                                                 \
-    iss->trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
+    iss->lsu.trace.msg("Address updating (addr: 0x%x)\n", addr + 4); \
     IN_REG_SET(1, addr + 4);                                                                                            \
   }                                                                                                                   \
   else                                                                                                                \
   {                                                                                                                   \
-    iss->trace.msg("No address updating\n");                        \
+    iss->lsu.trace.msg("No address updating\n");                        \
   }                                                                                                                   \
   return insn->next;                                                                                                  \
 }                                                                                                                     \

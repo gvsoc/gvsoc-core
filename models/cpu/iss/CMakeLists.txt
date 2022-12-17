@@ -33,7 +33,7 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/csr.cpp"
         "${F_GVSOC_ISS_DIR}/src/exec/exec_inorder.cpp"
         "${F_GVSOC_ISS_DIR}/src/irq/irq_external.cpp"
-        "${F_GVSOC_ISS_DIR}/src/decoder.cpp"
+        "${F_GVSOC_ISS_DIR}/src/decode.cpp"
         "${F_GVSOC_ISS_DIR}/src/lsu.cpp"
         "${F_GVSOC_ISS_DIR}/src/timing.cpp"
         "${F_GVSOC_ISS_DIR}/src/insn_cache.cpp"

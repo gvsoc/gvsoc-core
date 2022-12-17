@@ -19,38 +19,30 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#pragma once
 
+#pragma once
 
 #include <vp/vp.hpp>
 #include <types.hpp>
 
-class Irq
+
+
+class DbgUnit
 {
 public:
-    Irq(Iss &iss);
+    DbgUnit(Iss &iss);
 
     void build();
 
-    void vector_table_set(iss_addr_t base);
-    inline void global_enable(int enable);
-    iss_insn_t *mret_handle();
-    iss_insn_t *dret_handle();
-    void cache_flush();
-    void reset(bool active);
-    int check();
-    void wfi_handle();
-    void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
+    static void halt_sync(void *_this, bool active);
+    void halt_core();
+    void debug_req();
+    void set_halt_mode(bool halted, int cause);
+    static vp::io_req_status_e dbg_unit_req(void *__this, vp::io_req *req);
 
-    Iss &iss;
-    iss_insn_t *vectors[35];
-    int irq_enable;
-    int saved_irq_enable;
-    int debug_saved_irq_enable;
-    int req_irq;
-    bool req_debug;
-    uint32_t vector_base;
-    iss_insn_t *debug_handler;
+
     vp::trace trace;
+
+private:
+    Iss &iss;
 };

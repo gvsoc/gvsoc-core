@@ -510,7 +510,7 @@ static inline iss_insn_t *ebreak_exec(Iss *iss, iss_insn_t *insn)
 
     if (prev && prev->fetched && prev->opcode == 0x01f01013)
     {
-        iss->handle_riscv_ebreak();
+        iss->syscalls.handle_riscv_ebreak();
         return insn->next;
     }
 
@@ -520,7 +520,7 @@ static inline iss_insn_t *ebreak_exec(Iss *iss, iss_insn_t *insn)
     }
     else
     {
-        iss->handle_ebreak();
+        iss->syscalls.handle_ebreak();
     }
 
     // cpu->state.error = GVSIM_STATE_DEBUG_STALL;

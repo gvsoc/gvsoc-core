@@ -34,6 +34,8 @@ class Lsu
 public:
     Lsu(Iss &iss);
 
+    void build();
+
     int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write);
     int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
     int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
@@ -57,6 +59,8 @@ public:
     inline void stack_access_check(int reg, iss_addr_t addr);
 
     Iss &iss;
+
+    vp::trace trace;
 
 private:
 

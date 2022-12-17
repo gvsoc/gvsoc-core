@@ -15,42 +15,41 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+
 #pragma once
 
-
-#include <vp/vp.hpp>
 #include <types.hpp>
 
-class Irq
+class Csr
 {
 public:
-    Irq(Iss &iss);
+    Csr(Iss &iss);
 
     void build();
 
-    void vector_table_set(iss_addr_t base);
-    inline void global_enable(int enable);
-    iss_insn_t *mret_handle();
-    iss_insn_t *dret_handle();
-    void cache_flush();
-    void reset(bool active);
-    int check();
-    void wfi_handle();
-    void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
-
     Iss &iss;
-    iss_insn_t *vectors[35];
-    int irq_enable;
-    int saved_irq_enable;
-    int debug_saved_irq_enable;
-    int req_irq;
-    bool req_debug;
-    uint32_t vector_base;
-    iss_insn_t *debug_handler;
+
     vp::trace trace;
+
+    iss_reg_t status;
+    iss_reg_t epc;
+    iss_reg_t depc;
+    iss_reg_t dcsr;
+    iss_reg_t mtvec;
+    iss_reg_t mcause;
+#if defined(ISS_HAS_PERF_COUNTERS)
+    iss_reg_t pccr[32];
+    iss_reg_t pcer;
+    iss_reg_t pcmr;
+#endif
+    iss_reg_t stack_conf;
+    iss_reg_t stack_start;
+    iss_reg_t stack_end;
+    iss_reg_t scratch0;
+    iss_reg_t scratch1;
+    iss_reg_t mscratch;
 };

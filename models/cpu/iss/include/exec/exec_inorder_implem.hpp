@@ -148,7 +148,7 @@ inline void Exec::stalled_dec()
 
 inline void Exec::insn_exec_profiling()
 {
-    this->iss.trace.msg("Executing instruction\n");
+    this->trace.msg("Executing instruction\n");
     if (this->iss.pc_trace_event.get_event_active())
     {
         this->iss.pc_trace_event.event((uint8_t *)&this->iss.current_insn->addr);

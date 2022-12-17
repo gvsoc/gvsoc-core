@@ -15,211 +15,59 @@
  * limitations under the License.
  */
 
-/*
+/* 
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+
 #pragma once
 
-#include "types.hpp"
+#include <vp/vp.hpp>
+#include <types.hpp>
 
 
 
-inline void Timing::reset(bool active)
+class Timing
 {
-    if (active)
-    {
-        this->stall_cycles = false;
-    }
-}
-
-
-
-inline int Timing::stall_cycles_get()
-{
-    return this->stall_cycles;
-}
-
-
-
-inline void Timing::stall_cycles_dec()
-{
-    this->stall_cycles--;
-}
-
-
-
-inline void Timing::stall_cycles_account(int cycles)
-{
-    this->stall_cycles += cycles;
-    this->event_account(CSR_PCER_CYCLES, cycles);
-}
-
-
-
-inline void Timing::event_trace_account(unsigned int event, int cycles)
-{
-    static uint64_t zero = 0;
-    static uint64_t one = 1;
-
-    if (this->iss.pcer_trace_event[event].get_event_active())
-    {
-        // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
-        this->iss.pcer_trace_event[event].event_pulse(cycles*this->iss.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
-    }
-}
-
-
-
-inline int Timing::event_trace_is_active(unsigned int event)
-{
-    return this->iss.pcer_trace_event[event].get_event_active() && this->iss.ext_counter[event].is_bound();
-}
-
-
-
-inline void Timing::event_account(unsigned int event, int incr)
-{
-    Iss *iss = &this->iss;
-
-    if (iss->csr.pcmr & CSR_PCMR_ACTIVE && (iss->csr.pcer & (1 << event)))
-    {
-        iss->csr.pccr[event] += incr;
-    }
-
-    this->event_trace_account(event, incr);
-}
-
-
-
-inline void Timing::event_load_account(int incr)
-{
-    this->event_account(CSR_PCER_LD, incr);
-}
-
-inline void Timing::event_rvc_account(int incr)
-{
-    this->event_account(CSR_PCER_RVC, incr);
-}
-
-
-
-inline void Timing::event_store_account(int incr)
-{
-    this->event_account(CSR_PCER_ST, incr);
-}
-
-
-
-inline void Timing::event_branch_account(int incr)
-{
-    this->event_account(CSR_PCER_BRANCH, incr);
-}
-
-
-
-inline void Timing::event_taken_branch_account(int incr)
-{
-    this->event_account(CSR_PCER_TAKEN_BRANCH, incr);
-}
-
-
-
-inline void Timing::event_jump_account(int incr)
-{
-    this->event_account(CSR_PCER_JUMP, incr);
-}
-
-
-
-inline void Timing::event_misaligned_account(int incr)
-{
-    this->event_account(CSR_PCER_MISALIGNED, incr);
-}
-
-
-
-inline void Timing::event_insn_contention_account(int incr)
-{
-    this->event_account(CSR_PCER_INSN_CONT, incr);
-}
-
-
-
-inline void Timing::insn_account()
-{
-    this->event_account(CSR_PCER_INSTR, 1);
-    this->event_account(CSR_PCER_CYCLES, 1);
-
-#if defined(ISS_HAS_PERF_COUNTERS)
-    for (int i=CSR_PCER_NB_INTERNAL_EVENTS; i<CSR_PCER_NB_EVENTS; i++)
-    {
-        if (this->event_trace_is_active(i))
-        {
-            update_external_pccr(&this->iss, i, this->iss.csr.pcer, this->iss.csr.pcmr);
-        }
-    }
-#endif
-}
-
-
-
-inline void Timing::stall_fetch_account(int cycles)
-{
-    this->stall_cycles_account(cycles);
-    this->event_account(CSR_PCER_IMISS, cycles);
-}
-
-
-
-inline void Timing::stall_misaligned_account()
-{
-    this->stall_cycles_account(1);
-    this->event_account(CSR_PCER_LD, 1);
-}
-
-
-
-inline void Timing::stall_load_account(int cycles)
-{
-    this->stall_cycles_account(cycles);
-}
-
-
-
-inline void Timing::stall_taken_branch_account()
-{
-    this->stall_cycles_account(2);
-    this->event_branch_account(1);
-    this->event_taken_branch_account(1);
-}
-
-
-
-inline void Timing::stall_insn_account(int cycles)
-{
-    this->stall_cycles_account(cycles);
-}
-
-
-
-inline void Timing::stall_insn_dependency_account(int latency)
-{
-    this->stall_cycles_account(latency - 1);
-}
-
-
-
-inline void Timing::stall_load_dependency_account(int latency)
-{
-    this->stall_cycles_account(latency - 1);
-    this->event_account(CSR_PCER_LD_STALL, latency - 1);
-}
-
-
-
-inline void Timing::stall_jump_account()
-{
-    this->stall_cycles_account(1);
-    this->event_jump_account(1);
-}
+public:
+    Timing(Iss &iss);
+    inline void stall_fetch_account(int count);
+    inline void stall_taken_branch_account();
+    inline void stall_insn_account(int cycles);
+    inline void stall_insn_dependency_account(int latency);
+    inline void stall_load_dependency_account(int latency);
+    inline void stall_jump_account();
+    inline void stall_misaligned_account();
+    inline void stall_load_account(int cycles);
+    inline void insn_account();
+
+    inline void event_load_account(int incr);
+    inline void event_rvc_account(int incr);
+    inline void event_store_account(int incr);
+    inline void event_branch_account(int incr);
+    inline void event_taken_branch_account(int incr);
+    inline void event_jump_account(int incr);
+    inline void event_misaligned_account(int incr);
+    inline void event_insn_contention_account(int incr);
+
+    inline void event_trace_account(unsigned int event, int cycles);
+    inline int event_trace_is_active(unsigned int event);
+
+    inline int stall_cycles_get();
+    inline void stall_cycles_dec();
+    inline void stall_cycles_account(int incr);
+
+    inline void reset(bool active);
+
+    static void ipc_stat_handler(void *__this, vp::clock_event *event);
+    void ipc_start_gen(bool pulse = false);
+    void ipc_stat_trigger();
+    void ipc_stat_stop();
+
+private:
+    inline void event_account(unsigned int event, int incr);
+
+    int stall_cycles;
+
+    Iss &iss;
+};

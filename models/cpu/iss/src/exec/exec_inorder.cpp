@@ -29,6 +29,11 @@ Exec::Exec(Iss &iss)
 {
 }
 
+void Exec::build()
+{
+    iss.traces.new_trace("exec", &this->trace, vp::DEBUG);
+}
+
 
 
 void Exec::dbg_unit_step_check()
@@ -44,7 +49,7 @@ void Exec::dbg_unit_step_check()
         }
         else
         {
-            this->iss.set_halt_mode(true, HALT_CAUSE_STEP);
+            this->iss.dbgunit.set_halt_mode(true, HALT_CAUSE_STEP);
         }
     }
 }
@@ -57,7 +62,7 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
   Exec *_this = (Exec *)__this;
   Iss *iss = &_this->iss;
 
-  iss->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", iss->timing.stall_cycles_get());
+  _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", iss->timing.stall_cycles_get());
 
   if (likely(iss->timing.stall_cycles_get() == 0))
   {

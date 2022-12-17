@@ -29,6 +29,9 @@
 #include <lsu_implem.hpp>
 
 #include "perf_event.hpp"
+#include <csr.hpp>
+#include <dbgunit.hpp>
+#include <syscalls.hpp>
 #include "timing.hpp"
 #include "rv64i.hpp"
 #include "rv32i.hpp"
@@ -51,6 +54,7 @@
 #include "corev.hpp"
 
 
+#include <timing_implem.hpp>
 #include <irq/irq_external_implem.hpp>
 #include <exec/exec_inorder_implem.hpp>
 #include <prefetch/prefetch_single_line_implem.hpp>

@@ -31,6 +31,7 @@ class Exec
 {
 public:
     Exec(Iss &iss);
+    void build();
 
     inline void stalled_inc();
     inline void stalled_dec();

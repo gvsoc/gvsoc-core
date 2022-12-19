@@ -33,7 +33,7 @@ void Gdbserver::start()
     if (this->gdbserver)
     {
         this->gdbserver->register_core(this);
-        this->iss.halted.set(true);
+        this->iss.exec.halted.set(true);
     }
 }
 
@@ -86,7 +86,7 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
         uint32_t *regs = (uint32_t *)value;
         for (int i = 0; i < 32; i++)
         {
-            regs[i] = iss_get_reg(&this->iss, i);
+            regs[i] = this->iss.regfile.get_reg(i);
         }
 
         if (this->iss.exec.current_insn)
@@ -104,14 +104,14 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 
 int Gdbserver::gdbserver_stop()
 {
-    this->iss.halted.set(true);
+    this->iss.exec.halted.set(true);
     this->gdbserver->signal(this);
     return 0;
 }
 
 int Gdbserver::gdbserver_cont()
 {
-    this->iss.halted.set(false);
+    this->iss.exec.halted.set(false);
 
     return 0;
 }
@@ -119,8 +119,8 @@ int Gdbserver::gdbserver_cont()
 int Gdbserver::gdbserver_stepi()
 {
     fprintf(stderr, "STEP\n");
-    this->iss.step_mode.set(true);
-    this->iss.halted.set(false);
+    this->iss.exec.step_mode.set(true);
+    this->iss.exec.halted.set(false);
     return 0;
 }
 

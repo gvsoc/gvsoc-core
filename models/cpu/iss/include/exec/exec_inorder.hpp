@@ -97,6 +97,22 @@ public:
     vp::wire_slave<bool> clock_itf;
     vp::wire_slave<bool> fetchen_itf;
 
+    vp::reg_1 halted;
+    vp::reg_1 step_mode;
+
+    iss_insn_t *hwloop_start_insn[2];
+    iss_insn_t *hwloop_end_insn[2];
+    iss_insn_t *hwloop_next_insn;
+    // This is used by HW loop to know that we interrupted and replayed
+    // a ELW instructin so that it is not accounted twice in the loop.
+    int elw_interrupted;
+    bool cache_sync;
+
+    bool debug_mode;
+    iss_insn_t *elw_insn;
+
+
+
 private:
     Iss &iss;
 

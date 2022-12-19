@@ -80,18 +80,6 @@ static inline iss_insn_t *lib_VEC_ADD_16_ROTMJ_DIV4_exec(Iss *iss, iss_insn_t *i
     return insn->next;
 }
 
-static inline iss_insn_t *lib_VITOP_MAX_exec(Iss *iss, iss_insn_t *insn)
-{
-    REG_SET(0, LIB_CALL2(lib_VITOP_MAX, REG_GET(0), REG_GET(1)));
-    return insn->next;
-}
-
-static inline iss_insn_t *lib_VITOP_SEL_exec(Iss *iss, iss_insn_t *insn)
-{
-    REG_SET(0, LIB_CALL2(lib_VITOP_SEL, REG_GET(0), REG_GET(1)));
-    return insn->next;
-}
-
 static inline iss_insn_t *lib_VEC_PACK_SC_H_16_exec(Iss *iss, iss_insn_t *insn)
 {
     REG_SET(0, LIB_CALL2(lib_VEC_PACK_SC_H_16, REG_GET(0), REG_GET(1)));

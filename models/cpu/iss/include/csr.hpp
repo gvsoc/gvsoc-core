@@ -24,6 +24,31 @@
 
 #include <types.hpp>
 
+typedef struct
+{
+    union
+    {
+        struct
+        {
+            union
+            {
+                struct
+                {
+                    unsigned int NX : 1;
+                    unsigned int UF : 1;
+                    unsigned int OF : 1;
+                    unsigned int DZ : 1;
+                    unsigned int NV : 1;
+                };
+                unsigned int raw : 5;
+            } fflags;
+            unsigned int frm : 3;
+        };
+        iss_reg_t raw;
+    };
+} iss_fcsr_t;
+
+
 class Csr
 {
 public:
@@ -54,4 +79,5 @@ public:
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_reg_t mscratch;
+    iss_fcsr_t fcsr;
 };

@@ -333,7 +333,7 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
 
     insn->opcode = opcode;
 
-    if (iss.trace.insn_trace.get_active() || iss.insn_trace_event.get_event_active())
+    if (iss.trace.insn_trace.get_active() || iss.timing.insn_trace_event.get_event_active())
     {
         insn->saved_handler = insn->handler;
         insn->handler = this->iss.exec.insn_trace_callback_get();
@@ -356,6 +356,9 @@ Decode::Decode(Iss &iss)
 void Decode::build()
 {
     iss.traces.new_trace("decoder", &this->trace, vp::DEBUG);
+    this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
+    this->iss.new_slave_port(this, "flush_cache", &this->flush_cache_itf);
+
 }
 
 

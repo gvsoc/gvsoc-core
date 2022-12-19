@@ -22,12 +22,12 @@
 #ifndef __ISA_LIB_MACROS_HPP
 #define __ISA_LIB_MACROS_HPP
 
-#define LIB_CALL1(name, s0) name(&iss->state, s0)
-#define LIB_CALL2(name, s0, s1) name(&iss->state, s0, s1)
-#define LIB_CALL3(name, s0, s1, s2) name(&iss->state, s0, s1, s2)
-#define LIB_CALL4(name, s0, s1, s2, s3) name(&iss->state, s0, s1, s2, s3)
-#define LIB_CALL5(name, s0, s1, s2, s3, s4) name(&iss->state, s0, s1, s2, s3, s4)
-#define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(&iss->state, s0, s1, s2, s3, s4, s5)
+#define LIB_CALL1(name, s0) name(iss, s0)
+#define LIB_CALL2(name, s0, s1) name(iss, s0, s1)
+#define LIB_CALL3(name, s0, s1, s2) name(iss, s0, s1, s2)
+#define LIB_CALL4(name, s0, s1, s2, s3) name(iss, s0, s1, s2, s3)
+#define LIB_CALL5(name, s0, s1, s2, s3, s4) name(iss, s0, s1, s2, s3, s4)
+#define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(iss, s0, s1, s2, s3, s4, s5)
 
 #define LIB_FF_CALL1(name, s0, s1, s2) LIB_CALL3(name, s0, s1, s2)
 #define LIB_FF_CALL2(name, s0, s1, s2, s3) LIB_CALL4(name, s0, s1, s2, s3)
@@ -37,17 +37,14 @@
 #define REG_IN(reg) (insn->in_regs[reg])
 #define REG_OUT(reg) (insn->out_regs[reg])
 
-#define REG_GET(reg) iss_get_reg(iss, insn->in_regs[reg])
-#define REG_SET(reg,val) iss_set_reg(iss, insn->out_regs[reg], val)
-#define IN_REG_SET(reg,val) iss_set_reg(iss, insn->in_regs[reg], val)
+#define REG_GET(reg) iss->regfile.get_reg(insn->in_regs[reg])
+#define REG_SET(reg,val) iss->regfile.set_reg(insn->out_regs[reg], val)
+#define IN_REG_SET(reg,val) iss->regfile.set_reg(insn->in_regs[reg], val)
 
-#define REG64_GET(reg) iss_get_reg64(iss, insn->in_regs[reg])
-#define REG64_SET(reg,val) iss_set_reg64(iss, insn->out_regs[reg], val)
+#define REG64_GET(reg) iss->regfile.get_reg64(insn->in_regs[reg])
+#define REG64_SET(reg,val) iss->regfile.set_reg64(insn->out_regs[reg], val)
 
 #define SIM_GET(index) insn->sim[index]
 #define UIM_GET(index) insn->uim[index]
-
-#define SPR_SET(reg,val) iss_set_spec_purp_reg(iss, reg, val)
-#define SPR_GET(reg) iss_get_spec_purp_reg(iss, reg)
 
 #endif

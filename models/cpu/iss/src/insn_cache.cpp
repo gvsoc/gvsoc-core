@@ -46,7 +46,7 @@ static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
 
 int insn_cache_init(Iss *iss)
 {
-    iss_insn_cache_t *cache = &iss->insn_cache;
+    iss_insn_cache_t *cache = &iss->decode.insn_cache;
     memset(cache->blocks, 0, sizeof(iss_insn_block_t *) * ISS_INSN_NB_BLOCKS);
     return 0;
 }
@@ -102,17 +102,17 @@ void iss_cache_flush(Iss *iss)
     //   stall_addr = iss->prefetch_insn->addr;
     // }
 
-    if (iss->state.hwloop_end_insn[0])
+    if (iss->exec.hwloop_end_insn[0])
     {
-        hwloop_end_addr[0] = iss->state.hwloop_end_insn[0]->addr;
+        hwloop_end_addr[0] = iss->exec.hwloop_end_insn[0]->addr;
     }
 
-    if (iss->state.hwloop_end_insn[1])
+    if (iss->exec.hwloop_end_insn[1])
     {
-        hwloop_end_addr[1] = iss->state.hwloop_end_insn[1]->addr;
+        hwloop_end_addr[1] = iss->exec.hwloop_end_insn[1]->addr;
     }
 
-    flush_cache(iss, &iss->insn_cache);
+    flush_cache(iss, &iss->decode.insn_cache);
 
     if (iss->exec.current_insn)
     {
@@ -137,16 +137,16 @@ void iss_cache_flush(Iss *iss)
     //   iss->prefetch_insn = insn_cache_get(iss, stall_addr);
     // }
 
-    if (iss->state.hwloop_end_insn[0])
+    if (iss->exec.hwloop_end_insn[0])
     {
-        iss->state.hwloop_end_insn[0] = insn_cache_get(iss, hwloop_end_addr[0]);
-        hwloop_set_insn_end(iss, iss->state.hwloop_end_insn[0]);
+        iss->exec.hwloop_end_insn[0] = insn_cache_get(iss, hwloop_end_addr[0]);
+        hwloop_set_insn_end(iss, iss->exec.hwloop_end_insn[0]);
     }
 
-    if (iss->state.hwloop_end_insn[1])
+    if (iss->exec.hwloop_end_insn[1])
     {
-        iss->state.hwloop_end_insn[1] = insn_cache_get(iss, hwloop_end_addr[1]);
-        hwloop_set_insn_end(iss, iss->state.hwloop_end_insn[1]);
+        iss->exec.hwloop_end_insn[1] = insn_cache_get(iss, hwloop_end_addr[1]);
+        hwloop_set_insn_end(iss, iss->exec.hwloop_end_insn[1]);
     }
 
     iss->irq.cache_flush();
@@ -157,7 +157,7 @@ iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)
     iss_addr_t pc_base = pc & ~((1 << (ISS_INSN_BLOCK_SIZE_LOG2 + ISS_INSN_PC_BITS)) - 1);
     unsigned insn_id = (pc >> ISS_INSN_PC_BITS) & (ISS_INSN_BLOCK_SIZE - 1);
     unsigned int block_id = pc_base & (ISS_INSN_NB_BLOCKS - 1);
-    iss_insn_cache_t *cache = &iss->insn_cache;
+    iss_insn_cache_t *cache = &iss->decode.insn_cache;
     iss_insn_block_t *block = cache->blocks[block_id];
     iss_insn_block_t *first_free = NULL;
 

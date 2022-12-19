@@ -32,6 +32,24 @@
 
 #include "iss.hpp"
 
+
+#define SPR_SET(reg,val) iss_set_spec_purp_reg(iss, reg, val)
+#define SPR_GET(reg) iss_get_spec_purp_reg(iss, reg)
+
+static inline void iss_set_spec_purp_reg(Iss *iss, int spreg, iss_reg_t value)
+{
+    if ((spreg >= 0) && (spreg < 6))
+        iss->pulp_nn.spr_ml[spreg] = value;
+}
+
+static inline iss_reg_t iss_get_spec_purp_reg(Iss *iss, int spreg)
+{
+    if ((spreg >= 0) && (spreg < 6))
+        return iss->pulp_nn.spr_ml[spreg];
+    else
+        return 0;
+}
+
 #define PV_OP_RS_EXEC_NN(insn_name, lib_name)                                                     \
     static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                 \
     {                                                                                             \
@@ -269,7 +287,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_h_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_h_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -285,7 +303,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_h_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_h_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -325,7 +343,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_b_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_b_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -341,7 +359,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_b_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_b_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -381,7 +399,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_n_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_n_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -397,7 +415,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_n_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_n_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -437,7 +455,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_c_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_c_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -453,7 +471,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
             }                                                                                                     \
             else                                                                                                  \
             {                                                                                                     \
-                iss->state.stall_callback = pv_##insn_name##_c_resume;                                            \
+                iss->lsu.stall_callback = pv_##insn_name##_c_resume;                                            \
                 iss->pulp_nn.ml_insn = insn;                                                                      \
                 iss->exec.insn_stall();                                                                           \
             }                                                                                                     \
@@ -516,8 +534,8 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
         }
         else
         {
-            iss->state.stall_callback = qnt_step_resume;
-            iss->state.stall_reg = reg;
+            iss->lsu.stall_callback = qnt_step_resume;
+            iss->lsu.stall_reg = reg;
             iss->exec.insn_stall();
         }
     }
@@ -549,8 +567,8 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
         }
         else
         {
-            iss->state.stall_callback = qnt_step_resume;
-            iss->state.stall_reg = reg;
+            iss->lsu.stall_callback = qnt_step_resume;
+            iss->lsu.stall_reg = reg;
             iss->exec.insn_stall();
         }
     }
@@ -583,8 +601,8 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
         }
         else
         {
-            iss->state.stall_callback = qnt_step_resume;
-            iss->state.stall_reg = reg;
+            iss->lsu.stall_callback = qnt_step_resume;
+            iss->lsu.stall_reg = reg;
             iss->exec.insn_stall();
         }
     }
@@ -618,8 +636,8 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
         }
         else
         {
-            iss->state.stall_callback = qnt_step_resume;
-            iss->state.stall_reg = reg;
+            iss->lsu.stall_callback = qnt_step_resume;
+            iss->lsu.stall_reg = reg;
             iss->exec.insn_stall();
         }
     }

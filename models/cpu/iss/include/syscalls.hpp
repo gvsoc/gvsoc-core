@@ -41,6 +41,11 @@ public:
     std::string read_user_string(iss_addr_t addr, int len = -1);
 
     vp::trace trace;
+
+    Iss_pcer_info_t pcer_info[32];
+    int64_t cycle_count_start;
+    int64_t cycle_count;
+
 private:
     Iss &iss;
 };

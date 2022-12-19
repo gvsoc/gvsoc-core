@@ -54,6 +54,7 @@
 #include "corev.hpp"
 
 
+#include <regfile_implem.hpp>
 #include <timing_implem.hpp>
 #include <irq/irq_external_implem.hpp>
 #include <exec/exec_inorder_implem.hpp>

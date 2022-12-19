@@ -466,7 +466,7 @@ static inline iss_insn_t *hwloop_check_exec(Iss *iss, iss_insn_t *insn)
 
     // Check now is the instruction has been replayed to know if it is the first
     // time it is executed
-    bool elw_interrupted = iss->state.elw_interrupted;
+    bool elw_interrupted = iss->exec.elw_interrupted;
 
     // First execute the instructions as it is the last one of the loop body.
     // The real handler has been saved when the loop was started.
@@ -478,7 +478,7 @@ static inline iss_insn_t *hwloop_check_exec(Iss *iss, iss_insn_t *insn)
         // being replayed. In this case, return the instruction which has been computed
         // during the first execution of the instruction, to avoid accounting several
         // times the end of HW loop.
-        return iss->state.hwloop_next_insn;
+        return iss->exec.hwloop_next_insn;
     }
 
     // First check HW loop 0 as it has higher priority compared to HW loop 1
@@ -491,8 +491,8 @@ static inline iss_insn_t *hwloop_check_exec(Iss *iss, iss_insn_t *insn)
         if (iss->pulpv2.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0])
         {
             // Remember next instruction in case the current instruction is replayed
-            iss->state.hwloop_next_insn = iss->state.hwloop_start_insn[0];
-            return iss->state.hwloop_start_insn[0];
+            iss->exec.hwloop_next_insn = iss->exec.hwloop_start_insn[0];
+            return iss->exec.hwloop_start_insn[0];
         }
     }
 
@@ -506,13 +506,13 @@ static inline iss_insn_t *hwloop_check_exec(Iss *iss, iss_insn_t *insn)
         if (iss->pulpv2.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1])
         {
             // Remember next instruction in case the current instruction is replayed
-            iss->state.hwloop_next_insn = iss->state.hwloop_start_insn[1];
-            return iss->state.hwloop_start_insn[1];
+            iss->exec.hwloop_next_insn = iss->exec.hwloop_start_insn[1];
+            return iss->exec.hwloop_start_insn[1];
         }
     }
 
     // In case no HW loop jumped back, just continue with the next instruction.
-    iss->state.hwloop_next_insn = insn_next;
+    iss->exec.hwloop_next_insn = insn_next;
 
     return insn_next;
 }
@@ -520,7 +520,7 @@ static inline iss_insn_t *hwloop_check_exec(Iss *iss, iss_insn_t *insn)
 static inline void hwloop_set_start(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start)
 {
     iss->pulpv2.hwloop_regs[PULPV2_HWLOOP_LPSTART(index)] = start;
-    iss->state.hwloop_start_insn[index] = insn_cache_get(iss, start);
+    iss->exec.hwloop_start_insn[index] = insn_cache_get(iss, start);
 }
 
 static inline void hwloop_set_insn_end(Iss *iss, iss_insn_t *insn)
@@ -544,7 +544,7 @@ static inline void hwloop_set_end(Iss *iss, iss_insn_t *insn, int index, iss_reg
 {
     iss_insn_t *end_insn = insn_cache_get(iss, end);
 
-    iss->state.hwloop_end_insn[index] = end_insn;
+    iss->exec.hwloop_end_insn[index] = end_insn;
 
     hwloop_set_insn_end(iss, end_insn);
 
@@ -664,9 +664,9 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_addr_t addr, i
     // Always account the overhead of the elw
     iss->timing.stall_insn_account(2);
 
-    iss->state.elw_insn = insn;
+    iss->exec.elw_insn = insn;
     // Init this flag so that we can check afterwards that theelw has been replayed
-    iss->state.elw_interrupted = 0;
+    iss->exec.elw_interrupted = 0;
 
     iss->lsu.elw_perf(insn, addr, size, reg);
 
@@ -683,7 +683,7 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_addr_t addr, i
         }
         else
         {
-            iss->elw_stalled.set(true);
+            iss->lsu.elw_stalled.set(true);
         }
     }
 }

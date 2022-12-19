@@ -460,17 +460,17 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
         {
             if (arg->flags & ISS_DECODER_ARG_FLAG_REG64)
             {
-                saved_arg->u.reg.value_64 = iss_get_reg64_untimed(iss, insn_arg->u.reg.index);
+                saved_arg->u.reg.value_64 = iss->regfile.get_reg64(insn_arg->u.reg.index);
             }
             else
-                saved_arg->u.reg.value = iss_get_reg_untimed(iss, insn_arg->u.reg.index);
+                saved_arg->u.reg.value = iss->regfile.get_reg(insn_arg->u.reg.index);
         }
     }
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_IMM)
     {
         if (save_out)
             return;
-        saved_arg->u.indirect_imm.reg_value = iss_get_reg_untimed(iss, insn_arg->u.indirect_imm.reg_index);
+        saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg(insn_arg->u.indirect_imm.reg_index);
     }
     // else if (arg->type == TRACE_TYPE_FLAG)
     //   {
@@ -480,8 +480,8 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
     {
         if (save_out)
             return;
-        saved_arg->u.indirect_reg.base_reg_value = iss_get_reg_untimed(iss, insn_arg->u.indirect_reg.base_reg_index);
-        saved_arg->u.indirect_reg.offset_reg_value = iss_get_reg_untimed(iss, insn_arg->u.indirect_reg.offset_reg_index);
+        saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.base_reg_index);
+        saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.offset_reg_index);
     }
     // else
     //   {
@@ -502,9 +502,9 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
-    iss_trace_save_args(iss, insn, iss->state.saved_args, true);
+    iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->state.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
 
     iss->trace.insn_trace.msg(buffer);
 }
@@ -513,7 +513,7 @@ void iss_event_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->state.saved_args, false, 3, 1);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, false, 3, 1);
 
     char *current = buffer;
     while (*current)
@@ -524,25 +524,25 @@ void iss_event_dump(Iss *iss, iss_insn_t *insn)
         current++;
     }
 
-    iss->insn_trace_event.event_string(buffer);
+    iss->timing.insn_trace_event.event_string(buffer);
 }
 
 iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
 {
     iss_insn_t *next_insn;
 
-    if (iss->insn_trace_event.get_event_active())
+    if (iss->timing.insn_trace_event.get_event_active())
     {
         iss_event_dump(iss, insn);
     }
 
     if (iss->trace.insn_trace.get_active())
     {
-        iss_trace_save_args(iss, insn, iss->state.saved_args, false);
+        iss_trace_save_args(iss, insn, iss->trace.saved_args, false);
 
         next_insn = insn->saved_handler(iss, insn);
 
-        if (!iss->exec.is_stalled() && iss->dump_trace_enabled)
+        if (!iss->exec.is_stalled() && iss->trace.dump_trace_enabled)
             iss_trace_dump(iss, insn);
     }
     else
@@ -569,10 +569,10 @@ void Trace::dump_debug_traces()
 
     if (!iss_trace_pc_info(this->iss.exec.current_insn->addr, &func, &inline_func, &file, &line))
     {
-        this->iss.func_trace_event.event_string(func);
-        this->iss.inline_trace_event.event_string(inline_func);
-        this->iss.file_trace_event.event_string(file);
-        this->iss.line_trace_event.event((uint8_t *)&line);
+        this->iss.timing.func_trace_event.event_string(func);
+        this->iss.timing.inline_trace_event.event_string(inline_func);
+        this->iss.timing.file_trace_event.event_string(file);
+        this->iss.timing.line_trace_event.event((uint8_t *)&line);
     }
 }
 

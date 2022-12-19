@@ -30,6 +30,19 @@ DbgUnit::DbgUnit(Iss &iss)
 void DbgUnit::build()
 {
     iss.traces.new_trace("dbgunit", &this->trace, vp::DEBUG);
+
+    dbg_unit.set_req_meth(&DbgUnit::dbg_unit_req);
+    this->iss.new_slave_port(this, "dbg_unit", &dbg_unit);
+
+
+    halt_itf.set_sync_meth(&DbgUnit::halt_sync);
+    this->iss.new_slave_port(this, "halt", &halt_itf);
+
+    this->iss.new_master_port("halt_status", &halt_status_itf);
+
+    this->iss.new_reg("do_step", &this->do_step, false);
+
+    this->riscv_dbg_unit = this->iss.get_js_config()->get_child_bool("riscv_dbg_unit");
 }
 
 void DbgUnit::debug_req()
@@ -41,9 +54,9 @@ void DbgUnit::debug_req()
 
 void DbgUnit::set_halt_mode(bool halted, int cause)
 {
-    if (this->iss.riscv_dbg_unit)
+    if (this->riscv_dbg_unit)
     {
-        if (!this->iss.state.debug_mode)
+        if (!this->iss.exec.debug_mode)
         {
             this->iss.csr.dcsr = (this->iss.csr.dcsr & ~(0x7 << 6)) | (cause << 6);
             this->debug_req();
@@ -51,21 +64,21 @@ void DbgUnit::set_halt_mode(bool halted, int cause)
     }
     else
     {
-        this->iss.halt_cause = cause;
+        this->halt_cause = cause;
 
-        if (this->iss.halted.get() && !halted)
+        if (this->iss.exec.halted.get() && !halted)
         {
             this->iss.get_clock()->release();
         }
-        else if (!this->iss.halted.get() && halted)
+        else if (!this->iss.exec.halted.get() && halted)
         {
             this->iss.get_clock()->retain();
         }
 
-        this->iss.halted.set(halted);
+        this->iss.exec.halted.set(halted);
 
-        if (this->iss.halt_status_itf.is_bound())
-            this->iss.halt_status_itf.sync(this->iss.halted.get());
+        if (this->halt_status_itf.is_bound())
+            this->halt_status_itf.sync(this->iss.exec.halted.get());
     }
 }
 
@@ -74,10 +87,10 @@ void DbgUnit::halt_core()
     this->trace.msg("Halting core\n");
 
     if (this->iss.exec.prev_insn == NULL)
-        this->iss.ppc = 0;
+        this->ppc = 0;
     else
-        this->iss.ppc = this->iss.exec.prev_insn->addr;
-    this->iss.npc = this->iss.exec.current_insn->addr;
+        this->ppc = this->iss.exec.prev_insn->addr;
+    this->npc = this->iss.exec.current_insn->addr;
 }
 
 void DbgUnit::halt_sync(void *__this, bool halted)
@@ -119,7 +132,7 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
     }
     else if (offset >= 0x2000)
     {
-        if (!_this->iss.halted.get())
+        if (!_this->iss.exec.halted.get())
         {
             _this->trace.force_warning("Trying to access debug registers while core is not halted\n");
             return vp::IO_REQ_INVALID;
@@ -132,19 +145,19 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
                 // Writing NPC will force the core to jump to the written PC
                 // even if the core is sleeping
                 iss_cache_flush(&_this->iss);
-                _this->iss.npc = *(iss_reg_t *)data;
-                _this->iss.exec.pc_set(_this->iss.npc);
+                _this->npc = *(iss_reg_t *)data;
+                _this->iss.exec.pc_set(_this->npc);
                 _this->iss.exec.wfi.set(false);
             }
             else
-                *(iss_reg_t *)data = _this->iss.npc;
+                *(iss_reg_t *)data = _this->npc;
         }
         else if (offset == 0x2004)
         {
             if (req->get_is_write())
                 _this->trace.force_warning("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
             else
-                *(iss_reg_t *)data = _this->iss.ppc;
+                *(iss_reg_t *)data = _this->ppc;
         }
         else
         {
@@ -156,7 +169,7 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
         offset -= 0x400;
         int reg_id = offset / 4;
 
-        if (!_this->iss.halted.get())
+        if (!_this->iss.exec.halted.get())
         {
             _this->trace.force_warning("Trying to access GPR while core is not halted\n");
             return vp::IO_REQ_INVALID;
@@ -166,9 +179,9 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
             return vp::IO_REQ_INVALID;
 
         if (req->get_is_write())
-            iss_set_reg(&_this->iss, reg_id, *(iss_reg_t *)data);
+            _this->iss.regfile.set_reg(reg_id, *(iss_reg_t *)data);
         else
-            *(iss_reg_t *)data = iss_get_reg(&_this->iss, reg_id);
+            *(iss_reg_t *)data = _this->iss.regfile.get_reg(reg_id);
     }
     else if (offset < 0x80)
     {
@@ -181,22 +194,22 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
                 _this->trace.msg("Writing DBG_CTRL (value: 0x%x, halt: %d, step: %d)\n", *(iss_reg_t *)data, halt_mode, step_mode);
 
                 _this->set_halt_mode(halt_mode, HALT_CAUSE_HALT);
-                _this->iss.step_mode.set(step_mode);
+                _this->iss.exec.step_mode.set(step_mode);
             }
             else
             {
-                *(iss_reg_t *)data = (_this->iss.halted.get() << 16) | _this->iss.step_mode.get();
+                *(iss_reg_t *)data = (_this->iss.exec.halted.get() << 16) | _this->iss.exec.step_mode.get();
             }
         }
         else if (offset == 0x04)
         {
             if (req->get_is_write())
             {
-                _this->iss.hit_reg = *(iss_reg_t *)data;
+                _this->hit_reg = *(iss_reg_t *)data;
             }
             else
             {
-                *(iss_reg_t *)data = _this->iss.hit_reg;
+                *(iss_reg_t *)data = _this->hit_reg;
             }
         }
         else if (offset == 0x0C)
@@ -204,7 +217,7 @@ vp::io_req_status_e DbgUnit::dbg_unit_req(void *__this, vp::io_req *req)
             if (req->get_is_write())
                 return vp::IO_REQ_INVALID;
 
-            *(iss_reg_t *)data = _this->iss.halt_cause;
+            *(iss_reg_t *)data = _this->halt_cause;
         }
     }
     else

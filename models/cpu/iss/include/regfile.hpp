@@ -21,41 +21,25 @@
 
 #pragma once
 
-#include <vp/vp.hpp>
-#include <types.hpp>
+#include "types.hpp"
 
-class Irq
+
+class Regfile
 {
 public:
-    Irq(Iss &iss);
 
-    void build();
+    Regfile(Iss &iss);
 
-    void vector_table_set(iss_addr_t base);
-    inline void global_enable(int enable);
-    iss_insn_t *mret_handle();
-    iss_insn_t *dret_handle();
-    void cache_flush();
-    void reset(bool active);
-    int check();
-    void wfi_handle();
-    void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
+    iss_reg_t regs[ISS_NB_REGS + ISS_NB_FREGS];
 
+    inline iss_reg_t *reg_ref(int reg);
+    inline iss_reg_t *reg_store_ref(int reg);
+    inline void set_reg(int reg, iss_reg_t value);
+    inline iss_reg_t get_reg(int reg);
+    inline iss_reg64_t get_reg64(int reg);
+    inline void set_reg64(int reg, iss_reg64_t value);
+
+private:
     Iss &iss;
-    iss_insn_t *vectors[35];
-    int irq_enable;
-    int saved_irq_enable;
-    int debug_saved_irq_enable;
-    int req_irq;
-    bool req_debug;
-    uint32_t vector_base;
-    iss_insn_t *debug_handler;
-    vp::trace trace;
-
-    int irq_req;
-    int irq_req_value;
-    vp::wire_master<int> irq_ack_itf;
-    vp::wire_slave<int> irq_req_itf;
 
 };

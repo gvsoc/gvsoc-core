@@ -57,6 +57,22 @@ public:
 
     vp::trace trace;
 
+
+    // lsu
+    vp::io_master data;
+    vp::io_req io_req;
+    int64_t wakeup_latency;
+    int misaligned_size;
+    uint8_t *misaligned_data;
+    iss_addr_t misaligned_addr;
+    bool misaligned_is_write;
+    vp::reg_1 elw_stalled;
+    vp::reg_1 misaligned_access;
+
+    void (*stall_callback)(Lsu *lsu);
+    int stall_reg;
+    int stall_size;
+
 private:
     static void store_resume(void *_this);
     static void store_resume(Lsu *lsu);

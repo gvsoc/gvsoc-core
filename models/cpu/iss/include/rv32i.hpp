@@ -77,7 +77,7 @@ static inline void jal_decode(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *jalr_exec_common(Iss *iss, iss_insn_t *insn, int perf)
 {
-    iss_insn_t *next_insn = insn_cache_get(iss, insn->sim[0] + iss_get_reg_for_jump(iss, insn->in_regs[0]));
+    iss_insn_t *next_insn = insn_cache_get(iss, insn->sim[0] + iss->regfile.get_reg(insn->in_regs[0]));
     unsigned int D = insn->out_regs[0];
     if (D != 0)
         REG_SET(0, insn->addr + insn->size);
@@ -490,7 +490,7 @@ static inline iss_insn_t *fence_i_exec(Iss *iss, iss_insn_t *insn)
 {
     if (iss->exec.flush_cache_req_itf.is_bound())
     {
-        iss->state.cache_sync = true;
+        iss->exec.cache_sync = true;
         iss->exec.insn_stall();
         iss->exec.flush_cache_req_itf.sync(true);
         iss_cache_flush(iss);
@@ -514,7 +514,7 @@ static inline iss_insn_t *ebreak_exec(Iss *iss, iss_insn_t *insn)
         return insn->next;
     }
 
-    if (iss->state.debug_mode)
+    if (iss->exec.debug_mode)
     {
         return iss->irq.debug_handler;
     }

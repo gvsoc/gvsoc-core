@@ -63,52 +63,52 @@ static inline iss_opcode_t getSignedField(iss_opcode_t val, int shift, int bits)
  * LOGICAL OPERATIONS
  */
 
-static inline iss_uim_t lib_SLL(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SLL(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a << b;
 }
 
-static inline iss_uim_t lib_SRL(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SRL(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a >> b;
 }
 
-static inline iss_uim_t lib_SRA(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SRA(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return ((iss_sim_t)a) >> b;
 }
 
-static inline iss_uim_t lib_SLLW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SLLW(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return get_signed_value(a << b, 32);
 }
 
-static inline iss_uim_t lib_SRLW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SRLW(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return get_signed_value(((uint32_t)a) >> b, 32);
 }
 
-static inline iss_uim_t lib_SRAW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SRAW(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return get_signed_value(((int32_t)a) >> b, 32);
 }
 
-static inline iss_uim_t lib_ROR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_ROR(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return (a >> b) | (a << (32 - b));
 }
 
-static inline iss_uim_t lib_XOR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_XOR(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a ^ b;
 }
 
-static inline iss_uim_t lib_OR(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_OR(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a | b;
 }
 
-static inline iss_uim_t lib_AND(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_AND(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a & b;
 }
@@ -117,29 +117,29 @@ static inline iss_uim_t lib_AND(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
  * ARITHMETIC OPERATIONS
  */
 
-static inline iss_uim_t lib_ADD(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_ADD(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a + b;
 }
 
-static inline iss_uim_t lib_ADDW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_ADDW(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return get_signed_value(a + b, 32);
 }
 
-static inline iss_uim_t lib_SUB(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SUB(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return a - b;
 }
 
-static inline iss_uim_t lib_SUBW(iss_cpu_state_t *s, iss_uim_t a, iss_uim_t b)
+static inline iss_uim_t lib_SUBW(Iss *s, iss_uim_t a, iss_uim_t b)
 {
     return get_signed_value(a - b, 32);
 }
 
-static inline unsigned int lib_MAC(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + b * c; }
-static inline unsigned int lib_MSU(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - b * c; }
-static inline unsigned int lib_MMUL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return -b * c; }
+static inline unsigned int lib_MAC(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + b * c; }
+static inline unsigned int lib_MSU(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - b * c; }
+static inline unsigned int lib_MMUL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return -b * c; }
 
 #define SL(val) ((int16_t)((val)&0xffff))
 #define SH(val) ((int16_t)(((val) >> 16) & 0xffff))
@@ -147,54 +147,54 @@ static inline unsigned int lib_MMUL(iss_cpu_state_t *s, unsigned int a, unsigned
 #define ZH(val) ((uint16_t)(((val) >> 16) & 0xffff))
 #define L_H_TO_W(l, h) (((l)&0xffff) | ((h) << 16))
 
-static inline unsigned int lib_MAC_SL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c)
+static inline unsigned int lib_MAC_SL_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c)
 {
     return a + SL(b) * SL(c);
 }
-static inline unsigned int lib_MAC_SL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SL(b) * SH(c); }
-static inline unsigned int lib_MAC_SH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * SL(c); }
-static inline unsigned int lib_MAC_SH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * SH(c); }
-static inline unsigned int lib_MAC_ZL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * ZL(c); }
-static inline unsigned int lib_MAC_ZL_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * ZH(c); }
-static inline unsigned int lib_MAC_ZH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * ZL(c); }
-static inline unsigned int lib_MAC_ZH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * ZH(c); }
+static inline unsigned int lib_MAC_SL_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SL(b) * SH(c); }
+static inline unsigned int lib_MAC_SH_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * SL(c); }
+static inline unsigned int lib_MAC_SH_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * SH(c); }
+static inline unsigned int lib_MAC_ZL_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * ZL(c); }
+static inline unsigned int lib_MAC_ZL_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * ZH(c); }
+static inline unsigned int lib_MAC_ZH_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * ZL(c); }
+static inline unsigned int lib_MAC_ZH_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * ZH(c); }
 
-static inline unsigned int lib_MAC_SL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SL(b) * ZL(c); }
-static inline unsigned int lib_MAC_SL_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SL(b) * ZH(c); }
-static inline unsigned int lib_MAC_SH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * ZL(c); }
-static inline unsigned int lib_MAC_SH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * ZH(c); }
-static inline unsigned int lib_MAC_ZL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * SL(c); }
-static inline unsigned int lib_MAC_ZL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * SH(c); }
-static inline unsigned int lib_MAC_ZH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * SL(c); }
-static inline unsigned int lib_MAC_ZH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * SH(c); }
+static inline unsigned int lib_MAC_SL_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SL(b) * ZL(c); }
+static inline unsigned int lib_MAC_SL_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SL(b) * ZH(c); }
+static inline unsigned int lib_MAC_SH_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * ZL(c); }
+static inline unsigned int lib_MAC_SH_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + SH(b) * ZH(c); }
+static inline unsigned int lib_MAC_ZL_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * SL(c); }
+static inline unsigned int lib_MAC_ZL_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZL(b) * SH(c); }
+static inline unsigned int lib_MAC_ZH_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * SL(c); }
+static inline unsigned int lib_MAC_ZH_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a + ZH(b) * SH(c); }
 
-static inline unsigned int lib_MAC_SL_SL_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(a + SL(b) * SL(c))) >> shift; }
-static inline unsigned int lib_MAC_SH_SH_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(a + SH(b) * SH(c))) >> shift; }
-static inline unsigned int lib_MAC_ZL_ZL_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(a + ZL(b) * ZL(c))) >> shift; }
-static inline unsigned int lib_MAC_ZH_ZH_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(a + ZH(b) * ZH(c))) >> shift; }
+static inline unsigned int lib_MAC_SL_SL_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(a + SL(b) * SL(c))) >> shift; }
+static inline unsigned int lib_MAC_SH_SH_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(a + SH(b) * SH(c))) >> shift; }
+static inline unsigned int lib_MAC_ZL_ZL_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(a + ZL(b) * ZL(c))) >> shift; }
+static inline unsigned int lib_MAC_ZH_ZH_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(a + ZH(b) * ZH(c))) >> shift; }
 
-static inline unsigned int lib_MAC_SL_SL_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MAC_SL_SL_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     int32_t result = (int32_t)(a + SL(b) * SL(c));
     if (shift > 0)
         result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
-static inline unsigned int lib_MAC_SH_SH_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MAC_SH_SH_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     int32_t result = (int32_t)(a + SH(b) * SH(c));
     if (shift > 0)
         result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
-static inline unsigned int lib_MAC_ZL_ZL_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MAC_ZL_ZL_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     uint32_t result = (uint32_t)(a + ZL(b) * ZL(c));
     if (shift > 0)
         result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
-static inline unsigned int lib_MAC_ZH_ZH_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MAC_ZH_ZH_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     uint32_t result = (uint32_t)(a + ZH(b) * ZH(c));
     if (shift > 0)
@@ -202,60 +202,60 @@ static inline unsigned int lib_MAC_ZH_ZH_NR_R(iss_cpu_state_t *s, unsigned int a
     return result;
 }
 
-static inline unsigned int lib_MSU_SL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SL(c); }
-static inline unsigned int lib_MSU_SL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SH(c); }
-static inline unsigned int lib_MSU_SH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * SL(c); }
-static inline unsigned int lib_MSU_SH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * SH(c); }
-static inline unsigned int lib_MSU_ZL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * ZL(c); }
-static inline unsigned int lib_MSU_ZL_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * ZH(c); }
-static inline unsigned int lib_MSU_ZH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * ZL(c); }
-static inline unsigned int lib_MSU_ZH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * ZH(c); }
+static inline unsigned int lib_MSU_SL_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SL(c); }
+static inline unsigned int lib_MSU_SL_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SH(c); }
+static inline unsigned int lib_MSU_SH_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * SL(c); }
+static inline unsigned int lib_MSU_SH_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * SH(c); }
+static inline unsigned int lib_MSU_ZL_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * ZL(c); }
+static inline unsigned int lib_MSU_ZL_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * ZH(c); }
+static inline unsigned int lib_MSU_ZH_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * ZL(c); }
+static inline unsigned int lib_MSU_ZH_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * ZH(c); }
 
-static inline unsigned int lib_MSU_SL_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * ZL(c); }
-static inline unsigned int lib_MSU_SL_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * ZH(c); }
-static inline unsigned int lib_MSU_SH_ZL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * ZL(c); }
-static inline unsigned int lib_MSU_SH_ZH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * ZH(c); }
-static inline unsigned int lib_MSU_ZL_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * SL(c); }
-static inline unsigned int lib_MSU_ZL_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * SH(c); }
-static inline unsigned int lib_MSU_ZH_SL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * SL(c); }
-static inline unsigned int lib_MSU_ZH_SH(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * SH(c); }
+static inline unsigned int lib_MSU_SL_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * ZL(c); }
+static inline unsigned int lib_MSU_SL_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * ZH(c); }
+static inline unsigned int lib_MSU_SH_ZL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * ZL(c); }
+static inline unsigned int lib_MSU_SH_ZH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SH(b) * ZH(c); }
+static inline unsigned int lib_MSU_ZL_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * SL(c); }
+static inline unsigned int lib_MSU_ZL_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZL(b) * SH(c); }
+static inline unsigned int lib_MSU_ZH_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * SL(c); }
+static inline unsigned int lib_MSU_ZH_SH(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - ZH(b) * SH(c); }
 
-static inline unsigned int lib_MUL_SL_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SL(b) * SL(c); }
-static inline unsigned int lib_MUL_SL_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SL(b) * SH(c); }
-static inline unsigned int lib_MUL_SH_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SH(b) * SL(c); }
-static inline unsigned int lib_MUL_SH_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SH(b) * SH(c); }
-static inline unsigned int lib_MUL_ZL_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZL(b) * ZL(c); }
-static inline unsigned int lib_MUL_ZL_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZL(b) * ZH(c); }
-static inline unsigned int lib_MUL_ZH_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZH(b) * ZL(c); }
-static inline unsigned int lib_MUL_ZH_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZH(b) * ZH(c); }
+static inline unsigned int lib_MUL_SL_SL(Iss *s, unsigned int b, unsigned int c) { return SL(b) * SL(c); }
+static inline unsigned int lib_MUL_SL_SH(Iss *s, unsigned int b, unsigned int c) { return SL(b) * SH(c); }
+static inline unsigned int lib_MUL_SH_SL(Iss *s, unsigned int b, unsigned int c) { return SH(b) * SL(c); }
+static inline unsigned int lib_MUL_SH_SH(Iss *s, unsigned int b, unsigned int c) { return SH(b) * SH(c); }
+static inline unsigned int lib_MUL_ZL_ZL(Iss *s, unsigned int b, unsigned int c) { return ZL(b) * ZL(c); }
+static inline unsigned int lib_MUL_ZL_ZH(Iss *s, unsigned int b, unsigned int c) { return ZL(b) * ZH(c); }
+static inline unsigned int lib_MUL_ZH_ZL(Iss *s, unsigned int b, unsigned int c) { return ZH(b) * ZL(c); }
+static inline unsigned int lib_MUL_ZH_ZH(Iss *s, unsigned int b, unsigned int c) { return ZH(b) * ZH(c); }
 
-static inline unsigned int lib_MUL_SL_SL_NR(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(SL(b) * SL(c))) >> shift; }
-static inline unsigned int lib_MUL_SH_SH_NR(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(SH(b) * SH(c))) >> shift; }
-static inline unsigned int lib_MUL_ZL_ZL_NR(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(ZL(b) * ZL(c))) >> shift; }
-static inline unsigned int lib_MUL_ZH_ZH_NR(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(ZH(b) * ZH(c))) >> shift; }
+static inline unsigned int lib_MUL_SL_SL_NR(Iss *s, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(SL(b) * SL(c))) >> shift; }
+static inline unsigned int lib_MUL_SH_SH_NR(Iss *s, unsigned int b, unsigned int c, unsigned int shift) { return ((int32_t)(SH(b) * SH(c))) >> shift; }
+static inline unsigned int lib_MUL_ZL_ZL_NR(Iss *s, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(ZL(b) * ZL(c))) >> shift; }
+static inline unsigned int lib_MUL_ZH_ZH_NR(Iss *s, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(ZH(b) * ZH(c))) >> shift; }
 
-static inline unsigned int lib_MUL_SL_SL_NR_R(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MUL_SL_SL_NR_R(Iss *s, unsigned int b, unsigned int c, unsigned int shift)
 {
     int32_t result = (int32_t)(SL(b) * SL(c));
     if (shift > 0)
         result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
-static inline unsigned int lib_MUL_SH_SH_NR_R(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MUL_SH_SH_NR_R(Iss *s, unsigned int b, unsigned int c, unsigned int shift)
 {
     int32_t result = (int32_t)(SH(b) * SH(c));
     if (shift > 0)
         result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
-static inline unsigned int lib_MUL_ZL_ZL_NR_R(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MUL_ZL_ZL_NR_R(Iss *s, unsigned int b, unsigned int c, unsigned int shift)
 {
     uint32_t result = (uint32_t)(ZL(b) * ZL(c));
     if (shift > 0)
         result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
-static inline unsigned int lib_MUL_ZH_ZH_NR_R(iss_cpu_state_t *s, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MUL_ZH_ZH_NR_R(Iss *s, unsigned int b, unsigned int c, unsigned int shift)
 {
     uint32_t result = (uint32_t)(ZH(b) * ZH(c));
     if (shift > 0)
@@ -263,78 +263,78 @@ static inline unsigned int lib_MUL_ZH_ZH_NR_R(iss_cpu_state_t *s, unsigned int b
     return result;
 }
 
-static inline unsigned int lib_MUL_SL_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SL(b) * ZL(c); }
-static inline unsigned int lib_MUL_SL_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SL(b) * ZH(c); }
-static inline unsigned int lib_MUL_SH_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SH(b) * ZL(c); }
-static inline unsigned int lib_MUL_SH_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return SH(b) * ZH(c); }
-static inline unsigned int lib_MUL_ZL_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZL(b) * SL(c); }
-static inline unsigned int lib_MUL_ZL_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZL(b) * SH(c); }
-static inline unsigned int lib_MUL_ZH_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZH(b) * SL(c); }
-static inline unsigned int lib_MUL_ZH_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return ZH(b) * SH(c); }
+static inline unsigned int lib_MUL_SL_ZL(Iss *s, unsigned int b, unsigned int c) { return SL(b) * ZL(c); }
+static inline unsigned int lib_MUL_SL_ZH(Iss *s, unsigned int b, unsigned int c) { return SL(b) * ZH(c); }
+static inline unsigned int lib_MUL_SH_ZL(Iss *s, unsigned int b, unsigned int c) { return SH(b) * ZL(c); }
+static inline unsigned int lib_MUL_SH_ZH(Iss *s, unsigned int b, unsigned int c) { return SH(b) * ZH(c); }
+static inline unsigned int lib_MUL_ZL_SL(Iss *s, unsigned int b, unsigned int c) { return ZL(b) * SL(c); }
+static inline unsigned int lib_MUL_ZL_SH(Iss *s, unsigned int b, unsigned int c) { return ZL(b) * SH(c); }
+static inline unsigned int lib_MUL_ZH_SL(Iss *s, unsigned int b, unsigned int c) { return ZH(b) * SL(c); }
+static inline unsigned int lib_MUL_ZH_SH(Iss *s, unsigned int b, unsigned int c) { return ZH(b) * SH(c); }
 
-static inline unsigned int lib_MMUL_SL_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SL(b) * SL(c); }
-static inline unsigned int lib_MMUL_SL_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SL(b) * SH(c); }
-static inline unsigned int lib_MMUL_SH_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SH(b) * SL(c); }
-static inline unsigned int lib_MMUL_SH_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SH(b) * SH(c); }
-static inline unsigned int lib_MMUL_ZL_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZL(b) * ZL(c); }
-static inline unsigned int lib_MMUL_ZL_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZL(b) * ZH(c); }
-static inline unsigned int lib_MMUL_ZH_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZH(b) * ZL(c); }
-static inline unsigned int lib_MMUL_ZH_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZH(b) * ZH(c); }
+static inline unsigned int lib_MMUL_SL_SL(Iss *s, unsigned int b, unsigned int c) { return -SL(b) * SL(c); }
+static inline unsigned int lib_MMUL_SL_SH(Iss *s, unsigned int b, unsigned int c) { return -SL(b) * SH(c); }
+static inline unsigned int lib_MMUL_SH_SL(Iss *s, unsigned int b, unsigned int c) { return -SH(b) * SL(c); }
+static inline unsigned int lib_MMUL_SH_SH(Iss *s, unsigned int b, unsigned int c) { return -SH(b) * SH(c); }
+static inline unsigned int lib_MMUL_ZL_ZL(Iss *s, unsigned int b, unsigned int c) { return -ZL(b) * ZL(c); }
+static inline unsigned int lib_MMUL_ZL_ZH(Iss *s, unsigned int b, unsigned int c) { return -ZL(b) * ZH(c); }
+static inline unsigned int lib_MMUL_ZH_ZL(Iss *s, unsigned int b, unsigned int c) { return -ZH(b) * ZL(c); }
+static inline unsigned int lib_MMUL_ZH_ZH(Iss *s, unsigned int b, unsigned int c) { return -ZH(b) * ZH(c); }
 
-static inline unsigned int lib_MMUL_SL_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SL(b) * ZL(c); }
-static inline unsigned int lib_MMUL_SL_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SL(b) * ZH(c); }
-static inline unsigned int lib_MMUL_SH_ZL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SH(b) * ZL(c); }
-static inline unsigned int lib_MMUL_SH_ZH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -SH(b) * ZH(c); }
-static inline unsigned int lib_MMUL_ZL_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZL(b) * SL(c); }
-static inline unsigned int lib_MMUL_ZL_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZL(b) * SH(c); }
-static inline unsigned int lib_MMUL_ZH_SL(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZH(b) * SL(c); }
-static inline unsigned int lib_MMUL_ZH_SH(iss_cpu_state_t *s, unsigned int b, unsigned int c) { return -ZH(b) * SH(c); }
+static inline unsigned int lib_MMUL_SL_ZL(Iss *s, unsigned int b, unsigned int c) { return -SL(b) * ZL(c); }
+static inline unsigned int lib_MMUL_SL_ZH(Iss *s, unsigned int b, unsigned int c) { return -SL(b) * ZH(c); }
+static inline unsigned int lib_MMUL_SH_ZL(Iss *s, unsigned int b, unsigned int c) { return -SH(b) * ZL(c); }
+static inline unsigned int lib_MMUL_SH_ZH(Iss *s, unsigned int b, unsigned int c) { return -SH(b) * ZH(c); }
+static inline unsigned int lib_MMUL_ZL_SL(Iss *s, unsigned int b, unsigned int c) { return -ZL(b) * SL(c); }
+static inline unsigned int lib_MMUL_ZL_SH(Iss *s, unsigned int b, unsigned int c) { return -ZL(b) * SH(c); }
+static inline unsigned int lib_MMUL_ZH_SL(Iss *s, unsigned int b, unsigned int c) { return -ZH(b) * SL(c); }
+static inline unsigned int lib_MMUL_ZH_SH(Iss *s, unsigned int b, unsigned int c) { return -ZH(b) * SH(c); }
 
-static inline unsigned int lib_MULS(iss_cpu_state_t *s, int a, int b) { return a * b; }
-static inline unsigned int lib_MULU(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a * b; }
-static inline int64_t lib_MULS_64(iss_cpu_state_t *s, int32_t a, int32_t b) { return (int64_t)a * (int64_t)b; }
-static inline uint64_t lib_MULU_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a * b; }
-static inline unsigned int lib_DIVS(iss_cpu_state_t *s, int a, int b)
+static inline unsigned int lib_MULS(Iss *s, int a, int b) { return a * b; }
+static inline unsigned int lib_MULU(Iss *s, unsigned int a, unsigned int b) { return a * b; }
+static inline int64_t lib_MULS_64(Iss *s, int32_t a, int32_t b) { return (int64_t)a * (int64_t)b; }
+static inline uint64_t lib_MULU_64(Iss *s, uint64_t a, uint64_t b) { return a * b; }
+static inline unsigned int lib_DIVS(Iss *s, int a, int b)
 {
     if (b == 0)
         return 0;
     else
         return a / b;
 }
-static inline unsigned int lib_DIVU(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_DIVU(Iss *s, unsigned int a, unsigned int b)
 {
     if (b == 0)
         return 0;
     else
         return a / b;
 }
-static inline unsigned int lib_MINU(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a < b ? a : b; }
-static inline int lib_MINS(iss_cpu_state_t *s, int a, int b) { return a < b ? a : b; }
-static inline unsigned int lib_MAXU(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return a > b ? a : b; }
-static inline int lib_MAXS(iss_cpu_state_t *s, int a, int b) { return a > b ? a : b; }
-static inline int lib_ABS(iss_cpu_state_t *s, int a) { return a >= 0 ? a : -a; }
-static inline unsigned int lib_AVGU(iss_cpu_state_t *s, unsigned int a, unsigned int b) { return (a + b) >> 1; }
-static inline int lib_AVGS(iss_cpu_state_t *s, int a, int b) { return (a + b) >> 1; }
+static inline unsigned int lib_MINU(Iss *s, unsigned int a, unsigned int b) { return a < b ? a : b; }
+static inline int lib_MINS(Iss *s, int a, int b) { return a < b ? a : b; }
+static inline unsigned int lib_MAXU(Iss *s, unsigned int a, unsigned int b) { return a > b ? a : b; }
+static inline int lib_MAXS(Iss *s, int a, int b) { return a > b ? a : b; }
+static inline int lib_ABS(Iss *s, int a) { return a >= 0 ? a : -a; }
+static inline unsigned int lib_AVGU(Iss *s, unsigned int a, unsigned int b) { return (a + b) >> 1; }
+static inline int lib_AVGS(Iss *s, int a, int b) { return (a + b) >> 1; }
 
-static inline uint64_t lib_MINU_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a < b ? a : b; }
-static inline int64_t lib_MINS_64(iss_cpu_state_t *s, int64_t a, int64_t b) { return a < b ? a : b; }
-static inline uint64_t lib_MAXU_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a > b ? a : b; }
-static inline int64_t lib_MAXS_64(iss_cpu_state_t *s, int64_t a, int64_t b) { return a > b ? a : b; }
-static inline int64_t lib_ABS_64(iss_cpu_state_t *s, int64_t a) { return a < 0 ? -a : a; }
+static inline uint64_t lib_MINU_64(Iss *s, uint64_t a, uint64_t b) { return a < b ? a : b; }
+static inline int64_t lib_MINS_64(Iss *s, int64_t a, int64_t b) { return a < b ? a : b; }
+static inline uint64_t lib_MAXU_64(Iss *s, uint64_t a, uint64_t b) { return a > b ? a : b; }
+static inline int64_t lib_MAXS_64(Iss *s, int64_t a, int64_t b) { return a > b ? a : b; }
+static inline int64_t lib_ABS_64(Iss *s, int64_t a) { return a < 0 ? -a : a; }
 
 /*
  * CONDITIONAL OPERATIONS
  */
 
-static inline unsigned int lib_CMOV(iss_cpu_state_t *s, unsigned int flag, unsigned int a, unsigned int b) { return flag ? a : b; }
+static inline unsigned int lib_CMOV(Iss *s, unsigned int flag, unsigned int a, unsigned int b) { return flag ? a : b; }
 
 /*
  * BIT MANIPULATION OPERATIONS
  */
 
-static inline unsigned int lib_FF1_or1k(iss_cpu_state_t *s, unsigned int a) { return ffs(a); }
+static inline unsigned int lib_FF1_or1k(Iss *s, unsigned int a) { return ffs(a); }
 
-static inline unsigned int lib_FL1_or1k(iss_cpu_state_t *s, unsigned int t)
+static inline unsigned int lib_FL1_or1k(Iss *s, unsigned int t)
 {
     /* Reverse the word and use ffs */
     t = (((t & 0xaaaaaaaa) >> 1) | ((t & 0x55555555) << 1));
@@ -346,7 +346,7 @@ static inline unsigned int lib_FL1_or1k(iss_cpu_state_t *s, unsigned int t)
     return (0 == t ? t : 33 - t);
 }
 
-static inline unsigned int lib_FF1(iss_cpu_state_t *s, unsigned int a)
+static inline unsigned int lib_FF1(Iss *s, unsigned int a)
 {
     unsigned int result = ffs(a);
     if (result == 0)
@@ -355,7 +355,7 @@ static inline unsigned int lib_FF1(iss_cpu_state_t *s, unsigned int a)
         return result - 1;
 }
 
-static inline unsigned int lib_FL1(iss_cpu_state_t *s, unsigned int t)
+static inline unsigned int lib_FL1(Iss *s, unsigned int t)
 {
     /* Reverse the word and use ffs */
     t = (((t & 0xaaaaaaaa) >> 1) | ((t & 0x55555555) << 1));
@@ -367,7 +367,7 @@ static inline unsigned int lib_FL1(iss_cpu_state_t *s, unsigned int t)
     return (0 == t ? 32 : 32 - t);
 }
 
-static inline unsigned int lib_CNT(iss_cpu_state_t *s, unsigned int t)
+static inline unsigned int lib_CNT(Iss *s, unsigned int t)
 {
 #if 1
     return __builtin_popcount(t);
@@ -379,7 +379,7 @@ static inline unsigned int lib_CNT(iss_cpu_state_t *s, unsigned int t)
 #endif
 }
 
-static inline unsigned int lib_CNT_64(iss_cpu_state_t *s, uint64_t t)
+static inline unsigned int lib_CNT_64(Iss *s, uint64_t t)
 {
 #if 1
     return __builtin_popcount((t >> 32) & ((1ll << 32) - 1)) + __builtin_popcount(t & ((1ll << 32) - 1));
@@ -391,7 +391,7 @@ static inline unsigned int lib_CNT_64(iss_cpu_state_t *s, uint64_t t)
 #endif
 }
 
-static inline unsigned int lib_CLB(iss_cpu_state_t *s, unsigned int t)
+static inline unsigned int lib_CLB(Iss *s, unsigned int t)
 {
     if (t == 0)
         return 0;
@@ -399,29 +399,29 @@ static inline unsigned int lib_CLB(iss_cpu_state_t *s, unsigned int t)
         return __builtin_clrsb(t);
 }
 
-static inline unsigned int lib_BSET(iss_cpu_state_t *s, unsigned int val, unsigned int mask)
+static inline unsigned int lib_BSET(Iss *s, unsigned int val, unsigned int mask)
 {
     return val | mask;
 }
 
-static inline unsigned int lib_BCLR(iss_cpu_state_t *s, unsigned int val, unsigned int mask)
+static inline unsigned int lib_BCLR(Iss *s, unsigned int val, unsigned int mask)
 {
     return val & ~mask;
 }
 
-static inline int lib_BEXTRACT(iss_cpu_state_t *s, unsigned int val, unsigned int bits, unsigned int shift)
+static inline int lib_BEXTRACT(Iss *s, unsigned int val, unsigned int bits, unsigned int shift)
 {
     if (shift + bits > 32)
         bits = 32 - shift;
     return getSignedField(val, shift, bits);
 }
 
-static inline unsigned int lib_BEXTRACTU(iss_cpu_state_t *s, unsigned int val, unsigned int mask, unsigned int shift)
+static inline unsigned int lib_BEXTRACTU(Iss *s, unsigned int val, unsigned int mask, unsigned int shift)
 {
     return (val & mask) >> shift;
 }
 
-static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int mask, unsigned int shift)
+static inline unsigned int lib_BINSERT(Iss *s, unsigned int a, unsigned int b, unsigned int mask, unsigned int shift)
 {
     return (b & ~mask) | ((a << shift) & mask);
 }
@@ -431,7 +431,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
  */
 
 #define VEC_OP(operName, type, elemType, elemSize, num_elem, oper)                                            \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)        \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type(Iss *s, type a, type b)        \
     {                                                                                                         \
         elemType *tmp_a = (elemType *)&a;                                                                     \
         elemType *tmp_b = (elemType *)&b;                                                                     \
@@ -443,7 +443,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
         return out;                                                                                           \
     }                                                                                                         \
                                                                                                               \
-    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, elemType b) \
+    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(Iss *s, type a, elemType b) \
     {                                                                                                         \
         elemType *tmp_a = (elemType *)&a;                                                                     \
         type out;                                                                                             \
@@ -455,7 +455,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_OP_DIV2(operName, type, elemType, elemSize, num_elem, oper)                                       \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type##_div2(iss_cpu_state_t *s, type a, type b) \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type##_div2(Iss *s, type a, type b) \
     {                                                                                                         \
         elemType *tmp_a = (elemType *)&a;                                                                     \
         elemType *tmp_b = (elemType *)&b;                                                                     \
@@ -468,7 +468,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_OP_DIV4(operName, type, elemType, elemSize, num_elem, oper)                                       \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type##_div4(iss_cpu_state_t *s, type a, type b) \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type##_div4(Iss *s, type a, type b) \
     {                                                                                                         \
         elemType *tmp_a = (elemType *)&a;                                                                     \
         elemType *tmp_b = (elemType *)&b;                                                                     \
@@ -481,7 +481,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_OP_DIV8(operName, type, elemType, elemSize, num_elem, oper)                                       \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type##_div8(iss_cpu_state_t *s, type a, type b) \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type##_div8(Iss *s, type a, type b) \
     {                                                                                                         \
         elemType *tmp_a = (elemType *)&a;                                                                     \
         elemType *tmp_b = (elemType *)&b;                                                                     \
@@ -494,7 +494,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_EXPR(operName, type, elemType, elemSize, num_elem, expr)                                   \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b) \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type(Iss *s, type a, type b) \
     {                                                                                                  \
         elemType *tmp_a = (elemType *)&a;                                                              \
         elemType *tmp_b = (elemType *)&b;                                                              \
@@ -507,7 +507,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_EXPR_SC(operName, type, elemType, elemSize, num_elem, expr)                                       \
-    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, elemType b) \
+    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(Iss *s, type a, elemType b) \
     {                                                                                                         \
         elemType *tmp_a = (elemType *)&a;                                                                     \
         type out;                                                                                             \
@@ -519,7 +519,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_CMP(operName, type, elemType, elemSize, num_elem, oper)                                              \
-    static inline type lib_VEC_CMP##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)        \
+    static inline type lib_VEC_CMP##operName##_##elemType##_to_##type(Iss *s, type a, type b)        \
     {                                                                                                            \
         elemType *tmp_a = (elemType *)&a;                                                                        \
         elemType *tmp_b = (elemType *)&b;                                                                        \
@@ -534,7 +534,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
         return out;                                                                                              \
     }                                                                                                            \
                                                                                                                  \
-    static inline type lib_VEC_CMP##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, elemType b) \
+    static inline type lib_VEC_CMP##operName##_SC_##elemType##_to_##type(Iss *s, type a, elemType b) \
     {                                                                                                            \
         elemType *tmp_a = (elemType *)&a;                                                                        \
         type out;                                                                                                \
@@ -549,7 +549,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_ALL(operName, type, elemType, elemSize, num_elem, oper)                                                             \
-    static inline type lib_VEC_ALL_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b, int *flagPtr)        \
+    static inline type lib_VEC_ALL_##operName##_##elemType##_to_##type(Iss *s, type a, type b, int *flagPtr)        \
     {                                                                                                                           \
         elemType *tmp_a = (elemType *)&a;                                                                                       \
         elemType *tmp_b = (elemType *)&b;                                                                                       \
@@ -569,7 +569,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
         return out;                                                                                                             \
     }                                                                                                                           \
                                                                                                                                 \
-    static inline type lib_VEC_ALL_SC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, elemType b, int *flagPtr) \
+    static inline type lib_VEC_ALL_SC_##operName##_##elemType##_to_##type(Iss *s, type a, elemType b, int *flagPtr) \
     {                                                                                                                           \
         elemType *tmp_a = (elemType *)&a;                                                                                       \
         type out;                                                                                                               \
@@ -589,7 +589,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
     }
 
 #define VEC_ANY(operName, type, elemType, elemSize, num_elem, oper)                                                             \
-    static inline type lib_VEC_ANY_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b, int *flagPtr)        \
+    static inline type lib_VEC_ANY_##operName##_##elemType##_to_##type(Iss *s, type a, type b, int *flagPtr)        \
     {                                                                                                                           \
         elemType *tmp_a = (elemType *)&a;                                                                                       \
         elemType *tmp_b = (elemType *)&b;                                                                                       \
@@ -611,7 +611,7 @@ static inline unsigned int lib_BINSERT(iss_cpu_state_t *s, unsigned int a, unsig
         return out;                                                                                                             \
     }                                                                                                                           \
                                                                                                                                 \
-    static inline type lib_VEC_ANY_SC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, elemType b, int *flagPtr) \
+    static inline type lib_VEC_ANY_SC_##operName##_##elemType##_to_##type(Iss *s, type a, elemType b, int *flagPtr) \
     {                                                                                                                           \
         elemType *tmp_a = (elemType *)&a;                                                                                       \
         type out;                                                                                                               \
@@ -795,7 +795,7 @@ VEC_OP(XOR, int32_t, int16_t, 2, 2, ^)
 VEC_OP(AND, int32_t, int8_t, 1, 4, &)
 VEC_OP(AND, int32_t, int16_t, 2, 2, &)
 
-static inline uint32_t lib_VEC_INS_8(iss_cpu_state_t *s, uint32_t a, uint32_t b, uint32_t shift)
+static inline uint32_t lib_VEC_INS_8(Iss *s, uint32_t a, uint32_t b, uint32_t shift)
 {
     shift *= 8;
     uint32_t mask = 0xff << shift;
@@ -805,7 +805,7 @@ static inline uint32_t lib_VEC_INS_8(iss_cpu_state_t *s, uint32_t a, uint32_t b,
     return a;
 }
 
-static inline uint32_t lib_VEC_INS_16(iss_cpu_state_t *s, uint32_t a, uint32_t b, uint32_t shift)
+static inline uint32_t lib_VEC_INS_16(Iss *s, uint32_t a, uint32_t b, uint32_t shift)
 {
     shift *= 16;
     uint32_t mask = 0xffff << shift;
@@ -815,7 +815,7 @@ static inline uint32_t lib_VEC_INS_16(iss_cpu_state_t *s, uint32_t a, uint32_t b
     return a;
 }
 
-static inline uint32_t lib_VEC_EXT_8(iss_cpu_state_t *s, uint32_t a, uint32_t shift)
+static inline uint32_t lib_VEC_EXT_8(Iss *s, uint32_t a, uint32_t shift)
 {
     shift *= 8;
     uint32_t mask = 0xff << shift;
@@ -824,7 +824,7 @@ static inline uint32_t lib_VEC_EXT_8(iss_cpu_state_t *s, uint32_t a, uint32_t sh
     return (int8_t)a;
 }
 
-static inline uint32_t lib_VEC_EXT_16(iss_cpu_state_t *s, uint32_t a, uint32_t shift)
+static inline uint32_t lib_VEC_EXT_16(Iss *s, uint32_t a, uint32_t shift)
 {
     shift *= 16;
     uint32_t mask = 0xffff << shift;
@@ -833,7 +833,7 @@ static inline uint32_t lib_VEC_EXT_16(iss_cpu_state_t *s, uint32_t a, uint32_t s
     return (int16_t)a;
 }
 
-static inline uint32_t lib_VEC_EXTU_8(iss_cpu_state_t *s, uint32_t a, uint32_t shift)
+static inline uint32_t lib_VEC_EXTU_8(Iss *s, uint32_t a, uint32_t shift)
 {
     shift *= 8;
     uint32_t mask = 0xff << shift;
@@ -842,7 +842,7 @@ static inline uint32_t lib_VEC_EXTU_8(iss_cpu_state_t *s, uint32_t a, uint32_t s
     return a;
 }
 
-static inline uint32_t lib_VEC_EXTU_16(iss_cpu_state_t *s, uint32_t a, uint32_t shift)
+static inline uint32_t lib_VEC_EXTU_16(Iss *s, uint32_t a, uint32_t shift)
 {
     shift *= 16;
     uint32_t mask = 0xffff << shift;
@@ -851,7 +851,7 @@ static inline uint32_t lib_VEC_EXTU_16(iss_cpu_state_t *s, uint32_t a, uint32_t 
     return a;
 }
 
-static inline int32_t lib_VEC_ABS_int8_t_to_int32_t(iss_cpu_state_t *s, uint32_t a)
+static inline int32_t lib_VEC_ABS_int8_t_to_int32_t(Iss *s, uint32_t a)
 {
     int8_t *tmp_a = (int8_t *)&a;
     int32_t out;
@@ -862,7 +862,7 @@ static inline int32_t lib_VEC_ABS_int8_t_to_int32_t(iss_cpu_state_t *s, uint32_t
     return out;
 }
 
-static inline int32_t lib_VEC_ABS_int16_t_to_int32_t(iss_cpu_state_t *s, uint32_t a)
+static inline int32_t lib_VEC_ABS_int16_t_to_int32_t(Iss *s, uint32_t a)
 {
     int16_t *tmp_a = (int16_t *)&a;
     int32_t out;
@@ -879,7 +879,7 @@ static inline unsigned int getShuffleHalf(unsigned int a, unsigned int b, unsign
     return ((a >> shift) & 0xffff) << pos;
 }
 
-static inline unsigned int lib_VEC_SHUFFLE_16(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLE_16(Iss *s, unsigned int a, unsigned int b)
 {
     return getShuffleHalf(a, b, 16) | getShuffleHalf(a, b, 0);
     unsigned int low = b & 1 ? a >> 16 : a & 0xffff;
@@ -894,7 +894,7 @@ static inline unsigned int getShuffleHalfSci(unsigned int a, unsigned int b, uns
     return ((a >> shift) & 0xffff) << pos;
 }
 
-static inline unsigned int lib_VEC_SHUFFLE_SCI_16(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLE_SCI_16(Iss *s, unsigned int a, unsigned int b)
 {
     return getShuffleHalfSci(a, b, 16) | getShuffleHalfSci(a, b, 0);
 }
@@ -905,7 +905,7 @@ static inline unsigned int getShuffleByte(unsigned int a, unsigned int b, unsign
     return ((a >> shift) & 0xff) << pos;
 }
 
-static inline unsigned int lib_VEC_SHUFFLE_8(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLE_8(Iss *s, unsigned int a, unsigned int b)
 {
     return getShuffleByte(a, b, 24) | getShuffleByte(a, b, 16) | getShuffleByte(a, b, 8) | getShuffleByte(a, b, 0);
 }
@@ -917,32 +917,32 @@ static inline unsigned int getShuffleByteSci(unsigned int a, unsigned int b, uns
     return ((a >> shift) & 0xff) << pos;
 }
 
-static inline unsigned int lib_VEC_SHUFFLE_SCI_8(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLE_SCI_8(Iss *s, unsigned int a, unsigned int b)
 {
     return getShuffleByteSci(a, b, 24) | getShuffleByteSci(a, b, 16) | getShuffleByteSci(a, b, 8) | getShuffleByteSci(a, b, 0);
 }
 
-static inline unsigned int lib_VEC_SHUFFLEI0_SCI_8(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLEI0_SCI_8(Iss *s, unsigned int a, unsigned int b)
 {
     return (((a >> 0) & 0xff) << 24) | getShuffleByteSci(a, b, 16) | getShuffleByteSci(a, b, 8) | getShuffleByteSci(a, b, 0);
 }
 
-static inline unsigned int lib_VEC_SHUFFLEI1_SCI_8(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLEI1_SCI_8(Iss *s, unsigned int a, unsigned int b)
 {
     return (((a >> 8) & 0xff) << 24) | getShuffleByteSci(a, b, 16) | getShuffleByteSci(a, b, 8) | getShuffleByteSci(a, b, 0);
 }
 
-static inline unsigned int lib_VEC_SHUFFLEI2_SCI_8(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLEI2_SCI_8(Iss *s, unsigned int a, unsigned int b)
 {
     return (((a >> 16) & 0xff) << 24) | getShuffleByteSci(a, b, 16) | getShuffleByteSci(a, b, 8) | getShuffleByteSci(a, b, 0);
 }
 
-static inline unsigned int lib_VEC_SHUFFLEI3_SCI_8(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_SHUFFLEI3_SCI_8(Iss *s, unsigned int a, unsigned int b)
 {
     return (((a >> 24) & 0xff) << 24) | getShuffleByteSci(a, b, 16) | getShuffleByteSci(a, b, 8) | getShuffleByteSci(a, b, 0);
 }
 
-static inline unsigned int lib_VEC_SHUFFLE2_16(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c)
+static inline unsigned int lib_VEC_SHUFFLE2_16(Iss *s, unsigned int a, unsigned int b, unsigned int c)
 {
 #ifdef RISCV
     return getShuffleHalf(b & (1 << 17) ? a : c, b, 16) | getShuffleHalf(b & (1 << 1) ? a : c, b, 0);
@@ -951,7 +951,7 @@ static inline unsigned int lib_VEC_SHUFFLE2_16(iss_cpu_state_t *s, unsigned int 
 #endif
 }
 
-static inline unsigned int lib_VEC_SHUFFLE2_8(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c)
+static inline unsigned int lib_VEC_SHUFFLE2_8(Iss *s, unsigned int a, unsigned int b, unsigned int c)
 {
 #ifdef RISCV
     return getShuffleByte(b & (1 << 26) ? a : c, b, 24) | getShuffleByte(b & (1 << 18) ? a : c, b, 16) | getShuffleByte(b & (1 << 10) ? a : c, b, 8) | getShuffleByte(b & (1 << 2) ? a : c, b, 0);
@@ -960,23 +960,23 @@ static inline unsigned int lib_VEC_SHUFFLE2_8(iss_cpu_state_t *s, unsigned int a
 #endif
 }
 
-static inline unsigned int lib_VEC_PACK_SC_16(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_PACK_SC_16(Iss *s, unsigned int a, unsigned int b)
 {
     return ((a & 0xffff) << 16) | (b & 0xffff);
 }
 
-static inline unsigned int lib_VEC_PACKHI_SC_8(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned c)
+static inline unsigned int lib_VEC_PACKHI_SC_8(Iss *s, unsigned int a, unsigned int b, unsigned c)
 {
     return ((a & 0xff) << 24) | ((b & 0xff) << 16) | (c & 0xffff);
 }
 
-static inline unsigned int lib_VEC_PACKLO_SC_8(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned c)
+static inline unsigned int lib_VEC_PACKLO_SC_8(Iss *s, unsigned int a, unsigned int b, unsigned c)
 {
     return ((a & 0xff) << 8) | ((b & 0xff) << 0) | (c & 0xffff0000);
 }
 
 #define VEC_DOTP(operName, typeOut, typeA, typeB, elemTypeA, elemTypeB, elemSize, num_elem, oper)  \
-    static inline typeOut lib_VEC_##operName##_##elemSize(iss_cpu_state_t *s, typeA a, typeB b)    \
+    static inline typeOut lib_VEC_##operName##_##elemSize(Iss *s, typeA a, typeB b)    \
     {                                                                                              \
         elemTypeA *tmp_a = (elemTypeA *)&a;                                                        \
         elemTypeB *tmp_b = (elemTypeB *)&b;                                                        \
@@ -989,7 +989,7 @@ static inline unsigned int lib_VEC_PACKLO_SC_8(iss_cpu_state_t *s, unsigned int 
         return out;                                                                                \
     }                                                                                              \
                                                                                                    \
-    static inline typeOut lib_VEC_##operName##_SC_##elemSize(iss_cpu_state_t *s, typeA a, typeB b) \
+    static inline typeOut lib_VEC_##operName##_SC_##elemSize(Iss *s, typeA a, typeB b) \
     {                                                                                              \
         elemTypeA *tmp_a = (elemTypeA *)&a;                                                        \
         elemTypeB *tmp_b = (elemTypeB *)&b;                                                        \
@@ -1010,7 +1010,7 @@ VEC_DOTP(DOTUSP, int32_t, uint32_t, int32_t, uint16_t, int16_t, 16, 2, *)
 VEC_DOTP(DOTUSP, int32_t, uint32_t, int32_t, uint8_t, int8_t, 8, 4, *)
 
 #define VEC_SDOT(operName, typeOut, typeA, typeB, elemTypeA, elemTypeB, elemSize, num_elem, oper)               \
-    static inline typeOut lib_VEC_##operName##_##elemSize(iss_cpu_state_t *s, typeOut out, typeA a, typeB b)    \
+    static inline typeOut lib_VEC_##operName##_##elemSize(Iss *s, typeOut out, typeA a, typeB b)    \
     {                                                                                                           \
         elemTypeA *tmp_a = (elemTypeA *)&a;                                                                     \
         elemTypeB *tmp_b = (elemTypeB *)&b;                                                                     \
@@ -1024,7 +1024,7 @@ VEC_DOTP(DOTUSP, int32_t, uint32_t, int32_t, uint8_t, int8_t, 8, 4, *)
         return out;                                                                                             \
     }                                                                                                           \
                                                                                                                 \
-    static inline typeOut lib_VEC_##operName##_SC_##elemSize(iss_cpu_state_t *s, typeOut out, typeA a, typeB b) \
+    static inline typeOut lib_VEC_##operName##_SC_##elemSize(Iss *s, typeOut out, typeA a, typeB b) \
     {                                                                                                           \
         elemTypeA *tmp_a = (elemTypeA *)&a;                                                                     \
         elemTypeB *tmp_b = (elemTypeB *)&b;                                                                     \
@@ -1104,25 +1104,25 @@ static inline void lib_hwLoopSetStart(cpu_t *cpu, pc_t *pc, unsigned int index, 
 
 // Add/Sub with normalization and rounding
 
-static inline unsigned int lib_ADD_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_ADD_NR(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     return ((int32_t)(a + b)) >> shift;
 }
 
-static inline unsigned int lib_ADD_NRU(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_ADD_NRU(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     return ((uint32_t)(a + b)) >> shift;
 }
 
-static inline unsigned int lib_ADD_NL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_ADD_NL(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     return (a + b) << shift;
 }
 
-static inline unsigned int lib_ADD_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_ADD_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     if (shift > 0)
@@ -1131,7 +1131,7 @@ static inline unsigned int lib_ADD_NR_R(iss_cpu_state_t *s, unsigned int a, unsi
         return (int32_t)(a + b);
 }
 
-static inline unsigned int lib_ADD_NR_RU(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_ADD_NR_RU(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     if (shift > 0)
@@ -1140,25 +1140,25 @@ static inline unsigned int lib_ADD_NR_RU(iss_cpu_state_t *s, unsigned int a, uns
         return (uint32_t)(a + b);
 }
 
-static inline unsigned int lib_SUB_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_SUB_NR(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     return ((int32_t)(a - b)) >> shift;
 }
 
-static inline unsigned int lib_SUB_NRU(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_SUB_NRU(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     return ((uint32_t)(a - b)) >> shift;
 }
 
-static inline unsigned int lib_SUB_NL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_SUB_NL(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     return (a - b) << shift;
 }
 
-static inline unsigned int lib_SUB_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_SUB_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     if (shift > 0)
@@ -1167,7 +1167,7 @@ static inline unsigned int lib_SUB_NR_R(iss_cpu_state_t *s, unsigned int a, unsi
         return (int32_t)(a - b);
 }
 
-static inline unsigned int lib_SUB_NR_RU(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_SUB_NR_RU(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     shift &= 0x1f;
     if (shift > 0)
@@ -1177,37 +1177,37 @@ static inline unsigned int lib_SUB_NR_RU(iss_cpu_state_t *s, unsigned int a, uns
 }
 
 // Combined normalization and rounding
-static inline int lib_MULS_NL(iss_cpu_state_t *s, int a, int b, unsigned int shift)
+static inline int lib_MULS_NL(Iss *s, int a, int b, unsigned int shift)
 {
     return (a * b) << shift;
 }
 
-static inline unsigned int lib_MULU_NL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_MULU_NL(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     return (a * b) << shift;
 }
 
-static inline unsigned int lib_MULUS_NL(iss_cpu_state_t *s, unsigned int a, int b, unsigned int shift)
+static inline unsigned int lib_MULUS_NL(Iss *s, unsigned int a, int b, unsigned int shift)
 {
     return (a * b) << shift;
 }
 
-static inline int lib_MULS_NR(iss_cpu_state_t *s, int a, int b, unsigned int shift)
+static inline int lib_MULS_NR(Iss *s, int a, int b, unsigned int shift)
 {
     return ((int32_t)(a * b)) >> shift;
 }
 
-static inline unsigned int lib_MULU_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_MULU_NR(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     return ((uint32_t)(a * b)) >> shift;
 }
 
-static inline unsigned int lib_MULUS_NR(iss_cpu_state_t *s, unsigned int a, int b, unsigned int shift)
+static inline unsigned int lib_MULUS_NR(Iss *s, unsigned int a, int b, unsigned int shift)
 {
     return ((int32_t)(a * b)) >> shift;
 }
 
-static inline int lib_MULS_NR_R(iss_cpu_state_t *s, int a, int b, unsigned int shift)
+static inline int lib_MULS_NR_R(Iss *s, int a, int b, unsigned int shift)
 {
     if (shift > 0)
         return ((int32_t)(a * b + (1 << (shift - 1)))) >> shift;
@@ -1215,7 +1215,7 @@ static inline int lib_MULS_NR_R(iss_cpu_state_t *s, int a, int b, unsigned int s
         return (int32_t)(a * b);
 }
 
-static inline unsigned int lib_MULU_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int shift)
+static inline unsigned int lib_MULU_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int shift)
 {
     if (shift > 0)
         return ((uint32_t)(a * b + (1 << (shift - 1)))) >> shift;
@@ -1223,43 +1223,43 @@ static inline unsigned int lib_MULU_NR_R(iss_cpu_state_t *s, unsigned int a, uns
         return (uint32_t)(a * b);
 }
 
-static inline int lib_MULUS_NR_R(iss_cpu_state_t *s, unsigned int a, int b, unsigned int shift)
+static inline int lib_MULUS_NR_R(Iss *s, unsigned int a, int b, unsigned int shift)
 {
     unsigned int roundValue = shift == 0 ? 0 : 1 << (shift - 1);
     return ((int32_t)(a * b + roundValue)) >> shift;
 }
 
-static inline int lib_MACS_NL(iss_cpu_state_t *s, int a, int b, int c, unsigned int shift)
+static inline int lib_MACS_NL(Iss *s, int a, int b, int c, unsigned int shift)
 {
     return (a + (b * c)) << shift;
 }
 
-static inline unsigned int lib_MACU_NL(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MACU_NL(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     return (a + (b * c)) << shift;
 }
 
-static inline unsigned int lib_MACUS_NL(iss_cpu_state_t *s, int a, unsigned int b, int c, unsigned int shift)
+static inline unsigned int lib_MACUS_NL(Iss *s, int a, unsigned int b, int c, unsigned int shift)
 {
     return (a + (b * c)) << shift;
 }
 
-static inline int lib_MACS_NR(iss_cpu_state_t *s, int a, int b, int c, unsigned int shift)
+static inline int lib_MACS_NR(Iss *s, int a, int b, int c, unsigned int shift)
 {
     return ((int32_t)(a + b * c)) >> shift;
 }
 
-static inline unsigned int lib_MACU_NR(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MACU_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     return ((uint32_t)(a + b * c)) >> shift;
 }
 
-static inline unsigned int lib_MACUS_NR(iss_cpu_state_t *s, int a, unsigned int b, int c, unsigned int shift)
+static inline unsigned int lib_MACUS_NR(Iss *s, int a, unsigned int b, int c, unsigned int shift)
 {
     return ((int32_t)(a + b * c)) >> shift;
 }
 
-static inline int lib_MACS_NR_R(iss_cpu_state_t *s, int a, int b, int c, unsigned int shift)
+static inline int lib_MACS_NR_R(Iss *s, int a, int b, int c, unsigned int shift)
 {
     if (shift > 0)
         return ((int32_t)(a + b * c + (1 << (shift - 1)))) >> shift;
@@ -1267,7 +1267,7 @@ static inline int lib_MACS_NR_R(iss_cpu_state_t *s, int a, int b, int c, unsigne
         return (int32_t)(a + b * c);
 }
 
-static inline unsigned int lib_MACU_NR_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
+static inline unsigned int lib_MACU_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
     if (shift > 0)
         return ((uint32_t)(a + b * c + (1 << (shift - 1)))) >> shift;
@@ -1275,7 +1275,7 @@ static inline unsigned int lib_MACU_NR_R(iss_cpu_state_t *s, unsigned int a, uns
         return (uint32_t)(a + b * c);
 }
 
-static inline unsigned int lib_MACUS_NR_R(iss_cpu_state_t *s, int a, unsigned int b, int c, unsigned int shift)
+static inline unsigned int lib_MACUS_NR_R(Iss *s, int a, unsigned int b, int c, unsigned int shift)
 {
     if (shift > 0)
         return ((int32_t)(a + b * c + (1 << (shift - 1)))) >> shift;
@@ -1284,7 +1284,7 @@ static inline unsigned int lib_MACUS_NR_R(iss_cpu_state_t *s, int a, unsigned in
 }
 
 // Clipping
-static inline unsigned int lib_CLIP(iss_cpu_state_t *s, int a, int low, int high)
+static inline unsigned int lib_CLIP(Iss *s, int a, int low, int high)
 {
     unsigned int result;
 
@@ -1298,7 +1298,7 @@ static inline unsigned int lib_CLIP(iss_cpu_state_t *s, int a, int low, int high
     return result;
 }
 
-static inline unsigned int lib_CLIPU(iss_cpu_state_t *s, int a, int high)
+static inline unsigned int lib_CLIPU(Iss *s, int a, int high)
 {
     unsigned int result;
 
@@ -1313,7 +1313,7 @@ static inline unsigned int lib_CLIPU(iss_cpu_state_t *s, int a, int high)
 }
 
 // Complex numbers
-static inline unsigned int lib_CPLXMUL_H_I(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, int div)
+static inline unsigned int lib_CPLXMUL_H_I(Iss *s, unsigned int a, unsigned int b, unsigned int c, int div)
 {
     long long a_imm = (long long)(int16_t)(a >> 16), a_re = (long long)(int16_t)(a & 0xffff);
     long long b_imm = (long long)(int16_t)(b >> 16), b_re = (long long)(int16_t)(b & 0xffff);
@@ -1321,7 +1321,7 @@ static inline unsigned int lib_CPLXMUL_H_I(iss_cpu_state_t *s, unsigned int a, u
     return (((uint16_t)((a_imm * b_re + a_re * b_imm) >> (15 + div)) << 16)) | (c & 0xffff);
 }
 
-static inline unsigned int lib_CPLXMUL_H_R(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, int div)
+static inline unsigned int lib_CPLXMUL_H_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, int div)
 {
     long long a_imm = (long long)(int16_t)(a >> 16), a_re = (long long)(int16_t)(a & 0xffff);
     long long b_imm = (long long)(int16_t)(b >> 16), b_re = (long long)(int16_t)(b & 0xffff);
@@ -1329,7 +1329,7 @@ static inline unsigned int lib_CPLXMUL_H_R(iss_cpu_state_t *s, unsigned int a, u
     return (c & 0xffff0000) | (uint16_t)((a_re * b_re - a_imm * b_imm) >> (15 + div));
 }
 
-static inline unsigned int lib_CPLXMULS(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_CPLXMULS(Iss *s, unsigned int a, unsigned int b)
 {
     long long a_imm = (long long)(int16_t)(a >> 16), a_re = (long long)(int16_t)(a & 0xffff);
     long long b_imm = (long long)(int16_t)(b >> 16), b_re = (long long)(int16_t)(b & 0xffff);
@@ -1337,61 +1337,61 @@ static inline unsigned int lib_CPLXMULS(iss_cpu_state_t *s, unsigned int a, unsi
     return (((uint16_t)((a_imm * b_re + a_re * b_imm) >> 15)) << 16) | (uint16_t)((a_re * b_re - a_imm * b_imm) >> 15);
 }
 
-static inline unsigned int lib_CPLXMULS_DIV2(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_CPLXMULS_DIV2(Iss *s, unsigned int a, unsigned int b)
 {
     long long a_imm = (long long)(int16_t)(a >> 16), a_re = (long long)(int16_t)(a & 0xffff);
     long long b_imm = (long long)(int16_t)(b >> 16), b_re = (long long)(int16_t)(b & 0xffff);
     return (((uint16_t)((a_imm * b_re + a_re * b_imm) >> 16)) << 16) | (uint16_t)((a_re * b_re - a_imm * b_imm) >> 16);
 }
 
-static inline unsigned int lib_CPLXMULS_DIV4(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_CPLXMULS_DIV4(Iss *s, unsigned int a, unsigned int b)
 {
     long long a_imm = (long long)(int16_t)(a >> 16), a_re = (long long)(int16_t)(a & 0xffff);
     long long b_imm = (long long)(int16_t)(b >> 16), b_re = (long long)(int16_t)(b & 0xffff);
     return (((uint16_t)((a_imm * b_re + a_re * b_imm) >> 17)) << 16) | (uint16_t)((a_re * b_re - a_imm * b_imm) >> 17);
 }
 
-static inline unsigned int lib_CPLXMULS_SC(iss_cpu_state_t *s, unsigned int a, int b)
+static inline unsigned int lib_CPLXMULS_SC(Iss *s, unsigned int a, int b)
 {
     int a_imm = (int)(int16_t)(a >> 16), a_re = (int)(int16_t)(a & 0xffff);
     return (((uint16_t)((a_imm * b + a_re * b) >> 15)) << 16) | ((a_re * b - a_imm * b) >> 15);
 }
 
-static inline unsigned int lib_CPLX_CONJ_16(iss_cpu_state_t *s, unsigned int a)
+static inline unsigned int lib_CPLX_CONJ_16(Iss *s, unsigned int a)
 {
     int a_imm = (int)(int16_t)(a >> 16), a_re = (int)(int16_t)(a & 0xffff);
     return (((uint16_t)(-a_imm)) << 16) | ((uint16_t)a_re);
 }
 
-static inline unsigned int lib_VEC_ADD_16_ROTMJ(iss_cpu_state_t *s, unsigned int a, int b)
+static inline unsigned int lib_VEC_ADD_16_ROTMJ(Iss *s, unsigned int a, int b)
 {
     int16_t a_imm = (int16_t)(a >> 16), a_re = (int16_t)(a & 0xffff),
             b_imm = (int16_t)(b >> 16), b_re = (int16_t)(b & 0xffff);
     return (((int16_t)(b_re - a_re)) << 16) | ((a_imm - b_imm) & 0x0ffff);
 }
 
-static inline unsigned int lib_VEC_ADD_16_ROTMJ_DIV2(iss_cpu_state_t *s, unsigned int a, int b)
+static inline unsigned int lib_VEC_ADD_16_ROTMJ_DIV2(Iss *s, unsigned int a, int b)
 {
     int16_t a_imm = (int16_t)(a >> 16), a_re = (int16_t)(a & 0xffff),
             b_imm = (int16_t)(b >> 16), b_re = (int16_t)(b & 0xffff);
     return (((int16_t)(b_re - a_re) >> 1) << 16) | (((int16_t)(a_imm - b_imm) >> 1) & 0x0ffff);
 }
 
-static inline unsigned int lib_VEC_ADD_16_ROTMJ_DIV4(iss_cpu_state_t *s, unsigned int a, int b)
+static inline unsigned int lib_VEC_ADD_16_ROTMJ_DIV4(Iss *s, unsigned int a, int b)
 {
     int16_t a_imm = (int16_t)(a >> 16), a_re = (int16_t)(a & 0xffff),
             b_imm = (int16_t)(b >> 16), b_re = (int16_t)(b & 0xffff);
     return (((int16_t)(b_re - a_re) >> 2) << 16) | (((int16_t)(a_imm - b_imm) >> 2) & 0x0ffff);
 }
 
-static inline unsigned int lib_VEC_ADD_16_ROTMJ_DIV8(iss_cpu_state_t *s, unsigned int a, int b)
+static inline unsigned int lib_VEC_ADD_16_ROTMJ_DIV8(Iss *s, unsigned int a, int b)
 {
     int16_t a_imm = (int16_t)(a >> 16), a_re = (int16_t)(a & 0xffff),
             b_imm = (int16_t)(b >> 16), b_re = (int16_t)(b & 0xffff);
     return (((int16_t)(b_re - a_re) >> 3) << 16) | (((int16_t)(a_imm - b_imm) >> 3) & 0x0ffff);
 }
 
-static inline unsigned int lib_BITREV(iss_cpu_state_t *s, unsigned int input, unsigned int points, unsigned int radix)
+static inline unsigned int lib_BITREV(Iss *s, unsigned int input, unsigned int points, unsigned int radix)
 {
     points = 32 - points;
     unsigned int mask = (1 << radix) - 1;
@@ -1413,41 +1413,12 @@ static inline unsigned int lib_BITREV(iss_cpu_state_t *s, unsigned int input, un
     return input_reverse;
 }
 
-// Viterbi extensions
-
-static inline unsigned int lib_VITOP_MAX(iss_cpu_state_t *s, unsigned int a, unsigned int b)
-{
-    int ah = (short)(a >> 16), al = (short)(a & 0xffff);
-    int bh = (short)(b >> 16), bl = (short)(b & 0xffff);
-    s->vf0 = ah <= bh;
-    s->vf1 = al <= bl;
-    return (MAX(ah, bh) << 16) | (MAX(al, bl) & 0xFFFF);
-}
-
-static inline unsigned int lib_VITOP_SEL(iss_cpu_state_t *s, unsigned int a, unsigned int b)
-{
-    int ah = (short)(a >> 16), al = (short)(a & 0xffff);
-    int bh = (short)(b >> 16), bl = (short)(b & 0xffff);
-    unsigned int res = 0;
-    if (s->vf0)
-        res |= bh << 17;
-    else
-        res |= ah << 17;
-    res |= s->vf0 << 16;
-    if (s->vf1)
-        res |= (unsigned short)(bl << 1);
-    else
-        res |= (unsigned short)(al << 1);
-    res |= s->vf1;
-    return res;
-}
-
-static inline unsigned int lib_VEC_PACK_SC_H_16(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_PACK_SC_H_16(Iss *s, unsigned int a, unsigned int b)
 {
     return (b >> 16) | (a & 0xffff0000);
 }
 
-static inline unsigned int lib_VEC_PACK_SC_HL_16(iss_cpu_state_t *s, unsigned int a, unsigned int b)
+static inline unsigned int lib_VEC_PACK_SC_HL_16(Iss *s, unsigned int a, unsigned int b)
 {
     return (b & 0xffff) | (a << 16);
 }
@@ -1508,18 +1479,18 @@ static inline unsigned int lib_VEC_PACK_SC_HL_16(iss_cpu_state_t *s, unsigned in
     update_fflags_fenv(s);                \
     return flexfloat_get_bits(&ff_res);
 
-static inline void set_fflags(iss_cpu_state_t *s, unsigned int fflags)
+static inline void set_fflags(Iss *iss, unsigned int fflags)
 {
-    s->fcsr.fflags.raw |= fflags;
+    iss->csr.fcsr.fflags.raw |= fflags;
 }
 
-static inline void clear_fflags(iss_cpu_state_t *s, unsigned int fflags)
+static inline void clear_fflags(Iss *iss, unsigned int fflags)
 {
-    s->fcsr.fflags.raw &= ~fflags;
+    iss->csr.fcsr.fflags.raw &= ~fflags;
 }
 
 // updates the fflags from fenv exceptions
-static inline void update_fflags_fenv(iss_cpu_state_t *s)
+static inline void update_fflags_fenv(Iss *iss)
 {
     int ex = fetestexcept(FE_ALL_EXCEPT);
     int flags = !!(ex & FE_INEXACT) |
@@ -1527,7 +1498,7 @@ static inline void update_fflags_fenv(iss_cpu_state_t *s)
                 !!(ex & FE_OVERFLOW) << 2 |
                 !!(ex & FE_DIVBYZERO) << 3 |
                 !!(ex & FE_INVALID) << 4;
-    set_fflags(s, flags);
+    set_fflags(iss, flags);
 }
 
 // Inspired by https://stackoverflow.com/a/38470183
@@ -1599,27 +1570,27 @@ static inline uint64_t double_to_ulong(double dbl)
     }
 }
 
-static inline unsigned int lib_flexfloat_add(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_add(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     FF_EXEC_2(s, ff_add, a, b, e, m)
 }
 
-static inline unsigned int lib_flexfloat_sub(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_sub(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     FF_EXEC_2(s, ff_sub, a, b, e, m)
 }
 
-static inline unsigned int lib_flexfloat_mul(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_mul(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     FF_EXEC_2(s, ff_mul, a, b, e, m)
 }
 
-static inline unsigned int lib_flexfloat_div(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_div(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     FF_EXEC_2(s, ff_div, a, b, e, m)
 }
 
-static inline unsigned int lib_flexfloat_avg(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_avg(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     FF_INIT_2(a, b, e, m)
     flexfloat_t ff_two;
@@ -1632,7 +1603,7 @@ static inline unsigned int lib_flexfloat_avg(iss_cpu_state_t *s, unsigned int a,
 }
 
 // TODO proper flags
-static inline unsigned int lib_flexfloat_itof(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_itof(Iss *s, unsigned int a, uint8_t e, uint8_t m)
 {
     flexfloat_t ff_a;
     feclearexcept(FE_ALL_EXCEPT);
@@ -1642,22 +1613,22 @@ static inline unsigned int lib_flexfloat_itof(iss_cpu_state_t *s, unsigned int a
 }
 
 // TODO proper flags
-static inline unsigned int lib_flexfloat_ftoi(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_ftoi(Iss *s, unsigned int a, uint8_t e, uint8_t m)
 {
     FF_INIT_1(a, e, m)
     return (int)ff_a.value;
 }
 
-// static inline unsigned int lib_flexfloat_rem(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m) {
+// static inline unsigned int lib_flexfloat_rem(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m) {
 //   FF_INIT_2(a, b, e, m)
 // }
 
-static inline unsigned int lib_flexfloat_madd(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_madd(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
 {
     FF_EXEC_3(s, ff_fma, a, b, c, e, m)
 }
 
-static inline unsigned int lib_flexfloat_msub(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_msub(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
 {
     FF_INIT_3(a, b, c, e, m)
     ff_inverse(&ff_c, &ff_c);
@@ -1667,7 +1638,7 @@ static inline unsigned int lib_flexfloat_msub(iss_cpu_state_t *s, unsigned int a
     return flexfloat_get_bits(&ff_res);
 }
 
-static inline unsigned int lib_flexfloat_nmsub(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_nmsub(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
 {
     FF_INIT_3(a, b, c, e, m)
     ff_inverse(&ff_a, &ff_a);
@@ -1677,7 +1648,7 @@ static inline unsigned int lib_flexfloat_nmsub(iss_cpu_state_t *s, unsigned int 
     return flexfloat_get_bits(&ff_res);
 }
 
-static inline unsigned int lib_flexfloat_nmadd(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_nmadd(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m)
 {
     FF_INIT_3(a, b, c, e, m)
     feclearexcept(FE_ALL_EXCEPT);
@@ -1686,7 +1657,7 @@ static inline unsigned int lib_flexfloat_nmadd(iss_cpu_state_t *s, unsigned int 
     return flexfloat_get_bits(&ff_res);
 }
 
-static inline unsigned int setFFRoundingMode(iss_cpu_state_t *s, unsigned int mode)
+static inline unsigned int setFFRoundingMode(Iss *s, unsigned int mode)
 {
     int old = fegetround();
     switch (mode)
@@ -1709,7 +1680,7 @@ static inline unsigned int setFFRoundingMode(iss_cpu_state_t *s, unsigned int mo
         break;
     case 7:
     {
-        switch (s->fcsr.frm)
+        switch (s->csr.fcsr.frm)
         {
         case 0:
             fesetround(FE_TONEAREST);
@@ -1738,7 +1709,7 @@ static inline void restoreFFRoundingMode(unsigned int mode)
     fesetround(mode);
 }
 
-static inline unsigned int lib_flexfloat_madd_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_madd_round(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_madd(s, a, b, c, e, m);
@@ -1746,7 +1717,7 @@ static inline unsigned int lib_flexfloat_madd_round(iss_cpu_state_t *s, unsigned
     return result;
 }
 
-static inline unsigned int lib_flexfloat_msub_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_msub_round(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_msub(s, a, b, c, e, m);
@@ -1754,7 +1725,7 @@ static inline unsigned int lib_flexfloat_msub_round(iss_cpu_state_t *s, unsigned
     return result;
 }
 
-static inline unsigned int lib_flexfloat_nmadd_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_nmadd_round(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_nmadd(s, a, b, c, e, m);
@@ -1762,7 +1733,7 @@ static inline unsigned int lib_flexfloat_nmadd_round(iss_cpu_state_t *s, unsigne
     return result;
 }
 
-static inline unsigned int lib_flexfloat_nmsub_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_nmsub_round(Iss *s, unsigned int a, unsigned int b, unsigned int c, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_nmsub(s, a, b, c, e, m);
@@ -1770,7 +1741,7 @@ static inline unsigned int lib_flexfloat_nmsub_round(iss_cpu_state_t *s, unsigne
     return result;
 }
 
-static inline unsigned int lib_flexfloat_add_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_add_round(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_add(s, a, b, e, m);
@@ -1778,7 +1749,7 @@ static inline unsigned int lib_flexfloat_add_round(iss_cpu_state_t *s, unsigned 
     return result;
 }
 
-static inline unsigned int lib_flexfloat_sub_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_sub_round(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_sub(s, a, b, e, m);
@@ -1786,7 +1757,7 @@ static inline unsigned int lib_flexfloat_sub_round(iss_cpu_state_t *s, unsigned 
     return result;
 }
 
-static inline unsigned int lib_flexfloat_mul_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_mul_round(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_mul(s, a, b, e, m);
@@ -1794,7 +1765,7 @@ static inline unsigned int lib_flexfloat_mul_round(iss_cpu_state_t *s, unsigned 
     return result;
 }
 
-static inline unsigned int lib_flexfloat_div_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_div_round(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_div(s, a, b, e, m);
@@ -1802,7 +1773,7 @@ static inline unsigned int lib_flexfloat_div_round(iss_cpu_state_t *s, unsigned 
     return result;
 }
 
-static inline unsigned int lib_flexfloat_avg_round(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_avg_round(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     unsigned int result = lib_flexfloat_avg(s, a, b, e, m);
@@ -1810,7 +1781,7 @@ static inline unsigned int lib_flexfloat_avg_round(iss_cpu_state_t *s, unsigned 
     return result;
 }
 
-static inline unsigned int lib_flexfloat_sqrt_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_sqrt_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, e, m)
@@ -1821,7 +1792,7 @@ static inline unsigned int lib_flexfloat_sqrt_round(iss_cpu_state_t *s, unsigned
     return flexfloat_get_bits(&ff_res);
 }
 
-static inline unsigned int lib_flexfloat_sgnj(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_sgnj(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
 #ifdef OLD
     FF_INIT_2(a, b, e, m)
@@ -1834,7 +1805,7 @@ static inline unsigned int lib_flexfloat_sgnj(iss_cpu_state_t *s, unsigned int a
 #endif
 }
 
-static inline unsigned int lib_flexfloat_sgnjn(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_sgnjn(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
 #ifdef OLD
     FF_INIT_2(a, b, e, m)
@@ -1847,7 +1818,7 @@ static inline unsigned int lib_flexfloat_sgnjn(iss_cpu_state_t *s, unsigned int 
 #endif
 }
 
-static inline unsigned int lib_flexfloat_sgnjx(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_sgnjx(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
 #ifdef OLD
     FF_INIT_2(a, b, e, m)
@@ -1882,7 +1853,7 @@ static int IsNan(unsigned int X, uint8_t e, uint8_t m) // NEW FUNCTION
 #endif
 
 // TODO proper nan handling
-static inline unsigned int lib_flexfloat_min(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_min(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
 #ifdef OLD
     FF_EXEC_2(s, ff_min, a, b, e, m)
@@ -1908,7 +1879,7 @@ static inline unsigned int lib_flexfloat_min(iss_cpu_state_t *s, unsigned int a,
 }
 
 // TODO proper NaN handling
-static inline unsigned int lib_flexfloat_max(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_max(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
 #ifdef OLD
     FF_EXEC_2(s, ff_max, a, b, e, m)
@@ -1933,7 +1904,7 @@ static inline unsigned int lib_flexfloat_max(iss_cpu_state_t *s, unsigned int a,
 #endif
 }
 
-static inline int64_t lib_flexfloat_cvt_w_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline int64_t lib_flexfloat_cvt_w_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old;
     bool neg = false;
@@ -1958,7 +1929,7 @@ static inline int64_t lib_flexfloat_cvt_w_ff_round(iss_cpu_state_t *s, unsigned 
     return (int64_t)result_int;
 }
 
-static inline int64_t lib_flexfloat_cvt_wu_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline int64_t lib_flexfloat_cvt_wu_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old;
     bool neg = false;
@@ -1979,7 +1950,7 @@ static inline int64_t lib_flexfloat_cvt_wu_ff_round(iss_cpu_state_t *s, unsigned
     return (int64_t)result_int;
 }
 
-static inline int lib_flexfloat_cvt_ff_w_round(iss_cpu_state_t *s, int64_t a, uint8_t e, uint8_t m, unsigned int round)
+static inline int lib_flexfloat_cvt_ff_w_round(Iss *s, int64_t a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
@@ -1988,7 +1959,7 @@ static inline int lib_flexfloat_cvt_ff_w_round(iss_cpu_state_t *s, int64_t a, ui
     return flexfloat_get_bits(&ff_a);
 }
 
-static inline unsigned int lib_flexfloat_cvt_ff_wu_round(iss_cpu_state_t *s, int64_t a, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_cvt_ff_wu_round(Iss *s, int64_t a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
@@ -1997,7 +1968,7 @@ static inline unsigned int lib_flexfloat_cvt_ff_wu_round(iss_cpu_state_t *s, int
     return flexfloat_get_bits(&ff_a);
 }
 
-static inline int64_t lib_flexfloat_cvt_l_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline int64_t lib_flexfloat_cvt_l_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, e, m)
@@ -2006,7 +1977,7 @@ static inline int64_t lib_flexfloat_cvt_l_ff_round(iss_cpu_state_t *s, unsigned 
     return result_long;
 }
 
-static inline uint64_t lib_flexfloat_cvt_lu_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline uint64_t lib_flexfloat_cvt_lu_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, e, m)
@@ -2015,7 +1986,7 @@ static inline uint64_t lib_flexfloat_cvt_lu_ff_round(iss_cpu_state_t *s, unsigne
     return result_ulong;
 }
 
-static inline int lib_flexfloat_cvt_ff_l_round(iss_cpu_state_t *s, int64_t a, uint8_t e, uint8_t m, unsigned int round)
+static inline int lib_flexfloat_cvt_ff_l_round(Iss *s, int64_t a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
@@ -2024,7 +1995,7 @@ static inline int lib_flexfloat_cvt_ff_l_round(iss_cpu_state_t *s, int64_t a, ui
     return flexfloat_get_bits(&ff_a);
 }
 
-static inline unsigned int lib_flexfloat_cvt_ff_lu_round(iss_cpu_state_t *s, uint64_t a, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_cvt_ff_lu_round(Iss *s, uint64_t a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
@@ -2033,7 +2004,7 @@ static inline unsigned int lib_flexfloat_cvt_ff_lu_round(iss_cpu_state_t *s, uin
     return flexfloat_get_bits(&ff_a);
 }
 
-static inline int lib_flexfloat_cvt_ff_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t es, uint8_t ms, uint8_t ed, uint8_t md, unsigned int round)
+static inline int lib_flexfloat_cvt_ff_ff_round(Iss *s, unsigned int a, uint8_t es, uint8_t ms, uint8_t ed, uint8_t md, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, es, ms)
@@ -2042,17 +2013,17 @@ static inline int lib_flexfloat_cvt_ff_ff_round(iss_cpu_state_t *s, unsigned int
     return flexfloat_get_bits(&ff_res);
 }
 
-static inline unsigned int lib_flexfloat_fmv_x_ff(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_fmv_x_ff(Iss *s, unsigned int a, uint8_t e, uint8_t m)
 {
     return a;
 }
 
-static inline unsigned int lib_flexfloat_fmv_ff_x(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_fmv_ff_x(Iss *s, unsigned int a, uint8_t e, uint8_t m)
 {
     return a;
 }
 
-static inline unsigned int lib_flexfloat_eq(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_eq(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     // if (IsNan(a, e, m)) return 0;  WAS BEFORE, NOT ENOUGH
     if (IsNan(a, e, m) || IsNan(b, e, m))
@@ -2064,7 +2035,7 @@ static inline unsigned int lib_flexfloat_eq(iss_cpu_state_t *s, unsigned int a, 
     return res;
 }
 
-static inline unsigned int lib_flexfloat_ne(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_ne(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     // if (IsNan(a, e, m)) return 0; WAS BEFORE, NOT ENOUGH
     if (IsNan(a, e, m) || IsNan(b, e, m))
@@ -2076,7 +2047,7 @@ static inline unsigned int lib_flexfloat_ne(iss_cpu_state_t *s, unsigned int a, 
     return res;
 }
 
-static inline unsigned int lib_flexfloat_lt(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_lt(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
         return 0;
@@ -2087,7 +2058,7 @@ static inline unsigned int lib_flexfloat_lt(iss_cpu_state_t *s, unsigned int a, 
     return res;
 }
 
-static inline unsigned int lib_flexfloat_ge(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_ge(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
         return 0;
@@ -2098,7 +2069,7 @@ static inline unsigned int lib_flexfloat_ge(iss_cpu_state_t *s, unsigned int a, 
     return res;
 }
 
-static inline unsigned int lib_flexfloat_le(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_le(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
         return 0;
@@ -2109,7 +2080,7 @@ static inline unsigned int lib_flexfloat_le(iss_cpu_state_t *s, unsigned int a, 
     return res;
 }
 
-static inline unsigned int lib_flexfloat_gt(iss_cpu_state_t *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_gt(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
         return 0;
@@ -2120,7 +2091,7 @@ static inline unsigned int lib_flexfloat_gt(iss_cpu_state_t *s, unsigned int a, 
     return res;
 }
 
-static inline unsigned int lib_flexfloat_class(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_class(Iss *s, unsigned int a, uint8_t e, uint8_t m)
 {
 
 #ifdef OLD
@@ -2213,7 +2184,7 @@ static inline unsigned int lib_flexfloat_class(iss_cpu_state_t *s, unsigned int 
 #endif
 }
 
-static inline unsigned int lib_flexfloat_vclass(iss_cpu_state_t *s, unsigned int a, unsigned int vlen, int width, uint8_t e, uint8_t m)
+static inline unsigned int lib_flexfloat_vclass(Iss *s, unsigned int a, unsigned int vlen, int width, uint8_t e, uint8_t m)
 {
 
     unsigned int result = 0;
@@ -2261,7 +2232,7 @@ static inline unsigned int lib_flexfloat_vclass(iss_cpu_state_t *s, unsigned int
 }
 
 // TODO proper flags
-static inline int lib_flexfloat_cvt_x_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline int lib_flexfloat_cvt_x_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
 #ifdef OLD
     int old = setFFRoundingMode(s, round);
@@ -2302,7 +2273,7 @@ static inline int lib_flexfloat_cvt_x_ff_round(iss_cpu_state_t *s, unsigned int 
 }
 
 // TODO proper flags
-static inline unsigned int lib_flexfloat_cvt_xu_ff_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_cvt_xu_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
 #ifdef OLD
     int old = setFFRoundingMode(s, round);
@@ -2340,7 +2311,7 @@ static inline unsigned int lib_flexfloat_cvt_xu_ff_round(iss_cpu_state_t *s, uns
 }
 
 // TODO proper flags
-static inline int lib_flexfloat_cvt_ff_x_round(iss_cpu_state_t *s, int a, uint8_t e, uint8_t m, unsigned int round)
+static inline int lib_flexfloat_cvt_ff_x_round(Iss *s, int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     int sign_mask = 1U << (e + m);
@@ -2355,7 +2326,7 @@ static inline int lib_flexfloat_cvt_ff_x_round(iss_cpu_state_t *s, int a, uint8_
 }
 
 // TODO proper flags
-static inline unsigned int lib_flexfloat_cvt_ff_xu_round(iss_cpu_state_t *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
+static inline unsigned int lib_flexfloat_cvt_ff_xu_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
@@ -2373,57 +2344,57 @@ static inline unsigned int lib_flexfloat_cvt_ff_xu_round(iss_cpu_state_t *s, uns
 
 #include "lnu/lnu.h"
 
-static inline unsigned int lib_log_add_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_add_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuAdd(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_sub_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_sub_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuSub(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_mul_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_mul_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuMul(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_div_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_div_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuDiv(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_itof_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_itof_s(Iss *s, unsigned int a) {
   printf("%s %d\n", __FILE__, __LINE__);
   return 0;
 }
 
-static inline unsigned int lib_log_ftoi_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_ftoi_s(Iss *s, unsigned int a) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuF2I(a, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_powi_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_powi_s(Iss *s, unsigned int a, unsigned int b) {
   printf("%s %d\n", __FILE__, __LINE__);
   return 0;
 }
 
-static inline unsigned int lib_log_powi_inv_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_powi_inv_s(Iss *s, unsigned int a, unsigned int b) {
   printf("%s %d\n", __FILE__, __LINE__);
   return 0;
 }
 
-static inline unsigned int lib_log_sqrt_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_sqrt_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   // The spec defines sqrt with a second immediate operand but it seems to not be supported by the HW
@@ -2432,7 +2403,7 @@ static inline unsigned int lib_log_sqrt_s(iss_cpu_state_t *s, unsigned int a, un
   return res;
 }
 
-static inline unsigned int lib_log_pow_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_pow_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   // The spec defines pow with a second immediate operand but it seems to not be supported by the HW
@@ -2441,98 +2412,98 @@ static inline unsigned int lib_log_pow_s(iss_cpu_state_t *s, unsigned int a, uns
   return res;
 }
 
-static inline unsigned int lib_log_exp_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_exp_s(Iss *s, unsigned int a) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuExp(a, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_log_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_log_s(Iss *s, unsigned int a) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuLog(a, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_sin_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_sin_s(Iss *s, unsigned int a) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuSin(a, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_cos_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_cos_s(Iss *s, unsigned int a) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuCos(a, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_atan_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_atan_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuAtn(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_ata_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_ata_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuAta(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_atl_s(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_atl_s(Iss *s, unsigned int a) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuAtl(a, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_sca_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_sca_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuSca(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_fma_s(iss_cpu_state_t *s, unsigned int c, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_fma_s(Iss *s, unsigned int c, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuFma(a, b, c, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_fda_s(iss_cpu_state_t *s, unsigned int c, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_fda_s(Iss *s, unsigned int c, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuFda(a, b, c, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_fms_s(iss_cpu_state_t *s, unsigned int c, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_fms_s(Iss *s, unsigned int c, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuFms(a, b, c, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_fds_s(iss_cpu_state_t *s, unsigned int c, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_fds_s(Iss *s, unsigned int c, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuFds(a, b, c, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_mex_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_mex_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuMex(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
   return res;
 }
 
-static inline unsigned int lib_log_dex_s(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_dex_s(Iss *s, unsigned int a, unsigned int b) {
   long long res;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuDex(a, b, res, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2559,7 +2530,7 @@ static inline unsigned int lib_log_floatToHalf(unsigned int a)
   return (((a >> 31) & 1) << 15) | (( a >> 13) & 0x7fff);
 }
 
-static inline unsigned int lib_log_add_vh(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_add_vh(Iss *s, unsigned int a, unsigned int b) {
   long long resL, resH;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuAdd(lib_log_halfToFloat(ZL(a)), lib_log_halfToFloat(ZL(b)), resL, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2567,7 +2538,7 @@ static inline unsigned int lib_log_add_vh(iss_cpu_state_t *s, unsigned int a, un
   return L_H_TO_W(lib_log_floatToHalf(resL), lib_log_floatToHalf(resH));
 }
 
-static inline unsigned int lib_log_sub_vh(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_sub_vh(Iss *s, unsigned int a, unsigned int b) {
   long long resL, resH;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuSub(lib_log_halfToFloat(ZL(a)), lib_log_halfToFloat(ZL(b)), resL, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2575,7 +2546,7 @@ static inline unsigned int lib_log_sub_vh(iss_cpu_state_t *s, unsigned int a, un
   return L_H_TO_W(lib_log_floatToHalf(resL), lib_log_floatToHalf(resH));
 }
 
-static inline unsigned int lib_log_mul_vh(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_mul_vh(Iss *s, unsigned int a, unsigned int b) {
   long long resL, resH;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuMul(lib_log_halfToFloat(ZL(a)), lib_log_halfToFloat(ZL(b)), resL, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2583,7 +2554,7 @@ static inline unsigned int lib_log_mul_vh(iss_cpu_state_t *s, unsigned int a, un
   return L_H_TO_W(lib_log_floatToHalf(resL), lib_log_floatToHalf(resH));
 }
 
-static inline unsigned int lib_log_div_vh(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_div_vh(Iss *s, unsigned int a, unsigned int b) {
   long long resL, resH;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuDiv(lib_log_halfToFloat(ZL(a)), lib_log_halfToFloat(ZL(b)), resL, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2591,15 +2562,15 @@ static inline unsigned int lib_log_div_vh(iss_cpu_state_t *s, unsigned int a, un
   return L_H_TO_W(lib_log_floatToHalf(resL), lib_log_floatToHalf(resH));
 }
 
-static inline unsigned int lib_log_htof_lo(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_htof_lo(Iss *s, unsigned int a) {
   return lib_log_halfToFloat(ZL(a));
 }
 
-static inline unsigned int lib_log_htof_hi(iss_cpu_state_t *s, unsigned int a) {
+static inline unsigned int lib_log_htof_hi(Iss *s, unsigned int a) {
   return lib_log_halfToFloat(ZH(a));
 }
 
-static inline unsigned int lib_log_sqrt_vh(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_sqrt_vh(Iss *s, unsigned int a, unsigned int b) {
   long long resL, resH;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuSqrt(lib_log_halfToFloat(ZL(a)), resL, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2607,7 +2578,7 @@ static inline unsigned int lib_log_sqrt_vh(iss_cpu_state_t *s, unsigned int a, u
   return L_H_TO_W(lib_log_floatToHalf(resL), lib_log_floatToHalf(resH));
 }
 
-static inline unsigned int lib_log_pow_vh(iss_cpu_state_t *s, unsigned int a, unsigned int b) {
+static inline unsigned int lib_log_pow_vh(Iss *s, unsigned int a, unsigned int b) {
   long long resL, resH;
   double absErrLog, absErrArith, relErrLog, relErrArith;
   lnuMul(lib_log_halfToFloat(ZL(a)), lib_log_halfToFloat(ZL(a)), resL, absErrLog, absErrArith, relErrLog, relErrArith);
@@ -2815,7 +2786,7 @@ const int lut_Tanh_q[16] = {17060, 512067, 2012407, 4361003, 7021506, 9510743, 1
 const short lut_sig_m[16] = {1019, 988, 930, 850, 758, 660, 563, 472, 391, 319, 258, 207, 165, 131, 104, 82};
 const int lut_sig_q[16] = {8389671, 8423495, 8544906, 8789991, 9169470, 9670607, 10264318, 10914030, 11583389, 12241371, 12864661, 13437943, 13952921, 14406803, 14800713, 15138308};
 
-static inline unsigned int lib_TANHorSIG(iss_cpu_state_t *s, unsigned int a, short isSig)
+static inline unsigned int lib_TANHorSIG(Iss *s, unsigned int a, short isSig)
 {
     unsigned int lutsize = 16;
     unsigned int value1 = 4096;
@@ -2874,12 +2845,12 @@ static inline unsigned int lib_TANHorSIG(iss_cpu_state_t *s, unsigned int a, sho
     }
 }
 
-static inline unsigned int lib_TANH(iss_cpu_state_t *s, unsigned int a)
+static inline unsigned int lib_TANH(Iss *s, unsigned int a)
 {
     return lib_TANHorSIG(s, a, 0);
 }
 
-static inline unsigned int lib_SIG(iss_cpu_state_t *s, unsigned int a)
+static inline unsigned int lib_SIG(Iss *s, unsigned int a)
 {
     return lib_TANHorSIG(s, a, 1);
 }
@@ -2888,7 +2859,7 @@ static inline unsigned int lib_SIG(iss_cpu_state_t *s, unsigned int a)
  *  pulpnn: Nibble and crumb operations
  */
 
-static inline int lib_VEC_QNT_4(iss_cpu_state_t *s, int input, uint16_t *pThr)
+static inline int lib_VEC_QNT_4(Iss *s, int input, uint16_t *pThr)
 {
     int ret = 0;
     // printf("pThr: %X, *pThr: %X, input: %d \n", pThr, *pThr, input);
@@ -2971,7 +2942,7 @@ static inline int lib_VEC_QNT_4(iss_cpu_state_t *s, int input, uint16_t *pThr)
 }
 
 #define VEC_OP_NN(operName, type, elemType, elemSize, num_elem, oper)                                                   \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)                  \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type(Iss *s, type a, type b)                  \
     {                                                                                                                   \
         int8_t *tmp_a = (int8_t *)&a;                                                                                   \
         int8_t *tmp_b = (int8_t *)&b;                                                                                   \
@@ -3027,7 +2998,7 @@ static inline int lib_VEC_QNT_4(iss_cpu_state_t *s, int input, uint16_t *pThr)
         return out;                                                                                                     \
     }                                                                                                                   \
                                                                                                                         \
-    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, int8_t b)             \
+    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(Iss *s, type a, int8_t b)             \
     {                                                                                                                   \
         int8_t *tmp_a = (int8_t *)&a;                                                                                   \
         type out;                                                                                                       \
@@ -3087,7 +3058,7 @@ VEC_OP_NN(AND, int32_t, int4_t, 1, 8, &)
 VEC_OP_NN(AND, int32_t, int2_t, 1, 16, &)
 
 #define VEC_DOTP_NN(operName, typeOut, typeA, typeB, elemTypeA, elemTypeB, elemSize, num_elem, oper, signed1, signed2) \
-    static inline typeOut lib_VEC_##operName##_##elemSize(iss_cpu_state_t *s, typeA a, typeB b)                        \
+    static inline typeOut lib_VEC_##operName##_##elemSize(Iss *s, typeA a, typeB b)                        \
     {                                                                                                                  \
         typeOut out = 0;                                                                                               \
         int8_t *tmp_a = (int8_t *)&a;                                                                                  \
@@ -3138,7 +3109,7 @@ VEC_OP_NN(AND, int32_t, int2_t, 1, 16, &)
         return out;                                                                                                    \
     }                                                                                                                  \
                                                                                                                        \
-    static inline typeOut lib_VEC_##operName##_SC_##elemSize(iss_cpu_state_t *s, typeA a, typeB b)                     \
+    static inline typeOut lib_VEC_##operName##_SC_##elemSize(Iss *s, typeA a, typeB b)                     \
     {                                                                                                                  \
         typeOut out = 0;                                                                                               \
         int8_t *tmp_a = (int8_t *)&a;                                                                                  \
@@ -3191,7 +3162,7 @@ VEC_DOTP_NN(DOTUSP, int32_t, uint32_t, int32_t, uint4_t, int4_t, 4, 8, *, 0, 1)
 VEC_DOTP_NN(DOTUSP, int32_t, uint32_t, int32_t, uint2_t, int2_t, 2, 16, *, 0, 1)
 
 #define VEC_SDOT_NN(operName, typeOut, typeA, typeB, elemTypeA, elemTypeB, elemSize, num_elem, oper, signed1, signed2) \
-    static inline typeOut lib_VEC_##operName##_##elemSize(iss_cpu_state_t *s, typeOut out, typeA a, typeB b)           \
+    static inline typeOut lib_VEC_##operName##_##elemSize(Iss *s, typeOut out, typeA a, typeB b)           \
     {                                                                                                                  \
         int8_t *tmp_a = (int8_t *)&a;                                                                                  \
         int8_t a0, a1;                                                                                                 \
@@ -3242,7 +3213,7 @@ VEC_DOTP_NN(DOTUSP, int32_t, uint32_t, int32_t, uint2_t, int2_t, 2, 16, *, 0, 1)
         return out;                                                                                                    \
     }                                                                                                                  \
                                                                                                                        \
-    static inline typeOut lib_VEC_##operName##_SC_##elemSize(iss_cpu_state_t *s, typeOut out, typeA a, typeB b)        \
+    static inline typeOut lib_VEC_##operName##_SC_##elemSize(Iss *s, typeOut out, typeA a, typeB b)        \
     {                                                                                                                  \
         int8_t *tmp_a = (int8_t *)&a;                                                                                  \
         int8_t a0, a1;                                                                                                 \
@@ -3294,7 +3265,7 @@ VEC_SDOT_NN(SDOTUSP, int32_t, uint32_t, int32_t, uint2_t, int2_t, 2, 16, *, 0, 1
 
 // AVERAGE VECTORIAL OPERATIONS: NIBBLE AND CRUMB, SCALAR & VECTOR
 #define VEC_EXPR_NN_AVG(operName, type, elemType, elemSize, num_elem, signed, gcc_type)                          \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)           \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type(Iss *s, type a, type b)           \
     {                                                                                                            \
         gcc_type *tmp_a = (gcc_type *)&a;                                                                        \
         gcc_type *tmp_b = (gcc_type *)&b;                                                                        \
@@ -3351,7 +3322,7 @@ VEC_SDOT_NN(SDOTUSP, int32_t, uint32_t, int32_t, uint2_t, int2_t, 2, 16, *, 0, 1
         }                                                                                                        \
         return out;                                                                                              \
     }                                                                                                            \
-    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)        \
+    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(Iss *s, type a, type b)        \
     {                                                                                                            \
         gcc_type *tmp_a = (gcc_type *)&a;                                                                        \
         gcc_type *tmp_b = (gcc_type *)&b;                                                                        \
@@ -3408,7 +3379,7 @@ VEC_EXPR_NN_AVG(AVGU, uint32_t, uint2_t, 1, 16, 0, uint8_t)
 
 // MAX & MIN VECTORIAL OPERATIONS: NIBBLE AND CRUMB, SCALAR & VECTOR
 #define VEC_EXPR_NN_MAX(operName, type, elemType, elemSize, num_elem, signed, gcc_type, oper)                    \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)           \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type(Iss *s, type a, type b)           \
     {                                                                                                            \
         gcc_type *tmp_a = (gcc_type *)&a;                                                                        \
         gcc_type *tmp_b = (gcc_type *)&b;                                                                        \
@@ -3465,7 +3436,7 @@ VEC_EXPR_NN_AVG(AVGU, uint32_t, uint2_t, 1, 16, 0, uint8_t)
         }                                                                                                        \
         return out;                                                                                              \
     }                                                                                                            \
-    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)        \
+    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(Iss *s, type a, type b)        \
     {                                                                                                            \
         gcc_type *tmp_a = (gcc_type *)&a;                                                                        \
         gcc_type *tmp_b = (gcc_type *)&b;                                                                        \
@@ -3527,7 +3498,7 @@ VEC_EXPR_NN_MAX(MINU, uint32_t, uint2_t, 1, 16, 0, uint8_t, 0) // (..., 0) for m
 
 // SRA SRL & SLL VECTORIAL OPERATIONS: NIBBLE AND CRUMB, SCALAR & VECTOR
 #define VEC_EXPR_NN_SHIFT(operName, type, elemType, elemSize, num_elem, signed, gcc_type, oper)                  \
-    static inline type lib_VEC_##operName##_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)           \
+    static inline type lib_VEC_##operName##_##elemType##_to_##type(Iss *s, type a, type b)           \
     {                                                                                                            \
         gcc_type *tmp_a = (gcc_type *)&a;                                                                        \
         uint8_t *tmp_b = (uint8_t *)&b;                                                                          \
@@ -3580,7 +3551,7 @@ VEC_EXPR_NN_MAX(MINU, uint32_t, uint2_t, 1, 16, 0, uint8_t, 0) // (..., 0) for m
         }                                                                                                        \
         return out;                                                                                              \
     }                                                                                                            \
-    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(iss_cpu_state_t *s, type a, type b)        \
+    static inline type lib_VEC_##operName##_SC_##elemType##_to_##type(Iss *s, type a, type b)        \
     {                                                                                                            \
         gcc_type *tmp_a = (gcc_type *)&a;                                                                        \
         uint8_t *tmp_b = (uint8_t *)&b;                                                                          \
@@ -3640,7 +3611,7 @@ VEC_EXPR_NN_SHIFT(SLL, uint32_t, uint4_t, 1, 8, 0, uint8_t, <<)
 VEC_EXPR_NN_SHIFT(SLL, uint32_t, uint2_t, 1, 16, 0, uint8_t, <<)
 
 /* pulp_nn abs nibble and crumb */
-static inline int32_t lib_VEC_ABS_int4_t_to_int32_t(iss_cpu_state_t *s, int32_t a)
+static inline int32_t lib_VEC_ABS_int4_t_to_int32_t(Iss *s, int32_t a)
 {
     int8_t *tmp_a = (int8_t *)&a;
     int8_t ah, al;
@@ -3661,7 +3632,7 @@ static inline int32_t lib_VEC_ABS_int4_t_to_int32_t(iss_cpu_state_t *s, int32_t 
     return out;
 }
 
-static inline int32_t lib_VEC_ABS_int2_t_to_int32_t(iss_cpu_state_t *s, int32_t a)
+static inline int32_t lib_VEC_ABS_int2_t_to_int32_t(Iss *s, int32_t a)
 {
     int16_t *tmp_a = (int16_t *)&a;
     int8_t ah, al, aml, amh;
@@ -3693,17 +3664,17 @@ static inline int32_t lib_VEC_ABS_int2_t_to_int32_t(iss_cpu_state_t *s, int32_t 
  * GAP int64 extension
  */
 
-static inline uint64_t lib_ADD_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a + b; }
-static inline uint64_t lib_SUB_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a - b; }
-static inline int64_t lib_MACS_64(iss_cpu_state_t *s, int64_t a, int32_t b, int32_t c) { return a + (int64_t)b * (int64_t)c; }
-static inline int64_t lib_MSUS_64(iss_cpu_state_t *s, int64_t a, int32_t b, int32_t c) { return a - (int64_t)b * (int64_t)c; }
-static inline uint64_t lib_MACU_64(iss_cpu_state_t *s, uint64_t a, uint32_t b, uint32_t c) { return a + (int64_t)b * (int64_t)c; }
-static inline uint64_t lib_MSUU_64(iss_cpu_state_t *s, uint64_t a, uint32_t b, uint32_t c) { return a - (int64_t)b * (int64_t)c; }
+static inline uint64_t lib_ADD_64(Iss *s, uint64_t a, uint64_t b) { return a + b; }
+static inline uint64_t lib_SUB_64(Iss *s, uint64_t a, uint64_t b) { return a - b; }
+static inline int64_t lib_MACS_64(Iss *s, int64_t a, int32_t b, int32_t c) { return a + (int64_t)b * (int64_t)c; }
+static inline int64_t lib_MSUS_64(Iss *s, int64_t a, int32_t b, int32_t c) { return a - (int64_t)b * (int64_t)c; }
+static inline uint64_t lib_MACU_64(Iss *s, uint64_t a, uint32_t b, uint32_t c) { return a + (int64_t)b * (int64_t)c; }
+static inline uint64_t lib_MSUU_64(Iss *s, uint64_t a, uint32_t b, uint32_t c) { return a - (int64_t)b * (int64_t)c; }
 
-static inline uint64_t lib_SLL_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a << b; }
-static inline uint64_t lib_SRL_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a >> b; }
-static inline int64_t lib_SRA_64(iss_cpu_state_t *s, int64_t a, uint64_t b) { return a >> b; }
-static inline uint64_t lib_ROR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return (a >> b) | (a << (32 - b)); }
-static inline uint64_t lib_XOR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a ^ b; }
-static inline uint64_t lib_OR_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a | b; }
-static inline uint64_t lib_AND_64(iss_cpu_state_t *s, uint64_t a, uint64_t b) { return a & b; }
+static inline uint64_t lib_SLL_64(Iss *s, uint64_t a, uint64_t b) { return a << b; }
+static inline uint64_t lib_SRL_64(Iss *s, uint64_t a, uint64_t b) { return a >> b; }
+static inline int64_t lib_SRA_64(Iss *s, int64_t a, uint64_t b) { return a >> b; }
+static inline uint64_t lib_ROR_64(Iss *s, uint64_t a, uint64_t b) { return (a >> b) | (a << (32 - b)); }
+static inline uint64_t lib_XOR_64(Iss *s, uint64_t a, uint64_t b) { return a ^ b; }
+static inline uint64_t lib_OR_64(Iss *s, uint64_t a, uint64_t b) { return a | b; }
+static inline uint64_t lib_AND_64(Iss *s, uint64_t a, uint64_t b) { return a & b; }

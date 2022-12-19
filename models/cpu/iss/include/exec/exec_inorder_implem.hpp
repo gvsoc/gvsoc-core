@@ -56,7 +56,7 @@ inline void Exec::insn_stall()
 
 inline void Exec::insn_hold()
 {
-    this->iss.dump_trace_enabled = false;
+    this->iss.trace.dump_trace_enabled = false;
     this->stall_insn = this->current_insn;
 }
 
@@ -120,21 +120,21 @@ inline void Exec::stalled_dec()
 inline void Exec::insn_exec_profiling()
 {
     this->trace.msg("Executing instruction\n");
-    if (this->iss.pc_trace_event.get_event_active())
+    if (this->iss.timing.pc_trace_event.get_event_active())
     {
-        this->iss.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
+        this->iss.timing.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
     }
-    if (this->iss.active_pc_trace_event.get_event_active())
+    if (this->iss.timing.active_pc_trace_event.get_event_active())
     {
-        this->iss.active_pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
+        this->iss.timing.active_pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
     }
-    if (this->iss.func_trace_event.get_event_active() || this->iss.inline_trace_event.get_event_active() || this->iss.file_trace_event.get_event_active() || this->iss.line_trace_event.get_event_active())
+    if (this->iss.timing.func_trace_event.get_event_active() || this->iss.timing.inline_trace_event.get_event_active() || this->iss.timing.file_trace_event.get_event_active() || this->iss.timing.line_trace_event.get_event_active())
     {
         this->iss.trace.dump_debug_traces();
     }
-    if (this->iss.ipc_stat_event.get_event_active())
+    if (this->iss.timing.ipc_stat_event.get_event_active())
     {
-        this->iss.ipc_stat_nb_insn++;
+        this->iss.timing.ipc_stat_nb_insn++;
     }
 }
 
@@ -142,7 +142,7 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
 {
     if (this->iss.power.get_power_trace()->get_active())
     {
-        this->iss.insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
+        this->iss.timing.insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
     }
 }
 

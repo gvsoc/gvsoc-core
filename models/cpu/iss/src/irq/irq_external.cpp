@@ -35,6 +35,11 @@ void Irq::build()
         this->vectors[i] = NULL;
     }
     iss.traces.new_trace("irq", &this->trace, vp::DEBUG);
+
+    irq_req_itf.set_sync_meth(&Irq::irq_req_sync);
+    this->iss.new_slave_port(this, "irq_req", &irq_req_itf);
+    this->iss.new_master_port("irq_ack", &irq_ack_itf);
+
 }
 
 iss_insn_t *Irq::mret_handle()
@@ -50,7 +55,7 @@ iss_insn_t *Irq::dret_handle()
 {
     this->iss.exec.switch_to_full_mode();
     this->iss.irq.irq_enable = this->iss.irq.debug_saved_irq_enable;
-    this->iss.state.debug_mode = 0;
+    this->iss.exec.debug_mode = 0;
 
     return insn_cache_get(&this->iss, this->iss.csr.depc);
 }
@@ -78,7 +83,7 @@ void Irq::cache_flush()
 
 void Irq::reset(bool active)
 {
-    this->iss.state.elw_interrupted = 0;
+    this->iss.exec.elw_interrupted = 0;
     this->vector_base = 0;
     this->irq_enable = 0;
     this->saved_irq_enable = 0;
@@ -104,10 +109,10 @@ void Irq::elw_irq_unstall()
     this->trace.msg(vp::trace::LEVEL_TRACE, "%s %d\n", __FILE__, __LINE__);
 
     this->trace.msg("Interrupting pending elw\n");
-    this->iss.exec.current_insn = this->iss.state.elw_insn;
+    this->iss.exec.current_insn = this->iss.exec.elw_insn;
     // Keep the information that we interrupted it, so that features like HW loop
     // knows that the instruction is being replayed
-    this->iss.state.elw_interrupted = 1;
+    this->iss.exec.elw_interrupted = 1;
 }
 
 void Irq::irq_req_sync(void *__this, int irq)
@@ -125,7 +130,7 @@ void Irq::irq_req_sync(void *__this, int irq)
         _this->iss.exec.insn_terminate();
     }
 
-    if (_this->iss.elw_stalled.get() && irq != -1 && _this->irq_enable)
+    if (_this->iss.lsu.elw_stalled.get() && irq != -1 && _this->irq_enable)
     {
         _this->elw_irq_unstall();
     }
@@ -135,9 +140,9 @@ void Irq::irq_req_sync(void *__this, int irq)
 
 int Irq::check()
 {
-    if (this->req_debug && !this->iss.state.debug_mode)
+    if (this->req_debug && !this->iss.exec.debug_mode)
     {
-        this->iss.state.debug_mode = true;
+        this->iss.exec.debug_mode = true;
         this->iss.csr.depc = this->iss.exec.current_insn->addr;
         this->debug_saved_irq_enable = this->irq_enable;
         this->irq_enable = 0;
@@ -160,7 +165,7 @@ int Irq::check()
             this->iss.csr.mcause = (1 << 31) | (unsigned int)req_irq;
 
             this->trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);
-            this->iss.irq_ack_itf.sync(req_irq);
+            this->irq_ack_itf.sync(req_irq);
 
             this->iss.timing.stall_insn_dependency_account(4);
 

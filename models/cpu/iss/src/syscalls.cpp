@@ -100,7 +100,7 @@ void Syscalls::handle_ebreak()
 
 bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bool is_write)
 {
-    vp::io_req *req = &this->iss.io_req;
+    vp::io_req *req = &this->iss.lsu.io_req;
     std::string str = "";
     while (size != 0)
     {
@@ -110,7 +110,7 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
         req->set_size(1);
         req->set_is_write(is_write);
         req->set_data(buffer);
-        int err = this->iss.data.req(req);
+        int err = this->iss.lsu.data.req(req);
         if (err != vp::IO_REQ_OK)
         {
             if (err == vp::IO_REQ_INVALID)
@@ -131,7 +131,7 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
 
 std::string Syscalls::read_user_string(iss_addr_t addr, int size)
 {
-    vp::io_req *req = &this->iss.io_req;
+    vp::io_req *req = &this->iss.lsu.io_req;
     std::string str = "";
     while (size != 0)
     {
@@ -142,7 +142,7 @@ std::string Syscalls::read_user_string(iss_addr_t addr, int size)
         req->set_size(1);
         req->set_is_write(false);
         req->set_data(&buffer);
-        int err = this->iss.data.req(req);
+        int err = this->iss.lsu.data.req(req);
         if (err != vp::IO_REQ_OK)
         {
             if (err == vp::IO_REQ_INVALID)
@@ -379,12 +379,12 @@ void Syscalls::handle_riscv_ebreak()
     case 0x102:
     {
         iss_csr_write(&this->iss, CSR_PCCR(31), 0);
-        this->iss.cycle_count = 0;
+        this->cycle_count = 0;
         iss_reg_t value;
         iss_csr_read(&this->iss, CSR_PCMR, &value);
         if ((value & 1) == 1)
         {
-            this->iss.cycle_count_start = this->iss.get_cycles();
+            this->cycle_count_start = this->iss.get_cycles();
         }
         break;
     }
@@ -395,7 +395,7 @@ void Syscalls::handle_riscv_ebreak()
         iss_csr_read(&this->iss, CSR_PCMR, &value);
         if ((value & 1) == 0)
         {
-            this->iss.cycle_count_start = this->iss.get_cycles();
+            this->cycle_count_start = this->iss.get_cycles();
         }
 
         iss_csr_write(&this->iss, CSR_PCMR, 1);
@@ -409,7 +409,7 @@ void Syscalls::handle_riscv_ebreak()
         iss_csr_read(&this->iss, CSR_PCMR, &value);
         if ((value & 1) == 1)
         {
-            this->iss.cycle_count += this->iss.get_cycles() - this->iss.cycle_count_start;
+            this->cycle_count += this->iss.get_cycles() - this->cycle_count_start;
         }
 
         iss_csr_write(&this->iss, CSR_PCMR, 0);
@@ -461,19 +461,19 @@ void Syscalls::handle_riscv_ebreak()
                 iss_csr_read(&this->iss, CSR_PCMR, &value);
                 if ((value & 1) == 1)
                 {
-                    this->iss.cycle_count += this->iss.get_cycles() - this->iss.cycle_count_start;
-                    this->iss.cycle_count_start = this->iss.get_cycles();
+                    this->cycle_count += this->iss.get_cycles() - this->cycle_count_start;
+                    this->cycle_count_start = this->iss.get_cycles();
                 }
 
-                fprintf(file, "PCER values at timestamp %ld ps, duration %ld cycles\n", this->iss.get_time(), this->iss.cycle_count);
+                fprintf(file, "PCER values at timestamp %ld ps, duration %ld cycles\n", this->iss.get_time(), this->cycle_count);
                 fprintf(file, "Index; Name; Description; Value\n");
                 for (int i = 0; i < 31; i++)
                 {
-                    if (this->iss.pcer_info[i].name != "")
+                    if (this->pcer_info[i].name != "")
                     {
                         iss_reg_t value;
                         iss_csr_read(&this->iss, CSR_PCCR(i), &value);
-                        fprintf(file, "%d; %s; %s; %" PRIxFULLREG "\n", i, this->iss.pcer_info[i].name.c_str(), this->iss.pcer_info[i].help.c_str(), value);
+                        fprintf(file, "%d; %s; %s; %" PRIxFULLREG "\n", i, this->pcer_info[i].name.c_str(), this->pcer_info[i].help.c_str(), value);
                     }
                 }
 
@@ -772,18 +772,18 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
 {
   static int Trace = 0;
 
-  int sys_fun = iss_get_reg(iss, 17);    // SYScall opcode in a7
+  int sys_fun = iss->regfile.get_reg(17);    // SYScall opcode in a7
 
   if (Trace) printf("SYSCall with sys_fun = %d\n", sys_fun);
 
   switch (sys_fun) {
     case RV_SYS_brk:
       {
-        unsigned int head_ptr = iss_get_reg(iss, 10);
-        unsigned int incr = iss_get_reg(iss, 11);
-        unsigned int stack = iss_get_reg(iss, 12);
-        unsigned int sp = iss_get_reg(iss, 2);
-        unsigned int gp = iss_get_reg(iss, 3);
+        unsigned int head_ptr = iss->regfile.get_reg(10);
+        unsigned int incr = iss->regfile.get_reg(11);
+        unsigned int stack = iss->regfile.get_reg(12);
+        unsigned int sp = iss->regfile.get_reg(2);
+        unsigned int gp = iss->regfile.get_reg(3);
         printf("Mem request: Head: %8X, Incr: %8X, Stack: %8X, Sp: %8X, Gp: %8X, New Head: %8X, Gap Frame/Stack: %d\n",
           head_ptr, incr, stack, sp, gp, (head_ptr+incr), (int) (sp - (head_ptr+incr)));
 
@@ -791,35 +791,35 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
       break;
     case RV_SYS_open:
       {
-        unsigned int filename = iss_get_reg(iss, 10);  // filename in a0
-        int flags = transpose_code(iss_get_reg(iss, 11));  // flags in a1
-        int mode = iss_get_reg(iss, 12);     // mode in a2
+        unsigned int filename = iss->regfile.get_reg(10);  // filename in a0
+        int flags = transpose_code(iss->regfile.get_reg(11));  // flags in a1
+        int mode = iss->regfile.get_reg(12);     // mode in a2
         int Res;
         char fname[MAX_FNAME_LENGTH];
 
         copy_name(iss, pc, filename, fname);
         Res = open(fname, flags, mode);
-        iss_set_reg(iss, 10, Res);       // Ret in a0
+        iss->regfile.set_reg(10, Res);       // Ret in a0
       }
       break;
     case RV_SYS_exit:
-      iss_exit(iss, iss_get_reg(iss, 10));
+      iss_exit(iss, iss->regfile.get_reg(10));
       break;
     case RV_SYS_close:
       {
-        int fd = iss_get_reg(iss, 10);     // fd in a0
+        int fd = iss->regfile.get_reg(10);     // fd in a0
         int Status=0;
       
         if (!(fd == STDIN_FILENO || fd == STDOUT_FILENO || fd == STDERR_FILENO))
           Status = close(fd); // To avoid closing stdin/out/err when shutting down the simulated program ....
-        iss_set_reg(iss, 10, Status);      // Ret in a0
+        iss->regfile.set_reg(10, Status);      // Ret in a0
       }
       break;
     case RV_SYS_write:
       {
-        int fd = iss_get_reg(iss, 10);     // fd in a0
-        unsigned int buffer = iss_get_reg(iss, 11);  // buffer in a1
-        size_t Len = iss_get_reg(iss, 12);     // length in a2
+        int fd = iss->regfile.get_reg(10);     // fd in a0
+        unsigned int buffer = iss->regfile.get_reg(11);  // buffer in a1
+        size_t Len = iss->regfile.get_reg(12);     // length in a2
         ssize_t Write_Len=0;
         unsigned int Off=0;
         unsigned int i;
@@ -837,14 +837,14 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
           Write_Len += write(fd, IO_Buffer, L);
           Len -= L;
         }
-        iss_set_reg(iss, 10, Write_Len);   // Ret in a0
+        iss->regfile.set_reg(10, Write_Len);   // Ret in a0
       }
       break;
     case RV_SYS_read:
       {
-        int fd = iss_get_reg(iss, 10);     // fd in a0
-        unsigned int buffer = iss_get_reg(iss, 11);  // buffer in a1
-        size_t Len = iss_get_reg(iss, 12);   // length in a2
+        int fd = iss->regfile.get_reg(10);     // fd in a0
+        unsigned int buffer = iss->regfile.get_reg(11);  // buffer in a1
+        size_t Len = iss->regfile.get_reg(12);   // length in a2
         ssize_t Read_Len=0;
         unsigned int Off=0;
         int i;
@@ -863,24 +863,24 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
           Len -= L;
           Off += L;
         }
-        iss_set_reg(iss, 10, Read_Len);    // Ret in a0
+        iss->regfile.set_reg(10, Read_Len);    // Ret in a0
 
       }
       break;
     case RV_SYS_lseek:
       {
-        int fd = iss_get_reg(iss, 10);
-        off_t off = iss_get_reg(iss, 11);
-        int whence = iss_get_reg(iss, 12);
+        int fd = iss->regfile.get_reg(10);
+        off_t off = iss->regfile.get_reg(11);
+        int whence = iss->regfile.get_reg(12);
         off_t Res = lseek(fd, off, whence);
 
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_link:
       {
-        unsigned int Old_Path = iss_get_reg(iss, 10);
-        unsigned int New_Path = iss_get_reg(iss, 11);
+        unsigned int Old_Path = iss->regfile.get_reg(10);
+        unsigned int New_Path = iss->regfile.get_reg(11);
         char Host_Old_Path[MAX_FNAME_LENGTH];
         char Host_New_Path[MAX_FNAME_LENGTH];
         int Res;
@@ -888,23 +888,23 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
         copy_name(iss, pc, Old_Path, Host_Old_Path);
         copy_name(iss, pc, New_Path, Host_New_Path);
         Res = link(Host_Old_Path, Host_New_Path);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_unlink:
       {
-        unsigned int Path = iss_get_reg(iss, 10);
+        unsigned int Path = iss->regfile.get_reg(10);
         char Host_Path[MAX_FNAME_LENGTH];
         int Res;
 
         copy_name(iss, pc, Path, Host_Path);
         Res = unlink(Host_Path);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_gettimeofday:
       {
-        unsigned int tv_buf = iss_get_reg(iss, 10);
+        unsigned int tv_buf = iss->regfile.get_reg(10);
         struct timeval Tv;
         int Res;
 
@@ -912,13 +912,13 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
         storeWord(iss, tv_buf,     (int) Tv.tv_sec);
         storeWord(iss, (tv_buf+4), (int) (Tv.tv_sec>>32));
         storeWord(iss, (tv_buf+8), (int) Tv.tv_usec);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_stat:
       {
-        unsigned int Path = iss_get_reg(iss, 10);
-        unsigned int Stat_Buf = iss_get_reg(iss, 11);
+        unsigned int Path = iss->regfile.get_reg(10);
+        unsigned int Stat_Buf = iss->regfile.get_reg(11);
         char Host_Path[MAX_FNAME_LENGTH];
         struct stat B;
         int Res;
@@ -960,13 +960,13 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
         // storeWord(iss, pc, (Stat_Buf+92), (int)   B.st_spare4[0]);
         // storeWord(iss, pc, (Stat_Buf+96), (int)   B.st_spare4[1]);
 
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_fstat:
       {
-        int fd = iss_get_reg(iss, 10);
-        unsigned int Stat_Buf = iss_get_reg(iss, 11);
+        int fd = iss->regfile.get_reg(10);
+        unsigned int Stat_Buf = iss->regfile.get_reg(11);
         struct stat B;
         int Res;
 
@@ -1006,61 +1006,61 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
         // storeWord(iss, pc, (Stat_Buf+92), (int)   B.st_spare4[0]);
         // storeWord(iss, pc, (Stat_Buf+96), (int)   B.st_spare4[1]);
 
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
 /*
     case RV_SYS_chmod:
       {
-        unsigned int Path = iss_get_reg(iss, 10);
+        unsigned int Path = iss->regfile.get_reg(10);
         char Host_Path[MAX_FNAME_LENGTH];
-        mode_t mode = iss_get_reg(iss, 11);
+        mode_t mode = iss->regfile.get_reg(11);
         int Res;
 
         copy_name(iss, pc, Path, Host_Path);
         Res = chmod(Host_Path, mode);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_fchmod:
       {
-        int fd = iss_get_reg(iss, 10);
-        mode_t mode = iss_get_reg(iss, 11);
+        int fd = iss->regfile.get_reg(10);
+        mode_t mode = iss->regfile.get_reg(11);
         int Res;
 
         Res = fchmod(fd, mode);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_chown:
       {
-        unsigned int Path = iss_get_reg(iss, 10);
+        unsigned int Path = iss->regfile.get_reg(10);
         char Host_Path[MAX_FNAME_LENGTH];
-        uid_t uid = iss_get_reg(iss, 11);
-        gid_t gid = iss_get_reg(iss, 12);
+        uid_t uid = iss->regfile.get_reg(11);
+        gid_t gid = iss->regfile.get_reg(12);
         int Res;
 
         copy_name(iss, pc, Path, Host_Path);
         Res = chown(Host_Path, uid, gid);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_fchown:
       {
-        int fd = iss_get_reg(iss, 10);
-        uid_t uid = iss_get_reg(iss, 11);
-        gid_t gid = iss_get_reg(iss, 12);
+        int fd = iss->regfile.get_reg(10);
+        uid_t uid = iss->regfile.get_reg(11);
+        gid_t gid = iss->regfile.get_reg(12);
         int Res;
 
         Res = fchown(fd, uid, gid);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_utime:
       {
-        unsigned int Path = iss_get_reg(iss, 10);
+        unsigned int Path = iss->regfile.get_reg(10);
         char Host_Path[MAX_FNAME_LENGTH];
-        unsigned int tv_buf = iss_get_reg(iss, 11);
+        unsigned int tv_buf = iss->regfile.get_reg(11);
         struct utimbuf Tv;
         int Res;
         unsigned long long Tmp;
@@ -1073,14 +1073,14 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
         Tv.modtime = (time_t) Tmp;
         copy_name(iss, pc, Path, Host_Path);
         Res = utime(Host_Path, &Tv);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
     case RV_SYS_utimes:
       {
-        unsigned int Path = iss_get_reg(iss, 10);
+        unsigned int Path = iss->regfile.get_reg(10);
         char Host_Path[MAX_FNAME_LENGTH];
-        unsigned int tv_buf = iss_get_reg(iss, 11);
+        unsigned int tv_buf = iss->regfile.get_reg(11);
         struct timeval Tv[2];
         int Res;
         unsigned long long Tmp;
@@ -1095,13 +1095,13 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
         Tv[1].tv_usec = (suseconds_t) loadWord(iss, pc, (tv_buf+20));
         copy_name(iss, pc, Path, Host_Path);
         Res = utimes(Host_Path, Tv);
-        iss_set_reg(iss, 10, Res);
+        iss->regfile.set_reg(10, Res);
       }
       break;
 */
     default:
       errno = EBADRQC;
-      iss_set_reg(iss, 10, -1);
+      iss->regfile.set_reg(10, -1);
           sim_io_error (pc, "SYS call %X (%d) not supported", sys_fun, sys_fun);
       break;
   }

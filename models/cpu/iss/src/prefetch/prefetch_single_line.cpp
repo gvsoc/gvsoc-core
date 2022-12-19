@@ -31,6 +31,9 @@ Prefetcher::Prefetcher(Iss &iss)
 int Prefetcher::build(vp::component &top)
 {
     top.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
+    this->fetch_itf.set_resp_meth(&Prefetcher::fetch_response);
+    this->iss.new_master_port(this, "fetch", &fetch_itf);
+
     return 0;
 }
 
@@ -195,7 +198,7 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
     req->set_size(size);
     req->set_is_write(is_write);
     req->set_data(data);
-    vp::io_req_status_e err = this->iss.fetch.req(req);
+    vp::io_req_status_e err = this->fetch_itf.req(req);
     if (err != vp::IO_REQ_OK)
     {
         if (err == vp::IO_REQ_INVALID)

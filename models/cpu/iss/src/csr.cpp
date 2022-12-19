@@ -28,8 +28,8 @@ Csr::Csr(Iss &iss)
 
 void Csr::declare_pcer(int index, std::string name, std::string help)
 {
-    this->iss.pcer_info[index].name = name;
-    this->iss.pcer_info[index].help = help;
+    this->iss.syscalls.pcer_info[index].name = name;
+    this->iss.syscalls.pcer_info[index].help = help;
 }
 
 void Csr::build()
@@ -53,22 +53,22 @@ void Csr::build()
     this->declare_pcer(CSR_PCER_ST_EXT_CYC, "st_ext_cycles", "Cycles used for memory stores to EXT. Every non-TCDM access is considered external");
     this->declare_pcer(CSR_PCER_TCDM_CONT, "tcdm_cont", "Cycles wasted due to TCDM/log-interconnect contention");
 
-    this->iss.traces.new_trace_event("pcer_cycles", &this->iss.pcer_trace_event[0], 1);
-    this->iss.traces.new_trace_event("pcer_instr", &this->iss.pcer_trace_event[1], 1);
-    this->iss.traces.new_trace_event("pcer_ld_stall", &this->iss.pcer_trace_event[2], 1);
-    this->iss.traces.new_trace_event("pcer_jmp_stall", &this->iss.pcer_trace_event[3], 1);
-    this->iss.traces.new_trace_event("pcer_imiss", &this->iss.pcer_trace_event[4], 1);
-    this->iss.traces.new_trace_event("pcer_ld", &this->iss.pcer_trace_event[5], 1);
-    this->iss.traces.new_trace_event("pcer_st", &this->iss.pcer_trace_event[6], 1);
-    this->iss.traces.new_trace_event("pcer_jump", &this->iss.pcer_trace_event[7], 1);
-    this->iss.traces.new_trace_event("pcer_branch", &this->iss.pcer_trace_event[8], 1);
-    this->iss.traces.new_trace_event("pcer_taken_branch", &this->iss.pcer_trace_event[9], 1);
-    this->iss.traces.new_trace_event("pcer_rvc", &this->iss.pcer_trace_event[10], 1);
-    this->iss.traces.new_trace_event("pcer_ld_ext", &this->iss.pcer_trace_event[11], 1);
-    this->iss.traces.new_trace_event("pcer_st_ext", &this->iss.pcer_trace_event[12], 1);
-    this->iss.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.pcer_trace_event[13], 1);
-    this->iss.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.pcer_trace_event[14], 1);
-    this->iss.traces.new_trace_event("pcer_tcdm_cont", &this->iss.pcer_trace_event[15], 1);
+    this->iss.traces.new_trace_event("pcer_cycles", &this->iss.timing.pcer_trace_event[0], 1);
+    this->iss.traces.new_trace_event("pcer_instr", &this->iss.timing.pcer_trace_event[1], 1);
+    this->iss.traces.new_trace_event("pcer_ld_stall", &this->iss.timing.pcer_trace_event[2], 1);
+    this->iss.traces.new_trace_event("pcer_jmp_stall", &this->iss.timing.pcer_trace_event[3], 1);
+    this->iss.traces.new_trace_event("pcer_imiss", &this->iss.timing.pcer_trace_event[4], 1);
+    this->iss.traces.new_trace_event("pcer_ld", &this->iss.timing.pcer_trace_event[5], 1);
+    this->iss.traces.new_trace_event("pcer_st", &this->iss.timing.pcer_trace_event[6], 1);
+    this->iss.traces.new_trace_event("pcer_jump", &this->iss.timing.pcer_trace_event[7], 1);
+    this->iss.traces.new_trace_event("pcer_branch", &this->iss.timing.pcer_trace_event[8], 1);
+    this->iss.traces.new_trace_event("pcer_taken_branch", &this->iss.timing.pcer_trace_event[9], 1);
+    this->iss.traces.new_trace_event("pcer_rvc", &this->iss.timing.pcer_trace_event[10], 1);
+    this->iss.traces.new_trace_event("pcer_ld_ext", &this->iss.timing.pcer_trace_event[11], 1);
+    this->iss.traces.new_trace_event("pcer_st_ext", &this->iss.timing.pcer_trace_event[12], 1);
+    this->iss.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.timing.pcer_trace_event[13], 1);
+    this->iss.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
+    this->iss.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
 
 }
 
@@ -176,37 +176,37 @@ static bool uip_write(Iss *iss, unsigned int value)
 
 static bool fflags_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->state.fcsr.fflags.raw;
+    *value = iss->csr.fcsr.fflags.raw;
     return false;
 }
 
 static bool fflags_write(Iss *iss, unsigned int value)
 {
-    iss->state.fcsr.fflags.raw = value;
+    iss->csr.fcsr.fflags.raw = value;
     return false;
 }
 
 static bool frm_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->state.fcsr.frm;
+    *value = iss->csr.fcsr.frm;
     return false;
 }
 
 static bool frm_write(Iss *iss, unsigned int value)
 {
-    iss->state.fcsr.frm = value;
+    iss->csr.fcsr.frm = value;
     return false;
 }
 
 static bool fcsr_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->state.fcsr.raw;
+    *value = iss->csr.fcsr.raw;
     return false;
 }
 
 static bool fcsr_write(Iss *iss, unsigned int value)
 {
-    iss->state.fcsr.raw = value & 0xff;
+    iss->csr.fcsr.raw = value & 0xff;
     return false;
 }
 
@@ -904,7 +904,7 @@ static bool dcsr_read(Iss *iss, iss_reg_t *value)
 static bool dcsr_write(Iss *iss, iss_reg_t value)
 {
     iss->csr.dcsr = value;
-    iss->step_mode.set((value >> 2) & 1);
+    iss->exec.step_mode.set((value >> 2) & 1);
     return false;
 }
 
@@ -986,11 +986,11 @@ static bool hwloop_write(Iss *iss, int reg, unsigned int value)
     // we need to recompute it when it is modified.
     if (reg == 0)
     {
-        iss->state.hwloop_start_insn[0] = insn_cache_get(iss, value);
+        iss->exec.hwloop_start_insn[0] = insn_cache_get(iss, value);
     }
     else if (reg == 4)
     {
-        iss->state.hwloop_start_insn[1] = insn_cache_get(iss, value);
+        iss->exec.hwloop_start_insn[1] = insn_cache_get(iss, value);
     }
 
     return false;
@@ -1001,25 +1001,25 @@ static bool hwloop_write(Iss *iss, int reg, unsigned int value)
 
 static inline void iss_csr_ext_counter_set(Iss *iss, int id, unsigned int value)
 {
-    if (!iss->ext_counter[id].is_bound())
+    if (!iss->timing.ext_counter[id].is_bound())
     {
         iss->csr.trace.warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
     }
     else
     {
-        iss->ext_counter[id].sync(value);
+        iss->timing.ext_counter[id].sync(value);
     }
 }
 
 static inline void iss_csr_ext_counter_get(Iss *iss, int id, unsigned int *value)
 {
-    if (!iss->ext_counter[id].is_bound())
+    if (!iss->timing.ext_counter[id].is_bound())
     {
         iss->csr.trace.force_warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
     }
     else
     {
-        iss->ext_counter[id].sync_back(value);
+        iss->timing.ext_counter[id].sync_back(value);
     }
 }
 
@@ -1041,7 +1041,7 @@ void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr
     }
 
     // Reset the counter
-    if (iss->ext_counter[id].is_bound())
+    if (iss->timing.ext_counter[id].is_bound())
         iss_csr_ext_counter_set(iss, id, 0);
 
     // if (cpu->traceEvent) sim_trace_event_incr(cpu, id, incr);

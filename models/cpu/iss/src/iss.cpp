@@ -38,13 +38,12 @@ void iss_reset(Iss *iss, int active)
         iss_cache_flush(iss);
 
         iss->exec.prev_insn = NULL;
-        iss->state.elw_insn = NULL;
-        iss->elw_stalled.set(false);
-        iss->state.cache_sync = false;
-        iss->state.do_fetch = false;
+        iss->exec.elw_insn = NULL;
+        iss->lsu.elw_stalled.set(false);
+        iss->exec.cache_sync = false;
 
-        iss->state.hwloop_end_insn[0] = NULL;
-        iss->state.hwloop_end_insn[1] = NULL;
+        iss->exec.hwloop_end_insn[0] = NULL;
+        iss->exec.hwloop_end_insn[1] = NULL;
 
         memset(iss->pulpv2.hwloop_regs, 0, sizeof(iss->pulpv2.hwloop_regs));
     }
@@ -54,7 +53,7 @@ void iss_reset(Iss *iss, int active)
 
 static inline void iss_init(Iss *iss)
 {
-    iss->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
+    iss->lsu.io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
 }
 
 int Iss::iss_open()
@@ -71,10 +70,10 @@ int Iss::iss_open()
     this->exec.current_insn = NULL;
     this->exec.stall_insn = NULL;
     this->exec.prev_insn = NULL;
-    this->state.hwloop_end_insn[0] = NULL;
-    this->state.hwloop_end_insn[1] = NULL;
+    this->exec.hwloop_end_insn[0] = NULL;
+    this->exec.hwloop_end_insn[1] = NULL;
 
-    this->state.fcsr.frm = 0;
+    this->csr.fcsr.frm = 0;
 
     this->irq.build();
     iss_resource_init(this);
@@ -96,6 +95,7 @@ int Iss::build()
     this->lsu.build();
     this->irq.build();
     this->trace.build();
+    this->timing.build();
     if (this->prefetcher.build(*this))
     {
         return -1;
@@ -104,19 +104,7 @@ int Iss::build()
     traces.new_trace("wrapper", &this->wrapper_trace, vp::DEBUG);
     traces.new_trace("gdbserver_trace", &this->gdbserver.gdbserver_trace, vp::DEBUG);
 
-    traces.new_trace_event("state", &state_event, 8);
     this->new_reg("busy", &this->exec.busy, 1);
-    traces.new_trace_event("pc", &pc_trace_event, 32);
-    traces.new_trace_event("active_pc", &active_pc_trace_event, 32);
-    this->pc_trace_event.register_callback(std::bind(&Trace::insn_trace_callback, &this->trace));
-    traces.new_trace_event_string("asm", &insn_trace_event);
-    traces.new_trace_event_string("func", &func_trace_event);
-    traces.new_trace_event_string("inline_func", &inline_trace_event);
-    traces.new_trace_event_string("file", &file_trace_event);
-    traces.new_trace_event_string("binaries", &binaries_trace_event);
-    traces.new_trace_event("line", &line_trace_event, 32);
-
-    traces.new_trace_event_real("ipc_stat", &ipc_stat_event);
 
     this->new_reg("bootaddr", &this->exec.bootaddr_reg, get_config_int("boot_addr"));
 
@@ -124,62 +112,32 @@ int Iss::build()
     this->new_reg("is_active", &this->exec.is_active_reg, false);
     this->new_reg("stalled", &this->exec.stalled, false);
     this->new_reg("wfi", &this->exec.wfi, false);
-    this->new_reg("misaligned_access", &this->misaligned_access, false);
-    this->new_reg("halted", &this->halted, false);
-    this->new_reg("step_mode", &this->step_mode, false);
-    this->new_reg("do_step", &this->do_step, false);
-
-    this->new_reg("elw_stalled", &this->elw_stalled, false);
 
     if (this->get_js_config()->get("**/insn_groups"))
     {
         js::config *config = this->get_js_config()->get("**/insn_groups");
-        this->insn_groups_power.resize(config->get_size());
+        this->timing.insn_groups_power.resize(config->get_size());
         for (int i = 0; i < config->get_size(); i++)
         {
-            power.new_power_source("power_insn_" + std::to_string(i), &this->insn_groups_power[i], config->get_elem(i));
+            power.new_power_source("power_insn_" + std::to_string(i), &this->timing.insn_groups_power[i], config->get_elem(i));
         }
     }
     else
     {
-        this->insn_groups_power.resize(1);
-        power.new_power_source("power_insn", &this->insn_groups_power[0], this->get_js_config()->get("**/insn"));
+        this->timing.insn_groups_power.resize(1);
+        power.new_power_source("power_insn", &this->timing.insn_groups_power[0], this->get_js_config()->get("**/insn"));
     }
 
-    power.new_power_source("background", &background_power, this->get_js_config()->get("**/power_models/background"));
-
-    data.set_resp_meth(&Lsu::data_response);
-    data.set_grant_meth(&Lsu::data_grant);
-    new_master_port(&this->lsu, "data", &data);
-
-    this->fetch.set_resp_meth(&Prefetcher::fetch_response);
-    new_master_port(&this->prefetcher, "fetch", &fetch);
-
-    dbg_unit.set_req_meth(&DbgUnit::dbg_unit_req);
-    new_slave_port(&this->dbgunit, "dbg_unit", &dbg_unit);
-
-    irq_req_itf.set_sync_meth(&Irq::irq_req_sync);
-    new_slave_port(&this->irq, "irq_req", &irq_req_itf);
-    new_master_port("irq_ack", &irq_ack_itf);
-
-    flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
-    new_slave_port(&this->decode, "flush_cache", &flush_cache_itf);
-
-
-    halt_itf.set_sync_meth(&DbgUnit::halt_sync);
-    new_slave_port(&this->dbgunit, "halt", &halt_itf);
-
-    new_master_port("halt_status", &halt_status_itf);
+    power.new_power_source("background", &timing.background_power, this->get_js_config()->get("**/power_models/background"));
 
     for (int i = 0; i < 32; i++)
     {
-        new_master_port("ext_counter[" + std::to_string(i) + "]", &ext_counter[i]);
-        this->pcer_info[i].name = "";
+        new_master_port("ext_counter[" + std::to_string(i) + "]", &this->timing.ext_counter[i]);
+        this->syscalls.pcer_info[i].name = "";
     }
 
     exec.instr_event = event_new(&this->exec, Exec::exec_first_instr);
 
-    this->riscv_dbg_unit = this->get_js_config()->get_child_bool("riscv_dbg_unit");
     this->exec.bootaddr_offset = get_config_int("bootaddr_offset");
 
     this->config.mhartid = (get_config_int("cluster_id") << 5) | get_config_int("core_id");
@@ -192,9 +150,9 @@ int Iss::build()
 
     this->exec.is_active_reg.set(false);
 
-    ipc_clock_event = this->event_new(&this->timing, Timing::ipc_stat_handler);
+    this->timing.ipc_clock_event = this->event_new(&this->timing, Timing::ipc_stat_handler);
 
-    this->ipc_stat_delay = 0;
+    this->timing.ipc_stat_delay = 0;
     this->iss_opened = false;
 
     return 0;
@@ -203,8 +161,8 @@ int Iss::build()
 void Iss::start()
 {
 
-    vp_assert_always(this->data.is_bound(), &this->wrapper_trace, "Data master port is not connected\n");
-    vp_assert_always(this->fetch.is_bound(), &this->wrapper_trace, "Fetch master port is not connected\n");
+    vp_assert_always(this->lsu.data.is_bound(), &this->wrapper_trace, "Data master port is not connected\n");
+    vp_assert_always(this->prefetcher.fetch_itf.is_bound(), &this->wrapper_trace, "Fetch master port is not connected\n");
     // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
 
     if (this->iss_open())
@@ -227,8 +185,8 @@ void Iss::start()
     INIT_LIST_HEAD(&this->trdb_packet_list);
 #endif
 
-    this->background_power.leakage_power_start();
-    this->background_power.dynamic_power_start();
+    this->timing.background_power.leakage_power_start();
+    this->timing.background_power.dynamic_power_start();
 
     this->gdbserver.start();
 }
@@ -248,20 +206,20 @@ void Iss::reset(bool active)
 
     if (active)
     {
-        this->irq_req = -1;
-        this->wakeup_latency = 0;
+        this->irq.irq_req = -1;
+        this->lsu.wakeup_latency = 0;
 
         for (int i = 0; i < 32; i++)
         {
-            this->pcer_trace_event[i].event(NULL);
+            this->timing.pcer_trace_event[i].event(NULL);
         }
 
-        this->ipc_stat_nb_insn = 0;
-        this->ipc_stat_delay = 10;
+        this->timing.ipc_stat_nb_insn = 0;
+        this->timing.ipc_stat_delay = 10;
 
-        this->dump_trace_enabled = true;
+        this->trace.dump_trace_enabled = true;
 
-        this->active_pc_trace_event.event(NULL);
+        this->timing.active_pc_trace_event.event(NULL);
 
         if (this->get_js_config()->get("**/binaries") != NULL)
         {
@@ -271,7 +229,7 @@ void Iss::reset(bool active)
                 binaries += " " + x->get_str();
             }
 
-            this->binaries_trace_event.event_string(binaries);
+            this->timing.binaries_trace_event.event_string(binaries);
         }
 
         iss_reset(this, 1);
@@ -283,7 +241,7 @@ void Iss::reset(bool active)
         uint64_t zero = 0;
         for (int i = 0; i < 32; i++)
         {
-            this->pcer_trace_event[i].event((uint8_t *)&zero);
+            this->timing.pcer_trace_event[i].event((uint8_t *)&zero);
         }
 
         this->exec.pc_set(this->exec.bootaddr_reg.get() + this->exec.bootaddr_offset);
@@ -291,7 +249,7 @@ void Iss::reset(bool active)
 
         if (this->gdbserver.gdbserver)
         {
-            this->halted.set(true);
+            this->exec.halted.set(true);
         }
 
         this->exec.instr_event->enable();
@@ -306,7 +264,7 @@ void Iss::reset(bool active)
 
 Iss::Iss(js::config *config)
     : vp::component(config), prefetcher(*this), exec(*this), decode(*this), timing(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this)
+      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this), regfile(*this)
 {
 }
 
@@ -322,9 +280,9 @@ void Iss::check_state()
   {
 
     this->trace.msg(vp::trace::LEVEL_TRACE, "Checking state (active: %d, halted: %d, fetch_enable: %d, stalled: %d, wfi: %d, irq_req: %d, debug_mode: %d)\n",
-      is_active_reg.get(), halted.get(), fetch_enable_reg.get(), stalled.get(), wfi.get(), irq_req, this->state.debug_mode);
+      is_active_reg.get(), halted.get(), fetch_enable_reg.get(), stalled.get(), wfi.get(), irq_req, this->exec.debug_mode);
 
-    if (!halted.get() && !stalled.get() && (!wfi.get() || irq_req != -1 || this->state.debug_mode))
+    if (!halted.get() && !stalled.get() && (!wfi.get() || irq_req != -1 || this->exec.debug_mode))
     {
       // Check if we can directly reenqueue next instruction because it has already
       // been fetched or we need to fetch it
@@ -350,7 +308,7 @@ void Iss::check_state()
       if (this->ipc_stat_event.get_event_active())
         this->ipc_stat_trigger();
 
-      if (step_mode.get() && !this->state.debug_mode)
+      if (step_mode.get() && !this->exec.debug_mode)
       {
         do_step.set(true);
       }

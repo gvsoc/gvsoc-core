@@ -38,13 +38,13 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     int size0 = addr1 - addr;
     int size1 = size - size0;
 
-    this->iss.misaligned_access.set(true);
+    this->misaligned_access.set(true);
 
     // Remember the access properties for the second access
-    this->iss.misaligned_size = size1;
-    this->iss.misaligned_data = data_ptr + size0;
-    this->iss.misaligned_addr = addr1;
-    this->iss.misaligned_is_write = is_write;
+    this->misaligned_size = size1;
+    this->misaligned_data = data_ptr + size0;
+    this->misaligned_addr = addr1;
+    this->misaligned_is_write = is_write;
 
     // And do the first one now
     int err = data_req_aligned(addr, data_ptr, size0, is_write);
@@ -54,7 +54,7 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
         // that the access is pending as the instruction must be executed
         // only when the second access is finished.
         this->iss.exec.instr_event->meth_set(this, &Lsu::exec_misaligned);
-        this->iss.timing.stall_load_account(this->iss.io_req.get_latency() + 1);
+        this->iss.timing.stall_load_account(io_req.get_latency() + 1);
         this->iss.exec.insn_hold();
         return 1;
     }
@@ -78,15 +78,15 @@ void Lsu::data_response(void *__this, vp::io_req *req)
 
     _this->trace.msg("Received data response (stalled: %d)\n", iss->exec.stalled.get());
 
-    iss->wakeup_latency = req->get_latency();
-    if (iss->misaligned_access.get())
+    _this->wakeup_latency = req->get_latency();
+    if (_this->misaligned_access.get())
     {
-        iss->misaligned_access.set(false);
+        _this->misaligned_access.set(false);
     }
     else
     {
         // First call the ISS to finish the instruction
-        iss->state.stall_callback(&iss->lsu);
+        _this->stall_callback(&iss->lsu);
         iss->exec.insn_terminate();
     }
 }
@@ -102,12 +102,12 @@ void Lsu::exec_misaligned(void *__this, vp::clock_event *event)
     // wrapper, we need to account the extra access here.
     iss->timing.stall_misaligned_account();
 
-    if (_this->data_req_aligned(iss->misaligned_addr, iss->misaligned_data,
-                                iss->misaligned_size, iss->misaligned_is_write) == vp::IO_REQ_OK)
+    if (_this->data_req_aligned(_this->misaligned_addr, _this->misaligned_data,
+                                _this->misaligned_size, _this->misaligned_is_write) == vp::IO_REQ_OK)
     {
-        iss->dump_trace_enabled = true;
+        iss->trace.dump_trace_enabled = true;
         iss->exec.insn_terminate();
-        iss->timing.stall_load_account(iss->io_req.get_latency() + 1);
+        iss->timing.stall_load_account(_this->io_req.get_latency() + 1);
         iss->exec.switch_to_full_mode();
     }
     else
@@ -119,13 +119,13 @@ void Lsu::exec_misaligned(void *__this, vp::clock_event *event)
 int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
-    vp::io_req *req = &this->iss.io_req;
+    vp::io_req *req = &this->io_req;
     req->init();
     req->set_addr(addr);
     req->set_size(size);
     req->set_is_write(is_write);
     req->set_data(data_ptr);
-    int err = this->iss.data.req(req);
+    int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)
     {
         this->iss.timing.stall_load_account(req->get_latency());
@@ -163,6 +163,13 @@ Lsu::Lsu(Iss &iss)
 void Lsu::build()
 {
     iss.traces.new_trace("lsu", &this->trace, vp::DEBUG);
+    data.set_resp_meth(&Lsu::data_response);
+    data.set_grant_meth(&Lsu::data_grant);
+    this->iss.new_master_port(this, "data", &data);
+    this->iss.new_reg("misaligned_access", &this->misaligned_access, false);
+
+    this->iss.new_reg("elw_stalled", &this->elw_stalled, false);
+
 }
 
 void Lsu::store_resume(Lsu *lsu)
@@ -179,12 +186,12 @@ void Lsu::load_resume(Lsu *lsu)
 void Lsu::elw_resume(Lsu *lsu)
 {
     // Clear pending elw to not replay it when the next interrupt occurs
-    lsu->iss.state.elw_insn = NULL;
-    lsu->iss.elw_stalled.set(false);
+    lsu->iss.exec.elw_insn = NULL;
+    lsu->elw_stalled.set(false);
 }
 
 void Lsu::load_signed_resume(Lsu *lsu)
 {
-    int reg = lsu->iss.state.stall_reg;
-    iss_set_reg(&lsu->iss, reg, iss_get_signed_value(iss_get_reg_untimed(&lsu->iss, reg), lsu->iss.state.stall_size * 8));
+    int reg = lsu->stall_reg;
+    lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg), lsu->stall_size * 8));
 }

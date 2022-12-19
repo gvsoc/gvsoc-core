@@ -37,6 +37,10 @@ public:
 
     int parse_isa();
 
+    // decode
+    vp::wire_slave<bool> flush_cache_itf;
+    iss_insn_cache_t insn_cache;
+
 private:
     int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);
     int decode_item(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);

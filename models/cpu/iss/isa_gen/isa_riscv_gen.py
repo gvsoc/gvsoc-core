@@ -2119,37 +2119,6 @@ pulp_nn = IsaSubset('pulpnn', pulp_nn_insns)
 pulp_v2_rnnext = IsaSubset('rnnext', rnnext)
 corev = IsaSubset('corev', corev_insns)
 
-gap8 = IsaSubset('gap8', [
-    R5('pv.cplxmul.s',      'R',   '010101- ----- ----- 000 ----- 1010111', mapTo="lib_CPLXMULS"),
-    R5('pv.cplxmul.s.div2', 'R',   '0101010 ----- ----- 010 ----- 1010111', mapTo="lib_CPLXMULS_DIV2"),
-    R5('pv.cplxmul.s.div4', 'R',   '0101011 ----- ----- 010 ----- 1010111', mapTo="lib_CPLXMULS_DIV4"),
-    R5('pv.cplxmul.s.sc',   'R',   '010101- ----- ----- 100 ----- 1010111', mapTo="lib_CPLXMULS_SC"),
-    R5('pv.cplxmul.s.sci',  'RRS', '010101- ----- ----- 110 ----- 1010111', mapTo="lib_CPLXMULS_SCI"),
-
-    R5('pv.cplxconj.h',     'R1',  '0101110 00000 ----- 000 ----- 1010111', mapTo="lib_CPLX_CONJ_16"),
-    R5('pv.subrotmj.h',     'R',   '011011- ----- ----- 000 ----- 1010111', mapTo="lib_VEC_ADD_16_ROTMJ"),
-    R5('pv.subrotmj.h.div2','R',   '0110110 ----- ----- 010 ----- 1010111', mapTo="lib_VEC_ADD_16_ROTMJ_DIV2"),
-    R5('pv.subrotmj.h.div4','R',   '0110111 ----- ----- 010 ----- 1010111', mapTo="lib_VEC_ADD_16_ROTMJ_DIV4"),
-
-    R5('pv.add.h.div2',     'R',   '0000000 ----- ----- 010 ----- 1010111', mapTo="lib_VEC_ADD_16_DIV2"),
-    R5('pv.add.h.div4',     'R',   '0000001 ----- ----- 010 ----- 1010111', mapTo="lib_VEC_ADD_16_DIV4"),
-
-    R5('pv.sub.h.div2',     'R',   '0000100 ----- ----- 010 ----- 1010111', mapTo="lib_VEC_SUB_16_DIV2"),
-    R5('pv.sub.h.div4',     'R',   '0000101 ----- ----- 010 ----- 1010111', mapTo="lib_VEC_SUB_16_DIV4"),
-
-    R5('pv.add.b.div2',     'R',   '0000000 ----- ----- 011 ----- 1010111', mapTo="lib_VEC_ADD_8_DIV2"),
-    R5('pv.add.b.div4',     'R',   '0000001 ----- ----- 011 ----- 1010111', mapTo="lib_VEC_ADD_8_DIV4"),
-
-    R5('pv.sub.b.div2',     'R',   '0000100 ----- ----- 011 ----- 1010111', mapTo="lib_VEC_SUB_8_DIV2"),
-    R5('pv.sub.b.div4',     'R',   '0000101 ----- ----- 011 ----- 1010111', mapTo="lib_VEC_SUB_8_DIV4"),
-
-    R5('pv.vitop.max',      'R',   '011001- ----- ----- 001 ----- 1010111', mapTo="lib_VITOP_MAX"),
-    R5('pv.vitop.sel',      'R',   '011001- ----- ----- 000 ----- 1010111', mapTo="lib_VITOP_SEL"),
-
-    R5('pv.pack.h.h',       'R',   '110100- ----- ----- 110 ----- 1010111', mapTo="lib_VEC_PACK_SC_H_16"),
-    R5('pv.pack.h.l',       'R',   '110100- ----- ----- 100 ----- 1010111', mapTo="lib_VEC_PACK_SC_HL_16"),
-])
-
 gap9 = IsaSubset('gap9',
 [
     R5('pv.cplxmul.h.i',      'RRRR',   '0101011 ----- ----- 000 ----- 1010111', mapTo="gap9_CPLXMUL_H_I"),

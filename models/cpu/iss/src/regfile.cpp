@@ -15,30 +15,15 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_API_HPP
-#define __CPU_ISS_ISS_API_HPP
 
-#include "types.hpp"
+#include "regfile.hpp"
 
+Regfile::Regfile(Iss &iss)
+: iss(iss)
+{
 
-
-static inline void iss_set_reg(Iss *iss, int reg, iss_reg_t value);
-
-static inline iss_reg_t iss_get_reg(Iss *iss, int reg);
-
-static inline iss_reg_t iss_get_reg_untimed(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_ref(Iss *iss, int reg);
-
-static inline iss_reg_t *iss_reg_store_ref(Iss *iss, int reg);
-
-
-static inline void iss_perf_account_ld_stall(Iss *iss);
-
-
-
-#endif
+}

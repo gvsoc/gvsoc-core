@@ -38,6 +38,7 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/timing.cpp"
         "${F_GVSOC_ISS_DIR}/src/insn_cache.cpp"
         "${F_GVSOC_ISS_DIR}/src/iss.cpp"
+        "${F_GVSOC_ISS_DIR}/src/regfile.cpp"
         "${F_GVSOC_ISS_DIR}/src/resource.cpp"
         "${F_GVSOC_ISS_DIR}/src/trace.cpp"
         "${F_GVSOC_ISS_DIR}/src/syscalls.cpp"

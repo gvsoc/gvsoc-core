@@ -28,6 +28,7 @@ class Timing
 {
 public:
     Timing(Iss &iss);
+    void build();
     inline void stall_fetch_account(int count);
     inline void stall_taken_branch_account();
     inline void stall_insn_account(int cycles);
@@ -60,6 +61,26 @@ public:
     void ipc_start_gen(bool pulse = false);
     void ipc_stat_trigger();
     void ipc_stat_stop();
+
+    // timing
+    int ipc_stat_nb_insn;
+    vp::trace ipc_stat_event;
+    vp::clock_event *ipc_clock_event;
+    int ipc_stat_delay;
+    vp::trace state_event;
+    vp::trace pc_trace_event;
+    vp::trace active_pc_trace_event;
+    vp::trace func_trace_event;
+    vp::trace inline_trace_event;
+    vp::trace line_trace_event;
+    vp::trace file_trace_event;
+    vp::trace binaries_trace_event;
+    vp::trace pcer_trace_event[32];
+    vp::trace insn_trace_event;
+    vp::wire_master<uint32_t> ext_counter[32];
+    std::vector<vp::power::power_source> insn_groups_power;
+    vp::power::power_source background_power;
+
 
 private:
     inline void event_account(unsigned int event, int incr);

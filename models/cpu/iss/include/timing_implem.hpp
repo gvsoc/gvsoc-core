@@ -52,16 +52,16 @@ inline void Timing::event_trace_account(unsigned int event, int cycles)
     static uint64_t zero = 0;
     static uint64_t one = 1;
 
-    if (this->iss.pcer_trace_event[event].get_event_active())
+    if (this->pcer_trace_event[event].get_event_active())
     {
         // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
-        this->iss.pcer_trace_event[event].event_pulse(cycles * this->iss.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+        this->pcer_trace_event[event].event_pulse(cycles * this->iss.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
     }
 }
 
 inline int Timing::event_trace_is_active(unsigned int event)
 {
-    return this->iss.pcer_trace_event[event].get_event_active() && this->iss.ext_counter[event].is_bound();
+    return this->pcer_trace_event[event].get_event_active() && this->ext_counter[event].is_bound();
 }
 
 inline void Timing::event_account(unsigned int event, int incr)

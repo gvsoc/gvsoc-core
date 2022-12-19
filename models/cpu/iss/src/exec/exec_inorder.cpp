@@ -46,7 +46,9 @@ void Exec::build()
     fetchen_itf.set_sync_meth(&Exec::fetchen_sync);
     this->iss.new_slave_port(this, "fetchen", &fetchen_itf);
 
+    this->iss.new_reg("step_mode", &this->step_mode, false);
 
+    this->iss.new_reg("halted", &this->halted, false);
 }
 
 void Exec::reset(bool active)
@@ -56,13 +58,13 @@ void Exec::reset(bool active)
 
 void Exec::dbg_unit_step_check()
 {
-    if (this->iss.step_mode.get() && !this->iss.state.debug_mode)
+    if (this->iss.exec.step_mode.get() && !this->iss.exec.debug_mode)
     {
-        this->iss.do_step.set(false);
-        this->iss.hit_reg |= 1;
+        this->iss.dbgunit.do_step.set(false);
+        this->iss.dbgunit.hit_reg |= 1;
         if (this->iss.gdbserver.gdbserver)
         {
-            this->iss.halted.set(true);
+            this->iss.exec.halted.set(true);
             this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver);
         }
         else
@@ -208,9 +210,9 @@ void Exec::pc_set(iss_addr_t value)
 void Exec::flush_cache_ack_sync(void *__this, bool active)
 {
     Exec *_this = (Exec *)__this;
-    if (_this->iss.state.cache_sync)
+    if (_this->iss.exec.cache_sync)
     {
-        _this->iss.state.cache_sync = false;
+        _this->iss.exec.cache_sync = false;
         _this->stalled_dec();
         _this->insn_terminate();
     }

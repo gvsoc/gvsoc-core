@@ -41,7 +41,7 @@ static inline iss_insn_t *pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn)
     }
     else
     {
-        iss->state.stall_callback = pl_sdotsp_h_0_load_resume;
+        iss->lsu.stall_callback = pl_sdotsp_h_0_load_resume;
         iss->rnnext.sdot_insn = insn;
         iss->exec.insn_stall();
     }
@@ -68,7 +68,7 @@ static inline iss_insn_t *pl_sdotsp_h_1_exec(Iss *iss, iss_insn_t *insn)
     }
     else
     {
-        iss->state.stall_callback = pl_sdotsp_h_1_load_resume;
+        iss->lsu.stall_callback = pl_sdotsp_h_1_load_resume;
         iss->rnnext.sdot_insn = insn;
         iss->exec.insn_stall();
     }

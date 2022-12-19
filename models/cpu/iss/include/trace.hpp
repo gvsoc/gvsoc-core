@@ -37,7 +37,11 @@ public:
     void insn_trace_callback();
     void dump_debug_traces();
 
+    bool dump_trace_enabled;
+
     vp::trace insn_trace;
+    iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];
+
 private:
 
     Iss &iss;

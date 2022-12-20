@@ -56,7 +56,7 @@ namespace vp {
   } IoReqOpcode;
 
   #define IO_REQ_PAYLOAD_SIZE 64
-  #define IO_REQ_NB_ARGS 16
+  #define IO_REQ_NB_ARGS 64
 
   typedef IoReqStatus (IoReqMeth)(vp::Block *, vp::IoReq *);
   typedef IoReqStatus (IoReqMethMuxed)(vp::Block *, IoReq *, int id);

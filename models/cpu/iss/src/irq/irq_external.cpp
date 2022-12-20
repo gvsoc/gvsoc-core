@@ -42,6 +42,28 @@ void Irq::build()
 
 }
 
+
+void Irq::reset(bool active)
+{
+    if (active)
+    {
+        this->irq_req = -1;
+        this->iss.exec.elw_interrupted = 0;
+        this->vector_base = 0;
+        this->irq_enable = 0;
+        this->saved_irq_enable = 0;
+        this->req_irq = -1;
+        this->req_debug = false;
+        this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+    }
+    else
+    {
+        this->vector_table_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
+
+    }
+}
+
+
 iss_insn_t *Irq::mret_handle()
 {
     this->iss.exec.switch_to_full_mode();
@@ -78,18 +100,7 @@ void Irq::vector_table_set(iss_addr_t base)
 void Irq::cache_flush()
 {
     this->vector_table_set(this->iss.irq.vector_base);
-    this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.config.debug_handler);
-}
-
-void Irq::reset(bool active)
-{
-    this->iss.exec.elw_interrupted = 0;
-    this->vector_base = 0;
-    this->irq_enable = 0;
-    this->saved_irq_enable = 0;
-    this->req_irq = -1;
-    this->req_debug = false;
-    this->debug_handler = insn_cache_get(&this->iss, this->iss.config.debug_handler);
+    this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
 }
 
 void Irq::wfi_handle()

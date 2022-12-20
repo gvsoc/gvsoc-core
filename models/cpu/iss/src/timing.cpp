@@ -41,7 +41,72 @@ void Timing::build()
     this->iss.traces.new_trace_event("line", &line_trace_event, 32);
 
     this->iss.traces.new_trace_event_real("ipc_stat", &ipc_stat_event);
+
+    if (this->iss.get_js_config()->get("**/insn_groups"))
+    {
+        js::config *config = this->iss.get_js_config()->get("**/insn_groups");
+        this->insn_groups_power.resize(config->get_size());
+        for (int i = 0; i < config->get_size(); i++)
+        {
+            this->iss.power.new_power_source("power_insn_" + std::to_string(i), &this->insn_groups_power[i], config->get_elem(i));
+        }
+    }
+    else
+    {
+        this->insn_groups_power.resize(1);
+        this->iss.power.new_power_source("power_insn", &this->insn_groups_power[0], this->iss.get_js_config()->get("**/insn"));
+    }
+
+    this->iss.power.new_power_source("background", &background_power, this->iss.get_js_config()->get("**/power_models/background"));
+
+
+    this->ipc_clock_event = this->iss.event_new(this, Timing::ipc_stat_handler);
+
+    this->ipc_stat_delay = 0;
+
+    for (int i = 0; i < 32; i++)
+    {
+        this->iss.new_master_port("ext_counter[" + std::to_string(i) + "]", &this->ext_counter[i]);
+    }
+
+
 }
+
+void Timing::reset(bool active)
+{
+    if (active)
+    {
+        this->stall_cycles = false;
+        for (int i = 0; i < 32; i++)
+        {
+            this->pcer_trace_event[i].event(NULL);
+        }
+
+        this->active_pc_trace_event.event(NULL);
+        this->ipc_stat_nb_insn = 0;
+        this->ipc_stat_delay = 10;
+
+        if (this->iss.get_js_config()->get("**/binaries") != NULL)
+        {
+            std::string binaries = "static enable";
+            for (auto x : this->iss.get_js_config()->get("**/binaries")->get_elems())
+            {
+                binaries += " " + x->get_str();
+            }
+
+            this->binaries_trace_event.event_string(binaries);
+        }
+    }
+    else
+    {
+        uint64_t zero = 0;
+        for (int i = 0; i < 32; i++)
+        {
+            this->pcer_trace_event[i].event((uint8_t *)&zero);
+        }
+    }
+}
+
 
 void Timing::ipc_start_gen(bool pulse)
 {

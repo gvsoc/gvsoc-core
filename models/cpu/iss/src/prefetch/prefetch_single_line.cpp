@@ -28,13 +28,11 @@ Prefetcher::Prefetcher(Iss &iss)
     this->prefetch_insn = NULL;
 }
 
-int Prefetcher::build(vp::component &top)
+void Prefetcher::build()
 {
-    top.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
+    this->iss.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
     this->fetch_itf.set_resp_meth(&Prefetcher::fetch_response);
     this->iss.new_master_port(this, "fetch", &fetch_itf);
-
-    return 0;
 }
 
 void Prefetcher::reset(bool active)

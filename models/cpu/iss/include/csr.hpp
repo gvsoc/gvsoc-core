@@ -55,6 +55,7 @@ public:
     Csr(Iss &iss);
 
     void build();
+    void reset(bool active);
 
     void declare_pcer(int index, std::string name, std::string help);
 
@@ -80,4 +81,10 @@ public:
     iss_reg_t scratch1;
     iss_reg_t mscratch;
     iss_fcsr_t fcsr;
+    iss_reg_t misa;
+    iss_reg_t mhartid;
+
+
+    bool hwloop;
+    iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 };

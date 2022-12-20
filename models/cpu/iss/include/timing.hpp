@@ -55,7 +55,7 @@ public:
     inline void stall_cycles_dec();
     inline void stall_cycles_account(int incr);
 
-    inline void reset(bool active);
+    void reset(bool active);
 
     static void ipc_stat_handler(void *__this, vp::clock_event *event);
     void ipc_start_gen(bool pulse = false);

@@ -21,26 +21,20 @@
 
 #pragma once
 
+#include <vp/vp.hpp>
 #include <types.hpp>
 
-class Gdbserver : public vp::Gdbserver_core
+class Exception
 {
 public:
-    Gdbserver(Iss &iss);
+    Exception(Iss &iss);
+
     void build();
-    void start();
-    int gdbserver_get_id();
-    std::string gdbserver_get_name();
-    int gdbserver_reg_set(int reg, uint8_t *value);
-    int gdbserver_reg_get(int reg, uint8_t *value);
-    int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value);
-    int gdbserver_stop();
-    int gdbserver_cont();
-    int gdbserver_stepi();
-    int gdbserver_state();
 
+    iss_insn_t *raise(int id);
 
+    iss_addr_t debug_handler_addr;
+
+private:
     Iss &iss;
-    vp::trace trace;
-    vp::Gdbserver_engine *gdbserver;
 };

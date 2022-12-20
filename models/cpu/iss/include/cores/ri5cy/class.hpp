@@ -20,21 +20,50 @@
  */
 
 
+#pragma once
+
+
 #include <vp/vp.hpp>
-#include "types.hpp"
+#include <lsu.hpp>
+#include <decode.hpp>
+#include <trace.hpp>
 #include <csr.hpp>
 #include <dbgunit.hpp>
+#include <exception.hpp>
 #include <syscalls.hpp>
 #include <timing.hpp>
-#include <trace.hpp>
+#include <regfile.hpp>
 #include <irq/irq_external.hpp>
 #include <exec/exec_inorder.hpp>
 #include <prefetch/prefetch_single_line.hpp>
-#include "iss.hpp"
+#include <gdbserver.hpp>
 
-class Ri5cy : public Iss
+
+class Iss : public vp::component
 {
-public:
-    Ri5cy(js::config *config) : Iss(config) {}
 
+public:
+    Iss(js::config *config);
+
+    int build();
+    void start();
+    void reset(bool active);
+    virtual void target_open();
+
+    Prefetcher prefetcher;
+    Exec exec;
+    Decode decode;
+    Timing timing;
+    Irq irq;
+    Gdbserver gdbserver;
+    Lsu lsu;
+    DbgUnit dbgunit;
+    Syscalls syscalls;
+    Trace trace;
+    Csr csr;
+    Regfile regfile;
+    Exception exception;
+
+    iss_pulp_nn_t pulp_nn;
+    iss_rnnext_t rnnext;
 };

@@ -19,46 +19,21 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_HPP
-#define __CPU_ISS_ISS_HPP
 
-#include "types.hpp"
-#include ISS_CORE_INC(class.hpp)
-#include "iss_core.hpp"
+#pragma once
 
+
+#include <vp/vp.hpp>
 #include <lsu_implem.hpp>
-
-#include "perf_event.hpp"
-#include <csr.hpp>
-#include <dbgunit.hpp>
-#include <syscalls.hpp>
-#include "timing.hpp"
-#include "rv64i.hpp"
-#include "rv32i.hpp"
-#include "rv32c.hpp"
-#include "rv64c.hpp"
-#include "rv32m.hpp"
-#include "rvf.hpp"
-#include "rvXf16.hpp"
-#include "rvXf16alt.hpp"
-#include "rvXf8.hpp"
-#include "rv32Xfvec.hpp"
-#include "rv32Xfaux.hpp"
-#include "priv.hpp"
-#include "pulp_v2.hpp"
-#include "rvXgap8.hpp"
-#include "rvXgap9.hpp"
-#include "rvXint64.hpp"
-#include "rnnext.hpp"
-#include "pulp_nn.hpp"
-#include "corev.hpp"
-
-
-#include <regfile_implem.hpp>
+#include <decode_implem.hpp>
+#include <trace_implem.hpp>
+#include <csr_implem.hpp>
+#include <dbgunit_implem.hpp>
+#include <exception_implem.hpp>
+#include <syscalls_implem.hpp>
 #include <timing_implem.hpp>
+#include <regfile_implem.hpp>
 #include <irq/irq_external_implem.hpp>
 #include <exec/exec_inorder_implem.hpp>
 #include <prefetch/prefetch_single_line_implem.hpp>
-
-
-#endif
+#include <gdbserver_implem.hpp>

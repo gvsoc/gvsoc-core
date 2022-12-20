@@ -33,6 +33,7 @@ public:
     Trace(Iss &iss);
 
     void build();
+    void reset(bool active);
 
     void insn_trace_callback();
     void dump_debug_traces();

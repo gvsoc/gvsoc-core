@@ -30,7 +30,7 @@ public:
     Prefetcher(Iss &iss);
 
     // Build the prefetcher, trace will be declared here
-    int build(vp::component &top);
+    void build();
 
     // Reset the prefetcher, which will flush it to make it empty
     void reset(bool active);

@@ -488,13 +488,8 @@ static inline iss_insn_t *and_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *fence_i_exec(Iss *iss, iss_insn_t *insn)
 {
-    if (iss->exec.flush_cache_req_itf.is_bound())
-    {
-        iss->exec.cache_sync = true;
-        iss->exec.insn_stall();
-        iss->exec.flush_cache_req_itf.sync(true);
-        iss_cache_flush(iss);
-    }
+    iss->exec.icache_flush();
+
     return insn->next;
 }
 
@@ -506,9 +501,9 @@ static inline iss_insn_t *fence_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *ebreak_exec(Iss *iss, iss_insn_t *insn)
 {
-    iss_insn_t *prev = iss->exec.prev_insn;
+    iss_insn_t *prev = insn_cache_get(iss, insn->addr - 4);
 
-    if (prev && prev->fetched && prev->opcode == 0x01f01013)
+    if (prev && prev->opcode == 0x01f01013)
     {
         iss->syscalls.handle_riscv_ebreak();
         return insn->next;
@@ -534,7 +529,7 @@ static inline iss_insn_t *ecall_exec(Iss *iss, iss_insn_t *insn)
        pc->uim[0], getReg(cpu, 17), getReg(cpu, 10), getReg(cpu, 11), getReg(cpu, 12), getReg(cpu, 13));
     */
 
-    return iss_except_raise(iss, ISS_EXCEPT_ECALL);
+    return iss->exception.raise(ISS_EXCEPT_ECALL);
 #if 0
   if (!cpu->conf->useSyscalls) {
     triggerException(cpu, pc, EXCEPTION_ECALL);

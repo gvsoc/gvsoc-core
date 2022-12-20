@@ -22,10 +22,14 @@
 #include <vp/vp.hpp>
 #include "iss.hpp"
 
+
+
 Exec::Exec(Iss &iss)
     : iss(iss)
 {
 }
+
+
 
 void Exec::build()
 {
@@ -49,12 +53,77 @@ void Exec::build()
     this->iss.new_reg("step_mode", &this->step_mode, false);
 
     this->iss.new_reg("halted", &this->halted, false);
+
+    this->iss.new_reg("busy", &this->busy, 1);
+
+    this->iss.new_reg("bootaddr", &this->bootaddr_reg, this->iss.get_config_int("boot_addr"));
+
+    this->iss.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.get_js_config()->get("fetch_enable")->get_bool());
+    this->iss.new_reg("is_active", &this->is_active_reg, false);
+    this->iss.new_reg("stalled", &this->stalled, false);
+    this->iss.new_reg("wfi", &this->wfi, false);
+
+    instr_event = this->iss.event_new(this, Exec::exec_instr_check_all);
+
+    this->bootaddr_offset = this->iss.get_config_int("bootaddr_offset");
+    this->is_active_reg.set(false);
+
+
+    this->current_insn = NULL;
+    this->stall_insn = NULL;
+    this->hwloop_end_insn[0] = NULL;
+    this->hwloop_end_insn[1] = NULL;
+
+    iss_resource_init(&this->iss);
+
 }
+
+
 
 void Exec::reset(bool active)
 {
-    this->clock_active = false;
+    if (active)
+    {
+        this->clock_active = false;
+        this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
+
+        this->instr_event->disable();
+    }
+    else
+    {
+        this->elw_insn = NULL;
+        this->cache_sync = false;
+        this->hwloop_end_insn[0] = NULL;
+        this->hwloop_end_insn[1] = NULL;
+        if (this->iss.gdbserver.gdbserver)
+        {
+            this->halted.set(true);
+        }
+
+        this->instr_event->enable();
+
+        // In case, the core is not fetch-enabled, stall to prevent it from being active
+        if (fetch_enable_reg.get() == false)
+        {
+            this->stalled_inc();
+        }
+    }
 }
+
+
+
+void Exec::icache_flush()
+{
+    if (this->flush_cache_req_itf.is_bound())
+    {
+        this->cache_sync = true;
+        this->insn_stall();
+        this->flush_cache_req_itf.sync(true);
+        iss_cache_flush(&this->iss);
+    }
+}
+
+
 
 void Exec::dbg_unit_step_check()
 {
@@ -74,6 +143,8 @@ void Exec::dbg_unit_step_check()
     }
 }
 
+
+
 void Exec::exec_instr(void *__this, vp::clock_event *event)
 {
     Exec *_this = (Exec *)__this;
@@ -90,7 +161,6 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
 
         // Execute the instruction and replace the current one with the new one
         _this->current_insn = _this->insn_exec_fast(insn);
-        _this->prev_insn = insn;
 
         // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
         // this will stall the ISS, which will execute the next instruction when the response is
@@ -106,6 +176,8 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
         iss->timing.stall_cycles_dec();
     }
 }
+
+
 
 void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
 {
@@ -133,7 +205,6 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
         {
             iss_insn_t *insn = _this->current_insn;
             _this->current_insn = _this->insn_exec(insn);
-            _this->prev_insn = insn;
 
             _this->iss.prefetcher.fetch(_this->current_insn);
 
@@ -150,17 +221,7 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
     }
 }
 
-void Exec::exec_first_instr(vp::clock_event *event)
-{
-    this->instr_event->meth_set(this, &Exec::exec_instr);
-    this->exec_instr((void *)this, event);
-}
 
-void Exec::exec_first_instr(void *__this, vp::clock_event *event)
-{
-    Exec *_this = (Exec *)__this;
-    _this->exec_first_instr(event);
-}
 
 void Exec::clock_sync(void *__this, bool active)
 {
@@ -169,6 +230,8 @@ void Exec::clock_sync(void *__this, bool active)
 
     _this->clock_active = active;
 }
+
+
 
 void Exec::fetchen_sync(void *__this, bool active)
 {
@@ -188,6 +251,8 @@ void Exec::fetchen_sync(void *__this, bool active)
     }
 }
 
+
+
 void Exec::bootaddr_sync(void *__this, uint32_t value)
 {
     Exec *_this = (Exec *)__this;
@@ -206,6 +271,8 @@ void Exec::pc_set(iss_addr_t value)
     // to refetch the current instruction
     this->iss.prefetcher.fetch(this->current_insn);
 }
+
+
 
 void Exec::flush_cache_ack_sync(void *__this, bool active)
 {

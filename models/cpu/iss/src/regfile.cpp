@@ -27,3 +27,16 @@ Regfile::Regfile(Iss &iss)
 {
 
 }
+
+
+void Regfile::reset(bool active)
+{
+    if (active)
+    {
+        this->regs[0] = 0;
+        for (int i = 0; i < ISS_NB_TOTAL_REGS; i++)
+        {
+            this->regs[i] = i == 0 ? 0 : 0x57575757;
+        }
+    }
+}

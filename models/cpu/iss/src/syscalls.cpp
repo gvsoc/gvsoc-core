@@ -40,6 +40,12 @@ Syscalls::Syscalls(Iss &iss)
 void Syscalls::build()
 {
     iss.traces.new_trace("syscalls", &this->trace, vp::DEBUG);
+
+    for (int i = 0; i < 32; i++)
+    {
+        this->pcer_info[i].name = "";
+    }
+
 }
 
 void Syscalls::handle_ebreak()

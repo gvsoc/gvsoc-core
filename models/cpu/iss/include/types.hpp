@@ -22,6 +22,8 @@
 #ifndef __CPU_IssYPES_HPP
 #define __CPU_IssYPES_HPP
 
+#include <vp/vp.hpp>
+
 class Iss;
 
 #include <stdint.h>
@@ -400,21 +402,7 @@ typedef struct iss_insn_cache_s
 } iss_insn_cache_t;
 
 
-typedef struct iss_config_s
-{
-    iss_reg_t mhartid;
-    iss_reg_t misa;
-    const char *isa;
-    iss_addr_t debug_handler;
-} iss_config_t;
-
-#define PULPV2_HWLOOP_NB_REGS 7
-
-typedef struct iss_pulpv2_s
-{
-    bool hwloop;
-    iss_reg_t hwloop_regs[PULPV2_HWLOOP_NB_REGS];
-} iss_pulpv2_t;
+#define HWLOOP_NB_REGS 7
 
 typedef struct iss_pulp_nn_s
 {
@@ -433,14 +421,6 @@ typedef struct iss_rnnext_s
     iss_reg_t sdot_prefetch_1;
 } iss_rnnext_t;
 
-#define COREV_HWLOOP_NB_REGS 7
-
-typedef struct iss_corev_s
-{
-    bool hwloop;
-    iss_reg_t hwloop_regs[COREV_HWLOOP_NB_REGS];
-} iss_corev_t;
-
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
@@ -457,5 +437,11 @@ typedef struct
     std::string name;
     std::string help;
 } Iss_pcer_info_t;
+
+
+#define  __ISS_CORE_INC(x) #x
+#define  _ISS_CORE_INC(x, y) __ISS_CORE_INC(cores/x/y)
+#define  ISS_CORE_INC(x) _ISS_CORE_INC(CONFIG_ISS_CORE, x)
+
 
 #endif

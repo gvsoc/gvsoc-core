@@ -161,45 +161,45 @@ extern "C" vp::component *vp_constructor(js::config *config)
 #if 0
 
 void Gdb_server::start() {
-  target = std::make_shared<Target>(this);
+    target = std::make_shared<Target>(this);
 
-  bkp = std::make_shared<Breakpoints>(this);
+    bkp = std::make_shared<Breakpoints>(this);
 
   
 }
  
 void Gdb_server::target_update_power() {
-  target->update_power();
+    target->update_power();
 }
 
 void Gdb_server::signal_exit(int status) {
-  rsp->signal_exit(status);
+    rsp->signal_exit(status);
 }
 
 void Gdb_server::refresh_target()
 {
-  target->reinitialize();
-  target->update_power();
-  bkp->enable_all();
+    target->reinitialize();
+    target->update_power();
+    bkp->enable_all();
 }
 
 int Gdb_server::stop()
 {
-  if (rsp != NULL)
-  {
-    rsp->stop();
-    rsp = NULL;
-  }
-  return 1;
+    if (rsp != NULL)
+    {
+        rsp->stop();
+        rsp = NULL;
+    }
+    return 1;
 }
 
 void Gdb_server::abort()
 {
-  if (rsp != NULL)
-  {
-    rsp->abort();
-    rsp = NULL;
-  }
+    if (rsp != NULL)
+    {
+        rsp->abort();
+        rsp = NULL;
+    }
 }
 
 #endif

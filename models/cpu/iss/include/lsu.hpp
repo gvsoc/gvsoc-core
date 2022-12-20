@@ -31,6 +31,7 @@ public:
     Lsu(Iss &iss);
 
     void build();
+    void reset(bool active);
 
     int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write);
     int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);

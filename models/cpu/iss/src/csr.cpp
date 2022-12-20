@@ -26,6 +26,26 @@ Csr::Csr(Iss &iss)
 {
 }
 
+void Csr::reset(bool active)
+{
+    if (active)
+    {
+        memset(this->hwloop_regs, 0, sizeof(this->hwloop_regs));
+        this->status = 0x3 << 11;
+        this->mcause = 0;
+    #if defined(ISS_HAS_PERF_COUNTERS)
+        this->pcmr = 0;
+        this->pcer = 3;
+    #endif
+        this->stack_conf = 0;
+        this->dcsr = 4 << 28;
+        this->fcsr.frm = 0;
+        this->hwloop = false;
+    }
+
+}
+
+
 void Csr::declare_pcer(int index, std::string name, std::string help)
 {
     this->iss.syscalls.pcer_info[index].name = name;
@@ -69,6 +89,11 @@ void Csr::build()
     this->iss.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.timing.pcer_trace_event[13], 1);
     this->iss.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
     this->iss.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
+
+
+    this->mhartid = (this->iss.get_config_int("cluster_id") << 5) | this->iss.get_config_int("core_id");
+    this->misa = this->iss.get_js_config()->get_int("misa");
+
 
 }
 
@@ -415,7 +440,7 @@ static bool satp_write(Iss *iss, unsigned int value)
 
 static bool misa_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->config.misa;
+    *value = iss->csr.misa;
     return false;
 }
 
@@ -444,7 +469,7 @@ static bool mimpid_read(Iss *iss, iss_reg_t *value)
 
 static bool mhartid_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->config.mhartid;
+    *value = iss->csr.mhartid;
     return false;
 }
 
@@ -974,13 +999,13 @@ static bool pcmr_write(Iss *iss, unsigned int prev_val, unsigned int value)
 #if defined(CSR_HWLOOP0_START)
 static bool hwloop_read(Iss *iss, int reg, iss_reg_t *value)
 {
-    *value = iss->pulpv2.hwloop_regs[reg];
+    *value = iss->csr.hwloop_regs[reg];
     return false;
 }
 
 static bool hwloop_write(Iss *iss, int reg, unsigned int value)
 {
-    iss->pulpv2.hwloop_regs[reg] = value;
+    iss->csr.hwloop_regs[reg] = value;
 
     // Since the HW loop is using decode instruction for the HW loop start to jump faster
     // we need to recompute it when it is modified.
@@ -1905,7 +1930,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 #endif
 
 #if defined(CSR_HWLOOP0_START)
-        else if (iss->pulpv2.hwloop)
+        else if (iss->csr.hwloop)
         {
             if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
             {
@@ -2092,7 +2117,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 #endif
 
 #if defined(CSR_HWLOOP0_START)
-    if (iss->pulpv2.hwloop)
+    if (iss->csr.hwloop)
     {
         if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
             return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
@@ -2104,18 +2129,6 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 #endif
 
     return true;
-}
-
-void iss_csr_init(Iss *iss, int reset)
-{
-    iss->csr.status = 0x3 << 11;
-    iss->csr.mcause = 0;
-#if defined(ISS_HAS_PERF_COUNTERS)
-    iss->csr.pcmr = 0;
-    iss->csr.pcer = 3;
-#endif
-    iss->csr.stack_conf = 0;
-    iss->csr.dcsr = 4 << 28;
 }
 
 const char *iss_csr_name(Iss *iss, iss_reg_t reg)
@@ -2621,7 +2634,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 #endif
 
 #if defined(CSR_HWLOOP0_START)
-    else if (iss->pulpv2.hwloop)
+    else if (iss->csr.hwloop)
     {
       if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
       {

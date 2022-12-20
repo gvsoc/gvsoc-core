@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include <types.hpp>
+#include ISS_CORE_INC(class.hpp)
+
 static inline iss_insn_t *iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn)
 {
     iss->timing.stall_load_dependency_account(insn->latency);

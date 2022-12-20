@@ -23,14 +23,6 @@
 
 #include "types.hpp"
 
-inline void Timing::reset(bool active)
-{
-    if (active)
-    {
-        this->stall_cycles = false;
-    }
-}
-
 inline int Timing::stall_cycles_get()
 {
     return this->stall_cycles;

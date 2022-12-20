@@ -23,6 +23,7 @@
 
 #include <vp/vp.hpp>
 #include <types.hpp>
+#include ISS_CORE_INC(class.hpp)
 
 typedef iss_insn_t *(*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn);
 
@@ -36,15 +37,11 @@ public:
     inline void stalled_inc();
     inline void stalled_dec();
 
+    void icache_flush();
+
     inline bool clock_active_get();
 
-    // exec
-    static void flush_cache_ack_sync(void *_this, bool active);
     void pc_set(iss_addr_t value);
-    static void clock_sync(void *_this, bool active);
-    static void bootaddr_sync(void *_this, uint32_t value);
-    static void fetchen_sync(void *_this, bool active);
-
     // Terminate a previously stalled instruction, by dumping the instruction trace
     inline void insn_terminate();
 
@@ -74,9 +71,6 @@ public:
 
     static void exec_instr(void *__this, vp::clock_event *event);
     static void exec_instr_check_all(void *__this, vp::clock_event *event);
-    static void exec_first_instr(void *__this, vp::clock_event *event);
-
-    void exec_first_instr(vp::clock_event *event);
 
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
@@ -85,17 +79,8 @@ public:
     vp::reg_1 busy;
     int bootaddr_offset;
     iss_insn_t *current_insn;
-    iss_insn_t *prev_insn;
     iss_insn_t *stall_insn;
     std::vector<iss_resource_instance_t *> resources; // When accesses to the resources are scheduled statically, this gives the instance allocated to this core for each resource
-
-    vp::wire_master<bool> busy_itf;
-    vp::wire_master<bool> flush_cache_req_itf;
-    vp::wire_slave<bool> flush_cache_ack_itf;
-
-    vp::wire_slave<uint32_t> bootaddr_itf;
-    vp::wire_slave<bool> clock_itf;
-    vp::wire_slave<bool> fetchen_itf;
 
     vp::reg_1 halted;
     vp::reg_1 step_mode;
@@ -114,7 +99,19 @@ public:
 
 
 private:
+    static void flush_cache_ack_sync(void *_this, bool active);
+    static void clock_sync(void *_this, bool active);
+    static void bootaddr_sync(void *_this, uint32_t value);
+    static void fetchen_sync(void *_this, bool active);
+
     Iss &iss;
+
+    vp::wire_master<bool> busy_itf;
+    vp::wire_master<bool> flush_cache_req_itf;
+    vp::wire_slave<bool> flush_cache_ack_itf;
+    vp::wire_slave<uint32_t> bootaddr_itf;
+    vp::wire_slave<bool> clock_itf;
+    vp::wire_slave<bool> fetchen_itf;
 
     bool clock_active;
 };

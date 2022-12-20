@@ -22,6 +22,16 @@
 #include <vp/vp.hpp>
 #include "iss.hpp"
 
+void Lsu::reset(bool active)
+{
+    if (active)
+    {
+        this->wakeup_latency = 0;
+        this->elw_stalled.set(false);
+    }
+}
+
+
 int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
 {
 
@@ -170,6 +180,7 @@ void Lsu::build()
 
     this->iss.new_reg("elw_stalled", &this->elw_stalled, false);
 
+    this->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
 }
 
 void Lsu::store_resume(Lsu *lsu)

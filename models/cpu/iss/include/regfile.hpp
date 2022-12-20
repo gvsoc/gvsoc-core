@@ -30,6 +30,8 @@ public:
 
     Regfile(Iss &iss);
 
+    void reset(bool active);
+
     iss_reg_t regs[ISS_NB_REGS + ISS_NB_FREGS];
 
     inline iss_reg_t *reg_ref(int reg);

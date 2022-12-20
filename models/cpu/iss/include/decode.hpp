@@ -28,6 +28,7 @@ class Decode
 public:
     Decode(Iss &iss);
     void build();
+    void reset(bool active);
 
     iss_insn_t *decode_pc(iss_insn_t *pc);
 
@@ -35,11 +36,12 @@ public:
 
     static void flush_cache_sync(void *_this, bool active);
 
-    int parse_isa();
+    void parse_isa();
 
     // decode
     vp::wire_slave<bool> flush_cache_itf;
     iss_insn_cache_t insn_cache;
+    const char *isa;
 
 private:
     int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);

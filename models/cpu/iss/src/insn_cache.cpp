@@ -87,11 +87,6 @@ void iss_cache_flush(Iss *iss)
         current_addr = iss->exec.current_insn->addr;
     }
 
-    if (iss->exec.prev_insn)
-    {
-        prev_addr = iss->exec.prev_insn->addr;
-    }
-
     if (iss->exec.stall_insn)
     {
         stall_addr = iss->exec.stall_insn->addr;
@@ -120,11 +115,6 @@ void iss_cache_flush(Iss *iss)
         iss->exec.current_insn->opcode = opcode;
         iss->exec.current_insn->fetched = true;
         iss->decode.decode_pc(iss->exec.current_insn);
-    }
-
-    if (iss->exec.prev_insn)
-    {
-        iss->exec.prev_insn = insn_cache_get(iss, prev_addr);
     }
 
     if (iss->exec.stall_insn)
@@ -196,8 +186,5 @@ iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)
 void Decode::flush_cache_sync(void *__this, bool active)
 {
     Decode *_this = (Decode *)__this;
-    if (_this->iss.iss_opened)
-    {
-        iss_cache_flush(&_this->iss);
-    }
+    iss_cache_flush(&_this->iss);
 }

@@ -34,6 +34,21 @@ void Trace::build()
 {
     this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
     this->insn_trace.register_callback(std::bind(&Trace::insn_trace_callback, this));
+    iss_trace_init(&this->iss);
+
+    for (auto x : this->iss.get_js_config()->get("**/debug_binaries")->get_elems())
+    {
+        iss_register_debug_info(&this->iss, x->get_str().c_str());
+    }
+
+}
+
+void Trace::reset(bool active)
+{
+    if (active)
+    {
+        this->dump_trace_enabled = true;
+    }
 }
 
 #define PC_INFO_ARRAY_SIZE (64 * 1024)
@@ -581,8 +596,5 @@ void Trace::insn_trace_callback()
 {
     // This is called when the state of the instruction trace has changed, we need
     // to flush the ISS instruction cache, as it keeps the state of the trace
-    if (this->iss.iss_opened)
-    {
-        iss_cache_flush(&this->iss);
-    }
+    iss_cache_flush(&this->iss);
 }

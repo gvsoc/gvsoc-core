@@ -35,16 +35,12 @@ public:
     void build();
 
     static void halt_sync(void *_this, bool active);
-    void halt_core();
     void debug_req();
     void set_halt_mode(bool halted, int cause);
-    static vp::io_req_status_e dbg_unit_req(void *__this, vp::io_req *req);
 
     vp::io_slave dbg_unit;
     vp::wire_slave<bool> halt_itf;
     vp::wire_master<bool> halt_status_itf;
-    iss_reg_t ppc;
-    iss_reg_t npc;
     bool riscv_dbg_unit;
     iss_reg_t hit_reg = 0;
     int halt_cause;

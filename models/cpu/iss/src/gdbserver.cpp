@@ -26,6 +26,12 @@ Gdbserver::Gdbserver(Iss &iss)
 {
 }
 
+
+void Gdbserver::build()
+{
+    this->iss.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
+}
+
 void Gdbserver::start()
 {
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
@@ -39,7 +45,7 @@ void Gdbserver::start()
 
 int Gdbserver::gdbserver_get_id()
 {
-    return this->iss.config.mhartid;
+    return this->iss.csr.mhartid;
 }
 
 std::string Gdbserver::gdbserver_get_name()
@@ -49,7 +55,7 @@ std::string Gdbserver::gdbserver_get_name()
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
-    this->gdbserver_trace.msg(vp::trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
 
     if (reg == 32)
     {
@@ -57,7 +63,7 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
     }
     else
     {
-        this->gdbserver_trace.msg(vp::trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
+        this->trace.msg(vp::trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
     }
 
     return 0;

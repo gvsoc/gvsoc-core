@@ -21,8 +21,34 @@
 
 #include "iss.hpp"
 #include <string.h>
+#include <stdexcept>
 
 extern iss_isa_tag_t __iss_isa_tags[];
+
+Decode::Decode(Iss &iss)
+    : iss(iss)
+{
+}
+
+void Decode::build()
+{
+    iss.traces.new_trace("decoder", &this->trace, vp::DEBUG);
+    this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
+    this->iss.new_slave_port(this, "flush_cache", &this->flush_cache_itf);
+    string isa = this->iss.get_config_str("isa");
+    this->isa = strdup(isa.c_str());
+    this->parse_isa();
+    insn_cache_init(&this->iss);
+}
+
+void Decode::reset(bool active)
+{
+    if (active)
+    {
+        iss_cache_flush(&this->iss);
+
+    }
+}
 
 uint64_t Decode::decode_ranges(iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed)
 {
@@ -313,7 +339,7 @@ void iss_decode_activate_isa(Iss *cpu, char *name)
 static iss_insn_t *iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn)
 {
     iss->decode.trace.msg("Executing illegal instruction\n");
-    return iss_except_raise(iss, ISS_EXCEPT_ILLEGAL);
+    return iss->exception.raise(ISS_EXCEPT_ILLEGAL);
 }
 
 iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
@@ -348,25 +374,12 @@ iss_insn_t *iss_decode_pc_handler(Iss *iss, iss_insn_t *insn)
     return iss->exec.insn_exec(iss->decode.decode_pc(insn));
 }
 
-Decode::Decode(Iss &iss)
-    : iss(iss)
-{
-}
-
-void Decode::build()
-{
-    iss.traces.new_trace("decoder", &this->trace, vp::DEBUG);
-    this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
-    this->iss.new_slave_port(this, "flush_cache", &this->flush_cache_itf);
-
-}
 
 
-
-int Decode::parse_isa()
+void Decode::parse_isa()
 {
     Iss *iss = &this->iss;
-    const char *current = iss->config.isa;
+    const char *current = iss->decode.isa;
     int len = strlen(current);
 
     bool arch_rv32 = false;
@@ -386,8 +399,7 @@ int Decode::parse_isa()
     }
     else
     {
-        iss->decode.trace.force_warning("Unsupported ISA: %s\n", current);
-        return -1;
+        throw std::runtime_error("Unsupported ISA: " + std::string(current));
     }
 
     iss_decode_activate_isa(iss, (char *)"priv");
@@ -480,8 +492,7 @@ int Decode::parse_isa()
             break;
         }
         default:
-            iss->decode.trace.force_warning("Unknwon ISA descriptor: %c\n", *current);
-            return -1;
+            throw std::runtime_error("Unknwon ISA descriptor: " + *current);
         }
     }
 
@@ -613,6 +624,4 @@ int Decode::parse_isa()
                 iss_decode_activate_isa(iss, (char *)"f8auxvec");
         }
     }
-
-    return 0;
 }

@@ -41,7 +41,6 @@ void iss_register_debug_info(Iss *iss, const char *binary);
 iss_insn_t *iss_decode_pc_handler(Iss *cpu, iss_insn_t *pc);
 void iss_decode_activate_isa(Iss *cpu, char *isa);
 
-void iss_csr_init(Iss *iss, int active);
 bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value);
 const char *iss_csr_name(Iss *iss, iss_reg_t reg);
 bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value);
@@ -61,7 +60,6 @@ static inline iss_isa_set_t *iss_get_isa_set()
 #include "lsu.hpp"
 #include <decode.hpp>
 #include "insn_cache.hpp"
-#include "exceptions.hpp"
 #include "resource.hpp"
 
 #endif

@@ -68,8 +68,8 @@ public:
   unsigned long long remove_offset = 0;
   unsigned long long add_offset = 0;
   uint32_t latency = 0;
-  int64_t next_entry_read_packet_time = 0;
-  int64_t next_entry_write_packet_time = 0;
+  //int64_t next_entry_read_packet_time = 0;
+  //int64_t next_entry_write_packet_time = 0;
   MapEntry *left = NULL;
   MapEntry *right = NULL;
   vp::io_slave *port = NULL;
@@ -120,6 +120,8 @@ private:
 
   int64_t *next_port_read_packet_time;
   int64_t *next_port_write_packet_time;
+  int64_t *next_entry_read_packet_time;
+  int64_t *next_entry_write_packet_time;
   int bandwidth = 0;
   int latency = 0;
 
@@ -279,7 +281,7 @@ vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
         {
           //int64_t port_latency  = _this->next_port_read_packet_time[_this->channel_id] - _this->get_cycles();
           int64_t port_latency  = _this->next_port_read_packet_time[port] - _this->get_cycles();
-          int64_t entry_latency = entry->next_entry_read_packet_time - _this->get_cycles();
+          int64_t entry_latency = _this->next_entry_read_packet_time[entry->id] - _this->get_cycles();
           if(port_latency > entry_latency)
           {
             router_latency = port_latency;
@@ -308,17 +310,17 @@ vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
           _this->next_port_read_packet_time[port] = router_time + packet_duration;
 
           router_time = _this->get_cycles();
-          if (router_time < entry->next_entry_read_packet_time)
+          if (router_time < _this->next_entry_read_packet_time[entry->id])
           {
-            router_time = entry->next_entry_read_packet_time;
+            router_time = _this->next_entry_read_packet_time[entry->id];
           }
-          entry->next_entry_read_packet_time = router_time + packet_duration;
+          _this->next_entry_read_packet_time[entry->id] = router_time + packet_duration;
         }
         else
         {
           //int64_t port_latency  = _this->next_port_write_packet_time[_this->channel_id] - _this->get_cycles();
           int64_t port_latency  = _this->next_port_write_packet_time[port] - _this->get_cycles();
-          int64_t entry_latency = entry->next_entry_write_packet_time - _this->get_cycles();
+          int64_t entry_latency = _this->next_entry_write_packet_time[entry->id] - _this->get_cycles();
           if(port_latency > entry_latency)
           {
             router_latency = port_latency;
@@ -347,11 +349,11 @@ vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
           _this->next_port_write_packet_time[port] = router_time + packet_duration;
           
           router_time = _this->get_cycles();
-          if (router_time < entry->next_entry_write_packet_time)
+          if (router_time < _this->next_entry_write_packet_time[entry->id])
           {
-            router_time = entry->next_entry_write_packet_time;
+            router_time = _this->next_entry_write_packet_time[entry->id];
           }
-          entry->next_entry_write_packet_time = router_time + packet_duration;
+          _this->next_entry_write_packet_time[entry->id] = router_time + packet_duration;
         }
       }
       else
@@ -546,6 +548,7 @@ int router_shared::build()
 
   if (mappings != NULL)
   {
+    int nb_entries = 0;
     for (auto& mapping: mappings->get_childs())
     {
       js::config *config = mapping.second;
@@ -575,8 +578,10 @@ int router_shared::build()
       if (conf) entry->add_offset = conf->get_int();
       conf = config->get("latency");
       if (conf) entry->latency = conf->get_int();
-      conf = config->get("id");
-      if (conf) entry->id = conf->get_int();
+      // conf = config->get("id");
+      // if (conf) entry->id = conf->get_int();
+      entry->id = nb_entries;
+      nb_entries++;
 
       if (this->counters.find(entry->id) == this->counters.end())
       {
@@ -606,6 +611,9 @@ int router_shared::build()
 
       entry->insert(this);
     }
+
+    next_entry_read_packet_time  = new int64_t[nb_entries];
+    next_entry_write_packet_time = new int64_t[nb_entries];
   }
   return 0;
 }

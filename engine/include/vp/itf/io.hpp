@@ -44,7 +44,7 @@ namespace vp {
   } io_req_flags_e;
 
   #define IO_REQ_PAYLOAD_SIZE 64
-  #define IO_REQ_NB_ARGS 16
+  #define IO_REQ_NB_ARGS 64
 
   typedef io_req_status_e (io_req_meth_t)(void *, io_req *);
   typedef io_req_status_e (io_req_meth_muxed_t)(void *, io_req *, int id);

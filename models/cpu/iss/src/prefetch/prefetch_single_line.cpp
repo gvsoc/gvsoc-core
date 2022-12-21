@@ -43,6 +43,24 @@ void Prefetcher::reset(bool active)
     }
 }
 
+void Prefetcher::fetch_novalue(void *__this, iss_insn_t *insn)
+{
+    Prefetcher *_this = (Prefetcher *)__this;
+
+    // Compute where the instructions address falls into the prefetch buffer
+    iss_addr_t addr = insn->addr;
+    int index = addr - _this->buffer_start_addr;
+
+    // If it is entirely within the buffer, returns nothing to fake a hit.
+    if (likely(index >= 0 && index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
+    {
+        return;
+    }
+
+    // Otherwise, fake a refill
+    _this->fetch_novalue_refill(insn, addr, index);
+}
+
 void Prefetcher::fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int index)
 {
     // We get here either if the instruction is entirely outside the buffer or if it is only
@@ -90,40 +108,42 @@ void Prefetcher::fetch_novalue_check_overflow(iss_insn_t *insn, int index)
     }
 }
 
-void Prefetcher::fetch_value(iss_insn_t *insn)
+void Prefetcher::fetch_value(void *__this, iss_insn_t *insn)
 {
+    Prefetcher *_this = (Prefetcher *)__this;
+
     // Since an instruction can be 2 or 4 bytes, we need to be careful that only part of it can
     // fit the buffer, so we have to check both the low part and the high part.
 
     // Compute where the instructions address falls into the prefetch buffer
     iss_addr_t addr = insn->addr;
-    int index = addr - this->buffer_start_addr;
+    int index = addr - _this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.
     if (likely(index >= 0 && index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
     {
-        insn->opcode = *(iss_opcode_t *)&this->data[index];
-        this->iss.decode.decode_pc(insn);
+        insn->opcode = *(iss_opcode_t *)&_this->data[index];
+        _this->iss.decode.decode_pc(insn);
         return;
     }
 
     // If the low part is not within the buffer, fetch it
     if (unlikely(index < 0 || index >= ISS_PREFETCHER_SIZE))
     {
-        if (this->fill(addr))
+        if (_this->fill(addr))
         {
             // If the response is pending, stall the code and return
-            this->handle_stall(fetch_value_resume_after_low_refill, insn);
+            _this->handle_stall(fetch_value_resume_after_low_refill, insn);
             return;
         }
 
         // Otherwise continue with the higher part
-        index = addr - this->buffer_start_addr;
+        index = addr - _this->buffer_start_addr;
     }
 
     // If the low part fits or if we manage to get it synchronously, check if the instruction
     // overflows the buffer.
-    this->fetch_value_check_overflow(insn, index);
+    _this->fetch_value_check_overflow(insn, index);
 }
 
 void Prefetcher::fetch_value_resume_after_low_refill(Prefetcher *_this)

@@ -63,7 +63,7 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
         // As the transaction is split into 2 parts, we must tell the ISS
         // that the access is pending as the instruction must be executed
         // only when the second access is finished.
-        this->iss.exec.instr_event->meth_set(this, &Lsu::exec_misaligned);
+        this->iss.exec.instr_event->meth_set(&this->iss, &Lsu::exec_misaligned);
         this->iss.timing.stall_load_account(io_req.get_latency() + 1);
         this->iss.exec.insn_hold();
         return 1;
@@ -103,8 +103,8 @@ void Lsu::data_response(void *__this, vp::io_req *req)
 
 void Lsu::exec_misaligned(void *__this, vp::clock_event *event)
 {
-    Lsu *_this = (Lsu *)__this;
-    Iss *iss = &_this->iss;
+    Iss *iss = (Iss *)__this;
+    Lsu *_this = &iss->lsu;
 
     _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling second half of misaligned access\n");
 

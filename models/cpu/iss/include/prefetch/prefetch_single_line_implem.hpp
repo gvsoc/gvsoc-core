@@ -24,37 +24,15 @@
 #include "types.hpp"
 #include <stdio.h>
 
-inline void Prefetcher::fetch_novalue(iss_insn_t *insn)
-{
-    // Compute where the instructions address falls into the prefetch buffer
-    iss_addr_t addr = insn->addr;
-    int index = addr - this->buffer_start_addr;
-
-    // If it is entirely within the buffer, returns nothing to fake a hit.
-    if (likely(index >= 0 && index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
-    {
-        return;
-    }
-
-    // Otherwise, fake a refill
-    this->fetch_novalue_refill(insn, addr, index);
-}
 
 inline void Prefetcher::fetch(iss_insn_t *insn)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Prefetching instruction (pc: 0x%x)\n", insn->addr);
+    void (*fetch_callback)(void *, iss_insn_t *) = insn->fetch_callback;
 
-    // This is an optimization, since we are on the critical path.
-    // The opcode is refilled the first time the instruction is executed, and then, the fetch is just fake
-    // to get the proper timing, without the overhead of the data copy.
-    if (likely(insn->fetched))
+    if (unlikely(fetch_callback != NULL))
     {
-        this->fetch_novalue(insn);
-    }
-    else
-    {
-        insn->fetched = true;
-        this->fetch_value(insn);
+        fetch_callback(this, insn);
+        insn->fetch_callback = insn->fetch_force_callback;
     }
 }
 

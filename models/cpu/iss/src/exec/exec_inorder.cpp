@@ -63,7 +63,7 @@ void Exec::build()
     this->iss.new_reg("stalled", &this->stalled, false);
     this->iss.new_reg("wfi", &this->wfi, false);
 
-    instr_event = this->iss.event_new(this, Exec::exec_instr_check_all);
+    instr_event = this->iss.event_new(&this->iss, Exec::exec_instr_check_all);
 
     this->bootaddr_offset = this->iss.get_config_int("bootaddr_offset");
     this->is_active_reg.set(false);
@@ -147,41 +147,34 @@ void Exec::dbg_unit_step_check()
 
 void Exec::exec_instr(void *__this, vp::clock_event *event)
 {
-    Exec *_this = (Exec *)__this;
-    Iss *iss = &_this->iss;
+    Iss *iss = (Iss *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", iss->timing.stall_cycles_get());
+    iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", iss->timing.stall_cycles_get());
 
-    if (likely(iss->timing.stall_cycles_get() == 0))
-    {
-        // Takes care first of all optional features (traces, VCD and so on)
-        _this->insn_exec_profiling();
+    // Takes care first of all optional features (traces, VCD and so on)
+    iss->exec.insn_exec_profiling();
 
-        iss_insn_t *insn = _this->current_insn;
+    iss_insn_t *insn = iss->exec.current_insn;
 
-        // Execute the instruction and replace the current one with the new one
-        _this->current_insn = _this->insn_exec_fast(insn);
+    // Execute the instruction and replace the current one with the new one
+    iss->exec.current_insn = insn->fast_handler(iss, insn);
 
-        // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
-        // this will stall the ISS, which will execute the next instruction when the response is
-        // received
-        iss->prefetcher.fetch(_this->current_insn);
+    // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
+    // this will stall the ISS, which will execute the next instruction when the response is
+    // received
+    iss->prefetcher.fetch(iss->exec.current_insn);
 
-        // Since power instruction information is filled when the instruction is decoded,
-        // make sure we account it only after the instruction is executed
-        _this->insn_exec_power(insn);
-    }
-    else
-    {
-        iss->timing.stall_cycles_dec();
-    }
+    // Since power instruction information is filled when the instruction is decoded,
+    // make sure we account it only after the instruction is executed
+    iss->exec.insn_exec_power(insn);
 }
 
 
 
 void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
 {
-    Exec *_this = (Exec *)__this;
+    Iss *iss = (Iss *)__this;
+    Exec *_this = &iss->exec;
 
     _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler\n");
 
@@ -191,7 +184,7 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
         // if HW counters are disabled as they are checked with the slow handler
         if (_this->can_switch_to_fast_mode())
         {
-            _this->instr_event->meth_set(_this, &Exec::exec_instr);
+            _this->instr_event->meth_set(&_this->iss, &Exec::exec_instr);
         }
 
         _this->insn_exec_profiling();

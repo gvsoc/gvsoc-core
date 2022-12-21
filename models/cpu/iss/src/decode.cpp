@@ -154,6 +154,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
                     insn->nb_in_reg = darg->u.reg.id + 1;
 
                 insn->in_regs[darg->u.reg.id] = arg->u.reg.index;
+                insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
             }
             else
             {
@@ -161,6 +162,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
                 insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
+                insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
             }
 
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
@@ -188,6 +190,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
             if (darg->u.indirect_imm.reg.flags & ISS_DECODER_ARG_FLAG_COMPRESSED)
                 arg->u.indirect_imm.reg_index += 8;
             insn->in_regs[darg->u.indirect_imm.reg.id] = arg->u.indirect_imm.reg_index;
+            insn->in_regs_ref[darg->u.indirect_imm.reg.id] = this->iss.regfile.reg_ref(arg->u.indirect_imm.reg_index);
             if (darg->u.indirect_imm.reg.id >= insn->nb_in_reg)
                 insn->nb_in_reg = darg->u.indirect_imm.reg.id + 1;
             arg->u.indirect_imm.imm = this->decode_info(insn, opcode, &darg->u.indirect_imm.imm.info, darg->u.indirect_imm.imm.is_signed);
@@ -199,6 +202,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
             if (darg->u.indirect_reg.base_reg.flags & ISS_DECODER_ARG_FLAG_COMPRESSED)
                 arg->u.indirect_reg.base_reg_index += 8;
             insn->in_regs[darg->u.indirect_reg.base_reg.id] = arg->u.indirect_reg.base_reg_index;
+            insn->in_regs_ref[darg->u.indirect_reg.base_reg.id] = this->iss.regfile.reg_ref(arg->u.indirect_reg.base_reg_index);
             if (darg->u.indirect_reg.base_reg.id >= insn->nb_in_reg)
                 insn->nb_in_reg = darg->u.indirect_reg.base_reg.id + 1;
 
@@ -206,6 +210,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
             if (darg->u.indirect_reg.offset_reg.flags & ISS_DECODER_ARG_FLAG_COMPRESSED)
                 arg->u.indirect_reg.offset_reg_index += 8;
             insn->in_regs[darg->u.indirect_reg.offset_reg.id] = arg->u.indirect_reg.offset_reg_index;
+            insn->in_regs_ref[darg->u.indirect_reg.offset_reg.id] = this->iss.regfile.reg_ref(arg->u.indirect_reg.offset_reg_index);
             if (darg->u.indirect_reg.offset_reg.id >= insn->nb_in_reg)
                 insn->nb_in_reg = darg->u.indirect_reg.offset_reg.id + 1;
 
@@ -364,6 +369,13 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
         insn->saved_handler = insn->handler;
         insn->handler = this->iss.exec.insn_trace_callback_get();
         insn->fast_handler = this->iss.exec.insn_trace_callback_get();
+    }
+
+    unsigned int offset = insn->addr & (ISS_PREFETCHER_SIZE - 1);
+
+    if (offset == 0 || (offset == ISS_PREFETCHER_SIZE - 2 && insn->size == 4))
+    {
+        insn->fetch_force_callback = &Prefetcher::fetch_novalue;
     }
 
     return insn;

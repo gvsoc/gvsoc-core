@@ -37,7 +37,7 @@
 #define REG_IN(reg) (insn->in_regs[reg])
 #define REG_OUT(reg) (insn->out_regs[reg])
 
-#define REG_GET(reg) iss->regfile.get_reg(insn->in_regs[reg])
+#define REG_GET(reg) (*insn->in_regs_ref[reg])
 #define REG_SET(reg,val) iss->regfile.set_reg(insn->out_regs[reg], val)
 #define IN_REG_SET(reg,val) iss->regfile.set_reg(insn->in_regs[reg], val)
 

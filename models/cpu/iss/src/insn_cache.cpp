@@ -59,6 +59,8 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->next = NULL;
     insn->hwloop_handler = NULL;
     insn->fetched = false;
+    insn->fetch_force_callback = NULL;
+    insn->fetch_callback = &Prefetcher::fetch_value;
     insn->input_latency_reg = -1;
 }
 

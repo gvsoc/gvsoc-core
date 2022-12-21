@@ -151,7 +151,7 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
 
 inline void Exec::switch_to_full_mode()
 {
-    this->instr_event->meth_set(this, &Exec::exec_instr_check_all);
+    this->instr_event->meth_set(&this->iss, &Exec::exec_instr_check_all);
 }
 
 

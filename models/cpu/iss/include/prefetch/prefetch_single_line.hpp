@@ -46,10 +46,14 @@ public:
 
     // Refill interface
     vp::io_master fetch_itf;
-private:
-    // Fake a fetch of the given instruction from prefetch buffer (for timing).
-    inline void fetch_novalue(iss_insn_t *insn);
 
+    // Fake a fetch of the given instruction from prefetch buffer (for timing).
+    static void fetch_novalue(void *__this, iss_insn_t *insn);
+
+    // Fetch the given instruction from prefetch buffer
+    static void fetch_value(void *__this, iss_insn_t *insn);
+
+private:
     // Fake a refill of the prefetch buffer
     void fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int index);
 
@@ -58,9 +62,6 @@ private:
 
     // Check if the current instruction fits entirely in the buffer and if not trigger another fetch
     void fetch_novalue_check_overflow(iss_insn_t *insn, int index);
-
-    // Fetch the given instruction from prefetch buffer
-    void fetch_value(iss_insn_t *insn);
 
     // Callback called when the fetch of the low part is received asynchronously.
     static void fetch_value_resume_after_low_refill(Prefetcher *_this);

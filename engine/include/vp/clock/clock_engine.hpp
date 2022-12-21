@@ -71,7 +71,7 @@ namespace vp {
 
       // The event is enqueued directly into the circular buffer if it is
       // close enough.
-      if (likely(is_running() && cycles < CLOCK_EVENT_QUEUE_SIZE))
+      if (0) //likely(is_running() && cycles < CLOCK_EVENT_QUEUE_SIZE))
       {
         enqueue_to_cycle(event, cycles);
       }

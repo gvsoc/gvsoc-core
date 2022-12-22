@@ -50,8 +50,9 @@ public:
     void reset(bool active);
     virtual void target_open();
 
-    Prefetcher prefetcher;
     Exec exec;
+    Regfile regfile;
+    Prefetcher prefetcher;
     Decode decode;
     Timing timing;
     Irq irq;
@@ -61,7 +62,6 @@ public:
     Syscalls syscalls;
     Trace trace;
     Csr csr;
-    Regfile regfile;
     Exception exception;
 
     iss_pulp_nn_t pulp_nn;

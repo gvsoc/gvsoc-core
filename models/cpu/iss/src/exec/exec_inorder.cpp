@@ -151,22 +151,70 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
 
     iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", iss->timing.stall_cycles_get());
 
-    // Takes care first of all optional features (traces, VCD and so on)
-    iss->exec.insn_exec_profiling();
+#if 0
+    size_t loop = 0;
+    size_t end = 64;
+    while(loop < end)
 
-    iss_insn_t *insn = iss->exec.current_insn;
+    {
+        // if (likely(iss->timing.stall_cycles_get() == 0))
+        // {
+            // Takes care first of all optional features (traces, VCD and so on)
+            iss->exec.insn_exec_profiling();
 
-    // Execute the instruction and replace the current one with the new one
-    iss->exec.current_insn = insn->fast_handler(iss, insn);
+            iss_insn_t *insn = iss->exec.current_insn;
 
-    // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
-    // this will stall the ISS, which will execute the next instruction when the response is
-    // received
-    iss->prefetcher.fetch(iss->exec.current_insn);
+            // Execute the instruction and replace the current one with the new one
+            iss->exec.current_insn = insn->fast_handler(iss, insn);
 
-    // Since power instruction information is filled when the instruction is decoded,
-    // make sure we account it only after the instruction is executed
-    iss->exec.insn_exec_power(insn);
+            // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
+            // this will stall the ISS, which will execute the next instruction when the response is
+            // received
+            iss->prefetcher.fetch(iss->exec.current_insn);
+
+            // Since power instruction information is filled when the instruction is decoded,
+            // make sure we account it only after the instruction is executed
+            iss->exec.insn_exec_power(insn);
+        // }
+        // else
+        // {
+        //     iss->timing.stall_cycles_dec();
+        // }
+
+        loop++;
+
+        if (iss->exec.stalled.get())
+        {
+            break;
+        }
+    }
+    
+#else
+    if (likely(iss->timing.stall_cycles_get() == 0))
+    {
+        // Takes care first of all optional features (traces, VCD and so on)
+        iss->exec.insn_exec_profiling();
+
+        iss_insn_t *insn = iss->exec.current_insn;
+
+        // Execute the instruction and replace the current one with the new one
+        iss->exec.current_insn = insn->fast_handler(iss, insn);
+
+        // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
+        // this will stall the ISS, which will execute the next instruction when the response is
+        // received
+        iss->prefetcher.fetch(iss->exec.current_insn);
+
+        // Since power instruction information is filled when the instruction is decoded,
+        // make sure we account it only after the instruction is executed
+        iss->exec.insn_exec_power(insn);
+    }
+    else
+    {
+        iss->timing.stall_cycles_dec();
+    }
+
+#endif
 }
 
 

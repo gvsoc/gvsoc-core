@@ -37,7 +37,6 @@ inline void Timing::stall_cycles_account(int cycles)
 {
     this->stall_cycles += cycles;
     this->event_account(CSR_PCER_CYCLES, cycles);
-    this->iss.exec.switch_to_full_mode();
 }
 
 inline void Timing::event_trace_account(unsigned int event, int cycles)

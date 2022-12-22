@@ -64,7 +64,8 @@ public:
     inline void insn_exec_profiling();
     inline void insn_exec_power(iss_insn_t *insn);
 
-    vp::reg_8 stalled;
+    iss_insn_t *current_insn;
+    vp::reg_64 stalled;
 
     vp::trace trace;
     vp::clock_event *instr_event;
@@ -78,7 +79,6 @@ public:
     vp::reg_1 wfi;
     vp::reg_1 busy;
     int bootaddr_offset;
-    iss_insn_t *current_insn;
     iss_insn_t *stall_insn;
     std::vector<iss_resource_instance_t *> resources; // When accesses to the resources are scheduled statically, this gives the instance allocated to this core for each resource
 

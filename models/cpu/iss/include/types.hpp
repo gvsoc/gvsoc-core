@@ -353,28 +353,28 @@ typedef struct iss_isa_tag_s
 
 typedef struct iss_insn_s
 {
+    iss_insn_t *next;
+    iss_insn_t *(*fast_handler)(Iss *, iss_insn_t *);
+    void (*fetch_callback)(void *, iss_insn_t *);
+    void (*fetch_force_callback)(void *, iss_insn_t *);
+    iss_reg_t *out_regs_ref[ISS_MAX_NB_OUT_REGS];
+    iss_reg_t *in_regs_ref[ISS_MAX_NB_IN_REGS];
+    iss_uim_t uim[ISS_MAX_IMMEDIATES];
+    iss_sim_t sim[ISS_MAX_IMMEDIATES];
     iss_addr_t addr;
     iss_reg_t opcode;
     bool fetched;
-    iss_insn_t *(*fast_handler)(Iss *, iss_insn_t *);
     iss_insn_t *(*handler)(Iss *, iss_insn_t *);
     iss_insn_t *(*resource_handler)(Iss *, iss_insn_t *); // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
     iss_insn_t *(*hwloop_handler)(Iss *, iss_insn_t *);
     iss_insn_t *(*stall_handler)(Iss *, iss_insn_t *);
     iss_insn_t *(*stall_fast_handler)(Iss *, iss_insn_t *);
-    void (*fetch_callback)(void *, iss_insn_t *);
-    void (*fetch_force_callback)(void *, iss_insn_t *);
     int size;
     int nb_out_reg;
     int nb_in_reg;
     int out_regs[ISS_MAX_NB_OUT_REGS];
     int in_regs[ISS_MAX_NB_IN_REGS];
-    iss_reg_t *out_regs_ref[ISS_MAX_NB_OUT_REGS];
-    iss_reg_t *in_regs_ref[ISS_MAX_NB_IN_REGS];
-    iss_uim_t uim[ISS_MAX_IMMEDIATES];
-    iss_sim_t sim[ISS_MAX_IMMEDIATES];
     iss_insn_arg_t args[ISS_MAX_DECODE_ARGS];
-    iss_insn_t *next;
     iss_decoder_item_t *decoder_item;
     int resource_id;        // Identifier of the resource associated to this instruction
     int resource_latency;   // Time required to get the result when accessing the resource

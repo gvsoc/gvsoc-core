@@ -33,39 +33,39 @@ Exec::Exec(Iss &iss)
 
 void Exec::build()
 {
-    this->iss.traces.new_trace("exec", &this->trace, vp::DEBUG);
+    this->iss.top.traces.new_trace("exec", &this->trace, vp::DEBUG);
 
-    this->iss.new_master_port("busy", &busy_itf);
+    this->iss.top.new_master_port("busy", &busy_itf);
 
     flush_cache_ack_itf.set_sync_meth(&Exec::flush_cache_ack_sync);
-    this->iss.new_slave_port(this, "flush_cache_ack", &flush_cache_ack_itf);
-    this->iss.new_master_port("flush_cache_req", &flush_cache_req_itf);
+    this->iss.top.new_slave_port(this, "flush_cache_ack", &flush_cache_ack_itf);
+    this->iss.top.new_master_port("flush_cache_req", &flush_cache_req_itf);
 
     bootaddr_itf.set_sync_meth(&Exec::bootaddr_sync);
-    this->iss.new_slave_port(this, "bootaddr", &bootaddr_itf);
+    this->iss.top.new_slave_port(this, "bootaddr", &bootaddr_itf);
 
     clock_itf.set_sync_meth(&Exec::clock_sync);
-    this->iss.new_slave_port(this, "clock", &clock_itf);
+    this->iss.top.new_slave_port(this, "clock", &clock_itf);
 
     fetchen_itf.set_sync_meth(&Exec::fetchen_sync);
-    this->iss.new_slave_port(this, "fetchen", &fetchen_itf);
+    this->iss.top.new_slave_port(this, "fetchen", &fetchen_itf);
 
-    this->iss.new_reg("step_mode", &this->step_mode, false);
+    this->iss.top.new_reg("step_mode", &this->step_mode, false);
 
-    this->iss.new_reg("halted", &this->halted, false);
+    this->iss.top.new_reg("halted", &this->halted, false);
 
-    this->iss.new_reg("busy", &this->busy, 1);
+    this->iss.top.new_reg("busy", &this->busy, 1);
 
-    this->iss.new_reg("bootaddr", &this->bootaddr_reg, this->iss.get_config_int("boot_addr"));
+    this->iss.top.new_reg("bootaddr", &this->bootaddr_reg, this->iss.top.get_config_int("boot_addr"));
 
-    this->iss.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.get_js_config()->get("fetch_enable")->get_bool());
-    this->iss.new_reg("is_active", &this->is_active_reg, false);
-    this->iss.new_reg("stalled", &this->stalled, false);
-    this->iss.new_reg("wfi", &this->wfi, false);
+    this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.top.get_js_config()->get("fetch_enable")->get_bool());
+    this->iss.top.new_reg("is_active", &this->is_active_reg, false);
+    this->iss.top.new_reg("stalled", &this->stalled, false);
+    this->iss.top.new_reg("wfi", &this->wfi, false);
 
-    instr_event = this->iss.event_new(&this->iss, Exec::exec_instr_check_all);
+    instr_event = this->iss.top.event_new(&this->iss, Exec::exec_instr_check_all);
 
-    this->bootaddr_offset = this->iss.get_config_int("bootaddr_offset");
+    this->bootaddr_offset = this->iss.top.get_config_int("bootaddr_offset");
     this->is_active_reg.set(false);
 
 
@@ -144,77 +144,46 @@ void Exec::dbg_unit_step_check()
 }
 
 
+void Exec::exec_instr_untimed(void *__this, vp::clock_event *event)
+{
+    Iss *const iss = (Iss *)__this;
+    iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
+    iss->exec.loop_count = 64;
+
+    iss_insn_t *insn = iss->exec.current_insn;
+    while(1)
+    {
+        bool stalled;
+
+        // Execute the instruction and replace the current one with the new one
+        insn = insn->fast_handler(iss, insn);
+        stalled = iss->exec.stalled.get();
+        iss->exec.current_insn = insn;
+        if (stalled) break;
+    }
+}
+
 
 void Exec::exec_instr(void *__this, vp::clock_event *event)
 {
-    Iss *iss = (Iss *)__this;
+    Iss *const iss = (Iss *)__this;
 
-    iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler (insn_cycles: %d)\n", iss->timing.stall_cycles_get());
+    iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
-#if 0
-    size_t loop = 0;
-    size_t end = 64;
-    while(loop < end)
+    iss_insn_t *insn = iss->exec.current_insn;
 
-    {
-        // if (likely(iss->timing.stall_cycles_get() == 0))
-        // {
-            // Takes care first of all optional features (traces, VCD and so on)
-            iss->exec.insn_exec_profiling();
-
-            iss_insn_t *insn = iss->exec.current_insn;
-
-            // Execute the instruction and replace the current one with the new one
-            iss->exec.current_insn = insn->fast_handler(iss, insn);
-
-            // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
-            // this will stall the ISS, which will execute the next instruction when the response is
-            // received
-            iss->prefetcher.fetch(iss->exec.current_insn);
-
-            // Since power instruction information is filled when the instruction is decoded,
-            // make sure we account it only after the instruction is executed
-            iss->exec.insn_exec_power(insn);
-        // }
-        // else
-        // {
-        //     iss->timing.stall_cycles_dec();
-        // }
-
-        loop++;
-
-        if (iss->exec.stalled.get())
-        {
-            break;
-        }
-    }
-    
-#else
-    if (likely(iss->timing.stall_cycles_get() == 0))
+    if (iss->prefetcher.fetch(insn))
     {
         // Takes care first of all optional features (traces, VCD and so on)
         iss->exec.insn_exec_profiling();
 
-        iss_insn_t *insn = iss->exec.current_insn;
-
         // Execute the instruction and replace the current one with the new one
         iss->exec.current_insn = insn->fast_handler(iss, insn);
-
-        // Now that we have the new instruction, we can fetch it. In case the response is asynchronous,
-        // this will stall the ISS, which will execute the next instruction when the response is
-        // received
-        iss->prefetcher.fetch(iss->exec.current_insn);
 
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
         iss->exec.insn_exec_power(insn);
     }
-    else
-    {
-        iss->timing.stall_cycles_dec();
-    }
-
-#endif
 }
 
 
@@ -226,39 +195,30 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
 
     _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler\n");
 
-    if (likely(_this->iss.timing.stall_cycles_get() == 0))
+    // Switch back to optimize instruction handler only
+    // if HW counters are disabled as they are checked with the slow handler
+    if (_this->can_switch_to_fast_mode())
     {
-        // Switch back to optimize instruction handler only
-        // if HW counters are disabled as they are checked with the slow handler
-        if (_this->can_switch_to_fast_mode())
-        {
-            _this->instr_event->meth_set(&_this->iss, &Exec::exec_instr);
-        }
+        _this->instr_event->meth_set(&_this->iss, &Exec::exec_instr);
+    }
 
-        _this->insn_exec_profiling();
+    _this->insn_exec_profiling();
 
-        int cycles;
+    int cycles;
 
-        iss_insn_t *insn = _this->current_insn;
+    _this->iss.irq.check();
 
-        // Don't execute the instruction if an IRQ was taken and it triggered a pending fetch
-        if (!_this->iss.irq.check() && !_this->stalled.get())
-        {
-            iss_insn_t *insn = _this->current_insn;
-            _this->current_insn = _this->insn_exec(insn);
+    iss_insn_t *insn = _this->current_insn;
 
-            _this->iss.prefetcher.fetch(_this->current_insn);
+    if (iss->prefetcher.fetch(insn))
+    {
+        _this->current_insn = _this->insn_exec(insn);
 
-            _this->iss.timing.insn_account();
-        }
+        _this->iss.timing.insn_account();
 
         _this->insn_exec_power(insn);
 
         _this->dbg_unit_step_check();
-    }
-    else
-    {
-        _this->iss.timing.stall_cycles_dec();
     }
 }
 
@@ -307,10 +267,6 @@ void Exec::bootaddr_sync(void *__this, uint32_t value)
 void Exec::pc_set(iss_addr_t value)
 {
     this->current_insn = insn_cache_get(&this->iss, value);
-
-    // Since the ISS needs to fetch the instruction in advanced, we force the core
-    // to refetch the current instruction
-    this->iss.prefetcher.fetch(this->current_insn);
 }
 
 

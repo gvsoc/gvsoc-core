@@ -32,11 +32,11 @@ Trace::Trace(Iss &iss)
 
 void Trace::build()
 {
-    this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
+    this->iss.top.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
     this->insn_trace.register_callback(std::bind(&Trace::insn_trace_callback, this));
     iss_trace_init(&this->iss);
 
-    for (auto x : this->iss.get_js_config()->get("**/debug_binaries")->get_elems())
+    for (auto x : this->iss.top.get_js_config()->get("**/debug_binaries")->get_elems())
     {
         iss_register_debug_info(&this->iss, x->get_str().c_str());
     }
@@ -519,7 +519,7 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn)
 
     iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, iss->traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
 
     iss->trace.insn_trace.msg(buffer);
 }

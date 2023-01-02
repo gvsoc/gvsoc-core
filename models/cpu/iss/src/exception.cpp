@@ -32,7 +32,7 @@ Exception::Exception(Iss &iss)
 
 void Exception::build()
 {
-    this->debug_handler_addr = this->iss.get_js_config()->get_int("debug_handler");
+    this->debug_handler_addr = this->iss.top.get_js_config()->get_int("debug_handler");
 }
 
 

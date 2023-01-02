@@ -22,21 +22,21 @@
 #include "iss.hpp"
 #include <string.h>
 
-int Iss::build()
+int IssWrapper::build()
 {
-    this->syscalls.build();
-    this->decode.build();
-    this->exec.build();
-    this->dbgunit.build();
-    this->csr.build();
-    this->lsu.build();
-    this->irq.build();
-    this->trace.build();
-    this->timing.build();
-    this->gdbserver.build();
-    this->exception.build();
-    this->irq.build();
-    this->prefetcher.build();
+    this->iss.syscalls.build();
+    this->iss.decode.build();
+    this->iss.exec.build();
+    this->iss.dbgunit.build();
+    this->iss.csr.build();
+    this->iss.lsu.build();
+    this->iss.irq.build();
+    this->iss.trace.build();
+    this->iss.timing.build();
+    this->iss.gdbserver.build();
+    this->iss.exception.build();
+    this->iss.irq.build();
+    this->iss.prefetcher.build();
 
     traces.new_trace("wrapper", this->get_trace(), vp::DEBUG);
 
@@ -45,41 +45,47 @@ int Iss::build()
     return 0;
 }
 
-void Iss::start()
+void IssWrapper::start()
 {
 
-    vp_assert_always(this->lsu.data.is_bound(), this->get_trace(), "Data master port is not connected\n");
-    vp_assert_always(this->prefetcher.fetch_itf.is_bound(), this->get_trace(), "Fetch master port is not connected\n");
+    vp_assert_always(this->iss.lsu.data.is_bound(), this->get_trace(), "Data master port is not connected\n");
+    vp_assert_always(this->iss.prefetcher.fetch_itf.is_bound(), this->get_trace(), "Fetch master port is not connected\n");
     // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
 
     this->get_trace()->msg("ISS start (fetch: %d, is_active: %d, boot_addr: 0x%lx)\n",
-        exec.fetch_enable_reg.get(), exec.is_active_reg.get(), get_config_int("boot_addr"));
+        iss.exec.fetch_enable_reg.get(), iss.exec.is_active_reg.get(), get_config_int("boot_addr"));
 
-    this->timing.background_power.leakage_power_start();
-    this->timing.background_power.dynamic_power_start();
+    this->iss.timing.background_power.leakage_power_start();
+    this->iss.timing.background_power.dynamic_power_start();
 
-    this->gdbserver.start();
+    this->iss.gdbserver.start();
 }
 
-void Iss::reset(bool active)
+void IssWrapper::reset(bool active)
 {
-    this->prefetcher.reset(active);
-    this->exec.reset(active);
-    this->irq.reset(active);
-    this->lsu.reset(active);
-    this->timing.reset(active);
-    this->trace.reset(active);
-    this->regfile.reset(active);
-    this->decode.reset(active);
+    this->iss.prefetcher.reset(active);
+    this->iss.exec.reset(active);
+    this->iss.irq.reset(active);
+    this->iss.lsu.reset(active);
+    this->iss.timing.reset(active);
+    this->iss.trace.reset(active);
+    this->iss.regfile.reset(active);
+    this->iss.decode.reset(active);
 }
 
-Iss::Iss(js::config *config)
-    : vp::component(config), prefetcher(*this), exec(*this), decode(*this), timing(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this), regfile(*this), exception(*this)
+IssWrapper::IssWrapper(js::config *config)
+    : vp::component(config), iss(*this)
 {
 }
 
-void Iss::target_open()
+void IssWrapper::target_open()
 {
 
+}
+
+Iss::Iss(vp::component &top)
+    : prefetcher(*this), exec(*this), decode(*this), timing(*this), irq(*this),
+      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
+      regfile(*this), exception(*this), top(top)
+{
 }

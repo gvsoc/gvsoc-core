@@ -30,9 +30,9 @@ Prefetcher::Prefetcher(Iss &iss)
 
 void Prefetcher::build()
 {
-    this->iss.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
+    this->iss.top.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
     this->fetch_itf.set_resp_meth(&Prefetcher::fetch_response);
-    this->iss.new_master_port(this, "fetch", &fetch_itf);
+    this->iss.top.new_master_port(this, "fetch", &fetch_itf);
 }
 
 void Prefetcher::reset(bool active)
@@ -43,25 +43,7 @@ void Prefetcher::reset(bool active)
     }
 }
 
-void Prefetcher::fetch_novalue(void *__this, iss_insn_t *insn)
-{
-    Prefetcher *_this = (Prefetcher *)__this;
-
-    // Compute where the instructions address falls into the prefetch buffer
-    iss_addr_t addr = insn->addr;
-    int index = addr - _this->buffer_start_addr;
-
-    // If it is entirely within the buffer, returns nothing to fake a hit.
-    if (likely(index >= 0 && index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
-    {
-        return;
-    }
-
-    // Otherwise, fake a refill
-    _this->fetch_novalue_refill(insn, addr, index);
-}
-
-void Prefetcher::fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int index)
+bool Prefetcher::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index)
 {
     // We get here either if the instruction is entirely outside the buffer or if it is only
     // partially within.
@@ -73,87 +55,25 @@ void Prefetcher::fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int ind
         {
             // In case of a pending refill, we have to register a callback and leave,
             // we'll get notified when the response is received
-            this->handle_stall(fetch_novalue_resume_after_low_refill, insn);
-            return;
+            this->handle_stall(fetch_resume_after_low_refill, insn);
+            return false;
         }
         index = addr - this->buffer_start_addr;
     }
 
     // Now check if we can fully get the instruction from the buffer, or it is only partially
     // inside.
-    this->fetch_novalue_check_overflow(insn, index);
+    return this->fetch_check_overflow(insn, index);
 }
 
-void Prefetcher::fetch_novalue_resume_after_low_refill(Prefetcher *_this)
-{
-    // Now that we have received the low part of the instruction
-    // check if it fits entirely in the buffer or only partially
-    iss_addr_t addr = _this->prefetch_insn->addr;
-    int index = addr - _this->buffer_start_addr;
-    _this->fetch_novalue_check_overflow(_this->prefetch_insn, index);
-}
-
-void Prefetcher::fetch_novalue_check_overflow(iss_insn_t *insn, int index)
-{
-    // Check if we overflow the buffer. If not, the instruction fetch is over
-    if (unlikely(index + ISS_OPCODE_MAX_SIZE > ISS_PREFETCHER_SIZE))
-    {
-        // If it overflows, trigger a second fetch. No need to remember the low part,
-        // since we are faking a fetch
-        if (this->fill(this->buffer_start_addr + ISS_PREFETCHER_SIZE))
-        {
-            // Stall the core if the fetch is pending
-            this->handle_stall(NULL, insn);
-        }
-    }
-}
-
-void Prefetcher::fetch_value(void *__this, iss_insn_t *insn)
-{
-    Prefetcher *_this = (Prefetcher *)__this;
-
-    // Since an instruction can be 2 or 4 bytes, we need to be careful that only part of it can
-    // fit the buffer, so we have to check both the low part and the high part.
-
-    // Compute where the instructions address falls into the prefetch buffer
-    iss_addr_t addr = insn->addr;
-    int index = addr - _this->buffer_start_addr;
-
-    // If it is entirely within the buffer, get the opcode and decode it.
-    if (likely(index >= 0 && index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
-    {
-        insn->opcode = *(iss_opcode_t *)&_this->data[index];
-        _this->iss.decode.decode_pc(insn);
-        return;
-    }
-
-    // If the low part is not within the buffer, fetch it
-    if (unlikely(index < 0 || index >= ISS_PREFETCHER_SIZE))
-    {
-        if (_this->fill(addr))
-        {
-            // If the response is pending, stall the code and return
-            _this->handle_stall(fetch_value_resume_after_low_refill, insn);
-            return;
-        }
-
-        // Otherwise continue with the higher part
-        index = addr - _this->buffer_start_addr;
-    }
-
-    // If the low part fits or if we manage to get it synchronously, check if the instruction
-    // overflows the buffer.
-    _this->fetch_value_check_overflow(insn, index);
-}
-
-void Prefetcher::fetch_value_resume_after_low_refill(Prefetcher *_this)
+void Prefetcher::fetch_resume_after_low_refill(Prefetcher *_this)
 {
     iss_addr_t addr = _this->prefetch_insn->addr;
     int index = addr - _this->buffer_start_addr;
-    _this->fetch_value_check_overflow(_this->prefetch_insn, index);
+    _this->fetch_check_overflow(_this->prefetch_insn, index);
 }
 
-void Prefetcher::fetch_value_check_overflow(iss_insn_t *insn, int index)
+bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
 {
     iss_addr_t addr = insn->addr;
 
@@ -161,7 +81,6 @@ void Prefetcher::fetch_value_check_overflow(iss_insn_t *insn, int index)
     if (likely(index + ISS_OPCODE_MAX_SIZE <= ISS_PREFETCHER_SIZE))
     {
         insn->opcode = *(iss_opcode_t *)&this->data[index];
-        this->iss.decode.decode_pc(insn);
     }
     else
     {
@@ -171,29 +90,29 @@ void Prefetcher::fetch_value_check_overflow(iss_insn_t *insn, int index)
 
         // Compute address of next line
         uint32_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
-        // Number of bytes of the opcode which fits the first line
-        int nb_bytes = next_addr - addr;
         // Copy first part from first line
-        memcpy((void *)&opcode, (void *)&this->data[index], nb_bytes);
+        opcode = *(iss_opcode_t *)&this->data[index] & 0xffff;
         // Fetch next line
         if (this->fill(next_addr))
         {
             // Stall the core if the fetch is pending
             // We need to remember the opcode since the buffer is fully replaced
             this->fetch_stall_opcode = opcode;
-            this->handle_stall(fetch_value_resume_after_high_refill, insn);
-            return;
+            this->handle_stall(fetch_resume_after_high_refill, insn);
+            return false;
         }
         // If the refill is received now, append the second part from second line to the previous opcode
         // and decode it
-        opcode = opcode | ((*(iss_opcode_t *)&this->data[0]) << (nb_bytes * 8));
+        opcode = (opcode  & 0xffff) | ((*(iss_opcode_t *)&this->data[0]) << 16);
 
         insn->opcode = opcode;
-        this->iss.decode.decode_pc(insn);
     }
+
+    insn->fetched = true;
+    return true;
 }
 
-void Prefetcher::fetch_value_resume_after_high_refill(Prefetcher *_this)
+void Prefetcher::fetch_resume_after_high_refill(Prefetcher *_this)
 {
     iss_addr_t addr = _this->prefetch_insn->addr;
     uint32_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
@@ -202,7 +121,8 @@ void Prefetcher::fetch_value_resume_after_high_refill(Prefetcher *_this)
 
     // And append the second part from second line
     _this->prefetch_insn->opcode = _this->fetch_stall_opcode | ((*(iss_opcode_t *)&_this->data[0]) << (nb_bytes * 8));
-    _this->iss.decode.decode_pc(_this->prefetch_insn);
+
+    _this->prefetch_insn->fetched = true;
 }
 
 int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
@@ -261,3 +181,4 @@ void Prefetcher::fetch_response(void *__this, vp::io_req *req)
         _this->fetch_stall_callback(_this);
     }
 }
+

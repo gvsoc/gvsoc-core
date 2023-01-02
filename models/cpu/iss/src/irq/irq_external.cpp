@@ -34,11 +34,11 @@ void Irq::build()
     {
         this->vectors[i] = NULL;
     }
-    iss.traces.new_trace("irq", &this->trace, vp::DEBUG);
+    iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     irq_req_itf.set_sync_meth(&Irq::irq_req_sync);
-    this->iss.new_slave_port(this, "irq_req", &irq_req_itf);
-    this->iss.new_master_port("irq_ack", &irq_ack_itf);
+    this->iss.top.new_slave_port(this, "irq_req", &irq_req_itf);
+    this->iss.top.new_master_port("irq_ack", &irq_ack_itf);
 
 }
 
@@ -179,8 +179,6 @@ int Irq::check()
             this->irq_ack_itf.sync(req_irq);
 
             this->iss.timing.stall_insn_dependency_account(4);
-
-            this->iss.prefetcher.fetch(this->iss.exec.current_insn);
 
             return 1;
         }

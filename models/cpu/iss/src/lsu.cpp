@@ -143,7 +143,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     }
     else if (err == vp::IO_REQ_INVALID)
     {
-        vp_warning_always(&this->iss.warning,
+        vp_warning_always(&this->iss.top.warning,
                           "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
                           this->iss.exec.current_insn->addr, addr, size, is_write);
     }
@@ -155,7 +155,6 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
 
 int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
 {
-
     iss_addr_t addr0 = addr & ADDR_MASK;
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
 
@@ -172,13 +171,13 @@ Lsu::Lsu(Iss &iss)
 
 void Lsu::build()
 {
-    iss.traces.new_trace("lsu", &this->trace, vp::DEBUG);
+    iss.top.traces.new_trace("lsu", &this->trace, vp::DEBUG);
     data.set_resp_meth(&Lsu::data_response);
     data.set_grant_meth(&Lsu::data_grant);
-    this->iss.new_master_port(this, "data", &data);
-    this->iss.new_reg("misaligned_access", &this->misaligned_access, false);
+    this->iss.top.new_master_port(this, "data", &data);
+    this->iss.top.new_reg("misaligned_access", &this->misaligned_access, false);
 
-    this->iss.new_reg("elw_stalled", &this->elw_stalled, false);
+    this->iss.top.new_reg("elw_stalled", &this->elw_stalled, false);
 
     this->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
 }

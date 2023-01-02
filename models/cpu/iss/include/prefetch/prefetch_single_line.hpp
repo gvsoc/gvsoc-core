@@ -38,39 +38,27 @@ public:
     // Flush the prefetch buffer
     inline void flush();
 
-    // Fetch the given instruction from prefetch buffer
-    inline void fetch(iss_insn_t *insn);
-
     // Response callback for the refill
     static void fetch_response(void *_this, vp::io_req *req);
 
     // Refill interface
     vp::io_master fetch_itf;
 
-    // Fake a fetch of the given instruction from prefetch buffer (for timing).
-    static void fetch_novalue(void *__this, iss_insn_t *insn);
-
     // Fetch the given instruction from prefetch buffer
-    static void fetch_value(void *__this, iss_insn_t *insn);
+    inline bool fetch(iss_insn_t *insn);
 
 private:
-    // Fake a refill of the prefetch buffer
-    void fetch_novalue_refill(iss_insn_t *insn, iss_addr_t addr, int index);
-
-    // Resume a fake refill after the low part of the instruction has been received
-    static void fetch_novalue_resume_after_low_refill(Prefetcher *_this);
-
-    // Check if the current instruction fits entirely in the buffer and if not trigger another fetch
-    void fetch_novalue_check_overflow(iss_insn_t *insn, int index);
+    // Refill of the prefetch buffer
+    bool fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index);
 
     // Callback called when the fetch of the low part is received asynchronously.
-    static void fetch_value_resume_after_low_refill(Prefetcher *_this);
+    static void fetch_resume_after_low_refill(Prefetcher *_this);
 
     // Check if the current instruction fits entirely in the buffer and if not trigger another fetch
-    void fetch_value_check_overflow(iss_insn_t *insn, int index);
+    bool fetch_check_overflow(iss_insn_t *insn, int index);
 
     // Callback called when the high part of the instruction is received asynchronously
-    static void fetch_value_resume_after_high_refill(Prefetcher *_this);
+    static void fetch_resume_after_high_refill(Prefetcher *_this);
 
     // Send a fetch request to refill the buffer
     int fill(iss_addr_t addr);

@@ -92,7 +92,7 @@ inline vp::time_engine *vp::component_clock::get_engine()
 
 inline void vp::clock_engine::sync()
 {
-  if (!is_running() && delayed_queue == NULL && this->permanent_first == NULL)
+  if (!is_running() && this->permanent_first == NULL)
   {
     this->update();
   }
@@ -109,47 +109,6 @@ inline void vp::clock_event::cancel()
     {
       this->clock->cancel(this);
     }
-}
-
-inline vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
-{
-  if (this->permanent_first)
-  {
-    this->permanent_first->prev = event;
-  }
-  event->next = this->permanent_first;
-  event->prev = NULL;
-  event->enqueued = true;
-  event->cycle = -1;
-
-  this->permanent_first = event;
-
-  if (!this->is_running() && this->period != 0)
-  {
-    this->enqueue_to_engine(this->period);
-  }
-
-  return event;
-}
-
-
-inline void vp::clock_engine::disable(vp::clock_event *event)
-{
-  event->enqueued = false;
-
-  if (event->prev)
-  {
-    event->prev->next = event->next;
-  }
-  else
-  {
-    this->permanent_first = event->next;
-  }
-
-  if (event->next)
-  {
-    event->next->prev = event->prev;
-  }
 }
 
 

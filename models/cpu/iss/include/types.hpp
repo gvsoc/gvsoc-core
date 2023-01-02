@@ -355,8 +355,6 @@ typedef struct iss_insn_s
 {
     iss_insn_t *next;
     iss_insn_t *(*fast_handler)(Iss *, iss_insn_t *);
-    void (*fetch_callback)(void *, iss_insn_t *);
-    void (*fetch_force_callback)(void *, iss_insn_t *);
     iss_reg_t *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     iss_reg_t *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];

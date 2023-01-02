@@ -369,8 +369,11 @@ static inline iss_insn_t *sw_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *addi_exec(Iss *iss, iss_insn_t *insn)
 {
-    REG_SET(0, LIB_CALL2(lib_ADD, REG_GET(0), SIM_GET(0)));
-    return insn->next;
+    iss_insn_t *next_insn = insn->next;
+    iss_reg_t in = REG_GET(0);
+    iss_reg_t imm = SIM_GET(0);
+    REG_SET(0, LIB_CALL2(lib_ADD, in, imm));
+    return next_insn;
 }
 
 static inline iss_insn_t *nop_exec(Iss *iss, iss_insn_t *insn)

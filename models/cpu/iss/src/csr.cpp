@@ -54,7 +54,7 @@ void Csr::declare_pcer(int index, std::string name, std::string help)
 
 void Csr::build()
 {
-    iss.traces.new_trace("csr", &this->trace, vp::DEBUG);
+    iss.top.traces.new_trace("csr", &this->trace, vp::DEBUG);
 
     this->declare_pcer(CSR_PCER_CYCLES, "Cycles", "Count the number of cycles the core was running");
     this->declare_pcer(CSR_PCER_INSTR, "instr", "Count the number of instructions executed");
@@ -73,26 +73,26 @@ void Csr::build()
     this->declare_pcer(CSR_PCER_ST_EXT_CYC, "st_ext_cycles", "Cycles used for memory stores to EXT. Every non-TCDM access is considered external");
     this->declare_pcer(CSR_PCER_TCDM_CONT, "tcdm_cont", "Cycles wasted due to TCDM/log-interconnect contention");
 
-    this->iss.traces.new_trace_event("pcer_cycles", &this->iss.timing.pcer_trace_event[0], 1);
-    this->iss.traces.new_trace_event("pcer_instr", &this->iss.timing.pcer_trace_event[1], 1);
-    this->iss.traces.new_trace_event("pcer_ld_stall", &this->iss.timing.pcer_trace_event[2], 1);
-    this->iss.traces.new_trace_event("pcer_jmp_stall", &this->iss.timing.pcer_trace_event[3], 1);
-    this->iss.traces.new_trace_event("pcer_imiss", &this->iss.timing.pcer_trace_event[4], 1);
-    this->iss.traces.new_trace_event("pcer_ld", &this->iss.timing.pcer_trace_event[5], 1);
-    this->iss.traces.new_trace_event("pcer_st", &this->iss.timing.pcer_trace_event[6], 1);
-    this->iss.traces.new_trace_event("pcer_jump", &this->iss.timing.pcer_trace_event[7], 1);
-    this->iss.traces.new_trace_event("pcer_branch", &this->iss.timing.pcer_trace_event[8], 1);
-    this->iss.traces.new_trace_event("pcer_taken_branch", &this->iss.timing.pcer_trace_event[9], 1);
-    this->iss.traces.new_trace_event("pcer_rvc", &this->iss.timing.pcer_trace_event[10], 1);
-    this->iss.traces.new_trace_event("pcer_ld_ext", &this->iss.timing.pcer_trace_event[11], 1);
-    this->iss.traces.new_trace_event("pcer_st_ext", &this->iss.timing.pcer_trace_event[12], 1);
-    this->iss.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.timing.pcer_trace_event[13], 1);
-    this->iss.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
-    this->iss.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
+    this->iss.top.traces.new_trace_event("pcer_cycles", &this->iss.timing.pcer_trace_event[0], 1);
+    this->iss.top.traces.new_trace_event("pcer_instr", &this->iss.timing.pcer_trace_event[1], 1);
+    this->iss.top.traces.new_trace_event("pcer_ld_stall", &this->iss.timing.pcer_trace_event[2], 1);
+    this->iss.top.traces.new_trace_event("pcer_jmp_stall", &this->iss.timing.pcer_trace_event[3], 1);
+    this->iss.top.traces.new_trace_event("pcer_imiss", &this->iss.timing.pcer_trace_event[4], 1);
+    this->iss.top.traces.new_trace_event("pcer_ld", &this->iss.timing.pcer_trace_event[5], 1);
+    this->iss.top.traces.new_trace_event("pcer_st", &this->iss.timing.pcer_trace_event[6], 1);
+    this->iss.top.traces.new_trace_event("pcer_jump", &this->iss.timing.pcer_trace_event[7], 1);
+    this->iss.top.traces.new_trace_event("pcer_branch", &this->iss.timing.pcer_trace_event[8], 1);
+    this->iss.top.traces.new_trace_event("pcer_taken_branch", &this->iss.timing.pcer_trace_event[9], 1);
+    this->iss.top.traces.new_trace_event("pcer_rvc", &this->iss.timing.pcer_trace_event[10], 1);
+    this->iss.top.traces.new_trace_event("pcer_ld_ext", &this->iss.timing.pcer_trace_event[11], 1);
+    this->iss.top.traces.new_trace_event("pcer_st_ext", &this->iss.timing.pcer_trace_event[12], 1);
+    this->iss.top.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.timing.pcer_trace_event[13], 1);
+    this->iss.top.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
+    this->iss.top.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
 
 
-    this->mhartid = (this->iss.get_config_int("cluster_id") << 5) | this->iss.get_config_int("core_id");
-    this->misa = this->iss.get_js_config()->get_int("misa");
+    this->mhartid = (this->iss.top.get_config_int("cluster_id") << 5) | this->iss.top.get_config_int("core_id");
+    this->misa = this->iss.top.get_js_config()->get_int("misa");
 
 
 }

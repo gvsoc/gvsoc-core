@@ -418,6 +418,56 @@ bool vp::time_engine::enqueue(time_engine_client *client, int64_t time)
     return true;
 }
 
+vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
+{
+    if (!event->enqueued)
+    {
+        if (this->permanent_first)
+        {
+            this->permanent_first->prev = event;
+        }
+        event->next = this->permanent_first;
+        event->prev = NULL;
+        event->enqueued = true;
+        event->cycle = -1;
+        event->stall_cycle = 0;
+
+        this->permanent_first = event;
+
+        if (!this->is_running() && this->period != 0)
+        {
+            this->enqueue_to_engine(this->period);
+        }
+    }
+
+    return event;
+}
+
+
+void vp::clock_engine::disable(vp::clock_event *event)
+{
+    if (event->enqueued)
+    {
+        event->enqueued = false;
+
+        if (event->prev)
+        {
+            event->prev->next = event->next;
+        }
+        else
+        {
+            this->permanent_first = event->next;
+        }
+
+        if (event->next)
+        {
+            event->next->prev = event->prev;
+        }
+        if (!this->has_events())
+            this->dequeue_from_engine();
+    }
+}
+
 bool vp::clock_engine::dequeue_from_engine()
 {
     if (this->is_running() || !this->is_enqueued)
@@ -487,57 +537,46 @@ void vp::clock_engine::update()
     {
         int64_t cycles = (diff + this->period - 1) / this->period;
         this->stop_time += cycles * this->period;
+
         this->cycles += cycles;
     }
 }
 
-vp::clock_event *vp::clock_engine::enqueue_other(vp::clock_event *event, int64_t cycle)
+vp::clock_event *vp::clock_engine::enqueue(vp::clock_event *event, int64_t cycle)
 {
-    // Slow case where the engine is not running or we must enqueue out of the
-    // circular buffer.
+    vp_assert(!event->enqueued, 0, "Enqueueing already enqueued event\n");
+    // vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
 
-    // First check if we have to enqueue it to the global time engine in case we
-    // were not running.
+    event->enqueued = true;
 
-    // Check if we can enqueue to the fast circular queue in case were not
-    // running.
-
-    // bool can_enqueue_to_cycle = false;
-    // if (!this->is_running())
-    // {
-    //     //this->current_cycle = (this->get_cycles() + 1) & CLOCK_EVENT_QUEUE_MASK;
-    //     //can_enqueue_to_cycle = this->current_cycle + cycle - 1 < CLOCK_EVENT_QUEUE_SIZE;
-    // }
-
-    // if (can_enqueue_to_cycle)
-    // {
-    //     //this->current_cycle = (this->get_cycles() + cycle) & CLOCK_EVENT_QUEUE_MASK;
-    //     this->enqueue_to_cycle(event, cycle - 1);
-    //     if (this->period != 0)
-    //         enqueue_to_engine(period);
-    // }
-    // else
+    // That should not be needed but in practice, lots of models are pushing from one
+    // clock engine to another without synchronizing, creating timing issues.
+    // This probably comes from models manipulating 2 clock domains at the same time.
+    if (unlikely(!this->is_running()))
     {
-        // this->must_flush_delayed_queue = true;
-        if (this->period != 0)
-        {
-            enqueue_to_engine(cycle * period);
-        }
-
-        vp::clock_event *current = delayed_queue, *prev = NULL;
-        int64_t full_cycle = cycle + get_cycles();
-        while (current && current->cycle < full_cycle)
-        {
-            prev = current;
-            current = current->next;
-        }
-        if (prev)
-            prev->next = event;
-        else
-            delayed_queue = event;
-        event->next = current;
-        event->cycle = full_cycle;
+        this->sync();
     }
+
+    if (this->period != 0)
+    {
+        enqueue_to_engine(cycle * period);
+    }
+
+    vp::clock_event *current = delayed_queue, *prev = NULL;
+    int64_t full_cycle = cycle + get_cycles();
+
+    while (current && current->cycle < full_cycle)
+    {
+        prev = current;
+        current = current->next;
+    }
+    if (prev)
+        prev->next = event;
+    else
+        delayed_queue = event;
+    event->next = current;
+    event->cycle = full_cycle;
+
     return event;
 }
 
@@ -629,30 +668,6 @@ end:
         this->dequeue_from_engine();
 }
 
-void vp::clock_engine::flush_delayed_queue()
-{
-    clock_event *event = delayed_queue;
-    this->must_flush_delayed_queue = false;
-    while (event)
-    {
-        if (nb_enqueued_to_cycle == 0 && this->permanent_first == NULL)
-        {
-            cycles = event->cycle;
-        }
-
-        uint64_t cycle_diff = event->cycle - get_cycles();
-        if (cycle_diff >= CLOCK_EVENT_QUEUE_SIZE)
-            break;
-
-        clock_event *next = event->next;
-
-        enqueue_to_cycle(event, cycle_diff);
-
-        event = next;
-        delayed_queue = event;
-    }
-}
-
 int64_t vp::clock_engine::exec()
 {
     vp_assert(this->has_events(), NULL, "Executing clock engine while it has no event\n");
@@ -660,25 +675,31 @@ int64_t vp::clock_engine::exec()
 
     this->cycles_trace.event_real(this->cycles);
 
-    // The clock engine has a circular buffer of events to be executed.
-    // Events longer than the buffer as put temporarly in a queue.
-    // Everytime we start again at the beginning of the buffer, we need
-    // to check if events must be enqueued from the queue to the buffer
-    // in case they fit the window.
-    // if (unlikely(this->must_flush_delayed_queue))
-    // {
-    //     this->flush_delayed_queue();
-    // }
-
     vp_assert(this->get_next_event(), NULL, "Executing clock engine while it has no next event\n");
 
     clock_event *current = this->permanent_first;
 
-    while(likely(current != NULL))
+    if (likely(current != NULL))
     {
-        clock_event *next = current->next;
-        current->meth(current->_this, current);
-        current = next;
+        this->cycles++;
+
+        while(likely(current != NULL))
+        {
+            clock_event *next = current->next;
+            if (likely(current->stall_cycle == 0))
+            {
+                current->meth(current->_this, current);
+            }
+            else
+            {
+                current->stall_cycle--;
+            }
+            current = next;
+        }
+    }
+    else
+    {
+        this->cycles = delayed_queue->cycle;
     }
 
     while (delayed_queue)
@@ -696,56 +717,10 @@ int64_t vp::clock_engine::exec()
 
     if (likely(this->permanent_first != NULL))
     {
-        cycles++;
-        return period;
-    }
-    else if (delayed_queue)
-    {
-        int64_t cycle_diff = delayed_queue->cycle - get_cycles();
-        int64_t time_diff = cycle_diff * period;
-        cycles += cycle_diff;
-        return time_diff;
-    }
-    else
-    {
-        return -1;
-    }
-
-    // Now take all events available at the current cycle and execute them all without returning
-    // to the main engine to execute them faster.
-    current = event_queue[current_cycle];
-
-    while (unlikely(current != NULL))
-    {
-        event_queue[current_cycle] = current->next;
-        current->enqueued = false;
-        nb_enqueued_to_cycle--;
-
-        current->meth(current->_this, current);
-        current = event_queue[current_cycle];
-    }
-
-    // Now we need to tell the time engine when is the next event.
-    // The most likely is that there is an event in the circular buffer,
-    // in which case we just return the clock period, as we will go through
-    // each element of the circular buffer, even if the next event is further in
-    // the buffer.
-    if (likely(nb_enqueued_to_cycle > 0 || this->permanent_first != NULL))
-    {
-        cycles++;
-        current_cycle = (current_cycle + 1) & CLOCK_EVENT_QUEUE_MASK;
-        if (unlikely(current_cycle == 0))
-            this->must_flush_delayed_queue = true;
-
         return period;
     }
     else
     {
-        // Otherwise if there is an event in the delayed queue, return the time
-        // to this event.
-        // In both cases, force the delayed queue flush so that the next event to be
-        // executed is moved to the circular buffer.
-        this->must_flush_delayed_queue = true;
 
         // Also remember the current time in order to resynchronize the clock engine
         // in case we enqueue and event from another engine.
@@ -753,12 +728,12 @@ int64_t vp::clock_engine::exec()
 
         if (delayed_queue)
         {
-            return (delayed_queue->cycle - get_cycles()) * period;
+            int64_t cycle_diff = delayed_queue->cycle - get_cycles();
+            int64_t time_diff = cycle_diff * period;
+            return time_diff;
         }
         else
         {
-            // In case there is no more event to execute, returns -1 to tell the time
-            // engine we are done.
             return -1;
         }
     }

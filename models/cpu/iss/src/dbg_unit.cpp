@@ -29,16 +29,16 @@ DbgUnit::DbgUnit(Iss &iss)
 
 void DbgUnit::build()
 {
-    iss.traces.new_trace("dbgunit", &this->trace, vp::DEBUG);
+    iss.top.traces.new_trace("dbgunit", &this->trace, vp::DEBUG);
 
     halt_itf.set_sync_meth(&DbgUnit::halt_sync);
-    this->iss.new_slave_port(this, "halt", &halt_itf);
+    this->iss.top.new_slave_port(this, "halt", &halt_itf);
 
-    this->iss.new_master_port("halt_status", &halt_status_itf);
+    this->iss.top.new_master_port("halt_status", &halt_status_itf);
 
-    this->iss.new_reg("do_step", &this->do_step, false);
+    this->iss.top.new_reg("do_step", &this->do_step, false);
 
-    this->riscv_dbg_unit = this->iss.get_js_config()->get_child_bool("riscv_dbg_unit");
+    this->riscv_dbg_unit = this->iss.top.get_js_config()->get_child_bool("riscv_dbg_unit");
 }
 
 void DbgUnit::debug_req()
@@ -64,11 +64,11 @@ void DbgUnit::set_halt_mode(bool halted, int cause)
 
         if (this->iss.exec.halted.get() && !halted)
         {
-            this->iss.get_clock()->release();
+            this->iss.top.get_clock()->release();
         }
         else if (!this->iss.exec.halted.get() && halted)
         {
-            this->iss.get_clock()->retain();
+            this->iss.top.get_clock()->retain();
         }
 
         this->iss.exec.halted.set(halted);

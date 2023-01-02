@@ -23,19 +23,9 @@
 
 #include "types.hpp"
 
-inline int Timing::stall_cycles_get()
-{
-    return this->stall_cycles;
-}
-
-inline void Timing::stall_cycles_dec()
-{
-    this->stall_cycles--;
-}
-
 inline void Timing::stall_cycles_account(int cycles)
 {
-    this->stall_cycles += cycles;
+    this->iss.exec.instr_event->stall_cycle_inc(cycles);
     this->event_account(CSR_PCER_CYCLES, cycles);
 }
 
@@ -47,7 +37,7 @@ inline void Timing::event_trace_account(unsigned int event, int cycles)
     if (this->pcer_trace_event[event].get_event_active())
     {
         // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
-        this->pcer_trace_event[event].event_pulse(cycles * this->iss.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+        this->pcer_trace_event[event].event_pulse(cycles * this->iss.top.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
     }
 }
 

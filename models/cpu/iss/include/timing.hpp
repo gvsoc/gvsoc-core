@@ -51,8 +51,6 @@ public:
     inline void event_trace_account(unsigned int event, int cycles);
     inline int event_trace_is_active(unsigned int event);
 
-    inline int stall_cycles_get();
-    inline void stall_cycles_dec();
     inline void stall_cycles_account(int incr);
 
     void reset(bool active);
@@ -62,7 +60,6 @@ public:
     void ipc_stat_trigger();
     void ipc_stat_stop();
 
-    // timing
     int ipc_stat_nb_insn;
     vp::trace ipc_stat_event;
     vp::clock_event *ipc_clock_event;
@@ -84,8 +81,6 @@ public:
 
 private:
     inline void event_account(unsigned int event, int incr);
-
-    int stall_cycles;
 
     Iss &iss;
 };

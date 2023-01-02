@@ -25,16 +25,27 @@
 #include <stdio.h>
 
 
-inline void Prefetcher::fetch(iss_insn_t *insn)
-{
-    void (*fetch_callback)(void *, iss_insn_t *) = insn->fetch_callback;
 
-    if (unlikely(fetch_callback != NULL))
+inline bool Prefetcher::fetch(iss_insn_t *insn)
+{
+    // Since an instruction can be 2 or 4 bytes, we need to be careful that only part of it can
+    // fit the buffer, so we have to check both the low part and the high part.
+
+    // Compute where the instructions address falls into the prefetch buffer
+    iss_addr_t addr = insn->addr;
+    unsigned int index = addr - this->buffer_start_addr;
+
+    // If it is entirely within the buffer, get the opcode and decode it.
+    if (likely(index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
     {
-        fetch_callback(this, insn);
-        insn->fetch_callback = insn->fetch_force_callback;
+        insn->opcode = *(iss_opcode_t *)&this->data[index];
+        return true;
     }
+
+    // Otherwise, fake a refill
+    return this->fetch_refill(insn, addr, index);
 }
+
 
 inline void Prefetcher::flush()
 {

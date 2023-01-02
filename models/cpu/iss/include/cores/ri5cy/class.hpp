@@ -38,23 +38,19 @@
 #include <prefetch/prefetch_single_line.hpp>
 #include <gdbserver.hpp>
 
+class IssWrapper;
 
-class Iss : public vp::component
+
+class Iss
 {
-
 public:
-    Iss(js::config *config);
-
-    int build();
-    void start();
-    void reset(bool active);
-    virtual void target_open();
+    Iss(vp::component &top);
 
     Exec exec;
+    Timing timing;
     Regfile regfile;
     Prefetcher prefetcher;
     Decode decode;
-    Timing timing;
     Irq irq;
     Gdbserver gdbserver;
     Lsu lsu;
@@ -66,4 +62,21 @@ public:
 
     iss_pulp_nn_t pulp_nn;
     iss_rnnext_t rnnext;
+
+    vp::component &top;
+};
+
+
+class IssWrapper : public vp::component
+{
+
+public:
+    IssWrapper(js::config *config);
+
+    int build();
+    void start();
+    void reset(bool active);
+    virtual void target_open();
+
+    Iss iss;
 };

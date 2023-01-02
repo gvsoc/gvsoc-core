@@ -99,6 +99,7 @@ inline void Exec::stalled_inc()
 {
     if (this->stalled.get() == 0)
     {
+        this->loop_count = 0;
         this->instr_event->disable();
     }
     this->stalled.inc(1);
@@ -143,7 +144,7 @@ inline void Exec::insn_exec_profiling()
 
 inline void Exec::insn_exec_power(iss_insn_t *insn)
 {
-    if (this->iss.power.get_power_trace()->get_active())
+    if (this->iss.top.power.get_power_trace()->get_active())
     {
         this->iss.timing.insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
     }

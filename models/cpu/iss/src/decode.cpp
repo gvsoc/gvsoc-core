@@ -32,10 +32,10 @@ Decode::Decode(Iss &iss)
 
 void Decode::build()
 {
-    iss.traces.new_trace("decoder", &this->trace, vp::DEBUG);
+    iss.top.traces.new_trace("decoder", &this->trace, vp::DEBUG);
     this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
-    this->iss.new_slave_port(this, "flush_cache", &this->flush_cache_itf);
-    string isa = this->iss.get_config_str("isa");
+    this->iss.top.new_slave_port(this, "flush_cache", &this->flush_cache_itf);
+    string isa = this->iss.top.get_config_str("isa");
     this->isa = strdup(isa.c_str());
     this->parse_isa();
     insn_cache_init(&this->iss);
@@ -371,18 +371,21 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
         insn->fast_handler = this->iss.exec.insn_trace_callback_get();
     }
 
-    unsigned int offset = insn->addr & (ISS_PREFETCHER_SIZE - 1);
-
-    if (offset == 0 || (offset == ISS_PREFETCHER_SIZE - 2 && insn->size == 4))
-    {
-        insn->fetch_force_callback = &Prefetcher::fetch_novalue;
-    }
-
     return insn;
 }
 
 iss_insn_t *iss_decode_pc_handler(Iss *iss, iss_insn_t *insn)
 {
+    if (!insn->fetched)
+    {
+        if (!iss->prefetcher.fetch(insn))
+        {
+            return insn;
+        }
+
+        insn->fetched = true;
+    }    
+
     return iss->exec.insn_exec(iss->decode.decode_pc(insn));
 }
 

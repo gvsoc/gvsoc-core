@@ -29,12 +29,12 @@ Gdbserver::Gdbserver(Iss &iss)
 
 void Gdbserver::build()
 {
-    this->iss.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
+    this->iss.top.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
 }
 
 void Gdbserver::start()
 {
-    this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
+    this->gdbserver = (vp::Gdbserver_engine *)this->iss.top.get_service("gdbserver");
 
     if (this->gdbserver)
     {
@@ -50,7 +50,7 @@ int Gdbserver::gdbserver_get_id()
 
 std::string Gdbserver::gdbserver_get_name()
 {
-    return this->iss.get_name();
+    return this->iss.top.get_name();
 }
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)

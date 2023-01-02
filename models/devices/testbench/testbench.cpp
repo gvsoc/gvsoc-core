@@ -64,7 +64,7 @@ void Uart_flow_control_checker::send_byte()
         }
     }
     else
-    {    
+    {
         this->uart->send_byte(this->rx_start);
         this->rx_start += this->rx_incr;
         this->rx_size--;
@@ -181,7 +181,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
                     int64_t cycles = (next_time - current_time + period - 1) / period;
 
                     // Randomize a bit
-                    cycles = cycles * (rand() % 100) / 100;
+                    cycles = cycles * (rand() % 100) / 100 + 1;
 
                     if (!this->bw_limiter_event->is_enqueued())
                     {

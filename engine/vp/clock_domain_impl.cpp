@@ -93,7 +93,7 @@ void clock_domain::pre_start()
 
 
 vp::clock_engine::clock_engine(js::config *config)
-  : vp::time_engine_client(config), cycles(0), period(0), freq(0), must_flush_delayed_queue(true)
+  : vp::time_engine_client(config), cycles(0), period(0), freq(0)
 {
   delayed_queue = NULL;
   for (int i=0; i<CLOCK_EVENT_QUEUE_SIZE; i++)

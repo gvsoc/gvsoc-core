@@ -65,12 +65,14 @@ public:
     inline void insn_exec_power(iss_insn_t *insn);
 
     iss_insn_t *current_insn;
+    size_t loop_count;
     vp::reg_64 stalled;
 
     vp::trace trace;
     vp::clock_event *instr_event;
 
     static void exec_instr(void *__this, vp::clock_event *event);
+    static void exec_instr_untimed(void *__this, vp::clock_event *event);
     static void exec_instr_check_all(void *__this, vp::clock_event *event);
 
     vp::reg_32 bootaddr_reg;

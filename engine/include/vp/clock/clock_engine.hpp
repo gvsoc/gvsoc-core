@@ -50,37 +50,11 @@ namespace vp {
 
     inline clock_event *reenqueue_ext(clock_event *event, int64_t cycles);
 
-    inline clock_event *enable(clock_event *event);
+    clock_event *enable(clock_event *event);
 
-    inline void disable(clock_event *event);
+    void disable(clock_event *event);
 
-    inline clock_event *enqueue(clock_event *event, int64_t cycles)
-    {
-      vp_assert(!event->enqueued, 0, "Enqueueing already enqueued event\n");
-      vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
-
-      event->enqueued = true;
-
-      // That should not be needed but in practice, lots of models are pushing from one
-      // clock engine to another without synchronizing, creating timing issues.
-      // This probably comes from models manipulating 2 clock domains at the same time.
-      if (unlikely(!this->is_running()))
-      {
-        this->sync();
-      }
-
-      // The event is enqueued directly into the circular buffer if it is
-      // close enough.
-      if (0) //likely(is_running() && cycles < CLOCK_EVENT_QUEUE_SIZE))
-      {
-        enqueue_to_cycle(event, cycles);
-      }
-      else
-      {
-        enqueue_other(event, cycles);
-      }
-      return event;
-    }
+    clock_event *enqueue(clock_event *event, int64_t cycles);
 
     inline clock_event *enqueue_ext(clock_event *event, int64_t cycles)
     {
@@ -134,21 +108,6 @@ namespace vp {
 
   protected:
 
-    void flush_delayed_queue();
-
-    inline void enqueue_to_cycle(clock_event *event, int64_t cycles)
-    {
-      // The position of one round of the circular buffer is always aligned
-      // on the buffer size.
-      int cycle = (current_cycle + cycles) & CLOCK_EVENT_QUEUE_MASK;
-      event->next = event_queue[cycle];
-      event_queue[cycle] = event;
-      nb_enqueued_to_cycle++;
-      event->cycle = cycles + get_cycles();
-    }
-
-    clock_event *enqueue_other(clock_event *event, int64_t cycles);
-
     clock_event *event_queue[CLOCK_EVENT_QUEUE_SIZE];
     clock_event *delayed_queue = NULL;
     clock_event *permanent_first = NULL;
@@ -173,8 +132,6 @@ namespace vp {
     // to recompute the numer of cycles when the engine is updated by an
     // external event.
     int64_t stop_time = 0;
-
-    bool must_flush_delayed_queue;
 
     vp::trace cycles_trace;
   };    

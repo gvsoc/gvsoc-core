@@ -59,8 +59,6 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->next = NULL;
     insn->hwloop_handler = NULL;
     insn->fetched = false;
-    insn->fetch_force_callback = NULL;
-    insn->fetch_callback = &Prefetcher::fetch_value;
     insn->input_latency_reg = -1;
 }
 
@@ -82,9 +80,11 @@ void iss_cache_flush(Iss *iss)
     iss_addr_t stall_addr = 0;
     iss_addr_t prefetch_addr = 0;
     iss_addr_t hwloop_end_addr[2] = {0};
+    bool fetched = false;
 
     if (iss->exec.current_insn)
     {
+        fetched = iss->exec.current_insn->fetched;
         opcode = iss->exec.current_insn->opcode;
         current_addr = iss->exec.current_insn->addr;
     }
@@ -114,9 +114,12 @@ void iss_cache_flush(Iss *iss)
     if (iss->exec.current_insn)
     {
         iss->exec.current_insn = insn_cache_get(iss, current_addr);
-        iss->exec.current_insn->opcode = opcode;
-        iss->exec.current_insn->fetched = true;
-        iss->decode.decode_pc(iss->exec.current_insn);
+        if (fetched)
+        {
+            iss->exec.current_insn->opcode = opcode;
+            iss->exec.current_insn->fetched = true;
+            iss->decode.decode_pc(iss->exec.current_insn);
+        }
     }
 
     if (iss->exec.stall_insn)

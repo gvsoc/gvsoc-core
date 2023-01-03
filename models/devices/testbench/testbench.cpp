@@ -161,7 +161,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
             {
                 this->status = 1;
                 this->trace.msg(vp::trace::LEVEL_DEBUG, "Received unexpected byte (value: 0x%x, expected: 0x%x)\n",
-                    this->tx_value & 0xFF, byte);
+                    byte, this->tx_value & 0xFF);
             }
             this->tx_value += this->tx_incr;
 
@@ -478,7 +478,7 @@ void Uart::uart_sampling_handler(void *__this, vp::clock_event *event)
 
     if (_this->uart_sampling_tx)
     {
-        _this->clock->enqueue(_this->uart_sampling_event, 2);
+        _this->clock->enqueue(_this->uart_sampling_event, 2*10);
     }
 }
 
@@ -642,11 +642,11 @@ void Uart::uart_start_tx_sampling(int baudrate)
 
     // We set the frequency to twice the baudrate to be able sampling in the
     // middle of the cycle
-    this->clock_cfg.set_frequency(this->baudrate*2);
+    this->clock_cfg.set_frequency(this->baudrate*2*10);
 
     this->uart_sampling_tx = 1;
 
-    this->clock->reenqueue(this->uart_sampling_event, 3);
+    this->clock->reenqueue(this->uart_sampling_event, 3*10);
 }
 
 

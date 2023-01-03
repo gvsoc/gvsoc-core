@@ -46,9 +46,9 @@ namespace vp {
 
     void apply_frequency(int frequency);
     
-    inline clock_event *reenqueue(clock_event *event, int64_t cycles);
+    clock_event *reenqueue(clock_event *event, int64_t cycles);
 
-    inline clock_event *reenqueue_ext(clock_event *event, int64_t cycles);
+    clock_event *reenqueue_ext(clock_event *event, int64_t cycles);
 
     clock_event *enable(clock_event *event);
 
@@ -137,27 +137,5 @@ namespace vp {
   };    
 
 };
-
-
-inline vp::clock_event *vp::clock_engine::reenqueue(vp::clock_event *event, int64_t enqueue_cycles)
-{
-  int64_t cycles = this->cycles + enqueue_cycles;
-  if (event->is_enqueued())
-  {
-    if (cycles >= event->get_cycle()) return event;
-    cancel(event);
-
-  }
-  enqueue(event, enqueue_cycles);
-  event->cycle = cycles;
-
-  return event;
-}
-
-inline vp::clock_event *vp::clock_engine::reenqueue_ext(vp::clock_event *event, int64_t enqueue_cycles)
-{
-  this->sync();
-  return this->reenqueue(event, enqueue_cycles);
-}
 
 #endif

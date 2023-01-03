@@ -67,7 +67,7 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::qspim_slave *itf, pi_testbe
 
     if (config->is_master)
     {
-        this->enqueue_to_engine(1);
+        this->enqueue_to_engine(this->get_time() + 1);
         this->init_pads = true;
     }
 
@@ -612,7 +612,7 @@ void Spim_verif::spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config)
     this->is_enqueued = 1;
     this->handle_wakeup = true;
     this->reload_spi = config->spi_reload;
-    this->enqueue_to_engine(config->delay);
+    this->enqueue_to_engine(this->get_time() + config->delay);
 }
 
 
@@ -903,7 +903,7 @@ void Spim_verif::enqueue_transfer(int address, int size, int is_rx, int is_duple
     if (!this->is_enqueued)
     {
         this->is_enqueued = true;
-        this->enqueue_to_engine(this->slave_period);
+        this->enqueue_to_engine(this->get_time() + this->slave_period);
     }
 }
 

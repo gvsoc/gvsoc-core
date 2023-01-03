@@ -11,6 +11,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/trace/vcd.cpp"
     "src/clock/clock.cpp"
     "src/clock/clock_engine.cpp"
+    "src/clock/clock_event.cpp"
     "src/vp.cpp"
     "src/block.cpp"
     "src/register.cpp"

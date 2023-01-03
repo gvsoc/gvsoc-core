@@ -86,6 +86,7 @@ int64_t Gvsoc_launcher::stop()
 
 int64_t Gvsoc_launcher::step(int64_t duration)
 {
+    printf("GV STEP\n");
     gv_step(this->handler, duration);
     return 0;
 }

@@ -63,6 +63,19 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
         }
         else
         {
+            // That should not be needed but in practice, lots of models are pushing from one
+            // clock engine to another without synchronizing, creating timing issues.
+            // This probably comes from models manipulating 2 clock domains at the same time.
+            if (unlikely(!this->is_running()))
+            {
+                this->sync();
+
+                if (this->period != 0 && !this->permanent_first)
+                {
+                    this->enqueue_to_engine(this->stop_time + this->period);
+                }
+            }
+
             if (this->permanent_first)
             {
                 this->permanent_first->prev = event;
@@ -73,11 +86,6 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
             event->cycle = -1;
 
             this->permanent_first = event;
-
-            if (!this->is_running() && this->period != 0)
-            {
-                this->enqueue_to_engine(this->period);
-            }
         }
     }
 
@@ -113,6 +121,10 @@ void vp::clock_engine::reenqueue_to_engine()
 
 void vp::clock_engine::apply_frequency(int frequency)
 {
+    // Update the number of cycles so that we update the event cycle only on the cycles after the frequency change
+    // TODO this is breaking benchmarks
+    // this->update();
+
     if (frequency > 0)
     {
         bool reenqueue = this->dequeue_from_engine();
@@ -124,7 +136,7 @@ void vp::clock_engine::apply_frequency(int frequency)
         if (reenqueue && period > 0)
         {
             int64_t cycles = (this->next_event_time - this->get_time()) / period;
-            this->next_event_time = cycles * this->period;
+            this->next_event_time = this->get_time() + cycles * this->period;
             this->reenqueue_to_engine();
         }
         else if (period == 0)
@@ -134,7 +146,7 @@ void vp::clock_engine::apply_frequency(int frequency)
             if (this->has_events())
             {
                 // Compute the time of the next event based on the new frequency
-                this->next_event_time = (this->get_next_event()->get_cycle() - this->get_cycles()) * this->period;
+                this->next_event_time = this->get_time() + (this->get_next_event()->get_cycle() - this->get_cycles()) * this->period;
 
                 this->reenqueue_to_engine();
             }
@@ -152,8 +164,6 @@ void vp::clock_engine::update()
     if (this->period == 0)
         return;
 
-    int64_t diff = this->get_time() - this->stop_time;
-
 #ifdef __VP_USE_SYSTEMC
     if ((int64_t)sc_time_stamp().to_double() > this->get_time())
         diff = (int64_t)sc_time_stamp().to_double() - this->stop_time;
@@ -161,11 +171,11 @@ void vp::clock_engine::update()
     engine->update((int64_t)sc_time_stamp().to_double());
 #endif
 
-    if (diff > 0)
+    if (this->stop_time + this->period <= this->get_time())
     {
-        int64_t cycles = (diff + this->period - 1) / this->period;
+        int64_t diff = this->get_time() - this->stop_time;
+        int64_t cycles = diff / this->period;
         this->stop_time += cycles * this->period;
-
         this->cycles += cycles;
     }
 }
@@ -183,11 +193,11 @@ vp::clock_event *vp::clock_engine::enqueue(vp::clock_event *event, int64_t cycle
     if (unlikely(!this->is_running()))
     {
         this->sync();
-    }
 
-    if (this->period != 0)
-    {
-        enqueue_to_engine(cycle * period);
+        if (this->period != 0 && !this->permanent_first)
+        {
+            enqueue_to_engine(this->stop_time + cycle * period);
+        }
     }
 
     vp::clock_event *current = delayed_queue, *prev = NULL;
@@ -386,4 +396,25 @@ int64_t vp::clock_engine::exec()
             return -1;
         }
     }
+}
+
+
+vp::clock_event *vp::clock_engine::reenqueue(vp::clock_event *event, int64_t enqueue_cycles)
+{
+  if (event->is_enqueued())
+  {
+    cancel(event);
+  }
+
+  enqueue(event, enqueue_cycles);
+
+  return event;
+}
+
+
+
+vp::clock_event *vp::clock_engine::reenqueue_ext(vp::clock_event *event, int64_t enqueue_cycles)
+{
+  this->sync();
+  return this->reenqueue(event, enqueue_cycles);
 }

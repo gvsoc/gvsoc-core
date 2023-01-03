@@ -566,7 +566,7 @@ void I2s_verif::start(pi_testbench_i2s_verif_start_config_t *config)
 
     if (this->clk_active && this->is_ext_clk)
     {
-        this->enqueue_to_engine(this->clk_period);
+        this->enqueue_to_engine(this->get_time() + this->clk_period);
     }
 }
 
@@ -1255,7 +1255,7 @@ int64_t Slot::exec()
 void Slot::pdm_get()
 {
     this->close = true;
-    this->enqueue_to_engine(4000);
+    this->enqueue_to_engine(this->get_time() + 4000);
 }
 
 

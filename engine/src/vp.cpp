@@ -373,11 +373,9 @@ bool vp::time_engine::dequeue(time_engine_client *client)
     return true;
 }
 
-bool vp::time_engine::enqueue(time_engine_client *client, int64_t time)
+bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
 {
-    vp_assert(time >= 0, NULL, "Time must be positive\n");
-
-    int64_t full_time = this->get_time() + time;
+    vp_assert(full_time >= 0, NULL, "Time must be positive\n");
 
 #ifdef __VP_USE_SYSTEMC
     // Notify to the engine that something has been pushed in case it is done
@@ -416,26 +414,6 @@ bool vp::time_engine::enqueue(time_engine_client *client, int64_t time)
     client->next = current;
 
     return true;
-}
-
-vp::clock_event::clock_event(component_clock *comp, clock_event_meth_t *meth)
-    : comp(comp), _this((void *)static_cast<vp::component *>((vp::component_clock *)(comp))), meth(meth),
-    enqueued(false), stall_cycle(0)
-{
-    comp->add_clock_event(this);
-    this->clock = comp->get_clock();
-}
-
-vp::clock_event::clock_event(component_clock *comp, void *_this, clock_event_meth_t *meth)
-: comp(comp), _this(_this), meth(meth), enqueued(false), stall_cycle(0)
-{
-    comp->add_clock_event(this);
-    this->clock = comp->get_clock();
-}
-
-vp::clock_event::~clock_event()
-{
-    comp->remove_clock_event(this);
 }
 
 void vp::component_clock::add_clock_event(clock_event *event)
@@ -1691,7 +1669,7 @@ vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
     event->next = current;
     event->time = full_time;
 
-    this->enqueue_to_engine(time);
+    this->enqueue_to_engine(this->get_time() + time);
 
     return event;
 }

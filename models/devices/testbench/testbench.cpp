@@ -160,6 +160,8 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
             if (byte != (this->tx_value & 0xFF))
             {
                 this->status = 1;
+                this->trace.msg(vp::trace::LEVEL_DEBUG, "Received unexpected byte (value: 0x%x, expected: 0x%x)\n",
+                    this->tx_value & 0xFF, byte);
             }
             this->tx_value += this->tx_incr;
 

@@ -71,7 +71,6 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
             event->prev = NULL;
             event->enqueued = true;
             event->cycle = -1;
-            event->stall_cycle = 0;
 
             this->permanent_first = event;
 

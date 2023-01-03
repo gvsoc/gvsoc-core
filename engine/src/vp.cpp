@@ -427,15 +427,32 @@ vp::clock_event::clock_event(component_clock *comp, clock_event_meth_t *meth)
 }
 
 vp::clock_event::clock_event(component_clock *comp, void *_this, clock_event_meth_t *meth)
-: comp(comp), _this(_this), meth(meth), enqueued(false)
+: comp(comp), _this(_this), meth(meth), enqueued(false), stall_cycle(0)
 {
     comp->add_clock_event(this);
     this->clock = comp->get_clock();
 }
 
+vp::clock_event::~clock_event()
+{
+    comp->remove_clock_event(this);
+}
+
 void vp::component_clock::add_clock_event(clock_event *event)
 {
     this->events.push_back(event);
+}
+
+void vp::component_clock::remove_clock_event(clock_event *event)
+{
+    for (unsigned i=0; i<this->events.size(); ++i)
+    {
+        if (this->events[i] == event)
+        {
+            this->events.erase(this->events.begin() + i);
+            break;
+        }
+    }
 }
 
 vp::time_engine *vp::component::get_time_engine()

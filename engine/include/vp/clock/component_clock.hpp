@@ -82,6 +82,7 @@ namespace vp {
     inline time_engine *get_engine();
 
     void add_clock_event(clock_event *);
+    void remove_clock_event(clock_event *);
 
   protected:
     clock_engine *clock = NULL;

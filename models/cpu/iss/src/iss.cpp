@@ -64,6 +64,7 @@ void IssWrapper::start()
 void IssWrapper::reset(bool active)
 {
     this->iss.prefetcher.reset(active);
+    this->iss.csr.reset(active);
     this->iss.exec.reset(active);
     this->iss.irq.reset(active);
     this->iss.lsu.reset(active);

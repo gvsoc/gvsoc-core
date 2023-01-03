@@ -49,6 +49,8 @@ namespace vp {
 
     clock_event(component_clock *comp, void *_this, clock_event_meth_t *meth);
 
+    ~clock_event();
+
     inline int get_payload_size() { return CLOCK_EVENT_PAYLOAD_SIZE; }
     inline uint8_t *get_payload() { return payload; }
 

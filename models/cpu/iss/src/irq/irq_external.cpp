@@ -111,19 +111,19 @@ void Irq::wfi_handle()
     if (this->req_irq == -1)
     {
         this->iss.exec.wfi.set(true);
+        this->iss.exec.busy_exit();
         this->iss.exec.insn_stall();
     }
 }
 
 void Irq::elw_irq_unstall()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "%s %d\n", __FILE__, __LINE__);
-
     this->trace.msg("Interrupting pending elw\n");
     this->iss.exec.current_insn = this->iss.exec.elw_insn;
     // Keep the information that we interrupted it, so that features like HW loop
     // knows that the instruction is being replayed
     this->iss.exec.elw_interrupted = 1;
+    this->iss.exec.busy_enter();
 }
 
 void Irq::irq_req_sync(void *__this, int irq)
@@ -137,6 +137,7 @@ void Irq::irq_req_sync(void *__this, int irq)
     if (irq != -1 && _this->iss.exec.wfi.get())
     {
         _this->iss.exec.wfi.set(false);
+        _this->iss.exec.busy_enter();
         _this->iss.exec.stalled_dec();
         _this->iss.exec.insn_terminate();
     }

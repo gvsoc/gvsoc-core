@@ -59,14 +59,12 @@ void Exec::build()
     this->iss.top.new_reg("bootaddr", &this->bootaddr_reg, this->iss.top.get_config_int("boot_addr"));
 
     this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.top.get_js_config()->get("fetch_enable")->get_bool());
-    this->iss.top.new_reg("is_active", &this->is_active_reg, false);
     this->iss.top.new_reg("stalled", &this->stalled, false);
     this->iss.top.new_reg("wfi", &this->wfi, false);
 
     instr_event = this->iss.top.event_new(&this->iss, Exec::exec_instr_check_all);
 
     this->bootaddr_offset = this->iss.top.get_config_int("bootaddr_offset");
-    this->is_active_reg.set(false);
 
 
     this->current_insn = NULL;
@@ -244,11 +242,13 @@ void Exec::fetchen_sync(void *__this, bool active)
     {
         _this->stalled_dec();
         _this->pc_set(_this->bootaddr_reg.get() + _this->bootaddr_offset);
+        _this->busy_enter();
     }
     else if (old_val && !active)
     {
         // In case of a falling edge, stall the core to prevent him from executing
         _this->stalled_inc();
+        _this->busy_exit();
     }
 }
 

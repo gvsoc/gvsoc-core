@@ -684,6 +684,7 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_addr_t addr, i
         else
         {
             iss->lsu.elw_stalled.set(true);
+            iss->exec.busy_exit();
         }
     }
 }

@@ -59,6 +59,9 @@ public:
     inline bool can_switch_to_fast_mode();
     inline void switch_to_full_mode();
 
+    inline void busy_enter();
+    inline void busy_exit();
+
     void dbg_unit_step_check();
 
     inline void insn_exec_profiling();
@@ -77,7 +80,6 @@ public:
 
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
-    vp::reg_1 is_active_reg;
     vp::reg_1 wfi;
     vp::reg_1 busy;
     int bootaddr_offset;

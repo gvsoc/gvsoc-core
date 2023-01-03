@@ -198,6 +198,7 @@ void Lsu::elw_resume(Lsu *lsu)
     // Clear pending elw to not replay it when the next interrupt occurs
     lsu->iss.exec.elw_insn = NULL;
     lsu->elw_stalled.set(false);
+    lsu->iss.exec.busy_enter();
 }
 
 void Lsu::load_signed_resume(Lsu *lsu)

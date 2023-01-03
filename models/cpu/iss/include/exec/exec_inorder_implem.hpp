@@ -136,10 +136,6 @@ inline void Exec::insn_exec_profiling()
     {
         this->iss.trace.dump_debug_traces();
     }
-    if (this->iss.timing.ipc_stat_event.get_event_active())
-    {
-        this->iss.timing.ipc_stat_nb_insn++;
-    }
 }
 
 inline void Exec::insn_exec_power(iss_insn_t *insn)
@@ -159,4 +155,29 @@ inline void Exec::switch_to_full_mode()
 inline bool Exec::clock_active_get()
 {
     return this->clock_active;
+}
+
+inline void Exec::busy_enter()
+{
+    uint8_t one = 1;
+    this->iss.timing.state_event.event(&one);
+    this->iss.exec.busy.set(1);
+    if (this->iss.exec.busy_itf.is_bound())
+    {
+        this->iss.exec.busy_itf.sync(1);
+    }
+}
+
+inline void Exec::busy_exit()
+{
+    this->iss.timing.state_event.event(NULL);
+    this->iss.exec.busy.release();
+    if (this->iss.exec.busy_itf.is_bound())
+    {
+        this->iss.exec.busy_itf.sync(0);
+    }
+    if (this->iss.timing.active_pc_trace_event.get_event_active())
+    {
+        this->iss.timing.active_pc_trace_event.event(NULL);
+    }
 }

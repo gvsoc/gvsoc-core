@@ -46,6 +46,7 @@ void DbgUnit::debug_req()
     this->iss.irq.req_debug = true;
     this->iss.exec.switch_to_full_mode();
     this->iss.exec.wfi.set(false);
+    this->iss.exec.busy_enter();
 }
 
 void DbgUnit::set_halt_mode(bool halted, int cause)

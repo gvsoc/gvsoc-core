@@ -55,15 +55,7 @@ public:
 
     void reset(bool active);
 
-    static void ipc_stat_handler(void *__this, vp::clock_event *event);
-    void ipc_start_gen(bool pulse = false);
-    void ipc_stat_trigger();
-    void ipc_stat_stop();
-
-    int ipc_stat_nb_insn;
-    vp::trace ipc_stat_event;
     vp::clock_event *ipc_clock_event;
-    int ipc_stat_delay;
     vp::trace state_event;
     vp::trace pc_trace_event;
     vp::trace active_pc_trace_event;

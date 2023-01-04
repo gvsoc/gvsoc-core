@@ -73,6 +73,7 @@ namespace vp {
     inline void meth_set(void *_this, clock_event_meth_t *meth) { this->_this = _this; this->meth = meth; }
 
     inline void stall_cycle_inc(int64_t inc) { this->stall_cycle += inc; }
+    inline int64_t stall_cycle_get() { return this->stall_cycle; }
 
   private:
     uint8_t payload[CLOCK_EVENT_PAYLOAD_SIZE];

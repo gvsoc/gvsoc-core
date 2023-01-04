@@ -54,6 +54,7 @@ inline iss_insn_callback_t Exec::insn_stalled_fast_callback_get()
 inline void Exec::insn_stall()
 {
     this->stall_insn = this->current_insn;
+    this->iss.timing.insn_stall_start();
     this->stalled_inc();
 }
 

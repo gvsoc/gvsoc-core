@@ -62,7 +62,6 @@ public:
     // lsu
     vp::io_master data;
     vp::io_req io_req;
-    int64_t wakeup_latency;
     int misaligned_size;
     uint8_t *misaligned_data;
     iss_addr_t misaligned_addr;

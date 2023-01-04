@@ -26,7 +26,6 @@ void Lsu::reset(bool active)
 {
     if (active)
     {
-        this->wakeup_latency = 0;
         this->elw_stalled.set(false);
     }
 }
@@ -91,7 +90,6 @@ void Lsu::data_response(void *__this, vp::io_req *req)
 
     _this->trace.msg("Received data response (stalled: %d)\n", iss->exec.stalled.get());
 
-    _this->wakeup_latency = req->get_latency();
     if (_this->misaligned_access.get())
     {
         _this->misaligned_access.set(false);
@@ -99,6 +97,7 @@ void Lsu::data_response(void *__this, vp::io_req *req)
     else
     {
         // First call the ISS to finish the instruction
+        _this->iss.timing.stall_load_account(req->get_latency());
         _this->stall_callback(&iss->lsu);
         iss->exec.insn_terminate();
     }
@@ -120,6 +119,7 @@ void Lsu::exec_misaligned(void *__this, vp::clock_event *event)
     {
         iss->trace.dump_trace_enabled = true;
         iss->exec.insn_terminate();
+        iss->timing.cycle_account();
         if (_this->io_req.get_latency() > 0)
         {
             iss->timing.stall_load_account(_this->io_req.get_latency());

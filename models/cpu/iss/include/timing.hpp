@@ -38,6 +38,9 @@ public:
     inline void stall_misaligned_account();
     inline void stall_load_account(int cycles);
     inline void insn_account();
+    inline void cycle_account();
+    inline void insn_stall_start();
+    inline void insn_stall_stop();
 
     inline void event_load_account(int incr);
     inline void event_rvc_account(int incr);
@@ -49,6 +52,8 @@ public:
     inline void event_insn_contention_account(int incr);
 
     inline void event_trace_account(unsigned int event, int cycles);
+    inline void event_trace_set(unsigned int event);
+    inline void event_trace_reset(unsigned int event);
     inline int event_trace_is_active(unsigned int event);
 
     inline void stall_cycles_account(int incr);

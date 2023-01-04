@@ -26,7 +26,6 @@
 inline void Timing::stall_cycles_account(int cycles)
 {
     this->iss.exec.instr_event->stall_cycle_inc(cycles);
-    this->event_account(CSR_PCER_CYCLES, cycles);
 }
 
 inline void Timing::event_trace_account(unsigned int event, int cycles)
@@ -38,6 +37,26 @@ inline void Timing::event_trace_account(unsigned int event, int cycles)
     {
         // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
         this->pcer_trace_event[event].event_pulse(cycles * this->iss.top.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+    }
+}
+
+inline void Timing::event_trace_set(unsigned int event)
+{
+    static uint64_t one = 1;
+
+    if (this->pcer_trace_event[event].get_event_active())
+    {
+        this->pcer_trace_event[event].event((uint8_t *)&one);
+    }
+}
+
+inline void Timing::event_trace_reset(unsigned int event)
+{
+    static uint64_t zero = 0;
+
+    if (this->pcer_trace_event[event].get_event_active())
+    {
+        this->pcer_trace_event[event].event((uint8_t *)&zero);
     }
 }
 
@@ -98,10 +117,29 @@ inline void Timing::event_insn_contention_account(int incr)
     this->event_account(CSR_PCER_INSN_CONT, incr);
 }
 
+inline void Timing::insn_stall_start()
+{
+    this->event_trace_set(CSR_PCER_CYCLES);
+}
+
+inline void Timing::insn_stall_stop()
+{
+    this->event_trace_reset(CSR_PCER_CYCLES);
+}
+
+inline void Timing::cycle_account()
+{
+    this->event_account(CSR_PCER_CYCLES, 1);
+}
+
 inline void Timing::insn_account()
 {
     this->event_account(CSR_PCER_INSTR, 1);
-    this->event_account(CSR_PCER_CYCLES, 1);
+    int64_t stall_cycles = this->iss.exec.instr_event->stall_cycle_get();
+    if (stall_cycles >= 0)
+    {
+        this->event_account(CSR_PCER_CYCLES, 1 + stall_cycles);
+    }
 
 #if defined(ISS_HAS_PERF_COUNTERS)
     for (int i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)

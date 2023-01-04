@@ -112,7 +112,7 @@ void Irq::wfi_handle()
     {
         this->iss.exec.wfi.set(true);
         this->iss.exec.busy_exit();
-        this->iss.exec.insn_stall();
+        this->iss.exec.stalled_inc();
     }
 }
 

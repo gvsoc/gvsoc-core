@@ -19,7 +19,6 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -78,10 +77,16 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
 
             if (this->permanent_first)
             {
+                event->next = this->permanent_first;
+                event->prev = this->permanent_first->prev;
+                this->permanent_first->prev->next = event;
                 this->permanent_first->prev = event;
             }
-            event->next = this->permanent_first;
-            event->prev = NULL;
+            else
+            {
+                event->next = event;
+                event->prev = event;
+            }
             event->enqueued = true;
             event->cycle = -1;
 
@@ -91,7 +96,6 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
 
     return event;
 }
-
 
 void vp::clock_engine::disable(vp::clock_event *event)
 {
@@ -297,7 +301,7 @@ void vp::clock_engine::cancel(vp::clock_event *event)
     }
 
     // TODO some models are pushing events to a different one that that they belong to
-    //vp_assert(0, NULL, "Didn't find event in any queue while canceling event\n");
+    // vp_assert(0, NULL, "Didn't find event in any queue while canceling event\n");
 
 end:
     event->enqueued = false;
@@ -321,7 +325,7 @@ int64_t vp::clock_engine::exec()
     {
         this->cycles++;
 
-        while(likely(current != NULL))
+        do
         {
             clock_event *next = current->next;
             if (likely(current->stall_cycle == 0))
@@ -334,18 +338,20 @@ int64_t vp::clock_engine::exec()
                 {
                     current->stall_cycle = 0;
 
-                    if (current->prev)
-                    {
-                        current->prev->next = current->next;
-                    }
-                    else
-                    {
-                        this->permanent_first = current->next;
-                    }
+                    current->prev->next = current->next;
+                    current->next->prev = current->prev;
 
-                    if (current->next)
+                    if (this->permanent_first == current)
                     {
-                        current->next->prev = current->prev;
+                        if (current->next == current)
+                        {
+                            this->permanent_first = NULL;
+                            break;
+                        }
+                        else
+                        {
+                            this->permanent_first = current->next;
+                        }
                     }
                 }
                 else
@@ -354,6 +360,11 @@ int64_t vp::clock_engine::exec()
                 }
             }
             current = next;
+        } while (likely(current != this->permanent_first));
+
+        if (this->permanent_first)
+        {
+            this->permanent_first = this->permanent_first->next;
         }
     }
     else
@@ -398,23 +409,20 @@ int64_t vp::clock_engine::exec()
     }
 }
 
-
 vp::clock_event *vp::clock_engine::reenqueue(vp::clock_event *event, int64_t enqueue_cycles)
 {
-  if (event->is_enqueued())
-  {
-    cancel(event);
-  }
+    if (event->is_enqueued())
+    {
+        cancel(event);
+    }
 
-  enqueue(event, enqueue_cycles);
+    enqueue(event, enqueue_cycles);
 
-  return event;
+    return event;
 }
-
-
 
 vp::clock_event *vp::clock_engine::reenqueue_ext(vp::clock_event *event, int64_t enqueue_cycles)
 {
-  this->sync();
-  return this->reenqueue(event, enqueue_cycles);
+    this->sync();
+    return this->reenqueue(event, enqueue_cycles);
 }

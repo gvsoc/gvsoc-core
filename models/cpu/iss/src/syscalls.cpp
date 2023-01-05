@@ -479,7 +479,7 @@ void Syscalls::handle_riscv_ebreak()
                     {
                         iss_reg_t value;
                         iss_csr_read(&this->iss, CSR_PCCR(i), &value);
-                        fprintf(file, "%d; %s; %s; %" PRIxFULLREG "\n", i, this->pcer_info[i].name.c_str(), this->pcer_info[i].help.c_str(), value);
+                        fprintf(file, "%d; %s; %s; %" PRIdREG "\n", i, this->pcer_info[i].name.c_str(), this->pcer_info[i].help.c_str(), value);
                     }
                 }
 

@@ -38,6 +38,7 @@ public:
     inline void stall_misaligned_account();
     inline void stall_load_account(int cycles);
     inline void insn_account();
+    inline void insn_stall_account();
     inline void cycle_account();
     inline void insn_stall_start();
     inline void insn_stall_stop();

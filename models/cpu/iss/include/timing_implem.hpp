@@ -132,14 +132,25 @@ inline void Timing::cycle_account()
     this->event_account(CSR_PCER_CYCLES, 1);
 }
 
+inline void Timing::insn_stall_account()
+{
+    int64_t stall_cycles = this->iss.exec.instr_event->stall_cycle_get();
+    if (stall_cycles >= 0)
+    {
+        this->event_account(CSR_PCER_CYCLES, stall_cycles);
+    }
+}
+
 inline void Timing::insn_account()
 {
     this->event_account(CSR_PCER_INSTR, 1);
     int64_t stall_cycles = this->iss.exec.instr_event->stall_cycle_get();
+    int64_t cycles = 1;
     if (stall_cycles >= 0)
     {
-        this->event_account(CSR_PCER_CYCLES, 1 + stall_cycles);
+        cycles += stall_cycles;
     }
+    this->event_account(CSR_PCER_CYCLES, cycles);
 
 #if defined(ISS_HAS_PERF_COUNTERS)
     for (int i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)

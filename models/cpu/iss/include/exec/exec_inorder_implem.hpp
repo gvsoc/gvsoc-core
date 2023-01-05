@@ -70,6 +70,8 @@ inline void Exec::insn_terminate()
     {
         iss_trace_dump(&this->iss, this->stall_insn);
     }
+
+    this->iss.timing.insn_stall_account();
 }
 
 inline iss_insn_t *Exec::insn_exec(iss_insn_t *insn)

@@ -90,8 +90,12 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
 
         // Compute address of next line
         uint32_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
+        // Number of bytes of the opcode which fits the first line
+        int nb_bytes = next_addr - addr;
+        int nb_bits = nb_bytes * 8;
+        uint32_t mask = ((1ULL << (nb_bytes*8)) - 1);
         // Copy first part from first line
-        opcode = *(iss_opcode_t *)&this->data[index] & 0xffff;
+        opcode = *(iss_opcode_t *)&this->data[index] & mask;
         // Fetch next line
         if (this->fill(next_addr))
         {
@@ -103,7 +107,7 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
         }
         // If the refill is received now, append the second part from second line to the previous opcode
         // and decode it
-        opcode = (opcode  & 0xffff) | ((*(iss_opcode_t *)&this->data[0]) << 16);
+        opcode = (opcode  & mask) | ((*(iss_opcode_t *)&this->data[0]) << (nb_bytes*8));
 
         insn->opcode = opcode;
     }

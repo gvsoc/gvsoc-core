@@ -162,7 +162,14 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
                 insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
-                insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
+                if (darg->u.reg.id == 0)
+                {
+                    insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_store_ref(arg->u.reg.index);
+                }
+                else
+                {
+                    insn->out_regs_ref[darg->u.reg.id] = &null_reg;
+                }
             }
 
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)

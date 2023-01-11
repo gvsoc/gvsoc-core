@@ -421,6 +421,7 @@ static bool sip_write(Iss *iss, unsigned int value)
     return false;
 }
 
+#if defined(CONFIG_GVSOC_ISS_MMU)
 static bool satp_read(Iss *iss, iss_reg_t *value)
 {
     //*value = iss->sptbr;
@@ -433,6 +434,7 @@ static bool satp_write(Iss *iss, unsigned int value)
     // sim_setPgtab(iss, value);
     return false;
 }
+#endif
 
 /*
  *   MACHINE CSRS
@@ -1475,9 +1477,11 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
 
     // Supervisor protection and translation
+#if defined(CONFIG_GVSOC_ISS_MMU)
     case 0x180:
         status = satp_read(iss, value);
         break;
+#endif
 
     // Machine information registers
     case 0xF11:
@@ -1941,6 +1945,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 
         else
         {
+            iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
 #if 0
       triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);
 #endif
@@ -2028,6 +2033,10 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return sip_write(iss, value);
 
     // Supervisor protection and translation
+#if defined(CONFIG_GVSOC_ISS_MMU)
+    case 0x180:
+        return satp_write(iss, value);
+#endif
 
     // Machine trap setup
     case 0x300:
@@ -2124,6 +2133,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     }
 #endif
 
+    iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
 #if 0
   triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);
 #endif

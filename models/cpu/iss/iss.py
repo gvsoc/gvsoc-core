@@ -71,7 +71,8 @@ class Iss(st.Component):
             cluster_id: int=0,
             core_id: int=0,
             fetch_enable: bool=False,
-            boot_addr: int=0):
+            boot_addr: int=0,
+            mmu: bool=False):
 
         super(Iss, self).__init__(parent, name)
 
@@ -94,6 +95,9 @@ class Iss(st.Component):
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
         })
+
+        if mmu:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU'])
 
 
     def gen_gtkw(self, tree, comp_traces):

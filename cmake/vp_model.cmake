@@ -235,7 +235,7 @@ function(vp_model)
         set(VP_MODEL_NAME_SV "${VP_MODEL_NAME}_sv")
         set(VP_MODEL_NAME_OPTIM_M32 "${VP_MODEL_NAME}_optim_m32")
         set(VP_MODEL_NAME_DEBUG_M32 "${VP_MODEL_NAME}_debug_m32")
- 
+
         # ==================
         # Optimized models
         # ==================
@@ -386,6 +386,14 @@ function(vp_model)
                 RENAME "${RENAME_SV_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                 )
         endif()
+
+        if (NOT "${CONFIG_CFLAGS_${VP_MODEL_NAME}}" STREQUAL "")
+            foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
+                set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
+                target_compile_options(${VP_MODEL_NAME_TYPE} PRIVATE ${CONFIG_CFLAGS_${VP_MODEL_NAME}})
+            endforeach()
+        endif()
+
     endif()
 endfunction()
 

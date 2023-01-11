@@ -110,6 +110,7 @@ class Component(object):
         self.vcd_group_closed = True
         self.component = None
         self.interfaces = []
+        self.c_flags = []
 
         if len(options) > 0:
             options_list = []
@@ -399,13 +400,19 @@ class Component(object):
         with open(self.get_file_path(path), 'r') as fd:
             return json.load(fd)
 
+    def add_c_flags(self, flags):
+        self.c_flags += flags
+
     def set_component(self, name):
         self.component = name
         self.add_property('vp_component', name)
 
-    def get_component_list(self):
+    def get_component_list(self, c_flags=None):
         result = []
         
+        if c_flags is not None and len(self.c_flags) != 0:
+            c_flags[self.component] = self.c_flags
+
         if self.component is not None:
             result.append(self.component)
 
@@ -414,7 +421,7 @@ class Component(object):
             return final_list
 
         for child in self.components.values():
-            result = Union(result, child.get_component_list())
+            result = Union(result, child.get_component_list(c_flags))
 
         return result
 

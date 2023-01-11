@@ -300,17 +300,21 @@ class Runner(gapylib.target.Target, st.Component):
 
             component_list = []
 
+            c_flags = {}
+
             if self.get_args().component_file_append:
                 with open(self.get_args().component_file, "r") as file:
                     for comp_desc in file.readlines():
                         comp = comp_desc.replace('CONFIG_', '').replace('=1\n', '')
                         component_list.append(comp)
 
-            component_list += self.get_component_list() + ['vp.trace_domain_impl', 'vp.time_domain_impl', 'vp.power_domain_impl', 'utils.composite_impl']
+            component_list += self.get_component_list(c_flags) + ['vp.trace_domain_impl', 'vp.time_domain_impl', 'vp.power_domain_impl', 'utils.composite_impl']
 
             with open(self.get_args().component_file, "w") as file:
                 for comp in component_list:
                     file.write(f'CONFIG_{comp}=1\n')
+                for comp, c_flags_list in c_flags.items():
+                    file.write(f'CONFIG_CFLAGS_{comp}={" ".join(c_flags_list)}\n')
 
         else:
             gapylib.target.Target.handle_command(self, cmd)

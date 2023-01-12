@@ -41,7 +41,6 @@ void Csr::reset(bool active)
         this->stack_conf = 0;
         this->dcsr = 4 << 28;
         this->fcsr.frm = 0;
-        this->hwloop = false;
     }
 
 }

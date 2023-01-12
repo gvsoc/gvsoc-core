@@ -150,6 +150,6 @@ public:
     iss_reg_t stvec;
 
 
-    bool hwloop;
+    bool hwloop = false;
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 };

@@ -19,41 +19,37 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#pragma once
+#include "iss.hpp"
 
-#include <vp/vp.hpp>
-#include <types.hpp>
-
-class Irq
+Core::Core(Iss &iss)
+: iss(iss)
 {
-public:
-    Irq(Iss &iss);
+}
 
-    void build();
+void Core::build()
+{
+    this->iss.top.traces.new_trace("core", &this->trace, vp::DEBUG);
+}
 
-    void vector_table_set(iss_addr_t base);
-    inline void global_enable(int enable);
-    void cache_flush();
-    void reset(bool active);
-    int check();
-    void wfi_handle();
-    void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
+void Core::reset(bool active)
+{
+}
 
-    Iss &iss;
-    iss_insn_t *vectors[35];
-    int irq_enable;
-    int saved_irq_enable;
-    int debug_saved_irq_enable;
-    int req_irq;
-    bool req_debug;
-    uint32_t vector_base;
-    iss_insn_t *debug_handler;
-    vp::trace trace;
 
-    int irq_req;
-    int irq_req_value;
-    vp::wire_master<int> irq_ack_itf;
-    vp::wire_slave<int> irq_req_itf;
+iss_insn_t *Core::mret_handle()
+{
+    this->iss.exec.switch_to_full_mode();
+    this->iss.irq.irq_enable = this->iss.irq.saved_irq_enable;
+    this->iss.csr.mcause = 0;
 
-};
+    return insn_cache_get(&this->iss, this->iss.csr.mepc);
+}
+
+iss_insn_t *Core::dret_handle()
+{
+    this->iss.exec.switch_to_full_mode();
+    this->iss.irq.irq_enable = this->iss.irq.debug_saved_irq_enable;
+    this->iss.exec.debug_mode = 0;
+
+    return insn_cache_get(&this->iss, this->iss.csr.depc);
+}

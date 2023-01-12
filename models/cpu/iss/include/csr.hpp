@@ -48,6 +48,66 @@ typedef struct
     };
 } iss_fcsr_t;
 
+class Mstatus
+{
+    public:
+        union
+        {
+            iss_reg_t value;
+            struct
+            {
+#if ISS_REG_WIDTH == 64
+                unsigned int uie:1;
+                unsigned int sie:1;
+                unsigned int reserved0:1;
+                unsigned int mie:1;
+                unsigned int upie:1;
+                unsigned int spie:1;
+                unsigned int reserved1:1;
+                unsigned int mpie:1;
+                unsigned int spp:1;
+                unsigned int reserved2:2;
+                unsigned int mpp:2;
+                unsigned int fs:2;
+                unsigned int xs:2;
+                unsigned int mprv:1;
+                unsigned int sum:1;
+                unsigned int mxr:1;
+                unsigned int tvm:1;
+                unsigned int tw:1;
+                unsigned int tsr:1;
+                unsigned int reserved3:8;
+                unsigned int sd:1;
+#else
+                unsigned int uie:1;
+                unsigned int sie:1;
+                unsigned int reserved0:1;
+                unsigned int mie:1;
+                unsigned int upie:1;
+                unsigned int spie:1;
+                unsigned int reserved1:1;
+                unsigned int mpie:1;
+                unsigned int spp:1;
+                unsigned int reserved2:2;
+                unsigned int mpp:2;
+                unsigned int fs:2;
+                unsigned int xs:2;
+                unsigned int mprv:1;
+                unsigned int sum:1;
+                unsigned int mxr:1;
+                unsigned int tvm:1;
+                unsigned int tw:1;
+                unsigned int tsr:1;
+                unsigned int reserved3:9;
+                unsigned int uxl:2;
+                unsigned int sxl:2;
+                unsigned int reserved4:27;
+                unsigned int sd:1;
+#endif
+            };
+        };
+};
+
 
 class Csr
 {
@@ -63,12 +123,9 @@ public:
 
     vp::trace trace;
 
-    iss_reg_t status;
-    iss_reg_t epc;
+    Mstatus mstatus;
     iss_reg_t depc;
     iss_reg_t dcsr;
-    iss_reg_t mtvec;
-    iss_reg_t mcause;
 #if defined(ISS_HAS_PERF_COUNTERS)
     iss_reg_t pccr[32];
     iss_reg_t pcer;
@@ -80,9 +137,17 @@ public:
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_reg_t mscratch;
+    iss_reg_t sscratch;
     iss_fcsr_t fcsr;
     iss_reg_t misa;
     iss_reg_t mhartid;
+    iss_reg_t mepc;
+    iss_reg_t mcause;
+    iss_reg_t mtvec;
+    iss_reg_t sepc;
+    iss_reg_t scause;
+    iss_reg_t sie;
+    iss_reg_t stvec;
 
 
     bool hwloop;

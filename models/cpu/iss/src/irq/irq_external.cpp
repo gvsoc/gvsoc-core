@@ -64,24 +64,6 @@ void Irq::reset(bool active)
 }
 
 
-iss_insn_t *Irq::mret_handle()
-{
-    this->iss.exec.switch_to_full_mode();
-    this->iss.irq.irq_enable = this->iss.irq.saved_irq_enable;
-    this->iss.csr.mcause = 0;
-
-    return insn_cache_get(&this->iss, this->iss.csr.epc);
-}
-
-iss_insn_t *Irq::dret_handle()
-{
-    this->iss.exec.switch_to_full_mode();
-    this->iss.irq.irq_enable = this->iss.irq.debug_saved_irq_enable;
-    this->iss.exec.debug_mode = 0;
-
-    return insn_cache_get(&this->iss, this->iss.csr.depc);
-}
-
 void Irq::vector_table_set(iss_addr_t base)
 {
     this->trace.msg("Setting vector table (addr: 0x%x)\n", base);
@@ -169,7 +151,7 @@ int Irq::check()
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
-            this->iss.csr.epc = this->iss.exec.current_insn->addr;
+            this->iss.csr.mepc = this->iss.exec.current_insn->addr;
             this->saved_irq_enable = this->irq_enable;
             this->irq_enable = 0;
             this->req_irq = -1;

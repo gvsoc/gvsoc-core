@@ -24,36 +24,19 @@
 #include <vp/vp.hpp>
 #include <types.hpp>
 
-class Irq
+class Core
 {
 public:
-    Irq(Iss &iss);
+    Core(Iss &iss);
 
     void build();
-
-    void vector_table_set(iss_addr_t base);
-    inline void global_enable(int enable);
-    void cache_flush();
     void reset(bool active);
-    int check();
-    void wfi_handle();
-    void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
 
+    iss_insn_t *mret_handle();
+    iss_insn_t *dret_handle();
+
+private:
     Iss &iss;
-    iss_insn_t *vectors[35];
-    int irq_enable;
-    int saved_irq_enable;
-    int debug_saved_irq_enable;
-    int req_irq;
-    bool req_debug;
-    uint32_t vector_base;
-    iss_insn_t *debug_handler;
     vp::trace trace;
-
-    int irq_req;
-    int irq_req_value;
-    vp::wire_master<int> irq_ack_itf;
-    vp::wire_slave<int> irq_req_itf;
-
 };
+

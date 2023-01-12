@@ -34,6 +34,9 @@
 #include <timing.hpp>
 #include <regfile.hpp>
 #include <irq/irq_external.hpp>
+#include <core.hpp>
+#include <mmu.hpp>
+#include <pmp.hpp>
 #include <exec/exec_inorder.hpp>
 #include <prefetch/prefetch_single_line.hpp>
 #include <gdbserver.hpp>
@@ -48,6 +51,7 @@ public:
 
     Exec exec;
     Timing timing;
+    Core core;
     Regfile regfile;
     Prefetcher prefetcher;
     Decode decode;
@@ -58,6 +62,8 @@ public:
     Syscalls syscalls;
     Trace trace;
     Csr csr;
+    Mmu mmu;
+    Pmp pmp;
     Exception exception;
 
     iss_pulp_nn_t pulp_nn;

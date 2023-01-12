@@ -31,8 +31,9 @@ void Csr::reset(bool active)
     if (active)
     {
         memset(this->hwloop_regs, 0, sizeof(this->hwloop_regs));
-        this->status = 0x3 << 11;
+        this->mstatus.value = 0x3 << 11;
         this->mcause = 0;
+        this->scause = 0;
     #if defined(ISS_HAS_PERF_COUNTERS)
         this->pcmr = 0;
         this->pcer = 3;
@@ -326,26 +327,26 @@ static bool sideleg_write(Iss *iss, unsigned int value)
 
 static bool sie_read(Iss *iss, iss_reg_t *value)
 {
-    //*value = iss->ie[GVSIM_MODE_SUPERVISOR];
+    *value = iss->csr.sie;
     return false;
 }
 
 static bool sie_write(Iss *iss, unsigned int value)
 {
-    // iss->ie[GVSIM_MODE_SUPERVISOR] = value;
+    iss->csr.sie = value;
     // checkInterrupts(iss, 1);
     return false;
 }
 
 static bool stvec_read(Iss *iss, iss_reg_t *value)
 {
-    //*value = iss->tvec[GVSIM_MODE_SUPERVISOR];
+    *value = iss->csr.stvec;
     return false;
 }
 
 static bool stvec_write(Iss *iss, unsigned int value)
 {
-    // iss->tvec[GVSIM_MODE_SUPERVISOR] = value;
+    iss->csr.stvec = value;
     return false;
 }
 
@@ -363,37 +364,37 @@ static bool scounteren_write(Iss *iss, unsigned int value)
 
 static bool sscratch_read(Iss *iss, iss_reg_t *value)
 {
-    //*value = iss->scratch[GVSIM_MODE_SUPERVISOR];
+    *value = iss->csr.sscratch;
     return false;
 }
 
 static bool sscratch_write(Iss *iss, unsigned int value)
 {
-    // iss->scratch[GVSIM_MODE_SUPERVISOR] = value;
+    iss->csr.sscratch = value;
     return false;
 }
 
 static bool sepc_read(Iss *iss, iss_reg_t *value)
 {
-    //*value = iss->epc[GVSIM_MODE_SUPERVISOR];
+    *value = iss->csr.sepc;
     return false;
 }
 
 static bool sepc_write(Iss *iss, unsigned int value)
 {
-    // iss->epc[GVSIM_MODE_SUPERVISOR] = value;
+    iss->csr.sepc = value;
     return false;
 }
 
 static bool scause_read(Iss *iss, iss_reg_t *value)
 {
-    //*value = iss->cause[GVSIM_MODE_SUPERVISOR];
+    *value = iss->csr.scause;
     return false;
 }
 
 static bool scause_write(Iss *iss, unsigned int value)
 {
-    // iss->cause[GVSIM_MODE_SUPERVISOR] = value;
+    iss->csr.scause = value;
     return false;
 }
 
@@ -420,21 +421,6 @@ static bool sip_write(Iss *iss, unsigned int value)
     printf("WARNING UNIMPLEMENTED CSR: sip\n");
     return false;
 }
-
-#if defined(CONFIG_GVSOC_ISS_MMU)
-static bool satp_read(Iss *iss, iss_reg_t *value)
-{
-    //*value = iss->sptbr;
-    return false;
-}
-
-static bool satp_write(Iss *iss, unsigned int value)
-{
-    // iss->sptbr = value;
-    // sim_setPgtab(iss, value);
-    return false;
-}
-#endif
 
 /*
  *   MACHINE CSRS
@@ -477,7 +463,7 @@ static bool mhartid_read(Iss *iss, iss_reg_t *value)
 
 static bool mstatus_read(Iss *iss, iss_reg_t *value)
 {
-    *value = (iss->csr.status & ~(1 << 3)) | (iss->irq.irq_enable << 3) | (iss->irq.saved_irq_enable << 7);
+    *value = (iss->csr.mstatus.value & ~(1 << 3)) | (iss->irq.irq_enable << 3) | (iss->irq.saved_irq_enable << 7);
     return false;
 }
 
@@ -492,7 +478,7 @@ static bool mstatus_write(Iss *iss, unsigned int value)
     unsigned int mask = 0x88;
     unsigned int or_mask = 0x1800;
 #endif
-    iss->csr.status = (value & mask) | or_mask;
+    iss->csr.mstatus.value = (value & mask) | or_mask;
     iss->irq.global_enable((value >> 3) & 1);
     iss->irq.saved_irq_enable = (value >> 7) & 1;
     return false;
@@ -575,14 +561,14 @@ static bool mscratch_write(Iss *iss, unsigned int value)
 
 static bool mepc_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->csr.epc;
+    *value = iss->csr.mepc;
     return false;
 }
 
 static bool mepc_write(Iss *iss, unsigned int value)
 {
     iss->csr.trace.msg("Setting MEPC (value: 0x%x)\n", value);
-    iss->csr.epc = value & ~1;
+    iss->csr.mepc = value & ~1;
     return false;
 }
 
@@ -630,98 +616,6 @@ static bool mip_write(Iss *iss, unsigned int value)
 {
     // iss->ip[GVSIM_MODE_MACHINE] = value;
     // checkInterrupts(iss, 1);
-    return false;
-}
-
-static bool pmpcfg_read(Iss *iss, iss_reg_t *value, int id)
-{
-    return false;
-}
-
-static bool pmpcfg_write(Iss *iss, unsigned int value, int id)
-{
-    return false;
-}
-
-static bool pmpaddr_read(Iss *iss, iss_reg_t *value, int id)
-{
-    return false;
-}
-
-static bool pmpaddr_write(Iss *iss, unsigned int value, int id)
-{
-    return false;
-}
-
-static bool mbase_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mbase\n");
-    return false;
-}
-
-static bool mbase_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mbase\n");
-    return false;
-}
-
-static bool mbound_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mbound\n");
-    return false;
-}
-
-static bool mbound_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mbound\n");
-    return false;
-}
-
-static bool mibase_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mibase\n");
-    return false;
-}
-
-static bool mibase_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mibase\n");
-    return false;
-}
-
-static bool mibound_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mibound\n");
-    return false;
-}
-
-static bool mibound_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mibound\n");
-    return false;
-}
-
-static bool mdbase_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mdbase\n");
-    return false;
-}
-
-static bool mdbase_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mdbase\n");
-    return false;
-}
-
-static bool mdbound_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mdbound\n");
-    return false;
-}
-
-static bool mdbound_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mdbound\n");
     return false;
 }
 
@@ -1183,7 +1077,8 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 {
     bool status;
 
-    iss->csr.trace.msg("Reading CSR (reg: 0x%x)\n", reg);
+    iss->csr.trace.msg("Reading CSR (reg: 0x%x, name: %s)\n",
+        reg, iss_csr_name(iss, reg));
 
 #if 0
   // First check permissions
@@ -1479,7 +1374,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     // Supervisor protection and translation
 #if defined(CONFIG_GVSOC_ISS_MMU)
     case 0x180:
-        status = satp_read(iss, value);
+        status = iss->mmu.satp_read(value);
         break;
 #endif
 
@@ -1537,67 +1432,70 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = mip_read(iss, value);
         break;
 
+
+#if defined(CONFIG_GVSOC_ISS_PMP)
     // Machine protection and translation
     case 0x3A0:
-        status = pmpcfg_read(iss, value, 0);
+        status = iss->pmp.pmpcfg_read(value, 0);
         break;
     case 0x3A1:
-        status = pmpcfg_read(iss, value, 1);
+        status = iss->pmp.pmpcfg_read(value, 1);
         break;
     case 0x3A2:
-        status = pmpcfg_read(iss, value, 2);
+        status = iss->pmp.pmpcfg_read(value, 2);
         break;
     case 0x3A3:
-        status = pmpcfg_read(iss, value, 3);
+        status = iss->pmp.pmpcfg_read(value, 3);
         break;
     case 0x3B0:
-        status = pmpaddr_read(iss, value, 0);
+        status = iss->pmp.pmpaddr_read(value, 0);
         break;
     case 0x3B1:
-        status = pmpaddr_read(iss, value, 1);
+        status = iss->pmp.pmpaddr_read(value, 1);
         break;
     case 0x3B2:
-        status = pmpaddr_read(iss, value, 2);
+        status = iss->pmp.pmpaddr_read(value, 2);
         break;
     case 0x3B3:
-        status = pmpaddr_read(iss, value, 3);
+        status = iss->pmp.pmpaddr_read(value, 3);
         break;
     case 0x3B4:
-        status = pmpaddr_read(iss, value, 4);
+        status = iss->pmp.pmpaddr_read(value, 4);
         break;
     case 0x3B5:
-        status = pmpaddr_read(iss, value, 5);
+        status = iss->pmp.pmpaddr_read(value, 5);
         break;
     case 0x3B6:
-        status = pmpaddr_read(iss, value, 6);
+        status = iss->pmp.pmpaddr_read(value, 6);
         break;
     case 0x3B7:
-        status = pmpaddr_read(iss, value, 7);
+        status = iss->pmp.pmpaddr_read(value, 7);
         break;
     case 0x3B8:
-        status = pmpaddr_read(iss, value, 8);
+        status = iss->pmp.pmpaddr_read(value, 8);
         break;
     case 0x3B9:
-        status = pmpaddr_read(iss, value, 9);
+        status = iss->pmp.pmpaddr_read(value, 9);
         break;
     case 0x3BA:
-        status = pmpaddr_read(iss, value, 10);
+        status = iss->pmp.pmpaddr_read(value, 10);
         break;
     case 0x3BB:
-        status = pmpaddr_read(iss, value, 11);
+        status = iss->pmp.pmpaddr_read(value, 11);
         break;
     case 0x3BC:
-        status = pmpaddr_read(iss, value, 12);
+        status = iss->pmp.pmpaddr_read(value, 12);
         break;
     case 0x3BD:
-        status = pmpaddr_read(iss, value, 13);
+        status = iss->pmp.pmpaddr_read(value, 13);
         break;
     case 0x3BE:
-        status = pmpaddr_read(iss, value, 14);
+        status = iss->pmp.pmpaddr_read(value, 14);
         break;
     case 0x3BF:
-        status = pmpaddr_read(iss, value, 15);
+        status = iss->pmp.pmpaddr_read(value, 15);
         break;
+#endif
 
     // Machine timers and counters
     case 0xB00:
@@ -1960,7 +1858,8 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 
 bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 {
-    iss->csr.trace.msg("Writing CSR (reg: 0x%x, value: 0x%x)\n", reg, value);
+    iss->csr.trace.msg("Writing CSR (reg: 0x%x, name: %s, value: 0x%x)\n",
+        reg, iss_csr_name(iss, reg), value);
 
     // If there is any write to a CSR, switch to full check instruction handler
     // in case something special happened (like HW counting become active)
@@ -2035,7 +1934,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     // Supervisor protection and translation
 #if defined(CONFIG_GVSOC_ISS_MMU)
     case 0x180:
-        return satp_write(iss, value);
+        return iss->mmu.satp_write(value);
 #endif
 
     // Machine trap setup
@@ -2064,19 +1963,49 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     case 0x344:
         return mip_write(iss, value);
 
+#if defined(CONFIG_GVSOC_ISS_PMP)
     // Machine protection and translation
-    case 0x380:
-        return mbase_write(iss, value);
-    case 0x381:
-        return mbound_write(iss, value);
-    case 0x382:
-        return mibase_write(iss, value);
-    case 0x383:
-        return mibound_write(iss, value);
-    case 0x384:
-        return mdbase_write(iss, value);
-    case 0x385:
-        return mdbound_write(iss, value);
+    case 0x3A0:
+        return iss->pmp.pmpcfg_write(value, 0);
+    case 0x3A1:
+        return iss->pmp.pmpcfg_write(value, 1);
+    case 0x3A2:
+        return iss->pmp.pmpcfg_write(value, 2);
+    case 0x3A3:
+        return iss->pmp.pmpcfg_write(value, 3);
+    case 0x3B0:
+        return iss->pmp.pmpaddr_write(value, 0);
+    case 0x3B1:
+        return iss->pmp.pmpaddr_write(value, 1);
+    case 0x3B2:
+        return iss->pmp.pmpaddr_write(value, 2);
+    case 0x3B3:
+        return iss->pmp.pmpaddr_write(value, 3);
+    case 0x3B4:
+        return iss->pmp.pmpaddr_write(value, 4);
+    case 0x3B5:
+        return iss->pmp.pmpaddr_write(value, 5);
+    case 0x3B6:
+        return iss->pmp.pmpaddr_write(value, 6);
+    case 0x3B7:
+        return iss->pmp.pmpaddr_write(value, 7);
+    case 0x3B8:
+        return iss->pmp.pmpaddr_write(value, 8);
+    case 0x3B9:
+        return iss->pmp.pmpaddr_write(value, 9);
+    case 0x3BA:
+        return iss->pmp.pmpaddr_write(value, 10);
+    case 0x3BB:
+        return iss->pmp.pmpaddr_write(value, 11);
+    case 0x3BC:
+        return iss->pmp.pmpaddr_write(value, 12);
+    case 0x3BD:
+        return iss->pmp.pmpaddr_write(value, 13);
+    case 0x3BE:
+        return iss->pmp.pmpaddr_write(value, 14);
+    case 0x3BF:
+        return iss->pmp.pmpaddr_write(value, 15);
+#endif
 
     // Machine timers and counters
     case 0xB00:

@@ -137,10 +137,15 @@ static inline iss_insn_t *wfi_exec(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *mret_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->timing.stall_insn_dependency_account(5);
-    return iss->irq.mret_handle();
+    return iss->core.mret_handle();
 }
 
 static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
 {
-    return iss->irq.dret_handle();
+    return iss->core.dret_handle();
+}
+
+static inline iss_insn_t *sret_exec(Iss *iss, iss_insn_t *insn)
+{
+    return insn->next;
 }

@@ -48,7 +48,7 @@ iss_insn_t *Exception::raise(int id)
     }
     else
     {
-        this->iss.csr.epc = this->iss.exec.current_insn->addr;
+        this->iss.csr.mepc = this->iss.exec.current_insn->addr;
         this->iss.irq.saved_irq_enable = this->iss.irq.irq_enable;
         this->iss.irq.irq_enable = 0;
         this->iss.csr.mcause = 0xb;

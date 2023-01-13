@@ -107,6 +107,7 @@ namespace vp {
     inline void inc_latency(uint64_t incr) { this->latency += incr; }
 
     inline void set_duration(uint64_t duration) { if (duration > this->duration) this->duration = duration; }
+    inline void new_duration(uint64_t duration) { this->duration = duration; }
     inline uint64_t get_duration() { return this->duration; }
 
     inline uint64_t get_full_latency() { return latency + duration; }

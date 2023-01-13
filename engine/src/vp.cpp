@@ -375,7 +375,7 @@ bool vp::time_engine::dequeue(time_engine_client *client)
 
 bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
 {
-    vp_assert(full_time >= 0, NULL, "Time must be positive\n");
+    vp_assert(full_time >= get_time(), NULL, "Time must be higher than current time\n");
 
 #ifdef __VP_USE_SYSTEMC
     // Notify to the engine that something has been pushed in case it is done

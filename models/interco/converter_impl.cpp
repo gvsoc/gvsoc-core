@@ -160,6 +160,8 @@ vp::IoReqStatus converter::process_pending_req(vp::IoReq *req)
   ongoing_req = req;
   ongoing_size = size;
 
+  int i = 0;
+
   while (size)
   {
     int iter_size = output_width;
@@ -173,7 +175,14 @@ vp::IoReqStatus converter::process_pending_req(vp::IoReq *req)
     size -= iter_size;
     offset += iter_size;
     data += iter_size;
+
+    i++;
   }
+
+  int64_t duration = ((i + (this->nb_master_ports - 1)) / this->nb_master_ports);
+  int64_t prev_dur = req->get_duration();
+  if(prev_dur > duration) req->new_duration(prev_dur - duration);
+  else req->new_duration(0);
 
   return vp::IO_REQ_PENDING;
 }

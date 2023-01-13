@@ -38,7 +38,6 @@ void Exception::build()
 
 iss_insn_t *Exception::raise(int id)
 {
-#if defined(PRIV_1_10)
     if (id == ISS_EXCEPT_DEBUG)
     {
         this->iss.csr.depc = this->iss.exec.current_insn->addr;
@@ -48,23 +47,13 @@ iss_insn_t *Exception::raise(int id)
     }
     else
     {
-        this->iss.csr.mepc = this->iss.exec.current_insn->addr;
-        this->iss.irq.saved_irq_enable = this->iss.irq.irq_enable;
+        this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+        this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable;
         this->iss.irq.irq_enable = 0;
-        this->iss.csr.mcause = 0xb;
+        this->iss.csr.mcause.value = 0xb;
         iss_insn_t *insn = this->iss.irq.vectors[0];
         if (insn == NULL)
             insn = insn_cache_get(&this->iss, 0);
         return insn;
     }
-#else
-    this->iss.csr.epc = this->iss.exec.current_insn->addr;
-    this->iss.irq.saved_irq_enable = this->iss.irq.irq_enable;
-    this->iss.irq.irq_enable = 0;
-    this->iss.csr.mcause = 0xb;
-    iss_insn_t *insn = this->iss.irq.vectors[32 + id];
-    if (insn == NULL)
-        insn = insn_cache_get(iss, 0);
-    return insn;
-#endif
 }

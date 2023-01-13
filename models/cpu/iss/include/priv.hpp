@@ -147,5 +147,7 @@ static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sret_exec(Iss *iss, iss_insn_t *insn)
 {
-    return insn->next;
+    printf("SRET\n");
+    iss->timing.stall_insn_dependency_account(5);
+    return iss->core.sret_handle();
 }

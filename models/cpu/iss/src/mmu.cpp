@@ -42,6 +42,8 @@ Mmu::Mmu(Iss &iss)
 void Mmu::build()
 {
     this->iss.top.traces.new_trace("mmu", &this->trace, vp::DEBUG);
+
+    this->iss.csr.satp.register_callback(std::bind(&Mmu::satp_update, this, std::placeholders::_1));
 }
 
 void Mmu::reset(bool active)
@@ -49,24 +51,18 @@ void Mmu::reset(bool active)
     this->satp = 0;
 }
 
-bool Mmu::satp_read(iss_reg_t *value)
+bool Mmu::satp_update(iss_reg_t value)
 {
-    *value = this->satp;
-    return false;
-}
-
-bool Mmu::satp_write(iss_reg_t value)
-{
-    iss_reg_t pt_base = get_field(value, 0, 22) << 12;
-    iss_reg_t asid = get_field(value, 22, 9);
-    iss_reg_t mode = get_field(value, 31, 1);
-
 #if ISS_REG_WIDTH == 64
+
+    iss_reg_t pt_base = get_field(value, 0, 44) << 12;
+    iss_reg_t asid = get_field(value, 44, 16);
+    iss_reg_t mode = get_field(value, 60, 4);
 
     if (mode != 0 && mode != 8)
     {
         this->trace.force_warning("Only 39-bit virtual addressing is supported\n");
-        return true;
+        return false;
     }
 
     this->satp = value;
@@ -77,12 +73,12 @@ bool Mmu::satp_write(iss_reg_t value)
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Updated SATP (base: 0x%x, asid: %d, mode: %d)\n",
         pt_base, asid, mode);
 
-    return false;
+    return true;
 
 #else
 
     this->trace.force_warning("MMU is only supported for 64-bits cores\n");
-    return true;
+    return false;
 
 #endif
 }

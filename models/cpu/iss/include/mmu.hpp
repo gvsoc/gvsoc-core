@@ -33,8 +33,7 @@ public:
     void build();
     void reset(bool active);
 
-    bool satp_read(iss_reg_t *value);
-    bool satp_write(iss_reg_t value);
+    bool satp_update(iss_reg_t value);
 
 private:
     Iss &iss;

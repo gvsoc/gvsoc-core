@@ -40,6 +40,8 @@ void Irq::build()
     this->iss.top.new_slave_port(this, "irq_req", &irq_req_itf);
     this->iss.top.new_master_port("irq_ack", &irq_ack_itf);
 
+    this->iss.csr.mtvec.register_callback(std::bind(&Irq::vector_table_set, this, std::placeholders::_1));
+
 }
 
 
@@ -51,7 +53,6 @@ void Irq::reset(bool active)
         this->iss.exec.elw_interrupted = 0;
         this->vector_base = 0;
         this->irq_enable = 0;
-        this->saved_irq_enable = 0;
         this->req_irq = -1;
         this->req_debug = false;
         this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
@@ -64,7 +65,7 @@ void Irq::reset(bool active)
 }
 
 
-void Irq::vector_table_set(iss_addr_t base)
+bool Irq::vector_table_set(iss_addr_t base)
 {
     this->trace.msg("Setting vector table (addr: 0x%x)\n", base);
     for (int i = 0; i < 32; i++)
@@ -77,6 +78,8 @@ void Irq::vector_table_set(iss_addr_t base)
         this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
     }
     this->iss.irq.vector_base = base;
+
+    return true;
 }
 
 void Irq::cache_flush()
@@ -151,12 +154,12 @@ int Irq::check()
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
-            this->iss.csr.mepc = this->iss.exec.current_insn->addr;
-            this->saved_irq_enable = this->irq_enable;
+            this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+            this->iss.csr.mstatus.mpie = this->irq_enable;
             this->irq_enable = 0;
             this->req_irq = -1;
             this->iss.exec.current_insn = this->vectors[req_irq];
-            this->iss.csr.mcause = (1 << 31) | (unsigned int)req_irq;
+            this->iss.csr.mcause.value = (1 << 31) | (unsigned int)req_irq;
 
             this->trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);
             this->irq_ack_itf.sync(req_irq);

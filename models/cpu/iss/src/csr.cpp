@@ -24,6 +24,30 @@
 Csr::Csr(Iss &iss)
     : iss(iss)
 {
+    // Supervisor trap setup
+    this->declare_csr(&this->stvec,    "stvec",     0x105);
+
+    // Supervisor trap handling
+    this->declare_csr(&this->sscratch, "sscratch",  0x140);
+    this->declare_csr(&this->sepc,     "sepc",      0x141);
+    this->declare_csr(&this->scause,   "scause",    0x142);
+
+    // Supervisor protection and translation
+#if defined(CONFIG_GVSOC_ISS_MMU)
+    this->declare_csr(&this->satp,     "satp",      0x180);
+#endif
+
+    // Machine trap setup
+    this->declare_csr(&this->mstatus,  "mstatus",  0x300);
+    this->declare_csr(&this->medeleg,  "medeleg",  0x302);
+    this->declare_csr(&this->mideleg,  "mideleg",  0x303);
+    this->declare_csr(&this->mie,      "mie",      0x304);
+    this->declare_csr(&this->mtvec,    "mtvec",    0x305);
+
+    // Machine trap handling
+    this->declare_csr(&this->mscratch, "mscratch", 0x340);
+    this->declare_csr(&this->mepc,     "mepc",     0x341);
+    this->declare_csr(&this->mcause,   "mcause",   0x342);
 }
 
 void Csr::reset(bool active)
@@ -32,8 +56,8 @@ void Csr::reset(bool active)
     {
         memset(this->hwloop_regs, 0, sizeof(this->hwloop_regs));
         this->mstatus.value = 0x3 << 11;
-        this->mcause = 0;
-        this->scause = 0;
+        this->mcause.value = 0;
+        this->scause.value = 0;
     #if defined(ISS_HAS_PERF_COUNTERS)
         this->pcmr = 0;
         this->pcer = 3;
@@ -41,6 +65,10 @@ void Csr::reset(bool active)
         this->stack_conf = 0;
         this->dcsr = 4 << 28;
         this->fcsr.frm = 0;
+
+
+        iss_reg_t zero = 0x3 << 11;
+        this->mstatus.access(true, &zero);
     }
 
 }
@@ -337,18 +365,6 @@ static bool sie_write(Iss *iss, unsigned int value)
     return false;
 }
 
-static bool stvec_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.stvec;
-    return false;
-}
-
-static bool stvec_write(Iss *iss, unsigned int value)
-{
-    iss->csr.stvec = value;
-    return false;
-}
-
 static bool scounteren_read(Iss *iss, iss_reg_t *value)
 {
     //*value = iss->tvec[GVSIM_MODE_SUPERVISOR];
@@ -358,42 +374,6 @@ static bool scounteren_read(Iss *iss, iss_reg_t *value)
 static bool scounteren_write(Iss *iss, unsigned int value)
 {
     // iss->tvec[GVSIM_MODE_SUPERVISOR] = value;
-    return false;
-}
-
-static bool sscratch_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.sscratch;
-    return false;
-}
-
-static bool sscratch_write(Iss *iss, unsigned int value)
-{
-    iss->csr.sscratch = value;
-    return false;
-}
-
-static bool sepc_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.sepc;
-    return false;
-}
-
-static bool sepc_write(Iss *iss, unsigned int value)
-{
-    iss->csr.sepc = value;
-    return false;
-}
-
-static bool scause_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.scause;
-    return false;
-}
-
-static bool scause_write(Iss *iss, unsigned int value)
-{
-    iss->csr.scause = value;
     return false;
 }
 
@@ -460,82 +440,6 @@ static bool mhartid_read(Iss *iss, iss_reg_t *value)
     return false;
 }
 
-static bool mstatus_read(Iss *iss, iss_reg_t *value)
-{
-    *value = (iss->csr.mstatus.value & ~(1 << 3)) | (iss->irq.irq_enable << 3) | (iss->irq.saved_irq_enable << 7);
-    return false;
-}
-
-static bool mstatus_write(Iss *iss, unsigned int value)
-{
-    iss->timing.stall_insn_dependency_account(4);
-
-#if defined(SECURE)
-    unsigned int mask = 0x21899;
-    unsigned int or_mask = 0x0;
-#else
-    unsigned int mask = 0x88;
-    unsigned int or_mask = 0x1800;
-#endif
-    iss->csr.mstatus.value = (value & mask) | or_mask;
-    iss->irq.global_enable((value >> 3) & 1);
-    iss->irq.saved_irq_enable = (value >> 7) & 1;
-    return false;
-}
-
-static bool medeleg_read(Iss *iss, iss_reg_t *value)
-{
-    //*value = iss->edeleg[GVSIM_MODE_MACHINE];
-    return false;
-}
-
-static bool medeleg_write(Iss *iss, unsigned int value)
-{
-    // iss->edeleg[GVSIM_MODE_MACHINE] = value;
-    return false;
-}
-
-static bool mideleg_read(Iss *iss, iss_reg_t *value)
-{
-    //*value = iss->ideleg[GVSIM_MODE_MACHINE];
-    return false;
-}
-
-static bool mideleg_write(Iss *iss, unsigned int value)
-{
-    // iss->ideleg[GVSIM_MODE_MACHINE] = value;
-    // checkInterrupts(iss, 1);
-    return false;
-}
-
-static bool mie_read(Iss *iss, iss_reg_t *value)
-{
-    //*value = iss->ie[GVSIM_MODE_MACHINE];
-    return false;
-}
-
-static bool mie_write(Iss *iss, unsigned int value)
-{
-    // iss->ie[GVSIM_MODE_MACHINE] = value;
-    // checkInterrupts(iss, 1);
-    return false;
-}
-
-static bool mtvec_read(Iss *iss, iss_reg_t *value)
-{
-    //*value = iss->tvec[GVSIM_MODE_MACHINE];
-    *value = iss->csr.mtvec;
-    return false;
-}
-
-static bool mtvec_write(Iss *iss, unsigned int value)
-{
-    iss->csr.mtvec = value;
-    // iss->tvec[GVSIM_MODE_MACHINE] = value;
-    iss->irq.vector_table_set(value);
-    return false;
-}
-
 static bool mcounteren_read(Iss *iss, iss_reg_t *value)
 {
     return false;
@@ -546,42 +450,6 @@ static bool mcounteren_write(Iss *iss, unsigned int value)
     return false;
 }
 
-static bool mscratch_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.mscratch;
-    return false;
-}
-
-static bool mscratch_write(Iss *iss, unsigned int value)
-{
-    iss->csr.mscratch = value;
-    return false;
-}
-
-static bool mepc_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.mepc;
-    return false;
-}
-
-static bool mepc_write(Iss *iss, unsigned int value)
-{
-    iss->csr.trace.msg("Setting MEPC (value: 0x%x)\n", value);
-    iss->csr.mepc = value & ~1;
-    return false;
-}
-
-static bool mcause_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.mcause;
-    return false;
-}
-
-static bool mcause_write(Iss *iss, unsigned int value)
-{
-    iss->csr.mcause = value;
-    return false;
-}
 
 static bool mtval_read(Iss *iss, iss_reg_t *value)
 {
@@ -1095,6 +963,12 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
   }
 #endif
 
+    // New generic way of handling CSR access, all CSR should be accessed there
+    if (!iss->csr.access(false, reg, value))
+    {
+        return false;
+    }
+
     // And dispatch
     switch (reg)
     {
@@ -1333,7 +1207,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = hpmcounterh_read(iss, value, 31);
         break;
 
-    // Supervisor trap setup
     case 0x100:
         status = sstatus_read(iss, value);
         break;
@@ -1346,36 +1219,16 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     case 0x104:
         status = sie_read(iss, value);
         break;
-    case 0x105:
-        status = stvec_read(iss, value);
-        break;
     case 0x106:
         status = scounteren_read(iss, value);
         break;
 
-    // Supervisor trap handling
-    case 0x140:
-        status = sscratch_read(iss, value);
-        break;
-    case 0x141:
-        status = sepc_read(iss, value);
-        break;
-    case 0x142:
-        status = scause_read(iss, value);
-        break;
     case 0x143:
         status = stval_read(iss, value);
         break;
     case 0x144:
         status = sip_read(iss, value);
         break;
-
-    // Supervisor protection and translation
-#if defined(CONFIG_GVSOC_ISS_MMU)
-    case 0x180:
-        status = iss->mmu.satp_read(value);
-        break;
-#endif
 
     // Machine information registers
     case 0xF11:
@@ -1391,39 +1244,13 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = mhartid_read(iss, value);
         break;
 
-    // Machine trap setup
-    case 0x300:
-        status = mstatus_read(iss, value);
-        break;
     case 0x301:
         status = misa_read(iss, value);
-        break;
-    case 0x302:
-        status = medeleg_read(iss, value);
-        break;
-    case 0x303:
-        status = mideleg_read(iss, value);
-        break;
-    case 0x304:
-        status = mie_read(iss, value);
-        break;
-    case 0x305:
-        status = mtvec_read(iss, value);
         break;
     case 0x306:
         status = mcounteren_read(iss, value);
         break;
 
-    // Machine trap handling
-    case 0x340:
-        status = mscratch_read(iss, value);
-        break;
-    case 0x341:
-        status = mepc_read(iss, value);
-        break;
-    case 0x342:
-        status = mcause_read(iss, value);
-        break;
     case 0x343:
         status = mtval_read(iss, value);
         break;
@@ -1876,6 +1703,12 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
   }
 #endif
 
+    // New generic way of handling CSR access, all CSR should be accessed there
+    if (!iss->csr.access(true, reg, &value))
+    {
+        return false;
+    }
+
     // And dispatch
     switch (reg)
     {
@@ -1917,46 +1750,13 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return sideleg_write(iss, value);
     case 0x104:
         return sie_write(iss, value);
-    case 0x105:
-        return stvec_write(iss, value);
 
-    // Supervisor trap handling
-    case 0x140:
-        return sscratch_write(iss, value);
-    case 0x141:
-        return sepc_write(iss, value);
-    case 0x142:
-        return scause_write(iss, value);
     case 0x144:
         return sip_write(iss, value);
 
-    // Supervisor protection and translation
-#if defined(CONFIG_GVSOC_ISS_MMU)
-    case 0x180:
-        return iss->mmu.satp_write(value);
-#endif
-
-    // Machine trap setup
-    case 0x300:
-        return mstatus_write(iss, value);
     case 0x301:
         return misa_write(iss, value);
-    case 0x302:
-        return medeleg_write(iss, value);
-    case 0x303:
-        return mideleg_write(iss, value);
-    case 0x304:
-        return mie_write(iss, value);
-    case 0x305:
-        return mtvec_write(iss, value);
 
-    // Machine trap handling
-    case 0x340:
-        return mscratch_write(iss, value);
-    case 0x341:
-        return mepc_write(iss, value);
-    case 0x342:
-        return mcause_write(iss, value);
     case 0x343:
         return mbadaddr_write(iss, value);
     case 0x344:
@@ -2071,6 +1871,12 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 
 const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 {
+    CsrAbtractReg *csr = iss->csr.get_csr(reg);
+    if (csr != NULL)
+    {
+        return csr->name.c_str();
+    }
+
     switch (reg)
     {
 
@@ -2241,26 +2047,13 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "sideleg";
     case 0x104:
         return "sie";
-    case 0x105:
-        return "stvec";
     case 0x106:
         return "scounteren";
 
-    // Supervisor trap handling
-    case 0x140:
-        return "sscratch";
-    case 0x141:
-        return "sepc";
-    case 0x142:
-        return "scause";
     case 0x143:
         return "stval";
     case 0x144:
         return "sip";
-
-    // Supervisor protection and translation
-    case 0x180:
-        return "satp";
 
     // Machine information registers
     case 0xF11:
@@ -2272,29 +2065,11 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     case 0xF14:
         return "mhartid";
 
-    // Machine trap setup
-    case 0x300:
-        return "mstatus";
     case 0x301:
         return "misa";
-    case 0x302:
-        return "medeleg";
-    case 0x303:
-        return "mideleg";
-    case 0x304:
-        return "mie";
-    case 0x305:
-        return "mtvec";
     case 0x306:
         return "mcounteren";
 
-    // Machine trap handling
-    case 0x340:
-        return "mscratch";
-    case 0x341:
-        return "mepc";
-    case 0x342:
-        return "mcause";
     case 0x343:
         return "mtval";
     case 0x344:
@@ -2583,4 +2358,71 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 #endif
 
     return "csr";
+}
+
+CsrAbtractReg::CsrAbtractReg(iss_reg_t *value)
+{
+    if (value)
+    {
+        this->value_p = value;
+    }
+    else
+    {
+        this->value_p = &this->default_value;
+    }
+}
+
+bool CsrAbtractReg::access(bool is_write, iss_reg_t *value)
+{
+    if (is_write)
+    {
+        bool update = true;
+        for (auto callback: this->callbacks)
+        {
+            update &= callback(*value);
+        }
+        if (update)
+        {
+            *this->value_p = *value;
+        }
+    }
+    else
+    {
+        *value = *this->value_p;
+    }
+    return false;
+}
+
+void CsrAbtractReg::register_callback(std::function<bool(iss_reg_t)> callback)
+{
+    this->callbacks.push_back(callback);
+}
+
+void Csr::declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address)
+{
+    if (this->regs.find(address) != this->regs.end())
+    {
+        this->trace.force_warning("Registering CSR at already occupied address (name: %s, address: 0x%x)\n",
+            name.c_str(), address);
+        return;
+    }
+
+    this->regs[address] = reg;
+    reg->name = name;
+}
+
+CsrAbtractReg *Csr::get_csr(iss_reg_t address)
+{
+    return this->regs[address];
+}
+
+bool Csr::access(bool is_write, iss_reg_t address, iss_reg_t *value)
+{
+    CsrAbtractReg *csr = this->get_csr(address);
+    if (csr != NULL)
+    {
+        return csr->access(is_write, value);
+    }
+
+    return true;
 }

@@ -24,6 +24,8 @@
 
 #include <types.hpp>
 
+class Csr;
+
 typedef struct
 {
     union
@@ -48,9 +50,39 @@ typedef struct
     };
 } iss_fcsr_t;
 
-class Mstatus
+class CsrAbtractReg
+{
+    friend class Csr;
+
+public:
+    CsrAbtractReg(iss_reg_t *value=NULL);
+    void register_callback(std::function<bool(iss_reg_t)> callback);
+
+    std::string name;
+
+protected:
+    bool access(bool is_write, iss_reg_t *value);
+
+private:
+    std::vector<std::function<bool(iss_reg_t)>> callbacks;
+    iss_reg_t default_value;
+    iss_reg_t *value_p;
+};
+
+class CsrReg : public CsrAbtractReg
+{
+    friend class Csr;
+
+public:
+    CsrReg() : CsrAbtractReg(&this->value) {}
+
+    iss_reg_t value;
+};
+
+class Mstatus : public CsrAbtractReg
 {
     public:
+        Mstatus() : CsrAbtractReg(&this->value) {}
         union
         {
             iss_reg_t value;
@@ -109,6 +141,7 @@ class Mstatus
 };
 
 
+
 class Csr
 {
 public:
@@ -118,12 +151,33 @@ public:
     void reset(bool active);
 
     void declare_pcer(int index, std::string name, std::string help);
+    void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address);
+    CsrAbtractReg *get_csr(iss_reg_t address);
+
+    bool access(bool is_write, iss_reg_t address, iss_reg_t *value);
 
     Iss &iss;
 
     vp::trace trace;
 
+    CsrReg stvec;
+
+    CsrReg  sscratch;
+    CsrReg  sepc;
+    CsrReg  scause;
+
+    CsrReg  satp;
+
     Mstatus mstatus;
+    CsrReg  medeleg;
+    CsrReg  mideleg;
+    CsrReg  mie;
+    CsrReg  mtvec;
+
+    CsrReg  mscratch;
+    CsrReg  mepc;
+    CsrReg  mcause;
+
     iss_reg_t depc;
     iss_reg_t dcsr;
 #if defined(ISS_HAS_PERF_COUNTERS)
@@ -136,20 +190,17 @@ public:
     iss_reg_t stack_end;
     iss_reg_t scratch0;
     iss_reg_t scratch1;
-    iss_reg_t mscratch;
-    iss_reg_t sscratch;
     iss_fcsr_t fcsr;
     iss_reg_t misa;
     iss_reg_t mhartid;
-    iss_reg_t mepc;
-    iss_reg_t mcause;
-    iss_reg_t mtvec;
-    iss_reg_t sepc;
-    iss_reg_t scause;
     iss_reg_t sie;
-    iss_reg_t stvec;
 
 
     bool hwloop = false;
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
+
+private:
+
+    std::map<iss_reg_t, CsrAbtractReg *> regs;
+
 };

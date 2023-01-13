@@ -24,6 +24,10 @@
 #include <vp/vp.hpp>
 #include <types.hpp>
 
+#define PRIV_U 0
+#define PRIV_S 1
+#define PRIV_M 3
+
 class Core
 {
 public:
@@ -34,9 +38,14 @@ public:
 
     iss_insn_t *mret_handle();
     iss_insn_t *dret_handle();
+    iss_insn_t *sret_handle();
 
 private:
+    bool mstatus_update(iss_reg_t value);
+
     Iss &iss;
     vp::trace trace;
+
+    int mode;
 };
 

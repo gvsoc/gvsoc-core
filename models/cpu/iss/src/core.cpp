@@ -29,20 +29,40 @@ Core::Core(Iss &iss)
 void Core::build()
 {
     this->iss.top.traces.new_trace("core", &this->trace, vp::DEBUG);
+
+    this->iss.csr.mstatus.register_callback(std::bind(&Core::mstatus_update, this, std::placeholders::_1));
 }
 
 void Core::reset(bool active)
 {
+    this->mode = PRIV_M;
 }
 
 
 iss_insn_t *Core::mret_handle()
 {
     this->iss.exec.switch_to_full_mode();
-    this->iss.irq.irq_enable = this->iss.irq.saved_irq_enable;
-    this->iss.csr.mcause = 0;
 
-    return insn_cache_get(&this->iss, this->iss.csr.mepc);
+    this->mode = this->iss.csr.mstatus.mpp;
+    this->iss.csr.mstatus.mpp = PRIV_U;
+    this->iss.irq.irq_enable = this->iss.csr.mstatus.mpie;
+    this->iss.csr.mstatus.mpie = 1;
+    this->iss.csr.mcause.value = 0;
+
+    return insn_cache_get(&this->iss, this->iss.csr.mepc.value);
+}
+
+iss_insn_t *Core::sret_handle()
+{
+    this->iss.exec.switch_to_full_mode();
+    
+    this->mode = this->iss.csr.mstatus.spp;
+    this->iss.csr.mstatus.spp = PRIV_U;
+    this->iss.irq.irq_enable = this->iss.csr.mstatus.spie;
+    this->iss.csr.mstatus.spie = 1;
+    this->iss.csr.scause.value = 0;
+
+    return insn_cache_get(&this->iss, this->iss.csr.sepc.value);
 }
 
 iss_insn_t *Core::dret_handle()
@@ -52,4 +72,15 @@ iss_insn_t *Core::dret_handle()
     this->iss.exec.debug_mode = 0;
 
     return insn_cache_get(&this->iss, this->iss.csr.depc);
+}
+
+
+bool Core::mstatus_update(iss_reg_t value)
+{
+    this->iss.csr.mstatus.value = value;
+
+    this->iss.timing.stall_insn_dependency_account(4);
+    this->iss.irq.global_enable(this->iss.csr.mstatus.mie);
+
+    return false;
 }

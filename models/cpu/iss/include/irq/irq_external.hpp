@@ -31,7 +31,7 @@ public:
 
     void build();
 
-    void vector_table_set(iss_addr_t base);
+    bool vector_table_set(iss_addr_t base);
     inline void global_enable(int enable);
     void cache_flush();
     void reset(bool active);
@@ -43,7 +43,6 @@ public:
     Iss &iss;
     iss_insn_t *vectors[35];
     int irq_enable;
-    int saved_irq_enable;
     int debug_saved_irq_enable;
     int req_irq;
     bool req_debug;

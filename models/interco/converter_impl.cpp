@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <math.h>
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+
 class converter : public vp::component
 {
 
@@ -100,12 +103,16 @@ void converter::event_handler(void *__this, vp::clock_event *event)
     {
       _this->ready_cycle[port] = _this->get_cycles() + req->get_latency() + 1;
       _this->ongoing_size -= req->get_size();
+
+      _this->out[0].req_del(req);
+
       if (_this->ongoing_size == 0)
       {
         vp::io_req *req = _this->ongoing_req;
         _this->trace.msg("Finished handling request (req: %p)\n", req);
         _this->ongoing_req = NULL;
         req->set_latency(req->get_latency() + 1);
+
         req->get_resp_port()->resp(req);
 
         if (_this->stalled_req)
@@ -154,6 +161,8 @@ vp::io_req_status_e converter::process_pending_req(vp::io_req *req)
   ongoing_req = req;
   ongoing_size = size;
 
+  int i = 0;
+
   while (size)
   {
     int iter_size = output_width;
@@ -169,7 +178,14 @@ vp::io_req_status_e converter::process_pending_req(vp::io_req *req)
     size -= iter_size;
     offset += iter_size;
     data += iter_size;
+
+    i++;
   }
+
+  int64_t duration = ((i + (this->nb_master_ports - 1)) / this->nb_master_ports);
+  int64_t prev_dur = req->get_duration();
+  if(prev_dur > duration) req->new_duration(prev_dur - duration);
+  else req->new_duration(0);
 
   return vp::IO_REQ_PENDING;
 }

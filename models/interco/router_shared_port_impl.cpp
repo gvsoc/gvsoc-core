@@ -118,8 +118,8 @@ private:
 
   std::map<int, Perf_counter *> counters;
 
-  int64_t *next_port_read_packet_time;
-  int64_t *next_port_write_packet_time;
+  int64_t next_port_read_packet_time;
+  int64_t next_port_write_packet_time;
   int bandwidth = 0;
   int latency = 0;
 
@@ -272,20 +272,20 @@ vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
         if(isRead)
         {
           // Check if the packet must be delayed due to conflicts at ports
-          port_latency  = MAX((_this->next_port_read_packet_time[port] - packet_time), 0);
+          port_latency  = MAX((_this->next_port_read_packet_time - packet_time), 0);
           entry_latency = MAX((entry->next_entry_read_packet_time - packet_time), 0);
 
           // Update the bandwidth information
-          _this->next_port_read_packet_time[port] = packet_time + MAX(_this->latency, port_latency) + packet_duration;
+          _this->next_port_read_packet_time = packet_time + MAX(_this->latency, port_latency) + packet_duration;
           entry->next_entry_read_packet_time = packet_time + MAX(_this->latency, entry_latency) + packet_duration;
           //printf("%d: %p %d %p %ld %ld %ld\n", isRead, _this, port, entry, port_latency, entry_latency, entry->next_entry_read_packet_time);
         }
         else
         {
-          port_latency  = MAX((_this->next_port_write_packet_time[port] - packet_time), 0);
+          port_latency  = MAX((_this->next_port_write_packet_time - packet_time), 0);
           entry_latency = MAX((entry->next_entry_write_packet_time - packet_time), 0);
 
-          _this->next_port_write_packet_time[port] = packet_time + MAX(_this->latency, port_latency) + packet_duration;
+          _this->next_port_write_packet_time = packet_time + MAX(_this->latency, port_latency) + packet_duration;
           entry->next_entry_write_packet_time = packet_time + MAX(_this->latency, entry_latency) + packet_duration;
           //printf("%d: %ld %p %d %p %ld %ld %ld\n", isRead, packet_time, _this, port, entry, port_latency, entry_latency, entry->next_entry_write_packet_time);
         }
@@ -459,9 +459,6 @@ int router_shared::build()
   //nb_channels    = get_config_int("nb_channels");
   nb_channels    = nb_slave_ports;
 
-  next_port_read_packet_time  = new int64_t[nb_channels];
-  next_port_write_packet_time = new int64_t[nb_channels];
-
   allocated_entries = new MapEntry[nb_channels];
 
   in = new vp::io_slave[nb_slave_ports];
@@ -470,12 +467,6 @@ int router_shared::build()
   {
     in[i].set_req_meth_muxed(&router_shared::req, i);
     new_slave_port("input_" + std::to_string(i), &in[i]);
-  }
-
-  for(int i=0; i<nb_channels; i++)
-  {
-    next_port_read_packet_time[i]  = 0;
-    next_port_write_packet_time[i] = 0;
   }
 
   out.set_resp_meth(&router_shared::response);

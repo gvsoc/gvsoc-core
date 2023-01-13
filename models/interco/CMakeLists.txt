@@ -24,6 +24,10 @@ vp_model(NAME interco.router_shared_impl
     SOURCES "router_shared_impl.cpp"
     )
 
+vp_model(NAME interco.router_shared_port_impl
+    SOURCES "router_shared_port_impl.cpp"
+    )
+
 vp_model(NAME interco.router_shared_async_impl
     SOURCES "router_shared_async_impl.cpp"
     )

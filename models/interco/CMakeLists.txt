@@ -31,3 +31,7 @@ vp_model(NAME interco.router_shared_port_impl
 vp_model(NAME interco.router_shared_async_impl
     SOURCES "router_shared_async_impl.cpp"
     )
+
+vp_model(NAME interco.dual_wireless_link_impl
+    SOURCES "dual_wireless_link_impl.cpp"
+    )

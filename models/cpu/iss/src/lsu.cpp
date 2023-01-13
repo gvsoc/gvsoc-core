@@ -74,8 +74,6 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     int size0 = addr1 - addr;
     int size1 = size - size0;
 
-    this->misaligned_access.set(true);
-
     // Remember the access properties for the second access
     this->misaligned_size = size1;
     this->misaligned_data = data_ptr + size0;
@@ -113,17 +111,10 @@ void Lsu::data_response(void *__this, vp::io_req *req)
 
     _this->trace.msg("Received data response (stalled: %d)\n", iss->exec.stalled.get());
 
-    if (_this->misaligned_access.get())
-    {
-        _this->misaligned_access.set(false);
-    }
-    else
-    {
-        // First call the ISS to finish the instruction
-        _this->iss.timing.stall_load_account(req->get_latency());
-        _this->stall_callback(&iss->lsu);
-        iss->exec.insn_terminate();
-    }
+    // First call the ISS to finish the instruction
+    _this->iss.timing.stall_load_account(req->get_latency());
+    _this->stall_callback(&iss->lsu);
+    iss->exec.insn_terminate();
 }
 
 int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
@@ -178,7 +169,6 @@ void Lsu::build()
     data.set_resp_meth(&Lsu::data_response);
     data.set_grant_meth(&Lsu::data_grant);
     this->iss.top.new_master_port(this, "data", &data);
-    this->iss.top.new_reg("misaligned_access", &this->misaligned_access, false);
 
     this->iss.top.new_reg("elw_stalled", &this->elw_stalled, false);
 

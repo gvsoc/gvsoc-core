@@ -37,12 +37,10 @@ static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
 
-    if (insn->out_regs[0] != 0)
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
-        if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-        {
+        if (insn->out_regs[0] != 0)
             REG_SET(0, value);
-        }
     }
 
     if (REG_IN(0) != 0)
@@ -74,13 +72,10 @@ static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
 
-    if (insn->out_regs[0] != 0)
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
-        if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
-        {
-            if (insn->out_regs[0] != 0)
-                REG_SET(0, value);
-        }
+        if (insn->out_regs[0] != 0)
+            REG_SET(0, value);
     }
     if (REG_IN(0) != 0)
     {
@@ -147,7 +142,6 @@ static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sret_exec(Iss *iss, iss_insn_t *insn)
 {
-    printf("SRET\n");
     iss->timing.stall_insn_dependency_account(5);
     return iss->core.sret_handle();
 }

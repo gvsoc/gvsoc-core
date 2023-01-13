@@ -156,6 +156,7 @@ int Irq::check()
 
             this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
             this->iss.csr.mstatus.mpie = this->irq_enable;
+            this->iss.csr.mstatus.mie = 0;
             this->irq_enable = 0;
             this->req_irq = -1;
             this->iss.exec.current_insn = this->vectors[req_irq];

@@ -67,7 +67,6 @@ public:
     iss_addr_t misaligned_addr;
     bool misaligned_is_write;
     vp::reg_1 elw_stalled;
-    vp::reg_1 misaligned_access;
 
     void (*stall_callback)(Lsu *lsu);
     int stall_reg;

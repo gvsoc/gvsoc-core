@@ -44,8 +44,13 @@ iss_insn_t *Core::mret_handle()
     this->iss.exec.switch_to_full_mode();
 
     this->mode = this->iss.csr.mstatus.mpp;
+#ifdef CONFIG_GVSOC_ISS_USER_MODE
     this->iss.csr.mstatus.mpp = PRIV_U;
+#else
+    this->iss.csr.mstatus.mpp = PRIV_M;
+#endif
     this->iss.irq.irq_enable = this->iss.csr.mstatus.mpie;
+    this->iss.csr.mstatus.mie = this->iss.csr.mstatus.mpie;
     this->iss.csr.mstatus.mpie = 1;
     this->iss.csr.mcause.value = 0;
 
@@ -59,6 +64,7 @@ iss_insn_t *Core::sret_handle()
     this->mode = this->iss.csr.mstatus.spp;
     this->iss.csr.mstatus.spp = PRIV_U;
     this->iss.irq.irq_enable = this->iss.csr.mstatus.spie;
+    this->iss.csr.mstatus.sie = this->iss.csr.mstatus.spie;
     this->iss.csr.mstatus.spie = 1;
     this->iss.csr.scause.value = 0;
 

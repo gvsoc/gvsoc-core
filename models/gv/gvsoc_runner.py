@@ -214,9 +214,6 @@ class Runner(gapylib.target.Target, st.Component):
 
         choices = ['gvsoc']
 
-        parser.add_argument("--platform", dest="platform", required=True, choices=choices,
-            type=str, help="specify the platform used for the target")
-
         self.rtl_runner = None
 
         if rtl_cosim_runner is not None:
@@ -234,6 +231,9 @@ class Runner(gapylib.target.Target, st.Component):
                 choices.append('rtl')
                 self.rtl_runner = rtl_cosim_runner(self)
                 self.rtl_runner.append_args(parser)
+
+        parser.add_argument("--platform", dest="platform", required=True, choices=choices,
+            type=str, help="specify the platform used for the target")
 
     def parse_args(self, args):
         super().parse_args(args)

@@ -21,11 +21,12 @@
 
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
+#include <vp/proxy.hpp>
 
 class Gvsoc_launcher : public gv::Gvsoc
 {
 public:
-    void open(std::string config_path);
+    void open(gv::GvsocConf *conf);
 
     void close();
 
@@ -37,16 +38,19 @@ public:
 
     int64_t step(int64_t duration);
 
+    int join();
+
     gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name);
 
     void vcd_bind(gv::Vcd_user *user);
     void event_add(std::string path, bool is_regex);
     void event_exclude(std::string path, bool is_regex);
 
+    vp::component *instance;
+
 private:
 
     void *handler;
-    vp::component *instance;
 };
 
 gv::Gvsoc *gv::gvsoc_new()
@@ -54,28 +58,62 @@ gv::Gvsoc *gv::gvsoc_new()
     return new Gvsoc_launcher();
 }
 
-void Gvsoc_launcher::open(std::string config_path)
+extern "C" void gv_start2(void *arg);
+
+void Gvsoc_launcher::open(gv::GvsocConf *conf)
 {
-    this->handler = vp::__gv_create(config_path, NULL);
+    struct gv_conf gv_conf;
+
+    gv_conf.open_proxy = false;
+    gv_conf.proxy_socket = &conf->proxy_socket;
+    gv_conf.req_pipe = -1;
+    gv_conf.reply_pipe = -1;
+
+    this->handler = vp::__gv_create(conf->config_path, &gv_conf);
+
     this->instance = ((vp::top *)this->handler)->top_instance;
 
-    gv_start(this->handler);
+    this->instance->pre_pre_build();
+    this->instance->pre_build();
+    this->instance->build();
+
+    if (this->instance->gv_conf.open_proxy || instance->get_vp_config()->get_child_bool("proxy/enabled"))
+    {
+        int in_port = instance->gv_conf.open_proxy ? 0 : instance->get_vp_config()->get_child_int("proxy/port");
+        int out_port;
+        proxy = new Gv_proxy(instance, instance->gv_conf.req_pipe, instance->gv_conf.reply_pipe);
+        if (proxy->open(in_port, &out_port))
+        {
+            instance->throw_error("Failed to start proxy");
+        }
+
+        if (instance->gv_conf.proxy_socket)
+        {
+            *instance->gv_conf.proxy_socket = out_port;
+        }
+    }
 }
 
 void Gvsoc_launcher::start()
 {
-    gv_reset(this->handler, true);
-    gv_reset(this->handler, false);
+    this->instance->build_new();
+    this->instance->reset_all(true);
+    this->instance->reset_all(false);
 }
 
 void Gvsoc_launcher::close()
 {
-    gv_destroy(this->handler);
+    this->instance->stop_all();
 }
 
 void Gvsoc_launcher::run()
 {
-    gv_step(this->handler, 0);
+    this->instance->step(0);
+}
+
+int Gvsoc_launcher::join()
+{
+    return this->instance->join();
 }
 
 int64_t Gvsoc_launcher::stop()
@@ -86,8 +124,10 @@ int64_t Gvsoc_launcher::stop()
 
 int64_t Gvsoc_launcher::step(int64_t duration)
 {
-    printf("GV STEP\n");
-    gv_step(this->handler, duration);
+    if (!proxy)
+    { 
+        this->instance->step(duration);
+    }
     return 0;
 }
 
@@ -109,4 +149,11 @@ void Gvsoc_launcher::event_add(std::string path, bool is_regex)
 void Gvsoc_launcher::event_exclude(std::string path, bool is_regex)
 {
     this->instance->traces.get_trace_manager()->conf_trace(1, path, 0);
+}
+
+
+extern "C" void *gv_chip_pad_bind(void *handle, char *name, int ext_handle)
+{
+    Gvsoc_launcher *gvsoc = (Gvsoc_launcher *)handle;
+    return gvsoc->instance->external_bind(name, "", (void *)(long)ext_handle);
 }

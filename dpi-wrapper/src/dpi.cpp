@@ -23,23 +23,24 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <gv/gvsoc.h>
+#include <gv/gvsoc.hpp>
 #include <gv/dpi_chip_wrapper.hpp>
 
 using namespace std;
 
 extern "C" void *dpi_open(char *config_path)
 {
-  struct gv_conf gv_conf;
-  gv_conf.proxy_socket = NULL;
-  gv_init(&gv_conf);
-  void *handle = gv_create(config_path, &gv_conf);
-  return handle;
+  gv::Gvsoc *gvsoc = gv::gvsoc_new();
+  gv::GvsocConf conf = { .config_path=config_path };
+  gvsoc->open(&conf);
+
+  return (void *)gvsoc;
 }
 
 extern "C" int dpi_start(void *instance)
 {
-
-  gv_start(instance);
+  gv::Gvsoc *gvsoc = (gv::Gvsoc *)instance;
+  gvsoc->start();
 
   return 0;
 }

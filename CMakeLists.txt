@@ -150,7 +150,6 @@ if(${BUILD_RTL})
   add_subdirectory(dpi-wrapper)
 endif()
 add_subdirectory(engine)
-add_subdirectory(launcher)
 add_subdirectory(models)
 
 foreach(subdir ${GVSOC_MODULES})

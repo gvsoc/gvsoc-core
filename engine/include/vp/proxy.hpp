@@ -52,5 +52,7 @@ class Gv_proxy : vp::Notifier
     std::mutex mutex;
 };
 
+extern Gv_proxy *proxy;
+
 
 #endif

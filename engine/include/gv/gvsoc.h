@@ -40,23 +40,9 @@ struct gv_conf {
 void gv_init(struct gv_conf *gv_conf);
 
 
-void *gv_open(const char *config_path, bool open_proxy, int *proxy_socket, int req_pipe, int reply_pipe);
-
-void *gv_create(const char *config_path, struct gv_conf *conf);
-
-void gv_start(void *instance);
-
-void gv_reset(void *instance, bool active);
-
-void gv_step(void *instance, int64_t timestamp);
-
 int64_t gv_time(void *instance);
 
-int gv_run(void *_instance);
-
 void gv_stop(void *_instance, int status);
-
-void gv_destroy(void *handle);
 
 void *gv_chip_pad_bind(void *handle, char *name, int ext_handle);
 

@@ -317,6 +317,13 @@ namespace gv {
     };
 
 
+    class GvsocConf
+    {
+    public:
+        std::string config_path = "";
+        int proxy_socket = -1;
+    };
+
     /**
      * GVSOC interface
      *
@@ -332,9 +339,9 @@ namespace gv {
          * Once this operation is done, some bindings can be created to interact with this system
          * and GVSOC execution can be started.
          *
-         * @param config_path The path to the configuration file.
+         * @param conf The configuration describing how to open GVSOC.
          */
-        virtual void open(std::string config_path) = 0;
+        virtual void open(GvsocConf *conf) = 0;
 
         /**
          * Close a GVSOC configuration
@@ -371,6 +378,8 @@ namespace gv {
          * @returns The timestamp where the execution stopped.
          */
         virtual int64_t stop() = 0;
+
+        virtual int join() = 0;
 
         /**
          * Step execution

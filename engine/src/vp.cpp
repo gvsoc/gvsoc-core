@@ -39,7 +39,6 @@
 #include <poll.h>
 #include <signal.h>
 #include <regex>
-#include <gv/gvsoc_proxy.hpp>
 #include <gv/gvsoc.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -67,7 +66,7 @@ char vp_error[VP_ERROR_SIZE];
 
 
 
-static Gv_proxy *proxy = NULL;
+Gv_proxy *proxy = NULL;
 
 
 
@@ -1317,65 +1316,6 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 }
 
 
-extern "C" void *gv_create(const char *config_path, struct gv_conf *gv_conf)
-{
-    return (void *)vp::__gv_create(config_path, gv_conf);
-}
-
-
-extern "C" void gv_destroy(void *arg)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-    instance->stop_all();
-}
-
-
-extern "C" void gv_start(void *arg)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-
-    instance->pre_pre_build();
-    instance->pre_build();
-    instance->build();
-    instance->build_new();
-
-    if (instance->gv_conf.open_proxy || instance->get_vp_config()->get_child_bool("proxy/enabled"))
-    {
-        int in_port = instance->gv_conf.open_proxy ? 0 : instance->get_vp_config()->get_child_int("proxy/port");
-        int out_port;
-        proxy = new Gv_proxy(instance, instance->gv_conf.req_pipe, instance->gv_conf.reply_pipe);
-        if (proxy->open(in_port, &out_port))
-        {
-            instance->throw_error("Failed to start proxy");
-        }
-
-        if (instance->gv_conf.proxy_socket)
-        {
-            *instance->gv_conf.proxy_socket = out_port;
-        }
-    }
-
-}
-
-
-extern "C" void gv_reset(void *arg, bool active)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-    instance->reset_all(active);
-}
-
-
-extern "C" void gv_step(void *arg, int64_t timestamp)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-
-    instance->step(timestamp);
-}
-
 
 extern "C" int64_t gv_time(void *arg)
 {
@@ -1386,181 +1326,6 @@ extern "C" int64_t gv_time(void *arg)
 }
 
 
-extern "C" void *gv_open(const char *config_path, bool open_proxy, int *proxy_socket, int req_pipe, int reply_pipe)
-{
-    struct gv_conf gv_conf;
-
-    gv_conf.open_proxy = open_proxy;
-    gv_conf.proxy_socket = proxy_socket;
-    gv_conf.req_pipe = req_pipe;
-    gv_conf.reply_pipe = reply_pipe;
-
-    void *instance = gv_create(config_path, &gv_conf);
-    if (instance == NULL)
-        return NULL;
-
-    gv_start(instance);
-
-    return instance;
-}
-
-
-Gvsoc_proxy::Gvsoc_proxy(std::string config_path)
-    : config_path(config_path)
-{
-
-}
-
-
-
-void Gvsoc_proxy::proxy_loop()
-{
-    FILE *sock = fdopen(this->reply_pipe[0], "r");
-
-    while(1)
-    {
-        char line[1024];
-
-        if (!fgets(line, 1024, sock))
-            return ;
-
-        std::string s = std::string(line);
-        std::regex regex{R"([\s]+)"};
-        std::sregex_token_iterator it{s.begin(), s.end(), regex, -1};
-        std::vector<std::string> words{it, {}};
-
-        if (words.size() > 0)
-        {
-            if (words[0] == "stopped")
-            {
-                int64_t timestamp = std::atoll(words[1].c_str());
-                printf("GOT STOP AT %ld\n", timestamp);
-                this->mutex.lock();
-                this->stopped_timestamp = timestamp;
-                this->running = false;
-                this->cond.notify_all();
-                this->mutex.unlock();
-            }
-            else if (words[0] == "running")
-            {
-                int64_t timestamp = std::atoll(words[1].c_str());
-                printf("GOT RUN AT %ld\n", timestamp);
-                this->mutex.lock();
-                this->running = true;
-                this->cond.notify_all();
-                this->mutex.unlock();
-            }
-            else if (words[0] == "req=")
-            {
-            }
-            else
-            {
-                printf("Ignoring invalid command: %s\n", words[0].c_str());
-            }
-        }
-    }
-}
-
-
-int Gvsoc_proxy::open()
-{
-    pid_t ppid_before_fork = getpid();
-
-    if (pipe(this->req_pipe) == -1)
-        return -1;
-
-    if (pipe(this->reply_pipe) == -1)
-        return -1;
-
-    pid_t child_id = fork();
-
-    if(child_id == -1)
-    {
-        return -1;
-    }
-    else if (child_id == 0)
-    {
-        int r = prctl(PR_SET_PDEATHSIG, SIGTERM);
-        if (r == -1) { perror(0); exit(1); }
-        // test in case the original parent exited just
-        // before the prctl() call
-        if (getppid() != ppid_before_fork) exit(1);
-
-        void *instance = gv_open(this->config_path.c_str(), true, NULL, this->req_pipe[0], this->reply_pipe[1]);
-
-        int retval = gv_run(instance);
-
-        gv_stop(instance, retval);
-
-        return retval;
-    }
-    else
-    {
-        this->running = false;
-        this->loop_thread = new std::thread(&Gvsoc_proxy::proxy_loop, this);
-    }
-
-    return 0;
-}
-
-
-
-void Gvsoc_proxy::run()
-{
-    dprintf(this->req_pipe[1], "cmd=run\n");
-}
-
-
-
-int64_t Gvsoc_proxy::pause()
-{
-    int64_t result;
-    dprintf(this->req_pipe[1], "cmd=stop\n");
-    std::unique_lock<std::mutex> lock(this->mutex);
-    while (this->running)
-    {
-        this->cond.wait(lock);
-    }
-    result = this->stopped_timestamp;
-    lock.unlock();
-    return result;
-}
-
-
-
-void Gvsoc_proxy::close()
-{
-    dprintf(this->req_pipe[1], "cmd=quit\n");
-}
-
-
-
-void Gvsoc_proxy::add_event_regex(std::string regex)
-{
-    dprintf(this->req_pipe[1], "cmd=event add %s\n", regex.c_str());
-
-}
-
-
-
-void Gvsoc_proxy::remove_event_regex(std::string regex)
-{
-    dprintf(this->req_pipe[1], "cmd=event remove %s\n", regex.c_str());
-}
-
-
-
-void Gvsoc_proxy::add_trace_regex(std::string regex)
-{
-    dprintf(this->req_pipe[1], "cmd=trace add %s\n", regex.c_str());
-}
-
-
-
-void Gvsoc_proxy::remove_trace_regex(std::string regex)
-{
-    dprintf(this->req_pipe[1], "cmd=trace remove %s\n", regex.c_str());
-}
 
 
 vp::time_scheduler::time_scheduler(js::config *config)
@@ -1675,19 +1440,6 @@ vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
 }
 
 
-extern "C" int gv_run(void *arg)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-
-    if (!proxy)
-    {
-        instance->run();
-    }
-
-    return instance->join();
-}
-
 
 extern "C" void gv_init(struct gv_conf *gv_conf)
 {
@@ -1746,10 +1498,3 @@ void vp::fatal(const char *fmt, ...)
     abort();
 }
 
-
-extern "C" void *gv_chip_pad_bind(void *handle, char *name, int ext_handle)
-{
-    vp::top *top = (vp::top *)handle;
-    vp::component *instance = (vp::component *)top->top_instance;
-    return instance->external_bind(name, "", (void *)(long)ext_handle);
-}

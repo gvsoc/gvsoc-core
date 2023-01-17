@@ -19,11 +19,12 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include <gv/gvsoc.h>
+#include <gv/gvsoc.hpp>
 #include <algorithm>
 #include <dlfcn.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 
 
@@ -51,20 +52,21 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    int proxy_socket = -1;
-    void *instance = gv_open(config_path, open_proxy, &proxy_socket, -1, -1);
+    gv::Gvsoc *gvsoc = gv::gvsoc_new();
+    gv::GvsocConf conf = { .config_path=config_path };
+    gvsoc->open(&conf);
+    gvsoc->start();
 
-    gv_reset(instance, true);
-    gv_reset(instance, false);
-
-    if (proxy_socket != -1)
+    if (conf.proxy_socket != -1)
     {
-        printf("Opened proxy on socket %d\n", proxy_socket);
+        printf("Opened proxy on socket %d\n", conf.proxy_socket);
     }
 
-    int retval = gv_run(instance);
+    gvsoc->run();
+    int retval = gvsoc->join();
 
-    gv_stop(instance, retval);
+    gvsoc->stop();
+    gvsoc->close();
 
     return retval;
 }

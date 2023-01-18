@@ -68,7 +68,7 @@ bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write
                     for (auto y: aliased_reg->regfields)
                     {
                         char buff[256];
-                        snprintf(buff, 256, "0x%" PRId64, x->get_field(y->bit, y->width));
+                        snprintf(buff, 256, "0x%" PRIx64, x->get_field(y->bit, y->width));
 
                         if (regfields_values != "")
                             regfields_values += ", ";
@@ -81,12 +81,12 @@ bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write
                 else
                 {
                     char buff[256];
-                    snprintf(buff, 256, "0x%" PRId64, x->get_field(0, aliased_reg->width));
+                    snprintf(buff, 256, "0x%" PRIx64, x->get_field(0, aliased_reg->width));
                     regfields_values = std::string(buff);
                 }
 
                 aliased_reg->trace.msg(vp::trace::LEVEL_DEBUG,
-                    "Register access (name: %s, offset: 0x%" PRId64 ", size: 0x%x, is_write: 0x%x, value: %s)\n",
+                    "Register access (name: %s, offset: 0x%" PRIx64 ", size: 0x%x, is_write: 0x%x, value: %s)\n",
                     aliased_reg->get_name().c_str(), offset, size, is_write, regfields_values.c_str()
                 );
             }
@@ -95,7 +95,7 @@ bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write
         }
     }
 
-    vp_warning_always(this->trace, "Accessing invalid register (offset: 0x%" PRId64 ", size: 0x%x, is_write: %d)\n", offset, size, is_write);
+    vp_warning_always(this->trace, "Accessing invalid register (offset: 0x%" PRIx64 ", size: 0x%x, is_write: %d)\n", offset, size, is_write);
     return true;
 }
 

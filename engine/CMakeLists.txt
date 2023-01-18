@@ -24,6 +24,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/power/power_trace.cpp"
     "src/power/power_source.cpp"
     "src/launcher.cpp"
+    "src/proxy_client.cpp"
     "src/jsmn.cpp"
     "src/json.cpp"
     )

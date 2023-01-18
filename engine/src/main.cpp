@@ -52,9 +52,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    gv::Gvsoc *gvsoc = gv::gvsoc_new();
     gv::GvsocConf conf = { .config_path=config_path };
-    gvsoc->open(&conf);
+    gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
+    gvsoc->open();
     gvsoc->start();
 
     if (conf.proxy_socket != -1)

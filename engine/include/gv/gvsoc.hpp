@@ -260,7 +260,7 @@ namespace gv {
     {
     public:
         /**
-         * Bind external C++ code VCD features 
+         * Bind external C++ code VCD features
          *
          * @param user A pointer to the caller class instance which will be called for all VCD callbacks. This caller
          *             must implement all the methods defined in class Vcd_user
@@ -270,7 +270,7 @@ namespace gv {
         /**
          * Enable VCD events
          *
-         * This will add the specified list of events to the included ones. 
+         * This will add the specified list of events to the included ones.
          *
          * @param path The path of the VCD events to enable.
          * @param is_regex True if the specified path is a regular expression.
@@ -280,7 +280,7 @@ namespace gv {
         /**
          * Disable VCD events
          *
-         * This will add the specified list of events to the excluded ones. 
+         * This will add the specified list of events to the excluded ones.
          *
          * @param path The path of the VCD events to disable.
          * @param is_regex True if the specified path is a regular expression.
@@ -317,13 +317,6 @@ namespace gv {
     };
 
 
-    class GvsocConf
-    {
-    public:
-        std::string config_path = "";
-        int proxy_socket = -1;
-    };
-
     /**
      * GVSOC interface
      *
@@ -341,7 +334,7 @@ namespace gv {
          *
          * @param conf The configuration describing how to open GVSOC.
          */
-        virtual void open(GvsocConf *conf) = 0;
+        virtual void open() = 0;
 
         /**
          * Close a GVSOC configuration
@@ -379,8 +372,6 @@ namespace gv {
          */
         virtual int64_t stop() = 0;
 
-        virtual int join() = 0;
-
         /**
          * Step execution
          *
@@ -392,8 +383,59 @@ namespace gv {
          * @returns The timestamp where the execution will stop after the duration is reached.
          */
         virtual int64_t step(int64_t duration) = 0;
+
+        /**
+         * Wait end of execution.
+         *
+         * This blocks the caller until the simulation has finished and returns
+         * the return value of the simulation
+         *
+         * @returns The return value of the simulation.
+         */
+        virtual int join() = 0;
+
+        /**
+         * Get a component.
+         *
+         * This goes trough the simulated architecture to find the component
+         * with the specified path and returns the descriptor of the component.
+         *
+         * @param path The path of the component.
+         *
+         * @returns The descriptor of the component if it was found or NULL otherwise.
+         */
+        virtual void *get_component(std::string path) = 0;
+
     };
 
+
+    /**
+     * GVSOC configuration
+     *
+     * This is used to describe the way GVSOC should be configured when it is instantiated.
+     * This class is instantiated with default values which can be overriden to
+     * specify the desired configuration.
+     */
+    class GvsocConf
+    {
+    public:
+        /**
+         * Path to the GVSOC configuration
+         *
+         * When specified, GVSOC is instantiated and will simulated the specified
+         * configuration.
+         */
+        std::string config_path = "";
+
+        /**
+         * Socket of a GVSOC proxy.
+         *
+         * This can be used to connect to a GVSOC instance which has been launched separately
+         * with the proxy enabled. This instance will just act as a client interacting with the
+         * already running GVSOC instance.
+         */
+        int proxy_socket = -1;
+    };
 
     /**
      * Instantiate GVSOC
@@ -403,6 +445,6 @@ namespace gv {
      *
      * @returns A pointer to the allocated GVSOC objet.
      */
-    Gvsoc *gvsoc_new();
+    Gvsoc *gvsoc_new(GvsocConf *conf);
 
 }

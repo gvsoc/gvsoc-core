@@ -22,45 +22,14 @@
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
 #include <vp/proxy.hpp>
+#include <vp/launcher.hpp>
 
-class Gvsoc_launcher : public gv::Gvsoc
+Gvsoc_launcher::Gvsoc_launcher(gv::GvsocConf *conf)
 {
-public:
-    void open(gv::GvsocConf *conf);
-
-    void close();
-
-    void run();
-
-    void start();
-
-    int64_t stop();
-
-    int64_t step(int64_t duration);
-
-    int join();
-
-    gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name);
-
-    void vcd_bind(gv::Vcd_user *user);
-    void event_add(std::string path, bool is_regex);
-    void event_exclude(std::string path, bool is_regex);
-
-    vp::component *instance;
-
-private:
-
-    void *handler;
-};
-
-gv::Gvsoc *gv::gvsoc_new()
-{
-    return new Gvsoc_launcher();
+    this->conf = conf;
 }
 
-extern "C" void gv_start2(void *arg);
-
-void Gvsoc_launcher::open(gv::GvsocConf *conf)
+void Gvsoc_launcher::open()
 {
     struct gv_conf gv_conf;
 
@@ -103,17 +72,26 @@ void Gvsoc_launcher::start()
 
 void Gvsoc_launcher::close()
 {
+    if (proxy)
+    {
+        proxy->stop(this->retval);
+    }
+
     this->instance->stop_all();
 }
 
 void Gvsoc_launcher::run()
 {
-    this->instance->step(0);
+    if (!proxy)
+    {
+        this->instance->step(0);
+    }
 }
 
 int Gvsoc_launcher::join()
 {
-    return this->instance->join();
+    this->retval = this->instance->join();
+    return this->retval;
 }
 
 int64_t Gvsoc_launcher::stop()
@@ -125,7 +103,7 @@ int64_t Gvsoc_launcher::stop()
 int64_t Gvsoc_launcher::step(int64_t duration)
 {
     if (!proxy)
-    { 
+    {
         this->instance->step(duration);
     }
     return 0;
@@ -152,8 +130,27 @@ void Gvsoc_launcher::event_exclude(std::string path, bool is_regex)
 }
 
 
+static std::vector<std::string> split(const std::string& s, char delimiter)
+{
+   std::vector<std::string> tokens;
+   std::string token;
+   std::istringstream tokenStream(s);
+   while (std::getline(tokenStream, token, delimiter))
+   {
+      tokens.push_back(token);
+   }
+   return tokens;
+}
+
+
+void *Gvsoc_launcher::get_component(std::string path)
+{
+    return this->instance->get_component(split(path, '/'));
+}
+
 extern "C" void *gv_chip_pad_bind(void *handle, char *name, int ext_handle)
 {
     Gvsoc_launcher *gvsoc = (Gvsoc_launcher *)handle;
     return gvsoc->instance->external_bind(name, "", (void *)(long)ext_handle);
 }
+

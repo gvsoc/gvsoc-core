@@ -985,6 +985,7 @@ void Testbench::handle_uart_checker()
     if (req->uart.enabled)
     {
         Uart *uart = this->uarts[req->uart.id];
+        uart->set_control(false, 0);
         Uart_dev *dev = new Uart_flow_control_checker(this, uart, req);
         uart->set_dev(dev);
         uart->is_usart = req->uart.usart;

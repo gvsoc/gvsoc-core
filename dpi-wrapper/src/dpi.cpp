@@ -30,9 +30,9 @@ using namespace std;
 
 extern "C" void *dpi_open(char *config_path)
 {
-  gv::Gvsoc *gvsoc = gv::gvsoc_new();
   gv::GvsocConf conf = { .config_path=config_path };
-  gvsoc->open(&conf);
+  gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
+  gvsoc->open();
 
   return (void *)gvsoc;
 }

@@ -47,6 +47,8 @@
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
+#include <vp/proxy_client.hpp>
+#include <vp/launcher.hpp>
 #include <sys/stat.h>
 
 
@@ -1498,3 +1500,15 @@ void vp::fatal(const char *fmt, ...)
     abort();
 }
 
+
+gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
+{
+    if (conf->proxy_socket != -1)
+    {
+        return new Gvsoc_proxy_client(conf);
+    }
+    else
+    {
+        return new Gvsoc_launcher(conf);
+    }
+}

@@ -103,8 +103,6 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
         if (!fgets(line_array, 1024, sock)) 
             return ;
     
-        //printf("%ld Received %s\n", this->top->get_time(), line_array);
-
         std::string line = std::string(line_array);
 
         int start = 0;
@@ -190,7 +188,14 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                 {
                     vp::component *comp = this->top->get_component(split(words[1], '/'));
                     std::unique_lock<std::mutex> lock(this->mutex);
-                    dprintf(reply_fd, "req=%s;msg=%p\n", req.c_str(), comp);
+                    if (comp)
+                    {
+                        dprintf(reply_fd, "req=%s;msg=%p\n", req.c_str(), comp);
+                    }
+                    else
+                    {
+                        dprintf(reply_fd, "req=%s;msg=0x0\n", req.c_str());
+                    }
                     lock.unlock();
                 }
                 else if (words[0] == "component")

@@ -40,6 +40,8 @@ void Irq::build()
     this->iss.top.new_slave_port(this, "irq_req", &irq_req_itf);
     this->iss.top.new_master_port("irq_ack", &irq_ack_itf);
 
+    this->iss.top.new_reg("irq_enable", &this->irq_enable, false);
+
     this->iss.csr.mtvec.register_callback(std::bind(&Irq::vector_table_set, this, std::placeholders::_1));
 
 }
@@ -52,7 +54,7 @@ void Irq::reset(bool active)
         this->irq_req = -1;
         this->iss.exec.elw_interrupted = 0;
         this->vector_base = 0;
-        this->irq_enable = 0;
+        this->irq_enable.set(0);
         this->req_irq = -1;
         this->req_debug = false;
         this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
@@ -127,7 +129,7 @@ void Irq::irq_req_sync(void *__this, int irq)
         _this->iss.exec.insn_terminate();
     }
 
-    if (_this->iss.lsu.elw_stalled.get() && irq != -1 && _this->irq_enable)
+    if (_this->iss.lsu.elw_stalled.get() && irq != -1 && _this->irq_enable.get())
     {
         _this->elw_irq_unstall();
     }
@@ -141,8 +143,8 @@ int Irq::check()
     {
         this->iss.exec.debug_mode = true;
         this->iss.csr.depc = this->iss.exec.current_insn->addr;
-        this->debug_saved_irq_enable = this->irq_enable;
-        this->irq_enable = 0;
+        this->debug_saved_irq_enable = this->irq_enable.get();
+        this->irq_enable.set(0);
         this->req_debug = false;
         this->iss.exec.current_insn = this->debug_handler;
         return 1;
@@ -150,14 +152,14 @@ int Irq::check()
     else
     {
         int req_irq = this->req_irq;
-        if (req_irq != -1 && this->irq_enable)
+        if (req_irq != -1 && this->irq_enable.get())
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
             this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
-            this->iss.csr.mstatus.mpie = this->irq_enable;
+            this->iss.csr.mstatus.mpie = this->irq_enable.get();
             this->iss.csr.mstatus.mie = 0;
-            this->irq_enable = 0;
+            this->irq_enable.set(0);
             this->req_irq = -1;
             this->iss.exec.current_insn = this->vectors[req_irq];
             this->iss.csr.mcause.value = (1 << 31) | (unsigned int)req_irq;

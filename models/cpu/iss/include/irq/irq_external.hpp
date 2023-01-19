@@ -42,7 +42,7 @@ public:
 
     Iss &iss;
     iss_insn_t *vectors[35];
-    int irq_enable;
+    vp::reg_1 irq_enable;
     int debug_saved_irq_enable;
     int req_irq;
     bool req_debug;

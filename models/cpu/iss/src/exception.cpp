@@ -41,15 +41,15 @@ iss_insn_t *Exception::raise(int id)
     if (id == ISS_EXCEPT_DEBUG)
     {
         this->iss.csr.depc = this->iss.exec.current_insn->addr;
-        this->iss.irq.debug_saved_irq_enable = this->iss.irq.irq_enable;
-        this->iss.irq.irq_enable = 0;
+        this->iss.irq.debug_saved_irq_enable = this->iss.irq.irq_enable.get();
+        this->iss.irq.irq_enable.set(0);
         return this->iss.irq.debug_handler;
     }
     else
     {
         this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
-        this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable;
-        this->iss.irq.irq_enable = 0;
+        this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
+        this->iss.irq.irq_enable.set(0);
         this->iss.csr.mcause.value = 0xb;
         iss_insn_t *insn = this->iss.irq.vectors[0];
         if (insn == NULL)

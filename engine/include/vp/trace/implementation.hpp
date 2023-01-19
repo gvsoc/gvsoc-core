@@ -116,7 +116,7 @@ namespace vp {
     va_start(ap, fmt);
     if (vfprintf(this->trace_file, fmt, ap) < 0) {}
     va_end(ap);
-    abort();
+    exit(1);
   }
 
   inline void vp::trace::warning(const char *fmt, ...) {
@@ -132,7 +132,7 @@ namespace vp {
 
       if (comp->traces.get_trace_manager()->get_werror())
       {
-          abort();
+        exit(1);
       }
     }
   #endif
@@ -152,7 +152,7 @@ namespace vp {
 
         if (comp->traces.get_trace_manager()->get_werror())
         {
-            abort();
+          exit(1);
         }
       }
     }

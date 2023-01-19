@@ -98,9 +98,11 @@ void Gvsoc_proxy_client::reader_routine()
                 {
                     int size = std::stoi(value);
                     uint8_t data[size];
-                    fread(data, 1, size, sock);
-                    std::function<void(uint8_t *, int)> callback = this->payload_callbacks[req];
-                    callback(data, size);
+                    if (fread(data, 1, size, sock) == size)
+                    {
+                        std::function<void(uint8_t *, int)> callback = this->payload_callbacks[req];
+                        callback(data, size);
+                    }
                 }
             }
         }

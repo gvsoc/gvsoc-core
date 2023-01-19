@@ -148,7 +148,7 @@ void vp::trace::force_warning(const char *fmt, ...)
 
     if (comp->traces.get_trace_manager()->get_werror())
     {
-        abort();
+        exit(1);
     }
 }
 
@@ -165,7 +165,7 @@ void vp::trace::force_warning(vp::trace::warning_type_e type, const char *fmt, .
 
         if (comp->traces.get_trace_manager()->get_werror())
         {
-            abort();
+            exit(1);
         }
     }
 }

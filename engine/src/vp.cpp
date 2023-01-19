@@ -1497,7 +1497,7 @@ void vp::fatal(const char *fmt, ...)
     va_start(ap, fmt);
     if (vfprintf(stderr, fmt, ap) < 0) {}
     va_end(ap);
-    abort();
+    exit(1);
 }
 
 

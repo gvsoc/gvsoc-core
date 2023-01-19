@@ -29,6 +29,6 @@ inline void Irq::global_enable(int enable)
     this->trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
                     enable);
 
-    this->iss.irq.irq_enable = enable;
+    this->iss.irq.irq_enable.set(enable);
     this->iss.exec.switch_to_full_mode();
 }

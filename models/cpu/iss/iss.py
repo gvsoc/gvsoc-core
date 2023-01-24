@@ -73,7 +73,8 @@ class Iss(st.Component):
             fetch_enable: bool=False,
             boot_addr: int=0,
             mmu: bool=False,
-            pmp: bool=False):
+            pmp: bool=False,
+            riscv_exceptions: bool=False):
 
         super(Iss, self).__init__(parent, name)
 
@@ -104,6 +105,9 @@ class Iss(st.Component):
             self.add_c_flags([
                 '-DCONFIG_GVSOC_ISS_PMP=1',
                 '-DCONFIG_GVSOC_ISS_PMP_NB_ENTRIES=16'])
+
+        if riscv_exceptions:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_RISCV_EXCEPTIONS=1'])
 
 
     def gen_gtkw(self, tree, comp_traces):

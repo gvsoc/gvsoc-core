@@ -23,30 +23,34 @@
 
 #include <vp/vp.hpp>
 #include <types.hpp>
+#include <core.hpp>
+#include "mmu.hpp"
 
-#define PRIV_U 0
-#define PRIV_S 1
-#define PRIV_M 3
-
-class Core
+inline iss_addr_t Mmu::insn_virt_to_phys(iss_addr_t virt_addr)
 {
-public:
-    Core(Iss &iss);
+#ifdef CONFIG_GVSOC_ISS_MMU
+    iss_addr_t tag = virt_addr >> MMU_PGSHIFT;
+    int index = tag & MMU_TLB_ENTRIES_MASK;
 
-    void build();
-    void reset(bool active);
+    if (likely(this->tlb_insn_tag[index] == tag))
+    {
+        // printf("TLB converted %lx to %lx\n", virt_addr, virt_addr + this->tlb_phys_addr[index]);
+        return virt_addr + this->tlb_phys_addr[index];
+    }
 
-    iss_insn_t *mret_handle();
-    iss_insn_t *dret_handle();
-    iss_insn_t *sret_handle();
-    int mode_get() { return this->mode; }
+        // printf("MISS converted %lx to %lx\n", virt_to_phys_miss(virt_addr));
+    return virt_to_phys_miss(virt_addr);
+#else
+    return virt_addr;
+#endif
+}
 
-private:
-    bool mstatus_update(iss_reg_t value);
+inline iss_addr_t Mmu::load_virt_to_phys(iss_addr_t virt_addr)
+{
+    return 0;
+}
 
-    Iss &iss;
-    vp::trace trace;
-
-    int mode;
-};
-
+inline iss_addr_t Mmu::store_virt_to_phys(iss_addr_t virt_addr)
+{
+    return 0;
+}

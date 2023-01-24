@@ -109,10 +109,35 @@ class Lsu;
 #define ISS_INSN_BLOCK_ID_BITS 12
 #define ISS_INSN_NB_BLOCKS (1 << ISS_INSN_BLOCK_ID_BITS)
 
-#define ISS_EXCEPT_RESET 0
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+#define ISS_EXCEPT_INSN_MISALIGNED  0
+#define ISS_EXCEPT_INSN_FAULT       1
+#define ISS_EXCEPT_ILLEGAL          2
+#define ISS_EXCEPT_BREAKPOINT       3
+#define ISS_EXCEPT_LOAD_MISALIGNED  4
+#define ISS_EXCEPT_LOAD_FAULT       5
+#define ISS_EXCEPT_STORE_MISALIGNED 6
+#define ISS_EXCEPT_STORE_FAULT      7
+#define ISS_EXCEPT_ENV_CALL_U_MODE  8
+#define ISS_EXCEPT_ENV_CALL_S_MODE  9
+#define ISS_EXCEPT_ENV_CALL_M_MODE  11
+#define ISS_EXCEPT_INSN_PAGE_FAULT  12
+#define ISS_EXCEPT_LOAD_PAGE_FAULT  13
+#define ISS_EXCEPT_STORE_PAGE_FAULT 15
+
+// TODO for compatibility, should be cleaned-up
+#define ISS_EXCEPT_ECALL   ISS_EXCEPT_ENV_CALL_M_MODE
+#define ISS_EXCEPT_DEBUG   0
+#else
+#define ISS_EXCEPT_RESET   0
 #define ISS_EXCEPT_ILLEGAL 1
-#define ISS_EXCEPT_ECALL 2
-#define ISS_EXCEPT_DEBUG 3
+#define ISS_EXCEPT_ECALL   2
+#define ISS_EXCEPT_DEBUG   3
+
+#define ISS_EXCEPT_INSN_PAGE_FAULT  0
+#define ISS_EXCEPT_LOAD_PAGE_FAULT  0
+#define ISS_EXCEPT_STORE_PAGE_FAULT 0
+#endif
 
 typedef struct iss_cpu_s iss_cpu_t;
 typedef struct iss_insn_s iss_insn_t;

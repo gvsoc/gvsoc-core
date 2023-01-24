@@ -33,6 +33,15 @@ inline bool Prefetcher::fetch(iss_insn_t *insn)
 
     // Compute where the instructions address falls into the prefetch buffer
     iss_addr_t addr = insn->addr;
+
+#ifdef CONFIG_GVSOC_ISS_MMU
+    addr = this->iss.mmu.insn_virt_to_phys(insn->addr);
+    if (this->iss.exec.stalled.get())
+    {
+        return false;
+    }
+#endif
+
     unsigned int index = addr - this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.

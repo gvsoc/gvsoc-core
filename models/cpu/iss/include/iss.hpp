@@ -57,6 +57,7 @@
 #include <regfile_implem.hpp>
 #include <timing_implem.hpp>
 #include <irq/irq_external_implem.hpp>
+#include <mmu_implem.hpp>
 #include <exec/exec_inorder_implem.hpp>
 #include <prefetch/prefetch_single_line_implem.hpp>
 

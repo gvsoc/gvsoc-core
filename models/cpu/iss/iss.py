@@ -75,7 +75,8 @@ class Iss(st.Component):
             mmu: bool=False,
             pmp: bool=False,
             riscv_exceptions: bool=False,
-            core=None):
+            core=None,
+            supervisor=False):
 
         super(Iss, self).__init__(parent, name)
 
@@ -101,6 +102,9 @@ class Iss(st.Component):
 
         if core == 'ri5ky':
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_RI5KY=1'])
+
+        if supervisor:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR=1'])
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])

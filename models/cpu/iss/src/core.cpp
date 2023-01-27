@@ -86,7 +86,11 @@ bool Core::mstatus_update(iss_reg_t value)
     this->iss.csr.mstatus.value = value;
 
 #ifdef CONFIG_GVSOC_ISS_RI5KY
+#ifdef CONFIG_GVSOC_ISS_SUPERVISOR
     this->iss.csr.mstatus.value &= 0x21899;
+#else
+    this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & 0x88) | 0x1800;
+#endif
 #endif
 
     this->iss.timing.stall_insn_dependency_account(4);

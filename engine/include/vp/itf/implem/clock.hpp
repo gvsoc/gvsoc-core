@@ -39,6 +39,7 @@ namespace vp {
       // Case where a slave port is already connected.
       // Just connect the new one to the list so that all are called.
       clock_master *master = new clock_master;
+      master->set_owner(this->get_owner());
       master->bind_to(_port, config);
       master->next = this->next;
       this->next = master;
@@ -84,7 +85,7 @@ namespace vp {
     // The normal callback was tweaked in order to get there when the master is sending a
     // request. 
     // First synchronize the target engine in case it was left behind,
-    // and then generate the normal call with the mux ID using the saved handler
+    // and then generate the normal call with the mux ID using the saved 
     _this->remote_port->get_owner()->get_clock()->sync();
     return _this->sync_meth_freq_cross((component *)_this->slave_context_for_freq_cross, value);
   }
@@ -107,20 +108,27 @@ namespace vp {
 
   inline void clock_master::finalize()
   {
-    // We have to instantiate a stub in case the binding is crossing different
-    // frequency domains in order to resynchronize the target engine.
-    if (this->get_owner()->get_clock() != this->remote_port->get_owner()->get_clock())
+    clock_master *port = this;
+
+    while(port)
     {
-      // Just save the normal handler and tweak it to enter the stub when the
-      // master is pushing the request.
-      this->sync_meth_freq_cross = this->sync_meth;
-      this->sync_meth = (void (*)(void *, bool))&clock_master::sync_freq_cross_stub;
+      // We have to instantiate a stub in case the binding is crossing different
+      // frequency domains in order to resynchronize the target engine.
+      if (port->get_owner()->get_clock() != port->remote_port->get_owner()->get_clock())
+      {
+        // Just save the normal handler and tweak it to enter the stub when the
+        // master is pushing the request.
+        port->sync_meth_freq_cross = port->sync_meth;
+        port->sync_meth = (void (*)(void *, bool))&clock_master::sync_freq_cross_stub;
 
-      this->set_frequency_meth_freq_cross = this->set_frequency_meth;
-      this->set_frequency_meth = (void (*)(void *, int64_t))&clock_master::set_frequency_freq_cross_stub;
+        port->set_frequency_meth_freq_cross = port->set_frequency_meth;
+        port->set_frequency_meth = (void (*)(void *, int64_t))&clock_master::set_frequency_freq_cross_stub;
 
-      this->slave_context_for_freq_cross = this->get_remote_context();
-      this->set_remote_context(this);
+        port->slave_context_for_freq_cross = port->get_remote_context();
+        port->set_remote_context(port);
+      }
+
+      port = port->next;
     }
   }
 
@@ -130,16 +138,11 @@ namespace vp {
   {
     slave_port::bind_to(_port, config);
     clock_master *port = (clock_master *)_port;
-
-    if (port->next) port = port->next;
-
     clock_slave *slave_port = new clock_slave();
-
-    port->slave_port = NULL;
-
     port->slave_port = slave_port;
-    port->slave_port->set_context(port->get_context());
-    port->slave_port->set_remote_context(port->get_context());
+    slave_port->set_owner(this->get_owner());
+    slave_port->set_context(port->get_context());
+    slave_port->set_remote_context(port->get_context());
   }
 
   inline void clock_slave::set_sync_meth(void (*meth)(void *, bool))

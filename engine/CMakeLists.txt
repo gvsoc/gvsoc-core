@@ -133,7 +133,7 @@ endif()
 if(${BUILD_RTL})
     add_library(gvsoc_sv SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
     target_include_directories(gvsoc_sv PUBLIC ${GVSOC_ENGINE_INC_DIRS})
-    target_link_libraries(gvsoc_sv PUBLIC z pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(gvsoc_sv PUBLIC pthread ${CMAKE_DL_LIBS})
     set_target_properties(gvsoc_sv PROPERTIES OUTPUT_NAME "pulpvp-sv")
     install(TARGETS gvsoc_sv
         LIBRARY DESTINATION lib

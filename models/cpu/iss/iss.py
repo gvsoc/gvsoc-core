@@ -74,7 +74,8 @@ class Iss(st.Component):
             boot_addr: int=0,
             mmu: bool=False,
             pmp: bool=False,
-            riscv_exceptions: bool=False):
+            riscv_exceptions: bool=False,
+            core=None):
 
         super(Iss, self).__init__(parent, name)
 
@@ -97,6 +98,9 @@ class Iss(st.Component):
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
         })
+
+        if core == 'ri5ky':
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_RI5KY=1'])
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])

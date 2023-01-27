@@ -46,7 +46,7 @@ Csr::Csr(Iss &iss)
 
     // Machine trap handling
     this->declare_csr(&this->mscratch, "mscratch", 0x340);
-    this->declare_csr(&this->mepc,     "mepc",     0x341);
+    this->declare_csr(&this->mepc,     "mepc",     0x341, ~1ULL);
     this->declare_csr(&this->mcause,   "mcause",   0x342);
 }
 
@@ -1835,6 +1835,9 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return scratch1_write(iss, value);
 #endif
 
+    case 0xF13:
+    case 0xF14:
+        return false;
 #ifdef CSR_STACK_CONF
     case CSR_STACK_CONF:
         return stack_conf_write(iss, value);
@@ -2383,7 +2386,7 @@ bool CsrAbtractReg::access(bool is_write, iss_reg_t *value)
         }
         if (update)
         {
-            *this->value_p = *value;
+            *this->value_p = (*value) & this->write_mask;
         }
     }
     else
@@ -2398,7 +2401,7 @@ void CsrAbtractReg::register_callback(std::function<bool(iss_reg_t)> callback)
     this->callbacks.push_back(callback);
 }
 
-void Csr::declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address)
+void Csr::declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, iss_reg_t write_mask)
 {
     if (this->regs.find(address) != this->regs.end())
     {
@@ -2409,6 +2412,7 @@ void Csr::declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address)
 
     this->regs[address] = reg;
     reg->name = name;
+    reg->write_mask = write_mask;
 }
 
 CsrAbtractReg *Csr::get_csr(iss_reg_t address)

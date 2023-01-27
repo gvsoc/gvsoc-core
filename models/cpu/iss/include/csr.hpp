@@ -63,6 +63,8 @@ public:
 protected:
     bool access(bool is_write, iss_reg_t *value);
 
+    iss_reg_t write_mask;
+
 private:
     std::vector<std::function<bool(iss_reg_t)>> callbacks;
     iss_reg_t default_value;
@@ -151,7 +153,7 @@ public:
     void reset(bool active);
 
     void declare_pcer(int index, std::string name, std::string help);
-    void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address);
+    void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, iss_reg_t mask=-1);
     CsrAbtractReg *get_csr(iss_reg_t address);
 
     bool access(bool is_write, iss_reg_t address, iss_reg_t *value);

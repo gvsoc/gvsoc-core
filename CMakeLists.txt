@@ -73,7 +73,8 @@ file(MAKE_DIRECTORY ${TARGET_CONFIG_DIR})
 
 if(DEFINED GVSOC_TARGETS)
 
-    foreach(target ${GVSOC_TARGETS})
+    string(REPLACE " "  ";" GVSOC_TARGETS_LIST "${GVSOC_TARGETS}")
+    foreach(target ${GVSOC_TARGETS_LIST})
 
         set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${target}.config)
 
@@ -88,7 +89,7 @@ if(DEFINED GVSOC_TARGETS)
 
         string(REPLACE ";"  " " GAPY_CMD_STR "    ${GAPY_CMD}")
         message(STATUS ${GAPY_CMD_STR})
-        
+
         # We generate first the list of components for the specified target
         execute_process (
             COMMAND ${GAPY_CMD} RESULT_VARIABLE ret
@@ -96,9 +97,9 @@ if(DEFINED GVSOC_TARGETS)
         if(ret EQUAL "1")
             message( FATAL_ERROR "Caught error while generating gvsoc config")
         endif()
-        
+
         import_kconfig(CONFIG_ ${TARGET_CONFIG})
-        
+
     endforeach()
 
 else()

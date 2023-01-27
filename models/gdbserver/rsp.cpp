@@ -77,7 +77,7 @@ void Rsp::proxy_loop(int socket)
     this->codec->on_packet([this](char *pkt, size_t pkt_len)
     {
         this->codec->encode_ack(this->out_buffer);
-    
+
         if (!this->decode(pkt, pkt_len))
         {
             //    stop();
@@ -86,9 +86,7 @@ void Rsp::proxy_loop(int socket)
 
     this->codec->on_ctrlc([this]()
     {
-        this->top->lock();
         this->top->get_core()->gdbserver_stop();
-        this->top->unlock();
     });
 
     while(1)
@@ -113,7 +111,9 @@ void Rsp::proxy_loop(int socket)
 
         in_buffer->commit_write(ret);
 
+        std::unique_lock<std::mutex> lock(this->mutex);
         this->codec->decode(in_buffer);
+        lock.unlock();
     }
 }
 
@@ -148,11 +148,22 @@ bool Rsp::send_str(const char *data)
 }
 
 
+bool Rsp::signal_unsafe()
+{
+    std::unique_lock<std::mutex> lock(this->mutex);
+
+    bool retval = this->signal();
+
+    lock.unlock();
+
+    return retval;
+}
+
 bool Rsp::signal()
 {
     char str[128];
     int len;
-    
+
     auto core = this->top->get_core();
 
     int state = core->gdbserver_state();
@@ -249,16 +260,6 @@ bool Rsp::reg_read(char *data, size_t)
     }
 }
 
-
-void Rsp::io_access_done(int status)
-{
-    if (status)
-        this->send_str("E03");
-    else
-        this->send_str("OK");
-}
-
-
 bool Rsp::mem_write(char *data, size_t len)
 {
     uint32_t addr;
@@ -286,15 +287,11 @@ bool Rsp::mem_write(char *data, size_t len)
     data = &data[i + 1];
     len = len - i - 1;
 
-    this->top->io_access(addr, len,(uint8_t *)data, true);
+    if (this->top->io_access(addr, len,(uint8_t *)data, true))
+    {
+        return send_str("E03");
+    }
 
-    return false;
-
-
-    //if (!m_top->target->check_mem_access(addr, len))
-    //    return send_str("E03");
-//
-    //m_top->target->mem_write(addr, len, data);
     return send_str("OK");
 }
 
@@ -310,7 +307,7 @@ bool Rsp::multithread(char *data, size_t len)
     {
     case 'c':
     case 'g':
-        if (sscanf(&data[1], "%d", &thread_id) != 1)
+        if (sscanf(&data[1], "%x", &thread_id) != 1)
             return false;
 
         if (thread_id == -1) // affects all threads
@@ -447,7 +444,6 @@ bool Rsp::v_packet(char* data, size_t len)
     }
     else if (strncmp ("vCont", data, std::min(strlen ("vCont"), len)) == 0)
     {
-
         // vCont can contains several commands, handle them in sequence
         char *str = strtok(&data[6], ";");
         bool thread_is_started=false;
@@ -469,15 +465,11 @@ bool Rsp::v_packet(char* data, size_t len)
 
             if (str[0] == 'C' || str[0] == 'c')
             {
-                this->top->lock();
                 this->top->get_core()->gdbserver_cont();
-                this->top->unlock();
             }
             else if (str[0] == 'S' || str[0] == 's')
             {
-                this->top->lock();
                 this->top->get_core()->gdbserver_stepi();
-                this->top->unlock();
             }
             else
             {
@@ -487,7 +479,9 @@ bool Rsp::v_packet(char* data, size_t len)
             str = strtok(NULL, ";");
         }
 
-        return this->send_str("OK");
+        bool result = this->send_str("OK");
+
+        return result;
     }
 #if 0
     if (strncmp ("vKill", data, std::min(strlen ("vKill"), len)) == 0)
@@ -569,11 +563,12 @@ bool Rsp::decode(char* data, size_t len)
         case 'c':
         case 'C': {
             auto core = this->top->get_core();
-            this->top->lock();
             int ret = core->gdbserver_cont();
-            this->top->unlock();
             return ret;
         }
+
+        case 'm':
+            return this->mem_read(&data[1], len-1);
 
 
 
@@ -584,9 +579,6 @@ bool Rsp::decode(char* data, size_t len)
         case 's':
         case 'S':
         return step(&data[0], len);
-
-        case 'm':
-        return mem_read(&data[1], len-1);
 
         case 'M':
         return mem_write_ascii(&data[1], len-1);
@@ -702,6 +694,47 @@ void Rsp::start(int port)
     {
         this->top->trace.msg(vp::trace::LEVEL_ERROR, "FAILED to open proxy\n");
     }
+}
+
+bool Rsp::mem_read(char *data, size_t)
+{
+    unsigned char buffer[512];
+    char reply[1024];
+    uint32_t addr;
+    uint32_t length;
+    uint32_t i;
+
+    if (sscanf(data, "%x,%x", &addr, &length) != 2)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not parse packet\n");
+        return false;
+    }
+
+    if (length >= 512)
+    {
+        return send_str("E01");
+    }
+
+    if (1) //m_top->target->check_mem_access(addr, length))
+    {
+        if (this->top->io_access(addr, length, (uint8_t *)buffer, false))
+        {
+            return send_str("E03");
+        }
+
+        for (i = 0; i < length; i++)
+        {
+            snprintf(&reply[i * 2], 3, "%02x", (uint32_t)buffer[i]);
+        }
+    }
+    else
+    {
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Filtered memory read attempt - area is inaccessible\n");
+        memset(reply, (int)'0', length * 2);
+        reply[length * 2] = '\0';
+    }
+
+    return send(reply, length * 2);
 }
 
 
@@ -1131,44 +1164,6 @@ bool Rsp::Client::query(char *data, size_t len)
     log.error("Unknown query packet\n");
 
     return send_str("");
-}
-
-bool Rsp::Client::mem_read(char *data, size_t)
-{
-    unsigned char buffer[512];
-    char reply[1024];
-    uint32_t addr;
-    uint32_t length;
-    uint32_t i;
-
-    if (sscanf(data, "%x,%x", &addr, &length) != 2)
-    {
-        log.error("Could not parse packet\n");
-        return false;
-    }
-
-    if (length >= 512)
-    {
-        return send_str("E01");
-    }
-
-    if (m_top->target->check_mem_access(addr, length))
-    {
-        m_top->target->mem_read(addr, length, (char *)buffer);
-
-        for (i = 0; i < length; i++)
-        {
-            snprintf(&reply[i * 2], 3, "%02x", (uint32_t)buffer[i]);
-        }
-    }
-    else
-    {
-        log.detail("Filtered memory read attempt - area is inaccessible\n");
-        memset(reply, (int)'0', length * 2);
-        reply[length * 2] = '\0';
-    }
-
-    return send(reply, length * 2);
 }
 
 bool Rsp::Client::mem_write_ascii(char *data, size_t len)

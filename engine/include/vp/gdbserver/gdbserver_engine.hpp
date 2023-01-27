@@ -52,7 +52,11 @@ namespace vp
     {
     public:
         virtual int register_core(Gdbserver_core *core) = 0;
+        virtual void signal_unsafe(Gdbserver_core *core) = 0;
         virtual void signal(Gdbserver_core *core) = 0;
+
+        virtual void lock() = 0;
+        virtual void unlock() = 0;
     };
 
 };

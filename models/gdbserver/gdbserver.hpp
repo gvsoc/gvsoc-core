@@ -24,6 +24,8 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include "vp/gdbserver/gdbserver_engine.hpp"
+#include <mutex>
+#include <condition_variable>
 
 
 class Rsp;
@@ -42,12 +44,13 @@ public:
 
     int register_core(vp::Gdbserver_core *core);
     void signal(vp::Gdbserver_core *core);
+    void signal_unsafe(vp::Gdbserver_core *core);
     int set_active_core(int id);
     vp::Gdbserver_core *get_core(int id=-1);
     std::vector<vp::Gdbserver_core *> get_cores() { return this->cores_list; }
 
-    void lock() { this->get_time_engine()->lock(); }
-    void unlock() { this->get_time_engine()->unlock(); }
+    void lock() override { this->get_time_engine()->lock(); }
+    void unlock() override { this->get_time_engine()->unlock(); }
 
     vp::trace     trace;
 
@@ -58,10 +61,14 @@ private:
     vp::io_req io_req;
     vp::clock_event *event;
     vp::io_master out;
-    bool pending_access;
     std::unordered_map<int, vp::Gdbserver_core *> cores;
     std::vector<vp::Gdbserver_core *> cores_list;
     int active_core;
+    std::mutex mutex;
+    std::condition_variable cond;
+    int io_retval;
+    bool waiting_io_response;
+
 };
 
 #endif

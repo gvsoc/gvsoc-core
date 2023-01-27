@@ -78,6 +78,7 @@ void IssWrapper::reset(bool active)
     this->iss.trace.reset(active);
     this->iss.regfile.reset(active);
     this->iss.decode.reset(active);
+    this->iss.gdbserver.reset(active);
 }
 
 IssWrapper::IssWrapper(js::config *config)

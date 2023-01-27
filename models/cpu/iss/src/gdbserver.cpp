@@ -36,9 +36,18 @@ void Gdbserver::start()
 {
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.top.get_service("gdbserver");
 
+    if (this->iss.csr.mhartid == 9)
     if (this->gdbserver)
     {
         this->gdbserver->register_core(this);
+    }
+}
+
+void Gdbserver::reset(bool active)
+{
+    if (this->gdbserver && !active)
+    {
+        this->iss.exec.stalled_inc();
         this->iss.exec.halted.set(true);
     }
 }
@@ -55,6 +64,7 @@ std::string Gdbserver::gdbserver_get_name()
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
+    this->iss.top.get_time_engine()->lock();
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
 
     if (reg == 32)
@@ -65,6 +75,7 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
     {
         this->trace.msg(vp::trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
     }
+    this->iss.top.get_time_engine()->unlock();
 
     return 0;
 }
@@ -77,6 +88,7 @@ int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 
 int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
+    this->iss.top.get_time_engine()->lock();
     if (nb_regs)
     {
         *nb_regs = 33;
@@ -104,29 +116,47 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
             regs[32] = 0;
         }
     }
+    this->iss.top.get_time_engine()->unlock();
 
     return 0;
 }
 
 int Gdbserver::gdbserver_stop()
 {
-    this->iss.exec.halted.set(true);
+    this->iss.top.get_time_engine()->lock();
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Received stop request\n");
+
+    if (!this->iss.exec.halted.get())
+    {
+        this->iss.exec.stalled_inc();
+        this->iss.exec.halted.set(true);
+    }
     this->gdbserver->signal(this);
+    this->iss.top.get_time_engine()->unlock();
     return 0;
 }
 
 int Gdbserver::gdbserver_cont()
 {
-    this->iss.exec.halted.set(false);
+    this->iss.top.get_time_engine()->lock();
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Received cont request\n");
+
+    if (this->iss.exec.halted.get())
+    {
+        this->iss.exec.stalled_dec();
+        this->iss.exec.halted.set(false);
+    }
+    this->iss.top.get_time_engine()->unlock();
 
     return 0;
 }
 
 int Gdbserver::gdbserver_stepi()
 {
-    fprintf(stderr, "STEP\n");
+    this->iss.top.get_time_engine()->lock();
     this->iss.exec.step_mode.set(true);
-    this->iss.exec.halted.set(false);
+    this->iss.exec.switch_to_full_mode();
+    this->iss.top.get_time_engine()->unlock();
     return 0;
 }
 

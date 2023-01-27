@@ -29,6 +29,7 @@ public:
     Gdbserver(Iss &iss);
     void build();
     void start();
+    void reset(bool active);
     int gdbserver_get_id();
     std::string gdbserver_get_name();
     int gdbserver_reg_set(int reg, uint8_t *value);

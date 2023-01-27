@@ -22,6 +22,7 @@
 #define __GDB_SERVER_RSP_HPP__
 
 #include <thread>
+#include <mutex>
 #include "rsp-packet-codec.hpp"
 
 
@@ -33,8 +34,7 @@ public:
     Rsp(Gdb_server *top);
     void start(int port);
     bool signal();
-
-    void io_access_done(int status);
+    bool signal_unsafe();
 
 private:
     void proxy_listener();
@@ -50,6 +50,7 @@ private:
     bool mem_write(char *data, size_t len);
     bool reg_read(char *data, size_t);
     bool reg_write(char *data, size_t);
+    bool mem_read(char *data, size_t);
 
     Gdb_server *top;
     int sock;
@@ -60,6 +61,7 @@ private:
     RspPacketCodec *codec;
     CircularCharBuffer *out_buffer;
     int active_core_for_other = 0;
+    std::mutex mutex;
 };
 
 #endif

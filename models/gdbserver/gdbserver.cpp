@@ -55,6 +55,11 @@ void Gdb_server::signal(vp::Gdbserver_core *core)
     this->rsp->signal();
 }
 
+void Gdb_server::signal_unsafe(vp::Gdbserver_core *core)
+{
+    this->rsp->signal_unsafe();
+}
+
 
 void Gdb_server::pre_pre_build()
 {
@@ -70,7 +75,6 @@ int Gdb_server::build()
     traces.new_trace("trace", &trace, vp::DEBUG);
     this->new_master_port("out", &this->out);
     this->event = this->event_new(&Gdb_server::handle);
-    this->pending_access = false;
     return 0;
 }
 
@@ -112,20 +116,17 @@ vp::Gdbserver_core *Gdb_server::get_core(int id)
 void Gdb_server::handle(void *__this, vp::clock_event *event)
 {
     Gdb_server *_this = (Gdb_server *)__this;
-    if (_this->pending_access)
-    {
-        _this->pending_access = false;
-        _this->rsp->io_access_done(0);
-    }
+
+    std::unique_lock<std::mutex> lock(_this->mutex);
+    _this->waiting_io_response = false;
+    _this->cond.notify_all();
+    lock.unlock();
 }
 
 
 int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
 {
-    if (this->pending_access)
-      return -1;
-
-    this->pending_access = true;
+    int retval = 0;
     this->io_req.init();
     this->io_req.set_addr(addr);
     this->io_req.set_size(size);
@@ -136,20 +137,34 @@ int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
     int err = this->out.req(&this->io_req);
     if (err == vp::IO_REQ_OK)
     {
+        this->waiting_io_response = true;
         int64_t latency = this->io_req.get_latency();
         this->event_enqueue(this->event, latency + 1);
+        this->get_time_engine()->unlock();
+
+        std::unique_lock<std::mutex> lock(this->mutex);
+
+        while (this->waiting_io_response)
+        {
+            this->cond.wait(lock);
+        }
+
+        lock.unlock();
+
     }
     else if (err == vp::IO_REQ_INVALID)
     {
-        this->rsp->io_access_done(-1);
+        this->io_retval = 1;
+        this->get_time_engine()->unlock();
     }
     else
     {
         this->trace.fatal("Unsupported asynchronous reply\n");
+        this->io_retval = 1;
+        this->get_time_engine()->unlock();
     }
-    this->get_time_engine()->unlock();
 
-    return 0;
+    return this->io_retval;
 }
 
 

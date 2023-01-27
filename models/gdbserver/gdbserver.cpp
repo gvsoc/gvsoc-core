@@ -83,6 +83,7 @@ void Gdb_server::start()
 {
     if (this->rsp)
     {
+        this->clock->retain();
         this->rsp->start(this->get_js_config()->get_child_int("port"));
     }
 }

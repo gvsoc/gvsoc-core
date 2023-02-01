@@ -391,6 +391,8 @@ typedef struct iss_insn_s
     iss_insn_t *(*hwloop_handler)(Iss *, iss_insn_t *);
     iss_insn_t *(*stall_handler)(Iss *, iss_insn_t *);
     iss_insn_t *(*stall_fast_handler)(Iss *, iss_insn_t *);
+    iss_insn_t *(*breakpoint_saved_handler)(Iss *, iss_insn_t *);
+    iss_insn_t *(*breakpoint_saved_fast_handler)(Iss *, iss_insn_t *);
     int size;
     int nb_out_reg;
     int nb_in_reg;

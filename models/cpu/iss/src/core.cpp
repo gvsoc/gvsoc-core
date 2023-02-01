@@ -133,6 +133,11 @@ bool Core::mstatus_update(bool is_write, iss_reg_t &value)
 
         this->iss.timing.stall_insn_dependency_account(4);
         this->iss.irq.global_enable(this->iss.csr.mstatus.mie);
+
+    }
+    else
+    {
+        value = this->iss.csr.mstatus.value;
     }
 
     return false;

@@ -191,6 +191,7 @@ int Irq::check()
     else
     {
         int req_irq = this->req_irq;
+
         if (req_irq != -1 && this->irq_enable.get())
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
@@ -198,6 +199,31 @@ int Irq::check()
             this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
             this->iss.csr.mstatus.mpie = this->irq_enable.get();
             this->iss.csr.mstatus.mie = 0;
+
+            int next_mode = PRIV_M;
+            // TODO add support for riscv interrupts
+            int id = 0;
+            if ((this->iss.csr.mideleg.value >> id) & 1)
+            {
+                next_mode = PRIV_S;
+            }
+
+            if (next_mode == PRIV_M)
+            {
+                this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.mstatus.mie = 0;
+                this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
+                this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
+            }
+            else
+            {
+                this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.mstatus.sie = 0;
+                this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
+                this->iss.csr.mstatus.spp = this->iss.core.mode_get();
+            }
+            this->iss.core.mode_set(next_mode);
+
             this->irq_enable.set(0);
             this->req_irq = -1;
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS

@@ -67,7 +67,10 @@ void Csr::reset(bool active)
 
         for (auto reg: this->regs)
         {
-            reg.second->reset(active);
+            if (reg.second)
+            {
+                reg.second->reset(active);
+            }
         }
     }
 

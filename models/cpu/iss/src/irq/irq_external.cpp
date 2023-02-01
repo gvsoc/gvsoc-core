@@ -30,10 +30,15 @@ Irq::Irq(Iss &iss)
 
 void Irq::build()
 {
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+    this->mtvec_insn = NULL;
+    this->stvec_insn = NULL;
+#else
     for (int i = 0; i < 32; i++)
     {
         this->vectors[i] = NULL;
     }
+#endif
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     irq_req_itf.set_sync_meth(&Irq::irq_req_sync);
@@ -42,7 +47,8 @@ void Irq::build()
 
     this->iss.top.new_reg("irq_enable", &this->irq_enable, false);
 
-    this->iss.csr.mtvec.register_callback(std::bind(&Irq::vector_table_set, this, std::placeholders::_1));
+    this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
 
 }
 
@@ -53,7 +59,6 @@ void Irq::reset(bool active)
     {
         this->irq_req = -1;
         this->iss.exec.elw_interrupted = 0;
-        this->vector_base = 0;
         this->irq_enable.set(0);
         this->req_irq = -1;
         this->req_debug = false;
@@ -61,15 +66,39 @@ void Irq::reset(bool active)
     }
     else
     {
-        this->vector_table_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
+        this->mtvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
 
     }
 }
 
-
-bool Irq::vector_table_set(iss_addr_t base)
+bool Irq::mtvec_access(bool is_write, iss_reg_t &value)
 {
-    this->trace.msg("Setting vector table (addr: 0x%x)\n", base);
+    if (is_write)
+    {
+        this->mtvec_set(value);
+    }
+
+    return true;
+}
+
+bool Irq::stvec_access(bool is_write, iss_reg_t &value)
+{
+    if (is_write)
+    {
+        this->stvec_set(value);
+    }
+
+    return true;
+}
+
+bool Irq::mtvec_set(iss_addr_t base)
+{
+    base &= ~(3ULL);
+    this->trace.msg("Setting mtvec (addr: 0x%x)\n", base);
+
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+    this->iss.irq.mtvec_insn = insn_cache_get(&this->iss, base);
+#else
     for (int i = 0; i < 32; i++)
     {
         this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
@@ -79,14 +108,24 @@ bool Irq::vector_table_set(iss_addr_t base)
     {
         this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
     }
-    this->iss.irq.vector_base = base;
+#endif
 
+    return true;
+}
+
+bool Irq::stvec_set(iss_addr_t base)
+{
+    base &= ~(3ULL);
+    this->trace.msg("Setting stvec (addr: 0x%x)\n", base);
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+    this->iss.irq.stvec_insn = insn_cache_get(&this->iss, base);
+#endif
     return true;
 }
 
 void Irq::cache_flush()
 {
-    this->vector_table_set(this->iss.irq.vector_base);
+    this->mtvec_set(this->iss.csr.mtvec.value);
     this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
 }
 
@@ -161,7 +200,10 @@ int Irq::check()
             this->iss.csr.mstatus.mie = 0;
             this->irq_enable.set(0);
             this->req_irq = -1;
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+#else
             this->iss.exec.current_insn = this->vectors[req_irq];
+#endif
             this->iss.csr.mcause.value = (1 << 31) | (unsigned int)req_irq;
 
             this->trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);

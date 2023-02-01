@@ -30,7 +30,40 @@ void Core::build()
 {
     this->iss.top.traces.new_trace("core", &this->trace, vp::DEBUG);
 
-    this->iss.csr.mstatus.register_callback(std::bind(&Core::mstatus_update, this, std::placeholders::_1));
+    // Initialize the mstatus write mask so that WPRI fields are preserved
+#if ISS_REG_WIDTH == 64
+    this->mstatus_write_mask = 0x8000003F007FFFEA;
+#else
+    this->mstatus_write_mask = 0x807FFFEA;
+#endif
+
+    // For now preserve floating point state to keep it dirty
+    this->mstatus_write_mask &= ~(0x3ULL << 13);
+    this->iss.csr.mstatus.reset_val |= 0x3ULL << 13;
+    // Remove vector state since we do not support yet vector extension
+    this->mstatus_write_mask &= ~(0x3ULL << 9);
+    // Remove user state
+    this->mstatus_write_mask &= ~(0x3ULL << 15);
+
+    // Always put state dirty to 1 since floats state is always dirty
+    this->mstatus_write_mask &= ~(0x1ULL << 63);
+    this->iss.csr.mstatus.reset_val |= 0x1ULL << 63;
+#if ISS_REG_WIDTH == 64
+    // Remove sxl and uxl since they are not supported
+    this->mstatus_write_mask &= ~(0x3ULL << 32);
+    this->iss.csr.mstatus.reset_val |= 2ULL << 32;
+    this->mstatus_write_mask &= ~(0x3ULL << 34);
+    this->iss.csr.mstatus.reset_val |= 2ULL << 34;
+#endif
+
+#if ISS_REG_WIDTH == 64
+    this->sstatus_write_mask = this->mstatus_write_mask & 0x80000003000DE762;
+#else
+    this->sstatus_write_mask = this->mstatus_write_mask & 0x800DE762;
+#endif
+
+    this->iss.csr.mstatus.register_callback(std::bind(&Core::mstatus_update, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.sstatus.register_callback(std::bind(&Core::sstatus_update, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void Core::reset(bool active)
@@ -81,20 +114,49 @@ iss_insn_t *Core::dret_handle()
 }
 
 
-bool Core::mstatus_update(iss_reg_t value)
+bool Core::mstatus_update(bool is_write, iss_reg_t &value)
 {
-    this->iss.csr.mstatus.value = value;
+    if (is_write)
+    {
+    #ifdef CONFIG_GVSOC_ISS_RI5KY
+        this->iss.csr.mstatus.value = value;
 
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-#ifdef CONFIG_GVSOC_ISS_SUPERVISOR
-    this->iss.csr.mstatus.value &= 0x21899;
-#else
-    this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & 0x88) | 0x1800;
-#endif
-#endif
+    #ifdef CONFIG_GVSOC_ISS_SUPERVISOR
+        this->iss.csr.mstatus.value &= 0x21899;
+    #else
+        this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & 0x88) | 0x1800;
+    #endif
+    #else
+        this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & ~this->mstatus_write_mask) |
+            (value & this->mstatus_write_mask);
+    #endif
 
-    this->iss.timing.stall_insn_dependency_account(4);
-    this->iss.irq.global_enable(this->iss.csr.mstatus.mie);
+        this->iss.timing.stall_insn_dependency_account(4);
+        this->iss.irq.global_enable(this->iss.csr.mstatus.mie);
+    }
 
     return false;
+}
+
+
+bool Core::sstatus_update(bool is_write, iss_reg_t &value)
+{
+    this->iss.timing.stall_insn_dependency_account(4);
+
+    if (is_write)
+    {
+        this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & ~this->sstatus_write_mask) |
+            (value & this->sstatus_write_mask);
+    }
+    else
+    {
+        value = this->iss.csr.mstatus.value;
+    }
+
+    return false;
+}
+
+void Core::mode_set(int mode)
+{
+    this->mode = mode;
 }

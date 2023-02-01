@@ -519,7 +519,8 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn)
 
     iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, 3, 0);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args,
+        iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, iss->trace.priv_mode, 0);
 
     iss->trace.insn_trace.msg(buffer);
 }
@@ -528,7 +529,7 @@ void iss_event_dump(Iss *iss, iss_insn_t *insn)
 {
     char buffer[1024];
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, false, 3, 1);
+    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, false, iss->trace.priv_mode, 1);
 
     char *current = buffer;
     while (*current)
@@ -553,6 +554,8 @@ iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
 
     if (iss->trace.insn_trace.get_active())
     {
+        iss->trace.priv_mode = iss->core.mode_get();
+
         iss_trace_save_args(iss, insn, iss->trace.saved_args, false);
 
         next_insn = insn->saved_handler(iss, insn);

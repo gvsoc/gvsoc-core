@@ -140,6 +140,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
         vp_warning_always(&this->iss.top.warning,
                           "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
                           this->iss.exec.current_insn->addr, addr, size, is_write);
+        return err;
     }
 
     this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for asynchronous response\n");

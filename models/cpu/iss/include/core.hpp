@@ -40,13 +40,17 @@ public:
     iss_insn_t *dret_handle();
     iss_insn_t *sret_handle();
     int mode_get() { return this->mode; }
+    void mode_set(int mode);
 
 private:
-    bool mstatus_update(iss_reg_t value);
+    bool mstatus_update(bool is_write, iss_reg_t &value);
+    bool sstatus_update(bool is_write, iss_reg_t &value);
 
     Iss &iss;
     vp::trace trace;
 
     int mode;
+    iss_reg_t mstatus_write_mask;
+    iss_reg_t sstatus_write_mask;
 };
 

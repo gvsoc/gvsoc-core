@@ -35,8 +35,7 @@ inline bool Prefetcher::fetch(iss_insn_t *insn)
     iss_addr_t addr = insn->addr;
 
 #ifdef CONFIG_GVSOC_ISS_MMU
-    addr = this->iss.mmu.insn_virt_to_phys(insn->addr);
-    if (this->iss.exec.stalled.get())
+    if (this->iss.mmu.insn_virt_to_phys(insn->addr, addr))
     {
         return false;
     }

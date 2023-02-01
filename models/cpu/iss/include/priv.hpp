@@ -145,3 +145,9 @@ static inline iss_insn_t *sret_exec(Iss *iss, iss_insn_t *insn)
     iss->timing.stall_insn_dependency_account(5);
     return iss->core.sret_handle();
 }
+
+static inline iss_insn_t *sfence_vma_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->mmu.flush(REG_GET(0), REG_GET(1));
+    return insn->next;
+}

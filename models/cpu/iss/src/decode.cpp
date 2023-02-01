@@ -426,6 +426,7 @@ void Decode::parse_isa()
 
     iss_decode_activate_isa(iss, (char *)"priv");
     iss_decode_activate_isa(iss, (char *)"priv_pulp_v2");
+    iss_decode_activate_isa(iss, (char *)"priv_smmu");
 
     bool has_f = false;
     bool has_d = false;

@@ -38,7 +38,6 @@ int IssWrapper::build()
     this->iss.mmu.build();
     this->iss.pmp.build();
     this->iss.exception.build();
-    this->iss.irq.build();
     this->iss.prefetcher.build();
 
     traces.new_trace("wrapper", this->get_trace(), vp::DEBUG);

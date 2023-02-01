@@ -47,11 +47,46 @@ iss_insn_t *Exception::raise(int id)
     }
     else
     {
-        this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
-        this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
+        int next_mode = PRIV_M;
+        if ((this->iss.csr.medeleg.value >> id) & 1)
+        {
+            next_mode = PRIV_S;
+        }
+
+        if (next_mode == PRIV_M)
+        {
+            this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+            this->iss.csr.mstatus.mie = 0;
+            this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
+            this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
+        }
+        else
+        {
+            this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+            this->iss.csr.mstatus.sie = 0;
+            this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
+            this->iss.csr.mstatus.spp = this->iss.core.mode_get();
+        }
+        this->iss.core.mode_set(next_mode);
+
         this->iss.irq.irq_enable.set(0);
+
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+        iss_insn_t *insn;
+        if (next_mode == PRIV_M)
+        {
+            insn = this->iss.irq.mtvec_insn;
+            this->iss.csr.mcause.value = id;
+        }
+        else
+        {
+            insn = this->iss.irq.stvec_insn;
+            this->iss.csr.scause.value = id;
+        }
+#else
         this->iss.csr.mcause.value = 0xb;
         iss_insn_t *insn = this->iss.irq.vectors[0];
+#endif
         if (insn == NULL)
             insn = insn_cache_get(&this->iss, 0);
         return insn;

@@ -66,7 +66,7 @@ vp::io_req_status_e bus_watchpoint::req(void *__this, vp::io_req *req)
 
     _this->trace.msg("Received IO req (req: %p, offset: 0x%llx, size: 0x%llx, is_write: %d)\n", req, offset, size, is_write);
 
-    if (offset == _this->riscv_fesvr_tohost_addr && size == 4)
+    if (offset == _this->riscv_fesvr_tohost_addr && (size == 4 || size == 8))
     {
         _this->clock->stop_engine((*(uint32_t *)data) >> 1);
     }

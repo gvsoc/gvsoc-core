@@ -56,17 +56,19 @@ class CsrAbtractReg
 
 public:
     CsrAbtractReg(iss_reg_t *value=NULL);
-    void register_callback(std::function<bool(iss_reg_t)> callback);
+    void register_callback(std::function<bool(bool, iss_reg_t &)> callback);
 
     std::string name;
+    iss_reg_t reset_val;
 
 protected:
-    bool access(bool is_write, iss_reg_t *value);
+    bool access(bool is_write, iss_reg_t &value);
+    void reset(bool active);
 
     iss_reg_t write_mask;
 
 private:
-    std::vector<std::function<bool(iss_reg_t)>> callbacks;
+    std::vector<std::function<bool(bool, iss_reg_t &)>> callbacks;
     iss_reg_t default_value;
     iss_reg_t *value_p;
 };
@@ -153,20 +155,22 @@ public:
     void reset(bool active);
 
     void declare_pcer(int index, std::string name, std::string help);
-    void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, iss_reg_t mask=-1);
+    void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, iss_reg_t reset_val=0, iss_reg_t mask=-1);
     CsrAbtractReg *get_csr(iss_reg_t address);
 
-    bool access(bool is_write, iss_reg_t address, iss_reg_t *value);
+    bool access(bool is_write, iss_reg_t address, iss_reg_t &value);
 
     Iss &iss;
 
     vp::trace trace;
 
+    CsrReg sstatus;
     CsrReg stvec;
 
     CsrReg  sscratch;
     CsrReg  sepc;
     CsrReg  scause;
+    CsrReg  stval;
 
     CsrReg  satp;
 

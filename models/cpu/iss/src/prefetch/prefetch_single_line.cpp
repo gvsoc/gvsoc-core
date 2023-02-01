@@ -89,13 +89,20 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
         iss_opcode_t opcode = 0;
 
         // Compute address of next line
-        uint32_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
+        iss_addr_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
         // Number of bytes of the opcode which fits the first line
         int nb_bytes = next_addr - addr;
         int nb_bits = nb_bytes * 8;
-        uint32_t mask = ((1ULL << (nb_bytes*8)) - 1);
+        iss_addr_t mask = ((1ULL << (nb_bytes*8)) - 1);
         // Copy first part from first line
         opcode = *(iss_opcode_t *)&this->data[index] & mask;
+#ifdef CONFIG_GVSOC_ISS_MMU
+        if (this->iss.mmu.insn_virt_to_phys(next_addr, next_addr))
+        {
+            return false;
+        }
+#endif
+
         // Fetch next line
         if (this->fill(next_addr))
         {
@@ -119,7 +126,7 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
 void Prefetcher::fetch_resume_after_high_refill(Prefetcher *_this)
 {
     iss_addr_t addr = _this->prefetch_insn->addr;
-    uint32_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
+    iss_addr_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
     // Number of bytes of the opcode which fits the first line
     int nb_bytes = next_addr - addr;
 
@@ -133,7 +140,7 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
 {
     vp::io_req *req = &this->fetch_req;
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Fetch request (addr: 0x%x, size: 0x%x)\n", addr, size);
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Fetch request (addr: 0x%lx, size: 0x%lx)\n", addr, size);
 
     req->init();
     req->set_addr(addr);
@@ -162,7 +169,7 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
 
 int Prefetcher::fill(iss_addr_t addr)
 {
-    uint32_t aligned_addr = addr & ~(ISS_PREFETCHER_SIZE - 1);
+    iss_addr_t aligned_addr = addr & ~(ISS_PREFETCHER_SIZE - 1);
     this->buffer_start_addr = aligned_addr;
     return this->send_fetch_req(aligned_addr, this->data, ISS_PREFETCHER_SIZE, false);
 }

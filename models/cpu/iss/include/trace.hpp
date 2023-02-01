@@ -42,6 +42,7 @@ public:
 
     vp::trace insn_trace;
     iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];
+    int priv_mode;
 
 private:
 

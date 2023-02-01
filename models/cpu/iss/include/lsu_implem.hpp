@@ -26,7 +26,14 @@
 inline void Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     this->iss.regfile.set_reg(reg, 0);
-    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+
+    iss_addr_t phys_addr;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+
+    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
     {
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial value
@@ -55,7 +62,13 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
 inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+    iss_addr_t phys_addr;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+
+    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg(reg), size * 8));
     }
@@ -69,7 +82,13 @@ inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
 
 inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true))
+    iss_addr_t phys_addr;
+    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+
+    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true))
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;

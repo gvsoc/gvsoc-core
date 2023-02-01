@@ -453,6 +453,10 @@ class R5(Instr):
                             InReg(1, Range(20, 5)),
                             InReg(2, Range(25,5)),
                         ]
+        elif format == 'INRR':
+            self.args = [   InReg(0, Range(15, 5)),
+                            InReg(1, Range(20, 5)),
+                        ]
         elif format == 'SRPOST':
             self.args = [   InReg(1, Range(20, 5)),
                             Indirect(InReg(0, Range(15, 5)), InReg(2, Range(7,5)), postInc=True),
@@ -1343,6 +1347,12 @@ priv_1_9 = IsaSubset('priv_1_9', [
     #R5('mret',      'Z',   '0011000 00010 00000 000 00000 1110011'),
     #R5('sfence.vm', 'F',   '0001000 00100 ----- 000 00000 1110011'),
     R5('wfi',       'Z',   '0001000 00101 00000 000 00000 1110011'),
+
+])
+
+priv_smmu = IsaSubset('priv_smmu', [
+
+    R5('sfence.vma',       'INRR',   '0001001 ----- ----- 000 00000 1110011'),
 
 ])
 

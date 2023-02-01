@@ -42,42 +42,48 @@ void Mmu::build()
 {
     this->iss.top.traces.new_trace("mmu", &this->trace, vp::DEBUG);
 
-    this->iss.csr.satp.register_callback(std::bind(&Mmu::satp_update, this, std::placeholders::_1));
+    this->iss.csr.satp.register_callback(std::bind(&Mmu::satp_update, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void Mmu::reset(bool active)
 {
     this->satp = 0;
+
+    this->flush(0, 0);
+
 }
 
-bool Mmu::satp_update(iss_reg_t value)
+bool Mmu::satp_update(bool is_write, iss_reg_t &value)
 {
 #if ISS_REG_WIDTH == 64
 
-    iss_reg_t pt_base = get_field(value, 0, 44) << 12;
-    iss_reg_t asid = get_field(value, 44, 16);
-    iss_reg_t mode = get_field(value, 60, 4);
-
-    if (mode != 0 && mode != MMU_MODE_SV39)
+    if (is_write)
     {
-        this->trace.force_warning("Only 39-bit virtual addressing is supported\n");
-        return false;
+        iss_reg_t pt_base = get_field(value, 0, 44) << 12;
+        iss_reg_t asid = get_field(value, 44, 16);
+        iss_reg_t mode = get_field(value, 60, 4);
+
+        if (mode != 0 && mode != MMU_MODE_SV39)
+        {
+            this->trace.force_warning("Only 39-bit virtual addressing is supported\n");
+            return false;
+        }
+
+        this->satp = value;
+        this->asid = asid;
+        this->mode = mode;
+        this->pt_base = pt_base;
+
+        if (this->mode == MMU_MODE_SV39)
+        {
+            this->nb_levels = 3;
+            this->pte_size = 8;
+            this->vpn_width = 9;
+        }
+
+        this->trace.msg(vp::trace::LEVEL_DEBUG, "Updated SATP (base: 0x%x, asid: %d, mode: %d)\n",
+            pt_base, asid, mode);
     }
-
-    this->satp = value;
-    this->asid = asid;
-    this->mode = mode;
-    this->pt_base = pt_base;
-
-    if (this->mode == MMU_MODE_SV39)
-    {
-        this->nb_levels = 3;
-        this->pte_size = 8;
-        this->vpn_width = 9;
-    }
-
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Updated SATP (base: 0x%x, asid: %d, mode: %d)\n",
-        pt_base, asid, mode);
 
     return true;
 
@@ -97,40 +103,104 @@ void Mmu::handle_pte_stub(void *__this, vp::clock_event *event)
     _this->handle_pte();
 }
 
+void Mmu::flush(iss_addr_t address, iss_reg_t address_space)
+{
+    // For now just flush everything
+    for (int i=0; i<MMU_TLB_NB_ENTRIES; i++)
+    {
+        this->tlb_insn_tag[i] = -1;
+        this->tlb_load_tag[i] = -1;
+        this->tlb_store_tag[i] = -1;
+    }
+}
+
 void Mmu::raise_exception()
 {
-    if (this->access_is_load)
+    this->iss.csr.stval.value = this->current_virt_addr;
+
+    if (this->access_type & ACCESS_LOAD)
     {
-        this->iss.exception.raise(ISS_EXCEPT_LOAD_PAGE_FAULT);
+        this->iss.exec.current_insn = this->iss.exception.raise(ISS_EXCEPT_LOAD_PAGE_FAULT);
     }
-    else if (this->access_is_store)
+    else if (this->access_type & ACCESS_STORE)
     {
-        this->iss.exception.raise(ISS_EXCEPT_STORE_PAGE_FAULT);
+        this->iss.exec.current_insn = this->iss.exception.raise(ISS_EXCEPT_STORE_PAGE_FAULT);
     }
     else
     {
-        this->iss.exception.raise(ISS_EXCEPT_INSN_PAGE_FAULT);
+        this->iss.exec.current_insn = this->iss.exception.raise(ISS_EXCEPT_INSN_PAGE_FAULT);
     }
+
+    this->iss.trace.dump_trace_enabled = true;
+    this->iss.exec.switch_to_full_mode();
 }
 
 bool Mmu::handle_pte()
 {
-    // printf("HANDLE PTE %llx %d\n", this->pte_value, this->pte_value.v);
-
     iss_reg_t pte_attr = this->pte_value.raw & MMU_PTE_ATTR;
+
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Handle pte (value: 0x%lx)\n", this->pte_value.raw);
 
     if (!this->pte_value.v || (!this->pte_value.r && this->pte_value.w) ||
         (this->pte_value.raw & MMU_PTE_ATTR) != 0)
     {
-        printf("Raise\n");
         this->raise_exception();
         return false;
     }
 
     if (this->pte_value.r || this->pte_value.x)
     {
-        printf("Found leaf\n");
-        return true;
+        iss_addr_t phys_base = (this->pte_value.raw & ~MMU_PTE_ATTR) >> MMU_PTE_PPN_SHIFT << MMU_PGSHIFT;
+
+        if (this->current_level > 0)
+        {
+            int vpn_index = get_field(this->current_virt_addr, MMU_PGSHIFT, this->vpn_width);
+            phys_base += vpn_index << MMU_PGSHIFT;
+        }
+
+        iss_addr_t virt_base = this->current_virt_addr >> MMU_PGSHIFT << MMU_PGSHIFT;
+        iss_addr_t tag = this->current_virt_addr >> MMU_PGSHIFT;
+        int index = tag & MMU_TLB_ENTRIES_MASK;
+        if (this->access_type & ACCESS_INSN)
+        {
+            if (!this->pte_value.a || !this->pte_value.x)
+            {
+                this->raise_exception();
+                return false;
+            }
+
+            this->tlb_insn_tag[index] = tag;
+            this->tlb_insn_phys_addr[index] = phys_base - virt_base;
+        }
+        else
+        {
+            bool is_store = this->access_type & ACCESS_STORE;
+            bool is_load = this->access_type & ACCESS_LOAD;
+            if (!this->pte_value.a ||
+                is_load && !this->pte_value.r ||
+                is_store && (!this->pte_value.w || !this->pte_value.d))
+            {
+                this->raise_exception();
+                return false;
+            }
+
+            this->tlb_load_tag[index] = -1;
+            this->tlb_store_tag[index] = -1;
+
+            if (this->pte_value.r)
+            {
+                this->tlb_load_tag[index] = tag;
+            }
+            if (this->pte_value.w && this->pte_value.d)
+            {
+                this->tlb_store_tag[index] = tag;
+            }
+            this->tlb_ls_phys_addr[index] = phys_base - virt_base;
+        }
+        this->iss.trace.dump_trace_enabled = true;
+        this->iss.exec.switch_to_full_mode();
+        this->iss.exec.current_insn = this->stall_insn;
+        return false;
     }
     else
     {
@@ -144,33 +214,52 @@ bool Mmu::handle_pte()
         }
         else
         {
-            iss_addr_t pte_addr = (this->pte_value.raw & ~MMU_PTE_ATTR) >> MMU_PTE_PPN_SHIFT << MMU_PGSHIFT;
-            // printf("PPN %x\n", (this->pte_value.raw & ~MMU_PTE_ATTR) >> MMU_PTE_PPN_SHIFT);
-            return this->read_pte(pte_addr);
+            iss_addr_t pte_page = (this->pte_value.raw & ~MMU_PTE_ATTR) >> MMU_PTE_PPN_SHIFT << MMU_PGSHIFT;
+            int vpn_index = get_field(this->current_virt_addr, this->current_vpn_bit, this->vpn_width);
+            iss_addr_t pte_addr = pte_page + vpn_index*this->pte_size;
+            this->read_pte(pte_addr);
+            return false;
         }
     }
 }
 
-bool Mmu::read_pte(iss_addr_t pte_addr)
+void Mmu::handle_pte_response(Lsu *lsu)
 {
-    // printf("Loading entry at %lx\n", pte_addr);
-    this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, this->pte_size, false);
-    if (this->iss.exec.stalled.get())
+    lsu->iss.mmu.handle_pte();
+}
+
+void Mmu::read_pte(iss_addr_t pte_addr)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Read pte (addr: 0x%lx)\n", pte_addr);
+
+    int err = this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, this->pte_size, false);
+    if (err == vp::IO_REQ_OK)
     {
-        this->iss.exec.instr_event->meth_set(&this->iss, &Mmu::handle_pte_stub);
-        this->iss.exec.insn_hold();
-        return false;
+        // The should have already accounted the request latency.
+        // Just do nothing so tha the pte load occupy one
+        // full cycle. Maybe we should account 2 cycles since we have a load dependency on
+        // the pte load.
+    }
+    else if (err == vp::IO_REQ_INVALID)
+    {
+        // Nothing to do since the LSU have already raise an exception
     }
     else
     {
-        return this->handle_pte();
+        // Just register the stall calbback to be notified by the response
+        this->iss.lsu.stall_callback = &Mmu::handle_pte_response;
     }
 }
 
 
-bool Mmu::walk_pgtab(iss_addr_t virt_addr)
+void Mmu::walk_pgtab(iss_addr_t virt_addr)
 {
-    printf("Miss at %x\n", virt_addr);
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Page-table walk (virt_addr: 0x%lx)\n", virt_addr);
+
+    // Remember now the current instruction, in case walking the page-table is stalling the core
+    // so that we can re-execute the instruction once the translatio is done.
+    // This is needed for example, when a load instruction is triggering a miss.
+    this->stall_insn = this->iss.exec.current_insn;
 
     this->current_virt_addr = virt_addr;
     this->current_level = this->nb_levels - 1;
@@ -180,12 +269,16 @@ bool Mmu::walk_pgtab(iss_addr_t virt_addr)
     int vpn_index = get_field(this->current_virt_addr, this->current_vpn_bit, this->vpn_width);
     iss_addr_t pte_addr = this->pt_base + vpn_index*this->pte_size;
 
-    return this->read_pte(pte_addr);
+    this->iss.exec.instr_event->meth_set(&this->iss, &Mmu::handle_pte_stub);
+    this->iss.exec.insn_hold();
+
+    this->read_pte(pte_addr);
 }
 
 
-iss_addr_t Mmu::virt_to_phys_miss(iss_addr_t virt_addr)
+bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
     int mode = this->iss.core.mode_get();
     int tag = virt_addr >> MMU_PGSHIFT;
     int index = tag & MMU_TLB_ENTRIES_MASK;
@@ -196,28 +289,25 @@ iss_addr_t Mmu::virt_to_phys_miss(iss_addr_t virt_addr)
     if (mode == PRIV_M)
     {
         page_phys_addr = page_virt_addr;
+
+        if (this->access_type & ACCESS_INSN)
+        {
+            this->tlb_insn_phys_addr[index] = page_phys_addr - page_virt_addr;
+            this->tlb_insn_tag[index] = tag;
+        }
+        else
+        {
+            this->tlb_ls_phys_addr[index] = page_phys_addr - page_virt_addr;
+            this->tlb_load_tag[index] = tag;
+            this->tlb_store_tag[index] = tag;
+        }
+        phys_addr = virt_addr + page_phys_addr - page_virt_addr;
+        return false;
     }
     else
     {
-        if (!this->walk_pgtab(virt_addr))
-        {
-            return 0;
-        }
+        this->walk_pgtab(virt_addr);
+        return true;
     }
 
-    this->tlb_phys_addr[index] = page_phys_addr - page_virt_addr;
-    if (load)
-    {
-        this->tlb_insn_tag[index] = tag;
-    }
-    if (store)
-    {
-        this->tlb_insn_tag[index] = tag;
-    }
-    if (fetch)
-    {
-        this->tlb_insn_tag[index] = tag;
-    }
-
-    return virt_addr + this->tlb_phys_addr[index];
 }

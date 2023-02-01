@@ -42,11 +42,20 @@ public:
     inline bool clock_active_get();
 
     void pc_set(iss_addr_t value);
+
+    // Can be called when the instruction is stalled due an external event like a pending request,
+    // to make sure nothing else is executed.
+    // Once the external event happens, the instruction must be terminated to resume the execution.
+    inline void insn_stall();
+
+    // Cab be called to prevent other instructions from being executed.
+    // Compared to insn_stall, this does not stall the ISS which can still execute a callback at
+    // each cycle, so that it is usefull to spread one instruction over several cycles, to execute
+    // an internal FSM.
+    inline void insn_hold();
+
     // Terminate a previously stalled instruction, by dumping the instruction trace
     inline void insn_terminate();
-
-    inline void insn_stall();
-    inline void insn_hold();
 
     inline bool is_stalled();
 
@@ -83,6 +92,12 @@ public:
     vp::reg_1 wfi;
     vp::reg_1 busy;
     int bootaddr_offset;
+
+    // This is needed when an instruction is stalled for example due to a pending memory access
+    // because the current instruction is replaced by the next one even though the instruction
+    // is stalled.
+    // Once the instruction gets unstalled, for example when the IO response is received, it is used
+    // to terminate the instruction, like dunping it.
     iss_insn_t *stall_insn;
     std::vector<iss_resource_instance_t *> resources; // When accesses to the resources are scheduled statically, this gives the instance allocated to this core for each resource
 

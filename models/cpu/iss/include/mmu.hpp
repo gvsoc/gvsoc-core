@@ -62,18 +62,20 @@ public:
     void build();
     void reset(bool active);
 
-    inline iss_addr_t insn_virt_to_phys(iss_addr_t virt_addr);
-    inline iss_addr_t load_virt_to_phys(iss_addr_t virt_addr);
-    inline iss_addr_t store_virt_to_phys(iss_addr_t virt_addr);
-    iss_addr_t virt_to_phys_miss(iss_addr_t virt_addr);
+    inline bool insn_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr);
+    inline bool load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr);
+    inline bool store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr);
+    bool virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr);
 
-    bool satp_update(iss_reg_t value);
+    bool satp_update(bool is_write, iss_reg_t &value);
+    void flush(iss_addr_t address, iss_reg_t address_space);
 
 private:
-    bool read_pte(iss_addr_t pte_addr);
-    bool walk_pgtab(iss_addr_t virt_addr);
+    void read_pte(iss_addr_t pte_addr);
+    void walk_pgtab(iss_addr_t virt_addr);
     bool handle_pte();
     static void handle_pte_stub(void *__this, vp::clock_event *event);
+    static void handle_pte_response(Lsu *lsu);
     void raise_exception();
 
     Iss &iss;
@@ -86,12 +88,17 @@ private:
     int pte_size;
     int vpn_width;
     iss_addr_t tlb_insn_tag[MMU_TLB_NB_ENTRIES];
-    iss_addr_t tlb_phys_addr[MMU_TLB_NB_ENTRIES];
+    iss_addr_t tlb_insn_phys_addr[MMU_TLB_NB_ENTRIES];
+
+    iss_addr_t tlb_load_tag[MMU_TLB_NB_ENTRIES];
+    iss_addr_t tlb_store_tag[MMU_TLB_NB_ENTRIES];
+    iss_addr_t tlb_ls_phys_addr[MMU_TLB_NB_ENTRIES];
 
     int current_level;
     int current_vpn_bit;
     iss_addr_t current_virt_addr;
     Pte pte_value;
-    bool access_is_load = false;
-    bool access_is_store = false;
+    int access_type;
+
+    iss_insn_t *stall_insn;
 };

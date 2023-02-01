@@ -31,7 +31,11 @@ public:
 
     void build();
 
-    bool vector_table_set(iss_addr_t base);
+    bool mtvec_access(bool is_write, iss_reg_t &value);
+    bool stvec_access(bool is_write, iss_reg_t &value);
+
+    bool mtvec_set(iss_addr_t base);
+    bool stvec_set(iss_addr_t base);
     inline void global_enable(int enable);
     void cache_flush();
     void reset(bool active);
@@ -41,12 +45,16 @@ public:
     static void irq_req_sync(void *__this, int irq);
 
     Iss &iss;
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+    iss_insn_t *mtvec_insn;
+    iss_insn_t *stvec_insn;
+#else
     iss_insn_t *vectors[35];
+#endif
     vp::reg_1 irq_enable;
     int debug_saved_irq_enable;
     int req_irq;
     bool req_debug;
-    uint32_t vector_base;
     iss_insn_t *debug_handler;
     vp::trace trace;
 

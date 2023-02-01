@@ -97,7 +97,7 @@ static inline iss_insn_t *jalr_exec(Iss *iss, iss_insn_t *insn)
 
 static inline void bxx_decode(Iss *iss, iss_insn_t *insn)
 {
-    unsigned int next_pc = insn->addr + SIM_GET(0);
+    iss_addr_t next_pc = insn->addr + SIM_GET(0);
     insn->branch = insn_cache_get(iss, next_pc);
 }
 
@@ -532,7 +532,8 @@ static inline iss_insn_t *ecall_exec(Iss *iss, iss_insn_t *insn)
        pc->uim[0], getReg(cpu, 17), getReg(cpu, 10), getReg(cpu, 11), getReg(cpu, 12), getReg(cpu, 13));
     */
 
-    return iss->exception.raise(ISS_EXCEPT_ECALL);
+    iss->csr.stval.value = 0;
+    return iss->exception.raise(ISS_EXCEPT_ENV_CALL_U_MODE + iss->core.mode_get());
 #if 0
   if (!cpu->conf->useSyscalls) {
     triggerException(cpu, pc, EXCEPTION_ECALL);

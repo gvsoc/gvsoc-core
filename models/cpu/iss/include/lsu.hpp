@@ -68,6 +68,8 @@ public:
     bool misaligned_is_write;
     vp::reg_1 elw_stalled;
 
+    // A callback can be set here, so that it is called when the response of a pending
+    // request is received.
     void (*stall_callback)(Lsu *lsu);
     int stall_reg;
     int stall_size;

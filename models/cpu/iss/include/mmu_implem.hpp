@@ -26,7 +26,11 @@
 #include <core.hpp>
 #include "mmu.hpp"
 
-inline iss_addr_t Mmu::insn_virt_to_phys(iss_addr_t virt_addr)
+#define ACCESS_INSN  1
+#define ACCESS_LOAD  2
+#define ACCESS_STORE 4
+
+inline bool Mmu::insn_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
 #ifdef CONFIG_GVSOC_ISS_MMU
     iss_addr_t tag = virt_addr >> MMU_PGSHIFT;
@@ -34,23 +38,54 @@ inline iss_addr_t Mmu::insn_virt_to_phys(iss_addr_t virt_addr)
 
     if (likely(this->tlb_insn_tag[index] == tag))
     {
-        // printf("TLB converted %lx to %lx\n", virt_addr, virt_addr + this->tlb_phys_addr[index]);
-        return virt_addr + this->tlb_phys_addr[index];
+        phys_addr = virt_addr + this->tlb_insn_phys_addr[index];
+        return false;
     }
 
-        // printf("MISS converted %lx to %lx\n", virt_to_phys_miss(virt_addr));
-    return virt_to_phys_miss(virt_addr);
+    this->access_type = ACCESS_INSN;
+    return virt_to_phys_miss(virt_addr, phys_addr);
 #else
-    return virt_addr;
+    phys_addr = virt_addr;
+    return false;
 #endif
 }
 
-inline iss_addr_t Mmu::load_virt_to_phys(iss_addr_t virt_addr)
+inline bool Mmu::load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
-    return 0;
+#ifdef CONFIG_GVSOC_ISS_MMU
+    iss_addr_t tag = virt_addr >> MMU_PGSHIFT;
+    int index = tag & MMU_TLB_ENTRIES_MASK;
+
+    if (likely(this->tlb_load_tag[index] == tag))
+    {
+        phys_addr = virt_addr + this->tlb_ls_phys_addr[index];
+        return false;
+    }
+
+    this->access_type = ACCESS_LOAD;
+    return virt_to_phys_miss(virt_addr, phys_addr);
+#else
+    phys_addr = virt_addr;
+    return false;
+#endif
 }
 
-inline iss_addr_t Mmu::store_virt_to_phys(iss_addr_t virt_addr)
+inline bool Mmu::store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
-    return 0;
+#ifdef CONFIG_GVSOC_ISS_MMU
+    iss_addr_t tag = virt_addr >> MMU_PGSHIFT;
+    int index = tag & MMU_TLB_ENTRIES_MASK;
+
+    if (likely(this->tlb_store_tag[index] == tag))
+    {
+        phys_addr = virt_addr + this->tlb_ls_phys_addr[index];
+        return false;
+    }
+
+    this->access_type = ACCESS_STORE;
+    return virt_to_phys_miss(virt_addr, phys_addr);
+#else
+    phys_addr = virt_addr;
+    return false;
+#endif
 }

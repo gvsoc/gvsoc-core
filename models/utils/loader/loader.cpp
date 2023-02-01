@@ -32,6 +32,9 @@
 #include "elf.h"
 
 
+#define MAX_CHUNK_SIZE 0x8000
+
+
 class Section
 {
 public:

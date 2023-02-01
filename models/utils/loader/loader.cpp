@@ -32,6 +32,9 @@
 #include "elf.h"
 
 
+#define MAX_CHUNK_SIZE 0x8000
+
+
 class Section
 {
 public:
@@ -73,6 +76,10 @@ private:
     vp::wire_master<uint64_t> entry_itf;
     vp::io_req req;
     uint64_t entry;
+
+    int64_t req_size;
+    int64_t chunk_size;
+    int iterations;
 };
 
 
@@ -110,6 +117,10 @@ int loader::build()
 
     this->event = this->event_new(loader::event_handler);
 
+    this->req_size   = 0;
+    this->chunk_size = 0;
+    this->iterations = 0;
+
     return 0;
 }
 
@@ -142,47 +153,73 @@ void loader::event_handler(void *__this, vp::clock_event *event)
     if (_this->sections.size() > 0)
     {
         Section *section = _this->sections.front();
-        _this->sections.pop_front();
 
-        uint8_t data[section->size];
-
-        _this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
-            section->paddr, section->data, section->size);
-
-        _this->req.init();
-        _this->req.set_addr(section->paddr);
-        _this->req.set_size(section->size);
-        _this->req.set_is_write(true);
-
-        if (section->data)
+        if(_this->req_size == 0)
         {
-            _this->req.set_data((uint8_t *)section->data);
-        }
-        else
-        {
-            memset(data, 0, section->size);
-            _this->req.set_data(data);
+            _this->req_size = section->size;
+            _this->chunk_size = MAX_CHUNK_SIZE;
+            _this->iterations = 0;
         }
 
-        vp::io_req_status_e err = _this->out_itf.req(&_this->req);
-        if (err == vp::IO_REQ_OK)
+        if(_this->req_size)
         {
-            _this->trace.msg(vp::trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
-                _this->req.get_full_latency());
-
-            _this->event_enqueue(_this->event, std::max((int)_this->req.get_full_latency(), 1));
-        }
-        else
-        {
-            if (err == vp::IO_REQ_INVALID)
+            if(_this->req_size > MAX_CHUNK_SIZE)
             {
-                _this->trace.force_warning("Received error during copy (addr: 0x%x, data: %p, size: 0x%x)\n",
-                    section->paddr, section->data, section->size);
+                _this->req_size -= _this->chunk_size;
             }
             else
             {
-                _this->trace.force_warning("Unimplemented synchronous requests in loader\n");
+                _this->chunk_size = _this->req_size;
+                _this->req_size = 0;
             }
+
+            uint8_t data[_this->chunk_size];
+
+            _this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
+                section->paddr + _this->iterations*MAX_CHUNK_SIZE, (uint8_t *)section->data + _this->iterations*MAX_CHUNK_SIZE, _this->chunk_size);
+
+            _this->req.init();
+            _this->req.set_addr(section->paddr + _this->iterations*MAX_CHUNK_SIZE);
+            _this->req.set_size(_this->chunk_size);
+            _this->req.set_is_write(true);
+
+            if ((uint8_t *)section->data + _this->iterations*MAX_CHUNK_SIZE)
+            {
+                _this->req.set_data((uint8_t *)section->data + _this->iterations*MAX_CHUNK_SIZE);
+            }
+            else
+            {
+                memset(data, 0, _this->chunk_size);
+                _this->req.set_data(data);
+            }
+
+            vp::io_req_status_e err = _this->out_itf.req(&_this->req);
+            if (err == vp::IO_REQ_OK)
+            {
+                _this->trace.msg(vp::trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
+                    _this->req.get_full_latency());
+
+                _this->event_enqueue(_this->event, std::max((int)_this->req.get_full_latency(), 1));
+            }
+            else
+            {
+                if (err == vp::IO_REQ_INVALID)
+                {
+                    _this->trace.force_warning("Received error during copy (addr: 0x%x, data: %p, size: 0x%x)\n",
+                        section->paddr + _this->iterations*MAX_CHUNK_SIZE, (uint8_t *)section->data + _this->iterations*MAX_CHUNK_SIZE, _this->chunk_size);
+                }
+                else
+                {
+                    _this->trace.force_warning("Unimplemented synchronous requests in loader\n");
+                }
+            }
+
+            _this->iterations++;
+        }
+
+        if(_this->req_size == 0)
+        {
+            _this->sections.pop_front();
         }
     }
     else

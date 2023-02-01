@@ -39,9 +39,16 @@ public:
     int gdbserver_cont();
     int gdbserver_stepi();
     int gdbserver_state();
+    void gdbserver_breakpoint_insert(uint64_t addr);
+    void gdbserver_breakpoint_remove(uint64_t addr);
+
+    void enable_breakpoint(iss_addr_t addr);
+    void disable_breakpoint(iss_addr_t addr);
+    void enable_all_breakpoints();
 
 
     Iss &iss;
     vp::trace trace;
     vp::Gdbserver_engine *gdbserver;
+    std::list<iss_addr_t> breakpoints;
 };

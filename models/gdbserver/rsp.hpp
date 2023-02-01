@@ -33,8 +33,7 @@ class Rsp {
 public:
     Rsp(Gdb_server *top);
     void start(int port);
-    bool signal();
-    bool signal_unsafe();
+    bool signal(int signal=-1);
 
 private:
     void proxy_listener();
@@ -51,6 +50,8 @@ private:
     bool reg_read(char *data, size_t);
     bool reg_write(char *data, size_t);
     bool mem_read(char *data, size_t);
+    bool bp_insert(char *data, size_t len);
+    bool bp_remove(char *data, size_t len);
 
     Gdb_server *top;
     int sock;

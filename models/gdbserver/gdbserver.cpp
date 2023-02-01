@@ -50,14 +50,9 @@ int Gdb_server::register_core(vp::Gdbserver_core *core)
 }
 
 
-void Gdb_server::signal(vp::Gdbserver_core *core)
+void Gdb_server::signal(vp::Gdbserver_core *core, int signal)
 {
-    this->rsp->signal();
-}
-
-void Gdb_server::signal_unsafe(vp::Gdbserver_core *core)
-{
-    this->rsp->signal_unsafe();
+    this->rsp->signal(signal);
 }
 
 
@@ -166,6 +161,38 @@ int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
     }
 
     return this->io_retval;
+}
+
+void Gdb_server::breakpoint_insert(uint64_t addr)
+{
+    if (this->active_core != -1)
+    {
+        vp::Gdbserver_core *core = this->cores[this->active_core];
+        core->gdbserver_breakpoint_insert(addr);
+    }
+    else
+    {
+        for (auto x: this->cores)
+        {
+            x.second->gdbserver_breakpoint_insert(addr);
+        }
+    }
+}
+
+void Gdb_server::breakpoint_remove(uint64_t addr)
+{
+    if (this->active_core != -1)
+    {
+        vp::Gdbserver_core *core = this->cores[this->active_core];
+        core->gdbserver_breakpoint_remove(addr);
+    }
+    else
+    {
+        for (auto x: this->cores)
+        {
+            x.second->gdbserver_breakpoint_remove(addr);
+        }
+    }
 }
 
 

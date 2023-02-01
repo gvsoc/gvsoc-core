@@ -45,6 +45,9 @@ namespace vp
         virtual int gdbserver_cont() = 0;
         virtual int gdbserver_stepi() = 0;
         virtual int gdbserver_state() = 0;
+        virtual void gdbserver_breakpoint_insert(uint64_t addr) = 0;
+        virtual void gdbserver_breakpoint_remove(uint64_t addr) = 0;
+
     };
 
 
@@ -52,8 +55,7 @@ namespace vp
     {
     public:
         virtual int register_core(Gdbserver_core *core) = 0;
-        virtual void signal_unsafe(Gdbserver_core *core) = 0;
-        virtual void signal(Gdbserver_core *core) = 0;
+        virtual void signal(Gdbserver_core *core, int signal=-1) = 0;
 
         virtual void lock() = 0;
         virtual void unlock() = 0;

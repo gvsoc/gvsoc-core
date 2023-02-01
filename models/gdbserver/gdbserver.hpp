@@ -43,11 +43,13 @@ public:
     int io_access(uint32_t addr, int size, uint8_t *data, bool is_write);
 
     int register_core(vp::Gdbserver_core *core);
-    void signal(vp::Gdbserver_core *core);
-    void signal_unsafe(vp::Gdbserver_core *core);
+    void signal(vp::Gdbserver_core *core, int signal=-1);
     int set_active_core(int id);
     vp::Gdbserver_core *get_core(int id=-1);
     std::vector<vp::Gdbserver_core *> get_cores() { return this->cores_list; }
+
+    void breakpoint_insert(uint64_t addr);
+    void breakpoint_remove(uint64_t addr);
 
     void lock() override { this->get_time_engine()->lock(); }
     void unlock() override { this->get_time_engine()->unlock(); }
@@ -57,6 +59,7 @@ public:
 
 private:
     static void handle(void *__this, vp::clock_event *event);
+
     Rsp *rsp;
     vp::io_req io_req;
     vp::clock_event *event;
@@ -68,6 +71,7 @@ private:
     std::condition_variable cond;
     int io_retval;
     bool waiting_io_response;
+    std::unordered_map<uint64_t, bool> breakpoints;
 
 };
 

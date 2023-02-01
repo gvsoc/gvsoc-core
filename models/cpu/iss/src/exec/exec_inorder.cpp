@@ -134,7 +134,7 @@ void Exec::dbg_unit_step_check()
             this->iss.exec.stalled_inc();
             this->iss.exec.step_mode.set(false);
             this->iss.exec.halted.set(true);
-            this->iss.gdbserver.gdbserver->signal_unsafe(&this->iss.gdbserver);
+            this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver, 5);
         }
         else
         {

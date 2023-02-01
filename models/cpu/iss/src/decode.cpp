@@ -108,6 +108,15 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
         insn->fast_handler = hwloop_handler;
     }
 
+    if (insn->breakpoint_saved_handler != NULL)
+    {
+        iss_insn_t *(*breakpoint_saved_handler)(Iss *, iss_insn_t *) = insn->breakpoint_saved_handler;
+        insn->breakpoint_saved_handler = insn->handler;
+        insn->breakpoint_saved_fast_handler = insn->fast_handler;
+        insn->handler = breakpoint_saved_handler;
+        insn->fast_handler = breakpoint_saved_handler;
+    }
+
     if (item->u.insn.resource_id != -1)
     {
         insn->resource_handler = insn->handler;

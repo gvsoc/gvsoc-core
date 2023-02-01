@@ -64,7 +64,6 @@ std::string Gdbserver::gdbserver_get_name()
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
-    this->iss.top.get_time_engine()->lock();
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
 
     if (reg == 32)
@@ -75,7 +74,6 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
     {
         this->trace.msg(vp::trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
     }
-    this->iss.top.get_time_engine()->unlock();
 
     return 0;
 }
@@ -88,7 +86,6 @@ int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 
 int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
-    this->iss.top.get_time_engine()->lock();
     if (nb_regs)
     {
         *nb_regs = 33;
@@ -116,14 +113,12 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
             regs[32] = 0;
         }
     }
-    this->iss.top.get_time_engine()->unlock();
 
     return 0;
 }
 
 int Gdbserver::gdbserver_stop()
 {
-    this->iss.top.get_time_engine()->lock();
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Received stop request\n");
 
     if (!this->iss.exec.halted.get())
@@ -132,13 +127,11 @@ int Gdbserver::gdbserver_stop()
         this->iss.exec.halted.set(true);
     }
     this->gdbserver->signal(this);
-    this->iss.top.get_time_engine()->unlock();
     return 0;
 }
 
 int Gdbserver::gdbserver_cont()
 {
-    this->iss.top.get_time_engine()->lock();
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Received cont request\n");
 
     if (this->iss.exec.halted.get())
@@ -146,21 +139,83 @@ int Gdbserver::gdbserver_cont()
         this->iss.exec.stalled_dec();
         this->iss.exec.halted.set(false);
     }
-    this->iss.top.get_time_engine()->unlock();
 
     return 0;
 }
 
 int Gdbserver::gdbserver_stepi()
 {
-    this->iss.top.get_time_engine()->lock();
     this->iss.exec.step_mode.set(true);
     this->iss.exec.switch_to_full_mode();
-    this->iss.top.get_time_engine()->unlock();
+    if (this->iss.exec.halted.get())
+    {
+        this->iss.exec.stalled_dec();
+        this->iss.exec.halted.set(false);
+    }
     return 0;
 }
 
 int Gdbserver::gdbserver_state()
 {
     return vp::Gdbserver_core::state::running;
+}
+
+static inline iss_insn_t *breakpoint_check_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->exec.stalled_inc();
+    iss->exec.halted.set(true);
+    iss->gdbserver.gdbserver->signal(&iss->gdbserver, 5);
+    return insn;
+}
+
+void Gdbserver::enable_breakpoint(iss_addr_t addr)
+{
+    iss_insn_t *insn = insn_cache_get(&this->iss, addr);
+
+    if (insn->fetched)
+    {
+        insn->breakpoint_saved_handler = insn->handler;
+        insn->breakpoint_saved_fast_handler = insn->fast_handler;
+        insn->handler = breakpoint_check_exec;
+        insn->fast_handler = breakpoint_check_exec;
+    }
+    else
+    {
+        insn->breakpoint_saved_handler = breakpoint_check_exec;
+    }
+}
+
+void Gdbserver::disable_breakpoint(iss_addr_t addr)
+{
+    iss_insn_t *insn = insn_cache_get(&this->iss, addr);
+
+    insn->handler = insn->breakpoint_saved_handler;
+    insn->fast_handler = insn->breakpoint_saved_fast_handler;
+    insn->breakpoint_saved_handler = NULL;
+}
+
+void Gdbserver::enable_all_breakpoints()
+{
+    for (auto x: this->breakpoints)
+    {
+        this->enable_breakpoint(x);
+    }
+}
+
+void Gdbserver::gdbserver_breakpoint_insert(uint64_t addr)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Inserting breakpoint (addr: 0x%x)\n", addr);
+
+    this->breakpoints.push_back((iss_addr_t)addr);
+
+    this->enable_breakpoint((iss_addr_t)addr);
+}
+
+void Gdbserver::gdbserver_breakpoint_remove(uint64_t addr)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Removing breakpoint (addr: 0x%x)\n", addr);
+
+    this->breakpoints.remove(addr);
+
+    this->disable_breakpoint((iss_addr_t)addr);
 }

@@ -58,6 +58,7 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->addr = addr;
     insn->next = NULL;
     insn->hwloop_handler = NULL;
+    insn->breakpoint_saved_handler = NULL;
     insn->fetched = false;
     insn->input_latency_reg = -1;
 }
@@ -143,6 +144,8 @@ void iss_cache_flush(Iss *iss)
         iss->exec.hwloop_end_insn[1] = insn_cache_get(iss, hwloop_end_addr[1]);
         hwloop_set_insn_end(iss, iss->exec.hwloop_end_insn[1]);
     }
+
+    iss->gdbserver.enable_all_breakpoints();
 
     iss->irq.cache_flush();
 }

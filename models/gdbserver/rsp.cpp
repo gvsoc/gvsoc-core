@@ -89,6 +89,8 @@ void Rsp::proxy_loop(int socket)
         this->top->get_core()->gdbserver_stop();
     });
 
+    this->top->get_core()->gdbserver_stop();
+
     while(1)
     {
         char * buf;
@@ -111,15 +113,17 @@ void Rsp::proxy_loop(int socket)
 
         in_buffer->commit_write(ret);
 
-        std::unique_lock<std::mutex> lock(this->mutex);
+        this->top->get_time_engine()->lock();
         this->codec->decode(in_buffer);
-        lock.unlock();
+        this->top->get_time_engine()->unlock();
     }
 }
 
 
 bool Rsp::send(const char *data, size_t len)
 {
+    std::unique_lock<std::mutex> lock(this->mutex);
+
     this->top->trace.msg(vp::trace::LEVEL_TRACE, "Sending message (text: \"%s\", size: %ld)\n", data, len);
 
     // disabled run length encoding since GDB didn't seem to like it
@@ -138,6 +142,8 @@ bool Rsp::send(const char *data, size_t len)
 
     this->out_buffer->commit_read(size);
 
+    lock.unlock();
+
     return true;
 }
 
@@ -148,18 +154,7 @@ bool Rsp::send_str(const char *data)
 }
 
 
-bool Rsp::signal_unsafe()
-{
-    std::unique_lock<std::mutex> lock(this->mutex);
-
-    bool retval = this->signal();
-
-    lock.unlock();
-
-    return retval;
-}
-
-bool Rsp::signal()
+bool Rsp::signal(int signal)
 {
     char str[128];
     int len;
@@ -167,17 +162,19 @@ bool Rsp::signal()
     auto core = this->top->get_core();
 
     int state = core->gdbserver_state();
-    int signal;
 
     this->active_core_for_other = core->gdbserver_get_id();
 
-    if (state == vp::Gdbserver_core::state::running)
+    if (signal == -1)
     {
-        signal = 0;
-    }
-    else
-    {
-        signal = 17;
+        if (state == vp::Gdbserver_core::state::running)
+        {
+            signal = 0;
+        }
+        else
+        {
+            signal = 17;
+        }
     }
 
     len = snprintf(str, 128, "S%02x", signal);
@@ -570,31 +567,33 @@ bool Rsp::decode(char* data, size_t len)
         case 'm':
             return this->mem_read(&data[1], len-1);
 
+        case 'z':
+            return this->bp_remove(&data[0], len);
+
+        case 'Z':
+            return this->bp_insert(&data[0], len);
+
+        case 's':
+        case 'S':
+            this->top->get_core()->gdbserver_stepi();
+            return this->send_str("OK");
+
+        case 'D':
+            this->top->get_core()->gdbserver_cont();
+            this->send_str("OK");
+            return false;
+
+
 
 
     #if 0
         case 'R':
         return run();
-
-        case 's':
-        case 'S':
-        return step(&data[0], len);
-
         case 'M':
         return mem_write_ascii(&data[1], len-1);
 
-        case 'z':
-        return bp_remove(&data[0], len);
-
-        case 'Z':
-        return bp_insert(&data[0], len);
-
         case 'T':
         return send_str("OK"); // threads are always alive
-
-        case 'D':
-        send_str("OK");
-        return false;
 
         case '!':
         return send_str("OK"); // extended mode supported
@@ -737,6 +736,47 @@ bool Rsp::mem_read(char *data, size_t)
     return send(reply, length * 2);
 }
 
+
+bool Rsp::bp_insert(char *data, size_t len)
+{
+    int type;
+    uint32_t addr;
+    int bp_len;
+
+    if (len < 1)
+        return false;
+
+    if (3 != sscanf(data, "Z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
+    {
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not get three arguments\n");
+        return send_str("E01");
+    }
+
+    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
+    this->top->breakpoint_insert(addr);
+
+    return send_str("OK");
+}
+
+bool Rsp::bp_remove(char *data, size_t len)
+{
+    int type;
+    uint32_t addr;
+    int bp_len;
+
+    data[len] = 0;
+
+    if (3 != sscanf(data, "z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
+    {
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not get three arguments\n");
+        return false;
+    }
+
+    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
+    this->top->breakpoint_remove(addr);
+
+    return send_str("OK");
+}
 
 #if 0
 
@@ -1456,58 +1496,6 @@ bool time_has_expired(const timeval *start, const timeval *max_delay)
     ::gettimeofday(&now, NULL);
     timersub(&now, start, &used);
     return timercmp(max_delay, &used, <);
-}
-
-bool Rsp::Client::bp_insert(char *data, size_t len)
-{
-    enum mp_type type;
-    uint32_t addr;
-    int bp_len;
-
-    if (len < 1)
-        return false;
-
-    if (3 != sscanf(data, "Z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
-    {
-        log.error("Could not get three arguments\n");
-        return send_str("E01");
-    }
-
-    if (type != BP_MEMORY)
-    {
-        log.error("ERROR: Not a memory bp\n");
-        return send_str("");
-    }
-
-    m_top->bkp->insert(addr);
-
-    log.debug("Breakpoint inserted at 0x%08x\n", addr);
-    return send_str("OK");
-}
-
-bool Rsp::Client::bp_remove(char *data, size_t len)
-{
-    enum mp_type type;
-    uint32_t addr;
-    int bp_len;
-
-    data[len] = 0;
-
-    if (3 != sscanf(data, "z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
-    {
-        log.error("Could not get three arguments\n");
-        return false;
-    }
-
-    if (type != BP_MEMORY)
-    {
-        log.error("Not a memory bp\n");
-        return send_str("");
-    }
-
-    m_top->bkp->remove(addr);
-
-    return send_str("OK");
 }
 
 Rsp_capability::Rsp_capability(const char *name, capability_support support) : name(name), support(support)

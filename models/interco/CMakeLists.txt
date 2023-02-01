@@ -20,16 +20,20 @@ vp_model(NAME interco.router_proxy
     SOURCES "router_proxy.cpp"
     )
 
-vp_model(NAME interco.router_shared_impl
-    SOURCES "router_shared_impl.cpp"
+vp_model(NAME interco.router_shared_fullduplex_impl
+    SOURCES "router_shared_fullduplex_impl.cpp"
     )
 
-vp_model(NAME interco.router_shared_port_impl
-    SOURCES "router_shared_port_impl.cpp"
+vp_model(NAME interco.router_shared_halfduplex_impl
+    SOURCES "router_shared_halfduplex_impl.cpp"
     )
 
 vp_model(NAME interco.router_shared_async_impl
     SOURCES "router_shared_async_impl.cpp"
+    )
+
+vp_model(NAME interco.wireless_link_impl
+    SOURCES "wireless_link_impl.cpp"
     )
 
 vp_model(NAME interco.dual_wireless_link_impl

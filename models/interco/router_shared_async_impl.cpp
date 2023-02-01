@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 GreenWaves Technologies, SAS, ETH Zurich and
+ * Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
  *                    University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,6 +35,17 @@
 #define MASK_OFFSET_SLAVES  0
 #define MASK_OFFSET_MASTERS 32
 
+#ifdef MAX
+#undef MAX
+#endif
+#ifdef MIN
+#undef MIN
+#endif
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+
 class MapEntry;
 
 struct Event {
@@ -43,15 +54,15 @@ struct Event {
   // Port of incoming request (slave port)
   int port;
   // Timestamp (ticks from 0)
-  std::int64_t t;
+  int64_t t;
   // Duration (ticks)
-  std::int64_t d;
+  int64_t d;
   // Accumulated latency in the path
-  std::int64_t l;
+  int64_t l;
   // Entry (master port)
   int id;
 
-  constexpr bool operator<(const Event& other) const { return t + l < other.t + other.l; }
+  constexpr bool operator<(const Event& other) const { return t < other.t; }
 };
 
 
@@ -119,14 +130,16 @@ private:
   bool init = false;
 
   void init_entries();
-  void check_requests();
-  void schedule_port(int offset, int port);
-  void deschedule_port(int offset, int port);
+  void schedule_port(int offset, int id, bool is_write);
+  void deschedule_port(int offset, int port, bool is_write);
+  bool port_is_scheduled(int offset, int port, bool is_write);
   void forwarding_protocol(vp::io_req *req, int port);
-  bool port_is_scheduled(int offset, int port);
-  void push_round_robin(vector<Event>& q, Event e);
-  void (router_shared_async::*arbiter_handler_meth)(vector<Event>& q, Event e);
+  void push_round_robin(vector<Event>& scheduled_reqs, vector<vector<Event>>& pending_reqs, vector<Queue>& pending_services, Event e);
+  void (router_shared_async::*arbiter_handler_meth)(vector<Event>& scheduled_reqs, vector<vector<Event>>& pending_reqs, vector<Queue>& pending_services, Event e);
   static void forwarding_handler(void *__this, vp::clock_event *event);
+  static void responding_handler(void *__this, vp::clock_event *event);
+  void check_forwarding_req(bool is_write);
+  void check_responding_req(vp::io_req *req, int id, int port);
   MapEntry *firstMapEntry = NULL;
   MapEntry *defaultMapEntry = NULL;
   MapEntry *errorMapEntry = NULL;
@@ -135,16 +148,36 @@ private:
 
   MapEntry *get_entry(vp::io_req *req);
 
-  int broadcast;
+  bool broadcast;
   int nb_entries;
+  int nb_ports;
   int bandwidth = 0;
-  int latency = 0;
+  //int latency = 0;
 
-  std::uint64_t scheduling;
-  vector<Event> scheduled_reqs;
-  vector<vector<Event>> pending_reqs;
-  vector<Queue> pending_services;
+  int cmd_latency = 0;
+  int resp_latency = 0;
+
+  uint64_t scheduling_write;
+  vector<Event> scheduled_write_reqs;
+  vector<vector<Event>> pending_write_reqs;
+  vector<Queue> pending_write_services;
+
+  uint64_t scheduling_read;
+  vector<Event> scheduled_read_reqs;
+  vector<vector<Event>> pending_read_reqs;
+  vector<Queue> pending_read_services;
+
   vp::clock_event **forwarding_event;
+  //vp::clock_event **responding_event;
+
+  vector<vector<Event>> pending_write_resp;
+  vector<vector<Event>> pending_read_resp;
+
+  vector<vector<vp::clock_event *>> enqueued_write_resp;
+  vector<vector<vp::clock_event *>> enqueued_read_resp;
+
+  int64_t *next_packet_id_time;
+  int64_t *next_packet_port_time;
 };
 
 
@@ -165,21 +198,23 @@ MapEntry::MapEntry(unsigned long long base, MapEntry *left, MapEntry *right) : n
 // with a Round Robin mechanism.
 // Multiple slaves might be served simultaneously if the requests have different masters.
 // Otherwise, this transaction triggers at least one conflict to resolve.
-void router_shared_async::push_round_robin(vector<Event>& q, Event e) {
+void router_shared_async::push_round_robin(vector<Event>& scheduled_reqs, vector<vector<Event>>& pending_reqs, vector<Queue>& pending_services, Event e) {
+  bool is_write = e.req->get_is_write();
   // Schedule only one request at a time for this master. The others are enqueued to be serialized 
-  if(!port_is_scheduled(MASK_OFFSET_MASTERS, e.id)) {
+  if(!port_is_scheduled(MASK_OFFSET_MASTERS, e.id, is_write)) {
     //printf("scheduled_reqs -> inserting %p (port: %d, id: %d)\n", e.req, e.port, e.id);
-    //e.t = e.t + e.l + e.d;
-    q.push_back(e);
-    schedule_port(MASK_OFFSET_MASTERS, e.id);
+    //e.l = this->get_cycles();
+    scheduled_reqs.push_back(e);
+    schedule_port(MASK_OFFSET_MASTERS, e.id, is_write);
   }
   else {
     // Extract the slave port id of the scheduled request for current master entry id
-    auto scheduled_event = find_if(q.begin(), q.end(),
+    auto scheduled_event = find_if(scheduled_reqs.begin(), scheduled_reqs.end(),
       [&](struct Event element){ return (element.id == e.id) ; });
     int scheduled_port   = scheduled_event->port;
     // On-going request to this master entry id
-    int scheduled_time   = scheduled_event->t + scheduled_event->l + scheduled_event->d;
+    //uint64_t scheduled_time = scheduled_event->t + scheduled_event->l + scheduled_event->d;
+    uint64_t scheduled_time = scheduled_event->t + scheduled_event->d;
 
     // If there are pending requests
     if(!pending_services[e.id].empty()) {
@@ -225,17 +260,20 @@ void router_shared_async::push_round_robin(vector<Event>& q, Event e) {
 
       // Assign new value to the scheduling time and insert in the pending requests queue
       for(auto& cur : v) {
+        cur.l = this->get_cycles();
         // Next scheduling time is the previous plus the latency and duration of the request
-        cur.t = scheduled_time + 1;// + cur.l + cur.d;
+        cur.t = scheduled_time;
         // The protocol does not add any dead cycle
-        scheduled_time = cur.t + cur.l + cur.d;
-	      //printf("pending_services -> arbitration and inserting %p (port: %d, id: %d)\n", e.req, e.port, e.id);
+        //scheduled_time = cur.t + cur.l + cur.d;
+        scheduled_time = cur.t + cur.d;
+	//printf("pending_services -> arbitration and inserting %p (port: %d, id: %d)\n", e.req, e.port, e.id);
         pending_services[e.id].insert(cur);
       }
     }
     else {
       //printf("pending_services -> inserting %p (port: %d, id: %d)\n", e.req, e.port, e.id);
-      e.t = scheduled_time + 1;// + e.l + e.d;
+      //e.l = this->get_cycles();
+      e.t = scheduled_time;
       pending_services[e.id].insert(e);
     }
   }
@@ -272,17 +310,261 @@ void MapEntry::insert(router_shared_async *router)
 }
 
 
-void router_shared_async::check_requests()
+void router_shared_async::check_forwarding_req(bool is_write)
 {
-  //printf("check_req\n");
-  for(auto& next_event : this->scheduled_reqs) {
-    int id = next_event.id;
-    // Enqueue untill the end of scheduled events
-    if(!this->forwarding_event[id]->is_enqueued())
-    {
-      //printf("enqueue req %p (id: %d, current cycle: %ld, latency: %ld)\n", next_event.req, id, this->get_cycles(), (next_event.t-this->get_cycles())+next_event.l+next_event.d);
-      // Execution time has to take into account the actual time
-      this->event_enqueue(this->forwarding_event[id], (next_event.t-this->get_cycles())+next_event.l+next_event.d);
+  //printf("check_req %d\n", is_write);
+  if(is_write) {
+    for(auto& next_event : this->scheduled_write_reqs) {
+      int id = next_event.id;
+      // Enqueue untill the end of scheduled events
+      if(!this->forwarding_event[id]->is_enqueued())
+      {
+        //printf("enqueue write req %p (event id: %d, id: %d, current cycle: %ld, latency: %ld)\n", next_event.req, id, id, this->get_cycles(), (next_event.t-this->get_cycles())+next_event.l+next_event.d);
+        // Execution time has to take into account the actual time
+        //this->event_enqueue(this->forwarding_event[id], (next_event.t-this->get_cycles())+next_event.l+next_event.d);
+        int64_t event_latency = next_event.d;
+        //if((this->get_cycles() - next_event.l) < this->latency) {
+	  //event_latency += (this->latency - (this->get_cycles() - next_event.l));
+	if((this->get_cycles() - next_event.l) < this->cmd_latency) {
+          event_latency += (this->cmd_latency - (this->get_cycles() - next_event.l));
+        }
+        this->event_enqueue(this->forwarding_event[id], event_latency);
+        //printf("enqueue write req %p (event id: %d, id: %d, current cycle: %ld, t: %ld, l: %ld, d: %ld, latency: %ld)\n", next_event.req, id, id, this->get_cycles(), next_event.t, next_event.l, next_event.d, event_latency);
+      }
+    }
+  }
+  else {
+    for(auto& next_event : this->scheduled_read_reqs) {
+      int id = next_event.id;
+      // Enqueue untill the end of scheduled events
+      if(!this->forwarding_event[id + this->nb_entries]->is_enqueued())
+      {
+        //printf("enqueue read req %p (event id: %d, id: %d, current cycle: %ld, latency: %ld)\n", next_event.req, id + this->nb_entries, id, this->get_cycles(), (next_event.t-this->get_cycles())+next_event.l+next_event.d);
+        // Execution time has to take into account the actual time
+        //this->event_enqueue(this->forwarding_event[id + this->nb_entries], (next_event.t-this->get_cycles())+next_event.l+next_event.d);
+        int64_t event_latency = next_event.d;
+        //if((this->get_cycles() - next_event.l) < this->latency) {
+          //event_latency += (this->latency - (this->get_cycles() - next_event.l));
+        if((this->get_cycles() - next_event.l) < this->cmd_latency) {
+          event_latency += (this->cmd_latency - (this->get_cycles() - next_event.l));
+        }
+        this->event_enqueue(this->forwarding_event[id + this->nb_entries], event_latency);
+        //printf("enqueue read req %p (event id: %d, id: %d, current cycle: %ld, t: %ld, l: %ld, d: %ld, latency: %ld)\n", next_event.req, id + this->nb_entries, id, this->get_cycles(), next_event.t, next_event.l, next_event.d, event_latency);
+      }
+    }
+  }
+}
+
+
+void router_shared_async::check_responding_req(vp::io_req *req, int id, int port)
+{
+  bool is_write = req->get_is_write();
+  //printf("check resp %d\n", is_write);
+  uint64_t size = req->get_size();
+  // Duration of this packet in this router according to router bandwidth
+  int event_latency = ((size + this->bandwidth - 1) / this->bandwidth);
+
+  if(is_write) {
+    if(req->get_entry() == this) {
+      auto current_event = find_if(this->enqueued_write_resp[port].begin(), this->enqueued_write_resp[port].end(),
+        [&](vp::clock_event *element){ return ((intptr_t)element->get_args()[0] == id) ; });
+      // The request might not be served yet but the forwarding has been done
+      // Remove from the list the fired request
+      if(current_event != this->enqueued_write_resp[port].end()) {
+        //printf("pushing pending write response %p (port: %d, id: %d)\n", req, port, id);
+        this->pending_write_resp[id].push_back({req, port, 0, 0, 0, id});
+      }
+      else {
+        vp::clock_event *responding_event = event_new(router_shared_async::responding_handler);
+        responding_event->get_args()[0] = (void *)((intptr_t)id);
+        responding_event->get_args()[1] = (void *)((intptr_t)port);
+        responding_event->get_args()[2] = (void *)req;
+   //if(!this->responding_event[id]->is_enqueued()) {
+      //if((this->get_cycles() - this->next_packet_id_time[id]) < this->resp_latency) {
+        //event_latency += this->resp_latency - (this->get_cycles() - this->next_packet_id_time[id]);
+      //}
+
+      //this->responding_event[id]->get_args()[1] = (void *)req;
+
+        int new_latency = 0;
+      //if((this->get_cycles() - this->next_packet_port_time[port]) < 0) {
+	//new_latency = this->next_packet_port_time[port] - this->get_cycles();
+      //if((this->get_cycles() + this->resp_port) < this->next_packet_port_time[port]) {
+	//new_latency = this->next_packet_port_time[port] - (this->get_cycles() + this->resp_latency);
+        for(auto iter : this->enqueued_write_resp[port]) {
+	  int64_t iter_time = (intptr_t)iter->get_args()[3];
+	  int64_t iter_dur  = (intptr_t)iter->get_args()[4];
+	//int port_latency = MIN((iter.t + iter.d) - this->get_cycles(), event_latency);
+          int port_latency = MAX(0, MIN((iter_time + iter_dur) - (this->get_cycles() + this->resp_latency), event_latency));
+	  if(port_latency > 0) {
+	    //printf("rescheduling write event %p (port: %d, id: %d, previous latency: %ld, additional latency: %d)\n", iter, port, (int)((intptr_t)iter->get_args()[0]), iter_dur, port_latency);
+	    iter_dur += port_latency;
+	    new_latency += port_latency;
+	    this->event_cancel(iter);
+	    this->event_enqueue(iter, iter_dur - (this->get_cycles() - iter_time));
+	  //this->event_reenqueue(this->responding_event[iter.id], port_latency);
+	  }
+        }
+      //this->event_enqueue(this->responding_event[id], event_latency + new_latency);
+        this->event_enqueue(responding_event, this->resp_latency + event_latency + new_latency);
+        //printf("enqueueing new write response event %p (port: %d, id: %d, latency: %d)\n", responding_event, port, id, this->resp_latency + event_latency + new_latency);
+      //this->enqueued_write_resp[port].push_back({req, port, this->get_cycles(), event_latency, 0, id});
+        responding_event->get_args()[3] = (void *)((intptr_t)this->get_cycles());
+        responding_event->get_args()[4] = (void *)((intptr_t)(this->resp_latency + event_latency + new_latency));
+        this->enqueued_write_resp[port].push_back(responding_event);
+      }
+      //this->next_packet_id_time[id]     = this->get_cycles() + event_latency;
+      //this->next_packet_port_time[port] = this->get_cycles() + event_latency + new_latency;
+      //}
+    //else {
+      //printf("pushing pending write response %p (port: %d, id: %d)\n", req, port, id);
+      //this->pending_write_resp[id].push_back({req, port, 0, 0, 0, id});
+    //}
+    }
+    else {
+      vp::clock_event *responding_event = event_new(router_shared_async::responding_handler);
+      responding_event->get_args()[0] = (void *)((intptr_t)id);
+      responding_event->get_args()[1] = (void *)((intptr_t)port);
+      responding_event->get_args()[2] = (void *)req;
+   //if(!this->responding_event[id]->is_enqueued()) {
+      //if((this->get_cycles() - this->next_packet_id_time[id]) < this->resp_latency) {
+        //event_latency += this->resp_latency - (this->get_cycles() - this->next_packet_id_time[id]);
+      //}
+
+      //this->responding_event[id]->get_args()[1] = (void *)req;
+
+      int new_latency = 0;
+      //if((this->get_cycles() - this->next_packet_port_time[port]) < 0) {
+	//new_latency = this->next_packet_port_time[port] - this->get_cycles();
+      //if((this->get_cycles() + this->resp_port) < this->next_packet_port_time[port]) {
+	//new_latency = this->next_packet_port_time[port] - (this->get_cycles() + this->resp_latency);
+      for(auto iter : this->enqueued_write_resp[port]) {
+	int64_t iter_time = (intptr_t)iter->get_args()[3];
+	int64_t iter_dur  = (intptr_t)iter->get_args()[4];
+	//int port_latency = MIN((iter.t + iter.d) - this->get_cycles(), event_latency);
+        int port_latency = MAX(0, MIN((iter_time + iter_dur) - (this->get_cycles() + this->resp_latency), event_latency));
+	if(port_latency > 0) {
+	    //printf("rescheduling write event %p (port: %d, id: %d, previous latency: %ld, additional latency: %d)\n", iter, port, (int)((intptr_t)iter->get_args()[0]), iter_dur, port_latency);
+	  iter_dur += port_latency;
+	  new_latency += port_latency;
+	  this->event_cancel(iter);
+	  this->event_enqueue(iter, iter_dur - (this->get_cycles() - iter_time));
+	  //this->event_reenqueue(this->responding_event[iter.id], port_latency);
+	}
+      }
+      //this->event_enqueue(this->responding_event[id], event_latency + new_latency);
+      this->event_enqueue(responding_event, this->resp_latency + event_latency + new_latency);
+        //printf("enqueueing new write response event %p (port: %d, id: %d, latency: %d)\n", responding_event, port, id, this->resp_latency + event_latency + new_latency);
+      //this->enqueued_write_resp[port].push_back({req, port, this->get_cycles(), event_latency, 0, id});
+      responding_event->get_args()[3] = (void *)((intptr_t)this->get_cycles());
+      responding_event->get_args()[4] = (void *)((intptr_t)(this->resp_latency + event_latency + new_latency));
+      this->enqueued_write_resp[port].push_back(responding_event);
+    }
+      //this->next_packet_id_time[id]     = this->get_cycles() + event_latency;
+      //this->next_packet_port_time[port] = this->get_cycles() + event_latency + new_latency;
+      //}
+    //else {
+      //printf("pushing pending write response %p (port: %d, id: %d)\n", req, port, id);
+      //this->pending_write_resp[id].push_back({req, port, 0, 0, 0, id});
+    //}
+  }
+  else {
+    if(req->get_entry() == this) {
+      auto current_event = find_if(this->enqueued_read_resp[port].begin(), this->enqueued_read_resp[port].end(),
+        [&](vp::clock_event *element){ return ((intptr_t)(element->get_args()[0]) == id) ; });
+      // The request might not be served yet but the forwarding has been done
+      // Remove from the list the fired request
+      if(current_event != this->enqueued_read_resp[port].end()) {
+        //printf("pushing pending write response %p (port: %d, id: %d)\n", req, port, id);
+        this->pending_read_resp[id].push_back({req, port, 0, 0, 0, id});
+      }
+      else {
+        vp::clock_event *responding_event = event_new(router_shared_async::responding_handler);
+        responding_event->get_args()[0] = (void *)((intptr_t)id);
+        responding_event->get_args()[1] = (void *)((intptr_t)port);
+        responding_event->get_args()[2] = (void *)req;
+   //if(!this->responding_event[id + this->nb_entries]->is_enqueued()) {
+      //if((this->get_cycles() - this->next_packet_id_time[id + this->nb_entries]) < this->resp_latency) {
+        //event_latency += this->resp_latency - (this->get_cycles() - this->next_packet_id_time[id + this->nb_entries]);
+      //}
+
+      //this->responding_event[id + this->nb_entries]->get_args()[1] = (void *)req;
+
+        int new_latency = 0;
+      //if((this->get_cycles() - this->next_packet_port_time[port + this->nb_ports]) < 0) {
+	//new_latency = this->next_packet_port_time[port + this->nb_ports] - this->get_cycles();
+        for(auto iter : this->enqueued_read_resp[port]) {
+	//int port_latency = MIN((iter.t + iter.d) - this->get_cycles(), event_latency);
+	//iter.d += port_latency;
+	//new_latency += port_latency;
+  	  int64_t iter_time = (intptr_t)iter->get_args()[3];
+	  int64_t iter_dur  = (intptr_t)iter->get_args()[4];
+	  int port_latency = MAX(0, MIN((iter_time + iter_dur) - (this->get_cycles() + this->resp_latency), event_latency));
+	  if(port_latency > 0) {
+            //printf("rescheduling read event %p (port: %d, id: %d, previous latency: %ld, additional latency: %d)\n", iter, port, (int)((intptr_t)iter->get_args()[0]), iter_dur, port_latency);
+	    iter_dur += port_latency;
+	    new_latency += port_latency;
+	    this->event_cancel(iter);
+	    this->event_enqueue(iter, iter_dur - (this->get_cycles() - iter_time));
+          //this->event_reenqueue(this->responding_event[iter.id + this->nb_entries], port_latency);
+	  }
+        }
+
+      //this->event_enqueue(this->responding_event[id + this->nb_entries], event_latency + new_latency);
+        this->event_enqueue(responding_event, this->resp_latency + event_latency + new_latency);
+        //printf("enqueueing new read response event %p (port: %d, id: %d, latency: %d)\n", responding_event, port, id, this->resp_latency + event_latency + new_latency);
+      //this->enqueued_read_resp[port].push_back({req, port, this->get_cycles(), event_latency, 0, id});
+        responding_event->get_args()[3] = (void *)((intptr_t)this->get_cycles());
+        responding_event->get_args()[4] = (void *)((intptr_t)(this->resp_latency + event_latency + new_latency));
+        this->enqueued_read_resp[port].push_back(responding_event);
+      //this->next_packet_id_time[id + this->nb_entries]   = this->get_cycles() + event_latency;
+      //this->next_packet_port_time[port + this->nb_ports] = this->get_cycles() + event_latency + new_latency;
+      }
+   // else {
+      //printf("pushing pending read response %p (port: %d, id: %d)\n", req, port, id);
+      //this->pending_read_resp[id].push_back({req, port, 0, 0, 0, id});
+    }
+    else {
+      vp::clock_event *responding_event = event_new(router_shared_async::responding_handler);
+      responding_event->get_args()[0] = (void *)((intptr_t)id);
+      responding_event->get_args()[1] = (void *)((intptr_t)port);
+      responding_event->get_args()[2] = (void *)req;
+   //if(!this->responding_event[id + this->nb_entries]->is_enqueued()) {
+      //if((this->get_cycles() - this->next_packet_id_time[id + this->nb_entries]) < this->resp_latency) {
+        //event_latency += this->resp_latency - (this->get_cycles() - this->next_packet_id_time[id + this->nb_entries]);
+      //}
+
+      //this->responding_event[id + this->nb_entries]->get_args()[1] = (void *)req;
+
+      int new_latency = 0;
+      //if((this->get_cycles() - this->next_packet_port_time[port + this->nb_ports]) < 0) {
+	//new_latency = this->next_packet_port_time[port + this->nb_ports] - this->get_cycles();
+      for(auto iter : this->enqueued_read_resp[port]) {
+	//int port_latency = MIN((iter.t + iter.d) - this->get_cycles(), event_latency);
+	//iter.d += port_latency;
+	//new_latency += port_latency;
+        int64_t iter_time = (intptr_t)iter->get_args()[3];
+	int64_t iter_dur  = (intptr_t)iter->get_args()[4];
+	int port_latency = MAX(0, MIN((iter_time + iter_dur) - (this->get_cycles() + this->resp_latency), event_latency));
+	if(port_latency > 0) {
+            //printf("rescheduling read event %p (port: %d, id: %d, previous latency: %ld, additional latency: %d)\n", iter, port, (int)((intptr_t)iter->get_args()[0]), iter_dur, port_latency);
+	  iter_dur += port_latency;
+	  new_latency += port_latency;
+	  this->event_cancel(iter);
+	  this->event_enqueue(iter, iter_dur - (this->get_cycles() - iter_time));
+          //this->event_reenqueue(this->responding_event[iter.id + this->nb_entries], port_latency);
+	}
+      }
+
+      //this->event_enqueue(this->responding_event[id + this->nb_entries], event_latency + new_latency);
+      this->event_enqueue(responding_event, this->resp_latency + event_latency + new_latency);
+        //printf("enqueueing new read response event %p (port: %d, id: %d, latency: %d)\n", responding_event, port, id, this->resp_latency + event_latency + new_latency);
+      //this->enqueued_read_resp[port].push_back({req, port, this->get_cycles(), event_latency, 0, id});
+      responding_event->get_args()[3] = (void *)((intptr_t)this->get_cycles());
+      responding_event->get_args()[4] = (void *)((intptr_t)(this->resp_latency + event_latency + new_latency));
+      this->enqueued_read_resp[port].push_back(responding_event);
+      //this->next_packet_id_time[id + this->nb_entries]   = this->get_cycles() + event_latency;
+      //this->next_packet_port_time[port + this->nb_ports] = this->get_cycles() + event_latency 
     }
   }
 }
@@ -344,35 +626,130 @@ MapEntry *router_shared_async::get_entry(vp::io_req *req)
 }
 
 
+void router_shared_async::responding_handler(void *__this, vp::clock_event *event)
+{
+  router_shared_async *_this = (router_shared_async *)__this;
+
+  vp::io_req *req = (vp::io_req *)event->get_args()[2];
+  int id = event->get_int(0);
+
+  vp::io_slave *pending_port = (vp::io_slave *)req->arg_pop();
+  int port = (intptr_t)(req->arg_pop());
+  //int id   = (intptr_t)(req->arg_pop());
+
+  bool is_write = req->get_is_write();
+
+  if(is_write) {
+    // Retrive the information about the caller from the id
+    auto current_event = find_if(_this->enqueued_write_resp[port].begin(), _this->enqueued_write_resp[port].end(),
+      [&](vp::clock_event *element){ return (element == event) ; });
+    // The request might not be served yet but the forwarding has been done
+    // Remove from the list the fired request
+    if(current_event != _this->enqueued_write_resp[port].end()) {
+      _this->enqueued_write_resp[port].erase(current_event);
+    }
+    else {
+      printf("event %p does not match in the enqueued write queue\n", event);
+    }
+  }
+  else {
+    // Retrive the information about the caller from the id
+    auto current_event = find_if(_this->enqueued_read_resp[port].begin(), _this->enqueued_read_resp[port].end(),
+      [&](vp::clock_event *element){ return (element == event) ; });
+    // The request might not be served yet but the forwarding has been done
+    // Remove from the list the fired request
+    if(current_event != _this->enqueued_read_resp[port].end()) {
+      _this->enqueued_read_resp[port].erase(current_event);
+    }
+    else {
+      printf("event %p does not match in the enqueued read queue\n", event);
+    }
+  }
+
+  if(pending_port != NULL)
+  {
+    //printf("async response %p (pending port: %p, port: %d, id: %d)\n", req, pending_port, port, id);
+    pending_port->resp(req);
+  }
+
+  _this->event_del(event);
+
+  if(req->get_entry() == _this) {
+    if(is_write) {
+      if(!_this->pending_write_resp[id].empty()) {
+        auto pending_resp = *_this->pending_write_resp[id].begin();
+        _this->pending_write_resp[id].erase(_this->pending_write_resp[id].begin());
+        //printf("enqueueing pending write response %p (port: %d, id: %d)\n", pending_resp.req, pending_resp.port, pending_resp.id);
+        _this->check_responding_req(pending_resp.req, pending_resp.id, pending_resp.port);
+      }
+    }
+    else {
+      if(!_this->pending_read_resp[id].empty()) {
+        auto pending_resp = *_this->pending_read_resp[id].begin();
+        _this->pending_read_resp[id].erase(_this->pending_read_resp[id].begin());
+        //printf("enqueueing pending read response %p (port: %d, id: %d)\n", pending_resp.req, pending_resp.port, pending_resp.id);
+        _this->check_responding_req(pending_resp.req, pending_resp.id, pending_resp.port);
+      }
+    }
+  }
+}
+
+
 // Multiple callbacks might be scheduled from different callers
 void router_shared_async::forwarding_handler(void *__this, vp::clock_event *event)
 {
   router_shared_async *_this = (router_shared_async *)__this;
 
+  // Retrive the channel id
+  bool is_write = event->get_int(0);
   // Retrive the caller id
-  int id = event->get_int(0);
+  int id = event->get_int(1);
 
-  // Retrive the information about the caller from the id
-  auto current_event = find_if(_this->scheduled_reqs.begin(), _this->scheduled_reqs.end(),
-    [&](struct Event element){ return (element.id == id) ; });
-  vp::io_req *req = current_event->req;
-  int port = current_event->port;
-  //printf("firing %p (port: %d, id: %d)\n", req, port, id);
+  vp::io_req *req;
+  int port = 0;
+
+  if(is_write) {
+    // Retrive the information about the caller from the id
+    auto current_event = find_if(_this->scheduled_write_reqs.begin(), _this->scheduled_write_reqs.end(),
+      [&](struct Event element){ return (element.id == id) ; });
+    if(current_event != _this->scheduled_write_reqs.end()) {
+      req  = current_event->req;
+      port = current_event->port;
+      // The request might not be served yet but the forwarding has been done
+      // Remove from the list the fired request
+      _this->scheduled_write_reqs.erase(current_event);
+    }
+    else {
+      printf("ID %d does not match in scheduled write queue\n", id);
+    }
+  }
+  else {
+    // Retrive the information about the caller from the id
+    auto current_event = find_if(_this->scheduled_read_reqs.begin(), _this->scheduled_read_reqs.end(),
+      [&](struct Event element){ return (element.id == id) ; });
+    if(current_event != _this->scheduled_read_reqs.end()) {
+      req  = current_event->req;
+      port = current_event->port;
+      // The request might not be served yet but the forwarding has been done
+      // Remove from the list the fired request
+      _this->scheduled_read_reqs.erase(current_event);
+    }
+    else {
+      printf("ID %d does not match in scheduled read queue\n", id);
+    }
+  }
+
+  //printf("firing %p (port: %d, id: %d, is_write: %d)\n", req, port, id, is_write);
 
   uint64_t offset = req->get_addr();
   uint64_t size = req->get_size();
   uint8_t *data = req->get_data();
-  bool isRead = !req->get_is_write();
 
-  _this->trace.msg(vp::trace::LEVEL_INFO, "Respond to IO req (id: %d, port: %d, offset: 0x%llx, size: 0x%llx, is_write: %d)\n", id, port, offset, size, !isRead);
+  _this->trace.msg(vp::trace::LEVEL_INFO, "Respond IO req %p (id: %d, port: %d, offset: 0x%llx, size: 0x%llx, is_write: %d)\n", req, id, port, offset, size, is_write);
 
   MapEntry *entry = _this->get_entry(req);
 
   //printf("forwarding %p (pushing port %p)\n", entry->itf, req->resp_port);
-
-  // The request might not be served yet but the forwarding has been done
-  // Remove from the list the fired request
-  _this->scheduled_reqs.erase(current_event);
 
   // Store the slave and master port information. Cast two times to avoid warning related to different size of the elements
   req->arg_push((void *)(intptr_t)id);
@@ -384,74 +761,127 @@ void router_shared_async::forwarding_handler(void *__this, vp::clock_event *even
 
   // Synchronous response
   if(result == vp::IO_REQ_OK) {
-    //printf("Sync response\n");
     // Release the port
     vp::io_slave *pending_port = (vp::io_slave *)req->arg_pop();
     int port = (intptr_t)(req->arg_pop());
     int id   = (intptr_t)(req->arg_pop());
 
-    // Master port id is now free
-    _this->deschedule_port(MASK_OFFSET_MASTERS, id);
-    // Slave port id is now free
-    _this->deschedule_port(MASK_OFFSET_SLAVES, port);
+    if(req->get_entry() == NULL) {
+      req->set_entry(_this);
+    }
 
     if(pending_port != NULL)
     {
-      //printf("responding %p (port %p)\n", req, pending_port);
-      pending_port->resp(req);
+      //printf("sync response %p (port %p)\n", req, pending_port);
+      //pending_port->resp(req);
+      req->arg_push((void *)(intptr_t)port);
+      req->arg_push(pending_port);
+      _this->check_responding_req(req, id, port);
     }
+  }
+  // Master port id is now free
+  _this->deschedule_port(MASK_OFFSET_MASTERS, id, is_write);
+  // Slave port id is now free
+  _this->deschedule_port(MASK_OFFSET_SLAVES, port, is_write);
 
-    // Continue enqueuing the next request
-    _this->check_requests();
+  // Continue enqueuing the next request
+  _this->check_forwarding_req(is_write);
+}
+
+
+void router_shared_async::schedule_port(int offset, int id, bool is_write)
+{
+  if(is_write) {
+    //printf("schedule write id %d at offset %d (mask: 0x%lx, value 0x%lx, new value: 0x%lx)\n", id, offset, ((0x1UL << (id + offset))), this->scheduling_write, this->scheduling_write | ((0x1UL << (id + offset))));
+    this->scheduling_write |= ((0x1UL << (id + offset)));
+  }
+  else {
+    //printf("schedule read id %d at offset %d (mask: 0x%lx, value 0x%lx, new value: 0x%lx)\n", id, offset, ((0x1UL << (id + offset))), this->scheduling_read, this->scheduling_read | ((0x1UL << (id + offset))));
+    this->scheduling_read |= ((0x1UL << (id + offset)));
   }
 }
 
 
-void router_shared_async::schedule_port(int offset, int id)
+void router_shared_async::deschedule_port(int offset, int id, bool is_write)
 {
-  //printf("schedule id %d at offset %d (mask: 0x%lx, value 0x%lx, new value: 0x%lx)\n", id, offset, ((0x1UL << (id + offset))), this->scheduling, this->scheduling | ((0x1UL << (id + offset))));
-  this->scheduling |= ((0x1UL << (id + offset)));
+  if(is_write) {
+    //printf("deschedule write id %d at offset %d (mask: 0x%lx, value 0x%lx, new value: 0x%lx)\n", id, offset, ~((0x1UL << (id + offset))), this->scheduling_write, this->scheduling_write & ~((0x1UL << id) << offset));
+    this->scheduling_write &= ~((0x1UL << (id + offset)));
+  }
+  else {
+    //printf("deschedule read id %d at offset %d (mask: 0x%lx, value 0x%lx, new value: 0x%lx)\n", id, offset, ~((0x1UL << (id + offset))), this->scheduling_read, this->scheduling_read & ~((0x1UL << id) << offset));
+    this->scheduling_read &= ~((0x1UL << (id + offset)));
+  }
+
+  if(is_write) {
+    if((offset == MASK_OFFSET_MASTERS) && (!this->pending_write_services[id].empty())) {
+      // Pop from the pending queue the next event from the same port
+      auto next_event = *this->pending_write_services[id].begin();
+      // Update the timestamp to the actual time
+      //next_event.t = this->get_cycles();
+      // Schedule it
+      this->scheduled_write_reqs.push_back(next_event);
+      // Remove from the list the just scheduled request
+      this->pending_write_services[id].erase(this->pending_write_services[id].begin());
+      //printf("schedule pending write service (id: %d, offset: %d, size: %ld)\n", id, offset, this->pending_write_services[id].size());
+      // Tag the port as scheduled
+      this->schedule_port(offset, id, is_write);
+    }
+    else if((offset == MASK_OFFSET_SLAVES) && (!this->pending_write_reqs[id].empty())) {
+      // Pop from the pending queue the next event from the same port
+      auto next_event = *this->pending_write_reqs[id].begin();
+      // Update the timestamp to the actual time
+      //next_event.t = this->get_cycles();
+      // Schedule it
+      (this->*arbiter_handler_meth)(this->scheduled_write_reqs, this->pending_write_reqs, this->pending_write_services, next_event);
+      // Remove from the list the just scheduled request
+      this->pending_write_reqs[id].erase(this->pending_write_reqs[id].begin());
+      //printf("schedule pending write req (id: %d, offset: %d, size: %ld)\n", id, offset, this->pending_write_reqs[id].size());
+      // Tag the port as scheduled
+      this->schedule_port(offset, id, is_write);
+    }
+  }
+  else {
+    if((offset == MASK_OFFSET_MASTERS) && (!this->pending_read_services[id].empty())) {
+      // Pop from the pending queue the next event from the same port
+      auto next_event = *this->pending_read_services[id].begin();
+      // Update the timestamp to the actual time
+      //next_event.t = this->get_cycles();
+      // Schedule it
+      this->scheduled_read_reqs.push_back(next_event);
+      // Remove from the list the just scheduled request
+      this->pending_read_services[id].erase(this->pending_read_services[id].begin());
+      //printf("schedule pending read service (id: %d, offset: %d, size: %ld)\n", id, offset, this->pending_read_services[id].size());
+      // Tag the port as scheduled
+      this->schedule_port(offset, id, is_write);
+    }
+    else if((offset == MASK_OFFSET_SLAVES) && (!this->pending_read_reqs[id].empty())) {
+      // Pop from the pending queue the next event from the same port
+      auto next_event = *this->pending_read_reqs[id].begin();
+      // Update the timestamp to the actual time
+      //next_event.t = this->get_cycles();
+      // Schedule it
+      (this->*arbiter_handler_meth)(this->scheduled_read_reqs, this->pending_read_reqs, this->pending_read_services, next_event);
+      // Remove from the list the just scheduled request
+      this->pending_read_reqs[id].erase(this->pending_read_reqs[id].begin());
+      //printf("schedule pending read req (id: %d, offset: %d, size: %ld)\n", id, offset, this->pending_read_reqs[id].size());
+      // Tag the port as scheduled
+      this->schedule_port(offset, id, is_write);
+    }
+  }
 }
 
 
-void router_shared_async::deschedule_port(int offset, int id)
+bool router_shared_async::port_is_scheduled(int offset, int id, bool is_write)
 {
-  //printf("deschedule id %d at offset %d (mask: 0x%lx, value 0x%lx, new value: 0x%lx)\n", id, offset, ~((0x1UL << (id + offset))), this->scheduling, this->scheduling & ~((0x1UL << id) << offset));
-  this->scheduling &= ~((0x1UL << (id + offset)));
-
-  if((offset == MASK_OFFSET_MASTERS) && (!this->pending_services[id].empty())) {
-    // Pop from the pending queue the next event from the same port
-    auto next_event = *this->pending_services[id].begin();
-    // Update the timestamp to the actual time
-    next_event.t = this->get_cycles();
-    // Schedule it
-    this->scheduled_reqs.push_back(next_event);
-    // Tag the port as scheduled
-    this->schedule_port(offset, id);
-    // Remove from the list the just scheduled request
-    this->pending_services[id].erase(this->pending_services[id].begin());
-    //printf("schedule pending service (id: %d, offset: %d, size: %ld)\n", id, offset, this->pending_services[id].size());
+  if(is_write) {
+    //printf("write id %d at offset %d is scheduled: %d\n", id, offset, (this->scheduling_write & ((0x1UL << id) << offset)) != 0);
+    return (bool)((this->scheduling_write & ((0x1UL << (id + offset)))) != 0);
   }
-  else if((offset == MASK_OFFSET_SLAVES) && (!this->pending_reqs[id].empty())) {
-    // Pop from the pending queue the next event from the same port
-    auto next_event = *this->pending_reqs[id].begin();
-    // Update the timestamp to the actual time
-    next_event.t = this->get_cycles();
-    // Schedule it
-    (this->*arbiter_handler_meth)(this->scheduled_reqs, next_event);
-    // Tag the port as scheduled
-    this->schedule_port(offset, id);
-    // Remove from the list the just scheduled request
-    this->pending_reqs[id].erase(this->pending_reqs[id].begin());
-    //printf("schedule pending req (id: %d, offset: %d, size: %ld)\n", id, offset, this->pending_reqs[id].size());
+  else {
+    //printf("read id %d at offset %d is scheduled: %d\n", id, offset, (this->scheduling_read & ((0x1UL << id) << offset)) != 0);
+    return (bool)((this->scheduling_read & ((0x1UL << (id + offset)))) != 0);
   }
-}
-
-
-bool router_shared_async::port_is_scheduled(int offset, int id)
-{
-  //printf("id %d at offset %d is scheduled: %d\n", id, offset, (this->scheduling & ((0x1UL << id) << offset)) != 0);
-  return (bool)((this->scheduling & ((0x1UL << (id + offset)))) != 0);
 }
 
 
@@ -460,39 +890,57 @@ void router_shared_async::forwarding_protocol(vp::io_req *req, int port)
   uint64_t offset = req->get_addr();
   uint64_t size   = req->get_size();
   uint8_t *data   = req->get_data();
-
-  this->trace.msg(vp::trace::LEVEL_INFO, "Received IO req (port: %d, offset: 0x%llx, size: 0x%llx)\n", port, offset, size);
+  bool is_write   = req->get_is_write();
 
   // Duration of this packet in this router according to router bandwidth
-  int64_t packet_duration = ((size + this->bandwidth - 1) / this->bandwidth);
+  //int64_t packet_duration = ((size + this->bandwidth - 1) / this->bandwidth);
+  int64_t packet_duration = 1;
 
   // Cycle of reception of this packet
   int64_t packet_time    = this->get_cycles();
-  // Latency accumulated so far in the packet path. This is due to other synchronous modules
-  int64_t packet_latency = req->get_latency();
-  // Delete the latency just accounted. The latency accumulated so far is accounted in the timestamp of this packet
-  req->set_latency(0);
+  // // Latency accumulated so far in the packet path. This is due to other synchronous modules
+  // int64_t packet_latency = req->get_latency();
+  // // Delete the latency just accounted. The latency accumulated so far is accounted in the timestamp of this packet
+  // req->set_latency(0);
+  //int64_t packet_latency = this->latency;
 
   // Get the target port
   MapEntry *entry = this->get_entry(req);
 
-  //printf("req %p (port %d, id %d)\n", req, port, entry->id);
+  this->trace.msg(vp::trace::LEVEL_INFO, "Received IO req %p (id: %d, port: %d, offset: 0x%llx, size: 0x%llx, is_write: %d)\n", req, entry->id, port, offset, size, is_write);
+
+  //printf("req %p (port %d, id %d, is_write: %d)\n", req, port, entry->id, is_write);
 
   // There are two lists: Ordered list for scheduled packet and a non-ordered list (per port) for pending requests
-  if(port_is_scheduled(MASK_OFFSET_SLAVES, port)) {
+  if(port_is_scheduled(MASK_OFFSET_SLAVES, port, is_write)) {
     // New request is arrived. Just account it because the same port is already scheduled. t will be update before trying to schedule it
-    this->pending_reqs[port].push_back({req, port, 0, this->latency + packet_duration, packet_latency, entry->id});
-    //printf("new pending req %p (size: %ld, port: %d, id: %d)\n", req, this->pending_reqs[port].size(), port, entry->id);
+    if(is_write) {
+      //this->pending_write_reqs[port].push_back({req, port, 0, this->latency + packet_duration, packet_latency, entry->id});
+      this->pending_write_reqs[port].push_back({req, port, packet_time, packet_duration, packet_time, entry->id});
+      //printf("new pending write req %p (size: %ld, port: %d, id: %d)\n", req, this->pending_write_reqs[port].size(), port, entry->id);
+    }
+    else {
+      //this->pending_read_reqs[port].push_back({req, port, 0, this->latency + packet_duration, packet_latency, entry->id});
+      this->pending_read_reqs[port].push_back({req, port, packet_time, packet_duration, packet_time, entry->id});
+      //printf("new pending read req %p (size: %ld, port: %d, id: %d)\n", req, this->pending_read_reqs[port].size(), port, entry->id);
+    }
   }
   else {
     // Find conflict (if there are) the request scanning the queue of on-going requests
-    (this->*arbiter_handler_meth)(this->scheduled_reqs, {req, port, packet_time, this->latency + packet_duration, packet_latency, entry->id});
+    if(is_write) {
+      //(this->*arbiter_handler_meth)(this->scheduled_write_reqs, this->pending_write_reqs, this->pending_write_services, {req, port, packet_time, this->latency + packet_duration, packet_latency, entry->id});
+      (this->*arbiter_handler_meth)(this->scheduled_write_reqs, this->pending_write_reqs, this->pending_write_services, {req, port, packet_time, packet_duration, packet_time, entry->id});
+    }
+    else {
+      //(this->*arbiter_handler_meth)(this->scheduled_read_reqs, this->pending_read_reqs, this->pending_read_services, {req, port, packet_time, this->latency + packet_duration, packet_latency, entry->id});
+      (this->*arbiter_handler_meth)(this->scheduled_read_reqs, this->pending_read_reqs, this->pending_read_services, {req, port, packet_time, packet_duration, packet_time, entry->id});
+    }
     // Tag the port as scheduled
-    schedule_port(MASK_OFFSET_SLAVES, port);
+    schedule_port(MASK_OFFSET_SLAVES, port, is_write);
   }
 
   // Enqueue the first request
-  this->check_requests();
+  this->check_forwarding_req(is_write);
 }
 
 
@@ -539,26 +987,34 @@ void router_shared_async::grant(void *__this, vp::io_req *req)
 void router_shared_async::response(void *__this, vp::io_req *req)
 {
   router_shared_async *_this = (router_shared_async *)__this;
-
   // Retrive the response port address
   vp::io_slave *pending_port = (vp::io_slave *)req->arg_pop();
   int port = (intptr_t)(req->arg_pop());
   int id   = (intptr_t)(req->arg_pop());
 
-  // Master port id is now free
-  _this->deschedule_port(MASK_OFFSET_MASTERS, id);
-  // Slave port id is now free
-  _this->deschedule_port(MASK_OFFSET_SLAVES, port);
+  //int is_write = req->get_is_write();
+  if(req->get_entry() == NULL) {
+     req->set_entry(_this);
+  }
 
   // Respond to the input slave
   if (pending_port != NULL)
   {
     _this->trace.msg(vp::trace::LEVEL_TRACE, "Response %p (port: %p)\n", req, pending_port);
-    pending_port->resp(req);
+    //pending_port->resp(req);
+    req->arg_push((void *)(intptr_t)port);
+    req->arg_push(pending_port);
+    //printf("receiving response %p (port: %d, id: %d)\n", req, port, id);
+    _this->check_responding_req(req, id, port);
   }
 
+  // Master port id is now free
+  //_this->deschedule_port(MASK_OFFSET_MASTERS, id, is_write);
+  // Slave port id is now free
+  //_this->deschedule_port(MASK_OFFSET_SLAVES, port, is_write);
+
   // Continue enqueuing the next request
-  _this->check_requests();
+  //_this->check_requests(is_write);
 }
 
 
@@ -566,7 +1022,7 @@ int router_shared_async::build()
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
-  int nb_slave_ports = get_config_int("nb_slaves");
+  this->nb_ports = get_config_int("nb_slaves");
 
   // Define the type of channel (shared or private). By default the channel is private
   broadcast = false;
@@ -574,7 +1030,7 @@ int router_shared_async::build()
   //   broadcast = get_config_bool("broadcast");
   // }
 
-  in = new vp::io_slave[nb_slave_ports];
+  in = new vp::io_slave[nb_ports];
   this->nb_entries = 0;
   // Fully connected crossbar
   if(broadcast) {
@@ -583,14 +1039,30 @@ int router_shared_async::build()
 
   // Initialize the mask of the scheduled ports. It supports up to 32 slave ports and 32 master ports.
   // The MSBs are reserved for the masters, the LSBs for the slaves. Use the SYMBOL (MASK_OFFSET_*) to address them.
-  scheduling = 0;
+  scheduling_write = 0;
+  scheduling_read  = 0;
 
-  for (int i=0; i<nb_slave_ports; i++)
+  this->next_packet_port_time = new int64_t[(this->nb_ports * 2)];
+  for (int i=0; i<this->nb_ports; i++)
   {
     // Create an empty vector
-    vector<Event> pending_reqs_port;
+    vector<Event> pending_write_reqs_port;
+    vector<Event> pending_read_reqs_port;
     // Initialize the vector of vectors with empty vectors. Now you can address it using array reference
-    pending_reqs.push_back(pending_reqs_port);
+    pending_write_reqs.push_back(pending_write_reqs_port);
+    pending_read_reqs.push_back(pending_read_reqs_port);
+
+    // Create an empty vector
+    vector<vp::clock_event *> enqueued_write_resp_port;
+    vector<vp::clock_event *> enqueued_read_resp_port;
+    // Initialize the vector of vectors with empty vectors. Now you can address it using array reference
+    enqueued_write_resp.push_back(enqueued_write_resp_port);
+    enqueued_read_resp.push_back(enqueued_read_resp_port);
+
+    // Write channel
+    this->next_packet_port_time[i] = 0;
+    // Read channel
+    this->next_packet_port_time[(i + this->nb_ports)] = 0;
 
     in[i].set_req_meth_muxed(&router_shared_async::req, i);
     new_slave_port("input_" + std::to_string(i), &in[i]);
@@ -603,7 +1075,9 @@ int router_shared_async::build()
   new_master_port("out", &out);
 
   bandwidth = get_config_int("bandwidth");
-  latency = get_config_int("latency");
+  //latency = get_config_int("latency");
+  cmd_latency = get_config_int("cmd_latency");
+  resp_latency = get_config_int("resp_latency");
 
   js::config *mappings = get_js_config()->get("mappings");
 
@@ -657,15 +1131,52 @@ int router_shared_async::build()
     }
   }
 
-  this->forwarding_event = new vp::clock_event*[this->nb_entries];
+  // Channel read and channel write
+  this->forwarding_event = new vp::clock_event*[(this->nb_entries * 2)];
+  //this->responding_event = new vp::clock_event*[(this->nb_entries * 2)];
+  this->next_packet_id_time = new int64_t[(this->nb_entries * 2)];
   for(int i=0; i<this->nb_entries; i++)
   {
+    // Write channel
     this->forwarding_event[i] = event_new(router_shared_async::forwarding_handler);
-    this->forwarding_event[i]->set_int(0, i);
+    // is_write
+    this->forwarding_event[i]->set_int(0, true);
+   // Caller id
+    this->forwarding_event[i]->set_int(1, i);
+    // Read channel
+    this->forwarding_event[(i + this->nb_entries)] = event_new(router_shared_async::forwarding_handler);
+    // is_write
+    this->forwarding_event[(i + this->nb_entries)]->set_int(0, false);
+    // Caller id
+    this->forwarding_event[(i + this->nb_entries)]->set_int(1, i);
+/*
+    // Write channel
+    this->responding_event[i] = event_new(router_shared_async::responding_handler);
+    // Caller id
+    this->responding_event[i]->set_int(0, i);
+    // Read channel
+    this->responding_event[(i + this->nb_entries)] = event_new(router_shared_async::responding_handler);
+    // Caller id
+    this->responding_event[(i + this->nb_entries)]->set_int(0, i);
+*/
+    // Write channel
+    this->next_packet_id_time[i] = 0;
+    // Read channel
+    this->next_packet_id_time[(i + this->nb_entries)] = 0;
+
     // Create an empty set
-    set<Event> pending_services_port;
+    set<Event> pending_write_services_port;
+    set<Event> pending_read_services_port;
     // Initialize the vector of sets with empty sets. Now you can address it using array reference
-    pending_services.push_back(pending_services_port);
+    pending_write_services.push_back(pending_write_services_port);
+    pending_read_services.push_back(pending_read_services_port);
+
+    // Create an empty vector
+    vector<Event> pending_write_resp_port;
+    vector<Event> pending_read_resp_port;
+    // Initialize the vector of vectors with empty vectors. Now you can address it using array reference
+    pending_write_resp.push_back(pending_write_resp_port);
+    pending_read_resp.push_back(pending_read_resp_port);
   }
 
   return 0;
@@ -676,9 +1187,6 @@ extern "C" vp::component *vp_constructor(js::config *config)
 {
   return new router_shared_async(config);
 }
-
-
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 
 void router_shared_async::init_entries() {

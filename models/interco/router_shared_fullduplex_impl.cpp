@@ -277,8 +277,8 @@ vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
 
           // Update the bandwidth information
           _this->next_port_read_packet_time[port] = packet_time + MAX(_this->latency, port_latency) + packet_duration;
-          entry->next_entry_read_packet_time = packet_time + MAX(_this->latency, entry_latency) + packet_duration;
-          //printf("%d: %p %d %p %ld %ld %ld\n", isRead, _this, port, entry, port_latency, entry_latency, entry->next_entry_read_packet_time);
+          entry->next_entry_read_packet_time      = packet_time + MAX(_this->latency, entry_latency) + packet_duration;
+          //printf("%d: %ld %p %d %p %ld %ld %ld %ld\n", isRead, packet_time, _this, port, entry, port_latency, entry_latency, _this->next_port_read_packet_time[port], entry->next_entry_read_packet_time);
         }
         else
         {
@@ -286,8 +286,8 @@ vp::io_req_status_e router_shared::req(void *__this, vp::io_req *req, int port)
           entry_latency = MAX((entry->next_entry_write_packet_time - packet_time), 0);
 
           _this->next_port_write_packet_time[port] = packet_time + MAX(_this->latency, port_latency) + packet_duration;
-          entry->next_entry_write_packet_time = packet_time + MAX(_this->latency, entry_latency) + packet_duration;
-          //printf("%d: %ld %p %d %p %ld %ld %ld\n", isRead, packet_time, _this, port, entry, port_latency, entry_latency, entry->next_entry_write_packet_time);
+          entry->next_entry_write_packet_time      = packet_time + MAX(_this->latency, entry_latency) + packet_duration;
+          //printf("%d: %ld %p %d %p %ld %ld %ld %ld\n", isRead, packet_time, _this, port, entry, port_latency, entry_latency, _this->next_port_write_packet_time[port], entry->next_entry_write_packet_time);
         }
 
         // Check if the packet must pay the internal latency or if it is hidden by the conflicts latency

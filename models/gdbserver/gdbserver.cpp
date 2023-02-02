@@ -86,6 +86,11 @@ void Gdb_server::start()
 }
 
 
+void Gdb_server::exit(int status)
+{
+    this->rsp->send_exit(status);
+}
+
 int Gdb_server::set_active_core(int id)
 {
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting active core (id: %d)\n", id);

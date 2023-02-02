@@ -36,6 +36,7 @@ public:
     void start(int port);
     bool signal(int signal=-1);
     bool signal_from_core(vp::Gdbserver_core *core, int signal);
+    bool send_exit(int status);
 
 private:
     void proxy_listener();
@@ -49,22 +50,28 @@ private:
     bool multithread(char *data, size_t len);
     bool regs_send();
     bool mem_write(char *data, size_t len);
+    bool mem_write_ascii(char *data, size_t len);
     bool reg_read(char *data, size_t);
     bool reg_write(char *data, size_t);
     bool mem_read(char *data, size_t);
     bool bp_insert(char *data, size_t len);
     bool bp_remove(char *data, size_t len);
+    void stop();
+    void stop_all_cores();
+    void stop_all_cores_safe();
 
     Gdb_server *top;
     int sock;
     int proxy_socket_in;
     int port;
     std::thread *listener_thread;
-    std::thread *loop_thread;
+    std::thread *loop_thread = NULL;
     RspPacketCodec *codec;
     CircularCharBuffer *out_buffer;
     int active_core_for_other = 0;
     std::mutex mutex;
+    bool proxy_loop_stop;
+    int client_socket;
 };
 
 #endif

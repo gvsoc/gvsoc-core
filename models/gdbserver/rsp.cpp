@@ -24,8 +24,7 @@
 #include <sys/socket.h>
 #include <sys/prctl.h>
 #include <netinet/in.h>
-
-#define DEFAULT_THREAD 9
+#include <unistd.h>
 
 #define RSP_PACKET_MAX_SIZE (16*1024)
 #define REPLY_BUF_LEN 256
@@ -65,13 +64,14 @@ void Rsp::proxy_loop(int socket)
     this->codec = new RspPacketCodec();
 
     this->codec->on_ack([this]() {
+        this->top->trace.msg(vp::trace::LEVEL_TRACE, "RSP: received ack\n");
         // TODO - Should timeout on no ACK
     });
 
     this->codec->on_error([this](const char *err_str) 
     {
-        //log.error("RSP: packet error: %s\n", err_str);
-        //stop();
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "RSP: packet error: %s\n", err_str);
+        this->stop();
     });
 
     this->codec->on_packet([this](char *pkt, size_t pkt_len)
@@ -80,26 +80,16 @@ void Rsp::proxy_loop(int socket)
 
         if (!this->decode(pkt, pkt_len))
         {
-            //    stop();
+            this->stop();
         }
     });
 
     this->codec->on_ctrlc([this]()
     {
-        this->top->get_time_engine()->lock();
-        for (auto core: this->top->get_cores())
-        {
-            core->gdbserver_stop();
-        }
-        this->top->get_time_engine()->unlock();
+        this->stop_all_cores();
     });
 
-    this->top->get_time_engine()->lock();
-    for (auto core: this->top->get_cores())
-    {
-        core->gdbserver_stop();
-    }
-    this->top->get_time_engine()->unlock();
+    this->stop_all_cores();
 
     while(1)
     {
@@ -108,6 +98,11 @@ void Rsp::proxy_loop(int socket)
         in_buffer->write_block((void**)&buf, &len);
 
         int ret = ::recv(socket, buf, len, 0);
+
+        if (this->proxy_loop_stop)
+        {
+            return;
+        }
 
         if((ret == -1 && errno != EWOULDBLOCK) || (ret == 0))
         {
@@ -129,6 +124,31 @@ void Rsp::proxy_loop(int socket)
     }
 }
 
+void Rsp::stop()
+{
+    this->proxy_loop_stop = true;
+    close(this->client_socket);
+    this->loop_thread = NULL;
+}
+
+
+void Rsp::stop_all_cores()
+{
+    this->top->get_time_engine()->lock();
+    this->stop_all_cores_safe();
+    this->top->get_time_engine()->unlock();
+}
+
+void Rsp::stop_all_cores_safe()
+{
+    for (auto core: this->top->get_cores())
+    {
+        if (core->gdbserver_state() == vp::Gdbserver_core::state::running)
+        {
+            core->gdbserver_stop();
+        }
+    }
+}
 
 bool Rsp::send(const char *data, size_t len)
 {
@@ -166,17 +186,19 @@ bool Rsp::send_str(const char *data)
 
 bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal)
 {
-    for (auto x: this->top->get_cores())
-    {
-        if (x->gdbserver_state() == vp::Gdbserver_core::state::running)
-        {
-            x->gdbserver_stop();
-        }
-    }
+    this->stop_all_cores_safe();
 
     char str[128];
     int len;
     len = snprintf(str, 128, "T%02xthread:%x;", signal, core->gdbserver_get_id()+1);
+    return send(str, len);
+}
+
+bool Rsp::send_exit(int status)
+{
+    char str[128];
+    int len;
+    len = snprintf(str, 128, "W%02x", (uint32_t)status);
     return send(str, len);
 }
 
@@ -186,47 +208,22 @@ bool Rsp::signal(int signal)
     int len;
 
     auto core = this->top->get_core();
-
     int state = core->gdbserver_state();
-
     this->active_core_for_other = core->gdbserver_get_id();
 
     if (signal == -1)
     {
         if (state == vp::Gdbserver_core::state::running)
         {
-            signal = 0;
+            signal = vp::Gdbserver_engine::SIGNAL_NONE;
         }
         else
         {
-            signal = 17;
+            signal = vp::Gdbserver_engine::SIGNAL_STOP;
         }
     }
 
     len = snprintf(str, 128, "S%02x", signal);
-
-
-#if 0
-    RspTargetState state = m_rsp->get_target_state();
-    if (state == RSP_TARGET_KILLED)
-    {
-        len = snprintf(str, 128, "X%02x", 9);
-    }
-    if (state == RSP_TARGET_EXITED)
-    {
-        len = snprintf(str, 128, "W%02x", (uint32_t)m_exit_status);
-    }
-    else if (core == NULL)
-    {
-        auto current_core = m_top->target->get_thread(m_thread_sel);
-        len = snprintf(str, 128, "S%02x", get_signal(current_core));
-    }
-    else
-    {
-        int sig = get_signal(core);
-        len = snprintf(str, 128, "T%02xthread:%1x;", sig, core->get_thread_id() + 1);
-    }
-#endif
 
     return send(str, len);
 }
@@ -319,6 +316,75 @@ bool Rsp::mem_write(char *data, size_t len)
 }
 
 
+bool Rsp::mem_write_ascii(char *data, size_t len)
+{
+    uint32_t addr;
+    int length;
+    uint32_t wdata;
+    size_t i, j;
+
+    char *buffer;
+    int buffer_len;
+
+    if (sscanf(data, "%x,%d:", &addr, &length) != 2)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not parse packet\n");
+        return false;
+    }
+
+    for (i = 0; i < len; i++)
+    {
+        if (data[i] == ':')
+        {
+            break;
+        }
+    }
+
+    if (i == len)
+        return false;
+
+    // align to hex data
+    data = &data[i + 1];
+    len = len - i - 1;
+
+    buffer_len = len / 2;
+    buffer = (char *)malloc(buffer_len);
+    if (buffer == NULL)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Failed to allocate buffer\n");
+        return false;
+    }
+
+    for (j = 0; j < len / 2; j++)
+    {
+        wdata = 0;
+        for (i = 0; i < 2; i++)
+        {
+            char c = data[j * 2 + i];
+            uint32_t hex = 0;
+            if (c >= '0' && c <= '9')
+                hex = c - '0';
+            else if (c >= 'a' && c <= 'f')
+                hex = c - 'a' + 10;
+            else if (c >= 'A' && c <= 'F')
+                hex = c - 'A' + 10;
+
+            wdata |= hex << (4 * i);
+        }
+
+        buffer[j] = wdata;
+    }
+
+    if (this->top->io_access(addr, buffer_len, (uint8_t *)buffer, true))
+    {
+        return send_str("E03");
+    }
+
+    free(buffer);
+
+    return send_str("OK");
+}
+
 bool Rsp::multithread(char *data, size_t len)
 {
     int thread_id;
@@ -339,7 +405,7 @@ bool Rsp::multithread(char *data, size_t len)
         if (thread_id != 0)
             thread_id = thread_id - 1;
         else
-            thread_id = DEFAULT_THREAD;
+            thread_id = this->top->default_hartid;
 
         if (data[0] == 'c')
         {
@@ -352,7 +418,7 @@ bool Rsp::multithread(char *data, size_t len)
         {
             this->active_core_for_other = thread_id;
         }
-        
+
         return send_str("OK");
     }
 
@@ -368,7 +434,7 @@ bool Rsp::query(char* data, size_t len)
 
     if (strncmp ("qSupported", data, strlen("qSupported")) == 0)
     {
-        snprintf(reply, REPLY_BUF_LEN, "PacketSize=%x;vContSupported+;hwbreak+", RSP_PACKET_MAX_SIZE);
+        snprintf(reply, REPLY_BUF_LEN, "PacketSize=%x;vContSupported+;hwbreak+;QNonStop-", RSP_PACKET_MAX_SIZE);
         return send_str(reply);
     }
     else if (strncmp ("qTStatus", data, strlen ("qTStatus")) == 0)
@@ -420,7 +486,7 @@ bool Rsp::query(char* data, size_t len)
             return send_str("E01");
         }
         auto core = this->top->get_core(thread_id - 1);
-        
+
         if (core != NULL)
         {
             std::string name = core->gdbserver_get_name();
@@ -435,23 +501,11 @@ bool Rsp::query(char* data, size_t len)
 
         return send(reply, ret);
     }
-#if 0
     else if (strncmp ("qT", data, strlen ("qT")) == 0)
     {
         // not supported, send empty packet
         return send_str("");
     }
-    else if (strncmp ("qRcmd", data, strlen ("qRcmd")) == 0||strncmp ("qXfer", data, strlen ("qXfer")) == 0)
-    {
-        int ret;
-        m_top->emit_monitor_command(data, reply, REPLY_BUF_LEN, &ret);
-        if (ret > 0) {
-        return send_str(reply);
-        } else {
-        return send_str("");
-        }
-    }
-    #endif
 
     this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unknown query packet\n");
 
@@ -509,18 +563,6 @@ bool Rsp::v_packet(char* data, size_t len)
 
         return result;
     }
-#if 0
-    if (strncmp ("vKill", data, std::min(strlen ("vKill"), len)) == 0)
-    {
-        m_rsp->set_target_state(RSP_TARGET_KILLED);
-        halt_target();
-        return send_str("OK");
-    }
-    else if (strncmp ("vRun", data, strlen ("vRun")) == 0)
-    {
-        return run(&data[5]);
-    }
-#endif
 
     return this->send_str("");
 }
@@ -615,18 +657,11 @@ bool Rsp::decode(char* data, size_t len)
         case 'T':
             return send_str("OK"); // threads are always alive
 
-
-
-
-    #if 0
-        case 'R':
-        return run();
-        case 'M':
-        return mem_write_ascii(&data[1], len-1);
-
         case '!':
-        return send_str("OK"); // extended mode supported
-    #endif
+            return send_str(""); // extended mode not supported
+
+        case 'M':
+            return mem_write_ascii(&data[1], len-1);
 
         default:
             this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unknown packet: starts with %c\n", data[0]);
@@ -653,9 +688,19 @@ void Rsp::proxy_listener()
             this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unable to accept connection: %s\n", strerror(errno));
             return;
         }
-            
-        this->top->trace.msg(vp::trace::LEVEL_INFO, "Client connected\n");
-        loop_thread = new std::thread(&Rsp::proxy_loop, this, client);
+
+        if (this->loop_thread)
+        {
+            this->top->trace.msg(vp::trace::LEVEL_WARNING, "Client already connected\n");
+        }
+        else
+        {
+            this->top->trace.msg(vp::trace::LEVEL_INFO, "Client connected\n");
+
+            this->proxy_loop_stop = false;
+            this->client_socket = client;
+            this->loop_thread = new std::thread(&Rsp::proxy_loop, this, client);
+        }
     }
 
     return;
@@ -806,808 +851,3 @@ bool Rsp::bp_remove(char *data, size_t len)
 
     return send_str("OK");
 }
-
-#if 0
-
-#define REPLY_BUF_LEN 256
-#define PACKET_MAX_LEN 4096u
-
-enum mp_type
-{
-    BP_MEMORY = 0,
-    BP_HARDWARE = 1,
-    WP_WRITE = 2,
-    WP_READ = 3,
-    WP_ACCESS = 4
-};
-
-// Rsp
-
-Rsp::Rsp(Gdb_server *top, int port, const EventLoop::SpEventLoop &event_loop, int64_t wait_time_usecs) : m_top(top), m_port(port), m_event_loop(std::move(event_loop)), m_wait_time_usecs(wait_time_usecs), log("RSP")
-{
-    init();
-}
-
-void Rsp::init()
-{
-    halt_target();
-    main_core = m_top->target->get_threads().front();
-    m_thread_init = main_core->get_thread_id();
-}
-
-void Rsp::client_connected(const tcp_socket_ptr_t &client)
-{
-    log.user("RSP: client connected\n");
-    if (m_client)
-    {
-        log.error("RSP: already connected: disconnecting\n");
-        client->close();
-        return;
-    }
-    // Make sure target is halted
-    try
-    {
-        halt_target();
-    }
-    catch (CableException &e)
-    {
-        log.user("RSP:cable exception haltimg target\n");
-        m_aborted = true;
-        stop();
-        return;
-    }
-
-    m_client = std::make_shared<Rsp::Client>(this->shared_from_this(), client);
-}
-
-void Rsp::client_disconnected(const tcp_socket_ptr_t &UNUSED(sock))
-{
-    log.user("RSP: client disconnected (aborted: %d)\n", m_aborted);
-
-    if (!m_aborted && m_target_state == RSP_TARGET_STOPPED)
-    {
-        log.debug("RSP: clear breakpoints\n");
-        // clear the breakpoints
-        m_top->bkp->clear();
-
-        // Start everything
-        log.debug("RSP: resume target\n");
-        resume_target(false);
-    }
-
-    m_stopping = m_stopping || m_target_state == RSP_TARGET_EXITED;
-    if (m_stopping)
-    {
-        stop_listener();
-    }
-    m_client = nullptr;
-}
-
-void Rsp::abort()
-{
-    log.debug("RSP: Aborted!\n");
-    m_aborted = true;
-    stop();
-}
-
-void Rsp::stop()
-{
-    if (m_stopping)
-        return;
-    m_stopping = true;
-    if (m_client)
-    {
-        m_client->stop();
-        return;
-    }
-    stop_listener();
-}
-
-void Rsp::stop_listener()
-{
-    if (m_listener)
-    {
-        m_listener->stop();
-        m_listener = nullptr;
-    }
-    m_stopping = false;
-    m_running = false;
-}
-
-void Rsp::start()
-{
-    m_running = true;
-    m_listener = std::make_shared<Tcp_listener>(
-        &m_top->log,
-        m_event_loop,
-        m_port);
-
-    using namespace std::placeholders;
-
-    m_listener->on_connected(std::bind(&Rsp::client_connected, this, _1));
-    m_listener->on_disconnected(std::bind(&Rsp::client_disconnected, this, _1));
-
-    m_listener->on_state_change([this](listener_state_t state) {
-        log.debug("RSP: Listener status %d\n", state);
-        // stop();
-    });
-    m_listener->start();
-}
-
-void Rsp::halt_target()
-{
-    m_top->emit_started(false);
-    m_top->target->halt();
-}
-
-void Rsp::resume_target(bool step, int tid)
-{
-    m_top->target->clear_resume_all();
-    if (tid > 0)
-        m_top->target->get_thread(tid)->prepare_resume(step);
-    else
-        m_top->target->prepare_resume_all(step);
-    m_top->emit_started(true);
-    m_top->target->resume_all();
-}
-
-void Rsp::signal_exit(int status)
-{
-    if (m_client)
-        m_client->signal_exit(status);
-}
-
-
-void Rsp::Client::signal_exit(int32_t status)
-{
-    bool signal_it = is_running();
-    m_exit_status = status;
-    if (signal_it)
-    {
-        halt_target();
-        m_rsp->set_target_state(RSP_TARGET_EXITED);
-        signal();
-    }
-    else
-    {
-        m_rsp->set_target_state(RSP_TARGET_EXITED);
-    }
-}
-
-void Rsp::Client::stop()
-{
-    m_wait_te->setTimeout(kEventLoopTimerDone);
-    log.debug("RSP client stopping\n");
-    m_client->close();
-}
-
-bool Rsp::Client::run(char *filename)
-{
-    log.debug("run program %s (new program not supported)\n", (filename ? filename : "same again"));
-    m_rsp->set_target_state(RSP_TARGET_STOPPED);
-    m_top->emit_run(filename);
-    return signal();
-}
-
-bool Rsp::Client::try_decode(char *pkt, size_t pkt_len)
-{
-    try
-    {
-        return decode(pkt, pkt_len);
-    }
-    catch (CableException &e)
-    {
-        log.error("Cable error - %s - terminating connection\n", e.what());
-    }
-    catch (OffCoreAccessException &e)
-    {
-        log.error("Debugger attempted to access an off core - terminating connection\n");
-    }
-    catch (std::exception &e)
-    {
-        log.error("Unknown exception - %s - terminating connection\n", e.what());
-    }
-    return false;
-}
-
-bool Rsp::Client::v_packet(char *data, size_t len)
-{
-    log.debug("V Packet\n");
-    if (strncmp("vKill", data, std::min(strlen("vKill"), len)) == 0)
-    {
-        m_rsp->set_target_state(RSP_TARGET_KILLED);
-        halt_target();
-        return send_str("OK");
-    }
-    else if (strncmp("vRun", data, strlen("vRun")) == 0)
-    {
-        return run(&data[5]);
-    }
-    else if (strncmp("vCont?", data, std::min(strlen("vCont?"), len)) == 0)
-    {
-        return send_str("vCont;c;s;C;S");
-    }
-    else if (strncmp("vCont", data, std::min(strlen("vCont"), len)) == 0)
-    {
-
-        m_top->target->clear_resume_all();
-
-        // vCont can contains several commands, handle them in sequence
-        char *str = strtok(&data[6], ";");
-        bool thread_is_started = false;
-        int stepped_tid = -1;
-        while (str != NULL)
-        {
-            // Extract command and thread ID
-            int tid = -1;
-            char *delim = strchr(str, ':');
-            if (delim != NULL)
-            {
-                tid = atoi(delim + 1);
-                if (tid == 0)
-                {
-                    tid = 1;
-                }
-                else
-                {
-                    tid = tid - 1;
-                }
-                *delim = 0;
-                m_thread_sel = tid;
-            }
-
-            bool cont = false;
-            bool step = false;
-
-            if (str[0] == 'C' || str[0] == 'c')
-            {
-                cont = true;
-                step = false;
-            }
-            else if (str[0] == 'S' || str[0] == 's')
-            {
-                cont = true;
-                step = true;
-            }
-            else
-            {
-                log.error("Unsupported command in vCont packet: %s\n", str);
-                exit(-1);
-            }
-
-            if (cont)
-            {
-                if (tid == -1)
-                {
-                    thread_is_started = true;
-                    m_top->target->prepare_resume_all(step);
-                }
-                else
-                {
-                    auto core = m_top->target->get_thread(tid);
-                    if (core->get_power())
-                    {
-                        thread_is_started = true;
-                        core->prepare_resume(step);
-                    }
-                    else if (step)
-                        stepped_tid = tid;
-                }
-            }
-
-            str = strtok(NULL, ";");
-        }
-
-        if (!thread_is_started)
-        {
-            if (stepped_tid != -1)
-            {
-                // Core is off but gdb is trying to step it
-                // We'll say we did the step
-                size_t len;
-                char str[128];
-                len = snprintf(str, 128, "T%02xthread:%1x;", TARGET_SIGNAL_TRAP, stepped_tid + 1);
-                return send(str, len);
-            }
-            else
-                return send_str("N");
-        }
-        m_top->emit_started(true);
-        m_rsp->set_target_state(RSP_TARGET_RUNNING);
-        m_top->target->resume_all();
-
-        return wait();
-    }
-
-    return send_str("");
-}
-
-bool Rsp::Client::query(char *data, size_t len)
-{
-    int ret;
-    char reply[REPLY_BUF_LEN];
-    log.debug("Query packet\n");
-    if (strncmp("qSupported", data, strlen("qSupported")) == 0)
-    {
-        log.detail("qSupported packet\n");
-        Rsp_capability::parse(data, len, &m_remote_caps);
-        log.debug("swbreak: %d\n", remote_capability("swbreak"));
-        if (strlen(m_top->capabilities) > 0)
-        {
-            snprintf(reply, REPLY_BUF_LEN, "PacketSize=%x;%s", REPLY_BUF_LEN, m_top->capabilities);
-        }
-        else
-        {
-            snprintf(reply, REPLY_BUF_LEN, "PacketSize=%x", REPLY_BUF_LEN);
-        }
-        return send_str(reply);
-    }
-    else if (strncmp("qTStatus", data, strlen("qTStatus")) == 0)
-    {
-        // not supported, send empty packet
-        return send_str("");
-    }
-    else if (strncmp("qfThreadInfo", data, strlen("qfThreadInfo")) == 0)
-    {
-        reply[0] = 'm';
-        ret = 1;
-        for (auto &thread : m_top->target->get_threads())
-        {
-            ret += snprintf(&reply[ret], REPLY_BUF_LEN - ret, "%u,", thread->get_thread_id() + 1);
-        }
-
-        return send(reply, ret - 1);
-    }
-    else if (strncmp("qsThreadInfo", data, strlen("qsThreadInfo")) == 0)
-    {
-        return send_str("l");
-    }
-    else if (strncmp("qThreadExtraInfo", data, strlen("qThreadExtraInfo")) == 0)
-    {
-        const char *str_default = "Unknown Core";
-        char str[REPLY_BUF_LEN];
-        unsigned int thread_id;
-        if (sscanf(data, "qThreadExtraInfo,%x", &thread_id) != 1)
-        {
-            log.error("Could not parse qThreadExtraInfo packet\n");
-            return send_str("E01");
-        }
-        auto thread = m_top->target->get_thread(thread_id - 1);
-        {
-            if (thread != NULL)
-                thread->get_name(str, REPLY_BUF_LEN);
-            else
-                strcpy(str, str_default);
-
-            ret = 0;
-            for (size_t i = 0; i < strlen(str); i++)
-                ret += snprintf(&reply[ret], REPLY_BUF_LEN - ret, "%02X", str[i]);
-        }
-
-        return send(reply, ret);
-    }
-    else if (strncmp("qAttached", data, strlen("qAttached")) == 0)
-    {
-        if (m_top->target->is_stopped())
-        {
-            return send_str("0");
-        }
-        else
-        {
-            return send_str("1");
-        }
-    }
-    else if (strncmp("qC", data, strlen("qC")) == 0)
-    {
-        snprintf(reply, 64, "0.%u", m_top->target->get_thread(m_thread_sel)->get_thread_id() + 1);
-        return send_str(reply);
-    }
-    else if (strncmp("qSymbol", data, strlen("qSymbol")) == 0)
-    {
-        return send_str("OK");
-    }
-    else if (strncmp("qOffsets", data, strlen("qOffsets")) == 0)
-    {
-        auto current_core = m_top->target->get_thread(m_thread_sel);
-        return send_str("Text=0;Data=0;Bss=0");
-    }
-    else if (strncmp("qT", data, strlen("qT")) == 0)
-    {
-        // not supported, send empty packet
-        return send_str("");
-    }
-    else if (strncmp("qRcmd", data, strlen("qRcmd")) == 0 || strncmp("qXfer", data, strlen("qXfer")) == 0)
-    {
-        int ret;
-        m_top->emit_monitor_command(data, reply, REPLY_BUF_LEN, &ret);
-        if (ret > 0)
-        {
-            return send_str(reply);
-        }
-        else
-        {
-            return send_str("");
-        }
-    }
-
-    log.error("Unknown query packet\n");
-
-    return send_str("");
-}
-
-bool Rsp::Client::mem_write_ascii(char *data, size_t len)
-{
-    uint32_t addr;
-    int length;
-    uint32_t wdata;
-    size_t i, j;
-
-    char *buffer;
-    int buffer_len;
-
-    if (sscanf(data, "%x,%d:", &addr, &length) != 2)
-    {
-        log.error("Could not parse packet\n");
-        return false;
-    }
-
-    for (i = 0; i < len; i++)
-    {
-        if (data[i] == ':')
-        {
-            break;
-        }
-    }
-
-    if (i == len)
-        return false;
-
-    // align to hex data
-    data = &data[i + 1];
-    len = len - i - 1;
-
-    buffer_len = len / 2;
-    buffer = (char *)malloc(buffer_len);
-    if (buffer == NULL)
-    {
-        log.error("Failed to allocate buffer\n");
-        return false;
-    }
-
-    for (j = 0; j < len / 2; j++)
-    {
-        wdata = 0;
-        for (i = 0; i < 2; i++)
-        {
-            char c = data[j * 2 + i];
-            uint32_t hex = 0;
-            if (c >= '0' && c <= '9')
-                hex = c - '0';
-            else if (c >= 'a' && c <= 'f')
-                hex = c - 'a' + 10;
-            else if (c >= 'A' && c <= 'F')
-                hex = c - 'A' + 10;
-
-            wdata |= hex << (4 * i);
-        }
-
-        buffer[j] = wdata;
-    }
-
-    if (!m_top->target->check_mem_access(addr, buffer_len))
-        return send_str("E03");
-
-    m_top->target->mem_write(addr, buffer_len, buffer);
-
-    free(buffer);
-
-    return send_str("OK");
-}
-
-// This defines the valid CSR registers on GAP8
-// TODO - Move this to config
-typedef std::pair<uint32_t, uint32_t> csr_range_t;
-
-#define CSR(__x) csr_range_t(__x, __x)
-#define CSRR(__x, __y) csr_range_t(__x, __y)
-
-const std::vector<csr_range_t> csr_ranges = {
-    CSR(0x000),         // USTATUS
-    CSR(0x014),         // UHartID
-    CSRR(0x041, 0x042), // UEPC, UCAUSE
-    CSR(0x300),         // MSTATUS
-    CSR(0x301),         // MISA
-    CSR(0x305),         // MTVEC
-    CSRR(0x341, 0x342), // MEPC, MCAUSE
-    CSRR(0x780, 0x79f), // PCCRs
-    CSRR(0x7a0, 0x7a1), // PCER, PCMR
-    CSRR(0x7b0, 0x7b7), // hw loops
-    CSR(0xc10),         // Priv level
-    CSR(0xf14),         // MHartID
-};
-
-bool valid_csr(uint32_t csr_offset)
-{
-    for (auto r : csr_ranges)
-    {
-        if (csr_offset < r.first)
-            return false;
-        if (csr_offset >= r.first && csr_offset <= r.second)
-            return true;
-    }
-    return false;
-}
-
-int Rsp::Client::cause_to_signal(uint32_t cause, int *int_num)
-{
-    int res;
-    if (EXC_CAUSE_INTERUPT(cause))
-    {
-        if (int_num)
-        {
-            *int_num = cause & 0x1f;
-        }
-        res = TARGET_SIGNAL_INT;
-    }
-    else
-    {
-        cause &= EXC_CAUSE_MASK;
-        if (cause == EXC_CAUSE_BREAKPOINT)
-            res = TARGET_SIGNAL_TRAP;
-        else if (cause == EXC_CAUSE_ILLEGAL_INSN)
-            res = TARGET_SIGNAL_ILL;
-        // else if ((cause & 0x1f) == 5) - There is no definition for this in the RTL
-        //   return TARGET_SIGNAL_BUS;
-        else
-            res = TARGET_SIGNAL_STOP;
-    }
-    return res;
-}
-
-int Rsp::Client::get_signal(std::shared_ptr<Target_core> core)
-{
-    if (core->is_stopped())
-    {
-        bool is_hit, is_sleeping;
-        core->read_hit(&is_hit, &is_sleeping);
-        if (is_hit)
-            return TARGET_SIGNAL_TRAP;
-        else if (is_sleeping)
-            return TARGET_SIGNAL_NONE;
-        else
-            return cause_to_signal(core->get_cause());
-    }
-    else
-    {
-        return TARGET_SIGNAL_NONE;
-    }
-}
-
-bool Rsp::Client::cont(char *data, size_t)
-{
-    uint32_t sig;
-    uint32_t addr;
-    uint32_t npc;
-    bool npc_found = false;
-
-    // strip signal first
-    if (data[0] == 'C')
-    {
-        if (sscanf(data, "C%X;%X", &sig, &addr) == 2)
-            npc_found = true;
-    }
-    else
-    {
-        if (sscanf(data, "c%X", &addr) == 1)
-            npc_found = true;
-    }
-
-    if (npc_found)
-    {
-        auto core = m_top->target->get_thread(m_thread_sel);
-        // only when we have received an address
-        core->read(DBG_NPC_REG, &npc);
-
-        if (npc != addr)
-            core->write(DBG_NPC_REG, addr);
-    }
-
-    m_thread_sel = m_rsp->m_thread_init;
-
-    m_rsp->set_target_state(RSP_TARGET_RUNNING);
-    m_rsp->resume_target(false);
-    return wait();
-}
-
-// This should not be used and is probably wrong
-// but GDB should use vCont anyway
-bool Rsp::Client::step(char *data, size_t len)
-{
-    uint32_t addr;
-    uint32_t npc;
-    size_t i;
-
-    if (len < 1)
-        return false;
-
-    // strip signal first
-    if (data[0] == 'S')
-    {
-        for (i = 0; i < len; i++)
-        {
-            if (data[i] == ';')
-            {
-                data = &data[i + 1];
-                break;
-            }
-        }
-    }
-
-    if (sscanf(data, "%x", &addr) == 1)
-    {
-        auto core = m_top->target->get_thread(m_thread_sel);
-        // only when we have received an address
-        core->read(DBG_NPC_REG, &npc);
-
-        if (npc != addr)
-            core->write(DBG_NPC_REG, addr);
-    }
-
-    m_thread_sel = m_rsp->m_thread_init;
-
-    m_rsp->set_target_state(RSP_TARGET_RUNNING);
-    m_rsp->resume_target(true);
-    return wait();
-}
-
-void Rsp::Client::halt_target()
-{
-    m_wait_te->setTimeout(kEventLoopTimerDone);
-    m_rsp->halt_target();
-    m_rsp->set_target_state(RSP_TARGET_STOPPED);
-}
-
-int64_t Rsp::Client::wait_routine()
-{
-    std::shared_ptr<Target_core> stopped_core;
-    try
-    {
-        stopped_core = m_top->target->check_stopped();
-    }
-    catch (CableException &e)
-    {
-        log.error("cable exception checking stop status %s\n", e.what());
-        stop();
-        return kEventLoopTimerDone;
-    }
-
-    if (stopped_core)
-    {
-        // move to thread of stopped core
-        m_thread_sel = stopped_core->get_thread_id();
-        log.debug("found stopped core - thread %d\n", m_thread_sel + 1);
-        m_rsp->halt_target();
-        m_rsp->set_target_state(RSP_TARGET_STOPPED);
-        if (!signal(stopped_core))
-            stop();
-        return kEventLoopTimerDone;
-    }
-    else
-    {
-        return m_rsp->m_wait_time_usecs;
-    }
-}
-
-bool Rsp::Client::wait()
-{
-    // run immediately the first time around
-    m_wait_te->setTimeout(0);
-    m_client->set_events(Readable);
-    return true;
-}
-
-#ifdef _WIN32
-inline void timersub(const timeval *tvp, const timeval *uvp, timeval *vvp)
-{
-    vvp->tv_sec = tvp->tv_sec - uvp->tv_sec;
-    vvp->tv_usec = tvp->tv_usec - uvp->tv_usec;
-    if (vvp->tv_usec < 0)
-    {
-        --vvp->tv_sec;
-        vvp->tv_usec += 1000000;
-    }
-}
-#endif
-
-bool time_has_expired(const timeval *start, const timeval *max_delay)
-{
-    struct timeval now, used;
-    ::gettimeofday(&now, NULL);
-    timersub(&now, start, &used);
-    return timercmp(max_delay, &used, <);
-}
-
-Rsp_capability::Rsp_capability(const char *name, capability_support support) : name(name), support(support)
-{
-}
-
-Rsp_capability::Rsp_capability(const char *name, const char *value) : name(name), value(value), support(CAPABILITY_IS_SUPPORTED)
-{
-}
-
-char *strnstr(char *str, const char *substr, size_t n)
-{
-    char *p = str, *pEnd = str + n;
-    size_t substr_len = strlen(substr);
-
-    if (0 == substr_len)
-        return str; // the empty string is contained everywhere.
-
-    pEnd -= (substr_len - 1);
-    for (; p < pEnd; ++p)
-    {
-        if (0 == strncmp(p, substr, substr_len))
-            return p;
-    }
-    return NULL;
-}
-
-void Rsp_capability::parse(char *buf, size_t len, Rsp_capabilities *caps)
-{
-    char *caps_buf = strnstr(buf, ":", len);
-    if (!caps_buf)
-        return;
-
-    caps_buf++;
-    // ensure terminated
-    len = strnlen(caps_buf, len - (caps_buf - buf));
-    caps_buf[len - 1] = 0;
-
-    char *cap = strtok(caps_buf, ";");
-
-    while (cap != NULL)
-    {
-        int last = (strlen(cap) - 1);
-        char cap_type = cap[last];
-
-        switch (cap_type)
-        {
-        case '+':
-            cap[last] = 0;
-            caps->insert(
-                std::make_pair(
-                    cap,
-                    unique_ptr<Rsp_capability>(new Rsp_capability(cap, CAPABILITY_IS_SUPPORTED))));
-            break;
-        case '-':
-            cap[last] = 0;
-            caps->insert(
-                std::make_pair(
-                    cap,
-                    unique_ptr<Rsp_capability>(new Rsp_capability(cap, CAPABILITY_NOT_SUPPORTED))));
-            break;
-        case '?':
-            cap[last] = 0;
-            caps->insert(
-                std::make_pair(
-                    cap,
-                    unique_ptr<Rsp_capability>(new Rsp_capability(cap, CAPABILITY_MAYBE_SUPPORTED))));
-            break;
-        default:
-            char *value = strstr(cap, "=");
-            if (value)
-            {
-                *value = 0;
-                value++;
-                caps->insert(
-                    std::make_pair(
-                        cap,
-                        unique_ptr<Rsp_capability>(new Rsp_capability(cap, value))));
-            }
-            break;
-        }
-        cap = strtok(NULL, ";");
-    }
-}
-
-#endif

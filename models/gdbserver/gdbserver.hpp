@@ -57,7 +57,10 @@ public:
     static void io_grant(void *__this, vp::io_req *req);
     static void io_response(void *__this, vp::io_req *req);
 
+    void exit(int status) override;
+
     vp::trace     trace;
+    int default_hartid;
 
 
 private:

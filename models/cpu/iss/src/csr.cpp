@@ -48,7 +48,7 @@ Csr::Csr(Iss &iss)
 
     // Machine trap handling
     this->declare_csr(&this->mscratch, "mscratch", 0x340);
-    this->declare_csr(&this->mepc,     "mepc",     0x341, 0, ~1ULL);
+    this->declare_csr(&this->mepc,     "mepc",     0x341, 0, (iss_reg_t)~1ULL);
     this->declare_csr(&this->mcause,   "mcause",   0x342);
 }
 

@@ -52,15 +52,18 @@ void Exec::build()
 
     this->iss.top.new_reg("step_mode", &this->step_mode, false);
 
-    this->iss.top.new_reg("halted", &this->halted, false);
+    this->iss.top.new_reg("halted", &this->halted, false, false);
 
     this->iss.top.new_reg("busy", &this->busy, 1);
 
     this->iss.top.new_reg("bootaddr", &this->bootaddr_reg, this->iss.top.get_config_int("boot_addr"));
 
     this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.top.get_js_config()->get("fetch_enable")->get_bool());
-    this->iss.top.new_reg("stalled", &this->stalled, false);
+    this->iss.top.new_reg("stalled", &this->stalled, false, false);
     this->iss.top.new_reg("wfi", &this->wfi, false);
+
+    this->stalled.set(false);
+    this->halted.set(false);
 
     instr_event = this->iss.top.event_new(&this->iss, Exec::exec_instr_check_all);
 
@@ -93,12 +96,11 @@ void Exec::reset(bool active)
         this->cache_sync = false;
         this->hwloop_end_insn[0] = NULL;
         this->hwloop_end_insn[1] = NULL;
-        if (this->iss.gdbserver.gdbserver)
-        {
-            this->halted.set(true);
-        }
 
-        this->instr_event->enable();
+        if (this->stalled.get() == 0)
+        {
+            this->instr_event->enable();
+        }
 
         // In case, the core is not fetch-enabled, stall to prevent it from being active
         if (fetch_enable_reg.get() == false)

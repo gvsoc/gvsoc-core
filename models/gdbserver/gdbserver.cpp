@@ -52,7 +52,7 @@ int Gdb_server::register_core(vp::Gdbserver_core *core)
 
 void Gdb_server::signal(vp::Gdbserver_core *core, int signal)
 {
-    this->rsp->signal(signal);
+    this->rsp->signal_from_core(core, signal);
 }
 
 
@@ -68,6 +68,8 @@ void Gdb_server::pre_pre_build()
 int Gdb_server::build()
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
+    this->out.set_resp_meth(&Gdb_server::io_response);
+    this->out.set_grant_meth(&Gdb_server::io_grant);
     this->new_master_port("out", &this->out);
     this->event = this->event_new(&Gdb_server::handle);
     return 0;
@@ -120,6 +122,18 @@ void Gdb_server::handle(void *__this, vp::clock_event *event)
 }
 
 
+void Gdb_server::io_grant(void *__this, vp::io_req *req)
+{
+}
+
+void Gdb_server::io_response(void *__this, vp::io_req *req)
+{
+    Gdb_server *_this = (Gdb_server *)__this;
+
+    int64_t latency = _this->io_req.get_latency();
+    _this->event_enqueue(_this->event, latency + 1);
+}
+
 int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
 {
     int retval = 0;
@@ -155,9 +169,16 @@ int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
     }
     else
     {
-        this->trace.fatal("Unsupported asynchronous reply\n");
-        this->io_retval = 1;
         this->get_time_engine()->unlock();
+
+        std::unique_lock<std::mutex> lock(this->mutex);
+
+        while (this->waiting_io_response)
+        {
+            this->cond.wait(lock);
+        }
+
+        lock.unlock();
     }
 
     return this->io_retval;

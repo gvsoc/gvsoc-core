@@ -51,4 +51,5 @@ public:
     vp::trace trace;
     vp::Gdbserver_engine *gdbserver;
     std::list<iss_addr_t> breakpoints;
+    bool halt_on_reset;
 };

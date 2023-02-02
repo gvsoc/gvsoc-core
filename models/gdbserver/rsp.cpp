@@ -86,10 +86,20 @@ void Rsp::proxy_loop(int socket)
 
     this->codec->on_ctrlc([this]()
     {
-        this->top->get_core()->gdbserver_stop();
+        this->top->get_time_engine()->lock();
+        for (auto core: this->top->get_cores())
+        {
+            core->gdbserver_stop();
+        }
+        this->top->get_time_engine()->unlock();
     });
 
-    this->top->get_core()->gdbserver_stop();
+    this->top->get_time_engine()->lock();
+    for (auto core: this->top->get_cores())
+    {
+        core->gdbserver_stop();
+    }
+    this->top->get_time_engine()->unlock();
 
     while(1)
     {
@@ -153,6 +163,22 @@ bool Rsp::send_str(const char *data)
     return this->send(data, strlen(data));
 }
 
+
+bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal)
+{
+    for (auto x: this->top->get_cores())
+    {
+        if (x->gdbserver_state() == vp::Gdbserver_core::state::running)
+        {
+            x->gdbserver_stop();
+        }
+    }
+
+    char str[128];
+    int len;
+    len = snprintf(str, 128, "T%02xthread:%x;", signal, core->gdbserver_get_id()+1);
+    return send(str, len);
+}
 
 bool Rsp::signal(int signal)
 {
@@ -462,7 +488,10 @@ bool Rsp::v_packet(char* data, size_t len)
 
             if (str[0] == 'C' || str[0] == 'c')
             {
-                this->top->get_core()->gdbserver_cont();
+                for (auto core: this->top->get_cores())
+                {
+                    core->gdbserver_cont();
+                }
             }
             else if (str[0] == 'S' || str[0] == 's')
             {
@@ -583,6 +612,9 @@ bool Rsp::decode(char* data, size_t len)
             this->send_str("OK");
             return false;
 
+        case 'T':
+            return send_str("OK"); // threads are always alive
+
 
 
 
@@ -591,9 +623,6 @@ bool Rsp::decode(char* data, size_t len)
         return run();
         case 'M':
         return mem_write_ascii(&data[1], len-1);
-
-        case 'T':
-        return send_str("OK"); // threads are always alive
 
         case '!':
         return send_str("OK"); // extended mode supported

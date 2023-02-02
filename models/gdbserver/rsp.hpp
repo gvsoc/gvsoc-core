@@ -24,6 +24,7 @@
 #include <thread>
 #include <mutex>
 #include "rsp-packet-codec.hpp"
+#include "gdbserver.hpp"
 
 
 class Gdb_server;
@@ -34,6 +35,7 @@ public:
     Rsp(Gdb_server *top);
     void start(int port);
     bool signal(int signal=-1);
+    bool signal_from_core(vp::Gdbserver_core *core, int signal);
 
 private:
     void proxy_listener();

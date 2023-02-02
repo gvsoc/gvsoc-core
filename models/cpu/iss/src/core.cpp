@@ -28,6 +28,8 @@ Core::Core(Iss &iss)
 
 void Core::build()
 {
+    this->reset_value = false;
+
     this->iss.top.traces.new_trace("core", &this->trace, vp::DEBUG);
 
     // Initialize the mstatus write mask so that WPRI fields are preserved
@@ -69,6 +71,20 @@ void Core::build()
 void Core::reset(bool active)
 {
     this->mode = PRIV_M;
+
+    if (active != this->reset_value)
+    {
+        this->reset_value = active;
+
+        if (active)
+        {
+            this->iss.exec.stalled_inc();
+        }
+        else
+        {
+            this->iss.exec.stalled_dec();
+        }
+    }
 }
 
 

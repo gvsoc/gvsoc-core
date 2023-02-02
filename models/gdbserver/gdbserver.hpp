@@ -43,7 +43,7 @@ public:
     int io_access(uint32_t addr, int size, uint8_t *data, bool is_write);
 
     int register_core(vp::Gdbserver_core *core);
-    void signal(vp::Gdbserver_core *core, int signal=-1);
+    void signal(vp::Gdbserver_core *core, int signal);
     int set_active_core(int id);
     vp::Gdbserver_core *get_core(int id=-1);
     std::vector<vp::Gdbserver_core *> get_cores() { return this->cores_list; }
@@ -53,6 +53,9 @@ public:
 
     void lock() override { this->get_time_engine()->lock(); }
     void unlock() override { this->get_time_engine()->unlock(); }
+
+    static void io_grant(void *__this, vp::io_req *req);
+    static void io_response(void *__this, vp::io_req *req);
 
     vp::trace     trace;
 

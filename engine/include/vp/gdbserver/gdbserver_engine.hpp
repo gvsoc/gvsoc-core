@@ -27,6 +27,7 @@
 
 namespace vp
 {
+
     class Gdbserver_core
     {
     public:
@@ -54,8 +55,16 @@ namespace vp
     class Gdbserver_engine
     {
     public:
+        static const int SIGNAL_NONE = 0;
+        static const int SIGNAL_INT = 2;
+        static const int SIGNAL_ILL = 4;
+        static const int SIGNAL_TRAP = 5;
+        static const int SIGNAL_ABRT = 6;
+        static const int SIGNAL_BUS = 10;
+        static const int SIGNAL_STOP = 17;
+
         virtual int register_core(Gdbserver_core *core) = 0;
-        virtual void signal(Gdbserver_core *core, int signal=-1) = 0;
+        virtual void signal(Gdbserver_core *core, int signal) = 0;
 
         virtual void lock() = 0;
         virtual void unlock() = 0;

@@ -52,5 +52,6 @@ private:
     int mode;
     iss_reg_t mstatus_write_mask;
     iss_reg_t sstatus_write_mask;
+    bool reset_value;
 };
 

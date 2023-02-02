@@ -36,16 +36,17 @@ void Gdbserver::start()
 {
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.top.get_service("gdbserver");
 
-    if (this->iss.csr.mhartid == 9)
     if (this->gdbserver)
     {
         this->gdbserver->register_core(this);
     }
+
+    this->halt_on_reset = this->gdbserver;
 }
 
 void Gdbserver::reset(bool active)
 {
-    if (this->gdbserver && !active)
+    if (this->gdbserver && !active && this->halt_on_reset)
     {
         this->iss.exec.stalled_inc();
         this->iss.exec.halted.set(true);
@@ -126,13 +127,15 @@ int Gdbserver::gdbserver_stop()
         this->iss.exec.stalled_inc();
         this->iss.exec.halted.set(true);
     }
-    this->gdbserver->signal(this);
+    this->gdbserver->signal(this, vp::Gdbserver_engine::SIGNAL_STOP);
     return 0;
 }
 
 int Gdbserver::gdbserver_cont()
 {
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Received cont request\n");
+
+    this->halt_on_reset = false;
 
     if (this->iss.exec.halted.get())
     {
@@ -145,6 +148,10 @@ int Gdbserver::gdbserver_cont()
 
 int Gdbserver::gdbserver_stepi()
 {
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Received stepi request\n");
+
+    this->halt_on_reset = false;
+
     this->iss.exec.step_mode.set(true);
     this->iss.exec.switch_to_full_mode();
     if (this->iss.exec.halted.get())
@@ -157,14 +164,14 @@ int Gdbserver::gdbserver_stepi()
 
 int Gdbserver::gdbserver_state()
 {
-    return vp::Gdbserver_core::state::running;
+    return this->iss.exec.halted.get() ? vp::Gdbserver_core::state::stopped : vp::Gdbserver_core::state::running;
 }
 
 static inline iss_insn_t *breakpoint_check_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->exec.stalled_inc();
     iss->exec.halted.set(true);
-    iss->gdbserver.gdbserver->signal(&iss->gdbserver, 5);
+    iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP);
     return insn;
 }
 

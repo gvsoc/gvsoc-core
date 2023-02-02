@@ -72,18 +72,26 @@ void Core::reset(bool active)
 {
     this->mode = PRIV_M;
 
-    if (active != this->reset_value)
-    {
-        this->reset_value = active;
+    // Remember the current reset value so that other aspects willing to stall the core
+    // can flag it if the core is under reset
+    this->reset_value = active;
 
-        if (active)
+    // Everytime the core is reset, the stall counter is automatically set to 0, so
+    // we need to set it again to stall the core until the reset is deasserted
+    if (active)
+    {
+        this->iss.exec.stalled_inc();
+    }
+    else
+    {
+        // In case gdb got connected while we were under reset, we need to stall the core
+        // before releasing the reset
+        if (this->iss.exec.halted.get())
         {
             this->iss.exec.stalled_inc();
         }
-        else
-        {
-            this->iss.exec.stalled_dec();
-        }
+
+        this->iss.exec.stalled_dec();
     }
 }
 

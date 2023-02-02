@@ -42,6 +42,8 @@ public:
     int mode_get() { return this->mode; }
     void mode_set(int mode);
 
+    bool reset_get() { return this->reset_value; }
+
 private:
     bool mstatus_update(bool is_write, iss_reg_t &value);
     bool sstatus_update(bool is_write, iss_reg_t &value);

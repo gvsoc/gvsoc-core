@@ -46,9 +46,16 @@ void Gdbserver::start()
 
 void Gdbserver::reset(bool active)
 {
+    // The platform is started with all cores halted so that they start only when gdb is connected.
     if (this->gdbserver && !active && this->halt_on_reset)
     {
-        this->iss.exec.stalled_inc();
+        // Some cores are still under reset when gdb is connected.
+        // Since the stall counter is set to 0 on reset, just remember to stall it when reset is
+        // deasserted.
+        if (!this->iss.core.reset_get())
+        {
+            this->iss.exec.stalled_inc();
+        }
         this->iss.exec.halted.set(true);
     }
 }

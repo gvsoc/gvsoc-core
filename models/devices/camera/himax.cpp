@@ -97,6 +97,7 @@ public:
 
     int build();
     void start();
+    void reset(bool active);
 
 protected:
 
@@ -575,6 +576,14 @@ void Himax::start()
     this->href = !this->hsync_polarity;
     this->data = 0;
     this->pixel_bytes = 0;
+}
+
+void Himax::reset(bool active)
+{
+    if (!active)
+    {
+        this->event_enqueue(this->clock_event, 1);
+    }
 }
 
 

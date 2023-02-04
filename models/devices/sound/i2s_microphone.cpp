@@ -49,7 +49,7 @@ public:
     int build();
 
 protected:
-    static void sync(void *__this, int sck, int ws, int sd);
+    static void sync(void *__this, int sck, int ws, int sd, bool is_full_duplex);
     void start_sample();
     int pop_data();
     int get_data();
@@ -83,7 +83,7 @@ protected:
     vp::trace trace;
 
 
-    static void ws_in_sync(void *__this, int sck, int ws, int sd);
+    static void ws_in_sync(void *__this, int sck, int ws, int sd, bool full_duplex);
 
 };
 
@@ -274,7 +274,7 @@ Microphone::Microphone(js::config *config)
 {
 }
 
-void Microphone::ws_in_sync(void *__this, int sck, int ws, int sd)
+void Microphone::ws_in_sync(void *__this, int sck, int ws, int sd, bool full_duplex)
 {
     Microphone *_this = (Microphone *)__this;
 
@@ -445,7 +445,7 @@ int Microphone::pop_data()
 }
 
 
-void Microphone::sync(void *__this, int sck, int ws, int sdio)
+void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
 {
     Microphone *_this = (Microphone *)__this;
 
@@ -505,30 +505,30 @@ void Microphone::sync(void *__this, int sck, int ws, int sdio)
                     // If there is no more delay, set the sample now as it wil be sampled by the receiver in 1 cycle
                     _this->trace.msg(vp::trace::LEVEL_TRACE, "Setting data (value: %d)\n", data);
 
-                    _this->i2s_itf.sync(2, 2, data | (2 << 2));
+                    _this->i2s_itf.sync(2, 2, data | (2 << 2), false);
                 }
                 else if (data == -1)
                 {
-                    _this->i2s_itf.sync(sck, 2, 2 | (2 << 2));
+                    _this->i2s_itf.sync(sck, 2, 2 | (2 << 2), false);
                     _this->is_active = false;
-                    _this->ws_out_itf.sync(2, 0, 2 | (2 << 2));
+                    _this->ws_out_itf.sync(2, 0, 2 | (2 << 2), false);
                 }
             }
             else if (_this->pending_bits == 0)
             {
                 _this->pending_bits = -1;
                 _this->trace.msg(vp::trace::LEVEL_TRACE, "Releasing output\n");
-                _this->i2s_itf.sync(2, 2, 2 | (2 << 2));
+                _this->i2s_itf.sync(2, 2, 2 | (2 << 2), false);
             }
 
             if (_this->pending_bits == 0 && _this->ws_out_itf.is_bound())
             {
-                _this->ws_out_itf.sync(2, 1, 2 | (2 << 2));
+                _this->ws_out_itf.sync(2, 1, 2 | (2 << 2), false);
                 _this->lower_ws_out = true;
             }
             else if ( _this->lower_ws_out)
             {
-                _this->ws_out_itf.sync(2, 0, 2 | (2 << 2));
+                _this->ws_out_itf.sync(2, 0, 2 | (2 << 2), false);
                 _this->lower_ws_out = false;
             }
         }

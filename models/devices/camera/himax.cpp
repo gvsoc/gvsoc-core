@@ -533,7 +533,7 @@ int Himax::build()
     //color_mode = COLOR_MODE_RGB565;
     js::config *stream_config = get_js_config()->get("image-stream");
 
-    if (stream_config)
+    if (stream_config && stream_config->get_int())
     {
         string stream_path = stream_config->get_str();
 
@@ -567,8 +567,6 @@ int Himax::build()
 
 void Himax::start()
 {
-    this->event_enqueue(this->clock_event, 1);
-
     this->pclk_value = 0;
     this->state = STATE_INIT;
 

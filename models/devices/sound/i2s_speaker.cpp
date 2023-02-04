@@ -88,7 +88,7 @@ public:
     int push_data();
 
 protected:
-    static void sync(void *__this, int sck, int ws, int sd);
+    static void sync(void *__this, int sck, int ws, int sd, bool is_full_duplex);
     void start_sample();
     void  push_data(int data);
     int get_data();
@@ -268,7 +268,7 @@ void Speaker::push_data(int data)
 }
 
 
-void Speaker::sync(void *__this, int sck, int ws, int sdio)
+void Speaker::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
 {
     Speaker *_this = (Speaker *)__this;
 

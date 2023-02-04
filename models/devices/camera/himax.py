@@ -33,7 +33,7 @@ class Himax_implem(st.Component):
             "vsync-polarity": 1,
             "hsync-polarity": 1,
             "endianness": "little",
-            "image-stream": None
+            "image-stream": ""
         })
 
 

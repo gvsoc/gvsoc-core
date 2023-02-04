@@ -533,33 +533,36 @@ int Himax::build()
     //color_mode = COLOR_MODE_RGB565;
     js::config *stream_config = get_js_config()->get("image-stream");
 
-    if (stream_config && stream_config->get_int())
+    if (stream_config)
     {
         string stream_path = stream_config->get_str();
 
-        if (this->pixel_size != 0)
+        if (stream_path != "")
         {
-            this->color_mode = COLOR_MODE_CUSTOM;
-        }
-
-        this->stream = new Camera_stream(this, stream_path.c_str(), this->color_mode, this->little);
-
-        if (this->pixel_size == 0)
-        {
-            switch (this->color_mode)
+            if (this->pixel_size != 0)
             {
-                case COLOR_MODE_GRAY:
-                case COLOR_MODE_RAW:
-                    this->pixel_size = 1;
-                    break;
-
-                default:
-                    this->pixel_size = 2;
-                    break;
+                this->color_mode = COLOR_MODE_CUSTOM;
             }
-        }
 
-        this->stream->set_image_size(this->width, this->height, this->pixel_size);
+            this->stream = new Camera_stream(this, stream_path.c_str(), this->color_mode, this->little);
+
+            if (this->pixel_size == 0)
+            {
+                switch (this->color_mode)
+                {
+                    case COLOR_MODE_GRAY:
+                    case COLOR_MODE_RAW:
+                        this->pixel_size = 1;
+                        break;
+
+                    default:
+                        this->pixel_size = 2;
+                        break;
+                }
+            }
+
+            this->stream->set_image_size(this->width, this->height, this->pixel_size);
+        }
     }
 
     return 0;

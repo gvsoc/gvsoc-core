@@ -51,6 +51,11 @@ int insn_cache_init(Iss *iss)
     return 0;
 }
 
+bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn)
+{
+    return insn->handler != iss_decode_pc_handler;
+}
+
 void insn_init(iss_insn_t *insn, iss_addr_t addr)
 {
     insn->handler = iss_decode_pc_handler;

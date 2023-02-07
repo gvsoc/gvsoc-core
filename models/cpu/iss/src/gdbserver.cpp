@@ -189,7 +189,7 @@ void Gdbserver::enable_breakpoint(iss_addr_t addr)
 {
     iss_insn_t *insn = insn_cache_get(&this->iss, addr);
 
-    if (insn->fetched)
+    if (insn_cache_is_decoded(&this->iss, insn))
     {
         insn->breakpoint_saved_handler = insn->handler;
         insn->breakpoint_saved_fast_handler = insn->fast_handler;

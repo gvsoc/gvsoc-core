@@ -400,7 +400,7 @@ iss_insn_t *iss_decode_pc_handler(Iss *iss, iss_insn_t *insn)
         }
 
         insn->fetched = true;
-    }    
+    }
 
     return iss->exec.insn_exec(iss->decode.decode_pc(insn));
 }

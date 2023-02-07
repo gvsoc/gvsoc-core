@@ -142,33 +142,17 @@ int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
 
 void Gdb_server::breakpoint_insert(uint64_t addr)
 {
-    if (this->active_core != -1)
+    for (auto x: this->cores)
     {
-        vp::Gdbserver_core *core = this->cores[this->active_core];
-        core->gdbserver_breakpoint_insert(addr);
-    }
-    else
-    {
-        for (auto x: this->cores)
-        {
-            x.second->gdbserver_breakpoint_insert(addr);
-        }
+        x.second->gdbserver_breakpoint_insert(addr);
     }
 }
 
 void Gdb_server::breakpoint_remove(uint64_t addr)
 {
-    if (this->active_core != -1)
+    for (auto x: this->cores)
     {
-        vp::Gdbserver_core *core = this->cores[this->active_core];
-        core->gdbserver_breakpoint_remove(addr);
-    }
-    else
-    {
-        for (auto x: this->cores)
-        {
-            x.second->gdbserver_breakpoint_remove(addr);
-        }
+        x.second->gdbserver_breakpoint_remove(addr);
     }
 }
 

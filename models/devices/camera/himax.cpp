@@ -581,7 +581,7 @@ void Himax::start()
 
 void Himax::reset(bool active)
 {
-    if (!active)
+    if (!active && this->stream)
     {
         this->event_enqueue(this->clock_event, 1);
     }

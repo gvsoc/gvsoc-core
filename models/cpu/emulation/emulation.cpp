@@ -65,6 +65,7 @@ private:
     vp::io_slave dbg_unit;
     vp::wire_slave<uint32_t> bootaddr_itf;
     vp::io_master data;
+    vp::io_master data_debug;
     vp::io_master fetch;
     vp::wire_master<void *>     meminfo[MAX_MEMINFO];
     vp::wire_slave<int>      irq_req_itf;
@@ -363,6 +364,7 @@ int emulation::build()
     this->data.set_resp_meth(&emulation::data_response);
     this->data.set_grant_meth(&emulation::data_grant);
     new_master_port("data", &this->data);
+    new_master_port("data_debug", &this->data_debug);
     new_master_port("fetch", &this->fetch);
 
     for (int i=0; i<MAX_MEMINFO; i++)

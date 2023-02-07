@@ -22,6 +22,8 @@
 #pragma once
 
 #include <types.hpp>
+#include <mutex>
+#include <condition_variable>
 
 class Gdbserver : public vp::Gdbserver_core
 {
@@ -41,15 +43,31 @@ public:
     int gdbserver_state();
     void gdbserver_breakpoint_insert(uint64_t addr);
     void gdbserver_breakpoint_remove(uint64_t addr);
+    int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write);
 
     void enable_breakpoint(iss_addr_t addr);
     void disable_breakpoint(iss_addr_t addr);
     void enable_all_breakpoints();
 
 
+    void handle_pending_io_access();
+    static void handle_pending_io_access_stub(void *__this, vp::clock_event *event);
+    static void data_response(void *_this, vp::io_req *req);
+
     Iss &iss;
+    vp::io_master io_itf;
+    vp::io_req io_req;
     vp::trace trace;
+    vp::clock_event *event;
     vp::Gdbserver_engine *gdbserver;
     std::list<iss_addr_t> breakpoints;
     bool halt_on_reset;
+    std::mutex mutex;
+    std::condition_variable cond;
+    int io_retval;
+    bool waiting_io_response;
+    uint64_t io_pending_addr;
+    int io_pending_size;
+    uint8_t *io_pending_data;
+    bool io_pending_is_write;
 };

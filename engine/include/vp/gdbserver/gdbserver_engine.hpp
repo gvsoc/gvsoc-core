@@ -48,6 +48,7 @@ namespace vp
         virtual int gdbserver_state() = 0;
         virtual void gdbserver_breakpoint_insert(uint64_t addr) = 0;
         virtual void gdbserver_breakpoint_remove(uint64_t addr) = 0;
+        virtual int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write) = 0;
 
     };
 

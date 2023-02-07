@@ -35,7 +35,7 @@ class Gdb_server : public vp::component, vp::Gdbserver_engine
 {
 public:
     Gdb_server(js::config *config);
-    
+
     void pre_pre_build();
     int build();
     void start();
@@ -45,7 +45,10 @@ public:
     int register_core(vp::Gdbserver_core *core);
     void signal(vp::Gdbserver_core *core, int signal);
     int set_active_core(int id);
+    int set_active_core_for_other(int id);
     vp::Gdbserver_core *get_core(int id=-1);
+    vp::Gdbserver_core *get_active_core();
+    vp::Gdbserver_core *get_active_core_for_other();
     std::vector<vp::Gdbserver_core *> get_cores() { return this->cores_list; }
 
     void breakpoint_insert(uint64_t addr);
@@ -54,9 +57,6 @@ public:
     void lock() override { this->get_time_engine()->lock(); }
     void unlock() override { this->get_time_engine()->unlock(); }
 
-    static void io_grant(void *__this, vp::io_req *req);
-    static void io_response(void *__this, vp::io_req *req);
-
     void exit(int status) override;
 
     vp::trace     trace;
@@ -64,19 +64,13 @@ public:
 
 
 private:
-    static void handle(void *__this, vp::clock_event *event);
-
     Rsp *rsp;
-    vp::io_req io_req;
-    vp::clock_event *event;
-    vp::io_master out;
     std::unordered_map<int, vp::Gdbserver_core *> cores;
     std::vector<vp::Gdbserver_core *> cores_list;
     int active_core;
+    int active_core_for_other;
     std::mutex mutex;
     std::condition_variable cond;
-    int io_retval;
-    bool waiting_io_response;
     std::unordered_map<uint64_t, bool> breakpoints;
 
 };

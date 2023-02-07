@@ -27,6 +27,7 @@ void Lsu::reset(bool active)
     if (active)
     {
         this->elw_stalled.set(false);
+        this->misaligned_size = 0;
     }
 }
 
@@ -48,7 +49,7 @@ void Lsu::exec_misaligned(void *__this, vp::clock_event *event)
                                 _this->misaligned_size, _this->misaligned_is_write) == vp::IO_REQ_OK)
     {
         iss->trace.dump_trace_enabled = true;
-        iss->exec.insn_terminate();
+        _this->stall_callback(_this);
         iss->exec.switch_to_full_mode();
     }
     else
@@ -89,12 +90,12 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
         // only when the second access is finished.
         this->iss.exec.instr_event->meth_set(&this->iss, &Lsu::exec_misaligned);
         this->iss.exec.insn_hold();
-        return 1;
+        return vp::IO_REQ_PENDING;
     }
     else
     {
         this->trace.force_warning("UNIMPLEMENTED AT %s %d, error during misaligned access\n", __FILE__, __LINE__);
-        return 0;
+        return vp::IO_REQ_INVALID;
     }
 }
 
@@ -113,8 +114,13 @@ void Lsu::data_response(void *__this, vp::io_req *req)
 
     // First call the ISS to finish the instruction
     _this->iss.timing.stall_load_account(req->get_latency());
-    _this->stall_callback(&iss->lsu);
-    iss->exec.insn_terminate();
+
+    // Call the access termination callback only we the access is not misaligned since
+    // in this case, the second access with handle it.
+    if (_this->misaligned_size == 0)
+    {
+        _this->stall_callback(_this);
+    }
 }
 
 int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
@@ -180,16 +186,19 @@ void Lsu::store_resume(Lsu *lsu)
 {
     // For now we don't have to do anything as the register was written directly
     // by the request but we cold support sign-extended loads here;
+    lsu->iss.exec.insn_terminate();
 }
 
 void Lsu::load_resume(Lsu *lsu)
 {
     // Nothing to do, the zero-extension was done by initializing the register to 0
+    lsu->iss.exec.insn_terminate();
 }
 
 void Lsu::elw_resume(Lsu *lsu)
 {
     // Clear pending elw to not replay it when the next interrupt occurs
+    lsu->iss.exec.insn_terminate();
     lsu->iss.exec.elw_insn = NULL;
     lsu->elw_stalled.set(false);
     lsu->iss.exec.busy_enter();
@@ -197,6 +206,7 @@ void Lsu::elw_resume(Lsu *lsu)
 
 void Lsu::load_signed_resume(Lsu *lsu)
 {
+    lsu->iss.exec.insn_terminate();
     int reg = lsu->stall_reg;
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg), lsu->stall_size * 8));
 }

@@ -30,6 +30,9 @@ Gdbserver::Gdbserver(Iss &iss)
 void Gdbserver::build()
 {
     this->iss.top.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
+    this->event = this->iss.top.event_new(this, &Gdbserver::handle_pending_io_access_stub);
+    this->io_itf.set_resp_meth(&Gdbserver::data_response);
+    this->iss.top.new_master_port(this, "data_debug", &this->io_itf);
 }
 
 void Gdbserver::start()
@@ -232,4 +235,115 @@ void Gdbserver::gdbserver_breakpoint_remove(uint64_t addr)
     this->breakpoints.remove(addr);
 
     this->disable_breakpoint((iss_addr_t)addr);
+}
+
+void Gdbserver::handle_pending_io_access_stub(void *__this, vp::clock_event *event)
+{
+    // Just forward to the common handle so that it either continue the full request or notify
+    // the end
+    Gdbserver *_this = (Gdbserver *)__this;
+    _this->handle_pending_io_access();
+}
+
+void Gdbserver::data_response(void *__this, vp::io_req *req)
+{
+    // Just forward to the common handle so that it either continue the full request or notify
+    // the end
+    Gdbserver *_this = (Gdbserver *)__this;
+    _this->handle_pending_io_access();
+}
+
+void Gdbserver::handle_pending_io_access()
+{
+    if (this->io_pending_size > 0)
+    {
+        vp::io_req *req = &this->io_req;
+
+        // Compute the size of the request since the core can only do aligned accesses of its
+        // register width.
+        iss_addr_t addr = this->io_pending_addr;
+        iss_addr_t addr_aligned = addr & ~(ISS_REG_WIDTH / 8 - 1);
+        int size = addr_aligned + ISS_REG_WIDTH/8 - addr;
+        if (size > this->io_pending_size)
+        {
+            size = this->io_pending_size;
+        }
+
+        this->trace.msg(vp::trace::LEVEL_DEBUG, "Sending request to interface (addr: 0x%lx, size: 0x%x, is_write: %d)\n",
+            addr, size, this->io_pending_is_write);
+
+        // Initialize the request
+        req->init();
+        req->set_addr(addr);
+        req->set_size(size);
+        req->set_is_write(this->io_pending_is_write);
+        req->set_data(this->io_pending_data);
+
+        // Update the full request for the next iteration
+        this->io_pending_data += size;
+        this->io_pending_size -= size;
+        this->io_pending_addr += size;
+
+        // Send the request to the interface
+        int err = this->io_itf.req(req);
+        if (err == vp::IO_REQ_OK)
+        {
+            // Always handle it through an event to simplify since we should make sure
+            // we don't enqueue another request before the latency of this one is over.
+            this->event->enqueue(this->io_req.get_latency() + 1);
+        }
+        else if (err == vp::IO_REQ_INVALID)
+        {
+            // Stop here if we got an error
+            this->trace.msg(vp::trace::LEVEL_DEBUG, "End of data request\n");
+            std::unique_lock<std::mutex> lock(this->mutex);
+            this->waiting_io_response = false;
+            this->io_retval = 1;
+            this->cond.notify_all();
+            lock.unlock();
+        }
+        else
+        {
+            // Nothing today for asynchronous reply since the callback will take care of continuing
+            // the whole access
+        }
+    }
+    else
+    {
+        // We reached the end of the whole request, notify the waiting thread
+        this->trace.msg(vp::trace::LEVEL_DEBUG, "End of data request\n");
+        std::unique_lock<std::mutex> lock(this->mutex);
+        this->waiting_io_response = false;
+        this->io_retval = 0;
+        this->cond.notify_all();
+        lock.unlock();
+    }
+}
+
+int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
+{
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+
+    // Since the whole request may need to be processed in several small requests,
+    // we setup an internal FSM that will inform us when the whole request is over.
+    this->io_pending_addr = addr;
+    this->io_pending_size = size;
+    this->io_pending_data = data;
+    this->io_pending_is_write = is_write;
+    this->waiting_io_response = true;
+
+    // Trigger the first access, with engine locked, since we come from an external thread
+    this->iss.top.get_time_engine()->lock();
+    this->handle_pending_io_access();
+    this->iss.top.get_time_engine()->unlock();
+
+    // Then wait until the FSM is over
+    std::unique_lock<std::mutex> lock(this->mutex);
+    while (this->waiting_io_response)
+    {
+        this->cond.wait(lock);
+    }
+    lock.unlock();
+
+    return this->io_retval;
 }

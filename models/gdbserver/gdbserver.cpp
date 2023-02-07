@@ -68,10 +68,6 @@ void Gdb_server::pre_pre_build()
 int Gdb_server::build()
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
-    this->out.set_resp_meth(&Gdb_server::io_response);
-    this->out.set_grant_meth(&Gdb_server::io_grant);
-    this->new_master_port("out", &this->out);
-    this->event = this->event_new(&Gdb_server::handle);
     return 0;
 }
 
@@ -104,6 +100,18 @@ int Gdb_server::set_active_core(int id)
     return -1;
 }
 
+int Gdb_server::set_active_core_for_other(int id)
+{
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting active core for other (id: %d)\n", id);
+
+    if (this->cores[id] != NULL)
+    {
+        this->active_core_for_other = id;
+        return 0;
+    }
+
+    return -1;
+}
 
 vp::Gdbserver_core *Gdb_server::get_core(int id)
 {
@@ -115,78 +123,21 @@ vp::Gdbserver_core *Gdb_server::get_core(int id)
     return this->cores[id];
 }
 
-
-void Gdb_server::handle(void *__this, vp::clock_event *event)
+vp::Gdbserver_core *Gdb_server::get_active_core()
 {
-    Gdb_server *_this = (Gdb_server *)__this;
+    return this->get_core(this->active_core);
+}
 
-    std::unique_lock<std::mutex> lock(_this->mutex);
-    _this->waiting_io_response = false;
-    _this->cond.notify_all();
-    lock.unlock();
+vp::Gdbserver_core *Gdb_server::get_active_core_for_other()
+{
+    return this->get_core(this->active_core_for_other);
 }
 
 
-void Gdb_server::io_grant(void *__this, vp::io_req *req)
-{
-}
-
-void Gdb_server::io_response(void *__this, vp::io_req *req)
-{
-    Gdb_server *_this = (Gdb_server *)__this;
-
-    int64_t latency = _this->io_req.get_latency();
-    _this->event_enqueue(_this->event, latency + 1);
-}
 
 int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
 {
-    int retval = 0;
-    this->io_req.init();
-    this->io_req.set_addr(addr);
-    this->io_req.set_size(size);
-    this->io_req.set_data(data);
-    this->io_req.set_is_write(is_write);
-
-    this->get_time_engine()->lock();
-    int err = this->out.req(&this->io_req);
-    if (err == vp::IO_REQ_OK)
-    {
-        this->waiting_io_response = true;
-        int64_t latency = this->io_req.get_latency();
-        this->event_enqueue(this->event, latency + 1);
-        this->get_time_engine()->unlock();
-
-        std::unique_lock<std::mutex> lock(this->mutex);
-
-        while (this->waiting_io_response)
-        {
-            this->cond.wait(lock);
-        }
-
-        lock.unlock();
-
-    }
-    else if (err == vp::IO_REQ_INVALID)
-    {
-        this->io_retval = 1;
-        this->get_time_engine()->unlock();
-    }
-    else
-    {
-        this->get_time_engine()->unlock();
-
-        std::unique_lock<std::mutex> lock(this->mutex);
-
-        while (this->waiting_io_response)
-        {
-            this->cond.wait(lock);
-        }
-
-        lock.unlock();
-    }
-
-    return this->io_retval;
+    return this->get_active_core_for_other()->gdbserver_io_access(addr, size, data, is_write);
 }
 
 void Gdb_server::breakpoint_insert(uint64_t addr)

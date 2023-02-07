@@ -416,6 +416,10 @@ bool Rsp::multithread(char *data, size_t len)
         }
         else
         {
+            if (this->top->set_active_core_for_other(thread_id))
+            {
+                return send_str("E01");
+            }
             this->active_core_for_other = thread_id;
         }
 

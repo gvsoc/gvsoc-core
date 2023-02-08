@@ -100,10 +100,15 @@ inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
 }
 
-inline void Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
+    if (this->iss.gdbserver.watchpoint_check(false, addr, size))
+    {
+        return true;
+    }
     this->iss.timing.event_load_account(1);
     this->load(insn, addr, size, reg);
+    return false;
 }
 
 inline void Lsu::elw_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
@@ -112,16 +117,26 @@ inline void Lsu::elw_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     this->elw(insn, addr, size, reg);
 }
 
-inline void Lsu::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
+    if (this->iss.gdbserver.watchpoint_check(false, addr, size))
+    {
+        return true;
+    }
     this->iss.timing.event_load_account(1);
     this->load_signed(insn, addr, size, reg);
+    return false;
 }
 
-inline void Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
+    if (this->iss.gdbserver.watchpoint_check(true, addr, size))
+    {
+        return true;
+    }
     this->iss.timing.event_store_account(1);
     this->store(insn, addr, size, reg);
+    return false;
 }
 
 inline void Lsu::stack_access_check(int reg, iss_addr_t addr)

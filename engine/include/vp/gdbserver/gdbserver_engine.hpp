@@ -48,6 +48,8 @@ namespace vp
         virtual int gdbserver_state() = 0;
         virtual void gdbserver_breakpoint_insert(uint64_t addr) = 0;
         virtual void gdbserver_breakpoint_remove(uint64_t addr) = 0;
+        virtual void gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size) = 0;
+        virtual void gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size) = 0;
         virtual int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write) = 0;
 
     };
@@ -65,7 +67,7 @@ namespace vp
         static const int SIGNAL_STOP = 17;
 
         virtual int register_core(Gdbserver_core *core) = 0;
-        virtual void signal(Gdbserver_core *core, int signal) = 0;
+        virtual void signal(Gdbserver_core *core, int signal, std::string reason="", uint64_t info=0) = 0;
 
         virtual void lock() = 0;
         virtual void unlock() = 0;

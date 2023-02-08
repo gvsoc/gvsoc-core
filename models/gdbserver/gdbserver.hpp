@@ -43,7 +43,7 @@ public:
     int io_access(uint32_t addr, int size, uint8_t *data, bool is_write);
 
     int register_core(vp::Gdbserver_core *core);
-    void signal(vp::Gdbserver_core *core, int signal);
+    void signal(vp::Gdbserver_core *core, int signal, std::string reason="", uint64_t info=0);
     int set_active_core(int id);
     int set_active_core_for_other(int id);
     vp::Gdbserver_core *get_core(int id=-1);
@@ -53,6 +53,9 @@ public:
 
     void breakpoint_insert(uint64_t addr);
     void breakpoint_remove(uint64_t addr);
+
+    void watchpoint_insert(bool is_write, uint64_t addr, int size);
+    void watchpoint_remove(bool is_write, uint64_t addr, int size);
 
     void lock() override { this->get_time_engine()->lock(); }
     void unlock() override { this->get_time_engine()->unlock(); }

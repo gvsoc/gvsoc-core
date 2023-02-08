@@ -237,6 +237,55 @@ void Gdbserver::gdbserver_breakpoint_remove(uint64_t addr)
     this->disable_breakpoint((iss_addr_t)addr);
 }
 
+bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
+{
+    std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
+    for (auto wp: watchpoints)
+    {
+        if (addr + size >= wp->addr && addr < wp->addr + wp->size)
+        {
+            this->trace.msg(vp::trace::LEVEL_DEBUG, "Hit watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
+                addr, size, is_write);
+            this->iss.exec.stalled_inc();
+            this->iss.exec.halted.set(true);
+            this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver,
+                vp::Gdbserver_engine::SIGNAL_TRAP, "rwatch", addr);
+            return true;
+        }
+    }
+    return false;
+}
+
+void Gdbserver::gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Inserting watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
+        addr, size, is_write);
+
+    std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
+    watchpoints.push_back(new Watchpoint(addr, size));
+}
+
+void Gdbserver::gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Removing watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
+        addr, size, is_write);
+
+    std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
+
+    auto it = watchpoints.begin();
+    while (it != watchpoints.end())
+    {
+        if (addr + size >= (*it)->addr && addr < (*it)->addr + (*it)->size)
+        {
+            it = watchpoints.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
 void Gdbserver::handle_pending_io_access_stub(void *__this, vp::clock_event *event)
 {
     // Just forward to the common handle so that it either continue the full request or notify

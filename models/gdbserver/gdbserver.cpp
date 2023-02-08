@@ -50,9 +50,9 @@ int Gdb_server::register_core(vp::Gdbserver_core *core)
 }
 
 
-void Gdb_server::signal(vp::Gdbserver_core *core, int signal)
+void Gdb_server::signal(vp::Gdbserver_core *core, int signal, std::string reason, uint64_t info)
 {
-    this->rsp->signal_from_core(core, signal);
+    this->rsp->signal_from_core(core, signal, reason, info);
 }
 
 
@@ -156,6 +156,21 @@ void Gdb_server::breakpoint_remove(uint64_t addr)
     }
 }
 
+void Gdb_server::watchpoint_insert(bool is_write, uint64_t addr, int size)
+{
+    for (auto x: this->cores)
+    {
+        x.second->gdbserver_watchpoint_insert(is_write, addr, size);
+    }
+}
+
+void Gdb_server::watchpoint_remove(bool is_write, uint64_t addr, int size)
+{
+    for (auto x: this->cores)
+    {
+        x.second->gdbserver_watchpoint_remove(is_write, addr, size);
+    }
+}
 
 extern "C" vp::component *vp_constructor(js::config *config)
 {

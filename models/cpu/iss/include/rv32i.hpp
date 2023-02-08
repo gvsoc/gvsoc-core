@@ -272,7 +272,10 @@ static inline iss_insn_t *lb_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *lb_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0));
+    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -285,7 +288,10 @@ static inline iss_insn_t *lh_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *lh_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
+    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -298,7 +304,10 @@ static inline iss_insn_t *lw_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *lw_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -311,7 +320,10 @@ static inline iss_insn_t *lbu_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *lbu_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0));
+    if (iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -324,7 +336,10 @@ static inline iss_insn_t *lhu_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *lhu_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
+    if (iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -337,7 +352,10 @@ static inline iss_insn_t *sb_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *sb_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1));
+    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -350,7 +368,10 @@ static inline iss_insn_t *sh_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *sh_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_IN(1));
+    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_IN(1)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 
@@ -363,7 +384,10 @@ static inline iss_insn_t *sw_exec_fast(Iss *iss, iss_insn_t *insn)
 static inline iss_insn_t *sw_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1));
+    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
+    {
+        return insn;
+    }
     return insn->next;
 }
 

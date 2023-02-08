@@ -86,6 +86,11 @@ inline iss_insn_t *Exec::insn_exec_fast(iss_insn_t *insn)
 
 inline bool Exec::can_switch_to_fast_mode()
 {
+    if (this->iss.gdbserver.is_enabled())
+    {
+        return false;
+    }
+
 #ifdef VP_TRACE_ACTIVE
     return false;
 #else

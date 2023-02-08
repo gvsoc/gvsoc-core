@@ -25,6 +25,14 @@
 #include <mutex>
 #include <condition_variable>
 
+class Watchpoint
+{
+public:
+    Watchpoint(iss_addr_t addr, int size) : addr(addr), size(size) {}
+    iss_addr_t addr;
+    int size;
+};
+
 class Gdbserver : public vp::Gdbserver_core
 {
 public:
@@ -32,6 +40,9 @@ public:
     void build();
     void start();
     void reset(bool active);
+
+    bool is_enabled() { return this->gdbserver != NULL; }
+
     int gdbserver_get_id();
     std::string gdbserver_get_name();
     int gdbserver_reg_set(int reg, uint8_t *value);
@@ -43,12 +54,14 @@ public:
     int gdbserver_state();
     void gdbserver_breakpoint_insert(uint64_t addr);
     void gdbserver_breakpoint_remove(uint64_t addr);
+    void gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size);
+    void gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size);
     int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write);
 
     void enable_breakpoint(iss_addr_t addr);
     void disable_breakpoint(iss_addr_t addr);
     void enable_all_breakpoints();
-
+    bool watchpoint_check(bool is_write, iss_addr_t addr, int size);
 
     void handle_pending_io_access();
     static void handle_pending_io_access_stub(void *__this, vp::clock_event *event);
@@ -70,4 +83,6 @@ public:
     int io_pending_size;
     uint8_t *io_pending_data;
     bool io_pending_is_write;
+    std::list<Watchpoint *> write_watchpoints;
+    std::list<Watchpoint *> read_watchpoints;
 };

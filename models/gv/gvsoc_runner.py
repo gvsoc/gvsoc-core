@@ -151,6 +151,12 @@ class Runner(gapylib.target.Target, st.Component):
             parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
                 help="Launch GVSOC through gdb")
 
+            parser.add_argument("--gdbserver", dest="gdbserver", default=None, action="store_true",
+                help="Launch GVSOC with a GDB server to connect gdb to the simulated program")
+
+            parser.add_argument("--gdbserver-port", dest="gdbserver_port", default=12345, type=int,
+                help="Specifies the GDB server port")
+
             parser.add_argument("--valgrind", dest="valgrind",
                 action="store_true", help="Launch GVSOC through valgrind")
 
@@ -239,6 +245,10 @@ class Runner(gapylib.target.Target, st.Component):
         super().parse_args(args)
 
         self.full_config, self.gvsoc_config_path = gen_config(args, { 'target': self.get_config() }, self)
+
+        if args.gdbserver:
+            self.full_config.set('**/gdbserver/enabled', True)
+            self.full_config.set('**/gdbserver/port', args.gdbserver_port)
 
         gvsoc_config = self.full_config.get('target/gvsoc')
 

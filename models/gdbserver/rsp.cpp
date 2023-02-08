@@ -184,14 +184,24 @@ bool Rsp::send_str(const char *data)
 }
 
 
-bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal)
+bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal, std::string reason, uint64_t info)
 {
-    this->stop_all_cores_safe();
-
     char str[128];
     int len;
     len = snprintf(str, 128, "T%02xthread:%x;", signal, core->gdbserver_get_id()+1);
-    return send(str, len);
+    if (reason != "")
+    {
+        this->top->set_active_core(core->gdbserver_get_id());
+        len += snprintf(str + len, 128 - len, "%s:%x;", reason.c_str(), info);
+    }
+    if (!this->send(str, len))
+    {
+        return false;
+    }
+
+    this->stop_all_cores_safe();
+
+    return true;
 }
 
 bool Rsp::send_exit(int status)
@@ -830,8 +840,16 @@ bool Rsp::bp_insert(char *data, size_t len)
         return send_str("E01");
     }
 
-    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
-    this->top->breakpoint_insert(addr);
+    if (type == 0 || type == 1)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
+        this->top->breakpoint_insert(addr);
+    }
+    else if ( type == 2 || type == 3)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Inserting watchpoint (addr: 0x%x)\n", addr);
+        this->top->watchpoint_insert(type == 2, addr, bp_len);
+    }
 
     return send_str("OK");
 }
@@ -850,8 +868,16 @@ bool Rsp::bp_remove(char *data, size_t len)
         return false;
     }
 
-    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
-    this->top->breakpoint_remove(addr);
+    if (type == 0 || type == 1)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
+        this->top->breakpoint_remove(addr);
+    }
+    else if ( type == 2 || type == 3)
+    {
+        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Removing watchpoint (addr: 0x%x)\n", addr);
+        this->top->watchpoint_remove(type == 2, addr, bp_len);
+    }
 
     return send_str("OK");
 }

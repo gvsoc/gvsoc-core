@@ -725,7 +725,7 @@ rv32i = IsaSubset('i', [
 #
 rv32m = IsaSubset('m', [
 
-    R5('mul', 'R', '0000001 ----- ----- 000 ----- 0110011', tags=['mul']),
+    R5('mul',   'R', '0000001 ----- ----- 000 ----- 0110011', tags=['mul']),
     R5('mulh',  'R', '0000001 ----- ----- 001 ----- 0110011', tags=['mulh']),
     R5('mulhsu','R', '0000001 ----- ----- 010 ----- 0110011', tags=['mulh']),
     R5('mulhu', 'R', '0000001 ----- ----- 011 ----- 0110011', tags=['mulh']),
@@ -734,6 +734,15 @@ rv32m = IsaSubset('m', [
     R5('rem',   'R', '0000001 ----- ----- 110 ----- 0110011', tags=['div']),
     R5('remu',  'R', '0000001 ----- ----- 111 ----- 0110011', tags=['div']),
 
+])
+
+rv64m = IsaSubset('m', [
+
+    R5('mulw',  'R', '0000001 ----- ----- 000 ----- 0111011', tags=['mul']),
+    R5('divw',  'R', '0000001 ----- ----- 100 ----- 0111011', tags=['div']),
+    R5('divuw', 'R', '0000001 ----- ----- 101 ----- 0111011', tags=['div']),
+    R5('remw',  'R', '0000001 ----- ----- 110 ----- 0111011', tags=['div']),
+    R5('remuw', 'R', '0000001 ----- ----- 111 ----- 0111011', tags=['div']),
 ])
 
 rv32a = IsaSubset('a', [
@@ -1431,6 +1440,7 @@ rv64c = IsaSubset('c', [
     R5('c.or',       'CS2', '100 011 --- 10 --- 01', fast_handler=True),
     R5('c.and',      'CS2', '100 011 --- 11 --- 01', fast_handler=True),
     R5('c.subw',     'CS2', '100 111 --- 00 --- 01', fast_handler=True),
+    R5('c.addw',     'CS2', '100 111 --- 01 --- 01', fast_handler=True),
     R5('c.j',        'CJ',  '101 --- --- -- --- 01', fast_handler=True, decode='jal_decode'),
     R5('c.beqz',     'CB1', '110 --- --- -- --- 01', fast_handler=True, decode='bxx_decode'),
     R5('c.bnez',     'CB1', '111 --- --- -- --- 01', fast_handler=True, decode='bxx_decode'),

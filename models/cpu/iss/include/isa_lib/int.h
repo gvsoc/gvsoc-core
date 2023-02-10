@@ -291,7 +291,8 @@ static inline unsigned int lib_MMUL_ZH_SL(Iss *s, unsigned int b, unsigned int c
 static inline unsigned int lib_MMUL_ZH_SH(Iss *s, unsigned int b, unsigned int c) { return -ZH(b) * SH(c); }
 
 static inline unsigned int lib_MULS(Iss *s, int a, int b) { return a * b; }
-static inline unsigned int lib_MULU(Iss *s, unsigned int a, unsigned int b) { return a * b; }
+static inline uint64_t lib_MULU(Iss *s, uint64_t a, uint64_t b) { return a * b; }
+static inline uint64_t lib_MULW(Iss *s, uint64_t a, uint64_t b) { return get_signed_value(a * b, 32); }
 static inline int64_t lib_MULS_64(Iss *s, int32_t a, int32_t b) { return (int64_t)a * (int64_t)b; }
 static inline uint64_t lib_MULU_64(Iss *s, uint64_t a, uint64_t b) { return a * b; }
 static inline unsigned int lib_DIVS(Iss *s, int a, int b)

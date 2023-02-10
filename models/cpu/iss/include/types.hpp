@@ -63,6 +63,8 @@ typedef uint64_t iss_reg64_t;
 typedef uint64_t iss_reg_t;
 typedef uint64_t iss_uim_t;
 typedef int64_t iss_sim_t;
+typedef __int128 iss_lsim_t;
+typedef __int128 iss_luim_t;
 typedef uint64_t iss_addr_t;
 typedef uint64_t iss_opcode_t;
 
@@ -79,6 +81,8 @@ typedef uint64_t iss_opcode_t;
 typedef uint32_t iss_reg_t;
 typedef uint32_t iss_uim_t;
 typedef int32_t iss_sim_t;
+typedef int64_t iss_lsim_t;
+typedef uint64_t iss_luim_t;
 typedef uint32_t iss_addr_t;
 typedef uint32_t iss_opcode_t;
 

@@ -29,6 +29,7 @@
 
 #define MMU_PGSHIFT 12
 
+#define MMU_MODE_OFF  0
 #define MMU_MODE_SV39 8
 
 #define MMU_PTE_ATTR  0xFFC0000000000000

@@ -70,7 +70,7 @@ void Core::build()
 
 void Core::reset(bool active)
 {
-    this->mode = PRIV_M;
+    this->mode_set(PRIV_M);
 
     // Remember the current reset value so that other aspects willing to stall the core
     // can flag it if the core is under reset
@@ -100,7 +100,7 @@ iss_insn_t *Core::mret_handle()
 {
     this->iss.exec.switch_to_full_mode();
 
-    this->mode = this->iss.csr.mstatus.mpp;
+    this->mode_set(this->iss.csr.mstatus.mpp);
 #ifdef CONFIG_GVSOC_ISS_USER_MODE
     this->iss.csr.mstatus.mpp = PRIV_U;
 #else
@@ -118,7 +118,7 @@ iss_insn_t *Core::sret_handle()
 {
     this->iss.exec.switch_to_full_mode();
 
-    this->mode = this->iss.csr.mstatus.spp;
+    this->mode_set(this->iss.csr.mstatus.spp);
     this->iss.csr.mstatus.spp = PRIV_U;
     this->iss.irq.irq_enable.set(this->iss.csr.mstatus.spie);
     this->iss.csr.mstatus.sie = this->iss.csr.mstatus.spie;
@@ -188,4 +188,5 @@ bool Core::sstatus_update(bool is_write, iss_reg_t &value)
 void Core::mode_set(int mode)
 {
     this->mode = mode;
+    this->iss.mmu.flush(0, 0);
 }

@@ -38,6 +38,7 @@
 #include "rv32c.hpp"
 #include "rv64c.hpp"
 #include "rv32m.hpp"
+#include "rv64m.hpp"
 #include "rvf.hpp"
 #include "rvXf16.hpp"
 #include "rvXf16alt.hpp"

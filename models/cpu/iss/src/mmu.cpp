@@ -286,7 +286,7 @@ bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
     iss_addr_t page_phys_addr;
     bool load = true, store = true, fetch = true;
 
-    if (mode == PRIV_M)
+    if (mode == PRIV_M || this->mode == MMU_MODE_OFF)
     {
         page_phys_addr = page_virt_addr;
 

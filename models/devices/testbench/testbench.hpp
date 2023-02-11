@@ -191,6 +191,7 @@ typedef struct
     uint8_t clk_polarity;
     uint8_t ws_polarity;
     uint8_t ws_delay;
+    uint32_t ws_trigger_delay;
 }
 __attribute__((packed)) pi_testbench_i2s_verif_config_t;
 

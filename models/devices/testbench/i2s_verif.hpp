@@ -77,6 +77,8 @@ public:
     int64_t sampling_period;
 
     std::vector<Slot *> slots;
+
+    int64_t ws_gen_timestamp = -1;
 };
 
 #endif

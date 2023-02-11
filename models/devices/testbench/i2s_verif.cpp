@@ -526,27 +526,49 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                 }
             }
 
-            if (sck == 0)
+            if (sck == 1)
             {
                 if (this->config.is_ext_ws)
                 {
                     this->ws_value = 0;
                     if (this->ws_count == 0)
                     {
-                        this->ws_value = 1;
                         this->ws_count = this->config.word_size * this->config.nb_slots;
 
                         if (this->ws_delay == 0)
                         {
-                            this->frame_active = true;
-                            this->active_slot = 0;
-                            this->pending_bits = this->config.word_size;
-                            this->slots[0]->start_frame();
-                            this->data = this->slots[0]->get_data() | (2 << 2);
+                            this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay;
+                            if (!this->is_enqueued || this->ws_gen_timestamp < this->next_event_time)
+                            {
+                                if (this->is_enqueued)
+                                {
+                                    this->dequeue_from_engine();
+                                }
+                                this->enqueue_to_engine(this->ws_gen_timestamp);
+                            }
+                        }
+                        else
+                        {
+                            this->ws_value = 1;
                         }
                     }
-                    this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
+                    if (this->ws_delay > 0)
+                    {
+                        this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
+                    }
                     this->ws_count--;
+                }
+            }
+
+            if (sck == 0)
+            {
+                if (this->config.is_ext_ws)
+                {
+                    if (this->ws_delay == 0)
+                    {
+                        this->data = this->slots[0]->get_data() | (2 << 2);
+                    }
+                    this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
                 }
             }
 
@@ -1261,16 +1283,40 @@ void Slot::pdm_get()
 
 int64_t I2s_verif::exec()
 {
+    int64_t next_timestamp = -1;
+
+    if (this->ws_gen_timestamp != -1)
+    {
+        if (this->get_time() == this->ws_gen_timestamp)
+        {
+            this->ws_value = 1;
+            this->frame_active = true;
+            this->active_slot = 0;
+            this->pending_bits = this->config.word_size;
+            this->slots[0]->start_frame();
+            this->ws_gen_timestamp = -1;
+            this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
+        }
+        else
+        {
+            if (next_timestamp == -1 || this->ws_gen_timestamp < next_timestamp)
+            {
+                next_timestamp = this->ws_gen_timestamp;
+            }
+        }
+    }
+
     if (this->clk_active)
     {
         this->clk ^= 1;
 
         this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
-    
-        return this->clk_period;
+
+        if (next_timestamp == -1 || this->clk_period < next_timestamp)
+        {
+            next_timestamp = this->clk_period;
+        }
     }
-    else
-    {
-        return -1;
-    }
+
+    return next_timestamp;
 }

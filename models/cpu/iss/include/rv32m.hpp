@@ -53,10 +53,10 @@ static inline iss_insn_t *div_exec(Iss *iss, iss_insn_t *insn)
     iss_sim_t result;
     if (divider == 0)
         result = -1;
-    else if (divider == (1ULL << (ISS_REG_WIDTH - 1)) && dividend == -1)
+    else if (divider == (iss_sim_t)(1LL << (ISS_REG_WIDTH - 1)) && dividend == -1)
         result = 0;
-    else if (dividend == (1ULL << (ISS_REG_WIDTH - 1)) && divider == -1)
-        result = (1ULL << (ISS_REG_WIDTH - 1));
+    else if (dividend == (iss_sim_t)(1LL << (ISS_REG_WIDTH - 1)) && divider == -1)
+        result = (iss_sim_t)(1LL << (ISS_REG_WIDTH - 1));
     else
         result = dividend / divider;
     REG_SET(0, result);
@@ -104,9 +104,9 @@ static inline iss_insn_t *rem_exec(Iss *iss, iss_insn_t *insn)
     iss_sim_t result;
     if (divider == 0)
         result = dividend;
-    else if (divider == (1ULL << (ISS_REG_WIDTH - 1)) && dividend == -1)
+    else if (divider == (iss_sim_t)(1LL << (ISS_REG_WIDTH - 1)) && dividend == -1)
         result = -1;
-    else if (dividend == (1ULL << (ISS_REG_WIDTH - 1)) && divider == -1)
+    else if (dividend == (iss_sim_t)(1LL << (ISS_REG_WIDTH - 1)) && divider == -1)
         result = 0;
     else
         result = dividend % divider;

@@ -16,6 +16,7 @@
 
 import gsystree as st
 import os.path
+import gv.gui
 
 class Iss(st.Component):
     """
@@ -163,3 +164,45 @@ class Iss(st.Component):
             self.vcd_group(self, skip=True)
         else:
             self.vcd_group(self, skip=False)
+
+
+    def gen_gui(self, parent_signal):
+        active = gv.gui.Signal(self, parent_signal, name=self.name, path='active_function',
+            display=gv.gui.DisplayStringBox())
+
+        gv.gui.Signal(self, active, path='active_pc', groups=['pc'])
+        gv.gui.Signal(self, active, path='binaries', groups=['pc'])
+        gv.gui.SignalGenFunctionFromBinary(self, active, from_signal='active_pc',
+            to_signal='active_function', binaries=['binaries'])
+
+        gv.gui.Signal(self, active, name='active', path='busy', groups=['core'],
+            display=gv.gui.DisplayBox('ACTIVE'))
+        gv.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
+            properties={'is_hotspot': True})
+
+        gv.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
+            to_signal='function', binaries=['binaries'])
+        gv.gui.Signal(self, active, name='function', path='function',
+            display=gv.gui.DisplayStringBox())
+
+
+        stalls = gv.gui.Signal(self, active, name='stalls')
+        gv.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="instr",         path="pcer_instr",         display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="ld_stall",      path="pcer_ld_stall",      display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="jmp_stall",     path="pcer_jmp_stall",     display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="imiss",         path="pcer_imiss",         display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="ld",            path="pcer_ld",            display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="st",            path="pcer_st",            display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="jump",          path="pcer_jump",          display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="branch",        path="pcer_branch",        display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="taken_branch",  path="pcer_taken_branch",  display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="rvc",           path="pcer_rvc",           display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="ld_ext",        path="pcer_ld_ext",        display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="st_ext",        path="pcer_st_ext",        display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="ld_ext_cycles", path="pcer_ld_ext_cycles", display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="misaligned",    path="misaligned_access",  display=gv.gui.DisplayPulse(), groups=['stall'])
+
+        return active

@@ -143,6 +143,9 @@ class Component(object):
             component.gen_stimuli()
 
 
+    def get_comp_path(self):
+        return '/' + self.get_path(gv_path=True)
+
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
         """Get component path.
 
@@ -498,8 +501,16 @@ class Component(object):
         self.vcd_group_create = not skip
         self.vcd_group_closed = closed
 
+    def gen_gui_stub(self, parent_signal):
+        parent_signal = self.gen_gui(parent_signal)
+
+        for component in self.components.values():
+            component.gen_gui_stub(parent_signal)
+
+    def gen_gui(self, parent_signal):
+        return parent_signal
+
     def gen_gtkw_tree(self, tree, traces, filter_traces=False):
-        
         if filter_traces:
             comp_traces = []
             subcomps_traces = []
@@ -535,7 +546,7 @@ class Component(object):
             else:
                 if groups.get(trace[1][0]) is None:
                     groups[trace[1][0]] = []
-                
+
                 groups[trace[1][0]].append([trace[0], trace[1][1:], trace[2]])
 
         for group_name, group in groups.items():

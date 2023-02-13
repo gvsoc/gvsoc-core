@@ -24,6 +24,7 @@ import gsystree as st
 import json_tools as js
 import os.path
 from gv.gtkwave import Gtkwave_tree
+from gv.gui import GuiConfig
 
 
 def gen_config(args, config, runner=None):
@@ -150,6 +151,9 @@ class Runner(gapylib.target.Target, st.Component):
 
             parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
                 help="Launch GVSOC through gdb")
+
+            parser.add_argument("--gui", dest="gui", default=None, action="store_true",
+                help="Open GVSOC gui")
 
             parser.add_argument("--gdbserver", dest="gdbserver", default=None, action="store_true",
                 help="Launch GVSOC with a GDB server to connect gdb to the simulated program")
@@ -382,14 +386,27 @@ class Runner(gapylib.target.Target, st.Component):
             if self.get_args().valgrind:
                 stub = ['valgrind'] + stub
 
-            if gvsoc_config.get_bool("debug-mode"):
-                launcher = gvsoc_config.get_str('launchers/debug')
+            if self.get_args().gui:
+                command = ['gvsoc-gui',
+                    '--gv-config=' + self.gvsoc_config_path,
+                    '--gui-config=gvsoc_gui_config.json',
+                ]
+
+                path = os.path.join(self.get_working_dir(), 'gvsoc_gui_config.json')
+
+                gui_config = self.gen_gui_config(
+                    work_dir=self.get_working_dir(),
+                    path=path
+                )
             else:
-                launcher = gvsoc_config.get_str('launchers/default')
+                if gvsoc_config.get_bool("debug-mode"):
+                    launcher = gvsoc_config.get_str('launchers/debug')
+                else:
+                    launcher = gvsoc_config.get_str('launchers/default')
 
-            command = stub
+                command = stub
 
-            command += [launcher, '--config=' + self.gvsoc_config_path]
+                command += [launcher, '--config=' + self.gvsoc_config_path]
 
             if True: #self.verbose:
                 print ('Launching GVSOC with command: ')
@@ -404,8 +421,13 @@ class Runner(gapylib.target.Target, st.Component):
         return self
 
 
+    def gen_gui_config(self, work_dir, path):
+        with open(path, 'w') as fd:
+            config = GuiConfig()
+            self.gen_gui_stub(config)
+            config.gen(fd)
+
     def gen_gtkw_script(self, work_dir, path, tags=[], level=0, trace_file=None, gen_full_tree=False):
-        
         self.vcd_group_create = False
         self.is_top = True
 

@@ -518,7 +518,6 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                         }
                         this->data = this->slots[this->active_slot]->get_data() | (2 << 2);
 
-
                         this->trace.msg(vp::trace::LEVEL_TRACE, "I2S output data (sdi: 0x%x)\n", this->data & 3);
     
                         this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
@@ -535,21 +534,14 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                     {
                         this->ws_count = this->config.word_size * this->config.nb_slots;
 
-                        if (this->ws_delay == 0)
+                        this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay;
+                        if (!this->is_enqueued || this->ws_gen_timestamp < this->next_event_time)
                         {
-                            this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay;
-                            if (!this->is_enqueued || this->ws_gen_timestamp < this->next_event_time)
+                            if (this->is_enqueued)
                             {
-                                if (this->is_enqueued)
-                                {
-                                    this->dequeue_from_engine();
-                                }
-                                this->enqueue_to_engine(this->ws_gen_timestamp);
+                                this->dequeue_from_engine();
                             }
-                        }
-                        else
-                        {
-                            this->ws_value = 1;
+                            this->enqueue_to_engine(this->ws_gen_timestamp);
                         }
                     }
                     if (this->ws_delay > 0)
@@ -559,19 +551,6 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                     this->ws_count--;
                 }
             }
-
-            if (sck == 0)
-            {
-                if (this->config.is_ext_ws)
-                {
-                    if (this->ws_delay == 0)
-                    {
-                        this->data = this->slots[0]->get_data() | (2 << 2);
-                    }
-                    this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
-                }
-            }
-
         }
     }
 
@@ -588,7 +567,11 @@ void I2s_verif::start(pi_testbench_i2s_verif_start_config_t *config)
 
     if (this->clk_active && this->is_ext_clk)
     {
-        this->enqueue_to_engine(this->get_time() + this->clk_period);
+            this->clk_gen_timestamp = this->get_time() + this->clk_period;
+            if (!this->is_enqueued || this->clk_gen_timestamp < this->next_event_time)
+            {
+                this->enqueue_to_engine(this->clk_gen_timestamp);
+            }
     }
 }
 
@@ -1283,40 +1266,42 @@ void Slot::pdm_get()
 
 int64_t I2s_verif::exec()
 {
-    int64_t next_timestamp = -1;
-
-    if (this->ws_gen_timestamp != -1)
+    if (this->clk_active)
     {
-        if (this->get_time() == this->ws_gen_timestamp)
+        if (this->get_time() == this->clk_gen_timestamp)
         {
-            this->ws_value = 1;
+            this->clk ^= 1;
+
+            this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
+            this->clk_gen_timestamp = this->get_time() + this->clk_period;
+        }
+
+    }
+
+    if (this->get_time() == this->ws_gen_timestamp)
+    {
+        this->ws_value = 1;
+        if (this->ws_delay == 0)
+        {
             this->frame_active = true;
             this->active_slot = 0;
             this->pending_bits = this->config.word_size;
-            this->slots[0]->start_frame();
-            this->ws_gen_timestamp = -1;
-            this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
         }
-        else
-        {
-            if (next_timestamp == -1 || this->ws_gen_timestamp < next_timestamp)
-            {
-                next_timestamp = this->ws_gen_timestamp;
-            }
-        }
-    }
-
-    if (this->clk_active)
-    {
-        this->clk ^= 1;
-
+        this->ws_gen_timestamp = -1;
         this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
-
-        if (next_timestamp == -1 || this->clk_period < next_timestamp)
-        {
-            next_timestamp = this->clk_period;
-        }
     }
 
-    return next_timestamp;
+    int64_t next_timestamp = -1;
+
+    if (next_timestamp == -1 || this->ws_gen_timestamp < next_timestamp)
+    {
+        next_timestamp = this->ws_gen_timestamp;
+    }
+
+    if (next_timestamp == -1 || this->clk_gen_timestamp < next_timestamp)
+    {
+        next_timestamp = this->clk_gen_timestamp;
+    }
+
+    return next_timestamp == -1 ? -1 : next_timestamp - this->get_time();
 }

@@ -79,6 +79,7 @@ public:
     std::vector<Slot *> slots;
 
     int64_t ws_gen_timestamp = -1;
+    int64_t clk_gen_timestamp = -1;
 };
 
 #endif

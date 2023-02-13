@@ -529,10 +529,12 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
             {
                 if (this->config.is_ext_ws)
                 {
-                    this->ws_value = 0;
-                    if (this->ws_count == 0)
+                    if (this->ws_count == 0 || this->ws_value == 1)
                     {
-                        this->ws_count = this->config.word_size * this->config.nb_slots;
+                        if (this->ws_count == 0)
+                        {
+                            this->ws_count = this->config.word_size * this->config.nb_slots;
+                        }
 
                         this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay;
                         if (!this->is_enqueued || this->ws_gen_timestamp < this->next_event_time)
@@ -543,10 +545,6 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                             }
                             this->enqueue_to_engine(this->ws_gen_timestamp);
                         }
-                    }
-                    if (this->ws_delay > 0)
-                    {
-                        this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
                     }
                     this->ws_count--;
                 }
@@ -1280,14 +1278,22 @@ int64_t I2s_verif::exec()
 
     if (this->get_time() == this->ws_gen_timestamp)
     {
-        this->ws_value = 1;
-        if (this->ws_delay == 0)
+        if (this->ws_value == 0)
         {
-            this->frame_active = true;
-            this->active_slot = 0;
-            this->pending_bits = this->config.word_size;
+            this->ws_value = 1;
+            if (this->ws_delay == 0)
+            {
+                this->frame_active = true;
+                this->active_slot = 0;
+                this->pending_bits = this->config.word_size;
+            }
+            this->ws_gen_timestamp = -1;
         }
-        this->ws_gen_timestamp = -1;
+        else
+        {
+            this->ws_value = 0;
+            this->ws_gen_timestamp = -1;
+        }
         this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
     }
 

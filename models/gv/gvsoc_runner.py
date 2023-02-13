@@ -152,9 +152,6 @@ class Runner(gapylib.target.Target, st.Component):
             parser.add_argument("--gdb", dest="gdb", default=None, action="store_true",
                 help="Launch GVSOC through gdb")
 
-            parser.add_argument("--gui", dest="gui", default=None, action="store_true",
-                help="Open GVSOC gui")
-
             parser.add_argument("--gdbserver", dest="gdbserver", default=None, action="store_true",
                 help="Launch GVSOC with a GDB server to connect gdb to the simulated program")
 
@@ -232,6 +229,10 @@ class Runner(gapylib.target.Target, st.Component):
                 help="Launch in RTL cosimulation mode")
 
             [args, _] = parser.parse_known_args()
+
+            if not args.rtl_cosimulation:
+                parser.add_argument("--gui", dest="gui", default=None, action="store_true",
+                    help="Open GVSOC gui")
 
             if args.rtl_cosimulation:
 

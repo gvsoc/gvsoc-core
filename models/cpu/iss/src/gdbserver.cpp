@@ -162,6 +162,7 @@ int Gdbserver::gdbserver_stepi()
 
     this->halt_on_reset = false;
 
+    this->iss.exec.skip_irq_check = true;
     this->iss.exec.step_mode.set(true);
     this->iss.exec.switch_to_full_mode();
     if (this->iss.exec.halted.get())
@@ -181,7 +182,7 @@ static inline iss_insn_t *breakpoint_check_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->exec.stalled_inc();
     iss->exec.halted.set(true);
-    iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP);
+    iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP, "hwbreak");
     return insn;
 }
 

@@ -192,6 +192,7 @@ bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal, std::string rea
     if (reason != "")
     {
         this->top->set_active_core(core->gdbserver_get_id());
+        this->top->set_active_core_for_other(core->gdbserver_get_id());
         len += snprintf(str + len, 128 - len, "%s:%x;", reason.c_str(), info);
     }
     if (!this->send(str, len))

@@ -115,6 +115,7 @@ public:
     bool debug_mode;
     iss_insn_t *elw_insn;
 
+    bool skip_irq_check;
 
 
 private:

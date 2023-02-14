@@ -86,6 +86,7 @@ void Exec::reset(bool active)
     if (active)
     {
         this->clock_active = false;
+        this->skip_irq_check = true;
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->instr_event->disable();
@@ -208,7 +209,14 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
 
     int cycles;
 
-    _this->iss.irq.check();
+    if (!_this->skip_irq_check)
+    {
+        _this->iss.irq.check();
+    }
+    else
+    {
+        _this->skip_irq_check = false;
+    }
 
     iss_insn_t *insn = _this->current_insn;
 

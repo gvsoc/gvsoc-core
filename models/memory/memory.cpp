@@ -41,6 +41,10 @@ private:
     static void power_ctrl_sync(void *__this, bool value);
     static void meminfo_sync_back(void *__this, void **value);
     static void meminfo_sync(void *__this, void *value);
+    vp::io_req_status_e handle_write(uint64_t addr, uint64_t size, uint8_t *data);
+    vp::io_req_status_e handle_read(uint64_t addr, uint64_t size, uint8_t *data);
+    vp::io_req_status_e handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
+        vp::io_req_opcode_e opcode, int initiator);
 
     vp::trace trace;
     vp::io_slave in;
@@ -70,12 +74,19 @@ private:
 
     vp::clock_event *power_event;
     int64_t last_access_timestamp;
+
+    // Load-reserved reservation table
+    std::map<uint64_t, uint64_t> res_table;
 };
+
+
 
 memory::memory(js::config *config)
     : vp::component(config)
 {
 }
+
+
 
 vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
 {
@@ -93,65 +104,62 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
 
-    if (!req->is_debug())
+    // Impact the memory bandwith on the packet
+    if (_this->width_bits != 0)
     {
-        // Impact the memory bandwith on the packet
-        if (_this->width_bits != 0)
-        {
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-            int duration = MAX(size >> _this->width_bits, 1);
-            req->set_duration(duration);
-            int64_t cycles = _this->get_cycles();
-            int64_t diff = _this->next_packet_start - cycles;
-            if (diff > 0)
-            {
-                _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
-                req->inc_latency(diff);
-            }
-            _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
-        }
-
-        if (_this->power.get_power_trace()->get_active())
+        int duration = MAX(size >> _this->width_bits, 1);
+        req->set_duration(duration);
+        int64_t cycles = _this->get_cycles();
+        int64_t diff = _this->next_packet_start - cycles;
+        if (diff > 0)
         {
-            _this->last_access_timestamp = _this->get_time();
-
-            if (req->get_is_write())
-            {
-                if (size == 1)
-                    _this->write_8_power.account_energy_quantum();
-                else if (size == 2)
-                    _this->write_16_power.account_energy_quantum();
-                else if (size == 4)
-                    _this->write_32_power.account_energy_quantum();
-            }
-            else
-            {
-                if (size == 1)
-                    _this->read_8_power.account_energy_quantum();
-                else if (size == 2)
-                    _this->read_16_power.account_energy_quantum();
-                else if (size == 4)
-                    _this->read_32_power.account_energy_quantum();
-            }
+            _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
+            req->inc_latency(diff);
         }
+        _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
+    }
+
+    if (_this->power.get_power_trace()->get_active())
+    {
+        _this->last_access_timestamp = _this->get_time();
+
+        if (req->get_is_write())
+        {
+            if (size == 1)
+                _this->write_8_power.account_energy_quantum();
+            else if (size == 2)
+                _this->write_16_power.account_energy_quantum();
+            else if (size == 4)
+                _this->write_32_power.account_energy_quantum();
+        }
+        else
+        {
+            if (size == 1)
+                _this->read_8_power.account_energy_quantum();
+            else if (size == 2)
+                _this->read_16_power.account_energy_quantum();
+            else if (size == 4)
+                _this->read_32_power.account_energy_quantum();
+        }
+    }
 
 #ifdef VP_TRACE_ACTIVE
-        if (_this->power_trigger)
+    if (_this->power_trigger)
+    {
+        if (req->get_is_write() && size == 4 && offset == 0)
         {
-            if (req->get_is_write() && size == 4 && offset == 0)
+            if (*(uint32_t *)data == 0xabbaabba)
             {
-                if (*(uint32_t *)data == 0xabbaabba)
-                {
-                    _this->power.get_engine()->start_capture();
-                }
-                else if (*(uint32_t *)data == 0xdeadcaca)
-                {
-                    _this->power.get_engine()->stop_capture();
-                }
+                _this->power.get_engine()->start_capture();
+            }
+            else if (*(uint32_t *)data == 0xdeadcaca)
+            {
+                _this->power.get_engine()->stop_capture();
             }
         }
-#endif
     }
+#endif
 
     if (offset + size > _this->size)
     {
@@ -159,38 +167,155 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
         return vp::IO_REQ_INVALID;
     }
 
-    if (req->get_is_write())
+    if (req->get_opcode() == vp::io_req_opcode_e::READ)
     {
-        if (_this->check_mem)
-        {
-            for (unsigned int i = 0; i < size; i++)
-            {
-                _this->check_mem[(offset + i) / 8] |= 1 << ((offset + i) % 8);
-            }
-        }
-        if (data)
-            memcpy((void *)&_this->mem_data[offset], (void *)data, size);
+        return _this->handle_read(offset, size, data);
+    }
+    else if (req->get_opcode() == vp::io_req_opcode_e::WRITE)
+    {
+        return _this->handle_write(offset, size, data);
     }
     else
     {
-        if (_this->check_mem)
+        return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
+            req->get_initiator());
+    }
+}
+
+
+
+vp::io_req_status_e memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data)
+{
+    if (this->check_mem)
+    {
+        for (unsigned int i = 0; i < size; i++)
         {
-            for (unsigned int i = 0; i < size; i++)
-            {
-                int access = (_this->check_mem[(offset + i) / 8] >> ((offset + i) % 8)) & 1;
-                if (!access)
-                {
-                    // trace.msg("Unitialized access (offset: 0x%x, size: 0x%x, isRead: %d)\n", offset, size, isRead);
-                    return vp::IO_REQ_INVALID;
-                }
-            }
+            this->check_mem[(offset + i) / 8] |= 1 << ((offset + i) % 8);
         }
-        if (data)
-            memcpy((void *)data, (void *)&_this->mem_data[offset], size);
+    }
+    if (data)
+    {
+        memcpy((void *)&this->mem_data[offset], (void *)data, size);
     }
 
     return vp::IO_REQ_OK;
 }
+
+
+
+vp::io_req_status_e memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data)
+{
+    if (this->check_mem)
+    {
+        for (unsigned int i = 0; i < size; i++)
+        {
+            int access = (this->check_mem[(offset + i) / 8] >> ((offset + i) % 8)) & 1;
+            if (!access)
+            {
+                // trace.msg("Unitialized access (offset: 0x%x, size: 0x%x, isRead: %d)\n", offset, size, isRead);
+                return vp::IO_REQ_INVALID;
+            }
+        }
+    }
+    if (data)
+    {
+        memcpy((void *)data, (void *)&this->mem_data[offset], size);
+    }
+
+    return vp::IO_REQ_OK;
+}
+
+
+static inline int64_t get_signed_value(int64_t val, int bits)
+{
+    return ((int64_t)val) << (64 - bits) >> (64 - bits);
+}
+
+
+vp::io_req_status_e memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data,
+    uint8_t *out_data, vp::io_req_opcode_e opcode, int initiator)
+{
+    int64_t operand = 0;
+    int64_t prev_val = 0;
+    int64_t result;
+    bool is_write = true;
+
+    memcpy((uint8_t *)&operand, in_data, size);
+
+    this->handle_read(addr, size, (uint8_t *)&prev_val);
+
+    if (size < 8)
+    {
+        operand = get_signed_value(operand, size*8);
+        prev_val = get_signed_value(prev_val, size*8);
+    }
+
+    switch (opcode)
+    {
+        case vp::io_req_opcode_e::LR:
+            this->res_table[initiator] = addr;
+            is_write = false;
+            break;
+        case vp::io_req_opcode_e::SC:
+            if (this->res_table[initiator] == addr)
+            {
+                // Valid reservation --> clear all others as we are going to write
+                for (auto &it : this->res_table) {
+                    if (it.second >= addr && it.second < addr+size)
+                    {
+                        it.second = -1;
+                    }
+                }
+                result   = operand;
+                prev_val = 0;
+            }
+            else
+            {
+                is_write = false;
+                prev_val = 1;
+            }
+            break;
+        case vp::io_req_opcode_e::SWAP:
+            result = operand;
+            break;
+        case vp::io_req_opcode_e::ADD:
+            result = prev_val + operand;
+            break;
+        case vp::io_req_opcode_e::XOR:
+            result = prev_val ^ operand;
+            break;
+        case vp::io_req_opcode_e::AND:
+            result = prev_val & operand;
+            break;
+        case vp::io_req_opcode_e::OR:
+            result = prev_val | operand;
+            break;
+        case vp::io_req_opcode_e::MIN:
+            result = prev_val < operand ? prev_val : operand;
+            break;
+        case vp::io_req_opcode_e::MAX:
+            result = prev_val > operand ? prev_val : operand;
+            break;
+        case vp::io_req_opcode_e::MINU:
+            result = (uint64_t) prev_val < (uint64_t) operand ? prev_val : operand;
+            break;
+        case vp::io_req_opcode_e::MAXU:
+            result = (uint64_t) prev_val > (uint64_t) operand ? prev_val : operand;
+            break;
+        default:
+            return vp::IO_REQ_INVALID;
+    }
+
+    memcpy(out_data, (uint8_t *)&prev_val, size);
+    if (is_write)
+    {
+        this->handle_write(addr, size, (uint8_t *)&result);
+    }
+
+    return vp::IO_REQ_OK;
+}
+
+
 
 void memory::reset(bool active)
 {
@@ -201,11 +326,15 @@ void memory::reset(bool active)
     }
 }
 
+
+
 void memory::power_ctrl_sync(void *__this, bool value)
 {
     memory *_this = (memory *)__this;
     _this->powered_up = value;
 }
+
+
 
 void memory::meminfo_sync_back(void *__this, void **value)
 {
@@ -213,11 +342,15 @@ void memory::meminfo_sync_back(void *__this, void **value)
     *value = _this->mem_data;
 }
 
+
+
 void memory::meminfo_sync(void *__this, void *value)
 {
     memory *_this = (memory *)__this;
     _this->mem_data = (uint8_t *)value;
 }
+
+
 
 int memory::build()
 {
@@ -245,6 +378,8 @@ int memory::build()
 
     return 0;
 }
+
+
 
 void memory::start()
 {
@@ -305,6 +440,8 @@ void memory::start()
     this->background_power.dynamic_power_start();
     this->last_access_timestamp = -1;
 }
+
+
 
 extern "C" vp::component *vp_constructor(js::config *config)
 {

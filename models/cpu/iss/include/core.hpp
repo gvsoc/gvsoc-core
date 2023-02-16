@@ -44,6 +44,10 @@ public:
 
     bool reset_get() { return this->reset_value; }
 
+    iss_reg_t load_reserve_addr_get() { return this->load_reserve_addr; }
+    void load_reserve_addr_set(iss_reg_t addr) { this->load_reserve_addr = addr; }
+    void load_reserve_addr_clear() { this->load_reserve_addr = -1; }
+
 private:
     bool mstatus_update(bool is_write, iss_reg_t &value);
     bool sstatus_update(bool is_write, iss_reg_t &value);
@@ -55,5 +59,6 @@ private:
     iss_reg_t mstatus_write_mask;
     iss_reg_t sstatus_write_mask;
     bool reset_value;
+    iss_reg_t load_reserve_addr;
 };
 

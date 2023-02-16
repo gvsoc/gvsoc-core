@@ -31,11 +31,15 @@ class Memory(st.Component):
     
     """
 
-    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False, align:int=0):
+    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False,
+        align:int=0, atomics=False):
 
         super(Memory, self).__init__(parent, name)
 
-        self.set_component('memory.memory_impl')
+        if atomics:
+            self.set_component('memory.memory_atomics')
+        else:
+            self.set_component('memory.memory')
 
         self.add_properties({
             'size': size,

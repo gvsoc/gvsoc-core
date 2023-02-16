@@ -454,6 +454,7 @@ void Decode::parse_isa()
             has_d = true; // D needs F
         case 'f':
             has_f = true;
+        case 'a':
         case 'i':
         case 'm':
         {

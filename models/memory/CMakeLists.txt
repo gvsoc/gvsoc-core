@@ -1,7 +1,8 @@
-vp_model(NAME memory.memory_impl
-    SOURCES "memory_impl.cpp"
+vp_model(NAME memory.memory
+    SOURCES "memory.cpp"
     )
 
-vp_model(NAME memory.ddr_impl
-    SOURCES "memory_impl.cpp"
+vp_model(NAME memory.memory_atomics
+    SOURCES "memory.cpp"
     )
+vp_model_compile_options(NAME memory.memory_atomics "-DCONFIG_ATOMICS=1")

@@ -50,7 +50,7 @@ int Gdb_server::register_core(vp::Gdbserver_core *core)
 }
 
 
-void Gdb_server::signal(vp::Gdbserver_core *core, int signal, std::string reason, uint64_t info)
+void Gdb_server::signal(vp::Gdbserver_core *core, int signal, std::string reason, int info)
 {
     this->rsp->signal_from_core(core, signal, reason, info);
 }

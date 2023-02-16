@@ -77,7 +77,8 @@ class Iss(st.Component):
             pmp: bool=False,
             riscv_exceptions: bool=False,
             core=None,
-            supervisor=False):
+            supervisor=False,
+            internal_atomics=False):
 
         super(Iss, self).__init__(parent, name)
 

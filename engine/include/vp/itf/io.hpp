@@ -40,8 +40,20 @@ namespace vp {
 
   typedef enum
   {
-    IO_REQ_FLAGS_DEBUG = (1<<0)
-  } io_req_flags_e;
+    READ=0,
+    WRITE=1,
+    LR=2,
+    SC=3,
+    SWAP=4,
+    ADD=5,
+    XOR=6,
+    AND=7,
+    OR=8,
+    MIN=9,
+    MAX=10,
+    MINU=11,
+    MAXU=12,
+  } io_req_opcode_e;
 
   #define IO_REQ_PAYLOAD_SIZE 64
   #define IO_REQ_NB_ARGS 16
@@ -61,7 +73,7 @@ namespace vp {
     io_req() {}
 
     io_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
-    : addr(addr), data(data), size(size), is_write(is_write)
+    : addr(addr), data(data), size(size), is_write((io_req_opcode_e)is_write)
     {
       init();
     }
@@ -76,8 +88,11 @@ namespace vp {
     uint64_t get_addr() { return addr; }
     void set_addr(uint64_t value) { addr = value; }
 
-    uint64_t get_is_write() { return is_write; }
-    void set_is_write(bool is_write) { this->is_write = is_write; }
+    bool get_is_write() { return (bool)is_write; }
+    void set_is_write(bool is_write) { this->is_write = (io_req_opcode_e)is_write; }
+
+    io_req_opcode_e get_opcode() { return is_write; }
+    void set_opcode(io_req_opcode_e is_write) { this->is_write = is_write; }
 
     void set_size(uint64_t size) { this->size = size; }
     uint64_t get_size() { return size; }
@@ -97,6 +112,9 @@ namespace vp {
     uint8_t *get_data() { return data; }
     void set_data(uint8_t *data) { this->data = data; }
 
+    uint8_t *get_second_data() { return this->second_data; }
+    void set_second_data(uint8_t *data) { this->second_data = data; }
+
     inline int get_payload_size() { return IO_REQ_PAYLOAD_SIZE; }
     inline uint8_t *get_payload() { return payload; }
 
@@ -106,14 +124,8 @@ namespace vp {
     inline void set_int(int index, int value) { *(int *)&get_args()[index] = value; }
     inline int get_int(int index) { return *(int *)&get_args()[index]; }
 
-    inline bool is_debug() { return this->flags & IO_REQ_FLAGS_DEBUG; }
-    inline void set_debug(bool debug)
-    {
-      if (debug)
-        this->flags |= IO_REQ_FLAGS_DEBUG;
-      else
-        this->flags &= ~IO_REQ_FLAGS_DEBUG;
-    }
+    inline bool is_debug() { return false; }
+    inline void set_debug(bool debug) {}
 
     inline int arg_alloc() { return current_arg++; }
     inline void arg_free() { current_arg--; }
@@ -125,17 +137,21 @@ namespace vp {
     inline void **arg_get(int index) { return &args[index]; }
     inline void **arg_get_last() { return &args[current_arg]; }
 
-    inline void prepare() { latency = 0; duration=0; flags=0; }
+    inline void prepare() { latency = 0; duration=0;}
     inline void init() { prepare(); current_arg=0; }
 
-    uint64_t flags;
+    inline void set_initiator(int initiator) { this->initiator = initiator; }
+    inline int get_initiator() { return this->initiator; }
+
     uint64_t addr;
     uint8_t *data;
+    uint8_t *second_data;
     uint64_t size;
     uint64_t actual_size;
-    bool is_write;
+    io_req_opcode_e is_write;
     io_req_status_e status;
     io_slave *resp_port;
+    int initiator = -1;
 
 
   private:
@@ -709,7 +725,7 @@ namespace vp {
 
   inline void io_req::restore()
   {
-    this->is_write = (long)arg_pop();
+    this->is_write = (io_req_opcode_e)(long)arg_pop();
     this->data = (uint8_t *)arg_pop();
     this->size = (long)arg_pop();
     this->addr = (long)arg_pop();

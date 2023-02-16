@@ -208,5 +208,73 @@ void Lsu::load_signed_resume(Lsu *lsu)
 {
     lsu->iss.exec.insn_terminate();
     int reg = lsu->stall_reg;
-    lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg), lsu->stall_size * 8));
+    lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
+        lsu->stall_size * 8));
+}
+
+void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
+    vp::io_req_opcode_e opcode)
+{
+        iss_addr_t phys_addr;
+
+    this->trace.msg("Atomic request (addr: 0x%lx, size: 0x%x, opcode: %d)\n", addr, size, opcode);
+    vp::io_req *req = &this->io_req;
+
+    if (opcode == vp::io_req_opcode_e::LR)
+    {
+        if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+        {
+            return;
+        }
+    }
+    else
+    {
+        if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+        {
+            return;
+        }
+    }
+
+    req->init();
+    req->set_addr(addr);
+    req->set_size(size);
+    req->set_opcode(opcode);
+    req->set_data((uint8_t *)this->iss.regfile.reg_ref(reg_in));
+    req->set_second_data((uint8_t *)this->iss.regfile.reg_ref(reg_out));
+    req->set_initiator(this->iss.csr.mhartid);
+    int err = this->data.req(req);
+    if (err == vp::IO_REQ_OK)
+    {
+        if (size != ISS_REG_WIDTH/8)
+        {
+            this->iss.regfile.set_reg(reg_out, iss_get_signed_value(this->iss.regfile.get_reg(reg_out), size * 8));
+        }
+
+        if (this->io_req.get_latency() > 0)
+        {
+            this->iss.timing.stall_load_account(req->get_latency());
+        }
+        return;
+    }
+    else if (err == vp::IO_REQ_INVALID)
+    {
+        vp_warning_always(&this->iss.top.warning,
+                          "Invalid atomic access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, opcode: %d)\n",
+                          this->iss.exec.current_insn->addr, addr, size, opcode);
+        return;
+    }
+
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
+    this->iss.exec.insn_stall();
+
+    if (size != ISS_REG_WIDTH/8)
+    {
+        this->stall_callback = &Lsu::load_signed_resume;
+        this->stall_reg = reg_out;
+        this->stall_size = size;
+    }
+    else
+    {
+        this->stall_callback = &Lsu::store_resume;
+    }
 }

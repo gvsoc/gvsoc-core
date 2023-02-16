@@ -184,7 +184,7 @@ bool Rsp::send_str(const char *data)
 }
 
 
-bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal, std::string reason, uint64_t info)
+bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal, std::string reason, int info)
 {
     char str[128];
     int len;

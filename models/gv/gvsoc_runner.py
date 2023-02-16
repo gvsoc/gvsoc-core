@@ -66,7 +66,8 @@ def gen_config(args, config, runner=None):
         gvsoc_config.get_bool('traces/enabled') or \
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
-        len(gvsoc_config.get('events/include_regex')) != 0
+        len(gvsoc_config.get('events/include_regex')) != 0 or \
+        args.gui
 
     gvsoc_config.set("debug-mode", debug_mode)
 
@@ -79,7 +80,7 @@ def gen_config(args, config, runner=None):
         rom_binary = full_config.get_str('**/soc/rom/config/binary')
 
         if rom_binary is not None:
-            
+
             if runner is not None:
                 rom_binary = runner.get_file_path(rom_binary)
 
@@ -106,6 +107,7 @@ class Runner(gapylib.target.Target, st.Component):
 
         gapylib.target.Target.__init__(self, parser, options)
         st.Component.__init__(self, parent, name, options)
+        self.is_top = True
 
         if parser is not None:
             parser.add_argument("--model-dir", dest="install_dirs", action="append",
@@ -219,6 +221,7 @@ class Runner(gapylib.target.Target, st.Component):
     def append_args(self, parser, rtl_cosim_runner=None):
         super().append_args(parser)
 
+        cosim_mode = False
         choices = ['gvsoc']
 
         self.rtl_runner = None
@@ -230,9 +233,7 @@ class Runner(gapylib.target.Target, st.Component):
 
             [args, _] = parser.parse_known_args()
 
-            if not args.rtl_cosimulation:
-                parser.add_argument("--gui", dest="gui", default=None, action="store_true",
-                    help="Open GVSOC gui")
+            cosim_mode = args.rtl_cosimulation
 
             if args.rtl_cosimulation:
 
@@ -242,6 +243,10 @@ class Runner(gapylib.target.Target, st.Component):
                 choices.append('rtl')
                 self.rtl_runner = rtl_cosim_runner(self)
                 self.rtl_runner.append_args(parser)
+
+        if not cosim_mode:
+            parser.add_argument("--gui", dest="gui", default=None, action="store_true",
+                help="Open GVSOC gui")
 
         parser.add_argument("--platform", dest="platform", required=True, choices=choices,
             type=str, help="specify the platform used for the target")
@@ -388,7 +393,7 @@ class Runner(gapylib.target.Target, st.Component):
                 stub = ['valgrind'] + stub
 
             if self.get_args().gui:
-                command = ['gvsoc-gui',
+                command = stub + ['gvsoc-gui',
                     '--gv-config=' + self.gvsoc_config_path,
                     '--gui-config=gvsoc_gui_config.json',
                 ]

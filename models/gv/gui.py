@@ -44,9 +44,6 @@ class SignalGenFunctionFromBinary(object):
         for binary in binaries:
             self.binaries.append(comp_path + '/' + binary)
 
-        # TODO
-        self.binaries = ['/chip/soc/fc/binaries']
-
         parent.gen_signals.append(self.get())
 
 

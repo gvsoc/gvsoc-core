@@ -63,7 +63,7 @@ void Csr::reset(bool active)
     #endif
         this->stack_conf = 0;
         this->dcsr = 4 << 28;
-        this->fcsr.frm = 0;
+        this->fcsr.raw = 0;
 
         for (auto reg: this->regs)
         {

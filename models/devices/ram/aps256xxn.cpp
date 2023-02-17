@@ -447,6 +447,7 @@ void Aps::reset(bool active)
         // When reset is active, we must put back the ram into the initial state
         this->read_latency = 5;
         this->write_latency = 5;
+        this->current_command = 0;
     }
 }
 

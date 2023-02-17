@@ -1482,12 +1482,12 @@ static inline unsigned int lib_VEC_PACK_SC_HL_16(Iss *s, unsigned int a, unsigne
 
 static inline void set_fflags(Iss *iss, unsigned int fflags)
 {
-    iss->csr.fcsr.fflags.raw |= fflags;
+    iss->csr.fcsr.fflags |= fflags;
 }
 
 static inline void clear_fflags(Iss *iss, unsigned int fflags)
 {
-    iss->csr.fcsr.fflags.raw &= ~fflags;
+    iss->csr.fcsr.fflags &= ~fflags;
 }
 
 // updates the fflags from fenv exceptions
@@ -1504,69 +1504,109 @@ static inline void update_fflags_fenv(Iss *iss)
 
 // Inspired by https://stackoverflow.com/a/38470183
 // TODO PROPER ROUNDING WITH FLAGS
-static inline int32_t double_to_int(double dbl)
+static inline int32_t double_to_int(Iss *s, double dbl_i)
 {
-    dbl = nearbyint(dbl);
+    double dbl = nearbyint(dbl_i);
+
+    if (dbl != dbl_i)
+    {
+        set_fflags(s, 1 << 0);
+    }
+
     if (dbl < 2.0 * (INT32_MAX / 2 + 1))
     {                               // NO OVERFLOW
         if (ceil(dbl) >= INT32_MIN) // NO UNDERFLOW
             return (int32_t)dbl;
         else // UNDERFLOW
+        {
+            set_fflags(s, 1 << 4);
             return INT32_MIN;
+        }
     }
     else
     { // OVERFLOW OR NAN
+        set_fflags(s, 1 << 4);
         return INT32_MAX;
     }
 }
 
 // TODO PROPER ROUNDING WITH FLAGS
-static inline uint32_t double_to_uint(double dbl)
+static inline uint32_t double_to_uint(Iss *s, double dbl_i)
 {
-    dbl = nearbyint(dbl);
+    double dbl = nearbyint(dbl_i);
+
+    if (dbl != dbl_i)
+    {
+        set_fflags(s, 1 << 0);
+    }
+
     if (dbl < 2.0 * (UINT32_MAX / 2 + 1))
     {                       // NO OVERFLOW
         if (ceil(dbl) >= 0) // NO UNDERFLOW
             return (uint32_t)dbl;
         else // UNDERFLOW
+        {
+            set_fflags(s, 1 << 4);
             return 0;
+        }
     }
     else
     { // OVERFLOW OR NAN
+        set_fflags(s, 1 << 4);
         return UINT32_MAX;
     }
 }
 
 // TODO PROPER ROUNDING WITH FLAGS
-static inline int64_t double_to_long(double dbl)
+static inline int64_t double_to_long(Iss *s, double dbl_i)
 {
-    dbl = nearbyint(dbl);
+    double dbl = nearbyint(dbl_i);
+
+    if (dbl != dbl_i)
+    {
+        set_fflags(s, 1 << 0);
+    }
+
     if (dbl < 2.0 * (INT64_MAX / 2 + 1))
     {                               // NO OVERFLOW
         if (ceil(dbl) >= INT64_MIN) // NO UNDERFLOW
             return (int64_t)dbl;
         else // UNDERFLOW
+        {
+            set_fflags(s, 1 << 4);
             return INT64_MIN;
+        }
     }
     else
     { // OVERFLOW OR NAN
+        set_fflags(s, 1 << 4);
         return INT64_MAX;
     }
 }
 
 // TODO PROPER ROUNDING WITH FLAGS
-static inline uint64_t double_to_ulong(double dbl)
+static inline uint64_t double_to_ulong(Iss *s, double dbl_i)
 {
-    dbl = nearbyint(dbl);
+    double dbl = nearbyint(dbl_i);
+
+    if (dbl != dbl_i)
+    {
+        set_fflags(s, 1 << 0);
+    }
+
     if (dbl < 2.0 * (UINT64_MAX / 2 + 1))
     {                       // NO OVERFLOW
         if (ceil(dbl) >= 0) // NO UNDERFLOW
             return (uint64_t)dbl;
         else // UNDERFLOW
+        {
+            set_fflags(s, 1 << 4);
             return 0;
+        }
     }
     else
     { // OVERFLOW OR NAN
+        set_fflags(s, 1 << 4);
         return UINT64_MAX;
     }
 }
@@ -1885,6 +1925,11 @@ static inline unsigned int lib_flexfloat_max(Iss *s, unsigned int a, unsigned in
 #ifdef OLD
     FF_EXEC_2(s, ff_max, a, b, e, m)
 #else
+    // The invalid flag is set if either input is a signaling nan
+    if (IsNan(a, e, m) == 2 || IsNan(b, e, m) == 2)
+    {
+        set_fflags(s, 1 << 4);
+    }
     int Nan_a = IsNan(a, e, m);
     int Nan_b = IsNan(b, e, m);
     unsigned int Nan_Q = (((1 << e) - 1) << m) | ((unsigned int)1 << (m - 1));
@@ -1921,13 +1966,13 @@ static inline int64_t lib_flexfloat_cvt_w_ff_round(Iss *s, unsigned int a, uint8
         }
         ff_a.value += 0.5f;
     }
-    int32_t result_int = double_to_int(ff_a.value);
+    int32_t result_int = double_to_int(s, ff_a.value);
     if (neg)
     {
         result_int = -result_int;
     }
     restoreFFRoundingMode(new_round);
-    return (int64_t)result_int;
+    return iss_get_signed_value(result_int, 32);
 }
 
 static inline int64_t lib_flexfloat_cvt_wu_ff_round(Iss *s, unsigned int a, uint8_t e, uint8_t m, unsigned int round)
@@ -1946,7 +1991,7 @@ static inline int64_t lib_flexfloat_cvt_wu_ff_round(Iss *s, unsigned int a, uint
         }
         ff_a.value += 0.5f;
     }
-    int32_t result_int = double_to_uint(ff_a.value);
+    int32_t result_int = double_to_uint(s, ff_a.value);
     restoreFFRoundingMode(old);
     return (int64_t)result_int;
 }
@@ -1973,7 +2018,7 @@ static inline int64_t lib_flexfloat_cvt_l_ff_round(Iss *s, unsigned int a, uint8
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, e, m)
-    int64_t result_long = double_to_long(ff_a.value);
+    int64_t result_long = double_to_long(s, ff_a.value);
     restoreFFRoundingMode(old);
     return result_long;
 }
@@ -1982,7 +2027,7 @@ static inline uint64_t lib_flexfloat_cvt_lu_ff_round(Iss *s, unsigned int a, uin
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, e, m)
-    uint64_t result_ulong = double_to_ulong(ff_a.value);
+    uint64_t result_ulong = double_to_ulong(s, ff_a.value);
     restoreFFRoundingMode(old);
     return result_ulong;
 }
@@ -2000,7 +2045,7 @@ static inline unsigned int lib_flexfloat_cvt_ff_lu_round(Iss *s, uint64_t a, uin
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
-    ff_init_long(&ff_a, a, (flexfloat_desc_t){e, m});
+    ff_init_long_long_unsigned(&ff_a, a, (flexfloat_desc_t){e, m});
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_a);
 }
@@ -2014,21 +2059,29 @@ static inline int lib_flexfloat_cvt_ff_ff_round(Iss *s, unsigned int a, uint8_t 
     return flexfloat_get_bits(&ff_res);
 }
 
-static inline unsigned int lib_flexfloat_fmv_x_ff(Iss *s, unsigned int a, uint8_t e, uint8_t m)
+static inline iss_uim_t lib_flexfloat_fmv_x_ff(Iss *s, iss_uim_t a, uint8_t e, uint8_t m)
 {
-    return a;
+    return iss_get_signed_value(a, 32);
 }
 
-static inline unsigned int lib_flexfloat_fmv_ff_x(Iss *s, unsigned int a, uint8_t e, uint8_t m)
+static inline iss_uim_t lib_flexfloat_fmv_ff_x(Iss *s, iss_uim_t a, uint8_t e, uint8_t m)
 {
     return a;
 }
 
 static inline unsigned int lib_flexfloat_eq(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
+    // The invalid flag is set if either input is a signaling nan
+    if (IsNan(a, e, m) == 2 || IsNan(b, e, m) == 2)
+    {
+        set_fflags(s, 1 << 4);
+    }
+
     // if (IsNan(a, e, m)) return 0;  WAS BEFORE, NOT ENOUGH
     if (IsNan(a, e, m) || IsNan(b, e, m))
+    {
         return 0;
+    }
     FF_INIT_2(a, b, e, m)
     feclearexcept(FE_ALL_EXCEPT);
     int32_t res = ff_eq(&ff_a, &ff_b);
@@ -2051,7 +2104,10 @@ static inline unsigned int lib_flexfloat_ne(Iss *s, unsigned int a, unsigned int
 static inline unsigned int lib_flexfloat_lt(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
+    {
+        set_fflags(s, 1 << 4);
         return 0;
+    }
     FF_INIT_2(a, b, e, m)
     feclearexcept(FE_ALL_EXCEPT);
     int32_t res = ff_lt(&ff_a, &ff_b);
@@ -2073,7 +2129,10 @@ static inline unsigned int lib_flexfloat_ge(Iss *s, unsigned int a, unsigned int
 static inline unsigned int lib_flexfloat_le(Iss *s, unsigned int a, unsigned int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
+    {
+        set_fflags(s, 1 << 4);
         return 0;
+    }
     FF_INIT_2(a, b, e, m)
     feclearexcept(FE_ALL_EXCEPT);
     int32_t res = ff_le(&ff_a, &ff_b);

@@ -43,10 +43,7 @@ static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
             REG_SET(0, value);
     }
 
-    if (REG_IN(0) != 0)
-    {
-        iss_csr_write(iss, UIM_GET(0), reg_value);
-    }
+    iss_csr_write(iss, UIM_GET(0), reg_value);
 
     return insn->next;
 }

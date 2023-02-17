@@ -450,6 +450,17 @@ INLINE void ff_init_long(flexfloat_t *obj, long value, flexfloat_desc_t desc) {
     flexfloat_sanitize(obj);
 }
 
+INLINE void ff_init_long_long_unsigned(flexfloat_t *obj, unsigned long long value, flexfloat_desc_t desc) {
+    obj->value = (fp_t)value;
+    #ifdef FLEXFLOAT_TRACKING
+    obj->exact_value = (fp_t)value;
+    obj->tracking_fn = 0;
+    obj->tracking_arg = 0;
+    #endif
+    obj->desc = desc;
+    flexfloat_sanitize(obj);
+}
+
 
 
 INLINE void ff_cast(flexfloat_t *obj, const flexfloat_t *source, flexfloat_desc_t desc ) {

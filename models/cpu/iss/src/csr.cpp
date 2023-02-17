@@ -232,13 +232,13 @@ static bool uip_write(Iss *iss, unsigned int value)
 
 static bool fflags_read(Iss *iss, iss_reg_t *value)
 {
-    *value = iss->csr.fcsr.fflags.raw;
+    *value = iss->csr.fcsr.fflags;
     return false;
 }
 
 static bool fflags_write(Iss *iss, unsigned int value)
 {
-    iss->csr.fcsr.fflags.raw = value;
+    iss->csr.fcsr.fflags = value;
     return false;
 }
 

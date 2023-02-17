@@ -212,6 +212,7 @@ void ff_init_longdouble(flexfloat_t *obj, long double value, flexfloat_desc_t de
 #endif
 void ff_init_int(flexfloat_t *obj, int value, flexfloat_desc_t desc);
 void ff_init_long(flexfloat_t *obj, long value, flexfloat_desc_t desc);
+void ff_init_long_long_unsigned(flexfloat_t *obj, unsigned long long value, flexfloat_desc_t desc);
 void ff_cast(flexfloat_t *obj, const flexfloat_t *source, flexfloat_desc_t desc);
 
 // Casts

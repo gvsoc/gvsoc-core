@@ -184,7 +184,7 @@ class Iss(st.Component):
         gv.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
             to_signal='function', binaries=['binaries'])
         gv.gui.Signal(self, active, name='function', path='function',
-            display=gv.gui.DisplayStringBox())
+            display=gv.gui.DisplayString())
 
 
         stalls = gv.gui.Signal(self, active, name='stalls')

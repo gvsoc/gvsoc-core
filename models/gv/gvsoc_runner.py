@@ -27,7 +27,7 @@ from gv.gtkwave import Gtkwave_tree
 from gv.gui import GuiConfig
 
 
-def gen_config(args, config, runner=None):
+def gen_config(args, config, working_dir, runner=None):
 
     full_config =  js.import_config(config, interpret=False, gen=False)
 
@@ -87,8 +87,10 @@ def gen_config(args, config, runner=None):
             if os.path.exists(rom_binary):
                 debug_binaries.append(rom_binary)
 
-        for binary in debug_binaries:
-            full_config.set('**/debug_binaries', binary + '.debugInfo')
+        for index, binary in enumerate(debug_binaries):
+            debug_binary = os.path.join(working_dir,
+                f'debug_binary_{index}_{os.path.basename(binary)}.debugInfo')
+            full_config.set('**/debug_binaries', debug_binary)
             full_config.set('**/binaries', binary)
 
     gvsoc_config_path = 'gvsoc_config.json'
@@ -254,7 +256,8 @@ class Runner(gapylib.target.Target, st.Component):
     def parse_args(self, args):
         super().parse_args(args)
 
-        self.full_config, self.gvsoc_config_path = gen_config(args, { 'target': self.get_config() }, self)
+        self.full_config, self.gvsoc_config_path = gen_config(
+            args, { 'target': self.get_config() }, self.get_working_dir(), self)
 
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
@@ -344,9 +347,10 @@ class Runner(gapylib.target.Target, st.Component):
     def __gen_debug_info(self, full_config, gvsoc_config):
         debug_binaries_config = full_config.get('**/debug_binaries')
         if debug_binaries_config is not None:
-            for binary in debug_binaries_config.get_dict():
-                if os.system('gen-debug-info %s %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
-                # if os.system('pulp-pc-info --file %s --all-file %s' % (binary.replace('.debugInfo', ''), binary)) != 0:
+            binaries = full_config.get('**/binaries').get_dict()
+            for index, binary in enumerate(debug_binaries_config.get_dict()):
+                print (binary)
+                if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
                     raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 

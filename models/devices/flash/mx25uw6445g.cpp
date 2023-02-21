@@ -267,6 +267,8 @@ private:
     int current_address;
     // True if the current command is a write command.
     bool is_write;
+    // True if rsten command was issued
+    bool reset_enable;
     // Number of remaining latency cycles of the current command.
     int latency_count;
     // Number of remaining bits to be processed. Used when receiving command header, address and
@@ -417,6 +419,16 @@ void Mx25::parse_command(int &addr_bits)
     // Store the current command as it will be used througout the whole command
     this->current_command = this->pending_value;
 
+
+    // All commands except reset enable and reset will reset the 
+    // reset enable flag
+    if(!(this->current_command == 0x66 || this->current_command == 0x99
+                || this->current_command == 0x6699
+                || this->current_command == 0x9966))
+    {
+        this->reset_enable = false;
+    }
+
     // Write enable
     if (this->current_command == 0x06 || this->current_command == 0x06f9)
     {
@@ -501,6 +513,43 @@ void Mx25::parse_command(int &addr_bits)
         {
             this->trace.force_warning("Trying to read while flash is busy\n");
         }
+    }
+    // Reset Enable
+    else if (this->current_command == 0x66)
+    {
+        this->reset_enable = true;
+        if (this->busy)
+        {
+            this->trace.force_warning("Trying to enable reset while flash is busy\n");
+        }
+        this->erase_chip();
+    }
+    // Reset
+    else if (this->current_command == 0x99)
+    {
+        if (this->busy || !this->reset_enable)
+        {
+            this->trace.force_warning("Trying to rst en while flash is busy\n");
+        }
+        this->reset(this->reset_enable);
+    }
+    // Reset Enable -- octospi
+    else if (this->current_command == 0x6699)
+    {
+        this->reset_enable = true;
+        if (this->busy)
+        {
+            this->trace.force_warning("Trying to enable reset while flash is busy\n");
+        }
+    }
+    // Reset -- octospi
+    else if (this->current_command == 0x9966)
+    {
+        if (this->busy || !this->reset_enable)
+        {
+            this->trace.force_warning("Trying to reset while flash is busy\n");
+        }
+        this->reset(this->reset_enable);
     }
     else
     {
@@ -956,6 +1005,7 @@ void Mx25::reset(bool active)
         this->ospi_mode = false;
         this->dtr_mode = false;
         this->write_enable = false;
+        this->reset_enable = false;
         this->busy = false;
         this->program_ongoing = false;
         this->latency_code = 0;
@@ -1020,6 +1070,7 @@ int Mx25::build()
 Mx25::Mx25(js::config *config)
     : vp::time_scheduler(config)
 {
+    this->reset_enable = false;
 }
 
 

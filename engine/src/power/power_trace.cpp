@@ -28,6 +28,8 @@ int vp::power::power_trace::init(component *top, std::string name, vp::power::po
 {
     this->top = top;
     top->traces.new_trace_event_real(name, &this->trace);
+    top->traces.new_trace_event_real("dyn_" + name, &this->dyn_trace);
+    top->traces.new_trace_event_real("static_" + name, &this->static_trace);
     this->quantum_power_for_cycle = 0;
     this->report_dynamic_energy = 0;
     this->report_leakage_energy = 0;
@@ -46,6 +48,8 @@ int vp::power::power_trace::init(component *top, std::string name, vp::power::po
     this->parent = parent;
 
     this->trace.event_real(0);
+    this->dyn_trace.event_real(0);
+    this->static_trace.event_real(0);
 
     this->current_dynamic_power = 0;
     this->current_dynamic_power_timestamp = 0;
@@ -139,6 +143,8 @@ void vp::power::power_trace::dump_vcd_trace()
 
     // Dump the instant power to trace
     this->trace.event_real(current_power);
+    this->dyn_trace.event_real(quantum_power + this->current_dynamic_power);
+    this->static_trace.event_real(this->current_leakage_power);
 
     // If there was a contribution from energy quantum, schedule an event in the next cycle so that we dump again 
     // the trace since teh quantum implicitely disappears and overal power is modified

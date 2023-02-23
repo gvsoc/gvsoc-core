@@ -186,6 +186,10 @@ class Iss(st.Component):
         gv.gui.Signal(self, active, name='function', path='function',
             display=gv.gui.DisplayString())
 
+        gv.gui.Signal(self, active, name='power', path='power_trace', groups='power')
+        gv.gui.Signal(self, active, name='dyn_power', path='dyn_power_trace', groups='power')
+        gv.gui.Signal(self, active, name='static_power', path='static_power_trace', groups='power')
+
 
         stalls = gv.gui.Signal(self, active, name='stalls')
         gv.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gv.gui.DisplayPulse(), groups=['stall'])
@@ -204,6 +208,6 @@ class Iss(st.Component):
         gv.gui.Signal(self, stalls, name="ld_ext_cycles", path="pcer_ld_ext_cycles", display=gv.gui.DisplayPulse(), groups=['stall'])
         gv.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gv.gui.DisplayPulse(), groups=['stall'])
         gv.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="misaligned",    path="misaligned_access",  display=gv.gui.DisplayPulse(), groups=['stall'])
+        gv.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gv.gui.DisplayPulse(), groups=['stall'])
 
         return active

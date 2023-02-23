@@ -400,7 +400,9 @@ namespace vp
             vp::clock_event *trace_event;     // Clock event used to adjust VCD trace value after
                                               // energy quantum has been accounted.
             vp::trace trace;                  // Trace used for reporting power in VCD traces
-            
+            vp::trace dyn_trace;              // Trace used for reporting dynamic power in VCD traces
+            vp::trace static_trace;           // Trace used for reporting static power in VCD traces
+
             int64_t curent_cycle_timestamp;   // Timestamp of the current cycle, used to compute energy spent in the
                                               // current cycle. As soon as current time is different, the timestamp
                                               // is set to current time and the current energy is set to 0.

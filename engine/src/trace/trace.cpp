@@ -445,7 +445,7 @@ void vp::trace_engine::flush_event_traces(int64_t timestamp)
         {
             if (current->is_real)
             {
-                //this->vcd_user->event_update_real(int id, *(double *)current->value);
+                this->vcd_user->event_update_real(timestamp, current->id, *(double *)current->buffer);
             }
             else if (current->is_string)
             {

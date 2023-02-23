@@ -55,9 +55,30 @@ class SignalGenFunctionFromBinary(object):
             "binaries": self.binaries
         }
 
+class SignalGenFromSignals(object):
+    def __init__(self, comp, parent, from_signals, to_signal):
+        comp_path = comp.get_comp_path()
+        self.from_signals = []
+
+        for signal in from_signals:
+            self.from_signals.append(comp_path + '/' + signal)
+
+        self.to_signal = comp.get_comp_path() + '/' + to_signal
+
+        parent.gen_signals.append(self.get())
+
+
+    def get(self):
+        return {
+            "path": self.to_signal,
+            "type": "from_signals",
+            "subtype": "analog_stacked",
+            "from_signals": self.from_signals
+        }
+
 class Signal(object):
 
-    def __init__(self, comp, parent, name=None, path=None, groups=None, display=None, properties=None):
+    def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None):
         if path is not None and comp is not None:
             path = comp.get_comp_path() + '/' + path
         self.parent = parent
@@ -69,6 +90,8 @@ class Signal(object):
         self.gen_signals = []
         self.display = display
         self.properties = properties
+        self.is_group = is_group
+        self.comp = comp
         if parent is not None:
             parent.child_signals.append(self)
 
@@ -88,6 +111,8 @@ class Signal(object):
         config = {}
 
         config['name'] = self.name
+        if self.is_group:
+            config['group'] = self.comp.get_comp_path()
         if self.path is not None:
             config['path'] = self.path
         if self.display is not None:
@@ -136,7 +161,11 @@ class GuiConfig(Signal):
                         "enabled": True,
                         "signals": []
                     }
-                groups[group]['signals'].append(signal.path)
+
+                if signal.is_group:
+                    groups[group]['signals'].append(signal.comp.get_comp_path())
+                else:
+                    groups[group]['signals'].append(signal.path)
 
         config['signal_groups'] = list(groups.values())
         config['signals_generate'] = self.get_childs_gen_signals()

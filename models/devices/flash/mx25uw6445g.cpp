@@ -515,39 +515,20 @@ void Mx25::parse_command(int &addr_bits)
         }
     }
     // Reset Enable
-    else if (this->current_command == 0x66)
+    else if (this->current_command == 0x66 || this->current_command == 0x6699)
     {
         this->reset_enable = true;
         if (this->busy)
         {
             this->trace.force_warning("Trying to enable reset while flash is busy\n");
         }
-        this->erase_chip();
     }
     // Reset
-    else if (this->current_command == 0x99)
+    else if (this->current_command == 0x99 || this->current_command == 0x9966)
     {
         if (this->busy || !this->reset_enable)
         {
             this->trace.force_warning("Trying to rst en while flash is busy\n");
-        }
-        this->reset(this->reset_enable);
-    }
-    // Reset Enable -- octospi
-    else if (this->current_command == 0x6699)
-    {
-        this->reset_enable = true;
-        if (this->busy)
-        {
-            this->trace.force_warning("Trying to enable reset while flash is busy\n");
-        }
-    }
-    // Reset -- octospi
-    else if (this->current_command == 0x9966)
-    {
-        if (this->busy || !this->reset_enable)
-        {
-            this->trace.force_warning("Trying to reset while flash is busy\n");
         }
         this->reset(this->reset_enable);
     }
@@ -1070,7 +1051,6 @@ int Mx25::build()
 Mx25::Mx25(js::config *config)
     : vp::time_scheduler(config)
 {
-    this->reset_enable = false;
 }
 
 

@@ -348,10 +348,12 @@ class Runner(gapylib.target.Target, st.Component):
     def __gen_debug_info(self, full_config, gvsoc_config):
         debug_binaries_config = full_config.get('**/debug_binaries')
         if debug_binaries_config is not None:
-            binaries = full_config.get('**/binaries').get_dict()
-            for index, binary in enumerate(debug_binaries_config.get_dict()):
-                if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
-                    raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+            binaries_config = full_config.get('**/binaries')
+            if binaries_config is not None:
+                binaries = binaries_config.get_dict()
+                for index, binary in enumerate(debug_binaries_config.get_dict()):
+                    if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
+                        raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
     def run(self, norun=False):

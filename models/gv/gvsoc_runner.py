@@ -25,6 +25,7 @@ import json_tools as js
 import os.path
 from gv.gtkwave import Gtkwave_tree
 from gv.gui import GuiConfig
+import gv.gui
 
 
 def gen_config(args, config, working_dir, runner=None):
@@ -349,7 +350,6 @@ class Runner(gapylib.target.Target, st.Component):
         if debug_binaries_config is not None:
             binaries = full_config.get('**/binaries').get_dict()
             for index, binary in enumerate(debug_binaries_config.get_dict()):
-                print (binary)
                 if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
                     raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
@@ -469,3 +469,9 @@ class Runner(gapylib.target.Target, st.Component):
             tree.gen()
 
             return tree.activate_traces
+
+
+    def gen_gui(self, parent_signal):
+        gv.gui.Signal(self, parent_signal, name='kernel', path='/user/kernel/state',
+            display=gv.gui.DisplayStringBox(), groups=["user"])
+        return parent_signal

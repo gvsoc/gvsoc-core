@@ -79,7 +79,7 @@ class SignalGenFromSignals(object):
 class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None):
-        if path is not None and comp is not None:
+        if path is not None and comp is not None and path[0] != '/':
             path = comp.get_comp_path() + '/' + path
         self.parent = parent
         self.name = name

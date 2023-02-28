@@ -29,26 +29,26 @@ class Gvsoc_proxy_client : public gv::Gvsoc
 public:
     Gvsoc_proxy_client(gv::GvsocConf *conf);
 
-    void open();
+    void open() override;
+    void bind(gv::Gvsoc_user *user) override;
+    void close() override;
 
-    void close();
+    void run() override;
 
-    void run();
+    void start() override;
 
-    void start();
+    int64_t stop() override;
 
-    int64_t stop();
+    int64_t step(int64_t duration) override;
 
-    int64_t step(int64_t duration);
+    int join() override;
 
-    int join();
+    gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
 
-    gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name);
-
-    void vcd_bind(gv::Vcd_user *user);
-    void event_add(std::string path, bool is_regex);
-    void event_exclude(std::string path, bool is_regex);
-    void *get_component(std::string path);
+    void vcd_bind(gv::Vcd_user *user) override;
+    void event_add(std::string path, bool is_regex) override;
+    void event_exclude(std::string path, bool is_regex) override;
+    void *get_component(std::string path) override;
     std::string send_command(std::string command, bool keep_lock=false);
     int post_command(std::string command, bool keep_lock=false);
     void unlock_command();

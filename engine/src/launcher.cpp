@@ -63,6 +63,11 @@ void Gvsoc_launcher::open()
     }
 }
 
+void Gvsoc_launcher::bind(gv::Gvsoc_user *user)
+{
+    this->user = user;
+}
+
 void Gvsoc_launcher::start()
 {
     this->instance->build_new();

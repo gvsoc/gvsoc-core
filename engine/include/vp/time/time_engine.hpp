@@ -169,6 +169,8 @@ protected:
 // to the main python thread which will take care of stopping the engine.
 inline void vp::time_engine::stop_engine(int status, bool force, bool no_retain)
 {
+    this->get_parent()->flush_all(); 
+
     if (!this->engine_has_been_stopped)
     {
         this->engine_has_been_stopped = true;

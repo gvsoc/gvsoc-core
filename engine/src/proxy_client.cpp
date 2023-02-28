@@ -127,6 +127,10 @@ void Gvsoc_proxy_client::reader_routine()
 
 }
 
+void Gvsoc_proxy_client::bind(gv::Gvsoc_user *user)
+{
+}
+
 void Gvsoc_proxy_client::open()
 {
     struct sockaddr_in addr;

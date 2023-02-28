@@ -186,10 +186,11 @@ class Iss(st.Component):
         gv.gui.Signal(self, active, name='function', path='function',
             display=gv.gui.DisplayString())
 
-        gv.gui.Signal(self, active, name='power', path='power_trace', groups='power')
-        gv.gui.Signal(self, active, name='dyn_power', path='dyn_power_trace', groups='power')
-        gv.gui.Signal(self, active, name='static_power', path='static_power_trace', groups='power')
-
+        gv.gui.SignalGenFromSignals(self, active, from_signals=['static_power_trace', 'dyn_power_trace'],
+            to_signal='power')
+        power_signal = gv.gui.Signal(self, active, name='power', path='power', groups='power')
+        gv.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
+        gv.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
 
         stalls = gv.gui.Signal(self, active, name='stalls')
         gv.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gv.gui.DisplayPulse(), groups=['stall'])

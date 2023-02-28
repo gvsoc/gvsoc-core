@@ -246,7 +246,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_string(int64_t timestamp, int id, std::string value) = 0;
+        virtual void event_update_string(int64_t timestamp, int id, const char *value, int flags) = 0;
     };
 
 
@@ -318,6 +318,24 @@ namespace gv {
 
 
     /**
+     * Class required for receiving GVSOC events.
+     *
+     * When the external C++ connects to GVSOC, it must implement all the methods of this class
+     * to properly get notified about GVSOC events.
+     */
+    class Gvsoc_user
+    {
+    public:
+        /**
+         * Called by GVSOC to the simulation has ended.
+         *
+         * This means the simulated software is over and probably exited and GVSOC cannnot further
+         * simulate it.
+         */
+        virtual void has_ended() = 0;
+    };
+
+    /**
      * GVSOC interface
      *
      * Gather all the methods which can be called to control GVSOC execution and other features
@@ -335,6 +353,14 @@ namespace gv {
          * @param conf The configuration describing how to open GVSOC.
          */
         virtual void open() = 0;
+
+        /**
+         * Bind external C++ code to GVSOC
+         *
+         * @param user A pointer to the caller class instance which will be called for all GVSOC events. This caller
+         *             must implement all the methods defined in class Gvsoc_user
+         */
+        virtual void bind(Gvsoc_user *user) = 0;
 
         /**
          * Close a GVSOC configuration

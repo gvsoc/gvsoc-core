@@ -449,7 +449,7 @@ void vp::trace_engine::flush_event_traces(int64_t timestamp)
             }
             else if (current->is_string)
             {
-                this->vcd_user->event_update_string(timestamp, current->id, (char *)current->buffer);
+                this->vcd_user->event_update_string(timestamp, current->id, (const char *)current->buffer, current->flags);
             }
             else if (current->width > 8)
             {
@@ -568,7 +568,7 @@ void vp::trace_engine::vcd_routine()
 
             event_buffer += sizeof(timestamp);
 
-            if (trace->is_string)
+            if (trace->is_string && flags != 1)
             {
                 bytes = *(int32_t *)event_buffer;
                 trace->width = bytes * 8;

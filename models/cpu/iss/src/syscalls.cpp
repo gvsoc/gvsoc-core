@@ -588,14 +588,7 @@ void Syscalls::handle_riscv_ebreak()
         }
         else
         {
-            if (trace->width > 32)
-            {
-                this->iss.top.warning.force_warning("Trying to write to VCD trace whose width is bigger than 32 (id: %d)\n", id);
-            }
-            else
-            {
-                trace->event(NULL);
-            }
+            trace->event(NULL);
         }
 
         break;

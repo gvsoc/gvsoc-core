@@ -535,6 +535,11 @@ static inline iss_insn_t *hwloop_check_exec(Iss *iss, iss_insn_t *insn)
     // The real handler has been saved when the loop was started.
     iss_insn_t *insn_next = insn->hwloop_handler(iss, insn);
 
+    if (iss->exec.halted.get())
+    {
+        return insn_next;
+    }
+
     if (elw_interrupted)
     {
         // This flag is 1 when the instruction has been previously interrupted and is now

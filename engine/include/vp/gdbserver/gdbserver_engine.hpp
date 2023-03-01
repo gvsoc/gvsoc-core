@@ -38,6 +38,7 @@ namespace vp
         } state;
 
         virtual int gdbserver_get_id() = 0;
+        virtual void gdbserver_set_id(int i) = 0;
         virtual std::string gdbserver_get_name() = 0;
         virtual int gdbserver_reg_set(int reg, uint8_t *value) = 0;
         virtual int gdbserver_reg_get(int reg, uint8_t *value) = 0;

@@ -67,6 +67,7 @@ public:
 
 
 private:
+    int current_id = 0;
     Rsp *rsp;
     std::unordered_map<int, vp::Gdbserver_core *> cores;
     std::vector<vp::Gdbserver_core *> cores_list;

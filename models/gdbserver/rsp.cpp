@@ -220,7 +220,6 @@ bool Rsp::signal(int signal)
 
     auto core = this->top->get_core();
     int state = core->gdbserver_state();
-    this->active_core_for_other = core->gdbserver_get_id();
 
     if (signal == -1)
     {
@@ -252,7 +251,7 @@ bool Rsp::reg_write(char *data, size_t)
     }
 
     wdata = ntohl(wdata);
-    auto core = this->top->get_core(this->active_core_for_other);
+    auto core = this->top->get_active_core_for_other();
 
     if (core->gdbserver_reg_set(addr, (uint8_t *)&wdata))
     {
@@ -277,7 +276,7 @@ bool Rsp::reg_read(char *data, size_t)
         return false;
     }
 
-    auto core = this->top->get_core(this->active_core_for_other);
+    auto core = this->top->get_active_core_for_other();
 
     if (core->gdbserver_reg_get(addr, (uint8_t *)&rdata))
     {
@@ -431,7 +430,6 @@ bool Rsp::multithread(char *data, size_t len)
             {
                 return send_str("E01");
             }
-            this->active_core_for_other = thread_id;
         }
 
         return send_str("OK");
@@ -586,7 +584,7 @@ bool Rsp::v_packet(char* data, size_t len)
 bool Rsp::regs_send()
 {
     int nb_regs, reg_size;
-    auto core = this->top->get_core(this->active_core_for_other);
+    auto core = this->top->get_active_core_for_other();
     core->gdbserver_regs_get(&nb_regs, &reg_size, NULL);
 
     if (reg_size == 4)
@@ -604,7 +602,7 @@ bool Rsp::regs_send()
 
         return this->send_str(regs_str);
     }
-    else
+    else if (nb_regs > 0)
     {
         this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unsupported register size (size: %d)\n", reg_size);
     }

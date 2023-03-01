@@ -68,7 +68,6 @@ private:
     std::thread *loop_thread = NULL;
     RspPacketCodec *codec;
     CircularCharBuffer *out_buffer;
-    int active_core_for_other = 0;
     std::mutex mutex;
     bool proxy_loop_stop;
     int client_socket;

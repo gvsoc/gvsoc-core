@@ -39,7 +39,8 @@ Gdb_server::Gdb_server(js::config *config)
 
 int Gdb_server::register_core(vp::Gdbserver_core *core)
 {
-    int id = core->gdbserver_get_id();
+    int id = this->current_id++;
+    core->gdbserver_set_id(id);
 
     this->trace.msg(vp::trace::LEVEL_INFO, "Registering core (id: %d)\n", id);
 

@@ -65,7 +65,12 @@ void Gdbserver::reset(bool active)
 
 int Gdbserver::gdbserver_get_id()
 {
-    return this->iss.csr.mhartid;
+    return this->id;
+}
+
+void Gdbserver::gdbserver_set_id(int i)
+{
+    this->id = i;
 }
 
 std::string Gdbserver::gdbserver_get_name()
@@ -243,14 +248,15 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
     std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
     for (auto wp: watchpoints)
     {
-        if (addr + size >= wp->addr && addr < wp->addr + wp->size)
+        if (addr + size > wp->addr && addr < wp->addr + wp->size)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Hit watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
                 addr, size, is_write);
             this->iss.exec.stalled_inc();
             this->iss.exec.halted.set(true);
+            uint32_t hit_addr = std::max(wp->addr, addr);
             this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver,
-                vp::Gdbserver_engine::SIGNAL_TRAP, "rwatch", addr);
+                vp::Gdbserver_engine::SIGNAL_TRAP, is_write ? "watch" : "rwatch", hit_addr);
             return true;
         }
     }

@@ -43,20 +43,21 @@ public:
 
     bool is_enabled() { return this->gdbserver != NULL; }
 
-    int gdbserver_get_id();
-    std::string gdbserver_get_name();
-    int gdbserver_reg_set(int reg, uint8_t *value);
-    int gdbserver_reg_get(int reg, uint8_t *value);
-    int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value);
-    int gdbserver_stop();
-    int gdbserver_cont();
-    int gdbserver_stepi();
-    int gdbserver_state();
-    void gdbserver_breakpoint_insert(uint64_t addr);
-    void gdbserver_breakpoint_remove(uint64_t addr);
-    void gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size);
-    void gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size);
-    int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write);
+    int gdbserver_get_id() override;
+    void gdbserver_set_id(int id) override;
+    std::string gdbserver_get_name() override;
+    int gdbserver_reg_set(int reg, uint8_t *value) override;
+    int gdbserver_reg_get(int reg, uint8_t *value) override;
+    int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value) override;
+    int gdbserver_stop() override;
+    int gdbserver_cont() override;
+    int gdbserver_stepi() override;
+    int gdbserver_state() override;
+    void gdbserver_breakpoint_insert(uint64_t addr) override;
+    void gdbserver_breakpoint_remove(uint64_t addr) override;
+    void gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size) override;
+    void gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size) override;
+    int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write) override;
 
     void enable_breakpoint(iss_addr_t addr);
     void disable_breakpoint(iss_addr_t addr);
@@ -85,4 +86,5 @@ public:
     bool io_pending_is_write;
     std::list<Watchpoint *> write_watchpoints;
     std::list<Watchpoint *> read_watchpoints;
+    int id;
 };

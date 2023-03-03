@@ -914,8 +914,8 @@ Xf16 = IsaSubset('f16', [
     R5('fcvt.h.lu','R2F2','1101010 00011 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f16']),
 
     # If F also supported
-    R5('fcvt.d.h', 'R2F3','0100000 00010 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f16f']),
-    R5('fcvt.h.d', 'R2F3','0100010 00000 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f16f']),
+    R5('fcvt.s.h', 'R2F3','0100000 00010 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f16f']),
+    R5('fcvt.h.s', 'R2F3','0100010 00000 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f16f']),
 
     # # If D also supported
     # R5('fcvt.d.h', 'R2F3','0100001 00010 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f16d']),

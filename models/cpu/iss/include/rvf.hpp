@@ -94,14 +94,6 @@ static inline iss_insn_t *fsqrt_s_exec(Iss *iss, iss_insn_t *insn)
     return insn->next;
 }
 
-static inline bool check_nan_boxing(iss_reg_t val, bool &is_boxed)
-{
-    int64_t lsb = ((iss_sim_t)val) >> 32;
-    is_boxed |= lsb == -1;
-    return lsb != -1 && lsb != 0;
-
-}
-
 static inline iss_insn_t *fsgnj_s_exec(Iss *iss, iss_insn_t *insn)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnj, REG_GET(0), REG_GET(1), 8, 23));

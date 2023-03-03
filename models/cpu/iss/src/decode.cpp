@@ -564,6 +564,12 @@ void Decode::parse_isa()
         }
     }
 
+    if (has_d)
+    {
+        if (arch_rv64)
+            iss_decode_activate_isa(iss, (char *)"rv64d");
+    }
+
     // For Xf16 Extension
     if (has_f16)
     {

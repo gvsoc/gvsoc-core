@@ -43,6 +43,7 @@
 #include "rv64m.hpp"
 #include "rv64a.hpp"
 #include "rvf.hpp"
+#include "rvd.hpp"
 #include "rvXf16.hpp"
 #include "rvXf16alt.hpp"
 #include "rvXf8.hpp"

@@ -248,6 +248,12 @@ void flexfloat_sanitize(flexfloat_t *a)
     int_fast16_t inf_exp;
     uint_t frac;
 
+    if (isnan(a->value))
+    {
+        a->value = NAN;
+        return;
+    }
+
     // This case does not require to be sanitized
     if(a->desc.exp_bits  == NUM_BITS_EXP  &&
        a->desc.frac_bits == NUM_BITS_FRAC)

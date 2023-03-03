@@ -212,6 +212,14 @@ void Lsu::load_signed_resume(Lsu *lsu)
         lsu->stall_size * 8));
 }
 
+void Lsu::load_boxed_resume(Lsu *lsu)
+{
+    lsu->iss.exec.insn_terminate();
+    int reg = lsu->stall_reg;
+    lsu->iss.regfile.set_reg(reg, iss_get_boxed_value(lsu->iss.regfile.get_reg(reg),
+        lsu->stall_size * 8));
+}
+
 void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
     vp::io_req_opcode_e opcode)
 {

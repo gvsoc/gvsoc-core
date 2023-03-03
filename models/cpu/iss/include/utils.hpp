@@ -34,6 +34,17 @@ static inline iss_uim_t iss_get_signed_value(iss_uim_t val, int bits)
     return ((iss_sim_t)val) << (ISS_REG_WIDTH - bits) >> (ISS_REG_WIDTH - bits);
 }
 
+static inline iss_uim_t iss_get_boxed_value(iss_uim_t val, int bits)
+{
+    return ((iss_uim_t)-1 << bits) | val;
+}
+
+static inline iss_uim_t iss_get_unboxed_value(iss_uim_t val, int bits)
+{
+    int64_t lsb = ((iss_sim_t)val) >> 32;
+    return lsb == -1 || lsb == 0 ? val : 0xffffffff7fc00000;
+}
+
 static inline iss_uim_t iss_get_zext_value(iss_uim_t val, int bits)
 {
     return val << (ISS_REG_WIDTH - bits) >> (ISS_REG_WIDTH - bits);

@@ -29,7 +29,7 @@
 static inline iss_insn_t *flw_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    iss->lsu.load_boxed(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
     return insn->next;
 }
 
@@ -92,6 +92,14 @@ static inline iss_insn_t *fsqrt_s_exec(Iss *iss, iss_insn_t *insn)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_sqrt_round, REG_GET(0), 8, 23, UIM_GET(0)));
     return insn->next;
+}
+
+static inline bool check_nan_boxing(iss_reg_t val, bool &is_boxed)
+{
+    int64_t lsb = ((iss_sim_t)val) >> 32;
+    is_boxed |= lsb == -1;
+    return lsb != -1 && lsb != 0;
+
 }
 
 static inline iss_insn_t *fsgnj_s_exec(Iss *iss, iss_insn_t *insn)

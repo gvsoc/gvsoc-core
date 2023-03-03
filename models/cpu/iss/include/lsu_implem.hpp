@@ -80,6 +80,26 @@ inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     }
 }
 
+inline void Lsu::load_boxed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    iss_addr_t phys_addr;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+
+    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+    {
+        this->iss.regfile.set_reg(reg, iss_get_boxed_value(this->iss.regfile.get_reg(reg), size * 8));
+    }
+    else
+    {
+        this->stall_callback = &Lsu::load_boxed_resume;
+        this->stall_reg = reg;
+        this->stall_size = size;
+    }
+}
+
 inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;

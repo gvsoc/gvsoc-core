@@ -252,14 +252,14 @@ static inline unsigned int lib_MUL_ZL_ZL_NR_R(Iss *s, unsigned int b, unsigned i
 {
     uint32_t result = (uint32_t)(ZL(b) * ZL(c));
     if (shift > 0)
-        result = (result + (1ULL << (shift - 1))) >> shift;
+        result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
 static inline unsigned int lib_MUL_ZH_ZH_NR_R(Iss *s, unsigned int b, unsigned int c, unsigned int shift)
 {
     uint32_t result = (uint32_t)(ZH(b) * ZH(c));
     if (shift > 0)
-        result = (result + (1ULL << (shift - 1))) >> shift;
+        result = (result + (1 << (shift - 1))) >> shift;
     return result;
 }
 

@@ -46,7 +46,7 @@ static inline iss_uim_t iss_get_boxed_value(iss_uim_t val, int bits)
 static inline iss_uim_t iss_get_unboxed_value(iss_uim_t val, int bits)
 {
 #if ISS_REG_WIDTH == 64
-    int64_t lsb = ((    )val) >> 32;
+    int64_t lsb = ((uint64_t)val) >> 32;
     return lsb == -1 || lsb == 0 ? val : 0xffffffff7fc00000;
 #else
     return val;

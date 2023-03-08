@@ -361,7 +361,7 @@ void Uart::check_send_byte()
 {
     if (!this->is_usart && this->tx_pending_bits && !this->uart_tx_event->is_enqueued())
     {
-        if (this->rtr == 0)
+        if (this->rtr == 0 || this->is_control_active)
         {
             this->tx_clock->reenqueue(this->uart_tx_event, 2);
         }

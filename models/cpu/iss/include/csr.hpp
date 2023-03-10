@@ -46,12 +46,12 @@ class CsrAbtractReg
 public:
     CsrAbtractReg(iss_reg_t *value=NULL);
     void register_callback(std::function<bool(bool, iss_reg_t &)> callback);
+    bool access(bool is_write, iss_reg_t &value);
 
     std::string name;
     iss_reg_t reset_val;
 
 protected:
-    bool access(bool is_write, iss_reg_t &value);
     void reset(bool active);
 
     iss_reg_t write_mask;

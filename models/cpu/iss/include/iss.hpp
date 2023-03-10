@@ -61,7 +61,11 @@
 
 #include <regfile_implem.hpp>
 #include <timing_implem.hpp>
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+#include <irq/irq_riscv_implem.hpp>
+#else
 #include <irq/irq_external_implem.hpp>
+#endif
 #include <mmu_implem.hpp>
 #include <exec/exec_inorder_implem.hpp>
 #include <prefetch/prefetch_single_line_implem.hpp>

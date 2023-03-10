@@ -81,7 +81,7 @@ class Mstatus : public CsrAbtractReg
             iss_reg_t value;
             struct
             {
-#if ISS_REG_WIDTH == 64
+#if ISS_REG_WIDTH == 32
                 unsigned int uie:1;
                 unsigned int sie:1;
                 unsigned int reserved0:1;
@@ -153,17 +153,23 @@ public:
 
     vp::trace trace;
 
+    CsrReg cycle;
+    CsrReg instret;
+
     CsrReg sstatus;
+    CsrReg sie;
     CsrReg stvec;
 
     CsrReg  sscratch;
     CsrReg  sepc;
     CsrReg  scause;
     CsrReg  stval;
+    CsrReg  sip;
 
     CsrReg  satp;
 
     Mstatus mstatus;
+    Mstatus misa;
     CsrReg  medeleg;
     CsrReg  mideleg;
     CsrReg  mie;
@@ -172,6 +178,16 @@ public:
     CsrReg  mscratch;
     CsrReg  mepc;
     CsrReg  mcause;
+    CsrReg  mtval;
+    CsrReg  mip;
+
+    CsrReg tselect;
+    CsrReg tdata1;
+    CsrReg tdata2;
+    CsrReg tdata3;
+
+    CsrReg mvendorid;
+    CsrReg marchid;
 
     iss_reg_t depc;
     iss_reg_t dcsr;
@@ -186,15 +202,15 @@ public:
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_fcsr_t fcsr;
-    iss_reg_t misa;
     iss_reg_t mhartid;
-    iss_reg_t sie;
 
 
     bool hwloop = false;
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 
 private:
+
+    bool tselect_access(bool is_write, iss_reg_t &value);
 
     std::map<iss_reg_t, CsrAbtractReg *> regs;
 

@@ -26,6 +26,12 @@
 #include "isa_lib/int.h"
 #include "isa_lib/macros.h"
 
+static inline iss_insn_t *c_unimp_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->exception.raise(insn, ISS_EXCEPT_ILLEGAL);
+    return insn;
+}
+
 static inline iss_insn_t *c_addi4spn_exec_fast(Iss *iss, iss_insn_t *insn)
 {
     return addi_exec(iss, insn);
@@ -322,7 +328,7 @@ static inline iss_insn_t *c_ebreak_exec(Iss *iss, iss_insn_t *insn)
     }
     else
     {
-        iss->syscalls.handle_ebreak();
+        iss->exception.raise(insn, ISS_EXCEPT_BREAKPOINT);
     }
     return insn->next;
 }

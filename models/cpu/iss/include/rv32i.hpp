@@ -542,11 +542,9 @@ static inline iss_insn_t *ebreak_exec(Iss *iss, iss_insn_t *insn)
     }
     else
     {
-        iss->syscalls.handle_ebreak();
+        iss->exception.raise(insn, ISS_EXCEPT_BREAKPOINT);
+        return insn;
     }
-
-    // cpu->state.error = GVSIM_STATE_DEBUG_STALL;
-    return insn->next;
 }
 
 static inline iss_insn_t *ecall_exec(Iss *iss, iss_insn_t *insn)
@@ -557,7 +555,7 @@ static inline iss_insn_t *ecall_exec(Iss *iss, iss_insn_t *insn)
     */
 
     iss->csr.stval.value = 0;
-    return iss->exception.raise(ISS_EXCEPT_ENV_CALL_U_MODE + iss->core.mode_get());
+    iss->exception.raise(insn, ISS_EXCEPT_ENV_CALL_U_MODE + iss->core.mode_get());
 #if 0
   if (!cpu->conf->useSyscalls) {
     triggerException(cpu, pc, EXCEPTION_ECALL);

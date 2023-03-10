@@ -145,6 +145,14 @@ static inline iss_insn_t *sret_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *sfence_vma_exec(Iss *iss, iss_insn_t *insn)
 {
-    iss->mmu.flush(REG_GET(0), REG_GET(1));
-    return insn->next;
+    if (iss->core.mode_get() == PRIV_S && iss->csr.mstatus.tvm)
+    {
+        iss->exception.raise(insn, ISS_EXCEPT_ILLEGAL);
+        return insn;
+    }
+    else
+    {
+        iss->mmu.flush(REG_GET(0), REG_GET(1));
+        return insn->next;
+    }
 }

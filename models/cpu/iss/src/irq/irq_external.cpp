@@ -30,15 +30,10 @@ Irq::Irq(Iss &iss)
 
 void Irq::build()
 {
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-    this->mtvec_insn = NULL;
-    this->stvec_insn = NULL;
-#else
     for (int i = 0; i < 32; i++)
     {
         this->vectors[i] = NULL;
     }
-#endif
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     irq_req_itf.set_sync_meth(&Irq::irq_req_sync);
@@ -96,9 +91,6 @@ bool Irq::mtvec_set(iss_addr_t base)
     base &= ~(3ULL);
     this->trace.msg("Setting mtvec (addr: 0x%x)\n", base);
 
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-    this->iss.irq.mtvec_insn = insn_cache_get(&this->iss, base);
-#else
     for (int i = 0; i < 32; i++)
     {
         this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
@@ -108,7 +100,6 @@ bool Irq::mtvec_set(iss_addr_t base)
     {
         this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
     }
-#endif
 
     return true;
 }
@@ -117,9 +108,6 @@ bool Irq::stvec_set(iss_addr_t base)
 {
     base &= ~(3ULL);
     this->trace.msg("Setting stvec (addr: 0x%x)\n", base);
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-    this->iss.irq.stvec_insn = insn_cache_get(&this->iss, base);
-#endif
     return true;
 }
 
@@ -226,10 +214,7 @@ int Irq::check()
 
             this->irq_enable.set(0);
             this->req_irq = -1;
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-#else
             this->iss.exec.current_insn = this->vectors[req_irq];
-#endif
             this->iss.csr.mcause.value = (1 << 31) | (unsigned int)req_irq;
 
             this->trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);

@@ -45,12 +45,7 @@ public:
     static void irq_req_sync(void *__this, int irq);
 
     Iss &iss;
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-    iss_insn_t *mtvec_insn;
-    iss_insn_t *stvec_insn;
-#else
     iss_insn_t *vectors[35];
-#endif
     vp::reg_1 irq_enable;
     int debug_saved_irq_enable;
     int req_irq;

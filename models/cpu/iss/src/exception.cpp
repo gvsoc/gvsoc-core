@@ -36,14 +36,16 @@ void Exception::build()
 }
 
 
-iss_insn_t *Exception::raise(int id)
+void Exception::raise(iss_insn_t *insn, int id)
 {
+    this->iss.exec.switch_to_full_mode();
+
     if (id == ISS_EXCEPT_DEBUG)
     {
-        this->iss.csr.depc = this->iss.exec.current_insn->addr;
+        this->iss.csr.depc = insn->addr;
         this->iss.irq.debug_saved_irq_enable = this->iss.irq.irq_enable.get();
         this->iss.irq.irq_enable.set(0);
-        return this->iss.irq.debug_handler;
+        insn = this->iss.irq.debug_handler;
     }
     else
     {
@@ -55,14 +57,14 @@ iss_insn_t *Exception::raise(int id)
 
         if (next_mode == PRIV_M)
         {
-            this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+            this->iss.csr.mepc.value = insn->addr;
             this->iss.csr.mstatus.mie = 0;
             this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
             this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
         }
         else
         {
-            this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+            this->iss.csr.sepc.value = insn->addr;
             this->iss.csr.mstatus.sie = 0;
             this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
             this->iss.csr.mstatus.spp = this->iss.core.mode_get();
@@ -72,7 +74,6 @@ iss_insn_t *Exception::raise(int id)
         this->iss.irq.irq_enable.set(0);
 
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-        iss_insn_t *insn;
         if (next_mode == PRIV_M)
         {
             insn = this->iss.irq.mtvec_insn;
@@ -85,10 +86,11 @@ iss_insn_t *Exception::raise(int id)
         }
 #else
         this->iss.csr.mcause.value = 0xb;
-        iss_insn_t *insn = this->iss.irq.vectors[0];
+        insn = this->iss.irq.vectors[0];
 #endif
         if (insn == NULL)
             insn = insn_cache_get(&this->iss, 0);
-        return insn;
     }
+
+    this->iss.exec.exception_insn = insn;
 }

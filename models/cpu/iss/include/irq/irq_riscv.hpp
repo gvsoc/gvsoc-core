@@ -24,17 +24,38 @@
 #include <vp/vp.hpp>
 #include <types.hpp>
 
-class Exception
+class Irq
 {
 public:
-    Exception(Iss &iss);
+    Irq(Iss &iss);
 
     void build();
 
-    void raise(iss_insn_t *insn, int id);
+    bool mip_access(bool is_write, iss_reg_t &value);
+    bool mie_access(bool is_write, iss_reg_t &value);
+    bool sip_access(bool is_write, iss_reg_t &value);
+    bool sie_access(bool is_write, iss_reg_t &value);
+    bool mtvec_access(bool is_write, iss_reg_t &value);
+    bool stvec_access(bool is_write, iss_reg_t &value);
 
-    iss_addr_t debug_handler_addr;
+    bool mtvec_set(iss_addr_t base);
+    bool stvec_set(iss_addr_t base);
+    inline void global_enable(int enable);
+    void cache_flush();
+    void reset(bool active);
+    int check();
+    void wfi_handle();
+    void elw_irq_unstall();
+    void check_interrupts();
 
-private:
     Iss &iss;
+
+    iss_insn_t *mtvec_insn;
+    iss_insn_t *stvec_insn;
+    vp::reg_1 irq_enable;
+    int debug_saved_irq_enable;
+    int req_irq;
+    bool req_debug;
+    iss_insn_t *debug_handler;
+    vp::trace trace;
 };

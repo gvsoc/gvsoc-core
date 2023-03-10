@@ -55,6 +55,12 @@ void Mmu::reset(bool active)
 
 bool Mmu::satp_update(bool is_write, iss_reg_t &value)
 {
+    if (this->iss.core.mode_get() == PRIV_S && this->iss.csr.mstatus.tvm)
+    {
+        this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        return false;
+    }
+
 #if ISS_REG_WIDTH == 64
 
     if (is_write)
@@ -112,6 +118,8 @@ void Mmu::flush(iss_addr_t address, iss_reg_t address_space)
         this->tlb_load_tag[i] = -1;
         this->tlb_store_tag[i] = -1;
     }
+
+    iss_cache_flush(&this->iss);
 }
 
 void Mmu::raise_exception()
@@ -120,15 +128,15 @@ void Mmu::raise_exception()
 
     if (this->access_type & ACCESS_LOAD)
     {
-        this->iss.exec.current_insn = this->iss.exception.raise(ISS_EXCEPT_LOAD_PAGE_FAULT);
+        this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_LOAD_PAGE_FAULT);
     }
     else if (this->access_type & ACCESS_STORE)
     {
-        this->iss.exec.current_insn = this->iss.exception.raise(ISS_EXCEPT_STORE_PAGE_FAULT);
+        this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_STORE_PAGE_FAULT);
     }
     else
     {
-        this->iss.exec.current_insn = this->iss.exception.raise(ISS_EXCEPT_INSN_PAGE_FAULT);
+        this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_INSN_PAGE_FAULT);
     }
 
     this->iss.trace.dump_trace_enabled = true;
@@ -150,7 +158,21 @@ bool Mmu::handle_pte()
 
     if (this->pte_value.r || this->pte_value.x)
     {
+        // A leaf has been found
+
         iss_addr_t phys_base = (this->pte_value.raw & ~MMU_PTE_ATTR) >> MMU_PTE_PPN_SHIFT << MMU_PGSHIFT;
+
+        // In case we are not at the last level, check if we have a misaligned superpage
+        if (this->current_level > 0)
+        {
+            int lower_ppn = get_field(phys_base, MMU_PGSHIFT, this->pte_size * this->current_level);
+            if (lower_ppn != 0)
+            {
+                this->trace.msg(vp::trace::LEVEL_DEBUG, "Found misaligned superpage\n");
+                this->raise_exception();
+                return false;
+            }
+        }
 
         if (this->current_level > 0)
         {
@@ -280,6 +302,11 @@ bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
     int mode = this->iss.core.mode_get();
+    if (this->iss.csr.mstatus.mprv && !(this->access_type & ACCESS_INSN))
+    {
+        mode = this->iss.csr.mstatus.mpp;
+    }
+
     int tag = virt_addr >> MMU_PGSHIFT;
     int index = tag & MMU_TLB_ENTRIES_MASK;
     iss_addr_t page_virt_addr = tag << MMU_PGSHIFT;

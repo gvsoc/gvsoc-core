@@ -78,7 +78,7 @@ static void insn_block_init(iss_insn_block_t *b, iss_addr_t pc)
     }
 }
 
-void iss_cache_flush(Iss *iss)
+static void iss_cache_update(Iss *iss, bool flush)
 {
     iss_opcode_t opcode = 0;
     iss_addr_t current_addr = 0;
@@ -115,7 +115,10 @@ void iss_cache_flush(Iss *iss)
         hwloop_end_addr[1] = iss->exec.hwloop_end_insn[1]->addr;
     }
 
-    flush_cache(iss, &iss->decode.insn_cache);
+    if (flush)
+    {
+        flush_cache(iss, &iss->decode.insn_cache);
+    }
 
     if (iss->exec.current_insn)
     {
@@ -153,6 +156,16 @@ void iss_cache_flush(Iss *iss)
     iss->gdbserver.enable_all_breakpoints();
 
     iss->irq.cache_flush();
+}
+
+void iss_cache_sync(Iss *iss)
+{
+    iss_cache_update(iss, false);
+}
+
+void iss_cache_flush(Iss *iss)
+{
+    iss_cache_update(iss, true);
 }
 
 iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)

@@ -1431,6 +1431,7 @@ priv_smmu = IsaSubset('priv_smmu', [
 rv32c = IsaSubset('c', [
 
     # Compressed ISA
+    R5('c.unimp',    'CI1', '000 000 000 00 000 00'),
     R5('c.addi4spn', 'CIW', '000 --- --- -- --- 00', fast_handler=True),
     R5('c.lw',       'CL',  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),
     R5('c.sw',       'CS',  '110 --- --- -- --- 00', fast_handler=True),
@@ -1479,6 +1480,7 @@ if os.environ.get('CONFIG_GVSOC_USE_UNCOMPRESSED_LABELS') is not None:
 rv64c = IsaSubset('c', [
 
     # Compressed ISA
+    R5('c.unimp',    'CI1', '000 000 000 00 000 00'),
     R5('c.addi4spn', 'CIW', '000 --- --- -- --- 00', fast_handler=True),
     R5('c.ld',       'CL',  '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
     R5('c.lw',       'CL',  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),

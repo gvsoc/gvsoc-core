@@ -33,15 +33,19 @@ inline void Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         return;
     }
 
-    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+    int err;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
     {
         // We don't need to do anything as the target will write directly to the register
-        // and we the zero extension is already managed by the initial value
+        // and we the zero extension is already managed by the initial 
     }
     else
     {
-        this->stall_callback = &Lsu::load_resume;
-        this->stall_reg = reg;
+        if (err != vp::IO_REQ_INVALID)
+        {
+            this->stall_callback = &Lsu::load_resume;
+            this->stall_reg = reg;
+        }
     }
 }
 
@@ -68,15 +72,19 @@ inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
         return;
     }
 
-    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+    int err;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg(reg), size * 8));
     }
     else
     {
-        this->stall_callback = &Lsu::load_signed_resume;
-        this->stall_reg = reg;
-        this->stall_size = size;
+        if (err != vp::IO_REQ_INVALID)
+        {
+            this->stall_callback = &Lsu::load_signed_resume;
+            this->stall_reg = reg;
+            this->stall_size = size;
+        }
     }
 }
 
@@ -88,15 +96,19 @@ inline void Lsu::load_boxed(iss_insn_t *insn, iss_addr_t addr, int size, int reg
         return;
     }
 
-    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+    int err;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
     {
         this->iss.regfile.set_reg(reg, iss_get_boxed_value(this->iss.regfile.get_reg(reg), size * 8));
     }
     else
     {
-        this->stall_callback = &Lsu::load_boxed_resume;
-        this->stall_reg = reg;
-        this->stall_size = size;
+        if (err != vp::IO_REQ_INVALID)
+        {
+            this->stall_callback = &Lsu::load_boxed_resume;
+            this->stall_reg = reg;
+            this->stall_size = size;
+        }
     }
 }
 
@@ -108,15 +120,19 @@ inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         return;
     }
 
-    if (!this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true))
+    int err;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true)) == 0)
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
     }
     else
     {
-        this->stall_callback = &Lsu::store_resume;
-        this->stall_reg = reg;
+        if (err != vp::IO_REQ_INVALID)
+        {
+            this->stall_callback = &Lsu::store_resume;
+            this->stall_reg = reg;
+        }
     }
 }
 

@@ -116,6 +116,12 @@ iss_insn_t *Core::mret_handle()
 
 iss_insn_t *Core::sret_handle()
 {
+    if (this->mode_get() == PRIV_S && this->iss.csr.mstatus.tsr)
+    {
+        this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        return NULL;
+    }
+
     this->iss.exec.switch_to_full_mode();
 
     this->mode_set(this->iss.csr.mstatus.spp);
@@ -125,7 +131,8 @@ iss_insn_t *Core::sret_handle()
     this->iss.csr.mstatus.spie = 1;
     this->iss.csr.scause.value = 0;
 
-    return insn_cache_get(&this->iss, this->iss.csr.sepc.value);
+    iss_insn_t *insn = insn_cache_get(&this->iss, this->iss.csr.sepc.value);
+    return insn;
 }
 
 iss_insn_t *Core::dret_handle()
@@ -145,7 +152,7 @@ bool Core::mstatus_update(bool is_write, iss_reg_t &value)
     #ifdef CONFIG_GVSOC_ISS_RI5KY
         this->iss.csr.mstatus.value = value;
 
-    #ifdef CONFIG_GVSOC_ISS_SUPERVISOR
+    #ifdef CONFIG_GVSOC_ISS_SUPERVISOR_MODE
         this->iss.csr.mstatus.value &= 0x21899;
     #else
         this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & 0x88) | 0x1800;

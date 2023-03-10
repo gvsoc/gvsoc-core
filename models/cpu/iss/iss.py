@@ -78,6 +78,7 @@ class Iss(st.Component):
             riscv_exceptions: bool=False,
             core=None,
             supervisor=False,
+            user=False,
             internal_atomics=False):
 
         super(Iss, self).__init__(parent, name)
@@ -106,7 +107,10 @@ class Iss(st.Component):
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_RI5KY=1'])
 
         if supervisor:
-            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR=1'])
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
+
+        if user:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_USER_MODE=1'])
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])

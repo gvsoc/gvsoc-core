@@ -24,15 +24,21 @@
 Csr::Csr(Iss &iss)
     : iss(iss)
 {
+    // Unprivileged Counter/Timers
+    this->declare_csr(&this->cycle,  "cycle",   0xC00);
+    this->declare_csr(&this->instret,  "instret",   0xC02);
+
     // Supervisor trap setup
     this->declare_csr(&this->sstatus,  "sstatus",   0x100);
+    this->declare_csr(&this->sie,      "sie",       0x104);
     this->declare_csr(&this->stvec,    "stvec",     0x105);
 
     // Supervisor trap handling
     this->declare_csr(&this->sscratch, "sscratch",  0x140);
     this->declare_csr(&this->sepc,     "sepc",      0x141);
     this->declare_csr(&this->scause,   "scause",    0x142);
-    this->declare_csr(&this->stval,   "stval",    0x143);
+    this->declare_csr(&this->stval,    "stval",    0x143);
+    this->declare_csr(&this->sip,      "sip",    0x144);
 
     // Supervisor protection and translation
 #if defined(CONFIG_GVSOC_ISS_MMU)
@@ -41,6 +47,7 @@ Csr::Csr(Iss &iss)
 
     // Machine trap setup
     this->declare_csr(&this->mstatus,  "mstatus",  0x300, (0x3 << 11));
+    this->declare_csr(&this->misa,     "misa",     0x301);
     this->declare_csr(&this->medeleg,  "medeleg",  0x302);
     this->declare_csr(&this->mideleg,  "mideleg",  0x303);
     this->declare_csr(&this->mie,      "mie",      0x304);
@@ -50,6 +57,18 @@ Csr::Csr(Iss &iss)
     this->declare_csr(&this->mscratch, "mscratch", 0x340);
     this->declare_csr(&this->mepc,     "mepc",     0x341, 0, (iss_reg_t)~1ULL);
     this->declare_csr(&this->mcause,   "mcause",   0x342);
+    this->declare_csr(&this->mtval,    "mtval",    0x343);
+    this->declare_csr(&this->mip,      "mip",      0x344);
+
+    // Debug/Trace registers
+    this->declare_csr(&this->tselect,  "tselect",      0x7A0);
+    this->declare_csr(&this->tdata1,   "tdata1",       0x7A1);
+    this->declare_csr(&this->tdata2,   "tdata2",       0x7A2);
+    this->declare_csr(&this->tdata3,   "tdata3",       0x7A3);
+
+    // Machine information registers
+    this->declare_csr(&this->mvendorid,  "mvendorid",  0xF11);
+    this->declare_csr(&this->marchid,    "marchid",    0xF12);
 }
 
 void Csr::reset(bool active)
@@ -72,6 +91,14 @@ void Csr::reset(bool active)
                 reg.second->reset(active);
             }
         }
+        
+        this->misa.value = this->iss.top.get_js_config()->get_int("misa");
+
+#if ISS_REG_WIDTH == 64
+        this->misa.value |= 2ULL << 62;
+#else
+        this->misa.value |= 1 << 30;
+#endif
     }
 
 }
@@ -123,10 +150,19 @@ void Csr::build()
 
 
     this->mhartid = (this->iss.top.get_config_int("cluster_id") << 5) | this->iss.top.get_config_int("core_id");
-    this->misa = this->iss.top.get_js_config()->get_int("misa");
 
-
+    this->tselect.register_callback(std::bind(&Csr::tselect_access, this, std::placeholders::_1, std::placeholders::_2));
 }
+
+bool Csr::tselect_access(bool is_write, iss_reg_t &value)
+{
+    if (!is_write)
+    {
+        value = -1;
+    }
+    return false;
+}
+
 
 #if defined(ISS_HAS_PERF_COUNTERS)
 void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr);
@@ -266,21 +302,9 @@ static bool fcsr_write(Iss *iss, unsigned int value)
     return false;
 }
 
-static bool cycle_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: cycle\n");
-    return false;
-}
-
 static bool time_read(Iss *iss, iss_reg_t *value)
 {
     printf("WARNING UNIMPLEMENTED CSR: time\n");
-    return false;
-}
-
-static bool instret_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: instret\n");
     return false;
 }
 
@@ -330,44 +354,9 @@ static bool scounteren_write(Iss *iss, unsigned int value)
     return false;
 }
 
-static bool sip_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: sip\n");
-    return false;
-}
-
-static bool sip_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: sip\n");
-    return false;
-}
-
 /*
  *   MACHINE CSRS
  */
-
-static bool misa_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.misa;
-    return false;
-}
-
-static bool misa_write(Iss *iss, unsigned int value)
-{
-    return false;
-}
-
-static bool mvendorid_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mvendorid\n");
-    return false;
-}
-
-static bool marchid_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: marchid\n");
-    return false;
-}
 
 static bool mimpid_read(Iss *iss, iss_reg_t *value)
 {
@@ -392,16 +381,6 @@ static bool mcounteren_write(Iss *iss, unsigned int value)
 }
 
 
-static bool mtval_read(Iss *iss, iss_reg_t *value)
-{
-    return false;
-}
-
-static bool mtval_write(Iss *iss, unsigned int value)
-{
-    return false;
-}
-
 static bool mbadaddr_read(Iss *iss, iss_reg_t *value)
 {
     //*value = iss->badaddr[GVSIM_MODE_MACHINE];
@@ -411,19 +390,6 @@ static bool mbadaddr_read(Iss *iss, iss_reg_t *value)
 static bool mbadaddr_write(Iss *iss, unsigned int value)
 {
     // iss->badaddr[GVSIM_MODE_MACHINE] = value;
-    return false;
-}
-
-static bool mip_read(Iss *iss, iss_reg_t *value)
-{
-    //*value = iss->ip[GVSIM_MODE_MACHINE];
-    return false;
-}
-
-static bool mip_write(Iss *iss, unsigned int value)
-{
-    // iss->ip[GVSIM_MODE_MACHINE] = value;
-    // checkInterrupts(iss, 1);
     return false;
 }
 
@@ -544,30 +510,6 @@ static bool mhpmevent_read(Iss *iss, iss_reg_t *value, int id)
 static bool mhpmevent_write(Iss *iss, unsigned int value, int id)
 {
     printf("WARNING UNIMPLEMENTED CSR: mhpmevent\n");
-    return false;
-}
-
-static bool tselect_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: tselect\n");
-    return false;
-}
-
-static bool tselect_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: tselect\n");
-    return false;
-}
-
-static bool tdata_read(Iss *iss, iss_reg_t *value, int id)
-{
-    printf("WARNING UNIMPLEMENTED CSR: tdata\n");
-    return false;
-}
-
-static bool tdata_write(Iss *iss, unsigned int value, int id)
-{
-    printf("WARNING UNIMPLEMENTED CSR: tdata\n");
     return false;
 }
 
@@ -954,14 +896,8 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
 
     // User counter / timers
-    case 0xC00:
-        status = cycle_read(iss, value);
-        break;
     case 0xC01:
         status = time_read(iss, value);
-        break;
-    case 0xC02:
-        status = instret_read(iss, value);
         break;
     case 0xC03:
         status = hpmcounter_read(iss, value, 3);
@@ -1152,17 +1088,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = scounteren_read(iss, value);
         break;
 
-    case 0x144:
-        status = sip_read(iss, value);
-        break;
-
     // Machine information registers
-    case 0xF11:
-        status = mvendorid_read(iss, value);
-        break;
-    case 0xF12:
-        status = marchid_read(iss, value);
-        break;
     case 0xF13:
         status = mimpid_read(iss, value);
         break;
@@ -1170,18 +1096,8 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = mhartid_read(iss, value);
         break;
 
-    case 0x301:
-        status = misa_read(iss, value);
-        break;
     case 0x306:
         status = mcounteren_read(iss, value);
-        break;
-
-    case 0x343:
-        status = mtval_read(iss, value);
-        break;
-    case 0x344:
-        status = mip_read(iss, value);
         break;
 
 
@@ -1526,20 +1442,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = mhpmevent_read(iss, value, 31);
         break;
 
-    // Debug/Trace registers (shared with debug mode)
-    case 0x7A0:
-        status = tselect_read(iss, value);
-        break;
-    case 0x7A1:
-        status = tdata_read(iss, value, 1);
-        break;
-    case 0x7A2:
-        status = tdata_read(iss, value, 2);
-        break;
-    case 0x7A3:
-        status = tdata_read(iss, value, 3);
-        break;
-
     // Debug mode registers
     case 0x7B0:
         status = dcsr_read(iss, value);
@@ -1667,16 +1569,8 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     case 0x003:
         return fcsr_write(iss, value);
 
-    case 0x144:
-        return sip_write(iss, value);
-
-    case 0x301:
-        return misa_write(iss, value);
-
     case 0x343:
         return mbadaddr_write(iss, value);
-    case 0x344:
-        return mip_write(iss, value);
 
 #if defined(CONFIG_GVSOC_ISS_PMP)
     // Machine protection and translation
@@ -1828,12 +1722,8 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "fcsr";
 
     // User counter / timers
-    case 0xC00:
-        return "cycle";
     case 0xC01:
         return "time";
-    case 0xC02:
-        return "instret";
     case 0xC03:
         return "hpmcounter";
     case 0xC04:
@@ -1960,28 +1850,14 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     case 0x106:
         return "scounteren";
 
-    case 0x144:
-        return "sip";
-
     // Machine information registers
-    case 0xF11:
-        return "mvendorid";
-    case 0xF12:
-        return "marchid";
     case 0xF13:
         return "mimpid";
     case 0xF14:
         return "mhartid";
 
-    case 0x301:
-        return "misa";
     case 0x306:
         return "mcounteren";
-
-    case 0x343:
-        return "mtval";
-    case 0x344:
-        return "mip";
 
     // Machine protection and translation
     case 0x3A0:
@@ -2210,16 +2086,6 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "mhpmevent30";
     case 0x33F:
         return "mhpmevent31";
-
-    // Debug/Trace registers (shared with debug mode)
-    case 0x7A0:
-        return "tselect";
-    case 0x7A1:
-        return "tdata0";
-    case 0x7A2:
-        return "tdata1";
-    case 0x7A3:
-        return "tdata2";
 
     // Debug mode registers
     case 0x7B0:

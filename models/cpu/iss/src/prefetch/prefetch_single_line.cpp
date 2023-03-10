@@ -51,11 +51,14 @@ bool Prefetcher::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index)
     // If the instruction is entirely outside the buffer, first fetch the lower part
     if (unlikely(index < 0 || index >= ISS_PREFETCHER_SIZE))
     {
-        if (this->fill(addr))
+        if (int err = this->fill(addr))
         {
-            // In case of a pending refill, we have to register a callback and leave,
-            // we'll get notified when the response is received
-            this->handle_stall(fetch_resume_after_low_refill, insn);
+            if (err == -1)
+            {
+                // In case of a pending refill, we have to register a callback and leave,
+                // we'll get notified when the response is received
+                this->handle_stall(fetch_resume_after_low_refill, insn);
+            }
             return false;
         }
         index = addr - this->buffer_start_addr;
@@ -104,12 +107,15 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
 #endif
 
         // Fetch next line
-        if (this->fill(next_addr))
+        if (int err = this->fill(next_addr))
         {
             // Stall the core if the fetch is pending
             // We need to remember the opcode since the buffer is fully replaced
-            this->fetch_stall_opcode = opcode;
-            this->handle_stall(fetch_resume_after_high_refill, insn);
+            if (err == -1)
+            {
+                this->fetch_stall_opcode = opcode;
+                this->handle_stall(fetch_resume_after_high_refill, insn);
+            }
             return false;
         }
         // If the refill is received now, append the second part from second line to the previous opcode
@@ -152,8 +158,11 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
     {
         if (err == vp::IO_REQ_INVALID)
         {
+#ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
             this->trace.force_warning("Invalid fetch request (addr: 0x%x, size: 0x%x)\n", addr, size);
-            return 0;
+#endif
+            this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_INSN_FAULT);
+            return 1;
         }
         else
         {

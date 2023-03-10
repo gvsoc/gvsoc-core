@@ -360,7 +360,8 @@ void iss_decode_activate_isa(Iss *cpu, char *name)
 static iss_insn_t *iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn)
 {
     iss->decode.trace.msg("Executing illegal instruction\n");
-    return iss->exception.raise(ISS_EXCEPT_ILLEGAL);
+    iss->exception.raise(insn, ISS_EXCEPT_ILLEGAL);
+    return insn;
 }
 
 iss_insn_t *Decode::decode_pc(iss_insn_t *insn)

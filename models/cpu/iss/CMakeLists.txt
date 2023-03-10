@@ -6,7 +6,7 @@ function(generate_isa)
     cmake_parse_arguments(
         GEN_ISA
         ""
-        "NAME;THINGY"
+        "NAME;IRQ;THINGY"
         "SOURCES"
         ${ARGN}
         )
@@ -15,7 +15,7 @@ function(generate_isa)
         set(GEN_ISA_INC_DIRS ${GEN_ISA_INC_DIRS} --inc-dir=${subdir}/models)
     endforeach()
 
-    #message(STATUS "generate_isa name=${GEN_ISA_NAME} thingy=${GEN_ISA_THINGY}")
+    message(STATUS "generate_isa name=${GEN_ISA_NAME} thingy=${GEN_ISA_THINGY}")
     add_custom_command(
         OUTPUT "${GEN_ISA_NAME}_decoder_gen.cpp" "${GEN_ISA_NAME}_decoder_gen.hpp"
         COMMAND ${F_GVSOC_ISS_DIR}/isa_gen/isa_generator
@@ -32,7 +32,6 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/prefetch/prefetch_single_line.cpp"
         "${F_GVSOC_ISS_DIR}/src/csr.cpp"
         "${F_GVSOC_ISS_DIR}/src/exec/exec_inorder.cpp"
-        "${F_GVSOC_ISS_DIR}/src/irq/irq_external.cpp"
         "${F_GVSOC_ISS_DIR}/src/decode.cpp"
         "${F_GVSOC_ISS_DIR}/src/lsu.cpp"
         "${F_GVSOC_ISS_DIR}/src/timing.cpp"
@@ -50,6 +49,15 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/dbg_unit.cpp"
         "${F_GVSOC_ISS_DIR}/flexfloat/flexfloat.c"
         )
+
+    if (NOT DEFINED GEN_ISA_IRQ)
+        set(GEN_ISA_IRQ external)
+    endif()
+
+    set(ISS_FILES
+        ${ISS_FILES}
+        "${F_GVSOC_ISS_DIR}/src/irq/irq_${GEN_ISA_IRQ}.cpp"
+    )
 
     vp_model(NAME ${GEN_ISA_NAME}
         SOURCES ${GEN_ISA_SOURCES} ${GEN_ISA_FILES} ${ISS_FILES}

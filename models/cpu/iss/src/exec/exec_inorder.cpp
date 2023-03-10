@@ -87,6 +87,7 @@ void Exec::reset(bool active)
     {
         this->clock_active = false;
         this->skip_irq_check = true;
+        this->exception_insn = NULL;
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->instr_event->disable();
@@ -197,6 +198,12 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
     Exec *_this = &iss->exec;
 
     _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler\n");
+
+    if (_this->exception_insn)
+    {
+        _this->current_insn = _this->exception_insn;
+        _this->exception_insn = NULL;
+    }
 
     // Switch back to optimize instruction handler only
     // if HW counters are disabled as they are checked with the slow handler

@@ -117,6 +117,8 @@ public:
 
     bool skip_irq_check;
 
+    iss_insn_t *exception_insn;
+
 
 private:
     static void flush_cache_ack_sync(void *_this, bool active);

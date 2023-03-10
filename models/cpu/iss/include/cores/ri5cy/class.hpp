@@ -33,7 +33,11 @@
 #include <syscalls.hpp>
 #include <timing.hpp>
 #include <regfile.hpp>
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+#include <irq/irq_riscv.hpp>
+#else
 #include <irq/irq_external.hpp>
+#endif
 #include <core.hpp>
 #include <mmu.hpp>
 #include <pmp.hpp>

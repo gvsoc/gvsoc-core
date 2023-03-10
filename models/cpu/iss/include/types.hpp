@@ -140,6 +140,10 @@ class Lsu;
 #define ISS_EXCEPT_INSN_PAGE_FAULT  0
 #define ISS_EXCEPT_LOAD_PAGE_FAULT  0
 #define ISS_EXCEPT_STORE_PAGE_FAULT 0
+#define ISS_EXCEPT_BREAKPOINT       0
+#define ISS_EXCEPT_INSN_FAULT       0
+#define ISS_EXCEPT_LOAD_FAULT       0
+#define ISS_EXCEPT_STORE_FAULT      0
 #endif
 
 typedef struct iss_cpu_s iss_cpu_t;

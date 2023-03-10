@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_INSN_CACHE_HPP
-#define __CPU_ISS_ISS_INSN_CACHE_HPP
+#pragma once
 
-int insn_cache_init(Iss *iss);
-void iss_cache_sync(Iss *iss);
-void iss_cache_flush(Iss *iss);
-iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc);
-bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn);
+#include <irq/irq_riscv.hpp>
+#include <iss.hpp>
 
-#endif
+inline void Irq::global_enable(int enable)
+{
+    this->trace.msg(vp::trace::LEVEL_TRACE, "Setting IRQ enable (value: %d)\n",
+                    enable);
+
+    this->iss.irq.irq_enable.set(enable);
+    this->iss.exec.switch_to_full_mode();
+}

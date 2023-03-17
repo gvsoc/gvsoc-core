@@ -195,5 +195,7 @@ bool Core::sstatus_update(bool is_write, iss_reg_t &value)
 void Core::mode_set(int mode)
 {
     this->mode = mode;
+#ifdef CONFIG_GVSOC_ISS_MMU
     this->iss.mmu.flush(0, 0);
+#endif
 }

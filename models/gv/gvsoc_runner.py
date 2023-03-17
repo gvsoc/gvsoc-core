@@ -167,9 +167,14 @@ class Runner(gapylib.target.Target, st.Component):
                 action="store_true", help="Launch GVSOC through valgrind")
 
             parser.add_argument("--wno-unconnected-device", dest="w_unconnected_device",
-                action="store_false", help="Deactivate warnings when updating padframe with no connected device")
+                action="store_false", default=False, help="Deactivate warnings when updating padframe with no connected device")
             parser.add_argument("--wno-unconnected-padfun", dest="w_unconnected_padfun",
-                action="store_false", help="Deactivate warnings when updating padframe with no connected padfun")
+                action="store_false", default=False, help="Deactivate warnings when updating padframe with no connected padfun")
+
+            parser.add_argument("--wunconnected-device", dest="w_unconnected_device",
+                action="store_true", help="Activate warnings when updating padframe with no connected device")
+            parser.add_argument("--wunconnected-padfun", dest="w_unconnected_padfun",
+                action="store_true", help="Activate warnings when updating padframe with no connected padfun")
 
             [args, otherArgs] = parser.parse_known_args()
 

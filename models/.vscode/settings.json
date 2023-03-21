@@ -1,0 +1,22 @@
+{
+    "files.associations": {
+        "typeinfo": "cpp",
+        "chrono": "cpp",
+        "random": "cpp",
+        "*.tcc": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "condition_variable": "cpp",
+        "array": "cpp",
+        "bitset": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp",
+        "regex": "cpp",
+        "utility": "cpp",
+        "mutex": "cpp",
+        "memory": "cpp",
+        "atomic": "cpp"
+    }
+}

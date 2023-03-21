@@ -44,6 +44,7 @@
 #include <exec/exec_inorder.hpp>
 #include <prefetch/prefetch_single_line.hpp>
 #include <gdbserver.hpp>
+#include <Vregfile.hpp>
 
 class IssWrapper;
 

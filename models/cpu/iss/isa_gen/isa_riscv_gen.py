@@ -51,7 +51,7 @@ class R5(Instr):
         # R1  #         f7        |       -       |      rs1      |     f3    |       rd      |      opcode
         # RRU #      f6      |     ui[0|5:1]      |      rs1      |     f3    |       rd      |      opcode
         # RRS #      f6      |     si[0|5:1]      |      rs1      |     f3    |       rd      |      opcode
-        # RRU2#     f3 |ui[7:6]|f1|ui[0|5:1]        |      rs1      |     f3    |       rd      |      opcode
+        # RRU2#     f3 |ui[7:6]|f1|ui[0|5:1]      |      rs1      |     f3    |       rd      |      opcode
         # LR  #         f7        |      rs2      |      rs1      |     f3    |       rd      |      opcode        # Indirect addressing mode
         # RR  #   f2 |     rs3    |      rs2      |      rs1      |     f3    |       rd      |      opcode
         # SR  #   f2 |     rs3    |      rs2      |      rs1      |     f3    |       rd      |      opcode        # Indirect addressing mode
@@ -640,12 +640,66 @@ class R5(Instr):
             self.args = [   OutReg(0, Const(1)),
                             SignedImm(0, Ranges([[3, 3, 1], [11, 1, 4], [2, 1, 5], [7, 1, 6], [6, 1, 7], [9, 2, 8], [8, 1, 10], [12, 1, 11]])),
                         ]
+
+        # Encodings for vector instruction set
+
+                # 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+        # OPV   #   func6    |m|   vs2   |   vs1   |func3|    vd   |     op      # 
+        # OPIVI #   func6    |m|   vs2   |   imm   |func3|    vd   |     op      #
+        # OPVLS #  NF  |w|mop|m|  lumop  |   rs1   |width|    vd   |     op      #
+
+        elif format == 'OPV':
+            self.args = [   OutReg     (0, Range(7 , 5)),
+                            InReg      (0, Range(15, 5)),
+                            InReg      (1, Range(20, 5)),
+                            UnsignedImm(0, Range(25, 0)),
+                        ]
+        elif format == 'OPIVI':
+            self.args = [   OutReg     (0, Range(7 , 5)),
+                            SignedImm  (0, Range(15, 5)),
+                            InReg      (0, Range(20, 5)),
+                            UnsignedImm(0, Range(25, 0)),
+                        ]
+        elif format == 'OPVLS':
+            self.args = [   OutReg     (0, Range(7 , 5)),
+                            InReg      (0, Range(15, 5)),
+                            UnsignedImm(0, Range(25, 0)),
+                        ]
+
+
+
+
+
+
+
+
         else:
             raise Exception('Undefined format: %s' % format)
 
         super(R5, self).__init__(label, type, encoding, decode, N, L, mapTo, group=group, fast_handler=fast_handler, tags=tags, isa_tags=isa_tags)
 
 
+
+#
+# RV32V
+#
+
+rv32v = IsaSubset('v', [
+    R5('vadd.vv' ,   'OPV  ',    '000000 - ----- ----- 000 ----- 1010111'),#inst[25] = VM
+    R5('vadd.vi' ,   'OPIVI',    '000000 - ----- ----- 011 ----- 1010111'),
+    R5('vadd.vx' ,   'OPV  ',    '000000 - ----- ----- 100 ----- 1010111'),
+
+    R5('vsub.vv' ,   'OPV  ',    '000010 - ----- ----- 000 ----- 1010111'),
+    R5('vsub.vx' ,   'OPV  ',    '000010 - ----- ----- 100 ----- 1010111'),
+
+    R5('vfmac.vv',   'OPV  ',    '101100 - ----- ----- 001 ----- 1010111'),
+    R5('vfmac.vf',   'OPV  ',    '101100 - ----- ----- 101 ----- 1010111'),
+
+    R5('vle8 .v' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0000111'),# vd, (rs1), vm
+    R5('vle16.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 101 ----- 0000111'),
+    R5('vle32.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 110 ----- 0000111'),
+    R5('vle64.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 111 ----- 0000111'),
+])
 
 
 
@@ -722,13 +776,6 @@ rv32i = IsaSubset('i', [
     R5('ebreak', 'I',   '0000000 00001 00000 000 00000 1110011')
 #
 ])
-
-
-
-rv32v = IsaSubset('v', [
-    R5('vadd.vv',   'R',    '0000001 ----- ----- 000 ----- 1010111')
-])
-
 
 
 #

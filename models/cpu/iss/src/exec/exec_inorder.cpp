@@ -278,7 +278,7 @@ void Exec::bootaddr_sync(void *__this, uint32_t value)
     Exec *_this = (Exec *)__this;
     _this->trace.msg("Setting boot address (value: 0x%x)\n", value);
     _this->bootaddr_reg.set(value);
-    uint32_t bootaddr = _this->bootaddr_reg.get() & ~((1 << 8) - 1);
+    iss_reg_t bootaddr = _this->bootaddr_reg.get() & ~((1 << 8) - 1);
     _this->iss.csr.mtvec.access(true, bootaddr);
 }
 

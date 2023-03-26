@@ -29,6 +29,13 @@ class DisplayPulse(object):
         return { 'type': 'pulse' }
 
 class DisplayBox(object):
+    def __init__(self, format="hex"):
+        self.format = format
+
+    def get(self):
+        return { 'type': 'box', 'format': self.format }
+
+class DisplayLogicBox(object):
     def __init__(self, message):
         self.message = message
 
@@ -112,7 +119,10 @@ class Signal(object):
 
         config['name'] = self.name
         if self.is_group:
-            config['group'] = self.comp.get_comp_path()
+            if self.path is not None:
+                config['group'] = self.path
+            else:
+                config['group'] = self.comp.get_comp_path()
         if self.path is not None:
             config['path'] = self.path
         if self.display is not None:

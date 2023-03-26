@@ -181,7 +181,7 @@ class Iss(st.Component):
             to_signal='active_function', binaries=['binaries'])
 
         gv.gui.Signal(self, active, name='active', path='busy', groups=['core'],
-            display=gv.gui.DisplayBox('ACTIVE'))
+            display=gv.gui.DisplayLogicBox('ACTIVE'))
         gv.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
             properties={'is_hotspot': True})
 

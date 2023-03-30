@@ -40,7 +40,7 @@ void Core::build()
 #endif
 
     // For now preserve floating point state to keep it dirty
-    this->mstatus_write_mask &= ~(0x3ULL << 13);
+    // this->mstatus_write_mask &= ~(0x3ULL << 13);
     this->iss.csr.mstatus.reset_val |= 0x3ULL << 13;
     // Remove vector state since we do not support yet vector extension
     this->mstatus_write_mask &= ~(0x3ULL << 9);

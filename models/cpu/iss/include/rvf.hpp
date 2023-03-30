@@ -35,6 +35,11 @@ static inline iss_insn_t *flw_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *fsw_exec(Iss *iss, iss_insn_t *insn)
 {
+    if (iss->csr.mstatus.fs == 0)
+    {
+        iss->exception.raise(insn, ISS_EXCEPT_ILLEGAL);
+        return insn;
+    }
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
     iss->lsu.store(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1));
     return insn->next;

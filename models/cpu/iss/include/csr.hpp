@@ -47,9 +47,11 @@ public:
     CsrAbtractReg(iss_reg_t *value=NULL);
     void register_callback(std::function<bool(bool, iss_reg_t &)> callback);
     bool access(bool is_write, iss_reg_t &value);
+    virtual bool check_access(Iss *iss, bool write, bool read);
 
     std::string name;
     iss_reg_t reset_val;
+    bool write_illegal = false;
 
 protected:
     void reset(bool active);
@@ -72,10 +74,17 @@ public:
     iss_reg_t value;
 };
 
+class Cycle : public CsrAbtractReg
+{
+public:
+    bool check_access(Iss *iss, bool write, bool read);
+};
+
 class Mstatus : public CsrAbtractReg
 {
     public:
         Mstatus() : CsrAbtractReg(&this->value) {}
+        bool check_access(Iss *iss, bool write, bool read);
         union
         {
             iss_reg_t value;
@@ -153,7 +162,7 @@ public:
 
     vp::trace trace;
 
-    CsrReg cycle;
+    Cycle cycle;
     CsrReg instret;
 
     CsrReg sstatus;
@@ -190,6 +199,8 @@ public:
 
     CsrReg mvendorid;
     CsrReg marchid;
+
+    CsrReg mcycle;
 
     iss_reg_t depc;
     iss_reg_t dcsr;

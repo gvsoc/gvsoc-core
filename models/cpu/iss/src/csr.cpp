@@ -25,7 +25,7 @@ Csr::Csr(Iss &iss)
     : iss(iss)
 {
     // Unprivileged Counter/Timers
-    this->declare_csr(&this->cycle,  "cycle",   0xC00);
+    this->declare_csr(&this->cycle,  "cycle",   0xC00); this->cycle.write_illegal = true;
     this->declare_csr(&this->instret,  "instret",   0xC02);
 
     // Supervisor trap setup
@@ -47,8 +47,8 @@ Csr::Csr(Iss &iss)
 #endif
 
     // Machine trap setup
-    this->declare_csr(&this->mstatus,    "mstatus",    0x300, (0x3 << 11));
-    this->declare_csr(&this->misa,       "misa",       0x301);
+    this->declare_csr(&this->mstatus,    "mstatus",    0x300);
+    this->declare_csr(&this->misa,       "misa",       0x301, 0, 0);
     this->declare_csr(&this->medeleg,    "medeleg",    0x302);
     this->declare_csr(&this->mideleg,    "mideleg",    0x303);
     this->declare_csr(&this->mie,        "mie",        0x304);
@@ -67,6 +67,9 @@ Csr::Csr(Iss &iss)
     this->declare_csr(&this->tdata1,   "tdata1",       0x7A1);
     this->declare_csr(&this->tdata2,   "tdata2",       0x7A2);
     this->declare_csr(&this->tdata3,   "tdata3",       0x7A3);
+
+    // Machine timers and counters
+    this->declare_csr(&this->mcycle,   "mcycle",    0xB00);
 
     // Machine information registers
     this->declare_csr(&this->mvendorid,  "mvendorid",  0xF11);
@@ -395,18 +398,6 @@ static bool mbadaddr_write(Iss *iss, unsigned int value)
     return false;
 }
 
-static bool mcycle_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mcycle\n");
-    return false;
-}
-
-static bool mcycle_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mcycle\n");
-    return false;
-}
-
 static bool minstret_read(Iss *iss, iss_reg_t *value)
 {
     printf("WARNING UNIMPLEMENTED CSR: minstret\n");
@@ -428,18 +419,6 @@ static bool mhpmcounter_read(Iss *iss, iss_reg_t *value, int id)
 static bool mhpmcounter_write(Iss *iss, unsigned int value, int id)
 {
     printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
-    return false;
-}
-
-static bool mcycleh_read(Iss *iss, iss_reg_t *value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mcycleh\n");
-    return false;
-}
-
-static bool mcycleh_write(Iss *iss, unsigned int value)
-{
-    printf("WARNING UNIMPLEMENTED CSR: mcycleh\n");
     return false;
 }
 
@@ -1168,9 +1147,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 #endif
 
     // Machine timers and counters
-    case 0xB00:
-        status = mcycle_read(iss, value);
-        break;
     case 0xB02:
         status = minstret_read(iss, value);
         break;
@@ -1260,9 +1236,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
     case 0xB1F:
         status = mhpmcounter_read(iss, value, 31);
-        break;
-    case 0xB80:
-        status = mcycleh_read(iss, value);
         break;
     case 0xB82:
         status = minstreth_read(iss, value);
@@ -1619,12 +1592,8 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 #endif
 
     // Machine timers and counters
-    case 0xB00:
-        return mcycle_write(iss, value);
     case 0xB02:
         return minstret_write(iss, value);
-    case 0xB80:
-        return mcycleh_write(iss, value);
     case 0xB82:
         return minstreth_write(iss, value);
 
@@ -1904,8 +1873,6 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "pmpaddr15";
 
     // Machine timers and counters
-    case 0xB00:
-        return "mcycle";
     case 0xB02:
         return "minstret";
     case 0xB03:
@@ -1966,8 +1933,6 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "mhpmcounter30";
     case 0xB1F:
         return "mhpmcounter31";
-    case 0xB80:
-        return "mcycleh";
     case 0xB82:
         return "minstreth";
     case 0xB83:
@@ -2148,6 +2113,16 @@ CsrAbtractReg::CsrAbtractReg(iss_reg_t *value)
     }
 }
 
+bool CsrAbtractReg::check_access(Iss *iss, bool write, bool read)
+{
+    if (write && this->write_illegal)
+    {
+        iss->exception.raise(iss->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        return false;
+    }
+
+    return true;
+}
 
 void CsrAbtractReg::reset(bool active)
 {
@@ -2211,6 +2186,29 @@ bool Csr::access(bool is_write, iss_reg_t address, iss_reg_t &value)
     if (csr != NULL)
     {
         return csr->access(is_write, value);
+    }
+
+    return true;
+}
+
+
+bool Mstatus::check_access(Iss *iss, bool write, bool read)
+{
+    if (read && iss->core.mode_get() == PRIV_U)
+    {
+        iss->exception.raise(iss->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        return false;
+    }
+
+    return true;
+}
+
+bool Cycle::check_access(Iss *iss, bool write, bool read)
+{
+    if (write && iss->core.mode_get() != PRIV_M)
+    {
+        iss->exception.raise(iss->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        return false;
     }
 
     return true;

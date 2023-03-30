@@ -647,6 +647,7 @@ class R5(Instr):
         # OPV   #   func6    |m|   vs2   |   vs1   |func3|    vd   |     op      # 
         # OPIVI #   func6    |m|   vs2   |   imm   |func3|    vd   |     op      #
         # OPVLS #  NF  |w|mop|m|  lumop  |   rs1   |width|    vd   |     op      #
+        # OPVLI # 0|         zimm        |   rs1   |1 1 1|    rd   |     op      #
 
         elif format == 'OPV':
             self.args = [   OutReg     (0, Range(7 , 5)),
@@ -665,6 +666,14 @@ class R5(Instr):
                             InReg      (0, Range(15, 5)),
                             UnsignedImm(0, Range(25, 0)),
                         ]
+        elif format == 'OPVLI':
+            self.args = [   OutReg     (0, Range(7 , 5)),
+                            InReg      (0, Range(15, 5)),
+                            UnsignedImm(0, Range(20, 3)),# vlmul
+                            UnsignedImm(1, Range(23, 3)),# vsew
+                            UnsignedImm(2, Range(27, 0)),# vta
+                            UnsignedImm(3, Range(28, 0)),# vma
+                        ]            
 
 
 
@@ -692,13 +701,25 @@ rv32v = IsaSubset('v', [
     R5('vsub.vv' ,   'OPV  ',    '000010 - ----- ----- 000 ----- 1010111'),
     R5('vsub.vx' ,   'OPV  ',    '000010 - ----- ----- 100 ----- 1010111'),
 
+    R5('vfadd.vv',   'OPV  ',    '000000 - ----- ----- 001 ----- 1010111'),
+    R5('vfadd.vf',   'OPV  ',    '000000 - ----- ----- 101 ----- 1010111'),
+
     R5('vfmac.vv',   'OPV  ',    '101100 - ----- ----- 001 ----- 1010111'),
     R5('vfmac.vf',   'OPV  ',    '101100 - ----- ----- 101 ----- 1010111'),
 
-    R5('vle8 .v' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0000111'),# vd, (rs1), vm
+    R5('vle8.v ' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0000111'),# vd, (rs1), vm
     R5('vle16.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 101 ----- 0000111'),
     R5('vle32.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 110 ----- 0000111'),
     R5('vle64.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 111 ----- 0000111'),
+
+    R5('vse8.v ' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0100111'),
+    R5('vse16.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0100111'),
+    R5('vse32.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0100111'),
+    R5('vse64.v' ,   'OPV  ',    '000 0 00 - 00000 ----- 000 ----- 0100111'),
+
+    R5('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {3'b000,vma,vta,vsew[2:0],vlmul[2:0]}
+
+
 ])
 
 

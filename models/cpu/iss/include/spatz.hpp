@@ -9,11 +9,11 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define LIB_CALL3(name, s0, s1, s2) name(Spatz *spatz,s0, s1, s2)
-#define LIB_CALL4(name, s0, s1, s2, s3) name(Spatz *spatz,s0, s1, s2, s3)
-#define LIB_CALL5(name, s0, s1, s2, s3, s4) name(Spatz *spatz,s0, s1, s2, s3, s4)
-#define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(Spatz *spatz,s0, s1, s2, s3, s4, s5)
-#define LIB_CALL7(name, s0, s1, s2, s3, s4, s5, s6) name(Spatz *spatz,s0, s1, s2, s3, s4, s5, s6)
+#define LIB_CALL3(name, s0, s1, s2) name(Spatz,s0, s1, s2)
+#define LIB_CALL4(name, s0, s1, s2, s3) name(Spatz,s0, s1, s2, s3)
+#define LIB_CALL5(name, s0, s1, s2, s3, s4) name(Spatz,s0, s1, s2, s3, s4)
+#define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(Spatz,s0, s1, s2, s3, s4, s5)
+#define LIB_CALL7(name, s0, s1, s2, s3, s4, s5, s6) name(Spatz,s0, s1, s2, s3, s4, s5, s6)
 
 #define REG_SET(reg,val) (*insn->out_regs_ref[reg] = (val))
 #define REG_GET(reg) (*insn->in_regs_ref[reg])

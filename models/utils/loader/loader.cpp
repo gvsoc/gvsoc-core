@@ -187,8 +187,14 @@ void loader::event_handler(void *__this, vp::clock_event *event)
     }
     else
     {
-        _this->entry_itf.sync(_this->entry);
-        _this->start_itf.sync(true);
+        if (_this->entry_itf.is_bound())
+        {
+            _this->entry_itf.sync(_this->entry);
+        }
+        if (_this->start_itf.is_bound())
+        {
+            _this->start_itf.sync(true);
+        }
     }
 }
 

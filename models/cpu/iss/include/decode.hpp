@@ -42,6 +42,7 @@ public:
     vp::wire_slave<bool> flush_cache_itf;
     iss_insn_cache_t insn_cache;
     const char *isa;
+    iss_reg_t misa_extensions;
 
 private:
     int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);

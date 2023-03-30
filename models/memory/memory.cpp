@@ -175,11 +175,13 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
     {
         return _this->handle_write(offset, size, data);
     }
+#ifdef CONFIG_ATOMICS
     else
     {
         return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
             req->get_initiator());
     }
+#endif
 }
 
 

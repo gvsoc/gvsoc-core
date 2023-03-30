@@ -557,6 +557,10 @@ class R5(Instr):
             self.args = [   OutReg(0, Range(7, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[4, 3, 2], [12, 1, 5], [2, 2, 6]]), isSigned=False)),
                         ]
+        elif format == 'DCI3':
+            self.args = [   OutReg(0, Range(7, 5)),
+                            Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[5, 2, 3], [12, 1, 5], [2, 3, 6]]), isSigned=False)),
+                        ]
         elif format == 'FCI3':
             self.args = [   OutFReg(0, Range(7, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[4, 3, 2], [12, 1, 5], [2, 2, 6]]), isSigned=False)),
@@ -578,6 +582,10 @@ class R5(Instr):
         elif format == 'CSS':
             self.args = [   InReg(1, Range(2, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[9, 4, 2], [7, 2, 6]]), isSigned=False)),
+                        ]
+        elif format == 'DCSS':
+            self.args = [   InReg(1, Range(2, 5)),
+                            Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[10, 3, 3], [7, 3, 6]]), isSigned=False)),
                         ]
         elif format == 'FCSS':
             self.args = [   InFReg(1, Range(2, 5)),
@@ -1506,14 +1514,14 @@ rv64c = IsaSubset('c', [
     R5('c.bnez',     'CB1', '111 --- --- -- --- 01', fast_handler=True, decode='bxx_decode'),
     R5('c.slli',     'CI1U','000 --- --- -- --- 10', fast_handler=True),
     R5('c.lwsp',     'CI3', '010 --- --- -- --- 10', fast_handler=True, tags=["load"]),
-    R5('c.ldsp',     'CI3', '011 --- --- -- --- 10', fast_handler=True, tags=["load"]),
+    R5('c.ldsp',     'DCI3', '011 --- --- -- --- 10', fast_handler=True, tags=["load"]),
     R5('c.jr',       'CR1', '100 0-- --- 00 000 10', fast_handler=True),
     R5('c.mv',       'CR2', '100 0-- --- -- --- 10', fast_handler=True),
     R5('c.ebreak',   'CR',  '100 100 000 00 000 10'),
     R5('c.jalr',     'CR3', '100 1-- --- 00 000 10', fast_handler=True),
     R5('c.add',      'CR',  '100 1-- --- -- --- 10', fast_handler=True),
     R5('c.swsp',     'CSS', '110 --- --- -- --- 10', fast_handler=True),
-    R5('c.sdsp',     'CSS', '111 --- --- -- --- 10', fast_handler=True),
+    R5('c.sdsp',     'DCSS', '111 --- --- -- --- 10', fast_handler=True),
     R5('c.sbreak',   'CI1', '100 000 000 00 000 10'),
 ])
 

@@ -446,20 +446,26 @@ void Decode::parse_isa()
     bool has_f8 = false;
     bool has_fvec = false;
     bool has_faux = false;
+    uint32_t misa = 0;
 
     while (len > 0)
     {
         switch (*current)
         {
         case 'd':
+            misa |= 1 << 3;
             has_d = true; // D needs F
         case 'f':
+            misa |= 1 << 5;
             has_f = true;
         case 'a':
+            misa |= 1 << 0;
         case 'v':
         case 'i':
+            misa |= 1 << 8;
         case 'm':
         {
+            misa |= 1 << 12;
             char name[2];
             name[0] = *current;
             name[1] = 0;
@@ -470,6 +476,7 @@ void Decode::parse_isa()
         }
         case 'c':
         {
+            misa |= 1 << 2;
             iss_decode_activate_isa(iss, (char *)"c");
             current++;
             len--;
@@ -665,4 +672,14 @@ void Decode::parse_isa()
                 iss_decode_activate_isa(iss, (char *)"f8auxvec");
         }
     }
+
+#ifdef CONFIG_GVSOC_ISS_SUPERVISOR_MODE
+    misa |= 1 << 18;
+#endif
+
+#ifdef CONFIG_GVSOC_ISS_USER_MODE
+    misa |= 1 << 20;
+#endif
+
+    this->misa_extensions = misa;
 }

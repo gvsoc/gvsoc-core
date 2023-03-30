@@ -5,4 +5,4 @@ vp_model(NAME memory.memory
 vp_model(NAME memory.memory_atomics
     SOURCES "memory.cpp"
     )
-vp_model_compile_options(NAME memory.memory_atomics "-DCONFIG_ATOMICS=1")
+vp_model_compile_options(NAME memory.memory_atomics OPTIONS "-DCONFIG_ATOMICS=1")

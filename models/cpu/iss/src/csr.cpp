@@ -29,9 +29,10 @@ Csr::Csr(Iss &iss)
     this->declare_csr(&this->instret,  "instret",   0xC02);
 
     // Supervisor trap setup
-    this->declare_csr(&this->sstatus,  "sstatus",   0x100);
-    this->declare_csr(&this->sie,      "sie",       0x104);
-    this->declare_csr(&this->stvec,    "stvec",     0x105);
+    this->declare_csr(&this->sstatus,    "sstatus",    0x100);
+    this->declare_csr(&this->sie,        "sie",        0x104);
+    this->declare_csr(&this->stvec,      "stvec",      0x105);
+    this->declare_csr(&this->scounteren, "scounteren", 0x106);
 
     // Supervisor trap handling
     this->declare_csr(&this->sscratch, "sscratch",  0x140);
@@ -46,12 +47,13 @@ Csr::Csr(Iss &iss)
 #endif
 
     // Machine trap setup
-    this->declare_csr(&this->mstatus,  "mstatus",  0x300, (0x3 << 11));
-    this->declare_csr(&this->misa,     "misa",     0x301);
-    this->declare_csr(&this->medeleg,  "medeleg",  0x302);
-    this->declare_csr(&this->mideleg,  "mideleg",  0x303);
-    this->declare_csr(&this->mie,      "mie",      0x304);
-    this->declare_csr(&this->mtvec,    "mtvec",    0x305);
+    this->declare_csr(&this->mstatus,    "mstatus",    0x300, (0x3 << 11));
+    this->declare_csr(&this->misa,       "misa",       0x301);
+    this->declare_csr(&this->medeleg,    "medeleg",    0x302);
+    this->declare_csr(&this->mideleg,    "mideleg",    0x303);
+    this->declare_csr(&this->mie,        "mie",        0x304);
+    this->declare_csr(&this->mtvec,      "mtvec",      0x305);
+    this->declare_csr(&this->mcounteren, "mcounteren", 0x306);
 
     // Machine trap handling
     this->declare_csr(&this->mscratch, "mscratch", 0x340);
@@ -91,8 +93,8 @@ void Csr::reset(bool active)
                 reg.second->reset(active);
             }
         }
-        
-        this->misa.value = this->iss.top.get_js_config()->get_int("misa");
+
+        this->misa.value = this->iss.top.get_js_config()->get_int("misa") | this->iss.decode.misa_extensions;
 
 #if ISS_REG_WIDTH == 64
         this->misa.value |= 2ULL << 62;

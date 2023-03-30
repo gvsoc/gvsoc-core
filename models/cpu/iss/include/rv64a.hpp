@@ -22,7 +22,7 @@
 
 static inline iss_insn_t *lr_d_exec(Iss *iss, iss_insn_t *insn)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), 0, vp::io_req_opcode_e::LR);
+    iss->lsu.atomic(insn, REG_GET(0), 8, 0, REG_OUT(0), vp::io_req_opcode_e::LR);
     return insn->next;
 }
 

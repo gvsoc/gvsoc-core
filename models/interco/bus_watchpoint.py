@@ -18,12 +18,20 @@ import gsystree as st
 
 class Bus_watchpoint(st.Component):
 
-    def __init__(self, parent, name, riscv_fesvr_tohost_addr):
+    def __init__(self, parent, name, riscv_fesvr_tohost_addr, riscv_fesvr_fromhost_addr, word_size, args=None):
 
         super(Bus_watchpoint, self).__init__(parent, name)
 
-        self.set_component('interco.bus_watchpoint')
+        if args is None:
+            args = []
+
+        if word_size == 64:
+            self.set_component('interco.bus_watchpoint_64')
+        else:
+            self.set_component('interco.bus_watchpoint_32')
 
         self.add_properties({
-            "riscv_fesvr_tohost_addr": riscv_fesvr_tohost_addr
+            "riscv_fesvr_tohost_addr": riscv_fesvr_tohost_addr,
+            "riscv_fesvr_fromhost_addr": riscv_fesvr_fromhost_addr,
+            "args": args
         })

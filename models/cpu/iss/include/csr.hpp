@@ -159,6 +159,7 @@ public:
     CsrReg sstatus;
     CsrReg sie;
     CsrReg stvec;
+    CsrReg scounteren;
 
     CsrReg  sscratch;
     CsrReg  sepc;
@@ -169,11 +170,12 @@ public:
     CsrReg  satp;
 
     Mstatus mstatus;
-    Mstatus misa;
+    CsrReg misa;
     CsrReg  medeleg;
     CsrReg  mideleg;
     CsrReg  mie;
     CsrReg  mtvec;
+    CsrReg  mcounteren;
 
     CsrReg  mscratch;
     CsrReg  mepc;

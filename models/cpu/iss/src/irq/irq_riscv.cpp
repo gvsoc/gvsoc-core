@@ -42,6 +42,11 @@ void Irq::build()
     this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
 
+    this->msi_itf.set_sync_meth(&Irq::msi_sync);
+    this->iss.top.new_slave_port("msi", &this->msi_itf);
+
+    this->mti_itf.set_sync_meth(&Irq::mti_sync);
+    this->iss.top.new_slave_port("mti", &this->mti_itf);
 }
 
 void Irq::reset(bool active)
@@ -58,6 +63,20 @@ void Irq::reset(bool active)
         this->mtvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
         this->stvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
     }
+}
+
+void Irq::msi_sync(void *__this, bool value)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value |= 1 << IRQ_M_SOFT;
+    _this->check_interrupts();
+}
+
+void Irq::mti_sync(void *__this, bool value)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value |= 1 << IRQ_M_TIMER;
+    _this->check_interrupts();
 }
 
 bool Irq::mip_access(bool is_write, iss_reg_t &value)

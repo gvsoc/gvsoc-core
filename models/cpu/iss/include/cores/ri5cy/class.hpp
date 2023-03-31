@@ -45,6 +45,8 @@
 #include <prefetch/prefetch_single_line.hpp>
 #include <gdbserver.hpp>
 
+#include <spatz.hpp>
+
 class IssWrapper;
 
 
@@ -70,8 +72,13 @@ public:
     Pmp pmp;
     Exception exception;
 
+    Spatz spatz;
+
     iss_pulp_nn_t pulp_nn;
     iss_rnnext_t rnnext;
+    
+    
+
 
     vp::component &top;
 };

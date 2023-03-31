@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "spatz.hpp"
+//#include "spatz.hpp"
+#include "isa_lib/vint.h"
 
 static inline iss_insn_t *vadd_vv_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL4(lib_VVADD , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));//VLEN = 256 and ELEN = 8 => 32 add are needed and in SPATZ2 we need 16 clk

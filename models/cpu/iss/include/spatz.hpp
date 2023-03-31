@@ -3,11 +3,11 @@
 
 #include "types.hpp"
 #include "math.h"
-//#include "int.h"
+//#include "isa_lib/vint.h"
 
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+//#define MAX(a, b) ((a) > (b) ? (a) : (b))
+//#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 #define LIB_CALL3(name, s0, s1, s2) name(iss, s0, s1, s2)
 #define LIB_CALL4(name, s0, s1, s2, s3) name(iss, s0, s1, s2, s3)
@@ -28,25 +28,25 @@ typedef uint8_t iss_Vel_t;
 #define ISS_NB_VREGS 32
 //#define NB_VEL VLEN/SEW
 #define NB_VEL 256/8
-#define VLMAX NB_VEL*LMUL
+#define VLMAX NB_VEL*iss->spatz.LMUL
 
 #define XLEN = ISS_REG_WIDTH
 #define FLEN = ISS_REG_WIDTH
 #define ELEN = MAX(XLEN,FLEN)
 
 
-const float LMUL_VALUES[] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
+// const float LMUL_VALUES[] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
 
-const int SEW_VALUES[] = {8,16,32,64,128,256,512,1024};
+// const int SEW_VALUES[] = {8,16,32,64,128,256,512,1024};
 
 
-int   VLEN = 256;
-int   SEW  = SEW_VALUES[2];
-float LMUL = LMUL_VALUES[0];
-bool  VMA  = 0;
-bool  VTA  = 0;
-int vstart = 0;
-uint32_t vl;
+// int   VLEN = 256;
+// int   SEW  = SEW_VALUES[2];
+// float LMUL = LMUL_VALUES[0];
+// bool  VMA  = 0;
+// bool  VTA  = 0;
+// int vstart = 0;
+// iss_reg_t vl;
 
 //iss_uim_t vl;// the vl in vector CSRs
 
@@ -54,10 +54,10 @@ uint32_t vl;
 class VRegfile{
 public:
 
-    VRegfile(Iss &iss);
-    //VRegfile();
+    //VRegfile(Iss &iss);
+    VRegfile();
 
-    void reset(bool active);
+    inline void reset(bool active);
 
     iss_Vel_t vregs[ISS_NB_VREGS][(int)NB_VEL];
 
@@ -75,9 +75,12 @@ private:
 
 class Vlsu : public vp::Gdbserver_core{
 public:
-    int Vlsu_io_access(uint64_t addr, int size, uint8_t *data, bool is_write);
+    inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
 
-    void handle_pending_io_access();
+    inline void handle_pending_io_access(Iss *iss);
+
+
+
 
 
     int gdbserver_get_id() override;
@@ -107,6 +110,7 @@ public:
     uint8_t *io_pending_data;
     bool io_pending_is_write;
     bool waiting_io_response;
+
 };
 // define a new class named SPATZ like ISS in class.hpp
 
@@ -115,6 +119,19 @@ class Spatz
 {
 public:
 //    Iss(vp::component &top);
+
+    const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
+
+    const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
+
+
+    int   VLEN   = 256;
+    int   SEW    = SEW_VALUES[2];
+    float LMUL   = LMUL_VALUES[0];
+    bool  VMA    = 0;
+    bool  VTA    = 0;
+    int   vstart = 0;
+    iss_reg_t vl;
 
     VRegfile vregfile;
     Vlsu vlsu;

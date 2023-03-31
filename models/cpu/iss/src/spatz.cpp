@@ -4,7 +4,15 @@
 // //                                                            VECTOR REGISTER FILE
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// VRegfile::VRegfile(Iss &iss) : iss(iss){}
+#include "iss.hpp"
+
+
+Spatz::Spatz(Iss &iss)
+    : vregfile(iss)
+{
+}
+
+VRegfile::VRegfile(Iss &iss) : iss(iss){}
 
 // void VRegfile::reset(bool active){
 //     if (active){

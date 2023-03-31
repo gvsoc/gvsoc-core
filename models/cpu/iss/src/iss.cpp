@@ -93,6 +93,6 @@ void IssWrapper::target_open()
 Iss::Iss(vp::component &top)
     : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
 {
 }

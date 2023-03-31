@@ -54,8 +54,7 @@ typedef uint8_t iss_Vel_t;
 class VRegfile{
 public:
 
-    //VRegfile(Iss &iss);
-    VRegfile();
+    VRegfile(Iss &iss);
 
     inline void reset(bool active);
 
@@ -73,32 +72,11 @@ private:
 
 };
 
-class Vlsu : public vp::Gdbserver_core{
+class Vlsu {
 public:
     inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
 
     inline void handle_pending_io_access(Iss *iss);
-
-
-
-
-
-    int gdbserver_get_id() override;
-    void gdbserver_set_id(int id) override;
-    std::string gdbserver_get_name() override;
-    int gdbserver_reg_set(int reg, uint8_t *value) override;
-    int gdbserver_reg_get(int reg, uint8_t *value) override;
-    int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value) override;
-    int gdbserver_stop() override;
-    int gdbserver_cont() override;
-    int gdbserver_stepi() override;
-    int gdbserver_state() override;
-    void gdbserver_breakpoint_insert(uint64_t addr) override;
-    void gdbserver_breakpoint_remove(uint64_t addr) override;
-    void gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size) override;
-    void gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size) override;
-    int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write) override;
-
 
 
     vp::io_master io_itf;
@@ -118,7 +96,7 @@ public:
 class Spatz
 {
 public:
-//    Iss(vp::component &top);
+    Spatz(Iss &iss);
 
     const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
 

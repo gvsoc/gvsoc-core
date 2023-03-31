@@ -47,7 +47,8 @@ function(generate_isa)
         "${F_GVSOC_ISS_DIR}/src/pmp.cpp"
         "${F_GVSOC_ISS_DIR}/src/gdbserver.cpp"
         "${F_GVSOC_ISS_DIR}/src/dbg_unit.cpp"
-        "${F_GVSOC_ISS_DIR}/flexfloat/flexfloat.c"        
+        "${F_GVSOC_ISS_DIR}/flexfloat/flexfloat.c"
+        "${F_GVSOC_ISS_DIR}/src/spatz.cpp"
         )
 
     if (NOT DEFINED GEN_ISA_IRQ)

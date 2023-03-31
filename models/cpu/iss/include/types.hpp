@@ -102,7 +102,10 @@ class Lsu;
 #define ISS_PREFETCHER_SIZE (ISS_OPCODE_MAX_SIZE * 4)
 
 #define ISS_MAX_DECODE_RANGES 8
-#define ISS_MAX_DECODE_ARGS 5
+///////////////////////////////
+//#define ISS_MAX_DECODE_ARGS 5
+#define ISS_MAX_DECODE_ARGS 7
+///////////////////////////////
 #define ISS_MAX_IMMEDIATES 4
 #define ISS_MAX_NB_OUT_REGS 3
 #define ISS_MAX_NB_IN_REGS 3

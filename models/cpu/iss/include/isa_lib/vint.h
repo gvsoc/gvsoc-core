@@ -35,6 +35,47 @@
     flexfloat_set_bits(&ff_c, c);
 
 
+
+
+
+
+///////////////////////////////////////////////////////////////////
+// #include "types.hpp"
+// #include "math.h"
+// //#include "isa_lib/vint.h"
+
+
+// //#define MAX(a, b) ((a) > (b) ? (a) : (b))
+// //#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+// #define LIB_CALL3(name, s0, s1, s2) name(iss, s0, s1, s2)
+// #define LIB_CALL4(name, s0, s1, s2, s3) name(iss, s0, s1, s2, s3)
+// #define LIB_CALL5(name, s0, s1, s2, s3, s4) name(iss, s0, s1, s2, s3, s4)
+// #define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(iss, s0, s1, s2, s3, s4, s5)
+// #define LIB_CALL7(name, s0, s1, s2, s3, s4, s5, s6) name(iss, s0, s1, s2, s3, s4, s5, s6)
+
+// #define REG_SET(reg,val) (*insn->out_regs_ref[reg] = (val))
+// #define REG_GET(reg) (*insn->in_regs_ref[reg])
+
+// #define SIM_GET(index) insn->sim[index]
+// #define UIM_GET(index) insn->uim[index]
+
+// #define REG_IN(reg) (insn->in_regs[reg])
+// #define REG_OUT(reg) (insn->out_regs[reg])
+
+// typedef uint8_t iss_Vel_t;
+// #define ISS_NB_VREGS 32
+// //#define NB_VEL VLEN/SEW
+// #define NB_VEL 256/8
+// #define VLMAX NB_VEL*iss->spatz.LMUL
+
+// #define XLEN = ISS_REG_WIDTH
+// #define FLEN = ISS_REG_WIDTH
+// #define ELEN = MAX(XLEN,FLEN)
+
+// class Spatz;
+///////////////////////////////////////////////////////////////////
+
 //VRegfile::VRegfile(Iss &iss) : iss(iss){}
 
 inline void VRegfile::reset(bool active){
@@ -137,7 +178,7 @@ static inline void lib_VVFMAC(Iss *iss, int vs1      , int vs2, int vd, bool vm)
     }
 }
 
-static inline void lib_VXFMAC(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm){
+static inline void lib_VFFMAC(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm){
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
         if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
             switch (iss->spatz.SEW){

@@ -44,8 +44,8 @@ static inline iss_insn_t *vfmac_vv_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL4(lib_VVFMAC, REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
-static inline iss_insn_t *vfmac_vx_exec(Iss *iss, iss_insn_t *insn){
-    LIB_CALL4(lib_VXFMAC, REG_IN(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+static inline iss_insn_t *vfmac_vf_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VFFMAC, REG_IN(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
 
@@ -64,6 +64,11 @@ static inline iss_insn_t *vle32_v_exec(Iss *iss, iss_insn_t *insn){
     return insn->next;
 }
 
+static inline iss_insn_t *vle64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VLE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
 static inline iss_insn_t *vse8_v_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL3(lib_VSE8V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return insn->next;
@@ -78,6 +83,12 @@ static inline iss_insn_t *vse32_v_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL3(lib_VSE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
+
+static inline iss_insn_t *vse64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VSE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
 
 static inline iss_insn_t *vfadd_vv_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL4(lib_VVFADD , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));

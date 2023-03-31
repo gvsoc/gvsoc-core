@@ -443,3 +443,90 @@
 //     return vl;
 //     //Not sure about the write back procedure
 // }
+
+// class VRegfile{
+// public:
+
+//     //VRegfile(Iss &iss);
+//     VRegfile();
+
+//     inline void reset(bool active);
+
+//     iss_Vel_t vregs[ISS_NB_VREGS][(int)NB_VEL];
+
+//     //inline iss_reg_t *reg_ref(int reg);
+//     //inline iss_reg_t *reg_store_ref(int reg);
+//     //inline void set_Vreg(int reg, iss_Vel_t* value);
+//     //inline iss_Vel_t* get_Vreg(int reg);
+//     //inline iss_reg64_t get_reg64(int reg);
+//     //inline void set_reg64(int reg, iss_reg64_t value);
+
+// private:
+//     Iss &iss;
+
+// };
+
+// class Vlsu : public vp::Gdbserver_core{
+// public:
+//     inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
+
+//     inline void handle_pending_io_access(Iss *iss);
+
+
+
+
+
+//     int gdbserver_get_id() override;
+//     void gdbserver_set_id(int id) override;
+//     std::string gdbserver_get_name() override;
+//     int gdbserver_reg_set(int reg, uint8_t *value) override;
+//     int gdbserver_reg_get(int reg, uint8_t *value) override;
+//     int gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value) override;
+//     int gdbserver_stop() override;
+//     int gdbserver_cont() override;
+//     int gdbserver_stepi() override;
+//     int gdbserver_state() override;
+//     void gdbserver_breakpoint_insert(uint64_t addr) override;
+//     void gdbserver_breakpoint_remove(uint64_t addr) override;
+//     void gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size) override;
+//     void gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size) override;
+//     int gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write) override;
+
+
+
+//     vp::io_master io_itf;
+//     vp::io_req io_req;
+//     vp::clock_event *event;
+//     int io_retval;
+//     uint64_t io_pending_addr;
+//     int io_pending_size;
+//     uint8_t *io_pending_data;
+//     bool io_pending_is_write;
+//     bool waiting_io_response;
+
+// };
+// // define a new class named SPATZ like ISS in class.hpp
+
+
+// class Spatz
+// {
+// public:
+// //    Iss(vp::component &top);
+
+//     const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
+
+//     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
+
+
+//     int   VLEN   = 256;
+//     int   SEW    = SEW_VALUES[2];
+//     float LMUL   = LMUL_VALUES[0];
+//     bool  VMA    = 0;
+//     bool  VTA    = 0;
+//     int   vstart = 0;
+//     iss_reg_t vl;
+
+//     VRegfile vregfile;
+//     Vlsu vlsu;
+
+// };

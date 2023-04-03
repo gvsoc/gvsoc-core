@@ -69,6 +69,12 @@ class Testbench(st.Component):
         for i in range(0, nb_gpio):
             self.bind(self, f'gpio{i}', testbench, f'gpio{i}')
 
+        # SPI
+        for itf in range(0, 4):
+            for cs in range(0, 4):
+                self.bind(self, f'spi{itf}_cs{cs}_data', testbench, f'spi{itf}_cs{cs}_data')
+                self.bind(self, f'spi{itf}_cs{cs}', testbench, f'spi{itf}_cs{cs}')
+
 
     class Testbench_implem(st.Component):
 

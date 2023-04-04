@@ -14,6 +14,7 @@
 #define LIB_CALL5(name, s0, s1, s2, s3, s4) name(iss, s0, s1, s2, s3, s4)
 #define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(iss, s0, s1, s2, s3, s4, s5)
 #define LIB_CALL7(name, s0, s1, s2, s3, s4, s5, s6) name(iss, s0, s1, s2, s3, s4, s5, s6)
+#define LIB_CALL8(name, s0, s1, s2, s3, s4, s5, s6, s7) name(iss, s0, s1, s2, s3, s4, s5, s6, s7)
 
 #define REG_SET(reg,val) (*insn->out_regs_ref[reg] = (val))
 #define REG_GET(reg) (*insn->in_regs_ref[reg])
@@ -98,7 +99,8 @@ class Spatz
 public:
     Spatz(Iss &iss);
 
-    const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
+    //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
+    const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
 
     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
 
@@ -109,6 +111,7 @@ public:
     bool  VMA    = 0;
     bool  VTA    = 0;
     int   vstart = 0;
+    iss_reg_t vtype;
     iss_reg_t vl;
 
     VRegfile vregfile;

@@ -673,6 +673,7 @@ class R5(Instr):
                             UnsignedImm(1, Range(23, 3)),# vsew
                             UnsignedImm(2, Range(27, 0)),# vta
                             UnsignedImm(3, Range(28, 0)),# vma
+                            UnsignedImm(3, Range(20,12))
                         ]            
 
 
@@ -718,6 +719,7 @@ rv32v = IsaSubset('v', [
     R5('vse64.v' ,   'OPV'  ,    '000 0 00 - 00000 ----- 111 ----- 0100111'),
 
     R5('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {3'b000,vma,vta,vsew[2:0],vlmul[2:0]}
+    #R5('csrr', 'IU',  '------- ----- 00000 010 ----- 1110011', decode='csr_decode'),
 
 
 ])

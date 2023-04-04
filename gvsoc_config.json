@@ -1,0 +1,184 @@
+{
+  "target": {
+    "clock": {
+      "vp_component": "vp.clock_domain_impl",
+      "frequency": 50000000,
+      "factor": 1,
+      "ports": [
+        "out"
+      ]
+    },
+    "soc": {
+      "mem": {
+        "vp_component": "memory.memory",
+        "size": 16777216,
+        "stim_file": null,
+        "power_trigger": false,
+        "width_bits": 2,
+        "align": 0,
+        "ports": [
+          "input"
+        ]
+      },
+      "ico": {
+        "vp_component": "interco.router_impl",
+        "mappings": {
+          "mem": {
+            "base": 2147483648,
+            "size": 16777216,
+            "remove_offset": 2147483648
+          }
+        },
+        "latency": 0,
+        "bandwidth": 0,
+        "remove_offset": 0,
+        "ports": [
+          "mem",
+          "input"
+        ]
+      },
+      "host": {
+        "vp_component": "pulp.cpu.iss.iss_snitch",
+        "isa": "rv32imfvc",
+        "misa": 0,
+        "first_external_pcer": 0,
+        "riscv_dbg_unit": false,
+        "debug_binaries": [
+          "/home/amir/gvsoc/core/debug_binary_0_rv64uv-p-vfadd.debugInfo"
+        ],
+        "binaries": [
+          "/home/amir/UNI/Spatz/compile_generated_files/Spatz_test/matheusd/rv64uv-p-vfadd"
+        ],
+        "debug_handler": 0,
+        "power_models": {},
+        "cluster_id": 0,
+        "core_id": 0,
+        "fetch_enable": false,
+        "boot_addr": 0,
+        "ports": [
+          "data",
+          "fetch",
+          "fetchen",
+          "bootaddr"
+        ]
+      },
+      "loader": {
+        "vp_component": "utils.loader.loader",
+        "binary": [
+          "/home/amir/UNI/Spatz/compile_generated_files/Spatz_test/matheusd/rv64uv-p-vfadd"
+        ],
+        "ports": [
+          "out",
+          "start",
+          "entry"
+        ]
+      },
+      "tohost": {
+        "vp_component": "interco.bus_watchpoint_32",
+        "riscv_fesvr_tohost_addr": 2147487744,
+        "riscv_fesvr_fromhost_addr": 2147487808,
+        "args": [],
+        "ports": [
+          "input",
+          "output"
+        ]
+      },
+      "bindings": [
+        [
+          "ico->mem",
+          "mem->input"
+        ],
+        [
+          "host->data",
+          "tohost->input"
+        ],
+        [
+          "tohost->output",
+          "ico->input"
+        ],
+        [
+          "host->fetch",
+          "ico->input"
+        ],
+        [
+          "loader->out",
+          "ico->input"
+        ],
+        [
+          "loader->start",
+          "host->fetchen"
+        ],
+        [
+          "loader->entry",
+          "host->bootaddr"
+        ]
+      ],
+      "components": [
+        "mem",
+        "ico",
+        "host",
+        "loader",
+        "tohost"
+      ],
+      "ports": [
+        "clock"
+      ]
+    },
+    "gvsoc": {
+      "proxy": {
+        "enabled": false,
+        "port": 42951
+      },
+      "events": {
+        "enabled": false,
+        "include_raw": [],
+        "include_regex": [],
+        "exclude_regex": [],
+        "format": "fst",
+        "active": false,
+        "all": true,
+        "gtkw": false,
+        "gen_gtkw": false,
+        "files": [],
+        "traces": {},
+        "tags": [
+          "overview"
+        ]
+      },
+      "include_dirs": [
+        "/home/amir/gvsoc/install/models"
+      ],
+      "runner_module": "gv.gvsoc",
+      "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
+      "werror": true,
+      "verbose": true,
+      "debug-mode": true,
+      "sa-mode": true,
+      "launchers": {
+        "default": "gvsoc_launcher",
+        "debug": "gvsoc_launcher_debug"
+      },
+      "traces": {
+        "level": "debug",
+        "format": "long",
+        "enabled": false,
+        "include_regex": [
+          "insn"
+        ],
+        "exclude_regex": []
+      },
+      "wunconnected-device": false,
+      "wunconnected-padfun": false
+    },
+    "bindings": [
+      [
+        "clock->out",
+        "soc->clock"
+      ]
+    ],
+    "components": [
+      "clock",
+      "soc"
+    ]
+  }
+}

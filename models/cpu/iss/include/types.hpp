@@ -104,7 +104,7 @@ class Lsu;
 #define ISS_MAX_DECODE_RANGES 8
 ///////////////////////////////
 //#define ISS_MAX_DECODE_ARGS 5
-#define ISS_MAX_DECODE_ARGS 7
+#define ISS_MAX_DECODE_ARGS 8
 ///////////////////////////////
 #define ISS_MAX_IMMEDIATES 4
 #define ISS_MAX_NB_OUT_REGS 3

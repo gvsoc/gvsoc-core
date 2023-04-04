@@ -306,7 +306,8 @@ inline int Vlsu::Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data
     this->io_pending_data = data;
     this->io_pending_is_write = is_write;
     this->waiting_io_response = true;
-
+    printf("io_pending_size = %d\n" , this->io_pending_size);
+    printf("io_pending_addr = %lu\n" , this->io_pending_addr);
     this->handle_pending_io_access(iss);
 
     return this->io_retval;
@@ -318,8 +319,15 @@ inline void Vlsu::handle_pending_io_access(Iss *iss)
         vp::io_req *req = &this->io_req;
 
         uint32_t addr = this->io_pending_addr;
-        uint32_t addr_aligned = addr & ~(iss->spatz.VLEN / 8 - 1);
-        int size = addr_aligned + iss->spatz.VLEN/8 - addr;
+        
+        //uint32_t addr_aligned = addr & ~(iss->spatz.VLEN / 8 - 1);
+        //int size = addr_aligned + iss->spatz.VLEN/8 - addr;
+        
+        uint32_t addr_aligned = addr & ~(iss->spatz.vl - 1);
+        int size = addr_aligned + iss->spatz.vl - addr;
+        printf("addr_aligned = %u\n" , addr_aligned);
+        printf("size = %d\n" , size);
+        
         if (size > this->io_pending_size){
             size = this->io_pending_size;
         }
@@ -369,16 +377,30 @@ static inline void lib_VLE8V (Iss *iss, int rs1, int vd , bool vm){
         iss->spatz.vregfile.vregs[vd][i+3] = (vm || !(iss->spatz.vregfile.vregs[0][i+3]%2)) ? data[3] : iss->spatz.vregfile.vregs[vd][i+3];
     }
 }
+//          iss_reg_t rs1
+static inline void lib_VLE16V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
+    printf("LIB_VLE16V\n");
+    printf("vstart = %d\n",iss->spatz.vstart);
+    printf("vl = %ld\n",iss->spatz.vl);
+    printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
+    printf("VM = %d\n",vm);
+    printf("RS1 = %lu\n",rs1);
 
-static inline void lib_VLE16V(Iss *iss, int rs1, int vd , bool vm){
     uint8_t* data;
 
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=2){
         if(!i){
-            iss->spatz.vlsu.Vlsu_io_access(iss, rs1,iss->spatz.VLEN/8,data,false);
+            //iss->spatz.vlsu.Vlsu_io_access(iss, rs1, iss->spatz.VLEN/8, data, false);
+            iss->spatz.vlsu.Vlsu_io_access(iss, rs1, iss->spatz.vl, data, false);
         }else{
             iss->spatz.vlsu.handle_pending_io_access(iss);
         }
+
+        printf("data0 = %d\n",data[0]);
+        printf("data1 = %d\n",data[1]);
+        printf("data2 = %d\n",data[2]);
+        printf("data3 = %d\n",data[3]);
+
         iss->spatz.vregfile.vregs[vd][i+0] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? (data[1]*pow(2,8) + data[0]) : iss->spatz.vregfile.vregs[vd][i+0];
         iss->spatz.vregfile.vregs[vd][i+1] = (vm || !(iss->spatz.vregfile.vregs[0][i+1]%2)) ? (data[3]*pow(2,8) + data[2]) : iss->spatz.vregfile.vregs[vd][i+1];
     }
@@ -501,33 +523,47 @@ static inline void lib_VSE64V(Iss *iss, int rs1, int vs3, bool vm){
 //                                                            VECTOR CONFIGURATION SETTING
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, iss_uim_t lmul, iss_uim_t sew, bool ta,  bool ma){
+static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, iss_uim_t lmul, iss_uim_t sew, bool ta,  bool ma, iss_uim_t vtype){
     uint32_t AVL;
+
     // SET NEW VTYPE
     // spatz_req.vtype = {1'b0, decoder_req_i.instr[27:20]};
 
-    if(iss->spatz.VLEN*iss->spatz.LMUL_VALUES[lmul]/iss->spatz.SEW_VALUES[sew] == VLMAX){
+    iss->spatz.vtype = vtype;
+
+    //implement it like what is implemented in SV
+    //if(iss->spatz.VLEN*iss->spatz.LMUL_VALUES[lmul]/iss->spatz.SEW_VALUES[sew] == VLMAX){
         iss->spatz.vstart = 0;
         iss->spatz.SEW = iss->spatz.SEW_VALUES[sew];
         iss->spatz.LMUL = iss->spatz.LMUL_VALUES[lmul];
         iss->spatz.VMA = ma;
         iss->spatz.VTA = ta;
+
         //  localparam int unsigned MAXVL  = VLEN; and VLEN = 256
-        if(!idxRs1){ // in SV implementation it is checked with rs1 = 1
+        if(idxRs1){
             AVL = rs1;
             iss->spatz.vl = MIN(AVL,VLMAX);//spec page 30 - part c and d
-        }else if(VLMAX < rs1){
+            printf("CASE1\n");
+        //}else if(VLMAX < rs1){
+        }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
             iss->spatz.vl  = VLMAX;
+            printf("CASE2\n");
             //vl = VLEN/SEW;
         }else{
             AVL = iss->spatz.vl;
+            printf("CASE3\n");
         }
-    } else {
+    //} else {
         // vtype for invalid situation
         //vtype_d = '{vill: 1'b1, vsew: EW_8, vlmul: LMUL_1, default: '0};
         //vl_d    = '0;
-    }
+    //}
+    printf("SEW = %d \n",iss->spatz.SEW);
+    printf("LMUL = %f \n",iss->spatz.LMUL);
+    printf("VL = %ld \n",iss->spatz.vl);
+    printf("AVL = %d \n",AVL);
+    printf("rs1 = %d \n",rs1);
     return iss->spatz.vl;
     //Not sure about the write back procedure
 }

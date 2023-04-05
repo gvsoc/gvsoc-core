@@ -39,6 +39,7 @@ int IssWrapper::build()
     this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
+    this->iss.spatz.build();
 
     traces.new_trace("wrapper", this->get_trace(), vp::DEBUG);
 
@@ -78,6 +79,7 @@ void IssWrapper::reset(bool active)
     this->iss.regfile.reset(active);
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
+    this->iss.spatz.reset(active);
 }
 
 IssWrapper::IssWrapper(js::config *config)

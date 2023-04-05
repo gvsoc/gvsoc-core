@@ -342,9 +342,9 @@ inline void Vlsu::handle_pending_io_access(Iss *iss)
         this->io_pending_size -= size;
         this->io_pending_addr += size;
 
-        int err = this->io_itf.req(req);
+        int err = this->io_itf[0].req(req);
         if (err == vp::IO_REQ_OK){
-            this->event->enqueue(this->io_req.get_latency() + 1);
+            // this->event->enqueue(this->io_req.get_latency() + 1);
         }
         else if (err == vp::IO_REQ_INVALID){
             this->waiting_io_response = false;
@@ -364,7 +364,7 @@ inline void Vlsu::handle_pending_io_access(Iss *iss)
 //NB_VEL = number of element in each vector = 256/8 = 32
 //The starting memory address of load instruction is in rs1
 static inline void lib_VLE8V (Iss *iss, int rs1, int vd , bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=4){
         if(!i){
             iss->spatz.vlsu.Vlsu_io_access(iss, rs1,iss->spatz.VLEN/8,data,false);
@@ -386,7 +386,7 @@ static inline void lib_VLE16V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
     printf("VM = %d\n",vm);
     printf("RS1 = %lu\n",rs1);
 
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
 
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=2){
         if(!i){
@@ -407,7 +407,7 @@ static inline void lib_VLE16V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
 }
 
 static inline void lib_VLE32V(Iss *iss, int rs1, int vd , bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
 
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=1){
         if(!i){
@@ -420,7 +420,7 @@ static inline void lib_VLE32V(Iss *iss, int rs1, int vd , bool vm){
 }
 
 static inline void lib_VLE64V(Iss *iss, int rs1, int vd , bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
     u_int64_t temp;
     for (int i = iss->spatz.vstart; i < iss->spatz.vl*2; i+=1){
         if(!i){
@@ -436,7 +436,7 @@ static inline void lib_VLE64V(Iss *iss, int rs1, int vd , bool vm){
 }
 
 static inline void lib_VSE8V (Iss *iss, int rs1, int vs3, bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=4){
 /*
         data[0] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? iss->spatz.vregfile.vregs[vs3][i+0] : 0;
@@ -458,7 +458,7 @@ static inline void lib_VSE8V (Iss *iss, int rs1, int vs3, bool vm){
 }
 
 static inline void lib_VSE16V(Iss *iss, int rs1, int vs3, bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=2){
         /*
         data[0] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? iss->spatz.vregfile.vregs[vs3][i+0] : 0;
@@ -479,7 +479,7 @@ static inline void lib_VSE16V(Iss *iss, int rs1, int vs3, bool vm){
 }
 
 static inline void lib_VSE32V(Iss *iss, int rs1, int vs3, bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=1){
         //data[0] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? iss->spatz.vregfile.vregs[vs3][i+0] : 0;
         data[3] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? iss->spatz.vregfile.vregs[vs3][i+0]/pow(2,8*3) : 0;
@@ -495,7 +495,7 @@ static inline void lib_VSE32V(Iss *iss, int rs1, int vs3, bool vm){
 }
 
 static inline void lib_VSE64V(Iss *iss, int rs1, int vs3, bool vm){
-    uint8_t* data;
+    uint8_t data[iss->spatz.vl];
     uint32_t temp;
     for (int i = iss->spatz.vstart; i < iss->spatz.vl*2; i+=1){
         if(i%2){

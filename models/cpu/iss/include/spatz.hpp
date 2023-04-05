@@ -78,9 +78,13 @@ public:
     inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
 
     inline void handle_pending_io_access(Iss *iss);
+    static void data_response(void *__this, vp::io_req *req);
 
 
-    vp::io_master io_itf;
+    Vlsu(Iss &iss);
+    void build();
+
+    vp::io_master io_itf[4];
     vp::io_req io_req;
     vp::clock_event *event;
     int io_retval;
@@ -90,6 +94,9 @@ public:
     bool io_pending_is_write;
     bool waiting_io_response;
 
+private:
+    Iss &iss;
+
 };
 // define a new class named SPATZ like ISS in class.hpp
 
@@ -98,6 +105,9 @@ class Spatz
 {
 public:
     Spatz(Iss &iss);
+
+    void build();
+    void reset(bool reset);
 
     //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
     const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};

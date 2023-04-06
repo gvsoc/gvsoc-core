@@ -102,6 +102,7 @@ int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 
 int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Getting registers\n");
     if (nb_regs)
     {
         *nb_regs = 33;
@@ -211,10 +212,12 @@ void Gdbserver::enable_breakpoint(iss_addr_t addr)
 void Gdbserver::disable_breakpoint(iss_addr_t addr)
 {
     iss_insn_t *insn = insn_cache_get(&this->iss, addr);
-
-    insn->handler = insn->breakpoint_saved_handler;
-    insn->fast_handler = insn->breakpoint_saved_fast_handler;
-    insn->breakpoint_saved_handler = NULL;
+    if (insn_cache_is_decoded(&this->iss, insn))
+    {
+        insn->handler = insn->breakpoint_saved_handler;
+        insn->fast_handler = insn->breakpoint_saved_fast_handler;
+        insn->breakpoint_saved_handler = NULL;
+    }
 }
 
 void Gdbserver::enable_all_breakpoints()

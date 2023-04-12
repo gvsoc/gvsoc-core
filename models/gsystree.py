@@ -730,7 +730,7 @@ class Component(object):
         if gen:
 
             rmap = import_module('regmap.regmap')
-            regmap_md_mistune = import_module('regmap.regmap_md_mistune')
+            regmap_md = import_module('regmap.regmap_md')
             regmap_c_header = import_module('regmap.regmap_c_header')
 
             header_dir = self.get_property('regmap/header_prefix')
@@ -741,5 +741,5 @@ class Component(object):
                 print(f'Generating archi files {headers} to {header_dir}')
 
                 regmap = rmap.Regmap(name)
-                regmap_md_mistune.import_md(regmap, spec)
+                regmap_md.import_md(regmap, spec)
                 regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)

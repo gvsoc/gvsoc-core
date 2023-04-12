@@ -101,6 +101,19 @@ bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write
 
 
 
+vp::reg *vp::regmap::get_register_from_offset(uint64_t offset)
+{
+    for (auto x: this->get_registers())
+    {
+        if (x->offset == offset)
+        {
+            return x;
+        }
+    }
+    return NULL;
+}
+
+
 void vp::regmap::build(vp::component *comp, vp::trace *trace, std::string name)
 {
     this->comp = comp;

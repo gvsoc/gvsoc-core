@@ -2,7 +2,7 @@
 # Copyright (C) 2019 GreenWaves Technologies
 #
 
-import regmap as rmap
+import regmap.regmap as rmap
 import marko
 from marko import Markdown
 from marko.ext.gfm import gfm, GFM

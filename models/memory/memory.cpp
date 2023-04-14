@@ -176,13 +176,16 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
     {
         return _this->handle_write(offset, size, data);
     }
-#ifdef CONFIG_ATOMICS
     else
     {
+#ifdef CONFIG_ATOMICS
         return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
             req->get_initiator());
-    }
+#else
+        _this->trace.force_warning("Received unsupported atomic operation\n");
+        return vp::IO_REQ_INVALID;
 #endif
+    }
 }
 
 

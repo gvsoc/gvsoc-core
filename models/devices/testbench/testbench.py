@@ -70,7 +70,7 @@ class Testbench(st.Component):
             self.bind(self, f'gpio{i}', testbench, f'gpio{i}')
 
         # SPI
-        for itf in range(0, 4):
+        for itf in range(0, 6):
             for cs in range(0, 4):
                 self.bind(self, f'spi{itf}_cs{cs}_data', testbench, f'spi{itf}_cs{cs}_data')
                 self.bind(self, f'spi{itf}_cs{cs}', testbench, f'spi{itf}_cs{cs}')
@@ -91,7 +91,7 @@ class Testbench(st.Component):
                 "verbose": False,
                 "ctrl_type": "uart",
                 "nb_gpio": nb_gpio,
-                "nb_spi": 5,
+                "nb_spi": 6,
                 "nb_uart": 5,
                 "nb_i2c": 3,
                 "nb_i2s": 3,

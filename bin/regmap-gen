@@ -91,34 +91,34 @@ import regmap.regmap_c_header
 import regmap.regmap_rst
 import regmap.regmap_ipxact
 
-regmap = rmap.Regmap(args.name)
+rmap = rmap.Regmap(args.name)
 
 if args.input:
-    regmap.set_input_file(args.input)
+    rmap.set_input_file(args.input)
 
 if args.input_xls is not None:
-    regmap.regmap_xls.import_xls(regmap, args.input_xls)
+    regmap.regmap_xls.import_xls(rmap, args.input_xls)
 
 if args.input_md_mistune is not None:
-    regmap.regmap_md_mistune.import_md(regmap, args.input_md_mistune, registers=args.registers)
+    regmap.regmap_md_mistune.import_md(rmap, args.input_md_mistune, registers=args.registers)
 
 if args.input_md is not None:
-    regmap.regmap_md.import_md(regmap, args.input_md, registers=args.registers)
+    regmap.regmap_md.import_md(rmap, args.input_md, registers=args.registers)
 
 if args.input_json is not None:
-    regmap.regmap_json.import_json_file(regmap, args.input_json)
+    regmap.regmap_json.import_json_file(rmap, args.input_json)
 
 if args.table:
     regmap.dump_to_table(dump_regfields=True)
 
 if args.rst:
-    regmap.regmap_rst.dump_to_rst(regmap=regmap, name=args.name, rst_path=args.rst, pretty_name=args.pretty_name, addmap_ref=args.addmap_ref)
+    regmap.regmap_rst.dump_to_rst(regmap=rmap, name=args.name, rst_path=args.rst, pretty_name=args.pretty_name, addmap_ref=args.addmap_ref)
 
 if args.json:
-    regmap.regmap_json.dump_to_json(regmap=regmap, name=args.name, json_path=args.json)
+    regmap.regmap_json.dump_to_json(regmap=rmap, name=args.name, json_path=args.json)
 
 if args.header:
-    regmap.regmap_c_header.dump_to_header(regmap=regmap, name=args.name, header_path=args.header)
+    regmap.regmap_c_header.dump_to_header(regmap=rmap, name=args.name, header_path=args.header)
 
 if args.ipxact:
-    regmap.regmap_ipxact.dump_to_ipxact(regmap=regmap, filename=args.ipxact)
+    regmap.regmap_ipxact.dump_to_ipxact(regmap=rmap, filename=args.ipxact)

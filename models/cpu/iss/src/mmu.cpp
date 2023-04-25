@@ -131,17 +131,20 @@ void Mmu::raise_exception()
 
     if (this->access_type & ACCESS_LOAD)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal load access\n");
+        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal load access (pc: 0x%lx, 0x%lx)\n",
+            this->iss.exec.stall_insn->addr, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_LOAD_PAGE_FAULT);
     }
     else if (this->access_type & ACCESS_STORE)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal store access\n");
+        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal store access (pc: 0x%lx, 0x%lx)\n",
+            this->iss.exec.stall_insn->addr, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_STORE_PAGE_FAULT);
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal fetch access\n");
+        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal fetch access (pc: 0x%lx, 0x%lx)\n",
+            this->iss.exec.stall_insn->addr, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_INSN_PAGE_FAULT);
     }
 

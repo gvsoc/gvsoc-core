@@ -48,6 +48,12 @@ void Irq::build()
 
     this->mti_itf.set_sync_meth(&Irq::mti_sync);
     this->iss.top.new_slave_port(this, "mti", &this->mti_itf);
+
+    this->mei_itf.set_sync_meth(&Irq::mei_sync);
+    this->iss.top.new_slave_port(this, "mei", &this->mei_itf);
+
+    this->sei_itf.set_sync_meth(&Irq::sei_sync);
+    this->iss.top.new_slave_port(this, "sei", &this->sei_itf);
 }
 
 void Irq::reset(bool active)
@@ -78,6 +84,20 @@ void Irq::mti_sync(void *__this, bool value)
     Irq *_this = (Irq *)__this;
     _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_TIMER)) | (value << IRQ_M_TIMER);
 
+    _this->check_interrupts();
+}
+
+void Irq::mei_sync(void *__this, bool value)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_EXT)) | (value << IRQ_M_EXT);
+    _this->check_interrupts();
+}
+
+void Irq::sei_sync(void *__this, bool value)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_S_EXT)) | (value << IRQ_S_EXT);
     _this->check_interrupts();
 }
 

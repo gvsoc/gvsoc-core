@@ -66,6 +66,8 @@ public:
     void check_interrupts();
     static void msi_sync(void *__this, bool value);
     static void mti_sync(void *__this, bool value);
+    static void mei_sync(void *__this, bool value);
+    static void sei_sync(void *__this, bool value);
 
     Iss &iss;
 
@@ -79,4 +81,6 @@ public:
     vp::trace trace;
     vp::wire_slave<bool> msi_itf;
     vp::wire_slave<bool> mti_itf;
+    vp::wire_slave<bool> mei_itf;
+    vp::wire_slave<bool> sei_itf;
 };

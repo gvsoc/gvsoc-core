@@ -522,7 +522,6 @@ static inline iss_insn_t *fence_i_exec(Iss *iss, iss_insn_t *insn)
 
 static inline iss_insn_t *fence_exec(Iss *iss, iss_insn_t *insn)
 {
-    fence_i_exec(iss, insn);
     return insn->next;
 }
 

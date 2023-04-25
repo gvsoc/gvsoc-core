@@ -121,8 +121,9 @@ void Exec::icache_flush()
         this->cache_sync = true;
         this->insn_stall();
         this->flush_cache_req_itf.sync(true);
-        iss_cache_flush(&this->iss);
     }
+
+    iss_cache_flush(&this->iss);
 }
 
 #include <unistd.h>

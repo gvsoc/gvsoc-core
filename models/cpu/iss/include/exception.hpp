@@ -37,4 +37,5 @@ public:
 
 private:
     Iss &iss;
+    vp::trace trace;
 };

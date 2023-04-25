@@ -19,6 +19,8 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include "rvd.hpp"
+
 static inline iss_insn_t *c_addiw_exec_fast(Iss *iss, iss_insn_t *insn)
 {
     return addiw_exec(iss, insn);
@@ -30,6 +32,17 @@ static inline iss_insn_t *c_addiw_exec(Iss *iss, iss_insn_t *insn)
     return addiw_exec(iss, insn);
 }
 
+static inline iss_insn_t *c_fld_exec_fast(Iss *iss, iss_insn_t *insn)
+{
+    return fld_exec(iss, insn);
+}
+
+static inline iss_insn_t *c_fld_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->timing.event_rvc_account(1);
+    return fld_exec(iss, insn);
+}
+
 static inline iss_insn_t *c_ld_exec_fast(Iss *iss, iss_insn_t *insn)
 {
     return ld_exec_fast(iss, insn);
@@ -39,6 +52,17 @@ static inline iss_insn_t *c_ld_exec(Iss *iss, iss_insn_t *insn)
 {
     iss->timing.event_rvc_account(1);
     return ld_exec(iss, insn);
+}
+
+static inline iss_insn_t *c_fsd_exec_fast(Iss *iss, iss_insn_t *insn)
+{
+    return fsd_exec(iss, insn);
+}
+
+static inline iss_insn_t *c_fsd_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->timing.event_rvc_account(1);
+    return fsd_exec(iss, insn);
 }
 
 static inline iss_insn_t *c_sd_exec_fast(Iss *iss, iss_insn_t *insn)

@@ -154,6 +154,7 @@ public:
     vp::trace trace;
 
     CsrReg cycle;
+    CsrReg time;
     CsrReg instret;
 
     CsrReg sstatus;
@@ -191,6 +192,17 @@ public:
     CsrReg mvendorid;
     CsrReg marchid;
 
+    CsrReg mhpmcounter[29];
+#if ISS_REG_WIDTH == 32
+    CsrReg mhpmcounterh[29];
+#endif
+    CsrReg mcountinhibit;
+
+#if defined(CONFIG_GVSOC_ISS_PMP)
+    CsrReg pmpcfg[16];
+    CsrReg pmpaddr[64];
+#endif
+
     iss_reg_t depc;
     iss_reg_t dcsr;
 #if defined(ISS_HAS_PERF_COUNTERS)
@@ -213,7 +225,9 @@ public:
 private:
 
     bool tselect_access(bool is_write, iss_reg_t &value);
+    bool time_access(bool is_write, iss_reg_t &value);
 
     std::map<iss_reg_t, CsrAbtractReg *> regs;
+    vp::wire_master<uint64_t> time_itf;
 
 };

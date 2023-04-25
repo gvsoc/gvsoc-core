@@ -23,6 +23,12 @@
 // HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE
 // MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
+#include <termios.h>
+#include <unistd.h>
+#include <poll.h>
+#include <signal.h>
+#include <stdlib.h>
+
 #include <sys/time.h>
 #include <stdint.h>
 #include <vp/vp.hpp>
@@ -103,13 +109,18 @@ public:
     Ns16550(js::config *config);
 
     int build();
+    void reset(bool active);
+    void stop();
 
 private:
     static vp::io_req_status_e req(void *__this, vp::io_req *req);
     bool load(unsigned int addr, size_t len, uint8_t *bytes);
     bool store(unsigned int addr, size_t len, const uint8_t *bytes);
+    static void event_handler(void *__this, vp::clock_event *event);
+    int read();
+    void write(char ch);
 
-    uint32_t interrupt_id;
+    vp::trace trace;
     uint32_t reg_shift;
     uint32_t reg_io_width;
     std::queue<uint8_t> rx_queue;
@@ -131,12 +142,20 @@ private:
     static const int MAX_BACKOFF = 16;
 
     vp::io_slave input_itf;
+    vp::wire_master<bool> irq_itf;
+
+    vp::clock_event * event;
+
+    struct termios old_tios;
+    bool restore_tios;
 };
 
 
 
 int Ns16550::build()
 {
+    this->traces.new_trace("trace", &this->trace, vp::DEBUG);
+
     ier = 0;
     iir = UART_IIR_NO_INT;
     fcr = 0;
@@ -153,14 +172,47 @@ int Ns16550::build()
     this->input_itf.set_req_meth(&Ns16550::req);
     new_slave_port("input", &this->input_itf);
 
+    this->new_master_port("irq", &this->irq_itf);
+
+    this->event = event_new(Ns16550::event_handler);
+
+    this->restore_tios = false;
+    if (tcgetattr(0, &old_tios) == 0)
+    {
+        struct termios new_tios = old_tios;
+        new_tios.c_lflag &= ~(ICANON | ECHO);
+        if (tcsetattr(0, TCSANOW, &new_tios) == 0)
+            restore_tios = true;
+    }
+
     return 0;
 }
 
+
+void Ns16550::stop()
+{
+    if (restore_tios)
+        tcsetattr(0, TCSANOW, &old_tios);
+}
+
+
+
+void Ns16550::reset(bool active)
+{
+    if (!active)
+    {
+        this->event->enqueue(100);
+    }
+}
 
 vp::io_req_status_e Ns16550::req(void *__this, vp::io_req *req)
 {
     Ns16550 *_this = (Ns16550 *)__this;
     bool status;
+
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
+        req->get_addr(), req->get_size(), req->get_is_write());
+
     if (req->get_is_write())
     {
         status = _this->store(req->get_addr(), req->get_size(), req->get_data());
@@ -212,12 +264,12 @@ void Ns16550::update_interrupt(void)
     if (!interrupts)
     {
         iir = UART_IIR_NO_INT;
-        // intctrl->set_interrupt_level(interrupt_id, 0);
+        this->irq_itf.sync(false);
     }
     else
     {
         iir = interrupts;
-        // intctrl->set_interrupt_level(interrupt_id, 1);
+        this->irq_itf.sync(true);
     }
 
     /*
@@ -258,8 +310,7 @@ uint8_t Ns16550::rx_byte(void)
 void Ns16550::tx_byte(uint8_t val)
 {
     lsr |= UART_LSR_TEMT | UART_LSR_THRE;
-    putchar(val);
-    // canonical_terminal_t::write(val);
+    this->write(val);
 }
 
 
@@ -337,7 +388,6 @@ bool Ns16550::store(unsigned int addr, size_t len, const uint8_t *bytes)
 {
     uint8_t val;
     bool ret = true, update = false;
-
     if (reg_io_width != len)
     {
         return false;
@@ -415,37 +465,60 @@ bool Ns16550::store(unsigned int addr, size_t len, const uint8_t *bytes)
     return ret;
 }
 
-#if 0
-void Ns16550::tick(void)
+void Ns16550::event_handler(void *__this, vp::clock_event *event)
 {
-    if (!(fcr & UART_FCR_ENABLE_FIFO) ||
-        (mcr & UART_MCR_LOOP) ||
-        (UART_QUEUE_SIZE <= rx_queue.size()))
+    Ns16550 *_this = (Ns16550 *)__this;
+
+    _this->event->enqueue(100);
+
+    if (!(_this->fcr & UART_FCR_ENABLE_FIFO) ||
+        (_this->mcr & UART_MCR_LOOP) ||
+        (UART_QUEUE_SIZE <= _this->rx_queue.size()))
     {
         return;
     }
 
-    if (backoff_counter > 0 && backoff_counter < MAX_BACKOFF)
+    if (_this->backoff_counter > 0 && _this->backoff_counter < MAX_BACKOFF)
     {
-        backoff_counter++;
+        _this->backoff_counter++;
         return;
     }
 
-    int rc = canonical_terminal_t::read();
+    int rc = _this->read();
     if (rc < 0)
     {
-        backoff_counter = 1;
+        _this->backoff_counter = 1;
         return;
     }
 
-    backoff_counter = 0;
+    _this->backoff_counter = 0;
 
-    rx_queue.push((uint8_t)rc);
-    lsr |= UART_LSR_DR;
-    update_interrupt();
+    _this->rx_queue.push((uint8_t)rc);
+    _this->lsr |= UART_LSR_DR;
+
+    _this->update_interrupt();
 }
 
-#endif
+int Ns16550::read()
+{
+  struct pollfd pfd;
+  pfd.fd = 0;
+  pfd.events = POLLIN;
+  int ret = poll(&pfd, 1, 0);
+  if (ret <= 0 || !(pfd.revents & POLLIN))
+    return -1;
+
+  unsigned char ch;
+  ret = ::read(0, &ch, 1);
+  return ret <= 0 ? -1 : ch;
+}
+
+
+void Ns16550::write(char ch)
+{
+  if (::write(1, &ch, 1) != 1)
+    abort();
+}
 
 Ns16550::Ns16550(js::config *config)
     : vp::component(config)

@@ -47,6 +47,7 @@ public:
 
     void build();
 
+    bool mideleg_access(bool is_write, iss_reg_t &value);
     bool mip_access(bool is_write, iss_reg_t &value);
     bool mie_access(bool is_write, iss_reg_t &value);
     bool sip_access(bool is_write, iss_reg_t &value);

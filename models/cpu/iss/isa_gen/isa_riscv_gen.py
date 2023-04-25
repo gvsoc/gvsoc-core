@@ -600,6 +600,14 @@ class R5(Instr):
             self.args = [   OutRegComp(0, Range(2, 3)),
                             Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[6, 1, 2], [10, 3, 3], [5, 1, 6]]), isSigned=False)),
                         ]
+        elif format == 'CLD':
+            self.args = [   OutRegComp(0, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
+                        ]
+        elif format == 'CFLD':
+            self.args = [   OutFRegComp(0, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
+                        ]
         elif format == 'FCL':
             self.args = [   OutFRegComp(0, Range(2, 3)),
                             Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[6, 1, 2], [10, 3, 3], [5, 1, 6]]), isSigned=False)),
@@ -607,6 +615,14 @@ class R5(Instr):
         elif format == 'CS':
             self.args = [   InRegComp(1, Range(2, 3)),
                             Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[6, 1, 2], [10, 3, 3], [5, 1, 6]]), isSigned=False)),
+                        ]
+        elif format == 'CFSD':
+            self.args = [   InRegComp(1, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
+                        ]
+        elif format == 'CSD':
+            self.args = [   InRegComp(1, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
                         ]
         elif format == 'FCS':
             self.args = [   InFRegComp(1, Range(2, 3)),
@@ -1490,10 +1506,12 @@ rv64c = IsaSubset('c', [
     # Compressed ISA
     R5('c.unimp',    'CI1', '000 000 000 00 000 00'),
     R5('c.addi4spn', 'CIW', '000 --- --- -- --- 00', fast_handler=True),
-    R5('c.ld',       'CL',  '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
+    R5('c.ld',       'CLD', '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
     R5('c.lw',       'CL',  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),
+    R5('c.fld',      'CFLD', '001 --- --- -- --- 00', fast_handler=True, tags=["load"]),
     R5('c.sw',       'CS',  '110 --- --- -- --- 00', fast_handler=True),
-    R5('c.sd',       'CS',  '111 --- --- -- --- 00', fast_handler=True),
+    R5('c.sd',       'CSD', '111 --- --- -- --- 00', fast_handler=True),
+    R5('c.fsd',      'CFSD', '101 --- --- -- --- 00', fast_handler=True),
     R5('c.nop',      'CI1', '000 000 000 00 000 01', fast_handler=True),
     R5('c.addi',     'CI1', '000 --- --- -- --- 01', fast_handler=True),
     R5('c.addiw',    'CI1', '001 --- --- -- --- 01', fast_handler=True),

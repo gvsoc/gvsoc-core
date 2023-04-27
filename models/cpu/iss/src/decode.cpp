@@ -88,7 +88,7 @@ int Decode::decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_i
     return 0;
 }
 
-int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
+int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
     if (!item->is_active)
         return -1;
@@ -102,7 +102,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
 
     if (insn->hwloop_handler != NULL)
     {
-        iss_insn_t *(*hwloop_handler)(Iss *, iss_insn_t *) = insn->hwloop_handler;
+        iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->hwloop_handler;
         insn->hwloop_handler = insn->handler;
         insn->handler = hwloop_handler;
         insn->fast_handler = hwloop_handler;
@@ -110,7 +110,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
 
     if (insn->breakpoint_saved_handler != NULL)
     {
-        iss_insn_t *(*breakpoint_saved_handler)(Iss *, iss_insn_t *) = insn->breakpoint_saved_handler;
+        iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->breakpoint_saved_handler;
         insn->breakpoint_saved_handler = insn->handler;
         insn->breakpoint_saved_fast_handler = insn->fast_handler;
         insn->handler = breakpoint_saved_handler;
@@ -181,13 +181,15 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
                 }
             }
 
+#if !defined(CONFIG_GVSOC_ISS_MMU)
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
-                iss_insn_t *next = insn_cache_get(&this->iss, insn->addr + insn->size);
+                iss_insn_t *next = insn_cache_get(&this->iss, pc + insn->size);
 
                 next->input_latency_reg = arg->u.reg.index;
                 next->input_latency = darg->u.reg.latency;
             }
+#endif
 
             break;
 
@@ -261,11 +263,9 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
         }
     }
 
-    insn->next = insn_cache_get(&this->iss, insn->addr + insn->size);
-
     if (item->u.insn.decode != NULL)
     {
-        item->u.insn.decode(&this->iss, insn);
+        item->u.insn.decode(&this->iss, insn, pc);
     }
 
     if (insn->latency)
@@ -279,7 +279,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_
     return 0;
 }
 
-int Decode::decode_opcode_group(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
+int Decode::decode_opcode_group(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
     iss_opcode_t group_opcode = (opcode >> item->u.group.bit) & ((1ULL << item->u.group.width) - 1);
     iss_decoder_item_t *group_item_other = NULL;
@@ -289,14 +289,14 @@ int Decode::decode_opcode_group(iss_insn_t *insn, iss_opcode_t opcode, iss_decod
         iss_decoder_item_t *group_item = item->u.group.groups[i];
         if (group_opcode == group_item->opcode && !group_item->opcode_others)
         {
-            return this->decode_item(insn, opcode, group_item);
+            return this->decode_item(insn, pc, opcode, group_item);
         }
         if (group_item->opcode_others)
             group_item_other = group_item;
     }
 
     if (group_item_other)
-        return this->decode_item(insn, opcode, group_item_other);
+        return this->decode_item(insn, pc, opcode, group_item_other);
 
     return -1;
 }
@@ -316,20 +316,20 @@ iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name)
     return NULL;
 }
 
-int Decode::decode_item(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item)
+int Decode::decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
     if (item->is_insn)
-        return this->decode_insn(insn, opcode, item);
+        return this->decode_insn(insn, pc, opcode, item);
     else
-        return this->decode_opcode_group(insn, opcode, item);
+        return this->decode_opcode_group(insn, pc, opcode, item);
 }
 
-int Decode::decode_opcode(iss_insn_t *insn, iss_opcode_t opcode)
+int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
 {
     for (int i = 0; i < __iss_isa_set.nb_isa; i++)
     {
         iss_isa_t *isa = &__iss_isa_set.isa_set[i];
-        if (this->decode_item(insn, opcode, isa->tree) == 0)
+        if (this->decode_item(insn, pc, opcode, isa->tree) == 0)
             return 0;
     }
 
@@ -357,22 +357,22 @@ void iss_decode_activate_isa(Iss *cpu, char *name)
     }
 }
 
-static iss_insn_t *iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn)
+static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->decode.trace.msg("Executing illegal instruction\n");
-    iss->exception.raise(insn, ISS_EXCEPT_ILLEGAL);
-    return insn;
+    iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
+    return pc;
 }
 
-iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
+iss_insn_t *Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 {
-    this->trace.msg("Decoding instruction (pc: 0x%lx)\n", insn->addr);
+    this->trace.msg("Decoding instruction (pc: 0x%lx)\n", pc);
 
     iss_opcode_t opcode = insn->opcode;
 
     this->trace.msg("Got opcode (opcode: 0x%lx)\n", opcode);
 
-    if (this->decode_opcode(insn, opcode) == -1)
+    if (this->decode_opcode(insn, pc, opcode) == -1)
     {
         insn->handler = iss_exec_insn_illegal;
         insn->fast_handler = iss_exec_insn_illegal;
@@ -391,19 +391,19 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn)
     return insn;
 }
 
-iss_insn_t *iss_decode_pc_handler(Iss *iss, iss_insn_t *insn)
+iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->fetched)
     {
-        if (!iss->prefetcher.fetch(insn))
+        if (!iss->prefetcher.fetch(&insn, pc))
         {
-            return insn;
+            return pc;
         }
 
         insn->fetched = true;
     }
 
-    return iss->exec.insn_exec(iss->decode.decode_pc(insn));
+    return iss->exec.insn_exec(iss->decode.decode_pc(insn, pc), pc);
 }
 
 

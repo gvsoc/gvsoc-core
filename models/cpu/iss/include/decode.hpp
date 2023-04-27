@@ -30,7 +30,7 @@ public:
     void build();
     void reset(bool active);
 
-    iss_insn_t *decode_pc(iss_insn_t *pc);
+    iss_insn_t *decode_pc(iss_insn_t *insn, iss_reg_t pc);
 
     vp::trace trace;
 
@@ -45,10 +45,10 @@ public:
     iss_reg_t misa_extensions;
 
 private:
-    int decode_opcode(iss_insn_t *insn, iss_opcode_t opcode);
-    int decode_item(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
-    int decode_opcode_group(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
-    int decode_insn(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_item_t *item);
+    int decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode);
+    int decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item);
+    int decode_opcode_group(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item);
+    int decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item);
     uint64_t decode_ranges(iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed);
     int decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_info_t *info, bool is_signed);
 

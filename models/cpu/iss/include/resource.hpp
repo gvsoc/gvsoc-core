@@ -21,6 +21,6 @@
 #include "types.hpp"
 
 void iss_resource_init(Iss *iss);
-iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn);
+iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 #endif

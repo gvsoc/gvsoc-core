@@ -322,9 +322,9 @@ typedef struct iss_decoder_item_s
     {
         struct
         {
-            iss_insn_t *(*handler)(Iss *, iss_insn_t *);
-            iss_insn_t *(*fast_handler)(Iss *, iss_insn_t *);
-            void (*decode)(Iss *, iss_insn_t *);
+            iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
+            iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+            void (*decode)(Iss *, iss_insn_t *, iss_reg_t pc);
             char *label;
             int size;
             int nb_args;
@@ -385,8 +385,7 @@ typedef struct iss_isa_tag_s
 
 typedef struct iss_insn_s
 {
-    iss_insn_t *next;
-    iss_insn_t *(*fast_handler)(Iss *, iss_insn_t *);
+    iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     iss_reg_t *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
@@ -394,13 +393,13 @@ typedef struct iss_insn_s
     iss_addr_t addr;
     iss_reg_t opcode;
     bool fetched;
-    iss_insn_t *(*handler)(Iss *, iss_insn_t *);
-    iss_insn_t *(*resource_handler)(Iss *, iss_insn_t *); // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
-    iss_insn_t *(*hwloop_handler)(Iss *, iss_insn_t *);
-    iss_insn_t *(*stall_handler)(Iss *, iss_insn_t *);
-    iss_insn_t *(*stall_fast_handler)(Iss *, iss_insn_t *);
-    iss_insn_t *(*breakpoint_saved_handler)(Iss *, iss_insn_t *);
-    iss_insn_t *(*breakpoint_saved_fast_handler)(Iss *, iss_insn_t *);
+    iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*resource_handler)(Iss *, iss_insn_t *, iss_reg_t); // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
+    iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*stall_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*stall_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*breakpoint_saved_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     int size;
     int nb_out_reg;
     int nb_in_reg;
@@ -415,8 +414,8 @@ typedef struct iss_insn_s
     int input_latency;
     int input_latency_reg;
 
-    iss_insn_t *(*saved_handler)(Iss *, iss_insn_t *);
-    iss_insn_t *branch;
+    iss_reg_t (*saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t branch_pc;
 
     int in_spregs[6];
 
@@ -435,6 +434,7 @@ typedef struct iss_insn_block_s
 typedef struct iss_insn_cache_s
 {
     iss_insn_block_t *blocks[ISS_INSN_NB_BLOCKS];
+    std::unordered_map<iss_reg_t, iss_insn_t *>insns;
 } iss_insn_cache_t;
 
 

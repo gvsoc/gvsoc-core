@@ -71,13 +71,11 @@ public:
 
     Iss &iss;
 
-    iss_insn_t *mtvec_insn;
-    iss_insn_t *stvec_insn;
     vp::reg_1 irq_enable;
     int debug_saved_irq_enable;
     int req_irq;
     bool req_debug;
-    iss_insn_t *debug_handler;
+    iss_reg_t debug_handler;
     vp::trace trace;
     vp::wire_slave<bool> msi_itf;
     vp::wire_slave<bool> mti_itf;

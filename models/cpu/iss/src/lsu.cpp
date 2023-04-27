@@ -146,7 +146,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
 #ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
         vp_warning_always(&this->iss.top.warning,
                           "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
-                          this->iss.exec.current_insn->addr, addr, size, is_write);
+                          this->iss.exec.current_insn, addr, size, is_write);
 #endif
         int trap = is_write ? ISS_EXCEPT_STORE_FAULT : ISS_EXCEPT_LOAD_FAULT;
         this->iss.exception.raise(this->iss.exec.current_insn, trap);
@@ -272,7 +272,7 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
     {
         vp_warning_always(&this->iss.top.warning,
                           "Invalid atomic access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, opcode: %d)\n",
-                          this->iss.exec.current_insn->addr, phys_addr, size, opcode);
+                          this->iss.exec.current_insn, phys_addr, size, opcode);
         return;
     }
 

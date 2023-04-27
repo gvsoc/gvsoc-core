@@ -123,7 +123,7 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 
         if (this->iss.exec.current_insn)
         {
-            regs[32] = this->iss.exec.current_insn->addr;
+            regs[32] = this->iss.exec.current_insn;
         }
         else
         {
@@ -184,12 +184,12 @@ int Gdbserver::gdbserver_state()
     return this->iss.exec.halted.get() ? vp::Gdbserver_core::state::stopped : vp::Gdbserver_core::state::running;
 }
 
-static inline iss_insn_t *breakpoint_check_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t breakpoint_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->exec.stalled_inc();
     iss->exec.halted.set(true);
     iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP, "hwbreak");
-    return insn;
+    return pc;
 }
 
 void Gdbserver::enable_breakpoint(iss_addr_t addr)

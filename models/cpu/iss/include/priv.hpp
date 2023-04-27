@@ -23,7 +23,7 @@
 
 #include <iss_core.hpp>
 
-static inline void csr_decode(Iss *iss, iss_insn_t *insn)
+static inline void csr_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // In case traces are active, convert the CSR number into a name
 #ifdef VP_TRACE_ACTIVE
@@ -32,7 +32,7 @@ static inline void csr_decode(Iss *iss, iss_insn_t *insn)
 #endif
 }
 
-static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t csrrw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
@@ -40,7 +40,7 @@ static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
-        return insn;
+        return pc;
     }
 
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
@@ -51,10 +51,10 @@ static inline iss_insn_t *csrrw_exec(Iss *iss, iss_insn_t *insn)
 
     iss_csr_write(iss, UIM_GET(0), reg_value);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t csrrc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
@@ -62,7 +62,7 @@ static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
-        return insn;
+        return pc;
     }
 
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
@@ -73,10 +73,10 @@ static inline iss_insn_t *csrrc_exec(Iss *iss, iss_insn_t *insn)
 
     iss_csr_write(iss, UIM_GET(0), value & ~reg_value);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t csrrs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
@@ -84,7 +84,7 @@ static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, REG_IN(0) != 0, true))
     {
-        return insn;
+        return pc;
     }
 
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
@@ -96,17 +96,17 @@ static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
     {
         iss_csr_write(iss, UIM_GET(0), value | reg_value);
     }
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *csrrwi_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t csrrwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
 
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
-        return insn;
+        return pc;
     }
 
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
@@ -115,17 +115,17 @@ static inline iss_insn_t *csrrwi_exec(Iss *iss, iss_insn_t *insn)
             REG_SET(0, value);
     }
     iss_csr_write(iss, UIM_GET(0), UIM_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *csrrci_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
 
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
-        return insn;
+        return pc;
     }
 
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
@@ -134,17 +134,17 @@ static inline iss_insn_t *csrrci_exec(Iss *iss, iss_insn_t *insn)
             REG_SET(0, value);
     }
     iss_csr_write(iss, UIM_GET(0), value & ~UIM_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *csrrsi_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t csrrsi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
 
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
-        return insn;
+        return pc;
     }
 
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
@@ -153,42 +153,42 @@ static inline iss_insn_t *csrrsi_exec(Iss *iss, iss_insn_t *insn)
             REG_SET(0, value);
     }
     iss_csr_write(iss, UIM_GET(0), value | UIM_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *wfi_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t wfi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->irq.wfi_handle();
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *mret_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t mret_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.stall_insn_dependency_account(5);
     return iss->core.mret_handle();
 }
 
-static inline iss_insn_t *dret_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t dret_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     return iss->core.dret_handle();
 }
 
-static inline iss_insn_t *sret_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sret_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.stall_insn_dependency_account(5);
     return iss->core.sret_handle();
 }
 
-static inline iss_insn_t *sfence_vma_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sfence_vma_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (iss->core.mode_get() == PRIV_S && iss->csr.mstatus.tvm)
     {
-        iss->exception.raise(insn, ISS_EXCEPT_ILLEGAL);
-        return insn;
+        iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
+        return pc;
     }
     else
     {
         iss->mmu.flush(REG_GET(0), REG_GET(1));
-        return insn->next;
+        return iss_insn_next(iss, insn, pc);
     }
 }

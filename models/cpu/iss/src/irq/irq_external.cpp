@@ -169,7 +169,7 @@ int Irq::check()
     if (this->req_debug && !this->iss.exec.debug_mode)
     {
         this->iss.exec.debug_mode = true;
-        this->iss.csr.depc = this->iss.exec.current_insn->addr;
+        this->iss.csr.depc = this->iss.exec.current_insn;
         this->debug_saved_irq_enable = this->irq_enable.get();
         this->irq_enable.set(0);
         this->req_debug = false;
@@ -184,7 +184,7 @@ int Irq::check()
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
-            this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+            this->iss.csr.mepc.value = this->iss.exec.current_insn;
             this->iss.csr.mstatus.mpie = this->irq_enable.get();
             this->iss.csr.mstatus.mie = 0;
 
@@ -198,14 +198,14 @@ int Irq::check()
 
             if (next_mode == PRIV_M)
             {
-                this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.mepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.mie = 0;
                 this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
                 this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
             }
             else
             {
-                this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.sepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.sie = 0;
                 this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
                 this->iss.csr.mstatus.spp = this->iss.core.mode_get();

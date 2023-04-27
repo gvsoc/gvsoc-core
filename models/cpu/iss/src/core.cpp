@@ -96,7 +96,7 @@ void Core::reset(bool active)
 }
 
 
-iss_insn_t *Core::mret_handle()
+iss_reg_t Core::mret_handle()
 {
     this->iss.exec.switch_to_full_mode();
 
@@ -111,15 +111,15 @@ iss_insn_t *Core::mret_handle()
     this->iss.csr.mstatus.mpie = 1;
     this->iss.csr.mcause.value = 0;
 
-    return insn_cache_get(&this->iss, this->iss.csr.mepc.value);
+    return this->iss.csr.mepc.value;
 }
 
-iss_insn_t *Core::sret_handle()
+iss_reg_t Core::sret_handle()
 {
     if (this->mode_get() == PRIV_S && this->iss.csr.mstatus.tsr)
     {
         this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_ILLEGAL);
-        return NULL;
+        return 0;
     }
 
     this->iss.exec.switch_to_full_mode();
@@ -131,17 +131,16 @@ iss_insn_t *Core::sret_handle()
     this->iss.csr.mstatus.spie = 1;
     this->iss.csr.scause.value = 0;
 
-    iss_insn_t *insn = insn_cache_get(&this->iss, this->iss.csr.sepc.value);
-    return insn;
+    return this->iss.csr.sepc.value;
 }
 
-iss_insn_t *Core::dret_handle()
+iss_reg_t Core::dret_handle()
 {
     this->iss.exec.switch_to_full_mode();
     this->iss.irq.irq_enable.set(this->iss.irq.debug_saved_irq_enable);
     this->iss.exec.debug_mode = 0;
 
-    return insn_cache_get(&this->iss, this->iss.csr.depc);
+    return this->iss.csr.depc;
 }
 
 
@@ -195,7 +194,4 @@ bool Core::sstatus_update(bool is_write, iss_reg_t &value)
 void Core::mode_set(int mode)
 {
     this->mode = mode;
-#ifdef CONFIG_GVSOC_ISS_MMU
-    this->iss.mmu.flush(0, 0);
-#endif
 }

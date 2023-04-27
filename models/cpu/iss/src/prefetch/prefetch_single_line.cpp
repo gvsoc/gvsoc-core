@@ -92,7 +92,8 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
         iss_opcode_t opcode = 0;
 
         // Compute address of next line
-        iss_addr_t next_addr = (addr + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
+        iss_addr_t next_addr = (this->current_pc + ISS_PREFETCHER_SIZE - 1) & ~(ISS_PREFETCHER_SIZE - 1);
+        iss_reg_t next_phys_addr;
         // Number of bytes of the opcode which fits the first line
         int nb_bytes = next_addr - addr;
         int nb_bits = nb_bytes * 8;
@@ -100,14 +101,14 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
         // Copy first part from first line
         opcode = *(iss_opcode_t *)&this->data[index] & mask;
 #ifdef CONFIG_GVSOC_ISS_MMU
-        if (this->iss.mmu.insn_virt_to_phys(next_addr, next_addr))
+        if (this->iss.mmu.insn_virt_to_phys(next_addr, next_phys_addr))
         {
             return false;
         }
 #endif
 
         // Fetch next line
-        if (int err = this->fill(next_addr))
+        if (int err = this->fill(next_phys_addr))
         {
             // Stall the core if the fetch is pending
             // We need to remember the opcode since the buffer is fully replaced

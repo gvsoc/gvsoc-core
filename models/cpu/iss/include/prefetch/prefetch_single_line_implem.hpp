@@ -26,32 +26,35 @@
 
 
 
-inline bool Prefetcher::fetch(iss_insn_t *insn)
+inline bool Prefetcher::fetch(iss_insn_t **insn, iss_reg_t addr)
 {
     // Since an instruction can be 2 or 4 bytes, we need to be careful that only part of it can
     // fit the buffer, so we have to check both the low part and the high part.
 
     // Compute where the instructions address falls into the prefetch buffer
-    iss_addr_t addr = insn->addr;
+    iss_reg_t phys_addr;
 
 #ifdef CONFIG_GVSOC_ISS_MMU
-    if (this->iss.mmu.insn_virt_to_phys(insn->addr, addr))
+    if (this->iss.mmu.insn_virt_to_phys(addr, phys_addr))
     {
         return false;
     }
 #endif
 
-    unsigned int index = addr - this->buffer_start_addr;
+    *insn = insn_cache_get(&this->iss, phys_addr);
+
+    unsigned int index = phys_addr - this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.
     if (likely(index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
     {
-        insn->opcode = *(iss_opcode_t *)&this->data[index];
+        (*insn)->opcode = *(iss_opcode_t *)&this->data[index];
         return true;
     }
 
     // Otherwise, fake a refill
-    return this->fetch_refill(insn, addr, index);
+    this->current_pc = addr;
+    return this->fetch_refill(*insn, phys_addr, index);
 }
 
 

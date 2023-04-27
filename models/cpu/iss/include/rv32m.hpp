@@ -22,31 +22,31 @@
 #ifndef __CPU_ISS_RV32M_HPP
 #define __CPU_ISS_RV32M_HPP
 
-static inline iss_insn_t *mul_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t mul_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL2(lib_MULU, REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *mulh_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t mulh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, ((iss_lsim_t)(iss_sim_t)REG_GET(0) * (iss_lsim_t)(iss_sim_t)REG_GET(1)) >> ISS_REG_WIDTH);
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *mulhsu_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t mulhsu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, ((iss_lsim_t)(iss_sim_t)REG_GET(0) * (iss_uim_t)REG_GET(1)) >> ISS_REG_WIDTH);
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *mulhu_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t mulhu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, ((iss_luim_t)REG_GET(0) * (iss_luim_t)REG_GET(1)) >> ISS_REG_WIDTH);
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *div_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t div_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_sim_t divider = REG_GET(1);
     iss_sim_t dividend = REG_GET(0);
@@ -78,10 +78,10 @@ static inline iss_insn_t *div_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(cycles);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *divu_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t divu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_uim_t divider = REG_GET(1);
     iss_uim_t dividend = REG_GET(0);
@@ -94,10 +94,10 @@ static inline iss_insn_t *divu_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *rem_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t rem_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_sim_t divider = REG_GET(1);
     iss_sim_t dividend = REG_GET(0);
@@ -129,10 +129,10 @@ static inline iss_insn_t *rem_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(cycles);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *remu_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t remu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_uim_t divider = REG_GET(1);
     iss_uim_t dividend = REG_GET(0);
@@ -146,7 +146,7 @@ static inline iss_insn_t *remu_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
 #endif

@@ -121,8 +121,6 @@ void Mmu::flush(iss_addr_t address, iss_reg_t address_space)
         this->tlb_load_tag[i] = -1;
         this->tlb_store_tag[i] = -1;
     }
-
-    iss_cache_flush(&this->iss);
 }
 
 void Mmu::raise_exception()
@@ -132,19 +130,19 @@ void Mmu::raise_exception()
     if (this->access_type & ACCESS_LOAD)
     {
         this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal load access (pc: 0x%lx, 0x%lx)\n",
-            this->iss.exec.stall_insn->addr, this->current_virt_addr);
+            this->iss.exec.stall_insn, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_LOAD_PAGE_FAULT);
     }
     else if (this->access_type & ACCESS_STORE)
     {
         this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal store access (pc: 0x%lx, 0x%lx)\n",
-            this->iss.exec.stall_insn->addr, this->current_virt_addr);
+            this->iss.exec.stall_insn, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_STORE_PAGE_FAULT);
     }
     else
     {
         this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal fetch access (pc: 0x%lx, 0x%lx)\n",
-            this->iss.exec.stall_insn->addr, this->current_virt_addr);
+            this->iss.exec.stall_insn, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_INSN_PAGE_FAULT);
     }
 
@@ -311,6 +309,7 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
 
 bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
+
     this->trace.msg(vp::trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
 
     int mode = this->iss.core.mode_get();

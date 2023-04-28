@@ -189,6 +189,7 @@ static inline iss_reg_t sfence_vma_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     else
     {
         iss->mmu.flush(REG_GET(0), REG_GET(1));
+        iss_cache_vflush(iss);
         return iss_insn_next(iss, insn, pc);
     }
 }

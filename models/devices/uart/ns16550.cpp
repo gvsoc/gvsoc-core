@@ -469,7 +469,7 @@ void Ns16550::event_handler(void *__this, vp::clock_event *event)
 {
     Ns16550 *_this = (Ns16550 *)__this;
 
-    _this->event->enqueue(100);
+    _this->event->enqueue(100000);
 
     if (!(_this->fcr & UART_FCR_ENABLE_FIFO) ||
         (_this->mcr & UART_MCR_LOOP) ||

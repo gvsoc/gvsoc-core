@@ -51,6 +51,8 @@ inline iss_insn_callback_t Exec::insn_stalled_fast_callback_get()
     return iss_exec_stalled_insn_fast;
 }
 
+
+
 inline void Exec::insn_stall()
 {
     this->stall_insn = this->current_insn;
@@ -68,9 +70,7 @@ inline void Exec::insn_terminate()
 {
     if (this->iss.trace.insn_trace.get_active())
     {
-        // TODO INSN
-        abort();
-        // iss_trace_dump(&this->iss, this->stall_insn);
+        iss_trace_dump(&this->iss, insn_cache_get(&this->iss, this->stall_insn), this->stall_insn);
     }
 
     this->iss.timing.insn_stall_account();

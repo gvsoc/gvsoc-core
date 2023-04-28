@@ -45,7 +45,7 @@ public:
     vp::io_master fetch_itf;
 
     // Fetch the given instruction from prefetch buffer
-    inline bool fetch(iss_insn_t **insn, iss_reg_t pc);
+    inline bool fetch(iss_reg_t pc);
 
 private:
     // Refill of the prefetch buffer

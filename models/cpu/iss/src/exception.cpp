@@ -42,11 +42,6 @@ void Exception::raise(iss_reg_t pc, int id)
 {
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Raising exception (id: %d)\n", id);
 
-    if (id == ISS_EXCEPT_ILLEGAL)
-    {
-        abort();
-    }
-
     this->iss.exec.switch_to_full_mode();
 
     if (id == ISS_EXCEPT_DEBUG)

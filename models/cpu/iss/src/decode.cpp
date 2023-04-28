@@ -395,7 +395,7 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->fetched)
     {
-        if (!iss->prefetcher.fetch(&insn, pc))
+        if (!iss->prefetcher.fetch(pc))
         {
             return pc;
         }

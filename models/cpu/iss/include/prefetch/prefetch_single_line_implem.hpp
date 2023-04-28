@@ -26,7 +26,7 @@
 
 
 
-inline bool Prefetcher::fetch(iss_insn_t **insn, iss_reg_t addr)
+inline bool Prefetcher::fetch(iss_reg_t addr)
 {
     // Since an instruction can be 2 or 4 bytes, we need to be careful that only part of it can
     // fit the buffer, so we have to check both the low part and the high part.
@@ -41,20 +41,24 @@ inline bool Prefetcher::fetch(iss_insn_t **insn, iss_reg_t addr)
     }
 #endif
 
-    *insn = insn_cache_get(&this->iss, phys_addr);
+    iss_insn_t *insn = insn_cache_get(&this->iss, addr);
+    if (insn == NULL)
+    {
+        return false;
+    }
 
     unsigned int index = phys_addr - this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.
     if (likely(index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
     {
-        (*insn)->opcode = *(iss_opcode_t *)&this->data[index];
+        insn->opcode = *(iss_opcode_t *)&this->data[index];
         return true;
     }
 
     // Otherwise, fake a refill
     this->current_pc = addr;
-    return this->fetch_refill(*insn, phys_addr, index);
+    return this->fetch_refill(insn, phys_addr, index);
 }
 
 

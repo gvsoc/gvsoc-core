@@ -93,6 +93,7 @@ bool Mmu::satp_update(bool is_write, iss_reg_t &value)
     }
 
     this->flush(0, 0);
+    iss_cache_vflush(&this->iss);
 
     return true;
 

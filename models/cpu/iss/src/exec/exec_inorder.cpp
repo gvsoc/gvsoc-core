@@ -178,10 +178,12 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
     iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
     iss_reg_t pc = iss->exec.current_insn;
-    iss_insn_t *insn;
 
-    if (iss->prefetcher.fetch(&insn, pc))
+    if (iss->prefetcher.fetch(pc))
     {
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
+        if (insn == NULL) return;
+
         // Takes care first of all optional features (traces, VCD and so on)
         iss->exec.insn_exec_profiling();
 
@@ -230,10 +232,12 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
     }
 
     iss_reg_t pc = iss->exec.current_insn;
-    iss_insn_t *insn;
 
-    if (iss->prefetcher.fetch(&insn, pc))
+    if (iss->prefetcher.fetch(pc))
     {
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
+        if (insn == NULL) return;
+
         _this->current_insn = _this->insn_exec(insn, pc);
 
         _this->iss.timing.insn_account();

@@ -431,10 +431,29 @@ typedef struct iss_insn_block_s
     bool is_init;
 } iss_insn_block_t;
 
+
+// The size of a page corresponds to the tlb page size with instructions of at least 2 bytes
+#define INSN_PAGE_BITS 12
+#define INSN_PAGE_SIZE (1 << (INSN_PAGE_BITS - 1))
+#define INSN_PAGE_MASK (INSN_PAGE_SIZE - 1)
+
+
+typedef struct iss_insn_page_s iss_insn_page_t;
+
+struct iss_insn_page_s
+{
+    iss_insn_t insns[INSN_PAGE_SIZE];
+    iss_insn_page_t *next;
+};
+
 typedef struct iss_insn_cache_s
 {
-    iss_insn_block_t *blocks[ISS_INSN_NB_BLOCKS];
-    std::unordered_map<iss_reg_t, iss_insn_t *>insns;
+    iss_insn_page_t *current_insn_page;
+    iss_reg_t current_insn_page_base;
+    std::unordered_map<iss_reg_t, iss_insn_page_t *>pages;
+    iss_insn_page_t *first_free_page;
+    iss_insn_page_t *first_page;
+    iss_insn_page_t *last_page;
 } iss_insn_cache_t;
 
 

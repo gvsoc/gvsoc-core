@@ -179,7 +179,9 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
 
     iss_reg_t pc = iss->exec.current_insn;
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (iss->prefetcher.fetch(pc))
+#endif
     {
         iss_insn_t *insn = insn_cache_get_insn(iss, pc);
         if (insn == NULL) return;
@@ -233,7 +235,9 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
 
     iss_reg_t pc = iss->exec.current_insn;
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (iss->prefetcher.fetch(pc))
+#endif
     {
         iss_insn_t *insn = insn_cache_get_insn(iss, pc);
         if (insn == NULL) return;

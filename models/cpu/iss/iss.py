@@ -79,7 +79,8 @@ class Iss(st.Component):
             core=None,
             supervisor=False,
             user=False,
-            internal_atomics=False):
+            internal_atomics=False,
+            timed=True):
 
         super(Iss, self).__init__(parent, name)
 
@@ -114,6 +115,9 @@ class Iss(st.Component):
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])
+
+        if timed:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
 
         if pmp:
             self.add_c_flags([

@@ -36,7 +36,7 @@ void iss_resource_init(Iss *iss)
 }
 
 // Called when an instruction with an associated resource is scheduled
-iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
+iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // First get the instance associated to this core for the resource associated to this instruction
     iss_resource_instance_t *instance = iss->exec.resources[insn->resource_id];
@@ -62,5 +62,5 @@ iss_insn_t *iss_resource_offload(Iss *iss, iss_insn_t *insn)
     iss->timing.stall_insn_account(cycles + insn->resource_latency - 1);
 
     // Now that timing is modeled, execute the instruction
-    return insn->resource_handler(iss, insn);
+    return insn->resource_handler(iss, insn, pc);
 }

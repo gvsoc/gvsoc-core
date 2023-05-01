@@ -101,5 +101,5 @@ private:
     Pte pte_value;
     int access_type;
 
-    iss_insn_t *stall_insn;
+    iss_reg_t stall_insn;
 };

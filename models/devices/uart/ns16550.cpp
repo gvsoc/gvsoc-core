@@ -34,6 +34,7 @@
 #include <vp/vp.hpp>
 #include <queue>
 #include <vp/itf/io.hpp>
+#include <thread>
 
 #define UART_QUEUE_SIZE 64
 
@@ -116,9 +117,9 @@ private:
     static vp::io_req_status_e req(void *__this, vp::io_req *req);
     bool load(unsigned int addr, size_t len, uint8_t *bytes);
     bool store(unsigned int addr, size_t len, const uint8_t *bytes);
-    static void event_handler(void *__this, vp::clock_event *event);
-    int read();
+    int read(bool blocking=false);
     void write(char ch);
+    void stdin_task();
 
     vp::trace trace;
     uint32_t reg_shift;
@@ -138,16 +139,13 @@ private:
     uint8_t rx_byte(void);
     void tx_byte(uint8_t val);
 
-    int backoff_counter;
-    static const int MAX_BACKOFF = 16;
-
     vp::io_slave input_itf;
     vp::wire_master<bool> irq_itf;
 
-    vp::clock_event * event;
-
     struct termios old_tios;
     bool restore_tios;
+
+    std::thread *stdin_thread;
 };
 
 
@@ -165,7 +163,6 @@ int Ns16550::build()
     dll = 0x0C;
     mcr = UART_MCR_OUT2;
     scr = 0;
-    backoff_counter = 0;
 
     reg_io_width = 1;
 
@@ -173,8 +170,6 @@ int Ns16550::build()
     new_slave_port("input", &this->input_itf);
 
     this->new_master_port("irq", &this->irq_itf);
-
-    this->event = event_new(Ns16550::event_handler);
 
     this->restore_tios = false;
     if (tcgetattr(0, &old_tios) == 0)
@@ -184,6 +179,8 @@ int Ns16550::build()
         if (tcsetattr(0, TCSANOW, &new_tios) == 0)
             restore_tios = true;
     }
+
+    this->stdin_thread = new std::thread(&Ns16550::stdin_task, this);
 
     return 0;
 }
@@ -199,10 +196,6 @@ void Ns16550::stop()
 
 void Ns16550::reset(bool active)
 {
-    if (!active)
-    {
-        this->event->enqueue(100);
-    }
 }
 
 vp::io_req_status_e Ns16550::req(void *__this, vp::io_req *req)
@@ -465,46 +458,41 @@ bool Ns16550::store(unsigned int addr, size_t len, const uint8_t *bytes)
     return ret;
 }
 
-void Ns16550::event_handler(void *__this, vp::clock_event *event)
+
+void Ns16550::stdin_task(void)
 {
-    Ns16550 *_this = (Ns16550 *)__this;
-
-    _this->event->enqueue(100);
-
-    if (!(_this->fcr & UART_FCR_ENABLE_FIFO) ||
-        (_this->mcr & UART_MCR_LOOP) ||
-        (UART_QUEUE_SIZE <= _this->rx_queue.size()))
+    while (1)
     {
-        return;
+        int rc = this->read(true);
+        if (rc < 0) return;
+
+        this->get_time_engine()->lock();
+
+        while (!(this->fcr & UART_FCR_ENABLE_FIFO) ||
+            (this->mcr & UART_MCR_LOOP) ||
+            (UART_QUEUE_SIZE <= this->rx_queue.size()))
+        {
+            this->get_time_engine()->unlock();
+            usleep(1000);
+            this->get_time_engine()->lock();
+        }
+
+        this->rx_queue.push((uint8_t)rc);
+        this->lsr |= UART_LSR_DR;
+
+        this->update_interrupt();
+
+        this->get_time_engine()->unlock();
     }
-
-    if (_this->backoff_counter > 0 && _this->backoff_counter < MAX_BACKOFF)
-    {
-        _this->backoff_counter++;
-        return;
-    }
-
-    int rc = _this->read();
-    if (rc < 0)
-    {
-        _this->backoff_counter = 1;
-        return;
-    }
-
-    _this->backoff_counter = 0;
-
-    _this->rx_queue.push((uint8_t)rc);
-    _this->lsr |= UART_LSR_DR;
-
-    _this->update_interrupt();
 }
 
-int Ns16550::read()
+
+int Ns16550::read(bool blocking)
 {
   struct pollfd pfd;
   pfd.fd = 0;
   pfd.events = POLLIN;
-  int ret = poll(&pfd, 1, 0);
+      int ret = poll(&pfd, 1, blocking ? -1 : 0);
   if (ret <= 0 || !(pfd.revents & POLLIN))
     return -1;
 

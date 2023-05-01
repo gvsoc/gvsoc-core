@@ -22,10 +22,34 @@
 #ifndef __CPU_ISS_ISS_INSN_CACHE_HPP
 #define __CPU_ISS_ISS_INSN_CACHE_HPP
 
+
+
+
+
 int insn_cache_init(Iss *iss);
-void iss_cache_sync(Iss *iss);
 void iss_cache_flush(Iss *iss);
 iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc);
 bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn);
+
+iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr);
+
+inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr)
+{
+    iss_insn_cache_t *cache = &iss->decode.insn_cache;
+    iss_insn_page_t *page = cache->current_insn_page;
+
+    if (likely(page != NULL))
+    {
+        iss_reg_t diff = (vaddr - cache->current_insn_page_base) >> 1;
+        if (likely(diff < INSN_PAGE_SIZE))
+        {
+            return &page->insns[diff & INSN_PAGE_MASK];
+        }
+    }
+
+    return insn_cache_get_insn_from_cache(iss, vaddr);
+}
+
+void iss_cache_vflush(Iss *iss);
 
 #endif

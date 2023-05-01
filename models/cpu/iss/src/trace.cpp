@@ -347,13 +347,13 @@ static char *iss_trace_dump_arg(Iss *iss, iss_insn_t *insn, char *buff, iss_insn
     return buff;
 }
 
-static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, char *buff)
+static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *buff)
 {
     char *name = (char *)"-";
     char *file = (char *)"-";
     uint32_t line = 0;
     char *inline_func = (char *)"-";
-    iss_pc_info *pc_info = get_pc_info(insn->addr);
+    iss_pc_info *pc_info = get_pc_info(pc);
     if (pc_info)
     {
         name = pc_info->func;
@@ -386,7 +386,7 @@ static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, char *buff)
     return buff + MAX_DEBUG_INFO_WIDTH + 1;
 }
 
-static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, char *buff, int buffer_size, iss_insn_arg_t *saved_args, bool is_long, int mode, bool is_event)
+static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *buff, int buffer_size, iss_insn_arg_t *saved_args, bool is_long, int mode, bool is_event)
 {
 
     char *init_buff = buff;
@@ -397,12 +397,12 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, char *buff, int buff
     if (is_long)
     {
         if (binaries.size())
-            buff = trace_dump_debug(iss, insn, buff);
+            buff = trace_dump_debug(iss, insn, pc, buff);
     }
 
     if (!is_event)
     {
-        buff += sprintf(buff, "%c %" PRIxFULLREG " ", iss_trace_get_mode(mode), insn->addr);
+        buff += sprintf(buff, "%c %" PRIxFULLREG " ", iss_trace_get_mode(mode), pc);
     }
 
     if (!is_long)
@@ -513,23 +513,23 @@ static void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved
     }
 }
 
-void iss_trace_dump(Iss *iss, iss_insn_t *insn)
+void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     char buffer[1024];
 
     iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args,
+    iss_trace_dump_insn(iss, insn, pc, buffer, 1024, iss->trace.saved_args,
         iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, iss->trace.priv_mode, 0);
 
     iss->trace.insn_trace.msg(buffer);
 }
 
-void iss_event_dump(Iss *iss, iss_insn_t *insn)
+void iss_event_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     char buffer[1024];
 
-    iss_trace_dump_insn(iss, insn, buffer, 1024, iss->trace.saved_args, false, iss->trace.priv_mode, 1);
+    iss_trace_dump_insn(iss, insn, pc, buffer, 1024, iss->trace.saved_args, false, iss->trace.priv_mode, 1);
 
     char *current = buffer;
     while (*current)
@@ -543,13 +543,13 @@ void iss_event_dump(Iss *iss, iss_insn_t *insn)
     iss->timing.insn_trace_event.event_string(buffer);
 }
 
-iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
+iss_reg_t iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_insn_t *next_insn;
+    iss_reg_t next_insn;
 
     if (iss->timing.insn_trace_event.get_event_active())
     {
-        iss_event_dump(iss, insn);
+        iss_event_dump(iss, insn, pc);
     }
 
     if (iss->trace.insn_trace.get_active())
@@ -558,14 +558,14 @@ iss_insn_t *iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn)
 
         iss_trace_save_args(iss, insn, iss->trace.saved_args, false);
 
-        next_insn = insn->saved_handler(iss, insn);
+        next_insn = insn->saved_handler(iss, insn, pc);
 
         if (!iss->exec.is_stalled() && iss->trace.dump_trace_enabled)
-            iss_trace_dump(iss, insn);
+            iss_trace_dump(iss, insn, pc);
     }
     else
     {
-        next_insn = insn->saved_handler(iss, insn);
+        next_insn = insn->saved_handler(iss, insn, pc);
     }
 
     return next_insn;
@@ -585,7 +585,7 @@ void Trace::dump_debug_traces()
     const char *func, *inline_func, *file;
     int line;
 
-    if (!iss_trace_pc_info(this->iss.exec.current_insn->addr, &func, &inline_func, &file, &line))
+    if (!iss_trace_pc_info(this->iss.exec.current_insn, &func, &inline_func, &file, &line))
     {
         this->iss.timing.func_trace_event.event_string(func);
         this->iss.timing.inline_trace_event.event_string(inline_func);

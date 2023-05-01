@@ -655,11 +655,11 @@ static bool hwloop_write(Iss *iss, int reg, unsigned int value)
     // we need to recompute it when it is modified.
     if (reg == 0)
     {
-        iss->exec.hwloop_start_insn[0] = insn_cache_get(iss, value);
+        iss->exec.hwloop_start_insn[0] = value;
     }
     else if (reg == 4)
     {
-        iss->exec.hwloop_start_insn[1] = insn_cache_get(iss, value);
+        iss->exec.hwloop_start_insn[1] = value;
     }
 
     return false;

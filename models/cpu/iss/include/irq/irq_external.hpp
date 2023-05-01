@@ -45,12 +45,12 @@ public:
     static void irq_req_sync(void *__this, int irq);
 
     Iss &iss;
-    iss_insn_t *vectors[35];
+    iss_reg_t vectors[35];
     vp::reg_1 irq_enable;
     int debug_saved_irq_enable;
     int req_irq;
     bool req_debug;
-    iss_insn_t *debug_handler;
+    iss_reg_t debug_handler;
     vp::trace trace;
 
     int irq_req;

@@ -26,267 +26,267 @@
 #include "isa_lib/int.h"
 #include "isa_lib/macros.h"
 
-static inline iss_insn_t *add_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t add_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_ADD_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *sub_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sub_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SUB_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *sll_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sll_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SLL_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *slt_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t slt_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, (int64_t)REG64_GET(0) < (int64_t)REG64_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *sltu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sltu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, REG64_GET(0) < REG64_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *xor_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t xor_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_XOR_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *srl_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t srl_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SRL_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *sra_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sra_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SRA_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *or_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t or_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_OR_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *and_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t and_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_AND_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *slli_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t slli_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SLL_64, REG64_GET(0), UIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *srli_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t srli_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SRL_64, REG64_GET(0), UIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *srai_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t srai_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_SRA_64, REG64_GET(0), UIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *addi_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t addi_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_ADD_64, REG64_GET(0), SIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *slti_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t slti_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, (int64_t)REG64_GET(0) < SIM_GET(0));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *sltiu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t sltiu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, REG64_GET(0) < UIM_GET(0));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *xori_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t xori_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_XOR_64, REG64_GET(0), UIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *ori_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t ori_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_OR_64, REG64_GET(0), UIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *andi_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t andi_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_AND_64, REG64_GET(0), UIM_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_abs_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_abs_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL1(lib_ABS_64, REG64_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_seq_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_seq_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 
     REG_SET(0, REG64_GET(0) == REG64_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_sne_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_sne_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 
     REG_SET(0, REG64_GET(0) != REG64_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_slet_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_slet_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 
     REG_SET(0, (int64_t)REG64_GET(0) <= (int64_t)REG64_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_sletu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_sletu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, REG64_GET(0) <= REG64_GET(1));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_min_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_min_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_MINS_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_minu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_minu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_MINU_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_max_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_max_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_MAXS_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_maxu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_maxu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_MAXU_64, REG64_GET(0), REG64_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_cnt_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_cnt_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL1(lib_CNT_64, REG64_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_exths_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_exths_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, iss_get_signed_value64(REG_GET(0), 16));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_exthz_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_exthz_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, iss_get_field64(REG_GET(0), 0, 16));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_extbs_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_extbs_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, iss_get_signed_value64(REG_GET(0), 8));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_extbz_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_extbz_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, iss_get_field64(REG_GET(0), 0, 8));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_extws_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_extws_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, iss_get_signed_value64(REG_GET(0), 32));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_extwz_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_extwz_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, iss_get_field64(REG_GET(0), 0, 32));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_mac_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_mac_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL3(lib_MACS_64, REG64_GET(2), REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_msu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_msu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL3(lib_MSUS_64, REG64_GET(2), REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_macu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_macu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL3(lib_MACU_64, REG64_GET(2), REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_msuu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_msuu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL3(lib_MSUU_64, REG64_GET(2), REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_muls_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_muls_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_MULS_64, REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_mulu_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_mulu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG64_SET(0, LIB_CALL2(lib_MULU_64, REG_GET(0), REG_GET(1)));
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_mulsh_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_mulsh_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL2(lib_MULS_64, REG_GET(0), REG_GET(1)) >> 32);
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *p_muluh_d_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t p_muluh_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL2(lib_MULU_64, REG_GET(0), REG_GET(1)) >> 32);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
 #endif

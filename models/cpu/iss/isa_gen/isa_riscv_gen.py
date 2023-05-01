@@ -565,6 +565,10 @@ class R5(Instr):
             self.args = [   OutFReg(0, Range(7, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[4, 3, 2], [12, 1, 5], [2, 2, 6]]), isSigned=False)),
                         ]
+        elif format == 'FCI3D':
+            self.args = [   OutFReg(0, Range(7, 5)),
+                            Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[5, 2, 2], [12, 1, 5], [2, 3, 6]]), isSigned=False)),
+                        ]
         elif format == 'CI4':
             self.args = [   OutReg(0, Const(2)),
                             InReg(0, Const(2)),
@@ -590,6 +594,10 @@ class R5(Instr):
         elif format == 'FCSS':
             self.args = [   InFReg(1, Range(2, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[9, 4, 2], [7, 2, 6]]), isSigned=False)),
+                        ]
+        elif format == 'FCSSD':
+            self.args = [   InFReg(1, Range(2, 5)),
+                            Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[10, 3, 3], [7, 3, 6]]), isSigned=False)),
                         ]
         elif format == 'CIW':
             self.args = [   OutRegComp(0, Range(2, 3)),
@@ -841,12 +849,6 @@ rv32f = IsaSubset('f', [
     R5('fcvt.lu.s','R2F1','1100000 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
     R5('fcvt.s.l', 'R2F2','1101000 00010 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
     R5('fcvt.s.lu','R2F2','1101000 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
-
-    # If C also supported
-    R5('c.fsw',      'FCS',  '111 --- --- -- --- 00', isa_tags=['cf']),
-    R5('c.fswsp',    'FCSS', '111 --- --- -- --- 10', isa_tags=['cf']),
-    R5('c.flw',      'FCL',  '011 --- --- -- --- 00', tags=["load"], isa_tags=['cf']),
-    R5('c.flwsp',    'FCI3', '011 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
 ])
 
 rv32d = IsaSubset('d', [
@@ -1484,6 +1486,10 @@ rv32c = IsaSubset('c', [
     R5('c.add',      'CR',  '100 1-- --- -- --- 10', fast_handler=True),
     R5('c.swsp',     'CSS', '110 --- --- -- --- 10', fast_handler=True),
     R5('c.sbreak',   'CI1', '100 000 000 00 000 10'),
+    R5('c.flwsp',    'FCI3', '011 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
+    R5('c.fswsp',    'FCSS', '111 --- --- -- --- 10', isa_tags=['cf']),
+    R5('c.fsw',      'FCS',  '111 --- --- -- --- 00', isa_tags=['cf']),
+    R5('c.flw',      'FCL',  '011 --- --- -- --- 00', tags=["load"], isa_tags=['cf']),
 ])
 
 
@@ -1541,6 +1547,8 @@ rv64c = IsaSubset('c', [
     R5('c.swsp',     'CSS', '110 --- --- -- --- 10', fast_handler=True),
     R5('c.sdsp',     'DCSS', '111 --- --- -- --- 10', fast_handler=True),
     R5('c.sbreak',   'CI1', '100 000 000 00 000 10'),
+    R5('c.fsdsp',    'FCSSD', '101 --- --- -- --- 10', isa_tags=['cf']),
+    R5('c.fldsp',    'FCI3D', '001 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
 ])
 
 

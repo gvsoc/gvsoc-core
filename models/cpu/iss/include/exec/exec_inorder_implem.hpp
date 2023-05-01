@@ -24,16 +24,16 @@
 #include <types.hpp>
 #include ISS_CORE_INC(class.hpp)
 
-static inline iss_insn_t *iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.stall_load_dependency_account(insn->latency);
-    return insn->stall_fast_handler(iss, insn);
+    return insn->stall_fast_handler(iss, insn, pc);
 }
 
-static inline iss_insn_t *iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.stall_load_dependency_account(insn->latency);
-    return insn->stall_handler(iss, insn);
+    return insn->stall_handler(iss, insn, pc);
 }
 
 inline iss_insn_callback_t Exec::insn_trace_callback_get()
@@ -50,6 +50,8 @@ inline iss_insn_callback_t Exec::insn_stalled_fast_callback_get()
 {
     return iss_exec_stalled_insn_fast;
 }
+
+
 
 inline void Exec::insn_stall()
 {
@@ -68,20 +70,21 @@ inline void Exec::insn_terminate()
 {
     if (this->iss.trace.insn_trace.get_active())
     {
-        iss_trace_dump(&this->iss, this->stall_insn);
+        // TODO insn_cache_get can return NULL in case MMU is enabled
+        iss_trace_dump(&this->iss, insn_cache_get(&this->iss, this->stall_insn), this->stall_insn);
     }
 
     this->iss.timing.insn_stall_account();
 }
 
-inline iss_insn_t *Exec::insn_exec(iss_insn_t *insn)
+inline iss_reg_t Exec::insn_exec(iss_insn_t *insn, iss_reg_t pc)
 {
-    return insn->handler(&this->iss, insn);
+    return insn->handler(&this->iss, insn, pc);
 }
 
-inline iss_insn_t *Exec::insn_exec_fast(iss_insn_t *insn)
+inline iss_reg_t Exec::insn_exec_fast(iss_insn_t *insn, iss_reg_t pc)
 {
-    return insn->fast_handler(&this->iss, insn);
+    return insn->fast_handler(&this->iss, insn, pc);
 }
 
 inline bool Exec::can_switch_to_fast_mode()
@@ -131,14 +134,14 @@ inline void Exec::stalled_dec()
 
 inline void Exec::insn_exec_profiling()
 {
-    this->trace.msg("Executing instruction (addr: 0x%x)\n", this->iss.exec.current_insn->addr);
+    this->trace.msg("Executing instruction (addr: 0x%x)\n", this->iss.exec.current_insn);
     if (this->iss.timing.pc_trace_event.get_event_active())
     {
-        this->iss.timing.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
+        this->iss.timing.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn);
     }
     if (this->iss.timing.active_pc_trace_event.get_event_active())
     {
-        this->iss.timing.active_pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn->addr);
+        this->iss.timing.active_pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn);
     }
     if (this->iss.timing.func_trace_event.get_event_active() || this->iss.timing.inline_trace_event.get_event_active() || this->iss.timing.file_trace_event.get_event_active() || this->iss.timing.line_trace_event.get_event_active())
     {

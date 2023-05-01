@@ -30,9 +30,6 @@ Irq::Irq(Iss &iss)
 
 void Irq::build()
 {
-    this->mtvec_insn = NULL;
-    this->stvec_insn = NULL;
-
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     this->iss.csr.mideleg.register_callback(std::bind(&Irq::mideleg_access, this, std::placeholders::_1, std::placeholders::_2));
@@ -63,7 +60,7 @@ void Irq::reset(bool active)
         this->irq_enable.set(0);
         this->req_irq = -1;
         this->req_debug = false;
-        this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+        this->debug_handler = this->iss.exception.debug_handler_addr;
     }
     else
     {
@@ -195,8 +192,6 @@ bool Irq::mtvec_set(iss_addr_t base)
     base &= ~(3ULL);
     this->trace.msg("Setting mtvec (addr: 0x%x)\n", base);
 
-    this->iss.irq.mtvec_insn = insn_cache_get(&this->iss, base);
-
     return true;
 }
 
@@ -204,15 +199,11 @@ bool Irq::stvec_set(iss_addr_t base)
 {
     base &= ~(3ULL);
     this->trace.msg("Setting stvec (addr: 0x%x)\n", base);
-    this->iss.irq.stvec_insn = insn_cache_get(&this->iss, base);
     return true;
 }
 
 void Irq::cache_flush()
 {
-    this->mtvec_set(this->iss.csr.mtvec.value);
-    this->stvec_set(this->iss.csr.stvec.value);
-    this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
 }
 
 void Irq::wfi_handle()
@@ -251,7 +242,7 @@ int Irq::check()
     if (this->req_debug && !this->iss.exec.debug_mode)
     {
         this->iss.exec.debug_mode = true;
-        this->iss.csr.depc = this->iss.exec.current_insn->addr;
+        this->iss.csr.depc = this->iss.exec.current_insn;
         this->debug_saved_irq_enable = this->irq_enable.get();
         this->irq_enable.set(0);
         this->req_debug = false;
@@ -315,26 +306,26 @@ int Irq::check()
 
                 this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);
 
-                this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.mepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.mpie = this->irq_enable.get();
                 this->iss.csr.mstatus.mie = 0;
 
                 if (next_mode == PRIV_M)
                 {
-                    this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                    this->iss.csr.mepc.value = this->iss.exec.current_insn;
                     this->iss.csr.mstatus.mie = 0;
                     this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
                     this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
-                    this->iss.exec.current_insn = this->iss.irq.mtvec_insn;
+                    this->iss.exec.current_insn = this->iss.csr.mtvec.value;
                     this->iss.csr.mcause.value = (1ULL << (ISS_REG_WIDTH - 1)) | (unsigned int)irq;
                 }
                 else
                 {
-                    this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+                    this->iss.csr.sepc.value = this->iss.exec.current_insn;
                     this->iss.csr.mstatus.sie = 0;
                     this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
                     this->iss.csr.mstatus.spp = this->iss.core.mode_get();
-                    this->iss.exec.current_insn = this->iss.irq.stvec_insn;
+                    this->iss.exec.current_insn = this->iss.csr.stvec.value;
                     this->iss.csr.scause.value = (1ULL << (ISS_REG_WIDTH - 1)) | (unsigned int)irq;
                 }
                 this->iss.core.mode_set(next_mode);

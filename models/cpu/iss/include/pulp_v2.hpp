@@ -591,21 +591,20 @@ static inline void hwloop_set_start(Iss *iss, iss_insn_t *insn, int index, iss_r
 
 static inline void hwloop_set_insn_end(Iss *iss, iss_reg_t pc)
 {
-    // TODO INSN
-    abort();
-    // if (insn->fetched)
-    // {
-    //     if (insn->hwloop_handler == NULL)
-    //     {
-    //         insn->hwloop_handler = insn->handler;
-    //         insn->handler = hwloop_check_exec;
-    //         insn->fast_handler = hwloop_check_exec;
-    //     }
-    // }
-    // else
-    // {
-    //     insn->hwloop_handler = hwloop_check_exec;
-    // }
+    iss_insn_t *insn = insn_cache_get(iss, pc);
+    if (insn->fetched)
+    {
+        if (insn->hwloop_handler == NULL)
+        {
+            insn->hwloop_handler = insn->handler;
+            insn->handler = hwloop_check_exec;
+            insn->fast_handler = hwloop_check_exec;
+        }
+    }
+    else
+    {
+        insn->hwloop_handler = hwloop_check_exec;
+    }
 }
 
 static inline void hwloop_set_end(Iss *iss, iss_insn_t *insn, int index, iss_reg_t end)
@@ -734,12 +733,12 @@ static inline iss_reg_t SW_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_addr_t addr, int size, int reg)
 {
     // Always account the overhead of the elw
     iss->timing.stall_insn_account(2);
 
-    iss->exec.elw_insn = insn;
+    iss->exec.elw_insn = pc;
     // Init this flag so that we can check afterwards that theelw has been replayed
     iss->exec.elw_interrupted = 0;
 
@@ -766,7 +765,7 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_addr_t addr, i
 
 static inline iss_reg_t p_elw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_handle_elw(iss, insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    iss_handle_elw(iss, insn, pc, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1180,7 +1179,7 @@ static inline iss_reg_t p_bneimm_exec_common(Iss *iss, iss_insn_t *insn, iss_reg
     if ((int32_t)REG_GET(0) != SIM_GET(1))
     {
         iss->timing.stall_taken_branch_account();
-        return insn->branch_pc;
+        return pc + SIM_GET(0);
     }
     else
     {
@@ -1207,7 +1206,7 @@ static inline iss_reg_t p_beqimm_exec_common(Iss *iss, iss_insn_t *insn, iss_reg
     if ((int32_t)REG_GET(0) == SIM_GET(1))
     {
         iss->timing.stall_taken_branch_account();
-        return insn->branch_pc;
+        return pc + SIM_GET(0);
     }
     else
     {

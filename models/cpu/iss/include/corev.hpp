@@ -298,7 +298,7 @@ static inline iss_reg_t cv_abs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t cv_elw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_handle_elw(iss, insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    iss_handle_elw(iss, insn, pc, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -712,7 +712,7 @@ static inline iss_reg_t cv_bneimm_exec_common(Iss *iss, iss_insn_t *insn, iss_re
     if ((int32_t)REG_GET(0) != SIM_GET(1))
     {
         iss->timing.stall_taken_branch_account();
-        return insn->branch_pc;
+        return pc + SIM_GET(0);
     }
     else
     {
@@ -739,7 +739,7 @@ static inline iss_reg_t cv_beqimm_exec_common(Iss *iss, iss_insn_t *insn, iss_re
     if ((int32_t)REG_GET(0) == SIM_GET(1))
     {
         iss->timing.stall_taken_branch_account();
-        return insn->branch_pc;
+        return pc + SIM_GET(0);
     }
     else
     {

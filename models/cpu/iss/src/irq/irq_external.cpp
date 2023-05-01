@@ -32,7 +32,7 @@ void Irq::build()
 {
     for (int i = 0; i < 32; i++)
     {
-        this->vectors[i] = NULL;
+        this->vectors[i] = 0;
     }
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
@@ -57,7 +57,7 @@ void Irq::reset(bool active)
         this->irq_enable.set(0);
         this->req_irq = -1;
         this->req_debug = false;
-        this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+        this->debug_handler = this->iss.exception.debug_handler_addr;
     }
     else
     {
@@ -93,12 +93,12 @@ bool Irq::mtvec_set(iss_addr_t base)
 
     for (int i = 0; i < 32; i++)
     {
-        this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
+        this->iss.irq.vectors[i] = base + i * 4;
     }
 
     for (int i = 32; i < 35; i++)
     {
-        this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
+        this->iss.irq.vectors[i] = base + i * 4;
     }
 
     return true;
@@ -114,7 +114,7 @@ bool Irq::stvec_set(iss_addr_t base)
 void Irq::cache_flush()
 {
     this->mtvec_set(this->iss.csr.mtvec.value);
-    this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+    this->iss.irq.debug_handler = this->iss.exception.debug_handler_addr;
 }
 
 void Irq::wfi_handle()

@@ -94,7 +94,7 @@ void Exec::reset(bool active)
     }
     else
     {
-        this->elw_insn = NULL;
+        this->elw_insn = 0;
         this->cache_sync = false;
         this->hwloop_end_insn[0] = 0;
         this->hwloop_end_insn[1] = 0;

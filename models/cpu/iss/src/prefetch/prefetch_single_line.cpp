@@ -105,6 +105,8 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
         {
             return false;
         }
+#else
+        next_phys_addr = next_addr;
 #endif
 
         // Fetch next line

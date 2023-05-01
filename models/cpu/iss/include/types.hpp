@@ -415,7 +415,6 @@ typedef struct iss_insn_s
     int input_latency_reg;
 
     iss_reg_t (*saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
-    iss_reg_t branch_pc;
 
     int in_spregs[6];
 

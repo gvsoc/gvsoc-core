@@ -113,7 +113,7 @@ public:
     bool cache_sync;
 
     bool debug_mode;
-    iss_insn_t *elw_insn;
+    iss_reg_t elw_insn;
 
     bool skip_irq_check;
 

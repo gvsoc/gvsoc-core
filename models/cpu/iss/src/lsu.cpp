@@ -203,7 +203,7 @@ void Lsu::elw_resume(Lsu *lsu)
 {
     // Clear pending elw to not replay it when the next interrupt occurs
     lsu->iss.exec.insn_terminate();
-    lsu->iss.exec.elw_insn = NULL;
+    lsu->iss.exec.elw_insn = 0;
     lsu->elw_stalled.set(false);
     lsu->iss.exec.busy_enter();
 }

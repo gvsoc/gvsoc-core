@@ -39,6 +39,8 @@ inline bool Prefetcher::fetch(iss_reg_t addr)
     {
         return false;
     }
+#else
+    phys_addr = addr;
 #endif
 
     iss_insn_t *insn = insn_cache_get(&this->iss, addr);

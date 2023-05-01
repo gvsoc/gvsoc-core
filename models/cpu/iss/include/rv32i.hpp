@@ -509,9 +509,12 @@ static inline iss_reg_t and_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fence_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // We have to get the next pc now as we can't access insn aymore after the cache flush
+    iss_reg_t next_pc = iss_insn_next(iss, insn, pc);
+
     iss->exec.icache_flush();
 
-    return iss_insn_next(iss, insn, pc);
+    return next_pc;
 }
 
 static inline iss_reg_t fence_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -521,7 +524,10 @@ static inline iss_reg_t fence_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // TODO INSN
+    // TODO prev instruction could not have been decoded if there was a cache flush
+    // just before this instruction.
+    // The good solution would be to issue load requests and be able to stall the instruction
+    // until we got the previous opcode
     iss_insn_t *prev = insn_cache_get(iss, pc - 4);
 
     if (prev && prev->opcode == 0x01f01013)

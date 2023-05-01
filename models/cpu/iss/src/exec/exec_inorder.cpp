@@ -151,7 +151,7 @@ void Exec::dbg_unit_step_check()
 
 void Exec::exec_instr_untimed(void *__this, vp::clock_event *event)
 {
-    // TODO INSN
+    // TODO such a loop could be used for untimed ISS variant
     abort();
     // Iss *const iss = (Iss *)__this;
     // iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");

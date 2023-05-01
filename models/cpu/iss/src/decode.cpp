@@ -184,6 +184,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 #if !defined(CONFIG_GVSOC_ISS_MMU)
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
+                // TODO this information in the next instruction could disappear if there is a cache flush
+                // in between the 2 instructions
                 iss_insn_t *next = insn_cache_get(&this->iss, pc + insn->size);
 
                 next->input_latency_reg = arg->u.reg.index;

@@ -27,7 +27,6 @@
 
 
 int insn_cache_init(Iss *iss);
-void iss_cache_sync(Iss *iss);
 void iss_cache_flush(Iss *iss);
 iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc);
 bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn);

@@ -68,53 +68,13 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
 
 
 
-static void iss_cache_update(Iss *iss, bool flush)
+void iss_cache_flush(Iss *iss)
 {
-    iss_opcode_t opcode = 0;
-    iss_addr_t current_addr = 0;
-    iss_addr_t prev_addr = 0;
-    iss_addr_t stall_addr = 0;
-    iss_addr_t prefetch_addr = 0;
-    iss_addr_t hwloop_end_addr[2] = {0};
-    bool fetched = false;
-
-    // TODO INSN
-    // if (iss->exec.current_insn)
-    // {
-    //     fetched = iss->exec.current_insn->fetched;
-    //     opcode = iss->exec.current_insn->opcode;
-    //     current_addr = iss->exec.current_insn->addr;
-    // }
-
-    if (flush)
-    {
-        flush_cache(iss, &iss->decode.insn_cache);
-    }
-
-    // if (iss->exec.current_insn)
-    // {
-    //     iss->exec.current_insn = insn_cache_get(iss, current_addr);
-    //     if (fetched)
-    //     {
-    //         iss->exec.current_insn->opcode = opcode;
-    //         iss->exec.current_insn->fetched = true;
-    //         iss->decode.decode_pc(iss->exec.current_insn);
-    //     }
-    // }
+    flush_cache(iss, &iss->decode.insn_cache);
 
     iss->gdbserver.enable_all_breakpoints();
 
     iss->irq.cache_flush();
-}
-
-void iss_cache_sync(Iss *iss)
-{
-    iss_cache_update(iss, false);
-}
-
-void iss_cache_flush(Iss *iss)
-{
-    iss_cache_update(iss, true);
 }
 
 void iss_cache_vflush(Iss *iss)

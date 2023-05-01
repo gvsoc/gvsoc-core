@@ -194,6 +194,9 @@ static inline iss_reg_t breakpoint_check_exec(Iss *iss, iss_insn_t *insn, iss_re
 
 void Gdbserver::enable_breakpoint(iss_addr_t addr)
 {
+    // TODO the information stored in the instruction could disappear in case
+    // of cache flush. The decode function should also check if they are active breakpoints
+    // for the instruction being decoded
     iss_insn_t *insn = insn_cache_get(&this->iss, addr);
 
     if (insn_cache_is_decoded(&this->iss, insn))

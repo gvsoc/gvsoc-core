@@ -70,6 +70,7 @@ inline void Exec::insn_terminate()
 {
     if (this->iss.trace.insn_trace.get_active())
     {
+        // TODO insn_cache_get can return NULL in case MMU is enabled
         iss_trace_dump(&this->iss, insn_cache_get(&this->iss, this->stall_insn), this->stall_insn);
     }
 

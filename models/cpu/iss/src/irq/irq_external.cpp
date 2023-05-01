@@ -189,7 +189,6 @@ int Irq::check()
             this->iss.csr.mstatus.mie = 0;
 
             int next_mode = PRIV_M;
-            // TODO add support for riscv interrupts
             int id = 0;
             if ((this->iss.csr.mideleg.value >> id) & 1)
             {

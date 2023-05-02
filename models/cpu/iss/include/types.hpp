@@ -411,9 +411,6 @@ typedef struct iss_insn_s
     int resource_latency;   // Time required to get the result when accessing the resource
     int resource_bandwidth; // Time required to accept the next access when accessing the resource
 
-    int input_latency;
-    int input_latency_reg;
-
     iss_reg_t (*saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
 
     int in_spregs[6];

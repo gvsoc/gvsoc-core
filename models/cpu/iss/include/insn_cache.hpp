@@ -33,6 +33,8 @@ bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn);
 
 iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr);
 
+bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+
 inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr)
 {
     iss_insn_cache_t *cache = &iss->decode.insn_cache;

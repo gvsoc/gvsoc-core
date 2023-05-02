@@ -94,35 +94,9 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         return -1;
 
     insn->latency = 0;
-    insn->fast_handler = item->u.insn.fast_handler;
-    insn->handler = item->u.insn.handler;
     insn->resource_id = item->u.insn.resource_id;
     insn->resource_latency = item->u.insn.resource_latency;
     insn->resource_bandwidth = item->u.insn.resource_bandwidth;
-
-    if (insn->hwloop_handler != NULL)
-    {
-        iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->hwloop_handler;
-        insn->hwloop_handler = insn->handler;
-        insn->handler = hwloop_handler;
-        insn->fast_handler = hwloop_handler;
-    }
-
-    if (insn->breakpoint_saved_handler != NULL)
-    {
-        iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->breakpoint_saved_handler;
-        insn->breakpoint_saved_handler = insn->handler;
-        insn->breakpoint_saved_fast_handler = insn->fast_handler;
-        insn->handler = breakpoint_saved_handler;
-        insn->fast_handler = breakpoint_saved_handler;
-    }
-
-    if (item->u.insn.resource_id != -1)
-    {
-        insn->resource_handler = insn->handler;
-        insn->fast_handler = iss_resource_offload;
-        insn->handler = iss_resource_offload;
-    }
 
     insn->decoder_item = item;
     insn->size = item->u.insn.size;
@@ -184,12 +158,41 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 #if !defined(CONFIG_GVSOC_ISS_MMU)
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
-                // TODO this information in the next instruction could disappear if there is a cache flush
-                // in between the 2 instructions
-                iss_insn_t *next = insn_cache_get(&this->iss, pc + insn->size);
+                iss_reg_t next_pc = pc + insn->size;
+                iss_insn_t *next = insn_cache_get_insn(&this->iss, next_pc);
+                if (!next)
+                {
+                    return -2;
+                }
 
-                next->input_latency_reg = arg->u.reg.index;
-                next->input_latency = darg->u.reg.latency;
+                if (!insn_cache_is_decoded(&this->iss, next) && !iss_decode_insn(&this->iss, next, next_pc))
+                {
+                    return -2;
+                }
+
+                // We can stall the next instruction either if latency is superior
+                // to 2 (due to number of pipeline stages) or if there is a data
+                // dependency
+
+                // Go through the registers and set the handler to the stall handler
+                // in case we find a register dependency so that we can properly
+                // handle the stall
+                bool set_pipe_latency = true;
+                for (int j = 0; j < next->nb_in_reg; j++)
+                {
+                    if (next->in_regs[j] == arg->u.reg.index)
+                    {
+                        insn->latency += darg->u.reg.latency;
+                        set_pipe_latency = false;
+                        break;
+                    }
+                }
+
+                // If no dependency was found, apply the one for the pipeline stages
+                if (set_pipe_latency && darg->u.reg.latency > PIPELINE_STAGES)
+                {
+                    next->latency += darg->u.reg.latency - PIPELINE_STAGES + 1;
+                }
             }
 #endif
 
@@ -238,31 +241,31 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         }
     }
 
-    if (insn->input_latency_reg != -1)
+    insn->fast_handler = item->u.insn.fast_handler;
+    insn->handler = item->u.insn.handler;
+
+    if (insn->hwloop_handler != NULL)
     {
-        // We can stall the next instruction either if latency is superior
-        // to 2 (due to number of pipeline stages) or if there is a data
-        // dependency
+        iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->hwloop_handler;
+        insn->hwloop_handler = insn->handler;
+        insn->handler = hwloop_handler;
+        insn->fast_handler = hwloop_handler;
+    }
 
-        // Go through the registers and set the handler to the stall handler
-        // in case we find a register dependency so that we can properly
-        // handle the stall
-        bool set_pipe_latency = true;
-        for (int j = 0; j < insn->nb_in_reg; j++)
-        {
-            if (insn->in_regs[j] == insn->input_latency_reg)
-            {
-                insn->latency += insn->input_latency;
-                set_pipe_latency = false;
-                break;
-            }
-        }
+    if (insn->breakpoint_saved_handler != NULL)
+    {
+        iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->breakpoint_saved_handler;
+        insn->breakpoint_saved_handler = insn->handler;
+        insn->breakpoint_saved_fast_handler = insn->fast_handler;
+        insn->handler = breakpoint_saved_handler;
+        insn->fast_handler = breakpoint_saved_handler;
+    }
 
-        // If no dependency was found, apply the one for the pipeline stages
-        if (set_pipe_latency && insn->input_latency > PIPELINE_STAGES)
-        {
-            insn->latency += insn->input_latency - PIPELINE_STAGES + 1;
-        }
+    if (item->u.insn.resource_id != -1)
+    {
+        insn->resource_handler = insn->handler;
+        insn->fast_handler = iss_resource_offload;
+        insn->handler = iss_resource_offload;
     }
 
     if (item->u.insn.decode != NULL)
@@ -331,14 +334,21 @@ int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
     for (int i = 0; i < __iss_isa_set.nb_isa; i++)
     {
         iss_isa_t *isa = &__iss_isa_set.isa_set[i];
-        if (this->decode_item(insn, pc, opcode, isa->tree) == 0)
+        int err = this->decode_item(insn, pc, opcode, isa->tree);
+        if (err == 0)
+        {
             return 0;
+        }
+        else if (err == -2)
+        {
+            return -2;
+        }
     }
-
-    this->trace.msg("Unknown instruction\n");
 
     return -1;
 }
+
+
 
 void iss_decode_activate_isa(Iss *cpu, char *name)
 {
@@ -359,6 +369,8 @@ void iss_decode_activate_isa(Iss *cpu, char *name)
     }
 }
 
+
+
 static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->decode.trace.msg("Executing illegal instruction\n");
@@ -366,7 +378,9 @@ static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return pc;
 }
 
-iss_insn_t *Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
+
+
+bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 {
     this->trace.msg("Decoding instruction (pc: 0x%lx)\n", pc);
 
@@ -374,11 +388,18 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 
     this->trace.msg("Got opcode (opcode: 0x%lx)\n", opcode);
 
-    if (this->decode_opcode(insn, pc, opcode) == -1)
+    int err = this->decode_opcode(insn, pc, opcode);
+
+    if (err == -1)
     {
+        this->trace.msg("Unknown instruction\n");
         insn->handler = iss_exec_insn_illegal;
         insn->fast_handler = iss_exec_insn_illegal;
-        return insn;
+        return true;
+    }
+    else if (err == -2)
+    {
+        return false;
     }
 
     insn->opcode = opcode;
@@ -390,22 +411,41 @@ iss_insn_t *Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
         insn->fast_handler = this->iss.exec.insn_trace_callback_get();
     }
 
-    return insn;
+    return true;
 }
 
-iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+
+
+bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->fetched)
     {
         if (!iss->prefetcher.fetch(pc))
         {
-            return pc;
+            return false;
         }
 
         insn->fetched = true;
     }
 
-    return iss->exec.insn_exec(iss->decode.decode_pc(insn, pc), pc);
+    if (!iss->decode.decode_pc(insn, pc))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+
+
+iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    if (!iss_decode_insn(iss, insn, pc))
+    {
+        return pc;
+    }
+
+    return iss->exec.insn_exec(insn, pc);
 }
 
 

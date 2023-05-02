@@ -63,7 +63,6 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->hwloop_handler = NULL;
     insn->breakpoint_saved_handler = NULL;
     insn->fetched = false;
-    insn->input_latency_reg = -1;
 }
 
 

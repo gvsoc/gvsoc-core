@@ -30,7 +30,7 @@ public:
     void build();
     void reset(bool active);
 
-    iss_insn_t *decode_pc(iss_insn_t *insn, iss_reg_t pc);
+    bool decode_pc(iss_insn_t *insn, iss_reg_t pc);
 
     vp::trace trace;
 

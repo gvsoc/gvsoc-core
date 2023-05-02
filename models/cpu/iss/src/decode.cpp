@@ -155,7 +155,6 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 }
             }
 
-#if !defined(CONFIG_GVSOC_ISS_MMU)
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
                 iss_reg_t next_pc = pc + insn->size;
@@ -194,7 +193,6 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                     next->latency += darg->u.reg.latency - PIPELINE_STAGES + 1;
                 }
             }
-#endif
 
             break;
 

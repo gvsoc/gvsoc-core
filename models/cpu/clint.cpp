@@ -37,6 +37,8 @@
  * bffc mtime hi
  */
 
+#define RESOLUTION 1000000
+
 #define MSIP_BASE 0x0
 #define MTIMECMP_BASE 0x4000
 #define MTIME_BASE 0xbff8
@@ -157,7 +159,8 @@ vp::io_req_status_e Clint::req(void *__this, vp::io_req *req)
 
 uint64_t Clint::get_mtime()
 {
-    return (this->get_time() - this->start_time) / 10000000;
+    uint64_t value = (this->get_time() - this->start_time) / RESOLUTION;
+    return value;
 }
 
 void Clint::check_mtime()
@@ -167,7 +170,9 @@ void Clint::check_mtime()
     {
         if (this->timer_irq_itf[i].is_bound())
         {
-            this->timer_irq_itf[i].sync(mtime >= this->mtimecmp[i]);
+            bool value = mtime >= this->mtimecmp[i];
+            this->trace.msg(vp::trace::LEVEL_TRACE, "Sync interrupt (value: 0x%d)\n", value);
+            this->timer_irq_itf[i].sync(value);
         }
     }
 }
@@ -176,7 +181,7 @@ void Clint::check_event()
 {
     for (int i=0; i<this->nb_cores; i++)
     {
-        uint64_t diff = (this->mtimecmp[i] - this->get_mtime()) * 10000000 / this->get_period();
+        uint64_t diff = (this->mtimecmp[i] - this->get_mtime()) * RESOLUTION / this->get_period();
 
         if (diff > 0)
         {
@@ -198,6 +203,8 @@ bool Clint::load(unsigned int addr, size_t len, uint8_t *bytes)
     else if (addr >= MTIME_BASE && addr + len <= MTIME_BASE + sizeof(mtime_t))
     {
         uint64_t mtime = this->get_mtime();
+        this->trace.msg(vp::trace::LEVEL_TRACE, "Returning mtime (value: 0x%lx)\n", mtime);
+
         memcpy(bytes, (uint8_t *)&mtime + addr - MTIME_BASE, len);
     }
     else if (addr + len <= CLINT_SIZE)

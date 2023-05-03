@@ -247,7 +247,7 @@ void Gdbserver::breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc)
 
 void Gdbserver::breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc)
 {
-    std::remove(insn->breakpoints.begin(), insn->breakpoints.end(), pc);
+    insn->breakpoints.erase(std::remove(insn->breakpoints.begin(), insn->breakpoints.end(), pc), insn->breakpoints.end());
 
     if (insn->breakpoints.size() == 0)
     {

@@ -586,36 +586,15 @@ static inline iss_reg_t hwloop_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 static inline void hwloop_set_start(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start)
 {
     iss->csr.hwloop_regs[PULPV2_HWLOOP_LPSTART(index)] = start;
-    iss->exec.hwloop_start_insn[index] = start;
+    iss->exec.hwloop_set_start(index, start);
 }
 
-static inline void hwloop_set_insn_end(Iss *iss, iss_reg_t pc)
-{
-    // TODO the information could disappear if there is a cache flush
-    // The decoding function should do additional checks
-    iss_insn_t *insn = insn_cache_get(iss, pc);
-    if (insn->fetched)
-    {
-        if (insn->hwloop_handler == NULL)
-        {
-            insn->hwloop_handler = insn->handler;
-            insn->handler = hwloop_check_exec;
-            insn->fast_handler = hwloop_check_exec;
-        }
-    }
-    else
-    {
-        insn->hwloop_handler = hwloop_check_exec;
-    }
-}
 
 static inline void hwloop_set_end(Iss *iss, iss_insn_t *insn, int index, iss_reg_t end)
 {
-    iss->exec.hwloop_end_insn[index] = end;
-
-    hwloop_set_insn_end(iss, end);
-
     iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND(index)] = end;
+    iss->exec.hwloop_set_end(index, end);
+
 }
 
 static inline void hwloop_set_count(Iss *iss, iss_insn_t *insn, int index, iss_reg_t count)

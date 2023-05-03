@@ -25,6 +25,10 @@
 #include <types.hpp>
 #include ISS_CORE_INC(class.hpp)
 
+
+#define CONFIG_GVSOC_ISS_NB_HWLOOP 2
+
+
 typedef iss_reg_t (*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 class Exec
@@ -87,6 +91,11 @@ public:
     static void exec_instr_untimed(void *__this, vp::clock_event *event);
     static void exec_instr_check_all(void *__this, vp::clock_event *event);
 
+    void hwloop_set_start(int index, iss_reg_t pc);
+    void hwloop_set_end(int index, iss_reg_t pc);
+    void hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc);
+    void decode_insn(iss_insn_t *insn, iss_addr_t pc);
+
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
     vp::reg_1 wfi;
@@ -104,8 +113,8 @@ public:
     vp::reg_1 halted;
     vp::reg_1 step_mode;
 
-    iss_reg_t hwloop_start_insn[2];
-    iss_reg_t hwloop_end_insn[2];
+    iss_reg_t hwloop_start_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
+    iss_reg_t hwloop_end_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_next_insn;
     // This is used by HW loop to know that we interrupted and replayed
     // a ELW instructin so that it is not accounted twice in the loop.

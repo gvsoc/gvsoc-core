@@ -200,6 +200,53 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
 
 
 
+void Exec::hwloop_set_start(int index, iss_reg_t pc)
+{
+    this->hwloop_start_insn[index] = pc;
+}
+
+
+
+void Exec::hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc)
+{
+    if (insn->hwloop_handler == NULL)
+    {
+        insn->hwloop_handler = insn->handler;
+        insn->handler = hwloop_check_exec;
+        insn->fast_handler = hwloop_check_exec;
+    }
+}
+
+
+
+void Exec::hwloop_set_end(int index, iss_reg_t pc)
+{
+    this->hwloop_end_insn[index] = pc;
+
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, pc);
+
+    if (insn != NULL && insn_cache_is_decoded(&this->iss, insn))
+    {
+        this->hwloop_stub_insert(insn, pc);
+    }
+}
+
+
+
+void Exec::decode_insn(iss_insn_t *insn, iss_addr_t pc)
+{
+    for (int i=0; i<CONFIG_GVSOC_ISS_NB_HWLOOP; i++)
+    {
+        if (this->hwloop_end_insn[i] == pc)
+        {
+            this->hwloop_stub_insert(insn, pc);
+            break;
+        }
+    }
+}
+
+
+
 void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
 {
     Iss *iss = (Iss *)__this;

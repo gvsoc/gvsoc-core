@@ -81,10 +81,7 @@ void iss_cache_vflush(Iss *iss)
     cache->current_insn_page = NULL;
 }
 
-iss_insn_t *insn_cache_get(Iss *iss, iss_addr_t pc)
-{
-    return insn_cache_get_insn(iss, pc);
-}
+
 
 void Decode::flush_cache_sync(void *__this, bool active)
 {

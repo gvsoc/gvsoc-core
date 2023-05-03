@@ -61,7 +61,6 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->fast_handler = iss_decode_pc_handler;
     insn->addr = addr;
     insn->hwloop_handler = NULL;
-    insn->breakpoint_saved_handler = NULL;
     insn->fetched = false;
 }
 
@@ -114,7 +113,7 @@ iss_insn_page_t *insn_cache_page_get(Iss *iss, iss_reg_t paddr)
     {
         page = new iss_insn_page_t;
     }
-
+    
     cache->pages[index] = page;
 
     for (int i=0; i<INSN_PAGE_SIZE; i++)

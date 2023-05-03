@@ -416,6 +416,7 @@ typedef struct iss_insn_s
     int in_spregs[6];
 
     int latency;
+    std::vector<iss_reg_t>  breakpoints;
 
 } iss_insn_t;
 

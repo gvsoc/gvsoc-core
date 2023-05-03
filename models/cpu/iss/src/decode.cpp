@@ -250,14 +250,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->fast_handler = hwloop_handler;
     }
 
-    if (insn->breakpoint_saved_handler != NULL)
-    {
-        iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->breakpoint_saved_handler;
-        insn->breakpoint_saved_handler = insn->handler;
-        insn->breakpoint_saved_fast_handler = insn->fast_handler;
-        insn->handler = breakpoint_saved_handler;
-        insn->fast_handler = breakpoint_saved_handler;
-    }
+    this->iss.gdbserver.decode_insn(insn, pc);
 
     if (item->u.insn.resource_id != -1)
     {

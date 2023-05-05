@@ -41,8 +41,19 @@ void vp::clk_master::reg(component *clock)
   }
 }
 
+void vp::clk_master::set_frequency(int64_t frequency)
+{
+  clk_slave *port = ports;
+  while (port)
+  {
+    port->set_frequency((component *)port->get_context(), frequency);
+    port = port->next;
+  }
+}
+
 vp::clk_slave::clk_slave() : req(NULL) {
   req = (clk_reg_meth_t *)&clk_slave::reg_default;
+  set_frequency = (clk_set_frequency_meth_t *)&clk_slave::set_frequency_default;
 }
 
 void vp::clk_slave::set_reg_meth(clk_reg_meth_t *meth)
@@ -50,6 +61,15 @@ void vp::clk_slave::set_reg_meth(clk_reg_meth_t *meth)
   req = meth;
 }
 
+void vp::clk_slave::set_set_frequency_meth(clk_set_frequency_meth_t *meth)
+{
+  set_frequency = meth;
+}
+
 void vp::clk_slave::reg_default(clk_slave *)
+{
+}
+
+void vp::clk_slave::set_frequency_default(int64_t)
 {
 }

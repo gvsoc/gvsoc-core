@@ -28,7 +28,6 @@
 inline void vp::power::power_source::turn_on()
 {
     this->is_on = true;
-    this->is_dynamic_power_on = true;
     this->check();
 }
 
@@ -36,19 +35,6 @@ inline void vp::power::power_source::turn_on()
 inline void vp::power::power_source::turn_off()
 {
     this->is_on = false;
-    this->is_dynamic_power_on = false;
-    this->check();
-}
-
-inline void vp::power::power_source::turn_dynamic_power_on()
-{
-    this->is_dynamic_power_on = true;
-    this->check();
-}
-
-inline void vp::power::power_source::turn_dynamic_power_off()
-{
-    this->is_dynamic_power_on = false;
     this->check();
 }
 
@@ -104,7 +90,7 @@ inline void vp::power::power_source::dynamic_power_stop()
 inline void vp::power::power_source::account_energy_quantum()
 {
     // Only account energy is a quantum is defined
-    if (this->is_on && this->is_dynamic_power_on && this->quantum != -1)
+    if (this->is_on && this->quantum != -1)
     {
         this->trace->inc_dynamic_energy(this->quantum);
     }

@@ -30,6 +30,7 @@ namespace vp {
   class component;
 
   typedef void (clk_reg_meth_t)(component *_this, component *clock);
+  typedef void (clk_set_frequency_meth_t)(component *_this, int64_t frequency);
 
   class clk_slave;
 
@@ -40,6 +41,7 @@ namespace vp {
     clk_master() : ports(NULL) {}
 
     void reg(component *clock);
+    void set_frequency(int64_t frequency);
 
     void bind_to(vp::port *port, vp::config *config);
 
@@ -61,12 +63,15 @@ namespace vp {
     clk_slave();
 
     void set_reg_meth(clk_reg_meth_t *meth);
+    void set_set_frequency_meth(clk_set_frequency_meth_t *meth);
 
 
   private:
 
     void (*req)(component *comp, component *clock);
+    void (*set_frequency)(component *comp, int64_t frequency);
     static void reg_default(clk_slave *);
+    static void set_frequency_default(int64_t frequency);
 
     clk_slave *next;
 

@@ -79,6 +79,21 @@ int vp::power::component_power::new_power_source(std::string name, power_source 
 
 
 
+void vp::power::component_power::set_frequency(int64_t frequency)
+{
+    for (power_source *power_source: this->sources)
+    {
+        power_source->set_frequency(frequency);
+    }
+
+    for (auto child: this->top.childs)
+    {
+        child->power.set_frequency(frequency);
+    }
+}
+
+
+
 double vp::power::component_power::get_power_from_childs()
 {
     double result = 0.0;
@@ -176,17 +191,17 @@ void vp::power::component_power::power_supply_set_all(int state)
 
     if (state >= 2)
     {
-        for (auto &x : this->sources)
-        {
-            if (state == 3)
-            {
-                x->turn_dynamic_power_on();
-            }
-            else
-            {
-                x->turn_dynamic_power_off();
-            }
-        }
+        // for (auto &x : this->sources)
+        // {
+        //     if (state == 3)
+        //     {
+        //         x->turn_dynamic_power_on();
+        //     }
+        //     else
+        //     {
+        //         x->turn_dynamic_power_off();
+        //     }
+        // }
     }
     else
     {

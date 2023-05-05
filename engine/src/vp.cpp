@@ -284,6 +284,12 @@ void vp::component_clock::clk_reg(component *_this, component *clock)
 }
 
 
+void vp::component_clock::clk_set_frequency(component *_this, int64_t frequency)
+{
+    _this->power.set_frequency(frequency);
+}
+
+
 void vp::component::reset_all(bool active, bool from_itf)
 {
     // Small hack to not propagate the reset from top level if the reset has
@@ -331,6 +337,7 @@ void vp::component_clock::reset_sync(void *__this, bool active)
 void vp::component_clock::pre_build(component *comp)
 {
     clock_port.set_reg_meth((vp::clk_reg_meth_t *)&component_clock::clk_reg);
+    clock_port.set_set_frequency_meth((vp::clk_set_frequency_meth_t *)&component_clock::clk_set_frequency);
     comp->new_slave_port("clock", &clock_port);
 
     reset_port.set_sync_meth(&component_clock::reset_sync);

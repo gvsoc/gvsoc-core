@@ -43,13 +43,20 @@ namespace vp
 
 #define VP_POWER_DEFAULT_TEMP 25
 #define VP_POWER_DEFAULT_VOLT 1.2
-#define VP_POWER_DEFAULT_FREQ 50
+#define VP_POWER_DEFAULT_FREQ 50000000
 
         class Linear_table;
         class engine;
         class power_source;
         class power_trace;
         class component_power;
+
+        enum supply
+        {
+            OFF=0,
+            ON_CLOCK_GATED=2,
+            ON=1
+        };
 
         /**
          * @brief Used to model a power source
@@ -148,6 +155,8 @@ namespace vp
              */
             void setup(double temp, double volt, double freq);
 
+            void set_frequency(double freq);
+
             /**
              * @brief Turn on a power source
              *
@@ -161,20 +170,6 @@ namespace vp
              * This power source should be turned off when its power domain is turned off, in order to stop consuming power
              */
             void turn_off();
-
-            /**
-             * @brief Turn on a power source
-             *
-             * This power source should be turned on when its power domain is turned on, in order to start consuming power
-             */
-            void turn_dynamic_power_on();
-
-            /**
-             * @brief Turn off a power source
-             *
-             * This power source should be turned off when its power domain is turned off, in order to stop consuming power
-             */
-            void turn_dynamic_power_off();
 
         private:
             void check();
@@ -197,9 +192,11 @@ namespace vp
             bool is_dynamic_power_started = false;      // True is the source consuming dynamic backgroun power
             bool is_leakage_power_started = false;      // True is the source should start consuming leakage power
             bool is_on = true;      // True is the power domain containing the power source is on and backgroun-power and leakage should be reported
-            bool is_dynamic_power_on = true;      // True is the power domain containing the power source is on and backgroun-power and leakage should be reported
             bool dynamic_power_is_on_sync = false;
             bool leakage_power_is_on_sync = false;
+            double current_temp;
+            double current_volt;
+            double current_freq;
         };
 
 
@@ -519,6 +516,8 @@ namespace vp
              * @param state Supply state
              */
             void power_supply_set_all(int state);
+
+            void set_frequency(int64_t frequency);
 
         protected:
             /**

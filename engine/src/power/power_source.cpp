@@ -23,9 +23,27 @@
 #include "vp/trace/trace.hpp"
 
 
+void vp::power::power_source::set_frequency(double freq)
+{
+    bool is_on = this->is_on;
+    if (is_on)
+    {
+        this->turn_off();
+    }
+    this->setup(this->current_temp, this->current_volt, freq);
+    if (is_on)
+    {
+        this->turn_on();
+    }
+}
+
 
 void vp::power::power_source::setup(double temp, double volt, double freq)
 {
+    this->current_volt = volt;
+    this->current_temp = temp;
+    this->current_freq = freq;
+
     // When temperature, voltage or frequency is modified, only impact dynamic energy quantum,
     // dynamic background power or leakage if they are defined, which is the case if they are not -1
     if (this->quantum != -1)
@@ -35,6 +53,7 @@ void vp::power::power_source::setup(double temp, double volt, double freq)
     if (this->background_power != -1)
     {
         this->background_power = this->dyn_table->get(temp, volt, freq);
+        // printf("%s got %f\n", this->top->get_path().c_str(), this->background_power);
     }
     if (this->leakage != -1)
     {
@@ -159,7 +178,7 @@ int vp::power::power_source::init(component *top, std::string name, js::config *
 void vp::power::power_source::check()
 {
     bool leakage_power_is_on = this->is_on && this->is_leakage_power_started;
-    bool dynamic_power_is_on = this->is_on && this->is_dynamic_power_on && this->is_dynamic_power_started;
+    bool dynamic_power_is_on = this->is_on && this->is_dynamic_power_started;
 
     if (this->dynamic_power_is_on_sync != dynamic_power_is_on)
     {

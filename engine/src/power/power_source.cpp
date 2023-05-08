@@ -37,6 +37,20 @@ void vp::power::power_source::set_frequency(double freq)
     }
 }
 
+void vp::power::power_source::set_voltage(double voltage)
+{
+    bool is_on = this->is_on;
+    if (is_on)
+    {
+        this->turn_off();
+    }
+    this->setup(this->current_temp, voltage, this->current_freq);
+    if (is_on)
+    {
+        this->turn_on();
+    }
+}
+
 
 void vp::power::power_source::setup(double temp, double volt, double freq)
 {

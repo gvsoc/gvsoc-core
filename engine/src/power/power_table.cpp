@@ -31,6 +31,9 @@ vp::power::Linear_table::Linear_table(js::config *config)
     {
         temp_tables.push_back(new Linear_temp_table(std::stod(x.first), x.second));
     }
+
+    std::sort(this->temp_tables.begin(), this->temp_tables.end(),
+    [](vp::power::Linear_temp_table *a, vp::power::Linear_temp_table *b){ return a->get_temp() <= b->get_temp(); });
 }
 
 
@@ -105,6 +108,9 @@ vp::power::Linear_temp_table::Linear_temp_table(double temp, js::config *config)
     {
         volt_tables.push_back(new Linear_volt_table(std::stod(x.first), x.second));
     }
+
+    std::sort(this->volt_tables.begin(), this->volt_tables.end(),
+    [](vp::power::Linear_volt_table *a, vp::power::Linear_volt_table *b){ return a->get_volt() <= b->get_volt(); });
 }
 
 

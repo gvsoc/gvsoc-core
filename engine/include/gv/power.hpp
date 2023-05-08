@@ -157,6 +157,8 @@ namespace vp
 
             void set_frequency(double freq);
 
+            void set_voltage(double voltage);
+
             /**
              * @brief Turn on a power source
              *
@@ -517,6 +519,8 @@ namespace vp
              */
             void power_supply_set_all(int state);
 
+            void voltage_set_all(int voltage);
+
             void set_frequency(int64_t frequency);
 
         protected:
@@ -570,12 +574,15 @@ namespace vp
             // Set power supply state
             static void power_supply_sync(void *_this, int state);
 
+            static void voltage_sync(void *_this, int voltage);
+
             component &top;                                // Component containing the power component object
             vp::power::power_trace power_trace;            // Default power trace of this component
             std::vector<vp::power::power_trace *> traces;  // Vector of power traces of this component
             std::vector<vp::power::power_source *> sources;  // Vector of power sources of this component
             power::engine *engine = NULL;                  // Power engine
             vp::wire_slave<int> power_port;                // Slave port for setting power supply state
+            vp::wire_slave<int> voltage_port;
         };
 
 

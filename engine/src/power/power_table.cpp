@@ -23,13 +23,22 @@
 #include "vp/trace/trace.hpp"
 
 
+double my_stod (std::string const& s) {
+    std::istringstream iss (s);
+    iss.imbue (std::locale("C"));
+    double d;
+    iss >> d;
+    // insert error checking.
+    return d;
+}
+
 
 vp::power::Linear_table::Linear_table(js::config *config)
 {
     // Extract the power table from json file for each temperature
     for (auto &x : config->get_childs())
     {
-        temp_tables.push_back(new Linear_temp_table(std::stod(x.first), x.second));
+        temp_tables.push_back(new Linear_temp_table(my_stod(x.first), x.second));
     }
 
     std::sort(this->temp_tables.begin(), this->temp_tables.end(),
@@ -106,7 +115,7 @@ vp::power::Linear_temp_table::Linear_temp_table(double temp, js::config *config)
 
     for (auto &x : config->get_childs())
     {
-        volt_tables.push_back(new Linear_volt_table(std::stod(x.first), x.second));
+        volt_tables.push_back(new Linear_volt_table(my_stod(x.first), x.second));
     }
 
     std::sort(this->volt_tables.begin(), this->volt_tables.end(),
@@ -189,7 +198,7 @@ vp::power::Linear_volt_table::Linear_volt_table(double volt, js::config *config)
         }
         else
         {
-            this->freq_tables.push_back(new Linear_freq_table(std::stod(x.first), x.second));
+            this->freq_tables.push_back(new Linear_freq_table(my_stod(x.first), x.second));
         }
     }
 
@@ -267,5 +276,5 @@ double vp::power::Linear_volt_table::get(double frequency)
 vp::power::Linear_freq_table::Linear_freq_table(double freq, js::config *config)
 : freq(freq)
 {
-    this->value = std::stod(config->get_str());
+    this->value = my_stod(config->get_str());
 }

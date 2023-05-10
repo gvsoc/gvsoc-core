@@ -297,7 +297,7 @@ class Runner(gapylib.target.Target, st.Component):
                     ' --gvsoc-path when using RTL GVSOC cosimulation')
 
             self.rtl_runner.parse_args(args, gvsoc_cosim=args.gvsoc_path,
-                gvsoc_config_path=self.gvsoc_config_path)
+                gvsoc_config_path=self.gvsoc_config_path, full_config=self.full_config)
 
 
     def handle_command(self, cmd):

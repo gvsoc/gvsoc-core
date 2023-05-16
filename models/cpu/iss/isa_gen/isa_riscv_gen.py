@@ -685,18 +685,10 @@ class R5(Instr):
         elif format == 'OPVLI':
             self.args = [   OutReg     (0, Range(7 , 5)),
                             InReg      (0, Range(15, 5)),
-                            UnsignedImm(0, Range(20, 3)),# vlmul
-                            UnsignedImm(1, Range(23, 3)),# vsew
-                            UnsignedImm(2, Range(27, 0)),# vta
-                            UnsignedImm(3, Range(28, 0)),# vma
-                            UnsignedImm(3, Range(20,12))
-                        ]            
-
-
-
-
-
-
+                            UnsignedImm(0, Range(20, 2)),# vlmul
+                            UnsignedImm(1, Range(22, 3)),# vsew
+                            UnsignedImm(2, Range(20, 12)),# vtype
+                        ]
 
 
         else:
@@ -733,11 +725,13 @@ rv32v = IsaSubset('v', [
     R5('vse16.v' ,   'OPV'  ,    '000 0 00 - 00000 ----- 101 ----- 0100111'),
     R5('vse32.v' ,   'OPV'  ,    '000 0 00 - 00000 ----- 110 ----- 0100111'),
     R5('vse64.v' ,   'OPV'  ,    '000 0 00 - 00000 ----- 111 ----- 0100111'),
-
-    R5('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {3'b000,vma,vta,vsew[2:0],vlmul[2:0]}
+    
+    #                           V 1.0
+    #R5('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {3'b000,vma,vta,vsew[2:0],vlmul[2:0]}
+    
+    #                           V 0.8    
+    R5('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {7'b0000000,vsew[2:0],vlmul[1:0]}
     #R5('csrr', 'IU',  '------- ----- 00000 010 ----- 1110011', decode='csr_decode'),
-
-
 ])
 
 

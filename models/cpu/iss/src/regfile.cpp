@@ -38,5 +38,16 @@ void Regfile::reset(bool active)
         {
             this->regs[i] = i == 0 ? 0 : 0x57575757;
         }
+        // for (int i = 0; i < ISS_NB_TOTAL_REGS; i++)
+        // {
+        //     if(i == 28){this->regs[i] = 0x20000;}
+        //     else if(i == 11){this->regs[i] = 0x1040;}
+        //     else if(i == 10){this->regs[i] = 0x1;}
+        //     else if(i == 7 ){this->regs[i] = 0x70002e20;}
+        //     else if(i == 6 ){this->regs[i] = 0x1038;}
+        //     else {this->regs[i] = 0x0;}
+        // }
+
+
     }
 }

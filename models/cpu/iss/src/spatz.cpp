@@ -21,7 +21,9 @@ void Spatz::reset(bool active)
 {
 }
 
-VRegfile::VRegfile(Iss &iss) : iss(iss){}
+VRegfile::VRegfile(Iss &iss) : iss(iss){
+    VRegfile::reset(true);
+}
 
 
 

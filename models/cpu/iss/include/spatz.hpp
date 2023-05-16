@@ -110,8 +110,12 @@ public:
     void reset(bool reset);
 
     //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
-    const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
 
+    //                          V 1.0
+    //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
+
+    //                          V 0.8
+    const float LMUL_VALUES[4] = {1.0f, 2.0f, 4.0f, 8.0f};
     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
 
 
@@ -121,6 +125,7 @@ public:
     bool  VMA    = 0;
     bool  VTA    = 0;
     int   vstart = 0;
+    uint8_t counter = 1;
     iss_reg_t vtype;
     iss_reg_t vl;
 

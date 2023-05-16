@@ -24,9 +24,9 @@
         "vp_component": "interco.router_impl",
         "mappings": {
           "mem": {
-            "base": 2147483648,
+            "base": 469762048,
             "size": 16777216,
-            "remove_offset": 2147483648
+            "remove_offset": 469762048
           }
         },
         "latency": 0,
@@ -44,10 +44,10 @@
         "first_external_pcer": 0,
         "riscv_dbg_unit": false,
         "debug_binaries": [
-          "/home/amir/gvsoc/core/debug_binary_0_rv64uv-p-vfadd.debugInfo"
+          "/home/amir/gvsoc/core/debug_binary_0_rv64uv-p-vadd.debugInfo"
         ],
         "binaries": [
-          "/home/amir/UNI/Spatz/compile_generated_files/Spatz_test/matheusd/rv64uv-p-vfadd"
+          "/home/amir/UNI/Spatz/compile_generated_files/Spatz_test/matheusd/rv64uv-p-vadd"
         ],
         "debug_handler": 0,
         "power_models": {},
@@ -65,22 +65,12 @@
       "loader": {
         "vp_component": "utils.loader.loader",
         "binary": [
-          "/home/amir/UNI/Spatz/compile_generated_files/Spatz_test/matheusd/rv64uv-p-vfadd"
+          "/home/amir/UNI/Spatz/compile_generated_files/Spatz_test/matheusd/rv64uv-p-vadd"
         ],
         "ports": [
           "out",
           "start",
           "entry"
-        ]
-      },
-      "tohost": {
-        "vp_component": "interco.bus_watchpoint_32",
-        "riscv_fesvr_tohost_addr": 2147487744,
-        "riscv_fesvr_fromhost_addr": 2147487808,
-        "args": [],
-        "ports": [
-          "input",
-          "output"
         ]
       },
       "bindings": [
@@ -90,10 +80,6 @@
         ],
         [
           "host->data",
-          "tohost->input"
-        ],
-        [
-          "tohost->output",
           "ico->input"
         ],
         [
@@ -117,8 +103,7 @@
         "mem",
         "ico",
         "host",
-        "loader",
-        "tohost"
+        "loader"
       ],
       "ports": [
         "clock"
@@ -150,7 +135,7 @@
       ],
       "runner_module": "gv.gvsoc",
       "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
-      "werror": true,
+      "werror": false,
       "verbose": true,
       "debug-mode": true,
       "sa-mode": true,

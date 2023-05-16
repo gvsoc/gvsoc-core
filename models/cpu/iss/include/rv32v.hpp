@@ -107,7 +107,7 @@ static inline iss_insn_t *vfadd_vf_exec(Iss *iss, iss_insn_t *insn){
 
 //                             V 0.8
 static inline iss_insn_t *vsetvli_exec(Iss *iss, iss_insn_t *insn){
-    //REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
+    REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
     return insn->next;
 }
 

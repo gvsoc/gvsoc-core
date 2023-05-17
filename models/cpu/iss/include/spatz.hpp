@@ -28,7 +28,8 @@
 typedef uint8_t iss_Vel_t;
 #define ISS_NB_VREGS 32
 //#define NB_VEL VLEN/SEW
-#define NB_VEL 256/8
+//#define NB_VEL 256/8
+#define NB_VEL 1024/8
 #define VLMAX NB_VEL*iss->spatz.LMUL
 
 #define XLEN = ISS_REG_WIDTH

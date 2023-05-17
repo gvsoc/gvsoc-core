@@ -51,7 +51,6 @@ static inline iss_insn_t *vfmac_vf_exec(Iss *iss, iss_insn_t *insn){
 
 static inline iss_insn_t *vle8_v_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL3(lib_VLE8V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-    printf("VLE8 DONE\n");
     return insn->next;
 }
 
@@ -110,8 +109,14 @@ static inline iss_insn_t *vsetvli_exec(Iss *iss, iss_insn_t *insn){
     REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
     return insn->next;
 }
-
-
+static inline iss_insn_t *vsetvl_exec(Iss *iss, iss_insn_t *insn){
+    REG_SET(0, LIB_CALL4(lib_VSETVL, REG_IN(0), REG_OUT(0), REG_GET(0), REG_GET(1)));// VLMUL-VSEW
+    return insn->next;
+}
+static inline iss_insn_t *vmv_v_i_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VMVVI , REG_IN(0), REG_OUT(0),SIM_GET(0), UIM_GET(0));
+    return insn->next;
+}
 
 // static inline iss_insn_t *csrr_exec(Iss *iss, iss_insn_t *insn)
 // {

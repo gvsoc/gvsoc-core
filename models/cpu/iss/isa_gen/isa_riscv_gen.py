@@ -689,6 +689,11 @@ class R5(Instr):
                             UnsignedImm(1, Range(22, 3)),# vsew
                             UnsignedImm(2, Range(20, 12)),# vtype
                         ]
+        elif format == 'OPVLI':
+            self.args = [   OutReg     (0, Range(7 , 5)),
+                            InReg      (0, Range(15, 5)),
+                            InReg      (0, Range(20, 5)),
+                        ]
 
 
         else:
@@ -703,7 +708,7 @@ class R5(Instr):
 #
 
 rv32v = IsaSubset('v', [
-    R5('vadd.vv' ,   'OPV'  ,    '000000 - ----- ----- 000 ----- 1010111'),#inst[25] = VM
+    R5('vadd.vv' ,   'OPV'  ,    '000000 - ----- ----- 000 ----- 1010111'),#inst[25] = VM , VM = 0 mask enable
     R5('vadd.vi' ,   'OPIVI',    '000000 - ----- ----- 011 ----- 1010111'),
     R5('vadd.vx' ,   'OPV'  ,    '000000 - ----- ----- 100 ----- 1010111'),
 
@@ -731,7 +736,13 @@ rv32v = IsaSubset('v', [
     
     #                           V 0.8    
     R5('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {7'b0000000,vsew[2:0],vlmul[1:0]}
+    R5('vsetvl'  ,   'OPVL' ,    '1 000000 ----- ----- 111 ----- 1010111'),
+
     #R5('csrr', 'IU',  '------- ----- 00000 010 ----- 1110011', decode='csr_decode'),
+    R5('vmv.v.i' ,   'OPIVI',    '010111 - ----- ----- 011 ----- 1010111'),
+
+
+
 ])
 
 

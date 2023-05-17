@@ -689,7 +689,7 @@ class R5(Instr):
                             UnsignedImm(1, Range(22, 3)),# vsew
                             UnsignedImm(2, Range(20, 12)),# vtype
                         ]
-        elif format == 'OPVLI':
+        elif format == 'OPVL':
             self.args = [   OutReg     (0, Range(7 , 5)),
                             InReg      (0, Range(15, 5)),
                             InReg      (0, Range(20, 5)),

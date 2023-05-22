@@ -19,6 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <algorithm>
 #include "vp/vp.hpp"
 #include "vp/trace/trace.hpp"
 
@@ -31,7 +32,6 @@ double my_stod (std::string const& s) {
     // insert error checking.
     return d;
 }
-
 
 vp::power::Linear_table::Linear_table(js::config *config)
 {

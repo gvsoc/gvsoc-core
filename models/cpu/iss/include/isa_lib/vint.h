@@ -33,50 +33,278 @@
     flexfloat_set_bits(&ff_a, a);                    \
     flexfloat_set_bits(&ff_b, b);                    \
     flexfloat_set_bits(&ff_c, c);
+#define mask(vm,bin) (!(vm) && !bin[i%8])
 
+static inline void printBin(int size, bool *a, string name){
+    printf("%s = ",&name[0]);
+    for(int i = size-1; i >= 0  ; i--){
+        printf("%d",a[i]);
+    }
+    printf("\n");
+}
 
+static inline void printHex(int size, bool *a, string name){
+    printf("%s = ",&name[0]);
+    int hexVal = 0;
+    for(int i = size-1; i >= 0  ; i-=4){
+        hexVal = a[i]*8 + a[i-1]*4 + a[i-2]*2 + a[i-3];
+        printf("%x",hexVal);
+    }
+    printf("\n");
+}
 
+static inline int bin8ToChar(bool *bin,int s, int e){
+    int c = 0;
+    for(int i = s; i < e;i++){
+        c += bin[i]*pow(2,i-s);
+    }
+    return c;
+}
 
+static inline int sewCase(int sew){
+    int iteration = 0;
+    switch (sew){
+    case(8 ):iteration = 1;break;
+    case(16):iteration = 2;break;
+    case(32):iteration = 4;break;
+    case(64):iteration = 8;break;
+    default:printf("This SEW(%d) is not supported\n",sew);return -1;
+        break;
+    }
+    return iteration;
+}
 
+static inline void intToBin(int size, int64_t dataIn, bool* res){
+    int64_t temp = dataIn;
+    for (int j = 0; j < size; j++) {
+        if (temp%2) {
+            res[j] = 1;
+        } else {
+            res[j] = 0;
+        }
+        temp = temp/2;
+    }
+}
 
-///////////////////////////////////////////////////////////////////
-// #include "types.hpp"
-// #include "math.h"
-// //#include "isa_lib/vint.h"
+static inline void buildDataInt(Iss *iss, int vs, int i, int64_t* data){
+    iss_Vel_t temp[8];
+    int iteration = sewCase(iss->spatz.SEW);
+    for(int j = 0;j < iteration;j++){
+        temp[j] = iss->spatz.vregfile.vregs[vs][i*iteration+j];
+    }
+    *data = 0;
+    for(int j = 0;j < iteration;j++){
+        *data += temp[j]*pow(2,8*j);
+    }
+}
 
+static inline void buildDataBin(Iss *iss, int vs, int i, bool* dataBin){
+    int iteration = sewCase(iss->spatz.SEW);
+    for(int j = 0;j < iteration;j++){
+        intToBin(8,(int64_t)abs(iss->spatz.vregfile.vregs[vs][i*iteration+j]), &dataBin[j*8]);
+    }
+}
 
-// //#define MAX(a, b) ((a) > (b) ? (a) : (b))
-// //#define MIN(a, b) ((a) < (b) ? (a) : (b))
+static inline void myAbs(Iss *iss, int vs, int i, int64_t* data){
+    iss_Vel_t temp[8];
+    int cin = 0;
+    int iteration = sewCase(iss->spatz.SEW);
+    if(iss->spatz.vregfile.vregs[vs][i*iteration+iteration-1] > 127){
+        cin = 1;
+        for(int j = 0;j < iteration;j++){
+            temp[j] = 255 - iss->spatz.vregfile.vregs[vs][i*iteration+j];
+        }
+    }else{
+        cin = 0;
+        for(int j = 0;j < iteration;j++){
+            temp[j] = iss->spatz.vregfile.vregs[vs][i*iteration+j];
+        }
+    }
 
-// #define LIB_CALL3(name, s0, s1, s2) name(iss, s0, s1, s2)
-// #define LIB_CALL4(name, s0, s1, s2, s3) name(iss, s0, s1, s2, s3)
-// #define LIB_CALL5(name, s0, s1, s2, s3, s4) name(iss, s0, s1, s2, s3, s4)
-// #define LIB_CALL6(name, s0, s1, s2, s3, s4, s5) name(iss, s0, s1, s2, s3, s4, s5)
-// #define LIB_CALL7(name, s0, s1, s2, s3, s4, s5, s6) name(iss, s0, s1, s2, s3, s4, s5, s6)
+    *data = 0;
+    for(int j = 0;j < iteration;j++){
+        *data += temp[j]*(int64_t)pow(2,8*j);
+    }
+    *data += cin;
+    *data = cin?(-*data):*data;
+}
 
-// #define REG_SET(reg,val) (*insn->out_regs_ref[reg] = (val))
-// #define REG_GET(reg) (*insn->in_regs_ref[reg])
+static inline void myAbsU(Iss *iss, int vs, int i, uint64_t* data){
+    iss_Vel_t temp[8];
+    int iteration = sewCase(iss->spatz.SEW);
 
-// #define SIM_GET(index) insn->sim[index]
-// #define UIM_GET(index) insn->uim[index]
+    for(int j = 0;j < iteration;j++){
+        temp[j] = iss->spatz.vregfile.vregs[vs][i*iteration+j];
+    }
 
-// #define REG_IN(reg) (insn->in_regs[reg])
-// #define REG_OUT(reg) (insn->out_regs[reg])
+    *data = 0;
+    for(int j = 0;j < iteration;j++){
+        *data += temp[j]*(uint64_t)pow(2,8*j);
+    }
+}
 
-// typedef uint8_t iss_Vel_t;
-// #define ISS_NB_VREGS 32
-// //#define NB_VEL VLEN/SEW
-// #define NB_VEL 256/8
-// #define VLMAX NB_VEL*iss->spatz.LMUL
+static inline void writeToVReg(Iss *iss, int size, int vd, int i, bool *bin){
+    int iteration = sewCase(size);
+    for(int j = 0; j < iteration; j++){
+        iss->spatz.vregfile.vregs[vd][i*iteration+j] = bin8ToChar(bin,8*j,8*(j+1));        
+    }
+}
 
-// #define XLEN = ISS_REG_WIDTH
-// #define FLEN = ISS_REG_WIDTH
-// #define ELEN = MAX(XLEN,FLEN)
+static inline void binToInt(int size, bool* dataIn, int64_t *res){
+    *res = 0;
+    for (int j = 0; j < size; j++) {
+        *res += dataIn[j]*(int64_t)pow(2,j);
+    }
+}
 
-// class Spatz;
-///////////////////////////////////////////////////////////////////
+static inline void twosComplement(int size, bool* res){
+    for (int j = 0; j < size; j++) {
+        res[j] = !(res[j]);
+    }
+    for (int j = 0; j < size; j++) {
+        if(res[j] == 1){
+            res[j] = 0;
+        }else{
+            res[j] = 1;
+            break;
+        }
+    }
+}
 
-//VRegfile::VRegfile(Iss &iss) : iss(iss){}
+static inline void extend2x(int size, bool *a, bool* res, bool isSgined){
+    for(int i = 0; i < size ;i++){
+        res[i] = a[i];
+    }
+    if(isSgined){
+        for(int i = size; i < size*2 ;i++){
+            res[i] = a[size-1];
+        }
+    }else{
+        for(int i = size; i < size*2 ;i++){
+            res[i] = 0;
+        }
+    }
+}
+
+static inline void binShift(int size, int shamt, bool *a, bool *res, bool shr, bool isSigned){
+    if(shr){
+        if(isSigned){
+            for(int i = 0; i < shamt; i++){
+                res[size-1-i] = a[size-1];
+            }
+        }else{
+            for(int i = 0; i < shamt; i++){
+                res[size-1-i] = 0;
+            }
+        }
+        for(int i = shamt; i < size; i++){
+            res[i-shamt] = a[i];
+        }
+    }else{
+        for(int i = 0; i < shamt; i++){
+            res[i] = 0;
+        }
+        for(int i = shamt; i < size; i++){
+            res[i] = a[i-shamt];
+        }
+    }
+}
+
+static inline void binSub2(int size, bool *data1, bool *data2, bool *res){
+    bool bin = 0;
+    for(int i = 0; i < size; i++){
+        res[i] = data1[i] ^ data2[i] ^ bin;
+        bin = (!data1[i] & data2[i]) | ((!data1[i] | data2[i]) & bin);
+    }
+}
+
+static inline void binSum2(int size, bool *data1, bool *data2, bool *res){
+    bool cin = 0;
+    for(int i = 0; i < size; i++){
+        res[i] = data1[i] ^ data2[i] ^ cin;
+        cin = (data1[i] & data2[i]) | (cin & data2[i]) | (data1[i] & cin);
+    }
+}
+
+static inline void binSum4(int size, bool *data1, bool *data2, bool *data3, bool *data4, bool *res){
+    bool temp0[128];
+    bool temp1[128];
+    binSum2(size,data1,data2,temp0);
+    binSum2(size,data3,data4,temp1);
+    binSum2(size,temp0,temp1,res);
+
+    // if(size == 128){
+    //     printHex(size, temp0,"temp0");
+    //     printHex(size, temp1,"temp1");
+    //     printHex(size, res,"res sum");
+
+    // }
+}
+
+static inline void binMul(int size, bool *a, bool *b, bool *res){
+    int64_t aDec,bDec,temp;
+    binToInt(size, a, &aDec);
+    binToInt(size, b, &bDec);
+    // printf("adec = %ld\tbdec = %ld\n",aDec,bDec);
+    temp = aDec * bDec;
+    // printf("tempH = %lx\n",temp);
+    // printf("tempD = %ld\n",temp);
+    
+    intToBin(size*2, abs(temp), res);
+    //intToBin(size*2, temp, res);
+    
+    // printf("tempH = %lx\n",temp);
+    // printf("tempH = %lx\n",abs(temp));
+    // printf("tempD = %ld\n",temp);
+    // printf("tempD = %ld\n",abs(temp));
+    //temp = 0xf000000000000000;
+    if(temp >= 0){
+        printf("temp is pos\n");
+        //twosComplement(size*2, res);
+    }else{
+        printf("temp is neg\n");
+        twosComplement(size*2, res);
+    }
+    // printf("tempH = %lx\n",temp);
+    // printf("tempD = %ld\n",temp);
+    //printHex(size*2, res, "RES TEMP");
+}
+
+static inline void binMulSumUp(int size, bool *M0Bin, bool *M1Bin,bool *M2Bin, bool *M3Bin, bool *res, bool isSigned){
+    bool M02x[128];
+    bool M12x[128];
+    bool M22x[128];
+    bool M32x[128];
+    
+    bool temp0[128];
+    bool temp1[128];
+    bool temp2[128];
+    bool temp3[128];
+
+    extend2x(size, M0Bin, M02x, isSigned);
+    extend2x(size, M1Bin, M12x, isSigned);
+    extend2x(size, M2Bin, M22x, isSigned);
+    extend2x(size, M3Bin, M32x, isSigned);
+    
+    if(size == 64){
+        printHex(size*2, M02x,"M0extend");
+        printHex(size*2, M12x,"M1extend");
+        printHex(size*2, M22x,"M2extend");
+        printHex(size*2, M32x,"M3extend");
+    }
+    binShift(size*2, 0     , M02x, temp0, false, isSigned);
+    binShift(size*2, size/2, M12x, temp1, false, isSigned);
+    binShift(size*2, size/2, M22x, temp2, false, isSigned);
+    binShift(size*2, size  , M32x, temp3, false, isSigned);
+        
+    if(size == 64){
+        printHex(size*2, temp0,"M0Shift");
+        printHex(size*2, temp1,"M1Shift");
+        printHex(size*2, temp2,"M2Shift");
+        printHex(size*2, temp3,"M3Shift");
+    }
+    binSum4(size*2, temp0, temp1, temp2, temp3, res);
+}
 
 inline void VRegfile::reset(bool active){
     if (active){
@@ -86,134 +314,1954 @@ inline void VRegfile::reset(bool active){
             }
         }
     }
+}
 
-    // if (active){
-    //     for (int i = 0; i < ISS_NB_VREGS; i++){
-    //         for (int j = 0; j < NB_VEL; j++){
-    //             this->vregs[i][j] = i == 0 ? 0 : j;
-    //         }
-    //     }
+static inline void lib_ADDVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1+data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ADDVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1+data2;
+
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ADDVI    (Iss *iss, int vs2, int64_t sim, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = sim;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1+data2;
+
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_SUBVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = data2 - data1;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_SUBVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+
+        res = data2 - data1;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_RSUBVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1 - data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_RSUBVI   (Iss *iss, int vs2, int64_t sim, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = sim;
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1 - data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(iss->spatz.SEW == 16){
+            printf("is mask = %d\n",mask(vm,bin));
+            printf("res = %ld\n",res);
+            printBin(iss->spatz.SEW,resBin,"Bin RES");
+            //printf("vd org val0 = %d\tvd org val1 = %d\n",iss->spatz.vregfile.vregs[vd][i*2+0],iss->spatz.vregfile.vregs[vd][i*2+1]);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ANDVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1 & data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ANDVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1 & data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ANDVI    (Iss *iss, int vs2, int64_t sim, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = sim;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1 & data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ORVV     (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1 | data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ORVX     (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1 | data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_ORVI     (Iss *iss, int vs2, int64_t sim, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = sim;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1 | data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_XORVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = data1 ^ data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_XORVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1 ^ data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_XORVI    (Iss *iss, int vs2, int64_t sim, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = sim;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = data1 ^ data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MINVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = (data1 > data2)?data2:data1;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MINVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = (data1 > data2)?data2:data1;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MINUVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    uint64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbsU(iss, vs1, i, &data1);
+        myAbsU(iss, vs2, i, &data2);
+
+        res = (data1 > data2)?data2:data1;
+
+        intToBin(iss->spatz.SEW, res, resBin);
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MINUVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    uint64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbsU(iss, vs2, i, &data2);
+        
+        res = (data1 > data2)?data2:data1;
+        
+        intToBin(iss->spatz.SEW, res, resBin);
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MAXVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbs(iss, vs1, i, &data1);
+        myAbs(iss, vs2, i, &data2);
+
+        res = (data1 > data2)?data1:data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MAXVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    int64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbs(iss, vs2, i, &data2);
+        
+        res = (data1 > data2)?data1:data2;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MAXUVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    uint64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbsU(iss, vs1, i, &data1);
+        myAbsU(iss, vs2, i, &data2);
+
+        res = (data1 > data2)?data1:data2;
+
+        intToBin(iss->spatz.SEW, res, resBin);
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MAXUVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+    uint64_t data1, data2, res;
+    bool bin[8];
+    bool resBin[64];
+    
+    data1 = rs1;
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        myAbsU(iss, vs2, i, &data2);
+        
+        res = (data1 > data2)?data1:data2;
+        
+        intToBin(iss->spatz.SEW, res, resBin);
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MULVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data1[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data1);
+        }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+        if(sgn){
+            twosComplement(iss->spatz.SEW*2,resBin);
+            sgn = 0;
+        }
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MULVX    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, abs((int64_t)rs1), data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if((rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){
+            twosComplement(iss->spatz.SEW*2,resBin);
+        }
+        sgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MULHVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data1[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data1);
+        }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        // printHex(iss->spatz.SEW/2, data1H, "data1H");
+        // printHex(iss->spatz.SEW/2, data1L, "data1L");
+        // printHex(iss->spatz.SEW/2, data2H, "data2H");
+        // printHex(iss->spatz.SEW/2, data2L, "data2L");
+        
+        // printHex(iss->spatz.SEW, M0, "M0");
+        // printHex(iss->spatz.SEW, M1, "M1");
+        // printHex(iss->spatz.SEW, M2, "M2");
+        // printHex(iss->spatz.SEW, M3, "M3");
+
+        // printHex(iss->spatz.SEW*2, resBin, "RESBin befor twos");
+        // printHex(iss->spatz.SEW*2, resBin, "resBin before");
+
+        if(sgn){
+            twosComplement(iss->spatz.SEW*2,resBin);
+            sgn = 0;
+        }
+        // printHex(iss->spatz.SEW*2, resBin, "resBin after");
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, &resBin[iss->spatz.SEW]);
+        }
+    }
+}
+
+static inline void lib_MULHVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, abs((int64_t)rs1), data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if((rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){
+            twosComplement(iss->spatz.SEW*2,resBin);
+        }
+        sgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, &resBin[iss->spatz.SEW]);
+        }
+    }
+}
+
+static inline void lib_MULHUVV  (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        // if(data1[iss->spatz.SEW-1]){
+        //     sgn = !sgn;
+        //     twosComplement(iss->spatz.SEW,data1);
+        // }
+        // if(data2[iss->spatz.SEW-1]){
+        //     sgn = !sgn;
+        //     twosComplement(iss->spatz.SEW,data2);
+        // }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        // printHex(iss->spatz.SEW/2, data1H, "data1H");
+        // printHex(iss->spatz.SEW/2, data1L, "data1L");
+        // printHex(iss->spatz.SEW/2, data2H, "data2H");
+        // printHex(iss->spatz.SEW/2, data2L, "data2L");
+        
+        // printHex(iss->spatz.SEW, M0, "M0");
+        // printHex(iss->spatz.SEW, M1, "M1");
+        // printHex(iss->spatz.SEW, M2, "M2");
+        // printHex(iss->spatz.SEW, M3, "M3");
+
+        // printHex(iss->spatz.SEW*2, resBin, "RESBin befor twos");
+        // printHex(iss->spatz.SEW*2, resBin, "resBin before");
+
+        // if(sgn){
+        //     twosComplement(iss->spatz.SEW*2,resBin);
+        //     sgn = 0;
+        // }
+        // printHex(iss->spatz.SEW*2, resBin, "resBin after");
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, &resBin[iss->spatz.SEW]);
+        }
+    }
+}
+
+static inline void lib_MULHUVX  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, rs1, data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        // if(data2[iss->spatz.SEW-1]){
+        //     sgn = !sgn;
+        //     twosComplement(iss->spatz.SEW,data2);
+        // }
+
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        // if((rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){
+        //     twosComplement(iss->spatz.SEW*2,resBin);
+        // }
+        // sgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, &resBin[iss->spatz.SEW]);
+        }
+    }
+}
+
+static inline void lib_MULHSUVV (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        // if(data1[iss->spatz.SEW-1]){
+        //     sgn = !sgn;
+        //     twosComplement(iss->spatz.SEW,data1);
+        // }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        // printHex(iss->spatz.SEW/2, data1H, "data1H");
+        // printHex(iss->spatz.SEW/2, data1L, "data1L");
+        // printHex(iss->spatz.SEW/2, data2H, "data2H");
+        // printHex(iss->spatz.SEW/2, data2L, "data2L");
+        
+        // printHex(iss->spatz.SEW, M0, "M0");
+        // printHex(iss->spatz.SEW, M1, "M1");
+        // printHex(iss->spatz.SEW, M2, "M2");
+        // printHex(iss->spatz.SEW, M3, "M3");
+
+        // printHex(iss->spatz.SEW*2, resBin, "RESBin befor twos");
+        // printHex(iss->spatz.SEW*2, resBin, "resBin before");
+
+        if(sgn){
+            twosComplement(iss->spatz.SEW*2,resBin);
+            sgn = 0;
+        }
+        // printHex(iss->spatz.SEW*2, resBin, "resBin after");
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, &resBin[iss->spatz.SEW]);
+        }
+    }
+}
+
+static inline void lib_MULHSUVX (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, rs1, data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if(sgn == 1){
+            twosComplement(iss->spatz.SEW*2,resBin);
+        }
+        sgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, &resBin[iss->spatz.SEW]);
+        }
+    }
+}
+
+static inline void lib_MVVV     (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+    int64_t data1, res;
+    bool bin[8];
+    bool resBin[64];
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        myAbs(iss, vs1, i, &data1);
+        
+        res = data1;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MVVX     (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int64_t res;
+    bool bin[8];
+    bool resBin[64];
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        res = rs1;
+
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MVVI     (Iss *iss, int vs2, int64_t sim, int vd, bool vm){
+    int64_t res;
+    bool bin[8];
+    bool resBin[64];
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        res = sim;
+        intToBin(iss->spatz.SEW, abs(res), resBin);
+        if(sim < 0){
+            twosComplement(iss->spatz.SEW, resBin);
+        }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_WMULVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data1[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data1);
+        }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+        if(sgn){
+            twosComplement(iss->spatz.SEW*2,resBin);
+            sgn = 0;
+        }
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_WMULVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, abs((int64_t)rs1), data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if((rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){
+            twosComplement(iss->spatz.SEW*2,resBin);
+        }
+        sgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_WMULUVV  (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_WMULUVX  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, rs1, data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_WMULSUVV (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if(sgn){
+            twosComplement(iss->spatz.SEW*2,resBin);
+            sgn = 0;
+        }
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_WMULSUVX (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128];
+    bool sgn = 0;
+
+    intToBin(64, rs1, data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, resBin, false);
+
+        if(sgn == 1){
+            twosComplement(iss->spatz.SEW*2,resBin);
+        }
+        sgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MACCVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64], data3[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128], mulOutBin[128], data3Ext[128];
+    bool sgn = 0;
+    bool vdSgn = 0;
+    
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+        buildDataBin(iss, vd , i, data3);
+
+        if(data1[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data1);
+        }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+        if(data3[iss->spatz.SEW-1]){
+            twosComplement(iss->spatz.SEW,data3);
+            vdSgn = !vdSgn;            
+        }
+        extend2x(iss->spatz.SEW, data3, data3Ext, true);
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, mulOutBin, false);
+        if(sgn){
+            twosComplement(iss->spatz.SEW*2,mulOutBin);
+            sgn = 0;
+        }
+
+        if(!vdSgn){
+            binSum2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }else{
+            binSub2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }
+        vdSgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MACCVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64], data3[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128], mulOutBin[128];
+    bool sgn = 0;
+    bool vdSgn = 0;
+    intToBin(64, abs((int64_t)rs1), data1);
+
+    for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+        buildDataBin(iss, vd , i, data3);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+        if(data3[iss->spatz.SEW-1]){
+            twosComplement(iss->spatz.SEW,data3);
+            vdSgn = !vdSgn;            
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, mulOutBin, false);
+
+        if((rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){
+            twosComplement(iss->spatz.SEW*2,mulOutBin);
+        }
+        sgn = 0;
+
+        if(!vdSgn){
+            binSum2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }else{
+            binSub2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }
+        vdSgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_MADDVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+    // int64_t temp = -8137711004328982294;
+    // if (temp < 0){
+    //     printf("temp is neg\n");
+    // }else{
+    //     printf("temp is pos\n");
     // }
 
-
-
-
-}
-
-/*inline void Regfile::set_Vreg(int reg, iss_Vel_t* value){
-    for (int i = vstart; i < vl; i++){
-        this->vregs[reg][i] = value++;
-    }
-}*/
-
-/*inline iss_Vel_t* Regfile::get_Vreg(int reg){
-    return &this->vregs[reg];
-}*/
-
-static inline void lib_VVADD (Iss *iss, int vs1, int vs2, int vd, bool vm){
-    //for (int i = 0; i < NB_VEL; i++){
-    int t;
-    switch (iss->spatz.SEW){
-    case 8 :t = 1;break;
-    case 16:t = 2;break;
-    case 32:t = 4;break;
-    case 64:t = 8;break;
-    default:
-        break;
-    }
-
-    for (int i = iss->spatz.vstart; i < iss->spatz.vl*t; i+=t){
-        int64_t data1;
-        int64_t data2;
-        int64_t res;
-        if(iss->spatz.SEW == 8){
-            data1 = iss->spatz.vregfile.vregs[vs1][i];
-            data2 = iss->spatz.vregfile.vregs[vs2][i];
-            res = (!vm && (iss->spatz.vregfile.vregs[0][i]%2))?iss->spatz.vregfile.vregs[vd][i] : data1 + data2;
-            iss->spatz.vregfile.vregs[vd][i] = res;
-        }else if(iss->spatz.SEW == 16){
-            data1 = iss->spatz.vregfile.vregs[vs1][i] + iss->spatz.vregfile.vregs[vs1][i+1]*pow(2,8);
-            data2 = iss->spatz.vregfile.vregs[vs2][i] + iss->spatz.vregfile.vregs[vs2][i+1]*pow(2,8);
-            res = data1 + data2;
-            iss->spatz.vregfile.vregs[vd][i] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+1] = res%(int64_t)pow(2,8);
-        }else if(iss->spatz.SEW == 32){
-            data1 = iss->spatz.vregfile.vregs[vs1][i]              + iss->spatz.vregfile.vregs[vs1][i+1]*pow(2,8) +
-                    iss->spatz.vregfile.vregs[vs1][i+2]*pow(2,8*2) + iss->spatz.vregfile.vregs[vs1][i+3]*pow(2,8*3);
-            data2 = iss->spatz.vregfile.vregs[vs2][i]              + iss->spatz.vregfile.vregs[vs2][i+1]*pow(2,8) +
-                    iss->spatz.vregfile.vregs[vs2][i+2]*pow(2,8*2) + iss->spatz.vregfile.vregs[vs2][i+3]*pow(2,8*3);
-            res = data1 + data2;
-            iss->spatz.vregfile.vregs[vd][i]   = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+1] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+2] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+3] = res%(int64_t)pow(2,8);
-        }else if(iss->spatz.SEW == 64){
-            data1 = iss->spatz.vregfile.vregs[vs1][i]              + iss->spatz.vregfile.vregs[vs1][i+1]*pow(2,8) +
-                    iss->spatz.vregfile.vregs[vs1][i+2]*pow(2,8*2) + iss->spatz.vregfile.vregs[vs1][i+3]*pow(2,8*3)+
-                    iss->spatz.vregfile.vregs[vs1][i+2]*pow(2,8*4) + iss->spatz.vregfile.vregs[vs1][i+3]*pow(2,8*5)+
-                    iss->spatz.vregfile.vregs[vs1][i+2]*pow(2,8*6) + iss->spatz.vregfile.vregs[vs1][i+3]*pow(2,8*7);
-            data2 = iss->spatz.vregfile.vregs[vs2][i]              + iss->spatz.vregfile.vregs[vs2][i+1]*pow(2,8) +
-                    iss->spatz.vregfile.vregs[vs2][i+2]*pow(2,8*2) + iss->spatz.vregfile.vregs[vs2][i+3]*pow(2,8*3)+
-                    iss->spatz.vregfile.vregs[vs2][i+2]*pow(2,8*4) + iss->spatz.vregfile.vregs[vs2][i+3]*pow(2,8*5)+
-                    iss->spatz.vregfile.vregs[vs2][i+2]*pow(2,8*6) + iss->spatz.vregfile.vregs[vs2][i+3]*pow(2,8*7);
-            res = data1 + data2;
-            iss->spatz.vregfile.vregs[vd][i]   = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+1] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+2] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+3] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+4] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+5] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+6] = res%(int64_t)pow(2,8);
-            res /= pow(2,8);
-            iss->spatz.vregfile.vregs[vd][i+7] = res%(int64_t)pow(2,8);
-        }
-        else{
-            printf("This SEW(%d) is not supported\n",iss->spatz.SEW);
-        }
-    }
-}
-
-static inline void lib_VXADD (Iss *iss, iss_reg_t rs1, int vs2, int vd, bool vm){// b is a iss_Vel_t bit register
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64], data3[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128], mulOutBin[128], data3Ext[128];
+    bool sgn = 0;
+    bool vdSgn = 0;
+    
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            iss->spatz.vregfile.vregs[vd][i] = iss->spatz.vregfile.vregs[vs2][i] + (iss_Vel_t)rs1;
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vd , i, data2);
+        buildDataBin(iss, vs2, i, data3);
+        
+        if(iss->spatz.SEW == 64){
+            printHex(iss->spatz.SEW, data1, "vs1 before");
+            printHex(iss->spatz.SEW, data2, "vd  before");
+            printHex(iss->spatz.SEW, data3, "vs2 before");
+        }
+
+        if(data1[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data1);
+        }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+        if(data3[iss->spatz.SEW-1]){
+            twosComplement(iss->spatz.SEW,data3);
+            vdSgn = !vdSgn;            
+        }
+        extend2x(iss->spatz.SEW, data3, data3Ext, true);
+
+        if(iss->spatz.SEW == 64 && i == 6){
+            printHex(iss->spatz.SEW, data1, "vs1 before");
+            printHex(iss->spatz.SEW, data2, "vd  before");
+            printHex(iss->spatz.SEW, data3, "vs2 before");
+            printHex(iss->spatz.SEW*2, data3Ext, "vs2 before ext");
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        if(iss->spatz.SEW == 64 && i == 6){
+            printHex(iss->spatz.SEW/2, data1H, "data1H");
+            printHex(iss->spatz.SEW/2, data1L, "data1L");
+            printHex(iss->spatz.SEW/2, data2H, "data2H");
+            printHex(iss->spatz.SEW/2, data2L, "data2L");
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+
+        if(iss->spatz.SEW == 64 && i == 6){
+            printHex(iss->spatz.SEW, M0, "M0");
+            printHex(iss->spatz.SEW, M1, "M1");
+            printHex(iss->spatz.SEW, M2, "M2");
+            printHex(iss->spatz.SEW, M3, "M3");
+        }
+
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, mulOutBin, false);
+        if(sgn){
+            printf("mulOut twos\n");
+            twosComplement(iss->spatz.SEW*2,mulOutBin);
+            sgn = 0;
+        }
+
+        if(iss->spatz.SEW == 64 && i == 6){
+            printHex(iss->spatz.SEW*2, mulOutBin, "mulOut");
+        }
+
+
+        if(!vdSgn){
+            printf("SUM\n");
+            binSum2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }else{
+            printf("SUB\n");            
+            binSub2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }
+        vdSgn = 0;
+
+        if(iss->spatz.SEW == 64 && i == 6){
+            printHex(iss->spatz.SEW*2, resBin, "resBin");
+        }
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
         }
     }
 }
 
-static inline void lib_VIADD (Iss *iss, iss_sim_t sim, int vs2, int vd, bool vm){// b is a iss_Vel_t bit immediate 
+static inline void lib_MADDVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64], data3[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128], mulOutBin[128];
+    bool sgn = 0;
+    bool vdSgn = 0;
+    printf("rs1 = %ld\n",rs1);
+    intToBin(64, abs((int64_t)rs1), data1);
+
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            iss->spatz.vregfile.vregs[vd][i] = iss->spatz.vregfile.vregs[vs2][i] + (iss_Vel_t)sim;
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vd , i, data2);
+        buildDataBin(iss, vs2 , i, data3);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+        if(data3[iss->spatz.SEW-1]){
+            twosComplement(iss->spatz.SEW,data3);
+            vdSgn = !vdSgn;            
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, mulOutBin, false);
+
+        if((rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){
+            twosComplement(iss->spatz.SEW*2,mulOutBin);
+        }
+        sgn = 0;
+
+        if(!vdSgn){
+            binSum2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }else{
+            binSub2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }
+        vdSgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
         }
     }
 }
 
-static inline void lib_VVSUB (Iss *iss, int vs1      , int vs2, int vd, bool vm){
+static inline void lib_NMSACVV  (Iss *iss, int vs1, int vs2    , int vd, bool vm){
+/*
+        1H 1L
+        2H 2L
+    -------------
+    0   0   M0H M0L
+    0   M1H M1L 0   
+    0   M2H M2L 0   
+    M3H M3L 0   0
+*/
+
+
+    int t = sewCase(iss->spatz.SEW);
+    bool data1[64], data2[64], data3[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128], mulOutBin[128], data3Ext[128];
+    bool sgn = 0;
+    bool vdSgn = 0;
+    
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            iss->spatz.vregfile.vregs[vd][i] = iss->spatz.vregfile.vregs[vs1][i] - iss->spatz.vregfile.vregs[vs2][i];
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs1, i, data1);
+        buildDataBin(iss, vs2, i, data2);
+        buildDataBin(iss, vd , i, data3);
+
+        if(data1[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data1);
+        }
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+        if(data3[iss->spatz.SEW-1]){
+            twosComplement(iss->spatz.SEW,data3);
+            vdSgn = !vdSgn;            
+        }
+        extend2x(iss->spatz.SEW, data3, data3Ext, true);
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, mulOutBin, false);
+        if(!sgn){//compare with VMACC
+            twosComplement(iss->spatz.SEW*2,mulOutBin);
+            sgn = 0;
+        }
+
+        if(!vdSgn){
+            binSum2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }else{
+            binSub2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }
+        vdSgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
         }
     }
 }
 
-static inline void lib_VXSUB (Iss *iss, iss_reg_t rs1, int vs2, int vd, bool vm){// b is a iss_Vel_t bit register
+static inline void lib_NMSACVX  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int t = sewCase(iss->spatz.SEW);
+
+    bool data1[64], data2[64], data3[64];
+    bool data1H[32], data1L[32], data2H[32], data2L[32];
+    bool M0[64], M1[64], M2[64], M3[64];
+    bool bin[8];
+    bool resBin[128], mulOutBin[128];
+    bool sgn = 0;
+    bool vdSgn = 0;
+    intToBin(64, abs((int64_t)rs1), data1);
+
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            iss->spatz.vregfile.vregs[vd][i] = iss->spatz.vregfile.vregs[vs2][i] - (iss_Vel_t)rs1;
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+
+        buildDataBin(iss, vs2, i, data2);
+        buildDataBin(iss, vd , i, data3);
+
+        if(data2[iss->spatz.SEW-1]){
+            sgn = !sgn;
+            twosComplement(iss->spatz.SEW,data2);
+        }
+        if(data3[iss->spatz.SEW-1]){
+            twosComplement(iss->spatz.SEW,data3);
+            vdSgn = !vdSgn;            
+        }
+
+        for(int j = 0;j < iss->spatz.SEW/2;j++){
+            data1L[j] = data1[j];
+            data2L[j] = data2[j];
+            data1H[j] = data1[j+iss->spatz.SEW/2];
+            data2H[j] = data2[j+iss->spatz.SEW/2];
+        }
+
+        binMul(iss->spatz.SEW/2,data1L,data2L,M0);
+        binMul(iss->spatz.SEW/2,data1L,data2H,M1);
+        binMul(iss->spatz.SEW/2,data1H,data2L,M2);
+        binMul(iss->spatz.SEW/2,data1H,data2H,M3);
+        binMulSumUp(iss->spatz.SEW, M0, M1, M2, M3, mulOutBin, false);
+
+        if(!(rs1 < 0 && sgn == 0) || (rs1 > 0 && sgn == 1)){//compare with VMACC
+            twosComplement(iss->spatz.SEW*2,mulOutBin);
+        }
+        sgn = 0;
+
+        if(!vdSgn){
+            binSum2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }else{
+            binSub2(iss->spatz.SEW*2, mulOutBin, data3, resBin);
+        }
+        vdSgn = 0;
+
+        if(!mask(vm,bin)){
+            writeToVReg(iss, iss->spatz.SEW, vd, i, resBin);
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 static inline void lib_VVFMAC(Iss *iss, int vs1, int vs2, int vd, bool vm){
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i++){
@@ -371,39 +2419,6 @@ static inline void lib_VFFADD(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm)
     }
 }
 
-static inline void lib_VMVVI(Iss *iss, int vs2, int vd, iss_sim_t simm, bool vm){
-    int t;
-    switch (iss->spatz.SEW){
-    case 8 :t = 1;break;
-    case 16:t = 2;break;
-    case 32:t = 4;break;
-    case 64:t = 8;break;
-    default:
-        break;
-    }
-    for(int i=0 ; i < iss->spatz.vl*t ; i+=t){
-        switch (iss->spatz.SEW){
-        case 8 :iss->spatz.vregfile.vregs[vd][i+0] = simm;break;
-        case 16:iss->spatz.vregfile.vregs[vd][i+0] = simm;
-                iss->spatz.vregfile.vregs[vd][i+1] = 0;break;
-        case 32:iss->spatz.vregfile.vregs[vd][i+0] = simm;
-                iss->spatz.vregfile.vregs[vd][i+1] = 0;
-                iss->spatz.vregfile.vregs[vd][i+2] = 0;
-                iss->spatz.vregfile.vregs[vd][i+3] = 0;break;
-        case 64:iss->spatz.vregfile.vregs[vd][i+0] = simm;
-                iss->spatz.vregfile.vregs[vd][i+1] = 0;
-                iss->spatz.vregfile.vregs[vd][i+2] = 0;
-                iss->spatz.vregfile.vregs[vd][i+3] = 0;
-                iss->spatz.vregfile.vregs[vd][i+4] = 0;
-                iss->spatz.vregfile.vregs[vd][i+5] = 0;
-                iss->spatz.vregfile.vregs[vd][i+6] = 0;
-                iss->spatz.vregfile.vregs[vd][i+7] = 0;break;
-        default:
-            break;
-        }    
-    }
-}
-
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -430,8 +2445,8 @@ inline void Vlsu::handle_pending_io_access(Iss *iss)
         uint32_t addr = this->io_pending_addr;        
         uint32_t addr_aligned = addr & ~(4 - 1);
         int size = addr_aligned + 4 - addr;
-        printf("size = %d\n" , size);
-        printf("io_pending_size = %d\n" , this->io_pending_size);        
+        // printf("size = %d\n" , size);
+        // printf("io_pending_size = %d\n" , this->io_pending_size);        
         if (size > this->io_pending_size){
             size = this->io_pending_size;
         }
@@ -470,7 +2485,10 @@ inline void Vlsu::handle_pending_io_access(Iss *iss)
 static inline void lib_VLE8V (Iss *iss, iss_reg_t rs1, int vd , bool vm){
     uint64_t start_add = rs1;
     uint8_t data[4];
-
+    // printf("VLE8\n");
+    // printf("vd = %d\n",vd);
+    // printf("iss->spatz.vstart = %d\n",iss->spatz.vstart);
+    // printf("iss->spatz.vl = %ld\n",iss->spatz.vl);
     for (int i = iss->spatz.vstart; i < iss->spatz.vl; i+=4){
  //       if(!i){
  //           printf("Vlsu_io_access\n");
@@ -480,10 +2498,10 @@ static inline void lib_VLE8V (Iss *iss, iss_reg_t rs1, int vd , bool vm){
  //           iss->spatz.vlsu.handle_pending_io_access(iss);
  //       }
 
-        printf("data0 = %d\n",data[0]);
-        printf("data1 = %d\n",data[1]);
-        printf("data2 = %d\n",data[2]);
-        printf("data3 = %d\n",data[3]);
+        // printf("data0 = %d\n",data[0]);
+        // printf("data1 = %d\n",data[1]);
+        // printf("data2 = %d\n",data[2]);
+        // printf("data3 = %d\n",data[3]);
 
         iss->spatz.vregfile.vregs[vd][i+0] = data[0];
         iss->spatz.vregfile.vregs[vd][i+1] = data[1];
@@ -495,13 +2513,13 @@ static inline void lib_VLE8V (Iss *iss, iss_reg_t rs1, int vd , bool vm){
 }
 
 static inline void lib_VLE16V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
-    printf("LIB_VLE16V\n");
-    printf("vstart = %d\n",iss->spatz.vstart);
-    printf("vl = %ld\n",iss->spatz.vl);
-    printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
-    printf("VM = %d\n",vm);
-    printf("RS1 = %lu\n",rs1);
-    printf("vd = %d\n",vd);
+    // printf("LIB_VLE16V\n");
+    // printf("vstart = %d\n",iss->spatz.vstart);
+    // printf("vl = %ld\n",iss->spatz.vl);
+    // printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
+    // printf("VM = %d\n",vm);
+    // printf("RS1 = %lu\n",rs1);
+    // printf("vd = %d\n",vd);
 
     uint64_t start_add = rs1;
     uint8_t data[4];
@@ -514,12 +2532,12 @@ static inline void lib_VLE16V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
         //    iss->spatz.vlsu.handle_pending_io_access(iss);
         //}
 
-        printf("data0 = %d\n",data[0]);
-        printf("data1 = %d\n",data[1]);
-        printf("data2 = %d\n",data[2]);
-        printf("data3 = %d\n",data[3]);
+        // printf("data0 = %d\n",data[0]);
+        // printf("data1 = %d\n",data[1]);
+        // printf("data2 = %d\n",data[2]);
+        // printf("data3 = %d\n",data[3]);
 
-        //printf("vd = %d\n",vd);
+        // printf("vd = %d\n",vd);
 
         //iss->spatz.vregfile.vregs[vd][i+0] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? (data[1]*pow(2,8) + data[0]) : iss->spatz.vregfile.vregs[vd][i+0];
         //iss->spatz.vregfile.vregs[vd][i+1] = (vm || !(iss->spatz.vregfile.vregs[0][i+1]%2)) ? (data[3]*pow(2,8) + data[2]) : iss->spatz.vregfile.vregs[vd][i+1];
@@ -532,20 +2550,20 @@ static inline void lib_VLE16V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
         iss->spatz.vregfile.vregs[vd][i+2] = data[2];
         iss->spatz.vregfile.vregs[vd][i+3] = data[3];
 
-        printf("vd_vali = %d\n",(int)(data[1]*pow(2,8) + data[0]));
-        printf("vd_vali+1 = %d\n",(int)(data[3]*pow(2,8) + data[2]));
+        // printf("vd_vali = %d\n",(int)(data[1]*pow(2,8) + data[0]));
+        // printf("vd_vali+1 = %d\n",(int)(data[3]*pow(2,8) + data[2]));
         start_add += 4;
     }
 }
 
 static inline void lib_VLE32V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
-    printf("LIB_VLE32V\n");
-    printf("vstart = %d\n",iss->spatz.vstart);
-    printf("vl = %ld\n",iss->spatz.vl);
-    printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
-    printf("VM = %d\n",vm);
-    printf("RS1 = %lu\n",rs1);
-    printf("vd = %d\n",vd);
+    // printf("LIB_VLE32V\n");
+    // printf("vstart = %d\n",iss->spatz.vstart);
+    // printf("vl = %ld\n",iss->spatz.vl);
+    // printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
+    // printf("VM = %d\n",vm);
+    // printf("RS1 = %lu\n",rs1);
+    // printf("vd = %d\n",vd);
 
     uint64_t start_add = rs1;
     uint8_t data[4];
@@ -558,10 +2576,10 @@ static inline void lib_VLE32V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
         //    iss->spatz.vlsu.handle_pending_io_access(iss);
         //}
 
-        printf("data0 = %d\n",data[0]);
-        printf("data1 = %d\n",data[1]);
-        printf("data2 = %d\n",data[2]);
-        printf("data3 = %d\n",data[3]);
+        // printf("data0 = %d\n",data[0]);
+        // printf("data1 = %d\n",data[1]);
+        // printf("data2 = %d\n",data[2]);
+        // printf("data3 = %d\n",data[3]);
 
         //printf("vd = %d\n",vd);
 
@@ -576,25 +2594,25 @@ static inline void lib_VLE32V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
         iss->spatz.vregfile.vregs[vd][i+2] = data[2];
         iss->spatz.vregfile.vregs[vd][i+3] = data[3];
 
-        printf("vd0 = %d\n",iss->spatz.vregfile.vregs[vd][i+0]);
-        printf("vd1 = %d\n",iss->spatz.vregfile.vregs[vd][i+1]);
-        printf("vd2 = %d\n",iss->spatz.vregfile.vregs[vd][i+2]);
-        printf("vd3 = %d\n",iss->spatz.vregfile.vregs[vd][i+3]);
+        // printf("vd0 = %d\n",iss->spatz.vregfile.vregs[vd][i+0]);
+        // printf("vd1 = %d\n",iss->spatz.vregfile.vregs[vd][i+1]);
+        // printf("vd2 = %d\n",iss->spatz.vregfile.vregs[vd][i+2]);
+        // printf("vd3 = %d\n",iss->spatz.vregfile.vregs[vd][i+3]);
 
 
-        printf("vd_vali = %d\n",(int)(data[3]*pow(2,8*3) + data[2]*pow(2,8*2) + data[1]*pow(2,8) + data[0]));
+        // printf("vd_vali = %d\n",(int)(data[3]*pow(2,8*3) + data[2]*pow(2,8*2) + data[1]*pow(2,8) + data[0]));
         start_add += 4;
     }
 }
 
 static inline void lib_VLE64V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
-    printf("LIB_VLE64V\n");
-    printf("vstart = %d\n",iss->spatz.vstart);
-    printf("vl = %ld\n",iss->spatz.vl);
-    printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
-    printf("VM = %d\n",vm);
-    printf("RS1 = %lu\n",rs1);
-    printf("vd = %d\n",vd);
+    // printf("LIB_VLE64V\n");
+    // printf("vstart = %d\n",iss->spatz.vstart);
+    // printf("vl = %ld\n",iss->spatz.vl);
+    // printf("VLEN/8 = %d\n",iss->spatz.VLEN/8);
+    // printf("VM = %d\n",vm);
+    // printf("RS1 = %lu\n",rs1);
+    // printf("vd = %d\n",vd);
 
     uint64_t start_add = rs1;
     uint8_t data[4];
@@ -607,10 +2625,10 @@ static inline void lib_VLE64V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
         //    iss->spatz.vlsu.handle_pending_io_access(iss);
         //}
 
-        printf("data0 = %d\n",data[0]);
-        printf("data1 = %d\n",data[1]);
-        printf("data2 = %d\n",data[2]);
-        printf("data3 = %d\n",data[3]);
+        // printf("data0 = %d\n",data[0]);
+        // printf("data1 = %d\n",data[1]);
+        // printf("data2 = %d\n",data[2]);
+        // printf("data3 = %d\n",data[3]);
 
         //printf("vd = %d\n",vd);
 
@@ -625,20 +2643,20 @@ static inline void lib_VLE64V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
         iss->spatz.vregfile.vregs[vd][i+2] = data[2];
         iss->spatz.vregfile.vregs[vd][i+3] = data[3];
 
-        printf("vd0 = %d\n",iss->spatz.vregfile.vregs[vd][i+0]);
-        printf("vd1 = %d\n",iss->spatz.vregfile.vregs[vd][i+1]);
-        printf("vd2 = %d\n",iss->spatz.vregfile.vregs[vd][i+2]);
-        printf("vd3 = %d\n",iss->spatz.vregfile.vregs[vd][i+3]);
+        // printf("vd0 = %d\n",iss->spatz.vregfile.vregs[vd][i+0]);
+        // printf("vd1 = %d\n",iss->spatz.vregfile.vregs[vd][i+1]);
+        // printf("vd2 = %d\n",iss->spatz.vregfile.vregs[vd][i+2]);
+        // printf("vd3 = %d\n",iss->spatz.vregfile.vregs[vd][i+3]);
 
 
-        printf("vd_vali = %d\n",(int)(data[3]*pow(2,8*3) + data[2]*pow(2,8*2) + data[1]*pow(2,8) + data[0]));
+        // printf("vd_vali = %d\n",(int)(data[3]*pow(2,8*3) + data[2]*pow(2,8*2) + data[1]*pow(2,8) + data[0]));
         start_add += 4;
     }
 }
 
 static inline void lib_VSE8V (Iss *iss, iss_reg_t rs1, int vs3, bool vm){
     uint8_t data[4];
-    printf("rs1  = %lu\n",rs1);
+    //printf("rs1  = %lu\n",rs1);
 
     uint64_t start_add = rs1;
 
@@ -660,13 +2678,13 @@ static inline void lib_VSE8V (Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
 
 
-        printf("STORE8 \n");
-        printf("data0  = %d\n",data[0 ]);
-        printf("data1  = %d\n",data[1 ]);
-        printf("data2  = %d\n",data[2 ]);
-        printf("data3  = %d\n",data[3 ]);
+        // printf("STORE8 \n");
+        // printf("data0  = %d\n",data[0 ]);
+        // printf("data1  = %d\n",data[1 ]);
+        // printf("data2  = %d\n",data[2 ]);
+        // printf("data3  = %d\n",data[3 ]);
 
-        printf("addr  = %lu\n",start_add);
+        // printf("addr  = %lu\n",start_add);
 
         //if(!i){
             iss->spatz.vlsu.Vlsu_io_access(iss, start_add,4,data,true);
@@ -679,9 +2697,9 @@ static inline void lib_VSE8V (Iss *iss, iss_reg_t rs1, int vs3, bool vm){
 
 static inline void lib_VSE16V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
     uint8_t data[4];
-    printf("rs1  = %lu\n",rs1);
+    //printf("rs1  = %lu\n",rs1);
 
-    uint64_t start_add = rs1;    
+    uint64_t start_add = (uint64_t)rs1;    
     for (int i = iss->spatz.vstart; i < iss->spatz.vl*2; i+=4){
         /*
         data[0] = (vm || !(iss->spatz.vregfile.vregs[0][i+0]%2)) ? iss->spatz.vregfile.vregs[vs3][i+0] : 0;
@@ -703,15 +2721,15 @@ static inline void lib_VSE16V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[1]  = iss->spatz.vregfile.vregs[vs3][i+1];
         data[2]  = iss->spatz.vregfile.vregs[vs3][i+2];
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
+        // printf("i = %d\t,vd = %d\n",i,vs3);
 
+        // printf("STORE16 \n");
+        // printf("data0  = %d\n",data[0]);
+        // printf("data1  = %d\n",data[1]);
+        // printf("data2  = %d\n",data[2]);
+        // printf("data3  = %d\n",data[3]);
 
-        printf("STORE16 \n");
-        printf("data0  = %d\n",data[0]);
-        printf("data1  = %d\n",data[1]);
-        printf("data2  = %d\n",data[2]);
-        printf("data3  = %d\n",data[3]);
-
-        printf("addr  = %lu\n",start_add);
+        // printf("addr  = %lu\n",start_add);
 
         //if(!i){
             iss->spatz.vlsu.Vlsu_io_access(iss, start_add,4,data,true);
@@ -724,7 +2742,7 @@ static inline void lib_VSE16V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
 
 static inline void lib_VSE32V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
     uint8_t data[4];
-    printf("rs1  = %lu\n",rs1);
+    //printf("rs1  = %lu\n",rs1);
 
     uint64_t start_add = rs1;    
     for (int i = iss->spatz.vstart; i < iss->spatz.vl*4; i+=4){
@@ -750,13 +2768,13 @@ static inline void lib_VSE32V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
 
 
-        printf("STORE32 \n");
-        printf("data0  = %d\n",data[0]);
-        printf("data1  = %d\n",data[1]);
-        printf("data2  = %d\n",data[2]);
-        printf("data3  = %d\n",data[3]);
+        // printf("STORE32 \n");
+        // printf("data0  = %d\n",data[0]);
+        // printf("data1  = %d\n",data[1]);
+        // printf("data2  = %d\n",data[2]);
+        // printf("data3  = %d\n",data[3]);
 
-        printf("addr  = %lu\n",start_add);
+        // printf("addr  = %lu\n",start_add);
 
         //if(!i){
             iss->spatz.vlsu.Vlsu_io_access(iss, start_add,4,data,true);
@@ -791,7 +2809,7 @@ static inline void lib_VSE64V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
     //     }
     // }
     uint8_t data[4];
-    printf("rs1  = %lu\n",rs1);
+    //printf("rs1  = %lu\n",rs1);
 
     uint64_t start_add = rs1;    
     for (int i = iss->spatz.vstart; i < iss->spatz.vl*8; i+=4){
@@ -817,13 +2835,13 @@ static inline void lib_VSE64V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
 
 
-        printf("STORE64 \n");
-        printf("data0  = %d\n",data[0]);
-        printf("data1  = %d\n",data[1]);
-        printf("data2  = %d\n",data[2]);
-        printf("data3  = %d\n",data[3]);
+        // printf("STORE64 \n");
+        // printf("data0  = %d\n",data[0]);
+        // printf("data1  = %d\n",data[1]);
+        // printf("data2  = %d\n",data[2]);
+        // printf("data3  = %d\n",data[3]);
 
-        printf("addr  = %lu\n",start_add);
+        // printf("addr  = %lu\n",start_add);
 
         //if(!i){
             iss->spatz.vlsu.Vlsu_io_access(iss, start_add,4,data,true);
@@ -859,32 +2877,42 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
         if(idxRs1){
             AVL = rs1;
             iss->spatz.vl = MIN(AVL,VLMAX);//spec page 30 - part c and d
-            printf("CASE1\n");
+            //printf("CASE1\n");
         //}else if(VLMAX < rs1){
         }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
             iss->spatz.vl  = VLMAX;
-            printf("CASE2\n");
+            //printf("CASE2\n");
             //vl = VLEN/SEW;
         }else{
             AVL = iss->spatz.vl;
-            printf("CASE3\n");
+            //printf("CASE3\n");
         }
     //} else {
         // vtype for invalid situation
         //vtype_d = '{vill: 1'b1, vsew: EW_8, vlmul: LMUL_1, default: '0};
         //vl_d    = '0;
     //}
-    printf("SEW = %d \n",iss->spatz.SEW);
-    printf("LMUL = %f \n",iss->spatz.LMUL);
-    printf("VL = %ld \n",iss->spatz.vl);
-    printf("AVL = %d \n",AVL);
-    printf("rs1 = %d \n",rs1);
+    // printf("SEW = %d \n",iss->spatz.SEW);
+    // printf("LMUL = %f \n",iss->spatz.LMUL);
+    // printf("VL = %ld \n",iss->spatz.vl);
+    // printf("AVL = %d \n",AVL);
+    // printf("rs1 = %d \n",rs1);
     return iss->spatz.vl;
     //Not sure about the write back procedure
 }
+// static inline void lib_VSETVL(Iss *iss, int idxrs, int idxrd, int rs1, int rs2){
+//     printf("inside the function\n");
+//     printf("idxrs = %d\n",idxrs);
+//     printf("idxrd = %d\n",idxrd);
+//     printf("valrs1 = %d\n",rs1);
+//     printf("valrs2 = %d\n",rs2);
+// }
+
 
 static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int rs2){
+//static inline void lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int rs2){
+    //printf("vsetvl\n");
     uint32_t AVL;
 
     // SET NEW VTYPE
@@ -905,27 +2933,27 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
         if(idxRs1){
             AVL = rs1;
             iss->spatz.vl = MIN(AVL,VLMAX);//spec page 30 - part c and d
-            printf("CASE1\n");
+            //printf("CASE1\n");
         //}else if(VLMAX < rs1){
         }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
             iss->spatz.vl  = VLMAX;
-            printf("CASE2\n");
+            //printf("CASE2\n");
             //vl = VLEN/SEW;
         }else{
             AVL = iss->spatz.vl;
-            printf("CASE3\n");
+            //printf("CASE3\n");
         }
     //} else {
         // vtype for invalid situation
         //vtype_d = '{vill: 1'b1, vsew: EW_8, vlmul: LMUL_1, default: '0};
         //vl_d    = '0;
     //}
-    printf("SEW = %d \n",iss->spatz.SEW);
-    printf("LMUL = %f \n",iss->spatz.LMUL);
-    printf("VL = %ld \n",iss->spatz.vl);
-    printf("AVL = %d \n",AVL);
-    printf("rs1 = %d \n",rs1);
+    // printf("SEW = %d \n",iss->spatz.SEW);
+    // printf("LMUL = %f \n",iss->spatz.LMUL);
+    // printf("VL = %ld \n",iss->spatz.vl);
+    // printf("AVL = %d \n",AVL);
+    // printf("rs1 = %d \n",rs1);
     return iss->spatz.vl;
     //Not sure about the write back procedure
 }

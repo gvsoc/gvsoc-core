@@ -754,11 +754,11 @@ class Component(object):
         if self.parent is not None:
             self.parent.declare_target_property(descriptor)
 
-    def declare_user_property(self, name, value, description, cast=None, format=None):
+    def declare_user_property(self, name, value, description, cast=None, dump_format=None):
         self.declare_target_property(
             gapylib.target.Property(
                 name=name, path=self.get_comp_path(), value=value,
-                format=format, cast=cast, description=description
+                dump_format=dump_format, cast=cast, description=description
             )
         )
 

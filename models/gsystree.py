@@ -23,6 +23,7 @@ import json
 import sys
 import shutil
 from importlib import import_module
+import gapylib.target
 
 
 class Port():
@@ -143,8 +144,12 @@ class Component(object):
             component.gen_stimuli()
 
 
-    def get_comp_path(self):
-        return '/' + self.get_path(gv_path=True)
+    def get_comp_path(self, inc_top=False):
+        path = self.get_path(gv_path=True)
+        if inc_top:
+            return '/' + path
+        else:
+            return path
 
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
         """Get component path.
@@ -743,3 +748,25 @@ class Component(object):
                 regmap = rmap.Regmap(name)
                 regmap_md.import_md(regmap, spec)
                 regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)
+
+
+    def declare_target_property(self, descriptor):
+        if self.parent is not None:
+            self.parent.declare_target_property(descriptor)
+
+    def declare_user_property(self, name, value, description, cast=None, format=None):
+        self.declare_target_property(
+            gapylib.target.Property(
+                name=name, path=self.get_comp_path(), value=value,
+                format=format, cast=cast, description=description
+            )
+        )
+
+    def get_target_property(self, name):
+        if self.parent is not None:
+            return self.parent.get_target_property(name)
+
+    def get_user_property(self, name):
+        name = self.get_comp_path() + '/' + name
+
+        return self.parent.get_target_property(name)

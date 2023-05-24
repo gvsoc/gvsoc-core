@@ -53,7 +53,7 @@ void Trace::reset(bool active)
 
 #define PC_INFO_ARRAY_SIZE (64 * 1024)
 
-#define MAX_DEBUG_INFO_WIDTH 24
+#define MAX_DEBUG_INFO_WIDTH 32
 
 class iss_pc_info
 {

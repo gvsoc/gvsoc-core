@@ -44,9 +44,9 @@ class DisplayLogicBox(object):
 
 class SignalGenFunctionFromBinary(object):
     def __init__(self, comp, parent, from_signal, to_signal, binaries):
-        comp_path = comp.get_comp_path()
+        comp_path = comp.get_comp_path(inc_top=True)
         self.from_signal = comp_path + '/' + from_signal
-        self.to_signal = comp.get_comp_path() + '/' + to_signal
+        self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
         self.binaries = []
         for binary in binaries:
             self.binaries.append(comp_path + '/' + binary)
@@ -64,13 +64,13 @@ class SignalGenFunctionFromBinary(object):
 
 class SignalGenFromSignals(object):
     def __init__(self, comp, parent, from_signals, to_signal):
-        comp_path = comp.get_comp_path()
+        comp_path = comp.get_comp_path(inc_top=True)
         self.from_signals = []
 
         for signal in from_signals:
             self.from_signals.append(comp_path + '/' + signal)
 
-        self.to_signal = comp.get_comp_path() + '/' + to_signal
+        self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
 
         parent.gen_signals.append(self.get())
 
@@ -87,7 +87,7 @@ class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None):
         if path is not None and comp is not None and path[0] != '/':
-            path = comp.get_comp_path() + '/' + path
+            path = comp.get_comp_path(inc_top=True) + '/' + path
         self.parent = parent
         self.name = name
         self.path = path
@@ -122,7 +122,7 @@ class Signal(object):
             if self.path is not None:
                 config['group'] = self.path
             else:
-                config['group'] = self.comp.get_comp_path()
+                config['group'] = self.comp.get_comp_path(inc_top=True)
         if self.path is not None:
             config['path'] = self.path
         if self.display is not None:
@@ -173,7 +173,7 @@ class GuiConfig(Signal):
                     }
 
                 if signal.is_group:
-                    groups[group]['signals'].append(signal.comp.get_comp_path())
+                    groups[group]['signals'].append(signal.comp.get_comp_path(inc_top=True))
                 else:
                     groups[group]['signals'].append(signal.path)
 

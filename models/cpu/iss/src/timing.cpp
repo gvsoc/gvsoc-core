@@ -78,15 +78,19 @@ void Timing::reset(bool active)
 
         this->active_pc_trace_event.event(NULL);
 
-        if (this->iss.top.get_js_config()->get("**/binaries") != NULL)
+        if (this->declare_binaries)
         {
-            std::string binaries = "static enable";
-            for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
+            if (this->iss.top.get_js_config()->get("**/binaries") != NULL)
             {
-                binaries += " " + x->get_str();
-            }
+                std::string binaries = "static enable";
+                for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
+                {
+                    binaries += " " + x->get_str();
+                }
 
-            this->binaries_trace_event.event_string(binaries);
+                this->binaries_trace_event.event_string(binaries);
+            }
+            this->declare_binaries = false;
         }
     }
     else

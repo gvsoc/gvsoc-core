@@ -81,4 +81,5 @@ private:
     inline void event_account(unsigned int event, int incr);
 
     Iss &iss;
+    bool declare_binaries = true;
 };

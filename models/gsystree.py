@@ -24,6 +24,7 @@ import sys
 import shutil
 from importlib import import_module
 import gapylib.target
+import gv.gui
 
 
 class Port():
@@ -94,7 +95,7 @@ class Component(object):
     
     """
 
-    def __init__(self, parent, name, options=[], is_top=False):
+    def __init__(self, parent, name, options=None, is_top=False):
         self.name = name
         self.parent = parent
         self.json_config_files = []
@@ -113,7 +114,7 @@ class Component(object):
         self.interfaces = []
         self.c_flags = []
 
-        if len(options) > 0:
+        if options is not None and len(options) > 0:
             options_list = []
 
             for option in options:
@@ -172,7 +173,10 @@ class Component(object):
         if not gv_path or not self.is_top:
             path = self.name
             if child_path is not None:
-                path = self.name + '/' + child_path
+                if self.name is not None:
+                    path = self.name + '/' + child_path
+                else:
+                    path = child_path
 
             if self.parent is not None:
                 path = self.parent.get_path(child_path=path, gv_path=gv_path, *kargs, **kwargs)
@@ -203,7 +207,10 @@ class Component(object):
             if path is None:
                 self.parent.declare_flash(self.name)
             else:
-                self.parent.declare_flash(self.name + '/' + path)
+                if self.name is not None:
+                    self.parent.declare_flash(self.name + '/' + path)
+                else:
+                    self.parent.declare_flash(path)
 
 
     def declare_runner_target(self, path=None):
@@ -515,6 +522,14 @@ class Component(object):
     def gen_gui(self, parent_signal):
         return parent_signal
 
+        # TODO once gui filter-out components with no signal, this can be reactivated
+        # to have automatic creation for multi-board
+        if self.name is not None:
+            signal = gv.gui.Signal(self, parent_signal, name=self.name)
+            return signal
+        else:
+            return parent_signal
+
     def gen_gtkw_tree(self, tree, traces, filter_traces=False):
         if filter_traces:
             comp_traces = []
@@ -715,8 +730,13 @@ class Component(object):
         if self.parent is not None:
             return self.parent.get_target()
 
-        return None
+        return self
 
+    def get_abspath(self, relpath: str) -> str:
+        if self.parent is not None:
+            return self.parent.get_abspath(relpath)
+
+        return None
     
     def regmap(self, copy=False, gen=False):
 
@@ -762,9 +782,9 @@ class Component(object):
             )
         )
 
-    def get_target_property(self, name):
+    def get_target_property(self, name, path=None):
         if self.parent is not None:
-            return self.parent.get_target_property(name)
+            return self.parent.get_target_property(name, path)
 
     def get_user_property(self, name):
         name = self.get_comp_path() + '/' + name

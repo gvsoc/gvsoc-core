@@ -26,6 +26,7 @@ import os.path
 from gv.gtkwave import Gtkwave_tree
 from gv.gui import GuiConfig
 import gv.gui
+import gapylib.target as gapy
 
 
 def gen_config(args, config, working_dir, runner=None):
@@ -83,7 +84,7 @@ def gen_config(args, config, working_dir, runner=None):
         if rom_binary is not None:
 
             if runner is not None:
-                rom_binary = runner.get_file_path(rom_binary)
+                rom_binary = runner.gapy_target.get_file_path(rom_binary)
 
             if os.path.exists(rom_binary):
                 debug_binaries.append(rom_binary)
@@ -104,13 +105,12 @@ def dump_config(full_config, gvsoc_config_path):
         file.write(full_config.dump_to_string())
 
 
-class Runner(gapylib.target.Target, st.Component):
+class Runner():
 
-    def __init__(self, parent, name, parser, options):
+    def __init__(self, parser, options, gapy_target, target, rtl_cosim_runner=None):
 
-        gapylib.target.Target.__init__(self, parser, options)
-        st.Component.__init__(self, parent, name, options)
-        self.is_top = True
+        self.target = target
+        self.gapy_target = gapy_target
 
         if parser is not None:
             parser.add_argument("--model-dir", dest="install_dirs", action="append",
@@ -178,7 +178,7 @@ class Runner(gapylib.target.Target, st.Component):
 
             [args, otherArgs] = parser.parse_known_args()
 
-            self.add_properties({
+            self.target.add_properties({
                 "gvsoc": {
                     "proxy": {
                         "enabled": False,
@@ -226,9 +226,6 @@ class Runner(gapylib.target.Target, st.Component):
                 }
             })
 
-    def append_args(self, parser, rtl_cosim_runner=None):
-        super().append_args(parser)
-
         cosim_mode = False
         choices = ['gvsoc']
 
@@ -249,7 +246,7 @@ class Runner(gapylib.target.Target, st.Component):
                     type=str, help="path to GVSOC install folder")
 
                 choices.append('rtl')
-                self.rtl_runner = rtl_cosim_runner(self)
+                self.rtl_runner = rtl_cosim_runner(self.gapy_target)
                 self.rtl_runner.append_args(parser)
 
         if not cosim_mode:
@@ -259,11 +256,14 @@ class Runner(gapylib.target.Target, st.Component):
         parser.add_argument("--platform", dest="platform", required=True, choices=choices,
             type=str, help="specify the platform used for the target")
 
-    def parse_args(self, args):
-        super().parse_args(args)
+        gapy_target.register_command_handler(self.gv_handle_command)
+
+
+
+        [args, _] = parser.parse_known_args()
 
         self.full_config, self.gvsoc_config_path = gen_config(
-            args, { 'target': self.get_config() }, self.get_working_dir(), self)
+            args, { 'target': self.target.get_config() }, gapy_target.get_working_dir(), self)
 
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
@@ -272,10 +272,10 @@ class Runner(gapylib.target.Target, st.Component):
         gvsoc_config = self.full_config.get('target/gvsoc')
 
         if gvsoc_config.get_bool('events/gen_gtkw'):
-            path = os.path.join(self.get_working_dir(), 'view.gtkw')
+            path = os.path.join(gapy_target.get_working_dir(), 'view.gtkw')
 
             traces = self.gen_gtkw_script(
-                work_dir=self.get_working_dir(),
+                work_dir=self.gapy_target.get_working_dir(),
                 path=path,
                 tags=gvsoc_config.get('events/tags').get_dict(),
                 level=gvsoc_config.get_child_int('events/level'),
@@ -300,30 +300,36 @@ class Runner(gapylib.target.Target, st.Component):
                 gvsoc_config_path=self.gvsoc_config_path, full_config=self.full_config)
 
 
-    def handle_command(self, cmd):
+    def gv_handle_command(self, cmd):
 
         if cmd == 'run':
             self.run()
+            return True
 
         elif cmd == 'regmap_copy':
             self.regmap(copy=True)
+            return True
 
         elif cmd == 'regmap_gen':
             self.regmap(gen=True)
+            return True
 
         elif cmd == 'traces' and self.rtl_runner is not None:
             self.rtl_runner.traces()
+            return True
 
         elif cmd == 'prepare':
             self.run(norun=True)
+            return True
 
         elif cmd == 'image':
-            gapylib.target.Target.handle_command(self, cmd)
+            self.gapy_target.handle_command_image()
 
             if self.rtl_runner is not None:
                 self.rtl_runner.image()
             else:
-                self.gen_stimuli()
+                self.target.gen_stimuli()
+            return True
 
         elif cmd == 'components':
 
@@ -331,23 +337,22 @@ class Runner(gapylib.target.Target, st.Component):
 
             c_flags = {}
 
-            if self.get_args().component_file_append:
-                with open(self.get_args().component_file, "r") as file:
+            if self.gapy_target.get_args().component_file_append:
+                with open(self.gapy_target.get_args().component_file, "r") as file:
                     for comp_desc in file.readlines():
                         comp = comp_desc.replace('CONFIG_', '').replace('=1\n', '')
                         component_list.append(comp)
 
-            component_list += self.get_component_list(c_flags) + ['vp.trace_domain_impl', 'vp.time_domain_impl', 'vp.power_domain_impl', 'utils.composite_impl']
+            component_list += self.target.get_component_list(c_flags) + ['vp.trace_domain_impl', 'vp.time_domain_impl', 'vp.power_domain_impl', 'utils.composite_impl']
 
-            with open(self.get_args().component_file, "w") as file:
+            with open(self.gapy_target.get_args().component_file, "w") as file:
                 for comp in component_list:
                     file.write(f'CONFIG_{comp}=1\n')
                 for comp, c_flags_list in c_flags.items():
                     file.write(f'CONFIG_CFLAGS_{comp}={" ".join(c_flags_list)}\n')
+            return True
 
-        else:
-            gapylib.target.Target.handle_command(self, cmd)
-
+        return False
 
 
     def __gen_debug_info(self, full_config, gvsoc_config):
@@ -368,27 +373,27 @@ class Runner(gapylib.target.Target, st.Component):
 
         gvsoc_config = self.full_config.get('target/gvsoc')
 
-        dump_config(self.full_config, self.get_abspath(self.gvsoc_config_path))
+        dump_config(self.full_config, self.gapy_target.get_abspath(self.gvsoc_config_path))
 
         self.__gen_debug_info(self.full_config, self.full_config.get('target/gvsoc'))
 
         if norun:
             return 0
 
-        stub = self.get_args().stub
+        stub = self.gapy_target.get_args().stub
 
-        if self.get_args().gdb:
+        if self.gapy_target.get_args().gdb:
             stub = ['gdb', '--args'] + stub
 
-        if self.get_args().valgrind:
+        if self.gapy_target.get_args().valgrind:
             stub = ['valgrind'] + stub
 
         if self.rtl_runner is not None:
             self.rtl_runner.run()
 
-        elif self.get_args().emulation:
+        elif self.gapy_target.get_args().emulation:
 
-            launcher = self.get_args().binary
+            launcher = self.gapy_target.get_args().binary
 
             command = stub
 
@@ -397,25 +402,25 @@ class Runner(gapylib.target.Target, st.Component):
             print ('Launching GVSOC with command: ')
             print (' '.join(command))
 
-            os.chdir(self.get_working_dir())
+            os.chdir(self.gapy_target.get_working_dir())
 
             return os.execvp(command[0], command)
 
         else:
 
-            if self.get_args().valgrind:
+            if self.gapy_target.get_args().valgrind:
                 stub = ['valgrind'] + stub
 
-            if self.get_args().gui:
+            if self.gapy_target.get_args().gui:
                 command = stub + ['gvsoc-gui',
                     '--gv-config=' + self.gvsoc_config_path,
                     '--gui-config=gvsoc_gui_config.json',
                 ]
 
-                path = os.path.join(self.get_working_dir(), 'gvsoc_gui_config.json')
+                path = os.path.join(self.gapy_target.get_working_dir(), 'gvsoc_gui_config.json')
 
                 gui_config = self.gen_gui_config(
-                    work_dir=self.get_working_dir(),
+                    work_dir=self.gapy_target.get_working_dir(),
                     path=path
                 )
             else:
@@ -432,19 +437,15 @@ class Runner(gapylib.target.Target, st.Component):
                 print ('Launching GVSOC with command: ')
                 print (' '.join(command))
 
-            os.chdir(self.get_working_dir())
+            os.chdir(self.gapy_target.get_working_dir())
 
             return os.execvp(command[0], command)
-
-
-    def get_target(self):
-        return self
 
 
     def gen_gui_config(self, work_dir, path):
         with open(path, 'w') as fd:
             config = GuiConfig()
-            self.gen_gui_stub(config)
+            self.target.gen_gui_stub(config)
             config.gen(fd)
 
     def gen_gtkw_script(self, work_dir, path, tags=[], level=0, trace_file=None, gen_full_tree=False):
@@ -485,3 +486,29 @@ class Runner(gapylib.target.Target, st.Component):
         gv.gui.Signal(self, parent_signal, name='kernel', path='/user/kernel/state',
             display=gv.gui.DisplayStringBox(), groups=["user"])
         return parent_signal
+
+
+
+class Target(gapy.Target):
+
+    def __init__(self, parser, options, model, description, rtl_cosim_runner=None):
+        super(Target, self).__init__(parser, options)
+
+        self.model = model(parent=self, name=None, parser=parser, options=options)
+        self.runner = Runner(parser, options, self, self.model, rtl_cosim_runner=rtl_cosim_runner)
+        self.description = description
+
+    def add_component(self, name, component):
+        pass
+
+    def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
+        return child_path
+
+    def declare_flash(self, path=None):
+        pass
+
+    def get_target(self):
+        return self
+
+    def __str__(self) -> str:
+        return self.description

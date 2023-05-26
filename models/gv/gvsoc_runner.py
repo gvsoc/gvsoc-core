@@ -468,12 +468,12 @@ class Runner():
 
             tree.begin_group('overview', closed=False)
             tree.set_view('overview')
-            self.gen_gtkw_tree(tree, traces=traces)
+            self.target.gen_gtkw_tree(tree, traces=traces)
             tree.end_group('overview')
 
             tree.begin_group('system')
             tree.set_view('system')
-            self.gen_gtkw_tree(tree, traces=traces)
+            self.target.gen_gtkw_tree(tree, traces=traces)
             tree.end_group('system')
 
 

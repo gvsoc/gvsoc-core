@@ -98,6 +98,14 @@ Csr::Csr(Iss &iss)
         this->declare_csr(&this->pmpaddr[i],  "pmpaddr" + std::to_string(i),  0x3B0 + i);
     }
 #endif
+
+    this->declare_csr(&this->vstart, "vstart", 0x008, 0);
+    this->declare_csr(&this->vxstat, "vxstat", 0x009);
+    this->declare_csr(&this->vxrm,   "vxrm",   0x00A);
+    this->declare_csr(&this->vcsr,   "vcsr",   0x00F);
+    this->declare_csr(&this->vl,     "vl",     0xC20);
+    this->declare_csr(&this->vtype,  "vtype",  0xC21);
+    this->declare_csr(&this->vlenb,  "vlenb",  0xC22, 32);
 }
 
 void Csr::reset(bool active)

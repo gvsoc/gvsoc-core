@@ -251,6 +251,131 @@ static inline iss_insn_t *vnmsac_vx_exec(Iss *iss, iss_insn_t *insn){
     return insn->next;
 }
 
+static inline iss_insn_t *vnmsub_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_NMSUBVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vnmsub_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_NMSUBVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmacc_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmacc_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmaccu_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCUVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmaccu_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCUVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmaccus_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCUSVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmaccsu_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCSUVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vwmaccsu_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_WMACCSUVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vslideup_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_SLIDEUPVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vslideup_vi_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_SLIDEUPVI , REG_IN(0), SIM_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vslidedown_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_SLIDEDWVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vslidedown_vi_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_SLIDEDWVI , REG_IN(0), SIM_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vslide1up_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_SLIDE1UVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vslide1down_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_SLIDE1DVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vdiv_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_DIVVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vdiv_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_DIVVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vdivu_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_DIVUVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vdivu_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_DIVUVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vrem_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_REMVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vrem_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_REMVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vremu_vv_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_REMUVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vremu_vx_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_REMUVX , REG_IN(1), REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -309,6 +434,49 @@ static inline iss_insn_t *vse64_v_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL3(lib_VSE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
+
+static inline iss_insn_t *vlse8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VLSE8V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+// static inline iss_insn_t *vlse16_v_exec(Iss *iss, iss_insn_t *insn){
+//     LIB_CALL3(lib_VLSE16V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+//     return insn->next;
+// }
+// static inline iss_insn_t *vlse32_v_exec(Iss *iss, iss_insn_t *insn){
+//     LIB_CALL3(lib_VLSE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+//     return insn->next;
+// }
+// static inline iss_insn_t *vlse64_v_exec(Iss *iss, iss_insn_t *insn){
+//     LIB_CALL3(lib_VLSE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+//     return insn->next;
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static inline iss_insn_t *vfadd_vv_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL4(lib_VVFADD , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
     return insn->next;
@@ -317,6 +485,36 @@ static inline iss_insn_t *vfadd_vf_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL4(lib_VFFADD , REG_IN(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //                             V 1.0 
 // static inline iss_insn_t *vsetvli_exec(Iss *iss, iss_insn_t *insn){
 //     REG_SET(0, LIB_CALL8(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2), UIM_GET(3), UIM_GET(4)));// VLMUL-VSEW-VTA-VMA

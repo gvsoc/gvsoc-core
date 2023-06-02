@@ -55,6 +55,9 @@ void Timing::build()
         this->iss.top.power.new_power_source("power_insn", &this->insn_groups_power[0], this->iss.top.get_js_config()->get("**/insn"));
     }
 
+    this->iss.top.power.new_power_source("power_stall_first", &this->power_stall_first, this->iss.top.get_js_config()->get("**/power_models/stall_first"));
+    this->iss.top.power.new_power_source("power_stall_next", &this->power_stall_next, this->iss.top.get_js_config()->get("**/power_models/stall_next"));
+
     this->iss.top.power.new_power_source("background", &background_power, this->iss.top.get_js_config()->get("**/power_models/background"));
 
     for (int i = 0; i < 32; i++)

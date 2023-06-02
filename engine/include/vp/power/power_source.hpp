@@ -27,71 +27,85 @@
 
 inline void vp::power::power_source::turn_on()
 {
+#ifdef VP_TRACE_ACTIVE
     this->is_on = true;
     this->check();
+#endif
 }
 
 
 inline void vp::power::power_source::turn_off()
 {
+#ifdef VP_TRACE_ACTIVE
     this->is_on = false;
     this->check();
+#endif
 }
 
 
 inline void vp::power::power_source::leakage_power_start()
 {
+#ifdef VP_TRACE_ACTIVE
     // Only start if leakage is defined
     if (this->leakage != -1)
     {
         this->is_leakage_power_started = true;
         this->check();
     }
+#endif
 }
 
 
 
 inline void vp::power::power_source::leakage_power_stop()
 {
+#ifdef VP_TRACE_ACTIVE
     // Only stop if leakage is defined
     if (this->leakage != -1)
     {
         this->is_leakage_power_started = false;
         this->check();
     }
+#endif
 }
 
 
 
 inline void vp::power::power_source::dynamic_power_start()
 {
+#ifdef VP_TRACE_ACTIVE
     // Only start accounting background power if it is is defined
     if (this->background_power != -1)
     {
         this->is_dynamic_power_started = true;
         this->check();
     }
+#endif
 }
 
 
 
 inline void vp::power::power_source::dynamic_power_stop()
 {
+#ifdef VP_TRACE_ACTIVE
     // Only stop accounting background power if it is is defined
     if (this->background_power != -1)
     {
         this->is_dynamic_power_started = false;
         this->check();
     }
+#endif
 }
 
 
 
 inline void vp::power::power_source::account_energy_quantum()
 {
+#ifdef VP_TRACE_ACTIVE
     // Only account energy is a quantum is defined
     if (this->is_on && this->quantum != -1)
     {
         this->trace->inc_dynamic_energy(this->quantum);
     }
+#endif
 }

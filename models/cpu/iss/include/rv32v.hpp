@@ -435,6 +435,108 @@ static inline iss_insn_t *vse64_v_exec(Iss *iss, iss_insn_t *insn){
     return insn->next;
 }
 
+static inline iss_insn_t *vl1r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL1RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl1re8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL1RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl1re16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL1RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl1re32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL1RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl1re64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL1RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vl2r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL2RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl2re8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL2RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl2re16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL2RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl2re32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL2RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl2re64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL2RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vl4r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL4RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl4re8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL4RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl4re16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL4RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl4re32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL4RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl4re64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL4RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vl8r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL8RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl8re8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL8RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl8re16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL8RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl8re32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL8RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vl8re64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VL8RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vs1r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VS1RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vs2r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VS2RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vs4r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VS4RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vs8r_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL3(lib_VS8RV , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+
 static inline iss_insn_t *vlse8_v_exec(Iss *iss, iss_insn_t *insn){
     LIB_CALL4(lib_VLSE8V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
     return insn->next;

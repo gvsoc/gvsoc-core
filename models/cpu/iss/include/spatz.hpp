@@ -31,7 +31,7 @@ typedef uint8_t iss_Vel_t;
 //#define NB_VEL 256/8
 #define NB_VEL 1024/8
 //#define VLMAX NB_VEL*iss->spatz.LMUL
-#define VLMAX (int)((1024*iss->spatz.LMUL)/iss->spatz.SEW)
+#define VLMAX (int)((1024*LMUL)/SEW)
 
 #define XLEN = ISS_REG_WIDTH
 #define FLEN = ISS_REG_WIDTH
@@ -122,14 +122,14 @@ public:
 
 
     int   VLEN   = 256;
-    int   SEW    = SEW_VALUES[2];
-    float LMUL   = LMUL_VALUES[0];
+    int   SEW_t    = SEW_VALUES[2];
+    float LMUL_t   = LMUL_VALUES[0];
     bool  VMA    = 0;
     bool  VTA    = 0;
-    int   vstart = 0;
-    uint8_t counter = 1;
-    iss_reg_t vtype;
-    iss_reg_t vl;
+    // int   vstart = 0;
+    // uint8_t counter = 1;
+    // iss_reg_t vtype;
+    // iss_reg_t vl;
 
     VRegfile vregfile;
     Vlsu vlsu;

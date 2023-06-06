@@ -153,11 +153,16 @@ endif()
 add_subdirectory(engine)
 add_subdirectory(models)
 
+set(is_first true)
+
 foreach(subdir ${GVSOC_MODULES})
-    if(IS_DIRECTORY ${subdir})
-        if (NOT ${subdir} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+
+    if (NOT ${is_first})
+        if(IS_DIRECTORY ${subdir})
             get_filename_component(name ${subdir} NAME)
             add_subdirectory(${subdir} ${CMAKE_CURRENT_BINARY_DIR}/${name})
         endif()
     endif()
+
+    set(is_first false)
 endforeach()

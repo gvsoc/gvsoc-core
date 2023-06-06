@@ -438,7 +438,7 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
             {
                 this->slots[0]->pdm_sync(sdio & 3);
                 this->slots[2]->pdm_sync(sdio >> 2);
-                this->slots[4]->pdm_sync(ws >> 3);
+                this->slots[4]->pdm_sync(ws);
 
                 this->slots[1]->pdm_get();
                 this->slots[3]->pdm_get();

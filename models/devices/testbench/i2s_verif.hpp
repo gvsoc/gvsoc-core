@@ -72,7 +72,7 @@ public:
     int propagated_ws;
     int ws_count;
     int ws_value;
-    bool pdm_lanes_is_out[2];
+    bool pdm_lanes_is_out[3];
     int64_t prev_frame_start_time;
     int64_t sampling_period;
 

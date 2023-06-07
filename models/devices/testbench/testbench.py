@@ -94,7 +94,7 @@ class Testbench(st.Component):
                 "nb_spi": 7,
                 "nb_uart": 5,
                 "nb_i2c": 3,
-                "nb_i2s": 3,
+                "nb_i2s": 4,
                 "uart_id": self.get_property('uart_id'),
                 "uart_baudrate": self.get_property('uart_baudrate'),
 

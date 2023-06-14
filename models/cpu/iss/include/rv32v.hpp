@@ -580,11 +580,11 @@ static inline iss_insn_t *vlse8_v_exec(Iss *iss, iss_insn_t *insn){
 
 
 static inline iss_insn_t *vfadd_vv_exec(Iss *iss, iss_insn_t *insn){
-    LIB_CALL4(lib_VVFADD , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
+    LIB_CALL4(lib_FADDVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
 static inline iss_insn_t *vfadd_vf_exec(Iss *iss, iss_insn_t *insn){
-    LIB_CALL4(lib_VFFADD , REG_IN(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    LIB_CALL4(lib_FADDVF , REG_IN(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
 

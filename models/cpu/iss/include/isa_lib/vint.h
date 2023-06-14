@@ -14,25 +14,27 @@
 #include <cores/ri5cy/class.hpp>
 #pragma STDC FENV_ACCESS ON
 
-#define FF_INIT_2(a, b, e, m)                        \
+
+#define FLOAT_INIT_2(a, b, e, m)                        \
     flexfloat_t ff_a, ff_b, ff_res;                  \
     flexfloat_desc_t env = (flexfloat_desc_t){e, m}; \
+    printf("e = %d\t m = %d\n",e,m);\
     ff_init(&ff_a, env);                             \
     ff_init(&ff_b, env);                             \
     ff_init(&ff_res, env);                           \
     flexfloat_set_bits(&ff_a, a);                    \
     flexfloat_set_bits(&ff_b, b);
 
-#define FF_INIT_3(a, b, c, e, m)                     \
-    flexfloat_t ff_a, ff_b, ff_c, ff_res;            \
-    flexfloat_desc_t env = (flexfloat_desc_t){e, m}; \
-    ff_init(&ff_a, env);                             \
-    ff_init(&ff_b, env);                             \
-    ff_init(&ff_c, env);                             \
-    ff_init(&ff_res, env);                           \
-    flexfloat_set_bits(&ff_a, a);                    \
-    flexfloat_set_bits(&ff_b, b);                    \
-    flexfloat_set_bits(&ff_c, c);
+
+#define FLOAT_EXEC_2(s, name, a, b, e, m ,res) \
+    FLOAT_INIT_2(a, b, e, m)              \
+    feclearexcept(FE_ALL_EXCEPT);      \
+    printf("ffa val = %f\n",ff_a.value);  \
+    printf("ffb val = %f\n",ff_b.value);  \
+    name(&ff_res, &ff_a, &ff_b);       \
+    update_fflags_fenv(s);             \
+    res = flexfloat_get_bits(&ff_res);
+
 #define mask(vm,bin) (!(vm) && !bin[i%8])
 
 #define SEW iss->spatz.SEW_t
@@ -3418,7 +3420,104 @@ static inline void lib_REMUVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
         }
     }
 }
+static inline void lib_FADDVV(Iss *iss, int vs1      , int vs2, int vd, bool vm){
+    bool bin[8];
+    unsigned long int res;
+    unsigned long int data1, data2;
+    uint8_t e;
+    uint8_t m;
+    bool resBin[64];
 
+    for (int i = VSTART; i < VL*LMUL; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        myAbsU(iss, vs1, i, &data1);
+        myAbsU(iss, vs2, i, &data2);
+
+        printf("data1f = %f\t",double(data1));
+        printf("data1h = %lx\n",data1);
+        printf("data2f = %f\t",double(data2));
+        printf("data2h = %lx\n",data2);        
+
+        switch (SEW){
+        case 8:{
+            printf("8 bit is not supported for FLOAT\n");
+            return;
+            break;
+        }
+        case 16:{
+            e = 5;
+            m = 10;
+            break;
+        }
+        case 32:{
+            e = 8;
+            m = 23;
+            break;
+        }
+        case 64:{
+            e = 11;
+            m = 53;
+            break;
+        }                
+        default:
+            break;
+        }
+        FLOAT_EXEC_2(iss, ff_add, data1, data2, e, m, res);
+        printf("resf = %f\t",double(res));
+        printf("resh = %lx\n",res);
+        intToBin(SEW, res, resBin);
+        if((res >> SEW) && 0x01){
+            twosComplement(SEW, resBin);
+        }        
+        printHex(SEW,resBin,"resBin");
+        if(!mask(vm,bin)){
+            printf("not mask\n");
+            writeToVReg(iss, SEW, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_FADDVF(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm){
+    for (int i = VSTART; i < VL*LMUL; i++){
+        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
+            switch (SEW){
+            case 8:{
+
+                break;
+            }
+            case 16:{
+                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1, 5, 10)
+                feclearexcept(FE_ALL_EXCEPT);
+                ff_add(&ff_res, &ff_a, &ff_b);
+                //update_fflags_fenv(s);
+                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);
+                break;
+            }
+            case 32:{
+                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1, 8, 23)
+                feclearexcept(FE_ALL_EXCEPT);
+                ff_add(&ff_res, &ff_a, &ff_b);
+                //update_fflags_fenv(s);
+                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
+                break;
+            }
+            case 64:{
+                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1,11, 53)
+                feclearexcept(FE_ALL_EXCEPT);
+                ff_add(&ff_res, &ff_a, &ff_b);
+                //update_fflags_fenv(s);
+                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
+                break;
+            }
+            default:
+                break;
+            }
+        }
+    }
+}
 
 
 
@@ -3517,83 +3616,6 @@ static inline void lib_VFFMAC(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm)
     }
 }
 
-static inline void lib_VVFADD(Iss *iss, int vs1      , int vs2, int vd, bool vm){
-    for (int i = VSTART; i < VL*LMUL; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            switch (SEW){
-            case 8:{
-
-                break;
-            }
-            case 16:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], iss->spatz.vregfile.vregs[vs2][i], 5, 10)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);
-                break;
-            }
-            case 32:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], iss->spatz.vregfile.vregs[vs2][i], 8, 23)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
-                break;
-            }
-            case 64:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], iss->spatz.vregfile.vregs[vs2][i],11, 53)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
-                break;
-            }                
-            default:
-                break;
-            }
-        }
-    }
-}
-
-static inline void lib_VFFADD(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm){
-    for (int i = VSTART; i < VL*LMUL; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            switch (SEW){
-            case 8:{
-
-                break;
-            }
-            case 16:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1, 5, 10)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);
-                break;
-            }
-            case 32:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1, 8, 23)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
-                break;
-            }
-            case 64:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1,11, 53)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
-                break;
-            }
-            default:
-                break;
-            }
-        }
-    }
-}
 
 
 
@@ -3859,7 +3881,7 @@ static inline void lib_VSE8V (Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
 
 
-        // printf("STORE8 \n");
+        printf("STORE8 \n");
         // printf("data0  = %d\n",data[0 ]);
         // printf("data1  = %d\n",data[1 ]);
         // printf("data2  = %d\n",data[2 ]);
@@ -3904,11 +3926,11 @@ static inline void lib_VSE16V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
         // printf("i = %d\t,vd = %d\n",i,vs3);
 
-        // printf("STORE16 \n");
-        // printf("data0  = %d\n",data[0]);
-        // printf("data1  = %d\n",data[1]);
-        // printf("data2  = %d\n",data[2]);
-        // printf("data3  = %d\n",data[3]);
+        printf("STORE16 \n");
+        printf("data0  = %d\n",data[0]);
+        printf("data1  = %d\n",data[1]);
+        printf("data2  = %d\n",data[2]);
+        printf("data3  = %d\n",data[3]);
 
         // printf("addr  = %lu\n",start_add);
 
@@ -3949,7 +3971,7 @@ static inline void lib_VSE32V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
 
 
-        // printf("STORE32 \n");
+        printf("STORE32 \n");
         // printf("data0  = %d\n",data[0]);
         // printf("data1  = %d\n",data[1]);
         // printf("data2  = %d\n",data[2]);
@@ -4016,7 +4038,7 @@ static inline void lib_VSE64V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[3]  = iss->spatz.vregfile.vregs[vs3][i+3];
 
 
-        // printf("STORE64 \n");
+        printf("STORE64 \n");
         // printf("data0  = %d\n",data[0]);
         // printf("data1  = %d\n",data[1]);
         // printf("data2  = %d\n",data[2]);

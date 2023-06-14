@@ -8,6 +8,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "flexfloat.h"
+#include "int.h"
 #include <stdint.h>
 #include <math.h>
 #include <fenv.h>
@@ -32,6 +33,7 @@
     printf("ffa val = %f\n",ff_a.value);  \
     printf("ffb val = %f\n",ff_b.value);  \
     name(&ff_res, &ff_a, &ff_b);       \
+    printf("ffres val = %f\n",ff_res.value);  \
     update_fflags_fenv(s);             \
     res = flexfloat_get_bits(&ff_res);
 
@@ -41,6 +43,22 @@
 #define LMUL iss->spatz.LMUL_t
 #define VL iss->csr.vl.value
 #define VSTART iss->csr.vstart.value
+
+
+// static inline unsigned long int lib_flexfloat_add_round(Iss *s, unsigned long int a, unsigned long int b, uint8_t e, uint8_t m, unsigned long int round)
+// {
+//     int old = setFFRoundingMode(s, round);
+//     unsigned long int result = lib_flexfloat_add(s, a, b, e, m);
+//     restoreFFRoundingMode(old);
+//     return result;
+// }
+// static inline unsigned long int lib_flexfloat_add(Iss *s, unsigned long int a, unsigned long int b, uint8_t e, uint8_t m)
+// {
+//     FF_EXEC_2(s, ff_add, a, b, e, m)
+// }
+
+
+
 
 
 static inline void printBin(int size, bool *a,const char name[]){
@@ -3420,10 +3438,12 @@ static inline void lib_REMUVX   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
         }
     }
 }
+
 static inline void lib_FADDVV(Iss *iss, int vs1      , int vs2, int vd, bool vm){
     bool bin[8];
     unsigned long int res;
     unsigned long int data1, data2;
+    unsigned long int shift;
     uint8_t e;
     uint8_t m;
     bool resBin[64];
@@ -3435,12 +3455,6 @@ static inline void lib_FADDVV(Iss *iss, int vs1      , int vs2, int vd, bool vm)
         
         myAbsU(iss, vs1, i, &data1);
         myAbsU(iss, vs2, i, &data2);
-
-        printf("data1f = %f\t",double(data1));
-        printf("data1h = %lx\n",data1);
-        printf("data2f = %f\t",double(data2));
-        printf("data2h = %lx\n",data2);        
-
         switch (SEW){
         case 8:{
             printf("8 bit is not supported for FLOAT\n");
@@ -3459,62 +3473,69 @@ static inline void lib_FADDVV(Iss *iss, int vs1      , int vs2, int vd, bool vm)
         }
         case 64:{
             e = 11;
-            m = 53;
+            m = 52;
             break;
         }                
         default:
             break;
         }
+        int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
         FLOAT_EXEC_2(iss, ff_add, data1, data2, e, m, res);
-        printf("resf = %f\t",double(res));
-        printf("resh = %lx\n",res);
-        intToBin(SEW, res, resBin);
-        if((res >> SEW) && 0x01){
-            twosComplement(SEW, resBin);
-        }        
-        printHex(SEW,resBin,"resBin");
+        restoreFFRoundingMode(old);
+        intToBinU(SEW, res, resBin);
+
         if(!mask(vm,bin)){
-            printf("not mask\n");
             writeToVReg(iss, SEW, vd, i, resBin);
         }
     }
 }
 
-static inline void lib_FADDVF(Iss *iss, iss_reg_t rs1, int vs1, int vd, bool vm){
+static inline void lib_FADDVF    (Iss *iss, int vs2, uint64_t rs1, int vd, bool vm){
+    bool bin[8];
+    unsigned long int res;
+    unsigned long int data1, data2;
+    unsigned long int shift;
+    uint8_t e;
+    uint8_t m;
+    bool resBin[64];
+    data1 = rs1;
     for (int i = VSTART; i < VL*LMUL; i++){
-        if(vm || !(iss->spatz.vregfile.vregs[0][i]%2)){
-            switch (SEW){
-            case 8:{
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        myAbsU(iss, vs2, i, &data2);
+        switch (SEW){
+        case 8:{
+            printf("8 bit is not supported for FLOAT\n");
+            return;
+            break;
+        }
+        case 16:{
+            e = 5;
+            m = 10;
+            break;
+        }
+        case 32:{
+            e = 8;
+            m = 23;
+            break;
+        }
+        case 64:{
+            e = 11;
+            m = 52;
+            break;
+        }                
+        default:
+            break;
+        }
+        int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
+        FLOAT_EXEC_2(iss, ff_add, data1, data2, e, m, res);
+        restoreFFRoundingMode(old);
+        intToBinU(SEW, res, resBin);
 
-                break;
-            }
-            case 16:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1, 5, 10)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);
-                break;
-            }
-            case 32:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1, 8, 23)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
-                break;
-            }
-            case 64:{
-                FF_INIT_2(iss->spatz.vregfile.vregs[vs1][i], rs1,11, 53)
-                feclearexcept(FE_ALL_EXCEPT);
-                ff_add(&ff_res, &ff_a, &ff_b);
-                //update_fflags_fenv(s);
-                iss->spatz.vregfile.vregs[vd][i] = flexfloat_get_bits(&ff_res);               
-                break;
-            }
-            default:
-                break;
-            }
+        if(!mask(vm,bin)){
+            writeToVReg(iss, SEW, vd, i, resBin);
         }
     }
 }

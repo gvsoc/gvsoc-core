@@ -23,7 +23,6 @@
 #include <string.h>
 
 static void insn_block_init(Iss *iss, iss_insn_block_t *b, iss_addr_t pc);
-void insn_init(iss_insn_t *insn, iss_addr_t addr);
 
 static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
 {
@@ -39,6 +38,13 @@ static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
     cache->pages.clear();
 
     iss_cache_vflush(iss);
+
+    for (auto insn_table: iss->decode.insn_tables)
+    {
+        delete[] insn_table;
+    }
+
+    iss->decode.insn_tables.clear();
 }
 
 int insn_cache_init(Iss *iss)
@@ -62,6 +68,7 @@ void insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->addr = addr;
     insn->hwloop_handler = NULL;
     insn->fetched = false;
+    insn->expand_table = NULL;
 }
 
 

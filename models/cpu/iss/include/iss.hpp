@@ -37,6 +37,7 @@
 #include "rv32i.hpp"
 // #include "rv32v.hpp"
 #include "rv32c.hpp"
+#include "zcmp.hpp"
 #include "rv32a.hpp"
 #include "rv64c.hpp"
 #include "rv32m.hpp"

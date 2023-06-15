@@ -306,6 +306,7 @@ int Irq::check()
 
                 this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);
 
+                this->iss.exec.insn_table_interrupted = true;
                 this->iss.csr.mepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.mpie = this->irq_enable.get();
                 this->iss.csr.mstatus.mie = 0;

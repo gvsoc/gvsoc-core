@@ -53,4 +53,6 @@ inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr)
 
 void iss_cache_vflush(Iss *iss);
 
+void insn_init(iss_insn_t *insn, iss_addr_t addr);
+
 #endif

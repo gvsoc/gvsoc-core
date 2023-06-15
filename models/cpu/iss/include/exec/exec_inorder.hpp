@@ -129,6 +129,9 @@ public:
     bool has_exception;
     iss_reg_t exception_pc;
 
+    int insn_table_index;
+    int insn_table_interrupted;
+
 
 private:
     static void flush_cache_ack_sync(void *_this, bool active);

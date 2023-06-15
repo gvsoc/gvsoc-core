@@ -46,7 +46,6 @@ void Decode::reset(bool active)
     if (active)
     {
         iss_cache_flush(&this->iss);
-
     }
 }
 
@@ -523,7 +522,6 @@ void Decode::parse_isa()
 
             while (token)
             {
-
                 iss_decode_activate_isa(iss, token);
 
                 if (strcmp(token, "pulpv2") == 0)

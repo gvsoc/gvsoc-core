@@ -664,6 +664,10 @@ class R5(Instr):
             self.args = [   OutReg(0, Const(1)),
                             SignedImm(0, Ranges([[3, 3, 1], [11, 1, 4], [2, 1, 5], [7, 1, 6], [6, 1, 7], [9, 2, 8], [8, 1, 10], [12, 1, 11]])),
                         ]
+        elif format == 'CMPUSH':
+            self.args = [   UnsignedImm(0, Range(4, 4)),
+                            UnsignedImm(1, Range(2, 2)),
+                            ]
         else:
             raise Exception('Undefined format: %s' % format)
 
@@ -1447,6 +1451,19 @@ priv_smmu = IsaSubset('priv_smmu', [
 
     R5('sfence.vma',       'INRR',   '0001001 ----- ----- 000 00000 1110011'),
 
+])
+
+
+#
+# Zcmp
+#
+zcmp = IsaSubset('zcmp', [
+
+    # Compressed ISA
+    R5('cm.push'    , 'CMPUSH','101 110 00- -- --- 10'),
+    R5('cm.pop'     , 'CMPUSH','101 110 10- -- --- 10'),
+    R5('cm.popretz' , 'CMPUSH','101 111 00- -- --- 10'),
+    R5('cm.popret'  , 'CMPUSH','101 111 10- -- --- 10'),
 ])
 
 

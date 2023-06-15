@@ -418,6 +418,8 @@ typedef struct iss_insn_s
     int latency;
     std::vector<iss_reg_t>  breakpoints;
 
+    iss_insn_t *expand_table;
+
 } iss_insn_t;
 
 typedef struct iss_insn_block_s

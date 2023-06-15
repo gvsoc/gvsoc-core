@@ -91,6 +91,7 @@ void Exec::reset(bool active)
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->instr_event->disable();
+        this->insn_table_index = 0;
     }
     else
     {

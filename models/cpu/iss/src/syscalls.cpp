@@ -309,6 +309,24 @@ void Syscalls::handle_riscv_ebreak()
         break;
     }
 
+    case 0x3:
+    {
+        iss_reg_t args[1];
+        if (this->user_access(this->iss.regfile.regs[11], (uint8_t *)args, sizeof(args), false))
+        {
+            this->iss.regfile.regs[10] = -1;
+            return;
+        }
+        putchar(args[0]);
+        break;
+    }
+
+    case 0x7:
+    {
+        this->iss.regfile.regs[10] = getchar();
+        break;
+    }
+
     case 0xA:
     {
         iss_reg_t args[2];

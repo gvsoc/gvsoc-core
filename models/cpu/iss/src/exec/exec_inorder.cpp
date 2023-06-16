@@ -92,6 +92,7 @@ void Exec::reset(bool active)
 
         this->instr_event->disable();
         this->insn_table_index = 0;
+        this->irq_locked = false;
     }
     else
     {

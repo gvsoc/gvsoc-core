@@ -104,18 +104,10 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
         iss->decode.insn_tables.push_back(table);
     }
 
-    if (iss->exec.insn_table_index == 0)
+    // Lock the IRQs if we enter the atomic section
+    if (iss->exec.insn_table_index == nb_regs)
     {
-        // If we are starting the macro instruction, just init this field to know when we have been interrupted
-        iss->exec.insn_table_interrupted = false;
-    }
-    else
-    {
-        // Otherwise, restart from 0, if we have been interrupted before the stack pointer was updated
-        if (iss->exec.insn_table_interrupted && iss->exec.insn_table_index <= nb_regs)
-        {
-            iss->exec.insn_table_index = 0;
-        }
+        iss->exec.irq_locked = true;
     }
 
     // Now execute the current micro-instruction
@@ -125,6 +117,8 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
     // We return same pc until the macro-instruction is over
     if (iss->exec.insn_table_index == nb_insns)
     {
+        iss->exec.irq_locked = false;
+
         // Once it is over, we return either the instruction next to the macro one, or
         // the one reported by the ret micro-instruction in case we execute a popret or popretz
         iss->exec.insn_table_index = 0;

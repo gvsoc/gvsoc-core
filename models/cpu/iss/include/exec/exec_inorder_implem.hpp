@@ -24,6 +24,13 @@
 #include <types.hpp>
 #include ISS_CORE_INC(class.hpp)
 
+
+inline void Exec::interrupt_taken()
+{
+    this->iss.exec.insn_table_index = 0;
+}
+
+
 static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.stall_load_dependency_account(insn->latency);

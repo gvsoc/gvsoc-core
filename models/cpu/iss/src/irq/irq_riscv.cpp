@@ -253,7 +253,7 @@ int Irq::check()
     {
         iss_reg_t pending_interrupts = this->iss.csr.mie.value & this->iss.csr.mip.value;
 
-        if (pending_interrupts)
+        if (pending_interrupts && !this->iss.exec.irq_locked)
         {
             int next_mode = PRIV_M;
 
@@ -306,7 +306,7 @@ int Irq::check()
 
                 this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);
 
-                this->iss.exec.insn_table_interrupted = true;
+                this->iss.exec.interrupt_taken();
                 this->iss.csr.mepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.mpie = this->irq_enable.get();
                 this->iss.csr.mstatus.mie = 0;

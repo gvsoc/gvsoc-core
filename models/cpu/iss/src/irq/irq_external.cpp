@@ -180,11 +180,11 @@ int Irq::check()
     {
         int req_irq = this->req_irq;
 
-        if (req_irq != -1 && this->irq_enable.get())
+        if (req_irq != -1 && this->irq_enable.get() && !this->iss.exec.irq_locked)
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
-            this->iss.exec.insn_table_interrupted = true;
+            this->iss.exec.interrupt_taken();
             this->iss.csr.mepc.value = this->iss.exec.current_insn;
             this->iss.csr.mstatus.mpie = this->irq_enable.get();
             this->iss.csr.mstatus.mie = 0;

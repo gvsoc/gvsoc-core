@@ -80,6 +80,8 @@ public:
     inline void insn_exec_profiling();
     inline void insn_exec_power(iss_insn_t *insn);
 
+    inline void interrupt_taken();
+
     iss_reg_t current_insn;
     size_t loop_count;
     vp::reg_64 stalled;
@@ -130,7 +132,8 @@ public:
     iss_reg_t exception_pc;
 
     int insn_table_index;
-    int insn_table_interrupted;
+
+    bool irq_locked;
 
 
 private:

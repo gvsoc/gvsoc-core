@@ -97,7 +97,7 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
 
         for (int i=0; i<nb_insns; i++)
         {
-            iss->decode.decode_pc(&table[i], 0);
+            iss->decode.decode_pc(&table[i], insn->addr);
         }
 
         // Instruction table must be pushed to decoder so that it is freed when cache is flushed

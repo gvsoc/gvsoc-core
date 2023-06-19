@@ -41,6 +41,8 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
         // if there was a cache flush.
         // In both cases, we need to fill an array of instruction opcodes and decode it.
         table = new iss_insn_t[nb_insns];
+        insn->expand_table = table;
+
         for (int i=0; i<nb_insns; i++)
         {
             insn_init(&table[i], 0);

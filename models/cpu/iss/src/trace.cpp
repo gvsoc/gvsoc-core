@@ -515,14 +515,17 @@ static void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved
 
 void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    char buffer[1024];
+    if (!insn->is_macro_op || iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG)
+    {
+        char buffer[1024];
 
-    iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
+        iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
 
-    iss_trace_dump_insn(iss, insn, pc, buffer, 1024, iss->trace.saved_args,
-        iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, iss->trace.priv_mode, 0);
+        iss_trace_dump_insn(iss, insn, pc, buffer, 1024, iss->trace.saved_args,
+            iss->top.traces.get_trace_manager()->get_format() == TRACE_FORMAT_LONG, iss->trace.priv_mode, 0);
 
-    iss->trace.insn_trace.msg(buffer);
+        iss->trace.insn_trace.msg(buffer);
+    }
 }
 
 void iss_event_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)

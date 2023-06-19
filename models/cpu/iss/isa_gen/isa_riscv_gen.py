@@ -28,7 +28,8 @@ import importlib
 
 
 class R5(Instr):
-    def __init__(self, label, format, encoding, decode=None, N=None, L=None, mapTo=None, group=None, fast_handler=False, tags=[], isa_tags=[]):
+    def __init__(self, label, format, encoding, decode=None, N=None, L=None, mapTo=None, group=None, fast_handler=False,
+        tags=[], isa_tags=[], is_macro_op=False):
 
         # Encodings for non-compressed instruction sets
               #   3 3 2 2 2 2 2       2 2 2 2 2       1 1 1 1 1       1 1 1       1 1
@@ -671,7 +672,8 @@ class R5(Instr):
         else:
             raise Exception('Undefined format: %s' % format)
 
-        super(R5, self).__init__(label, type, encoding, decode, N, L, mapTo, group=group, fast_handler=fast_handler, tags=tags, isa_tags=isa_tags)
+        super(R5, self).__init__(label, type, encoding, decode, N, L, mapTo, group=group, fast_handler=fast_handler,
+            tags=tags, isa_tags=isa_tags, is_macro_op=is_macro_op)
 
 
 
@@ -1460,10 +1462,10 @@ priv_smmu = IsaSubset('priv_smmu', [
 zcmp = IsaSubset('zcmp', [
 
     # Compressed ISA
-    R5('cm.push'    , 'CMPUSH','101 110 00- -- --- 10'),
-    R5('cm.pop'     , 'CMPUSH','101 110 10- -- --- 10'),
-    R5('cm.popretz' , 'CMPUSH','101 111 00- -- --- 10'),
-    R5('cm.popret'  , 'CMPUSH','101 111 10- -- --- 10'),
+    R5('cm.push'    , 'CMPUSH','101 110 00- -- --- 10', is_macro_op=True),
+    R5('cm.pop'     , 'CMPUSH','101 110 10- -- --- 10', is_macro_op=True),
+    R5('cm.popretz' , 'CMPUSH','101 111 00- -- --- 10', is_macro_op=True),
+    R5('cm.popret'  , 'CMPUSH','101 111 10- -- --- 10', is_macro_op=True),
 ])
 
 

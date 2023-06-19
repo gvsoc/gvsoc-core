@@ -334,6 +334,7 @@ typedef struct iss_decoder_item_s
             int resource_latency;   // Time required to get the result when accessing the resource
             int resource_bandwidth; // Time required to accept the next access when accessing the resource
             int power_group;
+            int is_macro_op;
         } insn;
 
         struct
@@ -419,6 +420,7 @@ typedef struct iss_insn_s
     std::vector<iss_reg_t>  breakpoints;
 
     iss_insn_t *expand_table;
+    bool is_macro_op;
 
 } iss_insn_t;
 

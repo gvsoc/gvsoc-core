@@ -259,6 +259,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->handler = iss_resource_offload;
     }
 
+    insn->is_macro_op = item->u.insn.is_macro_op;
+
     if (item->u.insn.decode != NULL)
     {
         item->u.insn.decode(&this->iss, insn, pc);

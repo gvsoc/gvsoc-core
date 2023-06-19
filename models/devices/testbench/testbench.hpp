@@ -61,6 +61,7 @@ class Uart;
 #define PI_TESTBENCH_CMD_SPIM_VERIF_SPI_WAKEUP 11
 #define PI_TESTBENCH_CMD_I2S_VERIF_START 12
 #define PI_TESTBENCH_CMD_I2S_VERIF_SLOT_STOP 13
+#define PI_TESTBENCH_CMD_GPIO_GET_FREQUENCY 14
 
 #define PI_TESTBENCH_MAX_REQ_SIZE 256
 
@@ -76,6 +77,18 @@ typedef struct {
     uint8_t output;
     uint8_t enabled;
 } pi_testbench_req_gpio_checker_t;
+
+
+typedef struct {
+    uint32_t nb_period;
+    uint8_t gpio;
+} pi_testbench_req_gpio_get_frequency_t;
+
+
+typedef struct {
+    int64_t period;
+    int64_t width;
+} pi_testbench_req_gpio_get_frequency_reply_t;
 
 
 typedef struct {
@@ -166,6 +179,7 @@ typedef struct {
 typedef struct {
     union {
         pi_testbench_req_gpio_checker_t gpio;
+        pi_testbench_req_gpio_get_frequency_t gpio_get_frequency;
         pi_testbench_req_gpio_pulse_gen_t gpio_pulse_gen;
         pi_testbench_req_uart_checker_t uart;
         pi_testbench_req_set_status_t set_status;
@@ -322,6 +336,12 @@ public:
     int64_t pulse_period_ps;
     bool pulse_enabled = false;
     bool pulse_gen_rising_edge = false;
+    bool get_frequency;
+    int64_t get_frequency_current_period;
+    int64_t get_frequency_nb_period;
+    int64_t get_frequency_start;
+    int64_t get_frequency_width;
+    int64_t get_frequency_period;
 };
 
 
@@ -615,6 +635,7 @@ private:
 
 
     void handle_gpio_loopback();
+    void handle_gpio_get_frequency();
     void handle_gpio_pulse_gen();
     void handle_uart_checker();
     void handle_set_status();

@@ -706,6 +706,7 @@ void Testbench::handle_received_byte(uint8_t byte)
 
         switch (this->cmd & 0xffff) {
             case PI_TESTBENCH_CMD_GPIO_LOOPBACK:
+            case PI_TESTBENCH_CMD_GPIO_GET_FREQUENCY:
             case PI_TESTBENCH_CMD_UART_CHECKER:
             case PI_TESTBENCH_CMD_SET_STATUS:
             case PI_TESTBENCH_CMD_GPIO_PULSE_GEN:
@@ -752,6 +753,10 @@ void Testbench::handle_received_byte(uint8_t byte)
             switch (this->cmd & 0xffff) {
                 case PI_TESTBENCH_CMD_GPIO_LOOPBACK:
                     this->handle_gpio_loopback();
+                    break;
+
+                case PI_TESTBENCH_CMD_GPIO_GET_FREQUENCY:
+                    this->handle_gpio_get_frequency();
                     break;
 
                 case PI_TESTBENCH_CMD_UART_CHECKER:
@@ -853,7 +858,45 @@ void Testbench::gpio_sync(void *__this, int value, int id)
     Testbench *_this = (Testbench *)__this;
     Gpio *gpio = _this->gpios[id];
 
-    _this->trace.msg(vp::trace::LEVEL_DEBUG, "Received GPIO sync (id: %d)\n", id);
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received GPIO sync (id: %d, value: %d)\n", id, value);
+
+    if (gpio->get_frequency && gpio->value != value)
+    {
+        if (value == 1)
+        {
+            if (gpio->get_frequency_current_period)
+            {
+                gpio->get_frequency_period += _this->get_time() - gpio->get_frequency_start;
+            }
+
+            gpio->get_frequency_start = _this->get_time();
+            gpio->get_frequency_current_period++;
+
+            if (gpio->get_frequency_current_period == gpio->get_frequency_nb_period + 1)
+            {
+                pi_testbench_req_gpio_get_frequency_reply_t *reply = new pi_testbench_req_gpio_get_frequency_reply_t;
+                reply->period = gpio->get_frequency_period / gpio->get_frequency_nb_period;
+                reply->width = gpio->get_frequency_width / gpio->get_frequency_nb_period;
+
+                _this->trace.msg(vp::trace::LEVEL_INFO, "Finished sampling frequency (gpio: %d, period: %ld, width: %ld)\n", id, reply->period, reply->width);
+
+                _this->tx_buff = (uint8_t *)reply;
+                _this->tx_buff_size = sizeof(pi_testbench_req_gpio_get_frequency_reply_t);
+                _this->tx_buff_index = 0;
+
+                _this->uart_ctrl->send_byte(_this->tx_buff[0]);
+
+                gpio->get_frequency = false;
+            }
+        }
+        else
+        {
+            if (gpio->get_frequency_start != -1)
+            {
+                gpio->get_frequency_width += _this->get_time() - gpio->get_frequency_start;
+            }
+        }
+    }
 
     gpio->value = value;
 
@@ -1027,6 +1070,27 @@ void Testbench::handle_gpio_loopback()
     else
     {
         this->gpios[req->gpio.output]->loopback = -1;
+    }
+}
+
+
+void Testbench::handle_gpio_get_frequency()
+{
+    pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
+
+    this->trace.msg(vp::trace::LEVEL_INFO, "Handling GPIO get frequency (gpio: %d, nb_period: %d)\n", req->gpio_get_frequency.gpio, req->gpio_get_frequency.nb_period);
+
+    Gpio *gpio = this->gpios[req->gpio_get_frequency.gpio];
+
+    gpio->get_frequency = req->gpio_get_frequency.nb_period != 0;
+
+    if (gpio->get_frequency)
+    {
+        gpio->get_frequency_current_period = 0;
+        gpio->get_frequency_nb_period = req->gpio_get_frequency.nb_period;
+        gpio->get_frequency_period = 0;
+        gpio->get_frequency_width = 0;
+        gpio->get_frequency_start = -1;
     }
 }
 

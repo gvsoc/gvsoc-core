@@ -25,6 +25,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <termios.h>            //termios, TCSANOW, ECHO, ICANON
+
 
 
 
@@ -62,11 +64,33 @@ int main(int argc, char *argv[])
         printf("Opened proxy on socket %d\n", conf.proxy_socket);
     }
 
+    // // Modify terminal to disable line buffering. Otherwise getchar in syscall.cpp will not work.
+    static struct termios oldt, newt;
+
+    /*tcgetattr gets the parameters of the current terminal
+      STDIN_FILENO will tell tcgetattr that it should write the settings
+      of stdin to oldt*/
+    tcgetattr( STDIN_FILENO, &oldt);
+    /*now the settings will be copied*/
+    newt = oldt;
+
+    /*ICANON normally takes care that one line at a time will be processed
+      that means it will return if it sees a "\n" or an EOF or an EOL*/
+    newt.c_lflag &= ~(ICANON | ECHO);          
+
+    /*Those new settings will be set to STDIN
+      TCSANOW tells tcsetattr to change attributes immediately. */
+    tcsetattr( STDIN_FILENO, TCSANOW, &newt);
+    
     gvsoc->run();
     int retval = gvsoc->join();
 
     gvsoc->stop();
     gvsoc->close();
 
+    /*restore the old settings*/
+    tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
+
+    // endwin();
     return retval;
 }

@@ -213,7 +213,6 @@ Testbench::Testbench(js::config *config)
 {
     this->state = STATE_WAITING_CMD;
     this->current_req_size = 0;
-
 }
 
 
@@ -1701,6 +1700,7 @@ void Gpio::pulse_handler(void *__this, vp::clock_event *event)
 Gpio::Gpio(Testbench *top) : top(top)
 {
     this->pulse_event = top->event_new(this, Gpio::pulse_handler);
+    this->get_frequency = false;
 }
 
 

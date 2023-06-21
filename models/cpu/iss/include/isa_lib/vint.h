@@ -4667,6 +4667,81 @@ static inline void lib_FWADDVF   (Iss *iss, int vs2, int64_t rs1, int vd, bool v
     }
 }
 
+static inline void lib_FWADDWV   (Iss *iss, int vs1,     int vs2, int vd, bool vm){
+    bool bin[8];
+    unsigned long int res, data1, data2;
+    uint8_t e, m;
+    uint8_t e2, m2;
+    bool resBin[64];
+
+    for (int i = VSTART; i < VL*LMUL; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        myAbsU(iss, SEW, vs1, i, &data1);
+        myAbsU(iss, SEW*2, vs2, i, &data2);
+        EMCase(SEW, &m, &e);
+        EMCase(SEW*2, &m2, &e2);
+
+        if(!mask(vm,bin)){
+            int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
+            flexfloat_t ff_a, ff_b, ff_res;
+            flexfloat_desc_t env = (flexfloat_desc_t){e, m};
+            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
+            ff_init(&ff_a, env);
+            ff_init(&ff_b, env2);
+            ff_init(&ff_res, env2);
+            flexfloat_set_bits(&ff_a, data1);
+            flexfloat_set_bits(&ff_b, data2);
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_add(&ff_res, &ff_a, &ff_b);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+            restoreFFRoundingMode(old);
+            intToBinU(SEW*2, res, resBin);
+            writeToVReg(iss, SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_FWADDWF   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    bool bin[8];
+    unsigned long int res, data1, data2;
+    uint8_t e, m;
+    uint8_t e2, m2;
+    bool resBin[64];
+    data1 = rs1;
+    for (int i = VSTART; i < VL*LMUL; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        myAbsU(iss, SEW*2, vs2, i, &data2);
+        EMCase(SEW, &m, &e);
+        EMCase(SEW*2, &m2, &e2);
+
+        if(!mask(vm,bin)){
+            int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
+            flexfloat_t ff_a, ff_b, ff_res;
+            flexfloat_desc_t env = (flexfloat_desc_t){e, m};
+            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
+            ff_init(&ff_a, env);
+            ff_init(&ff_b, env2);
+            ff_init(&ff_res, env2);
+            flexfloat_set_bits(&ff_a, data1);
+            flexfloat_set_bits(&ff_b, data2);
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_add(&ff_res, &ff_a, &ff_b);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+            restoreFFRoundingMode(old);
+            intToBinU(SEW*2, res, resBin);
+            writeToVReg(iss, SEW*2, vd, i, resBin);
+        }
+    }
+}
+
 static inline void lib_FWSUBVV   (Iss *iss, int vs1,     int vs2, int vd, bool vm){
     bool bin[8];
     unsigned long int res, data1, data2;
@@ -4741,6 +4816,82 @@ static inline void lib_FWSUBVF   (Iss *iss, int vs2, int64_t rs1, int vd, bool v
         }
     }
 }
+
+static inline void lib_FWSUBWV   (Iss *iss, int vs1,     int vs2, int vd, bool vm){
+    bool bin[8];
+    unsigned long int res, data1, data2;
+    uint8_t e, m;
+    uint8_t e2, m2;
+    bool resBin[64];
+
+    for (int i = VSTART; i < VL*LMUL; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        myAbsU(iss, SEW, vs1, i, &data1);
+        myAbsU(iss, SEW*2, vs2, i, &data2);
+        EMCase(SEW, &m, &e);
+        EMCase(SEW*2, &m2, &e2);
+
+        if(!mask(vm,bin)){
+            int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
+            flexfloat_t ff_a, ff_b, ff_res;
+            flexfloat_desc_t env = (flexfloat_desc_t){e, m};
+            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
+            ff_init(&ff_a, env);
+            ff_init(&ff_b, env2);
+            ff_init(&ff_res, env2);
+            flexfloat_set_bits(&ff_a, data2);
+            flexfloat_set_bits(&ff_b, data1);
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_sub(&ff_res, &ff_a, &ff_b);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+            restoreFFRoundingMode(old);
+            intToBinU(SEW*2, res, resBin);
+            writeToVReg(iss, SEW*2, vd, i, resBin);
+        }
+    }
+}
+
+static inline void lib_FWSUBWF   (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    bool bin[8];
+    unsigned long int res, data1, data2;
+    uint8_t e, m;
+    uint8_t e2, m2;
+    bool resBin[64];
+    data1 = rs1;
+    for (int i = VSTART; i < VL*LMUL; i++){
+        if(!(i%8)){
+            intToBin(8,(int64_t) iss->spatz.vregfile.vregs[0][i/8],bin);
+        }
+        
+        myAbsU(iss, SEW*2, vs2, i, &data2);
+        EMCase(SEW, &m, &e);
+        EMCase(SEW*2, &m2, &e2);
+
+        if(!mask(vm,bin)){
+            int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
+            flexfloat_t ff_a, ff_b, ff_res;
+            flexfloat_desc_t env = (flexfloat_desc_t){e, m};
+            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
+            ff_init(&ff_a, env);
+            ff_init(&ff_b, env2);
+            ff_init(&ff_res, env2);
+            flexfloat_set_bits(&ff_a, data2);
+            flexfloat_set_bits(&ff_b, data1);
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_sub(&ff_res, &ff_a, &ff_b);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+            restoreFFRoundingMode(old);
+            intToBinU(SEW*2, res, resBin);
+            writeToVReg(iss, SEW*2, vd, i, resBin);
+        }
+    }
+}
+
 
 static inline void lib_FWMULVV   (Iss *iss, int vs1,     int vs2, int vd, bool vm){
     bool bin[8];

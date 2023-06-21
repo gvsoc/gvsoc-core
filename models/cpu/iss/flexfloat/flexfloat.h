@@ -271,6 +271,7 @@ typedef struct {
     uint64_t add;
     uint64_t sub;
     uint64_t mul;
+    uint64_t macc;
     uint64_t div;
     uint64_t minmax;
     uint64_t fma;

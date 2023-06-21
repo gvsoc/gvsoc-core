@@ -92,7 +92,6 @@ static inline iss_insn_t *csrrs_exec(Iss *iss, iss_insn_t *insn)
 {
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
-
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)

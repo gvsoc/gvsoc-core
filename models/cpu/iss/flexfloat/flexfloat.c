@@ -114,12 +114,9 @@ void flexfloat_set_bits(flexfloat_t *a, uint_t bits)
 
 uint_t flexfloat_get_bits(flexfloat_t *a)
 {
+    printf("flexfloat_get_bits inp = %.20f\n",a->value);
     int_fast16_t exp = flexfloat_exp(a);
     uint_t frac = flexfloat_frac(a);
-    printf("res exp = %lx\n",exp);
-    printf("res frac = %lx\n",frac);
-    printf("res val = %lx\n",a->value);
-    printf("res val = %f\n",a->value);
     if(exp == INF_EXP) exp = flexfloat_inf_exp(a->desc);
     else  if (exp<0 && frac == 0) {
             /* We have a subnormal here since we cannot represent exp (too small), set frac to 2^(frac_bits-exp+1) */
@@ -259,14 +256,34 @@ void flexfloat_sanitize(flexfloat_t *a)
 
     // This case does not require to be sanitized
     if(a->desc.exp_bits  == NUM_BITS_EXP  &&
-       a->desc.frac_bits == NUM_BITS_FRAC)
+       a->desc.frac_bits == NUM_BITS_FRAC){
+        // a->value = ceil(a->value*1.0e+16)/1.0e+16;
+        // double temp;
+        // printf("a before round = %.20f\n",a->value);
+        // temp = roundl(a->value*1.0e+16);
+        // printf("t after  round = %.20f\n",temp);        
+        // // a->value = temp/1.0e+16;
+        // // temp = temp/1.0e+16;
+        // temp = temp/1.0e+1;
+        // printf("a after  round = %.20f\n",temp);
         return;
+       }
 
     // Sign
     sign = flexfloat_sign(a);
 
     // Exponent
     exp = flexfloat_exp(a);
+
+
+    // if(a->desc.exp_bits  == NUM_BITS_EXP  &&
+    //    a->desc.frac_bits == NUM_BITS_FRAC){
+    //     int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
+    //     a->value +=  CAST_TO_FP(rounding_value);
+    //     return;
+    // }
+
+
 
 #ifdef FLEXFLOAT_ROUNDING
     // In these cases no rounding is needed
@@ -527,7 +544,9 @@ INLINE void ff_inverse(flexfloat_t *dest, const flexfloat_t *a) {
 INLINE void ff_add(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b) {
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
+
     dest->value = a->value + b->value;
+    printf("ADD\tA val = %.20f\tB val = %.20f\tres val = %.20f\n",a->value,b->value,dest->value);
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = a->exact_value + b->exact_value;
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);
@@ -556,6 +575,7 @@ INLINE void ff_mul(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
     dest->value = a->value * b->value;
+    printf("MUL\tA val = %.20f\tB val = %.20f\tres val = %.20f\n",a->value,b->value,dest->value);
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = a->exact_value * b->exact_value;
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);

@@ -29,6 +29,8 @@
 
 static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc, bool is_push, bool ret, bool retz)
 {
+    static int reg_list[] = {1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
+
     // The number of registers to be saved is given by rlist field (imm 0).
     // 4 for ra, 5 for ra,s0, 15 for ra, s0-s10 and 0 for s0-s11
     int nb_regs = (UIM_GET(0) - 3) & 0xf;
@@ -60,7 +62,7 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
             for (int i=0, offset=-4; i<nb_regs; i++, offset-=4)
             {
                 // Insert one sw per register
-                int reg_id = i == 0 ? 1 : i < 3 ? 8 + i - 1 : 18 + i - 3;
+                int reg_id = reg_list[nb_regs - 1 - i];
                 table[i].opcode = 0x23 | (0x2 << 12) | (reg_id << 20) | (2 << 15) | (getField(offset, 0, 5) << 7) | (getField(offset, 5, 7) << 25);
             }
 
@@ -76,7 +78,7 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
             for (int i=0, offset=imm-4; i<nb_regs; i++, offset-=4)
             {
                 // Insert one lw per register
-                int reg_id = i == 0 ? 1 : i < 3 ? 8 + i - 1 : 18 + i - 3;
+                int reg_id = reg_list[nb_regs - 1 - i];
                 table[index++].opcode = 0x03 | (0x2 << 12) | (reg_id << 7) | (2 << 15) | (getField(offset, 0, 12) << 20);
             }
 

@@ -257,11 +257,12 @@ void flexfloat_sanitize(flexfloat_t *a)
     // This case does not require to be sanitized
     if(a->desc.exp_bits  == NUM_BITS_EXP  &&
        a->desc.frac_bits == NUM_BITS_FRAC){
-        // a->value = ceil(a->value*1.0e+16)/1.0e+16;
+        // // a->value = ceil(a->value*1.0e+16)/1.0e+16;
         // double temp;
         // printf("a before round = %.20f\n",a->value);
         // temp = roundl(a->value*1.0e+16);
         // printf("t after  round = %.20f\n",temp);        
+        // printf("t after  round = %ld\n",((long int)temp)%10);        
         // // a->value = temp/1.0e+16;
         // // temp = temp/1.0e+16;
         // temp = temp/1.0e+1;
@@ -274,7 +275,6 @@ void flexfloat_sanitize(flexfloat_t *a)
 
     // Exponent
     exp = flexfloat_exp(a);
-
 
     // if(a->desc.exp_bits  == NUM_BITS_EXP  &&
     //    a->desc.frac_bits == NUM_BITS_FRAC){

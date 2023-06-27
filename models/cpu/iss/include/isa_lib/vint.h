@@ -122,7 +122,7 @@ static inline void printHex(int size, bool *a,const char name[]){
     printf("\n");
 }
 
-static inline int bin8ToChar(bool *bin,int s, int e){
+static inline int  bin8ToChar(bool *bin,int s, int e){
     int c = 0;
     for(int i = s; i < e;i++){
         c += bin[i]*pow(2,i-s);
@@ -130,7 +130,7 @@ static inline int bin8ToChar(bool *bin,int s, int e){
     return c;
 }
 
-static inline int sewCase(int sew){ //sew/8
+static inline int  sewCase(int sew){ //sew/8
     int iteration = 0;
     switch (sew){
     case(8 ) :iteration = 1 ;break;
@@ -4158,7 +4158,7 @@ static inline void lib_FMACCVV  (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_macc, data2, data1, data3, e, m, res);
+            FLOAT_EXEC_3(ff_fma, data2, data1, data3, e, m, res);
             restoreFFRoundingMode(old);
 
             intToBinU(SEW, res, resBin);
@@ -4223,7 +4223,7 @@ static inline void lib_FMACCVF  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_macc, data1, data2, data3, e, m, res);
+            FLOAT_EXEC_3(ff_fma, data1, data2, data3, e, m, res);
             // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
             // printf("res = %lx\n",res);        
             restoreFFRoundingMode(old);
@@ -4253,7 +4253,15 @@ static inline void lib_FNMACCVV (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmacc, data2, data1, data3, e, m, res);
+
+            FLOAT_INIT_3(data2, data1, data3, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4278,9 +4286,15 @@ static inline void lib_FNMACCVF (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmacc, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+
+            FLOAT_INIT_3(data1, data2, data3, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+      
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4308,7 +4322,13 @@ static inline void lib_FMSACVV  (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_msac, data2, data1, data3, e, m, res);
+            // FLOAT_EXEC_3(ff_msac, data2, data1, data3, e, m, res);
+            FLOAT_INIT_3(data2, data1, data3, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);            
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4333,9 +4353,13 @@ static inline void lib_FMSACVF  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_msac, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+            // FLOAT_EXEC_3(ff_msac, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data2, data3, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4363,7 +4387,13 @@ static inline void lib_FNMSACVV (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmsac, data2, data1, data3, e, m, res);
+            // FLOAT_EXEC_3(ff_nmsac, data2, data1, data3, e, m, res);
+            FLOAT_INIT_3(data1, data2, data3, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);            
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4388,9 +4418,13 @@ static inline void lib_FNMSACVF (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmsac, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+            // FLOAT_EXEC_3(ff_nmsac, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data2, data3, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4418,7 +4452,12 @@ static inline void lib_FMADDVV  (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_madd, data1, data2, data3, e, m, res);
+            // FLOAT_EXEC_3(ff_madd, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);            
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4443,9 +4482,12 @@ static inline void lib_FMADDVF  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_madd, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+            // FLOAT_EXEC_3(ff_madd, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4473,7 +4515,14 @@ static inline void lib_FNMADDVV (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmadd, data1, data2, data3, e, m, res);
+            // FLOAT_EXEC_3(ff_nmadd, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);            
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4498,9 +4547,14 @@ static inline void lib_FNMADDVF (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmadd, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+            // FLOAT_EXEC_3(ff_nmadd, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);        
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4528,7 +4582,13 @@ static inline void lib_FMSUBVV  (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_msub, data1, data2, data3, e, m, res);
+            // FLOAT_EXEC_3(ff_msub, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);            
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4553,9 +4613,13 @@ static inline void lib_FMSUBVF  (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_msub, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+            // FLOAT_EXEC_3(ff_msub, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_c.value = -ff_c.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4583,7 +4647,13 @@ static inline void lib_FNMSUBVV (Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
 
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmsub, data1, data2, data3, e, m, res);
+            // FLOAT_EXEC_3(ff_nmsub, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);            
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4608,9 +4678,13 @@ static inline void lib_FNMSUBVF (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
 
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-            FLOAT_EXEC_3(ff_nmsub, data1, data2, data3, e, m, res);
-            // printf("data1 = %lx\tdata2 = %lx\tdata3 = %lx\n",data1,data2,data3);
-            // printf("res = %lx\n",res);        
+            // FLOAT_EXEC_3(ff_nmsub, data1, data2, data3, e, m, res);
+            FLOAT_INIT_3(data1, data3, data2, e, m)
+            feclearexcept(FE_ALL_EXCEPT);
+            ff_a.value = -ff_a.value;
+            ff_fma(&ff_res, &ff_a, &ff_b, &ff_c);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
             restoreFFRoundingMode(old);
             intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
@@ -4671,7 +4745,7 @@ static inline void lib_FWADDVF   (Iss *iss, int vs2, int64_t rs1, int vd, bool v
         myAbsU(iss, SEW, vs2, i, &data2);
         EMCase(SEW, &m, &e);
         EMCase(SEW*2, &m2, &e2);
-
+        printf("data1 = %lx\n",data1);
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
             flexfloat_t ff_a, ff_b, ff_res;
@@ -4746,7 +4820,7 @@ static inline void lib_FWADDWF   (Iss *iss, int vs2, int64_t rs1, int vd, bool v
         myAbsU(iss, SEW*2, vs2, i, &data2);
         EMCase(SEW, &m, &e);
         EMCase(SEW*2, &m2, &e2);
-
+        printf("data1 = %lx\tdata2 = %lx\n",data1,data2);
         if(!mask(vm,bin)){
             int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
             flexfloat_t ff_a, ff_b, ff_res;

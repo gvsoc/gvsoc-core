@@ -114,7 +114,6 @@ void flexfloat_set_bits(flexfloat_t *a, uint_t bits)
 
 uint_t flexfloat_get_bits(flexfloat_t *a)
 {
-    printf("flexfloat_get_bits inp = %.20f\n",a->value);
     int_fast16_t exp = flexfloat_exp(a);
     uint_t frac = flexfloat_frac(a);
     if(exp == INF_EXP) exp = flexfloat_inf_exp(a->desc);
@@ -546,7 +545,6 @@ INLINE void ff_add(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
 
     dest->value = a->value + b->value;
-    printf("ADD\tA val = %.20f\tB val = %.20f\tres val = %.20f\n",a->value,b->value,dest->value);
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = a->exact_value + b->exact_value;
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);
@@ -575,7 +573,6 @@ INLINE void ff_mul(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
     dest->value = a->value * b->value;
-    printf("MUL\tA val = %.20f\tB val = %.20f\tres val = %.20f\n",a->value,b->value,dest->value);
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = a->exact_value * b->exact_value;
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);

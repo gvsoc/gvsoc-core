@@ -29,9 +29,9 @@ typedef uint8_t iss_Vel_t;
 #define ISS_NB_VREGS 32
 //#define NB_VEL VLEN/SEW
 //#define NB_VEL 256/8
-#define NB_VEL 1024/8
+#define NB_VEL 2048/8//???????????????????????
 //#define VLMAX NB_VEL*iss->spatz.LMUL
-#define VLMAX (int)((1024*LMUL)/SEW)
+#define VLMAX (int)((2048*LMUL)/SEW)
 
 #define XLEN = ISS_REG_WIDTH
 #define FLEN = ISS_REG_WIDTH
@@ -114,10 +114,10 @@ public:
     //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
 
     //                          V 1.0
-    //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
+    const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
 
     //                          V 0.8
-    const float LMUL_VALUES[4] = {1.0f, 2.0f, 4.0f, 8.0f};
+    // const float LMUL_VALUES[4] = {1.0f, 2.0f, 4.0f, 8.0f};
     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
 
 

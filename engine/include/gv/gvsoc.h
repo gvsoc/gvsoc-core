@@ -34,6 +34,7 @@ struct gv_conf {
     int *proxy_socket;
     int req_pipe;
     int reply_pipe;
+    bool is_async;
 };
 
 

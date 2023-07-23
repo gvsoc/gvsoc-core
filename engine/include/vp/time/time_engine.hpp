@@ -43,7 +43,10 @@ public:
 
     void run_loop();
 
+    void run_loop_systemv();
+
     int64_t step(int64_t timestamp);
+    int64_t step_until(int64_t time);
 
     void run();
 
@@ -59,8 +62,6 @@ public:
 
     inline void lock();
 
-    inline void wait_running();
-
     inline void unlock();
 
     inline void stop_engine(int status=0, bool force = true, bool no_retain = false);
@@ -70,6 +71,8 @@ public:
     inline void pause();
 
     void stop_exec();
+
+    void wait_stopped();
 
     void req_stop_exec();
 
@@ -92,7 +95,11 @@ public:
 
     void wait_ready();
 
+    bool is_async;
+
 private:
+    void exec();
+
     time_engine_client *first_client = NULL;
     bool locked = false;
     bool locked_run_req;
@@ -100,7 +107,6 @@ private:
     bool stop_req;
     bool pause_req;
     bool finished = false;
-    bool init = false;
 
     bool running;
     pthread_mutex_t mutex;
@@ -220,14 +226,6 @@ inline void vp::time_engine::pause()
     pthread_mutex_unlock(&mutex);
 }
 
-
-inline void vp::time_engine::wait_running()
-{
-    pthread_mutex_lock(&mutex);
-    while (!init)
-        pthread_cond_wait(&cond, &mutex);
-    pthread_mutex_unlock(&mutex);
-}
 
 inline void vp::time_engine::lock_step()
 {

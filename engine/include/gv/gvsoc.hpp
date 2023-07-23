@@ -22,6 +22,15 @@
 
 namespace gv {
 
+    /**
+     * IO request status.
+     */
+    enum Api_mode {
+        // Asynchronous mode where some commands run in background
+        Api_mode_async,
+        // Synchronous mode where all commands are executed from the function call
+        Api_mode_sync
+    };
 
     /**
      * IO request status.
@@ -328,12 +337,20 @@ namespace gv {
     {
     public:
         /**
-         * Called by GVSOC to the simulation has ended.
+         * Called by GVSOC to notify the simulation has ended.
          *
          * This means the simulated software is over and probably exited and GVSOC cannnot further
          * simulate it.
          */
-        virtual void has_ended() = 0;
+        virtual void has_ended() {};
+
+        /**
+         * Called by GVSOC to notify the simulation engine was updated.
+         *
+         * This means a new event was posted to the engine and modified the timestamp of the next
+         * event to be executed.
+         */
+        virtual void was_updated() {};
     };
 
     /**
@@ -400,16 +417,36 @@ namespace gv {
         virtual int64_t stop() = 0;
 
         /**
-         * Step execution
+         * Wait until execution is stopped
+         *
+         * This blocks the caller until GVSOC has stopped execution.
+         */
+        virtual void wait_stopped() = 0;
+
+        /**
+         * Step execution for specified duration
          *
          * Start execution and run until the specified duration is reached. Then
          * execution is stopped and nothing is executed until it is resumed.
          *
          * @param duration The amount of time in picoseconds during which GVSOC should execute.
          *
-         * @returns The timestamp where the execution will stop after the duration is reached.
+         * @returns The timestamp at which the execution stopped when the duration was reached.
          */
         virtual int64_t step(int64_t duration) = 0;
+
+        /**
+         * Step execution for specified timestamp
+         *
+         * Start execution and run until the specified timestamp is reached. Then
+         * execution is stopped and nothing is executed until it is resumed.
+         * This will execute all events whose timestamp is at most the specified timestamp.
+         *
+         * @param timestamp The timestamp in picoseconds until which GVSOC should execute.
+         *
+         * @returns The timestamp at which the execution stopped when the timestamp was reached.
+         */
+        virtual int64_t step_until(int64_t timestamp) = 0;
 
         /**
          * Wait end of execution.
@@ -462,6 +499,18 @@ namespace gv {
          * already running GVSOC instance.
          */
         int proxy_socket = -1;
+
+        /**
+         * API mode.
+         *
+         * This can be used to control how the commands are handled by the engine.
+         * In asynchronous mode, the engine runs in a separated thread and most of the commands are
+         * just posted and executed in background, so that the caller can get back control
+         * immediately.
+         * In synchronous mode, the engine runs in the thread of the caller, and all commands
+         * are executed within the function call of the caller.
+         */
+        Api_mode api_mode = Api_mode_async;
     };
 
     /**

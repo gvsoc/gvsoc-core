@@ -90,11 +90,13 @@ namespace vp {
     virtual void load() {}
     virtual void elab();
     virtual void run() {}
-    virtual int64_t step(int64_t timestamp) {return 0; }
+    virtual int64_t step(int64_t duration) {return 0; }
+    virtual int64_t step_until(int64_t timestamp) {return 0; }
     virtual void pause() {}
     virtual void register_exec_notifier(Notifier *notifier) {}
     virtual void req_stop_exec() {}
     virtual void stop_exec() {}
+    virtual void wait_stopped() {}
     virtual int join() { return -1; }
 
     virtual void dump_traces(FILE *file) {}
@@ -109,6 +111,7 @@ namespace vp {
     js::config *get_vp_config();
     void set_vp_config(js::config *config);
     void set_gv_conf(struct gv_conf *gv_conf);
+    struct gv_conf *get_gv_conf();
 
     inline config *get_config(std::string name);
 

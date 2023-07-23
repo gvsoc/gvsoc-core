@@ -39,7 +39,10 @@ public:
 
     int64_t stop() override;
 
+    void wait_stopped() override;
+
     int64_t step(int64_t duration) override;
+    int64_t step_until(int64_t timestamp) override;
 
     int join() override;
 

@@ -160,6 +160,19 @@ void vp::component::set_gv_conf(struct gv_conf *gv_conf)
 }
 
 
+struct gv_conf *vp::component::get_gv_conf()
+{
+    if (this->parent != NULL)
+    {
+        return this->parent->get_gv_conf();
+    }
+    else
+    {
+        return &this->gv_conf;
+    }
+}
+
+
 
 js::config *vp::component::get_vp_config()
 {

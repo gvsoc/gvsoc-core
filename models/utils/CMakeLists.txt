@@ -2,9 +2,6 @@ vp_model(NAME utils.loader_impl
     SOURCES "loader_impl.cpp"
     )
 
-vp_model(NAME utils.injector_impl
-    SOURCES "injector_impl.cpp"
-    )
 vp_model_link_libraries(NAME utils.injector_impl LIBRARY gvsoc_launcher_lib)
 
 vp_model(NAME utils.composite_impl

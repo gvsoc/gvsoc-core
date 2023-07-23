@@ -62,11 +62,13 @@ public:
     void pause();
     void stop_exec();
     void req_stop_exec();
+    void wait_stopped();
     void register_exec_notifier(vp::Notifier *notifier);
 
     int join();
 
     int64_t step(int64_t timestamp);
+    int64_t step_until(int64_t timestamp);
 
     void check_traces();
 
@@ -140,6 +142,11 @@ int64_t trace_domain::step(int64_t timestamp)
     return this->time_engine->step(timestamp);
 }
 
+int64_t trace_domain::step_until(int64_t timestamp)
+{
+    return this->time_engine->step_until(timestamp);
+}
+
 void trace_domain::quit(int status)
 {
     this->time_engine->quit(status);
@@ -153,6 +160,11 @@ void trace_domain::pause()
 void trace_domain::stop_exec()
 {
     this->time_engine->stop_exec();
+}
+
+void trace_domain::wait_stopped()
+{
+    this->time_engine->wait_stopped();
 }
 
 void trace_domain::req_stop_exec()

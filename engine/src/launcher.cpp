@@ -37,6 +37,7 @@ void Gvsoc_launcher::open()
     gv_conf.proxy_socket = &conf->proxy_socket;
     gv_conf.req_pipe = -1;
     gv_conf.reply_pipe = -1;
+    gv_conf.is_async = conf->api_mode == gv::Api_mode::Api_mode_async;
 
     this->handler = vp::__gv_create(conf->config_path, &gv_conf);
 
@@ -105,11 +106,25 @@ int64_t Gvsoc_launcher::stop()
     return this->instance->get_time();
 }
 
+void Gvsoc_launcher::wait_stopped()
+{
+    this->instance->wait_stopped();
+}
+
 int64_t Gvsoc_launcher::step(int64_t duration)
 {
     if (!proxy)
     {
         this->instance->step(duration);
+    }
+    return 0;
+}
+
+int64_t Gvsoc_launcher::step_until(int64_t timestamp)
+{
+    if (!proxy)
+    {
+        this->instance->step_until(timestamp);
     }
     return 0;
 }

@@ -303,7 +303,7 @@ void engine_routine_sv_stub(void *arg)
     vp::time_engine *engine = (vp::time_engine *)arg;
 
     engine->update(dpi_time_ps());
-    engine->run_loop();
+    engine->run_loop_systemv();
 }
 
 #endif

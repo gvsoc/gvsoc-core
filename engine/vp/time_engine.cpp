@@ -32,27 +32,6 @@ extern "C" void dpi_create_task(void *arg0, void *arg1);
 
 static pthread_t sigint_thread;
 
-#ifdef __VP_USE_SYSTEMC
-
-SC_MODULE(my_module)
-{
-
-    SC_HAS_PROCESS(my_module);
-    my_module(sc_module_name nm, vp::time_engine * engine) : sc_module(nm), engine(engine)
-    {
-        SC_THREAD(run);
-    }
-
-    void run()
-    {
-        engine->run_loop();
-    }
-
-    vp::time_engine *engine;
-};
-
-#endif
-
 class time_domain;
 
 class Time_engine_stop_event : public vp::time_scheduler
@@ -133,21 +112,6 @@ static void *signal_routine(void *arg)
     return NULL;
 }
 
-#ifdef __VP_USE_SYSTEMC
-static void *engine_routine_sc_stub(void *arg)
-{
-    vp::time_engine *engine = (vp::time_engine *)arg;
-    my_module module("Hello", engine);
-    engine->elab();
-    while (1)
-    {
-        sc_start();
-        engine->wait_ready();
-    }
-    return NULL;
-}
-#endif
-
 // Routine executed by the thread running the global time engine.
 // Just switch to C++ world.
 
@@ -156,10 +120,6 @@ void set_sc_main_entry(void *(*entry)(void *), void *arg);
 static void *engine_routine(void *arg)
 {
     vp::time_engine *engine = (vp::time_engine *)arg;
-#ifdef __VP_USE_SYSTEMC
-    set_sc_main_entry(&engine_routine_sc_stub, arg);
-    sc_core::sc_elab_and_sim(0, NULL);
-#else
     // Create the sigint thread so that we can properly close simulation
     // in case ctrl C is hit.
     sigset_t sigs_to_block;
@@ -170,12 +130,7 @@ static void *engine_routine(void *arg)
 
     signal(SIGINT, sigint_handler);
 
-#ifdef __VP_USE_SYSTEMV
-    engine->run_loop_systemv();
-#else
     engine->run_loop();
-#endif
-#endif
     return NULL;
 }
 
@@ -296,18 +251,6 @@ int vp::time_engine::join()
 }
 
 
-#ifdef __VP_USE_SYSTEMV
-
-void engine_routine_sv_stub(void *arg)
-{
-    vp::time_engine *engine = (vp::time_engine *)arg;
-
-    engine->update(dpi_time_ps());
-    engine->run_loop_systemv();
-}
-
-#endif
-
 
 void vp::time_engine::start()
 {
@@ -328,13 +271,7 @@ void vp::time_engine::start()
     {
         if (sa_mode)
         {
-        #ifdef __VP_USE_SYSTEMV
-            this->retain_count++;
-            this->run_req = true;
-            dpi_create_task((void *)engine_routine_sv_stub, this);
-        #else
             pthread_create(&run_thread, NULL, engine_routine, (void *)this);
-        #endif
         }
     }
     else
@@ -497,7 +434,7 @@ int64_t vp::time_engine::step_until(int64_t end_time)
 
     time_engine_client *current = first_client;
 
-    if (current)
+    if (current && current->next_event_time <= end_time)
     {
         first_client = current->next;
         current->is_enqueued = false;
@@ -724,175 +661,6 @@ void vp::time_engine::run_loop()
 
 
 
-
-
-#ifdef __VP_USE_SYSTEMV
-void vp::time_engine::run_loop_systemv()
-{
-    pthread_mutex_unlock(&mutex);
-
-    while (1)
-    {
-        pthread_mutex_lock(&mutex);
-
-        // Wait here until we are asked to run and there is no pause request
-        while (!run_req || pause_req)
-        {
-            if (pause_req)
-            {
-                for (auto x: this->exec_notifiers)
-                {
-                    x->notify_stop();
-                }
-            }
-            running = false;
-            pthread_cond_broadcast(&cond);
-            pthread_cond_wait(&cond, &mutex);
-        }
-        running = true;
-
-        for (auto x: this->exec_notifiers)
-        {
-            x->notify_run();
-        }
-
-        pthread_mutex_unlock(&mutex);
-
-
-
-
-
-        time_engine_client *current = first_client;
-
-        if (current)
-        {
-            first_client = current->next;
-            current->is_enqueued = false;
-
-            while(1)
-            {
-                //vp_assert(current->next_event_time >= (int64_t)dpi_time_ps(), NULL, "SystemV time is after vp time\n");
-                dpi_wait_event_timeout_ps(current->next_event_time - dpi_time_ps());
-                this->time = dpi_time_ps();
-                if (this->time == current->next_event_time)
-                    break;
-            }
-
-            // Update the global engine time with the current event time
-            this->time = current->next_event_time;
-
-            while (1)
-            {
-                current->running = true;
-
-                // Update the global engine time with the current event time
-                this->time = current->next_event_time;
-
-                // Execute the events for the next engine
-                int64_t time = current->exec();
-
-                current->is_enqueued = false;
-                current->running = false;
-
-                // And reenqueue it in case it has events in the future
-                if (time > 0)
-                {
-                    time += this->time;
-                    current->next_event_time = time;
-                    time_engine_client *client = first_client, *prev = NULL;
-
-                    while (client && client->next_event_time < time)
-                    {
-                        prev = client;
-                        client = client->next;
-                    }
-                    if (prev)
-                        prev->next = current;
-                    else
-                        first_client = current;
-
-                    current->next = client;
-                    current->is_enqueued = true;
-                }
-
-                if (!run_req)
-                    break;
-
-                // Now loop until the systemC times reaches the time of out next event.
-                // We can get back control before the next event in case the systemC part
-                // enqueues a new event.
-                while (1)
-                {
-                    if (!first_client)
-                    {
-                        if (stop_req || locked)
-                        {
-                            break;
-                        }
-
-                        // In case we don't have any event to schedule, just wait until the systemc part
-                        // enqueues something on our side
-                        dpi_wait_event();
-                    }
-                    else
-                    {
-                        // Otherwise, either wait until we can schedule our event
-                        // or wait unil the systemC part enqueues something before
-
-                        int64_t diff = first_client->next_event_time - dpi_time_ps();
-                        // Be careful on xcelium the time is sometimes rounded to the upper picosecond
-                        //vp_assert(diff >= -1, NULL, "SystemV time is after vp time\n");
-                        if (diff > 0)
-                            dpi_wait_event_timeout_ps(first_client->next_event_time - dpi_time_ps());
-                        this->time = dpi_time_ps();
-                        if (this->time >= first_client->next_event_time)
-                        {
-                            this->time = first_client->next_event_time;
-                            break;
-                        }
-
-                    }
-                }
-
-                current = first_client;
-                if (current)
-                {
-                    vp_assert(first_client->next_event_time >= get_time(), NULL, "event time is before vp time\n");
-
-                    first_client = current->next;
-                    current->is_enqueued = false;
-                }
-
-                if (!current)
-                    break;
-
-                // Update the global engine time with the current event time
-                this->time = current->next_event_time;
-            }
-        }
-
-        pthread_mutex_lock(&mutex);
-
-        running = false;
-
-        while (!first_client && retain_count && !locked)
-        {
-            pthread_mutex_unlock(&mutex);
-            dpi_wait_event();
-            pthread_mutex_lock(&mutex);
-        }
-
-        current = first_client;
-
-        if (first_client == NULL && !locked && !retain_count)
-        {
-            finished = true;
-        }
-        pthread_cond_broadcast(&cond);
-        pthread_mutex_unlock(&mutex);
-    }
-}
-#endif
 
 
 

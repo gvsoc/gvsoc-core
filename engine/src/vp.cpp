@@ -55,10 +55,6 @@
 extern "C" long long int dpi_time_ps();
 
 
-#ifdef __VP_USE_SYSTEMC
-#include <systemc.h>
-#endif
-
 
 #ifdef __VP_USE_SYSTEMV
 extern "C" void dpi_raise_event();
@@ -396,18 +392,9 @@ bool vp::time_engine::dequeue(time_engine_client *client)
 
 bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
 {
+    bool update = false;
+
     vp_assert(full_time >= get_time(), NULL, "Time must be higher than current time\n");
-
-#ifdef __VP_USE_SYSTEMC
-    // Notify to the engine that something has been pushed in case it is done
-    // by an external systemC component and the engine needs to be waken up
-    if (started)
-        sync_event.notify();
-#endif
-
-#ifdef __VP_USE_SYSTEMV
-    dpi_raise_event();
-#endif
 
     if (client->is_running())
         return false;
@@ -431,8 +418,18 @@ bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
     if (prev)
         prev->next = client;
     else
+    {
+        update = true;
         first_client = client;
+    }
     client->next = current;
+
+    if (update)
+    {
+#ifdef __VP_USE_SYSTEMV
+        dpi_raise_event();
+#endif
+    }
 
     return true;
 }
@@ -1490,25 +1487,6 @@ extern "C" void gv_stop(void *arg, int retval)
     delete top->power_engine;
 }
 
-
-
-#ifdef __VP_USE_SYSTEMC
-
-static void *(*sc_entry)(void *);
-static void *sc_entry_arg;
-
-void set_sc_main_entry(void *(*entry)(void *), void *arg)
-{
-    sc_entry = entry;
-    sc_entry_arg = arg;
-}
-
-int sc_main(int argc, char *argv[])
-{
-    sc_entry(sc_entry_arg);
-    return 0;
-}
-#endif
 
 
 void vp::fatal(const char *fmt, ...)

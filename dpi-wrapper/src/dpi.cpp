@@ -28,19 +28,46 @@
 
 using namespace std;
 
+extern "C" void dpi_create_task(void *arg0, void *arg1);
+extern "C" void dpi_wait_event_timeout_ps(long long int delay);
+extern "C" long long int dpi_time_ps();
+extern "C" void dpi_wait_event();
+
 extern "C" void *dpi_open(char *config_path)
 {
-  gv::GvsocConf conf = { .config_path=config_path };
+  gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
   gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
   gvsoc->open();
 
   return (void *)gvsoc;
 }
 
+static void gvsoc_sync_task(void *arg)
+{
+    gv::Gvsoc *gvsoc = (gv::Gvsoc *)arg;
+
+    while(1)
+    {
+        int64_t time = dpi_time_ps();
+        int64_t next_timestamp = gvsoc->step_until(time);
+        if (next_timestamp == -1)
+        {
+          dpi_wait_event();
+        }
+        else
+        {
+          dpi_wait_event_timeout_ps(next_timestamp - time);
+        }
+    }
+}
+
 extern "C" int dpi_start(void *instance)
 {
   gv::Gvsoc *gvsoc = (gv::Gvsoc *)instance;
   gvsoc->start();
+
+  dpi_create_task((void *)gvsoc_sync_task, gvsoc);
+
 
   return 0;
 }

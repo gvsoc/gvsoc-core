@@ -124,7 +124,7 @@ int64_t Gvsoc_launcher::step_until(int64_t timestamp)
 {
     if (!proxy)
     {
-        this->instance->step_until(timestamp);
+        return this->instance->step_until(timestamp);
     }
     return 0;
 }

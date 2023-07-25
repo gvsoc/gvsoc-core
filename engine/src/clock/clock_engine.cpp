@@ -167,13 +167,6 @@ void vp::clock_engine::update()
     if (this->period == 0)
         return;
 
-#ifdef __VP_USE_SYSTEMC
-    if ((int64_t)sc_time_stamp().to_double() > this->get_time())
-        diff = (int64_t)sc_time_stamp().to_double() - this->stop_time;
-
-    engine->update((int64_t)sc_time_stamp().to_double());
-#endif
-
     if (this->stop_time + this->period <= this->get_time())
     {
         int64_t diff = this->get_time() - this->stop_time;

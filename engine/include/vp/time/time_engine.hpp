@@ -25,10 +25,6 @@
 #include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 
-#ifdef __VP_USE_SYSTEMC
-#include <systemc.h>
-#endif
-
 namespace vp
 {
 
@@ -120,11 +116,6 @@ private:
     bool no_exit;
     int stop_retain_count = 0;
 
-#ifdef __VP_USE_SYSTEMC
-    sc_event sync_event;
-    bool started = false;
-#endif
-
 private:
     vp::component *stop_event;
     std::vector<Notifier *> exec_notifiers;
@@ -189,9 +180,6 @@ inline void vp::time_engine::stop_engine(int status, bool force, bool no_retain)
 
     if (no_retain || stop_retain_count == 0 || stop_status != 0)
     {
-    #ifdef __VP_USE_SYSTEMC
-        sync_event.notify();
-    #endif
         if (force || !this->no_exit)
         {
             // In case the vp is connected to an external bridge, prevent the platform

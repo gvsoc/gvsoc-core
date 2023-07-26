@@ -45,7 +45,10 @@ public:
 
     int join() override;
 
+    void update(int64_t timestamp);
+
     gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
+    gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
 
     void vcd_bind(gv::Vcd_user *user) override;
     void event_add(std::string path, bool is_regex) override;

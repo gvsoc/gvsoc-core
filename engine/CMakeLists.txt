@@ -127,28 +127,6 @@ if(${BUILD_DEBUG_M32})
 endif()
 
 # ==============
-# SV Library
-# ==============
-
-if(${BUILD_RTL})
-    add_library(gvsoc_sv SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
-    target_include_directories(gvsoc_sv PUBLIC ${GVSOC_ENGINE_INC_DIRS})
-    target_link_libraries(gvsoc_sv PUBLIC pthread ${CMAKE_DL_LIBS})
-    set_target_properties(gvsoc_sv PROPERTIES OUTPUT_NAME "pulpvp-sv")
-    install(TARGETS gvsoc_sv
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-        INCLUDES DESTINATION include
-        )
-    target_compile_definitions(gvsoc_sv
-        PRIVATE
-        "-DVP_TRACE_ACTIVE=1"
-        "-D__VP_USE_SYSTEMV=1"
-        )
-endif()
-
-# ==============
 # Subdirectories
 # ==============
 

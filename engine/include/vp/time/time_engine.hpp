@@ -93,6 +93,15 @@ public:
 
     bool is_async;
 
+    void bind_to_launcher(gv::Gvsoc_user *launcher);
+
+    gv::Gvsoc_user *launcher = NULL;
+
+    inline void time_engine_update(int64_t timestamp)
+    {
+        this->update(timestamp);
+    }
+
 private:
     void exec();
 

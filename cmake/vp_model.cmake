@@ -4,7 +4,7 @@ function(vp_set_target_types)
     cmake_parse_arguments(
         VP_TARGET_TYPES
         ""
-        "BUILD_OPTIMIZED;BUILD_DEBUG;BUILD_RTL"
+        "BUILD_OPTIMIZED;BUILD_DEBUG"
         ""
         ${ARGN}
         )
@@ -14,9 +14,6 @@ function(vp_set_target_types)
     endif()
     if(${BUILD_DEBUG} AND NOT "_debug" IN_LIST VP_TARGET_TYPES)
         set(VP_TARGET_TYPES ${VP_TARGET_TYPES} "_debug" CACHE INTERNAL "")
-    endif()
-    if(${BUILD_RTL} AND NOT "_sv" IN_LIST VP_TARGET_TYPES)
-        set(VP_TARGET_TYPES ${VP_TARGET_TYPES} "_sv" CACHE INTERNAL "")
     endif()
     if(${BUILD_OPTIMIZED_M32} AND NOT "_optim_m32" IN_LIST VP_TARGET_TYPES)
         message(STATUS "setting optimized m32")
@@ -41,7 +38,6 @@ function(vp_block)
     # TODO verify arguments
     set(VP_MODEL_NAME_OPTIM "${VP_MODEL_NAME}_optim")
     set(VP_MODEL_NAME_DEBUG "${VP_MODEL_NAME}_debug")
-    set(VP_MODEL_NAME_SV "${VP_MODEL_NAME}_sv")
     set(VP_MODEL_NAME_OPTIM_M32 "${VP_MODEL_NAME}_optim_m32")
     set(VP_MODEL_NAME_DEBUG_M32 "${VP_MODEL_NAME}_debug_m32")
 
@@ -171,43 +167,6 @@ function(vp_block)
             )
     endif()
 
-    # ==================
-    # RTL models
-    # ==================
-
-    if(${BUILD_RTL})
-        add_library(${VP_MODEL_NAME_SV} STATIC ${VP_MODEL_SOURCES})
-        target_link_libraries(${VP_MODEL_NAME_SV} PRIVATE gvsoc_sv)
-        set_target_properties(${VP_MODEL_NAME_SV} PROPERTIES PREFIX "")
-        target_compile_options(${VP_MODEL_NAME_SV} PRIVATE "-D__GVSOC__")
-
-        target_include_directories(${VP_MODEL_NAME_SV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-        target_compile_definitions(${VP_MODEL_NAME_SV}
-            PRIVATE
-            "-DVP_TRACE_ACTIVE=1"
-            "-D__VP_USE_SYSTEMV=1"
-            )
-        foreach(X IN LISTS GVSOC_MODULES)
-            target_include_directories(${VP_MODEL_NAME_SV} PRIVATE ${X}/models)
-        endforeach()
-
-        foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
-            target_include_directories(${VP_MODEL_NAME_SV} PRIVATE ${subdir})
-        endforeach()
-    
-        if(VP_MODEL_OUTPUT_NAME)
-            set(RENAME_SV_NAME ${VP_MODEL_OUTPUT_NAME})
-        else()
-            set(RENAME_SV_NAME ${VP_MODEL_NAME})
-        endif()
-
-        install(
-            FILES $<TARGET_FILE:${VP_MODEL_NAME_SV}>
-            DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_SV_INSTALL_FOLDER}/${VP_MODEL_PREFIX}"
-            RENAME "${RENAME_SV_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-            )
-    endif()
 endfunction()
 
 
@@ -232,7 +191,6 @@ function(vp_model)
         # TODO verify arguments
         set(VP_MODEL_NAME_OPTIM "${VP_MODEL_NAME}_optim")
         set(VP_MODEL_NAME_DEBUG "${VP_MODEL_NAME}_debug")
-        set(VP_MODEL_NAME_SV "${VP_MODEL_NAME}_sv")
         set(VP_MODEL_NAME_OPTIM_M32 "${VP_MODEL_NAME}_optim_m32")
         set(VP_MODEL_NAME_DEBUG_M32 "${VP_MODEL_NAME}_debug_m32")
 
@@ -349,41 +307,6 @@ function(vp_model)
                 FILES $<TARGET_FILE:${VP_MODEL_NAME_DEBUG_M32}>
                 DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_DEBUG_M32_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
                 RENAME "${RENAME_DEBUG_M32_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-                )
-        endif()
-
-        # ==================
-        # RTL models
-        # ==================
-
-        if(${BUILD_RTL})
-            add_library(${VP_MODEL_NAME_SV} MODULE ${VP_MODEL_SOURCES})
-            target_link_libraries(${VP_MODEL_NAME_SV} PRIVATE gvsoc_sv)
-            set_target_properties(${VP_MODEL_NAME_SV} PROPERTIES PREFIX "")
-            target_compile_options(${VP_MODEL_NAME_SV} PRIVATE "-D__GVSOC__")
-            target_compile_definitions(${VP_MODEL_NAME_SV}
-                PRIVATE
-                "-DVP_TRACE_ACTIVE=1"
-                "-D__VP_USE_SYSTEMV=1"
-                )
-            foreach(X IN LISTS GVSOC_MODULES)
-                target_include_directories(${VP_MODEL_NAME_SV} PRIVATE ${X}/models)
-            endforeach()
-
-            foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
-                target_include_directories(${VP_MODEL_NAME_SV} PRIVATE ${subdir})
-            endforeach()
-        
-            if(VP_MODEL_OUTPUT_NAME)
-                set(RENAME_SV_NAME ${VP_MODEL_OUTPUT_NAME})
-            else()
-                set(RENAME_SV_NAME ${VP_MODEL_FILENAME})
-            endif()
-
-            install(
-                FILES $<TARGET_FILE:${VP_MODEL_NAME_SV}>
-                DESTINATION  "${GVSOC_MODELS_INSTALL_FOLDER}/${GVSOC_MODELS_SV_INSTALL_FOLDER}/${VP_MODEL_DIRECTORY}"
-                RENAME "${RENAME_SV_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
                 )
         endif()
 

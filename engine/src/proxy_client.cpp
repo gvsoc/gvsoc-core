@@ -251,6 +251,16 @@ gv::Io_binding *Gvsoc_proxy_client::io_bind(gv::Io_user *user, std::string comp_
     return NULL;
 }
 
+gv::Wire_binding *Gvsoc_proxy_client::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name)
+{
+    return NULL;
+}
+
+void Gvsoc_proxy_client::update(int64_t timestamp)
+{
+
+}
+
 void Gvsoc_proxy_client::vcd_bind(gv::Vcd_user *user)
 {
 }

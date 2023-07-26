@@ -125,10 +125,8 @@ include(cmake/vp_model.cmake)
 # =======
 option(BUILD_OPTIMIZED     "build GVSOC with optimizations"                    ON)
 option(BUILD_DEBUG         "build GVSOC with debug information"                ON)
-option(BUILD_RTL           "build GVSOC for RTL simulation optimizations"      OFF)
 option(BUILD_OPTIMIZED_M32 "build GVSOC with optimizations in 32bits mode"     OFF)
 option(BUILD_DEBUG_M32     "build GVSOC with debug information in 32bits mode" OFF)
-option(SKIP_DPI "Do not build DPI" OFF)
 
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O2")
 set(CMAKE_CC_FLAGS_RELWITHDEBINFO "-g -O2")
@@ -138,7 +136,6 @@ set(CMAKE_CC_FLAGS_RELWITHDEBINFO "-g -O2")
 vp_set_target_types(
     BUILD_DEBUG ${BUILD_DEBUG}
     BUILD_OPTIMIZED ${BUILD_OPTIMIZED}
-    BUILD_RTL ${BUILD_RTL}
     BUILD_OPTIMIZED_M32 ${BUILD_OPTIMIZED_M32}
     BUILD_DEBUG_M32 ${BUILD_DEBUG_M32}
     )
@@ -147,9 +144,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 
-if(${BUILD_RTL})
-  add_subdirectory(dpi-wrapper)
-endif()
+add_subdirectory(dpi-wrapper)
 add_subdirectory(engine)
 add_subdirectory(models)
 

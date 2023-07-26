@@ -40,6 +40,7 @@ public:
     int64_t stop() override;
 
     void wait_stopped() override;
+    void update(int64_t timestamp) override;
 
     int64_t step(int64_t duration) override;
     int64_t step_until(int64_t timestamp) override;
@@ -47,6 +48,7 @@ public:
     int join() override;
 
     gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
+    gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
 
     void vcd_bind(gv::Vcd_user *user) override;
     void event_add(std::string path, bool is_regex) override;

@@ -67,6 +67,7 @@ void Gvsoc_launcher::open()
 void Gvsoc_launcher::bind(gv::Gvsoc_user *user)
 {
     this->user = user;
+    this->instance->bind_to_launcher(user);
 }
 
 void Gvsoc_launcher::start()
@@ -134,6 +135,11 @@ gv::Io_binding *Gvsoc_launcher::io_bind(gv::Io_user *user, std::string comp_name
     return (gv::Io_binding *)this->instance->external_bind(comp_name, itf_name, (void *)user);
 }
 
+gv::Wire_binding *Gvsoc_launcher::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name)
+{
+    return (gv::Wire_binding *)this->instance->external_bind(comp_name, itf_name, (void *)user);
+}
+
 void Gvsoc_launcher::vcd_bind(gv::Vcd_user *user)
 {
     this->instance->traces.get_trace_manager()->set_vcd_user(user);
@@ -161,6 +167,14 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
    }
    return tokens;
 }
+
+
+
+void Gvsoc_launcher::update(int64_t timestamp)
+{
+    this->instance->time_engine_update(timestamp);
+}
+
 
 
 void *Gvsoc_launcher::get_component(std::string path)

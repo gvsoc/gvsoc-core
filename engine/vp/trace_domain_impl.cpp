@@ -64,6 +64,8 @@ public:
     void req_stop_exec();
     void wait_stopped();
     void register_exec_notifier(vp::Notifier *notifier);
+    void bind_to_launcher(gv::Gvsoc_user *launcher);
+    void time_engine_update(int64_t timestamp);
 
     int join();
 
@@ -131,6 +133,17 @@ trace_domain::trace_domain(js::config *config)
         throw std::runtime_error("Error while opening VCD file (path: " + path + ", error: " + strerror(errno) + ")\n");
     }
 }
+
+void trace_domain::bind_to_launcher(gv::Gvsoc_user *launcher)
+{
+    this->time_engine->bind_to_launcher(launcher);
+}
+
+void trace_domain::time_engine_update(int64_t timestamp)
+{
+    this->time_engine->time_engine_update(timestamp);
+}
+
 
 void trace_domain::run()
 {

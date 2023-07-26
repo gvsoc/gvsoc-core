@@ -40,8 +40,6 @@
 #include <regex>
 #include <queue>
 
-extern "C" void dpi_set_status(int status);
-
 
 class Testbench;
 class Uart;

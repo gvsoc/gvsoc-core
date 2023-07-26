@@ -1041,9 +1041,13 @@ void Testbench::handle_set_status()
 {
     pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
 
-#ifdef __VP_USE_SYSTEMV
-    dpi_set_status(req->set_status.status);
-#endif
+    gv::Gvsoc_user *launcher = this->get_engine()->launcher;
+
+    if (launcher)
+    {
+        this->clock->stop_engine(req->set_status.status);
+        launcher->has_ended();
+    }
 }
 
 

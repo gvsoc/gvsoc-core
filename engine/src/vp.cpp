@@ -56,10 +56,6 @@ extern "C" long long int dpi_time_ps();
 
 
 
-#ifdef __VP_USE_SYSTEMV
-extern "C" void dpi_raise_event();
-#endif
-
 char vp_error[VP_ERROR_SIZE];
 
 
@@ -424,11 +420,9 @@ bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
     }
     client->next = current;
 
-    if (update)
+    if (update && this->launcher)
     {
-#ifdef __VP_USE_SYSTEMV
-        dpi_raise_event();
-#endif
+        this->launcher->was_updated();
     }
 
     return true;
@@ -984,11 +978,7 @@ vp::component *vp::component::new_component(std::string name, js::config *config
     }
 
 #ifdef __M32_MODE__
-    if (this->get_vp_config()->get_child_bool("sv-mode"))
-    {
-        module_name = "sv_m32." + module_name;
-    }
-    else if (this->get_vp_config()->get_child_bool("debug-mode"))
+    if (this->get_vp_config()->get_child_bool("debug-mode"))
     {
         module_name = "debug_m32." + module_name;
     }
@@ -997,11 +987,7 @@ vp::component *vp::component::new_component(std::string name, js::config *config
         module_name = "m32." + module_name;
     }
 #else
-    if (this->get_vp_config()->get_child_bool("sv-mode"))
-    {
-        module_name = "sv." + module_name;
-    }
-    else if (this->get_vp_config()->get_child_bool("debug-mode"))
+    if (this->get_vp_config()->get_child_bool("debug-mode"))
     {
         module_name = "debug." + module_name;
     }
@@ -1281,11 +1267,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
     std::string module_name = "vp.trace_domain_impl";
 
 #ifdef __M32_MODE__
-    if (gv_config->get_child_bool("sv-mode"))
-    {
-        module_name = "sv_m32." + module_name;
-    }
-    else if (gv_config->get_child_bool("debug-mode"))
+    if (gv_config->get_child_bool("debug-mode"))
     {
         module_name = "debug_m32." + module_name;
     }
@@ -1294,11 +1276,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
         module_name = "m32." + module_name;
     }
 #else
-    if (gv_config->get_child_bool("sv-mode"))
-    {
-        module_name = "sv." + module_name;
-    }
-    else if (gv_config->get_child_bool("debug-mode"))
+    if (gv_config->get_child_bool("debug-mode"))
     {
         module_name = "debug." + module_name;
     }

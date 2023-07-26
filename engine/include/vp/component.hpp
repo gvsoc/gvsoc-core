@@ -40,6 +40,7 @@
 #include <functional>
 #include <vp/block.hpp>
 #include <vp/register.hpp>
+#include <gv/gvsoc.hpp>
 
 
 #define   likely(x) __builtin_expect(x, 1)
@@ -98,6 +99,7 @@ namespace vp {
     virtual void stop_exec() {}
     virtual void wait_stopped() {}
     virtual int join() { return -1; }
+    virtual void bind_to_launcher(gv::Gvsoc_user *launcher) {}
 
     virtual void dump_traces(FILE *file) {}
 
@@ -164,6 +166,7 @@ namespace vp {
     void final_bind();
 
     virtual void *external_bind(std::string comp_name, std::string itf_name, void *handle);
+    virtual void time_engine_update(int64_t timestamp) {}
 
     void reset_all(bool active, bool from_itf=false);
 

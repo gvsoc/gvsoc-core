@@ -125,9 +125,9 @@ namespace gv {
 
 
     /**
-     * Class required for binding.
+     * Class required for IO binding.
      *
-     * When the external C++ code creates a binding, it must implement all the methods of this class
+     * When the external C++ code creates an IO binding, it must implement all the methods of this class
      * to properly interact with GVSOC for what concerns IO requests.
      */
     class Io_user
@@ -169,6 +169,47 @@ namespace gv {
          * @param req The IO request describing the memory-mapped access.
          */
         virtual void reply(Io_request *req) = 0;
+    };
+
+    /**
+     * Class used to represent wire bindings.
+     *
+     * Wire bindings can be used to interact with a simple wire holding a value.
+     * This class defines all the methods that the external C++ can call to interact with
+     * GVSOC for what concerns wire requests.
+     */
+    class Wire_binding
+    {
+    public:
+        /**
+         * Update the value of the wire.
+         *
+         * This can be called to notify GVSOC that the value of the wire has changed and to give
+         * the new value.
+         *
+         * @param value The value of the wire.
+         */
+        virtual void update(int value) = 0;
+    };
+
+    /**
+     * Class required for wire binding.
+     *
+     * Wire bindings can be used to interact with a simple wire holding a value.
+     * When the external C++ code creates a wire binding, it must implement all the methods of this class
+     * to properly interact with GVSOC for what concerns updates of the wire.
+     */
+    class Wire_user
+    {
+    public:
+        /**
+         * Called by GVSOC to update the value of the wire.
+         *
+         * This is called everytime the value of the wire is changed to give the new value.
+         *
+         * @param value The value of the wire.
+         */
+        virtual void update(int value) = 0;
     };
 
 
@@ -326,6 +367,11 @@ namespace gv {
 
     };
 
+    class Wire
+    {
+    public:
+        virtual Wire_binding *wire_bind(Wire_user *user, std::string comp_name, std::string itf_name) = 0;
+    };
 
     /**
      * Class required for receiving GVSOC events.
@@ -358,7 +404,7 @@ namespace gv {
      *
      * Gather all the methods which can be called to control GVSOC execution and other features
      */
-    class Gvsoc : public Io, public Vcd
+    class Gvsoc : public Io, public Vcd, public Wire
     {
     public:
         /**
@@ -422,6 +468,18 @@ namespace gv {
          * This blocks the caller until GVSOC has stopped execution.
          */
         virtual void wait_stopped() = 0;
+
+        /**
+         * Update the engine current time
+         *
+         * This can be called to update the current time of the engine in order to synchronize
+         * it with the external engine.
+         * All events with a lower timestamp must have been executed first.
+         *
+         * @param timestamp The current time to be set in the engine.
+         *
+         */
+        virtual void update(int64_t timestamp) = 0;
 
         /**
          * Step execution for specified duration

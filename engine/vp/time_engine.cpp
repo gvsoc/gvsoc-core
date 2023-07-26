@@ -25,11 +25,6 @@
 #include <pthread.h>
 #include <signal.h>
 
-extern "C" void dpi_wait_event();
-extern "C" void dpi_wait_event_timeout_ps(long long int delay);
-extern "C" long long int dpi_time_ps();
-extern "C" void dpi_create_task(void *arg0, void *arg1);
-
 static pthread_t sigint_thread;
 
 class time_domain;
@@ -695,6 +690,12 @@ void vp::time_engine::wait_stopped()
         pthread_cond_wait(&cond, &mutex);
     }
     pthread_mutex_unlock(&mutex);
+}
+
+
+void vp::time_engine::bind_to_launcher(gv::Gvsoc_user *launcher)
+{
+    this->launcher = launcher;
 }
 
 static void init_sigint_handler(int s)

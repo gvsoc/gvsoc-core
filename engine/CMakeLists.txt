@@ -18,6 +18,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/signal.cpp"
     "src/queue.cpp"
     "src/proxy.cpp"
+    "src/trace/trace_domain_impl.cpp"
     "src/power/power_table.cpp"
     "src/power/power_engine.cpp"
     "src/power/component_power.cpp"

@@ -22,6 +22,7 @@
 #include "vp/vp.hpp"
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
+#include <stdexcept>
 
 static int vcd_id = 0;
 
@@ -87,7 +88,7 @@ vp::Event_trace *vp::Event_dumper::get_trace(string trace_name, string file_name
 
       if (event_file == NULL)
       {
-        std::string format = this->comp->get_js_config()->get_child_str("**/events/format");
+        std::string format = this->config->get_child_str("**/events/format");
 
         if (format == "vcd")
         {
@@ -103,7 +104,7 @@ vp::Event_trace *vp::Event_dumper::get_trace(string trace_name, string file_name
         }
         else
         {
-          this->comp->get_trace()->fatal("Unknown trace format (name: %s)\n", format.c_str());
+          throw std::invalid_argument("Unknown trace format (name: " + format + ")\n");
         }
         event_files[file_name] = event_file;
       }

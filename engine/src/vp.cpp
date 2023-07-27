@@ -50,6 +50,7 @@
 #include <vp/proxy_client.hpp>
 #include <vp/launcher.hpp>
 #include <sys/stat.h>
+#include <vp/trace/trace_engine.hpp>
 
 
 extern "C" long long int dpi_time_ps();
@@ -1264,7 +1265,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 
     js::config *gv_config = js_config->get("target/gvsoc");
 
-    std::string module_name = "vp.trace_domain_impl";
+    std::string module_name = "vp.time_domain_impl";
 
 #ifdef __M32_MODE__
     if (gv_config->get_child_bool("debug-mode"))
@@ -1305,6 +1306,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 
     top->top_instance = instance;
     top->power_engine = new vp::power::engine(instance);
+    new vp::trace_domain(instance, gv_config);
 
     instance->set_vp_config(gv_config);
     instance->set_gv_conf(gv_conf);

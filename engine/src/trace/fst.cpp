@@ -23,13 +23,14 @@
 #include "vp/vp.hpp"
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
+#include <stdexcept>
 
 vp::Fst_file::Fst_file(vp::Event_dumper *dumper, string path)
 {
   this->writer = fstWriterCreate(path.c_str(), 0);
   if (this->writer == NULL)
   {
-    dumper->comp->get_engine()->fatal("Error while opening FST file (path: %s)\n", path.c_str());
+    throw std::invalid_argument("Error while opening FST file (path: " + path + ")\n");
   }
   fstWriterSetTimescale(this->writer, -12);
 }

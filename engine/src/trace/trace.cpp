@@ -262,7 +262,7 @@ void vp::trace_engine::flush()
 {
     // Flush only the events until the current timestamp as we may resume
     // the execution right after
-    this->check_pending_events(this->get_time());
+    this->check_pending_events(this->time_engine->get_time());
 
     if (current_buffer_size)
     {

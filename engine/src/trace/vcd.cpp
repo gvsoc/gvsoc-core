@@ -22,6 +22,7 @@
 #include "vp/vp.hpp"
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
+#include <stdexcept>
 
 static unsigned int get_bit(uint8_t *value, int i) {
   return (value[i/8] >> (i%8)) & 1;
@@ -32,7 +33,7 @@ vp::Vcd_file::Vcd_file(vp::Event_dumper *dumper, string path)
   file = fopen(path.c_str(), "w");
   if (file == NULL)
   {
-    dumper->comp->get_engine()->fatal("Error while opening VCD file (path: %s, error: %s)\n", path.c_str(), strerror(errno));
+    throw std::invalid_argument("Error while opening VCD file (path: " + path + ", error: " + strerror(errno) + ")\n");
   }
 
   fprintf(file, "%s", "\n\

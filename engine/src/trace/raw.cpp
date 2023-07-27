@@ -23,6 +23,7 @@
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
 #include "raw/trace_dumper.hpp"
+#include <stdexcept>
 
 vp::Raw_file::Raw_file(vp::Event_dumper *dumper, string path)
 {
@@ -31,7 +32,7 @@ vp::Raw_file::Raw_file(vp::Event_dumper *dumper, string path)
 
     if (td->open(ED_CONF_TIMESCALE_PS))
     {
-        dumper->comp->get_engine()->fatal("Error while opening RAW file (path: %s, error: %s)\n", path.c_str(), strerror(errno));
+        throw std::invalid_argument("Error while opening RAW file (path: " + path + ", error: " + strerror(errno) + ")\n");
     }
 }
 

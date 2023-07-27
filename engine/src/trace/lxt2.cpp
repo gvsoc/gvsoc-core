@@ -23,13 +23,14 @@
 #include "vp/vp.hpp"
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
+#include <stdexcept>
 
 vp::Lxt2_file::Lxt2_file(vp::Event_dumper *dumper, string path)
 {
   this->trace = lxt2_wr_init(path.c_str());
   if (this->trace == NULL)
   {
-    dumper->comp->get_engine()->fatal("Error while opening LXT file (path: %s)\n", path.c_str());
+    throw std::invalid_argument("Error while opening LXT file (path: " + path + ")\n");
   }
 }
 

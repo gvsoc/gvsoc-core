@@ -85,22 +85,10 @@ namespace vp {
     virtual void start() {}
     virtual void stop() {}
     virtual void flush() {}
-    virtual void quit(int status) {}
     virtual void pre_reset() {}
     virtual void reset(bool active) {}
     virtual void power_supply_set(int state) {}
-    virtual void load() {}
-    virtual void elab();
-    virtual void run() {}
-    virtual int64_t step(int64_t duration) {return 0; }
-    virtual int64_t step_until(int64_t timestamp) {return 0; }
-    virtual void pause() {}
     virtual void register_exec_notifier(Notifier *notifier) {}
-    virtual void req_stop_exec() {}
-    virtual void stop_exec() {}
-    virtual void wait_stopped() {}
-    virtual int join() { return -1; }
-    virtual void bind_to_launcher(gv::Gvsoc_user *launcher) {}
 
     virtual void dump_traces(FILE *file) {}
 
@@ -151,8 +139,6 @@ namespace vp {
     }
 
     int build_new();
-
-    void load_all();
 
     void flush_all();
 
@@ -258,15 +244,6 @@ namespace vp {
   std::string __gv_get_component_path(js::config *gv_config, std::string relpath);
 
   vp::component *__gv_create(std::string config_path, struct gv_conf *gv_conf);
-
-  class top
-  {
-  public:
-      component *top_instance;
-      power::engine *power_engine;
-      vp::trace_domain *trace_engine;
-  private:
-  };
 
 };  
 

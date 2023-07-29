@@ -28,4 +28,18 @@
 #include "vp/clock/clock_engine.hpp"
 #include "gv/power.hpp"
 
+namespace vp {
+
+  class top
+  {
+  public:
+      component *top_instance;
+      power::engine *power_engine;
+      vp::trace_domain *trace_engine;
+      vp::time_domain *time_engine;
+  private:
+  };
+
+};
+
 #endif

@@ -24,16 +24,21 @@
 
 #include "vp/vp_data.hpp"
 #include "vp/component.hpp"
+#include "json.hpp"
+#include "gv/gvsoc.hpp"
 
 namespace vp
 {
 
 class time_engine_client;
+class component;
+class Notifier;
+class Time_engine_stop_event;
 
-class time_engine : public component
+class time_engine
 {
 public:
-    time_engine(js::config *config);
+    time_engine(component *top, js::config *config);
 
     void start();
 
@@ -45,6 +50,8 @@ public:
     int64_t step_until(int64_t time);
 
     void run();
+
+    void flush_all() {this->top->flush_all(); }
 
     void quit(int status);
 
@@ -74,7 +81,7 @@ public:
 
     void register_exec_notifier(Notifier *notifier);
 
-    inline vp::time_engine *get_time_engine() { return this; }
+    inline time_engine *get_time_engine() { return this; }
 
     bool dequeue(time_engine_client *client);
 
@@ -126,8 +133,10 @@ private:
     int stop_retain_count = 0;
 
 private:
-    vp::component *stop_event;
+    Time_engine_stop_event *stop_event;
     std::vector<Notifier *> exec_notifiers;
+    component *top;
+    js::config *config;
 };
 
 class time_engine_client : public component
@@ -137,7 +146,7 @@ class time_engine_client : public component
 
 public:
     time_engine_client(js::config *config)
-        : vp::component(config)
+        : component(config)
     {
     }
 
@@ -166,16 +175,50 @@ protected:
     // anymore or when the client is enqueued to the engine.
     int64_t next_event_time = 0;
 
-    vp::time_engine *engine;
+    time_engine *engine;
     bool running = false;
     bool is_enqueued = false;
 };
+
+class time_domain;
+
+}; // namespace vp
+
+#include "vp/time/time_scheduler.hpp"
+
+namespace vp
+{
+
+class Time_engine_stop_event : public vp::time_scheduler
+{
+public:
+    Time_engine_stop_event(component *top, time_engine *engine);
+    int64_t step(int64_t duration);
+
+private:
+    static void event_handler(void *__this, vp::time_event *event);
+    component *top;
+    time_engine *engine;
+};
+
+class time_domain : public time_engine
+{
+
+public:
+    time_domain(component *top, js::config *config);
+
+    void pre_pre_build();
+    int build();
+
+};
+
+}; // namespace vp
 
 // This can be called from anywhere so just propagate the stop request
 // to the main python thread which will take care of stopping the engine.
 inline void vp::time_engine::stop_engine(int status, bool force, bool no_retain)
 {
-    this->flush_all(); 
+    this->top->flush_all(); 
 
     if (!this->engine_has_been_stopped)
     {
@@ -287,7 +330,5 @@ inline void vp::time_engine::update(int64_t time)
     if (time > this->time)
         this->time = time;
 }
-
-}; // namespace vp
 
 #endif

@@ -95,6 +95,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
 {
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
+    vp::time_engine *engine = this->top->get_time_engine();
 
     while(1)
     {
@@ -143,7 +144,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
         {
             if (words[0] == "run")
             {
-                this->top->run();
+                engine->run();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -157,7 +158,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                 else
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
-                    int64_t timestamp = this->top->step(duration);
+                    int64_t timestamp = engine->step(duration);
                     std::unique_lock<std::mutex> lock(this->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();
@@ -165,15 +166,15 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
             }
             else if (words[0] == "stop")
             {
-                this->top->stop_exec();
+                engine->stop_exec();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "quit")
             {
-                this->top->pause();
-                this->top->quit(strtol(words[1].c_str(), NULL, 0));
+                engine->pause();
+                engine->quit(strtol(words[1].c_str(), NULL, 0));
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
                 lock.unlock();
@@ -182,7 +183,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
             {
                 // Before interacting with the engine, we must lock it since our requests will come
                 // from a different thread.
-                this->top->get_time_engine()->lock();
+                engine->lock();
 
                 if (words[0] == "get_component")
                 {
@@ -264,7 +265,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                     printf("Ignoring2 invalid command: %s\n", words[0].c_str());
                 }
 
-                this->top->get_time_engine()->unlock();
+                engine->unlock();
             }
         }
     }

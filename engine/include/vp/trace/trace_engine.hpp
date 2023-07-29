@@ -146,23 +146,7 @@ public:
     void add_exclude_trace_path(int events, std::string path);
     void reg_trace(vp::trace *trace, int event, string path, string name);
 
-    void pre_pre_build();
-    int build();
     void start();
-    void run();
-    void quit(int status);
-    void pause();
-    void stop_exec();
-    void req_stop_exec();
-    void wait_stopped();
-    void register_exec_notifier(vp::Notifier *notifier);
-    void bind_to_launcher(gv::Gvsoc_user *launcher);
-
-    int join();
-
-    int64_t step(int64_t timestamp);
-    int64_t step_until(int64_t timestamp);
-
     void check_traces();
 
     int get_max_path_len() { return max_path_len; }

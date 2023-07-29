@@ -42,6 +42,7 @@ void Gvsoc_launcher::open()
     this->handler = vp::__gv_create(conf->config_path, &gv_conf);
 
     this->instance = ((vp::top *)this->handler)->top_instance;
+    this->engine = ((vp::top *)this->handler)->time_engine;
 
     this->instance->pre_pre_build();
     this->instance->pre_build();
@@ -67,7 +68,7 @@ void Gvsoc_launcher::open()
 void Gvsoc_launcher::bind(gv::Gvsoc_user *user)
 {
     this->user = user;
-    this->instance->bind_to_launcher(user);
+    this->engine->bind_to_launcher(user);
 }
 
 void Gvsoc_launcher::start()
@@ -96,32 +97,32 @@ void Gvsoc_launcher::run()
 {
     if (!proxy)
     {
-        this->instance->step(0);
+        this->engine->step(0);
     }
 }
 
 int Gvsoc_launcher::join()
 {
-    this->retval = this->instance->join();
+    this->retval = this->engine->join();
     return this->retval;
 }
 
 int64_t Gvsoc_launcher::stop()
 {
-    this->instance->stop_exec();
-    return this->instance->get_time();
+    this->engine->stop_exec();
+    return this->engine->get_time();
 }
 
 void Gvsoc_launcher::wait_stopped()
 {
-    this->instance->wait_stopped();
+    this->engine->wait_stopped();
 }
 
 int64_t Gvsoc_launcher::step(int64_t duration)
 {
     if (!proxy)
     {
-        this->instance->step(duration);
+        this->engine->step(duration);
     }
     return 0;
 }
@@ -130,7 +131,7 @@ int64_t Gvsoc_launcher::step_until(int64_t timestamp)
 {
     if (!proxy)
     {
-        return this->instance->step_until(timestamp);
+        return this->engine->step_until(timestamp);
     }
     return 0;
 }
@@ -177,7 +178,7 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 
 void Gvsoc_launcher::update(int64_t timestamp)
 {
-    this->instance->time_engine_update(timestamp);
+    this->engine->time_engine_update(timestamp);
 }
 
 

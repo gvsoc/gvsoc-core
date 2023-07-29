@@ -184,16 +184,6 @@ js::config *vp::component::get_vp_config()
 
 
 
-void vp::component::load_all()
-{
-    for (auto &x : this->childs)
-    {
-        x->load_all();
-    }
-
-    this->load();
-}
-
 
 
 int vp::component::build_new()
@@ -850,14 +840,6 @@ vp::component *vp::component::get_component(std::vector<std::string> path_list)
     return NULL;
 }
 
-void vp::component::elab()
-{
-    for (auto &x : this->childs)
-    {
-        x->elab();
-    }
-}
-
 void vp::component::new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset)
 {
     this->get_trace()->msg(vp::trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
@@ -1265,7 +1247,12 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 
     js::config *gv_config = js_config->get("target/gvsoc");
 
-    std::string module_name = "vp.time_domain_impl";
+    std::string module_name = js_config->get_child_str("**/target/vp_component");
+
+    if (module_name == "")
+    {
+        module_name = "utils.composite_impl";
+    }
 
 #ifdef __M32_MODE__
     if (gv_config->get_child_bool("debug-mode"))
@@ -1307,10 +1294,15 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
     top->top_instance = instance;
     top->power_engine = new vp::power::engine(instance);
     top->trace_engine = new vp::trace_domain(instance, gv_config);
-    top->trace_engine->time_engine = (vp::time_engine *)top->top_instance;
+    top->time_engine = new vp::time_domain(instance, gv_config);
+    top->trace_engine->time_engine = (vp::time_engine *)top->time_engine;
 
     instance->set_vp_config(gv_config);
     instance->set_gv_conf(gv_conf);
+
+    top->time_engine->start();
+    
+    instance->new_component("", js_config->get("**/target"));
 
     return (vp::component *)top;
 }

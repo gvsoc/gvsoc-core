@@ -343,7 +343,7 @@ class Runner():
                         comp = comp_desc.replace('CONFIG_', '').replace('=1\n', '')
                         component_list.append(comp)
 
-            component_list += self.target.get_component_list(c_flags) + ['vp.time_domain_impl', 'vp.power_domain_impl', 'utils.composite_impl']
+            component_list += self.target.get_component_list(c_flags) + ['vp.power_domain_impl', 'utils.composite_impl']
 
             with open(self.gapy_target.get_args().component_file, "w") as file:
                 for comp in component_list:

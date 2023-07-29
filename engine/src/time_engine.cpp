@@ -27,58 +27,12 @@
 
 static pthread_t sigint_thread;
 
-class time_domain;
-
-class Time_engine_stop_event : public vp::time_scheduler
+vp::time_domain::time_domain(vp::component *top, js::config *config)
+    : vp::time_engine(top, config)
 {
-public:
-    Time_engine_stop_event(vp::time_engine *top);
-    int64_t step(int64_t duration);
+    top->new_service("time", static_cast<time_engine *>(this));
 
-private:
-    static void event_handler(void *__this, vp::time_event *event);
-    vp::time_engine *top;
-};
-
-class time_domain : public vp::time_engine
-{
-
-public:
-    time_domain(js::config *config);
-
-    void pre_pre_build();
-    int build();
-
-};
-
-time_domain::time_domain(js::config *config)
-    : vp::time_engine(config)
-{
-}
-
-
-
-void time_domain::pre_pre_build()
-{
-    this->new_service("time", static_cast<time_engine *>(this));
-}
-
-
-
-int time_domain::build()
-{
-    if (this->get_js_config()->get("**/system_tree") != NULL)
-    {
-        this->new_component("sys", this->get_js_config()->get("**/system_tree"));
-    }
-    else
-    {
-        this->new_component("", this->get_js_config()->get("**/target"));
-    }
-
-    this->is_async = this->get_gv_conf()->is_async;
-
-    return 0;
+    this->is_async = top->get_gv_conf()->is_async;
 }
 
 // Global signal handler to catch sigint when we are in C world and after
@@ -129,8 +83,8 @@ static void *engine_routine(void *arg)
     return NULL;
 }
 
-vp::time_engine::time_engine(js::config *config)
-    : vp::component(config), first_client(NULL)
+vp::time_engine::time_engine(vp::component *top, js::config *config)
+    : first_client(NULL), top(top), config(config)
 {
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
@@ -249,8 +203,8 @@ int vp::time_engine::join()
 
 void vp::time_engine::start()
 {
-    js::config *item_conf = this->get_js_config()->get("**/gvsoc/no_exit");
-    bool sa_mode = this->get_js_config()->get_child_bool("**/gvsoc/sa-mode");
+    js::config *item_conf = this->config->get("**/no_exit");
+    bool sa_mode = this->config->get_child_bool("**/sa-mode");
     this->no_exit = item_conf != NULL && item_conf->get_bool();
 
     if (this->no_exit)
@@ -260,7 +214,7 @@ void vp::time_engine::start()
         retain_count++;
     }
 
-    this->stop_event = new Time_engine_stop_event(this);
+    this->stop_event = new vp::Time_engine_stop_event(this->top, this);
 
     if (this->is_async)
     {
@@ -285,24 +239,24 @@ void vp::time_engine::wait_ready()
 
 
 
-Time_engine_stop_event::Time_engine_stop_event(vp::time_engine *top) : vp::time_scheduler(NULL), top(top)
+vp::Time_engine_stop_event::Time_engine_stop_event(vp::component *top, time_engine *engine) : vp::time_scheduler(NULL), top(top), engine(engine)
 {
     this->engine = (vp::time_engine*)top->get_service("time");
 
     this->build_instance("stop_event", top);
 }
 
-int64_t Time_engine_stop_event::step(int64_t duration)
+int64_t vp::Time_engine_stop_event::step(int64_t duration)
 {
     vp::time_event *event = this->time_event_new(this->event_handler);
     this->enqueue(event, duration);
     return 0;
 }
 
-void Time_engine_stop_event::event_handler(void *__this, vp::time_event *event)
+void vp::Time_engine_stop_event::event_handler(void *__this, vp::time_event *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    _this->top->stop_exec();
+    _this->engine->stop_exec();
     _this->time_event_del(event);
 }
 
@@ -701,9 +655,4 @@ void vp::time_engine::bind_to_launcher(gv::Gvsoc_user *launcher)
 static void init_sigint_handler(int s)
 {
     raise(SIGTERM);
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
-{
-    return new time_domain(config);
 }

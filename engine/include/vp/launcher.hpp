@@ -62,4 +62,5 @@ private:
     void *handler;
     int retval = -1;
     gv::Gvsoc_user *user;
+    vp::time_engine *engine;
 };

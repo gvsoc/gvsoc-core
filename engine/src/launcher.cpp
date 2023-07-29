@@ -85,6 +85,11 @@ void Gvsoc_launcher::close()
     }
 
     this->instance->stop_all();
+
+    vp::top *top = (vp::top *)this->handler;
+
+    delete top->power_engine;
+    delete top->trace_engine;
 }
 
 void Gvsoc_launcher::run()

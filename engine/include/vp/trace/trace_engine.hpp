@@ -42,8 +42,7 @@ namespace vp {
   {
   public:
     trace_engine(js::config *config);
-
-    void stop();
+    ~trace_engine();
 
     virtual void reg_trace(vp::trace *trace, int event, string path, string name) = 0;
 
@@ -83,6 +82,8 @@ namespace vp {
     inline bool get_werror() { return this->werror; }
     inline bool is_warning_active(vp::trace::warning_type_e type) { return this->active_warnings[type]; }
 
+    vp::time_engine *time_engine;
+
   protected:
     std::map<std::string, trace *> traces_map;
     std::vector<trace *> traces_array;
@@ -117,7 +118,6 @@ namespace vp {
     Event_trace *first_trace_to_dump;
     bool global_enable = true;
     gv::Vcd_user *vcd_user;
-    vp::time_engine *time_engine;
   };
 
 class trace_regex

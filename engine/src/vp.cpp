@@ -1306,7 +1306,8 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
 
     top->top_instance = instance;
     top->power_engine = new vp::power::engine(instance);
-    new vp::trace_domain(instance, gv_config);
+    top->trace_engine = new vp::trace_domain(instance, gv_config);
+    top->trace_engine->time_engine = (vp::time_engine *)top->top_instance;
 
     instance->set_vp_config(gv_config);
     instance->set_gv_conf(gv_conf);
@@ -1465,6 +1466,7 @@ extern "C" void gv_stop(void *arg, int retval)
     instance->stop_all();
 
     delete top->power_engine;
+    delete top->trace_engine;
 }
 
 

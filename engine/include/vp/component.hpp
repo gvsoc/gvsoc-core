@@ -59,6 +59,7 @@ namespace vp {
   class clock_engine;
   class component;
   class signal;
+  class trace_domain;
 
 
   class Notifier {
@@ -263,6 +264,7 @@ namespace vp {
   public:
       component *top_instance;
       power::engine *power_engine;
+      vp::trace_domain *trace_engine;
   private:
   };
 

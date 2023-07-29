@@ -246,7 +246,7 @@ char *vp::trace_engine::get_event_buffer(int bytes)
     return result;
 }
 
-void vp::trace_engine::stop()
+vp::trace_engine::~trace_engine()
 {
     this->check_pending_events(-1);
     this->flush();

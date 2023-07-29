@@ -50,7 +50,7 @@ namespace vp {
   public:
     Event_trace(string trace_name, Event_file *file, int width, bool is_real, bool is_string);
     void reg(int64_t timestamp, uint8_t *event, int width, uint8_t flags, uint8_t *flag_mask);
-    inline void dump(int64_t timestamp) { file->dump(timestamp, id, this->buffer, this->width, this->is_real, this->is_string, this->flags, this->flags_mask); }
+    inline void dump(int64_t timestamp) { if (this->buffer) file->dump(timestamp, id, this->buffer, this->width, this->is_real, this->is_string, this->flags, this->flags_mask); }
     std::string trace_name;
     bool is_real = false;
     bool is_string;

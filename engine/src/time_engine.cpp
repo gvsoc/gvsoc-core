@@ -27,12 +27,12 @@
 
 static pthread_t sigint_thread;
 
-vp::time_domain::time_domain(vp::component *top, js::config *config)
-    : vp::time_engine(top, config)
+vp::time_domain::time_domain(vp::component *top, js::config *config, struct gv_conf *gv_conf)
+    : vp::time_engine(top, config, gv_conf)
 {
     top->new_service("time", static_cast<time_engine *>(this));
 
-    this->is_async = top->get_gv_conf()->is_async;
+    this->is_async = gv_conf->is_async;
 }
 
 // Global signal handler to catch sigint when we are in C world and after
@@ -83,7 +83,7 @@ static void *engine_routine(void *arg)
     return NULL;
 }
 
-vp::time_engine::time_engine(vp::component *top, js::config *config)
+vp::time_engine::time_engine(vp::component *top, js::config *config, struct gv_conf *gv_conf)
     : first_client(NULL), top(top), config(config)
 {
     pthread_mutex_init(&mutex, NULL);
@@ -93,6 +93,8 @@ vp::time_engine::time_engine(vp::component *top, js::config *config)
     run_req = false;
     stop_req = false;
     pause_req = false;
+
+    this->stop_event = new vp::Time_engine_stop_event(this->top, this);
 }
 
 
@@ -214,8 +216,6 @@ void vp::time_engine::start()
         retain_count++;
     }
 
-    this->stop_event = new vp::Time_engine_stop_event(this->top, this);
-
     if (this->is_async)
     {
         if (sa_mode)
@@ -237,11 +237,9 @@ void vp::time_engine::wait_ready()
     }
 }
 
-
-
-vp::Time_engine_stop_event::Time_engine_stop_event(vp::component *top, time_engine *engine) : vp::time_scheduler(NULL), top(top), engine(engine)
+vp::Time_engine_stop_event::Time_engine_stop_event(vp::component *top, time_engine *engine) : vp::time_scheduler(NULL), top(top)
 {
-    this->engine = (vp::time_engine*)top->get_service("time");
+    this->engine = engine;
 
     this->build_instance("stop_event", top);
 }
@@ -263,19 +261,19 @@ void vp::Time_engine_stop_event::event_handler(void *__this, vp::time_event *eve
 
 int64_t vp::time_engine::step(int64_t duration)
 {
-    if (this->is_async)
-    {
-        int64_t timestamp;
+     if (this->is_async)
+     {
+         int64_t timestamp;
         this->get_time_engine()->lock();
         timestamp = this->get_time();
-        if (duration > 0)
-        {
+         if (duration > 0)
+         {
             this->stop_event->step(duration);
-        }
+         }
         this->get_time_engine()->unlock();
         this->run();
-        return timestamp + duration;
-    }
+         return timestamp + duration;
+     }
     else
     {
         if (duration == 0)
@@ -399,7 +397,7 @@ int64_t vp::time_engine::step_until(int64_t end_time)
 
             time_engine_client *next = first_client;
 
-            // Shortcut to quickly continue with the same client
+            // Shortcut to quickly conti with the same client
             if (likely(time > 0))
             {
                 time += this->time;

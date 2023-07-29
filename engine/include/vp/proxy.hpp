@@ -23,7 +23,7 @@
 class Gv_proxy : vp::Notifier
 {
   public:
-    Gv_proxy(vp::component *top, int req_pipe, int reply_pipe);
+    Gv_proxy(vp::time_engine *engine, vp::component *top, int req_pipe, int reply_pipe);
     int open(int port, int *out_port);
     void stop(int status);
     void notify_stop();

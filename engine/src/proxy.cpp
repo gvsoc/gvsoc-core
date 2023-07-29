@@ -271,9 +271,9 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
     }
 }
 
-Gv_proxy::Gv_proxy(vp::component *top, int req_pipe, int reply_pipe): top(top), req_pipe(req_pipe), reply_pipe(reply_pipe)
+Gv_proxy::Gv_proxy(vp::time_engine *engine, vp::component *top, int req_pipe, int reply_pipe): top(top), req_pipe(req_pipe), reply_pipe(reply_pipe)
 {
-    top->register_exec_notifier(this);
+    engine->register_exec_notifier(this);
 }
 
 void Gv_proxy::listener(void)

@@ -1294,7 +1294,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
     top->top_instance = instance;
     top->power_engine = new vp::power::engine(instance);
     top->trace_engine = new vp::trace_domain(instance, gv_config);
-    top->time_engine = new vp::time_domain(instance, gv_config);
+    top->time_engine = new vp::time_domain(instance, gv_config, gv_conf);
     top->trace_engine->time_engine = (vp::time_engine *)top->time_engine;
 
     instance->set_vp_config(gv_config);

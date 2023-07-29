@@ -52,7 +52,7 @@ void Gvsoc_launcher::open()
     {
         int in_port = instance->gv_conf.open_proxy ? 0 : instance->get_vp_config()->get_child_int("proxy/port");
         int out_port;
-        proxy = new Gv_proxy(instance, instance->gv_conf.req_pipe, instance->gv_conf.reply_pipe);
+        proxy = new Gv_proxy(this->engine, instance, instance->gv_conf.req_pipe, instance->gv_conf.reply_pipe);
         if (proxy->open(in_port, &out_port))
         {
             instance->throw_error("Failed to start proxy");

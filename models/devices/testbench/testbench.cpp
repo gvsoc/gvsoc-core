@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include "vp/proxy.hpp"
 
+static unsigned int testbench_seed = 1;
+
 Uart_flow_control_checker::Uart_flow_control_checker(Testbench *top, Uart *uart, pi_testbench_req_t *req)
 : top(top), uart(uart)
 {
@@ -183,7 +185,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
                     int64_t cycles = (next_time - current_time + period - 1) / period;
 
                     // Randomize a bit
-                    cycles = cycles * (rand() % 100) / 100 + 1;
+                    cycles = cycles * (rand_r(&testbench_seed) % 100) / 100 + 1;
 
                     if (!this->bw_limiter_event->is_enqueued())
                     {

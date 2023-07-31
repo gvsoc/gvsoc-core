@@ -491,7 +491,7 @@ void Pad_group::edge_wrapper(void *__this, int64_t timestamp, int data)
 void Dpi_chip_wrapper_callback::update(int value)
 {
     Pad_group *_this = (Pad_group *)this->group;
-    _this->edge(this, 0, value);
+    _this->edge(this, _this->top->get_time(), value);
 }
 
 /*

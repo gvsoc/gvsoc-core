@@ -403,7 +403,7 @@ int64_t vp::time_engine::step_until(int64_t end_time)
                 time += this->time;
                 if (likely((!next || next->next_event_time > time)))
                 {
-                    if (likely(time < end_time && run_req))
+                    if (likely(time <= end_time && run_req))
                     {
                         this->time = time;
                         continue;
@@ -440,20 +440,18 @@ int64_t vp::time_engine::step_until(int64_t end_time)
 
             current->running = false;
 
-            if (time > end_time || !run_req)
+            if (!run_req)
                 break;
 
             current = first_client;
-            if (current)
-            {
-                vp_assert(first_client->next_event_time >= get_time(), NULL, "event time is before vp time\n");
 
-                first_client = current->next;
-                current->is_enqueued = false;
-            }
-
-            if (!current)
+            if (!current || current->next_event_time > end_time)
                 break;
+
+            vp_assert(first_client->next_event_time >= get_time(), NULL, "event time is before vp time\n");
+
+            first_client = current->next;
+            current->is_enqueued = false;
 
             // Update the global engine time with the current event time
             this->time = current->next_event_time;

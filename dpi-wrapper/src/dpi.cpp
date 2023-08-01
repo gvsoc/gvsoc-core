@@ -22,7 +22,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <gv/gvsoc.h>
 #include <gv/gvsoc.hpp>
 #include <gv/dpi_chip_wrapper.hpp>
 

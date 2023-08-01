@@ -39,7 +39,6 @@
 #include <poll.h>
 #include <signal.h>
 #include <regex>
-#include <gv/gvsoc.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/prctl.h>

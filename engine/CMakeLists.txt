@@ -13,6 +13,8 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/clock/clock_engine.cpp"
     "src/clock/clock_event.cpp"
     "src/vp.cpp"
+    "src/time_scheduler.cpp"
+    "src/top.cpp"
     "src/block.cpp"
     "src/register.cpp"
     "src/signal.cpp"

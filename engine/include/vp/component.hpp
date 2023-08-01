@@ -28,7 +28,6 @@
 #include <string>
 #include <vector>
 #include <functional>
-#include "gv/gvsoc.h"
 #include "vp/ports.hpp"
 #include "vp/config.hpp"
 #include "vp/clock/clock_event.hpp"
@@ -79,6 +78,8 @@ namespace vp {
   public:
     component(js::config *config);
 
+    static vp::component *load_component(js::config *config, js::config *gv_config);
+
     virtual void pre_pre_build() { }
     virtual int build() { return 0; }
     virtual void pre_start() {}
@@ -101,8 +102,6 @@ namespace vp {
 
     js::config *get_vp_config();
     void set_vp_config(js::config *config);
-    void set_gv_conf(struct gv_conf *gv_conf);
-    struct gv_conf *get_gv_conf();
 
     inline config *get_config(std::string name);
 
@@ -205,8 +204,6 @@ namespace vp {
 
     trace warning;
 
-    struct gv_conf gv_conf;
-
   protected:
     void create_comps();
     void create_ports();
@@ -242,9 +239,6 @@ namespace vp {
   };
 
   std::string __gv_get_component_path(js::config *gv_config, std::string relpath);
-
-  vp::component *__gv_create(std::string config_path, struct gv_conf *gv_conf);
-
-};  
+};
 
 #endif

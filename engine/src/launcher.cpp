@@ -31,36 +31,20 @@ Gvsoc_launcher::Gvsoc_launcher(gv::GvsocConf *conf)
 
 void Gvsoc_launcher::open()
 {
-    struct gv_conf gv_conf;
-
-    gv_conf.open_proxy = false;
-    gv_conf.proxy_socket = &conf->proxy_socket;
-    gv_conf.req_pipe = -1;
-    gv_conf.reply_pipe = -1;
-    gv_conf.is_async = conf->api_mode == gv::Api_mode::Api_mode_async;
-
-    this->handler = vp::__gv_create(conf->config_path, &gv_conf);
+    this->handler = new vp::top(conf->config_path, conf->api_mode == gv::Api_mode::Api_mode_async);
 
     this->instance = ((vp::top *)this->handler)->top_instance;
     this->engine = ((vp::top *)this->handler)->time_engine;
 
-    this->instance->pre_pre_build();
-    this->instance->pre_build();
-    this->instance->build();
-
-    if (this->instance->gv_conf.open_proxy || instance->get_vp_config()->get_child_bool("proxy/enabled"))
+    if (instance->get_vp_config()->get_child_bool("proxy/enabled"))
     {
-        int in_port = instance->gv_conf.open_proxy ? 0 : instance->get_vp_config()->get_child_int("proxy/port");
+        int in_port = instance->get_vp_config()->get_child_int("proxy/port");
         int out_port;
-        proxy = new Gv_proxy(this->engine, instance, instance->gv_conf.req_pipe, instance->gv_conf.reply_pipe);
+        proxy = new Gv_proxy(this->engine, instance);
+
         if (proxy->open(in_port, &out_port))
         {
             instance->throw_error("Failed to start proxy");
-        }
-
-        if (instance->gv_conf.proxy_socket)
-        {
-            *instance->gv_conf.proxy_socket = out_port;
         }
     }
 }
@@ -89,8 +73,7 @@ void Gvsoc_launcher::close()
 
     vp::top *top = (vp::top *)this->handler;
 
-    delete top->power_engine;
-    delete top->trace_engine;
+    delete top;
 }
 
 void Gvsoc_launcher::run()
@@ -187,10 +170,3 @@ void *Gvsoc_launcher::get_component(std::string path)
 {
     return this->instance->get_component(split(path, '/'));
 }
-
-extern "C" void *gv_chip_pad_bind(void *handle, char *name, int ext_handle)
-{
-    Gvsoc_launcher *gvsoc = (Gvsoc_launcher *)handle;
-    return gvsoc->instance->external_bind(name, "", (void *)(long)ext_handle);
-}
-

@@ -38,7 +38,7 @@ class Time_engine_stop_event;
 class time_engine
 {
 public:
-    time_engine(component *top, js::config *config, struct gv_conf *gv_conf);
+    time_engine(component *top, js::config *config);
 
     void start();
 
@@ -204,7 +204,7 @@ class time_domain : public time_engine
 {
 
 public:
-    time_domain(component *top, js::config *config, struct gv_conf *gv_conf);
+    time_domain(component *top, js::config *config, bool is_async);
 
     void pre_pre_build();
     int build();

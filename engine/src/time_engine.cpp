@@ -27,12 +27,12 @@
 
 static pthread_t sigint_thread;
 
-vp::time_domain::time_domain(vp::component *top, js::config *config, struct gv_conf *gv_conf)
-    : vp::time_engine(top, config, gv_conf)
+vp::time_domain::time_domain(vp::component *top, js::config *config, bool is_async)
+    : vp::time_engine(top, config)
 {
     top->new_service("time", static_cast<time_engine *>(this));
 
-    this->is_async = gv_conf->is_async;
+    this->is_async = is_async;
 }
 
 // Global signal handler to catch sigint when we are in C world and after
@@ -83,7 +83,7 @@ static void *engine_routine(void *arg)
     return NULL;
 }
 
-vp::time_engine::time_engine(vp::component *top, js::config *config, struct gv_conf *gv_conf)
+vp::time_engine::time_engine(vp::component *top, js::config *config)
     : first_client(NULL), top(top), config(config)
 {
     pthread_mutex_init(&mutex, NULL);
@@ -651,4 +651,78 @@ void vp::time_engine::bind_to_launcher(gv::Gvsoc_user *launcher)
 static void init_sigint_handler(int s)
 {
     raise(SIGTERM);
+}
+
+int64_t vp::time_engine::get_next_event_time()
+{
+    if (this->first_client)
+    {
+        return this->first_client->next_event_time;
+    }
+
+    return this->time;
+}
+
+
+bool vp::time_engine::dequeue(time_engine_client *client)
+{
+    if (!client->is_enqueued)
+        return false;
+
+    client->is_enqueued = false;
+
+    time_engine_client *current = this->first_client, *prev = NULL;
+    while (current && current != client)
+    {
+        prev = current;
+        current = current->next;
+    }
+    if (prev)
+        prev->next = client->next;
+    else
+        this->first_client = client->next;
+
+    return true;
+}
+
+bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
+{
+    bool update = false;
+
+    vp_assert(full_time >= get_time(), NULL, "Time must be higher than current time\n");
+
+    if (client->is_running())
+        return false;
+
+    if (client->is_enqueued)
+    {
+        if (client->next_event_time <= full_time)
+            return false;
+        this->dequeue(client);
+    }
+
+    client->is_enqueued = true;
+
+    time_engine_client *current = first_client, *prev = NULL;
+    client->next_event_time = full_time;
+    while (current && current->next_event_time < client->next_event_time)
+    {
+        prev = current;
+        current = current->next;
+    }
+    if (prev)
+        prev->next = client;
+    else
+    {
+        update = true;
+        first_client = client;
+    }
+    client->next = current;
+
+    if (update && this->launcher)
+    {
+        this->launcher->was_updated();
+    }
+
+    return true;
 }

@@ -427,6 +427,7 @@ int64_t Spim_verif::exec()
                 this->slave_wait_cycles--;
                 if (this->slave_wait_cycles == 0)
                 {
+                    // Once we toggled the clock for the specified amount of cycles, wait a bit before driving CS
                     this->slave_state = SPIS_STATE_CS_START_PRE_START_CYCLES;
                     this->slave_wait_cycles = 5;
                 }
@@ -497,8 +498,16 @@ int64_t Spim_verif::exec()
             case SPIS_STATE_CS_END:
                 this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master cs end\n");
                 this->spi->cs_itf.sync(1);
-                this->slave_state = SPIS_STATE_END_WAIT_CYCLES;
-                this->slave_wait_cycles = 4; // Latest GAP requires at least 4 dummy cycles
+                this->slave_wait_cycles = this->config.dummy_cycles;
+
+                if (this->slave_wait_cycles == 0)
+                {
+                    this->slave_state = SPIS_STATE_IDLE;
+                }
+                else
+                {
+                    this->slave_state = SPIS_STATE_END_WAIT_CYCLES;
+                }
                 break;
 
             case SPIS_STATE_END_WAIT_CYCLES:
@@ -879,7 +888,7 @@ void Spim_verif::enqueue_transfer(int address, int size, int is_rx, int is_duple
     this->slave_pending_mosi = 2;
     this->slave_pending_rx_addr = address;
     this->slave_pending_tx_addr = address;
-    this->slave_wait_cycles = 4; // Latest GAP requires at least 4 dummy cycles
+    this->slave_wait_cycles = this->config.dummy_cycles; // Latest GAP requires at least 4 dummy cycles
     this->slave_pending_is_rx = is_rx || is_duplex;
     this->slave_pending_is_tx = !is_rx || is_duplex;
 
@@ -898,7 +907,14 @@ void Spim_verif::enqueue_transfer(int address, int size, int is_rx, int is_duple
 
     this->slave_sck = 0;
 
-    this->slave_state = SPIS_STATE_START_WAIT_CYCLES;
+    if (this->slave_wait_cycles == 0)
+    {
+        this->slave_state = SPIS_STATE_CS_START;
+    }
+    else
+    {
+        this->slave_state = SPIS_STATE_START_WAIT_CYCLES;
+    }
 
     if (!this->is_enqueued)
     {

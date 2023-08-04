@@ -826,6 +826,7 @@ void Spi::create_loader(js::config *load_config)
     config.cs = 0;
     config.is_master = 1;
     config.mem_size_log2 = 20;
+    config.dummy_cycles = load_config->get_child_int("dummy_cycles");
 
     this->spim_verif = new Spim_verif(this->top, this, &this->itf, &config);
 

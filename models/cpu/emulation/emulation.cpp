@@ -26,6 +26,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <gv/gvsoc.hpp>
+#include <vp/launcher.hpp>
 
 static int nb_running = 0;
 
@@ -280,7 +281,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Running engine\n");
             lock.unlock();
-            this->get_engine()->run();
+            this->get_launcher()->run();
             lock.lock();
         }
 
@@ -294,7 +295,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::trace::LEVEL_DEBUG, "Stopping engine\n");
             lock.unlock();
-            this->get_engine()->pause();
+            this->get_launcher()->stop();
             lock.lock();
         }
     }

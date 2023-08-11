@@ -52,6 +52,8 @@ extern char vp_error[];
 
 class Gv_proxy;
 
+class Gvsoc_launcher;
+
 namespace vp {
 
   class config;
@@ -66,7 +68,6 @@ namespace vp {
       virtual void notify_stop(int64_t time) {}
       virtual void notify_run(int64_t time) {}
   };
-
 
 
   class component : public component_clock, public block
@@ -204,7 +205,10 @@ namespace vp {
 
     trace warning;
 
+    void set_launcher(Gvsoc_launcher *launcher) { this->launcher = launcher; }
+
   protected:
+    Gvsoc_launcher *get_launcher();
     void create_comps();
     void create_ports();
     void create_bindings();
@@ -216,7 +220,6 @@ namespace vp {
     std::map<std::string, component *> childs_dict;
 
   private:
-
     js::config *comp_js_config;
     js::config *vp_config = NULL;
     trace root_trace;
@@ -236,6 +239,7 @@ namespace vp {
     bool reset_done_from_itf;
 
     time_engine *time_engine_ptr = NULL;
+    Gvsoc_launcher *launcher;
   };
 
   std::string __gv_get_component_path(js::config *gv_config, std::string relpath);

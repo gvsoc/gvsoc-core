@@ -66,6 +66,7 @@ void Gvsoc_launcher::open()
     this->handler = new vp::top(conf->config_path, this->is_async);
 
     this->instance = ((vp::top *)this->handler)->top_instance;
+    this->instance->set_launcher(this);
     this->engine = ((vp::top *)this->handler)->time_engine;
 
     if (instance->get_vp_config()->get_child_bool("proxy/enabled"))

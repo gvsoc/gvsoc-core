@@ -1146,6 +1146,17 @@ void vp::fatal(const char *fmt, ...)
 }
 
 
+Gvsoc_launcher *vp::component::get_launcher()
+{
+    if (this->parent)
+    {
+        return this->parent->get_launcher();
+    }
+
+    return this->launcher;
+}
+
+
 gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
 {
     if (conf->proxy_socket != -1)

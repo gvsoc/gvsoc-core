@@ -32,56 +32,28 @@ namespace vp
 
 class time_engine_client;
 class component;
-class Notifier;
-class Time_engine_stop_event;
 
 class time_engine
 {
 public:
     time_engine(component *top, js::config *config);
 
-    void start();
+    int64_t run_until(int64_t time);
 
-    void run_loop();
-
-    void run_loop_systemv();
-
-    int64_t step(int64_t timestamp);
-    int64_t step_until(int64_t time);
-
-    void run();
-
-    void flush_all() {this->top->flush_all(); }
-
-    void quit(int status);
-
-    int join();
-
-    int64_t get_next_event_time();
-
-    inline void lock_step();
-
-    inline void lock_step_cancel();
+    int64_t run();
 
     inline void lock();
 
     inline void unlock();
 
-    inline void stop_engine(int status=0, bool force = true, bool no_retain = false);
+    void quit(int status);
 
-    inline void stop_retain(int count);
+    void wait_for_lock();
+    void wait_for_lock_stop();
 
-    inline void pause();
+    void pause();
 
-    void stop_exec();
-
-    void wait_stopped();
-
-    void req_stop_exec();
-
-    void register_exec_notifier(Notifier *notifier);
-
-    inline time_engine *get_time_engine() { return this; }
+    void flush();
 
     bool dequeue(time_engine_client *client);
 
@@ -89,54 +61,39 @@ public:
 
     int64_t get_time() { return time; }
 
-    inline void retain() { retain_count++; }
-    inline void release() { retain_count--; }
-
-    inline void fatal(const char *fmt, ...);
+    void fatal(const char *fmt, ...);
 
     inline void update(int64_t time);
 
-    void wait_ready();
-
-    bool is_async;
-
     void bind_to_launcher(gv::Gvsoc_user *launcher);
 
-    gv::Gvsoc_user *launcher = NULL;
-
-    inline void time_engine_update(int64_t timestamp)
-    {
-        this->update(timestamp);
-    }
+    int status_get() { return this->stop_status; }
+    bool finished_get() { return this->finished; }
+    gv::Gvsoc_user *launcher_get() { return this->launcher; }
 
 private:
-    void exec();
+
+    int64_t exec(int64_t end_time);
+    void flush_all() {this->top->flush_all(); }
+
 
     time_engine_client *first_client = NULL;
     bool locked = false;
-    bool locked_run_req;
-    bool run_req;
-    bool stop_req;
-    bool pause_req;
-    bool finished = false;
 
-    bool running;
+
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    pthread_t run_thread;
 
     int64_t time = 0;
     int stop_status = -1;
-    bool engine_has_been_stopped = false;
-    int retain_count = 0;
-    bool no_exit;
-    int stop_retain_count = 0;
 
-private:
-    Time_engine_stop_event *stop_event;
-    std::vector<Notifier *> exec_notifiers;
     component *top;
     js::config *config;
+    bool finished = false;
+    bool lock_req = false;
+    bool stop_req = false;
+    bool pause_req = false;
+    gv::Gvsoc_user *launcher = NULL;
 };
 
 class time_engine_client : public component
@@ -180,148 +137,39 @@ protected:
     bool is_enqueued = false;
 };
 
-class time_domain;
-
 }; // namespace vp
 
-#include "vp/time/time_scheduler.hpp"
-
-namespace vp
-{
-
-class Time_engine_stop_event : public vp::time_scheduler
-{
-public:
-    Time_engine_stop_event(component *top, time_engine *engine);
-    int64_t step(int64_t duration);
-
-private:
-    static void event_handler(void *__this, vp::time_event *event);
-    component *top;
-};
-
-class time_domain : public time_engine
-{
-
-public:
-    time_domain(component *top, js::config *config, bool is_async);
-
-    void pre_pre_build();
-    int build();
-
-};
-
-}; // namespace vp
-
-// This can be called from anywhere so just propagate the stop request
-// to the main python thread which will take care of stopping the engine.
-inline void vp::time_engine::stop_engine(int status, bool force, bool no_retain)
-{
-    this->top->flush_all(); 
-
-    if (!this->engine_has_been_stopped)
-    {
-        this->engine_has_been_stopped = true;
-        stop_status = status;
-    }
-    else
-    {
-        stop_status |= status;
-    }
-
-    if (no_retain || stop_retain_count == 0 || stop_status != 0)
-    {
-        if (force || !this->no_exit)
-        {
-            // In case the vp is connected to an external bridge, prevent the platform
-            // from exiting unless a ctrl-c is hit
-            pthread_mutex_lock(&mutex);
-            stop_req = true;
-            run_req = false;
-            pthread_cond_broadcast(&cond);
-            pthread_mutex_unlock(&mutex);
-        }
-    }
-}
-
-
-inline void vp::time_engine::stop_retain(int count)
-{
-    this->stop_retain_count += count;
-}
-
-
-inline void vp::time_engine::pause()
-{
-    pthread_mutex_lock(&mutex);
-    run_req = false;
-    pthread_cond_broadcast(&cond);
-
-    while(this->running)
-    {
-        pthread_cond_wait(&cond, &mutex);
-    }
-
-    pthread_mutex_unlock(&mutex);
-}
-
-
-inline void vp::time_engine::lock_step()
-{
-    if (!locked)
-    {
-        locked = true;
-        locked_run_req = run_req;
-        run_req = false;
-    }
-}
-
-inline void vp::time_engine::lock_step_cancel()
-{
-    pthread_mutex_lock(&mutex);
-    if (locked)
-    {
-        run_req = locked_run_req;
-        locked = false;
-    }
-    pthread_cond_broadcast(&cond);
-    pthread_mutex_unlock(&mutex);
-}
 
 inline void vp::time_engine::lock()
 {
     pthread_mutex_lock(&mutex);
-    if (!locked)
+
+    while(this->lock_req)
     {
-        locked_run_req = run_req;
-        run_req = false;
-        locked = true;
-    }
-    pthread_cond_broadcast(&cond);
-    while (running)
         pthread_cond_wait(&cond, &mutex);
+    }
+
+    this->stop_req = true;
+    this->lock_req = true;
+
+    pthread_cond_broadcast(&cond);
+
+    while(!this->locked)
+    {
+        pthread_cond_wait(&cond, &mutex);
+    }
+
     pthread_mutex_unlock(&mutex);
 }
 
 inline void vp::time_engine::unlock()
 {
     pthread_mutex_lock(&mutex);
-    run_req = locked_run_req;
-    locked = false;
+    this->locked = false;
+    this->lock_req = false;
+    this->stop_req = false;
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);
-}
-
-inline void vp::time_engine::fatal(const char *fmt, ...)
-{
-    fprintf(stdout, "[\033[31mFATAL\033[0m] ");
-    va_list ap;
-    va_start(ap, fmt);
-    if (vfprintf(stdout, fmt, ap) < 0)
-    {
-    }
-    va_end(ap);
-    stop_engine(-1);
 }
 
 inline void vp::time_engine::update(int64_t time)

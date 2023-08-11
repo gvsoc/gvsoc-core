@@ -209,7 +209,6 @@ class Runner():
                     "werror": True,
                     "verbose": True,
                     "debug-mode": False,
-                    "sa-mode": True,
                 
                     "launchers": {
                         "default": "gvsoc_launcher",

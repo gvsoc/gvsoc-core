@@ -22,6 +22,25 @@
 #pragma once
 
 #include <vp/vp.hpp>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+typedef enum
+{
+    ENGINE_STATE_IDLE,
+    ENGINE_STATE_RUNNING,
+    ENGINE_STATE_FINISHED
+}
+engine_state_e;
+
+typedef enum
+{
+    ENGINE_REQ_NONE,
+    ENGINE_REQ_RUN,
+    ENGINE_REQ_RUN_UNTIL,
+}
+engine_req_e;
 
 class Gvsoc_launcher : public gv::Gvsoc
 {
@@ -54,13 +73,28 @@ public:
     void event_add(std::string path, bool is_regex) override;
     void event_exclude(std::string path, bool is_regex) override;
     void *get_component(std::string path) override;
+    void register_exec_notifier(vp::Notifier *notifier);
 
-    vp::component *instance;
+    vp::top *top_get() { return this->handler; }
 
 private:
+    void engine_routine();
+    static void *signal_routine(void *__this);
+
     gv::GvsocConf *conf;
-    void *handler;
+    vp::top *handler;
     int retval = -1;
     gv::Gvsoc_user *user;
+    bool is_async;
+    std::thread *engine_thread;
+    std::thread *signal_thread;
+    std::mutex mutex;
+    std::condition_variable cond;
+    engine_state_e engine_state = ENGINE_STATE_IDLE;
+    engine_req_e engine_req = ENGINE_REQ_NONE;
+    std::vector<vp::Notifier *> exec_notifiers;
+    int64_t time;
     vp::time_engine *engine;
+    vp::component *instance;
+    Gv_proxy *proxy;
 };

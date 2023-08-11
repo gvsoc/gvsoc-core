@@ -37,14 +37,12 @@ vp::top::top(std::string config_path, bool is_async)
     this->top_instance = instance;
     this->power_engine = new vp::power::engine(instance);
     this->trace_engine = new vp::trace_domain(instance, gv_config);
-    this->time_engine = new vp::time_domain(instance, gv_config, is_async);
+    this->time_engine = new vp::time_engine(instance, gv_config);
     this->trace_engine->time_engine = (vp::time_engine *)this->time_engine;
 
     instance->set_vp_config(gv_config);
 
     instance->build_instance("", NULL);
-
-    this->time_engine->start();
 }
 
 

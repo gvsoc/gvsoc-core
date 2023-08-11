@@ -42,11 +42,6 @@ set(GVSOC_ENGINE_C_SRCS
 
 set(GVSOC_ENGINE_INC_DIRS "include")
 
-#"vp/clock_domain_impl.cpp"
-#"vp/time_domain_impl.cpp"
-#"vp/power_engine_impl.cpp"
-#"vp/trace_domain_impl.cpp"
-
 # ==================
 # Optimized launcher
 # ==================

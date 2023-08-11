@@ -44,6 +44,7 @@
 #include <sys/prctl.h>
 #include <vp/time/time_scheduler.hpp>
 #include <vp/proxy.hpp>
+#include <vp/launcher.hpp>
 
 
 static std::vector<std::string> split(const std::string& s, char delimiter)
@@ -59,14 +60,14 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 
-void Gv_proxy::notify_stop()
+void Gv_proxy::notify_stop(int64_t time)
 {
-    this->send_reply("req=-1;msg=stopped=" + std::to_string(top->get_time()) + '\n');
+    this->send_reply("req=-1;msg=stopped=" + std::to_string(time) + '\n');
 }
 
-void Gv_proxy::notify_run()
+void Gv_proxy::notify_run(int64_t time)
 {
-    this->send_reply("req=-1;msg=running=" + std::to_string(top->get_time()) + '\n');
+    this->send_reply("req=-1;msg=running=" + std::to_string(time) + '\n');
 }
 
 
@@ -94,7 +95,8 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
 {
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
-    vp::time_engine *engine = this->top->get_time_engine();
+    vp::time_engine *engine = this->launcher->top_get()->time_engine_get();
+    Gvsoc_launcher *launcher = this->launcher;
 
     while(1)
     {
@@ -102,7 +104,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
 
         if (!fgets(line_array, 1024, sock)) 
             return ;
-    
+
         std::string line = std::string(line_array);
 
         int start = 0;
@@ -143,7 +145,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
         {
             if (words[0] == "run")
             {
-                engine->run();
+                launcher->run();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -157,7 +159,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                 else
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
-                    int64_t timestamp = engine->step(duration);
+                    int64_t timestamp = launcher->step(duration);
                     std::unique_lock<std::mutex> lock(this->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();
@@ -165,15 +167,16 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
             }
             else if (words[0] == "stop")
             {
-                engine->stop_exec();
+                launcher->stop();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "quit")
             {
-                engine->pause();
+                engine->lock();
                 engine->quit(strtol(words[1].c_str(), NULL, 0));
+                engine->unlock();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
                 lock.unlock();
@@ -270,9 +273,10 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
     }
 }
 
-Gv_proxy::Gv_proxy(vp::time_engine *engine, vp::component *top, int req_pipe, int reply_pipe): top(top), req_pipe(req_pipe), reply_pipe(reply_pipe)
+Gv_proxy::Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *launcher, int req_pipe, int reply_pipe)
+  : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe)
 {
-    engine->register_exec_notifier(this);
+    launcher->register_exec_notifier(this);
 }
 
 void Gv_proxy::listener(void)

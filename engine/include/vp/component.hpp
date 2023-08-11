@@ -63,8 +63,8 @@ namespace vp {
 
   class Notifier {
   public:
-      virtual void notify_stop() {}
-      virtual void notify_run() {}
+      virtual void notify_stop(int64_t time) {}
+      virtual void notify_run(int64_t time) {}
   };
 
 

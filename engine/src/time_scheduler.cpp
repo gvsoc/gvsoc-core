@@ -21,6 +21,7 @@
 
 #include <string>
 #include <vp/vp.hpp>
+#include <vp/time/time_scheduler.hpp>
 
 
 vp::time_scheduler::time_scheduler(js::config *config)

@@ -448,6 +448,7 @@ namespace gv {
          *
          * This starts execution in a separate thread and immediately returns so that
          * the caller can do something else while GVSOC is running.
+         * This will execute until the end of simulation is reached or a stop request is received.
          *
          */
         virtual void run() = 0;
@@ -486,10 +487,11 @@ namespace gv {
          *
          * Start execution and run until the specified duration is reached. Then
          * execution is stopped and nothing is executed until it is resumed.
+         * A stop request will not stop this call.
          *
          * @param duration The amount of time in picoseconds during which GVSOC should execute.
          *
-         * @returns The timestamp at which the execution stopped when the duration was reached.
+         * @returns The timestamp of the next event to be executed.
          */
         virtual int64_t step(int64_t duration) = 0;
 
@@ -502,7 +504,7 @@ namespace gv {
          *
          * @param timestamp The timestamp in picoseconds until which GVSOC should execute.
          *
-         * @returns The timestamp at which the execution stopped when the timestamp was reached.
+         * @returns The timestamp of the next event to be executed.
          */
         virtual int64_t step_until(int64_t timestamp) = 0;
 

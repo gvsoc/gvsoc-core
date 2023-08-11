@@ -19,19 +19,51 @@
  */
 
 
+#include <pthread.h>
+#include <signal.h>
+
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
 
+static pthread_t sigint_thread;
+
+// Global signal handler to catch sigint when we are in C world and after
+// the engine has started.
+// Just few pthread functions are signal-safe so just forward the signal to
+// the sigint thread so that he can properly stop the engine
+static void sigint_handler(int s)
+{
+    pthread_kill(sigint_thread, SIGINT);
+}
+
+// This thread takes care of properly stopping the engine when ctrl C is hit
+// so that the python world can properly close everything
+void *Gvsoc_launcher::signal_routine(void *__this)
+{
+    Gvsoc_launcher *launcher = (Gvsoc_launcher *)__this;
+    sigset_t sigs_to_catch;
+    int caught;
+    sigemptyset(&sigs_to_catch);
+    sigaddset(&sigs_to_catch, SIGINT);
+    do
+    {
+        sigwait(&sigs_to_catch, &caught);
+        launcher->engine->quit(-1);
+    } while (1);
+    return NULL;
+}
+
 Gvsoc_launcher::Gvsoc_launcher(gv::GvsocConf *conf)
 {
     this->conf = conf;
+    this->is_async = conf->api_mode == gv::Api_mode::Api_mode_async;
 }
 
 void Gvsoc_launcher::open()
 {
-    this->handler = new vp::top(conf->config_path, conf->api_mode == gv::Api_mode::Api_mode_async);
+    this->handler = new vp::top(conf->config_path, this->is_async);
 
     this->instance = ((vp::top *)this->handler)->top_instance;
     this->engine = ((vp::top *)this->handler)->time_engine;
@@ -40,12 +72,32 @@ void Gvsoc_launcher::open()
     {
         int in_port = instance->get_vp_config()->get_child_int("proxy/port");
         int out_port;
-        proxy = new Gv_proxy(this->engine, instance);
+        this->proxy = new Gv_proxy(this->engine, instance, this);
 
-        if (proxy->open(in_port, &out_port))
+        if (this->proxy->open(in_port, &out_port))
         {
             instance->throw_error("Failed to start proxy");
         }
+
+        this->conf->proxy_socket = out_port;
+    }
+
+    if (this->is_async)
+    {
+        this->engine_thread = new std::thread(&Gvsoc_launcher::engine_routine, this);
+    }
+
+    if (1)
+    {
+        // Create the sigint thread so that we can properly close simulation
+        // in case ctrl C is hit.
+        sigset_t sigs_to_block;
+        sigemptyset(&sigs_to_block);
+        sigaddset(&sigs_to_block, SIGINT);
+        pthread_sigmask(SIG_BLOCK, &sigs_to_block, NULL);
+        pthread_create(&sigint_thread, NULL, signal_routine, (void *)this);
+
+        signal(SIGINT, sigint_handler);
     }
 }
 
@@ -78,45 +130,107 @@ void Gvsoc_launcher::close()
 
 void Gvsoc_launcher::run()
 {
-    if (!proxy)
+    if (this->is_async)
     {
-        this->engine->step(0);
+        std::unique_lock<std::mutex> lock(this->mutex);
+        if (this->engine_state == ENGINE_STATE_IDLE)
+        {
+            this->engine_req = ENGINE_REQ_RUN;
+            this->engine->wait_for_lock_stop();
+        }
+        lock.unlock();
+    }
+    else
+    {
+        this->engine->run();
     }
 }
 
 int Gvsoc_launcher::join()
 {
-    this->retval = this->engine->join();
+    if (this->is_async)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        while(this->engine_state != ENGINE_STATE_FINISHED)
+        {
+            this->cond.wait(lock);
+        }
+        lock.unlock();
+    }
+
+    this->retval = this->engine->status_get();
+
     return this->retval;
 }
 
 int64_t Gvsoc_launcher::stop()
 {
-    this->engine->stop_exec();
-    return this->engine->get_time();
+    if (this->is_async)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+
+        if (this->engine_state == ENGINE_STATE_RUNNING)
+        {
+            this->engine->lock();
+            this->engine->pause();
+            this->engine->unlock();
+
+            // while (this->engine_state == ENGINE_STATE_RUNNING)
+            // {
+            //     this->cond.wait(lock);
+            // }
+        }
+
+        lock.unlock();
+        return this->engine->get_time();
+    }
+    return -1;
 }
 
 void Gvsoc_launcher::wait_stopped()
 {
-    this->engine->wait_stopped();
+    if (this->is_async)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+
+        while (this->engine_state == ENGINE_STATE_RUNNING)
+        {
+            this->cond.wait(lock);
+        }
+
+        lock.unlock();
+    }
 }
 
 int64_t Gvsoc_launcher::step(int64_t duration)
 {
-    if (!proxy)
-    {
-        this->engine->step(duration);
-    }
-    return 0;
+    return this->step_until(this->engine->get_time() + duration);
 }
 
-int64_t Gvsoc_launcher::step_until(int64_t timestamp)
+int64_t Gvsoc_launcher::step_until(int64_t end_time)
 {
-    if (!proxy)
+    int64_t time;
+    if (this->is_async)
     {
-        return this->engine->step_until(timestamp);
+        std::unique_lock<std::mutex> lock(this->mutex);
+        if (this->engine_state == ENGINE_STATE_IDLE)
+        {
+            this->time = end_time;
+            this->engine_req = ENGINE_REQ_RUN_UNTIL;
+            this->engine->wait_for_lock_stop();
+            time = this->time;
+        }
+        else
+        {
+            time = -1;
+        }
+        lock.unlock();
     }
-    return 0;
+    else
+    {
+        time = this->engine->run_until(end_time);
+    }
+    return time;
 }
 
 gv::Io_binding *Gvsoc_launcher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
@@ -161,7 +275,7 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 
 void Gvsoc_launcher::update(int64_t timestamp)
 {
-    this->engine->time_engine_update(timestamp);
+    this->engine->update(timestamp);
 }
 
 
@@ -169,4 +283,74 @@ void Gvsoc_launcher::update(int64_t timestamp)
 void *Gvsoc_launcher::get_component(std::string path)
 {
     return this->instance->get_component(split(path, '/'));
+}
+
+
+
+void Gvsoc_launcher::engine_routine()
+{
+    while(1)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+
+        while(this->engine_req == ENGINE_REQ_NONE)
+        {
+            lock.unlock();
+            this->engine->wait_for_lock();
+            lock.lock();
+
+            if (this->engine->finished_get())
+            {
+                this->engine_state = ENGINE_STATE_FINISHED;
+                this->cond.notify_all();
+            }
+        }
+
+        engine_req_e req = this->engine_req;
+        this->engine_req = ENGINE_REQ_NONE;
+
+        switch (req)
+        {
+            case ENGINE_REQ_RUN:
+            case ENGINE_REQ_RUN_UNTIL:
+                if (this->engine_state == ENGINE_STATE_IDLE)
+                {
+                    this->engine_state = ENGINE_STATE_RUNNING;
+
+                    for (auto x: this->exec_notifiers)
+                    {
+                        x->notify_run(this->time);
+                    }
+
+                    this->cond.notify_all();
+                    lock.unlock();
+                    if (req == ENGINE_REQ_RUN_UNTIL)
+                    {
+                        this->time = this->engine->run_until(this->time);
+                    }
+                    else
+                    {
+                        this->time = this->engine->run();
+                    }
+                    lock.lock();
+                    this->engine_state = this->engine->finished_get() ? ENGINE_STATE_FINISHED : ENGINE_STATE_IDLE;
+                    this->cond.notify_all();
+
+                    for (auto x: this->exec_notifiers)
+                    {
+                        x->notify_stop(this->time);
+                    }
+
+                    lock.unlock();
+                }
+                break;
+        }
+    }
+}
+
+
+
+void Gvsoc_launcher::register_exec_notifier(vp::Notifier *notifier)
+{
+    this->exec_notifiers.push_back(notifier);
 }

@@ -502,7 +502,6 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
     this->waiting_io_response = true;
 
     // Trigger the first access, with engine locked, since we come from an external thread
-    this->iss.top.get_time_engine()->lock();
     this->handle_pending_io_access();
     this->iss.top.get_time_engine()->unlock();
 
@@ -513,6 +512,8 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
         this->cond.wait(lock);
     }
     lock.unlock();
+
+    this->iss.top.get_time_engine()->lock();
 
     return this->io_retval;
 }

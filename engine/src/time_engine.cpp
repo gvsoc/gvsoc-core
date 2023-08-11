@@ -28,6 +28,9 @@
 vp::time_engine::time_engine(vp::component *top, js::config *config)
     : first_client(NULL), top(top), config(config)
 {
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&cond, NULL);
+
     top->new_service("time", static_cast<time_engine *>(this));
 }
 

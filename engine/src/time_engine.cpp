@@ -184,6 +184,10 @@ int64_t vp::time_engine::run_until(int64_t end_time)
 
         if (time >= end_time || time == -1 || this->finished)
         {
+            if (this->finished)
+            {
+                return end_time;
+            }
             break;
         }
     }

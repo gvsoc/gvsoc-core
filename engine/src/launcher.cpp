@@ -136,7 +136,7 @@ void Gvsoc_launcher::run()
         std::unique_lock<std::mutex> lock(this->mutex);
         if (this->engine_state == ENGINE_STATE_IDLE)
         {
-            this->engine_req = ENGINE_REQ_RUN;
+            this->requests.push(new Launcher_request(ENGINE_REQ_RUN));
             this->engine->wait_for_lock_stop();
         }
         lock.unlock();
@@ -172,9 +172,11 @@ int64_t Gvsoc_launcher::stop()
 
         if (this->engine_state == ENGINE_STATE_RUNNING)
         {
+            lock.unlock();
             this->engine->lock();
             this->engine->pause();
             this->engine->unlock();
+            lock.lock();
 
             // while (this->engine_state == ENGINE_STATE_RUNNING)
             // {
@@ -214,16 +216,30 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
     if (this->is_async)
     {
         std::unique_lock<std::mutex> lock(this->mutex);
-        if (this->engine_state == ENGINE_STATE_IDLE)
+        while (this->engine_state != ENGINE_STATE_IDLE)
         {
-            this->time = end_time;
-            this->engine_req = ENGINE_REQ_RUN_UNTIL;
-            this->engine->wait_for_lock_stop();
-            time = this->time;
+            lock.unlock();
+            this->engine->lock();
+            this->engine->pause();
+            this->engine->unlock();
+            lock.lock();
+
+            if (this->engine_state != ENGINE_STATE_IDLE)
+            {
+                this->cond.wait(lock);
+            }
+        }
+
+        if (this->engine_state == ENGINE_STATE_FINISHED)
+        {
+            time = end_time;
         }
         else
         {
-            time = -1;
+
+            this->requests.push(new Launcher_request(ENGINE_REQ_RUN_UNTIL, end_time));
+            this->engine->wait_for_lock_stop();
+            time = end_time;
         }
         lock.unlock();
     }
@@ -294,7 +310,7 @@ void Gvsoc_launcher::engine_routine()
     {
         std::unique_lock<std::mutex> lock(this->mutex);
 
-        while(this->engine_req == ENGINE_REQ_NONE)
+        while(this->requests.empty())
         {
             lock.unlock();
             this->engine->wait_for_lock();
@@ -307,39 +323,41 @@ void Gvsoc_launcher::engine_routine()
             }
         }
 
-        engine_req_e req = this->engine_req;
-        this->engine_req = ENGINE_REQ_NONE;
+        Launcher_request *req = this->requests.front();
+        this->requests.pop();
 
-        switch (req)
+        switch (req->type)
         {
             case ENGINE_REQ_RUN:
             case ENGINE_REQ_RUN_UNTIL:
                 if (this->engine_state == ENGINE_STATE_IDLE)
                 {
+                    int64_t time;
                     this->engine_state = ENGINE_STATE_RUNNING;
 
                     for (auto x: this->exec_notifiers)
                     {
-                        x->notify_run(this->time);
+                        x->notify_run(req->time);
                     }
-
+ 
                     this->cond.notify_all();
                     lock.unlock();
-                    if (req == ENGINE_REQ_RUN_UNTIL)
+                    if (req->type == ENGINE_REQ_RUN_UNTIL)
                     {
-                        this->time = this->engine->run_until(this->time);
+                        time = this->engine->run_until(req->time);
                     }
                     else
                     {
-                        this->time = this->engine->run();
+                        time = this->engine->run();
                     }
                     lock.lock();
+
                     this->engine_state = this->engine->finished_get() ? ENGINE_STATE_FINISHED : ENGINE_STATE_IDLE;
                     this->cond.notify_all();
 
                     for (auto x: this->exec_notifiers)
                     {
-                        x->notify_stop(this->time);
+                        x->notify_stop(time);
                     }
 
                     lock.unlock();

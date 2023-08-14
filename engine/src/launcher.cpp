@@ -85,11 +85,6 @@ void Gvsoc_launcher::open()
 
     if (this->is_async)
     {
-        this->engine_thread = new std::thread(&Gvsoc_launcher::engine_routine, this);
-    }
-
-    if (1)
-    {
         // Create the sigint thread so that we can properly close simulation
         // in case ctrl C is hit.
         sigset_t sigs_to_block;
@@ -99,6 +94,8 @@ void Gvsoc_launcher::open()
         pthread_create(&sigint_thread, NULL, signal_routine, (void *)this);
 
         signal(SIGINT, sigint_handler);
+
+        this->engine_thread = new std::thread(&Gvsoc_launcher::engine_routine, this);
     }
 }
 
@@ -133,13 +130,9 @@ void Gvsoc_launcher::run()
 {
     if (this->is_async)
     {
-        std::unique_lock<std::mutex> lock(this->mutex);
-        if (this->engine_state == ENGINE_STATE_IDLE)
-        {
-            this->requests.push(new Launcher_request(ENGINE_REQ_RUN));
-            this->engine->wait_for_lock_stop();
-        }
-        lock.unlock();
+        this->engine->lock();
+        this->running = true;
+        this->engine->unlock();
     }
     else
     {
@@ -151,12 +144,12 @@ int Gvsoc_launcher::join()
 {
     if (this->is_async)
     {
-        std::unique_lock<std::mutex> lock(this->mutex);
-        while(this->engine_state != ENGINE_STATE_FINISHED)
+        this->engine->critical_enter();
+        while(!this->engine->finished_get())
         {
-            this->cond.wait(lock);
+            this->engine->critical_wait();
         }
-        lock.unlock();
+        this->engine->critical_exit();
     }
 
     this->retval = this->engine->status_get();
@@ -168,23 +161,11 @@ int64_t Gvsoc_launcher::stop()
 {
     if (this->is_async)
     {
-        std::unique_lock<std::mutex> lock(this->mutex);
+        this->engine->lock();
+        this->running = false;
+        this->engine->pause();
+        this->engine->unlock();
 
-        if (this->engine_state == ENGINE_STATE_RUNNING)
-        {
-            lock.unlock();
-            this->engine->lock();
-            this->engine->pause();
-            this->engine->unlock();
-            lock.lock();
-
-            // while (this->engine_state == ENGINE_STATE_RUNNING)
-            // {
-            //     this->cond.wait(lock);
-            // }
-        }
-
-        lock.unlock();
         return this->engine->get_time();
     }
     return -1;
@@ -194,14 +175,12 @@ void Gvsoc_launcher::wait_stopped()
 {
     if (this->is_async)
     {
-        std::unique_lock<std::mutex> lock(this->mutex);
-
-        while (this->engine_state == ENGINE_STATE_RUNNING)
+        this->engine->critical_enter();
+        while(this->running)
         {
-            this->cond.wait(lock);
+            this->engine->critical_wait();
         }
-
-        lock.unlock();
+        this->engine->critical_exit();
     }
 }
 
@@ -215,37 +194,18 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
     int64_t time;
     if (this->is_async)
     {
-        std::unique_lock<std::mutex> lock(this->mutex);
-        while (this->engine_state != ENGINE_STATE_IDLE)
-        {
-            lock.unlock();
-            this->engine->lock();
-            this->engine->pause();
-            this->engine->unlock();
-            lock.lock();
 
-            if (this->engine_state != ENGINE_STATE_IDLE)
-            {
-                this->cond.wait(lock);
-            }
-        }
+        this->engine->lock();
+        this->engine->step_register(end_time);
+        this->running = true;
+        this->engine->unlock();
 
-        if (this->engine_state == ENGINE_STATE_FINISHED)
-        {
-            time = end_time;
-        }
-        else
-        {
-
-            this->requests.push(new Launcher_request(ENGINE_REQ_RUN_UNTIL, end_time));
-            this->engine->wait_for_lock_stop();
-            time = end_time;
-        }
-        lock.unlock();
+        return end_time;
     }
     else
     {
-        time = this->engine->run_until(end_time);
+        this->engine->step_register(end_time);
+        this->engine->run();
     }
     return time;
 }
@@ -306,63 +266,41 @@ void *Gvsoc_launcher::get_component(std::string path)
 
 void Gvsoc_launcher::engine_routine()
 {
+    this->engine->critical_enter();
+
     while(1)
     {
-        std::unique_lock<std::mutex> lock(this->mutex);
 
-        while(this->requests.empty())
+        while (!this->running)
         {
-            lock.unlock();
-            this->engine->wait_for_lock();
-            lock.lock();
-
-            if (this->engine->finished_get())
-            {
-                this->engine_state = ENGINE_STATE_FINISHED;
-                this->cond.notify_all();
-            }
+            this->engine->critical_wait();
+            this->engine->handle_locks();
         }
 
-        Launcher_request *req = this->requests.front();
-        this->requests.pop();
-
-        switch (req->type)
+        for (auto x: this->exec_notifiers)
         {
-            case ENGINE_REQ_RUN:
-            case ENGINE_REQ_RUN_UNTIL:
-                if (this->engine_state == ENGINE_STATE_IDLE)
-                {
-                    int64_t time;
-                    this->engine_state = ENGINE_STATE_RUNNING;
+            x->notify_run(this->engine->get_time());
+        }
 
-                    for (auto x: this->exec_notifiers)
-                    {
-                        x->notify_run(req->time);
-                    }
- 
-                    this->cond.notify_all();
-                    lock.unlock();
-                    if (req->type == ENGINE_REQ_RUN_UNTIL)
-                    {
-                        time = this->engine->run_until(req->time);
-                    }
-                    else
-                    {
-                        time = this->engine->run();
-                    }
-                    lock.lock();
+        if (this->engine->run() == -1)
+        {
+            this->running = false;
+        }
 
-                    this->engine_state = this->engine->finished_get() ? ENGINE_STATE_FINISHED : ENGINE_STATE_IDLE;
-                    this->cond.notify_all();
+        for (auto x: this->exec_notifiers)
+        {
+            x->notify_stop(this->engine->get_time());
+        }
 
-                    for (auto x: this->exec_notifiers)
-                    {
-                        x->notify_stop(time);
-                    }
+        if (this->engine->finished_get())
+        {
+            this->engine->critical_notify();
 
-                    lock.unlock();
-                }
-                break;
+            while(1)
+            {
+                this->engine->critical_wait();
+                this->engine->handle_locks();
+            }
         }
     }
 }

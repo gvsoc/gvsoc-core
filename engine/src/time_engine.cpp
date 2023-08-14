@@ -28,19 +28,22 @@
 vp::time_engine::time_engine(vp::component *top, js::config *config)
     : first_client(NULL), top(top), config(config)
 {
+    pthread_mutex_init(&lock_mutex, NULL);
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
 
     top->new_service("time", static_cast<time_engine *>(this));
+
+    this->stop_event = new vp::Time_engine_stop_event(this->top, this);
 }
 
 
 
-int64_t vp::time_engine::exec(int64_t end_time)
+int64_t vp::time_engine::exec()
 {
     time_engine_client *current = first_client;
 
-    if (current && current->next_event_time <= end_time)
+    if (current)
     {
         first_client = current->next;
         current->is_enqueued = false;
@@ -62,7 +65,7 @@ int64_t vp::time_engine::exec(int64_t end_time)
                 time += this->time;
                 if (likely((!next || next->next_event_time > time)))
                 {
-                    if (likely(time <= end_time && !this->stop_req))
+                    if (likely(!this->stop_req))
                     {
                         this->time = time;
                         continue;
@@ -101,7 +104,11 @@ int64_t vp::time_engine::exec(int64_t end_time)
 
             current = first_client;
 
-            if (!current || current->next_event_time > end_time || this->stop_req)
+            // Leave the loop either if there is no more client to schedule or if there is a stop request.
+            // In case of a stop request, always take it into account when time is increased so that teh engine
+            // is stopped at the end of the current timestamp. This will ensure the step operation, which is using a
+            // stop event, is stepping until the end of the timestamp.
+            if (!current || (this->stop_req && current->next_event_time > this->time))
             {
                 break;
             }
@@ -123,76 +130,23 @@ int64_t vp::time_engine::exec(int64_t end_time)
         time = this->first_client->next_event_time;
     }
 
-    if (this->stop_req)
-    {
-        pthread_mutex_lock(&mutex);
-        this->stop_req = false;
-
-        if (this->lock_req)
-        {
-            this->locked = true;
-            pthread_cond_broadcast(&cond);
-
-            while (locked)
-            {
-                pthread_cond_wait(&cond, &mutex);
-            }
-        }
-
-        pthread_mutex_unlock(&mutex);
-    }
-
     return time;
 }
 
 
 
-void vp::time_engine::wait_for_lock()
+void vp::time_engine::handle_locks()
 {
-    pthread_mutex_lock(&mutex);
-
-    if (this->lock_req)
-    {
-        this->locked = true;
-        pthread_cond_broadcast(&cond);
-
-        while (locked)
-        {
-            pthread_cond_wait(&cond, &mutex);
-        }
-    }
-    else
+    while (this->lock_req > 0)
     {
         pthread_cond_wait(&cond, &mutex);
     }
-
-    pthread_mutex_unlock(&mutex);
 }
 
-void vp::time_engine::wait_for_lock_stop()
+void vp::time_engine::step_register(int64_t end_time)
 {
-    pthread_cond_broadcast(&cond);
-}
 
-int64_t vp::time_engine::run_until(int64_t end_time)
-{
-    int64_t time;
-
-    while(1)
-    {
-        time = this->exec(end_time);
-
-        if (time >= end_time || time == -1 || this->finished)
-        {
-            if (this->finished)
-            {
-                return end_time;
-            }
-            break;
-        }
-    }
-
-    return time;
+    this->stop_event->step(end_time);
 }
 
 
@@ -203,16 +157,30 @@ int64_t vp::time_engine::run()
 
     while(1)
     {
-        time = this->exec(INT64_MAX);
+        // Cancel any pause request which was done before running
+        this->pause_req = false;
 
+        time = this->exec();
+
+        // Cancel now the requests that may have stopped us so that anyone can stop us again
+        // when locks are handled.
+        this->stop_req = false;
+
+        // In case there is no more event, stall the engine until something happens.
         if (time == -1)
         {
-            this->wait_for_lock();
+            pthread_cond_wait(&cond, &mutex);
         }
 
+        // Checks locks since we may have been stopped by them
+        this->handle_locks();
+
+        // In case of a pause request or the simulation is finished, we leave the engine to let
+        // the launcher handles it, otherwise we just continue to run events
         if (this->pause_req || this->finished)
         {
             this->pause_req = false;
+            time = -1;
             break;
         }
     }
@@ -336,4 +304,25 @@ void vp::time_engine::fatal(const char *fmt, ...)
     }
     va_end(ap);
     this->quit(-1);
+}
+
+vp::Time_engine_stop_event::Time_engine_stop_event(vp::component *top, vp::time_engine *engine) : vp::time_scheduler(NULL), top(top)
+{
+    this->engine = engine;
+
+    this->build_instance("stop_event", top);
+}
+
+int64_t vp::Time_engine_stop_event::step(int64_t time)
+{
+    vp::time_event *event = this->time_event_new(this->event_handler);
+    this->enqueue(event, time - this->engine->get_time());
+    return 0;
+}
+
+void vp::Time_engine_stop_event::event_handler(void *__this, vp::time_event *event)
+{
+    Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
+    _this->engine->pause();
+    _this->time_event_del(event);
 }

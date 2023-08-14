@@ -27,29 +27,6 @@
 #include <condition_variable>
 #include <queue>
 
-typedef enum
-{
-    ENGINE_STATE_IDLE,
-    ENGINE_STATE_RUNNING,
-    ENGINE_STATE_FINISHED
-}
-engine_state_e;
-
-typedef enum
-{
-    ENGINE_REQ_NONE,
-    ENGINE_REQ_RUN,
-    ENGINE_REQ_RUN_UNTIL,
-}
-engine_req_e;
-
-class Launcher_request
-{
-public:
-    Launcher_request(engine_req_e type, int64_t time=-1) : type(type), time(time) {}
-    engine_req_e type;
-    int64_t time;
-};
 
 class Gvsoc_launcher : public gv::Gvsoc
 {
@@ -97,12 +74,9 @@ private:
     bool is_async;
     std::thread *engine_thread;
     std::thread *signal_thread;
-    std::mutex mutex;
-    std::condition_variable cond;
-    engine_state_e engine_state = ENGINE_STATE_IDLE;
     std::vector<vp::Notifier *> exec_notifiers;
     vp::time_engine *engine;
     vp::component *instance;
     Gv_proxy *proxy;
-    std::queue<Launcher_request *> requests;
+    bool running = false;
 };

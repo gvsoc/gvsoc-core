@@ -42,6 +42,7 @@ public:
     void step_register(int64_t time);
 
     int64_t run();
+    int64_t run_until(int64_t end_time);
 
     inline void lock();
 

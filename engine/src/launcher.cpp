@@ -205,8 +205,7 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
     }
     else
     {
-        this->engine->step_register(end_time);
-        this->engine->run();
+        time = this->engine->run_until(end_time);
     }
     return time;
 }

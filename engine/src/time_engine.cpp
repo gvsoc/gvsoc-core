@@ -150,6 +150,38 @@ void vp::time_engine::step_register(int64_t end_time)
 }
 
 
+int64_t vp::time_engine::run_until(int64_t end_time)
+{
+    int64_t time;
+    this->step_register(end_time);
+
+    while(1)
+    {
+        time = this->exec();
+
+        // Cancel now the requests that may have stopped us so that anyone can stop us again
+        // when locks are handled.
+        this->stop_req = false;
+
+        // Checks locks since we may have been stopped by them
+        this->handle_locks();
+
+        // In case there is no more event, stall the engine until something happens.
+        if (time == -1)
+        {
+            return -1;
+        }
+
+        if (time > end_time)
+        {
+            break;
+        }
+    }
+
+    return time;
+}
+
+
 
 int64_t vp::time_engine::run()
 {

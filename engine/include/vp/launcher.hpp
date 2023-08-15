@@ -79,4 +79,5 @@ private:
     vp::component *instance;
     Gv_proxy *proxy;
     bool running = false;
+    bool run_req = false;
 };

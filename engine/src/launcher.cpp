@@ -132,6 +132,7 @@ void Gvsoc_launcher::run()
     {
         this->engine->lock();
         this->running = true;
+        this->run_req = true;
         this->engine->unlock();
     }
     else
@@ -162,7 +163,7 @@ int64_t Gvsoc_launcher::stop()
     if (this->is_async)
     {
         this->engine->lock();
-        this->running = false;
+        this->run_req = false;
         this->engine->pause();
         this->engine->unlock();
 
@@ -197,7 +198,7 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
 
         this->engine->lock();
         this->engine->step_register(end_time);
-        this->running = true;
+        this->run_req = true;
         this->engine->unlock();
 
         return end_time;
@@ -270,23 +271,40 @@ void Gvsoc_launcher::engine_routine()
 
     while(1)
     {
-
-        while (!this->running)
+        // Wait until we receive a run request
+        while (!this->run_req)
         {
             this->engine->critical_wait();
             this->engine->handle_locks();
         }
+
+        // Switch to runnning state and properly notify it
+        this->running = true;
 
         for (auto x: this->exec_notifiers)
         {
             x->notify_run(this->engine->get_time());
         }
 
-        if (this->engine->run() == -1)
+        this->engine->critical_notify();
+
+        // Run until we are ask to stop or simulation is over
+        while (this->running)
         {
-            this->running = false;
+            // Clear the run request so that we can receive a new one while running
+            this->run_req = false;
+
+            // The engine will return -1 if it receives a stop request.
+            // Leave only if we have not receive a run request meanwhile which would then cancel
+            // the stop request.
+            if (this->engine->run() == -1 && (!this->run_req || this->engine->finished_get()))
+            {
+                this->running = false;
+                this->engine->critical_notify();
+            }
         }
 
+        // Properly notify the stop and finish state
         for (auto x: this->exec_notifiers)
         {
             x->notify_stop(this->engine->get_time());

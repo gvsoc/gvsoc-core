@@ -578,23 +578,80 @@ static inline iss_insn_t *vs8r_v_exec(Iss *iss, iss_insn_t *insn){
 }
 
 
+
+static inline iss_insn_t *vluxei8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VLUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 8);
+    // LIB_CALL4(lib_VLUXEI8V , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vluxei16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VLUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 16);
+    // LIB_CALL4(lib_VLUXEI16V , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vluxei32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VLUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 32);
+    // LIB_CALL4(lib_VLUXEI32V , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vluxei64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VLUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 64);
+    // LIB_CALL4(lib_VLUXEI64V , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+
+static inline iss_insn_t *vsuxei8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VSUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 8);
+    return insn->next;
+}
+static inline iss_insn_t *vsuxei16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VSUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 16);
+    return insn->next;
+}
+static inline iss_insn_t *vsuxei32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VSUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 32);
+    return insn->next;
+}
+static inline iss_insn_t *vsuxei64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL5(lib_VSUXEIV , REG_GET(0), REG_IN(1), REG_OUT(0), UIM_GET(0), 64);
+    return insn->next;
+}
+
 static inline iss_insn_t *vlse8_v_exec(Iss *iss, iss_insn_t *insn){
+    // printf("VLSE8\n");
     LIB_CALL4(lib_VLSE8V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
     return insn->next;
 }
-// static inline iss_insn_t *vlse16_v_exec(Iss *iss, iss_insn_t *insn){
-//     LIB_CALL3(lib_VLSE16V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-//     return insn->next;
-// }
-// static inline iss_insn_t *vlse32_v_exec(Iss *iss, iss_insn_t *insn){
-//     LIB_CALL3(lib_VLSE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-//     return insn->next;
-// }
-// static inline iss_insn_t *vlse64_v_exec(Iss *iss, iss_insn_t *insn){
-//     LIB_CALL3(lib_VLSE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-//     return insn->next;
-// }
+static inline iss_insn_t *vlse16_v_exec(Iss *iss, iss_insn_t *insn){
+    // printf("VLSE16\n");
+    LIB_CALL4(lib_VLSE16V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vlse32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VLSE32V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vlse64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VLSE64V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
 
+static inline iss_insn_t *vsse8_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VSSE8V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vsse16_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VSSE16V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vsse32_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VSSE32V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
+static inline iss_insn_t *vsse64_v_exec(Iss *iss, iss_insn_t *insn){
+    LIB_CALL4(lib_VSSE64V , REG_GET(0), REG_GET(1), REG_OUT(0), UIM_GET(0));
+    return insn->next;
+}
 
 
 

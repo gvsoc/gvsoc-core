@@ -119,3 +119,28 @@ static inline iss_insn_t *c_sdsp_exec(Iss *iss, iss_insn_t *insn)
     iss->timing.event_rvc_account(1);
     return sd_exec(iss, insn);
 }
+
+/***********************************************************************/
+static inline iss_insn_t *c_fsdsp_exec_fast(Iss *iss, iss_insn_t *insn)
+{
+    return sd_exec_fast(iss, insn);
+}
+
+static inline iss_insn_t *c_fsdsp_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->timing.event_rvc_account(1);
+    return sd_exec(iss, insn);
+}
+
+static inline iss_insn_t *c_fldsp_exec_fast(Iss *iss, iss_insn_t *insn)
+{
+    return ld_exec_fast(iss, insn);
+}
+
+static inline iss_insn_t *c_fldsp_exec(Iss *iss, iss_insn_t *insn)
+{
+    iss->timing.event_rvc_account(1);
+    return ld_exec(iss, insn);
+}
+
+/***********************************************************************/

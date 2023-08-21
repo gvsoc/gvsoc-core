@@ -251,7 +251,7 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
     req->set_addr(phys_addr);
     req->set_size(size);
     req->set_opcode(opcode);
-    req->set_data((uint8_t *)this->iss.regfile.reg_store_ref(reg_in));
+    req->set_data((uint8_t *)this->iss.regfile.reg_ref(reg_in));
     req->set_second_data((uint8_t *)this->iss.regfile.reg_ref(reg_out));
     req->set_initiator(this->iss.csr.mhartid);
     int err = this->data.req(req);

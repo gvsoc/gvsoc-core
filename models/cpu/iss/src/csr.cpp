@@ -25,9 +25,7 @@ Csr::Csr(Iss &iss)
     : iss(iss)
 {
     // Unprivileged Counter/Timers
-    this->declare_csr(&this->cycle,    "cycle",     0xC00);
-    this->declare_csr(&this->time,     "time",      0xC01);
-    this->time.register_callback(std::bind(&Csr::time_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->declare_csr(&this->cycle,  "cycle",   0xC00);
     this->declare_csr(&this->instret,  "instret",   0xC02);
 
     // Supervisor trap setup
@@ -70,34 +68,9 @@ Csr::Csr(Iss &iss)
     this->declare_csr(&this->tdata2,   "tdata2",       0x7A2);
     this->declare_csr(&this->tdata3,   "tdata3",       0x7A3);
 
-    // Machine counter / timers
-    for (int i=0; i<29; i++)
-    {
-        this->declare_csr(&this->mhpmcounter[i], "mhpmcounter" + std::to_string(i+ 3), 0xB03 + i, 0, 0);
-#if ISS_REG_WIDTH == 32
-        this->declare_csr(&this->mhpmcounterh[i], "mhpmcounterh" + std::to_string(i+ 3), 0xB83 + i, 0, 0);
-#endif
-    }
-
-    // Machine counter setup
-    this->declare_csr(&this->mcountinhibit, "mcountinhibit", 0x320, 0, 0);
-
-
     // Machine information registers
     this->declare_csr(&this->mvendorid,  "mvendorid",  0xF11);
     this->declare_csr(&this->marchid,    "marchid",    0xF12);
-
-#if defined(CONFIG_GVSOC_ISS_PMP)
-    // Machine protection and translation
-    for (int i=0; i<16; i++)
-    {
-        this->declare_csr(&this->pmpcfg[i],  "pmpcfg" + std::to_string(i),  0x3A0 + i);
-    }
-    for (int i=0; i<64; i++)
-    {
-        this->declare_csr(&this->pmpaddr[i],  "pmpaddr" + std::to_string(i),  0x3B0 + i);
-    }
-#endif
 
     this->declare_csr(&this->vstart, "vstart", 0x008, 0);
     this->declare_csr(&this->vxstat, "vxstat", 0x009);
@@ -185,7 +158,6 @@ void Csr::build()
     this->iss.top.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
     this->iss.top.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
 
-    this->iss.top.new_master_port(this, "time", &this->time_itf);
 
     this->mhartid = (this->iss.top.get_config_int("cluster_id") << 5) | this->iss.top.get_config_int("core_id");
 
@@ -198,14 +170,6 @@ bool Csr::tselect_access(bool is_write, iss_reg_t &value)
     {
         value = -1;
     }
-    return false;
-}
-
-bool Csr::time_access(bool is_write, iss_reg_t &value)
-{
-    uint64_t time;
-    this->time_itf.sync_back(&time);
-    value = time;
     return false;
 }
 
@@ -348,6 +312,12 @@ static bool fcsr_write(Iss *iss, unsigned int value)
     return false;
 }
 
+static bool time_read(Iss *iss, iss_reg_t *value)
+{
+    printf("WARNING UNIMPLEMENTED CSR: time\n");
+    return false;
+}
+
 static bool hpmcounter_read(Iss *iss, iss_reg_t *value, int id)
 {
     printf("WARNING UNIMPLEMENTED CSR: hpmcounter\n");
@@ -457,6 +427,18 @@ static bool minstret_write(Iss *iss, unsigned int value)
     return false;
 }
 
+static bool mhpmcounter_read(Iss *iss, iss_reg_t *value, int id)
+{
+    printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
+    return false;
+}
+
+static bool mhpmcounter_write(Iss *iss, unsigned int value, int id)
+{
+    printf("WARNING UNIMPLEMENTED CSR: mhpmcounter\n");
+    return false;
+}
+
 static bool mcycleh_read(Iss *iss, iss_reg_t *value)
 {
     printf("WARNING UNIMPLEMENTED CSR: mcycleh\n");
@@ -478,6 +460,18 @@ static bool minstreth_read(Iss *iss, iss_reg_t *value)
 static bool minstreth_write(Iss *iss, unsigned int value)
 {
     printf("WARNING UNIMPLEMENTED CSR: \n");
+    return false;
+}
+
+static bool mhpmcounterh_read(Iss *iss, int id, iss_reg_t *value)
+{
+    printf("WARNING UNIMPLEMENTED CSR: mhpmcounterh\n");
+    return false;
+}
+
+static bool mhpmcounterh_write(Iss *iss, int id, unsigned int value)
+{
+    printf("WARNING UNIMPLEMENTED CSR: mhpmcounterh\n");
     return false;
 }
 
@@ -855,6 +849,9 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     if (reg >= 0xC03 && reg <= 0xC1F) return hpmcounter_read(iss, reg - 0xC03, value);
     if (reg >= 0xC83 && reg <= 0xC9F) return hpmcounterh_read(iss, reg - 0xC83, value);
 
+    if (reg >= 0xB03 && reg <= 0xB1F) return mhpmcounter_read(iss, reg - 0xB03, value);
+    if (reg >= 0xB83 && reg <= 0xB9F) return mhpmcounterh_read(iss, reg - 0xB83, value);
+
     if (reg >= 0x323 && reg <= 0x33F) return mhpmevent_read(iss, reg - 0x323, value);
   }
 #endif
@@ -909,6 +906,48 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
 
     // User counter / timers
+    case 0xC01:
+        status = time_read(iss, value);
+        break;
+    case 0xC03:
+        status = hpmcounter_read(iss, value, 3);
+        break;
+    case 0xC04:
+        status = hpmcounter_read(iss, value, 4);
+        break;
+    case 0xC05:
+        status = hpmcounter_read(iss, value, 5);
+        break;
+    case 0xC06:
+        status = hpmcounter_read(iss, value, 6);
+        break;
+    case 0xC07:
+        status = hpmcounter_read(iss, value, 7);
+        break;
+    case 0xC08:
+        status = hpmcounter_read(iss, value, 8);
+        break;
+    case 0xC09:
+        status = hpmcounter_read(iss, value, 9);
+        break;
+    case 0xC0A:
+        status = hpmcounter_read(iss, value, 10);
+        break;
+    case 0xC0B:
+        status = hpmcounter_read(iss, value, 11);
+        break;
+    case 0xC0C:
+        status = hpmcounter_read(iss, value, 12);
+        break;
+    case 0xC0D:
+        status = hpmcounter_read(iss, value, 13);
+        break;
+    case 0xC0E:
+        status = hpmcounter_read(iss, value, 14);
+        break;
+    case 0xC0F:
+        status = hpmcounter_read(iss, value, 15);
+        break;
     case 0xC10:
         status = umode_read(iss, value);
         break;
@@ -960,6 +999,9 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
     case 0xC80:
         status = cycleh_read(iss, value);
+        break;
+    case 0xC81:
+        status = timeh_read(iss, value);
         break;
     case 0xC82:
         status = instreth_read(iss, value);
@@ -1069,6 +1111,70 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
 
 
+#if defined(CONFIG_GVSOC_ISS_PMP)
+    // Machine protection and translation
+    case 0x3A0:
+        status = iss->pmp.pmpcfg_read(value, 0);
+        break;
+    case 0x3A1:
+        status = iss->pmp.pmpcfg_read(value, 1);
+        break;
+    case 0x3A2:
+        status = iss->pmp.pmpcfg_read(value, 2);
+        break;
+    case 0x3A3:
+        status = iss->pmp.pmpcfg_read(value, 3);
+        break;
+    case 0x3B0:
+        status = iss->pmp.pmpaddr_read(value, 0);
+        break;
+    case 0x3B1:
+        status = iss->pmp.pmpaddr_read(value, 1);
+        break;
+    case 0x3B2:
+        status = iss->pmp.pmpaddr_read(value, 2);
+        break;
+    case 0x3B3:
+        status = iss->pmp.pmpaddr_read(value, 3);
+        break;
+    case 0x3B4:
+        status = iss->pmp.pmpaddr_read(value, 4);
+        break;
+    case 0x3B5:
+        status = iss->pmp.pmpaddr_read(value, 5);
+        break;
+    case 0x3B6:
+        status = iss->pmp.pmpaddr_read(value, 6);
+        break;
+    case 0x3B7:
+        status = iss->pmp.pmpaddr_read(value, 7);
+        break;
+    case 0x3B8:
+        status = iss->pmp.pmpaddr_read(value, 8);
+        break;
+    case 0x3B9:
+        status = iss->pmp.pmpaddr_read(value, 9);
+        break;
+    case 0x3BA:
+        status = iss->pmp.pmpaddr_read(value, 10);
+        break;
+    case 0x3BB:
+        status = iss->pmp.pmpaddr_read(value, 11);
+        break;
+    case 0x3BC:
+        status = iss->pmp.pmpaddr_read(value, 12);
+        break;
+    case 0x3BD:
+        status = iss->pmp.pmpaddr_read(value, 13);
+        break;
+    case 0x3BE:
+        status = iss->pmp.pmpaddr_read(value, 14);
+        break;
+    case 0x3BF:
+        status = iss->pmp.pmpaddr_read(value, 15);
+        break;
+#endif
+
     // Machine timers and counters
     case 0xB00:
         status = mcycle_read(iss, value);
@@ -1076,12 +1182,187 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     case 0xB02:
         status = minstret_read(iss, value);
         break;
+    case 0xB03:
+        status = mhpmcounter_read(iss, value, 3);
+        break;
+    case 0xB04:
+        status = mhpmcounter_read(iss, value, 4);
+        break;
+    case 0xB05:
+        status = mhpmcounter_read(iss, value, 5);
+        break;
+    case 0xB06:
+        status = mhpmcounter_read(iss, value, 6);
+        break;
+    case 0xB07:
+        status = mhpmcounter_read(iss, value, 7);
+        break;
+    case 0xB08:
+        status = mhpmcounter_read(iss, value, 8);
+        break;
+    case 0xB09:
+        status = mhpmcounter_read(iss, value, 9);
+        break;
+    case 0xB0A:
+        status = mhpmcounter_read(iss, value, 10);
+        break;
+    case 0xB0B:
+        status = mhpmcounter_read(iss, value, 11);
+        break;
+    case 0xB0C:
+        status = mhpmcounter_read(iss, value, 12);
+        break;
+    case 0xB0D:
+        status = mhpmcounter_read(iss, value, 13);
+        break;
+    case 0xB0E:
+        status = mhpmcounter_read(iss, value, 14);
+        break;
+    case 0xB0F:
+        status = mhpmcounter_read(iss, value, 15);
+        break;
+    case 0xB10:
+        status = mhpmcounter_read(iss, value, 16);
+        break;
+    case 0xB11:
+        status = mhpmcounter_read(iss, value, 17);
+        break;
+    case 0xB12:
+        status = mhpmcounter_read(iss, value, 18);
+        break;
+    case 0xB13:
+        status = mhpmcounter_read(iss, value, 19);
+        break;
+    case 0xB14:
+        status = mhpmcounter_read(iss, value, 20);
+        break;
+    case 0xB15:
+        status = mhpmcounter_read(iss, value, 21);
+        break;
+    case 0xB16:
+        status = mhpmcounter_read(iss, value, 22);
+        break;
+    case 0xB17:
+        status = mhpmcounter_read(iss, value, 23);
+        break;
+    case 0xB18:
+        status = mhpmcounter_read(iss, value, 24);
+        break;
+    case 0xB19:
+        status = mhpmcounter_read(iss, value, 25);
+        break;
+    case 0xB1A:
+        status = mhpmcounter_read(iss, value, 26);
+        break;
+    case 0xB1B:
+        status = mhpmcounter_read(iss, value, 27);
+        break;
+    case 0xB1C:
+        status = mhpmcounter_read(iss, value, 28);
+        break;
+    case 0xB1D:
+        status = mhpmcounter_read(iss, value, 29);
+        break;
+    case 0xB1E:
+        status = mhpmcounter_read(iss, value, 30);
+        break;
+    case 0xB1F:
+        status = mhpmcounter_read(iss, value, 31);
+        break;
     case 0xB80:
         status = mcycleh_read(iss, value);
         break;
     case 0xB82:
         status = minstreth_read(iss, value);
         break;
+    case 0xB83:
+        status = mhpmcounter_read(iss, value, 3);
+        break;
+    case 0xB84:
+        status = mhpmcounter_read(iss, value, 4);
+        break;
+    case 0xB85:
+        status = mhpmcounter_read(iss, value, 5);
+        break;
+    case 0xB86:
+        status = mhpmcounter_read(iss, value, 6);
+        break;
+    case 0xB87:
+        status = mhpmcounter_read(iss, value, 7);
+        break;
+    case 0xB88:
+        status = mhpmcounter_read(iss, value, 8);
+        break;
+    case 0xB89:
+        status = mhpmcounter_read(iss, value, 9);
+        break;
+    case 0xB8A:
+        status = mhpmcounter_read(iss, value, 10);
+        break;
+    case 0xB8B:
+        status = mhpmcounter_read(iss, value, 11);
+        break;
+    case 0xB8C:
+        status = mhpmcounter_read(iss, value, 12);
+        break;
+    case 0xB8D:
+        status = mhpmcounter_read(iss, value, 13);
+        break;
+    case 0xB8E:
+        status = mhpmcounter_read(iss, value, 14);
+        break;
+    case 0xB8F:
+        status = mhpmcounter_read(iss, value, 15);
+        break;
+    case 0xB90:
+        status = mhpmcounter_read(iss, value, 16);
+        break;
+    case 0xB91:
+        status = mhpmcounter_read(iss, value, 17);
+        break;
+    case 0xB92:
+        status = mhpmcounter_read(iss, value, 18);
+        break;
+    case 0xB93:
+        status = mhpmcounter_read(iss, value, 19);
+        break;
+    case 0xB94:
+        status = mhpmcounter_read(iss, value, 20);
+        break;
+    case 0xB95:
+        status = mhpmcounter_read(iss, value, 21);
+        break;
+    case 0xB96:
+        status = mhpmcounter_read(iss, value, 22);
+        break;
+    case 0xB97:
+        status = mhpmcounter_read(iss, value, 23);
+        break;
+    case 0xB98:
+        status = mhpmcounter_read(iss, value, 24);
+        break;
+    case 0xB99:
+        status = mhpmcounter_read(iss, value, 25);
+        break;
+    case 0xB9A:
+        status = mhpmcounter_read(iss, value, 26);
+        break;
+    case 0xB9B:
+        status = mhpmcounter_read(iss, value, 27);
+        break;
+    case 0xB9C:
+        status = mhpmcounter_read(iss, value, 28);
+        break;
+    case 0xB9D:
+        status = mhpmcounter_read(iss, value, 29);
+        break;
+    case 0xB9E:
+        status = mhpmcounter_read(iss, value, 30);
+        break;
+    case 0xB9F:
+        status = mhpmcounter_read(iss, value, 31);
+        break;
+
     // Machine counter setup
     case 0x323:
         status = mhpmevent_read(iss, value, 3);
@@ -1253,6 +1534,9 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
   if (checkCsrAccess(iss, reg, 0)) return true;
 
   if (!getOption(iss, __priv_pulp)) {
+    if (reg >= 0xB03 && reg <= 0xB1F) return mhpmcounter_write(iss, reg - 0xB03, value);
+    if (reg >= 0xB83 && reg <= 0xB9F) return mhpmcounterh_write(iss, reg - 0xB83, value);
+
     if (reg >= 0x323 && reg <= 0x33F) return mhpmevent_write(iss, reg - 0x323, value);
   }
 #endif
@@ -1297,6 +1581,50 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 
     case 0x343:
         return mbadaddr_write(iss, value);
+
+#if defined(CONFIG_GVSOC_ISS_PMP)
+    // Machine protection and translation
+    case 0x3A0:
+        return iss->pmp.pmpcfg_write(value, 0);
+    case 0x3A1:
+        return iss->pmp.pmpcfg_write(value, 1);
+    case 0x3A2:
+        return iss->pmp.pmpcfg_write(value, 2);
+    case 0x3A3:
+        return iss->pmp.pmpcfg_write(value, 3);
+    case 0x3B0:
+        return iss->pmp.pmpaddr_write(value, 0);
+    case 0x3B1:
+        return iss->pmp.pmpaddr_write(value, 1);
+    case 0x3B2:
+        return iss->pmp.pmpaddr_write(value, 2);
+    case 0x3B3:
+        return iss->pmp.pmpaddr_write(value, 3);
+    case 0x3B4:
+        return iss->pmp.pmpaddr_write(value, 4);
+    case 0x3B5:
+        return iss->pmp.pmpaddr_write(value, 5);
+    case 0x3B6:
+        return iss->pmp.pmpaddr_write(value, 6);
+    case 0x3B7:
+        return iss->pmp.pmpaddr_write(value, 7);
+    case 0x3B8:
+        return iss->pmp.pmpaddr_write(value, 8);
+    case 0x3B9:
+        return iss->pmp.pmpaddr_write(value, 9);
+    case 0x3BA:
+        return iss->pmp.pmpaddr_write(value, 10);
+    case 0x3BB:
+        return iss->pmp.pmpaddr_write(value, 11);
+    case 0x3BC:
+        return iss->pmp.pmpaddr_write(value, 12);
+    case 0x3BD:
+        return iss->pmp.pmpaddr_write(value, 13);
+    case 0x3BE:
+        return iss->pmp.pmpaddr_write(value, 14);
+    case 0x3BF:
+        return iss->pmp.pmpaddr_write(value, 15);
+#endif
 
     // Machine timers and counters
     case 0xB00:
@@ -1541,15 +1869,173 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     case 0x306:
         return "mcounteren";
 
+    // Machine protection and translation
+    case 0x3A0:
+        return "pmpcfg0";
+    case 0x3A1:
+        return "pmpcfg1";
+    case 0x3A2:
+        return "pmpcfg2";
+    case 0x3A3:
+        return "pmpcfg3";
+    case 0x3B0:
+        return "pmpaddr0";
+    case 0x3B1:
+        return "pmpaddr1";
+    case 0x3B2:
+        return "pmpaddr2";
+    case 0x3B3:
+        return "pmpaddr3";
+    case 0x3B4:
+        return "pmpaddr4";
+    case 0x3B5:
+        return "pmpaddr5";
+    case 0x3B6:
+        return "pmpaddr6";
+    case 0x3B7:
+        return "pmpaddr7";
+    case 0x3B8:
+        return "pmpaddr8";
+    case 0x3B9:
+        return "pmpaddr9";
+    case 0x3BA:
+        return "pmpaddr10";
+    case 0x3BB:
+        return "pmpaddr11";
+    case 0x3BC:
+        return "pmpaddr12";
+    case 0x3BD:
+        return "pmpaddr13";
+    case 0x3BE:
+        return "pmpaddr14";
+    case 0x3BF:
+        return "pmpaddr15";
+
     // Machine timers and counters
     case 0xB00:
         return "mcycle";
     case 0xB02:
         return "minstret";
+    case 0xB03:
+        return "mhpmcounter3";
+    case 0xB04:
+        return "mhpmcounter4";
+    case 0xB05:
+        return "mhpmcounter5";
+    case 0xB06:
+        return "mhpmcounter6";
+    case 0xB07:
+        return "mhpmcounter7";
+    case 0xB08:
+        return "mhpmcounter8";
+    case 0xB09:
+        return "mhpmcounter9";
+    case 0xB0A:
+        return "mhpmcounter10";
+    case 0xB0B:
+        return "mhpmcounter11";
+    case 0xB0C:
+        return "mhpmcounter12";
+    case 0xB0D:
+        return "mhpmcounter13";
+    case 0xB0E:
+        return "mhpmcounter14";
+    case 0xB0F:
+        return "mhpmcounter15";
+    case 0xB10:
+        return "mhpmcounter16";
+    case 0xB11:
+        return "mhpmcounter17";
+    case 0xB12:
+        return "mhpmcounter18";
+    case 0xB13:
+        return "mhpmcounter19";
+    case 0xB14:
+        return "mhpmcounter20";
+    case 0xB15:
+        return "mhpmcounter21";
+    case 0xB16:
+        return "mhpmcounter22";
+    case 0xB17:
+        return "mhpmcounter23";
+    case 0xB18:
+        return "mhpmcounter24";
+    case 0xB19:
+        return "mhpmcounter25";
+    case 0xB1A:
+        return "mhpmcounter26";
+    case 0xB1B:
+        return "mhpmcounter27";
+    case 0xB1C:
+        return "mhpmcounter28";
+    case 0xB1D:
+        return "mhpmcounter29";
+    case 0xB1E:
+        return "mhpmcounter30";
+    case 0xB1F:
+        return "mhpmcounter31";
     case 0xB80:
         return "mcycleh";
     case 0xB82:
         return "minstreth";
+    case 0xB83:
+        return "mhpmcounter3";
+    case 0xB84:
+        return "mhpmcounter4";
+    case 0xB85:
+        return "mhpmcounter5";
+    case 0xB86:
+        return "mhpmcounter6";
+    case 0xB87:
+        return "mhpmcounter7";
+    case 0xB88:
+        return "mhpmcounter8";
+    case 0xB89:
+        return "mhpmcounter9";
+    case 0xB8A:
+        return "mhpmcounter10";
+    case 0xB8B:
+        return "mhpmcounter11";
+    case 0xB8C:
+        return "mhpmcounter12";
+    case 0xB8D:
+        return "mhpmcounter13";
+    case 0xB8E:
+        return "mhpmcounter14";
+    case 0xB8F:
+        return "mhpmcounter15";
+    case 0xB90:
+        return "mhpmcounter16";
+    case 0xB91:
+        return "mhpmcounter17";
+    case 0xB92:
+        return "mhpmcounter18";
+    case 0xB93:
+        return "mhpmcounter19";
+    case 0xB94:
+        return "mhpmcounter20";
+    case 0xB95:
+        return "mhpmcounter21";
+    case 0xB96:
+        return "mhpmcounter22";
+    case 0xB97:
+        return "mhpmcounter23";
+    case 0xB98:
+        return "mhpmcounter24";
+    case 0xB99:
+        return "mhpmcounter25";
+    case 0xB9A:
+        return "mhpmcounter26";
+    case 0xB9B:
+        return "mhpmcounter27";
+    case 0xB9C:
+        return "mhpmcounter28";
+    case 0xB9D:
+        return "mhpmcounter29";
+    case 0xB9E:
+        return "mhpmcounter30";
+    case 0xB9F:
+        return "mhpmcounter31";
 
     // Machine counter setup
     case 0x323:

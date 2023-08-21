@@ -144,65 +144,46 @@ void loader::event_handler(void *__this, vp::clock_event *event)
         Section *section = _this->sections.front();
         _this->sections.pop_front();
 
-        int size = section->size;
-        uint64_t paddr = section->paddr;
-        uint8_t *data = (uint8_t *)section->data;
-        int64_t latency = 1;
+        uint8_t data[section->size];
 
-        while (size > 0)
+        _this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
+            section->paddr, section->data, section->size);
+
+        _this->req.init();
+        _this->req.set_addr(section->paddr);
+        _this->req.set_size(section->size);
+        _this->req.set_is_write(true);
+
+        if (section->data)
         {
-            int itersize = std::min(size, 1 << 16);
-
-            uint8_t buffer[itersize];
-
-            _this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
-                paddr, data, itersize);
-
-            _this->req.init();
-            _this->req.set_addr(paddr);
-            _this->req.set_size(itersize);
-            _this->req.set_is_write(true);
-
-            if (data)
-            {
-                _this->req.set_data((uint8_t *)data);
-            }
-            else
-            {
-                memset(buffer, 0, itersize);
-                _this->req.set_data(buffer);
-            }
-
-            vp::io_req_status_e err = _this->out_itf.req(&_this->req);
-            if (err == vp::IO_REQ_OK)
-            {
-                latency += _this->req.get_full_latency();
-            }
-            else
-            {
-                if (err == vp::IO_REQ_INVALID)
-                {
-                    _this->trace.force_warning("Received error during copy (addr: 0x%x, data: %p, size: 0x%x)\n",
-                        paddr, data, itersize);
-                }
-                else
-                {
-                    _this->trace.force_warning("Unimplemented synchronous requests in loader\n");
-                }
-            }
-
-            size -= itersize;
-            paddr += itersize;
-            if (data)
-            {
-                data += itersize;
-            }
+            _this->req.set_data((uint8_t *)section->data);
+        }
+        else
+        {
+            memset(data, 0, section->size);
+            _this->req.set_data(data);
         }
 
-        _this->trace.msg(vp::trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
-            _this->req.get_full_latency());
+        vp::io_req_status_e err = _this->out_itf.req(&_this->req);
+        if (err == vp::IO_REQ_OK)
+        {
+            _this->trace.msg(vp::trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
+                _this->req.get_full_latency());
 
-        _this->event_enqueue(_this->event, latency);
+            _this->event_enqueue(_this->event, std::max((int)_this->req.get_full_latency(), 1));
+        }
+        else
+        {
+            if (err == vp::IO_REQ_INVALID)
+            {
+                _this->trace.force_warning("Received error during copy (addr: 0x%x, data: %p, size: 0x%x)\n",
+                    section->paddr, section->data, section->size);
+            }
+            else
+            {
+                _this->trace.force_warning("Unimplemented synchronous requests in loader\n");
+            }
+        }
     }
     else
     {

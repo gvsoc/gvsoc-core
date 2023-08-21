@@ -229,15 +229,13 @@ int vp::time_engine::join()
         pthread_cond_wait(&cond, &mutex);
     }
 
-    // This has been commented out as the engine is stuck if the simulation ends
-    // because there is no more events
-    // if (finished)
-    //     goto end;
+    if (finished)
+        goto end;
 
     // In case we get a stop request, first try to kindly stop the engine.
     // Then if it is still running after 100ms, we kill it. This can happen
     // because this is a cooperative engine.
-    // if (stop_req)
+    if (stop_req)
     {
         if (running)
         {

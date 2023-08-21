@@ -57,7 +57,6 @@ bool Mmu::satp_update(bool is_write, iss_reg_t &value)
 {
     if (this->iss.core.mode_get() == PRIV_S && this->iss.csr.mstatus.tvm)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Modifying satp in supervisor mode while TVM is 1\n");
         this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_ILLEGAL);
         return false;
     }
@@ -91,8 +90,6 @@ bool Mmu::satp_update(bool is_write, iss_reg_t &value)
         this->trace.msg(vp::trace::LEVEL_DEBUG, "Updated SATP (base: 0x%x, asid: %d, mode: %d)\n",
             pt_base, asid, mode);
     }
-
-    this->flush(0, 0);
 
     return true;
 
@@ -131,17 +128,14 @@ void Mmu::raise_exception()
 
     if (this->access_type & ACCESS_LOAD)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal load access\n");
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_LOAD_PAGE_FAULT);
     }
     else if (this->access_type & ACCESS_STORE)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal store access\n");
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_STORE_PAGE_FAULT);
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal fetch access\n");
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_INSN_PAGE_FAULT);
     }
 
@@ -158,7 +152,6 @@ bool Mmu::handle_pte()
     if (!this->pte_value.v || (!this->pte_value.r && this->pte_value.w) ||
         (this->pte_value.raw & MMU_PTE_ATTR) != 0)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal pte entry\n");
         this->raise_exception();
         return false;
     }
@@ -229,7 +222,6 @@ bool Mmu::handle_pte()
         this->iss.trace.dump_trace_enabled = true;
         this->iss.exec.switch_to_full_mode();
         this->iss.exec.current_insn = this->stall_insn;
-
         return false;
     }
     else
@@ -309,7 +301,6 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
 bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
-
     int mode = this->iss.core.mode_get();
     if (this->iss.csr.mstatus.mprv && !(this->access_type & ACCESS_INSN))
     {

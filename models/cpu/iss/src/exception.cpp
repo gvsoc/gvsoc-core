@@ -32,16 +32,12 @@ Exception::Exception(Iss &iss)
 
 void Exception::build()
 {
-    this->iss.top.traces.new_trace("exception", &this->trace, vp::DEBUG);
-
     this->debug_handler_addr = this->iss.top.get_js_config()->get_int("debug_handler");
 }
 
 
 void Exception::raise(iss_insn_t *insn, int id)
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Raising exception (id: %d)\n", id);
-
     this->iss.exec.switch_to_full_mode();
 
     if (id == ISS_EXCEPT_DEBUG)

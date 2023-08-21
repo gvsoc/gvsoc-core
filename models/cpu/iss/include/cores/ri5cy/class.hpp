@@ -46,7 +46,6 @@
 #include <gdbserver.hpp>
 
 #include <spatz.hpp>
-//#include "isa_lib/vint.h"
 
 class IssWrapper;
 

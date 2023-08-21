@@ -116,6 +116,7 @@ uint_t flexfloat_get_bits(flexfloat_t *a)
 {
     int_fast16_t exp = flexfloat_exp(a);
     uint_t frac = flexfloat_frac(a);
+
     if(exp == INF_EXP) exp = flexfloat_inf_exp(a->desc);
     else  if (exp<0 && frac == 0) {
             /* We have a subnormal here since we cannot represent exp (too small), set frac to 2^(frac_bits-exp+1) */
@@ -255,34 +256,14 @@ void flexfloat_sanitize(flexfloat_t *a)
 
     // This case does not require to be sanitized
     if(a->desc.exp_bits  == NUM_BITS_EXP  &&
-       a->desc.frac_bits == NUM_BITS_FRAC){
-        // // a->value = ceil(a->value*1.0e+16)/1.0e+16;
-        // double temp;
-        // printf("a before round = %.20f\n",a->value);
-        // temp = roundl(a->value*1.0e+16);
-        // printf("t after  round = %.20f\n",temp);        
-        // printf("t after  round = %ld\n",((long int)temp)%10);        
-        // // a->value = temp/1.0e+16;
-        // // temp = temp/1.0e+16;
-        // temp = temp/1.0e+1;
-        // printf("a after  round = %.20f\n",temp);
+       a->desc.frac_bits == NUM_BITS_FRAC)
         return;
-       }
 
     // Sign
     sign = flexfloat_sign(a);
 
     // Exponent
     exp = flexfloat_exp(a);
-
-    // if(a->desc.exp_bits  == NUM_BITS_EXP  &&
-    //    a->desc.frac_bits == NUM_BITS_FRAC){
-    //     int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
-    //     a->value +=  CAST_TO_FP(rounding_value);
-    //     return;
-    // }
-
-
 
 #ifdef FLEXFLOAT_ROUNDING
     // In these cases no rounding is needed

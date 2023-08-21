@@ -1942,10 +1942,6 @@ rv64c = IsaSubset('c', [
     R5('c.add',      'CR',  '100 1-- --- -- --- 10', fast_handler=True),
     R5('c.swsp',     'CSS', '110 --- --- -- --- 10', fast_handler=True),
     R5('c.sdsp',     'DCSS', '111 --- --- -- --- 10', fast_handler=True),
-    #####################################################################
-    R5('c.fsdsp',     'DCSS', '101 --- --- -- --- 10', fast_handler=True),
-    R5('c.fldsp',     'DCI3', '001 --- --- -- --- 10', fast_handler=True, tags=["load"]),
-    #####################################################################
     R5('c.sbreak',   'CI1', '100 000 000 00 000 10'),
     R5('c.fsdsp',    'FCSSD', '101 --- --- -- --- 10', isa_tags=['cf']),
     R5('c.fldsp',    'FCI3D', '001 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),

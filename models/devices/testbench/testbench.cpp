@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include "vp/proxy.hpp"
 
+static unsigned int testbench_seed = 1;
+
 Uart_flow_control_checker::Uart_flow_control_checker(Testbench *top, Uart *uart, pi_testbench_req_t *req)
 : top(top), uart(uart)
 {
@@ -183,7 +185,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
                     int64_t cycles = (next_time - current_time + period - 1) / period;
 
                     // Randomize a bit
-                    cycles = cycles * (rand() % 100) / 100 + 1;
+                    cycles = cycles * (rand_r(&testbench_seed) % 100) / 100 + 1;
 
                     if (!this->bw_limiter_event->is_enqueued())
                     {
@@ -213,7 +215,6 @@ Testbench::Testbench(js::config *config)
 {
     this->state = STATE_WAITING_CMD;
     this->current_req_size = 0;
-
 }
 
 
@@ -706,6 +707,7 @@ void Testbench::handle_received_byte(uint8_t byte)
 
         switch (this->cmd & 0xffff) {
             case PI_TESTBENCH_CMD_GPIO_LOOPBACK:
+            case PI_TESTBENCH_CMD_GPIO_GET_FREQUENCY:
             case PI_TESTBENCH_CMD_UART_CHECKER:
             case PI_TESTBENCH_CMD_SET_STATUS:
             case PI_TESTBENCH_CMD_GPIO_PULSE_GEN:
@@ -752,6 +754,10 @@ void Testbench::handle_received_byte(uint8_t byte)
             switch (this->cmd & 0xffff) {
                 case PI_TESTBENCH_CMD_GPIO_LOOPBACK:
                     this->handle_gpio_loopback();
+                    break;
+
+                case PI_TESTBENCH_CMD_GPIO_GET_FREQUENCY:
+                    this->handle_gpio_get_frequency();
                     break;
 
                 case PI_TESTBENCH_CMD_UART_CHECKER:
@@ -820,6 +826,7 @@ void Spi::create_loader(js::config *load_config)
     config.cs = 0;
     config.is_master = 1;
     config.mem_size_log2 = 20;
+    config.dummy_cycles = load_config->get_child_int("dummy_cycles");
 
     this->spim_verif = new Spim_verif(this->top, this, &this->itf, &config);
 
@@ -853,7 +860,45 @@ void Testbench::gpio_sync(void *__this, int value, int id)
     Testbench *_this = (Testbench *)__this;
     Gpio *gpio = _this->gpios[id];
 
-    _this->trace.msg(vp::trace::LEVEL_DEBUG, "Received GPIO sync (id: %d)\n", id);
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received GPIO sync (id: %d, value: %d)\n", id, value);
+
+    if (gpio->get_frequency && gpio->value != value)
+    {
+        if (value == 1)
+        {
+            if (gpio->get_frequency_current_period)
+            {
+                gpio->get_frequency_period += _this->get_time() - gpio->get_frequency_start;
+            }
+
+            gpio->get_frequency_start = _this->get_time();
+            gpio->get_frequency_current_period++;
+
+            if (gpio->get_frequency_current_period == gpio->get_frequency_nb_period + 1)
+            {
+                pi_testbench_req_gpio_get_frequency_reply_t *reply = new pi_testbench_req_gpio_get_frequency_reply_t;
+                reply->period = gpio->get_frequency_period / gpio->get_frequency_nb_period;
+                reply->width = gpio->get_frequency_width / gpio->get_frequency_nb_period;
+
+                _this->trace.msg(vp::trace::LEVEL_INFO, "Finished sampling frequency (gpio: %d, period: %ld, width: %ld)\n", id, reply->period, reply->width);
+
+                _this->tx_buff = (uint8_t *)reply;
+                _this->tx_buff_size = sizeof(pi_testbench_req_gpio_get_frequency_reply_t);
+                _this->tx_buff_index = 0;
+
+                _this->uart_ctrl->send_byte(_this->tx_buff[0]);
+
+                gpio->get_frequency = false;
+            }
+        }
+        else
+        {
+            if (gpio->get_frequency_start != -1)
+            {
+                gpio->get_frequency_width += _this->get_time() - gpio->get_frequency_start;
+            }
+        }
+    }
 
     gpio->value = value;
 
@@ -999,9 +1044,13 @@ void Testbench::handle_set_status()
 {
     pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
 
-#ifdef __VP_USE_SYSTEMV
-    dpi_set_status(req->set_status.status);
-#endif
+    gv::Gvsoc_user *launcher = this->get_engine()->launcher_get();
+
+    if (launcher)
+    {
+        this->clock->stop_engine(req->set_status.status);
+        launcher->has_ended();
+    }
 }
 
 
@@ -1027,6 +1076,27 @@ void Testbench::handle_gpio_loopback()
     else
     {
         this->gpios[req->gpio.output]->loopback = -1;
+    }
+}
+
+
+void Testbench::handle_gpio_get_frequency()
+{
+    pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
+
+    this->trace.msg(vp::trace::LEVEL_INFO, "Handling GPIO get frequency (gpio: %d, nb_period: %d)\n", req->gpio_get_frequency.gpio, req->gpio_get_frequency.nb_period);
+
+    Gpio *gpio = this->gpios[req->gpio_get_frequency.gpio];
+
+    gpio->get_frequency = req->gpio_get_frequency.nb_period != 0;
+
+    if (gpio->get_frequency)
+    {
+        gpio->get_frequency_current_period = 0;
+        gpio->get_frequency_nb_period = req->gpio_get_frequency.nb_period;
+        gpio->get_frequency_period = 0;
+        gpio->get_frequency_width = 0;
+        gpio->get_frequency_start = -1;
     }
 }
 
@@ -1282,7 +1352,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
 
                 *config = {};
 
-                std::vector<std::string> params = {args.begin() + 3, args.end()};
+                std::vector<std::string> params = {args.begin() + 2, args.end()};
 
                 for (std::string x: params)
                 {
@@ -1637,6 +1707,7 @@ void Gpio::pulse_handler(void *__this, vp::clock_event *event)
 Gpio::Gpio(Testbench *top) : top(top)
 {
     this->pulse_event = top->event_new(this, Gpio::pulse_handler);
+    this->get_frequency = false;
 }
 
 

@@ -36,9 +36,9 @@ public:
     void build();
     void reset(bool active);
 
-    iss_insn_t *mret_handle();
-    iss_insn_t *dret_handle();
-    iss_insn_t *sret_handle();
+    iss_reg_t mret_handle();
+    iss_reg_t dret_handle();
+    iss_reg_t sret_handle();
     int mode_get() { return this->mode; }
     void mode_set(int mode);
 

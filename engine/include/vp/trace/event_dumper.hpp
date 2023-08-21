@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <gv/gvsoc.hpp>
+#include "json.hpp"
 
 namespace vp {
 
@@ -49,7 +50,7 @@ namespace vp {
   public:
     Event_trace(string trace_name, Event_file *file, int width, bool is_real, bool is_string);
     void reg(int64_t timestamp, uint8_t *event, int width, uint8_t flags, uint8_t *flag_mask);
-    inline void dump(int64_t timestamp) { file->dump(timestamp, id, this->buffer, this->width, this->is_real, this->is_string, this->flags, this->flags_mask); }
+    inline void dump(int64_t timestamp) { if (this->buffer) file->dump(timestamp, id, this->buffer, this->width, this->is_real, this->is_string, this->flags, this->flags_mask); }
     std::string trace_name;
     bool is_real = false;
     bool is_string;
@@ -71,19 +72,18 @@ namespace vp {
   class Event_dumper
   {
   public:
-    Event_dumper(vp::component *comp) : comp(comp) { this->user_vcd = NULL; }
+    Event_dumper(js::config *config) : config(config) { this->user_vcd = NULL; }
     Event_trace *get_trace(string trace_name, string file_name, int width, bool is_real=false, bool is_string=false);
     Event_trace *get_trace_real(string trace_name, string file_name);
     Event_trace *get_trace_string(string trace_name, string file_name);
     void close();
     void set_vcd_user(gv::Vcd_user *user);
 
-    vp::component *comp;
-
   private:
     std::map<std::string, Event_trace *> event_traces;
     std::map<std::string, Event_file *> event_files;
     gv::Vcd_user *user_vcd;
+    js::config *config;
   };
 
   class Vcd_file : public Event_file

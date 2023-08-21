@@ -25,13 +25,13 @@
 
 inline void Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    this->iss.regfile.set_reg(reg, 0);
-
     iss_addr_t phys_addr;
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
     {
         return;
     }
+
+    this->iss.regfile.set_reg(reg, 0);
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)

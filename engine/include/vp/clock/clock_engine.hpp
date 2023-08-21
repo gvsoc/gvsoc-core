@@ -74,9 +74,6 @@ namespace vp {
       return event;
     }
 
-    inline void retain() { engine->retain(); }
-    inline void release() { engine->release(); }
-
     vp::clock_event *get_next_event();
 
     void event_del(component_clock *comp, clock_event *event)
@@ -96,9 +93,7 @@ namespace vp {
 
     inline int64_t get_cycles() { return cycles; }
 
-    inline void stop_engine(int status) { engine->stop_engine(status);}
-
-    inline void stop_retain(int count) { engine->stop_retain(count); }
+    inline void stop_engine(int status) { engine->quit(status);}
 
     int64_t get_period() { return period; }
 

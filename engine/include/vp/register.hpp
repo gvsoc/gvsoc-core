@@ -408,6 +408,7 @@ namespace vp
     {
     public:
         std::vector<reg *> get_registers() { return this->registers; }
+        reg *get_register_from_offset(uint64_t offset);
         void build(vp::component *comp, vp::trace *trace, std::string name="");
         bool access(uint64_t offset, int size, uint8_t *value, bool is_write);
         void reset(bool active);
@@ -415,7 +416,7 @@ namespace vp
         vp::trace *trace;
 
     protected:
-        std::vector<reg *> registers;
         vp::component *comp;
+        std::vector<reg *> registers;
     };
 };

@@ -32,20 +32,24 @@ Exception::Exception(Iss &iss)
 
 void Exception::build()
 {
+    this->iss.top.traces.new_trace("exception", &this->trace, vp::DEBUG);
+
     this->debug_handler_addr = this->iss.top.get_js_config()->get_int("debug_handler");
 }
 
 
-void Exception::raise(iss_insn_t *insn, int id)
+void Exception::raise(iss_reg_t pc, int id)
 {
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Raising exception (id: %d)\n", id);
+
     this->iss.exec.switch_to_full_mode();
 
     if (id == ISS_EXCEPT_DEBUG)
     {
-        this->iss.csr.depc = insn->addr;
+        this->iss.csr.depc = pc;
         this->iss.irq.debug_saved_irq_enable = this->iss.irq.irq_enable.get();
         this->iss.irq.irq_enable.set(0);
-        insn = this->iss.irq.debug_handler;
+        pc = this->iss.irq.debug_handler;
     }
     else
     {
@@ -57,14 +61,14 @@ void Exception::raise(iss_insn_t *insn, int id)
 
         if (next_mode == PRIV_M)
         {
-            this->iss.csr.mepc.value = insn->addr;
+            this->iss.csr.mepc.value = pc;
             this->iss.csr.mstatus.mie = 0;
             this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
             this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
         }
         else
         {
-            this->iss.csr.sepc.value = insn->addr;
+            this->iss.csr.sepc.value = pc;
             this->iss.csr.mstatus.sie = 0;
             this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
             this->iss.csr.mstatus.spp = this->iss.core.mode_get();
@@ -76,21 +80,20 @@ void Exception::raise(iss_insn_t *insn, int id)
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
         if (next_mode == PRIV_M)
         {
-            insn = this->iss.irq.mtvec_insn;
+            pc = this->iss.csr.mtvec.value;
             this->iss.csr.mcause.value = id;
         }
         else
         {
-            insn = this->iss.irq.stvec_insn;
+            pc = this->iss.csr.stvec.value;
             this->iss.csr.scause.value = id;
         }
 #else
         this->iss.csr.mcause.value = 0xb;
-        insn = this->iss.irq.vectors[0];
+        pc = this->iss.irq.vectors[0];
 #endif
-        if (insn == NULL)
-            insn = insn_cache_get(&this->iss, 0);
     }
 
-    this->iss.exec.exception_insn = insn;
+    this->iss.exec.has_exception = true;
+    this->iss.exec.exception_pc = pc;
 }

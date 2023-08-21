@@ -20,6 +20,9 @@
  */
 
 #include <iss.hpp>
+#include <algorithm>
+
+
 
 Gdbserver::Gdbserver(Iss &iss)
     : iss(iss)
@@ -35,6 +38,8 @@ void Gdbserver::build()
     this->iss.top.new_master_port(this, "data_debug", &this->io_itf);
 }
 
+
+
 void Gdbserver::start()
 {
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.top.get_service("gdbserver");
@@ -46,6 +51,8 @@ void Gdbserver::start()
 
     this->halt_on_reset = this->gdbserver;
 }
+
+
 
 void Gdbserver::reset(bool active)
 {
@@ -63,20 +70,28 @@ void Gdbserver::reset(bool active)
     }
 }
 
+
+
 int Gdbserver::gdbserver_get_id()
 {
     return this->id;
 }
+
+
 
 void Gdbserver::gdbserver_set_id(int i)
 {
     this->id = i;
 }
 
+
+
 std::string Gdbserver::gdbserver_get_name()
 {
     return this->iss.top.get_name();
 }
+
+
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
@@ -94,14 +109,19 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
     return 0;
 }
 
+
+
 int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 {
     fprintf(stderr, "UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
     return 0;
 }
 
+
+
 int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
+    this->trace.msg(vp::trace::LEVEL_DEBUG, "Getting registers\n");
     if (nb_regs)
     {
         *nb_regs = 33;
@@ -122,7 +142,7 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 
         if (this->iss.exec.current_insn)
         {
-            regs[32] = this->iss.exec.current_insn->addr;
+            regs[32] = this->iss.exec.current_insn;
         }
         else
         {
@@ -132,6 +152,8 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 
     return 0;
 }
+
+
 
 int Gdbserver::gdbserver_stop()
 {
@@ -145,6 +167,8 @@ int Gdbserver::gdbserver_stop()
     this->gdbserver->signal(this, vp::Gdbserver_engine::SIGNAL_STOP);
     return 0;
 }
+
+
 
 int Gdbserver::gdbserver_cont()
 {
@@ -160,6 +184,8 @@ int Gdbserver::gdbserver_cont()
 
     return 0;
 }
+
+
 
 int Gdbserver::gdbserver_stepi()
 {
@@ -178,44 +204,113 @@ int Gdbserver::gdbserver_stepi()
     return 0;
 }
 
+
+
 int Gdbserver::gdbserver_state()
 {
     return this->iss.exec.halted.get() ? vp::Gdbserver_core::state::stopped : vp::Gdbserver_core::state::running;
 }
 
-static inline iss_insn_t *breakpoint_check_exec(Iss *iss, iss_insn_t *insn)
+
+
+static inline iss_reg_t breakpoint_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->exec.stalled_inc();
-    iss->exec.halted.set(true);
-    iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP, "hwbreak");
-    return insn;
+    if (std::count(insn->breakpoints.begin(), insn->breakpoints.end(), pc) > 0)
+    {
+        iss->exec.stalled_inc();
+        iss->exec.halted.set(true);
+        iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP, "hwbreak");
+        return pc;
+    }
+    else
+    {
+        return iss->exec.insn_exec(insn, pc);
+    }
 }
 
-void Gdbserver::enable_breakpoint(iss_addr_t addr)
-{
-    iss_insn_t *insn = insn_cache_get(&this->iss, addr);
 
-    if (insn_cache_is_decoded(&this->iss, insn))
+
+void Gdbserver::breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc)
+{
+    if (insn->breakpoints.size() == 0)
     {
         insn->breakpoint_saved_handler = insn->handler;
         insn->breakpoint_saved_fast_handler = insn->fast_handler;
         insn->handler = breakpoint_check_exec;
         insn->fast_handler = breakpoint_check_exec;
     }
-    else
+
+    insn->breakpoints.push_back(pc);
+}
+
+
+
+void Gdbserver::breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc)
+{
+    insn->breakpoints.erase(std::remove(insn->breakpoints.begin(), insn->breakpoints.end(), pc), insn->breakpoints.end());
+
+    if (insn->breakpoints.size() == 0)
     {
-        insn->breakpoint_saved_handler = breakpoint_check_exec;
+        insn->handler = insn->breakpoint_saved_handler;
+        insn->fast_handler = insn->breakpoint_saved_fast_handler;
     }
 }
 
+
+
+bool Gdbserver::breakpoint_check_pc(iss_addr_t pc)
+{
+    for (auto x: this->breakpoints)
+    {
+        if (x == pc)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+
+void Gdbserver::decode_insn(iss_insn_t *insn, iss_addr_t pc)
+{
+    if (this->breakpoint_check_pc(pc))
+    {
+        this->breakpoint_stub_insert(insn, pc);
+    }
+}
+
+
+
+void Gdbserver::enable_breakpoint(iss_addr_t addr)
+{
+    // Enabling the breakpoint is done by inserting a stub as the instruction handler
+    // so that it checks the breakpoint and call the real handler.
+    // If the instruction is already decoded, we have to insert the stub, otherwise,
+    // the decoder will call us when the instruction is decoded to add it.
+    // If the cache returns NULL, it means it is currently translating the virtual address,
+    // which means it is not decoded yet.
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr);
+
+    if (insn != NULL && insn_cache_is_decoded(&this->iss, insn))
+    {
+        this->breakpoint_stub_insert(insn, addr);
+    }
+}
+
+
+
 void Gdbserver::disable_breakpoint(iss_addr_t addr)
 {
-    iss_insn_t *insn = insn_cache_get(&this->iss, addr);
-
-    insn->handler = insn->breakpoint_saved_handler;
-    insn->fast_handler = insn->breakpoint_saved_fast_handler;
-    insn->breakpoint_saved_handler = NULL;
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr);
+    if (insn_cache_is_decoded(&this->iss, insn))
+    {
+        this->breakpoint_stub_remove(insn, addr);
+    }
 }
+
+
 
 void Gdbserver::enable_all_breakpoints()
 {
@@ -224,6 +319,8 @@ void Gdbserver::enable_all_breakpoints()
         this->enable_breakpoint(x);
     }
 }
+
+
 
 void Gdbserver::gdbserver_breakpoint_insert(uint64_t addr)
 {
@@ -234,6 +331,8 @@ void Gdbserver::gdbserver_breakpoint_insert(uint64_t addr)
     this->enable_breakpoint((iss_addr_t)addr);
 }
 
+
+
 void Gdbserver::gdbserver_breakpoint_remove(uint64_t addr)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE, "Removing breakpoint (addr: 0x%x)\n", addr);
@@ -242,6 +341,8 @@ void Gdbserver::gdbserver_breakpoint_remove(uint64_t addr)
 
     this->disable_breakpoint((iss_addr_t)addr);
 }
+
+
 
 bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
 {
@@ -263,6 +364,8 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
     return false;
 }
 
+
+
 void Gdbserver::gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE, "Inserting watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
@@ -271,6 +374,8 @@ void Gdbserver::gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int si
     std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
     watchpoints.push_back(new Watchpoint(addr, size));
 }
+
+
 
 void Gdbserver::gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size)
 {
@@ -293,6 +398,8 @@ void Gdbserver::gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int si
     }
 }
 
+
+
 void Gdbserver::handle_pending_io_access_stub(void *__this, vp::clock_event *event)
 {
     // Just forward to the common handle so that it either continue the full request or notify
@@ -301,6 +408,8 @@ void Gdbserver::handle_pending_io_access_stub(void *__this, vp::clock_event *eve
     _this->handle_pending_io_access();
 }
 
+
+
 void Gdbserver::data_response(void *__this, vp::io_req *req)
 {
     // Just forward to the common handle so that it either continue the full request or notify
@@ -308,6 +417,8 @@ void Gdbserver::data_response(void *__this, vp::io_req *req)
     Gdbserver *_this = (Gdbserver *)__this;
     _this->handle_pending_io_access();
 }
+
+
 
 void Gdbserver::handle_pending_io_access()
 {
@@ -376,6 +487,8 @@ void Gdbserver::handle_pending_io_access()
     }
 }
 
+
+
 int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
 {
     this->trace.msg(vp::trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
@@ -389,7 +502,6 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
     this->waiting_io_response = true;
 
     // Trigger the first access, with engine locked, since we come from an external thread
-    this->iss.top.get_time_engine()->lock();
     this->handle_pending_io_access();
     this->iss.top.get_time_engine()->unlock();
 
@@ -400,6 +512,8 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
         this->cond.wait(lock);
     }
     lock.unlock();
+
+    this->iss.top.get_time_engine()->lock();
 
     return this->io_retval;
 }

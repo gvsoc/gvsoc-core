@@ -59,6 +59,7 @@ clock_domain::clock_domain(js::config *config)
 void clock_domain::set_frequency(void *__this, int64_t frequency)
 {
   clock_domain *_this = (clock_domain *)__this;
+  _this->out.set_frequency(frequency);
   _this->apply_frequency(frequency * _this->factor);
   _this->clock_trace.event_real(_this->period);
 }

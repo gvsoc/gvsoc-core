@@ -28,7 +28,7 @@ static inline void pl_sdotsp_h_0_load_resume(Lsu *lsu)
     lsu->iss.csr.trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_0);
 }
 
-static inline iss_insn_t *pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t addr = REG_GET(0);
     IN_REG_SET(0, addr + 4);
@@ -46,7 +46,7 @@ static inline iss_insn_t *pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn)
         iss->exec.insn_stall();
     }
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
 static inline void pl_sdotsp_h_1_load_resume(Lsu *lsu)
@@ -55,7 +55,7 @@ static inline void pl_sdotsp_h_1_load_resume(Lsu *lsu)
     lsu->iss.csr.trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_1);
 }
 
-static inline iss_insn_t *pl_sdotsp_h_1_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t pl_sdotsp_h_1_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t addr = REG_GET(0);
     IN_REG_SET(0, addr + 4);
@@ -73,19 +73,19 @@ static inline iss_insn_t *pl_sdotsp_h_1_exec(Iss *iss, iss_insn_t *insn)
         iss->exec.insn_stall();
     }
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *pl_tanh_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t pl_tanh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL1(lib_TANH, REG_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *pl_sig_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t pl_sig_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL1(lib_SIG, REG_GET(0)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
 #endif

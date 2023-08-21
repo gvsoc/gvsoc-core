@@ -30,11 +30,9 @@ Irq::Irq(Iss &iss)
 
 void Irq::build()
 {
-    this->mtvec_insn = NULL;
-    this->stvec_insn = NULL;
-
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
+    this->iss.csr.mideleg.register_callback(std::bind(&Irq::mideleg_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.sip.register_callback(std::bind(&Irq::sip_access, this, std::placeholders::_1, std::placeholders::_2));
@@ -43,10 +41,16 @@ void Irq::build()
     this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
 
     this->msi_itf.set_sync_meth(&Irq::msi_sync);
-    this->iss.top.new_slave_port("msi", &this->msi_itf);
+    this->iss.top.new_slave_port(this, "msi", &this->msi_itf);
 
     this->mti_itf.set_sync_meth(&Irq::mti_sync);
-    this->iss.top.new_slave_port("mti", &this->mti_itf);
+    this->iss.top.new_slave_port(this, "mti", &this->mti_itf);
+
+    this->mei_itf.set_sync_meth(&Irq::mei_sync);
+    this->iss.top.new_slave_port(this, "mei", &this->mei_itf);
+
+    this->sei_itf.set_sync_meth(&Irq::sei_sync);
+    this->iss.top.new_slave_port(this, "sei", &this->sei_itf);
 }
 
 void Irq::reset(bool active)
@@ -56,7 +60,7 @@ void Irq::reset(bool active)
         this->irq_enable.set(0);
         this->req_irq = -1;
         this->req_debug = false;
-        this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+        this->debug_handler = this->iss.exception.debug_handler_addr;
     }
     else
     {
@@ -68,15 +72,35 @@ void Irq::reset(bool active)
 void Irq::msi_sync(void *__this, bool value)
 {
     Irq *_this = (Irq *)__this;
-    _this->iss.csr.mip.value |= 1 << IRQ_M_SOFT;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_SOFT)) | (value << IRQ_M_SOFT);
     _this->check_interrupts();
 }
 
 void Irq::mti_sync(void *__this, bool value)
 {
     Irq *_this = (Irq *)__this;
-    _this->iss.csr.mip.value |= 1 << IRQ_M_TIMER;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_TIMER)) | (value << IRQ_M_TIMER);
+
     _this->check_interrupts();
+}
+
+void Irq::mei_sync(void *__this, bool value)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_EXT)) | (value << IRQ_M_EXT);
+    _this->check_interrupts();
+}
+
+void Irq::sei_sync(void *__this, bool value)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_S_EXT)) | (value << IRQ_S_EXT);
+    _this->check_interrupts();
+}
+
+bool Irq::mideleg_access(bool is_write, iss_reg_t &value)
+{
+    return true;
 }
 
 bool Irq::mip_access(bool is_write, iss_reg_t &value)
@@ -168,8 +192,6 @@ bool Irq::mtvec_set(iss_addr_t base)
     base &= ~(3ULL);
     this->trace.msg("Setting mtvec (addr: 0x%x)\n", base);
 
-    this->iss.irq.mtvec_insn = insn_cache_get(&this->iss, base);
-
     return true;
 }
 
@@ -177,15 +199,11 @@ bool Irq::stvec_set(iss_addr_t base)
 {
     base &= ~(3ULL);
     this->trace.msg("Setting stvec (addr: 0x%x)\n", base);
-    this->iss.irq.stvec_insn = insn_cache_get(&this->iss, base);
     return true;
 }
 
 void Irq::cache_flush()
 {
-    this->mtvec_set(this->iss.csr.mtvec.value);
-    this->stvec_set(this->iss.csr.stvec.value);
-    this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
 }
 
 void Irq::wfi_handle()
@@ -224,7 +242,7 @@ int Irq::check()
     if (this->req_debug && !this->iss.exec.debug_mode)
     {
         this->iss.exec.debug_mode = true;
-        this->iss.csr.depc = this->iss.exec.current_insn->addr;
+        this->iss.csr.depc = this->iss.exec.current_insn;
         this->debug_saved_irq_enable = this->irq_enable.get();
         this->irq_enable.set(0);
         this->req_debug = false;
@@ -235,7 +253,7 @@ int Irq::check()
     {
         iss_reg_t pending_interrupts = this->iss.csr.mie.value & this->iss.csr.mip.value;
 
-        if (pending_interrupts)
+        if (pending_interrupts && !this->iss.exec.irq_locked)
         {
             int next_mode = PRIV_M;
 
@@ -288,30 +306,32 @@ int Irq::check()
 
                 this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);
 
-                this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                this->iss.exec.interrupt_taken();
+                this->iss.csr.mepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.mpie = this->irq_enable.get();
                 this->iss.csr.mstatus.mie = 0;
 
                 if (next_mode == PRIV_M)
                 {
-                    this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                    this->iss.csr.mepc.value = this->iss.exec.current_insn;
                     this->iss.csr.mstatus.mie = 0;
                     this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
                     this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
-                    this->iss.exec.current_insn = this->iss.irq.mtvec_insn;
+                    this->iss.exec.current_insn = this->iss.csr.mtvec.value;
+                    this->iss.csr.mcause.value = (1ULL << (ISS_REG_WIDTH - 1)) | (unsigned int)irq;
                 }
                 else
                 {
-                    this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+                    this->iss.csr.sepc.value = this->iss.exec.current_insn;
                     this->iss.csr.mstatus.sie = 0;
                     this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
                     this->iss.csr.mstatus.spp = this->iss.core.mode_get();
-                    this->iss.exec.current_insn = this->iss.irq.stvec_insn;
+                    this->iss.exec.current_insn = this->iss.csr.stvec.value;
+                    this->iss.csr.scause.value = (1ULL << (ISS_REG_WIDTH - 1)) | (unsigned int)irq;
                 }
                 this->iss.core.mode_set(next_mode);
 
                 this->irq_enable.set(0);
-                this->iss.csr.mcause.value = (1 << 31) | (unsigned int)irq;
 
                 this->iss.timing.stall_insn_dependency_account(4);
 

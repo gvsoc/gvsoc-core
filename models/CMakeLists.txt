@@ -17,3 +17,13 @@ install(
     FILES gv/gvsoc_control.py
     DESTINATION  python/gv
     )
+
+install(
+    FILES json_tools.py
+    DESTINATION  python
+    )
+
+install(
+    DIRECTORY regmap
+    DESTINATION  python
+    )

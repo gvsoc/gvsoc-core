@@ -217,8 +217,8 @@ I2s_verif::I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, pi_testben
 
     if (this->is_pdm)
     {
-        this->config.nb_slots = 4;
-    
+        this->config.nb_slots = 6;
+
         if (this->is_ext_clk)
         {
             if (config->sampling_freq <= 0)
@@ -374,7 +374,9 @@ void I2s_verif::sync_ws(int ws)
 void I2s_verif::set_pdm_data(int slot, int data)
 {
     this->data = (this->data & ~(0x3 << (slot * 2))) | (data << (slot * 2));
-    this->itf->sync(this->clk, 2, this->data, this->is_full_duplex);
+    if (slot == 2)
+        this->ws_value = data;
+    this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
 }
 
 
@@ -430,14 +432,17 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
             {
                 this->slots[0]->pdm_get();
                 this->slots[2]->pdm_get();
+                this->slots[4]->pdm_get();
             }
             else if (sck == 1)
             {
                 this->slots[0]->pdm_sync(sdio & 3);
                 this->slots[2]->pdm_sync(sdio >> 2);
+                this->slots[4]->pdm_sync(ws);
 
                 this->slots[1]->pdm_get();
                 this->slots[3]->pdm_get();
+                this->slots[5]->pdm_get();
             }
         }
         else
@@ -964,11 +969,13 @@ void Slot::start(pi_testbench_i2s_verif_slot_start_config_t *config, Slot *reuse
         if (this->i2s->is_pdm)
         {
             this->i2s->pdm_lanes_is_out[this->id / 2] = true;
+            if ((this->id == 4) || (this->id == 5))
+                this->i2s->ws_value = 0;
         }
 
         this->i2s->data = this->id < 2 ? this->i2s->data & 0xC : this->i2s->data & 0x3;
-    
-        this->i2s->itf->sync(2, 2, this->i2s->data, this->i2s->is_full_duplex);
+
+        this->i2s->itf->sync(2, this->i2s->ws_value, this->i2s->data, this->i2s->is_full_duplex);
     }
 }
 

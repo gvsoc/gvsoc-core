@@ -39,7 +39,6 @@
 #include <poll.h>
 #include <signal.h>
 #include <regex>
-#include <gv/gvsoc.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/prctl.h>
@@ -50,19 +49,12 @@
 #include <vp/proxy_client.hpp>
 #include <vp/launcher.hpp>
 #include <sys/stat.h>
+#include <vp/trace/trace_engine.hpp>
 
 
 extern "C" long long int dpi_time_ps();
 
 
-#ifdef __VP_USE_SYSTEMC
-#include <systemc.h>
-#endif
-
-
-#ifdef __VP_USE_SYSTEMV
-extern "C" void dpi_raise_event();
-#endif
 
 char vp_error[VP_ERROR_SIZE];
 
@@ -146,19 +138,6 @@ void vp::component::set_vp_config(js::config *config)
 
 
 
-void vp::component::set_gv_conf(struct gv_conf *gv_conf)
-{
-    if (gv_conf)
-    {
-        memcpy(&this->gv_conf, gv_conf, sizeof(struct gv_conf));
-    }
-    else
-    {
-        memset(&this->gv_conf, 0, sizeof(struct gv_conf));
-        gv_init(&this->gv_conf);
-    }
-}
-
 
 
 js::config *vp::component::get_vp_config()
@@ -177,16 +156,6 @@ js::config *vp::component::get_vp_config()
 }
 
 
-
-void vp::component::load_all()
-{
-    for (auto &x : this->childs)
-    {
-        x->load_all();
-    }
-
-    this->load();
-}
 
 
 
@@ -284,6 +253,12 @@ void vp::component_clock::clk_reg(component *_this, component *clock)
 }
 
 
+void vp::component_clock::clk_set_frequency(component *_this, int64_t frequency)
+{
+    _this->power.set_frequency(frequency);
+}
+
+
 void vp::component::reset_all(bool active, bool from_itf)
 {
     // Small hack to not propagate the reset from top level if the reset has
@@ -331,6 +306,7 @@ void vp::component_clock::reset_sync(void *__this, bool active)
 void vp::component_clock::pre_build(component *comp)
 {
     clock_port.set_reg_meth((vp::clk_reg_meth_t *)&component_clock::clk_reg);
+    clock_port.set_set_frequency_meth((vp::clk_set_frequency_meth_t *)&component_clock::clk_set_frequency);
     comp->new_slave_port("clock", &clock_port);
 
     reset_port.set_sync_meth(&component_clock::reset_sync);
@@ -341,81 +317,6 @@ void vp::component_clock::pre_build(component *comp)
 
 }
 
-
-int64_t vp::time_engine::get_next_event_time()
-{
-    if (this->first_client)
-    {
-        return this->first_client->next_event_time;
-    }
-
-    return this->time;
-}
-
-
-bool vp::time_engine::dequeue(time_engine_client *client)
-{
-    if (!client->is_enqueued)
-        return false;
-
-    client->is_enqueued = false;
-
-    time_engine_client *current = this->first_client, *prev = NULL;
-    while (current && current != client)
-    {
-        prev = current;
-        current = current->next;
-    }
-    if (prev)
-        prev->next = client->next;
-    else
-        this->first_client = client->next;
-
-    return true;
-}
-
-bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
-{
-    vp_assert(full_time >= get_time(), NULL, "Time must be higher than current time\n");
-
-#ifdef __VP_USE_SYSTEMC
-    // Notify to the engine that something has been pushed in case it is done
-    // by an external systemC component and the engine needs to be waken up
-    if (started)
-        sync_event.notify();
-#endif
-
-#ifdef __VP_USE_SYSTEMV
-    dpi_raise_event();
-#endif
-
-    if (client->is_running())
-        return false;
-
-    if (client->is_enqueued)
-    {
-        if (client->next_event_time <= full_time)
-            return false;
-        this->dequeue(client);
-    }
-
-    client->is_enqueued = true;
-
-    time_engine_client *current = first_client, *prev = NULL;
-    client->next_event_time = full_time;
-    while (current && current->next_event_time < client->next_event_time)
-    {
-        prev = current;
-        current = current->next;
-    }
-    if (prev)
-        prev->next = client;
-    else
-        first_client = client;
-    client->next = current;
-
-    return true;
-}
 
 void vp::component_clock::add_clock_event(clock_event *event)
 {
@@ -838,14 +739,6 @@ vp::component *vp::component::get_component(std::vector<std::string> path_list)
     return NULL;
 }
 
-void vp::component::elab()
-{
-    for (auto &x : this->childs)
-    {
-        x->elab();
-    }
-}
-
 void vp::component::new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset)
 {
     this->get_trace()->msg(vp::trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
@@ -939,7 +832,7 @@ void vp::component::throw_error(std::string error)
 
 void vp::component::build_instance(std::string name, vp::component *parent)
 {
-    std::string comp_path = parent->get_path() != "" ? parent->get_path() + "/" + name : name == "" ? "" : "/" + name;
+    std::string comp_path = parent && parent->get_path() != "" ? parent->get_path() + "/" + name : name == "" ? "" : "/" + name;
 
     this->conf(name, comp_path, parent);
     this->pre_pre_build();
@@ -956,59 +849,9 @@ void vp::component::build_instance(std::string name, vp::component *parent)
 
 vp::component *vp::component::new_component(std::string name, js::config *config, std::string module_name)
 {
-    if (module_name == "")
-    {
-        module_name = config->get_child_str("vp_component");
+    vp::component *instance = vp::component::load_component(config, this->get_vp_config());
 
-        if (module_name == "")
-        {
-            module_name = "utils.composite_impl";
-        }
-    }
-
-#ifdef __M32_MODE__
-    if (this->get_vp_config()->get_child_bool("sv-mode"))
-    {
-        module_name = "sv_m32." + module_name;
-    }
-    else if (this->get_vp_config()->get_child_bool("debug-mode"))
-    {
-        module_name = "debug_m32." + module_name;
-    }
-    else
-    {
-        module_name = "m32." + module_name;
-    }
-#else
-    if (this->get_vp_config()->get_child_bool("sv-mode"))
-    {
-        module_name = "sv." + module_name;
-    }
-    else if (this->get_vp_config()->get_child_bool("debug-mode"))
-    {
-        module_name = "debug." + module_name;
-    }
-#endif
-
-    this->get_trace()->msg(vp::trace::LEVEL_DEBUG, "New component (name: %s, module: %s)\n", name.c_str(), module_name.c_str());
-
-    std::replace(module_name.begin(), module_name.end(), '.', '/');
-
-    std::string path = __gv_get_component_path(this->get_vp_config(), module_name);
-
-    void *module = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
-    if (module == NULL)
-    {
-        this->throw_error("ERROR, Failed to open periph model (module: " + module_name + ", error: " + std::string(dlerror()) + ")");
-    }
-
-    vp::component *(*constructor)(js::config *) = (vp::component * (*)(js::config *)) dlsym(module, "vp_constructor");
-    if (constructor == NULL)
-    {
-        this->throw_error("ERROR, couldn't find vp_constructor in loaded module (module: " + module_name + ")");
-    }
-
-    vp::component *instance = constructor(config);
+    this->get_trace()->msg(vp::trace::LEVEL_DEBUG, "New component (name: %s)\n", name.c_str());
 
     instance->build_instance(name, this);
 
@@ -1248,27 +1091,17 @@ std::string vp::__gv_get_component_path(js::config *gv_config, std::string relpa
 }
 
 
-vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
+vp::component *vp::component::load_component(js::config *config, js::config *gv_config)
 {
-    setenv("PULP_CONFIG_FILE", config_path.c_str(), 1);
+    std::string module_name = config->get_child_str("vp_component");
 
-    js::config *js_config = js::import_config_from_file(config_path);
-    if (js_config == NULL)
+    if (module_name == "")
     {
-        fprintf(stderr, "Invalid configuration.");
-        return NULL;
+        module_name = "utils.composite_impl";
     }
-
-    js::config *gv_config = js_config->get("target/gvsoc");
-
-    std::string module_name = "vp.trace_domain_impl";
 
 #ifdef __M32_MODE__
-    if (gv_config->get_child_bool("sv-mode"))
-    {
-        module_name = "sv_m32." + module_name;
-    }
-    else if (gv_config->get_child_bool("debug-mode"))
+    if (gv_config->get_child_bool("debug-mode"))
     {
         module_name = "debug_m32." + module_name;
     }
@@ -1277,11 +1110,7 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
         module_name = "m32." + module_name;
     }
 #else
-    if (gv_config->get_child_bool("sv-mode"))
-    {
-        module_name = "sv." + module_name;
-    }
-    else if (gv_config->get_child_bool("debug-mode"))
+    if (gv_config->get_child_bool("debug-mode"))
     {
         module_name = "debug." + module_name;
     }
@@ -1304,192 +1133,8 @@ vp::component *vp::__gv_create(std::string config_path, struct gv_conf *gv_conf)
         throw std::invalid_argument("ERROR, couldn't find vp_constructor in loaded module (module: " + module_name + ")");
     }
 
-    vp::component *instance = constructor(js_config);
-
-    vp::top *top = new vp::top();
-
-    top->top_instance = instance;
-    top->power_engine = new vp::power::engine(instance);
-
-    instance->set_vp_config(gv_config);
-    instance->set_gv_conf(gv_conf);
-
-    return (vp::component *)top;
+    return constructor(config);
 }
-
-
-
-extern "C" int64_t gv_time(void *arg)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-
-    return instance->get_time_engine()->get_next_event_time();
-}
-
-
-
-
-vp::time_scheduler::time_scheduler(js::config *config)
-    : time_engine_client(config), first_event(NULL)
-{
-
-}
-
-
-int64_t vp::time_scheduler::exec()
-{
-    vp::time_event *current = this->first_event;
-
-    while (current && current->time == this->get_time())
-    {
-        this->first_event = current->next;
-        current->set_enqueued(false);
-
-        current->meth(current->_this, current);
-
-        current = this->first_event;
-    }
-
-    if (this->first_event == NULL)
-    {
-        return -1;
-    }
-    else
-    {
-        return this->first_event->time - this->get_time();
-    }
-}
-
-
-vp::time_event::time_event(time_scheduler *comp, time_event_meth_t *meth)
-    : comp(comp), _this((void *)static_cast<vp::component *>((vp::time_scheduler *)(comp))), meth(meth), enqueued(false)
-{
-    comp->add_event(this);
-}
-
-
-void vp::time_scheduler::reset(bool active)
-{
-    if (active)
-    {
-        for (time_event *event: this->events)
-        {
-            this->cancel(event);
-        }
-    }
-}
-
-void vp::time_scheduler::cancel(vp::time_event *event)
-{
-    if (!event->is_enqueued())
-        return;
-
-    vp::time_event *current = this->first_event, *prev = NULL;
-
-    while (current && current != event)
-    {
-        prev = current;
-        current = current->next;
-    }
-
-    if (prev)
-    {
-        prev->next = event->next;
-    }
-    else
-    {
-        this->first_event = event->next;
-    }
-
-    event->set_enqueued(false);
-
-    if (this->first_event == NULL)
-    {
-        this->dequeue_from_engine();
-    }
-}
-
-void vp::time_scheduler::add_event(time_event *event)
-{
-    this->events.push_back(event);
-}
-
-
-vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
-{
-    vp::time_event *current = this->first_event, *prev = NULL;
-    int64_t full_time = time + this->get_time();
-
-    event->set_enqueued(true);
-
-    while (current && current->time < full_time)
-    {
-        prev = current;
-        current = current->next;
-    }
-
-    if (prev)
-        prev->next = event;
-    else
-        this->first_event = event;
-    event->next = current;
-    event->time = full_time;
-
-    this->enqueue_to_engine(this->get_time() + time);
-
-    return event;
-}
-
-
-
-extern "C" void gv_init(struct gv_conf *gv_conf)
-{
-    gv_conf->open_proxy = 0;
-    if (gv_conf->proxy_socket)
-    {
-        *gv_conf->proxy_socket = -1;
-    }
-    gv_conf->req_pipe = 0;
-    gv_conf->reply_pipe = 0;
-}
-
-
-extern "C" void gv_stop(void *arg, int retval)
-{
-    vp::top *top = (vp::top *)arg;
-    vp::component *instance = (vp::component *)top->top_instance;
-
-    if (proxy)
-    {
-        proxy->stop(retval);
-    }
-
-    instance->stop_all();
-
-    delete top->power_engine;
-}
-
-
-
-#ifdef __VP_USE_SYSTEMC
-
-static void *(*sc_entry)(void *);
-static void *sc_entry_arg;
-
-void set_sc_main_entry(void *(*entry)(void *), void *arg)
-{
-    sc_entry = entry;
-    sc_entry_arg = arg;
-}
-
-int sc_main(int argc, char *argv[])
-{
-    sc_entry(sc_entry_arg);
-    return 0;
-}
-#endif
-
 
 void vp::fatal(const char *fmt, ...)
 {
@@ -1498,6 +1143,17 @@ void vp::fatal(const char *fmt, ...)
     if (vfprintf(stderr, fmt, ap) < 0) {}
     va_end(ap);
     exit(1);
+}
+
+
+Gvsoc_launcher *vp::component::get_launcher()
+{
+    if (this->parent)
+    {
+        return this->parent->get_launcher();
+    }
+
+    return this->launcher;
 }
 
 

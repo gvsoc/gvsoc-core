@@ -63,7 +63,7 @@ class Header(object):
         if inc_stdint:
             self.file.write('#include <stdint.h>\n')
         if inc_utils:
-            self.file.write('#include "archi/gap_utils.h"\n')
+            self.file.write('#include "archi/utils.h"\n')
         self.file.write('\n')
         self.file.write('#endif\n')
         self.file.write('\n')

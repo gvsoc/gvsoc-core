@@ -28,4 +28,23 @@
 #include "vp/clock/clock_engine.hpp"
 #include "gv/power.hpp"
 
+namespace vp {
+
+  class top
+  {
+  public:
+      top(std::string config_path, bool is_async);
+      ~top();
+
+      vp::time_engine *time_engine_get() { return this->time_engine; }
+
+      component *top_instance;
+      power::engine *power_engine;
+      vp::trace_domain *trace_engine;
+      vp::time_engine *time_engine;
+  private:
+  };
+
+};
+
 #endif

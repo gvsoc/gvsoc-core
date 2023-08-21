@@ -68,6 +68,12 @@ public:
     static void handle_pending_io_access_stub(void *__this, vp::clock_event *event);
     static void data_response(void *_this, vp::io_req *req);
 
+    void breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc);
+    void breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc);
+    bool breakpoint_check_pc(iss_addr_t pc);
+
+    void decode_insn(iss_insn_t *insn, iss_addr_t pc);
+
     Iss &iss;
     vp::io_master io_itf;
     vp::io_req io_req;

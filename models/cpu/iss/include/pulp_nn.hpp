@@ -51,53 +51,53 @@ static inline iss_reg_t iss_get_spec_purp_reg(Iss *iss, int spreg)
 }
 
 #define PV_OP_RS_EXEC_NN(insn_name, lib_name)                                                     \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                 \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                 \
     {                                                                                             \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_int4_t_to_int32_t, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                        \
     }                                                                                             \
                                                                                                   \
-    static inline iss_insn_t *pv_##insn_name##_sc_n_exec(Iss *iss, iss_insn_t *insn)              \
+    static inline iss_reg_t pv_##insn_name##_sc_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)              \
     {                                                                                             \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_int4_t_to_int32_t, REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                        \
     }                                                                                             \
                                                                                                   \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                 \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                 \
     {                                                                                             \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_int2_t_to_int32_t, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                        \
     }                                                                                             \
                                                                                                   \
-    static inline iss_insn_t *pv_##insn_name##_sc_c_exec(Iss *iss, iss_insn_t *insn)              \
+    static inline iss_reg_t pv_##insn_name##_sc_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)              \
     {                                                                                             \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_int2_t_to_int32_t, REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                        \
     }
 
 #define PV_OP_RU_EXEC_NN(insn_name, lib_name)                                                       \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                   \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                   \
     {                                                                                               \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_uint4_t_to_uint32_t, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                          \
+        return iss_insn_next(iss, insn, pc);                                                                          \
     }                                                                                               \
                                                                                                     \
-    static inline iss_insn_t *pv_##insn_name##_sc_n_exec(Iss *iss, iss_insn_t *insn)                \
+    static inline iss_reg_t pv_##insn_name##_sc_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                \
     {                                                                                               \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_uint4_t_to_uint32_t, REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                          \
+        return iss_insn_next(iss, insn, pc);                                                                          \
     }                                                                                               \
                                                                                                     \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                   \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                   \
     {                                                                                               \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_uint2_t_to_uint32_t, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                          \
+        return iss_insn_next(iss, insn, pc);                                                                          \
     }                                                                                               \
                                                                                                     \
-    static inline iss_insn_t *pv_##insn_name##_sc_c_exec(Iss *iss, iss_insn_t *insn)                \
+    static inline iss_reg_t pv_##insn_name##_sc_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                \
     {                                                                                               \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_uint2_t_to_uint32_t, REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                          \
+        return iss_insn_next(iss, insn, pc);                                                                          \
     }
 
 PV_OP_RS_EXEC_NN(add, ADD)
@@ -122,68 +122,68 @@ PV_OP_RS_EXEC_NN(xor, XOR)
 PV_OP_RS_EXEC_NN(and, AND)
 
 #define PV_OP1_RS_EXEC_NN(insn_name, lib_name)                                     \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)  \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)  \
     {                                                                              \
         REG_SET(0, LIB_CALL1(lib_VEC_##lib_name##_int4_t_to_int32_t, REG_GET(0))); \
-        return insn->next;                                                         \
+        return iss_insn_next(iss, insn, pc);                                                         \
     }                                                                              \
                                                                                    \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)  \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)  \
     {                                                                              \
         REG_SET(0, LIB_CALL1(lib_VEC_##lib_name##_int2_t_to_int32_t, REG_GET(0))); \
-        return insn->next;                                                         \
+        return iss_insn_next(iss, insn, pc);                                                         \
     }
 
 PV_OP1_RS_EXEC_NN(abs, ABS)
 
 #define PV_OP_RS_EXEC_NN_2(insn_name, lib_name)                                      \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)    \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)    \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_4, REG_GET(0), REG_GET(1)));       \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }                                                                                \
                                                                                      \
-    static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn) \
+    static inline iss_reg_t pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc) \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_4, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }                                                                                \
                                                                                      \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)    \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)    \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_2, REG_GET(0), REG_GET(1)));       \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }                                                                                \
                                                                                      \
-    static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn) \
+    static inline iss_reg_t pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc) \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_2, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }
 
 #define PV_OP_RU_EXEC_NN_2(insn_name, lib_name)                                      \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)    \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)    \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_4, REG_GET(0), REG_GET(1)));       \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }                                                                                \
                                                                                      \
-    static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn) \
+    static inline iss_reg_t pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc) \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_4, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }                                                                                \
                                                                                      \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)    \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)    \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_2, REG_GET(0), REG_GET(1)));       \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }                                                                                \
                                                                                      \
-    static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn) \
+    static inline iss_reg_t pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc) \
     {                                                                                \
         REG_SET(0, LIB_CALL2(lib_VEC_##lib_name##_SC_2, REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                           \
+        return iss_insn_next(iss, insn, pc);                                                           \
     }
 
 PV_OP_RS_EXEC_NN_2(dotsp, DOTSP)
@@ -193,55 +193,55 @@ PV_OP_RU_EXEC_NN_2(dotup, DOTUP)
 PV_OP_RS_EXEC_NN_2(dotusp, DOTUSP)
 
 #define PV_OP_RRS_EXEC_NN_2(insn_name, lib_name)                                              \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)             \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)             \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_4, REG_GET(2), REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }                                                                                         \
                                                                                               \
-    static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn)          \
+    static inline iss_reg_t pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)          \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_4, REG_GET(2), REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }                                                                                         \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)             \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)             \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_2, REG_GET(2), REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }                                                                                         \
                                                                                               \
-    static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn)          \
+    static inline iss_reg_t pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)          \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_2, REG_GET(2), REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }
 
 PV_OP_RRS_EXEC_NN_2(sdotsp, SDOTSP)
 PV_OP_RRS_EXEC_NN_2(sdotusp, SDOTUSP)
 
 #define PV_OP_RRU_EXEC_NN_2(insn_name, lib_name)                                              \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)             \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)             \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_4, REG_GET(2), REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }                                                                                         \
                                                                                               \
-    static inline iss_insn_t *pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn)          \
+    static inline iss_reg_t pv_##insn_name##_n_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)          \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_4, REG_GET(2), REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }                                                                                         \
                                                                                               \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)             \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)             \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_2, REG_GET(2), REG_GET(0), REG_GET(1)));    \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }                                                                                         \
                                                                                               \
-    static inline iss_insn_t *pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn)          \
+    static inline iss_reg_t pv_##insn_name##_c_sc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)          \
     {                                                                                         \
         REG_SET(0, LIB_CALL3(lib_VEC_##lib_name##_SC_2, REG_GET(2), REG_GET(0), REG_GET(1))); \
-        return insn->next;                                                                    \
+        return iss_insn_next(iss, insn, pc);                                                                    \
     }
 
 PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
@@ -260,7 +260,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
     static inline void pv_##insn_name##_c_resume(Lsu *lsu)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline iss_insn_t *pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn)                                 \
+    static inline iss_reg_t pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
     {                                                                                                             \
         iss_uim_t ctl_imm = UIM_GET(0);                                                                           \
                                                                                                                   \
@@ -314,9 +314,9 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss->lsu.trace.msg("No address updating\n");                                                          \
         }                                                                                                         \
-        return insn->next;                                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                                        \
     }                                                                                                             \
-    static inline iss_insn_t *pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn)                                 \
+    static inline iss_reg_t pv_##insn_name##_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
     {                                                                                                             \
         iss_uim_t ctl_imm = UIM_GET(0);                                                                           \
                                                                                                                   \
@@ -370,9 +370,9 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss->lsu.trace.msg("No address updating\n");                                                          \
         }                                                                                                         \
-        return insn->next;                                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                                        \
     }                                                                                                             \
-    static inline iss_insn_t *pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn)                                 \
+    static inline iss_reg_t pv_##insn_name##_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
     {                                                                                                             \
         iss_uim_t ctl_imm = UIM_GET(0);                                                                           \
                                                                                                                   \
@@ -426,9 +426,9 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss->lsu.trace.msg("No address updating\n");                                                          \
         }                                                                                                         \
-        return insn->next;                                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                                        \
     }                                                                                                             \
-    static inline iss_insn_t *pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn)                                 \
+    static inline iss_reg_t pv_##insn_name##_c_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
     {                                                                                                             \
         iss_uim_t ctl_imm = UIM_GET(0);                                                                           \
                                                                                                                   \
@@ -482,7 +482,7 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss->lsu.trace.msg("No address updating\n");                                                          \
         }                                                                                                         \
-        return insn->next;                                                                                        \
+        return iss_insn_next(iss, insn, pc);                                                                                        \
     }
 
 PV_OP_RRRU3_EXEC_NN(mlsdotup, SDOTUP, 0)
@@ -494,7 +494,7 @@ static inline void qnt_step_resume(Lsu *lsu)
 {
 }
 
-static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, iss_addr_t addr, int reg)
+static inline iss_reg_t qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_reg_t input, iss_addr_t addr, int reg)
 {
     iss_addr_t qnt_addr = addr; // + 4 * iss->pulp_nn.qnt_step;
     uint8_t *data = (uint8_t *)&iss->pulp_nn.qnt_regs[iss->pulp_nn.qnt_step];
@@ -503,7 +503,7 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
     if (iss->pulp_nn.qnt_step == 0)
     {
         iss->pulp_nn.qnt_step++;
-        return insn;
+        return pc;
     }
     if (iss->pulp_nn.qnt_step == 1)
     {
@@ -530,7 +530,7 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
             // printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
 
             iss->pulp_nn.qnt_step++;
-            return insn;
+            return pc;
         }
         else
         {
@@ -563,7 +563,7 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
             iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out << 1;
             // printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
             iss->pulp_nn.qnt_step++;
-            return insn;
+            return pc;
         }
         else
         {
@@ -597,7 +597,7 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
             iss->pulp_nn.qnt_reg_out = iss->pulp_nn.qnt_reg_out << 1;
             // printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
             iss->pulp_nn.qnt_step++;
-            return insn;
+            return pc;
         }
         else
         {
@@ -632,7 +632,7 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
             // printf("out: %X\n", iss->pulp_nn.qnt_reg_out);
             REG_SET(0, iss->pulp_nn.qnt_reg_out);
             iss->timing.stall_insn_account(2);
-            return insn->next;
+            return iss_insn_next(iss, insn, pc);
         }
         else
         {
@@ -642,12 +642,12 @@ static inline iss_insn_t *qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t input, 
         }
     }
     /* FIXME: Avoid compiling error */
-    return insn;
+    return pc;
 }
 
-static inline iss_insn_t *pv_qnt_n_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t pv_qnt_n_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    return qnt_step(iss, insn, REG_GET(0), REG_GET(1), REG_OUT(0));
+    return qnt_step(iss, insn, pc, REG_GET(0), REG_GET(1), REG_OUT(0));
 }
 
 static inline void iss_pulp_nn_init(Iss *iss)

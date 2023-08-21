@@ -13,16 +13,20 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/clock/clock_engine.cpp"
     "src/clock/clock_event.cpp"
     "src/vp.cpp"
+    "src/time_scheduler.cpp"
+    "src/top.cpp"
     "src/block.cpp"
     "src/register.cpp"
     "src/signal.cpp"
     "src/queue.cpp"
     "src/proxy.cpp"
+    "src/trace/trace_domain_impl.cpp"
     "src/power/power_table.cpp"
     "src/power/power_engine.cpp"
     "src/power/component_power.cpp"
     "src/power/power_trace.cpp"
     "src/power/power_source.cpp"
+    "src/time_engine.cpp"
     "src/launcher.cpp"
     "src/proxy_client.cpp"
     "src/jsmn.cpp"
@@ -37,11 +41,6 @@ set(GVSOC_ENGINE_C_SRCS
     )
 
 set(GVSOC_ENGINE_INC_DIRS "include")
-
-#"vp/clock_domain_impl.cpp"
-#"vp/time_domain_impl.cpp"
-#"vp/power_engine_impl.cpp"
-#"vp/trace_domain_impl.cpp"
 
 # ==================
 # Optimized launcher
@@ -124,28 +123,6 @@ if(${BUILD_DEBUG_M32})
     target_compile_definitions(gvsoc_debug_m32 PRIVATE "-DVP_TRACE_ACTIVE=1")
     target_compile_options(gvsoc_debug_m32 PRIVATE -m32 -D__M32_MODE__)
     target_link_options(gvsoc_debug_m32 PRIVATE "-m32")
-endif()
-
-# ==============
-# SV Library
-# ==============
-
-if(${BUILD_RTL})
-    add_library(gvsoc_sv SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
-    target_include_directories(gvsoc_sv PUBLIC ${GVSOC_ENGINE_INC_DIRS})
-    target_link_libraries(gvsoc_sv PUBLIC pthread ${CMAKE_DL_LIBS})
-    set_target_properties(gvsoc_sv PROPERTIES OUTPUT_NAME "pulpvp-sv")
-    install(TARGETS gvsoc_sv
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-        INCLUDES DESTINATION include
-        )
-    target_compile_definitions(gvsoc_sv
-        PRIVATE
-        "-DVP_TRACE_ACTIVE=1"
-        "-D__VP_USE_SYSTEMV=1"
-        )
 endif()
 
 # ==============

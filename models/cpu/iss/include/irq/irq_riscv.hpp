@@ -47,6 +47,7 @@ public:
 
     void build();
 
+    bool mideleg_access(bool is_write, iss_reg_t &value);
     bool mip_access(bool is_write, iss_reg_t &value);
     bool mie_access(bool is_write, iss_reg_t &value);
     bool sip_access(bool is_write, iss_reg_t &value);
@@ -65,17 +66,19 @@ public:
     void check_interrupts();
     static void msi_sync(void *__this, bool value);
     static void mti_sync(void *__this, bool value);
+    static void mei_sync(void *__this, bool value);
+    static void sei_sync(void *__this, bool value);
 
     Iss &iss;
 
-    iss_insn_t *mtvec_insn;
-    iss_insn_t *stvec_insn;
     vp::reg_1 irq_enable;
     int debug_saved_irq_enable;
     int req_irq;
     bool req_debug;
-    iss_insn_t *debug_handler;
+    iss_reg_t debug_handler;
     vp::trace trace;
     vp::wire_slave<bool> msi_itf;
     vp::wire_slave<bool> mti_itf;
+    vp::wire_slave<bool> mei_itf;
+    vp::wire_slave<bool> sei_itf;
 };

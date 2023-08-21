@@ -19,18 +19,30 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <algorithm>
 #include "vp/vp.hpp"
 #include "vp/trace/trace.hpp"
 
 
+double my_stod (std::string const& s) {
+    std::istringstream iss (s);
+    iss.imbue (std::locale("C"));
+    double d;
+    iss >> d;
+    // insert error checking.
+    return d;
+}
 
 vp::power::Linear_table::Linear_table(js::config *config)
 {
     // Extract the power table from json file for each temperature
     for (auto &x : config->get_childs())
     {
-        temp_tables.push_back(new Linear_temp_table(std::stod(x.first), x.second));
+        temp_tables.push_back(new Linear_temp_table(my_stod(x.first), x.second));
     }
+
+    std::sort(this->temp_tables.begin(), this->temp_tables.end(),
+    [](vp::power::Linear_temp_table *a, vp::power::Linear_temp_table *b){ return a->get_temp() <= b->get_temp(); });
 }
 
 
@@ -103,8 +115,11 @@ vp::power::Linear_temp_table::Linear_temp_table(double temp, js::config *config)
 
     for (auto &x : config->get_childs())
     {
-        volt_tables.push_back(new Linear_volt_table(std::stod(x.first), x.second));
+        volt_tables.push_back(new Linear_volt_table(my_stod(x.first), x.second));
     }
+
+    std::sort(this->volt_tables.begin(), this->volt_tables.end(),
+    [](vp::power::Linear_volt_table *a, vp::power::Linear_volt_table *b){ return a->get_volt() <= b->get_volt(); });
 }
 
 
@@ -179,11 +194,87 @@ vp::power::Linear_volt_table::Linear_volt_table(double volt, js::config *config)
     {
         if (x.first == "any")
         {
-            this->any = std::stod(x.second->get_str());
+            this->any = new Linear_freq_table(0, x.second);
         }
         else
         {
-            throw std::logic_error("Only any frequency is allowed for now");
+            this->freq_tables.push_back(new Linear_freq_table(my_stod(x.first), x.second));
         }
     }
+
+    std::sort(this->freq_tables.begin(), this->freq_tables.end(),
+        [](vp::power::Linear_freq_table *a, vp::power::Linear_freq_table *b){ return a->get_freq() <= b->get_freq(); });
+}
+
+
+
+double vp::power::Linear_volt_table::get(double frequency)
+{
+    if (this->any != NULL)
+    {
+        return this->any->get();
+    }
+
+    int low_index = -1, high_index = -1;
+
+    // We need to estimate the actual power value using interpolation on the existing tables.
+    // We first estimate it for the 2 frequencies surrounding the requested voltage,
+    // and then do an interpolation from these 2 values.
+
+    // Go through the frequencies to find the one just below and the one
+    // just above
+    for (unsigned int i = 0; i < this->freq_tables.size(); i++)
+    {
+        if (this->freq_tables[i]->get_freq() == frequency)
+        {
+            low_index = high_index = i;
+            break;
+        }
+
+        if (this->freq_tables[i]->get_freq() > frequency)
+        {
+            high_index = i;
+            break;
+        }
+
+        low_index = i;
+    }
+
+    // If we didn't find lower and upper voltage, just take the limit so that we don't do
+    // any estimation outside the given ranges
+    if (high_index == -1)
+        high_index = low_index;
+
+    if (low_index == -1)
+        low_index = high_index;
+
+    double value;
+    if (high_index == low_index)
+    {
+        // Case where we were outside the given ranges or we found the exact voltage, just return the value at given 
+        // frequency.
+        value = this->freq_tables[low_index]->get();
+    }
+    else
+    {
+        // Otherwise get the power numbers for the 2 frequencies
+        double low_freq = this->freq_tables[low_index]->get_freq();
+        double high_freq = this->freq_tables[high_index]->get_freq();
+
+        double value_at_low_freq = this->freq_tables[low_index]->get();
+        double value_at_high_freq = this->freq_tables[high_index]->get();
+
+        // And do the interpolation
+        double freq_ratio = (frequency - low_freq) / (high_freq - low_freq);
+        value = (value_at_high_freq - value_at_low_freq) * freq_ratio + value_at_low_freq;
+    }
+    return value;
+}
+
+
+
+vp::power::Linear_freq_table::Linear_freq_table(double freq, js::config *config)
+: freq(freq)
+{
+    this->value = my_stod(config->get_str());
 }

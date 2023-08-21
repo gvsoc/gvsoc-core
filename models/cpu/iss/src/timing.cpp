@@ -55,6 +55,9 @@ void Timing::build()
         this->iss.top.power.new_power_source("power_insn", &this->insn_groups_power[0], this->iss.top.get_js_config()->get("**/insn"));
     }
 
+    this->iss.top.power.new_power_source("power_stall_first", &this->power_stall_first, this->iss.top.get_js_config()->get("**/power_models/stall_first"));
+    this->iss.top.power.new_power_source("power_stall_next", &this->power_stall_next, this->iss.top.get_js_config()->get("**/power_models/stall_next"));
+
     this->iss.top.power.new_power_source("background", &background_power, this->iss.top.get_js_config()->get("**/power_models/background"));
 
     for (int i = 0; i < 32; i++)
@@ -78,15 +81,19 @@ void Timing::reset(bool active)
 
         this->active_pc_trace_event.event(NULL);
 
-        if (this->iss.top.get_js_config()->get("**/binaries") != NULL)
+        if (this->declare_binaries)
         {
-            std::string binaries = "static enable";
-            for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
+            if (this->iss.top.get_js_config()->get("**/binaries") != NULL)
             {
-                binaries += " " + x->get_str();
-            }
+                std::string binaries = "static enable";
+                for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
+                {
+                    binaries += " " + x->get_str();
+                }
 
-            this->binaries_trace_event.event_string(binaries);
+                this->binaries_trace_event.event_string(binaries);
+            }
+            this->declare_binaries = false;
         }
     }
     else

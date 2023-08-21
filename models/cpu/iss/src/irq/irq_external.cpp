@@ -32,7 +32,7 @@ void Irq::build()
 {
     for (int i = 0; i < 32; i++)
     {
-        this->vectors[i] = NULL;
+        this->vectors[i] = 0;
     }
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
@@ -57,7 +57,7 @@ void Irq::reset(bool active)
         this->irq_enable.set(0);
         this->req_irq = -1;
         this->req_debug = false;
-        this->debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+        this->debug_handler = this->iss.exception.debug_handler_addr;
     }
     else
     {
@@ -93,12 +93,12 @@ bool Irq::mtvec_set(iss_addr_t base)
 
     for (int i = 0; i < 32; i++)
     {
-        this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
+        this->iss.irq.vectors[i] = base + i * 4;
     }
 
     for (int i = 32; i < 35; i++)
     {
-        this->iss.irq.vectors[i] = insn_cache_get(&this->iss, base + i * 4);
+        this->iss.irq.vectors[i] = base + i * 4;
     }
 
     return true;
@@ -114,7 +114,7 @@ bool Irq::stvec_set(iss_addr_t base)
 void Irq::cache_flush()
 {
     this->mtvec_set(this->iss.csr.mtvec.value);
-    this->iss.irq.debug_handler = insn_cache_get(&this->iss, this->iss.exception.debug_handler_addr);
+    this->iss.irq.debug_handler = this->iss.exception.debug_handler_addr;
 }
 
 void Irq::wfi_handle()
@@ -169,7 +169,7 @@ int Irq::check()
     if (this->req_debug && !this->iss.exec.debug_mode)
     {
         this->iss.exec.debug_mode = true;
-        this->iss.csr.depc = this->iss.exec.current_insn->addr;
+        this->iss.csr.depc = this->iss.exec.current_insn;
         this->debug_saved_irq_enable = this->irq_enable.get();
         this->irq_enable.set(0);
         this->req_debug = false;
@@ -180,16 +180,16 @@ int Irq::check()
     {
         int req_irq = this->req_irq;
 
-        if (req_irq != -1 && this->irq_enable.get())
+        if (req_irq != -1 && this->irq_enable.get() && !this->iss.exec.irq_locked)
         {
             this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
-            this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+            this->iss.exec.interrupt_taken();
+            this->iss.csr.mepc.value = this->iss.exec.current_insn;
             this->iss.csr.mstatus.mpie = this->irq_enable.get();
             this->iss.csr.mstatus.mie = 0;
 
             int next_mode = PRIV_M;
-            // TODO add support for riscv interrupts
             int id = 0;
             if ((this->iss.csr.mideleg.value >> id) & 1)
             {
@@ -198,14 +198,14 @@ int Irq::check()
 
             if (next_mode == PRIV_M)
             {
-                this->iss.csr.mepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.mepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.mie = 0;
                 this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
                 this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
             }
             else
             {
-                this->iss.csr.sepc.value = this->iss.exec.current_insn->addr;
+                this->iss.csr.sepc.value = this->iss.exec.current_insn;
                 this->iss.csr.mstatus.sie = 0;
                 this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
                 this->iss.csr.mstatus.spp = this->iss.core.mode_get();

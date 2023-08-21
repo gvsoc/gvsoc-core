@@ -37,8 +37,6 @@ using namespace std;
 
 class dpi_chip_wrapper;
 
-extern "C" void dpi_external_edge(int handle, uint32_t value);
-
 class Pad_group
 {
 public:
@@ -447,10 +445,9 @@ void dpi_chip_wrapper::hyper_sync_cycle(void *__this, int data, int id)
 #endif
 }
 
-void *dpi_chip_wrapper::external_bind(std::string name, std::string itf_name, void *_handle)
+void *dpi_chip_wrapper::external_bind(std::string name, std::string itf_name, void *handle)
 {
-    int handle = (int)(long)_handle;
-    trace.msg("Binding pad (name: %s, handle: %d)\n", name.c_str(), handle);
+    trace.msg("Binding pad (name: %s, handle: %p)\n", name.c_str(), handle);
 
     int delim_pos = name.find(".");
     std::string group_name = name.substr(0, delim_pos);
@@ -469,7 +466,7 @@ void *dpi_chip_wrapper::external_bind(std::string name, std::string itf_name, vo
             callback->name = pad_name;
             callback->is_cs = false;
             callback->is_sck = false;
-            callback->handle = handle;
+            callback->handle = (gv::Wire_user *)handle;
 
             if (x->bind(pad_name, callback))
             {
@@ -489,6 +486,12 @@ void Pad_group::edge_wrapper(void *__this, int64_t timestamp, int data)
     Pad_group *_this = (Pad_group *)callback->group;
     _this->top->get_time_engine()->update(timestamp);
     _this->edge(callback, timestamp, data);
+}
+
+void Dpi_chip_wrapper_callback::update(int value)
+{
+    Pad_group *_this = (Pad_group *)this->group;
+    _this->edge(this, _this->top->get_time(), value);
 }
 
 /*
@@ -592,21 +595,21 @@ void Qspim_group::edge(Dpi_chip_wrapper_callback *callback, int64_t timestamp, i
 void Qspim_group::rx_edge(int sck, int data_0, int data_1, int data_2, int data_3, int mask)
 {
     if (sck_callback)
-        dpi_external_edge(this->sck_callback->handle, sck);
+        this->sck_callback->handle->update(sck);
     if (data_callback[0])
-        dpi_external_edge(this->data_callback[0]->handle, data_0);
+        this->data_callback[0]->handle->update(data_0);
     if (data_callback[1])
-        dpi_external_edge(this->data_callback[1]->handle, data_1);
+        this->data_callback[1]->handle->update(data_1);
     if (data_callback[2])
-        dpi_external_edge(this->data_callback[2]->handle, data_2);
+        this->data_callback[2]->handle->update(data_2);
     if (data_callback[3])
-        dpi_external_edge(this->data_callback[3]->handle, data_3);
+        this->data_callback[3]->handle->update(data_3);
 }
 
 void Qspim_group::rx_cs_edge(bool data)
 {
     if (this->cs_callback)
-        dpi_external_edge(this->cs_callback->handle, data);
+        this->cs_callback->handle->update(data);
 }
 
 
@@ -668,10 +671,10 @@ void I2s_group::rx_edge(int sck, int ws, int sd)
 {
     this->trace.msg(vp::trace::LEVEL_TRACE, "External EDGE\n");
 
-    dpi_external_edge(this->sdi_callback->handle, sd & 3);
-    dpi_external_edge(this->sdo_callback->handle, (sd >> 2) & 3);
-    dpi_external_edge(this->sck_callback->handle, sck);
-    dpi_external_edge(this->ws_callback->handle, ws);
+    this->sdi_callback->handle->update(sd & 3);
+    this->sdo_callback->handle->update((sd >> 2) & 3);
+    this->sck_callback->handle->update(sck);
+    this->ws_callback->handle->update(ws);
 }
 
 
@@ -734,30 +737,30 @@ bool Cpi_group::bind(std::string pad_name, Dpi_chip_wrapper_callback *callback)
 void Cpi_group::edge(int pclk, int href, int vsync, int data)
 {
     if (this->data_callback[0])
-        dpi_external_edge(this->data_callback[0]->handle, (data >> 0) & 1);
+        this->data_callback[0]->handle->update((data >> 0) & 1);
     if (this->data_callback[1])
-        dpi_external_edge(this->data_callback[1]->handle, (data >> 1) & 1);
+        this->data_callback[1]->handle->update((data >> 1) & 1);
     if (this->data_callback[2])
-        dpi_external_edge(this->data_callback[2]->handle, (data >> 2) & 1);
+        this->data_callback[2]->handle->update((data >> 2) & 1);
     if (this->data_callback[3])
-        dpi_external_edge(this->data_callback[3]->handle, (data >> 3) & 1);
+        this->data_callback[3]->handle->update((data >> 3) & 1);
     if (this->data_callback[4])
-        dpi_external_edge(this->data_callback[4]->handle, (data >> 4) & 1);
+        this->data_callback[4]->handle->update((data >> 4) & 1);
     if (this->data_callback[5])
-        dpi_external_edge(this->data_callback[5]->handle, (data >> 5) & 1);
+        this->data_callback[5]->handle->update((data >> 5) & 1);
     if (this->data_callback[6])
-        dpi_external_edge(this->data_callback[6]->handle, (data >> 6) & 1);
+        this->data_callback[6]->handle->update((data >> 6) & 1);
     if (this->data_callback[7])
-        dpi_external_edge(this->data_callback[7]->handle, (data >> 7) & 1);
+        this->data_callback[7]->handle->update((data >> 7) & 1);
 
     if (this->pclk_callback)
-        dpi_external_edge(this->pclk_callback->handle, pclk);
+        this->pclk_callback->handle->update(pclk);
 
     if (this->hsync_callback)
-        dpi_external_edge(this->hsync_callback->handle, href);
+        this->hsync_callback->handle->update(href);
 
     if (this->vsync_callback)
-        dpi_external_edge(this->vsync_callback->handle, vsync);
+        this->vsync_callback->handle->update(vsync);
 }
 
 
@@ -808,7 +811,7 @@ void Uart_group::rx_edge(int data)
 {
     this->rx_trace.event((uint8_t *)&data);
 
-    dpi_external_edge(this->rx_callback->handle, data);
+    this->rx_callback->handle->update(data);
 }
 
 void Uart_group::rx_edge_full(int data, int sck, int rtr)
@@ -816,13 +819,13 @@ void Uart_group::rx_edge_full(int data, int sck, int rtr)
     this->rx_trace.event((uint8_t *)&data);
 
     if (this->rx_callback)
-        dpi_external_edge(this->rx_callback->handle, data);
+        this->rx_callback->handle->update(data);
 
     if (this->sck_callback)
-        dpi_external_edge(this->sck_callback->handle, sck);
+        this->sck_callback->handle->update(sck);
 
     if (this->cts_callback)
-        dpi_external_edge(this->cts_callback->handle, rtr);
+        this->cts_callback->handle->update(rtr);
 }
 
 
@@ -859,7 +862,7 @@ void I2C_group::edge(Dpi_chip_wrapper_callback *callback, int64_t timestamp, int
 
 void I2C_group::rx_edge(int data)
 {
-    dpi_external_edge(this->rx_callback->handle, data);
+    this->rx_callback->handle->update(data);
 }
 
 
@@ -889,7 +892,7 @@ void Gpio_group::edge(Dpi_chip_wrapper_callback *callback, int64_t timestamp, in
 
 void Gpio_group::rx_edge(int data)
 {
-    dpi_external_edge(this->rx_callback->handle, data);
+    this->rx_callback->handle->update(data);
 }
 
 

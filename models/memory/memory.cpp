@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 class memory : public vp::component
 {
 
@@ -175,13 +176,16 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
     {
         return _this->handle_write(offset, size, data);
     }
-#ifdef CONFIG_ATOMICS
     else
     {
+#ifdef CONFIG_ATOMICS
         return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
             req->get_initiator());
-    }
+#else
+        _this->trace.force_warning("Received unsupported atomic operation\n");
+        return vp::IO_REQ_INVALID;
 #endif
+    }
 }
 
 
@@ -385,7 +389,7 @@ int memory::build()
 
 void memory::start()
 {
-    size = get_config_int("size");
+    size = this->get_js_config()->get("size")->get_int();
     check = get_config_bool("check");
     width_bits = get_config_int("width_bits");
     int align = get_config_int("align");
@@ -398,7 +402,8 @@ void memory::start()
     }
     else
     {
-        mem_data = new uint8_t[size];
+        mem_data = (uint8_t *)calloc(size, 1);
+        if (mem_data == NULL) throw std::bad_alloc();
     }
 
     // Special option to check for uninitialized accesses

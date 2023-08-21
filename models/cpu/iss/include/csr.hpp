@@ -47,9 +47,11 @@ public:
     CsrAbtractReg(iss_reg_t *value=NULL);
     void register_callback(std::function<bool(bool, iss_reg_t &)> callback);
     bool access(bool is_write, iss_reg_t &value);
+    virtual bool check_access(Iss *iss, bool write, bool read);
 
     std::string name;
     iss_reg_t reset_val;
+    bool write_illegal = false;
 
 protected:
     void reset(bool active);
@@ -72,10 +74,17 @@ public:
     iss_reg_t value;
 };
 
+class Cycle : public CsrAbtractReg
+{
+public:
+    bool check_access(Iss *iss, bool write, bool read);
+};
+
 class Mstatus : public CsrAbtractReg
 {
     public:
         Mstatus() : CsrAbtractReg(&this->value) {}
+        bool check_access(Iss *iss, bool write, bool read);
         union
         {
             iss_reg_t value;
@@ -153,7 +162,8 @@ public:
 
     vp::trace trace;
 
-    CsrReg cycle;
+    Cycle cycle;
+    CsrReg time;
     CsrReg instret;
 
     CsrReg sstatus;
@@ -191,6 +201,18 @@ public:
     CsrReg mvendorid;
     CsrReg marchid;
 
+    CsrReg mcycle;
+    CsrReg mhpmcounter[29];
+#if ISS_REG_WIDTH == 32
+    CsrReg mhpmcounterh[29];
+#endif
+    CsrReg mcountinhibit;
+
+#if defined(CONFIG_GVSOC_ISS_PMP)
+    CsrReg pmpcfg[16];
+    CsrReg pmpaddr[64];
+#endif
+
     iss_reg_t depc;
     iss_reg_t dcsr;
 #if defined(ISS_HAS_PERF_COUNTERS)
@@ -221,7 +243,9 @@ public:
 private:
 
     bool tselect_access(bool is_write, iss_reg_t &value);
+    bool time_access(bool is_write, iss_reg_t &value);
 
     std::map<iss_reg_t, CsrAbtractReg *> regs;
+    vp::wire_master<uint64_t> time_itf;
 
 };

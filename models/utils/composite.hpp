@@ -19,35 +19,34 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __GV__GVSOC_H__
-#define __GV__GVSOC_H__
+#pragma once
 
-#include <stdint.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <vp/vp.hpp>
 
 
-struct gv_conf {
-    bool open_proxy;
-    int *proxy_socket;
-    int req_pipe;
-    int reply_pipe;
+
+class composite : public vp::component
+{
+
+public:
+    composite(js::config *config);
+
+    vp::port *get_slave_port(std::string name) { return this->ports[name]; }
+    vp::port *get_master_port(std::string name) { return this->ports[name]; }
+
+    void add_slave_port(std::string name, vp::slave_port *port) { this->add_port(name, port); }
+    void add_master_port(std::string name, vp::master_port *port) { this->add_port(name, port); }
+
+    int build();
+    void start();
+    void power_supply_set(int state);
+
+    void dump_traces(FILE *file);
+
+protected:
+    vp::trace     trace;
+
+private:
+    void add_port(std::string name, vp::port *port);
+    std::map<std::string, vp::port *> ports;
 };
-
-
-void gv_init(struct gv_conf *gv_conf);
-
-
-int64_t gv_time(void *instance);
-
-void gv_stop(void *_instance, int status);
-
-void *gv_chip_pad_bind(void *handle, char *name, int ext_handle);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif

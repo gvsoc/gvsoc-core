@@ -86,7 +86,7 @@ void Rsp::proxy_loop(int socket)
 
     this->codec->on_ctrlc([this]()
     {
-        this->stop_all_cores();
+        this->stop_all_cores_safe();
     });
 
     this->stop_all_cores();

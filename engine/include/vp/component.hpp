@@ -28,7 +28,6 @@
 #include <string>
 #include <vector>
 #include <functional>
-#include "gv/gvsoc.h"
 #include "vp/ports.hpp"
 #include "vp/config.hpp"
 #include "vp/clock/clock_event.hpp"
@@ -40,6 +39,7 @@
 #include <functional>
 #include <vp/block.hpp>
 #include <vp/register.hpp>
+#include <gv/gvsoc.hpp>
 
 
 #define   likely(x) __builtin_expect(x, 1)
@@ -52,20 +52,22 @@ extern char vp_error[];
 
 class Gv_proxy;
 
+class Gvsoc_launcher;
+
 namespace vp {
 
   class config;
   class clock_engine;
   class component;
   class signal;
+  class trace_domain;
 
 
   class Notifier {
   public:
-      virtual void notify_stop() {}
-      virtual void notify_run() {}
+      virtual void notify_stop(int64_t time) {}
+      virtual void notify_run(int64_t time) {}
   };
-
 
 
   class component : public component_clock, public block
@@ -77,25 +79,18 @@ namespace vp {
   public:
     component(js::config *config);
 
+    static vp::component *load_component(js::config *config, js::config *gv_config);
+
     virtual void pre_pre_build() { }
     virtual int build() { return 0; }
     virtual void pre_start() {}
     virtual void start() {}
     virtual void stop() {}
     virtual void flush() {}
-    virtual void quit(int status) {}
     virtual void pre_reset() {}
     virtual void reset(bool active) {}
     virtual void power_supply_set(int state) {}
-    virtual void load() {}
-    virtual void elab();
-    virtual void run() {}
-    virtual int64_t step(int64_t timestamp) {return 0; }
-    virtual void pause() {}
     virtual void register_exec_notifier(Notifier *notifier) {}
-    virtual void req_stop_exec() {}
-    virtual void stop_exec() {}
-    virtual int join() { return -1; }
 
     virtual void dump_traces(FILE *file) {}
 
@@ -108,7 +103,6 @@ namespace vp {
 
     js::config *get_vp_config();
     void set_vp_config(js::config *config);
-    void set_gv_conf(struct gv_conf *gv_conf);
 
     inline config *get_config(std::string name);
 
@@ -146,8 +140,6 @@ namespace vp {
 
     int build_new();
 
-    void load_all();
-
     void flush_all();
 
     void post_post_build_all();
@@ -161,6 +153,7 @@ namespace vp {
     void final_bind();
 
     virtual void *external_bind(std::string comp_name, std::string itf_name, void *handle);
+    virtual void time_engine_update(int64_t timestamp) {}
 
     void reset_all(bool active, bool from_itf=false);
 
@@ -212,9 +205,10 @@ namespace vp {
 
     trace warning;
 
-    struct gv_conf gv_conf;
+    void set_launcher(Gvsoc_launcher *launcher) { this->launcher = launcher; }
 
   protected:
+    Gvsoc_launcher *get_launcher();
     void create_comps();
     void create_ports();
     void create_bindings();
@@ -226,7 +220,6 @@ namespace vp {
     std::map<std::string, component *> childs_dict;
 
   private:
-
     js::config *comp_js_config;
     js::config *vp_config = NULL;
     trace root_trace;
@@ -246,20 +239,10 @@ namespace vp {
     bool reset_done_from_itf;
 
     time_engine *time_engine_ptr = NULL;
+    Gvsoc_launcher *launcher;
   };
 
   std::string __gv_get_component_path(js::config *gv_config, std::string relpath);
-
-  vp::component *__gv_create(std::string config_path, struct gv_conf *gv_conf);
-
-  class top
-  {
-  public:
-      component *top_instance;
-      power::engine *power_engine;
-  private:
-  };
-
-};  
+};
 
 #endif

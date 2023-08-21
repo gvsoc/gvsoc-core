@@ -26,6 +26,14 @@
 inline void Timing::stall_cycles_account(int cycles)
 {
     this->iss.exec.instr_event->stall_cycle_inc(cycles);
+    if (cycles > 0)
+    {
+        this->power_stall_first.account_energy_quantum();
+        for (int i=0; i<cycles-1; i++)
+        {
+            this->power_stall_next.account_energy_quantum();
+        }
+    }
 }
 
 inline void Timing::event_trace_account(unsigned int event, int cycles)

@@ -42,6 +42,7 @@ namespace vp {
   public:
 
     static void clk_reg(component *_this, component *clock);
+    static void clk_set_frequency(component *_this, int64_t frequency);
     static void reset_sync(void *_this, bool active);
 
     inline void event_enqueue(clock_event *event, int64_t cycles);

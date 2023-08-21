@@ -70,10 +70,10 @@ void Exec::build()
     this->bootaddr_offset = this->iss.top.get_config_int("bootaddr_offset");
 
 
-    this->current_insn = NULL;
-    this->stall_insn = NULL;
-    this->hwloop_end_insn[0] = NULL;
-    this->hwloop_end_insn[1] = NULL;
+    this->current_insn = 0;
+    this->stall_insn = 0;
+    this->hwloop_end_insn[0] = 0;
+    this->hwloop_end_insn[1] = 0;
 
     iss_resource_init(&this->iss);
 
@@ -87,17 +87,19 @@ void Exec::reset(bool active)
     {
         this->clock_active = false;
         this->skip_irq_check = true;
-        this->exception_insn = NULL;
+        this->has_exception = false;
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->instr_event->disable();
+        this->insn_table_index = 0;
+        this->irq_locked = false;
     }
     else
     {
-        this->elw_insn = NULL;
+        this->elw_insn = 0;
         this->cache_sync = false;
-        this->hwloop_end_insn[0] = NULL;
-        this->hwloop_end_insn[1] = NULL;
+        this->hwloop_end_insn[0] = 0;
+        this->hwloop_end_insn[1] = 0;
 
         if (this->stalled.get() == 0)
         {
@@ -121,8 +123,9 @@ void Exec::icache_flush()
         this->cache_sync = true;
         this->insn_stall();
         this->flush_cache_req_itf.sync(true);
-        iss_cache_flush(&this->iss);
     }
+
+    iss_cache_flush(&this->iss);
 }
 
 #include <unistd.h>
@@ -150,21 +153,23 @@ void Exec::dbg_unit_step_check()
 
 void Exec::exec_instr_untimed(void *__this, vp::clock_event *event)
 {
-    Iss *const iss = (Iss *)__this;
-    iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
-    iss->exec.loop_count = 64;
+    // TODO such a loop could be used for untimed ISS variant
+    abort();
+    // Iss *const iss = (Iss *)__this;
+    // iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
+    // iss->exec.loop_count = 64;
 
-    iss_insn_t *insn = iss->exec.current_insn;
-    while(1)
-    {
-        bool stalled;
+    // iss_insn_t *insn = iss->exec.current_insn;
+    // while(1)
+    // {
+    //     bool stalled;
 
-        // Execute the instruction and replace the current one with the new one
-        insn = insn->fast_handler(iss, insn);
-        stalled = iss->exec.stalled.get();
-        iss->exec.current_insn = insn;
-        if (stalled) break;
-    }
+    //     // Execute the instruction and replace the current one with the new one
+    //     insn = insn->fast_handler(iss, insn);
+    //     stalled = iss->exec.stalled.get();
+    //     iss->exec.current_insn = insn;
+    //     if (stalled) break;
+    // }
 }
 
 
@@ -174,19 +179,71 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
 
     iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
-    iss_insn_t *insn = iss->exec.current_insn;
+    iss_reg_t pc = iss->exec.current_insn;
 
-    if (iss->prefetcher.fetch(insn))
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+    if (iss->prefetcher.fetch(pc))
+#endif
     {
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
+        if (insn == NULL) return;
+
         // Takes care first of all optional features (traces, VCD and so on)
         iss->exec.insn_exec_profiling();
 
         // Execute the instruction and replace the current one with the new one
-        iss->exec.current_insn = insn->fast_handler(iss, insn);
+        iss->exec.current_insn = insn->fast_handler(iss, insn, pc);
 
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
         iss->exec.insn_exec_power(insn);
+    }
+}
+
+
+
+void Exec::hwloop_set_start(int index, iss_reg_t pc)
+{
+    this->hwloop_start_insn[index] = pc;
+}
+
+
+
+void Exec::hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc)
+{
+    if (insn->hwloop_handler == NULL)
+    {
+        insn->hwloop_handler = insn->handler;
+        insn->handler = hwloop_check_exec;
+        insn->fast_handler = hwloop_check_exec;
+    }
+}
+
+
+
+void Exec::hwloop_set_end(int index, iss_reg_t pc)
+{
+    this->hwloop_end_insn[index] = pc;
+
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, pc);
+
+    if (insn != NULL && insn_cache_is_decoded(&this->iss, insn))
+    {
+        this->hwloop_stub_insert(insn, pc);
+    }
+}
+
+
+
+void Exec::decode_insn(iss_insn_t *insn, iss_addr_t pc)
+{
+    for (int i=0; i<CONFIG_GVSOC_ISS_NB_HWLOOP; i++)
+    {
+        if (this->hwloop_end_insn[i] == pc)
+        {
+            this->hwloop_stub_insert(insn, pc);
+            break;
+        }
     }
 }
 
@@ -197,12 +254,12 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
     Iss *iss = (Iss *)__this;
     Exec *_this = &iss->exec;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler\n");
+    _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
-    if (_this->exception_insn)
+    if (_this->has_exception)
     {
-        _this->current_insn = _this->exception_insn;
-        _this->exception_insn = NULL;
+        _this->current_insn = _this->exception_pc;
+        _this->has_exception = false;
     }
 
     // Switch back to optimize instruction handler only
@@ -225,11 +282,16 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
         _this->skip_irq_check = false;
     }
 
-    iss_insn_t *insn = _this->current_insn;
+    iss_reg_t pc = iss->exec.current_insn;
 
-    if (iss->prefetcher.fetch(insn))
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+    if (iss->prefetcher.fetch(pc))
+#endif
     {
-        _this->current_insn = _this->insn_exec(insn);
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
+        if (insn == NULL) return;
+
+        _this->current_insn = _this->insn_exec(insn, pc);
 
         _this->iss.timing.insn_account();
 
@@ -286,7 +348,7 @@ void Exec::bootaddr_sync(void *__this, uint32_t value)
 
 void Exec::pc_set(iss_addr_t value)
 {
-    this->current_insn = insn_cache_get(&this->iss, value);
+    this->current_insn = value;
 }
 
 

@@ -31,10 +31,11 @@ public:
 
     void build();
 
-    void raise(iss_insn_t *insn, int id);
+    void raise(iss_reg_t pc, int id);
 
     iss_addr_t debug_handler_addr;
 
 private:
     Iss &iss;
+    vp::trace trace;
 };

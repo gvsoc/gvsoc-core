@@ -44,6 +44,9 @@ void vp::power::component_power::build()
 
     this->power_port.set_sync_meth(&vp::power::component_power::power_supply_sync);
     this->top.new_slave_port(this, "power_supply", &this->power_port);
+
+    this->voltage_port.set_sync_meth(&vp::power::component_power::voltage_sync);
+    this->top.new_slave_port(this, "voltage", &this->voltage_port);
 }
 
 
@@ -75,6 +78,21 @@ int vp::power::component_power::new_power_source(std::string name, power_source 
     this->sources.push_back(source);
 
     return 0;
+}
+
+
+
+void vp::power::component_power::set_frequency(int64_t frequency)
+{
+    for (power_source *power_source: this->sources)
+    {
+        power_source->set_frequency(frequency);
+    }
+
+    for (auto child: this->top.childs)
+    {
+        child->power.set_frequency(frequency);
+    }
 }
 
 
@@ -176,17 +194,17 @@ void vp::power::component_power::power_supply_set_all(int state)
 
     if (state >= 2)
     {
-        for (auto &x : this->sources)
-        {
-            if (state == 3)
-            {
-                x->turn_dynamic_power_on();
-            }
-            else
-            {
-                x->turn_dynamic_power_off();
-            }
-        }
+        // for (auto &x : this->sources)
+        // {
+        //     if (state == 3)
+        //     {
+        //         x->turn_dynamic_power_on();
+        //     }
+        //     else
+        //     {
+        //         x->turn_dynamic_power_off();
+        //     }
+        // }
     }
     else
     {
@@ -201,5 +219,24 @@ void vp::power::component_power::power_supply_set_all(int state)
                 x->turn_off();
             }
         }
+    }
+}
+
+void vp::power::component_power::voltage_sync(void *__this, int voltage)
+{
+    vp::power::component_power *_this = (vp::power::component_power *)__this;
+    _this->voltage_set_all(voltage);
+}
+
+void vp::power::component_power::voltage_set_all(int voltage)
+{
+    for (power_source *power_source: this->sources)
+    {
+        power_source->set_voltage(voltage);
+    }
+
+    for (auto &x : this->top.childs)
+    {
+        x->power.voltage_set_all(voltage);
     }
 }

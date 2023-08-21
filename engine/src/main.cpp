@@ -61,8 +61,10 @@ int main(int argc, char *argv[])
     {
         printf("Opened proxy on socket %d\n", conf.proxy_socket);
     }
-
-    gvsoc->run();
+    else
+    {
+        gvsoc->run();
+    }
     int retval = gvsoc->join();
 
     gvsoc->stop();

@@ -28,7 +28,8 @@ import importlib
 
 
 class R5(Instr):
-    def __init__(self, label, format, encoding, decode=None, N=None, L=None, mapTo=None, group=None, fast_handler=False, tags=[], isa_tags=[]):
+    def __init__(self, label, format, encoding, decode=None, N=None, L=None, mapTo=None, group=None, fast_handler=False,
+        tags=[], isa_tags=[], is_macro_op=False):
 
         # Encodings for non-compressed instruction sets
               #   3 3 2 2 2 2 2       2 2 2 2 2       1 1 1 1 1       1 1 1       1 1
@@ -565,6 +566,10 @@ class R5(Instr):
             self.args = [   OutFReg(0, Range(7, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[4, 3, 2], [12, 1, 5], [2, 2, 6]]), isSigned=False)),
                         ]
+        elif format == 'FCI3D':
+            self.args = [   OutFReg(0, Range(7, 5)),
+                            Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[5, 2, 2], [12, 1, 5], [2, 3, 6]]), isSigned=False)),
+                        ]
         elif format == 'CI4':
             self.args = [   OutReg(0, Const(2)),
                             InReg(0, Const(2)),
@@ -591,6 +596,10 @@ class R5(Instr):
             self.args = [   InFReg(1, Range(2, 5)),
                             Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[9, 4, 2], [7, 2, 6]]), isSigned=False)),
                         ]
+        elif format == 'FCSSD':
+            self.args = [   InFReg(1, Range(2, 5)),
+                            Indirect(InReg(0, Const(2)), SignedImm(0, Ranges([[10, 3, 3], [7, 3, 6]]), isSigned=False)),
+                        ]
         elif format == 'CIW':
             self.args = [   OutRegComp(0, Range(2, 3)),
                             InReg(0, Const(2)),
@@ -600,6 +609,14 @@ class R5(Instr):
             self.args = [   OutRegComp(0, Range(2, 3)),
                             Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[6, 1, 2], [10, 3, 3], [5, 1, 6]]), isSigned=False)),
                         ]
+        elif format == 'CLD':
+            self.args = [   OutRegComp(0, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
+                        ]
+        elif format == 'CFLD':
+            self.args = [   OutFRegComp(0, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
+                        ]
         elif format == 'FCL':
             self.args = [   OutFRegComp(0, Range(2, 3)),
                             Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[6, 1, 2], [10, 3, 3], [5, 1, 6]]), isSigned=False)),
@@ -607,6 +624,14 @@ class R5(Instr):
         elif format == 'CS':
             self.args = [   InRegComp(1, Range(2, 3)),
                             Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[6, 1, 2], [10, 3, 3], [5, 1, 6]]), isSigned=False)),
+                        ]
+        elif format == 'CFSD':
+            self.args = [   InRegComp(1, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
+                        ]
+        elif format == 'CSD':
+            self.args = [   InRegComp(1, Range(2, 3)),
+                            Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
                         ]
         elif format == 'FCS':
             self.args = [   InFRegComp(1, Range(2, 3)),
@@ -697,10 +722,15 @@ class R5(Instr):
                         ]
 
 
+        elif format == 'CMPUSH':
+            self.args = [   UnsignedImm(0, Range(4, 4)),
+                            UnsignedImm(1, Range(2, 2)),
+                            ]
         else:
             raise Exception('Undefined format: %s' % format)
 
-        super(R5, self).__init__(label, type, encoding, decode, N, L, mapTo, group=group, fast_handler=fast_handler, tags=tags, isa_tags=isa_tags)
+        super(R5, self).__init__(label, type, encoding, decode, N, L, mapTo, group=group, fast_handler=fast_handler,
+            tags=tags, isa_tags=isa_tags, is_macro_op=is_macro_op)
 
 
 
@@ -1202,12 +1232,6 @@ rv32f = IsaSubset('f', [
     R5('fcvt.lu.s','R2F1','1100000 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
     R5('fcvt.s.l', 'R2F2','1101000 00010 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
     R5('fcvt.s.lu','R2F2','1101000 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
-
-    # If C also supported
-    R5('c.fsw',      'FCS',  '111 --- --- -- --- 00', isa_tags=['cf']),
-    R5('c.fswsp',    'FCSS', '111 --- --- -- --- 10', isa_tags=['cf']),
-    R5('c.flw',      'FCL',  '011 --- --- -- --- 00', tags=["load"], isa_tags=['cf']),
-    R5('c.flwsp',    'FCI3', '011 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
 ])
 
 rv32d = IsaSubset('d', [
@@ -1809,6 +1833,19 @@ priv_smmu = IsaSubset('priv_smmu', [
 ])
 
 
+#
+# Zcmp
+#
+zcmp = IsaSubset('zcmp', [
+
+    # Compressed ISA
+    R5('cm.push'    , 'CMPUSH','101 110 00- -- --- 10', is_macro_op=True),
+    R5('cm.pop'     , 'CMPUSH','101 110 10- -- --- 10', is_macro_op=True),
+    R5('cm.popretz' , 'CMPUSH','101 111 00- -- --- 10', is_macro_op=True),
+    R5('cm.popret'  , 'CMPUSH','101 111 10- -- --- 10', is_macro_op=True),
+])
+
+
 
 #
 # RV32C
@@ -1845,6 +1882,10 @@ rv32c = IsaSubset('c', [
     R5('c.add',      'CR',  '100 1-- --- -- --- 10', fast_handler=True),
     R5('c.swsp',     'CSS', '110 --- --- -- --- 10', fast_handler=True),
     R5('c.sbreak',   'CI1', '100 000 000 00 000 10'),
+    R5('c.flwsp',    'FCI3', '011 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
+    R5('c.fswsp',    'FCSS', '111 --- --- -- --- 10', isa_tags=['cf']),
+    R5('c.fsw',      'FCS',  '111 --- --- -- --- 00', isa_tags=['cf']),
+    R5('c.flw',      'FCL',  '011 --- --- -- --- 00', tags=["load"], isa_tags=['cf']),
 ])
 
 
@@ -1867,10 +1908,12 @@ rv64c = IsaSubset('c', [
     # Compressed ISA
     R5('c.unimp',    'CI1', '000 000 000 00 000 00'),
     R5('c.addi4spn', 'CIW', '000 --- --- -- --- 00', fast_handler=True),
-    R5('c.ld',       'CL',  '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
+    R5('c.ld',       'CLD', '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
     R5('c.lw',       'CL',  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),
+    R5('c.fld',      'CFLD', '001 --- --- -- --- 00', fast_handler=True, tags=["load"]),
     R5('c.sw',       'CS',  '110 --- --- -- --- 00', fast_handler=True),
-    R5('c.sd',       'CS',  '111 --- --- -- --- 00', fast_handler=True),
+    R5('c.sd',       'CSD', '111 --- --- -- --- 00', fast_handler=True),
+    R5('c.fsd',      'CFSD', '101 --- --- -- --- 00', fast_handler=True),
     R5('c.nop',      'CI1', '000 000 000 00 000 01', fast_handler=True),
     R5('c.addi',     'CI1', '000 --- --- -- --- 01', fast_handler=True),
     R5('c.addiw',    'CI1', '001 --- --- -- --- 01', fast_handler=True),
@@ -1904,6 +1947,8 @@ rv64c = IsaSubset('c', [
     R5('c.fldsp',     'DCI3', '001 --- --- -- --- 10', fast_handler=True, tags=["load"]),
     #####################################################################
     R5('c.sbreak',   'CI1', '100 000 000 00 000 10'),
+    R5('c.fsdsp',    'FCSSD', '101 --- --- -- --- 10', isa_tags=['cf']),
+    R5('c.fldsp',    'FCI3D', '001 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
 ])
 
 

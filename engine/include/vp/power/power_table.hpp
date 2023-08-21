@@ -31,6 +31,7 @@ namespace vp
     {
         class Linear_temp_table;
         class Linear_volt_table;
+        class Linear_freq_table;
 
         /**
          * @brief Power values of a power characteristic
@@ -129,7 +130,7 @@ namespace vp
              * @param frequency Frequency at which the power number should be given
              * @return double 
              */
-            inline double get(double frequency) { return any; }
+            double get(double frequency);
 
             /**
              * @brief Get voltage for which this class has been created
@@ -139,8 +140,23 @@ namespace vp
             inline double get_volt() { return this->volt; }
 
         private:
-            double any;      // Power value for any frequency
+            std::vector<Linear_freq_table *> freq_tables;   // Power tables at various frequencies
+            Linear_freq_table *any=NULL;
             double volt;     // Voltage for which this class has been instantiated
+        };
+
+        class Linear_freq_table
+        {
+        public:
+            Linear_freq_table(double freq, js::config *config);
+
+            inline double get_freq() { return this->freq; }
+            inline double get() { return this->value; }
+
+        private:
+            double freq;
+            double value;
         };
     };
 };
+

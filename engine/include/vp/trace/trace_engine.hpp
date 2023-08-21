@@ -28,6 +28,7 @@
 #include "gv/gvsoc.hpp"
 #include <pthread.h>
 #include <thread>
+#include <regex.h>
 
 namespace vp {
 
@@ -37,12 +38,11 @@ namespace vp {
   #define TRACE_FORMAT_LONG  0
   #define TRACE_FORMAT_SHORT 1
 
-  class trace_engine : public component
+  class trace_engine
   {
   public:
     trace_engine(js::config *config);
-
-    void stop();
+    ~trace_engine();
 
     virtual void reg_trace(vp::trace *trace, int event, string path, string name) = 0;
 
@@ -82,6 +82,8 @@ namespace vp {
     inline bool get_werror() { return this->werror; }
     inline bool is_warning_active(vp::trace::warning_type_e type) { return this->active_warnings[type]; }
 
+    vp::time_engine *time_engine;
+
   protected:
     std::map<std::string, trace *> traces_map;
     std::vector<trace *> traces_array;
@@ -117,6 +119,63 @@ namespace vp {
     bool global_enable = true;
     gv::Vcd_user *vcd_user;
   };
+
+class trace_regex
+{
+public:
+    trace_regex(std::string path, regex_t *regex, std::string file_path, bool is_path=false) : is_path(is_path), path(path), regex(regex), file_path(file_path) {}
+
+    bool is_path;
+    std::string path;
+    regex_t *regex;
+    std::string file_path;
+};
+
+class trace_domain : public vp::trace_engine
+{
+
+public:
+    trace_domain(vp::component *top, js::config *config);
+
+    void set_trace_level(const char *trace_level);
+    void add_paths(int events, int nb_path, const char **paths);
+    void add_path(int events, const char *path, bool is_path=false);
+    void add_exclude_path(int events, const char *path);
+    void add_trace_path(int events, std::string path);
+    void conf_trace(int event, std::string path, bool enabled);
+    void add_exclude_trace_path(int events, std::string path);
+    void reg_trace(vp::trace *trace, int event, string path, string name);
+
+    void start();
+    void check_traces();
+
+    int get_max_path_len() { return max_path_len; }
+
+    int exchange_max_path_len(int max_len)
+    {
+        if (max_len > max_path_len)
+            max_path_len = max_len;
+        return max_path_len;
+    }
+
+    int get_trace_level() { return this->trace_level; }
+
+private:
+    void check_trace_active(vp::trace *trace, int event = 0);
+
+    std::unordered_map<std::string, trace_regex *> trace_regexs;
+    std::unordered_map<std::string, trace_regex *> trace_exclude_regexs;
+    std::unordered_map<std::string, trace_regex *> events_path_regex;
+    std::unordered_map<std::string, trace_regex *> events_exclude_path_regex;
+    int max_path_len = 0;
+    vp::trace_level_e trace_level = vp::TRACE;
+    std::vector<vp::trace *> init_traces;
+    std::unordered_map<std::string, FILE *> trace_files;
+    std::unordered_map<std::string, std::string> active_events;
+
+    FILE *trace_file;
+    vp::component *top;
+};
 
 };
 

@@ -309,6 +309,24 @@ void Syscalls::handle_riscv_ebreak()
         break;
     }
 
+    case 0x3:
+    {
+        iss_reg_t args[1];
+        if (this->user_access(this->iss.regfile.regs[11], (uint8_t *)args, sizeof(args), false))
+        {
+            this->iss.regfile.regs[10] = -1;
+            return;
+        }
+        putchar(args[0]);
+        break;
+    }
+
+    case 0x7:
+    {
+        this->iss.regfile.regs[10] = getchar();
+        break;
+    }
+
     case 0xA:
     {
         iss_reg_t args[2];
@@ -327,7 +345,6 @@ void Syscalls::handle_riscv_ebreak()
     {
         int status = this->iss.regfile.regs[11] == 0x20026 ? 0 : 1;
 
-        this->iss.top.get_clock()->stop_retain(-1);
         this->iss.top.get_clock()->stop_engine(status & 0x7fffffff);
 
         break;
@@ -628,7 +645,7 @@ void Syscalls::handle_riscv_ebreak()
 
     case 0x10D:
     {
-        this->iss.top.get_engine()->stop_exec();
+        this->iss.top.get_engine()->pause();
 
         break;
     }

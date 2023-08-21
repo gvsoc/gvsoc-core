@@ -232,7 +232,16 @@ int64_t Gvsoc_proxy_client::stop()
     return 0;
 }
 
+void Gvsoc_proxy_client::wait_stopped()
+{
+}
+
 int64_t Gvsoc_proxy_client::step(int64_t duration)
+{
+    return 0;
+}
+
+int64_t Gvsoc_proxy_client::step_until(int64_t duration)
 {
     return 0;
 }
@@ -240,6 +249,16 @@ int64_t Gvsoc_proxy_client::step(int64_t duration)
 gv::Io_binding *Gvsoc_proxy_client::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
 {
     return NULL;
+}
+
+gv::Wire_binding *Gvsoc_proxy_client::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name)
+{
+    return NULL;
+}
+
+void Gvsoc_proxy_client::update(int64_t timestamp)
+{
+
 }
 
 void Gvsoc_proxy_client::vcd_bind(gv::Vcd_user *user)

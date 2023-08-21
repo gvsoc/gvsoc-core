@@ -25,7 +25,11 @@
 #include <types.hpp>
 #include ISS_CORE_INC(class.hpp)
 
-typedef iss_insn_t *(*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn);
+
+#define CONFIG_GVSOC_ISS_NB_HWLOOP 2
+
+
+typedef iss_reg_t (*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 class Exec
 {
@@ -59,8 +63,8 @@ public:
 
     inline bool is_stalled();
 
-    inline iss_insn_t *insn_exec(iss_insn_t *insn);
-    inline iss_insn_t *insn_exec_fast(iss_insn_t *insn);
+    inline iss_reg_t insn_exec(iss_insn_t *insn, iss_reg_t pc);
+    inline iss_reg_t insn_exec_fast(iss_insn_t *insn, iss_reg_t pc);
 
     inline iss_insn_callback_t insn_trace_callback_get();
     inline iss_insn_callback_t insn_stalled_callback_get();
@@ -76,7 +80,9 @@ public:
     inline void insn_exec_profiling();
     inline void insn_exec_power(iss_insn_t *insn);
 
-    iss_insn_t *current_insn;
+    inline void interrupt_taken();
+
+    iss_reg_t current_insn;
     size_t loop_count;
     vp::reg_64 stalled;
 
@@ -86,6 +92,11 @@ public:
     static void exec_instr(void *__this, vp::clock_event *event);
     static void exec_instr_untimed(void *__this, vp::clock_event *event);
     static void exec_instr_check_all(void *__this, vp::clock_event *event);
+
+    void hwloop_set_start(int index, iss_reg_t pc);
+    void hwloop_set_end(int index, iss_reg_t pc);
+    void hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc);
+    void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
@@ -98,26 +109,31 @@ public:
     // is stalled.
     // Once the instruction gets unstalled, for example when the IO response is received, it is used
     // to terminate the instruction, like dunping it.
-    iss_insn_t *stall_insn;
+    iss_reg_t stall_insn;
     std::vector<iss_resource_instance_t *> resources; // When accesses to the resources are scheduled statically, this gives the instance allocated to this core for each resource
 
     vp::reg_1 halted;
     vp::reg_1 step_mode;
 
-    iss_insn_t *hwloop_start_insn[2];
-    iss_insn_t *hwloop_end_insn[2];
-    iss_insn_t *hwloop_next_insn;
+    iss_reg_t hwloop_start_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
+    iss_reg_t hwloop_end_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
+    iss_reg_t hwloop_next_insn;
     // This is used by HW loop to know that we interrupted and replayed
     // a ELW instructin so that it is not accounted twice in the loop.
     int elw_interrupted;
     bool cache_sync;
 
     bool debug_mode;
-    iss_insn_t *elw_insn;
+    iss_reg_t elw_insn;
 
     bool skip_irq_check;
 
-    iss_insn_t *exception_insn;
+    bool has_exception;
+    iss_reg_t exception_pc;
+
+    int insn_table_index;
+
+    bool irq_locked;
 
 
 private:

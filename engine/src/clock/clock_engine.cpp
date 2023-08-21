@@ -38,7 +38,6 @@
 #include <poll.h>
 #include <signal.h>
 #include <regex>
-#include <gv/gvsoc.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/prctl.h>
@@ -166,13 +165,6 @@ void vp::clock_engine::update()
 {
     if (this->period == 0)
         return;
-
-#ifdef __VP_USE_SYSTEMC
-    if ((int64_t)sc_time_stamp().to_double() > this->get_time())
-        diff = (int64_t)sc_time_stamp().to_double() - this->stop_time;
-
-    engine->update((int64_t)sc_time_stamp().to_double());
-#endif
 
     if (this->stop_time + this->period <= this->get_time())
     {

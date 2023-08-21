@@ -63,15 +63,6 @@ void DbgUnit::set_halt_mode(bool halted, int cause)
     {
         this->halt_cause = cause;
 
-        if (this->iss.exec.halted.get() && !halted)
-        {
-            this->iss.top.get_clock()->release();
-        }
-        else if (!this->iss.exec.halted.get() && halted)
-        {
-            this->iss.top.get_clock()->retain();
-        }
-
         this->iss.exec.halted.set(halted);
 
         if (this->halt_status_itf.is_bound())

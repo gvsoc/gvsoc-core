@@ -23,10 +23,12 @@
 #define __GV__DPI_CHIP_WRAPPER_H__
 
 #include <string>
+#include <gv/gvsoc.hpp>
 
-class Dpi_chip_wrapper_callback
+class Dpi_chip_wrapper_callback : public gv::Wire_binding
 {
 public:
+    void update(int data);
     void (*function)(void *_this, int64_t, int);
     void *_this;
 
@@ -36,7 +38,7 @@ public:
     bool is_sck;
     void *group;
     int cs_id;
-    int handle;
+    gv::Wire_user *handle;
 };
 
 #endif

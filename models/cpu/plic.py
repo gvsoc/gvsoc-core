@@ -18,8 +18,10 @@ import gsystree as st
 
 class Plic(st.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, ndev=0):
 
         super(Plic, self).__init__(parent, name)
 
         self.set_component('cpu.plic')
+
+        self.add_property('ndev', ndev)

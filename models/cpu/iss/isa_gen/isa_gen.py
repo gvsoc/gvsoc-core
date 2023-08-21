@@ -935,7 +935,8 @@ defaultIsaGroup   = IsaGroup('ISA_GROUP_OTHER')
 defaultInstrGroup = InstrGroup(defaultIsaGroup, 'INSTR_GROUP_OTHER')
 
 class Instr(object):
-    def __init__(self, label, type, encoding, decode=None, N=None, L=None, mapTo=None, power=None, group=None, fast_handler=False, tags=[], isa_tags=[]):
+    def __init__(self, label, type, encoding, decode=None, N=None, L=None, mapTo=None, power=None, group=None,
+            fast_handler=False, tags=[], isa_tags=[], is_macro_op=False):
         global nb_insn
 
         self.insn_number = nb_insn
@@ -947,6 +948,7 @@ class Instr(object):
         self.resource = None
         self.resource_latency = 0
         self.resource_bandwidth = 0
+        self.is_macro_op = is_macro_op
         nb_insn += 1
 
         encoding = encoding[::-1].replace(' ', '')
@@ -1064,6 +1066,7 @@ class Instr(object):
         self.dump(isaFile, '      .resource_latency=%d,\n' % self.resource_latency)
         self.dump(isaFile, '      .resource_bandwidth=%d,\n' % self.resource_bandwidth)
         self.dump(isaFile, '      .power_group=%d,\n' % (self.power_group))
+        self.dump(isaFile, '      .is_macro_op=%d,\n' % (self.is_macro_op))
         self.dump(isaFile, '    }\n')
         self.dump(isaFile, '  }\n')
         self.dump(isaFile, '};\n')

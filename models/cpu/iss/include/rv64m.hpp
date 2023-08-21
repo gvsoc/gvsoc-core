@@ -25,13 +25,13 @@
 #include "isa_lib/int.h"
 #include "isa_lib/macros.h"
 
-static inline iss_insn_t *mulw_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t mulw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL2(lib_MULW, REG_GET(0), REG_GET(1)));
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *divw_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t divw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_sim_t divider = get_signed_value(REG_GET(1), 32);
     iss_sim_t dividend = get_signed_value(REG_GET(0), 32);
@@ -63,10 +63,10 @@ static inline iss_insn_t *divw_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(cycles);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *divuw_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t divuw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_uim_t divider = getField(REG_GET(1), 0, 32);
     iss_uim_t dividend = getField(REG_GET(0), 0, 32);
@@ -79,10 +79,10 @@ static inline iss_insn_t *divuw_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *remw_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t remw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     int32_t divider = get_signed_value(REG_GET(1), 32);
     int32_t dividend = get_signed_value(REG_GET(0), 32);
@@ -114,10 +114,10 @@ static inline iss_insn_t *remw_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(cycles);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_insn_t *remuw_exec(Iss *iss, iss_insn_t *insn)
+static inline iss_reg_t remuw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     uint32_t divider = getField(REG_GET(1), 0, 32);
     uint32_t dividend = getField(REG_GET(0), 0, 32);
@@ -131,5 +131,5 @@ static inline iss_insn_t *remuw_exec(Iss *iss, iss_insn_t *insn)
 
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 
-    return insn->next;
+    return iss_insn_next(iss, insn, pc);
 }

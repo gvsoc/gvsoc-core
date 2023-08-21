@@ -74,6 +74,8 @@ public:
     vp::trace insn_trace_event;
     vp::wire_master<uint32_t> ext_counter[32];
     std::vector<vp::power::power_source> insn_groups_power;
+    vp::power::power_source power_stall_first;
+    vp::power::power_source power_stall_next;
     vp::power::power_source background_power;
 
 
@@ -81,4 +83,5 @@ private:
     inline void event_account(unsigned int event, int incr);
 
     Iss &iss;
+    bool declare_binaries = true;
 };

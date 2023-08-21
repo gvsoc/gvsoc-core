@@ -524,7 +524,6 @@ INLINE void ff_inverse(flexfloat_t *dest, const flexfloat_t *a) {
 INLINE void ff_add(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b) {
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
-
     dest->value = a->value + b->value;
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = a->exact_value + b->exact_value;

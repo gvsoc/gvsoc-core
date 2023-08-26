@@ -68,7 +68,24 @@ vp::io_req_status_e Router_proxy::req(void *__this, vp::io_req *req)
     io_req->type = req->get_is_write() ? gv::Io_request_write : gv::Io_request_read;
     io_req->handle = (void *)req;
     _this->user->access(io_req);
-    return vp::IO_REQ_PENDING;
+
+    // Mark the request as sent so that the callbacks can now handle it as asynchronous
+    io_req->sent = true;
+
+    // Check if the request was already handled during the access call in order to 
+    // return the proper code
+    if (io_req->replied)
+    {
+        return vp::IO_REQ_OK;
+    }
+    else if (io_req->granted)
+    {
+        return vp::IO_REQ_PENDING;
+    }
+    else
+    {
+        return vp::IO_REQ_DENIED;
+    }
 }
 
 
@@ -107,19 +124,41 @@ void Router_proxy::response(void *__this, vp::io_req *req)
 
 void Router_proxy::grant(gv::Io_request *io_req)
 {
-    this->get_time_engine()->lock();
-    vp::io_req *req = (vp::io_req *)io_req->handle;
-    req->get_resp_port()->grant(req);
-    this->get_time_engine()->unlock();
+    // We hve to check if the call to this callback is asynchronous or done during
+    // the handling of the request.
+    if (io_req->sent)
+    {
+        // Asynchronous, just forward to the engine after locking
+        this->get_time_engine()->lock();
+        vp::io_req *req = (vp::io_req *)io_req->handle;
+        req->get_resp_port()->grant(req);
+        this->get_time_engine()->unlock();
+    }
+    else
+    {
+        // Otherwise, just mark it so that the synchronous call can return the proper error code
+        io_req->granted = true;
+    }
 }
 
 void Router_proxy::reply(gv::Io_request *io_req)
 {
-    this->get_time_engine()->lock();
-    vp::io_req *req = (vp::io_req *)io_req->handle;
-    req->get_resp_port()->resp(req);
-    this->get_time_engine()->unlock();
-    delete io_req;
+    // We hve to check if the call to this callback is asynchronous or done during
+    // the handling of the request.
+    if (io_req->sent)
+    {
+        // Asynchronous, just forward to the engine after locking
+        this->get_time_engine()->lock();
+        vp::io_req *req = (vp::io_req *)io_req->handle;
+        req->get_resp_port()->resp(req);
+        this->get_time_engine()->unlock();
+        delete io_req;
+    }
+    else
+    {
+        // Otherwise, just mark it so that the synchronous call can return the proper error code
+        io_req->replied = true;
+    }
 }
 
 void Router_proxy::access(gv::Io_request *io_req)

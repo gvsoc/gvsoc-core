@@ -76,6 +76,9 @@ namespace gv {
 
         // Reserved
         void *handle;
+        bool sent = false;
+        bool granted = false;
+        bool replied = false;
     };
 
 

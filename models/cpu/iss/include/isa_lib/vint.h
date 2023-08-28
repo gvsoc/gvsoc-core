@@ -7012,9 +7012,18 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
     // printf("TEMP = %d\n",(int)(vtype/pow(2,31)));
     // printf("vtype = %x\n",vtype);
     if((int)(vtype/pow(2,31))){
-        iss->csr.vtype.value = pow(2,31);
+        // iss->csr.vtype.value = pow(2,63);
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
         return 0;
-    }else{
+    }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
+        // iss->csr.vtype.value = pow(2,63);
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
+        return 0;
+    }else{    
         iss->csr.vtype.value = vtype;
     }
 
@@ -7065,10 +7074,31 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
     // SET NEW VTYPE
     // spatz_req.vtype = {1'b0, decoder_req_i.instr[27:20]};
 
-    iss->csr.vtype.value = rs2;
+
     // printf("rs2 = %x\n",rs2);
     int sew = (rs2/8)%8;
     int lmul = rs2%8;
+
+    if((int)(rs2/pow(2,31))){
+        // iss->csr.vtype.value = pow(2,63);
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
+        return 0;
+    }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
+        // iss->csr.vtype.value = pow(2,63);
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
+        return 0;
+    }else{
+
+    iss->csr.vtype.value = rs2;
+
+
+
+
+
     //implement it like what is implemented in SV
     //if(vlEN*iss->spatz.LMUL_VALUES[lmul]/SEW_VALUES[sew] == VLMAX){
         VSTART = 0;
@@ -7104,6 +7134,7 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
     // printf("rs1 = %d \n",rs1);
     return VL;
     //Not sure about the write back procedure
+    }
 }
 
 

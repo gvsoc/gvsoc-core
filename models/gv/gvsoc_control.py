@@ -46,16 +46,30 @@ class Proxy(object):
             self.timestamp = 0
             self.exit_callback = None
 
+        def __quit(self, status):
+            self.lock.acquire()
+            if self.exit_callback is not None:
+                self.lock.release()
+                self.exit_callback[0](status, *self.exit_callback[1], **self.exit_callback[2])
+            else:
+                self.lock.release()
+                os._exit(status)
+                exit(status)
+
         def run(self):
             while True:
                 reply = ""
                 try:
                     while True:
                         byte = self.socket.recv(1).decode('utf-8')
+                        if not byte:
+                            self.__quit(-1)
+                            return
                         reply += byte
                         if byte == '\n':
                             break
                 except:
+                    self.__quit(-1)
                     return
 
                 req = None
@@ -70,14 +84,7 @@ class Proxy(object):
                     if name == 'req':
                         req = int(value)
                     elif name == 'exit':
-                        self.lock.acquire()
-                        if self.exit_callback is not None:
-                            self.lock.release()
-                            self.exit_callback[0](int(value), *self.exit_callback[1], **self.exit_callback[2])
-                        else:
-                            self.lock.release()
-                            os._exit(int(value))
-                            exit(int(value))
+                        self.__quit(int(value))
                     elif name == 'msg':
                         msg = value
                         if msg.find('stopped') == 0:

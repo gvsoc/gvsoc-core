@@ -533,6 +533,36 @@ namespace gv {
          */
         virtual void *get_component(std::string path) = 0;
 
+        /**
+         * Retain the engine.
+         *
+         * This will prevent the engine from simulating time, until it is asked to do it.
+         * This can be used if several threads want to control the time.
+         * In this case, the time will progress only if all threads which retained the engine
+         * ask for a time update.
+         */
+        virtual void retain() {}
+
+        /**
+         * Release the engine.
+         *
+         * This will let the engine freely simulates the time.
+         */
+        virtual void release() {}
+
+        /**
+         * Return the retain count.
+         *
+         * Since the engine can be retained severall times, for example once for each
+         * thread which can control time, this function can be used to get the current number of
+         * of retains.
+         * This information is usefull if there is also an external time engine, in which case
+         * the time should also be prevented from progressing, if someone has retained the engine.
+         *
+         * @returns The retain count.
+         */
+        virtual int retain_count() { return 0; }
+
     };
 
 

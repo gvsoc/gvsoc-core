@@ -145,7 +145,6 @@ void vp::time_engine::handle_locks()
 
 void vp::time_engine::step_register(int64_t end_time)
 {
-
     this->stop_event->step(end_time);
 }
 
@@ -153,10 +152,32 @@ void vp::time_engine::step_register(int64_t end_time)
 int64_t vp::time_engine::run_until(int64_t end_time)
 {
     int64_t time;
-    this->step_register(end_time);
+    vp::time_event *event = this->stop_event->step_nofree(end_time);
+    // In synchronous mode, since several threads can control the time, there is a retain
+    // mechanism which makes sure time is progressins only if all threads ask for it.
+    // Since wwe are now ready to make time progress, decrease our counter, it will be increased
+    // again when our stop event is executed, so that time does not progress any further until
+    // we return
+    this->retain--;
 
     while(1)
     {
+        // If anyone is retaining the engine, it means it did not ask for time progress, thus we
+        // need to wait.
+        // In this case someone else will make the time progress when engine is released.
+        while (this->retain)
+        {
+            pthread_cond_wait(&this->cond, &this->mutex);
+
+            // Someone made the time progress, check if we can leave.
+            // This is the case once our event is not enqueued anymore
+            if (!event->is_enqueued())
+            {
+                this->stop_event->time_event_del(event);
+                return this->get_next_event_time();
+            }
+        }
+
         time = this->exec();
 
         // Cancel now the requests that may have stopped us so that anyone can stop us again
@@ -166,16 +187,13 @@ int64_t vp::time_engine::run_until(int64_t end_time)
         // Checks locks since we may have been stopped by them
         this->handle_locks();
 
-        // In case there is no more event, stall the engine until something happens.
-        if (time == -1)
+        // Leave only once our event is over
+        if (!event->is_enqueued())
         {
-            return -1;
-        }
-
-        if (time > end_time)
-        {
+            this->stop_event->time_event_del(event);
             break;
         }
+
     }
 
     return time;
@@ -352,9 +370,32 @@ int64_t vp::Time_engine_stop_event::step(int64_t time)
     return 0;
 }
 
+vp::time_event *vp::Time_engine_stop_event::step_nofree(int64_t time)
+{
+    vp::time_event *event = this->time_event_new(this->event_handler_nofree);
+    this->enqueue(event, time - this->engine->get_time());
+    return event;
+}
+
 void vp::Time_engine_stop_event::event_handler(void *__this, vp::time_event *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->engine->pause();
     _this->time_event_del(event);
+    _this->engine->retain_inc(1);
+}
+
+void vp::Time_engine_stop_event::event_handler_nofree(void *__this, vp::time_event *event)
+{
+    Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
+    _this->engine->pause();
+
+    // Increase the retain count to stop time progress.
+    _this->engine->retain_inc(1);
+}
+
+
+void vp::time_engine::retain_inc(int inc)
+{
+    this->retain += inc;
 }

@@ -83,6 +83,8 @@ void Gvsoc_launcher::open()
         this->conf->proxy_socket = out_port;
     }
 
+    this->engine->critical_enter();
+
     if (this->is_async)
     {
         // Create the sigint thread so that we can properly close simulation
@@ -195,7 +197,6 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
     int64_t time;
     if (this->is_async)
     {
-
         this->engine->lock();
         this->engine->step_register(end_time);
         this->run_req = true;
@@ -205,7 +206,17 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
     }
     else
     {
+        for (auto x: this->exec_notifiers)
+        {
+            x->notify_run(this->engine->get_time());
+        }
+
         time = this->engine->run_until(end_time);
+
+        for (auto x: this->exec_notifiers)
+        {
+            x->notify_stop(this->engine->get_time());
+        }
     }
     return time;
 }
@@ -266,8 +277,6 @@ void *Gvsoc_launcher::get_component(std::string path)
 
 void Gvsoc_launcher::engine_routine()
 {
-    this->engine->critical_enter();
-
     while(1)
     {
         // Wait until we receive a run request
@@ -327,4 +336,20 @@ void Gvsoc_launcher::engine_routine()
 void Gvsoc_launcher::register_exec_notifier(vp::Notifier *notifier)
 {
     this->exec_notifiers.push_back(notifier);
+}
+
+
+void Gvsoc_launcher::retain()
+{
+    this->engine->retain_inc(1);
+}
+
+int Gvsoc_launcher::retain_count()
+{
+    return this->engine->retain_count();
+}
+
+void Gvsoc_launcher::release()
+{
+    this->engine->retain_inc(-1);
 }

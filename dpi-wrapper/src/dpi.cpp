@@ -89,6 +89,7 @@ extern "C" void *dpi_open(char *config_path)
   gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
   gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
   gvsoc->open();
+  gvsoc->retain();
   gvsoc->bind(new Dpi_launcher(*gvsoc));
 
   return (void *)gvsoc;
@@ -102,13 +103,23 @@ static void gvsoc_sync_task(void *arg)
     {
         int64_t time = dpi_time_ps();
         int64_t next_timestamp = gvsoc->step_until(time);
-        if (next_timestamp == -1)
+
+        // when we are not executing the engine, it is retained so that no one else
+        // can execute it while we are leeting the systemv engine executes.
+        // On the contrary, if someone else is retaining it, we should not let systemv
+        // update the time.
+        // If so, just call again the step function so that we release the engine for
+        // a while.
+        if (gvsoc->retain_count() == 1)
         {
-          dpi_wait_event();
-        }
-        else
-        {
-          dpi_wait_event_timeout_ps(next_timestamp - time);
+            if (next_timestamp == -1)
+            {
+                dpi_wait_event();
+            }
+            else
+            {
+                dpi_wait_event_timeout_ps(next_timestamp - time);
+            }
         }
     }
 }

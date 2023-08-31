@@ -50,6 +50,12 @@ public:
 
     int join() override;
 
+    void retain() override;
+
+    int retain_count() override;
+
+    void release() override;
+
     void update(int64_t timestamp);
 
     gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;

@@ -98,12 +98,19 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
     vp::time_engine *engine = this->launcher->top_get()->time_engine_get();
     Gvsoc_launcher *launcher = this->launcher;
 
+    engine->critical_enter();
+
     while(1)
     {
         char line_array[1024];
 
-        if (!fgets(line_array, 1024, sock)) 
+        if (!fgets(line_array, 1024, sock))
+        {
+            launcher->release();
+            engine->critical_notify();
+            engine->critical_exit();
             return ;
+        }
 
         std::string line = std::string(line_array);
 
@@ -159,7 +166,8 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                 else
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
-                    int64_t timestamp = launcher->step(duration);
+                    int64_t timestamp = engine->get_time() + duration;
+                    launcher->step(duration);
                     std::unique_lock<std::mutex> lock(this->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();
@@ -174,9 +182,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
             }
             else if (words[0] == "quit")
             {
-                engine->lock();
                 engine->quit(strtol(words[1].c_str(), NULL, 0));
-                engine->unlock();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
                 lock.unlock();
@@ -185,7 +191,6 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
             {
                 // Before interacting with the engine, we must lock it since our requests will come
                 // from a different thread.
-                engine->lock();
 
                 if (words[0] == "get_component")
                 {
@@ -266,8 +271,6 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                 {
                     printf("Ignoring2 invalid command: %s\n", words[0].c_str());
                 }
-
-                engine->unlock();
             }
         }
     }
@@ -277,6 +280,7 @@ Gv_proxy::Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *
   : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe)
 {
     launcher->register_exec_notifier(this);
+    launcher->retain();
 }
 
 void Gv_proxy::listener(void)

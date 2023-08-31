@@ -67,6 +67,8 @@ public:
 
     int64_t get_time() { return time; }
 
+    inline int64_t get_next_event_time();
+
     void fatal(const char *fmt, ...);
 
     inline void update(int64_t time);
@@ -76,6 +78,9 @@ public:
     int status_get() { return this->stop_status; }
     bool finished_get() { return this->finished; }
     gv::Gvsoc_user *launcher_get() { return this->launcher; }
+
+    void retain_inc(int inc);
+    int retain_count() { return this->retain; }
 
 private:
 
@@ -101,6 +106,7 @@ private:
     bool pause_req = false;
     gv::Gvsoc_user *launcher = NULL;
     Time_engine_stop_event *stop_event;
+    int retain = 0;
 };
 
 class time_engine_client : public component
@@ -157,9 +163,11 @@ namespace vp
     public:
         Time_engine_stop_event(component *top, time_engine *engine);
         int64_t step(int64_t duration);
+        vp::time_event *step_nofree(int64_t duration);
 
     private:
         static void event_handler(void *__this, vp::time_event *event);
+        static void event_handler_nofree(void *__this, vp::time_event *event);
         component *top;
     };
 }
@@ -212,6 +220,11 @@ inline void vp::time_engine::update(int64_t time)
 {
     if (time > this->time)
         this->time = time;
+}
+
+inline int64_t vp::time_engine::get_next_event_time()
+{
+    return this->first_client ? this->first_client->next_event_time : -1;
 }
 
 #endif

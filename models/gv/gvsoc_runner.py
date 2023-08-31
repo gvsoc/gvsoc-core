@@ -306,11 +306,11 @@ class Runner():
             return True
 
         elif cmd == 'regmap_copy':
-            self.regmap(copy=True)
+            self.target.regmap(copy=True)
             return True
 
         elif cmd == 'regmap_gen':
-            self.regmap(gen=True)
+            self.target.regmap(gen=True)
             return True
 
         elif cmd == 'traces' and self.rtl_runner is not None:

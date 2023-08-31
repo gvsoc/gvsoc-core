@@ -73,7 +73,7 @@ void Gvsoc_launcher::open()
     {
         int in_port = instance->get_vp_config()->get_child_int("proxy/port");
         int out_port;
-        this->proxy = new Gv_proxy(this->engine, instance, this);
+        this->proxy = new Gv_proxy(this->engine, instance, this, this->is_async);
 
         if (this->proxy->open(in_port, &out_port))
         {

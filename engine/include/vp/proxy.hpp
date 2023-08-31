@@ -25,7 +25,7 @@ class Gvsoc_launcher;
 class Gv_proxy : vp::Notifier
 {
   public:
-    Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *launcher, int req_pipe=-1, int reply_pipe=-1);
+    Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *launcher, bool is_async, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
     void stop(int status);
     void notify_stop(int64_t time);
@@ -53,6 +53,7 @@ class Gv_proxy : vp::Notifier
 
     std::mutex mutex;
     Gvsoc_launcher *launcher;
+    bool is_async;
 };
 
 extern Gv_proxy *proxy;

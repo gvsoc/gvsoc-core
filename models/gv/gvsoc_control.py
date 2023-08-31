@@ -62,14 +62,14 @@ class Proxy(object):
                 try:
                     while True:
                         byte = self.socket.recv(1).decode('utf-8')
-                        if not byte:
-                            self.__quit(-1)
-                            return
+                        # if not byte:
+                        #     self.__quit(-1)
+                        #     return
                         reply += byte
                         if byte == '\n':
                             break
                 except:
-                    self.__quit(-1)
+                    # self.__quit(-1)
                     return
 
                 req = None

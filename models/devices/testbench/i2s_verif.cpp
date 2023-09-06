@@ -208,6 +208,8 @@ I2s_verif::I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, pi_testben
     this->is_ext_clk = config->is_ext_clk;
     this->clk_active = false;
 
+    memset(this->pdm_lanes_is_out, 0, sizeof(this->pdm_lanes_is_out));
+
     this->clk = 2;
     this->propagated_clk = 0;
     this->propagated_ws = 0;

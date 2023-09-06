@@ -127,6 +127,12 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
             return true;
         }
 
+        int64_t latency = req->get_full_latency();
+        if (latency > 0)
+        {
+          this->iss.timing.stall_load_account(latency);
+        }
+
         addr++;
         size--;
         buffer++;

@@ -128,9 +128,9 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
         }
 
         int64_t latency = req->get_full_latency();
-        if (latency > 0)
+        if (latency > this->latency)
         {
-          this->iss.timing.stall_load_account(latency);
+            this->latency = latency;
         }
 
         addr++;
@@ -193,6 +193,7 @@ static const int open_modeflags[12] = {
 void Syscalls::handle_riscv_ebreak()
 {
     int id = this->iss.regfile.regs[10];
+    this->latency = 0;
 
     switch (id)
     {
@@ -659,6 +660,11 @@ void Syscalls::handle_riscv_ebreak()
     default:
         this->iss.top.warning.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;
+    }
+
+    if (this->latency > 0)
+    {
+        this->iss.timing.stall_load_account(this->latency);
     }
 }
 

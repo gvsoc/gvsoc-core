@@ -7020,107 +7020,75 @@ static inline void lib_VSUXEIV  (Iss *iss, iss_reg_t rs1, int vs2, int vd , bool
 //                                                            VECTOR CONFIGURATION SETTING
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, iss_uim_t lmul, iss_uim_t sew, bool ta,  bool ma, iss_uim_t vtype){
 static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, iss_uim_t lmul, iss_uim_t sew, iss_uim_t vtype){
     uint32_t AVL;
 
-    // SET NEW VTYPE
-    // spatz_req.vtype = {1'b0, decoder_req_i.instr[27:20]};
-    // printf("TEMP = %d\n",(int)(vtype/pow(2,31)));
-    // printf("vtype = %x\n",vtype);
     if((int)(vtype/pow(2,31))){
-        iss->csr.vtype.value = pow(2,31);
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
         return 0;
-    }else{
+    }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
+        return 0;
+    }else{    
         iss->csr.vtype.value = vtype;
     }
 
-    //implement it like what is implemented in SV
-    //if(vlEN*iss->spatz.LMUL_VALUES[lmul]/SEW_VALUES[sew] == VLMAX){
+
         VSTART = 0;
         SEW = iss->spatz.SEW_VALUES[sew];
         LMUL = iss->spatz.LMUL_VALUES[lmul];
-        //iss->spatz.VMA = ma;
-        //iss->spatz.VTA = ta;
 
-        //  localparam int unsigned MAXVL  = VLEN; and VLEN = 256
         if(idxRs1){
             AVL = rs1;
-            VL = MIN(AVL,VLMAX);//spec page 30 - part c and d
-            // printf("AVL = %d\n",AVL);
-            // printf("VLMAX = %d\n",VLMAX);
-            // printf("CASE1\n");
-        //}else if(VLMAX < rs1){
+            VL = MIN(AVL,VLMAX);
         }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
             VL  = VLMAX;
-            // printf("CASE2\n");
-            //vl = VLEN/SEW;
         }else{
             AVL = VL;
-            // printf("CASE3\n");
         }
-    //} else {
-        // vtype for invalid situation
-        //vtype_d = '{vill: 1'b1, vsew: EW_8, vlmul: LMUL_1, default: '0};
-        //vl_d    = '0;
-    //}
-    // printf("SEW = %d \n",SEW);
-    // printf("LMUL = %f \n",LMUL);
-    // printf("VL = %ld \n",VL);
-    // printf("AVL = %d \n",AVL);
-    // printf("rs1 = %d \n",rs1);
     return VL;
-    //Not sure about the write back procedure
 }
 
 static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int rs2){
-//static inline void lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int rs2){
-    // printf("vsetvl\n");
+
     uint32_t AVL;
 
-    // SET NEW VTYPE
-    // spatz_req.vtype = {1'b0, decoder_req_i.instr[27:20]};
 
     iss->csr.vtype.value = rs2;
-    // printf("rs2 = %x\n",rs2);
     int sew = (rs2/8)%8;
     int lmul = rs2%8;
-    //implement it like what is implemented in SV
-    //if(vlEN*iss->spatz.LMUL_VALUES[lmul]/SEW_VALUES[sew] == VLMAX){
+    if((int)(rs2/pow(2,31))){
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
+        return 0;
+    }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
+        iss->csr.vtype.value = 0x8000000000000000;
+        VL = 0;
+        AVL = 0;
+        return 0;
+    }else{
+        iss->csr.vtype.value = rs2;
         VSTART = 0;
         SEW = iss->spatz.SEW_VALUES[sew];
         LMUL = iss->spatz.LMUL_VALUES[lmul];
-        //iss->spatz.VMA = ma;
-        //iss->spatz.VTA = ta;
 
-        //  localparam int unsigned MAXVL  = VLEN; and VLEN = 256
         if(idxRs1){
             AVL = rs1;
-            VL = MIN(AVL,VLMAX);//spec page 30 - part c and d
-            // printf("CASE1\n");
-        //}else if(VLMAX < rs1){
+            VL = MIN(AVL,VLMAX);
         }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
             VL  = VLMAX;
-            // printf("CASE2\n");
-            //vl = VLEN/SEW;
         }else{
             AVL = VL;
-            // printf("CASE3\n");
         }
-    //} else {
-        // vtype for invalid situation
-        //vtype_d = '{vill: 1'b1, vsew: EW_8, vlmul: LMUL_1, default: '0};
-        //vl_d    = '0;
-    //}
-    // printf("SEW = %d \n",SEW);
-    // printf("LMUL = %f \n",LMUL);
-    // printf("VL = %ld \n",VL);
-    // printf("AVL = %d \n",AVL);
-    // printf("rs1 = %d \n",rs1);
     return VL;
-    //Not sure about the write back procedure
+    }
 }
 
 

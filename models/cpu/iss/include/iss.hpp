@@ -35,7 +35,7 @@
 #include "timing.hpp"
 #include "rv64i.hpp"
 #include "rv32i.hpp"
-// #include "rv32v.hpp"
+#include "rv32v.hpp"
 #include "rv32c.hpp"
 #include "zcmp.hpp"
 #include "rv32a.hpp"

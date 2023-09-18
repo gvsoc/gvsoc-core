@@ -39,6 +39,7 @@ int IssWrapper::build()
     this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
+    this->iss.spatz.build();
 
     traces.new_trace("wrapper", this->get_trace(), vp::DEBUG);
 
@@ -78,6 +79,7 @@ void IssWrapper::reset(bool active)
     this->iss.regfile.reset(active);
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
+    this->iss.spatz.reset(active);
 }
 
 IssWrapper::IssWrapper(js::config *config)
@@ -93,6 +95,6 @@ void IssWrapper::target_open()
 Iss::Iss(vp::component &top)
     : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
 {
 }

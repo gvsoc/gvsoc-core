@@ -228,6 +228,14 @@ public:
     iss_fcsr_t fcsr;
     iss_reg_t mhartid;
 
+    CsrReg vstart;
+    CsrReg vxstat;
+    CsrReg vxrm;
+    CsrReg vcsr;
+    CsrReg vl;
+    CsrReg vtype;
+    CsrReg vlenb;
+
 
     bool hwloop = false;
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];

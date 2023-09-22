@@ -44,4 +44,14 @@ void Vlsu::build()
         this->iss.top.new_master_port(this, "vlsu_" + std::to_string(i), &this->io_itf[i]);
     }
 
+
+}
+inline void VRegfile::reset(bool active){
+    if (active){
+        for (int i = 0; i < ISS_NB_VREGS; i++){
+            for (int j = 0; j < NB_VEL; j++){
+                this->vregs[i][j] = i == 0 ? 0 : 0x57575757;
+            }
+        }
+    }
 }

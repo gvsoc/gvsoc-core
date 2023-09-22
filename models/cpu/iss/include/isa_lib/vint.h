@@ -765,16 +765,6 @@ INLINE void ff_sgnj(flexfloat_t *dest, const flexfloat_t *a,const flexfloat_t *b
 
 
 
-inline void VRegfile::reset(bool active){
-    if (active){
-        for (int i = 0; i < ISS_NB_VREGS; i++){
-            for (int j = 0; j < NB_VEL; j++){
-                this->vregs[i][j] = i == 0 ? 0 : 0x57575757;
-            }
-        }
-    }
-}
-
 static inline void lib_ADDVV    (Iss *iss, int vs1, int vs2    , int vd, bool vm){
     int64_t data1, data2, res;
     bool bin[8];

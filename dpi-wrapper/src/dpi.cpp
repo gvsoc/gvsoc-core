@@ -92,6 +92,12 @@ extern "C" void *dpi_open(char *config_path)
   gvsoc->retain();
   gvsoc->bind(new Dpi_launcher(*gvsoc));
 
+
+    if (conf.proxy_socket != -1)
+    {
+        fprintf(stderr, "Opened proxy on socket %d\n", conf.proxy_socket);
+    }
+
   return (void *)gvsoc;
 }
 

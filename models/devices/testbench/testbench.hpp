@@ -502,6 +502,7 @@ public:
     int phase;
     int id;
     bool is_control_active;
+    bool flow_control;
 
     FILE *proxy_file;
     int req;

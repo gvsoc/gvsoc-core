@@ -362,7 +362,7 @@ void Uart::check_send_byte()
 {
     if (!this->is_usart && this->tx_pending_bits && !this->uart_tx_event->is_enqueued())
     {
-        if (this->rtr == 0 || this->is_control_active)
+        if (this->rtr == 0 || this->is_control_active || !this->flow_control)
         {
             this->tx_clock->reenqueue(this->uart_tx_event, 2);
         }
@@ -1036,6 +1036,7 @@ void Testbench::handle_uart_checker()
         uart->is_usart = req->uart.usart;
         uart->polarity = req->uart.polarity;
         uart->phase = req->uart.phase;
+        uart->flow_control = req->uart.flow_control;
     }
 }
 

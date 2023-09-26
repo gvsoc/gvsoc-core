@@ -18,7 +18,7 @@ import gsystree as st
 
 class ElfLoader(st.Component):
 
-    def __init__(self, parent, name, binary=None):
+    def __init__(self, parent, name, binary=None, entry=None):
 
         super().__init__(parent, name)
 
@@ -29,5 +29,6 @@ class ElfLoader(st.Component):
         self.set_component('utils.loader.loader')
 
         self.add_properties({
-            'binary': binaries
+            'binary': binaries,
+            'entry': entry
         })

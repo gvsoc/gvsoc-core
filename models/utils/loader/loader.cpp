@@ -206,6 +206,12 @@ void loader::event_handler(void *__this, vp::clock_event *event)
     }
     else
     {
+        js::config *entry_conf = _this->get_js_config()->get("entry");
+        if (entry_conf != NULL)
+        {
+            _this->entry = entry_conf->get_int();
+        }
+
         if (_this->entry_itf.is_bound())
         {
             _this->entry_itf.sync(_this->entry);

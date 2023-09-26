@@ -39,7 +39,7 @@ int vp::power::power_trace::init(component *top, std::string name, vp::power::po
     if (parent == NULL)
     {
         vp::component *component = top->get_parent();
-        if (component && component->get_path() != "")
+        if (component)
         {
             parent = component->power.get_power_trace();
         }
@@ -126,11 +126,6 @@ void vp::power::power_trace::dump(FILE *file)
 
 void vp::power::power_trace::dump_vcd_trace()
 {
-    // TODO this is wasting time and should be removed once fake component such as time domain and trace domain
-    // are not in the component hierarchy anymore
-    if (this->top->get_path() == "")
-        return;
-
     // To dump the VCD trace, we need to compute the instant power, since this is what is reported.
     // This is easy for background and leakage power. For enery quantum, we get the amount of energy for the current
     // cycle and compute the instant power using the clock engine period.
@@ -247,11 +242,6 @@ void vp::power::power_trace::inc_dynamic_power(double power_incr)
 
 void vp::power::power_trace::inc_leakage_power(double power_incr)
 {
-    // TODO this is wasting time and should be removed once fake component such as time domain and trace domain
-    // are not in the component hierarchy anymore
-    if (this->top->get_path() == "")
-        return;
-
     // Leakage and dynamic are handled differently since they are reported separately,
     // In both cases, first compute the power on current period, start a new one,
     // and change the power so that it is constant over the period, to properly

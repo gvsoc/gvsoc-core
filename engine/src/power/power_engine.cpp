@@ -55,6 +55,13 @@ void vp::power::engine::stop_capture()
 
 
 
+double vp::power::engine::get_power()
+{
+    return this->top->power.get_power();
+}
+
+
+
 vp::power::engine::engine(vp::component *top)
 {
     this->top = top;

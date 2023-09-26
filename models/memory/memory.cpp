@@ -156,7 +156,9 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
             }
             else if (*(uint32_t *)data == 0xdeadcaca)
             {
+                static int measure_index = 0;
                 _this->power.get_engine()->stop_capture();
+                fprintf(stderr, "@power.measure_%d@%f@\n", measure_index++, _this->power.get_engine()->get_power());
             }
         }
     }

@@ -97,6 +97,28 @@ void vp::power::component_power::set_frequency(int64_t frequency)
 
 
 
+double vp::power::component_power::get_power()
+{
+    double result = 0.0;
+
+
+    for (auto x:this->traces)
+    {
+        double dynamic, leakage;
+        x->get_report_power(&dynamic, &leakage);
+        result += dynamic + leakage;
+    }
+
+    for (auto &x : this->top.get_childs())
+    {
+        x->power.get_power();
+    }
+
+    return result;
+}
+
+
+// TODO that seems wrong and deprecated 
 double vp::power::component_power::get_power_from_childs()
 {
     double result = 0.0;

@@ -523,6 +523,8 @@ namespace vp
 
             void set_frequency(int64_t frequency);
 
+            double get_power();
+
         protected:
             /**
              * @brief Get the report energy from childs object
@@ -620,6 +622,8 @@ namespace vp
              * This dumps a report of the power consumed since start_capture was called.
              */
             void stop_capture();
+
+            double get_power();
 
         protected:
             /**

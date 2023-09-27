@@ -18,6 +18,7 @@ import gsystree as st
 import os.path
 import gv.gui
 import cpu.iss.isa_gen.isa_riscv_gen
+from cpu.iss.isa_gen.isa_riscv_gen import *
 
 class RiscvCommon(st.Component):
     """
@@ -314,8 +315,36 @@ class Snitch(RiscvCommon):
             fetch_enable: bool=False,
             boot_addr: int=0):
 
-        super().__init__(parent, name, isa=isa, misa=misa,
-            cflags=cflags)
+
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True)
+
+        self.add_c_flags([
+            "-DPIPELINE_STAGES=1",
+            "-DCONFIG_ISS_CORE=snitch",
+        ])
+
+
+
+class Spatz(RiscvCommon):
+
+    def __init__(self,
+            parent,
+            name,
+            isa: str='rv32imafdc',
+            misa: int=0,
+            binaries: list=[],
+            fetch_enable: bool=False,
+            boot_addr: int=0,
+            use_rv32v=False):
+
+
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa)
+
+        isa_instance.add_tree(IsaDecodeTree('rv32v', [Rv32v()]))
+
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="spatz", scoreboard=True)
 
         self.add_c_flags([
             "-DPIPELINE_STAGES=1",

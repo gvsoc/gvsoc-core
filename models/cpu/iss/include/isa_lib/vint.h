@@ -205,8 +205,6 @@ static inline void intToBinU(int size, uint64_t dataIn, bool* res){
             res[j] = 1;
         }
         temp = temp/2;
-        // printf("res[%d] = %d\n",j,res[j]);        
-        // printf("temp = %lu\n",temp);
     }
 }
 
@@ -255,12 +253,10 @@ static inline void binToDouble(int size, bool* a, int point, double *res){
     while(i < point){
         *res += a[size-point+i] * pow(2,i);
         i++;
-        // printf("dec : i = %d\tres = %f\n",i,*res);
     }
     while(i < size){
         *res += a[size-1-i] * pow(2,(point-i-1));
         i++;
-        // printf("frac : i = %d\tres = %f\n",i,*res);        
     }
     if(flag){
         *res = -(*res);
@@ -272,7 +268,6 @@ static inline void buildDataInt(Iss *iss, int vs, int i, int64_t* data){
     int iteration = SEW/8;
     for(int j = 0;j < iteration;j++){
         temp[j] = iss->spatz.vregfile.vregs[vs][i*iteration+j];
-        // printf("vs%d[%d] = %d\n",vs,i*iteration+j,iss->spatz.vregfile.vregs[vs][i*iteration+j]);
     }
     *data = 0;
     for(int j = 0;j < iteration;j++){
@@ -284,9 +279,6 @@ static inline void buildDataBin(Iss *iss, int size, int vs, int i, bool* dataBin
     int iteration = size/8;
     for(int j = 0;j < iteration;j++){
         intToBinU(8,(uint64_t)abs(iss->spatz.vregfile.vregs[vs][i*iteration+j]), &dataBin[j*8]);
-        // printf("vs%d[%d] = %d\n",vs,i*iteration+j,iss->spatz.vregfile.vregs[vs][i*iteration+j]);
-        //printf("vs%d[%d] = %lu\n",vs,i*iteration+j,(uint64_t)abs(iss->spatz.vregfile.vregs[vs][i*iteration+j]));
-
     }
 }
 
@@ -331,9 +323,7 @@ static inline void myAbsU(Iss *iss,int size, int vs, int i, uint64_t* data){
 
 static inline void writeToVReg(Iss *iss, int size, int vd, int i, bool *bin){
     int iteration = size/8;
-    // printf("i = %d\t,vd = %d\n",i,vd);
     for(int j = 0; j < iteration; j++){
-        // printf("bin2char[%d] = %x\n",j,bin8ToChar(bin,8*j,8*(j+1)));
         iss->spatz.vregfile.vregs[vd][i*iteration+j] = bin8ToChar(bin,8*j,8*(j+1));        
     }
 }
@@ -406,10 +396,6 @@ static inline void binSum4(int size, bool *data1, bool *data2, bool *data3, bool
     binSum2(size,data1,data2,temp0);
     binSum2(size,data3,data4,temp1);
     binSum2(size,temp0,temp1,res);
-
-    // printHex(size, temp0,"temp0");
-    // printHex(size, temp1,"temp1");
-    // printHex(size, res,"res sum");
 }
 
 static inline void binMul(int size, bool *a, bool *b, bool *res){
@@ -417,29 +403,9 @@ static inline void binMul(int size, bool *a, bool *b, bool *res){
     uint64_t temp;
     binToInt(size, a, &aDec);
     binToInt(size, b, &bDec);
-    // printf("adec = %ld\tbdec = %ld\n",aDec,bDec);
     temp = aDec * bDec;
-    // printf("tempH = %lx\n",temp);
-    // printf("tempD = %lu\n",temp);
-    
-    //intToBin(size*2, abs(temp), res);
-    //intToBin(size*2, abs(temp), res);
     intToBinU(size*2, temp, res);
-    
-    // printf("tempH = %lx\n",temp);
-    // printf("tempH = %lx\n",abs(temp));
-    // printf("tempD = %ld\n",temp);
-    // printf("tempD = %ld\n",abs(temp));
-    // if(temp >= 0){
-    //     //printf("temp is pos\n");
-    //     //twosComplement(size*2, res);
-    // }else{
-    //     //printf("temp is neg\n");
-    //     twosComplement(size*2, res);
-    // }
-    // printf("tempH = %lx\n",temp);
-    // printf("tempD = %ld\n",temp);
-    //printHex(size*2, res, "RES TEMP");
+
 }
 
 static inline void binMulSumUp(int size, bool *M0Bin, bool *M1Bin,bool *M2Bin, bool *M3Bin, bool *res, bool isSigned){
@@ -457,24 +423,12 @@ static inline void binMulSumUp(int size, bool *M0Bin, bool *M1Bin,bool *M2Bin, b
     extend2x(size, M1Bin, M12x, isSigned);
     extend2x(size, M2Bin, M22x, isSigned);
     extend2x(size, M3Bin, M32x, isSigned);
-    
-    // if(size == 16){
-    //     printHex(size*2, M02x,"M0extend");
-    //     printHex(size*2, M12x,"M1extend");
-    //     printHex(size*2, M22x,"M2extend");
-    //     printHex(size*2, M32x,"M3extend");
-    // }
+
     binShift(size*2, 0     , M02x, temp0, false, isSigned);
     binShift(size*2, size/2, M12x, temp1, false, isSigned);
     binShift(size*2, size/2, M22x, temp2, false, isSigned);
     binShift(size*2, size  , M32x, temp3, false, isSigned);
-        
-    // if(size == 16){
-    //     printHex(size*2, temp0,"M0Shift");
-    //     printHex(size*2, temp1,"M1Shift");
-    //     printHex(size*2, temp2,"M2Shift");
-    //     printHex(size*2, temp3,"M3Shift");
-    // }
+
     binSum4(size*2, temp0, temp1, temp2, temp3, res);
 }
 
@@ -484,135 +438,8 @@ static inline void binMulSumUp(int size, bool *M0Bin, bool *M1Bin,bool *M2Bin, b
 // check the iss
 
 INLINE void ff_macc(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b, const flexfloat_t *c) {
-    // assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) && 
-    //        (dest->desc.exp_bits == b->desc.exp_bits) && (dest->desc.frac_bits == b->desc.frac_bits) &&
-    //        (dest->desc.exp_bits == c->desc.exp_bits) && (dest->desc.frac_bits == c->desc.frac_bits));
-    
+
     dest->value = (a->value * b->value) + c->value;
-    // printf("a val = %.20f\tb val = %.20f\tc val = %.20f\tres val = %.20f\n",a->value,b->value,c->value,dest->value);
-
-    // int aPoint,bPoint,cPoint,mulOutPoint,resPoint;
-    // bool aBool[64],bBool[64],cBool[64];
-
-    // doubleToBin(SEW, abs(a->value), aBool, &aPoint);
-    // doubleToBin(SEW, abs(b->value), bBool, &bPoint);
-    // doubleToBin(SEW, abs(c->value), cBool, &cPoint);
-
-    // printHex(SEW,aBool,"aBin");
-    // printHex(SEW,bBool,"bBin");
-    // printHex(SEW,cBool,"cBin");
-    // printf("aPoint = %d\tbPoint = %d\tcPoint = %d\n",aPoint,bPoint,cPoint);
-
-
-
-    // bool aH[32], aL[32], bH[32], bL[32];
-    // bool M0[64], M1[64], M2[64], M3[64];
-    // bool resBin[128], mulOutBin[128], cExt[128], cExtShift[128], mulOutShift[128];
-
-    // for (int j = 0; j < SEW*2; j++){
-    //     if(j < SEW){
-    //         cExt[j] = 0;
-    //     }else{
-    //         cExt[j] = cBool[j - SEW];
-    //     }
-    // }
-    
-    // double atemp, btemp, ctemp, mtemp;
-
-    // binToDouble(SEW,aBool,aPoint,&atemp);
-    // binToDouble(SEW,bBool,bPoint,&btemp);
-    // binToDouble(SEW,cBool,cPoint,&ctemp);
-    // printf("a* = %f\t,b* = %f\t,c* = %f\n",atemp,btemp,ctemp);
-
-
-
-    // for(int j = 0;j < SEW/2;j++){
-    //     aL[j] = aBool[j];
-    //     bL[j] = bBool[j];
-    //     aH[j] = aBool[j+SEW/2];
-    //     bH[j] = bBool[j+SEW/2];
-    // }
-    // printHex(SEW/2,aH,"aH");
-    // printHex(SEW/2,aL,"aL");
-    // printHex(SEW/2,bH,"bH");
-    // printHex(SEW/2,bL,"bL");
-
-    // binMul(SEW/2,aL,bL,M0);
-    // binMul(SEW/2,aL,bH,M1);
-    // binMul(SEW/2,aH,bL,M2);
-    // binMul(SEW/2,aH,bH,M3);
-
-    // printHex(SEW,M0,"M0");
-    // printHex(SEW,M1,"M1");
-    // printHex(SEW,M2,"M2");
-    // printHex(SEW,M3,"M3");
-
-
-    // binMulSumUp(SEW, M0, M1, M2, M3, mulOutBin, false);
-
-    // printHex(SEW*2,mulOutBin,"mulOutBin");
-    
-    // // if(aPoint == 1 || bPoint == 1){
-    // //     mulOutPoint = aPoint + bPoint - 1;
-    // // }else{
-    // //     mulOutPoint = aPoint + bPoint;
-    // // }
-    
-    // mulOutPoint = aPoint + bPoint;
-    // printf("mulOutPoint = %d \n",mulOutPoint);
-    // binToDouble(SEW*2,mulOutBin,mulOutPoint,&mtemp);
-    // printf("mul* = %f\n",mtemp);
-
-
-
-    // if((a->value < 0) ^ (b->value < 0)){
-    //     printf("MUL NEG\n");
-    //     twosComplement(SEW*2,mulOutBin);
-    // }
-    // printf("mulOutPoint = %d\tcpoint = %d\n",mulOutPoint,cPoint);
-    // if(mulOutPoint > cPoint){
-    //     binShift(SEW*2, abs(mulOutPoint-cPoint), cExt, cExtShift, true, true);
-    //     for(int j = 0; j < SEW*2; j++){
-    //         mulOutShift[j] = mulOutBin[j];
-    //     }
-    //     resPoint = mulOutPoint;
-    // }else if(mulOutPoint < cPoint){
-    //     binShift(SEW*2, abs(cPoint-mulOutPoint), mulOutBin, mulOutShift, true, true);
-    //     for(int j = 0; j < SEW*2; j++){
-    //         cExtShift[j] = cExt[j];
-    //     }
-    //     resPoint = cPoint;        
-    // } else{
-    //     for(int j = 0; j < SEW*2; j++){
-    //         cExtShift[j] = cExt[j];
-    //         mulOutShift[j] = mulOutBin[j];
-    //     }
-    //     resPoint = cPoint;        
-    // }
-
-    // printf("resPoint = %d\n",resPoint);
-    // printHex(SEW*2,cExtShift,"cExtShift");
-    // printHex(SEW*2,mulOutShift,"mulOutShift");
-
-
-    // if(c->value > 0){
-    //     printf("MACC\n");
-    //     binSum2(SEW*2, mulOutShift, cExtShift, resBin);
-    // }else{
-    //     printf("MSUB\n");
-    //     binSub2(SEW*2, mulOutShift, cExtShift, resBin);
-    // }
-
-    // binToDouble(SEW*2,resBin,resPoint,&dest->value);
-
-
-
-
-
-
-    
-    // printf("a = %f\tb = %f\tc = %f\n",a->value,b->value,c->value);
-    // printf("dest = %f\n",dest->value);
 
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = (a->exact_value * b->exact_value) + c->exact_value;
@@ -625,12 +452,8 @@ INLINE void ff_macc(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *
 }
 
 INLINE void ff_nmacc(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b, const flexfloat_t *c) {
-    // assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) && 
-    //        (dest->desc.exp_bits == b->desc.exp_bits) && (dest->desc.frac_bits == b->desc.frac_bits) &&
-    //        (dest->desc.exp_bits == c->desc.exp_bits) && (dest->desc.frac_bits == c->desc.frac_bits));
     
     dest->value = -(a->value * b->value) - c->value;
-    // printf("a val = %.20f\tb val = %.20f\tc val = %.20f\tres val = %.20f\n",a->value,b->value,c->value,dest->value);
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = -(a->exact_value * b->exact_value) - c->exact_value;
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);
@@ -1811,6 +1634,31 @@ static inline void lib_MVVI     (Iss *iss, int vs2, int64_t sim, int vd, bool vm
             writeToVReg(iss, SEW, vd, i, resBin);
         }
     }
+}
+
+static inline void lib_MVSX     (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    int64_t res;
+    bool resBin[64];
+    res = rs1;
+
+    intToBin(SEW, abs(res), resBin);
+    if(res < 0){
+        twosComplement(SEW, resBin);
+    }
+    if(vm){
+        writeToVReg(iss, SEW, 0, 0, resBin);
+    }else{
+        printf("MVSX VM=0 is RESERVED\n");
+    }
+}
+
+static inline iss_reg_t lib_MVXS     (Iss *iss, int vs2, bool vm){
+
+    int64_t data1;
+
+    myAbs(iss, SEW, vs2, 0, &data1);
+
+    return iss_reg_t(data1);
 }
 
 static inline void lib_WMULVV   (Iss *iss, int vs1, int vs2    , int vd, bool vm){
@@ -5634,38 +5482,6 @@ static inline void lib_FNCVTRTZXFW (Iss *iss, int vs1,     int vs2, int vd, bool
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static inline void lib_FMVVF    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
     unsigned long int res;
     bool bin[8];
@@ -5686,7 +5502,28 @@ static inline void lib_FMVVF    (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
     }
 }
 
+static inline void lib_FMVSF     (Iss *iss, int vs2, int64_t rs1, int vd, bool vm){
+    bool resBin[64];
+    unsigned long int res;
+    res = rs1;
 
+    intToBinU(SEW, res, resBin);
+    if(vm){
+        writeToVReg(iss, SEW, 0, 0, resBin);
+    }else{
+        printf("MVSX VM=0 is RESERVED\n");
+    }
+}
+
+
+static inline iss_reg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
+
+    int64_t data1;
+
+    myAbs(iss, SEW, vs2, 0, &data1);
+
+    return iss_reg_t(data1);
+}
 
 
 
@@ -7014,12 +6851,12 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
     uint32_t AVL;
 
     if((int)(vtype/pow(2,31))){
-        iss->csr.vtype.value = 0x8000000000000000;
+        iss->csr.vtype.value = 0x80000000;
         VL = 0;
         AVL = 0;
         return 0;
     }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
-        iss->csr.vtype.value = 0x8000000000000000;
+        iss->csr.vtype.value = 0x80000000;
         VL = 0;
         AVL = 0;
         return 0;
@@ -7053,12 +6890,12 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
     int sew = (rs2/8)%8;
     int lmul = rs2%8;
     if((int)(rs2/pow(2,31))){
-        iss->csr.vtype.value = 0x8000000000000000;
+        iss->csr.vtype.value = 0x80000000;
         VL = 0;
         AVL = 0;
         return 0;
     }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
-        iss->csr.vtype.value = 0x8000000000000000;
+        iss->csr.vtype.value = 0x80000000;
         VL = 0;
         AVL = 0;
         return 0;

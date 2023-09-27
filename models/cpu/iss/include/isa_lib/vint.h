@@ -1640,15 +1640,16 @@ static inline void lib_MVSX     (Iss *iss, int vs2, int64_t rs1, int vd, bool vm
     int64_t res;
     bool resBin[64];
     res = rs1;
-
-    intToBin(SEW, abs(res), resBin);
-    if(res < 0){
-        twosComplement(SEW, resBin);
-    }
-    if(vm){
-        writeToVReg(iss, SEW, 0, 0, resBin);
-    }else{
-        printf("MVSX VM=0 is RESERVED\n");
+    if(VSTART < VL){
+        intToBin(SEW, abs(res), resBin);
+        if(res < 0){
+            twosComplement(SEW, resBin);
+        }
+        if(vm){
+            writeToVReg(iss, SEW, vd, 0, resBin);
+        }else{
+            printf("MVSX VM=0 is RESERVED\n");
+        }
     }
 }
 
@@ -5506,12 +5507,16 @@ static inline void lib_FMVSF     (Iss *iss, int vs2, int64_t rs1, int vd, bool v
     bool resBin[64];
     unsigned long int res;
     res = rs1;
-
-    intToBinU(SEW, res, resBin);
-    if(vm){
-        writeToVReg(iss, SEW, 0, 0, resBin);
-    }else{
-        printf("MVSX VM=0 is RESERVED\n");
+    if(VSTART < VL){
+        intToBin(SEW, res, resBin);
+        if(rs1 < 0){
+            twosComplement(SEW, resBin);
+        }
+        if(vm){
+            writeToVReg(iss, SEW, vd, 0, resBin);
+        }else{
+            printf("MVSX VM=0 is RESERVED\n");
+        }
     }
 }
 
@@ -5519,9 +5524,7 @@ static inline void lib_FMVSF     (Iss *iss, int vs2, int64_t rs1, int vd, bool v
 static inline iss_reg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
 
     int64_t data1;
-
     myAbs(iss, SEW, vs2, 0, &data1);
-
     return iss_reg_t(data1);
 }
 

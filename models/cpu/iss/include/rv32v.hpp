@@ -192,7 +192,7 @@ static inline iss_reg_t vmv_v_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 }
 
 static inline iss_reg_t vmv_s_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL4(lib_MVSX , REG_IN(0), REG_GET(1) , REG_OUT(0), UIM_GET(0));
+    LIB_CALL4(lib_MVSX , REG_IN(1), REG_GET(0) , REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -29,6 +29,10 @@ class ElfLoader(st.Component):
         self.set_component('utils.loader.loader')
 
         self.add_properties({
-            'binary': binaries,
-            'entry': entry
+            'binary': binaries
         })
+
+        if entry is not None:
+            self.add_properties({
+                'entry': entry
+            })

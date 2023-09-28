@@ -3606,13 +3606,15 @@ static inline void lib_FMULVV   (Iss *iss, int vs1,     int vs2, int vd, bool vm
         myAbsU(iss, SEW, vs1, i, &data1);
         myAbsU(iss, SEW, vs2, i, &data2);
         EMCase(SEW, &m, &e);
-
         if(!mask(vm,bin)){
-        int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
-        FLOAT_EXEC_2(ff_mul, data2, data1, e, m, res);
-        restoreFFRoundingMode(old);
-        intToBinU(SEW, res, resBin);
+            int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
+            FLOAT_EXEC_2(ff_mul, data2, data1, e, m, res);
 
+
+            // printf("data1 = %f\tdata2 =%f\tres = %f\n",ff_a.value,ff_b.value,ff_res.value);
+
+            restoreFFRoundingMode(old);
+            intToBinU(SEW, res, resBin);
             writeToVReg(iss, SEW, vd, i, resBin);
         }
     }
@@ -4211,6 +4213,7 @@ static inline void lib_FREDSUMVS(Iss *iss, int vs1,     int vs2, int vd, bool vm
         if(!mask(vm,bin)){
         int old = setFFRoundingMode(iss, iss->csr.fcsr.frm);
         FLOAT_EXEC_2(ff_add, data2, res, e, m, res);
+        // printf("res = %f\n",ff_res.value);
         restoreFFRoundingMode(old);
         }
     }
@@ -5372,7 +5375,7 @@ static inline void lib_FNCVTRODFFW (Iss *iss, int vs1,     int vs2, int vd, bool
         if(!mask(vm,bin)){
             flexfloat_t ff_a, ff_res;
             flexfloat_desc_t env = (flexfloat_desc_t){e, m};
-            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};            
+            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
             ff_init(&ff_a, env2);
             ff_init(&ff_res, env);
             flexfloat_set_bits(&ff_a, data1);
@@ -5522,10 +5525,32 @@ static inline void lib_FMVSF     (Iss *iss, int vs2, int64_t rs1, int vd, bool v
 
 
 static inline iss_reg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
-
+    unsigned int res;
     int64_t data1;
     myAbs(iss, SEW, vs2, 0, &data1);
-    return iss_reg_t(data1);
+    // printf("data1 = %lx\n",data1);
+
+    uint8_t e, m;
+    uint8_t e2, m2;
+    EMCase(64, &m, &e);
+    EMCase(32, &m2, &e2);
+
+
+    if(sizeof(iss_reg_t) == 4){
+            flexfloat_t ff_a, ff_res;
+            flexfloat_desc_t env = (flexfloat_desc_t){e, m};
+            flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
+            ff_init(&ff_a, env);
+            ff_init(&ff_res, env2);
+            flexfloat_set_bits(&ff_a, data1);
+            ff_res.value = ff_a.value;
+            flexfloat_sanitize(&ff_res);
+            update_fflags_fenv(iss);
+            res = flexfloat_get_bits(&ff_res);
+            return iss_reg_t(res);
+    }else{
+        return iss_reg_t(data1);
+    }
 }
 
 

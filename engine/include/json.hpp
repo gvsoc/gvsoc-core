@@ -39,6 +39,7 @@ namespace js {
 
     virtual std::string get_str() { return ""; }
     virtual long long int get_int() { return 0; }
+    virtual double get_double() { return 0; }
     virtual long long int get_int(std::string name)
     {
       js::config *config = this->get(name);
@@ -130,6 +131,7 @@ namespace js {
   public:
     config_number(jsmntok_t *tokens);
     long long int get_int() { return (long long int)value; }
+    double get_double() { return value; }
     config *get_from_list(std::vector<std::string> name_list);
 
     void dump(std::string indent="");

@@ -276,5 +276,5 @@ double vp::power::Linear_volt_table::get(double frequency)
 vp::power::Linear_freq_table::Linear_freq_table(double freq, js::config *config)
 : freq(freq)
 {
-    this->value = my_stod(config->get_str());
+    this->value = config->get_double();
 }

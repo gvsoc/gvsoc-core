@@ -214,9 +214,18 @@ js::config_string::config_string(jsmntok_t *tokens)
   value = std::string(tokens->str);
 }
 
+double json_my_stod (std::string const& s) {
+    std::istringstream iss (s);
+    iss.imbue (std::locale("C"));
+    double d;
+    iss >> d;
+    // insert error checking.
+    return d;
+}
+
 js::config_number::config_number(jsmntok_t *tokens)
 {
-  value = atof(tokens->str);
+  value = json_my_stod(tokens->str);
 }
 
 js::config_bool::config_bool(jsmntok_t *tokens)

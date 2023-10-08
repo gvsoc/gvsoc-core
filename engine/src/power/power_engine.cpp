@@ -55,9 +55,9 @@ void vp::power::engine::stop_capture()
 
 
 
-double vp::power::engine::get_power()
+double vp::power::engine::get_average_power(double &dynamic_power, double &static_power)
 {
-    return this->top->power.get_power();
+    return this->top->power.get_average_power(dynamic_power, static_power);
 }
 
 

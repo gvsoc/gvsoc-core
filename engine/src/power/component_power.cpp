@@ -22,14 +22,10 @@
 #include "vp/vp.hpp"
 #include "vp/trace/trace.hpp"
 
-
-
 vp::power::component_power::component_power(vp::component &top)
-    : top(top)
+    : top(top), report(top)
 {
 }
-
-
 
 void vp::power::component_power::build()
 {
@@ -49,8 +45,6 @@ void vp::power::component_power::build()
     this->top.new_slave_port(this, "voltage", &this->voltage_port);
 }
 
-
-
 int vp::power::component_power::new_power_trace(std::string name, vp::power::power_trace *trace, vp::power::power_trace *parent)
 {
     if (trace->init(&top, name, parent))
@@ -60,8 +54,6 @@ int vp::power::component_power::new_power_trace(std::string name, vp::power::pow
 
     return 0;
 }
-
-
 
 int vp::power::component_power::new_power_source(std::string name, power_source *source, js::config *config, vp::power::power_trace *trace)
 {
@@ -80,45 +72,50 @@ int vp::power::component_power::new_power_source(std::string name, power_source 
     return 0;
 }
 
-
-
 void vp::power::component_power::set_frequency(int64_t frequency)
 {
-    for (power_source *power_source: this->sources)
+    for (power_source *power_source : this->sources)
     {
         power_source->set_frequency(frequency);
     }
 
-    for (auto child: this->top.childs)
+    for (auto child : this->top.childs)
     {
         child->power.set_frequency(frequency);
     }
 }
 
-
-
-double vp::power::component_power::get_power()
+double vp::power::component_power::get_average_power(double &dynamic_power, double &static_power)
 {
     double result = 0.0;
 
-
-    for (auto x:this->traces)
+    for (auto x : this->traces)
     {
         double dynamic, leakage;
         x->get_report_power(&dynamic, &leakage);
         result += dynamic + leakage;
     }
 
-    for (auto &x : this->top.get_childs())
+    return result;
+}
+
+double vp::power::component_power::get_instant_power(double &dynamic_power, double &static_power)
+{
+    double result = 0.0;
+    dynamic_power = 0.0;
+    static_power = 0.0;
+
+    for (auto x : this->traces)
     {
-        x->power.get_power();
+        dynamic_power += x->instant_dynamic_power;
+        static_power += x->instant_static_power;
+        result += x->current_power;
     }
 
     return result;
 }
 
-
-// TODO that seems wrong and deprecated 
+// TODO that seems wrong and deprecated
 double vp::power::component_power::get_power_from_childs()
 {
     double result = 0.0;
@@ -128,7 +125,6 @@ double vp::power::component_power::get_power_from_childs()
     }
     return result;
 }
-
 
 double vp::power::component_power::get_power_from_self_and_childs()
 {
@@ -144,8 +140,6 @@ double vp::power::component_power::get_power_from_self_and_childs()
     return result;
 }
 
-
-
 void vp::power::component_power::get_report_energy_from_childs(double *dynamic, double *leakage)
 {
     for (auto &x : this->top.get_childs())
@@ -153,8 +147,6 @@ void vp::power::component_power::get_report_energy_from_childs(double *dynamic, 
         x->power.get_report_energy_from_self_and_childs(dynamic, leakage);
     }
 }
-
-
 
 void vp::power::component_power::get_report_energy_from_self_and_childs(double *dynamic, double *leakage)
 {
@@ -169,11 +161,9 @@ void vp::power::component_power::get_report_energy_from_self_and_childs(double *
     this->get_report_energy_from_childs(dynamic, leakage);
 }
 
-
-
 void vp::power::component_power::dump(FILE *file, double total)
 {
-    for (auto x:this->traces)
+    for (auto x : this->traces)
     {
         double dynamic, leakage;
         x->get_report_power(&dynamic, &leakage);
@@ -185,8 +175,6 @@ void vp::power::component_power::dump(FILE *file, double total)
         fprintf(file, "%s; %.12f; %.12f; %.12f; %.6f\n", x->trace.get_full_path().c_str(), dynamic, leakage, dynamic + leakage, percentage);
     }
 }
-
-
 
 void vp::power::component_power::dump_child_traces(FILE *file, double total)
 {
@@ -202,7 +190,6 @@ void vp::power::component_power::power_supply_sync(void *__this, int state)
     _this->power_supply_set_all(state);
 }
 
-
 void vp::power::component_power::power_supply_set_all(int state)
 {
     this->top.power_supply_set(state);
@@ -211,8 +198,6 @@ void vp::power::component_power::power_supply_set_all(int state)
     {
         x->power.power_supply_set_all(state);
     }
-
-
 
     if (state >= 2)
     {
@@ -252,7 +237,7 @@ void vp::power::component_power::voltage_sync(void *__this, int voltage)
 
 void vp::power::component_power::voltage_set_all(int voltage)
 {
-    for (power_source *power_source: this->sources)
+    for (power_source *power_source : this->sources)
     {
         power_source->set_voltage(voltage);
     }
@@ -261,4 +246,27 @@ void vp::power::component_power::voltage_set_all(int voltage)
     {
         x->power.voltage_set_all(voltage);
     }
+}
+
+std::vector<gv::Power_report *> vp::power::Comp_power_report::get_childs()
+{
+    std::vector<gv::Power_report *> result;
+    for (vp::component *x : this->top.get_childs())
+    {
+        vp::power::Comp_power_report *report = (vp::power::Comp_power_report *)x->power.get_report();
+        report->compute();
+        result.push_back((gv::Power_report *)report);
+    }
+    return result;
+}
+
+vp::power::Comp_power_report::Comp_power_report(vp::component &top)
+    : top(top)
+{
+}
+
+void vp::power::Comp_power_report::compute()
+{
+    this->name = this->top.get_name();
+    this->power = this->top.power.get_average_power(this->dynamic_power, this->static_power);
 }

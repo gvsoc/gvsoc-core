@@ -414,3 +414,28 @@ void gv::TestbenchUart::handle_rx(uint8_t *data, int size)
         this->rx_callback(data, size);
     }
 }
+
+double Gvsoc_proxy_client::get_average_power(double &dynamic_power, double &static_power)
+{
+    return 0;
+}
+
+double Gvsoc_proxy_client::get_instant_power(double &dynamic_power, double &static_power)
+{
+    return 0;
+}
+
+void Gvsoc_proxy_client::report_start()
+{
+
+}
+
+void Gvsoc_proxy_client::report_stop()
+{
+
+}
+
+gv::Power_report *Gvsoc_proxy_client::report_get()
+{
+    return NULL;
+}

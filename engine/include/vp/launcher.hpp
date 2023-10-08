@@ -45,6 +45,12 @@ public:
 
     void wait_stopped() override;
 
+    double get_instant_power(double &dynamic_power, double &static_power) override;
+    double get_average_power(double &dynamic_power, double &static_power) override;
+    void report_start() override;
+    void report_stop() override;
+    gv::Power_report *report_get() override;
+
     int64_t step(int64_t duration) override;
     int64_t step_until(int64_t timestamp) override;
 

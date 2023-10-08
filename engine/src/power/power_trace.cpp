@@ -135,11 +135,13 @@ void vp::power::power_trace::dump_vcd_trace()
 
     // Also account the power from childs since VCD traces are hierarchical
     this->current_power = quantum_power + power_background;
+    this->instant_dynamic_power = quantum_power + this->current_dynamic_power;
+    this->instant_static_power = this->current_leakage_power;
 
     // Dump the instant power to trace
     this->trace.event_real(current_power);
-    this->dyn_trace.event_real(quantum_power + this->current_dynamic_power);
-    this->static_trace.event_real(this->current_leakage_power);
+    this->dyn_trace.event_real(this->instant_dynamic_power);
+    this->static_trace.event_real(this->instant_static_power);
 
     // If there was a contribution from energy quantum, schedule an event in the next cycle so that we dump again 
     // the trace since teh quantum implicitely disappears and overal power is modified

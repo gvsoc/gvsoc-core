@@ -158,7 +158,8 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
             {
                 static int measure_index = 0;
                 _this->power.get_engine()->stop_capture();
-                fprintf(stderr, "@power.measure_%d@%f@\n", measure_index++, _this->power.get_engine()->get_power());
+                double dynamic_power, static_power;
+                fprintf(stderr, "@power.measure_%d@%f@\n", measure_index++, _this->power.get_engine()->get_average_power(dynamic_power, static_power));
             }
         }
     }

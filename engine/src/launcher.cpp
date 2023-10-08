@@ -353,3 +353,28 @@ void Gvsoc_launcher::release()
 {
     this->engine->retain_inc(-1);
 }
+
+double Gvsoc_launcher::get_instant_power(double &dynamic_power, double &static_power)
+{
+    return this->instance->power.get_instant_power(dynamic_power, static_power);
+}
+
+double Gvsoc_launcher::get_average_power(double &dynamic_power, double &static_power)
+{
+    return this->instance->power.get_average_power(dynamic_power, static_power);
+}
+
+void Gvsoc_launcher::report_start()
+{
+    this->instance->power.get_engine()->start_capture();
+}
+
+void Gvsoc_launcher::report_stop()
+{
+    this->instance->power.get_engine()->stop_capture();
+}
+
+gv::Power_report *Gvsoc_launcher::report_get()
+{
+    return this->instance->power.get_report();
+}

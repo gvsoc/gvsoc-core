@@ -19,6 +19,7 @@
 
 #include <string>
 #include <stdint.h>
+#include <vector>
 
 namespace gv {
 
@@ -370,11 +371,137 @@ namespace gv {
 
     };
 
+
+
+    /**
+     * GVSOC interface for wire updates.
+     *
+     * Gather all the methods which can be called to bind the simulated system with external C++ code
+     * so that wire updates can be exchanged in both directions.
+     * Wire updates can be used to synchronize raw signals like pads, interrupts or registers.
+     */
     class Wire
     {
     public:
+        /**
+         * Create a binding to the simulated system.
+         *
+         * This creates a binding so that the external C++ code can exchange wire updates in both direction
+         * with the simulated system. This is based on the same set of methods which must be implemented on
+         * both sides.
+         *
+         * @param user A pointer to the caller class instance which will be called for all wire callbacks. This caller
+         *             must implement all the methods defined in class Wire_user
+         * @param comp_name The name of the component where to connect.
+         * @param itf_name The name of the component interface where to connect.
+         *
+         * @return A class instance which can be used to inject wire updates.
+         */
         virtual Wire_binding *wire_bind(Wire_user *user, std::string comp_name, std::string itf_name) = 0;
     };
+
+
+
+    /**
+     * Class used to describe the power consumption.
+     *
+     * An instance of this class is reported when a power report is requested.
+     * Each instance of this class describes a the power consumption of one block, including all
+     * the blocks it contains.
+     * To get a description of the hierarchy of blocks, the childs of the block can recursively
+     * retrieved.
+     */
+    class Power_report
+    {
+    public:
+        /** The name of the clock in the hardware hierarchy. */
+        std::string name;
+        /** The overal power consumption. */
+        double power;
+        /** The dynamic power consumption, due to switching activity. */
+        double dynamic_power;
+        /** The static power consumption, due to leakage. */
+        double static_power;
+
+        /**
+         * Return the childs of this block.
+         *
+         * This function allows exploring the hardware hierarchy and getting the power consumption
+         * at each level.
+         *
+         * @return A vector of the power reports of the child blocks
+         */
+        virtual std::vector<Power_report *> get_childs() = 0;
+    };
+
+
+
+    /**
+     * GVSOC interface for power aspects.
+     *
+     * Gather all the methods which can be called to query about the power consumption of the
+     * simulated system.
+     */
+    class Power
+    {
+    public:
+        /**
+         * Get the overall instant power consumption.
+         *
+         * This gives the power consumption of the whole simulated system. The power is the instant
+         * one at the time where the simulation stopped.
+         * This is a fast method and can be called at every step if needed.
+         *
+         * @param dynamic_power The dynamic power, i.e. the one due to switching activity, is reported here.
+         * @param static_power The static power, i.e. the one due to leakage, is reported here.
+         *
+         * @return The total instant power consumption.
+         */
+        virtual double get_instant_power(double &dynamic_power, double &static_power) = 0;
+
+        /**
+         * Get the overall average power consumption.
+         *
+         * This gives the power consumtion of the whole simulated system. The power is the average
+         * one on the interval described by the call to report_start() and report_stop().
+         *
+         * @param dynamic_power The dynamic power, i.e. the one due to switching activity, is reported here.
+         * @param static_power The static power, i.e. the one due to leakage, is reported here.
+         *
+         * @return The total average power consumption.
+         */
+        virtual double get_average_power(double &dynamic_power, double &static_power) = 0;
+
+        /**
+         * Start point of the period where average power is computed.
+         *
+         * This allows setting the beginning of the period where the power is measured to get the average.
+         */
+        virtual void report_start() = 0;
+
+        /**
+         * Stop point of the period where average power is computed.
+         *
+         * This allows setting the end of the period where the power is measured to get the average.
+         */
+        virtual void report_stop() = 0;
+
+        /**
+         * Get a detailed report of the average power consumption.
+         *
+         * The returned report allows getting the overall average power consumption over the period described by the
+         * calls to report_start() and report_stop() of the whole simulated system.
+         * Childs can then be recursively retrieved in order to get a detailed report of the whole hierarchy of the
+         * simulated system.
+         *
+         * @return A pointer to the power report. The report is reused everytime this method is called and thus must
+         * not be kept or freed.
+         */
+        virtual Power_report *report_get() = 0;
+
+    };
+
+
 
     /**
      * Class required for receiving GVSOC events.
@@ -407,7 +534,7 @@ namespace gv {
      *
      * Gather all the methods which can be called to control GVSOC execution and other features
      */
-    class Gvsoc : public Io, public Vcd, public Wire
+    class Gvsoc : public Io, public Vcd, public Wire, public Power
     {
     public:
         /**

@@ -392,4 +392,3 @@ void Gv_proxy::stop(int status)
         shutdown(x, SHUT_RDWR);
     }
 }
-

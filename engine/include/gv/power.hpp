@@ -41,6 +41,18 @@ namespace vp
     namespace power
     {
 
+        class Comp_power_report : public gv::Power_report
+        {
+        public:
+            Comp_power_report(vp::component &top);
+            std::vector<gv::Power_report *> get_childs();
+
+        private:
+            void compute();
+            vp::component &top;
+            std::vector<Comp_power_report *> childs;
+        };
+
 #define VP_POWER_DEFAULT_TEMP 25
 #define VP_POWER_DEFAULT_VOLT 1.2
 #define VP_POWER_DEFAULT_FREQ 50000000
@@ -433,6 +445,14 @@ namespace vp
             double current_power;    // Instant power of the current cycle. This is updated everytime
                                      // background or leakage power is updated and also when a quantum of energy is 
                                      // accounted, in order to proerly update the VCD trace
+
+            double instant_dynamic_power;// Instant dynamic power of the current cycle. This is updated everytime
+                                     // background or leakage power is updated and also when a quantum of energy is 
+                                     // accounted, in order to proerly update the VCD trace
+
+            double instant_static_power;// Instant static power of the current cycle. This is updated everytime
+                                     // background or leakage power is updated and also when a quantum of energy is 
+                                     // accounted, in order to proerly update the VCD trace
         };
 
 
@@ -446,6 +466,7 @@ namespace vp
         {
             // Only classes from vp::power are allowed as friends
             friend class power_trace;
+            friend class Comp_power_report;
 
         public:
             /**
@@ -523,7 +544,11 @@ namespace vp
 
             void set_frequency(int64_t frequency);
 
-            double get_power();
+            double get_average_power(double &dynamic_power, double &static_power);
+
+            double get_instant_power(double &dynamic_power, double &static_power);
+
+            gv::Power_report *get_report() { return &this->report; }
 
         protected:
             /**
@@ -585,6 +610,7 @@ namespace vp
             power::engine *engine = NULL;                  // Power engine
             vp::wire_slave<int> power_port;                // Slave port for setting power supply state
             vp::wire_slave<int> voltage_port;
+            Comp_power_report report;
         };
 
 
@@ -623,7 +649,7 @@ namespace vp
              */
             void stop_capture();
 
-            double get_power();
+            double get_average_power(double &dynamic_power, double &static_power);
 
         protected:
             /**

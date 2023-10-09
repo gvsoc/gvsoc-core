@@ -27,15 +27,6 @@
 #include <unistd.h>
 
 
-static void dump_report(gv::Power_report *report, std::string indent)
-{
-    printf("%s%s: %f %f %f\n", indent.c_str(), report->name.c_str(), report->power, report->dynamic_power, report->static_power);
-    for (auto child: report->get_childs())
-    {
-        dump_report(child, indent + "    ");
-    }
-}
-
 
 
 int main(int argc, char *argv[])
@@ -61,26 +52,10 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
+    gv::GvsocConf conf = { .config_path=config_path };
     gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
     gvsoc->open();
-  gvsoc->retain();
     gvsoc->start();
-
-    int64_t time = 0;
-    while(1)
-    {
-        time = gvsoc->step_until(time);
-
-        double dynamic_power;
-        double static_power;
-        double power = gvsoc->get_instant_power(dynamic_power, static_power);
-        printf("%f %f %f\n", power, dynamic_power, static_power);
-        gv::Power_report *report = gvsoc->report_get();
-        dump_report(report, "");
-    }
-
-
 
     if (conf.proxy_socket != -1)
     {

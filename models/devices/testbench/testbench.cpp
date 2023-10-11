@@ -1397,7 +1397,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
 
                 *config = {};
 
-                std::vector<std::string> params = {args.begin() + 3, args.end()};
+                std::vector<std::string> params = {args.begin() + 2, args.end()};
                 std::vector<int> slots;
 
                 for (std::string x: params)
@@ -1473,7 +1473,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
 
                 *config = {};
 
-                std::vector<std::string> params = {args.begin() + 3, args.end()};
+                std::vector<std::string> params = {args.begin() + 2, args.end()};
                 std::vector<int> slots;
 
                 for (std::string x: params)

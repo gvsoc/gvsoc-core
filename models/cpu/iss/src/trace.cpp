@@ -253,7 +253,7 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
 
 static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, iss_decoder_arg_t **prev_arg, int dump_out, bool is_long)
 {
-    if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && insn_arg->u.reg.index != 0)
+    if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
     {
         if ((dump_out && arg->type == ISS_DECODER_ARG_TYPE_OUT_REG) || (!dump_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG))
         {

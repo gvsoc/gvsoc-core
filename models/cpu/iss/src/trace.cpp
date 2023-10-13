@@ -158,53 +158,60 @@ static inline char iss_trace_get_mode(int mode)
     return ' ';
 }
 
-static inline int iss_trace_dump_reg(Iss *iss, iss_insn_t *insn, char *buff, unsigned int reg, bool is_long = true)
+static inline int iss_trace_dump_reg(Iss *iss, iss_insn_t *insn, iss_decoder_arg_t *arg, char *buff, unsigned int reg, bool is_long = true)
 {
     if (is_long)
     {
-        if (reg == 0)
+        if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
         {
-            return sprintf(buff, "0");
+            return sprintf(buff, "f%d", reg);
         }
-        else if (reg == 1)
+        else
         {
-            return sprintf(buff, "ra");
-        }
-        else if (reg == 2)
-        {
-            return sprintf(buff, "sp");
-        }
-        else if (reg >= 8 && reg <= 9)
-        {
-            return sprintf(buff, "s%d", reg - 8);
-        }
-        else if (reg >= 18 && reg <= 27)
-        {
-            return sprintf(buff, "s%d", reg - 16);
-        }
-        else if (reg == 4)
-        {
-            return sprintf(buff, "tp");
-        }
-        else if (reg >= 10 && reg <= 17)
-        {
-            return sprintf(buff, "a%d", reg - 10);
-        }
-        else if (reg >= 5 && reg <= 7)
-        {
-            return sprintf(buff, "t%d", reg - 5);
-        }
-        else if (reg >= 28 && reg <= 31)
-        {
-            return sprintf(buff, "t%d", reg - 25);
-        }
-        else if (reg == 3)
-        {
-            return sprintf(buff, "gp");
-        }
-        else if (reg >= ISS_NB_REGS)
-        {
-            return sprintf(buff, "f%d", reg - ISS_NB_REGS);
+            if (reg == 0)
+            {
+                return sprintf(buff, "0");
+            }
+            else if (reg == 1)
+            {
+                return sprintf(buff, "ra");
+            }
+            else if (reg == 2)
+            {
+                return sprintf(buff, "sp");
+            }
+            else if (reg >= 8 && reg <= 9)
+            {
+                return sprintf(buff, "s%d", reg - 8);
+            }
+            else if (reg >= 18 && reg <= 27)
+            {
+                return sprintf(buff, "s%d", reg - 16);
+            }
+            else if (reg == 4)
+            {
+                return sprintf(buff, "tp");
+            }
+            else if (reg >= 10 && reg <= 17)
+            {
+                return sprintf(buff, "a%d", reg - 10);
+            }
+            else if (reg >= 5 && reg <= 7)
+            {
+                return sprintf(buff, "t%d", reg - 5);
+            }
+            else if (reg >= 28 && reg <= 31)
+            {
+                return sprintf(buff, "t%d", reg - 25);
+            }
+            else if (reg == 3)
+            {
+                return sprintf(buff, "gp");
+            }
+            else if (reg >= ISS_NB_REGS)
+            {
+                return sprintf(buff, "f%d", reg - ISS_NB_REGS);
+            }
         }
     }
 
@@ -214,7 +221,7 @@ static inline int iss_trace_dump_reg(Iss *iss, iss_insn_t *insn, char *buff, uns
 static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bool is_out, int reg, uint64_t saved_value, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
 {
     char regStr[16];
-    iss_trace_dump_reg(iss, insn, regStr, reg, is_long);
+    iss_trace_dump_reg(iss, insn, arg, regStr, reg, is_long);
     if (is_long)
         buff += sprintf(buff, "%3.3s", regStr);
     else
@@ -226,6 +233,17 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
         buff += sprintf(buff, ":");
     if (arg->flags & ISS_DECODER_ARG_FLAG_REG64)
         buff += sprintf(buff, "%" PRIxFULLREG64 " ", saved_value);
+    else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
+    {
+        if (iss->decode.has_double)
+        {
+            buff += sprintf(buff, "%16.16lx ", (uint64_t)saved_value);
+        }
+        else
+        {
+            buff += sprintf(buff, "%8.8x ", (uint32_t)saved_value);
+        }
+    }
     else
         buff += sprintf(buff, "%" PRIxFULLREG " ", (iss_reg_t)saved_value);
     return buff;
@@ -237,7 +255,7 @@ static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, is
     {
         if ((dump_out && arg->type == ISS_DECODER_ARG_TYPE_OUT_REG) || (!dump_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG))
         {
-            buff = iss_trace_dump_reg_value(iss, insn, buff, arg->type == ISS_DECODER_ARG_TYPE_OUT_REG, insn_arg->u.reg.index, arg->flags & ISS_DECODER_ARG_FLAG_REG64 ? saved_arg->u.reg.value_64 : saved_arg->u.reg.value, arg, prev_arg, is_long);
+            buff = iss_trace_dump_reg_value(iss, insn, buff, arg->type == ISS_DECODER_ARG_TYPE_OUT_REG, insn_arg->u.reg.index, (arg->flags & ISS_DECODER_ARG_FLAG_REG64) || (arg->flags & ISS_DECODER_ARG_FLAG_FREG) ? saved_arg->u.reg.value_64 : saved_arg->u.reg.value, arg, prev_arg, is_long);
         }
     }
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_IMM)
@@ -297,7 +315,7 @@ static char *iss_trace_dump_arg(Iss *iss, iss_insn_t *insn, char *buff, iss_insn
         if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
         {
             if (arg->u.reg.dump_name)
-                buff += iss_trace_dump_reg(iss, insn, buff, insn_arg->u.reg.index, is_long);
+                buff += iss_trace_dump_reg(iss, insn, arg, buff, insn_arg->u.reg.index, is_long);
         }
         else if (arg->type == ISS_DECODER_ARG_TYPE_UIMM)
         {
@@ -326,18 +344,18 @@ static char *iss_trace_dump_arg(Iss *iss, iss_insn_t *insn, char *buff, iss_insn
             buff += sprintf(buff, "%" PRIdREG "(", insn_arg->u.indirect_imm.imm);
             if (arg->flags & ISS_DECODER_ARG_FLAG_PREINC)
                 buff += sprintf(buff, "!");
-            buff += iss_trace_dump_reg(iss, insn, buff, insn_arg->u.indirect_imm.reg_index, is_long);
+            buff += iss_trace_dump_reg(iss, insn, arg, buff, insn_arg->u.indirect_imm.reg_index, is_long);
             if (arg->flags & ISS_DECODER_ARG_FLAG_POSTINC)
                 buff += sprintf(buff, "!");
             buff += sprintf(buff, ")");
         }
         else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_REG)
         {
-            buff += iss_trace_dump_reg(iss, insn, buff, insn_arg->u.indirect_reg.offset_reg_index, is_long);
+            buff += iss_trace_dump_reg(iss, insn, arg, buff, insn_arg->u.indirect_reg.offset_reg_index, is_long);
             buff += sprintf(buff, "(");
             if (arg->flags & ISS_DECODER_ARG_FLAG_PREINC)
                 buff += sprintf(buff, "!");
-            buff += iss_trace_dump_reg(iss, insn, buff, insn_arg->u.indirect_reg.base_reg_index, is_long);
+            buff += iss_trace_dump_reg(iss, insn, arg, buff, insn_arg->u.indirect_reg.base_reg_index, is_long);
             if (arg->flags & ISS_DECODER_ARG_FLAG_POSTINC)
                 buff += sprintf(buff, "!");
             buff += sprintf(buff, ")");
@@ -476,6 +494,10 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             if (arg->flags & ISS_DECODER_ARG_FLAG_REG64)
             {
                 saved_arg->u.reg.value_64 = iss->regfile.get_reg64(insn_arg->u.reg.index);
+            }
+            else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
+            {
+                saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
             }
             else
                 saved_arg->u.reg.value = iss->regfile.get_reg(insn_arg->u.reg.index);

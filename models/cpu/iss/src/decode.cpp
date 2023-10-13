@@ -125,11 +125,6 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
             if (darg->flags & ISS_DECODER_ARG_FLAG_COMPRESSED)
                 arg->u.reg.index += 8;
 
-#ifndef ISS_SINGLE_REGFILE
-            if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
-                arg->u.reg.index += ISS_NB_REGS;
-#endif
-
             if (darg->type == ISS_DECODER_ARG_TYPE_IN_REG)
             {
                 if (darg->u.reg.id >= insn->nb_in_reg)
@@ -627,6 +622,8 @@ void Decode::parse_isa()
         if (arch_rv64)
             iss_decode_activate_isa(iss, (char *)"rv64d");
     }
+
+    this->has_double = has_d;
 
     // For Xf16 Extension
     if (has_f16)

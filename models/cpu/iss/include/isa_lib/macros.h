@@ -54,8 +54,8 @@
 #define FREG_GET(reg) REG_GET(reg)
 #define FREG_SET(reg,val) REG_SET(reg, val)
 #else
-#define FREG_GET(reg) (*(iss_freg_t *)insn->in_fregs_ref[reg])
-#define FREG_SET(reg,val) (*(iss_freg_t *)insn->out_fregs_ref[reg] = (val))
+#define FREG_GET(reg) (*(iss_freg_t *)insn->in_regs_ref[reg])
+#define FREG_SET(reg,val) (*(iss_freg_t *)insn->out_regs_ref[reg] = (val))
 #endif
 
 #endif

@@ -162,11 +162,13 @@ static inline int iss_trace_dump_reg(Iss *iss, iss_insn_t *insn, iss_decoder_arg
 {
     if (is_long)
     {
+#ifndef ISS_SINGLE_REGFILE
         if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
         {
             return sprintf(buff, "f%d", reg);
         }
         else
+#endif
         {
             if (reg == 0)
             {

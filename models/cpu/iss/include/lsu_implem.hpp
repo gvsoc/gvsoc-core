@@ -88,30 +88,6 @@ inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     }
 }
 
-inline void Lsu::load_boxed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
-{
-    iss_addr_t phys_addr;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
-    {
-        return;
-    }
-
-    int err;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
-    {
-        this->iss.regfile.set_reg(reg, iss_get_boxed_value(this->iss.regfile.get_reg(reg), size * 8));
-    }
-    else
-    {
-        if (err != vp::IO_REQ_INVALID)
-        {
-            this->stall_callback = &Lsu::load_boxed_resume;
-            this->stall_reg = reg;
-            this->stall_size = size;
-        }
-    }
-}
-
 inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
@@ -186,6 +162,54 @@ inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
         {
             this->trace.fatal("SP-based access outside stack (addr: 0x%x, stack_start: 0x%x, stack_end: 0x%x)\n",
                               addr, this->iss.csr.stack_start, this->iss.csr.stack_end);
+        }
+    }
+}
+
+inline void Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    iss_addr_t phys_addr;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+
+    int err;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), size, false)) == 0)
+    {
+        this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg(reg), size * 8));
+    }
+    else
+    {
+        if (err != vp::IO_REQ_INVALID)
+        {
+            this->stall_callback = &Lsu::load_float_resume;
+            this->stall_reg = reg;
+            this->stall_size = size;
+        }
+    }
+}
+
+inline void Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    iss_addr_t phys_addr;
+    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+
+    int err;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), size, true)) == 0)
+    {
+        // For now we don't have to do anything as the register was written directly
+        // by the request but we cold support sign-extended loads here;
+    }
+    else
+    {
+        if (err != vp::IO_REQ_INVALID)
+        {
+            this->stall_callback = &Lsu::store_resume;
+            this->stall_reg = reg;
         }
     }
 }

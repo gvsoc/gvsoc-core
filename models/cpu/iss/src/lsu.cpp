@@ -216,11 +216,11 @@ void Lsu::load_signed_resume(Lsu *lsu)
         lsu->stall_size * 8));
 }
 
-void Lsu::load_boxed_resume(Lsu *lsu)
+void Lsu::load_float_resume(Lsu *lsu)
 {
     lsu->iss.exec.insn_terminate();
     int reg = lsu->stall_reg;
-    lsu->iss.regfile.set_reg(reg, iss_get_boxed_value(lsu->iss.regfile.get_reg(reg),
+    lsu->iss.regfile.set_freg(reg, iss_get_float_value(lsu->iss.regfile.get_freg(reg),
         lsu->stall_size * 8));
 }
 

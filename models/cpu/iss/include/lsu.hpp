@@ -47,8 +47,10 @@ public:
     inline void load(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline void load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
-    inline void load_boxed(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    inline void load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+    inline void store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
     void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::io_req_opcode_e opcode);
 
@@ -83,5 +85,5 @@ private:
     static void load_resume(Lsu *lsu);
     static void elw_resume(Lsu *lsu);
     static void load_signed_resume(Lsu *lsu);
-    static void load_boxed_resume(Lsu *lsu);
+    static void load_float_resume(Lsu *lsu);
 };

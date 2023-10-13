@@ -136,7 +136,15 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                     insn->nb_in_reg = darg->u.reg.id + 1;
 
                 insn->in_regs[darg->u.reg.id] = arg->u.reg.index;
-                insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
+
+                if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
+                {
+                    insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_ref(arg->u.reg.index);
+                }
+                else
+                {
+                    insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
+                }
             }
             else
             {
@@ -144,13 +152,21 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
                 insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
-                if (darg->u.reg.id == 0)
+
+                if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
-                    insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_store_ref(arg->u.reg.index);
+                    insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_store_ref(arg->u.reg.index);
                 }
                 else
                 {
-                    insn->out_regs_ref[darg->u.reg.id] = &null_reg;
+                    if (darg->u.reg.id == 0)
+                    {
+                        insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_store_ref(arg->u.reg.index);
+                    }
+                    else
+                    {
+                        insn->out_regs_ref[darg->u.reg.id] = &null_reg;
+                    }
                 }
             }
 

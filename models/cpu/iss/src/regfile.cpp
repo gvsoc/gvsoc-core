@@ -34,9 +34,13 @@ void Regfile::reset(bool active)
     if (active)
     {
         this->regs[0] = 0;
-        for (int i = 0; i < ISS_NB_TOTAL_REGS; i++)
+        for (int i = 0; i < ISS_NB_REGS; i++)
         {
             this->regs[i] = i == 0 ? 0 : 0x57575757;
+        }
+        for (int i = 0; i < ISS_NB_FREGS; i++)
+        {
+            this->fregs[i] = 0x5757575757575757;
         }
     }
 }

@@ -32,7 +32,8 @@ public:
 
     void reset(bool active);
 
-    iss_reg_t regs[ISS_NB_REGS + ISS_NB_FREGS];
+    iss_reg_t regs[ISS_NB_REGS];
+    iss_freg_t fregs[ISS_NB_FREGS];
 
     inline iss_reg_t *reg_ref(int reg);
     inline iss_reg_t *reg_store_ref(int reg);
@@ -40,6 +41,11 @@ public:
     inline iss_reg_t get_reg(int reg);
     inline iss_reg64_t get_reg64(int reg);
     inline void set_reg64(int reg, iss_reg64_t value);
+
+    inline iss_freg_t *freg_ref(int reg);
+    inline iss_freg_t *freg_store_ref(int reg);
+    inline void set_freg(int reg, iss_freg_t value);
+    inline iss_freg_t get_freg(int reg);
 
 private:
     Iss &iss;

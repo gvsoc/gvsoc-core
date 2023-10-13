@@ -54,6 +54,8 @@ typedef uint64_t iss_reg64_t;
 
 #define PRIxFULLREG64 "16.16" PRIx64
 
+typedef uint64_t iss_freg_t;
+
 #if defined(ISS_WORD_64)
 
 #define ISS_OPCODE_MAX_SIZE 8
@@ -387,8 +389,8 @@ typedef struct iss_isa_tag_s
 typedef struct iss_insn_s
 {
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
-    iss_reg_t *out_regs_ref[ISS_MAX_NB_OUT_REGS];
-    iss_reg_t *in_regs_ref[ISS_MAX_NB_IN_REGS];
+    void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
+    void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
     iss_sim_t sim[ISS_MAX_IMMEDIATES];
     iss_addr_t addr;

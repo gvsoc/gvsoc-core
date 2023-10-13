@@ -16,8 +16,8 @@
 #define LIB_CALL7(name, s0, s1, s2, s3, s4, s5, s6) name(iss, s0, s1, s2, s3, s4, s5, s6)
 #define LIB_CALL8(name, s0, s1, s2, s3, s4, s5, s6, s7) name(iss, s0, s1, s2, s3, s4, s5, s6, s7)
 
-#define REG_SET(reg,val) (*insn->out_regs_ref[reg] = (val))
-#define REG_GET(reg) (*insn->in_regs_ref[reg])
+// #define REG_SET(reg,val) (*insn->out_regs_ref[reg] = (val))
+// #define REG_GET(reg) (*insn->in_regs_ref[reg])
 
 #define SIM_GET(index) insn->sim[index]
 #define UIM_GET(index) insn->uim[index]

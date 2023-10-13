@@ -65,3 +65,39 @@ inline void Regfile::set_reg64(int reg, iss_reg64_t value)
         this->regs[reg + 1] = value >> 32;
     }
 }
+
+inline void Regfile::set_freg(int reg, iss_freg_t value)
+{
+#ifdef ISS_SINGLE_REGFILE
+    if (reg != 0)
+        this->fregs[reg] = value;
+#else
+#endif
+}
+
+inline iss_freg_t Regfile::get_freg(int reg)
+{
+#ifdef ISS_SINGLE_REGFILE
+    return this->regs[reg];
+#else
+    return this->fregs[reg];
+#endif
+}
+
+inline iss_freg_t *Regfile::freg_ref(int reg)
+{
+#ifdef ISS_SINGLE_REGFILE
+    return (iss_freg_t *)this->reg_ref(reg);
+#else
+    return &this->fregs[reg];
+#endif
+}
+
+inline iss_freg_t *Regfile::freg_store_ref(int reg)
+{
+#ifdef ISS_SINGLE_REGFILE
+    return (iss_freg_t *)this->reg_store_ref(reg);
+#else
+    return &this->fregs[reg];
+#endif
+}

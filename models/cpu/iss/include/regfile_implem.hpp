@@ -46,6 +46,15 @@ inline void Regfile::set_reg(int reg, iss_reg_t value)
 
 inline iss_reg_t Regfile::get_reg(int reg)
 {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    if (this->iss.top.get_cycles() < this->scoreboard_reg_timestamp[reg])
+    {
+        this->iss.timing.stall_load_dependency_account(
+            this->scoreboard_reg_timestamp[reg] - this->iss.top.get_cycles()
+        );
+    }
+#endif
+
     return this->regs[reg];
 }
 
@@ -77,6 +86,15 @@ inline void Regfile::set_freg(int reg, iss_freg_t value)
 
 inline iss_freg_t Regfile::get_freg(int reg)
 {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    if (this->iss.top.get_cycles() < this->scoreboard_freg_timestamp[reg])
+    {
+        this->iss.timing.stall_load_dependency_account(
+            this->scoreboard_freg_timestamp[reg] - this->iss.top.get_cycles()
+        );
+    }
+#endif
+
 #ifdef ISS_SINGLE_REGFILE
     return this->regs[reg];
 #else
@@ -101,3 +119,20 @@ inline iss_freg_t *Regfile::freg_store_ref(int reg)
     return &this->fregs[reg];
 #endif
 }
+
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+inline void Regfile::scoreboard_reg_set_timestamp(int reg, int64_t timestamp)
+{
+    this->scoreboard_reg_timestamp[reg] = timestamp;
+}
+
+inline void Regfile::scoreboard_freg_set_timestamp(int reg, int64_t timestamp)
+{
+    this->scoreboard_reg_timestamp[reg] = timestamp;
+}
+
+inline void Regfile::scoreboard_freg_invalidate(int reg)
+{
+    this->scoreboard_freg_timestamp[reg] = -1;
+}
+#endif

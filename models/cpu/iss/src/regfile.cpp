@@ -42,5 +42,16 @@ void Regfile::reset(bool active)
         {
             this->fregs[i] = 0x5757575757575757;
         }
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+        // Initialize the scoreboard so that registers can be read by default.
+        for (int i = 0; i < ISS_NB_REGS; i++)
+        {
+            this->scoreboard_reg_timestamp[i] = 0;
+        }
+        for (int i = 0; i < ISS_NB_FREGS; i++)
+        {
+            this->scoreboard_freg_timestamp[i] = 0;
+        }
+#endif
     }
 }

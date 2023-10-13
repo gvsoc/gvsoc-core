@@ -80,7 +80,8 @@ class Iss(st.Component):
             supervisor=False,
             user=False,
             internal_atomics=False,
-            timed=True):
+            timed=True,
+            scoreboard=False):
 
         super(Iss, self).__init__(parent, name)
 
@@ -109,6 +110,9 @@ class Iss(st.Component):
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
+
+        if scoreboard:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])
 
         if user:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_USER_MODE=1'])

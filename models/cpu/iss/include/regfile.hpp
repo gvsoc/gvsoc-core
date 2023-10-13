@@ -47,7 +47,18 @@ public:
     inline void set_freg(int reg, iss_freg_t value);
     inline iss_freg_t get_freg(int reg);
 
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    inline void scoreboard_reg_set_timestamp(int reg, int64_t timestamp);
+    inline void scoreboard_freg_set_timestamp(int reg, int64_t timestamp);
+    inline void scoreboard_reg_invalidate(int reg);
+    inline void scoreboard_freg_invalidate(int reg);
+#endif
+
 private:
     Iss &iss;
 
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    int64_t scoreboard_reg_timestamp[ISS_NB_REGS];
+    int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+#endif
 };

@@ -1024,7 +1024,7 @@ static inline iss_reg_t vfmv_s_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 }
 
 static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    REG_SET(0,LIB_CALL2(lib_FMVFS, REG_IN(1), UIM_GET(0)));
+    FREG_SET(0,LIB_CALL2(lib_FMVFS, REG_IN(1), UIM_GET(0)));
     // LIB_CALL4(lib_FMVFS , REG_IN(1), REG_GET(0) , REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }

@@ -5524,7 +5524,7 @@ static inline void lib_FMVSF     (Iss *iss, int vs2, int64_t rs1, int vd, bool v
 }
 
 
-static inline iss_reg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
+static inline iss_freg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
     unsigned int res;
     int64_t data1;
     myAbs(iss, SEW, vs2, 0, &data1);
@@ -5536,7 +5536,8 @@ static inline iss_reg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
     EMCase(32, &m2, &e2);
 
 
-    if(sizeof(iss_reg_t) == 4){
+    if(sizeof(iss_freg_t) == 4){
+        printf("REG is 32\n");
             flexfloat_t ff_a, ff_res;
             flexfloat_desc_t env = (flexfloat_desc_t){e, m};
             flexfloat_desc_t env2 = (flexfloat_desc_t){e2, m2};
@@ -5547,9 +5548,10 @@ static inline iss_reg_t lib_FMVFS     (Iss *iss, int vs2, bool vm){
             flexfloat_sanitize(&ff_res);
             update_fflags_fenv(iss);
             res = flexfloat_get_bits(&ff_res);
-            return iss_reg_t(res);
+            return iss_freg_t(res);
     }else{
-        return iss_reg_t(data1);
+        printf("REG is 64\n");        
+        return iss_freg_t(data1);
     }
 }
 

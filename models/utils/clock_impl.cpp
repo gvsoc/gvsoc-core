@@ -134,6 +134,7 @@ void Clock::reset(bool active)
 {
     if (!active)
     {
+        this->target_frequency = 0;
         this->frequency = this->get_clock()->get_frequency();
         this->clock_sync_itf.set_frequency(this->get_clock()->get_frequency() / 2);
 

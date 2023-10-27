@@ -25,7 +25,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-
+#include <json.hpp>
+#include "main_systemc.hpp"
 
 
 
@@ -51,6 +52,16 @@ int main(int argc, char *argv[])
         fprintf(stderr, "No configuration specified, please specify through option --config=<config path>.\n");
         return -1;
     }
+
+
+#ifdef VP_USE_SYSTEMC
+    // In case GVSOC was compiled with SystemC, check if we have at least one SystemC component
+    // and if so, forward the launch to the dedicated SystemC launcher
+    if (requires_systemc(config_path))
+    {
+        return systemc_launcher(config_path);
+    }
+#endif
 
     gv::GvsocConf conf = { .config_path=config_path };
     gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);

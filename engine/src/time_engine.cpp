@@ -322,6 +322,13 @@ void vp::time_engine::quit(int status)
 
     // Notify the condition in case we are waiting for locks, to allow leaving the engine.
     pthread_cond_broadcast(&cond);
+
+    gv::Gvsoc_user *launcher = this->launcher_get();
+
+    if (launcher)
+    {
+        launcher->has_ended();
+    }
 }
 
 

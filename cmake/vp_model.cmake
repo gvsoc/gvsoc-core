@@ -209,7 +209,11 @@ function(vp_model)
             foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
                 target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${subdir})
             endforeach()
-        
+
+            if(DEFINED ENV{SYSTEMC_HOME})
+                target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE $ENV{SYSTEMC_HOME}/include)
+            endif()
+
             if(VP_MODEL_OUTPUT_NAME)
                 set(RENAME_OPTIM_NAME ${VP_MODEL_OUTPUT_NAME})
             else()
@@ -267,7 +271,11 @@ function(vp_model)
             foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
                 target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE ${subdir})
             endforeach()
-        
+
+            if(DEFINED ENV{SYSTEMC_HOME})
+                target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE $ENV{SYSTEMC_HOME}/include)
+            endif()
+
             if(VP_MODEL_OUTPUT_NAME)
                 set(RENAME_DEBUG_NAME ${VP_MODEL_OUTPUT_NAME})
             else()

@@ -1045,13 +1045,7 @@ void Testbench::handle_set_status()
 {
     pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
 
-    gv::Gvsoc_user *launcher = this->get_engine()->launcher_get();
-
-    if (launcher)
-    {
-        this->clock->stop_engine(req->set_status.status);
-        launcher->has_ended();
-    }
+    this->clock->stop_engine(req->set_status.status);
 }
 
 

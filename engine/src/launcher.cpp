@@ -69,6 +69,8 @@ void Gvsoc_launcher::open()
     this->instance->set_launcher(this);
     this->engine = ((vp::top *)this->handler)->time_engine;
 
+    js::config *gv_config = this->instance->get_vp_config();
+
     if (instance->get_vp_config()->get_child_bool("proxy/enabled"))
     {
         int in_port = instance->get_vp_config()->get_child_int("proxy/port");

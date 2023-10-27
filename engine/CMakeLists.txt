@@ -59,7 +59,18 @@ if(${BUILD_OPTIMIZED})
         )
 
     add_executable(gvsoc_launcher "src/main.cpp")
+
+    if(DEFINED ENV{SYSTEMC_HOME})
+        message(STATUS "SYSTEMC")
+        target_compile_options(gvsoc_launcher PRIVATE -DVP_USE_SYSTEMC=1)
+        target_include_directories(gvsoc_launcher PRIVATE $ENV{SYSTEMC_HOME}/include)
+        target_link_directories(gvsoc_launcher PRIVATE $ENV{SYSTEMC_HOME}/lib-linux64/)
+        target_link_libraries(gvsoc_launcher PRIVATE systemc)
+        target_sources(gvsoc_launcher PRIVATE "src/main_systemc.cpp")
+    endif()
+
     target_link_libraries(gvsoc_launcher PRIVATE gvsoc z pthread ${CMAKE_DL_LIBS})
+
     install(TARGETS gvsoc_launcher
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
@@ -100,6 +111,15 @@ if(${BUILD_DEBUG})
     target_compile_definitions(gvsoc_debug PRIVATE "-DVP_TRACE_ACTIVE=1")
 
     add_executable(gvsoc_launcher_debug "src/main.cpp")
+
+    if(DEFINED ENV{SYSTEMC_HOME})
+        target_compile_options(gvsoc_launcher_debug PRIVATE -DVP_USE_SYSTEMC=1)
+        target_include_directories(gvsoc_launcher_debug PRIVATE $ENV{SYSTEMC_HOME}/include)
+        target_link_directories(gvsoc_launcher_debug PRIVATE $ENV{SYSTEMC_HOME}/lib-linux64/)
+        target_link_libraries(gvsoc_launcher_debug PRIVATE systemc)
+        target_sources(gvsoc_launcher_debug PRIVATE "src/main_systemc.cpp")
+    endif()
+
     target_link_libraries(gvsoc_launcher_debug PRIVATE gvsoc_debug z pthread ${CMAKE_DL_LIBS})
     install(TARGETS gvsoc_launcher_debug
         LIBRARY DESTINATION lib

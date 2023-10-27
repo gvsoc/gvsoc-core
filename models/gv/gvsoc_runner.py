@@ -35,6 +35,7 @@ def gen_config(args, config, working_dir, runner=None):
 
     gvsoc_config = full_config.get('target/gvsoc')
 
+    gvsoc_config.set('systemc', full_config.get('**/require_systemc') is not None)
     gvsoc_config.set('werror', args.werror)
     gvsoc_config.set('wunconnected-device', args.w_unconnected_device)
     gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)

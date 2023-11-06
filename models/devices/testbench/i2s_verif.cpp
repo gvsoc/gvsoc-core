@@ -29,6 +29,8 @@
 #include <sndfile.hh>
 #endif
 
+#include "pcm_pdm_conversion/pcm_pdm_conversion.hpp"
+
 class Slot;
 
 
@@ -108,7 +110,7 @@ private:
 class Tx_stream_libsnd_file : public Tx_stream
 {
 public:
-    Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_verif_start_config_tx_file_dumper_type_e type, string filepath, int channels, int width);
+    Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_verif_start_config_tx_file_dumper_type_e type, string filepath, int channels, int width, int pdm2pcm_is_true, int cic_r, int wav_sampling_freq);
     ~Tx_stream_libsnd_file();
     void push_sample(uint32_t sample, int channel_id);
 
@@ -179,6 +181,14 @@ private:
     int rx_channel_id;
     std::vector<int> tx_channel_id;
     bool close;
+    
+    uint32_t cmpt = 0; // count number of pdm bits to send
+    PcmToPdm* pcm2pdm = nullptr;
+    PdmToPcm* pdm2pcm = nullptr;
+    bool got_pcm_data = false;
+
+    int32_t pcm_data;
+
 };
 
 
@@ -624,7 +634,7 @@ void Tx_stream_raw_file::push_sample(uint32_t sample, int channel_id)
 }
 
 
-Tx_stream_libsnd_file::Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_verif_start_config_tx_file_dumper_type_e type, std::string filepath, int channels, int width)
+Tx_stream_libsnd_file::Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_verif_start_config_tx_file_dumper_type_e type, std::string filepath, int channels, int width, int pdm2pcm_is_true, int cic_r, int wav_sampling_freq)
 : i2s(i2s)
 {
 #ifdef USE_SNDFILE
@@ -641,15 +651,26 @@ Tx_stream_libsnd_file::Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_ve
         case 32:
         default:
             pcm_width = SF_FORMAT_PCM_32; break;
-    }
-    
-    this->sfinfo.format = pcm_width | (type == PI_TESTBENCH_I2S_VERIF_TX_FILE_DUMPER_TYPE_AU ? SF_FORMAT_AU : SF_FORMAT_WAV);
-    this->sfinfo.samplerate = i2s->config.sampling_freq;
-    this->sfinfo.channels = channels;
-    this->sndfile = sf_open(filepath.c_str(), SFM_WRITE, &this->sfinfo);
-    if (this->sndfile == NULL)
-    {
-        throw std::invalid_argument(("Failed to open file " + filepath + ": " + strerror(errno)).c_str());
+        }
+
+        this->sfinfo.format = pcm_width | (type == PI_TESTBENCH_I2S_VERIF_TX_FILE_DUMPER_TYPE_AU ? SF_FORMAT_AU : SF_FORMAT_WAV);
+        if (pdm2pcm_is_true)
+        {
+            // in conversion context : sample rate = pdm_freq / cic_r
+            if (wav_sampling_freq > 0)
+                this->sfinfo.samplerate = wav_sampling_freq;
+            else
+                this->sfinfo.samplerate = i2s->config.sampling_freq / cic_r;
+        }
+        else
+        {
+            this->sfinfo.samplerate = i2s->config.sampling_freq;
+        }
+        this->sfinfo.channels = channels;
+        this->sndfile = sf_open(filepath.c_str(), SFM_WRITE, &this->sfinfo);
+        if (this->sndfile == NULL)
+        {
+            throw std::invalid_argument(("Failed to open file " + filepath + ": " + strerror(errno)).c_str());
     }
     this->period = 1000000000000UL / this->sfinfo.samplerate;
 
@@ -800,7 +821,6 @@ uint32_t Rx_stream_libsnd_file::get_sample(int channel)
     }
 
     this->pending_channels &= ~(1 << channel);
-
     int32_t result = this->items[channel] >> (32 - this->width);
 
 #if 0
@@ -926,7 +946,7 @@ void Slot::start(pi_testbench_i2s_verif_slot_start_config_t *config, Slot *reuse
                 }
                 else
                 {
-                    this->outstream = new Tx_stream_libsnd_file(this->i2s, (pi_testbench_i2s_verif_start_config_tx_file_dumper_type_e)config->rx_file_reader.type, filepath, nb_channels, config->tx_file_dumper.width);
+                    this->outstream = new Tx_stream_libsnd_file(this->i2s, (pi_testbench_i2s_verif_start_config_tx_file_dumper_type_e)config->tx_file_dumper.type, filepath, nb_channels, config->tx_file_dumper.width, config->tx_file_dumper.pdm2pcm_is_true, config->tx_file_dumper.conversion_config.cic_r, config->tx_file_dumper.wav_sampling_freq);
                 }
             }
             this->outstream->use_count++;
@@ -936,10 +956,13 @@ void Slot::start(pi_testbench_i2s_verif_slot_start_config_t *config, Slot *reuse
                 this->i2s->pdm_lanes_is_out[this->id / 2] = false;
             }
         }
+        if (config->tx_file_dumper.pdm2pcm_is_true){
+            this->pdm2pcm = new PdmToPcm(config->tx_file_dumper.conversion_config.cic_r, config->tx_file_dumper.conversion_config.cic_n, config->tx_file_dumper.conversion_config.cic_m, config->tx_file_dumper.conversion_config.cic_shift);
+        }
     }
     else if (config->type == PI_TESTBENCH_I2S_VERIF_RX_FILE_READER)
     {
-        ::memcpy(&this->start_config_tx, config, sizeof(pi_testbench_i2s_verif_slot_start_config_t));
+        ::memcpy(&this->start_config_rx, config, sizeof(pi_testbench_i2s_verif_slot_start_config_t));
 
         this->rx_started = true;
         this->rx_channel_id = channel_id;
@@ -973,6 +996,11 @@ void Slot::start(pi_testbench_i2s_verif_slot_start_config_t *config, Slot *reuse
             this->i2s->pdm_lanes_is_out[this->id / 2] = true;
             if ((this->id == 4) || (this->id == 5))
                 this->i2s->ws_value = 0;
+        }
+
+
+        if (config->rx_file_reader.pcm2pdm_is_true){
+            this->pcm2pdm = new PcmToPdm(config->rx_file_reader.conversion_config.interpolation_ratio_shift, config->rx_file_reader.conversion_config.interpolation_type);
         }
 
         this->i2s->data = this->id < 2 ? this->i2s->data & 0xC : this->i2s->data & 0x3;
@@ -1024,6 +1052,8 @@ void Slot::stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
             this->outstream = NULL;
         }
     }
+    delete this->pcm2pdm;
+    delete this->pdm2pcm;
 }
 
 
@@ -1227,15 +1257,34 @@ int Slot::get_data()
 
 void Slot::pdm_sync(int sd)
 {
+    // sd : 0 / 1
     if (this->outstream)
     {
-        this->outstream->push_sample(sd, this->tx_channel_id[0]);
+        /* Case where a conversion is required to send pcm data instread of pdm*/
+        if (this->start_config_tx.tx_file_dumper.pdm2pcm_is_true)
+        {
+            int input_bit = (sd > 0) ? 1 : -1;
+            // producing on pcm sample require several pdm samples
+            // convert method says when pcm data is ready to be sent
+            if (this->pdm2pcm->convert(input_bit))
+            {
+                int out = this->pdm2pcm->pcm_output;
+                this->outstream->push_sample(out, this->tx_channel_id[0]);
+            }
+        }
+        else
+        {
+            this->outstream->push_sample(sd, this->tx_channel_id[0]);
+        }
     }
 }
 
-
 int64_t Slot::exec()
 {
+    /* called by pdm_get(), takes care of gap physical constraints
+     - called for all the slots of gap9 at each step
+     - 2 is a specific value annoiucing an undefined state
+     - send pdm data bit by bit*/
     if (close)
     {
         this->i2s->set_pdm_data(this->id / 2, 2);
@@ -1244,28 +1293,78 @@ int64_t Slot::exec()
     }
     else
     {
-        int data;
-
-        if (this->instream)
+        /* Case where a conversion is required before sending pdm data*/
+        if (this->rx_started && this->start_config_rx.rx_file_reader.pcm2pdm_is_true)
         {
-            data = this->instream->get_sample(this->rx_channel_id);
+            int data;
+            
+            // one pcm sample gives several pdm samples
+            // pdm samples are then progressively sent 
+            if (cmpt >= this->pcm2pdm->output_size)
+                cmpt = 0;
+            if (cmpt == 0)
+            {
+                if (this->instream)
+                {
+                    int32_t pcm_data;
+                    pcm_data = this->instream->get_sample(this->rx_channel_id); // here data is a int32
+                    // make sure value uses 24 bits MSB
+                    if(this->start_config_rx.rx_file_reader.width < 24){
+                        int shift = 24 - this->start_config_rx.rx_file_reader.width;
+                        pcm_data = pcm_data << shift;
+                    }
+                    // convert it to pdm
+                    got_pcm_data = true;
+                    this->pcm2pdm->convert(pcm_data);
+                }
+                else
+                    got_pcm_data = false;
+            }
+            if (got_pcm_data)
+            {
+                data = (int)this->pcm2pdm->pdm_output[cmpt++];
+                // pdm data must be 0/1
+                data = (data <= 0) ? 0 : 1;
+            }
+            else
+            {
+
+                if (this->i2s->pdm_lanes_is_out[this->id / 2])
+                    data = 0;
+                else
+                    data = 2;
+            }
+            this->i2s->set_pdm_data(this->id / 2, data);
+            return -1;
         }
+
         else
         {
-            if (this->i2s->pdm_lanes_is_out[this->id / 2])
-                data = 0;
-            else
-                data = 2;
-        }
+            int data;
 
-        this->i2s->set_pdm_data(this->id / 2, data);
-        return -1;
+            if (this->instream)
+            {
+                data = this->instream->get_sample(this->rx_channel_id);
+            
+            }
+            else
+            {
+                if (this->i2s->pdm_lanes_is_out[this->id / 2])
+                    data = 0;
+                else
+                    data = 2;
+            }
+                
+            this->i2s->set_pdm_data(this->id / 2, data);
+            return -1;
+        }
     }
 }
 
 
 void Slot::pdm_get()
 {
+    // call exec() and takes care of time delay between sent bits
     this->close = true;
     this->enqueue_to_engine(this->get_time() + 4000);
 }

@@ -215,6 +215,7 @@ Testbench::Testbench(js::config *config)
 {
     this->state = STATE_WAITING_CMD;
     this->current_req_size = 0;
+    this->is_pdm = false;
 }
 
 
@@ -1242,7 +1243,6 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
 {
     bool error = false;
     string error_str = "";
-
     try
     {
         if (args[0] == "i2s")
@@ -1287,6 +1287,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                     else if (name == "is_pdm")
                     {
                         config->is_pdm = value;
+                        this->is_pdm = value;
                     }
                     else if (name == "is_full_duplex")
                     {
@@ -1390,6 +1391,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                 char *filepath = (char *)config + sizeof(pi_testbench_i2s_verif_slot_start_config_t);
 
                 *config = {};
+                config->rx_file_reader.pcm2pdm_is_true = FALSE;
 
                 std::vector<std::string> params = {args.begin() + 2, args.end()};
                 std::vector<int> slots;
@@ -1423,6 +1425,9 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                         if (value_str == "wav")
                         {
                             config->rx_file_reader.type = PI_TESTBENCH_I2S_VERIF_RX_FILE_READER_TYPE_WAV;
+                            if (this->is_pdm){
+                                config->rx_file_reader.pcm2pdm_is_true = TRUE;
+                            }
                         }
                         else if (value_str == "bin")
                         {
@@ -1439,7 +1444,13 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                     }
                     else if (name == "encoding")
                     {
-                        if (value_str == "asis")
+                        if (value_str == "pcm"){
+                            if (this->is_pdm){
+                                config->rx_file_reader.pcm2pdm_is_true = TRUE;
+                            }
+                            config->rx_file_reader.encoding = PI_TESTBENCH_I2S_VERIF_FILE_ENCODING_TYPE_ASIS;
+                        }
+                        else if (value_str == "asis")
                         {
                             config->rx_file_reader.encoding = PI_TESTBENCH_I2S_VERIF_FILE_ENCODING_TYPE_ASIS;
                         }
@@ -1450,6 +1461,24 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                         else
                         {
                             config->rx_file_reader.encoding = PI_TESTBENCH_I2S_VERIF_FILE_ENCODING_TYPE_ASIS;
+                        }
+                    }
+                    else if (name == "interpolation_ratio_shift")
+                    {
+                        config->rx_file_reader.conversion_config.interpolation_ratio_shift = value;
+                    }
+                    else if (name == "interpolation_type")
+                    {
+                        if (value_str == "iir"){
+                            config->rx_file_reader.conversion_config.interpolation_type = IIR;
+                        }
+                        else if (value_str == "linear"){
+                            config->rx_file_reader.conversion_config.interpolation_type = LINEAR;
+                        }
+                        else{
+                            printf("Interpolation type unknown, set to default value : linear");
+                            config->rx_file_reader.conversion_config.interpolation_type = LINEAR;
+
                         }
                     }
                 }
@@ -1466,6 +1495,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                 char *filepath = (char *)config + sizeof(pi_testbench_i2s_verif_slot_start_config_t);
 
                 *config = {};
+                config->tx_file_dumper.pdm2pcm_is_true = FALSE;
 
                 std::vector<std::string> params = {args.begin() + 2, args.end()};
                 std::vector<int> slots;
@@ -1499,6 +1529,9 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                         if (value_str == "wav")
                         {
                             config->tx_file_dumper.type = PI_TESTBENCH_I2S_VERIF_TX_FILE_DUMPER_TYPE_WAV;
+                            if (this->is_pdm){
+                                config->tx_file_dumper.pdm2pcm_is_true = TRUE;
+                            }
                         }
                         else if (value_str == "bin")
                         {
@@ -1515,6 +1548,12 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                     }
                     else if (name == "encoding")
                     {
+                        if (value_str == "pcm"){
+                            if (this->is_pdm){
+                                config->tx_file_dumper.pdm2pcm_is_true = TRUE;
+                            }
+                            config->tx_file_dumper.encoding = PI_TESTBENCH_I2S_VERIF_FILE_ENCODING_TYPE_ASIS;
+                        }
                         if (value_str == "asis")
                         {
                             config->tx_file_dumper.encoding = PI_TESTBENCH_I2S_VERIF_FILE_ENCODING_TYPE_ASIS;
@@ -1527,6 +1566,30 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
                         {
                             config->tx_file_dumper.encoding = PI_TESTBENCH_I2S_VERIF_FILE_ENCODING_TYPE_ASIS;
                         }
+                    }
+                    else if (name == "cic_n")
+                    {
+                        config->tx_file_dumper.conversion_config.cic_n = value;
+                    }
+                    else if (name == "cic_m")
+                    {
+                        config->tx_file_dumper.conversion_config.cic_m = value;
+                    }
+                    else if (name == "cic_r")
+                    {
+                        config->tx_file_dumper.conversion_config.cic_r = value;
+                    }
+                    else if (name == "cic_shift")
+                    {
+                        config->tx_file_dumper.conversion_config.cic_shift = value;
+                    }
+                    else if (name == "filter_coef")
+                    {
+                        config->tx_file_dumper.conversion_config.filter_coef = value;
+                    }
+                    else if (name == "wav_sampling_freq")
+                    {
+                        config->tx_file_dumper.wav_sampling_freq = value;
                     }
                 }
 
@@ -1543,7 +1606,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
 
                 *config = {};
 
-                std::vector<std::string> params = {args.begin() + 3, args.end()};
+                std::vector<std::string> params = {args.begin() + 2, args.end()};
 
                 for (std::string x: params)
                 {

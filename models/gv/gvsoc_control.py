@@ -806,7 +806,8 @@ class Testbench_i2s(object):
         self.proxy._send_cmd(cmd)
 
     def slot_rx_file_reader(self, slot: int = None, slots: list = [], filetype: str = "wav",
-            filepath: str = None, encoding: str = "asis", channel: int = 0, width: int = 0):
+            filepath: str = None, encoding: str = "asis", channel: int = 0, width: int = 0,
+            interpolation_ratio_shift : int = 3, interpolation_type : str = "linear"):
         """Read a stream of samples from a file.
 
         This will open a file and stream it to the SAI so that gap receives the samples.
@@ -825,9 +826,20 @@ class Testbench_i2s(object):
         :param filepath: string, optional,
             Path to the file.
         :param encoding: string, optional,
-            Encoding type for binary files, can be: "asis", "plusminus"
+            Encoding type for binary files, can be: "asis", "plusminus" or "pcm" meaning it is "asis" and a conversion is required
         :param channel: int, optional,
             If the format supports it, this will get the samples from the specified channel in the input file.
+
+        Modulation part - PCM to PDM conversion
+        :param r : int, optional
+            Interpolation ratio shift : 0 -> no intermolation
+                                        1 -> interpolation by 2 (only linear interpolation)
+                                        2-> interpolation by 4
+                                        3-(DEFAULT)-> interpolation by 8
+                                        4-> interpolation by 16 (only linear interpolation)
+                                        5-> interpolation by 32 (only linear interpolation) ...
+        :param interpolation : str, optional
+            Interpolation type : linear[default] or IIR
 
         :raises: RuntimeError, if there is any invalid parameter.
         """
@@ -842,11 +854,14 @@ class Testbench_i2s(object):
         options += ' encoding=%s' % encoding
         options += ' channel=%d' % channel
         options += ' width=%d' % width
+        options += ' interpolation_ratio_shift=%d' % interpolation_ratio_shift
+        options += ' interpolation_type=%s' % interpolation_type
         cmd = 'component %s i2s slot_rx_file_reader %s' % (self.testbench, options)
         self.proxy._send_cmd(cmd)
 
     def slot_tx_file_dumper(self, slot: int = None, slots: list = [], filetype: str = "wav",
-            filepath: str = None, encoding: str = "asis", channel: int = 0, width: int = 0):
+            filepath: str = None, encoding: str = "asis", channel: int = 0, width: int = 0,
+            cic_n: int = 8, cic_m: int = 2, cic_r: int = 8, cic_shift: int = 7, filter_coef: int = 0, wav_sampling_freq : int = -1):
         """Write a stream of samples to a file.
 
         This will open a file and write to it all the samples received from gap.
@@ -860,7 +875,7 @@ class Testbench_i2s(object):
         :param slots: list, optional,
             List of slots when using multi-channel mode. slot must be None if this one is not empty.
         :param filetype: string, optional,
-            Describes the type of the file, can be "wav", "raw", "bin" or "au".
+            Describes the type of the file, can be "wav", "raw", "bin", "au" or "pcm" meaning a conversion is required
         :param encoding: string, optional,
             Encoding type for binary files, can be: "asis", "plusminus"
         :param width: int, optional,
@@ -869,6 +884,20 @@ class Testbench_i2s(object):
             Path to the file.
         :param channel: int, optional,
             If the format supports it, this will dump the samples to the specified channel in the output file.
+
+        Demodulation part - PDM to PCM conversion
+        :param cic_n: int, optional
+            Order of the cic : [default = 8] integer\n\
+        :param cic_m: int, optional
+            Depth of the delta section of cic : [default = 2]
+        :param cic_r = 4
+            Ratio of the cic : [default = 4]
+        :param cic_shift = 7
+            Denormalisation after cic & before filter
+        :param filter_coef: int, optional
+            Filter coefficient : 0 [default] no use of post-filter
+                                 1: use lattice_ladder 1
+                                 2:use lattice_ladder 2
 
         :raises: RuntimeError, if there is any invalid parameter.
         """
@@ -883,6 +912,12 @@ class Testbench_i2s(object):
         options += ' encoding=%s' % encoding
         options += ' channel=%d' % channel
         options += ' width=%d' % width
+        options += ' cic_n=%d' % cic_n
+        options += ' cic_m=%d' % cic_m
+        options += ' cic_r=%d' % cic_r
+        options += ' cic_shift=%d' % cic_shift
+        options += ' filter_coef=%d' % filter_coef
+        options += ' wav_sampling_freq=%d' % wav_sampling_freq
         cmd = 'component %s i2s slot_tx_file_dumper %s' % (self.testbench, options)
         self.proxy._send_cmd(cmd)
 

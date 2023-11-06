@@ -40,6 +40,7 @@
 #include <regex>
 #include <queue>
 
+#include "pcm_pdm_conversion/pcm_pdm_conversion.hpp"
 
 class Testbench;
 class Uart;
@@ -281,6 +282,16 @@ typedef struct
             uint8_t type;
             uint8_t width;
             uint8_t encoding;
+            uint8_t pdm2pcm_is_true;
+            int32_t wav_sampling_freq;
+            struct
+            {
+                uint8_t cic_n;
+                uint8_t cic_m;
+                uint8_t cic_r;
+                uint8_t cic_shift;
+                uint8_t filter_coef;
+            } conversion_config;
         } tx_file_dumper;
         struct
         {
@@ -290,6 +301,12 @@ typedef struct
             uint8_t type;
             uint8_t width;
             uint8_t encoding;
+            uint8_t pcm2pdm_is_true;
+            struct
+            {
+                uint8_t interpolation_ratio_shift;
+                uint8_t interpolation_type;
+            } conversion_config;
         } rx_file_reader;
     };
 
@@ -666,6 +683,8 @@ private:
     uint8_t *tx_buff;
     int tx_buff_size;
     int tx_buff_index;
+
+    uint8_t is_pdm;
 
     Spim_verif *spi_loader;
 };

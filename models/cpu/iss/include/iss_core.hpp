@@ -22,7 +22,7 @@
 #ifndef __CPU_ISS_ISS_CORE_HPP
 #define __CPU_ISS_ISS_CORE_HPP
 
-#include "types.hpp"
+#include "cpu/iss/include/types.hpp"
 #include <string>
 
 void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr);
@@ -59,12 +59,12 @@ static inline iss_reg_t iss_insn_next(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return pc + insn->size;
 }
 
-#include "utils.hpp"
-#include "regfile_implem.hpp"
-#include "perf.hpp"
-#include "lsu.hpp"
-#include <decode.hpp>
-#include "insn_cache.hpp"
-#include "resource.hpp"
+#include "cpu/iss/include/utils.hpp"
+#include "cpu/iss/include/regfile_implem.hpp"
+#include "cpu/iss/include/perf.hpp"
+#include "cpu/iss/include/lsu.hpp"
+#include <cpu/iss/include/decode.hpp>
+#include "cpu/iss/include/insn_cache.hpp"
+#include "cpu/iss/include/resource.hpp"
 
 #endif

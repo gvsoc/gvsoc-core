@@ -19,7 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 
 static inline iss_reg_t get_field(iss_reg_t field, int bit, int width)
 {

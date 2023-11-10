@@ -22,7 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 #define PRIV_U 0
 #define PRIV_S 1

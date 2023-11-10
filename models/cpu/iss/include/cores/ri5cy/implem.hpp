@@ -24,16 +24,16 @@
 
 
 #include <vp/vp.hpp>
-#include <lsu_implem.hpp>
-#include <decode_implem.hpp>
-#include <trace_implem.hpp>
-#include <csr_implem.hpp>
-#include <dbgunit_implem.hpp>
-#include <exception_implem.hpp>
-#include <syscalls_implem.hpp>
-#include <timing_implem.hpp>
-#include <regfile_implem.hpp>
-#include <irq/irq_external_implem.hpp>
-#include <exec/exec_inorder_implem.hpp>
-#include <prefetch/prefetch_single_line_implem.hpp>
-#include <gdbserver_implem.hpp>
+#include <cpu/iss/include/lsu_implem.hpp>
+#include <cpu/iss/include/decode_implem.hpp>
+#include <cpu/iss/include/trace_implem.hpp>
+#include <cpu/iss/include/csr_implem.hpp>
+#include <cpu/iss/include/dbgunit_implem.hpp>
+#include <cpu/iss/include/exception_implem.hpp>
+#include <cpu/iss/include/syscalls_implem.hpp>
+#include <cpu/iss/include/timing_implem.hpp>
+#include <cpu/iss/include/regfile_implem.hpp>
+#include <cpu/iss/include/irq/irq_external_implem.hpp>
+#include <cpu/iss/include/exec/exec_inorder_implem.hpp>
+#include <cpu/iss/include/prefetch/prefetch_single_line_implem.hpp>
+#include <cpu/iss/include/gdbserver_implem.hpp>

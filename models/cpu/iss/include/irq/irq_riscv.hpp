@@ -22,7 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 #define IRQ_U_SOFT   0
 #define IRQ_S_SOFT   1

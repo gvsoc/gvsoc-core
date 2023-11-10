@@ -1,7 +1,5 @@
 set(F_GVSOC_ISS_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "")
 
-message(STATUS "GVSOC MODULES ${GVSOC_MODULES}")
-
 function(generate_isa)
     cmake_parse_arguments(
         GEN_ISA
@@ -12,7 +10,7 @@ function(generate_isa)
         )
 
     foreach(subdir ${GVSOC_MODULES})
-        set(GEN_ISA_INC_DIRS ${GEN_ISA_INC_DIRS} --inc-dir=${subdir}/models)
+        set(GEN_ISA_INC_DIRS ${GEN_ISA_INC_DIRS} --inc-dir=${subdir})
     endforeach()
 
     message(STATUS "generate_isa name=${GEN_ISA_NAME} thingy=${GEN_ISA_THINGY}")

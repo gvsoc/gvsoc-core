@@ -20,8 +20,8 @@
  */
 
 #include <vp/vp.hpp>
-#include <exception.hpp>
-#include "iss.hpp"
+#include <cpu/iss/include/exception.hpp>
+#include "cpu/iss/include/iss.hpp"
 
 
 Exception::Exception(Iss &iss)

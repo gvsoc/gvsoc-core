@@ -19,7 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include "rvd.hpp"
+#include "cpu/iss/include/rvd.hpp"
 
 static inline iss_reg_t c_addiw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

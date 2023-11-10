@@ -39,7 +39,6 @@ class Riscv_core(object):
                 self.isa.gen(isaFile, isaFileHeader)
 
 
-
 class Riscy(Riscv_core):
 
     def __init__(self):

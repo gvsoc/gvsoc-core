@@ -1426,7 +1426,7 @@ static inline unsigned int lib_VEC_PACK_SC_HL_16(Iss *s, unsigned int a, unsigne
 
 // Floating-Point Emulation
 
-#include "flexfloat.h"
+#include "cpu/iss/flexfloat/flexfloat.h"
 #include <stdint.h>
 #include <math.h>
 #include <fenv.h>

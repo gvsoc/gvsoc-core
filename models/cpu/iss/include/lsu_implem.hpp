@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "iss_core.hpp"
+#include "cpu/iss/include/iss_core.hpp"
 
 inline void Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {

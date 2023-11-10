@@ -177,6 +177,9 @@ class Runner():
             parser.add_argument("--wunconnected-padfun", dest="w_unconnected_padfun",
                 action="store_true", help="Activate warnings when updating padframe with no connected padfun")
 
+            parser.add_argument("--builddir", dest="builddir", default=None,
+                help="Specify build directory. This can be used when generating components code.")
+
             [args, otherArgs] = parser.parse_known_args()
 
             self.target.add_properties({
@@ -333,6 +336,17 @@ class Runner():
 
         elif cmd == 'components':
 
+            if self.gapy_target.get_args().builddir is None:
+                raise RuntimeError('Build diretory must be specified when components are being generated')
+
+            self.target.gen_all(self.gapy_target.get_args().builddir)
+
+            generated_components = self.target.get_generated_components()
+
+            gen_comp_list = []
+            for comp in generated_components.values():
+                gen_comp_list.append(comp.name)
+
             component_list = []
 
             c_flags = {}
@@ -346,10 +360,32 @@ class Runner():
             component_list += self.target.get_component_list(c_flags) + ['vp.power_domain_impl', 'utils.composite_impl']
 
             with open(self.gapy_target.get_args().component_file, "w") as file:
+                file.write(f'CONFIG_COMPONENTS={" ".join(gen_comp_list)}\n')
                 for comp in component_list:
                     file.write(f'CONFIG_{comp}=1\n')
                 for comp, c_flags_list in c_flags.items():
                     file.write(f'CONFIG_CFLAGS_{comp}={" ".join(c_flags_list)}\n')
+
+                for comp in generated_components.values():
+                    sources = []
+                    for source in comp.sources:
+                        found_source = None
+                        for dirpath in self.gapy_target.get_args().target_dirs:
+                            path = os.path.join(dirpath, source)
+                            if os.path.exists(path):
+                                found_source = path
+                                break
+                        if found_source is None:
+                            found_source = source
+
+                        sources.append(found_source)
+
+
+                    file.write(f'CONFIG_{comp.name}=1\n')
+                    file.write(f'CONFIG_SRCS_{comp.name}={" ".join(sources)}\n')
+                    file.write(f'CONFIG_CFLAGS_{comp.name}={" ".join(comp.cflags)}\n')
+
+
             return True
 
         return False

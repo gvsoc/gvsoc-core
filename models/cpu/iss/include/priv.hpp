@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include <iss_core.hpp>
+#include <cpu/iss/include/iss_core.hpp>
 
 static inline void csr_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

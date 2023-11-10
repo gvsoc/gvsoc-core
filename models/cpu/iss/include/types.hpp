@@ -35,16 +35,8 @@ class Iss;
 #if defined(RISCY)
 #define ISS_HAS_PERF_COUNTERS 1
 #if defined(ISS_HAS_PERF_COUNTERS)
-#ifdef PCER_VERSION_2
 #include "archi/riscv/pcer_v2.h"
-#else
-#include "archi/riscv/pcer_v1.h"
-#endif
-#ifdef PRIV_1_10
 #include "archi/riscv/priv_1_10.h"
-#else
-#include "archi/riscv/priv_1_9.h"
-#endif
 #endif
 #else
 #error Unknown core version
@@ -498,7 +490,7 @@ typedef struct
 
 
 #define  __ISS_CORE_INC(x) #x
-#define  _ISS_CORE_INC(x, y) __ISS_CORE_INC(cores/x/y)
+#define  _ISS_CORE_INC(x, y) __ISS_CORE_INC(cpu/iss/include/cores/x/y)
 #define  ISS_CORE_INC(x) _ISS_CORE_INC(CONFIG_ISS_CORE, x)
 
 

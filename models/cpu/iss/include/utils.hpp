@@ -22,7 +22,7 @@
 #ifndef __CPU_ISS_UTILS_HPP
 #define __CPU_ISS_UTILS_HPP
 
-#include "types.hpp"
+#include "cpu/iss/include/types.hpp"
 
 static inline iss_uim_t iss_get_field(iss_uim_t val, int shift, int bits)
 {

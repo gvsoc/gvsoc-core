@@ -20,8 +20,8 @@
  */
 
 #include <vp/vp.hpp>
-#include <irq/irq_riscv_implem.hpp>
-#include <iss.hpp>
+#include <cpu/iss/include/irq/irq_riscv_implem.hpp>
+#include <cpu/iss/include/iss.hpp>
 
 Irq::Irq(Iss &iss)
     : iss(iss)

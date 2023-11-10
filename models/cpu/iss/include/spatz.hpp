@@ -1,7 +1,7 @@
 #ifndef SPATZ_HPP
 #define SPATZ_HPP
 
-#include "types.hpp"
+#include "cpu/iss/include/types.hpp"
 #include "math.h"
 //#include "isa_lib/vint.h"
 

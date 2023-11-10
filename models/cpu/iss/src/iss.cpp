@@ -19,7 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 #include <string.h>
 
 int IssWrapper::build()
@@ -39,7 +39,10 @@ int IssWrapper::build()
     this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.build();
+#endif
 
     traces.new_trace("wrapper", this->get_trace(), vp::DEBUG);
 
@@ -79,7 +82,9 @@ void IssWrapper::reset(bool active)
     this->iss.regfile.reset(active);
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.reset(active);
+#endif
 }
 
 IssWrapper::IssWrapper(js::config *config)
@@ -90,11 +95,4 @@ IssWrapper::IssWrapper(js::config *config)
 void IssWrapper::target_open()
 {
 
-}
-
-Iss::Iss(vp::component &top)
-    : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
-{
 }

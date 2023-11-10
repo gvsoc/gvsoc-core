@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "types.hpp"
+#include "cpu/iss/include/types.hpp"
 
 inline void Timing::stall_cycles_account(int cycles)
 {

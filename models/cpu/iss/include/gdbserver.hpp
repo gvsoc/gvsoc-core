@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 #include <mutex>
 #include <condition_variable>
 

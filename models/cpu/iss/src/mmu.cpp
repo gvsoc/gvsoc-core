@@ -19,7 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 
 #define ISS_MMU_SATP_PPN_WIDTH  22
 #define ISS_MMU_SATP_PPN_WIDTH  22

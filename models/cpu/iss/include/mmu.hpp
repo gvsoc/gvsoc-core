@@ -22,7 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 #define MMU_TLB_NB_ENTRIES 256
 #define MMU_TLB_ENTRIES_MASK 0xff

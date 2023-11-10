@@ -33,19 +33,13 @@
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
 #include <cpu/iss/include/regfile.hpp>
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
-#else
-#include <cpu/iss/include/irq/irq_external.hpp>
-#endif
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
-
-#include <cpu/iss/include/spatz.hpp>
 
 class IssWrapper;
 
@@ -72,14 +66,6 @@ public:
     Pmp pmp;
     Exception exception;
 
-    Spatz spatz;
-
-    iss_pulp_nn_t pulp_nn;
-    iss_rnnext_t rnnext;
-    
-    
-
-
     vp::component &top;
 };
 
@@ -101,16 +87,13 @@ public:
 inline Iss::Iss(vp::component &top)
     : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)
 {
 }
 
 
 #include "cpu/iss/include/rv64i.hpp"
 #include "cpu/iss/include/rv32i.hpp"
-#ifdef CONFIG_RV32V
-#include "rv32v.hpp"
-#endif
 #include "cpu/iss/include/rv32c.hpp"
 #include "cpu/iss/include/zcmp.hpp"
 #include "cpu/iss/include/rv32a.hpp"
@@ -120,15 +103,4 @@ inline Iss::Iss(vp::component &top)
 #include "cpu/iss/include/rv64a.hpp"
 #include "cpu/iss/include/rvf.hpp"
 #include "cpu/iss/include/rvd.hpp"
-#include "cpu/iss/include/rvXf16.hpp"
-#include "cpu/iss/include/rvXf16alt.hpp"
-#include "cpu/iss/include/rvXf8.hpp"
-#include "cpu/iss/include/rv32Xfvec.hpp"
-#include "cpu/iss/include/rv32Xfaux.hpp"
 #include "cpu/iss/include/priv.hpp"
-#include "cpu/iss/include/pulp_v2.hpp"
-#include "cpu/iss/include/rvXgap9.hpp"
-#include "cpu/iss/include/rvXint64.hpp"
-#include "cpu/iss/include/rnnext.hpp"
-#include "cpu/iss/include/pulp_nn.hpp"
-#include "cpu/iss/include/corev.hpp"

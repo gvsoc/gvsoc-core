@@ -22,7 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 #ifndef CONFIG_GVSOC_ISS_PMP_NB_ENTRIES
 #define CONFIG_GVSOC_ISS_PMP_NB_ENTRIES 16

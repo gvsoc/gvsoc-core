@@ -22,9 +22,9 @@
 #pragma once
 
 #include <vp/vp.hpp>
-#include <types.hpp>
-#include <core.hpp>
-#include "mmu.hpp"
+#include <cpu/iss/include/types.hpp>
+#include <cpu/iss/include/core.hpp>
+#include "cpu/iss/include/mmu.hpp"
 
 #define ACCESS_INSN  1
 #define ACCESS_LOAD  2

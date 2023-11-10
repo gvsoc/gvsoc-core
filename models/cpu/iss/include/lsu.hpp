@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 #define ADDR_MASK (~(ISS_REG_WIDTH / 8 - 1))
 

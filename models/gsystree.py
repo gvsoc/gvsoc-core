@@ -25,6 +25,52 @@ import shutil
 from importlib import import_module
 import gapylib.target
 import gv.gui
+import hashlib
+
+
+generated_components = {}
+
+
+class GeneratedComponent(object):
+
+    def __init__(self, name, comp_name, sources, cflags):
+        self.sources = sources
+        self.cflags = cflags
+        self.config_name = name
+        self.name = f'gen_{comp_name}'
+        self.comp_name = comp_name
+
+
+
+# This takes care of computing if a new module has to be compiled for the specified set
+# of sources and cflags, so that we can reuse one module for several instances
+# This is only for components which are fully handled from Python without cmake
+def get_generated_component(sources, cflags):
+    # Compute full name what sources and cflags
+    name = ''.join(sources + cflags)
+    # Compute a unique hash so that we don't compile with long name
+    name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
+
+    # Loop until we find a hash which does not collide with existing components
+    while True:
+        # We also put first source code in the name so that the user can understand a bit
+        # what is being compiled.
+        # Remove characters which prevent cmake from compiling
+        template_name = sources[0].replace('/', '_').replace('.', '_')
+        comp_name = f'{template_name}_{name_hash}'
+
+        # Check if this collides
+        generated_component = generated_components.get(comp_name)
+        if generated_component is None or generated_component.name == name:
+            break
+
+        name_hash += 1
+
+    # If the component is not yet registered do it
+    if generated_components.get(comp_name) is None:
+        generated_components[comp_name] = GeneratedComponent(name=name, comp_name=comp_name, sources=sources, cflags=cflags)
+
+    return generated_components[comp_name]
 
 
 class Port():
@@ -113,6 +159,7 @@ class Component(object):
         self.component = None
         self.interfaces = []
         self.c_flags = []
+        self.sources = []
 
         if options is not None and len(options) > 0:
             options_list = []
@@ -415,6 +462,9 @@ class Component(object):
         with open(self.get_file_path(path), 'r') as fd:
             return json.load(fd)
 
+    def add_sources(self, sources):
+        self.sources += sources
+
     def add_c_flags(self, flags):
         self.c_flags += flags
 
@@ -422,9 +472,12 @@ class Component(object):
         self.component = name
         self.add_property('vp_component', name)
 
+    def get_generated_components(self):
+        return generated_components
+
     def get_component_list(self, c_flags=None):
         result = []
-        
+
         if c_flags is not None and len(self.c_flags) != 0:
             c_flags[self.component] = self.c_flags
 
@@ -638,6 +691,11 @@ class Component(object):
         return list(self.ports.values())
 
     def __build(self):
+        if self.component is None and len(self.sources) != 0:
+            self.generated_component = get_generated_component(self.sources, self.c_flags)
+            self.add_property('vp_component', self.generated_component.name)
+
+
         for interface in self.interfaces:
             self.bindings.append([interface.comp, interface.name, interface.remote_itf.comp,
                 interface.remote_itf.name, interface.properties, interface.remote_itf.properties])
@@ -790,3 +848,11 @@ class Component(object):
         name = self.get_comp_path() + '/' + name
 
         return self.parent.get_target_property(name)
+
+    def gen_all(self, builddir):
+        self.gen(builddir)
+        for child in self.components.values():
+            child.gen_all(builddir)
+
+    def gen(self, builddir):
+        pass

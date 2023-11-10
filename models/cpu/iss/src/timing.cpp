@@ -20,7 +20,7 @@
  */
 
 #include <vp/vp.hpp>
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 
 Timing::Timing(Iss &iss)
     : iss(iss)

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "iss_core.hpp"
-#include "isa_lib/int.h"
-#include "isa_lib/macros.h"
+#include "cpu/iss/include/iss_core.hpp"
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss/include/isa_lib/macros.h"
 
 static inline iss_reg_t lr_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

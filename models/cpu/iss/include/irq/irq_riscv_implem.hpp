@@ -21,8 +21,8 @@
 
 #pragma once
 
-#include <irq/irq_riscv.hpp>
-#include <iss.hpp>
+#include <cpu/iss/include/irq/irq_riscv.hpp>
+#include <cpu/iss/include/iss.hpp>
 
 inline void Irq::global_enable(int enable)
 {

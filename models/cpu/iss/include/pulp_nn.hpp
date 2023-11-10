@@ -30,7 +30,7 @@
 #define ASPR_ADDR_MASK 0x01
 #define ASPR_ADDR_POS 0
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 
 
 #define SPR_SET(reg,val) iss_set_spec_purp_reg(iss, reg, val)

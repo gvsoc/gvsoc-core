@@ -36,10 +36,12 @@ class Memory(st.Component):
 
         super(Memory, self).__init__(parent, name)
 
+        self.add_sources(['memory/memory.cpp'])
+
+        # Since atomics are slowing down the model, this is better to compile the support only
+        # if needed
         if atomics:
-            self.set_component('memory.memory_atomics')
-        else:
-            self.set_component('memory.memory')
+            self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
         self.add_properties({
             'size': size,

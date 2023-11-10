@@ -22,9 +22,9 @@
 #ifndef __CPU_ISS_RV32I_HPP
 #define __CPU_ISS_RV32I_HPP
 
-#include "iss_core.hpp"
-#include "isa_lib/int.h"
-#include "isa_lib/macros.h"
+#include "cpu/iss/include/iss_core.hpp"
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss/include/isa_lib/macros.h"
 
 static inline iss_reg_t lui_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -534,7 +534,10 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (prev->opcode == 0x01f01013)
+    // The opcode on rv64 is on 64bits. It should be on 32bits but there is a bug
+    // somwhere in this case, to be investigated.
+    // Until it is fixed, we just cast it for now.
+    if (((uint32_t)prev->opcode) == 0x01f01013)
     {
         iss->syscalls.handle_riscv_ebreak();
         return iss_insn_next(iss, insn, pc);

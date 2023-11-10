@@ -20,7 +20,7 @@
  */
 
 #include <vp/vp.hpp>
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 
 
 
@@ -201,7 +201,7 @@ void Exec::exec_instr(void *__this, vp::clock_event *event)
 }
 
 
-
+// TODO HW loop methods could be moved to ri5cy specific code by using inheritance
 void Exec::hwloop_set_start(int index, iss_reg_t pc)
 {
     this->hwloop_start_insn[index] = pc;
@@ -214,8 +214,11 @@ void Exec::hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc)
     if (insn->hwloop_handler == NULL)
     {
         insn->hwloop_handler = insn->handler;
+
+#ifdef CONFIG_GVSOC_ISS_RI5KY
         insn->handler = hwloop_check_exec;
         insn->fast_handler = hwloop_check_exec;
+#endif
     }
 }
 

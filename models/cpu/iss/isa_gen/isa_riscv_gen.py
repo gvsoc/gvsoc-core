@@ -19,11 +19,17 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
-
-from isa_gen import *
+# TODO this module can be imported either from a tool called by cmake or from python generators
+# As soon cmake is not using it anymore, remove first path
+try:
+    from isa_gen import *
+except:
+    from cpu.iss.isa_gen.isa_gen import *
 import argparse
 import os.path
 import importlib
+import hashlib
+import filecmp
 
 
 
@@ -1796,7 +1802,7 @@ priv = IsaSubset('priv', [
 ])
 
 
-priv_pulp_v2 = IsaSubset('priv_pulp_v2', [
+trap_return = IsaSubset('trap_return', [
 
     #R5('uret',      'Z',   '0000000 00010 00000 000 00000 1110011'),
     R5('sret',      'Z',   '0001000 00010 00000 000 00000 1110011'),
@@ -1807,24 +1813,7 @@ priv_pulp_v2 = IsaSubset('priv_pulp_v2', [
 
 ])
 
-priv_pulp = IsaSubset('priv_pulp', [
 
-    R5('eret',  'Z',   '0001000 00000 00000 000 00000 1110011'),
-    R5('wfi',   'Z',   '0001000 00010 00000 000 00000 1110011'),
-
-])
-
-
-priv_1_9 = IsaSubset('priv_1_9', [
-
-    #R5('uret',      'Z',   '0000000 00010 00000 000 00000 1110011'),
-    #R5('sret',      'Z',   '0001000 00010 00000 000 00000 1110011'),
-    #R5('hret',      'Z',   '0010000 00010 00000 000 00000 1110011'),
-    #R5('mret',      'Z',   '0011000 00010 00000 000 00000 1110011'),
-    #R5('sfence.vm', 'F',   '0001000 00100 ----- 000 00000 1110011'),
-    R5('wfi',       'Z',   '0001000 00101 00000 000 00000 1110011'),
-
-])
 
 priv_smmu = IsaSubset('priv_smmu', [
 
@@ -2711,3 +2700,108 @@ int64 = IsaSubset('int64',
     R5('p.mulsh.d',  'R2x32_W64',      '0111001 ----- ----- 110 ----- 0110011'),
     R5('p.muluh.d',  'R2x32_W64',      '0111001 ----- ----- 111 ----- 0110011'),
 ])
+
+
+
+class RiscvIsa(Isa):
+
+    def __init__(self, isa, inc_priv=True, inc_supervisor=True):
+        super().__init__(isa, [])
+
+        trees = []
+
+        if isa[0:4] == 'rv32:':
+            self.word_size = 32
+        elif isa[0:4] == 'rv64':
+            self.word_size = 64
+        else:
+            raise RuntimeError('Isa should start with either rv32 or rv64')
+
+        extensions = isa[4:]
+
+        while len(extensions) > 0:
+            if extensions[0] == 'i':
+                if self.word_size == 32:
+                    self.add_tree(IsaDecodeTree('i', [rv32i]))
+                else:
+                    self.add_tree(IsaDecodeTree('i', [rv64i, rv32i]))
+                extensions = extensions[1:]
+
+            elif extensions[0] == 'm':
+                if self.word_size == 32:
+                    self.add_tree(IsaDecodeTree('m', [rv32m]))
+                else:
+                    self.add_tree(IsaDecodeTree('m', [rv32m, rv64m]))
+                extensions = extensions[1:]
+
+            elif extensions[0] == 'a':
+                if self.word_size == 32:
+                    self.add_tree(IsaDecodeTree('a', [rv32a]))
+                else:
+                    self.add_tree(IsaDecodeTree('a', [rv32a, rv64a]))
+                extensions = extensions[1:]
+
+            elif extensions[0] == 'c':
+                self.add_tree(IsaDecodeTree('c', [rv64c]))
+                extensions = extensions[1:]
+
+            elif extensions[0] == 'f':
+                self.add_tree(IsaDecodeTree('f', [rv32f]))
+                extensions = extensions[1:]
+
+            elif extensions[0] == 'd':
+                self.add_tree(IsaDecodeTree('d', [rv32d]))
+                extensions = extensions[1:]
+
+            else:
+                extensions = extensions[1:]
+
+        priv_trees = []
+        if inc_priv:
+            priv_trees.append(priv)
+            priv_trees.append(trap_return)
+        if inc_supervisor:
+            priv_trees.append(priv_smmu)
+
+        self.add_tree(IsaDecodeTree('priv', priv_trees))
+
+
+    def gen(self, component, builddir):
+
+        path = os.path.join(builddir, f'isa_{self.name}')
+
+        isaFileStr, isaFileHeaderStr = Isa.gen(self)
+
+        full_code = isaFileStr + isaFileHeaderStr
+        name_hash = int(hashlib.md5((full_code).encode('utf-8')).hexdigest()[0:7], 16)
+
+        template_name = f'{path}_{name_hash}'
+
+        index = 0
+        while True:
+            full_name = f'{template_name}_{index}'
+
+            source_name = full_name + '.cpp'
+
+            if not os.path.exists(source_name):
+                with open(f'{full_name}.cpp', 'w') as isaFile:
+                    with open(f'{full_name}.hpp', 'w') as isaFileHeader:
+                        isaFile.write(isaFileStr)
+                        isaFileHeader.write(isaFileHeaderStr)
+
+                break
+
+            ref = ''
+            with open(full_name + '.cpp', 'r') as file:
+                ref += file.read()
+            with open(full_name + '.hpp', 'r') as file:
+                ref += file.read()
+
+            if ref == full_code:
+                break
+
+            index += 1
+
+        component.add_sources([
+            f'{full_name}.cpp'
+        ])

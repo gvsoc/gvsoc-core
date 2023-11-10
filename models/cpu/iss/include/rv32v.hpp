@@ -18,7 +18,7 @@
 #pragma once
 
 //#include "spatz.hpp"
-#include "isa_lib/vint.h"
+#include "cpu/iss/include/isa_lib/vint.h"
 
 static inline iss_reg_t vadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     LIB_CALL4(lib_ADDVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));

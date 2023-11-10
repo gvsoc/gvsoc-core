@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 class Csr;
 

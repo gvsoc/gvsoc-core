@@ -19,7 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 #include <string.h>
 #include <algorithm>
 #include <vector>

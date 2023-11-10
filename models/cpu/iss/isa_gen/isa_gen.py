@@ -37,8 +37,9 @@ def append_insn_to_isa_tag(isa_tag, insn):
 
 def dump(isaFile, str, level=0):
     for i in range(0, level):
-        isaFile.write('  ')
-    isaFile.write(str)
+        isaFile += '  '
+    isaFile += str
+    return isaFile
 
 class Const(object):
     def __init__(self, val):
@@ -51,10 +52,10 @@ class Const(object):
     #    return '%d' % (self.val)
 
     def gen_info(self, isaFile):
-        dump(isaFile, '{ .type=ISS_DECODER_VALUE_TYPE_UIM, .u= { .uim= %d } }, ' % self.val)
+        return dump(isaFile, '{ .type=ISS_DECODER_VALUE_TYPE_UIM, .u= { .uim= %d } }, ' % self.val)
 
     def gen(self, isaFile):
-        pass
+        return isaFile
 
 class Range(object):
     def __init__(self, first, width=1, shift=0):
@@ -63,12 +64,14 @@ class Range(object):
         self.shift = shift
 
     def gen(self, isaFile, indent=0):
-        dump(isaFile, '{%d, %d, %d}, ' % (self.first, self.width, self.shift))
+        return dump(isaFile, '{%d, %d, %d}, ' % (self.first, self.width, self.shift))
 
     def gen_info(self, isaFile):
-        dump(isaFile, '{ .type=ISS_DECODER_VALUE_TYPE_RANGE, .u= { .range_set= {.nb_ranges=1, .ranges={ ')
-        self.gen(isaFile)
-        dump(isaFile, '} } } }, ')
+        isaFile = dump(isaFile, '{ .type=ISS_DECODER_VALUE_TYPE_RANGE, .u= { .range_set= {.nb_ranges=1, .ranges={ ')
+        isaFile = self.gen(isaFile)
+        isaFile = dump(isaFile, '} } } }, ')
+
+        return isaFile
 
 
     def len(self):
@@ -83,10 +86,12 @@ class Ranges(object):
             self.ranges.append(Range(range[0], range[1], range[2]))
 
     def gen_info(self, isaFile, indent=0):
-        dump(isaFile, '{ .type=ISS_DECODER_VALUE_TYPE_RANGE, .u= { .range_set= {.nb_ranges=%d, .ranges={ ' % (len(self.ranges)))
+        isaFile = dump(isaFile, '{ .type=ISS_DECODER_VALUE_TYPE_RANGE, .u= { .range_set= {.nb_ranges=%d, .ranges={ ' % (len(self.ranges)))
         for range in self.ranges:
-            range.gen(isaFile)
-        dump(isaFile, '} } } }, ')
+            isaFile = range.gen(isaFile)
+        isaFile = dump(isaFile, '} } } }, ')
+
+        return isaFile
 
     def len(self):
         return len(self.ranges)
@@ -116,9 +121,11 @@ class Indirect(OpcodeField):
         self.flags = ['ISS_DECODER_ARG_FLAG_NONE']
 
     def genExtract(self, isaFile, level):
-        self.base.genExtract(isaFile, level)
+        isaFile = self.base.genExtract(isaFile, level)
         if self.offset is not None:
-            self.offset.genExtract(isaFile, level)
+            isaFile = self.offset.genExtract(isaFile, level)
+
+        return isaFile
 
     def genTrace(self, isaFile, level):
         if self.offset is not None and self.offset.isImm:
@@ -132,9 +139,10 @@ class Indirect(OpcodeField):
             funcName += 'PreInc'
             self.flags.append('ISS_DECODER_ARG_FLAG_PREINC')
         if self.offset is not None:
-            dump(isaFile, level, '  %s(pc, %s, %s);\n' % (funcName, self.base.genTraceIndirect(), self.offset.genTraceIndirect()))
+            isaFile = dump(isaFile, level, '  %s(pc, %s, %s);\n' % (funcName, self.base.genTraceIndirect(), self.offset.genTraceIndirect()))
         else:
-            dump(isaFile, level, '  %s(pc, %s, 0);\n' % (funcName, self.base.genTraceIndirect()))
+            isaFile = dump(isaFile, level, '  %s(pc, %s, 0);\n' % (funcName, self.base.genTraceIndirect()))
+        return isaFile
 
     def gen(self, isaFile, indent=0):
         if self.postInc:
@@ -142,31 +150,33 @@ class Indirect(OpcodeField):
         if self.preInc:
             self.flags.append('ISS_DECODER_ARG_FLAG_PREINC')
         if self.offset.is_reg():
-            dump(isaFile, '%s{\n' % (' '*indent))
-            dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_INDIRECT_REG,\n' % (' '*indent))
-            dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
-            dump(isaFile, '%s  .u= {\n' % (' '*indent))
-            dump(isaFile, '%s    .indirect_reg= {\n' % (' '*indent))
-            dump(isaFile, '%s      .base_reg= ' % (' '*indent))
-            self.base.gen_info(isaFile)
-            dump(isaFile, '\n%s      .offset_reg= ' % (' '*indent))
-            self.offset.gen_info(isaFile)
-            dump(isaFile, '\n%s    },\n' % (' '*indent))
-            dump(isaFile, '%s  },\n' % (' '*indent))
-            dump(isaFile, '%s},\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s{\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_INDIRECT_REG,\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
+            isaFile = dump(isaFile, '%s  .u= {\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s    .indirect_reg= {\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s      .base_reg= ' % (' '*indent))
+            isaFile = self.base.gen_info(isaFile)
+            isaFile = dump(isaFile, '\n%s      .offset_reg= ' % (' '*indent))
+            isaFile = self.offset.gen_info(isaFile)
+            isaFile = dump(isaFile, '\n%s    },\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s  },\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s},\n' % (' '*indent))
         else:
-            dump(isaFile, '%s{\n' % (' '*indent))
-            dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_INDIRECT_IMM,\n' % (' '*indent))
-            dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
-            dump(isaFile, '%s  .u= {\n' % (' '*indent))
-            dump(isaFile, '%s    .indirect_imm= {\n' % (' '*indent))
-            dump(isaFile, '%s      .reg= ' % (' '*indent))
-            self.base.gen_info(isaFile)
-            dump(isaFile, '\n%s      .imm= ' % (' '*indent))
-            self.offset.gen_info(isaFile)
-            dump(isaFile, '\n%s    },\n' % (' '*indent))
-            dump(isaFile, '%s  },\n' % (' '*indent))
-            dump(isaFile, '%s},\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s{\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_INDIRECT_IMM,\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
+            isaFile = dump(isaFile, '%s  .u= {\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s    .indirect_imm= {\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s      .reg= ' % (' '*indent))
+            isaFile = self.base.gen_info(isaFile)
+            isaFile = dump(isaFile, '\n%s      .imm= ' % (' '*indent))
+            isaFile = self.offset.gen_info(isaFile)
+            isaFile = dump(isaFile, '\n%s    },\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s  },\n' % (' '*indent))
+            isaFile = dump(isaFile, '%s},\n' % (' '*indent))
+
+        return isaFile
 
 class SignedImm(OpcodeField):
     def __init__(self, id, ranges, isSigned=True):
@@ -176,28 +186,30 @@ class SignedImm(OpcodeField):
         self.isImm = True
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->sim[%d] = %s;\n' % (self.id, self.ranges.gen(signed=self.isSigned)))
+        return dump(isaFile, level, '  pc->sim[%d] = %s;\n' % (self.id, self.ranges.gen(signed=self.isSigned)))
 
     def genTrace(self, isaFile, level):
-        dump(isaFile, level, '  traceSetSimm(pc, pc->sim[%d]);\n' % (self.id))
+        return dump(isaFile, level, '  traceSetSimm(pc, pc->sim[%d]);\n' % (self.id))
 
     def genTraceIndirect(self):
         return 'pc->sim[%d]' % (self.id)
 
     def gen_info(self, isaFile):
-        dump(isaFile, '{ .is_signed=%d, .id=%d, .info= ' % (self.isSigned, self.id))
-        self.ranges.gen_info(isaFile)
-        dump(isaFile, '}, ')
+        isaFile = dump(isaFile, '{ .is_signed=%d, .id=%d, .info= ' % (self.isSigned, self.id))
+        isaFile = self.ranges.gen_info(isaFile)
+        isaFile = dump(isaFile, '}, ')
+        return isaFile
 
     def gen(self, isaFile, indent=0):
-        dump(isaFile, '%s{\n' % (' '*indent))
-        dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_SIMM,\n' % (' '*indent))
-        dump(isaFile, '%s  .flags=ISS_DECODER_ARG_FLAG_NONE,\n' % (' '*indent))
-        dump(isaFile, '%s  .u= {\n' % (' '*indent))
-        dump(isaFile, '%s    .simm= ' % (' '*indent))
-        self.gen_info(isaFile)
-        dump(isaFile, '\n%s  },\n' % (' '*indent))
-        dump(isaFile, '%s},\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s{\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_SIMM,\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .flags=ISS_DECODER_ARG_FLAG_NONE,\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .u= {\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s    .simm= ' % (' '*indent))
+        isaFile = self.gen_info(isaFile)
+        isaFile = dump(isaFile, '\n%s  },\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s},\n' % (' '*indent))
+        return isaFile
 
 class UnsignedImm(OpcodeField):
     def __init__(self, id, ranges, isSigned=False):
@@ -207,35 +219,37 @@ class UnsignedImm(OpcodeField):
         self.isImm = True
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->uim[%d] = %s;\n' % (self.id, self.ranges.gen(signed=self.isSigned)))
+        return dump(isaFile, level, '  pc->uim[%d] = %s;\n' % (self.id, self.ranges.gen(signed=self.isSigned)))
 
     def genTrace(self, isaFile, level):
-        dump(isaFile, level, '  traceSetUimm(pc, pc->uim[%d]);\n' % (self.id))
+        return dump(isaFile, level, '  traceSetUimm(pc, pc->uim[%d]);\n' % (self.id))
 
     def genTraceIndirect(self):
         return 'pc->uim[%d]' % (self.id)
 
     def gen_info(self, isaFile):
-        dump(isaFile, '{ .is_signed=%d, .id=%d, .info= ' % (self.isSigned, self.id))
-        self.ranges.gen_info(isaFile)
-        dump(isaFile, '}, ')
+        isaFile = dump(isaFile, '{ .is_signed=%d, .id=%d, .info= ' % (self.isSigned, self.id))
+        isaFile = self.ranges.gen_info(isaFile)
+        isaFile = dump(isaFile, '}, ')
+        return isaFile
 
     def gen(self, isaFile, indent=0):
-        dump(isaFile, '%s{\n' % (' '*indent))
-        dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_UIMM,\n' % (' '*indent))
-        dump(isaFile, '%s  .flags=ISS_DECODER_ARG_FLAG_NONE,\n' % (' '*indent))
-        dump(isaFile, '%s  .u= {\n' % (' '*indent))
-        dump(isaFile, '%s    .uimm= ' % (' '*indent))
-        self.gen_info(isaFile)
-        dump(isaFile, '\n%s  },\n' % (' '*indent))
-        dump(isaFile, '%s},\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s{\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_UIMM,\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .flags=ISS_DECODER_ARG_FLAG_NONE,\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .u= {\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s    .uimm= ' % (' '*indent))
+        isaFile = self.gen_info(isaFile)
+        isaFile = dump(isaFile, '\n%s  },\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s},\n' % (' '*indent))
+        return isaFile
 
 class OutReg(OpcodeField):
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->outReg[%d] = %s;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->outReg[%d] = %s;\n' % (self.id, self.ranges.gen()))
 
     def genTrace(self, isaFile, level):
-        dump(isaFile, level, '  traceSetReg(pc, pc->outReg[%d], 1, %d);\n' % (self.id, self.dumpName))
+        return dump(isaFile, level, '  traceSetReg(pc, pc->outReg[%d], 1, %d);\n' % (self.id, self.dumpName))
 
     def is_out(self):
         return True
@@ -244,26 +258,28 @@ class OutReg(OpcodeField):
         return True
 
     def gen_info(self, isaFile):
-        dump(isaFile, '{ .id=%d, .flags=(iss_decoder_arg_flag_e)(%s), .dump_name=%d, .latency=%d, .info= ' % (self.id, ' | '.join(self.flags), 1 if self.dumpName else 0, self.latency))
-        self.ranges.gen_info(isaFile)
-        dump(isaFile, '}, ')
+        isaFile = dump(isaFile, '{ .id=%d, .flags=(iss_decoder_arg_flag_e)(%s), .dump_name=%d, .latency=%d, .info= ' % (self.id, ' | '.join(self.flags), 1 if self.dumpName else 0, self.latency))
+        isaFile = self.ranges.gen_info(isaFile)
+        isaFile = dump(isaFile, '}, ')
+        return isaFile
 
     def gen(self, isaFile, indent=0):
-        dump(isaFile, '%s{\n' % (' '*indent))
-        dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_OUT_REG,\n' % (' '*indent))
-        dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
-        dump(isaFile, '%s  .u= {\n' % (' '*indent))
-        dump(isaFile, '%s    .reg= ' % (' '*indent))
-        self.gen_info(isaFile)
-        dump(isaFile, '\n%s  },\n' % (' '*indent))
-        dump(isaFile, '%s},\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s{\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_OUT_REG,\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
+        isaFile = dump(isaFile, '%s  .u= {\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s    .reg= ' % (' '*indent))
+        isaFile = self.gen_info(isaFile)
+        isaFile = dump(isaFile, '\n%s  },\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s},\n' % (' '*indent))
+        return isaFile
 
 class OutFReg(OutReg):
     def __init__(self, id, ranges, dumpName=True):
         super(OutFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->outReg[%d] = %s + NB_REGS;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->outReg[%d] = %s + NB_REGS;\n' % (self.id, self.ranges.gen()))
 
 class OutReg64(OutReg):
     def __init__(self, id, ranges, dumpName=True):
@@ -274,21 +290,21 @@ class OutRegComp(OutReg):
         super(OutRegComp, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_COMPRESSED'])
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->outReg[%d] = (%s) + 8;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->outReg[%d] = (%s) + 8;\n' % (self.id, self.ranges.gen()))
 
 class OutFRegComp(OutReg):
     def __init__(self, id, ranges, dumpName=True):
         super(OutFRegComp, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_COMPRESSED', 'ISS_DECODER_ARG_FLAG_FREG'])
 
     def genExtract(self, isaFile, level):
-         dump(isaFile, level, '  pc->outReg[%d] = (%s) + 8 + NB_REGS;\n' % (self.id, self.ranges.gen()))
+         return dump(isaFile, level, '  pc->outReg[%d] = (%s) + 8 + NB_REGS;\n' % (self.id, self.ranges.gen()))
 
 class InReg(OpcodeField):
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->inReg[%d] = %s;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->inReg[%d] = %s;\n' % (self.id, self.ranges.gen()))
 
     def genTrace(self, isaFile, level):
-        dump(isaFile, level, '  traceSetReg(pc, pc->inReg[%d], 0, %d);\n' % (self.id, self.dumpName))
+        return dump(isaFile, level, '  traceSetReg(pc, pc->inReg[%d], 0, %d);\n' % (self.id, self.dumpName))
 
     def genTraceIndirect(self):
         return 'pc->inReg[%d]' % (self.id)
@@ -300,26 +316,28 @@ class InReg(OpcodeField):
         return True
 
     def gen_info(self, isaFile):
-        dump(isaFile, '{ .id=%d, .flags=(iss_decoder_arg_flag_e)(%s), .dump_name=%d, .latency=%d, .info= ' % (self.id, ' | '.join(self.flags), 1 if self.dumpName else 0, self.latency))
-        self.ranges.gen_info(isaFile)
-        dump(isaFile, '}, ')
+        isaFile = dump(isaFile, '{ .id=%d, .flags=(iss_decoder_arg_flag_e)(%s), .dump_name=%d, .latency=%d, .info= ' % (self.id, ' | '.join(self.flags), 1 if self.dumpName else 0, self.latency))
+        isaFile = self.ranges.gen_info(isaFile)
+        isaFile = dump(isaFile, '}, ')
+        return isaFile
 
     def gen(self, isaFile, indent=0):
-        dump(isaFile, '%s{\n' % (' '*indent))
-        dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_IN_REG,\n' % (' '*indent))
-        dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
-        dump(isaFile, '%s  .u= {\n' % (' '*indent))
-        dump(isaFile, '%s    .reg= ' % (' '*indent))
-        self.gen_info(isaFile)
-        dump(isaFile, '\n%s  },\n' % (' '*indent))
-        dump(isaFile, '%s},\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s{\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_IN_REG,\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
+        isaFile = dump(isaFile, '%s  .u= {\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s    .reg= ' % (' '*indent))
+        isaFile = self.gen_info(isaFile)
+        isaFile = dump(isaFile, '\n%s  },\n' % (' '*indent))
+        isaFile = dump(isaFile, '%s},\n' % (' '*indent))
+        return isaFile
 
 class InFReg(InReg):
     def __init__(self, id, ranges, dumpName=True):
         super(InFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->inReg[%d] = %s + NB_REGS;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->inReg[%d] = %s + NB_REGS;\n' % (self.id, self.ranges.gen()))
 
 class InReg64(InReg):
     def __init__(self, id, ranges, dumpName=True):
@@ -330,47 +348,49 @@ class InRegComp(InReg):
         super(InRegComp, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_COMPRESSED'])
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->inReg[%d] = (%s) + 8;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->inReg[%d] = (%s) + 8;\n' % (self.id, self.ranges.gen()))
 
 class InFRegComp(InReg):
     def __init__(self, id, ranges, dumpName=True):
         super(InFRegComp, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_COMPRESSED', 'ISS_DECODER_ARG_FLAG_FREG'])
 
     def genExtract(self, isaFile, level):
-        dump(isaFile, level, '  pc->inReg[%d] = (%s) + 8 + NB_REGS;\n' % (self.id, self.ranges.gen()))
+        return dump(isaFile, level, '  pc->inReg[%d] = (%s) + 8 + NB_REGS;\n' % (self.id, self.ranges.gen()))
 
 class Format(object):
     def __init__(self, args):
         pass
 
 class DecodeLeaf(object):
-    def __init__(self, isaFile, instr, opcode, others=False):
+    def __init__(self, instr, opcode, others=False):
         self.instr = instr
         self.level = 0
-        self.isaFile = isaFile
         self.opcode = opcode
         self.others = others
 
-    def dump(self, str):
+    def dump(self, isaFile, str):
         #for i in range(0, self.level):
-        #    self.isaFile.write('  ')
-        self.isaFile.write(str)
+        #    isaFile += '  ')
+        isaFile += str
 
-    def gen(self, isa):
-        self.dump('// %s\n' % (self.instr.getStr()))
-        self.instr.gen(isa, self.isaFile, self.opcode, self.others)
+        return isaFile
+
+    def gen(self, isaFile, isa):
+        isaFile = self.dump(isaFile, '// %s\n' % (self.instr.getStr()))
+        isaFile = self.instr.gen(isa, isaFile, self.opcode, self.others)
         #self.dump('static iss_decoder_item_t %s = { false, 0, { %d, 0, 0, NULL } }; \n\n' % (self.get_name(), self.firstBit))
 #
 #        #if self.instr.active != None: self.dump('if (!%s) goto error;\n' % (self.instr.active.replace('-', '_')))
-        #self.instr.genCall(self.isaFile, self.level)
+        #self.instr.genCall(isaFile, self.level)
+
+        return isaFile
 
     def get_name(self):
         return self.instr.get_full_name()
 
 class DecodeTree(object):
-    def __init__(self, isaFile, instrs, mask, opcode):
+    def __init__(self, instrs, mask, opcode):
         self.opcode = opcode
-        self.isaFile = isaFile
         self.level = 0
         self.subtrees = collections.OrderedDict({})
         self.firstBit = 0
@@ -494,8 +514,8 @@ class DecodeTree(object):
 
         for opcode, instrs in groups.items():
             if len(instrs) == 1 and currentMask == 0 or opcode == 'OTHERS': 
-                self.subtrees[opcode] = DecodeLeaf(isaFile, instrs[0], self.opcode, others=opcode == 'OTHERS')
-            else: self.subtrees[opcode] = DecodeTree(isaFile, instrs, mask, opcode)
+                self.subtrees[opcode] = DecodeLeaf(instrs[0], self.opcode, others=opcode == 'OTHERS')
+            else: self.subtrees[opcode] = DecodeTree(instrs, mask, opcode)
 
         self.mask = currentMask
 
@@ -504,10 +524,11 @@ class DecodeTree(object):
             if len(opcode) != 0: self.needTree = True
 
 
-    def dump(self, str, diff=0):
+    def dump(self, isaFile, str, diff=0):
         #for i in range(0, self.level+diff):
-        #    self.isaFile.write('  ')
-        self.isaFile.write(str)
+        #    isaFile += '  ')
+        isaFile += str
+        return isaFile
 
     def get_name(self):
         if self.needTree:
@@ -516,7 +537,7 @@ class DecodeTree(object):
             return list(self.subtrees.values())[0].get_name()
 
 
-    def gen(self, isa, is_top=False):
+    def gen(self, isaFile, isa, is_top=False):
 
         if len(self.subtrees) != 0:
 
@@ -526,37 +547,38 @@ class DecodeTree(object):
                     if opcode == 'OTHERS':
                         others = subtree
                     else:
-                        subtree.gen(isa)
+                        isaFile = subtree.gen(isaFile, isa)
                 if others != None:
-                    others.gen(isa)
+                    isaFile = others.gen(isaFile, isa)
             else:
                 subtree = list(self.subtrees.values())[0]
-                subtree.gen(isa)
+                isaFile = subtree.gen(isaFile, isa)
 
 
             if self.needTree:
-                self.dump('static iss_decoder_item_t *%s_groups[] = {' % self.get_name());
+                isaFile = self.dump(isaFile, 'static iss_decoder_item_t *%s_groups[] = {' % self.get_name());
                 for opcode, subtree in self.subtrees.items():
-                    self.dump(' &%s,' % subtree.get_name())
+                    isaFile = self.dump(isaFile, ' &%s,' % subtree.get_name())
              
-                self.dump(' };\n')
+                isaFile = self.dump(isaFile, ' };\n')
 
-                self.dump('%siss_decoder_item_t %s = {\n' % ('' if is_top else 'static ', self.get_name()))
-                self.dump('  .is_insn=false,\n')
-                self.dump('  .is_active=false,\n')
-                self.dump('  .opcode_others=0,\n')
-                self.dump('  .opcode=0b%s,\n' % self.opcode)
-                self.dump('  .u={\n')
-                self.dump('    .group={\n')
-                self.dump('      .bit=%d,\n' % self.firstBit)
-                self.dump('      .width=%d,\n' % self.opcode_width)
-                self.dump('      .nb_groups=%d,\n' % len(self.subtrees))
-                self.dump('      .groups=%s_groups\n' % self.get_name())
-                self.dump('    }\n')
-                self.dump('  }\n')
-                self.dump('};\n')
-                self.dump('\n')
+                isaFile = self.dump(isaFile, '%siss_decoder_item_t %s = {\n' % ('' if is_top else 'static ', self.get_name()))
+                isaFile = self.dump(isaFile, '  .is_insn=false,\n')
+                isaFile = self.dump(isaFile, '  .is_active=false,\n')
+                isaFile = self.dump(isaFile, '  .opcode_others=0,\n')
+                isaFile = self.dump(isaFile, '  .opcode=0b%s,\n' % self.opcode)
+                isaFile = self.dump(isaFile, '  .u={\n')
+                isaFile = self.dump(isaFile, '    .group={\n')
+                isaFile = self.dump(isaFile, '      .bit=%d,\n' % self.firstBit)
+                isaFile = self.dump(isaFile, '      .width=%d,\n' % self.opcode_width)
+                isaFile = self.dump(isaFile, '      .nb_groups=%d,\n' % len(self.subtrees))
+                isaFile = self.dump(isaFile, '      .groups=%s_groups\n' % self.get_name())
+                isaFile = self.dump(isaFile, '    }\n')
+                isaFile = self.dump(isaFile, '  }\n')
+                isaFile = self.dump(isaFile, '};\n')
+                isaFile = self.dump(isaFile, '\n')
             
+        return isaFile
         
 class IsaSubset(object):
     def __init__(self, name, instrs, active=None, file="default", timingTable=None):
@@ -614,13 +636,15 @@ class IsaDecodeTree(object):
         instrs = self.get_insns()
 
         if self.tree == None:
-            self.tree = DecodeTree(isaFile, instrs, 0xffffffff, '0')
+            self.tree = DecodeTree(instrs, 0xffffffff, '0')
 
         if len(instrs) != 0:
-            self.tree.gen(isa, is_top=True)
+            isaFile = self.tree.gen(isaFile, isa, is_top=True)
+
+        return isaFile
 
     def dump_ref(self, isa, isaFile):
-        dump(isaFile, '  {(char *)"%s", &%s},\n' % (self.name, self.tree.get_name()))
+        return dump(isaFile, '  {(char *)"%s", &%s},\n' % (self.name, self.tree.get_name()))
 
 
 class Resource(object):
@@ -640,6 +664,12 @@ class Isa(object):
 
         for tree in self.trees:
             self.trees_dict[tree.name] = tree
+
+    def add_tree(self, tree):
+        self.trees.append(tree)
+        self.trees_dict[tree.name] = tree
+
+
 
     def get_resource_index(self, resource_name):
         index = 0
@@ -662,199 +692,72 @@ class Isa(object):
 
         return result
 
-    def dump(self, str):
+    def dump(self, isaFile, str):
         for i in range(0, self.level):
-            self.isaFile.write('  ')
-        self.isaFile.write(str)
+            isaFile += '  '
+        isaFile += str
+        return isaFile
 
     def get_tree(self, name):
         return self.trees_dict.get(name)
 
-    def gen(self, isaFile, isaFileHeader):
+    def gen(self):
 
-        self.isaFile = isaFile
-        self.isaFileHeader = isaFileHeader
+        isaFile = ""
+        isaFileHeader = ""
 
-        self.dump('#include "iss.hpp"\n')
-        self.dump('\n')
+        isaFile = self.dump(isaFile, '#include "cpu/iss/include/iss.hpp"\n')
 
-        self.isaFileHeader.write('#ifndef __GV_ISA_%s__HPP_\n' % self.name)
-        self.isaFileHeader.write('#define __GV_ISA_%s__HPP_\n' % self.name)
+        isaFile = self.dump(isaFile, '\n')
 
-        self.isaFileHeader.write('#endif\n')
-        
+        isaFileHeader += '#ifndef __GV_ISA_%s__HPP_\n' % self.name
+        isaFileHeader += '#define __GV_ISA_%s__HPP_\n' % self.name
 
-        self.dump('static iss_resource_t __iss_resources[]\n')
-        self.dump('{\n')
+        isaFileHeader += '#endif\n'
+
+        isaFile = self.dump(isaFile, 'static iss_resource_t __iss_resources[]\n')
+        isaFile = self.dump(isaFile, '{\n')
         for resource in self.resources:
-            self.dump('  {"%s", %d},\n' % (resource.name, resource.instances))
-        self.dump('};\n')
-        self.dump('\n')
+            isaFile = self.dump(isaFile, '  {"%s", %d},\n' % (resource.name, resource.instances))
+        isaFile = self.dump(isaFile, '};\n')
+        isaFile = self.dump(isaFile, '\n')
 
         for tree in self.trees:
-            tree.dumpTree(self, isaFile)
+            isaFile = tree.dumpTree(self, isaFile)
 
         for isa_tag in insn_isa_tags.keys():
-            self.dump('static iss_decoder_item_t *__iss_isa_tag_%s[] = {\n' % isa_tag)
+            isaFile = self.dump(isaFile, 'static iss_decoder_item_t *__iss_isa_tag_%s[] = {\n' % isa_tag)
             insn_list = []
             for insn in insn_isa_tags.get(isa_tag):
                 insn_list.append('&' + insn.get_full_name())
             insn_list.append('NULL')
-            self.dump('  %s\n' % ', '.join(insn_list))
-            self.dump('};\n')
-            self.dump('\n')
+            isaFile = self.dump(isaFile, '  %s\n' % ', '.join(insn_list))
+            isaFile = self.dump(isaFile, '};\n')
+            isaFile = self.dump(isaFile, '\n')
 
-        self.dump('iss_isa_tag_t __iss_isa_tags[] = {\n')
+        isaFile = self.dump(isaFile, 'iss_isa_tag_t __iss_isa_tags[] = {\n')
         for isa_tag in insn_isa_tags.keys():
-            self.dump('  {(char *)"%s", __iss_isa_tag_%s},\n' % (isa_tag, isa_tag))
-        self.dump('  {(char *)NULL, NULL}\n')
-        self.dump('};\n')
-        self.dump('\n')
+            isaFile = self.dump(isaFile, '  {(char *)"%s", __iss_isa_tag_%s},\n' % (isa_tag, isa_tag))
+        isaFile = self.dump(isaFile, '  {(char *)NULL, NULL}\n')
+        isaFile = self.dump(isaFile, '};\n')
+        isaFile = self.dump(isaFile, '\n')
 
 
-        self.dump('static iss_isa_t __iss_isa_list[] = {\n')
+        isaFile = self.dump(isaFile, 'static iss_isa_t __iss_isa_list[] = {\n')
         for tree in self.trees:
-            tree.dump_ref(self, isaFile)
-        self.dump('};\n')
-        self.dump('\n')
+            isaFile = tree.dump_ref(self, isaFile)
+        isaFile = self.dump(isaFile, '};\n')
+        isaFile = self.dump(isaFile, '\n')
 
-        self.dump('iss_isa_set_t __iss_isa_set = {\n')
-        self.dump('  .nb_isa=sizeof(__iss_isa_list)/sizeof(iss_isa_t),\n')
-        self.dump('  .isa_set=__iss_isa_list,\n')
-        self.dump('  .nb_resources=%d,\n' % len(self.resources))
-        self.dump('  .resources=__iss_resources,\n')
-        self.dump('};\n')
+        isaFile = self.dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
+        isaFile = self.dump(isaFile, '  .nb_isa=sizeof(__iss_isa_list)/sizeof(iss_isa_t),\n')
+        isaFile = self.dump(isaFile, '  .isa_set=__iss_isa_list,\n')
+        isaFile = self.dump(isaFile, '  .nb_resources=%d,\n' % len(self.resources))
+        isaFile = self.dump(isaFile, '  .resources=__iss_resources,\n')
+        isaFile = self.dump(isaFile, '};\n')
 
+        return isaFile, isaFileHeader
 
-
-        return
-
-        self.isaFileHeader.write('\n')
-        self.isaFileHeader.write('extern char *instrNames[];\n')
-        self.isaFileHeader.write('\n')
-
-        self.isaFileHeader.write('#define GV_ISA_NB_INSTR %d\n' % (len(instrLabels)))
-        self.isaFileHeader.write('\n')
-        for id in range(0, len(instrLabelsList)):
-            label = instrLabelsList[id]
-            self.isaFileHeader.write('#define GV_ISA_%s %d\n' % (label.replace('.', '_').upper(), id))
-
-        self.isaFileHeader.write('\n')
-        self.isaFileHeader.write('typedef enum {\n')
-        for option in self.options:
-            self.isaFileHeader.write('  %s,\n' % (option.replace('-', '_')))
-        self.isaFileHeader.write('\n')
-
-        for key, value in self.optionsDict.items():
-            self.isaFileHeader.write('  %s,\n' % (value[1].replace('-', '_')))
-
-        self.isaFileHeader.write('  CPU_NB_OPTIONS,\n')
-        self.isaFileHeader.write('\n')
-        self.isaFileHeader.write('} cpuOptions_e;\n')
-        self.isaFileHeader.write('\n')
-
-
-        self.dump('#ifndef __SWIG__\n')
-        self.dump('#include "%s/%s.hpp"\n' % (self.name, self.name))
-        self.dump('#endif\n')
-        self.dump('#include "%s"\n' % (isaFileHeader.name))
-        self.dump('\n')
-
-        for subset in self.subsets:
-            if subset.file != None: self.dump('#include "%s/%s.hpp"\n' % (self.name, subset.file))
-        self.dump('\n')
-            
-        self.dump('#ifndef __SWIG__\n')
-        self.dump('#include "lib_exec.hpp"\n')
-        self.dump('#endif\n')
-        self.dump('\n')
-
-        self.dump('char *instrNames[] = {\n')
-        for id in range(0, len(instrLabelsList)):
-            label = instrLabelsList[id]
-            self.dump('  (char *)"%s",\n' % (label))
-        self.dump('};\n')
-        self.dump('\n')
-
-        for table in timingTables:
-            table.gen(isaFile)
-        self.dump('\n')
-
-        self.dump('timingTable_t *timeTables[] = {')
-        for table in timingTables:
-            self.dump('&%s, ' % table.getStructName())
-        self.dump('};\n\n')
-
-        self.dump('isaOption_t isaOptions[] = {\n')
-        for option in self.options:
-            self.dump('  {(char *)"%s", %s}, \n' % (option, option.replace('-', '_')))
-        for key, value in self.optionsDict.items():
-            self.dump('  {(char *)"%s", %s}, \n' % (value[1], value[1].replace('-', '_')))
-        self.dump('  {NULL, 0}\n')
-        self.dump('};\n')
-        self.dump('\n')
-
-        for subset in self.subsets:
-            for instr in subset.instrs:
-                instr.gen(self, isaFile, self.level)
-
-        for subset in self.subsets:
-            subset.dumpTree(self, isaFile)
-
-        self.dump('int processPc(cpu_t *cpu, pc_t *pc)\n{\n')
-        self.level += 1
-
-        for subset in self.subsets:
-            if subset.active != None: self.dump('if (%s && decodePc_%s(cpu, pc) == 0) goto found;\n' % (subset.active.replace('-', '_'), subset.name))
-            else: self.dump('if (decodePc_%s(cpu, pc) == 0) goto found;\n' % (subset.name))
-        self.dump('goto error;\n')
-        self.dump('found:\n')
-        self.dump('return 0;\n')
-        self.dump('error:\n')
-        self.dump('return 1;\n')
-        self.level -= 1
-        self.dump('}\n')
-
-
-        self.dump('pc_t *decodePc(cpu_t *cpu, pc_t *pc)\n{\n')
-        self.level += 1
-        self.dump('sim_fetch_decode(cpu, pc->addr, (unsigned char *)&pc->value);\n');
-
-        for subset in self.subsets:
-            if subset.active != None: self.dump('if (getOption(cpu, %s) && decodePc_%s(cpu, pc) == 0) goto found;\n' % (subset.active.replace('-', '_'), subset.name))
-            else: self.dump('if (decodePc_%s(cpu, pc) == 0) goto found;\n' % (subset.name))
-
-        self.dump('goto error;\n')
-        self.dump('found:\n')
-        self.dump('if (cpu->cache->traceEn)\n')
-        self.dump('{\n')
-        self.dump('pc->trace.saved_exec = pc->handler;\n')
-        self.dump('setHandler(pc, trace_exec);\n')
-        self.dump('}\n')
-        self.dump('else\n')
-        self.dump('{\n')
-        self.dump('pc->trace.saved_exec = NULL;\n')
-        self.dump('}\n')
-        self.dump('\n')
-        self.dump('if (cpu->cache->powerEn)\n')
-        self.dump('{\n')
-        self.dump('pc->trace.power_saved_exec = pc->handler;\n')
-        self.dump('setHandler(pc, power_exec);\n')
-        self.dump('}\n')
-        self.dump('\n')
-        self.dump('if (cpu->cache->statsEn)\n')
-        self.dump('{\n')
-        self.dump('pc->trace.stats_saved_exec = pc->handler;\n')
-        self.dump('setHandler(pc, stats_exec);\n')
-        self.dump('}\n')
-        self.dump('\n')
-        self.dump('return handlePc(cpu, pc);\n')
-        self.dump('\n')
-        self.dump('error:\n')
-        self.dump('triggerException(cpu, pc, EXCEPTION_ILLEGAL_INSTR);\n')
-        self.dump('return pc;\n')
-        self.level -= 1
-        self.dump('}\n')
 
 
 InstrNames = []
@@ -876,14 +779,15 @@ class TimingTable(object):
 
     def gen(self, isaFile):
 
-        isaFile.write('static char *%s_names[] = { ' % (self.getStructName()))
+        isaFile += 'static char *%s_names[] = { ' % (self.getStructName())
         for group in self.groups:
-            isaFile.write('(char *)"%s", ' % group.name)
-        isaFile.write('};\n\n')
+            isaFile += '(char *)"%s", ' % group.name
+        isaFile += '};\n\n'
 
 
-        isaFile.write('static timingTable_t %s = { "%s", "%s", "%s", 0, %d, %s_names, NULL, NULL };\n' % (self.getStructName(), self.name, self.option, self.default, len(self.groups), self.getStructName()))
+        isaFile += 'static timingTable_t %s = { "%s", "%s", "%s", 0, %d, %s_names, NULL, NULL };\n' % (self.getStructName(), self.name, self.option, self.default, len(self.groups), self.getStructName())
 
+        return isaFile
 
 class IsaGroup(object):
     def __init__(self, name, offload=None, timingTable=None):
@@ -1023,6 +927,8 @@ class Instr(object):
         for arg in self.args:
             arg.genExtract(isaFile, level)
 
+        return isaFile
+
     def getStr(self):
         return '%s: %s' % (self.encoding[::-1], self.label)
 
@@ -1033,45 +939,47 @@ class Instr(object):
 
     def dump(self, isaFile, str, level=0):
         for i in range(0, level):
-            isaFile.write('  ')
-        isaFile.write(str)
+            isaFile += '  '
+        isaFile += str
+        return isaFile
 
     def genCall(self, isaFile, level):
-        self.dump(isaFile, '%s(cpu, pc);\n' % (self.decodeFunc), level)
+        return self.dump(isaFile, '%s(cpu, pc);\n' % (self.decodeFunc), level)
 
     def gen(self, isa, isaFile, opcode, others=False):
 
         name = self.get_full_name()
 
-        self.dump(isaFile, 'static iss_decoder_item_t %s = {\n' % (name))
-        self.dump(isaFile, '  .is_insn=true,\n')
-        self.dump(isaFile, '  .is_active=false,\n')
-        self.dump(isaFile, '  .opcode_others=%d,\n' % (1 if others else 0))
-        self.dump(isaFile, '  .opcode=0b%s,\n' % opcode)
-        self.dump(isaFile, '  .u={\n')
-        self.dump(isaFile, '    .insn={\n')
-        self.dump(isaFile, '      .handler=%s,\n' % self.execFunc)
-        self.dump(isaFile, '      .fast_handler=%s,\n' % self.quick_execFunc)
-        self.dump(isaFile, '      .decode=%s,\n' % ('NULL' if self.decode is None else self.decode))
-        self.dump(isaFile, '      .label=(char *)"%s",\n' % (self.getLabel()))
-        self.dump(isaFile, '      .size=%d,\n' % (self.len/8))
-        self.dump(isaFile, '      .nb_args=%d,\n' % (len(self.args)))
-        self.dump(isaFile, '      .latency=%d,\n' % (self.latency))
-        self.dump(isaFile, '      .args= {\n')
+        isaFile = self.dump(isaFile, 'static iss_decoder_item_t %s = {\n' % (name))
+        isaFile = self.dump(isaFile, '  .is_insn=true,\n')
+        isaFile = self.dump(isaFile, '  .is_active=false,\n')
+        isaFile = self.dump(isaFile, '  .opcode_others=%d,\n' % (1 if others else 0))
+        isaFile = self.dump(isaFile, '  .opcode=0b%s,\n' % opcode)
+        isaFile = self.dump(isaFile, '  .u={\n')
+        isaFile = self.dump(isaFile, '    .insn={\n')
+        isaFile = self.dump(isaFile, '      .handler=%s,\n' % self.execFunc)
+        isaFile = self.dump(isaFile, '      .fast_handler=%s,\n' % self.quick_execFunc)
+        isaFile = self.dump(isaFile, '      .decode=%s,\n' % ('NULL' if self.decode is None else self.decode))
+        isaFile = self.dump(isaFile, '      .label=(char *)"%s",\n' % (self.getLabel()))
+        isaFile = self.dump(isaFile, '      .size=%d,\n' % (self.len/8))
+        isaFile = self.dump(isaFile, '      .nb_args=%d,\n' % (len(self.args)))
+        isaFile = self.dump(isaFile, '      .latency=%d,\n' % (self.latency))
+        isaFile = self.dump(isaFile, '      .args= {\n')
         if len(self.args) > 0:
             for arg in self.args:
-                arg.gen(isaFile, indent=8)
-        self.dump(isaFile, '      },\n')
-        self.dump(isaFile, '      .resource_id=%d,\n' % (-1 if self.resource is None else isa.get_resource_index(self.resource)))
-        self.dump(isaFile, '      .resource_latency=%d,\n' % self.resource_latency)
-        self.dump(isaFile, '      .resource_bandwidth=%d,\n' % self.resource_bandwidth)
-        self.dump(isaFile, '      .power_group=%d,\n' % (self.power_group))
-        self.dump(isaFile, '      .is_macro_op=%d,\n' % (self.is_macro_op))
-        self.dump(isaFile, '    }\n')
-        self.dump(isaFile, '  }\n')
-        self.dump(isaFile, '};\n')
-        self.dump(isaFile, '\n')
+                isaFile = arg.gen(isaFile, indent=8)
+        isaFile = self.dump(isaFile, '      },\n')
+        isaFile = self.dump(isaFile, '      .resource_id=%d,\n' % (-1 if self.resource is None else isa.get_resource_index(self.resource)))
+        isaFile = self.dump(isaFile, '      .resource_latency=%d,\n' % self.resource_latency)
+        isaFile = self.dump(isaFile, '      .resource_bandwidth=%d,\n' % self.resource_bandwidth)
+        isaFile = self.dump(isaFile, '      .power_group=%d,\n' % (self.power_group))
+        isaFile = self.dump(isaFile, '      .is_macro_op=%d,\n' % (self.is_macro_op))
+        isaFile = self.dump(isaFile, '    }\n')
+        isaFile = self.dump(isaFile, '  }\n')
+        isaFile = self.dump(isaFile, '};\n')
+        isaFile = self.dump(isaFile, '\n')
 
+        return isaFile
 
     def getOptions(self):
         if self.group != None: return self.group.getOptions()

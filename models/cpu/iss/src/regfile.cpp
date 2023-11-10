@@ -20,7 +20,7 @@
  */
 
 
-#include "regfile.hpp"
+#include "cpu/iss/include/regfile.hpp"
 
 Regfile::Regfile(Iss &iss)
 : iss(iss)

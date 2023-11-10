@@ -19,7 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 #include <string.h>
 
 static void insn_block_init(Iss *iss, iss_insn_block_t *b, iss_addr_t pc);

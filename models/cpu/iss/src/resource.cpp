@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "iss.hpp"
+#include "cpu/iss/include/iss.hpp"
 
 void iss_resource_init(Iss *iss)
 {

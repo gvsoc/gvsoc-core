@@ -23,7 +23,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
-#include <types.hpp>
+#include <cpu/iss/include/types.hpp>
 
 
 

@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "regfile.hpp"
+#include "cpu/iss/include/regfile.hpp"
 
 static iss_reg_t null_reg = 0;
 

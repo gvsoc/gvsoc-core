@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16.3)
 
+set(CMAKE_INSTALL_MESSAGE LAZY)
+
 if (NOT CMAKE_SKIP_INSTALL_RPATH)
 
 # use, i.e. don't skip the full RPATH for the build tree
@@ -65,7 +67,7 @@ endfunction()
 # GVSOC needs to be given a config file containing all the components to be compiled
 
 foreach(subdir ${GVSOC_MODULES})
-    set(GAPY_TARGETS_DIR_OPT ${GAPY_TARGETS_DIR_OPT} --target-dir=${subdir}/models)
+    set(GAPY_TARGETS_DIR_OPT ${GAPY_TARGETS_DIR_OPT} --target-dir=${subdir})
 endforeach()
 
 set(TARGET_CONFIG_DIR ${CMAKE_BINARY_DIR}/gvsoc/configs)
@@ -83,6 +85,7 @@ if(DEFINED GVSOC_TARGETS)
         # Gapy is used to extract the list of components out of the specified target
         set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
             --platform=gvsoc
+            --builddir=${CMAKE_CURRENT_BINARY_DIR}
             --component-file=${TARGET_CONFIG} components
             --py-stack
         )
@@ -155,9 +158,24 @@ foreach(subdir ${GVSOC_MODULES})
     if (NOT ${is_first})
         if(IS_DIRECTORY ${subdir})
             get_filename_component(name ${subdir} NAME)
-            add_subdirectory(${subdir} ${CMAKE_CURRENT_BINARY_DIR}/${name})
+            if(EXISTS ${subdir}/CMakeLists.txt)
+                add_subdirectory(${subdir} ${CMAKE_CURRENT_BINARY_DIR}/${name}/models)
+            endif()
         endif()
     endif()
 
     set(is_first false)
 endforeach()
+
+if(NOT CONFIG_COMPONENTS STREQUAL "")
+
+    string(REPLACE " " ";" CONFIG_COMPONENTS ${CONFIG_COMPONENTS})
+
+    foreach(component ${CONFIG_COMPONENTS})
+        string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
+        vp_model(NAME ${component} 
+            SOURCES "${SRCS_LIST}"
+        )
+    endforeach()
+
+endif()

@@ -17,8 +17,9 @@
 import gsystree as st
 import os.path
 import gv.gui
+import cpu.iss.isa_gen.isa_riscv_gen
 
-class Iss(st.Component):
+class RiscvCommon(st.Component):
     """
     Riscv instruction set simulator
 
@@ -81,14 +82,41 @@ class Iss(st.Component):
             user=False,
             internal_atomics=False,
             timed=True,
-            scoreboard=False):
+            scoreboard=False,
+            cflags=None):
 
-        super(Iss, self).__init__(parent, name)
+        super().__init__(parent, name)
+
+        self.isa = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa)
+
+        self.add_sources([
+            "pulp/cpu/iss/default_iss_wrapper.cpp"
+        ])
+
+        self.add_sources([
+            "cpu/iss/src/prefetch/prefetch_single_line.cpp",
+            "cpu/iss/src/csr.cpp",
+            "cpu/iss/src/exec/exec_inorder.cpp",
+            "cpu/iss/src/decode.cpp",
+            "cpu/iss/src/lsu.cpp",
+            "cpu/iss/src/timing.cpp",
+            "cpu/iss/src/insn_cache.cpp",
+            "cpu/iss/src/iss.cpp",
+            "cpu/iss/src/core.cpp",
+            "cpu/iss/src/exception.cpp",
+            "cpu/iss/src/regfile.cpp",
+            "cpu/iss/src/resource.cpp",
+            "cpu/iss/src/trace.cpp",
+            "cpu/iss/src/syscalls.cpp",
+            "cpu/iss/src/mmu.cpp",
+            "cpu/iss/src/pmp.cpp",
+            "cpu/iss/src/gdbserver.cpp",
+            "cpu/iss/src/dbg_unit.cpp",
+            "cpu/iss/flexfloat/flexfloat.c",
+        ])
 
         if power_models_file is not None:
             power_models = self.load_property_file(power_models_file)
-
-        self.set_component(vp_component)
 
         self.add_properties({
             'isa': isa,
@@ -105,8 +133,22 @@ class Iss(st.Component):
             'boot_addr': boot_addr,
         })
 
+        if cflags is not None:
+            self.add_c_flags(cflags)
+
+        self.add_c_flags([
+            "-DRISCV=1",
+            "-DRISCY",
+            "-fno-strict-aliasing",
+        ])
+
+        self.add_c_flags([f"-DISS_WORD_{self.isa.word_size}"])
+
         if core == 'ri5ky':
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_RI5KY=1'])
+
+        elif core == 'snitch':
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SNITCH=1'])
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
@@ -129,7 +171,10 @@ class Iss(st.Component):
                 '-DCONFIG_GVSOC_ISS_PMP_NB_ENTRIES=16'])
 
         if riscv_exceptions:
+            self.add_sources(["cpu/iss/src/irq/irq_riscv.cpp"])
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_RISCV_EXCEPTIONS=1'])
+        else:
+            self.add_sources(["cpu/iss/src/irq/irq_external.cpp"])
 
 
     def gen_gtkw(self, tree, comp_traces):
@@ -225,10 +270,12 @@ class Iss(st.Component):
 
         return active
 
+    def gen(self, builddir):
+        self.isa.gen(self, builddir)
 
 
 
-class Rv64(Iss):
+class Riscv(RiscvCommon):
 
     def __init__(self,
             parent,
@@ -240,8 +287,38 @@ class Rv64(Iss):
             fetch_enable: bool=False,
             boot_addr: int=0):
 
+        cflags = [
+            "-DPIPELINE_STAGES=2",
+            "-DCONFIG_ISS_CORE=riscv",
+        ]
+
         super().__init__(parent, name, vp_component=vp_component, isa=isa, misa=misa,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True)
+            supervisor=True, user=True, cflags=cflags)
 
+
+
+class Snitch(RiscvCommon):
+
+    def __init__(self,
+            parent,
+            name,
+            vp_component: str,
+            isa: str='rv32imafdc',
+            misa: int=0,
+            binaries: list=[],
+            fetch_enable: bool=False,
+            boot_addr: int=0):
+
+        cflags = [
+            "-DPIPELINE_STAGES=1",
+            "-DCONFIG_ISS_CORE=snitch",
+        ]
+
+        super().__init__(parent, name, vp_component=vp_component, isa=isa, misa=misa,
+            cflags=cflags)
+
+        self.add_sources([
+            "cpu/iss/src/spatz.cpp",
+        ])

@@ -22,55 +22,29 @@
 #ifndef __CPU_ISS_ISS_HPP
 #define __CPU_ISS_ISS_HPP
 
-#include "types.hpp"
+#include "cpu/iss/include/types.hpp"
 #include ISS_CORE_INC(class.hpp)
-#include "iss_core.hpp"
+#include "cpu/iss/include/iss_core.hpp"
 
-#include <lsu_implem.hpp>
+#include <cpu/iss/include/lsu_implem.hpp>
 
-#include "perf_event.hpp"
-#include <csr.hpp>
-#include <dbgunit.hpp>
-#include <syscalls.hpp>
-#include "timing.hpp"
-#include "rv64i.hpp"
-#include "rv32i.hpp"
-#ifdef CONFIG_RV32V
-#include "rv32v.hpp"
-#endif
-#include "rv32c.hpp"
-#include "zcmp.hpp"
-#include "rv32a.hpp"
-#include "rv64c.hpp"
-#include "rv32m.hpp"
-#include "rv64m.hpp"
-#include "rv64a.hpp"
-#include "rvf.hpp"
-#include "rvd.hpp"
-#include "rvXf16.hpp"
-#include "rvXf16alt.hpp"
-#include "rvXf8.hpp"
-#include "rv32Xfvec.hpp"
-#include "rv32Xfaux.hpp"
-#include "priv.hpp"
-#include "pulp_v2.hpp"
-#include "rvXgap9.hpp"
-#include "rvXint64.hpp"
-#include "rnnext.hpp"
-#include "pulp_nn.hpp"
-#include "corev.hpp"
+#include "cpu/iss/include/perf_event.hpp"
+#include <cpu/iss/include/csr.hpp>
+#include <cpu/iss/include/dbgunit.hpp>
+#include <cpu/iss/include/syscalls.hpp>
+#include "cpu/iss/include/timing.hpp"
 
 
-#include <regfile_implem.hpp>
-#include <timing_implem.hpp>
+#include <cpu/iss/include/regfile_implem.hpp>
+#include <cpu/iss/include/timing_implem.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-#include <irq/irq_riscv_implem.hpp>
+#include <cpu/iss/include/irq/irq_riscv_implem.hpp>
 #else
-#include <irq/irq_external_implem.hpp>
+#include <cpu/iss/include/irq/irq_external_implem.hpp>
 #endif
-#include <mmu_implem.hpp>
-#include <exec/exec_inorder_implem.hpp>
-#include <prefetch/prefetch_single_line_implem.hpp>
+#include <cpu/iss/include/mmu_implem.hpp>
+#include <cpu/iss/include/exec/exec_inorder_implem.hpp>
+#include <cpu/iss/include/prefetch/prefetch_single_line_implem.hpp>
 
 
 #endif

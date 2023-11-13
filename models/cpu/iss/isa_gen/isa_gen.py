@@ -938,7 +938,7 @@ class Instr(object):
 
         self.dump(isaFile, 'static iss_decoder_item_t %s = {\n' % (name))
         self.dump(isaFile, '  .is_insn=true,\n')
-        self.dump(isaFile, '  .is_active=true,\n')
+        self.dump(isaFile, '  .is_active=false,\n')
         self.dump(isaFile, '  .opcode_others=%d,\n' % (1 if others else 0))
         self.dump(isaFile, '  .opcode=0b%s,\n' % opcode)
         self.dump(isaFile, '  .u={\n')

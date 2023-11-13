@@ -344,7 +344,7 @@ class Spatz(RiscvCommon):
 
         isa_instance.add_tree(IsaDecodeTree('rv32v', [Rv32v()]))
 
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="spatz", scoreboard=True)
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch")
 
         self.add_c_flags([
             "-DPIPELINE_STAGES=1",

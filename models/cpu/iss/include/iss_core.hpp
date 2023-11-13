@@ -39,7 +39,6 @@ iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name);
 void iss_register_debug_info(Iss *iss, const char *binary);
 
 iss_reg_t iss_decode_pc_handler(Iss *cpu, iss_insn_t *insn, iss_reg_t pc);
-void iss_decode_activate_isa(Iss *cpu, char *isa);
 
 bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value);
 const char *iss_csr_name(Iss *iss, iss_reg_t reg);

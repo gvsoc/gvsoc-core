@@ -22,6 +22,7 @@
 #include "cpu/iss/include/iss.hpp"
 #include <string.h>
 
+
 int IssWrapper::build()
 {
     this->iss.syscalls.build();
@@ -40,6 +41,7 @@ int IssWrapper::build()
     this->iss.exception.build();
     this->iss.prefetcher.build();
 
+
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.build();
 #endif
@@ -53,7 +55,6 @@ int IssWrapper::build()
 
 void IssWrapper::start()
 {
-
     vp_assert_always(this->iss.lsu.data.is_bound(), this->get_trace(), "Data master port is not connected\n");
     vp_assert_always(this->iss.prefetcher.fetch_itf.is_bound(), this->get_trace(), "Fetch master port is not connected\n");
     // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
@@ -66,6 +67,8 @@ void IssWrapper::start()
 
     this->iss.gdbserver.start();
 }
+
+
 
 void IssWrapper::reset(bool active)
 {

@@ -86,6 +86,7 @@ if(DEFINED GVSOC_TARGETS)
         set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
             --platform=gvsoc
             --builddir=${CMAKE_CURRENT_BINARY_DIR}
+            --installdir=${CMAKE_INSTALL_PREFIX}/models
             --component-file=${TARGET_CONFIG} components
             --py-stack
         )
@@ -158,6 +159,7 @@ foreach(subdir ${GVSOC_MODULES})
     if (NOT ${is_first})
         if(IS_DIRECTORY ${subdir})
             get_filename_component(name ${subdir} NAME)
+            message(STATUS ${subdir})
             if(EXISTS ${subdir}/CMakeLists.txt)
                 add_subdirectory(${subdir} ${CMAKE_CURRENT_BINARY_DIR}/${name}/models)
             endif()

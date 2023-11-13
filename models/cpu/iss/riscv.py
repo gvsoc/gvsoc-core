@@ -60,8 +60,8 @@ class RiscvCommon(st.Component):
     def __init__(self,
             parent,
             name,
-            vp_component: str,
-            isa: str='rv32imfc',
+            isa,
+            vp_component: str=None,
             misa: int=0,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
@@ -83,14 +83,19 @@ class RiscvCommon(st.Component):
             internal_atomics=False,
             timed=True,
             scoreboard=False,
-            cflags=None):
+            cflags=None,
+            wrapper="pulp/cpu/iss/default_iss_wrapper.cpp"):
 
         super().__init__(parent, name)
 
-        self.isa = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa)
+        self.isa = isa
 
         self.add_sources([
-            "pulp/cpu/iss/default_iss_wrapper.cpp"
+            isa.get_source()
+        ])
+
+        self.add_sources([
+            wrapper
         ])
 
         self.add_sources([
@@ -119,7 +124,7 @@ class RiscvCommon(st.Component):
             power_models = self.load_property_file(power_models_file)
 
         self.add_properties({
-            'isa': isa,
+            'isa': isa.isa_string,
             'misa': misa,
             'first_external_pcer': first_external_pcer,
             'riscv_dbg_unit': riscv_dbg_unit,
@@ -175,6 +180,7 @@ class RiscvCommon(st.Component):
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_RISCV_EXCEPTIONS=1'])
         else:
             self.add_sources(["cpu/iss/src/irq/irq_external.cpp"])
+
 
 
     def gen_gtkw(self, tree, comp_traces):
@@ -270,8 +276,8 @@ class RiscvCommon(st.Component):
 
         return active
 
-    def gen(self, builddir):
-        self.isa.gen(self, builddir)
+    def gen(self, builddir, installdir):
+        self.isa.gen(self, builddir, installdir)
 
 
 
@@ -295,7 +301,7 @@ class Riscv(RiscvCommon):
         super().__init__(parent, name, vp_component=vp_component, isa=isa, misa=misa,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True, cflags=cflags)
+            supervisor=True, user=True)
 
 
 

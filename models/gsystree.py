@@ -39,6 +39,7 @@ class GeneratedComponent(object):
         self.config_name = name
         self.name = f'gen_{comp_name}'
         self.comp_name = comp_name
+        self.full_name = name
 
 
 
@@ -61,7 +62,7 @@ def get_generated_component(sources, cflags):
 
         # Check if this collides
         generated_component = generated_components.get(comp_name)
-        if generated_component is None or generated_component.name == name:
+        if generated_component is None or generated_component.full_name == name:
             break
 
         name_hash += 1
@@ -691,10 +692,6 @@ class Component(object):
         return list(self.ports.values())
 
     def __build(self):
-        if self.component is None and len(self.sources) != 0:
-            self.generated_component = get_generated_component(self.sources, self.c_flags)
-            self.add_property('vp_component', self.generated_component.name)
-
 
         for interface in self.interfaces:
             self.bindings.append([interface.comp, interface.name, interface.remote_itf.comp,
@@ -710,6 +707,10 @@ class Component(object):
                 master_port.bind(slave_port, master_properties=binding[4], slave_properties=binding[5])
 
         self.build_done = True
+
+        if self.component is None and len(self.sources) != 0:
+            self.generated_component = get_generated_component(self.sources, self.c_flags)
+            self.add_property('vp_component', self.generated_component.name)
 
     def finalize(self):
         pass
@@ -849,10 +850,11 @@ class Component(object):
 
         return self.parent.get_target_property(name)
 
-    def gen_all(self, builddir):
-        self.gen(builddir)
+    def gen_all(self, builddir, installdir):
+        self.gen(builddir, installdir)
         for child in self.components.values():
-            child.gen_all(builddir)
+            child.gen_all(builddir, installdir)
 
-    def gen(self, builddir):
+
+    def gen(self, builddir, installdir):
         pass

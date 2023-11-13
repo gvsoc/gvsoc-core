@@ -692,6 +692,13 @@ class R5(Instr):
                             #UnsignedImm(0, Range(25, 0)),
                             UnsignedImm(0, Range(25, 1)),
                         ]            
+        elif format == 'OPVFF':
+            self.args = [   OutFReg    (0, Range(7 , 5)),
+                            InFReg     (0, Range(15, 5)),#rs1/vs1
+                            InReg      (1, Range(20, 5)),#vs2
+                            #UnsignedImm(0, Range(25, 0)),
+                            UnsignedImm(0, Range(25, 1)),
+                        ]                        
         elif format == 'OPIVI':
             self.args = [   OutReg     (0, Range(7 , 5)),
                             SignedImm  (0, Range(15, 5)),
@@ -795,10 +802,13 @@ class Rv32v(IsaSubset):
             R5('vmv.v.v'       ,   'OPV'  ,    '010111 - ----- ----- 000 ----- 1010111'),
             R5('vmv.v.i'       ,   'OPIVI',    '010111 - ----- ----- 011 ----- 1010111'),
             R5('vmv.v.x'       ,   'OPV'  ,    '010111 - ----- ----- 100 ----- 1010111'),
+            R5('vmv.s.x'       ,   'OPV'  ,    '010000 - 00000 ----- 110 ----- 1010111'),
+            R5('vmv.x.s'       ,   'OPV'  ,    '010000 - ----- 00000 010 ----- 1010111'),
+
 
             R5('vwmul.vv'      ,   'OPV'  ,    '111011 - ----- ----- 010 ----- 1010111'),#inst[25] = VM , VM = 0 mask enable
             R5('vwmul.vx'      ,   'OPV'  ,    '111011 - ----- ----- 110 ----- 1010111'),
-
+    
             R5('vwmulu.vv'     ,   'OPV'  ,    '111000 - ----- ----- 010 ----- 1010111'),#inst[25] = VM , VM = 0 mask enable
             R5('vwmulu.vx'     ,   'OPV'  ,    '111000 - ----- ----- 110 ----- 1010111'),
 
@@ -973,6 +983,8 @@ class Rv32v(IsaSubset):
 
             
             R5('vfmv.v.f'         ,   'OPVF' ,    '010111 - ----- ----- 101 ----- 1010111'),
+            R5('vfmv.s.f'         ,   'OPVF' ,    '010000 - 00000 ----- 101 ----- 1010111'),
+            R5('vfmv.f.s'         ,   'OPVFF',    '010000 - ----- 00000 001 ----- 1010111'),
 
             R5('vle8.v'           ,   'OPV'  ,    '000 0 00 - 00000 ----- 000 ----- 0000111'),# vd, (rs1), vm
             R5('vle16.v'          ,   'OPV'  ,    '000 0 00 - 00000 ----- 101 ----- 0000111'),
@@ -1063,7 +1075,6 @@ class Rv32v(IsaSubset):
             R5('vsetvl'  ,   'OPVL' ,    '1000000 ----- ----- 111 ----- 1010111'),
 
             #R5('csrr', 'IU',  '------- ----- 00000 010 ----- 1110011', decode='csr_decode'),
-
 
 
         ])

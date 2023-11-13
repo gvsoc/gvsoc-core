@@ -108,18 +108,19 @@ inline Iss::Iss(vp::component &top)
 
 #include "cpu/iss/include/rv64i.hpp"
 #include "cpu/iss/include/rv32i.hpp"
-#ifdef CONFIG_RV32V
-#include "rv32v.hpp"
-#endif
+#include "cpu/iss/include/rv32v.hpp"
 #include "cpu/iss/include/rv32c.hpp"
 #include "cpu/iss/include/zcmp.hpp"
 #include "cpu/iss/include/rv32a.hpp"
+
+#if ISS_REG_WIDTH == 64
 #include "cpu/iss/include/rv64c.hpp"
+#endif
 #include "cpu/iss/include/rv32m.hpp"
 #include "cpu/iss/include/rv64m.hpp"
 #include "cpu/iss/include/rv64a.hpp"
-#include "cpu/iss/include/rvf.hpp"
 #include "cpu/iss/include/rvd.hpp"
+#include "cpu/iss/include/rvf.hpp"
 #include "cpu/iss/include/rvXf16.hpp"
 #include "cpu/iss/include/rvXf16alt.hpp"
 #include "cpu/iss/include/rvXf8.hpp"

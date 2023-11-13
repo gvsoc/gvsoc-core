@@ -36,7 +36,14 @@ static inline iss_uim_t iss_get_signed_value(iss_uim_t val, int bits)
 
 static inline iss_freg_t iss_get_float_value(iss_freg_t val, int bits)
 {
-    return ((iss_freg_t)-1 << bits) | val;
+    if (sizeof(iss_freg_t) * 8 <= bits)
+    {
+        return val;
+    }
+    else
+    {
+        return ((iss_freg_t)-1 << bits) | val;
+    }
 }
 
 static inline iss_uim_t iss_get_unboxed_value(iss_uim_t val, int bits)

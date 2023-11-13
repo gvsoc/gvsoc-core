@@ -74,13 +74,18 @@ public:
 
     Spatz spatz;
 
-    iss_pulp_nn_t pulp_nn;
-    iss_rnnext_t rnnext;
-    
-    
 
 
     vp::component &top;
+
+private:
+    bool barrier_update(bool is_write, iss_reg_t &value);
+    static void barrier_sync(void *__this, bool value);
+
+    vp::wire_master<bool> barrier_req_itf;
+    vp::wire_slave<bool> barrier_ack_itf;
+    CsrReg barrier;
+    bool waiting_barrier;
 };
 
 
@@ -97,13 +102,6 @@ public:
 
     Iss iss;
 };
-
-inline Iss::Iss(vp::component &top)
-    : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
-{
-}
 
 
 #include "cpu/iss/include/rv64i.hpp"
@@ -127,9 +125,3 @@ inline Iss::Iss(vp::component &top)
 #include "cpu/iss/include/rv32Xfvec.hpp"
 #include "cpu/iss/include/rv32Xfaux.hpp"
 #include "cpu/iss/include/priv.hpp"
-#include "cpu/iss/include/pulp_v2.hpp"
-#include "cpu/iss/include/rvXgap9.hpp"
-#include "cpu/iss/include/rvXint64.hpp"
-#include "cpu/iss/include/rnnext.hpp"
-#include "cpu/iss/include/pulp_nn.hpp"
-#include "cpu/iss/include/corev.hpp"

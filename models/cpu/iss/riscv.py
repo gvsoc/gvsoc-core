@@ -325,6 +325,10 @@ class Snitch(RiscvCommon):
             "-DCONFIG_ISS_CORE=snitch",
         ])
 
+        self.add_sources([
+            "cpu/iss/src/snitch/snitch.cpp",
+            "cpu/iss/src/spatz.cpp",
+        ])
 
 
 class Spatz(RiscvCommon):

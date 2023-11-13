@@ -546,12 +546,16 @@ void Decode::parse_isa()
                 }
                 else if (strcmp(token, "corev") == 0)
                 {
+#ifdef CONFIG_GVSOC_ISS_RI5KY
                     iss_isa_corev_activate(iss);
+#endif
                 }
                 else if (strcmp(token, "gap8") == 0)
                 {
+#ifdef CONFIG_GVSOC_ISS_RI5KY
                     iss_isa_pulpv2_activate(iss);
                     iss_decode_activate_isa(iss, (char *)"pulpv2");
+#endif
                 }
                 else if (strcmp(token, "f16") == 0)
                 {

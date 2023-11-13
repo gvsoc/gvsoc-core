@@ -81,6 +81,7 @@ inline void Regfile::set_freg(int reg, iss_freg_t value)
     if (reg != 0)
         this->fregs[reg] = value;
 #else
+    this->fregs[reg] = value;
 #endif
 }
 

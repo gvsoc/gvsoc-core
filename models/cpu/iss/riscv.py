@@ -25,8 +25,6 @@ class RiscvCommon(st.Component):
 
     Attributes
     ----------
-    vp_component : str
-        The path to the GVSOC model
     isa : str, optional
         A string describing the list of ISA groups that the ISS should simulate (default: "rv32imfc").
     misa : int, optional
@@ -61,7 +59,6 @@ class RiscvCommon(st.Component):
             parent,
             name,
             isa,
-            vp_component: str=None,
             misa: int=0,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
@@ -77,7 +74,7 @@ class RiscvCommon(st.Component):
             mmu: bool=False,
             pmp: bool=False,
             riscv_exceptions: bool=False,
-            core=None,
+            core='riscv',
             supervisor=False,
             user=False,
             internal_atomics=False,
@@ -286,22 +283,23 @@ class Riscv(RiscvCommon):
     def __init__(self,
             parent,
             name,
-            vp_component: str,
             isa: str='rv64imafdc',
             misa: int=0,
             binaries: list=[],
             fetch_enable: bool=False,
             boot_addr: int=0):
 
-        cflags = [
-            "-DPIPELINE_STAGES=2",
-            "-DCONFIG_ISS_CORE=riscv",
-        ]
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
 
-        super().__init__(parent, name, vp_component=vp_component, isa=isa, misa=misa,
+        super().__init__(parent, name, isa=isa_instance, misa=misa,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True)
+            supervisor=True, user=True, timed=False)
+
+        self.add_c_flags([
+            "-DPIPELINE_STAGES=2",
+            "-DCONFIG_ISS_CORE=riscv",
+        ])
 
 
 
@@ -310,20 +308,19 @@ class Snitch(RiscvCommon):
     def __init__(self,
             parent,
             name,
-            vp_component: str,
             isa: str='rv32imafdc',
             misa: int=0,
             binaries: list=[],
             fetch_enable: bool=False,
             boot_addr: int=0):
 
-        cflags = [
+        super().__init__(parent, name, isa=isa, misa=misa,
+            cflags=cflags)
+
+        self.add_c_flags([
             "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch",
-        ]
-
-        super().__init__(parent, name, vp_component=vp_component, isa=isa, misa=misa,
-            cflags=cflags)
+        ])
 
         self.add_sources([
             "cpu/iss/src/spatz.cpp",

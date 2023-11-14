@@ -553,7 +553,9 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                             this->ws_count = this->config.word_size * this->config.nb_slots;
                         }
 
-                        this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay;
+                        // Delay a bit the WS so that it does not raise at the same time as the clock
+                        this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay + 100;
+
                         if (!this->is_enqueued || this->ws_gen_timestamp < this->next_event_time)
                         {
                             if (this->is_enqueued)
@@ -1380,6 +1382,7 @@ int64_t I2s_verif::exec()
 
             this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
             this->clk_gen_timestamp = this->get_time() + this->clk_period;
+            this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
         }
 
     }

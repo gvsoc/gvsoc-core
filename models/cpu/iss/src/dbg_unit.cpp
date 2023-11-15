@@ -32,7 +32,7 @@ void DbgUnit::build()
     iss.top.traces.new_trace("dbgunit", &this->trace, vp::DEBUG);
 
     halt_itf.set_sync_meth(&DbgUnit::halt_sync);
-    this->iss.top.new_slave_port(this, "halt", &halt_itf);
+    this->iss.top.new_slave_port("halt", &halt_itf, (vp::Block *)this);
 
     this->iss.top.new_master_port("halt_status", &halt_status_itf);
 

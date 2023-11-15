@@ -15,122 +15,184 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_CLOCK_ENGINE_HPP__
-#define __VP_CLOCK_ENGINE_HPP__
+#pragma once
 
 #include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 #include "vp/time/time_engine.hpp"
+#include <vp/itf/clk.hpp>
+#include <vp/itf/implem/clock_class.hpp>
 
-namespace vp {
+namespace vp
+{
 
-  class clock_event;
-  class component;
+    class ClockEvent;
+    class Component;
 
-  class clock_engine : public time_engine_client
-  {
-
-  public:
-
-    clock_engine(js::config *config);
-
-    void cancel(clock_event *event);
-
-    void reenqueue_to_engine();
-
-    bool dequeue_from_engine();
-
-    void apply_frequency(int frequency);
-    
-    clock_event *reenqueue(clock_event *event, int64_t cycles);
-
-    clock_event *reenqueue_ext(clock_event *event, int64_t cycles);
-
-    clock_event *enable(clock_event *event);
-
-    void disable(clock_event *event);
-
-    clock_event *enqueue(clock_event *event, int64_t cycles);
-
-    inline clock_event *enqueue_ext(clock_event *event, int64_t cycles)
+    /**
+     * @brief Clock engine
+     *
+     * This class is instantiated once for each clock domain.
+     * It is in charge to managing the cycles inside the clock domain.
+     * This mostly consists of executing functions at specific cycles.
+     */
+    class ClockEngine : public vp::Component
     {
-      this->sync();
-      return this->enqueue(event, cycles);
-    }
+        friend class vp::Block;
+        friend class vp::BlockClock;
+        friend class vp::ClockEvent;
 
-    clock_event *event_new(component_clock *comp, clock_event_meth_t *meth)
-    {
-      clock_event *event = new clock_event(comp, meth);
-      return event;
-    }
+    public:
+        /**
+         * @brief Construct a new clock engine
+         *
+         * The clock engine is a component which must be instantiated only from Python
+         * generators, as it needs to be connected to the components of the clock domain
+         * though component bindings.
+         *
+         * @param config The component config coming from Python generator.
+         */
+        ClockEngine(vp::ComponentConf &config);
 
-    clock_event *event_new(component_clock *comp, void *_this, clock_event_meth_t *meth)
-    {
-      clock_event *event = new clock_event(comp, _this, meth);
-      return event;
-    }
+        /**
+         * @brief Get current cycles
+         *
+         * This returns the current absolute number of cycles of this clock engine.
+         *
+         * @note Cycles are set to 0 at each reset.
+         */
+        inline int64_t get_cycles() { return cycles; }
 
-    vp::clock_event *get_next_event();
+        /**
+         * @brief Get cycle period
+         *
+         * This returns the duration in picoseconds of one cycle.
+         *
+         * @note The period should not be stored and instead should be queried at each cycle if
+         * need, as it can vary at each cycle due to the frequency which can be changed at each
+         * cycle.
+         */
+        int64_t get_period() { return period; }
 
-    void event_del(component_clock *comp, clock_event *event)
-    {
-      delete event;
-    }
+        /**
+         * @brief Get clock engine frequency
+         *
+         * This returns the frequency in Hz.
+         *
+         * @note The frequency should not be stored and instead should be queried at each cycle if
+         * need, as it can be changed at each cycle.
+         */
+        int64_t get_frequency() { return freq; }
 
-    int64_t exec();
+        /**
+         * @brief Synchronize the engine
+         *
+         * Since the engine is synchronizing its cycle count only when it has a clock event to,
+         * execute, it has to be explicitely synchronized in some cases bby calling this method.
+         * This must be called everytime a function call is crossing 2 different clock domains.
+         * This can happen for example when a component from a clock domain is calling another
+         * component from another clock domain. This case is automatically handled by the
+         * interface wrappers.
+         * This can also happen in case a component is having an access directly through a
+         * class instead of a binding, like for example in components having 2 clock domains. In
+         * this case it is important to call this method before anything of the target component
+         * is used.
+         */
+        inline void sync();
 
-    inline void sync();
+        /**
+         * @brief DEPRECATED
+        */
+        void cancel(ClockEvent *event);
 
-    void update();
+        /**
+         * @brief DEPRECATED
+        */
+        ClockEvent *reenqueue(ClockEvent *event, int64_t cycles);
 
-    void set_time_engine(vp::time_engine *engine) { this->engine = engine; }
+        /**
+         * @brief DEPRECATED
+        */
+        ClockEvent *enqueue(ClockEvent *event, int64_t cycles);
 
-    vp::time_engine *get_engine() { return engine; }
+        /**
+         * @brief DEPRECATED
+        */
+        inline ClockEvent *enqueue_ext(ClockEvent *event, int64_t cycles)
+        {
+            this->sync();
+            return this->enqueue(event, cycles);
+        }
 
-    inline int64_t get_cycles() { return cycles; }
 
-    inline void stop_engine(int status) { engine->quit(status);}
+    private:
+        void update();
 
-    int64_t get_period() { return period; }
+        vp::ClockEvent *get_next_event();
 
-    int64_t get_frequency() { return freq; }
+        void event_del(Block *comp, ClockEvent *event)
+        {
+            delete event;
+        }
 
-    bool has_events() { return this->nb_enqueued_to_cycle || this->delayed_queue || this->permanent_first; }
+        void disable(ClockEvent *event);
 
-  protected:
+        void apply_frequency(int frequency);
 
-    clock_event *event_queue[CLOCK_EVENT_QUEUE_SIZE];
-    clock_event *delayed_queue = NULL;
-    clock_event *permanent_first = NULL;
-    int current_cycle = 0;
-    int64_t period = 0;
-    int64_t freq;
+        ClockEvent *reenqueue_ext(ClockEvent *event, int64_t cycles);
 
-    // Gives the current cycle count of this engine.
-    // It is always usable, whatever the state of the engine.
-    // It is updated either when events are executed or when the 
-    // engine is updated by an external interaction.
-    int64_t cycles = 0;
+        ClockEvent *enable(ClockEvent *event);
 
-    // Tells how many events are enqueued to the circular buffer.
-    // If it is zero, there could still be some events in the delayed queue.
-    int nb_enqueued_to_cycle = 0;
+        void reenqueue_to_engine();
 
-    // This time is relevant only when no event is enqueued into the circular
-    // buffer of event so that the number of cycles can be resynchronized when
-    // something happen (an event is pushed or the frequency is changed).
-    // This is set when control is given back to the time engine and used
-    // to recompute the numer of cycles when the engine is updated by an
-    // external event.
-    int64_t stop_time = 0;
+        bool dequeue_from_engine();
 
-    vp::trace cycles_trace;
-  };    
+        int64_t exec();
+
+        bool has_events() { return this->nb_enqueued_to_cycle || this->delayed_queue || this->permanent_first; }
+
+        void pre_start();
+
+        static void set_frequency(void *__this, int64_t frequency);
+
+        vp::ClkMaster out;
+
+        vp::ClockSlave clock_in;
+
+        vp::Trace clock_trace;
+
+        int factor;
+        ClockEvent *delayed_queue = NULL;
+        ClockEvent *permanent_first = NULL;
+        int current_cycle = 0;
+        int64_t period = 0;
+        int64_t freq;
+
+        // Gives the current cycle count of this engine.
+        // It is always usable, whatever the state of the engine.
+        // It is updated either when events are executed or when the
+        // engine is updated by an external interaction.
+        int64_t cycles = 0;
+
+        // Tells how many events are enqueued to the circular buffer.
+        // If it is zero, there could still be some events in the delayed queue.
+        int nb_enqueued_to_cycle = 0;
+
+        // This time is relevant only when no event is enqueued into the circular
+        // buffer of event so that the number of cycles can be resynchronized when
+        // something happen (an event is pushed or the frequency is changed).
+        // This is set when control is given back to the time engine and used
+        // to recompute the numer of cycles when the engine is updated by an
+        // external event.
+        int64_t stop_time = 0;
+
+        vp::Trace cycles_trace;
+    };
 
 };
 
-#endif
+#include <vp/itf/implem/clock.hpp>

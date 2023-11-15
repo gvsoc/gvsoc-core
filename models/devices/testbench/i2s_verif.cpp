@@ -137,7 +137,7 @@ private:
 };
 
 
-class Slot : public vp::time_engine_client
+class Slot : public vp::Block
 {
     friend class Rx_stream_libsnd_file;
     friend class Rx_stream_raw_file;
@@ -162,7 +162,7 @@ protected:
 private:
     I2s_verif *i2s;
     int id;
-    vp::trace trace;
+    vp::Trace trace;
     pi_testbench_i2s_verif_slot_config_t config_tx;
     pi_testbench_i2s_verif_slot_start_config_t start_config_rx;
     pi_testbench_i2s_verif_slot_start_config_t start_config_tx;
@@ -194,14 +194,14 @@ private:
 
 I2s_verif::~I2s_verif()
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Closing I2S verif\n");
-    this->engine->dequeue(this);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Closing I2S verif\n");
+    gv_time_engine->dequeue(this);
     this->itf->sync(2, 2, (2 << 2) | 2, this->is_full_duplex);
 }
 
 
-I2s_verif::I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, pi_testbench_i2s_verif_config_t *config)
-  : vp::time_engine_client(NULL), top(top)
+I2s_verif::I2s_verif(Testbench *top, vp::I2sMaster *itf, int itf_id, pi_testbench_i2s_verif_config_t *config)
+  : vp::Block(top, "i2s_" + itf_id), top(top)
 {
     ::memcpy(&this->config, config, sizeof(pi_testbench_i2s_verif_config_t));
 
@@ -279,8 +279,6 @@ I2s_verif::I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, pi_testben
         top->i2ss[0]->ws_propagate |= 1 << itf_id;
     }
 
-    this->engine = (vp::time_engine*)top->get_service("time");
-
     top->traces.new_trace("i2s_verif_itf" + std::to_string(itf_id), &trace, vp::DEBUG);
 
     for (int i=0; i<this->config.nb_slots; i++)
@@ -319,7 +317,7 @@ void I2s_verif::slot_setup(pi_testbench_i2s_verif_slot_config_t *config)
 
 void I2s_verif::slot_start(pi_testbench_i2s_verif_slot_start_config_t *config, std::vector<int> slots)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Starting (slot: %d, nb_samples: %d, incr_start: 0x%x, incr_end: 0x%x, incr_value: 0x%x)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Starting (slot: %d, nb_samples: %d, incr_start: 0x%x, incr_end: 0x%x, incr_value: 0x%x)\n",
         config->slot, config->rx_iter.nb_samples, config->rx_iter.incr_start, config->rx_iter.incr_end, config->rx_iter.incr_value);
 
     if (slots.size() > 1)
@@ -356,7 +354,7 @@ void I2s_verif::slot_start(pi_testbench_i2s_verif_slot_start_config_t *config, s
 
 void I2s_verif::slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Stopping (slot: %d)\n", config->slot);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Stopping (slot: %d)\n", config->slot);
 
     int slot = config->slot;
 
@@ -434,7 +432,7 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
 
     if (sck != this->prev_sck)
     {
-        this->trace.msg(vp::trace::LEVEL_TRACE, "I2S edge (sck: %d, ws: %d, sdo: %d)\n", sck, ws, sd);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "I2S edge (sck: %d, ws: %d, sdo: %d)\n", sck, ws, sd);
         
         this->prev_sck = sck;
 
@@ -464,11 +462,11 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                 // The channel is the one of this microphone
                 if (this->prev_ws != ws && ws == 1)
                 {
-                    this->trace.msg(vp::trace::LEVEL_DEBUG, "Detected frame start\n");
+                    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Detected frame start\n");
 
                     if (this->sampling_period != 0 && this->prev_frame_start_time != -1)
                     {
-                        int64_t measured_period = this->get_time() - this->prev_frame_start_time;
+                        int64_t measured_period = this->time.get_time() - this->prev_frame_start_time;
 
                         float error = ((float)measured_period - this->sampling_period) / this->sampling_period * 100;
                         if (error < 0)
@@ -481,7 +479,7 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                         }
                     }
 
-                    this->prev_frame_start_time = this->get_time();
+                    this->prev_frame_start_time = this->time.get_time();
 
                     // If the WS just changed, apply the delay before starting sending
                     this->current_ws_delay = this->ws_delay;
@@ -535,7 +533,7 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                         }
                         this->data = this->slots[this->active_slot]->get_data() | (2 << 2);
 
-                        this->trace.msg(vp::trace::LEVEL_TRACE, "I2S output data (sdi: 0x%x)\n", this->data & 3);
+                        this->trace.msg(vp::Trace::LEVEL_TRACE, "I2S output data (sdi: 0x%x)\n", this->data & 3);
     
                         this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
                     }
@@ -554,15 +552,15 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                         }
 
                         // Delay a bit the WS so that it does not raise at the same time as the clock
-                        this->ws_gen_timestamp = this->get_time() + this->config.ws_trigger_delay + 100;
+                        this->ws_gen_timestamp = this->time.get_time() + this->config.ws_trigger_delay + 100;
 
-                        if (!this->is_enqueued || this->ws_gen_timestamp < this->next_event_time)
+                        if (!this->time.is_enqueued || this->ws_gen_timestamp < this->time.next_event_time)
                         {
-                            if (this->is_enqueued)
+                            if (this->time.is_enqueued)
                             {
-                                this->dequeue_from_engine();
+                                this->time.dequeue_from_engine();
                             }
-                            this->enqueue_to_engine(this->ws_gen_timestamp);
+                            this->time.enqueue_to_engine(this->ws_gen_timestamp);
                         }
                     }
                     this->ws_count--;
@@ -584,10 +582,10 @@ void I2s_verif::start(pi_testbench_i2s_verif_start_config_t *config)
 
     if (this->clk_active && this->is_ext_clk)
     {
-            this->clk_gen_timestamp = this->get_time() + this->clk_period;
-            if (!this->is_enqueued || this->clk_gen_timestamp < this->next_event_time)
+            this->clk_gen_timestamp = this->time.get_time() + this->clk_period;
+            if (!this->time.is_enqueued || this->clk_gen_timestamp < this->time.next_event_time)
             {
-                this->enqueue_to_engine(this->clk_gen_timestamp);
+                this->time.enqueue_to_engine(this->clk_gen_timestamp);
             }
     }
 }
@@ -600,7 +598,7 @@ Tx_stream_raw_file::Tx_stream_raw_file(Slot *slot, std::string filepath, int wid
     this->encoding = encoding;
     this->slot = slot;
     this->outfile = fopen(filepath.c_str(), "w");
-    this->slot->trace.msg(vp::trace::LEVEL_INFO, "Opening dumper (path: %s)\n", filepath.c_str());
+    this->slot->trace.msg(vp::Trace::LEVEL_INFO, "Opening dumper (path: %s)\n", filepath.c_str());
     if (this->outfile == NULL)
     {
         this->slot->top->trace.fatal("Unable to open output file (file: %s, error: %s)\n", filepath.c_str(), strerror(errno));
@@ -681,7 +679,7 @@ Tx_stream_libsnd_file::Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_ve
     memset(this->items, 0, sizeof(uint32_t)*this->sfinfo.channels);
 #else
 
-    this->i2s->top->get_trace()->fatal("Unable to open file (%s), libsndfile support is not active\n", filepath.c_str());
+    this->i2s->top->trace.fatal("Unable to open file (%s), libsndfile support is not active\n", filepath.c_str());
     return;
 
 #endif
@@ -739,7 +737,7 @@ uint32_t Rx_stream_raw_file::get_sample(int channel_id)
         uint32_t result = 0;
         int freadres = fread((void *)&result, nb_bytes, 1, this->infile);
 
-        // this->slot->top->trace.msg(vp::trace::LEVEL_TRACE, "channel_id=%d, nb_bytes=%d, freadres=%d, result=%d\n", channel_id, nb_bytes, freadres, result);
+        // this->slot->top->trace.msg(vp::Trace::LEVEL_TRACE, "channel_id=%d, nb_bytes=%d, freadres=%d, result=%d\n", channel_id, nb_bytes, freadres, result);
 
         if (freadres != 1)
         {
@@ -806,7 +804,7 @@ Rx_stream_libsnd_file::Rx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_ve
     this->items = new int32_t[nb_channels];
 #else
 
-    this->i2s->top->get_trace()->fatal("Unable to open file (%s), libsndfile support is not active\n", filepath.c_str());
+    this->i2s->top->trace.fatal("Unable to open file (%s), libsndfile support is not active\n", filepath.c_str());
     return;
 
 #endif
@@ -833,7 +831,7 @@ uint32_t Rx_stream_libsnd_file::get_sample(int channel)
     if (this->last_data_time == -1)
     {
         this->last_data = result;
-        this->last_data_time = this->i2s->top->get_time();
+        this->last_data_time = this->i2s->top->time.get_time();
     }
 
     if (this->next_data_time == -1)
@@ -843,7 +841,7 @@ uint32_t Rx_stream_libsnd_file::get_sample(int channel)
     }
 
     // Get samples from the file until the current timestamp fits the window
-    while (this->i2s->top->get_time() >= this->next_data_time)
+    while (this->i2s->top->time.get_time() >= this->next_data_time)
     {
         this->last_data_time = this->next_data_time;
         this->last_data = this->next_data;
@@ -852,10 +850,10 @@ uint32_t Rx_stream_libsnd_file::get_sample(int channel)
     }
 
     // Now do the interpolation between the 2 known samples
-    float coeff = (float)(this->i2s->top->get_time() - this->last_data_time) / (this->next_data_time - this->last_data_time);
+    float coeff = (float)(this->i2s->top->time.get_time() - this->last_data_time) / (this->next_data_time - this->last_data_time);
     float value = (float)this->last_data + (float)(this->next_data - this->last_data) * coeff;
 
-    this->i2s->top->trace.msg(vp::trace::LEVEL_TRACE, "Interpolated new sample (value: %d, timestamp: %ld, prev_timestamp: %ld, next_timestamp: %ld, prev_value: %d, next_value: %d)", value, this->i2s->top->get_time(), last_data_time, next_data_time, last_data, next_data);
+    this->i2s->top->trace.msg(vp::Trace::LEVEL_TRACE, "Interpolated new sample (value: %d, timestamp: %ld, prev_timestamp: %ld, next_timestamp: %ld, prev_value: %d, next_value: %d)", value, this->i2s->top->time.get_time(), last_data_time, next_data_time, last_data, next_data);
 #endif
 
     return result;
@@ -865,7 +863,7 @@ uint32_t Rx_stream_libsnd_file::get_sample(int channel)
 }
 
 
-Slot::Slot(Testbench *top, I2s_verif *i2s, int itf, int id) : vp::time_engine_client(NULL), top(top), i2s(i2s), id(id)
+Slot::Slot(Testbench *top, I2s_verif *i2s, int itf, int id) : vp::Block(top, "slot_" + std::to_string(itf)), top(top), i2s(i2s), id(id)
 {
     top->traces.new_trace("i2s_verif_itf" + std::to_string(itf) + "_slot" + std::to_string(id), &trace, vp::DEBUG);
 
@@ -876,8 +874,6 @@ Slot::Slot(Testbench *top, I2s_verif *i2s, int itf, int id) : vp::time_engine_cl
     this->instream = NULL;
     this->outfile = NULL;
     this->outstream = NULL;
-
-    this->engine = (vp::time_engine*)top->get_service("time");
 }
 
 
@@ -898,7 +894,7 @@ void Slot::setup(pi_testbench_i2s_verif_slot_config_t *config)
         ::memcpy(&this->config_tx, config, sizeof(pi_testbench_i2s_verif_slot_config_t));
     }
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Slot setup (is_rx: %d, enabled: %d, word_size: %d, format: 0x%x)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Slot setup (is_rx: %d, enabled: %d, word_size: %d, format: 0x%x)\n",
         config->is_rx, config->enabled, config->word_size, config->format);
 }
 
@@ -1061,7 +1057,7 @@ void Slot::stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
 
 void Slot::start_frame()
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Start frame\n");
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Start frame\n");
 
     if (this->rx_started)
     {
@@ -1081,7 +1077,7 @@ void Slot::start_frame()
 
         if (this->rx_pending_bits > 0)
         {
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting RX sample (sample: 0x%x)\n", this->rx_pending_value);
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting RX sample (sample: 0x%x)\n", this->rx_pending_value);
 
             int msb_first = (this->config_rx.format >> 0) & 1;
             int left_align = (this->config_rx.format >> 1) & 1;
@@ -1130,7 +1126,7 @@ void Slot::start_frame()
 
             if (changed)
             {
-                this->trace.msg(vp::trace::LEVEL_DEBUG, "Adapted sample to format (sample: 0x%x)\n", this->rx_pending_value);
+                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Adapted sample to format (sample: 0x%x)\n", this->rx_pending_value);
             }
         }
     }
@@ -1139,7 +1135,7 @@ void Slot::start_frame()
     {
         this->tx_pending_value = 0;
         this->tx_pending_bits = this->i2s->config.word_size;
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting TX sample\n");
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting TX sample\n");
 
     }
 }
@@ -1153,7 +1149,7 @@ void Slot::send_data(int sd)
             this->tx_pending_bits--;
             this->tx_pending_value = (this->tx_pending_value << 1) | (sd == 1);
 
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Sampling bit (bit: %d, value: 0x%lx, remaining_bits: %d)\n", sd, this->tx_pending_value, this->tx_pending_bits);
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampling bit (bit: %d, value: 0x%lx, remaining_bits: %d)\n", sd, this->tx_pending_value, this->tx_pending_bits);
 
             if (this->tx_pending_bits == 0)
             {
@@ -1212,7 +1208,7 @@ void Slot::send_data(int sd)
                     }
                 }
 
-                this->trace.msg(vp::trace::LEVEL_DEBUG, "Writing sample (value: 0x%lx)\n", this->tx_pending_value);
+                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Writing sample (value: 0x%lx)\n", this->tx_pending_value);
                 if (this->outstream)
                 {
                     for (auto channel_id: this->tx_channel_id)
@@ -1248,7 +1244,7 @@ int Slot::get_data()
             data = 0;
         }
 
-        this->trace.msg(vp::trace::LEVEL_TRACE, "Getting data (data: %d)\n", data);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Getting data (data: %d)\n", data);
 
         return data;
     }
@@ -1368,7 +1364,7 @@ void Slot::pdm_get()
 {
     // call exec() and takes care of time delay between sent bits
     this->close = true;
-    this->enqueue_to_engine(this->get_time() + 4000);
+    this->time.enqueue_to_engine(this->time.get_time() + 4000);
 }
 
 
@@ -1376,18 +1372,18 @@ int64_t I2s_verif::exec()
 {
     if (this->clk_active)
     {
-        if (this->get_time() == this->clk_gen_timestamp)
+        if (this->time.get_time() == this->clk_gen_timestamp)
         {
             this->clk ^= 1;
 
             this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
-            this->clk_gen_timestamp = this->get_time() + this->clk_period;
+            this->clk_gen_timestamp = this->time.get_time() + this->clk_period;
             this->itf->sync(this->clk, this->ws_value, this->data, this->is_full_duplex);
         }
 
     }
 
-    if (this->get_time() == this->ws_gen_timestamp)
+    if (this->time.get_time() == this->ws_gen_timestamp)
     {
         if (this->ws_value == 0)
         {
@@ -1420,5 +1416,5 @@ int64_t I2s_verif::exec()
         next_timestamp = this->clk_gen_timestamp;
     }
 
-    return next_timestamp == -1 ? -1 : next_timestamp - this->get_time();
+    return next_timestamp == -1 ? -1 : next_timestamp - this->time.get_time();
 }

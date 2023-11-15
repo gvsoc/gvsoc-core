@@ -24,26 +24,26 @@
 
 namespace vp {
 
-    class queue_elem;
-    class block;
+    class QueueElem;
+    class Block;
 
-    class queue : public block
+    class queue : public Block
     {
     public:
-        queue(block *parent);
-        void push_back(queue_elem *elem);
-        void push_front(queue_elem *elem);
-        queue_elem *head();
-        queue_elem *pop();
+        queue(Block *parent, std::string name);
+        void push_back(QueueElem *elem);
+        void push_front(QueueElem *elem);
+        QueueElem *head();
+        QueueElem *pop();
         bool empty();
         void reset(bool active);
     private:
-        static void cancel_callback(void *__this, vp::queue_elem *elem);
-        queue_elem *first=NULL;
-        queue_elem *last;
+        static void cancel_callback(void *__this, vp::QueueElem *elem);
+        QueueElem *first=NULL;
+        QueueElem *last;
     };
 
-    class queue_elem
+    class QueueElem
     {
         friend class queue;
 
@@ -51,8 +51,8 @@ namespace vp {
         void cancel();
 
     protected:
-        queue_elem *next;
+        QueueElem *next;
         void *cancel_this;
-        void (*cancel_callback)(void *, vp::queue_elem *);
+        void (*cancel_callback)(void *, vp::QueueElem *);
     };
 };

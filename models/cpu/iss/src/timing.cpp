@@ -42,7 +42,7 @@ void Timing::build()
 
     if (this->iss.top.get_js_config()->get("**/insn_groups"))
     {
-        js::config *config = this->iss.top.get_js_config()->get("**/insn_groups");
+        js::Config *config = this->iss.top.get_js_config()->get("**/insn_groups");
         this->insn_groups_power.resize(config->get_size());
         for (int i = 0; i < config->get_size(); i++)
         {
@@ -72,8 +72,6 @@ void Timing::reset(bool active)
 {
     if (active)
     {
-        this->iss.exec.busy_exit();
-
         for (int i = 0; i < 32; i++)
         {
             this->pcer_trace_event[i].event(NULL);
@@ -98,6 +96,8 @@ void Timing::reset(bool active)
     }
     else
     {
+        this->iss.exec.busy_exit();
+
         uint64_t zero = 0;
         for (int i = 0; i < 32; i++)
         {

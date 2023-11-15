@@ -14,32 +14,50 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gsystree
 
-class Memory(st.Component):
-    """
-    Memory array
+class Memory(gsystree.Component):
+    """Memory array
+
+    This models a simple memory model.
+    It can be preloaded with initial data.
+    It contains a timing model of a bandwidth, reported through latency.
+    It can support riscv atomics.
 
     Attributes
     ----------
-    size : int
-        The size of the memory.
+    parent: gsystree.Component
+        The parent component where this one should be instantiated.
+    name: str
+        The name of the component within the parent space.
+    size: int
+        The size of the memory in bytes.
+    width_log2: int
+        The log2 of the bandwidth to the memory, i.e. the number of bytes it can transfer per cycle.
+        No timing model is applied if it is zero and the memory is then having an infinite
+        bandwidth.
     stim_file: str
-        The path to a binary file which should be preloaded at beginning of the memory.
+        The path to a binary file which should be preloaded at beginning of the memory. The format
+        is a raw binary, and is loaded with an fread.
     power_trigger: bool
-        True if the memory should trigger power report generation based on dedicated accesses
-    
+        True if the memory should trigger power report generation based on dedicated accesses.
+    align: int
+        Specify a required alignment for the allocated memory used for the memory model.
+    atomics: bool
+        True if the memory should support riscv atomics. Since this is slowing down the model, it
+        should be set to True only if needed.
     """
+    def __init__(self, parent: gsystree.Component, name: str, size: int, width_log2: int=2,
+            stim_file: str=None, power_trigger: bool=False,
+            align: int=0, atomics: bool=False):
 
-    def __init__(self, parent, name, size: int, stim_file: str=None, power_trigger: bool=False,
-        align:int=0, atomics=False):
-
-        super(Memory, self).__init__(parent, name)
+        super().__init__(parent, name)
 
         self.add_sources(['memory/memory.cpp'])
 
         # Since atomics are slowing down the model, this is better to compile the support only
-        # if needed
+        # if needed. Note that the framework will take care of compiling this model twice
+        # if both memories with and without atomics are instantiated.
         if atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
@@ -47,6 +65,19 @@ class Memory(st.Component):
             'size': size,
             'stim_file': stim_file,
             'power_trigger': power_trigger,
-            'width_bits': 2,
+            'width_bits': width_log2,
             'align': align
         })
+
+    def i_INPUT(self) -> gsystree.SlaveItf:
+        """Returns the input port.
+
+        Incoming requests to be handled by the memory should be sent to this port.\n
+        It instantiates a port of type vp::IoSlave.\n
+
+        Returns
+        ----------
+        gsystree.SlaveItf
+            The slave interface
+        """
+        return gsystree.SlaveItf(self, 'input', signature='io')

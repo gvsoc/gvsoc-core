@@ -547,9 +547,6 @@ class Target(gapy.Target):
         self.runner = Runner(parser, args, options, self, self.model, rtl_cosim_runner=rtl_cosim_runner)
         self.description = description
 
-    def add_component(self, name, component):
-        pass
-
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
         return child_path
 

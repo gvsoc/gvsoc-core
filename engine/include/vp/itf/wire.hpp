@@ -19,10 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_ITF_WIRE_HPP__
-#define __VP_ITF_WIRE_HPP__
+#pragma once
 
 #include "vp/itf/implem/wire_class.hpp"
 #include "vp/itf/implem/wire.hpp"
-
-#endif

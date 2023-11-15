@@ -28,24 +28,24 @@ namespace vp {
 
 
 
-  class cpi_slave;
+  class CpiSlave;
 
 
 
-  typedef void (cpi_sync_meth_t)(void *, int pclk, int href, int vsync, int data);
-  typedef void (cpi_sync_meth_muxed_t)(void *, int pclk, int href, int vsync, int data, int id);
+  typedef void (CpiSyncMeth)(void *, int pclk, int href, int vsync, int data);
+  typedef void (CpiSyncMethMuxed)(void *, int pclk, int href, int vsync, int data, int id);
 
-  typedef void (cpi_sync_cycle_meth_t)(void *, int href, int vsync, int data);
-  typedef void (cpi_sync_cycle_meth_muxed_t)(void *, int href, int vsync, int data, int id);
+  typedef void (CpiSyncCycleMeth)(void *, int href, int vsync, int data);
+  typedef void (CpiSyncCycleMethMuxed)(void *, int href, int vsync, int data, int id);
 
 
-  class cpi_master : public vp::master_port
+  class CpiMaster : public vp::MasterPort
   {
-    friend class cpi_slave;
+    friend class CpiSlave;
 
   public:
 
-    inline cpi_master();
+    inline CpiMaster();
 
     inline void sync(int pclk, int href, int vsync, int data)
     {
@@ -57,14 +57,14 @@ namespace vp {
       return sync_cycle_meth(this->get_remote_context(), href, vsync, data);
     }
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
-    bool is_bound() { return slave_port != NULL; }
+    bool is_bound() { return SlavePort != NULL; }
 
   private:
 
-    static inline void sync_muxed_stub(cpi_master *_this, int pclk, int href, int vsync, int data);
-    static inline void sync_cycle_muxed_stub(cpi_master *_this, int href, int vsync, int data);
+    static inline void sync_muxed_stub(CpiMaster *_this, int pclk, int href, int vsync, int data);
+    static inline void sync_cycle_muxed_stub(CpiMaster *_this, int href, int vsync, int data);
 
     void (*sync_meth)(void *, int pclk, int href, int vsync, int data);
     void (*sync_meth_mux)(void *, int pclk, int href, int vsync, int data, int mux);
@@ -72,30 +72,30 @@ namespace vp {
     void (*sync_cycle_meth)(void *, int href, int vsync, int data);
     void (*sync_cycle_meth_mux)(void *, int href, int vsync, int data, int mux);
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
-    cpi_slave *slave_port = NULL;
+    CpiSlave *SlavePort = NULL;
 
   };
 
 
 
-  class cpi_slave : public vp::slave_port
+  class CpiSlave : public vp::SlavePort
   {
 
-    friend class cpi_master;
+    friend class CpiMaster;
 
   public:
 
-    inline cpi_slave();
+    inline CpiSlave();
 
-    inline void set_sync_meth(cpi_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(cpi_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(CpiSyncMeth *meth);
+    inline void set_sync_meth_muxed(CpiSyncMethMuxed *meth, int id);
 
-    inline void set_sync_cycle_meth(cpi_sync_cycle_meth_t *meth);
-    inline void set_sync_cycle_meth_muxed(cpi_sync_cycle_meth_muxed_t *meth, int id);
+    inline void set_sync_cycle_meth(CpiSyncCycleMeth *meth);
+    inline void set_sync_cycle_meth_muxed(CpiSyncCycleMethMuxed *meth, int id);
 
-    inline void bind_to(vp::port *_port, vp::config *config);
+    inline void bind_to(vp::Port *_port, js::Config *config);
 
   private:
 
@@ -105,33 +105,33 @@ namespace vp {
     void (*sync_cycle_meth)(void *comp, int href, int vsync, int data);
     void (*sync_cycle_mux_meth)(void *comp, int href, int vsync, int data, int mux);
 
-    static inline void sync_default(cpi_slave *, int pclk, int href, int vsync, int data);
-    static inline void sync_cycle_default(cpi_slave *, int href, int vsync, int data);
+    static inline void sync_default(CpiSlave *, int pclk, int href, int vsync, int data);
+    static inline void sync_cycle_default(CpiSlave *, int href, int vsync, int data);
 
     int mux_id;
 
   };
 
 
-  inline cpi_master::cpi_master() {
+  inline CpiMaster::CpiMaster() {
   }
 
 
 
 
-  inline void cpi_master::sync_muxed_stub(cpi_master *_this, int pclk, int href, int vsync, int data)
+  inline void CpiMaster::sync_muxed_stub(CpiMaster *_this, int pclk, int href, int vsync, int data)
   {
     return _this->sync_meth_mux(_this->comp_mux, pclk, href, vsync, data, _this->sync_mux);
   }
 
-  inline void cpi_master::sync_cycle_muxed_stub(cpi_master *_this, int href, int vsync, int data)
+  inline void CpiMaster::sync_cycle_muxed_stub(CpiMaster *_this, int href, int vsync, int data)
   {
     return _this->sync_cycle_meth_mux(_this->comp_mux, href, vsync, data, _this->sync_mux);
   }
 
-  inline void cpi_master::bind_to(vp::port *_port, vp::config *config)
+  inline void CpiMaster::bind_to(vp::Port *_port, js::Config *config)
   {
-    cpi_slave *port = (cpi_slave *)_port;
+    CpiSlave *port = (CpiSlave *)_port;
     if (port->sync_mux_meth == NULL)
     {
       sync_meth = port->sync_meth;
@@ -141,58 +141,58 @@ namespace vp {
     else
     {
       sync_meth_mux = port->sync_mux_meth;
-      sync_meth = (cpi_sync_meth_t *)&cpi_master::sync_muxed_stub;
+      sync_meth = (CpiSyncMeth *)&CpiMaster::sync_muxed_stub;
 
       sync_cycle_meth_mux = port->sync_cycle_mux_meth;
-      sync_cycle_meth = (cpi_sync_cycle_meth_t *)&cpi_master::sync_cycle_muxed_stub;
+      sync_cycle_meth = (CpiSyncCycleMeth *)&CpiMaster::sync_cycle_muxed_stub;
 
       set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline void cpi_slave::bind_to(vp::port *_port, vp::config *config)
+  inline void CpiSlave::bind_to(vp::Port *_port, js::Config *config)
   {
-    slave_port::bind_to(_port, config);
+    SlavePort::bind_to(_port, config);
   }
 
-  inline cpi_slave::cpi_slave() : sync_meth(NULL), sync_mux_meth(NULL) {
-    sync_meth = (cpi_sync_meth_t *)&cpi_slave::sync_default;
-    sync_cycle_meth = (cpi_sync_cycle_meth_t *)&cpi_slave::sync_cycle_default;
+  inline CpiSlave::CpiSlave() : sync_meth(NULL), sync_mux_meth(NULL) {
+    sync_meth = (CpiSyncMeth *)&CpiSlave::sync_default;
+    sync_cycle_meth = (CpiSyncCycleMeth *)&CpiSlave::sync_cycle_default;
   }
 
-  inline void cpi_slave::set_sync_meth(cpi_sync_meth_t *meth)
+  inline void CpiSlave::set_sync_meth(CpiSyncMeth *meth)
   {
     sync_meth = meth;
     sync_mux_meth = NULL;
   }
 
-  inline void cpi_slave::set_sync_meth_muxed(cpi_sync_meth_muxed_t *meth, int id)
+  inline void CpiSlave::set_sync_meth_muxed(CpiSyncMethMuxed *meth, int id)
   {
     sync_mux_meth = meth;
     sync_meth = NULL;
     mux_id = id;
   }
 
-  inline void cpi_slave::set_sync_cycle_meth(cpi_sync_cycle_meth_t *meth)
+  inline void CpiSlave::set_sync_cycle_meth(CpiSyncCycleMeth *meth)
   {
     sync_cycle_meth = meth;
     sync_cycle_mux_meth = NULL;
   }
 
-  inline void cpi_slave::set_sync_cycle_meth_muxed(cpi_sync_cycle_meth_muxed_t *meth, int id)
+  inline void CpiSlave::set_sync_cycle_meth_muxed(CpiSyncCycleMethMuxed *meth, int id)
   {
     sync_cycle_mux_meth = meth;
     sync_cycle_meth = NULL;
     mux_id = id;
   }
 
-  inline void cpi_slave::sync_default(cpi_slave *, int pclk, int href, int vsync, int data)
+  inline void CpiSlave::sync_default(CpiSlave *, int pclk, int href, int vsync, int data)
   {
   }
 
-  inline void cpi_slave::sync_cycle_default(cpi_slave *, int href, int vsync, int data)
+  inline void CpiSlave::sync_cycle_default(CpiSlave *, int href, int vsync, int data)
   {
   }
 

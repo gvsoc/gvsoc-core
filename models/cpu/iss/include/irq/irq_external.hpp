@@ -51,11 +51,11 @@ public:
     int req_irq;
     bool req_debug;
     iss_reg_t debug_handler;
-    vp::trace trace;
+    vp::Trace trace;
 
     int irq_req;
     int irq_req_value;
-    vp::wire_master<int> irq_ack_itf;
-    vp::wire_slave<int> irq_req_itf;
+    vp::WireMaster<int> irq_ack_itf;
+    vp::WireSlave<int> irq_req_itf;
 
 };

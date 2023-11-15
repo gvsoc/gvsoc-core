@@ -23,7 +23,14 @@
 #include "vp/trace/trace.hpp"
 
 
-void vp::power::power_source::set_frequency(double freq)
+#define VP_ERROR_SIZE (1 << 16)
+
+
+static char vp_error[VP_ERROR_SIZE];
+
+
+
+void vp::PowerSource::set_frequency(double freq)
 {
     bool is_on = this->is_on;
     if (is_on)
@@ -37,7 +44,7 @@ void vp::power::power_source::set_frequency(double freq)
     }
 }
 
-void vp::power::power_source::set_voltage(double voltage)
+void vp::PowerSource::set_voltage(double voltage)
 {
     bool is_on = this->is_on;
     if (is_on)
@@ -52,7 +59,7 @@ void vp::power::power_source::set_voltage(double voltage)
 }
 
 
-void vp::power::power_source::setup(double temp, double volt, double freq)
+void vp::PowerSource::setup(double temp, double volt, double freq)
 {
     this->current_volt = volt;
     this->current_temp = temp;
@@ -77,7 +84,7 @@ void vp::power::power_source::setup(double temp, double volt, double freq)
 
 
 
-int vp::power::power_source::init(component *top, std::string name, js::config *source_config, vp::power::power_trace *trace)
+int vp::PowerSource::init(Block *top, std::string name, js::Config *source_config, vp::PowerTrace *trace)
 {
     this->top = top;
     this->trace = trace;
@@ -95,7 +102,7 @@ int vp::power::power_source::init(component *top, std::string name, js::config *
     // Parse the JSON config and extract power numbers
     for (auto elem: source_config->get_childs())
     {
-        js::config *config = elem.second;
+        js::Config *config = elem.second;
         bool is_leakage = false;
 
         if (elem.first == "dynamic")
@@ -114,14 +121,14 @@ int vp::power::power_source::init(component *top, std::string name, js::config *
 
         try
         {
-            js::config *type_cfg = config->get("type");
+            js::Config *type_cfg = config->get("type");
             if (type_cfg == NULL)
             {
                 //snprintf(vp_error, VP_ERROR_SIZE, "Didn't find power trace type (name: %s)", name.c_str());
                 return -1;
             }
 
-            js::config *unit_cfg = config->get("unit");
+            js::Config *unit_cfg = config->get("unit");
             if (unit_cfg == NULL)
             {
                 //snprintf(vp_error, VP_ERROR_SIZE, "Didn't find power trace unit (name: %s)", name.c_str());
@@ -156,7 +163,7 @@ int vp::power::power_source::init(component *top, std::string name, js::config *
 
             if (type_cfg->get_str() == "linear")
             {
-                js::config *values = config->get("values");
+                js::Config *values = config->get("values");
                 if (values == NULL)
                 {
                     snprintf(vp_error, VP_ERROR_SIZE, "Didn't find any value for linear power model");
@@ -165,11 +172,11 @@ int vp::power::power_source::init(component *top, std::string name, js::config *
 
                 if (is_leakage)
                 {
-                    this->leakage_table = new Linear_table(values);
+                    this->leakage_table = new PowerLinearTable(values);
                 }
                 else
                 {
-                    this->dyn_table = new Linear_table(values);
+                    this->dyn_table = new PowerLinearTable(values);
                 }
             }
             else
@@ -189,7 +196,7 @@ int vp::power::power_source::init(component *top, std::string name, js::config *
 }
 
 
-void vp::power::power_source::check()
+void vp::PowerSource::check()
 {
     bool leakage_power_is_on = this->is_on && this->is_leakage_power_started;
     bool dynamic_power_is_on = this->is_on && this->is_dynamic_power_started;

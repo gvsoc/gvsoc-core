@@ -44,7 +44,7 @@ inline void Timing::event_trace_account(unsigned int event, int cycles)
     if (this->pcer_trace_event[event].get_event_active())
     {
         // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
-        this->pcer_trace_event[event].event_pulse(cycles * this->iss.top.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+        this->pcer_trace_event[event].event_pulse(cycles * this->iss.top.clock.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
     }
 }
 

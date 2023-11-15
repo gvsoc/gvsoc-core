@@ -23,6 +23,7 @@
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
 #include <stdexcept>
+#include <inttypes.h>
 
 static unsigned int get_bit(uint8_t *value, int i) {
   return (value[i/8] >> (i%8)) & 1;
@@ -89,7 +90,7 @@ $dumpvars\n");
 
   if (last_timestamp != timestamp) {
     last_timestamp = timestamp;
-    fprintf(file, "#%ld\n", timestamp);
+    fprintf(file, "#%" PRId64 "\n", timestamp);
   }
 
   if (is_real)

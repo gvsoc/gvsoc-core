@@ -19,10 +19,9 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_TRACE_COMPONENT_TRACE_HPP__
-#define __VP_TRACE_COMPONENT_TRACE_HPP__
+#ifndef __VP_TRACE_block_trace_HPP__
+#define __VP_TRACE_block_trace_HPP__
 
-#include "vp/component.hpp"
 #include "vp/trace/trace.hpp"
 
 using namespace std;
@@ -30,7 +29,8 @@ using namespace std;
 namespace vp {
 
   class trace;
-  class trace_engine;
+  class TraceEngine;
+  class Block;
 
   typedef enum {
     ERROR,
@@ -38,44 +38,41 @@ namespace vp {
     INFO,
     DEBUG,
     TRACE
-  } trace_level_e;
+  } TraceLevel;
 
-  class component_trace
+  class BlockTrace
   {
 
   public:
 
-    component_trace(component &top);
+    BlockTrace(Block &top);
 
-    void post_post_build();
+    void new_trace(std::string name, Trace *trace, TraceLevel level);
 
-    void new_trace(std::string name, trace *trace, trace_level_e level);
+    void new_trace_event(std::string name, Trace *trace, int width);
 
-    void new_trace_event(std::string name, trace *trace, int width);
+    void new_trace_event_string(std::string name, Trace *trace);
 
-    void new_trace_event_string(std::string name, trace *trace);
+    void new_trace_event_real(std::string name, Trace *trace);
 
-    void new_trace_event_real(std::string name, trace *trace);
+    inline TraceEngine *get_trace_manager();
 
-    inline trace_engine *get_trace_manager();
-
-    void set_trace_manager(trace_engine *trace_manager) { this->trace_manager = trace_manager; }
-
-    std::map<std::string, trace *> traces;
-    std::map<std::string, trace *> trace_events;
+    std::map<std::string, Trace *> traces;
+    std::map<std::string, Trace *> trace_events;
     
   protected:
 
-    trace_engine *trace_manager = NULL;
-
   private:
-    void reg_trace(trace *trace, int event);
+    void reg_trace(Trace *trace, int event);
 
-    component &top;
+    Block &top;
 
   };
 
 };  
+
+
+extern vp::TraceEngine *trace_manager;
 
 
 #endif

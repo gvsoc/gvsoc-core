@@ -41,16 +41,16 @@ void Irq::build()
     this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
 
     this->msi_itf.set_sync_meth(&Irq::msi_sync);
-    this->iss.top.new_slave_port(this, "msi", &this->msi_itf);
+    this->iss.top.new_slave_port("msi", &this->msi_itf, (vp::Block *)this);
 
     this->mti_itf.set_sync_meth(&Irq::mti_sync);
-    this->iss.top.new_slave_port(this, "mti", &this->mti_itf);
+    this->iss.top.new_slave_port("mti", &this->mti_itf, (vp::Block *)this);
 
     this->mei_itf.set_sync_meth(&Irq::mei_sync);
-    this->iss.top.new_slave_port(this, "mei", &this->mei_itf);
+    this->iss.top.new_slave_port("mei", &this->mei_itf, (vp::Block *)this);
 
     this->sei_itf.set_sync_meth(&Irq::sei_sync);
-    this->iss.top.new_slave_port(this, "sei", &this->sei_itf);
+    this->iss.top.new_slave_port("sei", &this->sei_itf, (vp::Block *)this);
 }
 
 void Irq::reset(bool active)
@@ -304,7 +304,7 @@ int Irq::check()
                     irq = 5;
                 }
 
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);
 
                 this->iss.exec.interrupt_taken();
                 this->iss.csr.mepc.value = this->iss.exec.current_insn;

@@ -32,14 +32,14 @@ public:
 
     bool decode_pc(iss_insn_t *insn, iss_reg_t pc);
 
-    vp::trace trace;
+    vp::Trace trace;
 
     static void flush_cache_sync(void *_this, bool active);
 
     void parse_isa();
 
     // decode
-    vp::wire_slave<bool> flush_cache_itf;
+    vp::WireSlave<bool> flush_cache_itf;
     iss_insn_cache_t insn_cache;
     const char *isa;
     iss_reg_t misa_extensions;

@@ -37,8 +37,8 @@ typedef struct
 } __attribute__((packed)) spi_boot_req_t;
 
 
-Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::qspim_slave *itf, pi_testbench_req_spim_verif_setup_t *config)
-  : vp::time_engine_client(NULL)
+Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config)
+  : vp::Block(this, "spi_" + std::to_string(config->itf))
 {
     this->slave_boot_jump = false;
     ::memcpy(&this->config, config, sizeof(pi_testbench_req_spim_verif_setup_t));
@@ -57,8 +57,6 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::qspim_slave *itf, pi_testbe
     this->spi = spi;
     this->is_master = config->is_master;
 
-    this->engine = (vp::time_engine*)this->top->get_service("time");
-
     std::string name = "spim_verif_itf" + std::to_string(itf_id) + "_cs" + std::to_string(cs);
 
     top->traces.new_trace(name, &trace, vp::DEBUG);
@@ -67,16 +65,16 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::qspim_slave *itf, pi_testbe
 
     if (config->is_master)
     {
-        this->enqueue_to_engine(this->get_time() + 1);
+        this->time.enqueue_to_engine(this->time.get_time() + 1);
         this->init_pads = true;
     }
 
 #if 0
-  js::config *tx_file_config = config->get("tx_file");
+  js::Config *tx_file_config = config->get("tx_file");
   if (tx_file_config != NULL)
   {
-    js::config *path_config = tx_file_config->get("path");
-    js::config *qpi_config = tx_file_config->get("qpi");
+    js::Config *path_config = tx_file_config->get("path");
+    js::Config *qpi_config = tx_file_config->get("qpi");
     this->tx_dump_bits = 0;
     this->tx_file = fopen(path_config->get_str().c_str(), "wb");
     this->tx_dump_qpi = qpi_config != NULL && qpi_config->get_bool();
@@ -98,7 +96,7 @@ void Spim_verif::handle_read(uint64_t cmd, bool is_quad)
     current_addr = SPIM_VERIF_FIELD_GET(cmd, SPIM_VERIF_CMD_ADDR_BIT, SPIM_VERIF_CMD_ADDR_WIDTH);
     command_addr = current_addr;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling read command (size: 0x%x, addr: 0x%x, is_quad: %d)\n", size, current_addr, is_quad);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling read command (size: 0x%x, addr: 0x%x, is_quad: %d)\n", size, current_addr, is_quad);
 
     state = STATE_READ_CMD;
     current_size = size;
@@ -114,7 +112,7 @@ void Spim_verif::handle_write(uint64_t cmd, bool is_quad)
     current_write_addr = SPIM_VERIF_FIELD_GET(cmd, SPIM_VERIF_CMD_ADDR_BIT, SPIM_VERIF_CMD_ADDR_WIDTH);
     command_addr = current_write_addr;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling write command (size: 0x%x, addr: 0x%x, is_quad: %d)\n", size, current_write_addr, is_quad);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling write command (size: 0x%x, addr: 0x%x, is_quad: %d)\n", size, current_write_addr, is_quad);
 
     state = STATE_WRITE_CMD;
     current_write_size = size;
@@ -127,7 +125,7 @@ void Spim_verif::handle_full_duplex(uint64_t cmd)
     current_addr = SPIM_VERIF_FIELD_GET(cmd, SPIM_VERIF_CMD_ADDR_BIT, SPIM_VERIF_CMD_ADDR_WIDTH);
     command_addr = current_addr;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling full duplex command (size: 0x%x, addr: 0x%x, is_quad: %d)\n", size, current_addr, is_quad);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling full duplex command (size: 0x%x, addr: 0x%x, is_quad: %d)\n", size, current_addr, is_quad);
 
     state = STATE_FULL_DUPLEX_CMD;
     current_write_addr = current_addr;
@@ -155,7 +153,7 @@ void Spim_verif::exec_read()
         else
         {
             byte = data[current_addr];
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Read byte from memory (value: 0x%x, rem_size: 0x%x)\n", byte, current_size);
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Read byte from memory (value: 0x%x, rem_size: 0x%x)\n", byte, current_size);
         }
         nb_bits = 8;
         current_addr++;
@@ -220,7 +218,7 @@ void Spim_verif::exec_write(int sdio0, int sdio1, int sdio2, int sdio3)
         {
             data[current_write_addr] = pending_write;
 
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Wrote byte to memory (addr: 0x%x, value: 0x%x, rem_size: 0x%x)\n", current_write_addr, data[current_write_addr], current_write_size-1);
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Wrote byte to memory (addr: 0x%x, value: 0x%x, rem_size: 0x%x)\n", current_write_addr, data[current_write_addr], current_write_size-1);
         }
 
         nb_write_bits = 0;
@@ -233,7 +231,7 @@ void Spim_verif::exec_write(int sdio0, int sdio1, int sdio2, int sdio3)
         {
             int shift = 8 - nb_write_bits;
             pending_write = (data[current_write_addr] & ~((1 << shift) - 1)) | (pending_write << shift);
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Wrote byte to memory (value: 0x%x)\n", data[current_write_addr]);
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Wrote byte to memory (value: 0x%x)\n", data[current_write_addr]);
         }
         wait_cs = true;
         state = STATE_GET_CMD;
@@ -242,7 +240,7 @@ void Spim_verif::exec_write(int sdio0, int sdio1, int sdio2, int sdio3)
 
 void Spim_verif::handle_command(uint64_t cmd)
 {
-   this->trace.msg(vp::trace::LEVEL_INFO, "Handling command %x\n", current_cmd);
+   this->trace.msg(vp::Trace::LEVEL_INFO, "Handling command %x\n", current_cmd);
 
     int cmd_id = SPIM_VERIF_FIELD_GET(cmd, SPIM_VERIF_CMD_BIT, SPIM_VERIF_CMD_WIDTH);
 
@@ -275,7 +273,7 @@ void Spim_verif::cs_sync(int cs)
 
     this->current_cs = cs;
 
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "CS edge (cs: %d)\n", cs);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "CS edge (cs: %d)\n", cs);
     if (cs == 1)
     {
         // Reset pending addresses to detect CS edge during command
@@ -335,7 +333,7 @@ void Spim_verif::handle_clk_high(int sdio0, int sdio1, int sdio2, int sdio3, int
     if (state == STATE_GET_CMD)
     {
         current_cmd = (current_cmd << 1) | sdio0;
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Received command bit (count: %d, pending: %x, bit: %d)\n", cmd_count, current_cmd, sdio0);
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received command bit (count: %d, pending: %x, bit: %d)\n", cmd_count, current_cmd, sdio0);
         cmd_count++;
         if (cmd_count == 64)
         {
@@ -362,7 +360,7 @@ void Spim_verif::handle_clk_low(int sdio0, int sdio1, int sdio2, int sdio3, int 
 
 void Spim_verif::sync(int sck, int sdio0, int sdio1, int sdio2, int sdio3, int mask)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "SCK edge (sck: %d, data_0: %d, data_1: %d, data_2: %d, data_3: %d, mask: 0x%x)\n", sck, sdio0, sdio1, sdio2, sdio3, mask);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "SCK edge (sck: %d, data_0: %d, data_1: %d, data_2: %d, data_3: %d, mask: 0x%x)\n", sck, sdio0, sdio1, sdio2, sdio3, mask);
 
     sck ^= this->config.polarity;
 
@@ -422,7 +420,7 @@ int64_t Spim_verif::exec()
         switch (this->slave_state)
         {
             case SPIS_STATE_START_WAIT_CYCLES:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master start wait cycles (cycles: %d)\n", this->slave_wait_cycles);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master start wait cycles (cycles: %d)\n", this->slave_wait_cycles);
                 clock_toggle = true;
                 this->slave_wait_cycles--;
                 if (this->slave_wait_cycles == 0)
@@ -434,7 +432,7 @@ int64_t Spim_verif::exec()
                 break;
 
             case SPIS_STATE_CS_START_PRE_START_CYCLES:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master cs start wait cycles (cycles: %d)\n", this->slave_wait_cycles);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs start wait cycles (cycles: %d)\n", this->slave_wait_cycles);
                 this->slave_wait_cycles--;
                 if (this->slave_wait_cycles == 0)
                 {
@@ -443,14 +441,14 @@ int64_t Spim_verif::exec()
                 break;
 
             case SPIS_STATE_CS_START:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master cs start\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs start\n");
                 this->spi->cs_itf.sync(0);
                 this->slave_state = SPIS_STATE_CS_START_POST_WAIT_CYCLES;
                 this->slave_wait_cycles = 5;
                 break;
 
             case SPIS_STATE_CS_START_POST_WAIT_CYCLES:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master cs start wait cycles (cycles: %d)\n", this->slave_wait_cycles);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs start wait cycles (cycles: %d)\n", this->slave_wait_cycles);
                 this->slave_wait_cycles--;
                 if (this->slave_wait_cycles == 0)
                 {
@@ -466,7 +464,7 @@ int64_t Spim_verif::exec()
                     {
                         this->slave_pending_tx_bits = 8;
                         this->slave_pending_tx_byte = this->data[this->slave_pending_tx_addr];
-                        this->trace.msg(vp::trace::LEVEL_DEBUG, "Read from memory (address: 0x%lx, data: 0x%lx)\n", this->slave_pending_tx_addr, this->slave_pending_tx_byte);
+                        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Read from memory (address: 0x%lx, data: 0x%lx)\n", this->slave_pending_tx_addr, this->slave_pending_tx_byte);
                         this->slave_pending_tx_addr++;
                     }
 
@@ -486,7 +484,7 @@ int64_t Spim_verif::exec()
                 break;
 
             case SPIS_STATE_CS_END_WAIT_CYCLES:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master cs end wait cycles (cycles: %d)\n", this->slave_wait_cycles);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs end wait cycles (cycles: %d)\n", this->slave_wait_cycles);
                 this->slave_wait_cycles--;
                 this->slave_pending_mosi = 2;
                 if (this->slave_wait_cycles == 0)
@@ -496,7 +494,7 @@ int64_t Spim_verif::exec()
                 break;
 
             case SPIS_STATE_CS_END:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master cs end\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs end\n");
                 this->spi->cs_itf.sync(1);
                 this->slave_wait_cycles = this->config.dummy_cycles;
 
@@ -511,7 +509,7 @@ int64_t Spim_verif::exec()
                 break;
 
             case SPIS_STATE_END_WAIT_CYCLES:
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master end wait cycles (cycles: %d)\n", this->slave_wait_cycles);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master end wait cycles (cycles: %d)\n", this->slave_wait_cycles);
                 clock_toggle = true;
                 if (this->slave_wait_cycles == 0)
                 {
@@ -535,11 +533,11 @@ int64_t Spim_verif::exec()
             if (this->slave_pending_is_rx)
             {
                 this->slave_pending_rx_byte = (this->slave_pending_rx_byte << 1) | this->slave_pending_miso;
-                this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master sampled bit (bit: %d, value: 0x%x)\n", this->slave_pending_miso, this->slave_pending_rx_byte);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master sampled bit (bit: %d, value: 0x%x)\n", this->slave_pending_miso, this->slave_pending_rx_byte);
                 this->slave_pending_rx_bits++;
                 if (this->slave_pending_rx_bits == 8)
                 {
-                    this->trace.msg(vp::trace::LEVEL_DEBUG, "Writing to memory (address: 0x%lx, data: 0x%lx)\n", this->slave_pending_rx_addr, this->slave_pending_rx_byte & 0xff);
+                    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Writing to memory (address: 0x%lx, data: 0x%lx)\n", this->slave_pending_rx_addr, this->slave_pending_rx_byte & 0xff);
                     this->data[this->slave_pending_rx_addr] = this->slave_pending_rx_byte;
                     this->slave_pending_rx_size--;
                     this->slave_pending_rx_addr++;
@@ -555,7 +553,7 @@ int64_t Spim_verif::exec()
         }
     }
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "SPI master edge (sck: %d, mosi: %d, miso: %d)\n", this->slave_sck, this->slave_pending_mosi, this->slave_pending_miso);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master edge (sck: %d, mosi: %d, miso: %d)\n", this->slave_sck, this->slave_pending_mosi, this->slave_pending_miso);
 
     this->itf->sync(this->slave_sck, 2, this->slave_pending_mosi, 2, 2, 0xf);
 
@@ -593,7 +591,7 @@ int64_t Spim_verif::exec()
 
 void Spim_verif::transfer(pi_testbench_req_spim_verif_transfer_t *config)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling SPI transfer (frequency: %ld, address: 0x%lx, size: 0x%lx, is_master: %d, is_rx: %d, is_duplex: %d, is_boot_protocol: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling SPI transfer (frequency: %ld, address: 0x%lx, size: 0x%lx, is_master: %d, is_rx: %d, is_duplex: %d, is_boot_protocol: %d)\n",
         config->frequency, config->address, config->size, config->is_master, config->is_rx, config->is_duplex, config->is_boot_protocol
     );
 
@@ -612,7 +610,7 @@ void Spim_verif::transfer(pi_testbench_req_spim_verif_transfer_t *config)
 
 void Spim_verif::spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling SPI wakeup (delay: %lld, mode: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling SPI wakeup (delay: %lld, mode: %d)\n",
         config->delay, config->mode
     );
 
@@ -621,7 +619,7 @@ void Spim_verif::spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config)
     this->is_enqueued = 1;
     this->handle_wakeup = true;
     this->reload_spi = config->spi_reload;
-    this->enqueue_to_engine(this->get_time() + config->delay);
+    this->time.enqueue_to_engine(this->time.get_time() + config->delay);
 }
 
 
@@ -670,7 +668,7 @@ void Spim_verif::handle_boot_protocol_transfer()
     {
         case SPIS_BOOT_STATE_SEND_WAKEUP_CMD:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending wakeup command (value: 0x3F)\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending wakeup command (value: 0x3F)\n");
 
             this->data[this->mem_size] = 0x3F;
             this->enqueue_transfer(this->mem_size, 1, 0, 1);
@@ -681,7 +679,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_WAKEUP_STATUS:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending wakeup status (value: 0x05)\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending wakeup status (value: 0x05)\n");
 
             this->data[this->mem_size] = 0x05;
             this->enqueue_transfer(this->mem_size, 2, 0, 1);
@@ -692,7 +690,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_WAKEUP_STATUS_RESPONSE:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Checking wakeup response (value: 0x%x)\n", this->data[this->mem_size + 1]);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Checking wakeup response (value: 0x%x)\n", this->data[this->mem_size + 1]);
 
             if (this->data[this->mem_size + 1] == 1)
             {
@@ -708,7 +706,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_WAKEUP_EXIT:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending wakeup exit (value: 0x71)\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending wakeup exit (value: 0x71)\n");
 
             this->data[this->mem_size] = 0x71;
             this->enqueue_transfer(this->mem_size, 1, 0, 0);
@@ -726,7 +724,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_WAKEUP_DO_LOAD:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Redoing SPI load\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Redoing SPI load\n");
 
             this->slave_boot_state = SPIS_BOOT_STATE_IDLE;
             this->do_spi_load = true;
@@ -737,7 +735,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_SOF:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending start of frame (value: 0x5A)\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending start of frame (value: 0x5A)\n");
 
             spi_boot_req_t *req = (spi_boot_req_t *)&this->data[this->mem_size];
             req->frame_start = 0x5a;
@@ -752,7 +750,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_CHECK_SOF:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Received start of frame (value: 0x%x)\n", this->data[mem_size]);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Received start of frame (value: 0x%x)\n", this->data[mem_size]);
 
             if (this->data[mem_size] == 0xA5)
             {
@@ -775,7 +773,7 @@ void Spim_verif::handle_boot_protocol_transfer()
         }
 
         case SPIS_BOOT_STATE_GET_ACK_STEP_0:
-            this->trace.msg(vp::trace::LEVEL_INFO, "Read start of frame (value: 0x%x)\n", this->data[this->mem_size]);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Read start of frame (value: 0x%x)\n", this->data[this->mem_size]);
             if (this->data[this->mem_size] == 0xa5)
             {
                 this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_1;
@@ -787,17 +785,17 @@ void Spim_verif::handle_boot_protocol_transfer()
             break;
 
         case SPIS_BOOT_STATE_GET_ACK_STEP_1:
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending ack request (value: 0x00)\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending ack request (value: 0x00)\n");
             this->data[this->mem_size] = 0x00;
             this->enqueue_transfer(this->mem_size, 1, 0, 1);
             this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_2;
             break;
 
         case SPIS_BOOT_STATE_GET_ACK_STEP_2:
-            this->trace.msg(vp::trace::LEVEL_INFO, "Read ack (value: 0x%x)\n", this->data[this->mem_size]);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Read ack (value: 0x%x)\n", this->data[this->mem_size]);
             if (this->data[this->mem_size] == 0x79)
             {
-                this->trace.msg(vp::trace::LEVEL_INFO, "Received ACK\n");
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Received ACK\n");
                 if (this->slave_boot_is_rx)
                 {
                     this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_CRC;
@@ -815,7 +813,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_RECEIVE_CRC:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Receiving CRC\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Receiving CRC\n");
             this->enqueue_transfer(this->mem_size, 1, 1, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_DATA;
             break;
@@ -824,14 +822,14 @@ void Spim_verif::handle_boot_protocol_transfer()
         case SPIS_BOOT_STATE_RECEIVE_DATA:
         {
             int size = this->slave_boot_size < CMD_BUFFER_SIZE ? this->slave_boot_size : CMD_BUFFER_SIZE;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Receiving data (size: 0x%x)\n", size);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Receiving data (size: 0x%x)\n", size);
             this->enqueue_transfer(this->slave_boot_verif_address, size, 1, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_DATA_CRC;
             break;
         }
 
         case SPIS_BOOT_STATE_RECEIVE_DATA_CRC:
-            this->trace.msg(vp::trace::LEVEL_INFO, "Finished receiving data\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Finished receiving data\n");
             this->slave_boot_size -= CMD_BUFFER_SIZE;
             if (this->slave_boot_size > 0)
             {
@@ -846,7 +844,7 @@ void Spim_verif::handle_boot_protocol_transfer()
             break;
 
         case SPIS_BOOT_STATE_SEND_DATA_DONE:
-            this->trace.msg(vp::trace::LEVEL_INFO, "Finished sending data\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Finished sending data\n");
             this->slave_boot_size -= CMD_BUFFER_SIZE;
             if (this->slave_boot_size > 0)
             {
@@ -861,14 +859,14 @@ void Spim_verif::handle_boot_protocol_transfer()
             break;
 
         case SPIS_BOOT_STATE_SEND_DATA_CRC:
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending CRC\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending CRC\n");
             this->enqueue_transfer(this->mem_size, 1, 0, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA;
             break;
 
         case SPIS_BOOT_STATE_SEND_DATA:
             int size = this->slave_boot_size < CMD_BUFFER_SIZE ? this->slave_boot_size : CMD_BUFFER_SIZE;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sending data (size: 0x%x)\n", size);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending data (size: 0x%x)\n", size);
             this->enqueue_transfer(this->slave_boot_verif_address, size, 0, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA_DONE;
             break;
@@ -919,7 +917,7 @@ void Spim_verif::enqueue_transfer(int address, int size, int is_rx, int is_duple
     if (!this->is_enqueued)
     {
         this->is_enqueued = true;
-        this->enqueue_to_engine(this->get_time() + this->slave_period);
+        this->time.enqueue_to_engine(this->time.get_time() + this->slave_period);
     }
 }
 
@@ -944,7 +942,7 @@ void Spim_verif::start_spi_load()
         }
         else
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Finished SPI loading\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Finished SPI loading\n");
 
             this->current_section_load = 0;
             this->do_spi_load = false;
@@ -954,7 +952,7 @@ void Spim_verif::start_spi_load()
 }
 
 
-void Spim_verif::enqueue_spi_load(js::config *config)
+void Spim_verif::enqueue_spi_load(js::Config *config)
 {
     this->spi_load_config = config;
 
@@ -962,13 +960,13 @@ void Spim_verif::enqueue_spi_load(js::config *config)
 }
 
 
-void Spim_verif::spi_load(js::config *config)
+void Spim_verif::spi_load(js::Config *config)
 {
     std::string path = config->get_child_str("stim_file");
     FILE *file = fopen(path.c_str(), "r");
     if (file == NULL)
     {
-        this->get_trace()->fatal("Unable to open stim file (path: %s, error: %s)\n", path.c_str(), strerror(errno));
+        this->trace.fatal("Unable to open stim file (path: %s, error: %s)\n", path.c_str(), strerror(errno));
         return;
     }
 
@@ -986,7 +984,7 @@ void Spim_verif::spi_load(js::config *config)
         if ((err = fscanf(file, "@%x %x\n", &addr, &value)) != 2)
         {
             if (err == EOF) break;
-            this->get_trace()->fatal("Incorrect stimuli file (path: %s)\n", path.c_str());
+            this->trace.fatal("Incorrect stimuli file (path: %s)\n", path.c_str());
             return;
         }
         
@@ -1019,7 +1017,7 @@ void Spim_verif::spi_load(js::config *config)
 
     this->sections.push_back(new Spi_loader_section(false, NULL, config->get_child_int("entry"), 0));
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Starting SPI loading\n");
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Starting SPI loading\n");
     this->do_spi_load = true;
     this->start_spi_load();
 }

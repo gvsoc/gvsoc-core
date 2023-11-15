@@ -75,12 +75,12 @@ private:
     void read_pte(iss_addr_t pte_addr);
     void walk_pgtab(iss_addr_t virt_addr);
     bool handle_pte();
-    static void handle_pte_stub(void *__this, vp::clock_event *event);
+    static void handle_pte_stub(vp::Block *__this, vp::ClockEvent *event);
     static void handle_pte_response(Lsu *lsu);
     void raise_exception();
 
     Iss &iss;
-    vp::trace trace;
+    vp::Trace trace;
     iss_reg_t satp;
     iss_reg_t pt_base;
     iss_reg_t asid;

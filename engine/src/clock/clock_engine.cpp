@@ -41,13 +41,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/prctl.h>
-#include <vp/time/time_scheduler.hpp>
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
 #include <sys/stat.h>
 
-vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
+vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
 {
     if (!event->enqueued)
     {
@@ -63,13 +62,13 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
             // That should not be needed but in practice, lots of models are pushing from one
             // clock engine to another without synchronizing, creating timing issues.
             // This probably comes from models manipulating 2 clock domains at the same time.
-            if (unlikely(!this->is_running()))
+            if (unlikely(!this->time.is_running()))
             {
                 this->sync();
 
                 if (this->period != 0 && !this->permanent_first)
                 {
-                    this->enqueue_to_engine(this->stop_time + this->period);
+                    this->time.enqueue_to_engine(this->stop_time + this->period);
                 }
             }
 
@@ -95,7 +94,7 @@ vp::clock_event *vp::clock_engine::enable(vp::clock_event *event)
     return event;
 }
 
-void vp::clock_engine::disable(vp::clock_event *event)
+void vp::ClockEngine::disable(vp::ClockEvent *event)
 {
     if (event->enqueued)
     {
@@ -106,22 +105,22 @@ void vp::clock_engine::disable(vp::clock_event *event)
     }
 }
 
-bool vp::clock_engine::dequeue_from_engine()
+bool vp::ClockEngine::dequeue_from_engine()
 {
-    if (this->is_running() || !this->is_enqueued)
+    if (this->time.is_running() || !this->time.get_is_enqueued())
         return false;
 
-    this->engine->dequeue(this);
+    gv_time_engine->dequeue(this);
 
     return true;
 }
 
-void vp::clock_engine::reenqueue_to_engine()
+void vp::ClockEngine::reenqueue_to_engine()
 {
-    this->engine->enqueue(this, this->next_event_time);
+    gv_time_engine->enqueue(this, this->time.next_event_time);
 }
 
-void vp::clock_engine::apply_frequency(int frequency)
+void vp::ClockEngine::apply_frequency(int frequency)
 {
     // Update the number of cycles so that we update the event cycle only on the cycles after the frequency change
     // TODO this is breaking benchmarks
@@ -137,8 +136,8 @@ void vp::clock_engine::apply_frequency(int frequency)
 
         if (reenqueue && period > 0)
         {
-            int64_t cycles = (this->next_event_time - this->get_time()) / period;
-            this->next_event_time = this->get_time() + cycles * this->period;
+            int64_t cycles = (this->time.next_event_time - this->time.get_time()) / period;
+            this->time.next_event_time = this->time.get_time() + cycles * this->period;
             this->reenqueue_to_engine();
         }
         else if (period == 0)
@@ -148,7 +147,7 @@ void vp::clock_engine::apply_frequency(int frequency)
             if (this->has_events())
             {
                 // Compute the time of the next event based on the new frequency
-                this->next_event_time = this->get_time() + (this->get_next_event()->get_cycle() - this->get_cycles()) * this->period;
+                this->time.next_event_time = this->time.get_time() + (this->get_next_event()->get_cycle() - this->get_cycles()) * this->period;
 
                 this->reenqueue_to_engine();
             }
@@ -161,21 +160,21 @@ void vp::clock_engine::apply_frequency(int frequency)
     }
 }
 
-void vp::clock_engine::update()
+void vp::ClockEngine::update()
 {
     if (this->period == 0)
         return;
 
-    if (this->stop_time + this->period <= this->get_time())
+    if (this->stop_time + this->period <= this->time.get_time())
     {
-        int64_t diff = this->get_time() - this->stop_time;
+        int64_t diff = this->time.get_time() - this->stop_time;
         int64_t cycles = diff / this->period;
         this->stop_time += cycles * this->period;
         this->cycles += cycles;
     }
 }
 
-vp::clock_event *vp::clock_engine::enqueue(vp::clock_event *event, int64_t cycle)
+vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
 {
     vp_assert(!event->enqueued, 0, "Enqueueing already enqueued event\n");
     // vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
@@ -185,17 +184,18 @@ vp::clock_event *vp::clock_engine::enqueue(vp::clock_event *event, int64_t cycle
     // That should not be needed but in practice, lots of models are pushing from one
     // clock engine to another without synchronizing, creating timing issues.
     // This probably comes from models manipulating 2 clock domains at the same time.
-    if (unlikely(!this->is_running()))
+    if (unlikely(!this->time.is_running()))
     {
         this->sync();
 
         if (this->period != 0 && !this->permanent_first)
         {
-            enqueue_to_engine(this->stop_time + cycle * period);
+            time.enqueue_to_engine(this->stop_time + cycle * period);
         }
     }
 
-    vp::clock_event *current = delayed_queue, *prev = NULL;
+    vp::ClockEvent *current = delayed_queue, *prev = NULL;
+
     int64_t full_cycle = cycle + get_cycles();
 
     while (current && current->cycle < full_cycle)
@@ -213,7 +213,7 @@ vp::clock_event *vp::clock_engine::enqueue(vp::clock_event *event, int64_t cycle
     return event;
 }
 
-vp::clock_event *vp::clock_engine::get_next_event()
+vp::ClockEvent *vp::ClockEngine::get_next_event()
 {
     // There is no quick way of getting the next event.
     // We have to first check if there is an event in the circular buffer
@@ -224,24 +224,10 @@ vp::clock_event *vp::clock_engine::get_next_event()
         return this->permanent_first;
     }
 
-    if (this->nb_enqueued_to_cycle)
-    {
-        for (int i = 0; i < CLOCK_EVENT_QUEUE_SIZE; i++)
-        {
-            int cycle = (current_cycle + i) & CLOCK_EVENT_QUEUE_MASK;
-            vp::clock_event *event = event_queue[cycle];
-            if (event)
-            {
-                return event;
-            }
-        }
-        // vp_assert(false, 0, "Didn't find any event in circular buffer while it is not empty\n");
-    }
-
     return this->delayed_queue;
 }
 
-void vp::clock_engine::cancel(vp::clock_event *event)
+void vp::ClockEngine::cancel(vp::ClockEvent *event)
 {
     if (!event->is_enqueued())
         return;
@@ -251,7 +237,7 @@ void vp::clock_engine::cancel(vp::clock_event *event)
     // not found, look in the circular buffer
 
     // First the delayed queue
-    vp::clock_event *current = delayed_queue, *prev = NULL;
+    vp::ClockEvent *current = delayed_queue, *prev = NULL;
     while (current)
     {
         if (current == event)
@@ -268,29 +254,6 @@ void vp::clock_engine::cancel(vp::clock_event *event)
         current = current->next;
     }
 
-    // Then in the circular buffer
-    for (int i = 0; i < CLOCK_EVENT_QUEUE_SIZE; i++)
-    {
-        vp::clock_event *current = event_queue[i], *prev = NULL;
-        while (current)
-        {
-            if (current == event)
-            {
-                if (prev)
-                    prev->next = event->next;
-                else
-                    event_queue[i] = event->next;
-
-                this->nb_enqueued_to_cycle--;
-
-                goto end;
-            }
-
-            prev = current;
-            current = current->next;
-        }
-    }
-
     // TODO some models are pushing events to a different one that that they belong to
     // vp_assert(0, NULL, "Didn't find event in any queue while canceling event\n");
 
@@ -301,7 +264,7 @@ end:
         this->dequeue_from_engine();
 }
 
-int64_t vp::clock_engine::exec()
+int64_t vp::ClockEngine::exec()
 {
     vp_assert(this->has_events(), NULL, "Executing clock engine while it has no event\n");
     vp_assert(this->get_next_event(), NULL, "Executing clock engine while it has no next event\n");
@@ -310,7 +273,7 @@ int64_t vp::clock_engine::exec()
 
     vp_assert(this->get_next_event(), NULL, "Executing clock engine while it has no next event\n");
 
-    clock_event *current = this->permanent_first;
+    ClockEvent *current = this->permanent_first;
 
     if (likely(current != NULL))
     {
@@ -318,7 +281,7 @@ int64_t vp::clock_engine::exec()
 
         do
         {
-            clock_event *next = current->next;
+            ClockEvent *next = current->next;
             if (likely(current->stall_cycle == 0))
             {
                 current->meth(current->_this, current);
@@ -370,7 +333,7 @@ int64_t vp::clock_engine::exec()
             break;
         }
 
-        clock_event *current = delayed_queue;
+        ClockEvent *current = delayed_queue;
         current->enqueued = false;
         delayed_queue = delayed_queue->next;
         current->meth(current->_this, current);
@@ -385,7 +348,7 @@ int64_t vp::clock_engine::exec()
 
         // Also remember the current time in order to resynchronize the clock engine
         // in case we enqueue and event from another engine.
-        this->stop_time = this->get_time();
+        this->stop_time = this->time.get_time();
 
         if (delayed_queue)
         {
@@ -400,7 +363,7 @@ int64_t vp::clock_engine::exec()
     }
 }
 
-vp::clock_event *vp::clock_engine::reenqueue(vp::clock_event *event, int64_t enqueue_cycles)
+vp::ClockEvent *vp::ClockEngine::reenqueue(vp::ClockEvent *event, int64_t enqueue_cycles)
 {
     if (event->is_enqueued())
     {
@@ -412,8 +375,46 @@ vp::clock_event *vp::clock_engine::reenqueue(vp::clock_event *event, int64_t enq
     return event;
 }
 
-vp::clock_event *vp::clock_engine::reenqueue_ext(vp::clock_event *event, int64_t enqueue_cycles)
+vp::ClockEvent *vp::ClockEngine::reenqueue_ext(vp::ClockEvent *event, int64_t enqueue_cycles)
 {
     this->sync();
     return this->reenqueue(event, enqueue_cycles);
+}
+
+void vp::ClockEngine::set_frequency(void *__this, int64_t frequency)
+{
+    ClockEngine *_this = (ClockEngine *)__this;
+    _this->out.set_frequency(frequency);
+    _this->apply_frequency(frequency * _this->factor);
+    _this->clock_trace.event_real(_this->period);
+}
+
+void vp::ClockEngine::pre_start()
+{
+    out.reg(this);
+}
+
+vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
+    : vp::Component(config), cycles(0), period(0), freq(0)
+{
+    delayed_queue = NULL;
+    current_cycle = 0;
+
+    this->apply_frequency(get_js_config()->get_child_int("frequency"));
+
+    new_master_port("out", &out);
+
+    clock_in.set_set_frequency_meth(&ClockEngine::set_frequency);
+    new_slave_port("clock_in", &clock_in);
+
+    this->traces.new_trace_event_real("period", &this->clock_trace);
+
+    this->traces.new_trace_event_real("cycles", &this->cycles_trace);
+
+    this->factor = this->get_js_config()->get_child_int("factor");
+
+    if (this->factor == 0)
+    {
+        this->factor = 1;
+    }
 }

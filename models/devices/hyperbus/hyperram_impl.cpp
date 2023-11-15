@@ -44,21 +44,19 @@ typedef enum
 
 
 
-class Hyperram : public vp::component
+class Hyperram : public vp::Component
 {
 public:
-  Hyperram(js::config *config);
+  Hyperram(vp::ComponentConf &conf);
 
   void handle_access(int reg_access, int address, int read, uint8_t data);
-
-  int build();
 
   static void sync_cycle(void *_this, int data);
   static void cs_sync(void *__this, int cs, int value);
 
 protected:
-  vp::trace     trace;
-  vp::hyper_slave   in_itf;
+  vp::Trace     trace;
+  vp::HyperSlave   in_itf;
 
 private:
   int size;
@@ -93,20 +91,20 @@ void Hyperram::handle_access(int reg_access, int address, int read, uint8_t data
 {
   if (address >= this->size)
   {
-    this->warning.force_warning("Received out-of-bound request (addr: 0x%x, ram_size: 0x%x)\n", address, this->size);
+    this->trace.force_warning("Received out-of-bound request (addr: 0x%x, ram_size: 0x%x)\n", address, this->size);
   }
   else
   {
     if (read)
     {
       uint8_t data = this->data[address];
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
       this->in_itf.sync_cycle(data);
 
     }
     else
     {
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
       this->data[address] = data;
     }
   }
@@ -114,9 +112,26 @@ void Hyperram::handle_access(int reg_access, int address, int read, uint8_t data
 
 
 
-Hyperram::Hyperram(js::config *config)
-: vp::component(config)
+Hyperram::Hyperram(vp::ComponentConf &config)
+: vp::Component(config)
 {
+  traces.new_trace("trace", &trace, vp::DEBUG);
+
+  in_itf.set_sync_cycle_meth(&Hyperram::sync_cycle);
+  in_itf.set_cs_sync_meth(&Hyperram::cs_sync);
+  new_slave_port("input", &in_itf);
+
+  js::Config *conf = this->get_js_config();
+
+  this->size = conf->get("size")->get_int();
+
+  this->data = new uint8_t[this->size];
+  memset(this->data, 0xff, this->size);
+
+  this->reg_data = new uint8_t[REGS_AREA_SIZE];
+  memset(this->reg_data, 0x57, REGS_AREA_SIZE);
+  ((uint16_t *)this->reg_data)[0] = 0x8F1F;
+
 }
 
 
@@ -127,7 +142,7 @@ void Hyperram::sync_cycle(void *__this, int data)
 
   if (_this->state == HYPERBUS_STATE_CA)
   {
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command byte (value: 0x%x)\n", data);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received command byte (value: 0x%x)\n", data);
 
     _this->ca_count--;
     _this->ca.raw[_this->ca_count] = data;
@@ -138,7 +153,7 @@ void Hyperram::sync_cycle(void *__this, int data)
 
       _this->reg_access = _this->ca.address_space == 1;
 
-      _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command header (reg_access: %d, addr: 0x%x, read: %d)\n", _this->ca.address_space, _this->current_address, _this->ca.read);
+      _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received command header (reg_access: %d, addr: 0x%x, read: %d)\n", _this->ca.address_space, _this->current_address, _this->ca.read);
     }
   }
   else if (_this->state == HYPERBUS_STATE_DATA)
@@ -151,37 +166,14 @@ void Hyperram::sync_cycle(void *__this, int data)
 void Hyperram::cs_sync(void *__this, int cs, int value)
 {
   Hyperram *_this = (Hyperram *)__this;
-  _this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
+  _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
 
   _this->state = HYPERBUS_STATE_CA;
   _this->ca_count = 6;
 }
 
-int Hyperram::build()
-{
-  traces.new_trace("trace", &trace, vp::DEBUG);
 
-  in_itf.set_sync_cycle_meth(&Hyperram::sync_cycle);
-  in_itf.set_cs_sync_meth(&Hyperram::cs_sync);
-  new_slave_port("input", &in_itf);
-
-  js::config *conf = this->get_js_config();
-
-  this->size = conf->get("size")->get_int();
-
-  this->data = new uint8_t[this->size];
-  memset(this->data, 0xff, this->size);
-
-  this->reg_data = new uint8_t[REGS_AREA_SIZE];
-  memset(this->reg_data, 0x57, REGS_AREA_SIZE);
-  ((uint16_t *)this->reg_data)[0] = 0x8F1F;
-
-  return 0;
-}
-
-
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new Hyperram(config);
 }

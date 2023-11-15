@@ -49,7 +49,7 @@ public:
      * @param nb_ports Number of ports to the memory interface.
      * @param output_latency Latency in cycles on each output port.
      */
-    Mem_plug(vp::block *parent, vp::component *comp, std::string path, vp::io_master *mem_itf,
+    Mem_plug(vp::Block *parent, std::string name, vp::Component *comp, std::string path, vp::IoMaster *mem_itf,
         int nb_ports, int output_latency);
 
     /**
@@ -75,7 +75,7 @@ public:
  * Structure holding information about the access to be done on the output memory interface.
  * ALso used to notify the termination of the access through a method callback.
  */
-class Mem_plug_req : public vp::queue_elem
+class Mem_plug_req : public vp::QueueElem
 {
     friend class Mem_plug_port;
     friend class Mem_plug;

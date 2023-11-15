@@ -43,7 +43,7 @@ public:
     double get_instant_power(double &dynamic_power, double &static_power) override;
     void report_start() override;
     void report_stop() override;
-    gv::Power_report *report_get() override;
+    gv::PowerReport *report_get() override;
 
     void wait_stopped() override;
     void update(int64_t timestamp) override;

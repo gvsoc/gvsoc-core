@@ -30,7 +30,7 @@ namespace ems {
 
 // Auto-extension
 struct req_extension : tlm::tlm_extension<req_extension> {
-  req_extension(vp::io_req *r, uint32_t id, bool last) :
+  req_extension(vp::IoReq *r, uint32_t id, bool last) :
     req(r),
     id(id),
     last(last)
@@ -49,7 +49,7 @@ struct req_extension : tlm::tlm_extension<req_extension> {
     last = static_cast<req_extension const &>(ext).last;
   }
 
-  vp::io_req *req; // Pointer to original request for integrity check
+  vp::IoReq *req; // Pointer to original request for integrity check
   uint32_t id;     // A request is split into multiple transactions
   bool last;       // Last transaction of a request
 };

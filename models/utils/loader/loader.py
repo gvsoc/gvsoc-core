@@ -14,11 +14,32 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gsystree
 
-class ElfLoader(st.Component):
+class ElfLoader(gsystree.Component):
+    """ELF loader
 
-    def __init__(self, parent, name, binary=None, entry=None):
+    This model can be used to load an ELF binary from the workstation into a simulated memory.
+    It will load the specified binary from workstation and will issues requests to the connected
+    interconnect in order to write the sections into the memories, using the addresses found in the
+    ELF binary.
+
+    At the end of the loading phase, it can also set the entry to the conected target and requests
+    it to start execution.
+
+    Attributes
+    ----------
+    parent: gsystree.Component
+        The parent component where this one should be instantiated.
+    name: str
+        The name of the component within the parent space.
+    binary: str
+        Path to the binary to be loaded.
+    entry: int
+        Address of the first instruction to be executed. If it is None, the entry will be
+        taken from the binary.
+    """
+    def __init__(self, parent: gsystree.Component, name: str, binary: str=None, entry: int=None):
 
         super().__init__(parent, name)
 
@@ -36,3 +57,47 @@ class ElfLoader(st.Component):
             self.add_properties({
                 'entry': entry
             })
+
+    def o_OUT(self, itf: gsystree.SlaveItf):
+        """Binds the output port.
+
+        This ports is used by the loader to inject memory requests to transfer the binary
+        into the target memories.\n
+        It should be connected to an interconnect which have access to all memories containing
+        at laest one section of the binary.\n
+        It instantiates a port of type vp::IoMaster.\n
+
+        Parameters
+        ----------
+        slave: gsystree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('out', itf, signature='io')
+
+    def o_START(self, itf: gsystree.SlaveItf):
+        """Binds the fetch enable port.
+
+        This ports is used by the loader to tell to another component that the loading is done, so
+        that for example a core starts execution.\n
+        It instantiates a port of type vp::WireMaster<bool>.\n
+
+        Parameters
+        ----------
+        slave: gsystree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('start', itf, signature='wire<bool>')
+
+    def o_ENTRY(self, itf: gsystree.SlaveItf):
+        """Binds the entry port.
+
+        This ports is used by the loader to tell to another component what is the entry point of
+        the laoded binary so that for example a core starts execution directly at the entry point.\n
+        It instantiates a port of type vp::WireMaster<uint64_t>.\n
+
+        Parameters
+        ----------
+        slave: gsystree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('entry', itf, signature='wire<uint64_t>')

@@ -57,8 +57,8 @@ typedef enum {
 
 typedef std::function<void(i2c_operation_e id, i2c_status_e status, int value)> i2c_callback_t;
 
-typedef std::function<void(vp::clock_event* event,uint64_t time_ps)> i2c_enqueue_event_fn_t;
-typedef std::function<void(vp::clock_event* event)> i2c_cancel_event_fn_t;
+typedef std::function<void(vp::ClockEvent* event,uint64_t time_ps)> i2c_enqueue_event_fn_t;
+typedef std::function<void(vp::ClockEvent* event)> i2c_cancel_event_fn_t;
 
 /**
  * \brief TODO
@@ -75,7 +75,7 @@ typedef std::function<void(vp::clock_event* event)> i2c_cancel_event_fn_t;
  */
 class I2C_helper {
     public:
-        I2C_helper(vp::component* parent, vp::i2c_master* itf, i2c_enqueue_event_fn_t event, i2c_cancel_event_fn_t cancel_event, std::string trace_path="");
+        I2C_helper(vp::Component* parent, vp::I2cMaster* itf, i2c_enqueue_event_fn_t event, i2c_cancel_event_fn_t cancel_event, std::string trace_path="");
 
         // TO be called when pin values change
         void update_pins(int scl, int sda);
@@ -115,14 +115,14 @@ class I2C_helper {
         /******************/
         /* Static methods */
         /******************/
-        static void fsm_event_handler(void* __this, vp::clock_event* event);
-        static void st_clock_event_handler(void* __this, vp::clock_event* event);
-        static void i2c_sync(void *__this, int scl, int sda);
+        static void fsm_event_handler(vp::Block *__this, vp::ClockEvent* event);
+        static void st_clock_event_handler(vp::Block *__this, vp::ClockEvent* event);
+        static void i2c_sync(vp::Block *__this, int scl, int sda);
 
         /***********/
         /* Methods */
         /***********/
-        void clock_event_handler(vp::clock_event* event);
+        void clock_event_handler(vp::ClockEvent* event);
 
         void start_clock(void);
         void stop_clock(void);
@@ -141,8 +141,8 @@ class I2C_helper {
         /*************/
         /* Externals */
         /*************/
-        vp::component* parent;
-        vp::i2c_master* itf;
+        vp::Component* parent;
+        vp::I2cMaster* itf;
 
         /*************/
         /* Callbacks */
@@ -161,8 +161,8 @@ class I2C_helper {
         /****************/
         /* Runtime data */
         /****************/
-        vp::clock_event clock_event;
-        vp::clock_event fsm_event;
+        vp::ClockEvent clock_event;
+        vp::ClockEvent fsm_event;
 
         i2c_internal_state_e internal_state;
 
@@ -188,7 +188,7 @@ class I2C_helper {
         bool is_clock_enabled;
         int clock_value;
 
-        vp::trace trace;
+        vp::Trace trace;
 
         int ack_value;
 

@@ -24,30 +24,33 @@
 #define __VP_PORTS_HPP__
 
 #include "vp/vp_data.hpp"
-#include "vp/config.hpp"
+#include "vp/json.hpp"
 
 namespace vp
 {
 
-class slave_port;
-class component;
+class SlavePort;
+class Component;
 
-class port
+class Port
 {
 
 public:
-    port(vp::component *owner = NULL) : owner(owner) {}
+    Port(vp::Component *owner = NULL) : owner(owner) {}
 
-    virtual std::vector<vp::slave_port *> get_final_ports() { return {}; }
-    virtual void bind_to(port *port, vp::config *config);
+    virtual std::vector<vp::SlavePort *> get_final_ports() { return {}; }
+    virtual void bind_to(Port *port, js::Config *config);
     virtual void finalize() {}
 
     virtual void final_bind() {}
 
+    virtual void bind_to_slaves() {}
+    virtual bool is_master() { return false; }
+    virtual bool is_slave() { return false; }
     virtual bool is_virtual() { return false; }
 
-    void set_comp(component *comp) { this->owner = comp; }
-    component *get_comp() { return owner; }
+    void set_comp(Component *comp) { this->owner = comp; }
+    Component *get_comp() { return owner; }
 
     inline std::string get_name() { return this->name; }
     inline void set_name(std::string name) { this->name = name; }
@@ -62,8 +65,8 @@ public:
         this->remote_context = comp;
     }
 
-    inline void set_owner(component *comp) { this->owner = comp; }
-    inline component *get_owner() { return this->owner; }
+    inline void set_owner(Component *comp) { this->owner = comp; }
+    inline Component *get_owner() { return this->owner; }
 
     inline void set_itf(void *itf) { this->itf = itf; }
     inline void *get_itf() { return this->remote_port->itf; }
@@ -73,7 +76,7 @@ public:
     // intermediate port from a composite component.
     // This binding will be used later on to connect this master port to final ports
     // implemented by final C++ IPs
-    virtual void bind_to_virtual(port *port) {};
+    virtual void bind_to_virtual(Port *port) {};
 
     // Tell if the port is bound to another port
     bool is_bound = false;
@@ -81,7 +84,7 @@ public:
 protected:
     // Component owner of this port.
     // The port is considered in the same domains as the owner component.
-    component *owner = NULL;
+    Component *owner = NULL;
 
     // Local context.
     // This pointer must be the first argument of any binding call to this port.
@@ -92,7 +95,7 @@ protected:
     void *remote_context = NULL;
 
     // Remote port connected to this port
-    port *remote_port = NULL;
+    Port *remote_port = NULL;
 
     void *itf = NULL;
 
@@ -100,16 +103,17 @@ protected:
     std::string name = "";
 };
 
-class master_port : public port
+class MasterPort : public Port
 {
 public:
-    master_port(vp::component *owner = NULL);
+    MasterPort(vp::Component *owner = NULL);
 
-    void bind_to_virtual(port *port);
+    bool is_master() { return true; }
+    void bind_to_virtual(Port *port);
     void final_bind();
     void bind_to_slaves();
 
-    std::vector<vp::slave_port *> get_final_ports();
+    std::vector<vp::SlavePort *> get_final_ports();
 
 protected:
     // Tell if the port is bound to a final slave port
@@ -118,30 +122,31 @@ protected:
 private:
     // Slave ports to which this one is connected. This may be virtual ports
     // if the binding is crossing composite components.
-    std::vector<vp::port *> slave_ports;
+    std::vector<vp::Port *> SlavePorts;
 };
 
 
 
-class virtual_port : public master_port
+class VirtualPort : public MasterPort
 {
 public:
-    virtual_port(vp::component *owner = NULL) : master_port(owner) {}
+    VirtualPort(vp::Component *owner = NULL) : MasterPort(owner) {}
     bool is_virtual() { return true; }
 };
 
 
 
-class slave_port : public port
+class SlavePort : public Port
 {
 public:
+    bool is_slave() { return true; }
     void final_bind();
-    std::vector<vp::slave_port *> get_final_ports();
+    std::vector<vp::SlavePort *> get_final_ports();
 };
 
 
 
-inline void port::bind_to(port *port, vp::config *config)
+inline void Port::bind_to(Port *port, js::Config *config)
 {
     this->set_remote_context(port->get_context());
     remote_port = port;

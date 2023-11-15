@@ -38,17 +38,17 @@ void Exec::build()
     this->iss.top.new_master_port("busy", &busy_itf);
 
     flush_cache_ack_itf.set_sync_meth(&Exec::flush_cache_ack_sync);
-    this->iss.top.new_slave_port(this, "flush_cache_ack", &flush_cache_ack_itf);
+    this->iss.top.new_slave_port("flush_cache_ack", &flush_cache_ack_itf, (vp::Block *)this);
     this->iss.top.new_master_port("flush_cache_req", &flush_cache_req_itf);
 
     bootaddr_itf.set_sync_meth(&Exec::bootaddr_sync);
-    this->iss.top.new_slave_port(this, "bootaddr", &bootaddr_itf);
+    this->iss.top.new_slave_port("bootaddr", &bootaddr_itf, (vp::Block *)this);
 
     clock_itf.set_sync_meth(&Exec::clock_sync);
-    this->iss.top.new_slave_port(this, "clock", &clock_itf);
+    this->iss.top.new_slave_port("clock_en", &clock_itf, (vp::Block *)this);
 
     fetchen_itf.set_sync_meth(&Exec::fetchen_sync);
-    this->iss.top.new_slave_port(this, "fetchen", &fetchen_itf);
+    this->iss.top.new_slave_port("fetchen", &fetchen_itf, (vp::Block *)this);
 
     this->iss.top.new_reg("step_mode", &this->step_mode, false);
 
@@ -56,10 +56,10 @@ void Exec::build()
 
     this->iss.top.new_reg("busy", &this->busy, 1);
 
-    this->iss.top.new_reg("bootaddr", &this->bootaddr_reg, this->iss.top.get_config_int("boot_addr"));
+    this->iss.top.new_reg("bootaddr", &this->bootaddr_reg, this->iss.top.get_js_config()->get_child_int("boot_addr"));
 
     this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.top.get_js_config()->get("fetch_enable")->get_bool());
-    this->iss.top.new_reg("stalled", &this->stalled, false);
+    this->iss.top.new_reg("stalled", &this->stalled, 0);
     this->iss.top.new_reg("wfi", &this->wfi, false);
 
     this->stalled.set(false);
@@ -67,7 +67,7 @@ void Exec::build()
 
     instr_event = this->iss.top.event_new(&this->iss, Exec::exec_instr_check_all);
 
-    this->bootaddr_offset = this->iss.top.get_config_int("bootaddr_offset");
+    this->bootaddr_offset = this->iss.top.get_js_config()->get_child_int("bootaddr_offset");
 
 
     this->current_insn = 0;
@@ -151,12 +151,12 @@ void Exec::dbg_unit_step_check()
 }
 
 
-void Exec::exec_instr_untimed(void *__this, vp::clock_event *event)
+void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
 {
     // TODO such a loop could be used for untimed ISS variant
     abort();
     // Iss *const iss = (Iss *)__this;
-    // iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
+    // iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
     // iss->exec.loop_count = 64;
 
     // iss_insn_t *insn = iss->exec.current_insn;
@@ -173,11 +173,11 @@ void Exec::exec_instr_untimed(void *__this, vp::clock_event *event)
 }
 
 
-void Exec::exec_instr(void *__this, vp::clock_event *event)
+void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *const iss = (Iss *)__this;
 
-    iss->exec.trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
+    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
     iss_reg_t pc = iss->exec.current_insn;
 
@@ -252,12 +252,12 @@ void Exec::decode_insn(iss_insn_t *insn, iss_addr_t pc)
 
 
 
-void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
+void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
     Exec *_this = &iss->exec;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
     if (_this->has_exception)
     {
@@ -269,7 +269,7 @@ void Exec::exec_instr_check_all(void *__this, vp::clock_event *event)
     // if HW counters are disabled as they are checked with the slow handler
     if (_this->can_switch_to_fast_mode())
     {
-        _this->instr_event->meth_set(&_this->iss, &Exec::exec_instr);
+        _this->instr_event->set_callback(&Exec::exec_instr);
     }
 
     _this->insn_exec_profiling();

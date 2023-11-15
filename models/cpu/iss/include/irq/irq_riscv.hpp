@@ -76,9 +76,9 @@ public:
     int req_irq;
     bool req_debug;
     iss_reg_t debug_handler;
-    vp::trace trace;
-    vp::wire_slave<bool> msi_itf;
-    vp::wire_slave<bool> mti_itf;
-    vp::wire_slave<bool> mei_itf;
-    vp::wire_slave<bool> sei_itf;
+    vp::Trace trace;
+    vp::WireSlave<bool> msi_itf;
+    vp::WireSlave<bool> mti_itf;
+    vp::WireSlave<bool> mei_itf;
+    vp::WireSlave<bool> sei_itf;
 };

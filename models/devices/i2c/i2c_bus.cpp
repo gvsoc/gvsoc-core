@@ -27,20 +27,18 @@ typedef struct {
 } i2c_pair_t;
 
 
-class I2c_bus : public vp::component
+class I2c_bus : public vp::Component
 {
 public:
-    I2c_bus(js::config *config);
-
-    int build();
+    I2c_bus(vp::ComponentConf &conf);
 
 private:
 
     static void sync(void *__this, int scl, int sda, int id);
 
-    vp::trace trace;
+    vp::Trace trace;
 
-    vp::i2c_slave in;
+    vp::I2cSlave in;
 
     std::map<int, i2c_pair_t> i2c_values;
 
@@ -52,12 +50,8 @@ private:
 };
 
 
-I2c_bus::I2c_bus(js::config *config)
-    : vp::component(config)
-{
-}
-
-int I2c_bus::build()
+I2c_bus::I2c_bus(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -73,15 +67,13 @@ int I2c_bus::build()
 
     this->pending_resolve = false;
 
-    return 0;
 }
-
 
 void I2c_bus::sync(void *__this, int scl, int sda, int id)
 {
     I2c_bus *_this = (I2c_bus *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, " => bus sync [id=%d]: scl=%d, sda=%d\n",
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, " => bus sync [id=%d]: scl=%d, sda=%d\n",
             id, scl, sda);
     /* store incoming values in maps */
     _this->i2c_values[id].scl = scl;
@@ -94,7 +86,7 @@ void I2c_bus::sync(void *__this, int scl, int sda, int id)
         return;
     }
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, " => bus update\n");
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, " => bus update\n");
 
     _this->pending_resolve = true;
 
@@ -108,7 +100,7 @@ void I2c_bus::sync(void *__this, int scl, int sda, int id)
 
         for (std::pair<int, i2c_pair_t> i2c_val : _this->i2c_values)
         {
-            _this->trace.msg(vp::trace::LEVEL_TRACE, "bus values [id=%d]: scl=%d, sda=%d\n",
+            _this->trace.msg(vp::Trace::LEVEL_TRACE, "bus values [id=%d]: scl=%d, sda=%d\n",
                     i2c_val.first,
                     i2c_val.second.scl,
                     i2c_val.second.sda);
@@ -128,18 +120,18 @@ void I2c_bus::sync(void *__this, int scl, int sda, int id)
             /* only propagate changes */
             _this->bus_scl.set(res_scl_value);
             _this->bus_sda.set(res_sda_value);
-            _this->trace.msg(vp::trace::LEVEL_TRACE, "I2C: scl=%d, sda=%d\n",
+            _this->trace.msg(vp::Trace::LEVEL_TRACE, "I2C: scl=%d, sda=%d\n",
                     _this->bus_scl.get(), _this->bus_sda.get());
             _this->in.sync(res_scl_value, res_sda_value);
         }
     }
 
     _this->pending_resolve = false;
-    _this->trace.msg(vp::trace::LEVEL_TRACE, " => bus update done[id=%d]\n", id);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, " => bus update done[id=%d]\n", id);
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new I2c_bus(config);
 }

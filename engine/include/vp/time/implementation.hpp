@@ -35,30 +35,11 @@ using namespace std;
 namespace vp {
 
 
-  inline int component::get_config_int(std::string name, int index)
-  {
-    return get_js_config()->get(name)->get_elem(index)->get_int();
-  }
-
-
-  inline int component::get_config_int(std::string name)
-  {
-    return get_js_config()->get_child_int(name);
-  }
-
-  inline bool component::get_config_bool(std::string name)
-  {
-    return get_js_config()->get_child_bool(name);
-  }
-
-  inline std::string component::get_config_str(std::string name)
-  {
-    return get_js_config()->get_child_str(name);
-  }
-
-  inline int64_t component::get_time() { return this->get_time_engine()->get_time(); }
-
-
 };
+
+
+inline vp::TimeEngine *vp::BlockTime::get_engine() { return gv_time_engine; }
+
+
 
 #endif

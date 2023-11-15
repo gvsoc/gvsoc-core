@@ -48,7 +48,7 @@ class IssWrapper;
 class Iss
 {
 public:
-    Iss(vp::component &top);
+    Iss(vp::Component &top);
 
     Exec exec;
     Timing timing;
@@ -73,25 +73,27 @@ public:
     
 
 
-    vp::component &top;
+    vp::Component &top;
 };
 
 
-class IssWrapper : public vp::component
+class IssWrapper : public vp::Component
 {
 
 public:
-    IssWrapper(js::config *config);
+    IssWrapper(vp::ComponentConf &config);
 
-    int build();
     void start();
     void reset(bool active);
     virtual void target_open();
 
     Iss iss;
+
+private:
+    vp::Trace trace;
 };
 
-inline Iss::Iss(vp::component &top)
+inline Iss::Iss(vp::Component &top)
     : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
       regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)

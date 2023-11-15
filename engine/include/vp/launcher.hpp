@@ -27,69 +27,79 @@
 #include <condition_variable>
 #include <queue>
 
-
-class Gvsoc_launcher : public gv::Gvsoc
+class GvsocLauncher_notifier
 {
 public:
-    Gvsoc_launcher(gv::GvsocConf *conf);
+    virtual void notify_stop(int64_t time) {}
+    virtual void notify_run(int64_t time) {}
+};
 
-    void open() override;
-    void bind(gv::Gvsoc_user *user) override;
-    void close() override;
 
-    void run() override;
+namespace gv {
 
-    void start() override;
+class GvsocLauncher : public gv::Gvsoc
+{
+    public:
+        GvsocLauncher(gv::GvsocConf *conf);
 
-    int64_t stop() override;
+        void open() override;
+        void bind(gv::Gvsoc_user *user) override;
+        void close() override;
 
-    void wait_stopped() override;
+        void run() override;
 
-    double get_instant_power(double &dynamic_power, double &static_power) override;
-    double get_average_power(double &dynamic_power, double &static_power) override;
-    void report_start() override;
-    void report_stop() override;
-    gv::Power_report *report_get() override;
+        void start() override;
 
-    int64_t step(int64_t duration) override;
-    int64_t step_until(int64_t timestamp) override;
+        int64_t stop() override;
 
-    int join() override;
+        void wait_stopped() override;
 
-    void retain() override;
+        double get_instant_power(double &dynamic_power, double &static_power) override;
+        double get_average_power(double &dynamic_power, double &static_power) override;
+        void report_start() override;
+        void report_stop() override;
+        gv::PowerReport *report_get() override;
 
-    int retain_count() override;
+        int64_t step(int64_t duration) override;
+        int64_t step_until(int64_t timestamp) override;
 
-    void release() override;
+        int join() override;
 
-    void update(int64_t timestamp);
+        void retain() override;
 
-    gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
-    gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
+        int retain_count() override;
 
-    void vcd_bind(gv::Vcd_user *user) override;
-    void event_add(std::string path, bool is_regex) override;
-    void event_exclude(std::string path, bool is_regex) override;
-    void *get_component(std::string path) override;
-    void register_exec_notifier(vp::Notifier *notifier);
+        void release() override;
 
-    vp::top *top_get() { return this->handler; }
+        void update(int64_t timestamp);
 
-private:
-    void engine_routine();
-    static void *signal_routine(void *__this);
+        gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
+        gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
 
-    gv::GvsocConf *conf;
-    vp::top *handler;
-    int retval = -1;
-    gv::Gvsoc_user *user;
-    bool is_async;
-    std::thread *engine_thread;
-    std::thread *signal_thread;
-    std::vector<vp::Notifier *> exec_notifiers;
-    vp::time_engine *engine;
-    vp::component *instance;
-    Gv_proxy *proxy;
-    bool running = false;
-    bool run_req = false;
+        void vcd_bind(gv::Vcd_user *user) override;
+        void event_add(std::string path, bool is_regex) override;
+        void event_exclude(std::string path, bool is_regex) override;
+        void *get_component(std::string path) override;
+        void register_exec_notifier(GvsocLauncher_notifier *notifier);
+
+        vp::top *top_get() { return this->handler; }
+
+    private:
+        void engine_routine();
+        static void *signal_routine(void *__this);
+
+        gv::GvsocConf *conf;
+        vp::top *handler;
+        int retval = -1;
+        gv::Gvsoc_user *user;
+        bool is_async;
+        std::thread *engine_thread;
+        std::thread *signal_thread;
+        std::vector<GvsocLauncher_notifier *> exec_notifiers;
+        vp::Component *instance;
+        GvProxy *proxy;
+        bool running = false;
+        bool run_req = false;
+    };
+
 };

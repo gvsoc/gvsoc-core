@@ -303,8 +303,8 @@ class Itf_gen(object):
     def add_frequency_cross_stubs(self, c_class, name, conf, is_master):
         itf_dir = 'master' if is_master else 'slave'
         meth = c_class.add_meth(C_gen.C_meth('%s_freq_cross_stub' % name, args=['%s *_this' % c_class.name] + get_args_decl2(conf), return_type=get_return_decl(conf), prefix='static inline ', private=True, description='// Stub for crossing frequency domains for %s interface method "%s"' % (itf_dir, name)))
-        meth.add_implem('if ( _this->remote_port->get_owner()->get_clock())\n')
-        meth.add_implem('    _this->remote_port->get_owner()->get_clock()->sync();\n')
+        meth.add_implem('if ( _this->remote_port->get_owner()->clock.get_engine())\n')
+        meth.add_implem('    _this->remote_port->get_owner()->clock.get_engine()->sync();\n')
         meth.add_implem('return _this->%s_freq_cross(_this->context_for_freq_cross, value);\n' % (name))
         c_class.add_field(C_gen.C_field('%s (*%s_freq_cross)(void *, %s);' % (get_return_decl(conf), name, get_args_decl(conf)), private=True, description='// Temporary variable for stub for crossing frequency domains for %s interface method "%s", used to store the real callback.' % (itf_dir, name)))
 
@@ -316,7 +316,7 @@ class Itf_gen(object):
         c_class.add_field(C_gen.C_field('static inline %s %s_default(void *, %s) {}\n' % (get_return_decl(conf), name, get_args_decl(conf)), private=True, description='// Default method for interface method "%s" when the user does not set it' % name))
 
     def add_bindto(self, c_class, remote_c_class, conf, remote_conf):
-        meth = c_class.add_meth(C_gen.C_meth('bind_to', args=['vp::port *_port', 'vp::config *config']))
+        meth = c_class.add_meth(C_gen.C_meth('bind_to', args=['vp::Port *_port', 'js::Config *config']))
         meth.add_implem('%s *port = (%s *)_port;\n' % (remote_c_class.instance_name, remote_c_class.instance_name))
         meth.add_implem('\n')
         meth.add_implem('if (this->remote_port != NULL)\n')
@@ -339,7 +339,7 @@ class Itf_gen(object):
         meth.add_implem('    else\n')
         meth.add_implem('    {\n')
         meth.add_implem('        set_remote_context(this);\n')
-        meth.add_implem('        this->remote_comp_mux = (vp::component *)port->get_context();\n')
+        meth.add_implem('        this->remote_comp_mux = (vp::Component *)port->get_context();\n')
         for method_name, method_conf in conf.get('methods').items():
             meth.add_implem('        this->remote_%s_meth = (void (*)(void *, %s))&%s::%s_muxed_stub;\n' % (method_name, get_args_decl(method_conf), c_class.name, method_name))
             meth.add_implem('        this->remote_%s_meth_mux = port->%s_meth_mux;\n' % (method_name, method_name))
@@ -348,7 +348,7 @@ class Itf_gen(object):
         meth.add_implem('}\n')
 
         meth = c_class.add_meth(C_gen.C_meth('finalize'))
-        meth.add_implem('if (this->get_owner()->get_clock() != this->remote_port->get_owner()->get_clock())\n')
+        meth.add_implem('if (this->get_owner()->clock.get_engine() != this->remote_port->get_owner()->clock.get_engine())\n')
         meth.add_implem('{\n')
         for method_name, method_conf in conf.get('methods').items():
             meth.add_implem('    this->%s_freq_cross = this->remote_%s_meth;\n' % (method_name, method_name))
@@ -370,7 +370,7 @@ class Itf_gen(object):
         
         c_class.add_field(C_gen.C_field('%s *next;' % (c_class.instance_name), private=True))
         c_class.add_field(C_gen.C_field('bool is_muxed;', private=True))
-        c_class.add_field(C_gen.C_field('vp::component *remote_comp_mux;', private=True))
+        c_class.add_field(C_gen.C_field('vp::Component *remote_comp_mux;', private=True))
 
 
         c_class.add_field(C_gen.C_field('void *context_for_freq_cross;', private=True))
@@ -423,8 +423,8 @@ class Itf_gen(object):
         c_gen = C_gen(name, header_path, class_path, implem_path)
 
         # Master and slave classes
-        master = c_gen.new_class(c_gen.C_class('%s_master' % args.name, constructor=True, template=mconf.get('template'), template_instance=mconf.get('template_instance'), parents=['public master_port'], friends=['%s_slave%s' % (args.name, get_template_instance(sconf))]))
-        slave = c_gen.new_class(c_gen.C_class('%s_slave' % args.name, constructor=True, template=sconf.get('template'), template_instance=mconf.get('template_instance'), parents=['public slave_port'], friends=['%s_master%s' % (args.name, get_template_instance(mconf))]))
+        master = c_gen.new_class(c_gen.C_class('%s_master' % args.name, constructor=True, template=mconf.get('template'), template_instance=mconf.get('template_instance'), parents=['public MasterPort'], friends=['%s_slave%s' % (args.name, get_template_instance(sconf))]))
+        slave = c_gen.new_class(c_gen.C_class('%s_slave' % args.name, constructor=True, template=sconf.get('template'), template_instance=mconf.get('template_instance'), parents=['public SlavePort'], friends=['%s_master%s' % (args.name, get_template_instance(mconf))]))
 
         # Constructors
         self.add_constructors(master, slave, mconf, sconf)

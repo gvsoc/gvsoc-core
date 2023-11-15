@@ -31,13 +31,11 @@
 class Rsp;
 
 
-class Gdb_server : public vp::component, vp::Gdbserver_engine
+class Gdb_server : public vp::Component, vp::Gdbserver_engine
 {
 public:
-    Gdb_server(js::config *config);
+    Gdb_server(vp::ComponentConf &conf);
 
-    void pre_pre_build();
-    int build();
     void start();
 
     int io_access(uint32_t addr, int size, uint8_t *data, bool is_write);
@@ -57,12 +55,12 @@ public:
     void watchpoint_insert(bool is_write, uint64_t addr, int size);
     void watchpoint_remove(bool is_write, uint64_t addr, int size);
 
-    void lock() override { this->get_time_engine()->lock(); }
-    void unlock() override { this->get_time_engine()->unlock(); }
+    void lock() override { this->time.get_engine()->lock(); }
+    void unlock() override { this->time.get_engine()->unlock(); }
 
     void exit(int status) override;
 
-    vp::trace     trace;
+    vp::Trace     trace;
     int default_hartid;
 
 

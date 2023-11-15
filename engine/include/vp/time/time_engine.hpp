@@ -24,20 +24,22 @@
 
 #include "vp/vp_data.hpp"
 #include "vp/component.hpp"
-#include "json.hpp"
+#include "vp/json.hpp"
 #include "gv/gvsoc.hpp"
 
 namespace vp
 {
 
-class time_engine_client;
-class component;
+class BlockTime;
+class Component;
 class Time_engine_stop_event;
 
-class time_engine
+class TimeEngine
 {
 public:
-    time_engine(component *top, js::config *config);
+    TimeEngine(js::Config *config);
+
+    void init(Component *top);
 
     void step_register(int64_t time);
 
@@ -61,9 +63,9 @@ public:
 
     void flush();
 
-    bool dequeue(time_engine_client *client);
+    bool dequeue(vp::Block *client);
 
-    bool enqueue(time_engine_client *client, int64_t time);
+    bool enqueue(vp::Block *client, int64_t time);
 
     int64_t get_time() { return time; }
 
@@ -85,10 +87,10 @@ public:
 private:
 
     int64_t exec();
-    void flush_all() {this->top->flush_all(); }
+    void flush_all();
 
 
-    time_engine_client *first_client = NULL;
+    vp::Block *first_client = NULL;
 
 
     pthread_mutex_t lock_mutex;
@@ -98,8 +100,8 @@ private:
     int64_t time = 0;
     int stop_status = -1;
 
-    component *top;
-    js::config *config;
+    Component *top;
+    js::Config *config;
     bool finished = false;
     int lock_req = 0;
     bool stop_req = false;
@@ -109,70 +111,30 @@ private:
     int retain = 0;
 };
 
-class time_engine_client : public component
-{
-
-    friend class time_engine;
-
-public:
-    time_engine_client(js::config *config)
-        : component(config)
-    {
-    }
-
-    inline bool is_running() { return running; }
-
-    inline bool enqueue_to_engine(int64_t time)
-    {
-        return engine->enqueue(this, time);
-    }
-
-    inline bool dequeue_from_engine()
-    {
-        return engine->dequeue(this);
-    }
-
-    inline int64_t get_time() { return engine->get_time(); }
-
-    virtual int64_t exec() = 0;
-
-protected:
-    time_engine_client *next;
-
-    // This gives the time of the next event.
-    // It is only valid when the client is not the currently active one,
-    // and is then updated either when the client is not the active one
-    // anymore or when the client is enqueued to the engine.
-    int64_t next_event_time = 0;
-
-    time_engine *engine;
-    bool running = false;
-    bool is_enqueued = false;
-};
-
 }; // namespace vp
 
 
-#include "vp/time/time_scheduler.hpp"
+extern vp::TimeEngine *gv_time_engine;
+
 
 namespace vp
 {
 
-    class Time_engine_stop_event : public time_scheduler
+    class Time_engine_stop_event : public vp::Block
     {
     public:
-        Time_engine_stop_event(component *top, time_engine *engine);
+        Time_engine_stop_event(Component *top);
         int64_t step(int64_t duration);
         vp::time_event *step_nofree(int64_t duration);
 
     private:
         static void event_handler(void *__this, vp::time_event *event);
         static void event_handler_nofree(void *__this, vp::time_event *event);
-        component *top;
+        Component *top;
     };
 }
 
-inline void vp::time_engine::lock()
+inline void vp::TimeEngine::lock()
 {
     // Increase the number of lock request by one, so that the main engine loop leaves the critical loop
     // This needs to be protected as severall thread may try to lock at the same time.
@@ -186,7 +148,7 @@ inline void vp::time_engine::lock()
     pthread_mutex_lock(&mutex);
 }
 
-inline void vp::time_engine::unlock()
+inline void vp::TimeEngine::unlock()
 {
     pthread_mutex_lock(&lock_mutex);
     this->lock_req--;
@@ -196,35 +158,47 @@ inline void vp::time_engine::unlock()
     pthread_mutex_unlock(&mutex);
 }
 
-inline void vp::time_engine::critical_enter()
+inline void vp::TimeEngine::critical_enter()
 {
     pthread_mutex_lock(&mutex);
 }
 
-inline void vp::time_engine::critical_exit()
+inline void vp::TimeEngine::critical_exit()
 {
     pthread_mutex_unlock(&mutex);
 }
 
-inline void vp::time_engine::critical_wait()
+inline void vp::TimeEngine::critical_wait()
 {
     pthread_cond_wait(&cond, &mutex);
 }
 
-inline void vp::time_engine::critical_notify()
+inline void vp::TimeEngine::critical_notify()
 {
     pthread_cond_broadcast(&cond);
 }
 
-inline void vp::time_engine::update(int64_t time)
+inline void vp::TimeEngine::update(int64_t time)
 {
     if (time > this->time)
         this->time = time;
 }
 
-inline int64_t vp::time_engine::get_next_event_time()
+inline int64_t vp::TimeEngine::get_next_event_time()
 {
-    return this->first_client ? this->first_client->next_event_time : -1;
+    return this->first_client ? this->first_client->time.next_event_time : -1;
 }
+
+inline bool vp::BlockTime::enqueue_to_engine(int64_t time)
+{
+    return gv_time_engine->enqueue(&this->top, time);
+}
+
+inline bool vp::BlockTime::dequeue_from_engine()
+{
+    return gv_time_engine->dequeue(&this->top);
+}
+
+inline int64_t vp::BlockTime::get_time() { return gv_time_engine->get_time(); }
 
 #endif

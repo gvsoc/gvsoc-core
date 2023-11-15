@@ -24,32 +24,37 @@
 #include <stdio.h>
 #include <math.h>
 
-class testandset : public vp::component
+class testandset : public vp::Component
 {
 
 public:
 
-    testandset(js::config *config);
+    testandset(vp::ComponentConf &conf);
 
-    int build();
-
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
 
 private:
-    vp::trace     trace;
+    vp::Trace     trace;
 
-    vp::io_master out;
-    vp::io_slave in;
-    vp::io_req ts_req;
+    vp::IoMaster out;
+    vp::IoSlave in;
+    vp::IoReq ts_req;
 };
 
-testandset::testandset(js::config *config)
-: vp::component(config)
+testandset::testandset(vp::ComponentConf &config)
+: vp::Component(config)
 {
+    this->traces.new_trace("trace", &trace, vp::DEBUG);
+
+    this->in.set_req_meth(&testandset::req);
+    this->new_slave_port("input", &this->in);
+
+    this->new_master_port("output", &this->out);
+
 
 }
 
-vp::io_req_status_e testandset::req(void *__this, vp::io_req *req)
+vp::IoReqStatus testandset::req(void *__this, vp::IoReq *req)
 {
     testandset *_this = (testandset *)__this;
     uint64_t offset = req->get_addr();
@@ -58,7 +63,7 @@ vp::io_req_status_e testandset::req(void *__this, vp::io_req *req)
 
     _this->trace.msg("Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n", offset, size, is_write);
 
-    vp::io_req_status_e err = _this->out.req_forward(req);
+    vp::IoReqStatus err = _this->out.req_forward(req);
     if (err != vp::IO_REQ_OK) return err;
 
     if (!is_write)
@@ -77,21 +82,7 @@ vp::io_req_status_e testandset::req(void *__this, vp::io_req *req)
 
 
 
-int testandset::build()
-{
-    this->traces.new_trace("trace", &trace, vp::DEBUG);
-
-    this->in.set_req_meth(&testandset::req);
-    this->new_slave_port("input", &this->in);
-
-    this->new_master_port("output", &this->out);
-
-  return 0;
-}
-
-
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new testandset(config);
 }

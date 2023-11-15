@@ -35,7 +35,7 @@ void Gdbserver::build()
     this->iss.top.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
     this->event = this->iss.top.event_new(this, &Gdbserver::handle_pending_io_access_stub);
     this->io_itf.set_resp_meth(&Gdbserver::data_response);
-    this->iss.top.new_master_port(this, "data_debug", &this->io_itf);
+    this->iss.top.new_master_port("data_debug", &this->io_itf, (vp::Block *)this);
 }
 
 
@@ -95,7 +95,7 @@ std::string Gdbserver::gdbserver_get_name()
 
 int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
 
     if (reg == 32)
     {
@@ -103,7 +103,7 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
+        this->trace.msg(vp::Trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
     }
 
     return 0;
@@ -121,7 +121,7 @@ int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 
 int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Getting registers\n");
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Getting registers\n");
     if (nb_regs)
     {
         *nb_regs = 33;
@@ -157,7 +157,7 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 
 int Gdbserver::gdbserver_stop()
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Received stop request\n");
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received stop request\n");
 
     if (!this->iss.exec.halted.get())
     {
@@ -172,7 +172,7 @@ int Gdbserver::gdbserver_stop()
 
 int Gdbserver::gdbserver_cont()
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Received cont request\n");
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received cont request\n");
 
     this->halt_on_reset = false;
 
@@ -189,7 +189,7 @@ int Gdbserver::gdbserver_cont()
 
 int Gdbserver::gdbserver_stepi()
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Received stepi request\n");
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received stepi request\n");
 
     this->halt_on_reset = false;
 
@@ -324,7 +324,7 @@ void Gdbserver::enable_all_breakpoints()
 
 void Gdbserver::gdbserver_breakpoint_insert(uint64_t addr)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Inserting breakpoint (addr: 0x%x)\n", addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Inserting breakpoint (addr: 0x%x)\n", addr);
 
     this->breakpoints.push_back((iss_addr_t)addr);
 
@@ -335,7 +335,7 @@ void Gdbserver::gdbserver_breakpoint_insert(uint64_t addr)
 
 void Gdbserver::gdbserver_breakpoint_remove(uint64_t addr)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Removing breakpoint (addr: 0x%x)\n", addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Removing breakpoint (addr: 0x%x)\n", addr);
 
     this->breakpoints.remove(addr);
 
@@ -351,7 +351,7 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
     {
         if (addr + size > wp->addr && addr < wp->addr + wp->size)
         {
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Hit watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Hit watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
                 addr, size, is_write);
             this->iss.exec.stalled_inc();
             this->iss.exec.halted.set(true);
@@ -368,7 +368,7 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
 
 void Gdbserver::gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int size)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Inserting watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Inserting watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
         addr, size, is_write);
 
     std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
@@ -379,7 +379,7 @@ void Gdbserver::gdbserver_watchpoint_insert(bool is_write, uint64_t addr, int si
 
 void Gdbserver::gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int size)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Removing watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Removing watchpoint (addr: 0x%x, size: 0x%x, is_write: %d)\n",
         addr, size, is_write);
 
     std::list<Watchpoint *> &watchpoints = is_write ? this->write_watchpoints : this->read_watchpoints;
@@ -400,7 +400,7 @@ void Gdbserver::gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int si
 
 
 
-void Gdbserver::handle_pending_io_access_stub(void *__this, vp::clock_event *event)
+void Gdbserver::handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event)
 {
     // Just forward to the common handle so that it either continue the full request or notify
     // the end
@@ -410,7 +410,7 @@ void Gdbserver::handle_pending_io_access_stub(void *__this, vp::clock_event *eve
 
 
 
-void Gdbserver::data_response(void *__this, vp::io_req *req)
+void Gdbserver::data_response(void *__this, vp::IoReq *req)
 {
     // Just forward to the common handle so that it either continue the full request or notify
     // the end
@@ -424,7 +424,7 @@ void Gdbserver::handle_pending_io_access()
 {
     if (this->io_pending_size > 0)
     {
-        vp::io_req *req = &this->io_req;
+        vp::IoReq *req = &this->io_req;
 
         // Compute the size of the request since the core can only do aligned accesses of its
         // register width.
@@ -436,7 +436,7 @@ void Gdbserver::handle_pending_io_access()
             size = this->io_pending_size;
         }
 
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Sending request to interface (addr: 0x%lx, size: 0x%x, is_write: %d)\n",
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request to interface (addr: 0x%lx, size: 0x%x, is_write: %d)\n",
             addr, size, this->io_pending_is_write);
 
         // Initialize the request
@@ -462,7 +462,7 @@ void Gdbserver::handle_pending_io_access()
         else if (err == vp::IO_REQ_INVALID)
         {
             // Stop here if we got an error
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "End of data request\n");
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
             std::unique_lock<std::mutex> lock(this->mutex);
             this->waiting_io_response = false;
             this->io_retval = 1;
@@ -478,7 +478,7 @@ void Gdbserver::handle_pending_io_access()
     else
     {
         // We reached the end of the whole request, notify the waiting thread
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "End of data request\n");
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
         std::unique_lock<std::mutex> lock(this->mutex);
         this->waiting_io_response = false;
         this->io_retval = 0;
@@ -491,7 +491,7 @@ void Gdbserver::handle_pending_io_access()
 
 int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
 
     // Since the whole request may need to be processed in several small requests,
     // we setup an internal FSM that will inform us when the whole request is over.
@@ -503,7 +503,7 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
 
     // Trigger the first access, with engine locked, since we come from an external thread
     this->handle_pending_io_access();
-    this->iss.top.get_time_engine()->unlock();
+    this->iss.top.time.get_engine()->unlock();
 
     // Then wait until the FSM is over
     std::unique_lock<std::mutex> lock(this->mutex);
@@ -513,7 +513,7 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
     }
     lock.unlock();
 
-    this->iss.top.get_time_engine()->lock();
+    this->iss.top.time.get_engine()->lock();
 
     return this->io_retval;
 }

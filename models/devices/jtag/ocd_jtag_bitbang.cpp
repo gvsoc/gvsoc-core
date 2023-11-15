@@ -30,15 +30,13 @@
 
 #include <vp/vp.hpp>
 
-class Jtag : public vp::component
+class Jtag : public vp::Component
 {
 public:
-    Jtag(js::config *config);
-
-    int build();
+    Jtag(vp::ComponentConf &conf);
 
 private:
-    vp::trace trace;
+    vp::Trace trace;
 
     void proxy_listener();
     void proxy_loop(int sock);
@@ -52,23 +50,35 @@ private:
     bool listener_error;
     std::thread *listener_thread;
     std::thread *loop_thread;
-    vp::jtag_master jtag_itf;
+    vp::JtagMaster jtag_itf;
 
     int tdo;
 };
 
-Jtag::Jtag(js::config *config)
-    : vp::component(config)
+Jtag::Jtag(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    traces.new_trace("trace", &trace, vp::DEBUG);
+
+    this->jtag_itf.set_sync_meth(&Jtag::sync);
+    this->new_master_port("jtag", &this->jtag_itf);
+
+    this->port = this->get_js_config()->get_child_int("port");
+
+    if (this->get_js_config()->get_child_bool("enabled"))
+    {
+        this->open_proxy();
+    }
+
 }
 
 
 void Jtag::set_jtag_pads(int tck, int tms, int tdi, int trst)
 {
     //fprintf(stderr, "PADS sync (tck: %d, tms: %d, tdi: %d, trst: %d)\n", tck, tms, tdi, trst);
-    this->get_time_engine()->lock();
+    this->time.get_engine()->lock();
     this->jtag_itf.sync(tck, tdi, tms, trst);
-    this->get_time_engine()->unlock();
+    this->time.get_engine()->unlock();
 }
 
 
@@ -240,24 +250,7 @@ bool Jtag::open_proxy() {
   return true;
 }
 
-int Jtag::build()
-{
-    traces.new_trace("trace", &trace, vp::DEBUG);
-
-    this->jtag_itf.set_sync_meth(&Jtag::sync);
-    this->new_master_port("jtag", &this->jtag_itf);
-
-    this->port = this->get_config_int("port");
-
-    if (this->get_js_config()->get_child_bool("enabled"))
-    {
-        this->open_proxy();
-    }
-
-    return 0;
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Jtag(config);
 }

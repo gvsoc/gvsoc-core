@@ -89,17 +89,14 @@ class spiflash;
 
 
 
-class spiflash : public vp::component
+class spiflash : public vp::Component
 {
 public:
 
-  spiflash(js::config *config);
-
-  int build();
-  void start();
+  spiflash(vp::ComponentConf &conf);
 
   static void sector_erase(void *__this, int data_0, int data_1, int data_2, int data_3);
-  static void sector_erase_done(void *__this, vp::clock_event *event);
+  static void sector_erase_done(vp::Block *__this, vp::ClockEvent *event);
   static void quad_read(void *__this, int data_0, int data_1, int data_2, int data_3);
   static void single_read(void *__this, int data_0, int data_1, int data_2, int data_3);
   static void write_any_register(void *__this, int data_0, int data_1, int data_2, int data_3);
@@ -108,8 +105,8 @@ public:
   static void page_program(void *__this, int data_0, int data_1, int data_2, int data_3);
 
 protected:
-  vp::qspim_slave   in_itf;
-  vp::wire_slave<bool> cs_itf;
+  vp::QspimSlave   in_itf;
+  vp::WireSlave<bool> cs_itf;
 
 private:
 
@@ -122,7 +119,7 @@ private:
   void send_bits();
 
   
-  vp::trace     trace;
+  vp::Trace     trace;
 
   int size;
 
@@ -145,7 +142,7 @@ private:
 
   unsigned int current_addr;
 
-  vp::clock_event *sector_erase_event;
+  vp::ClockEvent *sector_erase_event;
 
 };
 
@@ -181,7 +178,7 @@ void spiflash::page_program(void *__this, int data_0, int data_1, int data_2, in
   {
     _this->current_addr = _this->pending_word & 0xffffff;
     _this->read = false;
-    _this->trace.msg(vp::trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
   }
 
   if (_this->pending_bits >= 32)
@@ -189,22 +186,22 @@ void spiflash::page_program(void *__this, int data_0, int data_1, int data_2, in
     if (_this->pending_bits % 8 == 0)
     {
       if (_this->current_addr >= _this->size) {
-        _this->warning.force_warning("Received out-of-bound request (address: 0x%x, memSize: 0x%x)\n", _this->current_addr, _this->size);
+        _this->trace.force_warning("Received out-of-bound request (address: 0x%x, memSize: 0x%x)\n", _this->current_addr, _this->size);
         return;
       }
 
-      _this->trace.msg(vp::trace::LEVEL_DEBUG, "Writing byte (address: 0x%x, value: 0x%x)\n", _this->current_addr, (uint8_t)_this->pending_word);
+      _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Writing byte (address: 0x%x, value: 0x%x)\n", _this->current_addr, (uint8_t)_this->pending_word);
 
       _this->mem_data[_this->current_addr++] = _this->pending_word;
     }
   }
 }
 
-void spiflash::sector_erase_done(void *__this, vp::clock_event *event)
+void spiflash::sector_erase_done(vp::Block *__this, vp::ClockEvent *event)
 {
   spiflash *_this = (spiflash *)__this;
 
-  _this->trace.msg(vp::trace::LEVEL_INFO, "Sector erase done\n");
+  _this->trace.msg(vp::Trace::LEVEL_INFO, "Sector erase done\n");
 
   _this->sr2v.raw |= 1<<2;
 }
@@ -221,7 +218,7 @@ void spiflash::sector_erase(void *__this, int data_0, int data_1, int data_2, in
   if (_this->pending_bits == 24)
   {
     _this->current_addr = _this->pending_word;
-    _this->trace.msg(vp::trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
     _this->event_enqueue(_this->sector_erase_event, 1000000);
   }
 
@@ -257,13 +254,13 @@ void spiflash::quad_read(void *__this, int data_0, int data_1, int data_2, int d
   if (_this->pending_bits == 32)
   {
     _this->current_addr = _this->pending_word;
-    _this->trace.msg(vp::trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
   }
 
   if (_this->pending_bits == 40)
   {
     int mode = _this->pending_word & 0xff;
-    _this->trace.msg(vp::trace::LEVEL_INFO, "Received mode (value: 0x%x)\n", mode);
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "Received mode (value: 0x%x)\n", mode);
     _this->read = true;
   }
 
@@ -272,7 +269,7 @@ void spiflash::quad_read(void *__this, int data_0, int data_1, int data_2, int d
     if (_this->pending_bits % 8 == 0)
     {
       if (_this->current_addr >= _this->size) {
-        _this->warning.force_warning("Received out-of-bound request (address: 0x%x, memSize: 0x%x)\n", _this->current_addr, _this->size);
+        _this->trace.force_warning("Received out-of-bound request (address: 0x%x, memSize: 0x%x)\n", _this->current_addr, _this->size);
         return;
       }
 
@@ -294,7 +291,7 @@ void spiflash::single_read(void *__this, int data_0, int data_1, int data_2, int
   {
     _this->current_addr = _this->pending_word & 0xffffff;
     _this->read = true;
-    _this->trace.msg(vp::trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "Received address (address: 0x%x)\n", _this->current_addr);
   }
 
   if (_this->pending_bits >= 24)
@@ -302,7 +299,7 @@ void spiflash::single_read(void *__this, int data_0, int data_1, int data_2, int
     if (_this->pending_bits % 8 == 0)
     {
       if (_this->current_addr >= _this->size) {
-        _this->warning.force_warning("Received out-of-bound request (address: 0x%x, memSize: 0x%x)\n", _this->current_addr, _this->size);
+        _this->trace.force_warning("Received out-of-bound request (address: 0x%x, memSize: 0x%x)\n", _this->current_addr, _this->size);
         return;
       }
 
@@ -320,7 +317,7 @@ void spiflash::enqueue_bits(int data_0, int data_1, int data_2, int data_3)
   {
     if (!this->read)
     {
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Handling single data (data_0: %d)\n", data_0);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling single data (data_0: %d)\n", data_0);
       this->pending_word = (this->pending_word << 1) | data_0;
     }
     this->pending_bits++;
@@ -329,7 +326,7 @@ void spiflash::enqueue_bits(int data_0, int data_1, int data_2, int data_3)
   {
     if (!this->read)
     {
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Handling quad data (data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", data_0, data_1, data_2, data_3);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling quad data (data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", data_0, data_1, data_2, data_3);
       this->pending_word = (this->pending_word << 4) | (data_3 << 3) | (data_2 << 2) | (data_1 << 1) | (data_0 << 0);
     }
     this->pending_bits += 4;
@@ -344,14 +341,14 @@ void spiflash::send_bits()
     {
       unsigned int value = (this->pending_word >> 7) & 0x1;
       this->pending_word <<= 1;
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Sending single data (data_0: %d)\n", value);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending single data (data_0: %d)\n", value);
       this->in_itf.sync(2, 0, value, 0, 0, 2);
     }
     else
     {
       unsigned int value = (this->pending_word >> 4) & 0xf;
       this->pending_word <<= 4;
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Sending quad data (data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", (value >> 0) & 1, (value >> 1) & 1, (value >> 2) & 1, (value >> 3) & 1);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending quad data (data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", (value >> 0) & 1, (value >> 1) & 1, (value >> 2) & 1, (value >> 3) & 1);
       this->in_itf.sync(2, (value >> 0) & 1, (value >> 1) & 1, (value >> 2) & 1, (value >> 3) & 1, 0xf);
     }
   }
@@ -370,7 +367,7 @@ void spiflash::write_any_register(void *__this, int data_0, int data_1, int data
 
     if (addr == 0x800002)
     {
-      _this->trace.msg(vp::trace::LEVEL_INFO, "Writing cr1 register (value: %d)\n", value);
+      _this->trace.msg(vp::Trace::LEVEL_INFO, "Writing cr1 register (value: %d)\n", value);
       _this->cr1.raw = value;
     }
 
@@ -391,7 +388,7 @@ void spiflash::handle_data(int data_0, int data_1, int data_2, int data_3)
 {
   if (this->waiting_command)
   {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Handling single data (data_0: %d)\n", data_0);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling single data (data_0: %d)\n", data_0);
 
     this->pending_word = (this->pending_word << 1) | data_0;
     this->pending_bits--;
@@ -403,11 +400,11 @@ void spiflash::handle_data(int data_0, int data_1, int data_2, int data_3)
       this->pending_command = this->commands[this->pending_command_id];
       if (this->pending_command == NULL)
       {
-        this->warning.force_warning("Received unknown command (cmd: 0x%x)\n", this->pending_command_id);
+        this->trace.force_warning("Received unknown command (cmd: 0x%x)\n", this->pending_command_id);
         this->start_command();
         return;
       }
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Received command (ID: 0x%x, name: %s)\n", this->pending_command_id, this->pending_command->desc.c_str());
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Received command (ID: 0x%x, name: %s)\n", this->pending_command_id, this->pending_command->desc.c_str());
  
       if (this->pending_command->start_handler)
         this->pending_command->start_handler(this);
@@ -424,7 +421,7 @@ void spiflash::handle_data(int data_0, int data_1, int data_2, int data_3)
 void spiflash::sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
 {
   spiflash *_this = (spiflash *)__this;
-  _this->trace.msg(vp::trace::LEVEL_TRACE, "Received edge (sck: %d, data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", sck, data_0, data_1, data_2, data_3);
+  _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received edge (sck: %d, data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", sck, data_0, data_1, data_2, data_3);
 
   if (sck)
     _this->handle_data(data_0, data_1, data_2, data_3);
@@ -434,7 +431,7 @@ void spiflash::sync(void *__this, int sck, int data_0, int data_1, int data_2, i
 void spiflash::cs_sync(void *__this, bool active)
 {
   spiflash *_this = (spiflash *)__this;  
-  _this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", active);
+  _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", active);
 
   if (active == false)
   {
@@ -443,8 +440,10 @@ void spiflash::cs_sync(void *__this, bool active)
 
 
 }
-  
-int spiflash::build()
+
+
+spiflash::spiflash(vp::ComponentConf &config)
+: vp::Component(config)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -462,7 +461,7 @@ int spiflash::build()
     this->commands[command->id] = command;
   }
 
-  this->size = this->get_config_int("size");
+  this->size = this->get_js_config()->get_child_int("size");
 
   this->mem_data = new uint8_t[this->size];
 
@@ -475,16 +474,10 @@ int spiflash::build()
 
   this->sr2v.raw = 0;
 
-  return 0;
-}
-
-
-void spiflash::start()
-{
-  this->trace.msg(vp::trace::LEVEL_INFO, "Building spiFlash (size: 0x%x)\n", this->size);
+  this->trace.msg(vp::Trace::LEVEL_INFO, "Building spiFlash (size: 0x%x)\n", this->size);
 
   // Preload the memory
-  js::config *stim_file_conf = this->get_js_config()->get("stim_file");
+  js::Config *stim_file_conf = this->get_js_config()->get("stim_file");
   if (stim_file_conf == NULL)
   {
     stim_file_conf = this->get_js_config()->get("content/image");
@@ -497,31 +490,31 @@ void spiflash::start()
   if (stim_file_conf != NULL)
   {
     string path = stim_file_conf->get_str();
-    this->get_trace()->msg(vp::trace::LEVEL_INFO, "Preloading memory with stimuli file (path: %s)\n", path.c_str());
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Preloading memory with stimuli file (path: %s)\n", path.c_str());
 
     FILE *file = fopen(path.c_str(), "rb");
     if (file == NULL)
     {
-      this->get_trace()->fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
+      this->trace.fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
       return;
     }
     if (fread(this->mem_data, 1, size, file) == 0)
     {
-      this->get_trace()->fatal("Failed to read stim file: %s, %s\n", path.c_str(), strerror(errno));
+      this->trace.fatal("Failed to read stim file: %s, %s\n", path.c_str(), strerror(errno));
       return;
     }
   }
 
-  js::config *slm_stim_file_conf = this->get_js_config()->get("slm_stim_file");
+  js::Config *slm_stim_file_conf = this->get_js_config()->get("slm_stim_file");
   if (slm_stim_file_conf != NULL)
   {
     string path = stim_file_conf->get_str();
-    this->get_trace()->msg(vp::trace::LEVEL_INFO, "Preloading memory with slm stimuli file (path: %s)\n", path.c_str());
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Preloading memory with slm stimuli file (path: %s)\n", path.c_str());
 
     FILE *file = fopen(path.c_str(), "r");
     if (file == NULL)
     {
-      this->get_trace()->fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
+      this->trace.fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
       return;
     }
 
@@ -531,7 +524,7 @@ void spiflash::start()
       int err;
       if ((err = fscanf(file, "@%x %x\n", &addr, &value)) != 2) {
         if (err == EOF) break;
-        this->get_trace()->fatal("Incorrect stimuli file (path: %s)\n", path.c_str());
+        this->trace.fatal("Incorrect stimuli file (path: %s)\n", path.c_str());
         return;
       }
       if (addr < size) this->mem_data[addr] = value;
@@ -539,13 +532,8 @@ void spiflash::start()
   }
 }
 
-spiflash::spiflash(js::config *config)
-: vp::component(config)
-{
-}
 
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new spiflash(config);
 }

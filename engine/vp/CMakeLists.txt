@@ -1,3 +1,3 @@
-vp_model(NAME vp.clock_domain_impl
-    SOURCES "clock_domain_impl.cpp"
+vp_model(NAME vp.clock_engine_module
+    SOURCES "clock_engine_module.cpp"
     )

@@ -25,22 +25,22 @@
  * MEM_PLUG
  */
 
-Mem_plug::Mem_plug(vp::block *parent, vp::component *comp, std::string path, vp::io_master *out_itf,
+Mem_plug::Mem_plug(vp::Block *parent, std::string name, vp::Component *comp, std::string path, vp::IoMaster *out_itf,
     int nb_ports, int output_latency)
-: Mem_plug_implem(parent, comp, path, out_itf, nb_ports, output_latency)
+: Mem_plug_implem(parent, name, comp, path, out_itf, nb_ports, output_latency)
 {
 }
 
-Mem_plug_implem::Mem_plug_implem(vp::block *parent, vp::component *comp, std::string path,
-    vp::io_master *out_itf, int nb_ports, int output_latency)
-: block(parent), waiting_reqs(this), nb_pending_reqs(this, 0), output_latency(output_latency)
+Mem_plug_implem::Mem_plug_implem(vp::Block *parent, std::string name, vp::Component *comp, std::string path,
+    vp::IoMaster *out_itf, int nb_ports, int output_latency)
+: Block(parent, name), waiting_reqs(this, "queue"), nb_pending_reqs(*this, "nb_pending_reqs", 0), output_latency(output_latency)
 {
     comp->traces.new_trace(path, &this->trace, vp::DEBUG);
     this->nb_ports = nb_ports;
 
     for (int i=0; i<nb_ports; i++)
     {
-        this->ports.push_back(new Mem_plug_port(this, comp, path + "/port_" + std::to_string(i), out_itf));
+        this->ports.push_back(new Mem_plug_port(this, "port_" + std::to_string(i), comp, path + "/port_" + std::to_string(i), out_itf));
     }
 }
 
@@ -76,7 +76,7 @@ void Mem_plug_implem::handle_request_done(Mem_plug_req *req)
 
 void Mem_plug::enqueue(Mem_plug_req *req)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Enqueueing request (addr: 0x%x, data: %p, size: 0x%x, is_write: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueueing request (addr: 0x%x, data: %p, size: 0x%x, is_write: %d)\n",
         req->addr, req->data, req->size, req->is_write);
 
     // Just push the request to the list of waiting requests and let the FSM check if it can
@@ -92,8 +92,8 @@ void Mem_plug::enqueue(Mem_plug_req *req)
  * MEM_PLUG_PORT
  */
 
-Mem_plug_port::Mem_plug_port(Mem_plug_implem *top, vp::component *comp, std::string path, vp::io_master *out_itf)
-    : block(top), top(top), pending_req(this), comp(comp)
+Mem_plug_port::Mem_plug_port(Mem_plug_implem *top, std::string name, vp::Component *comp, std::string path, vp::IoMaster *out_itf)
+    : Block(top, name), top(top), pending_req(this, name), comp(comp)
 {
     comp->traces.new_trace(path, &this->trace, vp::DEBUG);
     this->event = comp->event_new((void *)this, Mem_plug_port::event_handler);
@@ -105,7 +105,7 @@ bool Mem_plug_port::enqueue(Mem_plug_req *req)
     if (!this->pending_req.empty())
         return false;
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Enqueueing request (req: %p, addr: 0x%x, data: %p, size: 0x%x, is_write: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueueing request (req: %p, addr: 0x%x, data: %p, size: 0x%x, is_write: %d)\n",
         req, req->addr, req->data, req->size, req->is_write);
 
     // Enqueue the request
@@ -125,7 +125,7 @@ void Mem_plug_port::check_state()
         {
             // Take into account the latency of the last access to respect the bandwidth
             int64_t cycles = 1;
-            int64_t time = this->comp->get_time();
+            int64_t time = this->comp->time.get_time();
             if (this->ready_time != -1 && this->ready_time > time)
             {
                 cycles = this->ready_time - time;
@@ -135,11 +135,11 @@ void Mem_plug_port::check_state()
     }
 }
 
-void Mem_plug_port::event_handler(void *__this, vp::clock_event *event)
+void Mem_plug_port::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Mem_plug_port *_this = (Mem_plug_port *)__this;
 
-    vp::io_req *out_req = &_this->out_req;
+    vp::IoReq *out_req = &_this->out_req;
     Mem_plug_req *req = (Mem_plug_req *)_this->pending_req.head();
 
     // If a reset occured on the one who created the request, the request has been removed
@@ -156,7 +156,7 @@ void Mem_plug_port::event_handler(void *__this, vp::clock_event *event)
     out_req->set_size(req->size < 4 ? req->size : 4);
     out_req->set_is_write(req->is_write);
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Sending L2 request (req: %p, addr: 0x%x, data: %p, size: 0x%x, is_write: %d)\n",
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending L2 request (req: %p, addr: 0x%x, data: %p, size: 0x%x, is_write: %d)\n",
         req, out_req->get_addr(), out_req->get_data(), out_req->get_size(), out_req->get_is_write());
 
     // Update the input request
@@ -165,7 +165,7 @@ void Mem_plug_port::event_handler(void *__this, vp::clock_event *event)
     req->size -= 4;
 
     // Send the output request
-    vp::io_req_status_e err = _this->out_itf->req(out_req);
+    vp::IoReqStatus err = _this->out_itf->req(out_req);
 
     // For now we just support synchronous reply
     if (err != vp::IO_REQ_OK)
@@ -173,12 +173,12 @@ void Mem_plug_port::event_handler(void *__this, vp::clock_event *event)
         vp_warning_always(&_this->trace, "UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
     }
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received data (value: 0x%x)\n",
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data (value: 0x%x)\n",
         *(uint32_t *)out_req->get_data());
 
     // Store the latency so that the FSM schedule the next access after the latency
     int64_t latency = out_req->get_full_latency() + _this->top->output_latency;
-    _this->ready_time = _this->comp->get_time() + latency;
+    _this->ready_time = _this->comp->time.get_time() + latency;
 
     // If the input request is done, remove it and notify the caller
     if (req->size <= 0)

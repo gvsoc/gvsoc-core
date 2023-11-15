@@ -25,14 +25,14 @@
 
 
 
-inline double vp::power::power_trace::get_power()
+inline double vp::PowerTrace::get_power()
 {
     return this->current_power;
 }
 
 
 
-inline double vp::power::power_trace::get_quantum_power_for_cycle()
+inline double vp::PowerTrace::get_quantum_power_for_cycle()
 {
     // First check if the current energy is for an old cycle
     this->flush_quantum_power_for_cycle();
@@ -42,13 +42,13 @@ inline double vp::power::power_trace::get_quantum_power_for_cycle()
 }
 
 
-inline double vp::power::power_trace::get_quantum_energy_for_cycle()
+inline double vp::PowerTrace::get_quantum_energy_for_cycle()
 {
     double power = this->get_quantum_power_for_cycle();
 
     if (power != 0)
     {
-        return power * this->top->get_period();
+        return power * this->top->clock.get_period();
     }
 
     return 0;
@@ -56,10 +56,10 @@ inline double vp::power::power_trace::get_quantum_energy_for_cycle()
 
 
 
-inline void vp::power::power_trace::flush_quantum_power_for_cycle()
+inline void vp::PowerTrace::flush_quantum_power_for_cycle()
 {
     // Clear the current total if it is not for the current cycle
-    if (this->quantum_power_for_cycle && this->curent_cycle_timestamp < this->top->get_time())
+    if (this->quantum_power_for_cycle && this->curent_cycle_timestamp < this->top->time.get_time())
     {
         if (this->parent)
         {
@@ -68,12 +68,12 @@ inline void vp::power::power_trace::flush_quantum_power_for_cycle()
         this->quantum_power_for_cycle = 0;
     }
 
-    this->curent_cycle_timestamp = this->top->get_time();
+    this->curent_cycle_timestamp = this->top->time.get_time();
 }
 
 
 
-inline double vp::power::power_trace::get_report_dynamic_energy()
+inline double vp::PowerTrace::get_report_dynamic_energy()
 {
     // First convert background power to energy
     this->account_dynamic_power();
@@ -84,7 +84,7 @@ inline double vp::power::power_trace::get_report_dynamic_energy()
 
 
 
-inline double vp::power::power_trace::get_report_leakage_energy()
+inline double vp::PowerTrace::get_report_leakage_energy()
 {
     // First convert leakage power to energy
     this->account_leakage_power();

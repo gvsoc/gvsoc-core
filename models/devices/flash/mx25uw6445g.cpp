@@ -35,7 +35,6 @@
 
 #include <vp/itf/hyper.hpp>
 #include <vp/itf/wire.hpp>
-#include <vp/time/time_scheduler.hpp>
 
 // Flash sector size
 #define MX25_SECTOR_SIZE (1 << 12)
@@ -55,7 +54,7 @@ typedef enum
  * This model derive from the time_scheduler so that it can push events based on time since
  * the flash is not cycle-based.
  */
-class Mx25 : public vp::time_scheduler
+class Mx25 : public vp::Component
 {
 
 public:
@@ -64,10 +63,7 @@ public:
      * 
      * @param config JSON configuration of this component coming from system generators
      */
-    Mx25(js::config *config);
-
-    // GVSOC build function overloading
-    int build();
+    Mx25(vp::ComponentConf &conf);
 
     // GVSOC reset function overloading
     void reset(bool active);
@@ -252,9 +248,9 @@ private:
     static void set_available_handler(void *__this, vp::time_event *event);
 
     // Trace for dumping debug messages.
-    vp::trace trace;
+    vp::Trace trace;
     // Input octospi interface.
-    vp::hyper_slave in_itf;
+    vp::HyperSlave in_itf;
     // Size of the flash, retrieved from JSON component configuration.
     int size;
     // Flash array
@@ -296,7 +292,7 @@ private:
     // operation.
     int program_size;
     // Time event used to make the flash available after a specific duration.
-    vp::time_event *busy_event;
+    vp::time_event busy_event;
 };
 
 
@@ -305,7 +301,7 @@ void Mx25::set_available_handler(void *__this, vp::time_event *event)
 {
     Mx25 *_this = (Mx25 *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as available\n");
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Set device as available\n");
 
     // Just make the flash as available, operations will be accepted again.
     _this->busy = false;
@@ -315,11 +311,11 @@ void Mx25::set_available_handler(void *__this, vp::time_event *event)
 
 void Mx25::set_busy(int64_t time)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Set device as busy (duration: %lld)\n", time);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Set device as busy (duration: %lld)\n", time);
     // Mark the flash as busy to reject other operations and enqueue an event which will make
     // the flash available again.
     this->busy = true;
-    this->enqueue(this->busy_event, time);
+    this->busy_event.enqueue(time);
 }
 
 
@@ -336,11 +332,11 @@ void Mx25::erase_sector(unsigned int addr)
     // Align the address on a sector address since we can only erase one sector at a time.
     addr &= ~(MX25_SECTOR_SIZE - 1);
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Erasing sector (address: 0x%x)\n", addr);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Erasing sector (address: 0x%x)\n", addr);
 
     if (addr >= this->size)
     {
-        this->warning.force_warning(
+        this->trace.force_warning(
             "Received out-of-bound erase request (addr: 0x%x, flash_size: 0x%x)\n",
             addr, this->size);
         return;
@@ -354,7 +350,7 @@ void Mx25::erase_sector(unsigned int addr)
 
 void Mx25::erase_chip()
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Erasing chip\n");
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Erasing chip\n");
     for (unsigned int addr = 0; addr < this->size; addr += MX25_SECTOR_SIZE)
     {
         this->erase_sector(addr);
@@ -367,7 +363,7 @@ uint32_t Mx25::handle_array_access(int address, int is_write, uint8_t data)
 {
     if (address >= this->size)
     {
-        this->warning.force_warning(
+        this->trace.force_warning(
             "Received out-of-bound request (addr: 0x%x, flash_size: 0x%x)\n", address, this->size);
         return 0;
     }
@@ -376,13 +372,13 @@ uint32_t Mx25::handle_array_access(int address, int is_write, uint8_t data)
     {
         uint8_t data;
         data = this->data[address];
-        this->trace.msg(vp::trace::LEVEL_TRACE,
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
             "Sending data byte (address: 0x%x, value: 0x%x)\n", address, data);
         return data;
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_TRACE,
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
             "[Word Programming] Writing to flash (address: 0x%x, value: 0x%x)\n", address, data);
 
         // The program operation can only switch bits from 1 to 0.
@@ -391,7 +387,7 @@ uint32_t Mx25::handle_array_access(int address, int is_write, uint8_t data)
 
         if (new_value != data)
         {
-            this->warning.force_warning(
+            this->trace.force_warning(
                 "Failed to program specified location (addr: 0x%x, flash_val: 0x%2.2x, "
                 "program_val: 0x%2.2x)\n", address, this->data[address], data);
         }
@@ -408,7 +404,7 @@ uint32_t Mx25::handle_array_access(int address, int is_write, uint8_t data)
 
 void Mx25::parse_command(int &addr_bits)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE,
+    this->trace.msg(vp::Trace::LEVEL_TRACE,
         "Handling command (cmd: 0x%x)\n", this->pending_value);
 
     // Init to default values so that command can override when expecting a specific value.
@@ -614,7 +610,7 @@ void Mx25::handle_data_byte(uint8_t data)
             this->ospi_mode = spi_mode != 0;
             this->dtr_mode = spi_mode == 2;
 
-            this->trace.msg(vp::trace::LEVEL_INFO,
+            this->trace.msg(vp::Trace::LEVEL_INFO,
                 "Writing configuration register 2 (ospi_mode: %d, dtr mode: %d)\n",
                 this->ospi_mode, this->dtr_mode);
         }
@@ -705,7 +701,7 @@ void Mx25::sync_cycle(int data)
     {
         // State when we are sampling the command header
 
-        this->trace.msg(vp::trace::LEVEL_TRACE,
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
             "Received command byte (value: 0x%x, pending_bits: %d)\n",
             data, this->pending_bits);
 
@@ -754,7 +750,7 @@ void Mx25::sync_cycle(int data)
     {
         // State where we are sampling the command address
 
-        this->trace.msg(vp::trace::LEVEL_TRACE,
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
             "Received address byte (value: 0x%x, addr_count: %d)\n",
             data, this->pending_bits);
 
@@ -839,7 +835,7 @@ void Mx25::cs_sync(int cs, int value)
     // This method is called whenever the chip select is updated.
     // The chip select value is active low.
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (active: %d)\n", !value);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (active: %d)\n", !value);
 
     if (value == 0)
     {
@@ -891,7 +887,7 @@ void Mx25::cs_sync(int cs, int value)
 
 int Mx25::preload_file(char *path, bool writeback)
 {
-    this->get_trace()->msg(vp::trace::LEVEL_INFO,
+    this->trace.msg(vp::Trace::LEVEL_INFO,
         "Preloading memory with stimuli file (path: %s)\n", path);
 
     if (writeback)
@@ -979,9 +975,6 @@ void Mx25::reset(bool active)
     // Both active and inactive levels trigger a call.
     if (active)
     {
-        // The time engine parent will take care of cleaning any ongoing activity with the events
-        vp::time_scheduler::reset(active);
-
         // When reset is active, we must put back the flash into the initial state
         this->ospi_mode = false;
         this->dtr_mode = false;
@@ -995,13 +988,12 @@ void Mx25::reset(bool active)
 }
 
 
-int Mx25::build()
+
+Mx25::Mx25(vp::ComponentConf &config)
+    : vp::Component(config), busy_event(this)
 {
     // This method is called when the simulated system is built.
     // We just need here to take care of anything which must be done once at platform startup.
-
-    // Retrieve time engine so that we can post time events
-    this->engine = (vp::time_engine*)this->get_service("time");
 
     // Trace for outputting debug messages
     traces.new_trace("trace", &trace, vp::DEBUG);
@@ -1011,18 +1003,18 @@ int Mx25::build()
     in_itf.set_cs_sync_meth(&Mx25::cs_sync_stub);
     new_slave_port("input", &in_itf);
 
-    js::config *conf = this->get_js_config();
+    js::Config *conf = this->get_js_config();
 
     // Prepare the event for managing the periods where the flash is busy (program and erase).
     // It will be pushed when flash is busy and will put the flash back to available state.
-    this->busy_event = this->time_event_new(Mx25::set_available_handler);
+    this->busy_event.set_callback(Mx25::set_available_handler);
 
     // Now take care of the flash content
-    js::config *preload_file_conf = conf->get("preload_file");
+    js::Config *preload_file_conf = conf->get("preload_file");
     bool writeback = this->get_js_config()->get_child_bool("writeback");
     this->size = conf->get("size")->get_int();
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Building flash (size: 0x%x)\n", this->size);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Building flash (size: 0x%x)\n", this->size);
 
     // If there is no preload file or if the preload file is a classi input file,
     // Allocate an array for the flash and fill it with clean state which is 1 everywhere so that
@@ -1039,25 +1031,17 @@ int Mx25::build()
     {
         if (this->preload_file((char *)preload_file_conf->get_str().c_str(), writeback))
         {
-            return -1;
+            this->trace.fatal("Unable to preload file\n");
         }
     }
 
-    return 0;
-}
-
-
-
-Mx25::Mx25(js::config *config)
-    : vp::time_scheduler(config)
-{
 }
 
 
 
 // Constructor function needed by GVSOC to instantiate this module.
 // Just instantiate the flash class.
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Mx25(config);
 }

@@ -337,17 +337,17 @@ class Gpio
 {
 public:
     Gpio(Testbench *top);
-    static void pulse_handler(void *__this, vp::clock_event *event);
+    static void pulse_handler(vp::Block *__this, vp::ClockEvent *event);
 
     Testbench *top;
 
-    vp::wire_slave<int> itf;
+    vp::WireSlave<int> itf;
 
     int loopback = -1;
     uint32_t value;
 
 
-    vp::clock_event *pulse_event;
+    vp::ClockEvent *pulse_event;
     int64_t pulse_duration_ps;
     int64_t pulse_period_ps;
     bool pulse_enabled = false;
@@ -376,14 +376,14 @@ public:
     void spim_verif_transfer(pi_testbench_req_spim_verif_transfer_t *transfer);
     void spim_verif_spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config);
 
-    void create_loader(js::config *config);
+    void create_loader(js::Config *config);
 
     Testbench *top;
 
     Spim_verif * spim_verif;
 
-    vp::qspim_slave itf;
-    vp::wire_slave<bool> cs_itf;
+    vp::QspimSlave itf;
+    vp::WireSlave<bool> cs_itf;
 
     int itf_id;
     int cs;
@@ -408,8 +408,8 @@ public:
 
     Testbench *top;
     I2s_verif * i2s_verif;
-    vp::i2s_master itf;
-    vp::trace trace;
+    vp::I2sMaster itf;
+    vp::Trace trace;
     int itf_id;
     uint32_t clk_propagate;
     uint32_t ws_propagate;
@@ -444,7 +444,7 @@ public:
     void send_byte_done();
 
 private:
-    static void bw_limiter_handler(void *__this, vp::clock_event *event);
+    static void bw_limiter_handler(vp::Block *__this, vp::ClockEvent *event);
     void send_byte();
     void check_end_of_command();
 
@@ -471,14 +471,14 @@ private:
     int64_t rx_timestamp;
     int received_bytes;
 
-    vp::clock_event *bw_limiter_event;
+    vp::ClockEvent *bw_limiter_event;
 
     bool send_reply = false;
     int reply_index;
     std::string reply;
     int status;
 
-    vp::trace trace;
+    vp::Trace trace;
 
 };
 
@@ -497,7 +497,7 @@ class Uart
 public:
     Uart(Testbench *top, int id);
 
-    vp::uart_slave itf;
+    vp::UartSlave itf;
 
     void start();
 
@@ -508,8 +508,8 @@ public:
     void set_cts(int cts);
 
     uint64_t baudrate;
-    vp::clock_engine *clock;
-    vp::clock_engine *tx_clock;
+    vp::ClockEngine *clock;
+    vp::ClockEngine *tx_clock;
 
     int tx_parity_en = 0;
     int tx_stop_bits = 1;
@@ -535,24 +535,24 @@ private:
 
     void uart_start_tx_sampling(int baudrate);
     void uart_stop_tx_sampling();
-    static void uart_sampling_handler(void *__this, vp::clock_event *event);
-    static void uart_tx_handler(void *__this, vp::clock_event *event);
-    static void init_handler(void *__this, vp::clock_event *event);
+    static void uart_sampling_handler(vp::Block *__this, vp::ClockEvent *event);
+    static void uart_tx_handler(vp::Block *__this, vp::ClockEvent *event);
+    static void init_handler(vp::Block *__this, vp::ClockEvent *event);
 
     void handle_received_byte(uint8_t byte);
     void send_bit();
 
-    static void clk_reg(vp::component *__this, vp::component *clock);
-    static void tx_clk_reg(vp::component *__this, vp::component *clock);
+    static void clk_reg(vp::Component *__this, vp::Component *clock);
+    static void tx_clk_reg(vp::Component *__this, vp::Component *clock);
 
     Testbench *top;
     Uart_dev *dev = NULL;
 
-    vp::trace trace;
+    vp::Trace trace;
 
     std::queue<uint8_t> pending_buffers;
 
-    vp::clk_slave    periph_clock_itf;
+    vp::ClkSlave    periph_clock_itf;
 
     int clk;
     int prev_clk;
@@ -564,13 +564,13 @@ private:
     bool uart_sampling_tx = false;
     uint8_t uart_byte;
 
-    vp::clock_event *uart_sampling_event;
-    vp::clock_event *uart_tx_event;
-    vp::clock_event *init_event;
-    vp::clock_master clock_cfg;
-    vp::clk_slave    clock_itf;
-    vp::clock_master tx_clock_cfg;
-    vp::clk_slave    tx_clock_itf;
+    vp::ClockEvent *uart_sampling_event;
+    vp::ClockEvent *uart_tx_event;
+    vp::ClockEvent *init_event;
+    vp::ClockMaster clock_cfg;
+    vp::ClkSlave    clock_itf;
+    vp::ClockMaster tx_clock_cfg;
+    vp::ClkSlave    tx_clock_itf;
 
     bool is_control = false;
 
@@ -605,7 +605,7 @@ public:
     void sync(int scl, int sda);
     void handle_byte();
 
-    vp::i2c_slave itf;
+    vp::I2cSlave itf;
 
     Testbench *top;
     int id;
@@ -619,22 +619,21 @@ public:
 };
 
 
-class Testbench : public vp::component
+class Testbench : public vp::Component
 {
 public:
-    Testbench(js::config *config);
+    Testbench(vp::ComponentConf &config);
 
-    int build();
     void start();
-    std::string handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
+    std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
 
     void handle_received_byte(uint8_t byte);
 
     void send_byte_done();
 
-    Gv_proxy *proxy;
+    gv::GvProxy *proxy;
 
-    vp::trace trace;
+    vp::Trace trace;
 
     std::vector<Uart *> uarts;
     std::vector<Gpio *> gpios;
@@ -671,7 +670,7 @@ private:
     string ctrl_type;
     uint64_t period;
 
-    vp::uart_slave uart_in;
+    vp::UartSlave uart_in;
 
     testbench_state_e state;
 

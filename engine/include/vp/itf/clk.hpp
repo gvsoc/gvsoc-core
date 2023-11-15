@@ -27,53 +27,53 @@
 
 namespace vp {
 
-  class component;
+  class Component;
 
-  typedef void (clk_reg_meth_t)(component *_this, component *clock);
-  typedef void (clk_set_frequency_meth_t)(component *_this, int64_t frequency);
+  typedef void (ClkRegMeth)(Component *_this, Component *clock);
+  typedef void (ClkSetFrequencyMeth)(Component *_this, int64_t frequency);
 
-  class clk_slave;
+  class ClkSlave;
 
-  class clk_master : public master_port
+  class ClkMaster : public MasterPort
   {
   public:
 
-    clk_master() : ports(NULL) {}
+    ClkMaster() : ports(NULL) {}
 
-    void reg(component *clock);
+    void reg(Component *clock);
     void set_frequency(int64_t frequency);
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
   private:
-    void (*reg_meth)(component *, component *clock);
+    void (*reg_meth)(Component *, Component *clock);
 
-    clk_slave *ports;
+    ClkSlave *ports;
   };
 
 
 
-  class clk_slave : public slave_port
+  class ClkSlave : public SlavePort
   {
 
-    friend class clk_master;
+    friend class ClkMaster;
 
   public:
 
-    clk_slave();
+    ClkSlave();
 
-    void set_reg_meth(clk_reg_meth_t *meth);
-    void set_set_frequency_meth(clk_set_frequency_meth_t *meth);
+    void set_reg_meth(ClkRegMeth *meth);
+    void set_set_frequency_meth(ClkSetFrequencyMeth *meth);
 
 
   private:
 
-    void (*req)(component *comp, component *clock);
-    void (*set_frequency)(component *comp, int64_t frequency);
-    static void reg_default(clk_slave *);
+    void (*req)(Component *comp, Component *clock);
+    void (*set_frequency)(Component *comp, int64_t frequency);
+    static void reg_default(ClkSlave *);
     static void set_frequency_default(int64_t frequency);
 
-    clk_slave *next;
+    ClkSlave *next;
 
   };
 

@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import gsystree
 import gsystree as st
 import os.path
 import gv.gui
@@ -219,6 +220,60 @@ class RiscvCommon(st.Component):
             tree.add_trace(self, 'insn_cont', 'pcer_insn_cont', tag='core_events')
             tree.end_group('events')
 
+    def o_FETCH(self, itf: gsystree.SlaveItf):
+        """Binds the fetch port.
+
+        This port is used for fetching instructions from memory.\n
+        It instantiates a port of type vp::IoMaster.\n
+        It is mandatory to bind it.\n
+
+        Parameters
+        ----------
+        slave: gsystree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('fetch', itf, signature='io')
+
+    def o_DATA(self, itf: gsystree.SlaveItf):
+        """Binds the data port.
+
+        This port is used for issuing data accesses to the memory.\n
+        It instantiates a port of type vp::IoMaster.\n
+        It is mandatory to bind it.\n
+
+        Parameters
+        ----------
+        slave: gsystree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('data', itf, signature='io')
+
+    def i_FETCHEN(self) -> gsystree.SlaveItf:
+        """Returns the fetch enable port.
+
+        This can be used to control whether the core should execute instructions or not.\n
+        It instantiates a port of type vp::WireSlave<bool>.\n
+
+        Returns
+        ----------
+        gsystree.SlaveItf
+            The slave interface
+        """
+        return gsystree.SlaveItf(self, itf_name='fetchen', signature='wire<bool>')
+
+    def i_ENTRY(self) -> gsystree.SlaveItf:
+        """Returns the boot address port.
+
+        This can be used to set the address of the first instruction to be executed, i.e. when the
+        core executes instructions for the first time, or after reset.\n
+        It instantiates a port of type vp::WireSlave<uint64_t>.\n
+
+        Returns
+        ----------
+        gsystree.SlaveItf
+            The slave interface
+        """
+        return gsystree.SlaveItf(self, itf_name='bootaddr', signature='wire<uint64_t>')
 
 
     def gen_gtkw_conf(self, tree, traces):
@@ -280,19 +335,40 @@ class RiscvCommon(st.Component):
 
 
 class Riscv(RiscvCommon):
+    """Generic riscv model
 
+    This models a generic riscv core using the ISS.
+    The ISA can be chosen from the standard riscv isa.
+    Instantiating several times this core is only possible if they all have the same isa.
+    To get different ISAs, the RiscvCommon class must be used instead so that several ISAs
+    are instantiated.
+
+    Attributes
+    ----------
+    parent: gsystree.Component
+        The parent component where this one should be instantiated.
+    name: str
+        The name of the component within the parent space.
+    isa: str
+        A string describing the ISA to be simulated. The format is the one described by the riscv
+        specifications.
+    binaries: list
+        List of static binaries which will be simulated. This is used when profiler is connected
+        or in instruction traces to get debug symbols.
+    fetch_enable: bool
+        True if the core should immediately start executing instructions.
+    boot_addr: int
+        Boot address, i.e. address where the core will start executing instructions.
+    """
     def __init__(self,
-            parent,
-            name,
-            isa: str='rv64imafdc',
-            misa: int=0,
-            binaries: list=[],
-            fetch_enable: bool=False,
-            boot_addr: int=0):
+            parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
+            fetch_enable: bool=False, boot_addr: int=0):
 
+        # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
 
-        super().__init__(parent, name, isa=isa_instance, misa=misa,
+        # And instantiate common class with default parameters
+        super().__init__(parent, name, isa=isa_instance, misa=0,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=False)

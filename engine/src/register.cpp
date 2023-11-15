@@ -59,7 +59,7 @@ bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write
 
             x->access((offset - aliased_reg->offset), size, value, is_write);
 
-            if (aliased_reg->trace.get_active(vp::trace::LEVEL_DEBUG))
+            if (aliased_reg->trace.get_active(vp::Trace::LEVEL_DEBUG))
             {
                 std::string regfields_values = "";
 
@@ -85,7 +85,56 @@ bool vp::regmap::access(uint64_t offset, int size, uint8_t *value, bool is_write
                     regfields_values = std::string(buff);
                 }
 
-                aliased_reg->trace.msg(vp::trace::LEVEL_DEBUG,
+                aliased_reg->trace.msg(vp::Trace::LEVEL_DEBUG,
+                    "Register access (name: %s, offset: 0x%" PRIx64 ", size: 0x%x, is_write: 0x%x, value: %s)\n",
+                    aliased_reg->get_name().c_str(), offset, size, is_write, regfields_values.c_str()
+                );
+            }
+
+            return false;
+        }
+    }
+
+    for (RegisterCommon *x: this->get_registers_new())
+    {
+        if (offset >= x->offset && offset + size <= x->offset + (x->width+7)/8)
+        {
+            RegisterCommon *aliased_reg = x;
+
+            if (x->alias)
+            {
+                x = x->alias();
+            }
+
+            x->access((offset - aliased_reg->offset), size, value, is_write);
+
+            if (aliased_reg->trace.get_active(vp::Trace::LEVEL_DEBUG))
+            {
+                std::string regfields_values = "";
+
+                if (aliased_reg->regfields.size() != 0)
+                {
+                    for (auto y: aliased_reg->regfields)
+                    {
+                        char buff[256];
+                        snprintf(buff, 256, "0x%" PRIx64, x->get_field(y->bit, y->width));
+
+                        if (regfields_values != "")
+                            regfields_values += ", ";
+
+                        regfields_values += y->name + "=" + std::string(buff);
+                    }
+
+                    regfields_values = "{ " + regfields_values + " }";
+                }
+                else
+                {
+                    char buff[256];
+                    snprintf(buff, 256, "0x%" PRIx64, x->get_field(0, aliased_reg->width));
+                    regfields_values = std::string(buff);
+                }
+
+                aliased_reg->trace.msg(vp::Trace::LEVEL_DEBUG,
                     "Register access (name: %s, offset: 0x%" PRIx64 ", size: 0x%x, is_write: 0x%x, value: %s)\n",
                     aliased_reg->get_name().c_str(), offset, size, is_write, regfields_values.c_str()
                 );
@@ -114,11 +163,10 @@ vp::reg *vp::regmap::get_register_from_offset(uint64_t offset)
 }
 
 
-void vp::regmap::build(vp::component *comp, vp::trace *trace, std::string name)
+void vp::regmap::build(vp::Component *comp, vp::Trace *trace, std::string name)
 {
     this->comp = comp;
     this->trace = trace;
-    comp->add_block(this);
 
     for (auto x: this->get_registers())
     {
@@ -141,7 +189,7 @@ bool vp::reg::access_callback(uint64_t reg_offset, int size, uint8_t *value, boo
     return this->callback != NULL;
 }
 
-void vp::reg::init(vp::component *top, std::string name, int bits, uint8_t *value, uint8_t *reset_value)
+void vp::reg::init(vp::Component *top, std::string name, int bits, uint8_t *value, uint8_t *reset_value)
 {
     this->top = top;
     this->nb_bytes = (bits + 7) / 8;
@@ -180,47 +228,47 @@ void vp::reg::reset(bool active)
     }
 }
 
-void vp::reg_1::init(vp::component *top, std::string name, uint8_t *reset_val)
+void vp::reg_1::init(vp::Component *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 1, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_8::init(vp::component *top, std::string name, uint8_t *reset_val)
+void vp::reg_8::init(vp::Component *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 8, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_16::init(vp::component *top, std::string name, uint8_t *reset_val)
+void vp::reg_16::init(vp::Component *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 16, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_32::init(vp::component *top, std::string name, uint8_t *reset_val)
+void vp::reg_32::init(vp::Component *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 32, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_64::init(vp::component *top, std::string name, uint8_t *reset_val)
+void vp::reg_64::init(vp::Component *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 64, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_1::build(vp::component *top, std::string name)
+void vp::reg_1::build(vp::Component *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
 
-void vp::reg_8::build(vp::component *top, std::string name)
+void vp::reg_8::build(vp::Component *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
 
-void vp::reg_16::build(vp::component *top, std::string name)
+void vp::reg_16::build(vp::Component *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
 
-void vp::reg_32::build(vp::component *top, std::string name)
+void vp::reg_32::build(vp::Component *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
@@ -243,7 +291,53 @@ void vp::reg_32::write(int reg_offset, int size, uint8_t *value)
     }
 }
 
-void vp::reg_64::build(vp::component *top, std::string name)
+void vp::reg_64::build(vp::Component *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
+}
+
+
+bool vp::RegisterCommon::access_callback(uint64_t reg_offset, int size, uint8_t *value, bool is_write)
+{
+    if (this->callback != NULL)
+        this->callback(reg_offset, size, value, is_write);
+
+    return this->callback != NULL;
+}
+
+
+vp::RegisterCommon::RegisterCommon(Block &parent, std::string name, int width, bool do_reset)
+{
+    parent.add_register(this);
+    this->width = width;
+    this->do_reset = do_reset;
+    this->name = name;
+    this->nb_bytes = (width + 7) / 8;
+    parent.traces.new_trace(name + "/trace", &this->trace, vp::TRACE);
+    parent.traces.new_trace_event(name, &this->reg_event, width);
+}
+
+
+void vp::RegisterCommon::reset(bool active)
+{
+    if (active && this->do_reset)
+    {
+        this->trace.msg("Resetting register\n");
+
+        if (this->exec_callback_on_reset)
+        {
+            this->access(0, this->nb_bytes, this->reset_value_bytes, true);
+        }
+        else
+        {
+            this->update(0, this->nb_bytes, this->reset_value_bytes, true);
+        }
+    }
+}
+
+uint64_t vp::RegisterCommon::get_field(int offset, int width)
+{
+    uint64_t value = 0;
+    this->read(0, (offset + width + 7)/8, (uint8_t *)&value);
+    return (value >> offset) & ((1UL<<width)-1);
 }

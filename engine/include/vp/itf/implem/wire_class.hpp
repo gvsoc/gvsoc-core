@@ -26,18 +26,18 @@
 
 namespace vp {
 
-  class component;
+  class Component;
 
   template<class T>
-  class wire_slave;
+  class WireSlave;
 
   template<class T>
-  class wire_master : public master_port
+  class WireMaster : public MasterPort
   {
-    friend class wire_slave<T>;
+    friend class WireSlave<T>;
   public:
 
-    wire_master();
+    WireMaster();
 
     void set_sync_meth(void (*)(void *_this, T value));
     void set_sync_meth_muxed(void (*)(void *_this, T value, int), int id);
@@ -54,17 +54,17 @@ namespace vp {
       sync_back_meth(this->get_remote_context(), value);
     }
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
-    bool is_bound() { return slave_port != NULL; }
+    bool is_bound() { return SlavePort != NULL; }
 
     void finalize();
 
   private:
-    static inline void sync_muxed(wire_master *_this, T value);
-    static inline void sync_freq_cross_stub(wire_master *_this, T value);
-    static inline void sync_back_freq_cross_stub(wire_master *_this, T *value);
-    static inline void sync_back_muxed(wire_master *_this, T *value);
+    static inline void sync_muxed(WireMaster *_this, T value);
+    static inline void sync_freq_cross_stub(WireMaster *_this, T value);
+    static inline void sync_back_freq_cross_stub(WireMaster *_this, T *value);
+    static inline void sync_back_muxed(WireMaster *_this, T *value);
     void (*sync_meth)(void *, T value);
     void (*sync_meth_mux)(void *, T value, int id);
     void (*sync_back_meth)(void *, T *value);
@@ -79,11 +79,11 @@ namespace vp {
     // Default sync callback, just do nothing.
     static inline void sync_default(void *, T value) {}
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
     int sync_back_mux;
-    wire_slave<T> *slave_port = NULL;
-    wire_master<T> *next = NULL;
+    WireSlave<T> *SlavePort = NULL;
+    WireMaster<T> *next = NULL;
 
     void *slave_context_for_freq_cross;
 
@@ -93,14 +93,14 @@ namespace vp {
 
 
   template<class T>
-  class wire_slave : public slave_port
+  class WireSlave : public SlavePort
   {
 
-    friend class wire_master<T>;
+    friend class WireMaster<T>;
 
   public:
 
-    inline wire_slave();
+    inline WireSlave();
 
     inline void sync(T value)
     {
@@ -113,16 +113,16 @@ namespace vp {
     void set_sync_back_meth(void (*)(void *_this, T *value));
     void set_sync_back_meth_muxed(void (*)(void *_this, T *value, int), int id);
 
-    inline void bind_to(vp::port *_port, vp::config *config);
+    inline void bind_to(vp::Port *_port, js::Config *config);
 
     bool is_bound() { return master_port != NULL; }
 
 
   private:
 
-    static inline void sync_muxed(wire_slave *_this, T value);
+    static inline void sync_muxed(WireSlave *_this, T value);
     
-    static inline void sync_muxed_stub(wire_slave *_this, T value);
+    static inline void sync_muxed_stub(WireSlave *_this, T value);
 
     void (*sync_meth)(void *comp, T value);
     void (*sync_meth_mux)(void *comp, T value, int id);
@@ -137,10 +137,10 @@ namespace vp {
 
     int sync_back_mux_id;
 
-    vp::component *master_comp_mux;
+    vp::Component *master_comp_mux;
     int master_sync_mux;
 
-    wire_master<T> *master_port = NULL;
+    WireMaster<T> *master_port = NULL;
   };
 
 };

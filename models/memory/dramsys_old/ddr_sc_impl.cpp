@@ -43,33 +43,31 @@
 
 class gvsoc_tlm_br;
 
-class ddr : public vp::component
+class ddr : public vp::Component
 {
   friend class gvsoc_tlm_br;
 
 public:
-  ddr(js::config *config);
+  ddr(vp::ComponentConf &conf);
 
-  int build();
-  void start();
   void stop();
   void elab();
 
-  static vp::io_req_status_e req(void *__this, vp::io_req *req);
+  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
 
 protected:
-  vp::io_req *first_pending_reqs = nullptr;
-  vp::io_req *first_stalled_req = nullptr;
+  vp::IoReq *first_pending_reqs = nullptr;
+  vp::IoReq *first_stalled_req = nullptr;
 
 private:
-  vp::trace trace;
-  vp::io_slave in;
+  vp::Trace trace;
+  vp::IoSlave in;
 
   uint64_t size = 0;
   int max_reqs = 4;
   int current_reqs = 0;
   int count = 0;
-  vp::io_req *last_pending_reqs = nullptr;
+  vp::IoReq *last_pending_reqs = nullptr;
   // SystemC TLM-2.0 bridge (transactor component)
   gvsoc_tlm_br *sc_bridge;
   // Interconnect component
@@ -92,11 +90,14 @@ private:
 
 #include "ems_gvsoc_tlm_br.h"
 
-ddr::ddr(js::config *config) : vp::component(config)
+ddr::ddr(vp::ComponentConf &config) : vp::Component(config)
 {
+  traces.new_trace("trace", &trace, vp::DEBUG);
+  in.set_req_meth(&ddr::req);
+  new_slave_port("input", &in);
 }
 
-vp::io_req_status_e ddr::req(void *__this, vp::io_req *req)
+vp::IoReqStatus ddr::req(void *__this, vp::IoReq *req)
 {
   ddr *_this = (ddr *)__this;
 
@@ -135,14 +136,6 @@ vp::io_req_status_e ddr::req(void *__this, vp::io_req *req)
   }
 }
 
-int ddr::build()
-{
-  traces.new_trace("trace", &trace, vp::DEBUG);
-  in.set_req_meth(&ddr::req);
-  new_slave_port("input", &in);
-  return 0;
-}
-
 void ddr::elab()
 {
   sc_bridge = new gvsoc_tlm_br("sc_br", this, ACCEPT_DELAY_PS, BYTES_PER_ACCESS);
@@ -156,7 +149,7 @@ void ddr::elab()
 
 #ifdef __VP_USE_SYSTEMC_GEM5
   pcbt->set_num_checks(0);
-  std::string cfg = std::string(__GEM5_PATH) + std::string("/") + get_config_str("tlm/gem5-config");
+  std::string cfg = std::string(__GEM5_PATH) + std::string("/") + get_js_config()->get_child_str("tlm/gem5-config");
   debug("gem5-config: " << cfg);
   g5tbr = new ems::gem5_tlm_br("g5tbr", cfg);
   for (auto adapt : g5tbr->adapters) {
@@ -165,7 +158,7 @@ void ddr::elab()
 #endif /* __VP_USE_SYSTEMC_GEM5 */
 #ifdef __VP_USE_SYSTEMC_DRAMSYS
   std::string res = std::string(__DRAMSYS_PATH) + std::string("/DRAMSys/library/resources/");
-  std::string sim = res + std::string("simulations/") + get_config_str("tlm/dramsys-config");
+  std::string sim = res + std::string("simulations/") + get_js_config()->get_child_str("tlm/dramsys-config");
   debug("dramsys-config: " << sim);
   dramsys = new DRAMSys("DRAMSys", sim, res);
   pcbt->initiator_socket.bind(dramsys->tSocket);
@@ -177,7 +170,7 @@ void ddr::elab()
 
 void ddr::start()
 {
-  size = get_config_int("size");
+  size = get_js_config()->get_child_int("size");
   trace.msg("Building ddr (size: 0x%lx)\n", size);
 }
 
@@ -198,7 +191,7 @@ void ddr::stop()
   delete sc_bridge;
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new ddr(config);
 }

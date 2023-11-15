@@ -45,17 +45,16 @@
 #define CLINT_SIZE         0x000c0000
 
 
-class Clint : public vp::component
+class Clint : public vp::Component
 {
 public:
-    Clint(js::config *config);
+    Clint(vp::ComponentConf &conf);
 
-    int build();
     void reset(bool active);
 
 private:
-    static void event_handler(void *_this, vp::clock_event *event);
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static void event_handler(vp::Block *_this, vp::ClockEvent *event);
+    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
     static void time_sync_back(void *__this, uint64_t *value);
     bool load(unsigned int addr, size_t len, uint8_t* bytes);
     bool store(unsigned int addr, size_t len, const uint8_t* bytes);
@@ -63,26 +62,178 @@ private:
     void check_mtime();
     void check_event();
 
-    vp::io_slave input_itf;
+    vp::IoSlave input_itf;
 
-    vp::trace trace;
+    vp::Trace trace;
     typedef uint64_t mtime_t;
     typedef uint64_t mtimecmp_t;
     typedef uint32_t msip_t;
     std::vector<mtimecmp_t> mtimecmp;
 
-    std::vector<vp::wire_master<bool>> sw_irq_itf;
-    std::vector<vp::wire_master<bool>> timer_irq_itf;
-    vp::wire_slave<uint64_t> time_itf;
+    std::vector<vp::WireMaster<bool>> sw_irq_itf;
+    std::vector<vp::WireMaster<bool>> timer_irq_itf;
+    vp::WireSlave<uint64_t> time_itf;
 
     int nb_cores;
     std::vector<msip_t> msip;
     int64_t start_time;
 
-    std::vector<vp::clock_event *> event;
+    std::vector<vp::ClockEvent *> event;
 };
 
-int Clint::build()
+void Clint::reset(bool active)
+{
+    if (active)
+    {
+        this->start_time = this->time.get_time();
+        for (int i=0; i<this->nb_cores; i++)
+        {
+            this->msip[i] = 0;
+            this->mtimecmp[i] = 0;
+        }
+    }
+}
+
+void Clint::event_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    Clint *_this = (Clint *)__this;
+    _this->check_mtime();
+    _this->check_event();
+}
+
+
+void Clint::time_sync_back(void *__this, uint64_t *value)
+{
+    Clint *_this = (Clint *)__this;
+    *value = _this->get_mtime();
+}
+
+
+
+vp::IoReqStatus Clint::req(void *__this, vp::IoReq *req)
+{
+    Clint *_this = (Clint *)__this;
+    bool status;
+
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
+        req->get_addr(), req->get_size(), req->get_is_write());
+
+    if (req->get_is_write())
+    {
+        status = _this->store(req->get_addr(), req->get_size(), req->get_data());
+    }
+    else
+    {
+        status = _this->load(req->get_addr(), req->get_size(), req->get_data());
+    }
+    return status ? vp::IO_REQ_OK : vp::IO_REQ_INVALID;
+}
+
+uint64_t Clint::get_mtime()
+{
+    uint64_t value = (this->time.get_time() - this->start_time) / RESOLUTION;
+    return value;
+}
+
+void Clint::check_mtime()
+{
+    uint64_t mtime = this->get_mtime();
+    for (int i=0; i<this->nb_cores; i++)
+    {
+        if (this->timer_irq_itf[i].is_bound())
+        {
+            bool value = mtime >= this->mtimecmp[i];
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Sync interrupt (value: 0x%d)\n", value);
+            this->timer_irq_itf[i].sync(value);
+        }
+    }
+}
+
+void Clint::check_event()
+{
+    for (int i=0; i<this->nb_cores; i++)
+    {
+        uint64_t diff = (this->mtimecmp[i] - this->get_mtime()) * RESOLUTION / this->clock.get_period();
+
+        if (diff > 0)
+        {
+            this->event[i]->enqueue(diff);
+        }
+    }
+}
+
+bool Clint::load(unsigned int addr, size_t len, uint8_t *bytes)
+{
+    if (addr >= MSIP_BASE && addr + len <= MSIP_BASE + this->nb_cores * sizeof(msip_t))
+    {
+        memcpy(bytes, (uint8_t *)&msip[0] + addr - MSIP_BASE, len);
+    }
+    else if (addr >= MTIMECMP_BASE && addr + len <= MTIMECMP_BASE + this->nb_cores * sizeof(mtimecmp_t))
+    {
+        memcpy(bytes, (uint8_t *)&mtimecmp[0] + addr - MTIMECMP_BASE, len);
+    }
+    else if (addr >= MTIME_BASE && addr + len <= MTIME_BASE + sizeof(mtime_t))
+    {
+        uint64_t mtime = this->get_mtime();
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Returning mtime (value: 0x%lx)\n", mtime);
+
+        memcpy(bytes, (uint8_t *)&mtime + addr - MTIME_BASE, len);
+    }
+    else if (addr + len <= CLINT_SIZE)
+    {
+        memset(bytes, 0, len);
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
+bool Clint::store(unsigned int addr, size_t len, const uint8_t *bytes)
+{
+    if (addr >= MSIP_BASE && addr + len <= MSIP_BASE + this->nb_cores * sizeof(msip_t))
+    {
+        memcpy((uint8_t *)&msip[0] + addr - MSIP_BASE, bytes, len);
+        for (size_t i = 0; i < this->nb_cores; ++i)
+        {
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Updating SW interrupt (hart: %d, value: %d)\n",
+                i, msip[i] & 1);
+            if (this->sw_irq_itf[i].is_bound())
+            {
+                this->sw_irq_itf[i].sync(msip[i] & 1);
+            }
+        }
+    }
+    else if (addr >= MTIMECMP_BASE && addr + len <= MTIMECMP_BASE + this->nb_cores * sizeof(mtimecmp_t))
+    {
+        memcpy((uint8_t *)&mtimecmp[0] + addr - MTIMECMP_BASE, bytes, len);
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Updating mtimecmp (hart: %d, value: %d)\n",
+            addr - MTIMECMP_BASE, mtimecmp[addr - MTIMECMP_BASE]);
+        this->check_mtime();
+        this->check_event();
+    }
+    else if (addr >= MTIME_BASE && addr + len <= MTIME_BASE + sizeof(mtime_t))
+    {
+        uint64_t mtime = this->get_mtime();
+        memcpy((uint8_t *)&mtime + addr - MTIME_BASE, bytes, len);
+        this->start_time = this->time.get_time() - mtime;
+        this->check_mtime();
+        this->check_event();
+    }
+    else if (addr + len <= CLINT_SIZE)
+    {
+        // Do nothing
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
+Clint::Clint(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -105,167 +256,9 @@ int Clint::build()
         this->new_master_port("timer_irq_" + std::to_string(i), &this->timer_irq_itf[i]);
         this->event[i] = event_new(Clint::event_handler);
     }
-
-    return 0;
 }
 
-void Clint::reset(bool active)
-{
-    if (active)
-    {
-        this->start_time = this->get_time();
-        for (int i=0; i<this->nb_cores; i++)
-        {
-            this->msip[i] = 0;
-            this->mtimecmp[i] = 0;
-        }
-    }
-}
-
-void Clint::event_handler(void *__this, vp::clock_event *event)
-{
-    Clint *_this = (Clint *)__this;
-    _this->check_mtime();
-    _this->check_event();
-}
-
-
-void Clint::time_sync_back(void *__this, uint64_t *value)
-{
-    Clint *_this = (Clint *)__this;
-    *value = _this->get_mtime();
-}
-
-
-
-vp::io_req_status_e Clint::req(void *__this, vp::io_req *req)
-{
-    Clint *_this = (Clint *)__this;
-    bool status;
-
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
-        req->get_addr(), req->get_size(), req->get_is_write());
-
-    if (req->get_is_write())
-    {
-        status = _this->store(req->get_addr(), req->get_size(), req->get_data());
-    }
-    else
-    {
-        status = _this->load(req->get_addr(), req->get_size(), req->get_data());
-    }
-    return status ? vp::IO_REQ_OK : vp::IO_REQ_INVALID;
-}
-
-uint64_t Clint::get_mtime()
-{
-    uint64_t value = (this->get_time() - this->start_time) / RESOLUTION;
-    return value;
-}
-
-void Clint::check_mtime()
-{
-    uint64_t mtime = this->get_mtime();
-    for (int i=0; i<this->nb_cores; i++)
-    {
-        if (this->timer_irq_itf[i].is_bound())
-        {
-            bool value = mtime >= this->mtimecmp[i];
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Sync interrupt (value: 0x%d)\n", value);
-            this->timer_irq_itf[i].sync(value);
-        }
-    }
-}
-
-void Clint::check_event()
-{
-    for (int i=0; i<this->nb_cores; i++)
-    {
-        uint64_t diff = (this->mtimecmp[i] - this->get_mtime()) * RESOLUTION / this->get_period();
-
-        if (diff > 0)
-        {
-            this->event[i]->enqueue(diff);
-        }
-    }
-}
-
-bool Clint::load(unsigned int addr, size_t len, uint8_t *bytes)
-{
-    if (addr >= MSIP_BASE && addr + len <= MSIP_BASE + this->nb_cores * sizeof(msip_t))
-    {
-        memcpy(bytes, (uint8_t *)&msip[0] + addr - MSIP_BASE, len);
-    }
-    else if (addr >= MTIMECMP_BASE && addr + len <= MTIMECMP_BASE + this->nb_cores * sizeof(mtimecmp_t))
-    {
-        memcpy(bytes, (uint8_t *)&mtimecmp[0] + addr - MTIMECMP_BASE, len);
-    }
-    else if (addr >= MTIME_BASE && addr + len <= MTIME_BASE + sizeof(mtime_t))
-    {
-        uint64_t mtime = this->get_mtime();
-        this->trace.msg(vp::trace::LEVEL_TRACE, "Returning mtime (value: 0x%lx)\n", mtime);
-
-        memcpy(bytes, (uint8_t *)&mtime + addr - MTIME_BASE, len);
-    }
-    else if (addr + len <= CLINT_SIZE)
-    {
-        memset(bytes, 0, len);
-    }
-    else
-    {
-        return false;
-    }
-    return true;
-}
-
-bool Clint::store(unsigned int addr, size_t len, const uint8_t *bytes)
-{
-    if (addr >= MSIP_BASE && addr + len <= MSIP_BASE + this->nb_cores * sizeof(msip_t))
-    {
-        memcpy((uint8_t *)&msip[0] + addr - MSIP_BASE, bytes, len);
-        for (size_t i = 0; i < this->nb_cores; ++i)
-        {
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Updating SW interrupt (hart: %d, value: %d)\n",
-                i, msip[i] & 1);
-            if (this->sw_irq_itf[i].is_bound())
-            {
-                this->sw_irq_itf[i].sync(msip[i] & 1);
-            }
-        }
-    }
-    else if (addr >= MTIMECMP_BASE && addr + len <= MTIMECMP_BASE + this->nb_cores * sizeof(mtimecmp_t))
-    {
-        memcpy((uint8_t *)&mtimecmp[0] + addr - MTIMECMP_BASE, bytes, len);
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Updating mtimecmp (hart: %d, value: %d)\n",
-            addr - MTIMECMP_BASE, mtimecmp[addr - MTIMECMP_BASE]);
-        this->check_mtime();
-        this->check_event();
-    }
-    else if (addr >= MTIME_BASE && addr + len <= MTIME_BASE + sizeof(mtime_t))
-    {
-        uint64_t mtime = this->get_mtime();
-        memcpy((uint8_t *)&mtime + addr - MTIME_BASE, bytes, len);
-        this->start_time = this->get_time() - mtime;
-        this->check_mtime();
-        this->check_event();
-    }
-    else if (addr + len <= CLINT_SIZE)
-    {
-        // Do nothing
-    }
-    else
-    {
-        return false;
-    }
-    return true;
-}
-
-Clint::Clint(js::config *config)
-    : vp::component(config)
-{
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Clint(config);
 }

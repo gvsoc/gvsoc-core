@@ -43,10 +43,10 @@ iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     int64_t cycles = 0;
 
     // Check if the instance is ready to accept an access
-    if (iss->top.get_cycles() < instance->cycles)
+    if (iss->top.clock.get_cycles() < instance->cycles)
     {
         // If not, account the number of cycles until the instance becomes available
-        cycles = instance->cycles - iss->top.get_cycles();
+        cycles = instance->cycles - iss->top.clock.get_cycles();
         iss->timing.event_insn_contention_account(cycles);
 
         // And account the access on the instance. The time taken by the access is indicated by the instruction bandwidth
@@ -55,7 +55,7 @@ iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     else
     {
         // The instance is available, just account the time taken by the access, indicated by the instruction bandwidth
-        instance->cycles = iss->top.get_cycles() + insn->resource_bandwidth;
+        instance->cycles = iss->top.clock.get_cycles() + insn->resource_bandwidth;
     }
 
     // Account the latency of the resource on the core, as the result is available after the instruction latency

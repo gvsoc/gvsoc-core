@@ -34,8 +34,8 @@ void Decode::build()
 {
     iss.top.traces.new_trace("decoder", &this->trace, vp::DEBUG);
     this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
-    this->iss.top.new_slave_port(this, "flush_cache", &this->flush_cache_itf);
-    string isa = this->iss.top.get_config_str("isa");
+    this->iss.top.new_slave_port("flush_cache", &this->flush_cache_itf, (vp::Block *)this);
+    string isa = this->iss.top.get_js_config()->get_child_str("isa");
     this->isa = strdup(isa.c_str());
     this->parse_isa();
     insn_cache_init(&this->iss);

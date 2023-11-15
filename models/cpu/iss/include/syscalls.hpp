@@ -40,7 +40,7 @@ public:
     bool user_access(iss_addr_t addr, uint8_t *data, iss_addr_t size, bool is_write);
     std::string read_user_string(iss_addr_t addr, int len = -1);
 
-    vp::trace trace;
+    vp::Trace trace;
 
     Iss_pcer_info_t pcer_info[32];
     int64_t cycle_count_start;

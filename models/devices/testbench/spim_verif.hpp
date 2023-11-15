@@ -109,16 +109,16 @@ public:
 class Testbench;
 class Spi;
 
-class Spim_verif : public vp::time_engine_client
+class Spim_verif : public vp::Block
 {
 public:
-    Spim_verif(Testbench *top, Spi *spi, vp::qspim_slave *itf, pi_testbench_req_spim_verif_setup_t *config);
+    Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config);
     void cs_sync(int cs);
     void sync(int sck, int sdio0, int sdio1, int sdio2, int sdio3, int mask);
     void transfer(pi_testbench_req_spim_verif_transfer_t *transfer);
     void spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config);
     int64_t exec();
-    void enqueue_spi_load(js::config *config);
+    void enqueue_spi_load(js::Config *config);
 
 
 protected:
@@ -144,10 +144,10 @@ private:
     void enqueue_boot_protocol_jump(int address);
 
     void start_spi_load();
-    void spi_load(js::config *config);
+    void spi_load(js::Config *config);
 
-    vp::trace trace;
-    vp::qspim_slave *itf;
+    vp::Trace trace;
+    vp::QspimSlave *itf;
     Spim_verif_state_e state = STATE_GET_CMD;
 
     pi_testbench_req_spim_verif_setup_t config;
@@ -211,7 +211,7 @@ private:
     int current_section_load;
 
     bool init_pads;
-    js::config *spi_load_config;
+    js::Config *spi_load_config;
 
     bool is_enqueued;
     bool slave_boot_jump;

@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <gv/gvsoc.hpp>
-#include "json.hpp"
+#include "vp/json.hpp"
 
 namespace vp {
 
@@ -72,7 +72,7 @@ namespace vp {
   class Event_dumper
   {
   public:
-    Event_dumper(js::config *config) : config(config) { this->user_vcd = NULL; }
+    Event_dumper(js::Config *config) : config(config) { this->user_vcd = NULL; }
     Event_trace *get_trace(string trace_name, string file_name, int width, bool is_real=false, bool is_string=false);
     Event_trace *get_trace_real(string trace_name, string file_name);
     Event_trace *get_trace_string(string trace_name, string file_name);
@@ -83,7 +83,7 @@ namespace vp {
     std::map<std::string, Event_trace *> event_traces;
     std::map<std::string, Event_file *> event_files;
     gv::Vcd_user *user_vcd;
-    js::config *config;
+    js::Config *config;
   };
 
   class Vcd_file : public Event_file

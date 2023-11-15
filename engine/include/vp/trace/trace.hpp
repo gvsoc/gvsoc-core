@@ -30,13 +30,13 @@ namespace vp {
 
   #define BUFFER_SIZE (1<<16)
 
-  class trace_engine;
+  class TraceEngine;
 
-  class trace
+  class Trace
   {
 
-    friend class component_trace;
-    friend class trace_engine;
+    friend class BlockTrace;
+    friend class TraceEngine;
 
   public:
 
@@ -82,8 +82,6 @@ namespace vp {
     void set_active(bool active);
     void set_event_active(bool active);
 
-    void set_trace_manager(vp::trace_engine *engine) { this->trace_manager = engine; }
-
   #ifndef VP_TRACE_ACTIVE
     inline bool get_active() { return false; }
     inline bool get_active(int level) { return false; }
@@ -106,15 +104,14 @@ namespace vp {
 
   protected:
     int level;
-    component *comp;
-    trace_engine *trace_manager;
+    Component *comp;
     bool is_event_active = false;
     string name;
     string path;
     uint8_t *buffer = NULL;
     uint8_t *buffer2 = NULL;
-    trace *next;
-    trace *prev;
+    Trace *next;
+    Trace *prev;
     int64_t pending_timestamp;
     string full_path;
     vector<std::function<void()>> callbacks;
@@ -129,8 +126,8 @@ namespace vp {
   if (!(cond)) {                                      \
     if (trace_ptr)                                    \
     {                                                 \
-      vp::trace* trace_p = trace_ptr;                 \
-      (static_cast<vp::trace&>(*trace_p)).fatal(msg); \
+      vp::Trace* trace_p = trace_ptr;                 \
+      (static_cast<vp::Trace&>(*trace_p)).fatal(msg); \
     }                                                 \
     else                                              \
     {                                                 \
@@ -142,7 +139,7 @@ namespace vp {
 
 #define vp_warning_always(trace_ptr, msg...)       \
     if (trace_ptr)                                 \
-      ((vp::trace *)(trace_ptr))->force_warning(msg);      \
+      ((vp::Trace *)(trace_ptr))->force_warning(msg);      \
     else                                           \
     {                                              \
       fprintf(stdout, "WARNING: ");                \

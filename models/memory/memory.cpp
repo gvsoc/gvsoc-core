@@ -26,54 +26,52 @@
 #include <string.h>
 
 
-class memory : public vp::component
+class Memory : public vp::Component
 {
 
 public:
-    memory(js::config *config);
+    Memory(vp::ComponentConf &config);
 
-    int build();
-    void start();
     void reset(bool active);
 
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
 
 private:
     static void power_ctrl_sync(void *__this, bool value);
     static void meminfo_sync_back(void *__this, void **value);
     static void meminfo_sync(void *__this, void *value);
-    vp::io_req_status_e handle_write(uint64_t addr, uint64_t size, uint8_t *data);
-    vp::io_req_status_e handle_read(uint64_t addr, uint64_t size, uint8_t *data);
-    vp::io_req_status_e handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
-        vp::io_req_opcode_e opcode, int initiator);
+    vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data);
+    vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data);
+    vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
+        vp::IoReqOpcode opcode, int initiator);
 
-    vp::trace trace;
-    vp::io_slave in;
+    vp::Trace trace;
+    vp::IoSlave in;
 
     uint64_t size = 0;
     bool check = false;
-    int width_bits = 0;
+    int width_bits = 0; 
 
     uint8_t *mem_data;
     uint8_t *check_mem;
 
     int64_t next_packet_start;
 
-    vp::wire_slave<bool> power_ctrl_itf;
-    vp::wire_slave<void *> meminfo_itf;
+    vp::WireSlave<bool> power_ctrl_itf;
+    vp::WireSlave<void *> meminfo_itf;
 
     bool power_trigger;
     bool powered_up;
 
-    vp::power::power_source read_8_power;
-    vp::power::power_source read_16_power;
-    vp::power::power_source read_32_power;
-    vp::power::power_source write_8_power;
-    vp::power::power_source write_16_power;
-    vp::power::power_source write_32_power;
-    vp::power::power_source background_power;
+    vp::PowerSource read_8_power;
+    vp::PowerSource read_16_power;
+    vp::PowerSource read_32_power;
+    vp::PowerSource write_8_power;
+    vp::PowerSource write_16_power;
+    vp::PowerSource write_32_power;
+    vp::PowerSource background_power;
 
-    vp::clock_event *power_event;
+    vp::ClockEvent *power_event;
     int64_t last_access_timestamp;
 
     // Load-reserved reservation table
@@ -82,16 +80,95 @@ private:
 
 
 
-memory::memory(js::config *config)
-    : vp::component(config)
+Memory::Memory(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    traces.new_trace("trace", &trace, vp::DEBUG);
+    in.set_req_meth(&Memory::req);
+    new_slave_port("input", &in);
+
+    this->power_ctrl_itf.set_sync_meth(&Memory::power_ctrl_sync);
+    new_slave_port("power_ctrl", &this->power_ctrl_itf);
+
+    this->meminfo_itf.set_sync_back_meth(&Memory::meminfo_sync_back);
+    this->meminfo_itf.set_sync_meth(&Memory::meminfo_sync);
+    new_slave_port("meminfo", &this->meminfo_itf);
+
+    js::Config *js_config = get_js_config()->get("power_trigger");
+    this->power_trigger = js_config != NULL && js_config->get_bool();
+
+    power.new_power_source("leakage", &background_power, this->get_js_config()->get("**/background"));
+    power.new_power_source("read_8", &read_8_power, this->get_js_config()->get("**/read_8"));
+    power.new_power_source("read_16", &read_16_power, this->get_js_config()->get("**/read_16"));
+    power.new_power_source("read_32", &read_32_power, this->get_js_config()->get("**/read_32"));
+    power.new_power_source("write_8", &write_8_power, this->get_js_config()->get("**/write_8"));
+    power.new_power_source("write_16", &write_16_power, this->get_js_config()->get("**/write_16"));
+    power.new_power_source("write_32", &write_32_power, this->get_js_config()->get("**/write_32"));
+
+    size = this->get_js_config()->get("size")->get_int();
+    check = get_js_config()->get_child_bool("check");
+    width_bits = get_js_config()->get_child_int("width_bits");
+    int align = get_js_config()->get_child_int("align");
+
+    trace.msg("Building Memory (size: 0x%x, check: %d)\n", size, check);
+
+    if (align)
+    {
+        mem_data = (uint8_t *)aligned_alloc(align, size);
+    }
+    else
+    {
+        mem_data = (uint8_t *)calloc(size, 1);
+        if (mem_data == NULL) throw std::bad_alloc();
+    }
+
+    // Special option to check for uninitialized accesses
+    if (check)
+    {
+        check_mem = new uint8_t[(size + 7) / 8];
+    }
+    else
+    {
+        check_mem = NULL;
+    }
+
+    // Initialize the Memory with a special value to detect uninitialized
+    // variables
+    memset(mem_data, 0x57, size);
+
+    // Preload the Memory
+    js::Config *stim_file_conf = this->get_js_config()->get("stim_file");
+    if (stim_file_conf != NULL)
+    {
+        string path = stim_file_conf->get_str();
+        if (path != "")
+        {
+            trace.msg("Preloading Memory with stimuli file (path: %s)\n", path.c_str());
+
+            FILE *file = fopen(path.c_str(), "rb");
+            if (file == NULL)
+            {
+                this->trace.fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
+                return;
+            }
+            if (fread(this->mem_data, 1, size, file) == 0)
+            {
+                this->trace.fatal("Failed to read stim file: %s, %s\n", path.c_str(), strerror(errno));
+                return;
+            }
+        }
+    }
+
+    this->background_power.leakage_power_start();
+    this->background_power.dynamic_power_start();
+    this->last_access_timestamp = -1;
 }
 
 
 
-vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
+vp::IoReqStatus Memory::req(void *__this, vp::IoReq *req)
 {
-    memory *_this = (memory *)__this;
+    Memory *_this = (Memory *)__this;
 
     uint64_t offset = req->get_addr();
     uint8_t *data = req->get_data();
@@ -99,19 +176,19 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
 
     if (!_this->powered_up)
     {
-        _this->trace.force_warning("Accessing memory while it is down (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
+        _this->trace.force_warning("Accessing Memory while it is down (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
         return vp::IO_REQ_INVALID;
     }
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
 
-    // Impact the memory bandwith on the packet
+    // Impact the Memory bandwith on the packet
     if (_this->width_bits != 0)
     {
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
         int duration = MAX(size >> _this->width_bits, 1);
         req->set_duration(duration);
-        int64_t cycles = _this->get_cycles();
+        int64_t cycles = _this->clock.get_cycles();
         int64_t diff = _this->next_packet_start - cycles;
         if (diff > 0)
         {
@@ -123,7 +200,7 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
 
     if (_this->power.get_power_trace()->get_active())
     {
-        _this->last_access_timestamp = _this->get_time();
+        _this->last_access_timestamp = _this->time.get_time();
 
         if (req->get_is_write())
         {
@@ -171,11 +248,11 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
         return vp::IO_REQ_INVALID;
     }
 
-    if (req->get_opcode() == vp::io_req_opcode_e::READ)
+    if (req->get_opcode() == vp::IoReqOpcode::READ)
     {
         return _this->handle_read(offset, size, data);
     }
-    else if (req->get_opcode() == vp::io_req_opcode_e::WRITE)
+    else if (req->get_opcode() == vp::IoReqOpcode::WRITE)
     {
         return _this->handle_write(offset, size, data);
     }
@@ -193,7 +270,7 @@ vp::io_req_status_e memory::req(void *__this, vp::io_req *req)
 
 
 
-vp::io_req_status_e memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data)
+vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data)
 {
     if (this->check_mem)
     {
@@ -212,7 +289,7 @@ vp::io_req_status_e memory::handle_write(uint64_t offset, uint64_t size, uint8_t
 
 
 
-vp::io_req_status_e memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data)
+vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data)
 {
     if (this->check_mem)
     {
@@ -241,8 +318,8 @@ static inline int64_t get_signed_value(int64_t val, int bits)
 }
 
 
-vp::io_req_status_e memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data,
-    uint8_t *out_data, vp::io_req_opcode_e opcode, int initiator)
+vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data,
+    uint8_t *out_data, vp::IoReqOpcode opcode, int initiator)
 {
     int64_t operand = 0;
     int64_t prev_val = 0;
@@ -261,11 +338,11 @@ vp::io_req_status_e memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t 
 
     switch (opcode)
     {
-        case vp::io_req_opcode_e::LR:
+        case vp::IoReqOpcode::LR:
             this->res_table[initiator] = addr;
             is_write = false;
             break;
-        case vp::io_req_opcode_e::SC:
+        case vp::IoReqOpcode::SC:
             if (this->res_table[initiator] == addr)
             {
                 // Valid reservation --> clear all others as we are going to write
@@ -284,31 +361,31 @@ vp::io_req_status_e memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t 
                 prev_val = 1;
             }
             break;
-        case vp::io_req_opcode_e::SWAP:
+        case vp::IoReqOpcode::SWAP:
             result = operand;
             break;
-        case vp::io_req_opcode_e::ADD:
+        case vp::IoReqOpcode::ADD:
             result = prev_val + operand;
             break;
-        case vp::io_req_opcode_e::XOR:
+        case vp::IoReqOpcode::XOR:
             result = prev_val ^ operand;
             break;
-        case vp::io_req_opcode_e::AND:
+        case vp::IoReqOpcode::AND:
             result = prev_val & operand;
             break;
-        case vp::io_req_opcode_e::OR:
+        case vp::IoReqOpcode::OR:
             result = prev_val | operand;
             break;
-        case vp::io_req_opcode_e::MIN:
+        case vp::IoReqOpcode::MIN:
             result = prev_val < operand ? prev_val : operand;
             break;
-        case vp::io_req_opcode_e::MAX:
+        case vp::IoReqOpcode::MAX:
             result = prev_val > operand ? prev_val : operand;
             break;
-        case vp::io_req_opcode_e::MINU:
+        case vp::IoReqOpcode::MINU:
             result = (uint64_t) prev_val < (uint64_t) operand ? prev_val : operand;
             break;
-        case vp::io_req_opcode_e::MAXU:
+        case vp::IoReqOpcode::MAXU:
             result = (uint64_t) prev_val > (uint64_t) operand ? prev_val : operand;
             break;
         default:
@@ -326,7 +403,7 @@ vp::io_req_status_e memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t 
 
 
 
-void memory::reset(bool active)
+void Memory::reset(bool active)
 {
     if (active)
     {
@@ -337,123 +414,32 @@ void memory::reset(bool active)
 
 
 
-void memory::power_ctrl_sync(void *__this, bool value)
+void Memory::power_ctrl_sync(void *__this, bool value)
 {
-    memory *_this = (memory *)__this;
+    Memory *_this = (Memory *)__this;
     _this->powered_up = value;
 }
 
 
 
-void memory::meminfo_sync_back(void *__this, void **value)
+void Memory::meminfo_sync_back(void *__this, void **value)
 {
-    memory *_this = (memory *)__this;
+    Memory *_this = (Memory *)__this;
     *value = _this->mem_data;
 }
 
 
 
-void memory::meminfo_sync(void *__this, void *value)
+void Memory::meminfo_sync(void *__this, void *value)
 {
-    memory *_this = (memory *)__this;
+    Memory *_this = (Memory *)__this;
     _this->mem_data = (uint8_t *)value;
 }
 
 
 
-int memory::build()
+
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    traces.new_trace("trace", &trace, vp::DEBUG);
-    in.set_req_meth(&memory::req);
-    new_slave_port("input", &in);
-
-    this->power_ctrl_itf.set_sync_meth(&memory::power_ctrl_sync);
-    new_slave_port("power_ctrl", &this->power_ctrl_itf);
-
-    this->meminfo_itf.set_sync_back_meth(&memory::meminfo_sync_back);
-    this->meminfo_itf.set_sync_meth(&memory::meminfo_sync);
-    new_slave_port("meminfo", &this->meminfo_itf);
-
-    js::config *config = get_js_config()->get("power_trigger");
-    this->power_trigger = config != NULL && config->get_bool();
-
-    power.new_power_source("leakage", &background_power, this->get_js_config()->get("**/background"));
-    power.new_power_source("read_8", &read_8_power, this->get_js_config()->get("**/read_8"));
-    power.new_power_source("read_16", &read_16_power, this->get_js_config()->get("**/read_16"));
-    power.new_power_source("read_32", &read_32_power, this->get_js_config()->get("**/read_32"));
-    power.new_power_source("write_8", &write_8_power, this->get_js_config()->get("**/write_8"));
-    power.new_power_source("write_16", &write_16_power, this->get_js_config()->get("**/write_16"));
-    power.new_power_source("write_32", &write_32_power, this->get_js_config()->get("**/write_32"));
-
-    return 0;
-}
-
-
-
-void memory::start()
-{
-    size = this->get_js_config()->get("size")->get_int();
-    check = get_config_bool("check");
-    width_bits = get_config_int("width_bits");
-    int align = get_config_int("align");
-
-    trace.msg("Building memory (size: 0x%x, check: %d)\n", size, check);
-
-    if (align)
-    {
-        mem_data = (uint8_t *)aligned_alloc(align, size);
-    }
-    else
-    {
-        mem_data = (uint8_t *)calloc(size, 1);
-        if (mem_data == NULL) throw std::bad_alloc();
-    }
-
-    // Special option to check for uninitialized accesses
-    if (check)
-    {
-        check_mem = new uint8_t[(size + 7) / 8];
-    }
-    else
-    {
-        check_mem = NULL;
-    }
-
-    // Initialize the memory with a special value to detect uninitialized
-    // variables
-    memset(mem_data, 0x57, size);
-
-    // Preload the memory
-    js::config *stim_file_conf = this->get_js_config()->get("stim_file");
-    if (stim_file_conf != NULL)
-    {
-        string path = stim_file_conf->get_str();
-        if (path != "")
-        {
-            trace.msg("Preloading memory with stimuli file (path: %s)\n", path.c_str());
-
-            FILE *file = fopen(path.c_str(), "rb");
-            if (file == NULL)
-            {
-                this->trace.fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
-                return;
-            }
-            if (fread(this->mem_data, 1, size, file) == 0)
-            {
-                this->trace.fatal("Failed to read stim file: %s, %s\n", path.c_str(), strerror(errno));
-                return;
-            }
-        }
-    }
-
-    this->background_power.leakage_power_start();
-    this->background_power.dynamic_power_start();
-    this->last_access_timestamp = -1;
-}
-
-
-
-extern "C" vp::component *vp_constructor(js::config *config)
-{
-    return new memory(config);
+    return new Memory(config);
 }

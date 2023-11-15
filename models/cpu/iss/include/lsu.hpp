@@ -37,9 +37,9 @@ public:
     int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
     int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
 
-    static void exec_misaligned(void *__this, vp::clock_event *event);
-    static void data_grant(void *_this, vp::io_req *req);
-    static void data_response(void *_this, vp::io_req *req);
+    static void exec_misaligned(vp::Block *__this, vp::ClockEvent *event);
+    static void data_grant(void *_this, vp::IoReq *req);
+    static void data_response(void *_this, vp::IoReq *req);
 
     inline void store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
@@ -52,7 +52,7 @@ public:
     inline void load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline void store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
-    void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::io_req_opcode_e opcode);
+    void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::IoReqOpcode opcode);
 
     inline void elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline void elw_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
@@ -61,12 +61,12 @@ public:
 
     Iss &iss;
 
-    vp::trace trace;
+    vp::Trace trace;
 
 
     // lsu
-    vp::io_master data;
-    vp::io_req io_req;
+    vp::IoMaster data;
+    vp::IoReq io_req;
     int misaligned_size;
     uint8_t *misaligned_data;
     iss_addr_t misaligned_addr;

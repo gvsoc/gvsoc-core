@@ -24,30 +24,28 @@
 
 vp::top::top(std::string config_path, bool is_async)
 {
-    js::config *js_config = js::import_config_from_file(config_path);
+    js::Config *js_config = js::import_config_from_file(config_path);
     if (js_config == NULL)
     {
         throw std::invalid_argument("Invalid configuration.");
     }
 
-    js::config *gv_config = js_config->get("target/gvsoc");
-    vp::component *instance = vp::component::load_component(js_config->get("**/target"), gv_config);
+    this->gv_config = js_config->get("target/gvsoc");
 
+    trace_manager = new vp::TraceEngine(this->gv_config);
+    power_engine = new vp::PowerEngine();
+    gv_time_engine = new vp::TimeEngine(this->gv_config);
 
-    this->top_instance = instance;
-    this->power_engine = new vp::power::engine(instance);
-    this->trace_engine = new vp::trace_domain(instance, gv_config);
-    this->time_engine = new vp::time_engine(instance, gv_config);
-    this->trace_engine->time_engine = (vp::time_engine *)this->time_engine;
+    this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config, NULL, "");
 
-    instance->set_vp_config(gv_config);
-
-    instance->build_instance("", NULL);
+    power_engine->init(this->top_instance);
+    trace_manager->init(this->top_instance);
+    gv_time_engine->init(this->top_instance);
 }
 
 
 vp::top::~top()
 {
-    delete this->power_engine;
-    delete this->trace_engine;
+    delete power_engine;
+    delete trace_manager;
 }

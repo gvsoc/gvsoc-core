@@ -40,7 +40,7 @@ void Exception::build()
 
 void Exception::raise(iss_reg_t pc, int id)
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Raising exception (id: %d)\n", id);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Raising exception (id: %d)\n", id);
 
     this->iss.exec.switch_to_full_mode();
 

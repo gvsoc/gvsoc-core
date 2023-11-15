@@ -37,7 +37,7 @@ void Irq::build()
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     irq_req_itf.set_sync_meth(&Irq::irq_req_sync);
-    this->iss.top.new_slave_port(this, "irq_req", &irq_req_itf);
+    this->iss.top.new_slave_port("irq_req", &irq_req_itf, (vp::Block *)this);
     this->iss.top.new_master_port("irq_ack", &irq_ack_itf);
 
     this->iss.top.new_reg("irq_enable", &this->irq_enable, false);
@@ -144,7 +144,7 @@ void Irq::irq_req_sync(void *__this, int irq)
 {
     Irq *_this = (Irq *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received IRQ (irq: %d)\n", irq);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IRQ (irq: %d)\n", irq);
 
     _this->req_irq = irq;
 
@@ -182,7 +182,7 @@ int Irq::check()
 
         if (req_irq != -1 && this->irq_enable.get() && !this->iss.exec.irq_locked)
         {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", req_irq);
 
             this->iss.exec.interrupt_taken();
             this->iss.csr.mepc.value = this->iss.exec.current_insn;

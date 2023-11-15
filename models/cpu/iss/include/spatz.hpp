@@ -80,15 +80,15 @@ public:
     inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
 
     inline void handle_pending_io_access(Iss *iss);
-    static void data_response(void *__this, vp::io_req *req);
+    static void data_response(void *__this, vp::IoReq *req);
 
 
     Vlsu(Iss &iss);
     void build();
 
-    vp::io_master io_itf[4];
-    vp::io_req io_req;
-    vp::clock_event *event;
+    vp::IoMaster io_itf[4];
+    vp::IoReq io_req;
+    vp::ClockEvent *event;
     int io_retval;
     uint64_t io_pending_addr;
     int io_pending_size;

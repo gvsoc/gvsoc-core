@@ -53,7 +53,7 @@ Rsp::Rsp(Gdb_server *top) : top(top)
 
 void Rsp::proxy_loop(int socket)
 {
-    this->top->trace.msg(vp::trace::LEVEL_INFO, "Entering proxy loop\n");
+    this->top->trace.msg(vp::Trace::LEVEL_INFO, "Entering proxy loop\n");
 
     this->sock = socket;
 
@@ -64,13 +64,13 @@ void Rsp::proxy_loop(int socket)
     this->codec = new RspPacketCodec();
 
     this->codec->on_ack([this]() {
-        this->top->trace.msg(vp::trace::LEVEL_TRACE, "RSP: received ack\n");
+        this->top->trace.msg(vp::Trace::LEVEL_TRACE, "RSP: received ack\n");
         // TODO - Should timeout on no ACK
     });
 
     this->codec->on_error([this](const char *err_str) 
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "RSP: packet error: %s\n", err_str);
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "RSP: packet error: %s\n", err_str);
         this->stop();
     });
 
@@ -106,7 +106,7 @@ void Rsp::proxy_loop(int socket)
 
         if((ret == -1 && errno != EWOULDBLOCK) || (ret == 0))
         {
-            this->top->trace.msg(vp::trace::LEVEL_WARNING, "Error receiving, leaving proxy loop\n");
+            this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Error receiving, leaving proxy loop\n");
             return;
         }
 
@@ -118,9 +118,9 @@ void Rsp::proxy_loop(int socket)
 
         in_buffer->commit_write(ret);
 
-        this->top->get_time_engine()->lock();
+        this->top->time.get_engine()->lock();
         this->codec->decode(in_buffer);
-        this->top->get_time_engine()->unlock();
+        this->top->time.get_engine()->unlock();
     }
 }
 
@@ -134,9 +134,9 @@ void Rsp::stop()
 
 void Rsp::stop_all_cores()
 {
-    this->top->get_time_engine()->lock();
+    this->top->time.get_engine()->lock();
     this->stop_all_cores_safe();
-    this->top->get_time_engine()->unlock();
+    this->top->time.get_engine()->unlock();
 }
 
 void Rsp::stop_all_cores_safe()
@@ -154,7 +154,7 @@ bool Rsp::send(const char *data, size_t len)
 {
     std::unique_lock<std::mutex> lock(this->mutex);
 
-    this->top->trace.msg(vp::trace::LEVEL_TRACE, "Sending message (text: \"%s\", size: %ld)\n", data, len);
+    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Sending message (text: \"%s\", size: %ld)\n", data, len);
 
     // disabled run length encoding since GDB didn't seem to like it
     this->codec->encode(data, len, this->out_buffer, true);
@@ -166,7 +166,7 @@ bool Rsp::send(const char *data, size_t len)
 
     if (::send(this->sock, buf, size, 0) != (int)size)
     {
-        this->top->trace.msg(vp::trace::LEVEL_INFO, "Unable to send data to client\n");
+        this->top->trace.msg(vp::Trace::LEVEL_INFO, "Unable to send data to client\n");
         return false;
     }
 
@@ -246,7 +246,7 @@ bool Rsp::reg_write(char *data, size_t)
 
     if (sscanf(data, "%x=%08x", &addr, &wdata) != 2)
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not parse packet\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
         return false;
     }
 
@@ -298,7 +298,7 @@ bool Rsp::mem_write(char *data, size_t len)
 
     if (sscanf(data, "%x,%x:", &addr, &length) != 2)
     {
-        this->top->trace.msg(vp::trace::LEVEL_INFO, "Could not parse packet\n");
+        this->top->trace.msg(vp::Trace::LEVEL_INFO, "Could not parse packet\n");
         return false;
     }
 
@@ -338,7 +338,7 @@ bool Rsp::mem_write_ascii(char *data, size_t len)
 
     if (sscanf(data, "%x,%d:", &addr, &length) != 2)
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not parse packet\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
         return false;
     }
 
@@ -361,7 +361,7 @@ bool Rsp::mem_write_ascii(char *data, size_t len)
     buffer = (char *)malloc(buffer_len);
     if (buffer == NULL)
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Failed to allocate buffer\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Failed to allocate buffer\n");
         return false;
     }
 
@@ -495,7 +495,7 @@ bool Rsp::query(char* data, size_t len)
         unsigned int thread_id;
         if (sscanf(data, "qThreadExtraInfo,%x", &thread_id) != 1)
         {
-            this->top->trace.msg(vp::trace::LEVEL_WARNING, "Could not parse qThreadExtraInfo packet\n");
+            this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Could not parse qThreadExtraInfo packet\n");
             return send_str("E01");
         }
         auto core = this->top->get_core(thread_id - 1);
@@ -520,7 +520,7 @@ bool Rsp::query(char* data, size_t len)
         return send_str("");
     }
 
-    this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unknown query packet\n");
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unknown query packet\n");
 
     return send_str("");
 }
@@ -566,7 +566,7 @@ bool Rsp::v_packet(char* data, size_t len)
             }
             else
             {
-                this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unsupported command in vCont packet: %s\n", str);
+                this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unsupported command in vCont packet: %s\n", str);
             }
 
             str = strtok(NULL, ";");
@@ -604,7 +604,7 @@ bool Rsp::regs_send()
     }
     else if (nb_regs > 0)
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unsupported register size (size: %d)\n", reg_size);
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unsupported register size (size: %d)\n", reg_size);
     }
 
     return this->send_str(UNAVAILABLE33);
@@ -613,7 +613,7 @@ bool Rsp::regs_send()
 
 bool Rsp::decode(char* data, size_t len)
 {
-    this->top->trace.msg(vp::trace::LEVEL_TRACE, "Received packet (text: '%s', len: %ld)\n", data, len);
+    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Received packet (text: '%s', len: %ld)\n", data, len);
 
     switch (data[0])
     {
@@ -677,7 +677,7 @@ bool Rsp::decode(char* data, size_t len)
             return mem_write_ascii(&data[1], len-1);
 
         default:
-            this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unknown packet: starts with %c\n", data[0]);
+            this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unknown packet: starts with %c\n", data[0]);
             break;
     }
 
@@ -698,17 +698,17 @@ void Rsp::proxy_listener()
             if(errno == EAGAIN)
                 continue;
 
-            this->top->trace.msg(vp::trace::LEVEL_ERROR, "Unable to accept connection: %s\n", strerror(errno));
+            this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unable to accept connection: %s\n", strerror(errno));
             return;
         }
 
         if (this->loop_thread)
         {
-            this->top->trace.msg(vp::trace::LEVEL_WARNING, "Client already connected\n");
+            this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Client already connected\n");
         }
         else
         {
-            this->top->trace.msg(vp::trace::LEVEL_INFO, "Client connected\n");
+            this->top->trace.msg(vp::Trace::LEVEL_INFO, "Client connected\n");
 
             this->proxy_loop_stop = false;
             this->client_socket = client;
@@ -763,7 +763,7 @@ int Rsp::open_proxy(int port)
 
     if (port == first_port + 10000)
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Didn't manage to open socket\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Didn't manage to open socket\n");
         return -1;
     }
 
@@ -778,7 +778,7 @@ void Rsp::start(int port)
 {
     if (this->open_proxy(port))
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "FAILED to open proxy\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "FAILED to open proxy\n");
     }
 }
 
@@ -792,7 +792,7 @@ bool Rsp::mem_read(char *data, size_t)
 
     if (sscanf(data, "%x,%x", &addr, &length) != 2)
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not parse packet\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
         return false;
     }
 
@@ -815,7 +815,7 @@ bool Rsp::mem_read(char *data, size_t)
     }
     else
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Filtered memory read attempt - area is inaccessible\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Filtered memory read attempt - area is inaccessible\n");
         memset(reply, (int)'0', length * 2);
         reply[length * 2] = '\0';
     }
@@ -835,18 +835,18 @@ bool Rsp::bp_insert(char *data, size_t len)
 
     if (3 != sscanf(data, "Z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not get three arguments\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not get three arguments\n");
         return send_str("E01");
     }
 
     if (type == 0 || type == 1)
     {
-        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
+        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
         this->top->breakpoint_insert(addr);
     }
     else if ( type == 2 || type == 3)
     {
-        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Inserting watchpoint (addr: 0x%x)\n", addr);
+        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Inserting watchpoint (addr: 0x%x)\n", addr);
         this->top->watchpoint_insert(type == 2, addr, bp_len);
     }
 
@@ -863,18 +863,18 @@ bool Rsp::bp_remove(char *data, size_t len)
 
     if (3 != sscanf(data, "z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
     {
-        this->top->trace.msg(vp::trace::LEVEL_ERROR, "Could not get three arguments\n");
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not get three arguments\n");
         return false;
     }
 
     if (type == 0 || type == 1)
     {
-        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
+        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
         this->top->breakpoint_remove(addr);
     }
     else if ( type == 2 || type == 3)
     {
-        this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Removing watchpoint (addr: 0x%x)\n", addr);
+        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Removing watchpoint (addr: 0x%x)\n", addr);
         this->top->watchpoint_remove(type == 2, addr, bp_len);
     }
 

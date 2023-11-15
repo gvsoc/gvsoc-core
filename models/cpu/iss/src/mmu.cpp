@@ -57,7 +57,7 @@ bool Mmu::satp_update(bool is_write, iss_reg_t &value)
 {
     if (this->iss.core.mode_get() == PRIV_S && this->iss.csr.mstatus.tvm)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Modifying satp in supervisor mode while TVM is 1\n");
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Modifying satp in supervisor mode while TVM is 1\n");
         this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_ILLEGAL);
         return false;
     }
@@ -88,7 +88,7 @@ bool Mmu::satp_update(bool is_write, iss_reg_t &value)
             this->vpn_width = 9;
         }
 
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Updated SATP (base: 0x%x, asid: %d, mode: %d)\n",
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Updated SATP (base: 0x%x, asid: %d, mode: %d)\n",
             pt_base, asid, mode);
     }
 
@@ -106,7 +106,7 @@ bool Mmu::satp_update(bool is_write, iss_reg_t &value)
 }
 
 
-void Mmu::handle_pte_stub(void *__this, vp::clock_event *event)
+void Mmu::handle_pte_stub(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
     Mmu *_this = &iss->mmu;
@@ -130,19 +130,19 @@ void Mmu::raise_exception()
 
     if (this->access_type & ACCESS_LOAD)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal load access (pc: 0x%lx, 0x%lx)\n",
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Illegal load access (pc: 0x%lx, 0x%lx)\n",
             this->iss.exec.stall_insn, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_LOAD_PAGE_FAULT);
     }
     else if (this->access_type & ACCESS_STORE)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal store access (pc: 0x%lx, 0x%lx)\n",
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Illegal store access (pc: 0x%lx, 0x%lx)\n",
             this->iss.exec.stall_insn, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_STORE_PAGE_FAULT);
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal fetch access (pc: 0x%lx, 0x%lx)\n",
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Illegal fetch access (pc: 0x%lx, 0x%lx)\n",
             this->iss.exec.stall_insn, this->current_virt_addr);
         this->iss.exception.raise(this->iss.exec.stall_insn, ISS_EXCEPT_INSN_PAGE_FAULT);
     }
@@ -155,12 +155,12 @@ bool Mmu::handle_pte()
 {
     iss_reg_t pte_attr = this->pte_value.raw & MMU_PTE_ATTR;
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Handle pte (value: 0x%lx)\n", this->pte_value.raw);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Handle pte (value: 0x%lx)\n", this->pte_value.raw);
 
     if (!this->pte_value.v || (!this->pte_value.r && this->pte_value.w) ||
         (this->pte_value.raw & MMU_PTE_ATTR) != 0)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Illegal pte entry\n");
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Illegal pte entry\n");
         this->raise_exception();
         return false;
     }
@@ -177,7 +177,7 @@ bool Mmu::handle_pte()
             int lower_ppn = get_field(phys_base, MMU_PGSHIFT, this->pte_size * this->current_level);
             if (lower_ppn != 0)
             {
-                this->trace.msg(vp::trace::LEVEL_DEBUG, "Found misaligned superpage\n");
+                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Found misaligned superpage\n");
                 this->raise_exception();
                 return false;
             }
@@ -262,7 +262,7 @@ void Mmu::handle_pte_response(Lsu *lsu)
 
 void Mmu::read_pte(iss_addr_t pte_addr)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Read pte (addr: 0x%lx)\n", pte_addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Read pte (addr: 0x%lx)\n", pte_addr);
 
     int err = this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, this->pte_size, false);
     if (err == vp::IO_REQ_OK)
@@ -286,7 +286,7 @@ void Mmu::read_pte(iss_addr_t pte_addr)
 
 void Mmu::walk_pgtab(iss_addr_t virt_addr)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Page-table walk (virt_addr: 0x%lx)\n", virt_addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Page-table walk (virt_addr: 0x%lx)\n", virt_addr);
 
     // Remember now the current instruction, in case walking the page-table is stalling the core
     // so that we can re-execute the instruction once the translatio is done.
@@ -301,7 +301,7 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
     int vpn_index = get_field(this->current_virt_addr, this->current_vpn_bit, this->vpn_width);
     iss_addr_t pte_addr = this->pt_base + vpn_index*this->pte_size;
 
-    this->iss.exec.instr_event->meth_set(&this->iss, &Mmu::handle_pte_stub);
+    this->iss.exec.instr_event->set_callback(&Mmu::handle_pte_stub);
     this->iss.exec.insn_hold();
 
     this->read_pte(pte_addr);
@@ -311,7 +311,7 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
 bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
 
     int mode = this->iss.core.mode_get();
     if (this->iss.csr.mstatus.mprv && !(this->access_type & ACCESS_INSN))

@@ -35,12 +35,10 @@ typedef enum
 } I2c_state_e;
 
 
-class Fxl6408 : public vp::component
+class Fxl6408 : public vp::Component
 {
 public:
-    Fxl6408(js::config *config);
-
-    int build();
+    Fxl6408(vp::ComponentConf &conf);
 
 protected:
     static void i2c_sync(void *__this, int scl, int sda);
@@ -55,8 +53,8 @@ protected:
 
     void start();
 
-    vp::trace trace;
-    vp::i2c_master i2c_itf;
+    vp::Trace trace;
+    vp::I2cMaster i2c_itf;
 
     unsigned int device_address;
 
@@ -85,9 +83,32 @@ protected:
 };
 
 
-Fxl6408::Fxl6408(js::config *config)
-    : vp::component(config)
+Fxl6408::Fxl6408(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    traces.new_trace("trace", &trace, vp::DEBUG);
+
+    this->i2c_itf.set_sync_meth(&Fxl6408::i2c_sync);
+    this->new_master_port("i2c", &this->i2c_itf);
+
+    this->i2c_state = I2C_STATE_WAIT_START;
+    this->i2c_prev_sda = 1;
+    this->i2c_prev_scl = 1;
+    this->i2c_being_addressed = false;
+    this->device_address = 0x43;
+    this->waiting_reg_address = true;
+
+    this->device_id           = 0xC2;
+    this->io_dir              = 0x00;
+    this->output_state        = 0x00;
+    this->output_high_z       = 0xFF;
+    this->input_default_state = 0x00;
+    this->pull_enable         = 0xFF;
+    this->pull_down_up        = 0x00;
+    this->input_status        = 0xFF;
+    this->interrupt_mask      = 0x00;
+    this->interrupt_status    = 0xFF;
+
 }
 
 
@@ -101,7 +122,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
 {
     Fxl6408 *_this = (Fxl6408 *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "I2C sync (scl: %d, sda: %d)\n", scl, sda);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "I2C sync (scl: %d, sda: %d)\n", scl, sda);
 
     int sdo = 1;
 
@@ -109,7 +130,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
     {
         if (_this->i2c_prev_sda == 1)
         {
-            _this->trace.msg(vp::trace::LEVEL_TRACE, "Detected start\n");
+            _this->trace.msg(vp::Trace::LEVEL_TRACE, "Detected start\n");
 
             _this->i2c_state = I2C_STATE_WAIT_ADDRESS;
             _this->i2c_address = 0;
@@ -138,7 +159,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
                 if (_this->i2c_pending_bits > 1)
                 {
                     _this->i2c_address = (_this->i2c_address << 1) | sda;
-                    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received address bit (bit: %d, address: 0x%x, pending_bits: %d)\n", sda, _this->i2c_address, _this->i2c_pending_bits);
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received address bit (bit: %d, address: 0x%x, pending_bits: %d)\n", sda, _this->i2c_address, _this->i2c_pending_bits);
                 }
                 else
                 {
@@ -157,7 +178,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
             case I2C_STATE_SAMPLE_DATA:
             {
                 _this->i2c_pending_data = (_this->i2c_pending_data << 1) | sda;
-                _this->trace.msg(vp::trace::LEVEL_TRACE, "Sampling data (bit: %d, pending_value: 0x%x, pending_bits: %d)\n", sda, _this->i2c_pending_data, _this->i2c_pending_bits);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampling data (bit: %d, pending_value: 0x%x, pending_bits: %d)\n", sda, _this->i2c_pending_data, _this->i2c_pending_bits);
                 _this->i2c_pending_bits--;
                 if (_this->i2c_pending_bits == 0)
                 {
@@ -169,7 +190,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
             }
 
             case I2C_STATE_ACK: {
-                _this->trace.msg(vp::trace::LEVEL_TRACE, "Ack (being_addressed: %d)\n", _this->i2c_being_addressed);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Ack (being_addressed: %d)\n", _this->i2c_being_addressed);
                 if (_this->i2c_being_addressed)
                 {
                     if (_this->i2c_is_read)
@@ -204,14 +225,14 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
         {
             case I2C_STATE_ACK:
             {
-                _this->trace.msg(vp::trace::LEVEL_TRACE, "Ack (being_addressed: %d)\n", _this->i2c_being_addressed);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Ack (being_addressed: %d)\n", _this->i2c_being_addressed);
                 sdo = !_this->i2c_being_addressed;
                 break;
             }
 
             case I2C_STATE_READ_ACK:
             {
-                _this->trace.msg(vp::trace::LEVEL_TRACE, "Read ack\n");
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Read ack\n");
                 sdo = 0;
                 break;
             }
@@ -219,7 +240,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
             case I2C_STATE_GET_DATA:
             {
                 sdo = (_this->i2c_pending_send_byte >> 7) & 1;
-                _this->trace.msg(vp::trace::LEVEL_TRACE, "Sending bit (bit: %d, pending_value: 0x%x, pending_bits: %d)\n", sdo, _this->i2c_pending_send_byte, _this->i2c_pending_bits);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending bit (bit: %d, pending_value: 0x%x, pending_bits: %d)\n", sdo, _this->i2c_pending_send_byte, _this->i2c_pending_bits);
                 _this->i2c_pending_send_byte <<= 1;
                 _this->i2c_pending_bits--;
                 if (_this->i2c_pending_bits == 0)
@@ -234,7 +255,7 @@ void Fxl6408::i2c_sync(void *__this, int scl, int sda)
 end:
     if (_this->i2c_prev_scl && !scl)
     {
-        _this->trace.msg(vp::trace::LEVEL_TRACE, "Sync sda (value: %d)\n", sdo);
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sync sda (value: %d)\n", sdo);
         _this->i2c_itf.sync(1, sdo);
     }
     _this->i2c_prev_sda = sda;
@@ -243,7 +264,7 @@ end:
 
 void Fxl6408::i2c_start(unsigned int address, bool is_read)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Received header (address: 0x%x, is_read: %d)\n", address, is_read);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received header (address: 0x%x, is_read: %d)\n", address, is_read);
 
     this->i2c_being_addressed = address == this->device_address;
     if (this->i2c_being_addressed && is_read)
@@ -254,7 +275,7 @@ void Fxl6408::i2c_start(unsigned int address, bool is_read)
 
 void Fxl6408::i2c_handle_byte(uint8_t byte)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Handle byte (value: 0x%x)\n", byte);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Handle byte (value: 0x%x)\n", byte);
 
     if (this->waiting_reg_address)
     {
@@ -270,13 +291,13 @@ void Fxl6408::i2c_handle_byte(uint8_t byte)
 
 void Fxl6408::i2c_stop()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Received stop bit\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received stop bit\n");
 
 }
 
 void Fxl6408::i2c_get_data()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Getting data\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Getting data\n");
 }
 
 void Fxl6408::i2c_send_byte(uint8_t byte)
@@ -287,67 +308,67 @@ void Fxl6408::i2c_send_byte(uint8_t byte)
 
 void Fxl6408::handle_reg_write(uint8_t address, uint8_t value)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Register write (address: 0x%x, value: 0x%x)\n", address, value);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Register write (address: 0x%x, value: 0x%x)\n", address, value);
 
     switch (address)
     {
         case 0x01:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Device ID & Ctrl", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Device ID & Ctrl", value);
             this->device_id = value;
             break;
         }
         case 0x03:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "IO Direction", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "IO Direction", value);
             this->io_dir = value;
             break;
         }
         case 0x05:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Output State", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Output State", value);
             this->output_state = value;
             break;
         }
         case 0x07:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Output High-Z", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Output High-Z", value);
             this->output_high_z = value;
             break;
         }
         case 0x09:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Input Default State", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Input Default State", value);
             this->input_default_state = value;
             break;
         }
         case 0x0B:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Pull Enable", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Pull Enable", value);
             this->pull_enable = value;
             break;
         }
         case 0x0D:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Pull-Down/Pull-Up", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Pull-Down/Pull-Up", value);
             this->pull_down_up = value;
             break;
         }
         case 0x0F:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Input Status", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Input Status", value);
             this->input_status = value;
             break;
         }
         case 0x11:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Interrupt Mask", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "Interrupt Mask", value);
             this->interrupt_mask = value;
             break;
         }
         case 0x13:
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "interrupt Status", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Writing register (name: %s, value: 0x%x)\n", "interrupt Status", value);
             this->interrupt_status = value;
             break;
         }
@@ -361,7 +382,7 @@ void Fxl6408::handle_reg_write(uint8_t address, uint8_t value)
 
 uint8_t Fxl6408::handle_reg_read(uint8_t address)
 {
-    this->trace.msg(vp::trace::LEVEL_DEBUG, "Register read (address: 0x%x)\n", address);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Register read (address: 0x%x)\n", address);
 
     uint8_t value = 0xFF;
 
@@ -370,61 +391,61 @@ uint8_t Fxl6408::handle_reg_read(uint8_t address)
         case 0x01:
         {
             value = this->device_id;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Device ID & Ctrl", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Device ID & Ctrl", value);
             break;
         }
         case 0x03:
         {
             value = this->io_dir;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "IO Direction", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "IO Direction", value);
             break;
         }
         case 0x05:
         {
             value = this->output_state;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Output State", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Output State", value);
             break;
         }
         case 0x07:
         {
             value = this->output_high_z;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Output High-Z", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Output High-Z", value);
             break;
         }
         case 0x09:
         {
             value = this->input_default_state;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Input Default State", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Input Default State", value);
             break;
         }
         case 0x0B:
         {
             value = this->pull_enable;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Pull Enable", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Pull Enable", value);
             break;
         }
         case 0x0D:
         {
             value = this->pull_down_up;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Pull-Down/Pull-Up", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Pull-Down/Pull-Up", value);
             break;
         }
         case 0x0F:
         {
             value = this->input_status;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Input Status", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Input Status", value);
             break;
         }
         case 0x11:
         {
             value = this->interrupt_mask;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Interrupt Mask", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Interrupt Mask", value);
             break;
         }
         case 0x13:
         {
             value = this->interrupt_status;
-            this->trace.msg(vp::trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Interrupt Status", value);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Reading register (name: %s, value: 0x%x)\n", "Interrupt Status", value);
             break;
         }
         default:
@@ -436,36 +457,8 @@ uint8_t Fxl6408::handle_reg_read(uint8_t address)
 }
 
 
-int Fxl6408::build()
-{
-    traces.new_trace("trace", &trace, vp::DEBUG);
 
-    this->i2c_itf.set_sync_meth(&Fxl6408::i2c_sync);
-    this->new_master_port("i2c", &this->i2c_itf);
-
-    this->i2c_state = I2C_STATE_WAIT_START;
-    this->i2c_prev_sda = 1;
-    this->i2c_prev_scl = 1;
-    this->i2c_being_addressed = false;
-    this->device_address = 0x43;
-    this->waiting_reg_address = true;
-
-    this->device_id           = 0xC2;
-    this->io_dir              = 0x00;
-    this->output_state        = 0x00;
-    this->output_high_z       = 0xFF;
-    this->input_default_state = 0x00;
-    this->pull_enable         = 0xFF;
-    this->pull_down_up        = 0x00;
-    this->input_status        = 0xFF;
-    this->interrupt_mask      = 0x00;
-    this->interrupt_status    = 0xFF;
-
-    return 0;
-}
-
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Fxl6408(config);
 }

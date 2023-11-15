@@ -23,15 +23,17 @@
 #include "vp/trace/trace.hpp"
 
 
+vp::PowerEngine *power_engine = NULL;
 
-void vp::power::engine::reg_trace(vp::power::power_trace *trace)
+
+void vp::PowerEngine::reg_trace(vp::PowerTrace *trace)
 {
     this->traces.push_back(trace);
 }
 
 
 
-void vp::power::engine::start_capture()
+void vp::PowerEngine::start_capture()
 {
     // When capture is started, just broadcast to all traces so that they
     // reset all current values
@@ -43,32 +45,27 @@ void vp::power::engine::start_capture()
 
 
 
-void vp::power::engine::stop_capture()
+void vp::PowerEngine::stop_capture()
 {
     // When stopping, dump recursively all traces to a file
 
     if (this->file)
     {
-        this->top->dump_traces_recursive(file);
+        this->top->power.dump_traces_recursive(file);
     }
 }
 
 
 
-double vp::power::engine::get_average_power(double &dynamic_power, double &static_power)
+double vp::PowerEngine::get_average_power(double &dynamic_power, double &static_power)
 {
     return this->top->power.get_average_power(dynamic_power, static_power);
 }
 
 
 
-vp::power::engine::engine(vp::component *top)
+vp::PowerEngine::PowerEngine()
 {
-    this->top = top;
-
-    // Declare power service, each component will ask the connection to it
-    top->new_service("power", this);
-
     this->file = fopen("power_report.csv", "w");
     if (this->file == NULL)
     {
@@ -77,7 +74,13 @@ vp::power::engine::engine(vp::component *top)
 }
 
 
-vp::power::engine::~engine()
+void vp::PowerEngine::init(vp::Block *top)
+{
+    this->top = top;
+}
+
+
+vp::PowerEngine::~PowerEngine()
 {
     if (this->file)
     {

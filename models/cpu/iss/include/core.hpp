@@ -53,7 +53,7 @@ private:
     bool sstatus_update(bool is_write, iss_reg_t &value);
 
     Iss &iss;
-    vp::trace trace;
+    vp::Trace trace;
 
     int mode;
     iss_reg_t mstatus_write_mask;

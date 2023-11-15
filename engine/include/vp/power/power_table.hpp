@@ -27,136 +27,133 @@
 
 namespace vp
 {
-    namespace power
+    class PowerLinearTempTable;
+    class PowerLinearVoltTable;
+    class PowerLinearFreqTable;
+
+    /**
+     * @brief Power values of a power characteristic
+     * 
+     * This manages the actual power value of a power characteristic, depending on current
+     * temperature, voltage and frequency.
+     * The value is interpolated, based on power numbers at various voltages, temperatures and frequencies.
+     */
+    class PowerLinearTable
     {
-        class Linear_temp_table;
-        class Linear_volt_table;
-        class Linear_freq_table;
-
+    public:
         /**
-         * @brief Power values of a power characteristic
+         * @brief Construct a new PowerLinearTable object
          * 
-         * This manages the actual power value of a power characteristic, depending on current
-         * temperature, voltage and frequency.
-         * The value is interpolated, based on power numbers at various voltages, temperatures and frequencies.
+         * @param config JSON config giving all the power numbers at various frequencies, temperatures an voltages
          */
-        class Linear_table
-        {
-        public:
-            /**
-             * @brief Construct a new Linear_table object
-             * 
-             * @param config JSON config giving all the power numbers at various frequencies, temperatures an voltages
-             */
-            Linear_table(js::config *config);
-
-            /**
-             * @brief Get the power value at specified temperature, voltage and frequency
-             * 
-             * The value is interpolated from the tables extracted from JSON tables.
-             * 
-             * @param temp         Temperature
-             * @param volt         Voltage
-             * @param frequency    Frequency
-             * @return double      The estimated power value
-             */
-            double get(double temp, double volt, double frequency);
-
-        private:
-            // Vector of power tables at supported temperatures
-            std::vector<Linear_temp_table *> temp_tables;
-        };
+        PowerLinearTable(js::Config *config);
 
         /**
-         * @brief Power values of a power characteristic at a given temperature
+         * @brief Get the power value at specified temperature, voltage and frequency
+         * 
+         * The value is interpolated from the tables extracted from JSON tables.
+         * 
+         * @param temp         Temperature
+         * @param volt         Voltage
+         * @param frequency    Frequency
+         * @return double      The estimated power value
          */
-        class Linear_temp_table
-        {
-        public:
-            /**
-             * @brief Construct a new Linear_temp_table object
-             * 
-             * @param temp   Temperature for which this table is valid
-             * @param config JSON config containing the power numbers
-             */
-            Linear_temp_table(double temp, js::config *config);
+        double get(double temp, double volt, double frequency);
 
-            /**
-             * @brief Get the power value at specified voltage and frequency
-             * 
-             * The value is interpolated from the tables extracted from JSON tables.
-             * These tables contains the power values at different voltages and frequencies
-             * at the temperature for which this class has been created.
-             * 
-             * @param volt         Voltage
-             * @param frequency    Frequency
-             * @return double      The estimated power value
-             */
-            double get(double volt, double frequency);
+    private:
+        // Vector of power tables at supported temperatures
+        std::vector<PowerLinearTempTable *> temp_tables;
+    };
 
-            /**
-             * @brief Get temperature for which this class has been created
-             * 
-             * @return double Temperature
-             */
-            inline double get_temp() { return this->temp; }
-
-        private:
-            std::vector<Linear_volt_table *> volt_tables;   // Power tables at various voltages
-            double temp;           // Temperature for which this table has been created
-        };
+    /**
+     * @brief Power values of a power characteristic at a given temperature
+     */
+    class PowerLinearTempTable
+    {
+    public:
+        /**
+         * @brief Construct a new PowerLinearTempTable object
+         * 
+         * @param temp   Temperature for which this table is valid
+         * @param config JSON config containing the power numbers
+         */
+        PowerLinearTempTable(double temp, js::Config *config);
 
         /**
-         * @brief Power values of a power characteristic at a given temperature and voltage
+         * @brief Get the power value at specified voltage and frequency
+         * 
+         * The value is interpolated from the tables extracted from JSON tables.
+         * These tables contains the power values at different voltages and frequencies
+         * at the temperature for which this class has been created.
+         * 
+         * @param volt         Voltage
+         * @param frequency    Frequency
+         * @return double      The estimated power value
          */
-        class Linear_volt_table
-        {
-        public:
-            /**
-             * @brief Construct a new Linear_volt_table object
-             * 
-             * @param volt      Voltage for which the power numbers are defined.
-             * @param config    JSON config giving the power numbers for various frequencies at the specified voltage
-             */
-            Linear_volt_table(double volt, js::config *config);
+        double get(double volt, double frequency);
 
-            /**
-             * @brief Get the power number at the specified frequency
-             * 
-             * The value is interpolated from the tables extracted from JSON tables.
-             * These tables contains the power values at different frequencies
-             * at the voltage and temperature for which this class has been created.
-             * 
-             * @param frequency Frequency at which the power number should be given
-             * @return double 
-             */
-            double get(double frequency);
+        /**
+         * @brief Get temperature for which this class has been created
+         * 
+         * @return double Temperature
+         */
+        inline double get_temp() { return this->temp; }
 
-            /**
-             * @brief Get voltage for which this class has been created
-             * 
-             * @return double Voltage
-             */
-            inline double get_volt() { return this->volt; }
+    private:
+        std::vector<PowerLinearVoltTable *> volt_tables;   // Power tables at various voltages
+        double temp;           // Temperature for which this table has been created
+    };
 
-        private:
-            std::vector<Linear_freq_table *> freq_tables;   // Power tables at various frequencies
-            Linear_freq_table *any=NULL;
-            double volt;     // Voltage for which this class has been instantiated
-        };
+    /**
+     * @brief Power values of a power characteristic at a given temperature and voltage
+     */
+    class PowerLinearVoltTable
+    {
+    public:
+        /**
+         * @brief Construct a new PowerLinearVoltTable object
+         * 
+         * @param volt      Voltage for which the power numbers are defined.
+         * @param config    JSON config giving the power numbers for various frequencies at the specified voltage
+         */
+        PowerLinearVoltTable(double volt, js::Config *config);
 
-        class Linear_freq_table
-        {
-        public:
-            Linear_freq_table(double freq, js::config *config);
+        /**
+         * @brief Get the power number at the specified frequency
+         * 
+         * The value is interpolated from the tables extracted from JSON tables.
+         * These tables contains the power values at different frequencies
+         * at the voltage and temperature for which this class has been created.
+         * 
+         * @param frequency Frequency at which the power number should be given
+         * @return double 
+         */
+        double get(double frequency);
 
-            inline double get_freq() { return this->freq; }
-            inline double get() { return this->value; }
+        /**
+         * @brief Get voltage for which this class has been created
+         * 
+         * @return double Voltage
+         */
+        inline double get_volt() { return this->volt; }
 
-        private:
-            double freq;
-            double value;
-        };
+    private:
+        std::vector<PowerLinearFreqTable *> freq_tables;   // Power tables at various frequencies
+        PowerLinearFreqTable *any=NULL;
+        double volt;     // Voltage for which this class has been instantiated
+    };
+
+    class PowerLinearFreqTable
+    {
+    public:
+        PowerLinearFreqTable(double freq, js::Config *config);
+
+        inline double get_freq() { return this->freq; }
+        inline double get() { return this->value; }
+
+    private:
+        double freq;
+        double value;
     };
 };
 

@@ -44,59 +44,39 @@ public:
 };
 
 
-class loader : public vp::component
+class loader : public vp::Component
 {
 
 public:
-    loader(js::config *config);
+    loader(vp::ComponentConf &conf);
 
-    int build();
-    void start();
     void reset(bool active);
 
-    static void grant(void *_this, vp::io_req *req);
-    static void response(void *_this, vp::io_req *req);
+    static void grant(void *_this, vp::IoReq *req);
+    static void response(void *_this, vp::IoReq *req);
 
 private:
-    static void event_handler(void *__this, vp::clock_event *event);
+    static void event_handler(vp::Block *__this, vp::ClockEvent *event);
     bool load_elf(const char* file, uint64_t *entry);
     bool load_elf32(unsigned char* file, uint64_t *entry);
     bool load_elf64(unsigned char* file, uint64_t *entry);
     void section_copy(uint64_t paddr, void *data, size_t size);
     void section_clear(uint64_t paddr, size_t size);
 
-    vp::trace trace;
+    vp::Trace trace;
     std::list<Section *> sections;
-    vp::clock_event *event;
-    vp::io_master out_itf;
-    vp::wire_master<bool> start_itf;
-    vp::wire_master<uint64_t> entry_itf;
-    vp::io_req req;
+    vp::ClockEvent *event;
+    vp::IoMaster out_itf;
+    vp::WireMaster<bool> start_itf;
+    vp::WireMaster<uint64_t> entry_itf;
+    vp::IoReq req;
     uint64_t entry;
 };
 
 
 
-loader::loader(js::config *config)
-    : vp::component(config)
-{
-}
-
-
-
-void loader::grant(void *_this, vp::io_req *req)
-{
-}
-
-
-
-void loader::response(void *__this, vp::io_req *req)
-{
-}
-
-
-
-int loader::build()
+loader::loader(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -110,14 +90,21 @@ int loader::build()
 
     this->event = this->event_new(loader::event_handler);
 
-    return 0;
 }
 
 
 
-void loader::start()
+void loader::grant(void *_this, vp::IoReq *req)
 {
 }
+
+
+
+void loader::response(void *__this, vp::IoReq *req)
+{
+}
+
+
 
 void loader::reset(bool active)
 {
@@ -136,7 +123,7 @@ void loader::reset(bool active)
 }
 
 
-void loader::event_handler(void *__this, vp::clock_event *event)
+void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     loader *_this = (loader *)__this;
     if (_this->sections.size() > 0)
@@ -155,7 +142,7 @@ void loader::event_handler(void *__this, vp::clock_event *event)
 
             uint8_t buffer[itersize];
 
-            _this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
+            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
                 paddr, data, itersize);
 
             _this->req.init();
@@ -173,7 +160,7 @@ void loader::event_handler(void *__this, vp::clock_event *event)
                 _this->req.set_data(buffer);
             }
 
-            vp::io_req_status_e err = _this->out_itf.req(&_this->req);
+            vp::IoReqStatus err = _this->out_itf.req(&_this->req);
             if (err == vp::IO_REQ_OK)
             {
                 latency += _this->req.get_full_latency();
@@ -199,14 +186,14 @@ void loader::event_handler(void *__this, vp::clock_event *event)
             }
         }
 
-        _this->trace.msg(vp::trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
             _this->req.get_full_latency());
 
         _this->event_enqueue(_this->event, latency);
     }
     else
     {
-        js::config *entry_conf = _this->get_js_config()->get("entry");
+        js::Config *entry_conf = _this->get_js_config()->get("entry");
         if (entry_conf != NULL)
         {
             _this->entry = entry_conf->get_int();
@@ -322,7 +309,7 @@ bool loader::load_elf64(unsigned char* file, uint64_t *entry)
 
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new loader(config);
 }

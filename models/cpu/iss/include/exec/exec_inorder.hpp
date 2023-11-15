@@ -86,12 +86,12 @@ public:
     size_t loop_count;
     vp::reg_64 stalled;
 
-    vp::trace trace;
-    vp::clock_event *instr_event;
+    vp::Trace trace;
+    vp::ClockEvent *instr_event;
 
-    static void exec_instr(void *__this, vp::clock_event *event);
-    static void exec_instr_untimed(void *__this, vp::clock_event *event);
-    static void exec_instr_check_all(void *__this, vp::clock_event *event);
+    static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
+    static void exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event);
+    static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
 
     void hwloop_set_start(int index, iss_reg_t pc);
     void hwloop_set_end(int index, iss_reg_t pc);
@@ -144,12 +144,12 @@ private:
 
     Iss &iss;
 
-    vp::wire_master<bool> busy_itf;
-    vp::wire_master<bool> flush_cache_req_itf;
-    vp::wire_slave<bool> flush_cache_ack_itf;
-    vp::wire_slave<uint32_t> bootaddr_itf;
-    vp::wire_slave<bool> clock_itf;
-    vp::wire_slave<bool> fetchen_itf;
+    vp::WireMaster<bool> busy_itf;
+    vp::WireMaster<bool> flush_cache_req_itf;
+    vp::WireSlave<bool> flush_cache_ack_itf;
+    vp::WireSlave<uint32_t> bootaddr_itf;
+    vp::WireSlave<bool> clock_itf;
+    vp::WireSlave<bool> fetchen_itf;
 
     bool clock_active;
 };

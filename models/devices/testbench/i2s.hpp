@@ -29,10 +29,10 @@ class Testbench;
 class I2s_verif
 {
 public:
-    I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, int cs, int mem_size);
+    I2s_verif(Testbench *top, vp::I2sMaster *itf, int itf_id, int cs, int mem_size);
 
-    vp::trace trace;
-    vp::i2s_master *itf;
+    vp::Trace trace;
+    vp::I2sMaster *itf;
 };
 
 #endif

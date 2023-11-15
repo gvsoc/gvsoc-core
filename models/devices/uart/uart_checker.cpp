@@ -33,12 +33,10 @@
 #include <iostream>
 //#include <common/telnet_proxy.hpp>
 
-class Uart_checker : public vp::component
+class Uart_checker : public vp::Component
 {
 public:
-    Uart_checker(js::config *config);
-
-    int build();
+    Uart_checker(vp::ComponentConf &conf);
 
     void tx_edge(int64_t timestamp, int tx);
     void rx_edge(int64_t timestamp, int rx);
@@ -66,7 +64,7 @@ private:
 
     static void sync(void *__this, int data);
 
-    static void event_handler(void *__this, vp::clock_event *event);
+    static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
     uint64_t period;
     bool tx_wait_start = true;
@@ -87,7 +85,7 @@ private:
     uint8_t byte;
     FILE *tx_file = NULL;
 
-    vp::uart_slave in;
+    vp::UartSlave in;
 
     std::thread *stdin_thread;
 
@@ -98,18 +96,14 @@ private:
 
     //Telnet_proxy *telnet_proxy;
     std::mutex rx_mutex;
-    vp::trace trace;
+    vp::Trace trace;
 
-    vp::clock_event *event;
-    vp::clock_master clock_cfg;
+    vp::ClockEvent *event;
+    vp::ClockMaster clock_cfg;
 };
 
-Uart_checker::Uart_checker(js::config *config)
-    : vp::component(config)
-{
-}
-
-int Uart_checker::build()
+Uart_checker::Uart_checker(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -150,18 +144,17 @@ int Uart_checker::build()
         stdin_thread = new std::thread(&Uart_checker::stdin_task, this);
     }
 
-    return 0;
 }
 
 void Uart_checker::tx_sampling()
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "Sampling bit (value: %d)\n", current_tx);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Sampling bit (value: %d)\n", current_tx);
 
     if (tx_wait_stop)
     {
         if (current_tx == 1)
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Received stop bit\n", current_tx);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Received stop bit\n", current_tx);
             tx_wait_start = true;
             tx_wait_stop = false;
             this->stop_tx_sampling();
@@ -169,12 +162,12 @@ void Uart_checker::tx_sampling()
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received data bit (data: %d)\n", current_tx);
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received data bit (data: %d)\n", current_tx);
         byte = (byte >> 1) | (current_tx << 7);
         nb_bits++;
         if (nb_bits == 8)
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Sampled TX byte (value: 0x%x)\n", byte);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Sampled TX byte (value: 0x%x)\n", byte);
             if (this->telnet)
             {
                 //this->telnet_proxy->push_byte(&byte);
@@ -187,18 +180,18 @@ void Uart_checker::tx_sampling()
             {
                 fwrite((void *)&byte, 1, 1, tx_file);
             }
-            this->trace.msg(vp::trace::LEVEL_INFO, "Waiting for stop bit\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Waiting for stop bit\n");
             tx_wait_stop = true;
         }
     }
 }
 
 
-void Uart_checker::event_handler(void *__this, vp::clock_event *event)
+void Uart_checker::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart_checker *_this = (Uart_checker *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_INFO, "EVENT HANDLER\n");
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "EVENT HANDLER\n");
 
     _this->tx_sampling();
 
@@ -213,7 +206,7 @@ void Uart_checker::sync(void *__this, int data)
 {
     Uart_checker *_this = (Uart_checker *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Sync (value: %d, waiting_start: %d, loopback: %d)\n", data, _this->tx_wait_start, _this->loopback);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sync (value: %d, waiting_start: %d, loopback: %d)\n", data, _this->tx_wait_start, _this->loopback);
 
     if (_this->loopback)
     {
@@ -224,7 +217,7 @@ void Uart_checker::sync(void *__this, int data)
 
     if (_this->tx_wait_start && data == 0)
     {
-        _this->trace.msg(vp::trace::LEVEL_DEBUG, "Received start bit\n");
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received start bit\n");
 
         _this->start_tx_sampling(_this->baudrate);
         _this->tx_wait_start = false;
@@ -347,7 +340,7 @@ void Uart_checker::stdin_task(void)
     }
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Uart_checker(config);
 }

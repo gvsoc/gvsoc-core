@@ -53,20 +53,18 @@ class I2c_eeprom_memory
         std::vector<std::vector<uint8_t>> memory;
 };
 
-class I2c_eeprom : public vp::component
+class I2c_eeprom : public vp::Component
 {
     public:
-        I2c_eeprom(js::config* config);
+        I2c_eeprom(js::Config* config);
 
-        int build(void);
-        void start(void);
         void reset(bool active);
 
     private:
-        static void event_handler(void *__this, vp::clock_event *event);
+        static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
-        void i2c_enqueue_event(vp::clock_event* event, uint64_t time_ps);
-        void i2c_cancel_event(vp::clock_event* event);
+        void i2c_enqueue_event(vp::ClockEvent* event, uint64_t time_ps);
+        void i2c_cancel_event(vp::ClockEvent* event);
         static void i2c_sync(void *__this, int scl, int sda);
         void i2c_helper_callback(i2c_operation_e id, i2c_status_e status, int value);
 
@@ -75,13 +73,13 @@ class I2c_eeprom : public vp::component
         /**********/
 
         /** trace utility */
-        vp::trace trace;
+        vp::Trace trace;
 
         /** I2C interface */
-        vp::i2c_master i2c_itf;
+        vp::I2cMaster i2c_itf;
 
         /* clock related */
-        vp::clock_master clock_cfg;
+        vp::ClockMaster clock_cfg;
 
         /** I2C slave helper */
         I2C_helper i2c_helper;

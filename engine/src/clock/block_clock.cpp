@@ -15,30 +15,26 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __GV__DPI_CHIP_WRAPPER_H__
-#define __GV__DPI_CHIP_WRAPPER_H__
+#include <vp/vp.hpp>
 
-#include <string>
-#include <gv/gvsoc.hpp>
 
-class Dpi_chip_wrapper_callback : public gv::Wire_binding
+void vp::BlockClock::add_clock_event(ClockEvent *event)
 {
-public:
-    void update(int data);
-    void (*function)(void *_this, int64_t, int);
-    void *_this;
+    this->events.push_back(event);
+}
 
-    int *pad_value;
-    std::string name;
-    bool is_cs;
-    bool is_sck;
-    void *group;
-    int cs_id;
-    gv::Wire_user *handle;
-};
-
-#endif
+void vp::BlockClock::remove_clock_event(ClockEvent *event)
+{
+    for (unsigned i=0; i<this->events.size(); ++i)
+    {
+        if (this->events[i] == event)
+        {
+            this->events.erase(this->events.begin() + i);
+            break;
+        }
+    }
+}

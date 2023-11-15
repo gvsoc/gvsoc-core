@@ -74,6 +74,28 @@ def get_generated_component(sources, cflags):
     return generated_components[comp_name]
 
 
+class SlaveItf():
+    """Slave interface
+
+    This can be used to instantiate a slave interface which can be used to bind a master to it
+    using the itf_bind method.\n
+
+    Attributes
+    ----------
+    component : Component
+        The component which the slave interface belongs to.
+    itf_name: str
+        The name of the slave interface.
+    signature: str
+        The signature of the interface. If specified, this is used to check that the interface
+        is bound to a master interface of the same signature.
+    """
+    def __init__(self, component: 'Component', itf_name: str, signature: str=None):
+        self.component = component
+        self.itf_name = itf_name
+        self.signature = signature
+
+
 class Port():
 
     def __init__(self, comp, name):
@@ -139,10 +161,9 @@ class Component(object):
         Name of the component. This names is used to indentify this component in the parent component.
     options: list
         List of options of forms key=value which should overwrite component properties.
-    
     """
 
-    def __init__(self, parent, name, options=None, is_top=False):
+    def __init__(self, parent, name, options=None):
         self.name = name
         self.parent = parent
         self.json_config_files = []
@@ -154,7 +175,7 @@ class Component(object):
         self.finalize_done = False
         self.options = []
         self.comp_options = {}
-        self.is_top = is_top
+        self.is_top = False
         self.vcd_group_create = True
         self.vcd_group_closed = True
         self.component = None
@@ -171,11 +192,122 @@ class Component(object):
                 name_list.append(value)
 
                 options_list.append(name_list)
-            
+
             self.__set_options(options_list)
 
-        if parent is not None:
-            parent.add_component(name, self)
+        if parent is not None and isinstance(parent, Component):
+            parent.__add_component(name, self)
+
+    def i_CLOCK(self) -> SlaveItf:
+        """Returns the clock port.
+
+        A clock generator should be bound on this port if this component is clocked.\n
+        It is not needed if the component is asynchronous.\n
+        It instantiates a port of type vp::ClkSlave.\n
+
+        Returns
+        ----------
+        SlaveItf
+            The slave interface
+        """
+        return SlaveItf(self, 'clock', signature='clock')
+
+    def add_property(self, name: str, property: str, format: type=None):
+        """Add a property.
+
+        A property is made available to the C++ model.
+
+        Parameters
+        ----------
+        name : str
+            Name of the property.
+
+        property : str, int, float, list or dict
+            Value of the property.
+        """
+        properties = self.properties
+
+        for item in name.split('/')[:-1]:
+            if properties.get(item) is None:
+                properties[item] = {}
+
+            properties = properties.get(item)
+
+        properties[name.split('/')[-1]] = property
+
+        return self.get_property(name, format=format)
+
+    def add_properties(self, properties: dict):
+        """Add properties.
+
+        Properties are made available to the C++ model.\n
+        This adds several properties at once, trough a dictionary, whose keys are the property
+        names, and the values the values of the properties.\n
+
+        Parameters
+        ----------
+        properties : dict
+            Dictionary containing the properties to be added.
+        """
+        self.properties = self.__merge_properties(self.properties, properties)
+
+    def add_sources(self, sources: list):
+        """Add sources.
+
+        The specified sources are added to the component.\n
+        They will be automatically compiled when the component is compiled.\n
+        Note that if the same component is instantiated several times with different sources, it
+        will be compiled once for each set of sources.\n
+
+        Parameters
+        ----------
+        sources : list
+            List of source files to be added. Their path can be relative, in which case they will
+            be searched from the platform target directories.
+        """
+        self.sources += sources
+
+    def add_c_flags(self, flags):
+        """Add C flags.
+
+        The specified C flags are added to the component and use to compile all the sources
+        of the component.
+        Note that if the same component is instantiated several times with different C flags, it
+        will be compiled once for each set of C flags.\n
+
+        Parameters
+        ----------
+        flags : list
+            List of C flags to be added.
+        """
+        self.c_flags += flags
+
+    def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None):
+        """Bind to a slave interface.
+
+        The specified master interface of this component is bound to the specified
+        slave interface.\n
+        A signature can be specified in order to make sure it is bound to an interface
+        of the same signature.
+
+        Parameters
+        ----------
+        master_itf_name : str
+            Name of the master interface to be bound.
+        slave_itf : SlaveItf
+            Slave interface to which the master interface should be bound.
+        signature : str
+            The signature of the interface. If specified, this is used to check that the interface
+            is bound to a slave interface of the same signature.
+        """
+
+        if signature is not None and slave_itf.signature is not None and \
+                signature != slave_itf.signature:
+            master_name = f'{signature}@{self.get_path()}->{master_itf_name}'
+            slave_name = f'{slave_itf.signature}@{slave_itf.component.get_path()}->{slave_itf.itf_name}'
+            raise RuntimeError(f'Invalid signature (master: {master_name}, slave: {slave_name})')
+
+        self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
     def gen_stimuli(self):
         """Generate stimuli.
@@ -281,7 +413,7 @@ class Component(object):
                 self.parent.declare_runner_target(self.name + '/' + path)
 
 
-    def add_component(self, name, component):
+    def __add_component(self, name, component):
         """Add a new component.
 
         The new component will be a sub-component of this component and will be identified by the specified name
@@ -334,7 +466,7 @@ class Component(object):
         ----------
         name : str
             Name of the component.
-            
+
         Returns
         -------
         Component
@@ -342,32 +474,6 @@ class Component(object):
         """
         return self.components[name]
 
-
-    def add_property(self, name, property, format=None):
-        """Add a property.
-
-        A property is made available to the C++ model.
-
-        Parameters
-        ----------
-        name : str
-            Name of the property.
-
-        property : str, int, float, list or dict
-            Value of the property.
-            
-        """
-        properties = self.properties
-
-        for item in name.split('/')[:-1]:
-            if properties.get(item) is None:
-                properties[item] = {}
-
-            properties = properties.get(item)
-
-        properties[name.split('/')[-1]] = property
-
-        return self.get_property(name, format=format)
 
 
     def get_property(self, name, format=None):
@@ -449,6 +555,7 @@ class Component(object):
         self.bindings.append([master, master_itf, slave, slave_itf, master_properties, slave_properties])
 
 
+
     def load_property_file(self, path):
         """Loads a JSON property file.
 
@@ -462,12 +569,6 @@ class Component(object):
 
         with open(self.get_file_path(path), 'r') as fd:
             return json.load(fd)
-
-    def add_sources(self, sources):
-        self.sources += sources
-
-    def add_c_flags(self, flags):
-        self.c_flags += flags
 
     def set_component(self, name):
         self.component = name
@@ -559,9 +660,6 @@ class Component(object):
 
         return None
 
-
-    def add_properties(self, properties):
-        self.properties = self.__merge_properties(self.properties, properties)
 
     def vcd_group(self, closed=True, skip=False):
         self.vcd_group_create = not skip

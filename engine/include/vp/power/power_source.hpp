@@ -25,7 +25,7 @@
 #include "vp/vp_data.hpp"
 
 
-inline void vp::power::power_source::turn_on()
+inline void vp::PowerSource::turn_on()
 {
 #ifdef VP_TRACE_ACTIVE
     this->is_on = true;
@@ -34,7 +34,7 @@ inline void vp::power::power_source::turn_on()
 }
 
 
-inline void vp::power::power_source::turn_off()
+inline void vp::PowerSource::turn_off()
 {
 #ifdef VP_TRACE_ACTIVE
     this->is_on = false;
@@ -43,7 +43,7 @@ inline void vp::power::power_source::turn_off()
 }
 
 
-inline void vp::power::power_source::leakage_power_start()
+inline void vp::PowerSource::leakage_power_start()
 {
 #ifdef VP_TRACE_ACTIVE
     // Only start if leakage is defined
@@ -57,7 +57,7 @@ inline void vp::power::power_source::leakage_power_start()
 
 
 
-inline void vp::power::power_source::leakage_power_stop()
+inline void vp::PowerSource::leakage_power_stop()
 {
 #ifdef VP_TRACE_ACTIVE
     // Only stop if leakage is defined
@@ -71,7 +71,7 @@ inline void vp::power::power_source::leakage_power_stop()
 
 
 
-inline void vp::power::power_source::dynamic_power_start()
+inline void vp::PowerSource::dynamic_power_start()
 {
 #ifdef VP_TRACE_ACTIVE
     // Only start accounting background power if it is is defined
@@ -85,7 +85,7 @@ inline void vp::power::power_source::dynamic_power_start()
 
 
 
-inline void vp::power::power_source::dynamic_power_stop()
+inline void vp::PowerSource::dynamic_power_stop()
 {
 #ifdef VP_TRACE_ACTIVE
     // Only stop accounting background power if it is is defined
@@ -99,7 +99,7 @@ inline void vp::power::power_source::dynamic_power_stop()
 
 
 
-inline void vp::power::power_source::account_energy_quantum()
+inline void vp::PowerSource::account_energy_quantum()
 {
 #ifdef VP_TRACE_ACTIVE
     // Only account energy is a quantum is defined

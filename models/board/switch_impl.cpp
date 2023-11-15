@@ -24,25 +24,28 @@
 #include <stdio.h>
 #include <string.h>
 
-class Switch : public vp::component
+class Switch : public vp::Component
 {
 
 public:
-    Switch(js::config *config);
+    Switch(vp::ComponentConf &conf);
 
-    int build();
-    void start();
+    void reset(bool active);
 
 private:
     static void sync(void *__this, int value);
 
-    vp::wire_slave<int> in_itf;
+    vp::WireSlave<int> in_itf;
     int value;
 };
 
-Switch::Switch(js::config *config)
-    : vp::component(config)
+Switch::Switch(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    this->in_itf.set_sync_meth(&Switch::sync);
+    this->new_slave_port("input", &this->in_itf);
+
+    this->value = this->get_js_config()->get_child_int("value");
 }
 
 void Switch::sync(void *__this, int value)
@@ -50,25 +53,18 @@ void Switch::sync(void *__this, int value)
 
 }
 
-int Switch::build()
+void Switch::reset(bool active)
 {
-    this->in_itf.set_sync_meth(&Switch::sync);
-    this->new_slave_port("input", &this->in_itf);
-
-    this->value = this->get_config_int("value");
-
-    return 0;
-}
-
-void Switch::start()
-{
-    if (this->in_itf.is_bound())
+    if (!active)
     {
-        this->in_itf.sync(this->value);
+        if (this->in_itf.is_bound())
+        {
+            this->in_itf.sync(this->value);
+        }
     }
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Switch(config);
 }

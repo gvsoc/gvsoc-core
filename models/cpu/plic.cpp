@@ -112,28 +112,26 @@ struct plic_context_t {
 
 
 
-class Plic : public vp::component
+class Plic : public vp::Component
 {
 public:
-    Plic(js::config *config);
-
-    int build();
+    Plic(vp::ComponentConf &conf);
 
 private:
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
     static void irq_sync(void *__this, bool active, int port);
 
-    std::vector<vp::wire_slave<bool>> irq_itfs;
-    vp::io_slave input_itf;
-    std::vector<vp::wire_master<bool>> m_irq_itf;
-    std::vector<vp::wire_master<bool>> s_irq_itf;
+    std::vector<vp::WireSlave<bool>> irq_itfs;
+    vp::IoSlave input_itf;
+    std::vector<vp::WireMaster<bool>> m_irq_itf;
+    std::vector<vp::WireMaster<bool>> s_irq_itf;
     int ndev;
 
     bool load(reg_t addr, size_t len, uint8_t* bytes);
     bool store(reg_t addr, size_t len, const uint8_t* bytes);
     size_t size() { return PLIC_SIZE; }
 private:
-    vp::trace trace;
+    vp::Trace trace;
     std::vector<plic_context_t> contexts;
     uint32_t num_ids;
     uint32_t num_ids_word;
@@ -156,63 +154,6 @@ private:
 
 };
 
-
-
-int Plic::build()
-{
-    this->traces.new_trace("trace", &this->trace, vp::DEBUG);
-
-    this->input_itf.set_req_meth(&Plic::req);
-    new_slave_port("input", &this->input_itf);
-    bool smode = true;
-    int nb_procs = 1;
-
-    this->ndev = this->get_js_config()->get("ndev")->get_int();
-
-    this->irq_itfs.resize(this->ndev);
-    for (int i=0; i<this->ndev; i++)
-    {
-        this->irq_itfs[i].set_sync_meth_muxed(&Plic::irq_sync, i);
-        this->new_slave_port("irq" + std::to_string(i+1), &this->irq_itfs[i]);
-    }
-
-    this->m_irq_itf.resize(nb_procs);
-    this->s_irq_itf.resize(nb_procs);
-    for (int i=0; i<nb_procs; i++)
-    {
-        this->new_master_port("m_irq_" + std::to_string(i), &this->m_irq_itf[i]);
-        this->new_master_port("s_irq_" + std::to_string(i), &this->s_irq_itf[i]);
-    }
-
-    size_t contexts_per_hart = smode ? 2 : 1;
-
-    this->contexts.resize(contexts_per_hart * nb_procs);
-
-    num_ids = ndev + 1;
-    num_ids_word = num_ids / 32;
-    if ((num_ids_word * 32) < num_ids)
-        num_ids_word++;
-    max_prio = (1UL << PLIC_PRIO_BITS) - 1;
-    memset(priority, 0, sizeof(priority));
-    memset(level, 0, sizeof(level));
-
-    for (size_t i = 0; i < contexts.size(); i++) {
-        plic_context_t* c = &contexts[i];
-        c->num = i;
-        c->proc_id = i / contexts_per_hart;
-        if (smode) {
-            c->mmode = (i % contexts_per_hart == 0);
-        } else {
-            c->mmode = true;
-        }
-        memset(&c->enable, 0, sizeof(c->enable));
-        memset(&c->pending, 0, sizeof(c->pending));
-        memset(&c->pending_priority, 0, sizeof(c->pending_priority));
-        memset(&c->claimed, 0, sizeof(c->claimed));
-    }
-
-    return 0;
-}
 
 
 void Plic::irq_sync(void *__this, bool active, int port)
@@ -255,12 +196,12 @@ void Plic::irq_sync(void *__this, bool active, int port)
 }
 
 
-vp::io_req_status_e Plic::req(void *__this, vp::io_req *req)
+vp::IoReqStatus Plic::req(void *__this, vp::IoReq *req)
 {
     Plic *_this = (Plic *)__this;
     bool status;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
         req->get_addr(), req->get_size(), req->get_is_write());
 
     if (req->get_is_write())
@@ -534,13 +475,63 @@ bool Plic::store(reg_t addr, size_t len, const uint8_t* bytes)
 
 
 
-Plic::Plic(js::config *config)
-    : vp::component(config)
+Plic::Plic(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    this->traces.new_trace("trace", &this->trace, vp::DEBUG);
+
+    this->input_itf.set_req_meth(&Plic::req);
+    new_slave_port("input", &this->input_itf);
+    bool smode = true;
+    int nb_procs = 1;
+
+    this->ndev = this->get_js_config()->get("ndev")->get_int();
+
+    this->irq_itfs.resize(this->ndev);
+    for (int i=0; i<this->ndev; i++)
+    {
+        this->irq_itfs[i].set_sync_meth_muxed(&Plic::irq_sync, i);
+        this->new_slave_port("irq" + std::to_string(i+1), &this->irq_itfs[i]);
+    }
+
+    this->m_irq_itf.resize(nb_procs);
+    this->s_irq_itf.resize(nb_procs);
+    for (int i=0; i<nb_procs; i++)
+    {
+        this->new_master_port("m_irq_" + std::to_string(i), &this->m_irq_itf[i]);
+        this->new_master_port("s_irq_" + std::to_string(i), &this->s_irq_itf[i]);
+    }
+
+    size_t contexts_per_hart = smode ? 2 : 1;
+
+    this->contexts.resize(contexts_per_hart * nb_procs);
+
+    num_ids = ndev + 1;
+    num_ids_word = num_ids / 32;
+    if ((num_ids_word * 32) < num_ids)
+        num_ids_word++;
+    max_prio = (1UL << PLIC_PRIO_BITS) - 1;
+    memset(priority, 0, sizeof(priority));
+    memset(level, 0, sizeof(level));
+
+    for (size_t i = 0; i < contexts.size(); i++) {
+        plic_context_t* c = &contexts[i];
+        c->num = i;
+        c->proc_id = i / contexts_per_hart;
+        if (smode) {
+            c->mmode = (i % contexts_per_hart == 0);
+        } else {
+            c->mmode = true;
+        }
+        memset(&c->enable, 0, sizeof(c->enable));
+        memset(&c->pending, 0, sizeof(c->pending));
+        memset(&c->pending_priority, 0, sizeof(c->pending_priority));
+        memset(&c->claimed, 0, sizeof(c->claimed));
+    }
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Plic(config);
 }

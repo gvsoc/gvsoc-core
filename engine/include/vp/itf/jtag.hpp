@@ -28,28 +28,28 @@ namespace vp {
 
 
 
-  class jtag_slave;
+  class JtagSlave;
 
 
 
-  typedef void (jtag_sync_meth_t)(void *, int tck, int tdi, int tms, int trst);
-  typedef void (jtag_sync_cycle_meth_t)(void *, int tdi, int tms, int trst);
+  typedef void (JtagSyncMeth)(void *, int tck, int tdi, int tms, int trst);
+  typedef void (JtagSyncCycleMeth)(void *, int tdi, int tms, int trst);
 
-  typedef void (jtag_sync_meth_muxed_t)(void *, int tck, int tdi, int tms, int trst, int id);
-  typedef void (jtag_sync_cycle_meth_muxed_t)(void *, int tdi, int tms, int trst, int id);
+  typedef void (JtagSyncMethMuxed)(void *, int tck, int tdi, int tms, int trst, int id);
+  typedef void (JtagSyncCycleMethMuxed)(void *, int tdi, int tms, int trst, int id);
 
-  typedef void (jtag_slave_sync_meth_t)(void *, int tdo);
-  typedef void (jtag_slave_sync_meth_muxed_t)(void *, int tdo, int id);
+  typedef void (JtagSlaveSyncMeth)(void *, int tdo);
+  typedef void (JtagSlaveSyncMethMuxed)(void *, int tdo, int id);
 
 
 
-  class jtag_master : public vp::master_port
+  class JtagMaster : public vp::MasterPort
   {
-    friend class jtag_slave;
+    friend class JtagSlave;
 
   public:
 
-    inline jtag_master();
+    inline JtagMaster();
 
     inline void sync(int tck, int tdi, int tms, int trst)
     {
@@ -61,19 +61,19 @@ namespace vp {
       return sync_cycle_meth(this->get_remote_context(), tdi, tms, trst);
     }
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
-    inline void set_sync_meth(jtag_slave_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(jtag_slave_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(JtagSlaveSyncMeth *meth);
+    inline void set_sync_meth_muxed(JtagSlaveSyncMethMuxed *meth, int id);
 
-    bool is_bound() { return slave_port != NULL; }
+    bool is_bound() { return SlavePort != NULL; }
 
     int tdo;
 
   private:
 
-    static inline void sync_muxed_stub(jtag_master *_this, int tck, int tdi, int tms, int trst);
-    static inline void sync_cycle_muxed_stub(jtag_master *_this, int tdi, int tms, int trst);
+    static inline void sync_muxed_stub(JtagMaster *_this, int tck, int tdi, int tms, int trst);
+    static inline void sync_cycle_muxed_stub(JtagMaster *_this, int tdi, int tms, int trst);
 
     void (*slave_sync)(void *comp, int tdo);
     void (*slave_sync_muxed)(void *comp, int tdo, int id) = NULL;
@@ -86,39 +86,39 @@ namespace vp {
     static inline void sync_default(void *, int tdo);
 
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
     int mux_id;
-    jtag_slave *slave_port = NULL;
+    JtagSlave *SlavePort = NULL;
   };
 
 
 
-  class jtag_slave : public vp::slave_port
+  class JtagSlave : public vp::SlavePort
   {
 
-    friend class jtag_master;
+    friend class JtagMaster;
 
   public:
 
-    inline jtag_slave();
+    inline JtagSlave();
 
     inline void sync(int tdo)
     {
       slave_sync_meth(this->get_remote_context(), tdo);
     }
 
-    inline void set_sync_meth(jtag_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(jtag_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(JtagSyncMeth *meth);
+    inline void set_sync_meth_muxed(JtagSyncMethMuxed *meth, int id);
 
-    inline void set_sync_cycle_meth(jtag_sync_cycle_meth_t *meth);
-    inline void set_sync_cycle_meth_muxed(jtag_sync_cycle_meth_muxed_t *meth, int id);
+    inline void set_sync_cycle_meth(JtagSyncCycleMeth *meth);
+    inline void set_sync_cycle_meth_muxed(JtagSyncCycleMethMuxed *meth, int id);
 
-    inline void bind_to(vp::port *_port, vp::config *config);
+    inline void bind_to(vp::Port *_port, js::Config *config);
 
   private:
 
-    static inline void sync_muxed_stub(jtag_slave *_this, int tdo);
+    static inline void sync_muxed_stub(JtagSlave *_this, int tdo);
     
 
     void (*slave_sync_meth)(void *, int tdo);
@@ -129,31 +129,31 @@ namespace vp {
     void (*sync_cycle_meth)(void *comp, int tdi, int tms, int trst);
     void (*sync_cycle_mux_meth)(void *comp, int tdi, int tms, int trst, int mux);
 
-    static inline void sync_default(jtag_slave *, int tck, int tdi, int tms, int trst);
-    static inline void sync_cycle_default(jtag_slave *, int tdi, int tms, int trst);
+    static inline void sync_default(JtagSlave *, int tck, int tdi, int tms, int trst);
+    static inline void sync_cycle_default(JtagSlave *, int tdi, int tms, int trst);
 
     int mux_id;
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
 
 
   };
 
 
-  inline jtag_master::jtag_master() {
-    slave_sync = &jtag_master::sync_default;
+  inline JtagMaster::JtagMaster() {
+    slave_sync = &JtagMaster::sync_default;
   }
 
 
 
-  inline void jtag_master::sync_muxed_stub(jtag_master *_this, int tck, int tdi, int tms, int trst)
+  inline void JtagMaster::sync_muxed_stub(JtagMaster *_this, int tck, int tdi, int tms, int trst)
   {
     return _this->sync_meth_mux(_this->comp_mux, tck, tdi, tms, trst, _this->sync_mux);
   }
 
 
 
-  inline void jtag_master::sync_cycle_muxed_stub(jtag_master *_this, int tdi, int tms, int trst)
+  inline void JtagMaster::sync_cycle_muxed_stub(JtagMaster *_this, int tdi, int tms, int trst)
   {
     return _this->sync_cycle_meth_mux(_this->comp_mux, tdi, tms, trst, _this->sync_mux);
   }
@@ -161,9 +161,9 @@ namespace vp {
 
 
 
-  inline void jtag_master::bind_to(vp::port *_port, vp::config *config)
+  inline void JtagMaster::bind_to(vp::Port *_port, js::Config *config)
   {
-    jtag_slave *port = (jtag_slave *)_port;
+    JtagSlave *port = (JtagSlave *)_port;
     if (port->sync_mux_meth == NULL)
     {
       sync_meth = port->sync_meth;
@@ -173,44 +173,44 @@ namespace vp {
     else
     {
       sync_meth_mux = port->sync_mux_meth;
-      sync_meth = (jtag_sync_meth_t *)&jtag_master::sync_muxed_stub;
+      sync_meth = (JtagSyncMeth *)&JtagMaster::sync_muxed_stub;
 
       sync_cycle_meth_mux = port->sync_cycle_mux_meth;
-      sync_cycle_meth = (jtag_sync_cycle_meth_t *)&jtag_master::sync_cycle_muxed_stub;
+      sync_cycle_meth = (JtagSyncCycleMeth *)&JtagMaster::sync_cycle_muxed_stub;
 
       this->set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline void jtag_master::set_sync_meth(jtag_slave_sync_meth_t *meth)
+  inline void JtagMaster::set_sync_meth(JtagSlaveSyncMeth *meth)
   {
     slave_sync = meth;
     slave_sync_muxed = NULL;
   }
 
-  inline void jtag_master::set_sync_meth_muxed(jtag_slave_sync_meth_muxed_t *meth, int id)
+  inline void JtagMaster::set_sync_meth_muxed(JtagSlaveSyncMethMuxed *meth, int id)
   {
     slave_sync = NULL;
     slave_sync_muxed = meth;
     mux_id = id;
   }
 
-  inline void jtag_master::sync_default(void *, int tdo)
+  inline void JtagMaster::sync_default(void *, int tdo)
   {
   }
 
-  inline void jtag_slave::sync_muxed_stub(jtag_slave *_this, int tdo)
+  inline void JtagSlave::sync_muxed_stub(JtagSlave *_this, int tdo)
   {
     return _this->slave_sync_mux_meth(_this->comp_mux, tdo, _this->sync_mux);
   }
 
-  inline void jtag_slave::bind_to(vp::port *_port, vp::config *config)
+  inline void JtagSlave::bind_to(vp::Port *_port, js::Config *config)
   {
-    slave_port::bind_to(_port, config);
-    jtag_master *port = (jtag_master *)_port;
-    port->slave_port = this;
+    SlavePort::bind_to(_port, config);
+    JtagMaster *port = (JtagMaster *)_port;
+    port->SlavePort = this;
     if (port->slave_sync_muxed == NULL)
     {
       this->slave_sync_meth = port->slave_sync;
@@ -219,49 +219,49 @@ namespace vp {
     else
     {
       this->slave_sync_mux_meth = port->slave_sync_muxed;  
-      this->slave_sync_meth = (jtag_slave_sync_meth_t *)&jtag_slave::sync_muxed_stub;
+      this->slave_sync_meth = (JtagSlaveSyncMeth *)&JtagSlave::sync_muxed_stub;
       this->set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline jtag_slave::jtag_slave() : sync_meth(NULL), sync_mux_meth(NULL) {
-    sync_meth = (jtag_sync_meth_t *)&jtag_slave::sync_default;
-    sync_cycle_meth = (jtag_sync_cycle_meth_t *)&jtag_slave::sync_cycle_default;
+  inline JtagSlave::JtagSlave() : sync_meth(NULL), sync_mux_meth(NULL) {
+    sync_meth = (JtagSyncMeth *)&JtagSlave::sync_default;
+    sync_cycle_meth = (JtagSyncCycleMeth *)&JtagSlave::sync_cycle_default;
   }
 
-  inline void jtag_slave::set_sync_meth(jtag_sync_meth_t *meth)
+  inline void JtagSlave::set_sync_meth(JtagSyncMeth *meth)
   {
     sync_meth = meth;
     sync_mux_meth = NULL;
   }
 
-  inline void jtag_slave::set_sync_cycle_meth(jtag_sync_cycle_meth_t *meth)
+  inline void JtagSlave::set_sync_cycle_meth(JtagSyncCycleMeth *meth)
   {
     sync_cycle_meth = meth;
     sync_cycle_mux_meth = NULL;
   }
 
-  inline void jtag_slave::set_sync_meth_muxed(jtag_sync_meth_muxed_t *meth, int id)
+  inline void JtagSlave::set_sync_meth_muxed(JtagSyncMethMuxed *meth, int id)
   {
     sync_mux_meth = meth;
     sync_meth = NULL;
     mux_id = id;
   }
 
-  inline void jtag_slave::set_sync_cycle_meth_muxed(jtag_sync_cycle_meth_muxed_t *meth, int id)
+  inline void JtagSlave::set_sync_cycle_meth_muxed(JtagSyncCycleMethMuxed *meth, int id)
   {
     sync_cycle_mux_meth = meth;
     sync_cycle_meth = NULL;
     mux_id = id;
   }
 
-  inline void jtag_slave::sync_default(jtag_slave *, int tck, int tdi, int tms, int trst)
+  inline void JtagSlave::sync_default(JtagSlave *, int tck, int tdi, int tms, int trst)
   {
   }
 
-  inline void jtag_slave::sync_cycle_default(jtag_slave *, int tdi, int tms, int trst)
+  inline void JtagSlave::sync_cycle_default(JtagSlave *, int tdi, int tms, int trst)
   {
   }
 

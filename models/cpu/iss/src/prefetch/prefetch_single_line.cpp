@@ -32,7 +32,7 @@ void Prefetcher::build()
 {
     this->iss.top.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
     this->fetch_itf.set_resp_meth(&Prefetcher::fetch_response);
-    this->iss.top.new_master_port(this, "fetch", &fetch_itf);
+    this->iss.top.new_master_port("fetch", &fetch_itf, (vp::Block *)this);
 }
 
 void Prefetcher::reset(bool active)
@@ -147,16 +147,16 @@ void Prefetcher::fetch_resume_after_high_refill(Prefetcher *_this)
 
 int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
 {
-    vp::io_req *req = &this->fetch_req;
+    vp::IoReq *req = &this->fetch_req;
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Fetch request (addr: 0x%lx, size: 0x%lx)\n", addr, size);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Fetch request (addr: 0x%lx, size: 0x%lx)\n", addr, size);
 
     req->init();
     req->set_addr(addr);
     req->set_size(size);
     req->set_is_write(is_write);
     req->set_data(data);
-    vp::io_req_status_e err = this->fetch_itf.req(req);
+    vp::IoReqStatus err = this->fetch_itf.req(req);
     if (err != vp::IO_REQ_OK)
     {
         if (err == vp::IO_REQ_INVALID)
@@ -169,7 +169,7 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
         }
         else
         {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
             return -1;
         }
     }
@@ -186,11 +186,11 @@ int Prefetcher::fill(iss_addr_t addr)
     return this->send_fetch_req(aligned_addr, this->data, ISS_PREFETCHER_SIZE, false);
 }
 
-void Prefetcher::fetch_response(void *__this, vp::io_req *req)
+void Prefetcher::fetch_response(void *__this, vp::IoReq *req)
 {
     Prefetcher *_this = (Prefetcher *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received fetch response\n");
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received fetch response\n");
 
     // Since a pending response can also include a latency, we need to account it
     // as a stall

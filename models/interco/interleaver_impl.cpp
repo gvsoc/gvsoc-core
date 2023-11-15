@@ -24,28 +24,26 @@
 #include <stdio.h>
 #include <math.h>
 
-class interleaver : public vp::component
+class interleaver : public vp::Component
 {
 
 public:
 
-  interleaver(js::config *config);
+    interleaver(vp::ComponentConf &conf);
 
-  int build();
-
-  static vp::io_req_status_e req(void *__this, vp::io_req *req);
+  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
 
 
-  static void grant(void *_this, vp::io_req *req);
+  static void grant(void *_this, vp::IoReq *req);
 
-  static void response(void *_this, vp::io_req *req);
+  static void response(void *_this, vp::IoReq *req);
 
 private:
-  vp::trace     trace;
+  vp::Trace     trace;
 
-  vp::io_master **out;
-  vp::io_slave **masters_in;
-  vp::io_slave in;
+  vp::IoMaster **out;
+  vp::IoSlave **masters_in;
+  vp::IoSlave in;
 
   int nb_slaves;
   int nb_masters;
@@ -55,13 +53,48 @@ private:
   uint64_t remove_offset;
 };
 
-interleaver::interleaver(js::config *config)
-: vp::component(config)
+interleaver::interleaver(vp::ComponentConf &config)
+: vp::Component(config)
 {
+  traces.new_trace("trace", &trace, vp::DEBUG);
+
+  in.set_req_meth(&interleaver::req);
+  new_slave_port("input", &in);
+
+  nb_slaves = get_js_config()->get_child_int("nb_slaves");
+  nb_masters = get_js_config()->get_child_int("nb_masters");
+  stage_bits = get_js_config()->get_child_int("stage_bits");
+  interleaving_bits = get_js_config()->get_child_int("interleaving_bits");
+  remove_offset = get_js_config()->get_child_int("remove_offset");
+
+  if (stage_bits == 0)
+  {
+    stage_bits = log2(nb_slaves);
+  }
+
+  offset_mask = -1;
+  offset_mask &= ~((1 << (interleaving_bits + stage_bits)) - 1);
+
+  out = new vp::IoMaster *[nb_slaves];
+  for (int i=0; i<nb_slaves; i++)
+  {
+    out[i] = new vp::IoMaster();
+    out[i]->set_resp_meth(&interleaver::response);
+    out[i]->set_grant_meth(&interleaver::grant);
+    new_master_port("out_" + std::to_string(i), out[i]);
+  }
+
+  masters_in = new vp::IoSlave *[nb_masters];
+  for (int i=0; i<nb_masters; i++)
+  {
+    masters_in[i] = new vp::IoSlave();
+    masters_in[i]->set_req_meth(&interleaver::req);
+    new_slave_port("in_" + std::to_string(i), masters_in[i]);
+  }
 
 }
 
-vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
+vp::IoReqStatus interleaver::req(void *__this, vp::IoReq *req)
 {
   interleaver *_this = (interleaver *)__this;
   uint64_t offset = req->get_addr();
@@ -103,7 +136,7 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
     req->set_data(data);
     req->set_latency(0);
 
-    vp::io_req_status_e err = _this->out[output_id]->req_forward(req);
+    vp::IoReqStatus err = _this->out[output_id]->req_forward(req);
     if (err != vp::IO_REQ_OK)
     {
       // Temporary hack, until this component supports asynchronous requests.
@@ -139,56 +172,16 @@ vp::io_req_status_e interleaver::req(void *__this, vp::io_req *req)
   return vp::IO_REQ_OK;
 }
 
-void interleaver::grant(void *_this, vp::io_req *req)
+void interleaver::grant(void *_this, vp::IoReq *req)
 {
 
 }
 
-void interleaver::response(void *_this, vp::io_req *req)
+void interleaver::response(void *_this, vp::IoReq *req)
 {
 }
 
-int interleaver::build()
-{
-  traces.new_trace("trace", &trace, vp::DEBUG);
-
-  in.set_req_meth(&interleaver::req);
-  new_slave_port("input", &in);
-
-  nb_slaves = get_config_int("nb_slaves");
-  nb_masters = get_config_int("nb_masters");
-  stage_bits = get_config_int("stage_bits");
-  interleaving_bits = get_config_int("interleaving_bits");
-  remove_offset = get_config_int("remove_offset");
-
-  if (stage_bits == 0)
-  {
-    stage_bits = log2(nb_slaves);
-  }
-
-  offset_mask = -1;
-  offset_mask &= ~((1 << (interleaving_bits + stage_bits)) - 1);
-
-  out = new vp::io_master *[nb_slaves];
-  for (int i=0; i<nb_slaves; i++)
-  {
-    out[i] = new vp::io_master();
-    out[i]->set_resp_meth(&interleaver::response);
-    out[i]->set_grant_meth(&interleaver::grant);
-    new_master_port("out_" + std::to_string(i), out[i]);
-  }
-
-  masters_in = new vp::io_slave *[nb_masters];
-  for (int i=0; i<nb_masters; i++)
-  {
-    masters_in[i] = new vp::io_slave();
-    masters_in[i]->set_req_meth(&interleaver::req);
-    new_slave_port("in_" + std::to_string(i), masters_in[i]);
-  }
-  return 0;
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new interleaver(config);
 }

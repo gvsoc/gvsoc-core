@@ -28,35 +28,35 @@ namespace vp {
 
 
 
-  class i2s_slave;
+  class I2sSlave;
 
 
 
-  typedef void (i2s_sync_meth_t)(void *, int sck, int ws, int sd, bool full_duplex);
-  typedef void (i2s_sync_meth_muxed_t)(void *, int sck, int ws, int sd, bool full_duplex, int id);
+  typedef void (I2sSyncMeth)(void *, int sck, int ws, int sd, bool full_duplex);
+  typedef void (I2sSyncMethMuxed)(void *, int sck, int ws, int sd, bool full_duplex, int id);
 
 
 
-  class i2s_master : public vp::master_port
+  class I2sMaster : public vp::MasterPort
   {
-    friend class i2s_slave;
+    friend class I2sSlave;
 
   public:
 
-    inline i2s_master();
+    inline I2sMaster();
 
     inline void sync(int sck, int ws, int sd, bool full_duplex);
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
-    inline void set_sync_meth(i2s_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(i2s_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(I2sSyncMeth *meth);
+    inline void set_sync_meth_muxed(I2sSyncMethMuxed *meth, int id);
 
-    bool is_bound() { return slave_port != NULL; }
+    bool is_bound() { return SlavePort != NULL; }
 
   private:
 
-    static inline void sync_muxed_stub(i2s_master *_this, int sck, int ws, int sd, bool full_duplex);
+    static inline void sync_muxed_stub(I2sMaster *_this, int sck, int ws, int sd, bool full_duplex);
 
     void (*slave_sync)(void *comp, int sck, int ws, int sd, bool full_duplex);
     void (*slave_sync_mux)(void *comp, int sck, int ws, int sd, bool full_duplex, int mux);
@@ -66,9 +66,9 @@ namespace vp {
 
     static inline void sync_default(void *, int sck, int ws, int sd, bool full_duplex);
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
-    i2s_slave *slave_port = NULL;
+    I2sSlave *SlavePort = NULL;
     int mux_id;
 
     int sd;
@@ -77,14 +77,14 @@ namespace vp {
 
 
 
-  class i2s_slave : public vp::slave_port
+  class I2sSlave : public vp::SlavePort
   {
 
-    friend class i2s_master;
+    friend class I2sMaster;
 
   public:
 
-    inline i2s_slave();
+    inline I2sSlave();
 
     inline void sync(int sck, int ws, int sd, bool full_duplex)
     {
@@ -92,10 +92,10 @@ namespace vp {
       slave_sync_meth(this->get_remote_context(), sck, ws, sd, full_duplex);
     }
 
-    inline void set_sync_meth(i2s_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(i2s_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(I2sSyncMeth *meth);
+    inline void set_sync_meth_muxed(I2sSyncMethMuxed *meth, int id);
 
-    inline void bind_to(vp::port *_port, vp::config *config);
+    inline void bind_to(vp::Port *_port, js::Config *config);
 
     bool is_bound() { return remote_port != NULL; }
 
@@ -103,7 +103,7 @@ namespace vp {
 
   private:
 
-    static inline void sync_muxed_stub(i2s_slave *_this, int sck, int ws, int sd, bool full_duplex);
+    static inline void sync_muxed_stub(I2sSlave *_this, int sck, int ws, int sd, bool full_duplex);
 
     void (*slave_sync_meth)(void *, int sck, int ws, int sd, bool full_duplex);
     void (*slave_sync_meth_mux)(void *, int sck, int ws, int sd, bool full_duplex, int mux);
@@ -111,19 +111,19 @@ namespace vp {
     void (*sync_meth)(void *comp, int sck, int ws, int sd, bool full_duplex);
     void (*sync_mux_meth)(void *comp, int sck, int ws, int sd, bool full_duplex, int mux);
 
-    static inline void sync_default(i2s_slave *, int sck, int ws, int sd, bool full_duplex);
+    static inline void sync_default(I2sSlave *, int sck, int ws, int sd, bool full_duplex);
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
     int mux_id;
-    i2s_master *master_port = NULL;
-    i2s_slave *next = NULL;
+    I2sMaster *master_port = NULL;
+    I2sSlave *next = NULL;
 
   };
 
 
-  inline i2s_master::i2s_master() {
-    slave_sync = &i2s_master::sync_default;
+  inline I2sMaster::I2sMaster() {
+    slave_sync = &I2sMaster::sync_default;
     slave_sync_mux = NULL;
     this->sd = 2;
   }
@@ -131,14 +131,14 @@ namespace vp {
 
 
 
-  inline void i2s_master::sync_muxed_stub(i2s_master *_this, int sck, int ws, int sd, bool full_duplex)
+  inline void I2sMaster::sync_muxed_stub(I2sMaster *_this, int sck, int ws, int sd, bool full_duplex)
   {
     return _this->sync_meth_mux(_this->comp_mux, sck, ws, sd, full_duplex, _this->sync_mux);
   }
 
-  inline void i2s_master::bind_to(vp::port *_port, vp::config *config)
+  inline void I2sMaster::bind_to(vp::Port *_port, js::Config *config)
   {
-    i2s_slave *port = (i2s_slave *)_port;
+    I2sSlave *port = (I2sSlave *)_port;
     if (port->sync_mux_meth == NULL)
     {
       sync_meth = port->sync_meth;
@@ -147,46 +147,46 @@ namespace vp {
     else
     {
       sync_meth_mux = port->sync_mux_meth;
-      sync_meth = (i2s_sync_meth_t *)&i2s_master::sync_muxed_stub;
+      sync_meth = (I2sSyncMeth *)&I2sMaster::sync_muxed_stub;
 
       set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline void i2s_master::set_sync_meth(i2s_sync_meth_t *meth)
+  inline void I2sMaster::set_sync_meth(I2sSyncMeth *meth)
   {
     slave_sync = meth;
   }
 
-  inline void i2s_master::set_sync_meth_muxed(i2s_sync_meth_muxed_t *meth, int id)
+  inline void I2sMaster::set_sync_meth_muxed(I2sSyncMethMuxed *meth, int id)
   {
     slave_sync_mux = meth;
     slave_sync = NULL;
     mux_id = id;
   }
 
-  inline void i2s_master::sync_default(void *, int sck, int ws, int sd, bool full_duplex)
+  inline void I2sMaster::sync_default(void *, int sck, int ws, int sd, bool full_duplex)
   {
   }
 
-  inline void i2s_master::sync(int sck, int ws, int sd, bool full_duplex)
+  inline void I2sMaster::sync(int sck, int ws, int sd, bool full_duplex)
   {
     this->sd = sd;
-    return sync_meth(this->get_remote_context(), sck, ws, this->slave_port->get_sd(), full_duplex);
+    return sync_meth(this->get_remote_context(), sck, ws, this->SlavePort->get_sd(), full_duplex);
   }
 
-  inline void i2s_slave::sync_muxed_stub(i2s_slave *_this, int sck, int ws, int sd, bool full_duplex)
+  inline void I2sSlave::sync_muxed_stub(I2sSlave *_this, int sck, int ws, int sd, bool full_duplex)
   {
     return _this->slave_sync_meth_mux(_this->comp_mux, sck, ws, sd, full_duplex, _this->sync_mux);
   }
 
-  inline int i2s_slave::get_sd()
+  inline int I2sSlave::get_sd()
   {
     int sdi = this->master_port->sd & 3;
     int sdo = (this->master_port->sd >> 2) & 3;
-    i2s_slave *current = this->next;
+    I2sSlave *current = this->next;
 
     while(current)
     {
@@ -213,23 +213,23 @@ namespace vp {
     return sdi | (sdo << 2);
   }
 
-  inline void i2s_slave::bind_to(vp::port *_port, vp::config *config)
+  inline void I2sSlave::bind_to(vp::Port *_port, js::Config *config)
   {
-    i2s_master *port = (i2s_master *)_port;
+    I2sMaster *port = (I2sMaster *)_port;
 
     if (this->master_port != NULL)
     {
-      i2s_slave *slave = new i2s_slave;
-      port->slave_port = slave;
+      I2sSlave *slave = new I2sSlave;
+      port->SlavePort = slave;
       slave->bind_to(_port, config);
       slave->next = this->next;
       this->next = slave;
     }
     else
     {
-      slave_port::bind_to(_port, config);
+      SlavePort::bind_to(_port, config);
       this->master_port = port;
-      port->slave_port = this;
+      port->SlavePort = this;
       if (port->slave_sync_mux == NULL)
       {
         this->slave_sync_meth = port->slave_sync;
@@ -238,33 +238,33 @@ namespace vp {
       else
       {
         this->slave_sync_meth_mux = port->slave_sync_mux;
-        this->slave_sync_meth = (i2s_sync_meth_t *)&i2s_slave::sync_muxed_stub;
+        this->slave_sync_meth = (I2sSyncMeth *)&I2sSlave::sync_muxed_stub;
 
         set_remote_context(this);
-        comp_mux = (vp::component *)port->get_context();
+        comp_mux = (vp::Component *)port->get_context();
         sync_mux = port->mux_id;
       }
     }
   }
 
-  inline i2s_slave::i2s_slave() : sync_meth(NULL), sync_mux_meth(NULL) {
-    sync_meth = (i2s_sync_meth_t *)&i2s_slave::sync_default;
+  inline I2sSlave::I2sSlave() : sync_meth(NULL), sync_mux_meth(NULL) {
+    sync_meth = (I2sSyncMeth *)&I2sSlave::sync_default;
   }
 
-  inline void i2s_slave::set_sync_meth(i2s_sync_meth_t *meth)
+  inline void I2sSlave::set_sync_meth(I2sSyncMeth *meth)
   {
     sync_meth = meth;
     sync_mux_meth = NULL;
   }
 
-  inline void i2s_slave::set_sync_meth_muxed(i2s_sync_meth_muxed_t *meth, int id)
+  inline void I2sSlave::set_sync_meth_muxed(I2sSyncMethMuxed *meth, int id)
   {
     sync_mux_meth = meth;
     sync_meth = NULL;
     mux_id = id;
   }
 
-  inline void i2s_slave::sync_default(i2s_slave *, int sck, int ws, int sd, bool full_duplex)
+  inline void I2sSlave::sync_default(I2sSlave *, int sck, int ws, int sd, bool full_duplex)
   {
   }
 

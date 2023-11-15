@@ -28,28 +28,28 @@ namespace vp {
 
 
 
-  class qspim_slave;
+  class QspimSlave;
 
 
 
-  typedef void (qspim_sync_meth_t)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-  typedef void (qspim_cs_sync_meth_t)(void *, int cs, int active);
+  typedef void (QspimSyncMeth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+  typedef void (QspimCsSyncMeth)(void *, int cs, int active);
 
-  typedef void (qspim_sync_meth_muxed_t)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
-  typedef void (qspim_cs_sync_meth_muxed_t)(void *, int cs, int active, int id);
+  typedef void (QspimSyncMethMuxed)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+  typedef void (QspimCsSyncMethMuxed)(void *, int cs, int active, int id);
 
-  typedef void (qspim_slave_sync_meth_t)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-  typedef void (qspim_slave_sync_meth_muxed_t)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+  typedef void (QspimSlaveSyncMeth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+  typedef void (QspimSlaveSyncMethMuxed)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
 
 
 
-  class qspim_master : public vp::master_port
+  class QspimMaster : public vp::MasterPort
   {
-    friend class qspim_slave;
+    friend class QspimSlave;
 
   public:
 
-    inline qspim_master();
+    inline QspimMaster();
 
     inline void sync(int sck, int data_0, int data_1, int data_2, int data_3, int mask)
     {
@@ -61,18 +61,18 @@ namespace vp {
       return cs_sync_meth(this->get_remote_context(), cs, active);
     }
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
-    inline void set_sync_meth(qspim_slave_sync_meth_t *meth);
+    inline void set_sync_meth(QspimSlaveSyncMeth *meth);
 
-    inline void set_sync_meth_muxed(qspim_slave_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth_muxed(QspimSlaveSyncMethMuxed *meth, int id);
 
-    bool is_bound() { return slave_port != NULL; }
+    bool is_bound() { return SlavePort != NULL; }
 
   private:
 
-    static inline void sync_muxed_stub(qspim_master *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    static inline void cs_sync_muxed_stub(qspim_master *_this, int cs, int active);
+    static inline void sync_muxed_stub(QspimMaster *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    static inline void cs_sync_muxed_stub(QspimMaster *_this, int cs, int active);
 
     void (*slave_sync)(void *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
     void (*slave_sync_mux)(void *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
@@ -85,40 +85,40 @@ namespace vp {
     static inline void sync_default(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
 
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
-    qspim_slave *slave_port = NULL;
+    QspimSlave *SlavePort = NULL;
 
     int mux_id;
   };
 
 
 
-  class qspim_slave : public vp::slave_port
+  class QspimSlave : public vp::SlavePort
   {
 
-    friend class qspim_master;
+    friend class QspimMaster;
 
   public:
 
-    inline qspim_slave();
+    inline QspimSlave();
 
     inline void sync(int sck, int data_0, int data_1, int data_2, int data_3, int mask)
     {
       slave_sync_meth(this->get_remote_context(), sck, data_0, data_1, data_2, data_3, mask);
     }
 
-    inline void set_sync_meth(qspim_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(qspim_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(QspimSyncMeth *meth);
+    inline void set_sync_meth_muxed(QspimSyncMethMuxed *meth, int id);
 
-    inline void set_cs_sync_meth(qspim_cs_sync_meth_t *meth);
-    inline void set_cs_sync_meth_muxed(qspim_cs_sync_meth_muxed_t *meth, int id);
+    inline void set_cs_sync_meth(QspimCsSyncMeth *meth);
+    inline void set_cs_sync_meth_muxed(QspimCsSyncMethMuxed *meth, int id);
 
-    inline void bind_to(vp::port *_port, vp::config *config);
+    inline void bind_to(vp::Port *_port, js::Config *config);
 
   private:
 
-    static inline void sync_muxed_stub(qspim_slave *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    static inline void sync_muxed_stub(QspimSlave *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
 
 
     void (*slave_sync_meth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
@@ -129,10 +129,10 @@ namespace vp {
     void (*cs_sync)(void *comp, int cs, int active);
     void (*cs_sync_mux)(void *comp, int cs, int active, int mux);
 
-    static inline void sync_default(qspim_slave *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    static inline void cs_sync_default(qspim_slave *, int cs, int active);
+    static inline void sync_default(QspimSlave *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    static inline void cs_sync_default(QspimSlave *, int cs, int active);
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
     int mux_id;
 
@@ -140,14 +140,14 @@ namespace vp {
   };
 
 
-  inline qspim_master::qspim_master() {
-    slave_sync = &qspim_master::sync_default;
+  inline QspimMaster::QspimMaster() {
+    slave_sync = &QspimMaster::sync_default;
     slave_sync_mux = NULL;
   }
 
 
 
-  inline void qspim_master::sync_muxed_stub(qspim_master *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+  inline void QspimMaster::sync_muxed_stub(QspimMaster *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
   {
     return _this->sync_meth_mux(_this->comp_mux, sck, data_0, data_1, data_2, data_3, mask, _this->sync_mux);
   }
@@ -155,16 +155,16 @@ namespace vp {
 
 
 
-  inline void qspim_master::cs_sync_muxed_stub(qspim_master *_this, int cs, int active)
+  inline void QspimMaster::cs_sync_muxed_stub(QspimMaster *_this, int cs, int active)
   {
     return _this->cs_sync_meth_mux(_this->comp_mux, cs, active, _this->sync_mux);
   }
 
 
 
-  inline void qspim_master::bind_to(vp::port *_port, vp::config *config)
+  inline void QspimMaster::bind_to(vp::Port *_port, js::Config *config)
   {
-    qspim_slave *port = (qspim_slave *)_port;
+    QspimSlave *port = (QspimSlave *)_port;
     if (port->sync_mux_meth == NULL)
     {
       sync_meth = port->sync_meth;
@@ -174,43 +174,43 @@ namespace vp {
     else
     {
       sync_meth_mux = port->sync_mux_meth;
-      sync_meth = (qspim_sync_meth_t *)&qspim_master::sync_muxed_stub;
+      sync_meth = (QspimSyncMeth *)&QspimMaster::sync_muxed_stub;
 
       cs_sync_meth_mux = port->cs_sync_mux;
-      cs_sync_meth = (qspim_cs_sync_meth_t *)&qspim_master::cs_sync_muxed_stub;
+      cs_sync_meth = (QspimCsSyncMeth *)&QspimMaster::cs_sync_muxed_stub;
 
       this->set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline void qspim_master::set_sync_meth(qspim_slave_sync_meth_t *meth)
+  inline void QspimMaster::set_sync_meth(QspimSlaveSyncMeth *meth)
   {
     slave_sync = meth;
   }
 
-  inline void qspim_master::set_sync_meth_muxed(qspim_slave_sync_meth_muxed_t *meth, int id)
+  inline void QspimMaster::set_sync_meth_muxed(QspimSlaveSyncMethMuxed *meth, int id)
   {
     slave_sync_mux = meth;
     slave_sync = NULL;
     mux_id = id;
   }
 
-  inline void qspim_master::sync_default(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+  inline void QspimMaster::sync_default(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
   {
   }
 
-  inline void qspim_slave::sync_muxed_stub(qspim_slave *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+  inline void QspimSlave::sync_muxed_stub(QspimSlave *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
   {
     return _this->slave_sync_meth_mux(_this->comp_mux, sck, data_0, data_1, data_2, data_3, mask, _this->sync_mux);
   }
 
-  inline void qspim_slave::bind_to(vp::port *_port, vp::config *config)
+  inline void QspimSlave::bind_to(vp::Port *_port, js::Config *config)
   {
-    slave_port::bind_to(_port, config);
-    qspim_master *port = (qspim_master *)_port;
-    port->slave_port = this;
+    SlavePort::bind_to(_port, config);
+    QspimMaster *port = (QspimMaster *)_port;
+    port->SlavePort = this;
     if (port->slave_sync_mux == NULL)
     {
       this->slave_sync_meth = port->slave_sync;
@@ -219,51 +219,51 @@ namespace vp {
     else
     {
       this->slave_sync_meth_mux = port->slave_sync_mux;
-      this->slave_sync_meth = (qspim_slave_sync_meth_t *)&qspim_slave::sync_muxed_stub;
+      this->slave_sync_meth = (QspimSlaveSyncMeth *)&QspimSlave::sync_muxed_stub;
 
       set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline qspim_slave::qspim_slave() : sync_meth(NULL), sync_mux_meth(NULL) {
-    sync_meth = (qspim_sync_meth_t *)&qspim_slave::sync_default;
-    cs_sync = (qspim_cs_sync_meth_t *)&qspim_slave::cs_sync_default;
+  inline QspimSlave::QspimSlave() : sync_meth(NULL), sync_mux_meth(NULL) {
+    sync_meth = (QspimSyncMeth *)&QspimSlave::sync_default;
+    cs_sync = (QspimCsSyncMeth *)&QspimSlave::cs_sync_default;
   }
 
-  inline void qspim_slave::set_sync_meth(qspim_sync_meth_t *meth)
+  inline void QspimSlave::set_sync_meth(QspimSyncMeth *meth)
   {
     sync_meth = meth;
     sync_mux_meth = NULL;
   }
 
-  inline void qspim_slave::set_cs_sync_meth(qspim_cs_sync_meth_t *meth)
+  inline void QspimSlave::set_cs_sync_meth(QspimCsSyncMeth *meth)
   {
     cs_sync = meth;
     cs_sync_mux = NULL;
   }
 
-  inline void qspim_slave::set_sync_meth_muxed(qspim_sync_meth_muxed_t *meth, int id)
+  inline void QspimSlave::set_sync_meth_muxed(QspimSyncMethMuxed *meth, int id)
   {
     sync_mux_meth = meth;
     sync_meth = NULL;
     mux_id = id;
   }
 
-  inline void qspim_slave::set_cs_sync_meth_muxed(qspim_cs_sync_meth_muxed_t *meth, int id)
+  inline void QspimSlave::set_cs_sync_meth_muxed(QspimCsSyncMethMuxed *meth, int id)
   {
     cs_sync_mux = meth;
     cs_sync = NULL;
     mux_id = id;
   }
 
-  inline void qspim_slave::sync_default(qspim_slave *, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+  inline void QspimSlave::sync_default(QspimSlave *, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
   {
   }
 
 
-  inline void qspim_slave::cs_sync_default(qspim_slave *, int cs, int active)
+  inline void QspimSlave::cs_sync_default(QspimSlave *, int cs, int active)
   {
   }
 

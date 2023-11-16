@@ -106,6 +106,8 @@ private:
     int32_t cic_parkor_shift = 0;
     int32_t cic_ladder_shift = 14;
     int32_t cic_lattice_ladder_nb_stages = 9;
+    // state of the delta-sigma
+    int subsampling_state;
 
 #ifdef DEBUG_CONVERSION
     FILE *file_debug_pdm_got, *file_debug_pcm_produced;

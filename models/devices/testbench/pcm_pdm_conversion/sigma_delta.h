@@ -40,6 +40,6 @@ extern int cic_decimation_r[3];
 extern int cic_depth_m[2];
 
 extern void sigma_delta_modulator(int32_t input, int32_t *output, int64_t *delay_line);
-extern int sigma_delta_demodulator(int input_bit,int32_t *output, int64_t *delay_line, int decimation, int order, int depth, int cic_in_shift, bool filter_enable, int32_t *cic_lattice_ladder_parcor_k, int cic_parkor_shift, int32_t *cic_lattice_ladder_v, int cic_ladder_shift, int cic_lattice_ladder_nb_stages);
+extern int sigma_delta_demodulator(int input_bit,int32_t *output, int64_t *delay_line, int decimation, int order, int depth, int cic_in_shift, bool filter_enable, int32_t *cic_lattice_ladder_parcor_k, int cic_parkor_shift, int32_t *cic_lattice_ladder_v, int cic_ladder_shift, int cic_lattice_ladder_nb_stages, int *subsampling_state);
 
 #endif

@@ -27,7 +27,5 @@
 #define MINUS_ONE_24_BITS       -8388608  // Q9.23
 #define PRECISION				 23       // 23 because of Q9.23
 #define SHIFT_12dB				 2					
-// state of the delta-sigma
-int subsampling_state = 0;
 
 #endif

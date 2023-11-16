@@ -69,7 +69,7 @@ void sigma_delta_first_order_modulator(int32_t input,int32_t *output, int32_t *d
     }
 
 
-int sigma_delta_demodulator(int input_bit,int32_t *output, int64_t *delay_line, int decimation, int order, int depth, int filter_in_shift, bool filter_enable, int32_t *cic_lattice_ladder_parcor_k, int cic_parkor_shift, int32_t *cic_lattice_ladder_v, int cic_ladder_shift, int cic_lattice_ladder_nb_stages)
+int sigma_delta_demodulator(int input_bit,int32_t *output, int64_t *delay_line, int decimation, int order, int depth, int filter_in_shift, bool filter_enable, int32_t *cic_lattice_ladder_parcor_k, int cic_parkor_shift, int32_t *cic_lattice_ladder_v, int cic_ladder_shift, int cic_lattice_ladder_nb_stages, int *subsampling_state)
     {
     int64_t input = (int64_t)input_bit;
     int64_t next_stage_input = 0;                                   // Required for debug else output will stay in delay_line[order]
@@ -90,7 +90,7 @@ int sigma_delta_demodulator(int input_bit,int32_t *output, int64_t *delay_line, 
         next_stage_input = integrator_64(&delay_line_interpolator[i], &delay_line_interpolator[i+1]);
         }
     //decimated loop: comp filters
-    if(!subsampling_state--)
+    if(!(*subsampling_state)--)
         {
         //roll low sampling frequency part of the delay lines
         for(int i=1;i<=(((order+1)*comb_filter_atomic_depth));i++) 
@@ -113,7 +113,7 @@ int sigma_delta_demodulator(int input_bit,int32_t *output, int64_t *delay_line, 
             {
             output[0] = filter_input;
             }
-        subsampling_state = decimation-1; // NOTE: from M-1 to 0 = M cycles
+        *subsampling_state = decimation-1; // NOTE: from M-1 to 0 = M cycles
         output_data_available = TRUE;
         }
 

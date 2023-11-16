@@ -21,7 +21,7 @@ int PdmToPcm::convert(int32_t input_bit)
 {
     return sigma_delta_demodulator(input_bit, &pcm_output, this->my_delay_line,
                                    this->cic_decimation, this->cic_order, this->cic_depth, this->cic_output_shift, this->cic_filter_enable, this->cic_parcor_k,
-                                   this->cic_parkor_shift, this->cic_ladder_v, this->cic_ladder_shift, this->cic_lattice_ladder_nb_stages);
+                                   this->cic_parkor_shift, this->cic_ladder_v, this->cic_ladder_shift, this->cic_lattice_ladder_nb_stages, &(this->subsampling_state));
 }
 
 
@@ -61,6 +61,7 @@ PdmToPcm::PdmToPcm(int32_t cic_r, int32_t cic_n, int32_t cic_m, int32_t cic_shif
     this->cic_depth = cic_m;
     this->cic_output_shift = cic_shift;
     this->filter_coef = filter_coef;
+    this->subsampling_state = 0;
 
 #ifdef DEBUG_CONVERSION
     file_debug_pdm_got = fopen("file_debug_pdm_got", "wb");

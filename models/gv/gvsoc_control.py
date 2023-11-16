@@ -806,7 +806,7 @@ class Testbench_i2s(object):
         self.proxy._send_cmd(cmd)
 
     def slot_rx_file_reader(self, slot: int = None, slots: list = [], filetype: str = "wav",
-            filepath: str = None, encoding: str = "asis", channel: int = 0, width: int = 0,
+            filepath: str = None, encoding: str = "asis", width: int = 0,
             interpolation_ratio_shift : int = 3, interpolation_type : str = "linear"):
         """Read a stream of samples from a file.
 
@@ -827,8 +827,6 @@ class Testbench_i2s(object):
             Path to the file.
         :param encoding: string, optional,
             Encoding type for binary files, can be: "asis", "plusminus" or "pcm" meaning it is "asis" and a conversion is required
-        :param channel: int, optional,
-            If the format supports it, this will get the samples from the specified channel in the input file.
 
         Modulation part - PCM to PDM conversion
         :param r : int, optional
@@ -852,7 +850,6 @@ class Testbench_i2s(object):
         options += ' filetype=%s' % filetype
         options += ' filepath=%s' % filepath
         options += ' encoding=%s' % encoding
-        options += ' channel=%d' % channel
         options += ' width=%d' % width
         options += ' interpolation_ratio_shift=%d' % interpolation_ratio_shift
         options += ' interpolation_type=%s' % interpolation_type
@@ -860,7 +857,7 @@ class Testbench_i2s(object):
         self.proxy._send_cmd(cmd)
 
     def slot_tx_file_dumper(self, slot: int = None, slots: list = [], filetype: str = "wav",
-            filepath: str = None, encoding: str = "asis", channel: int = 0, width: int = 0,
+            filepath: str = None, encoding: str = "asis", width: int = 0,
             cic_n: int = 8, cic_m: int = 2, cic_r: int = 8, cic_shift: int = 7, filter_coef: int = 0, wav_sampling_freq : int = -1):
         """Write a stream of samples to a file.
 
@@ -882,8 +879,6 @@ class Testbench_i2s(object):
             width of the samples, in case the file is in binary format
         :param filepath: string, optional,
             Path to the file.
-        :param channel: int, optional,
-            If the format supports it, this will dump the samples to the specified channel in the output file.
 
         Demodulation part - PDM to PCM conversion
         :param cic_n: int, optional
@@ -910,7 +905,6 @@ class Testbench_i2s(object):
         options += ' filetype=%s' % filetype
         options += ' filepath=%s' % filepath
         options += ' encoding=%s' % encoding
-        options += ' channel=%d' % channel
         options += ' width=%d' % width
         options += ' cic_n=%d' % cic_n
         options += ' cic_m=%d' % cic_m

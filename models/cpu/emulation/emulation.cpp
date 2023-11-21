@@ -145,7 +145,7 @@ emulation::emulation(vp::ComponentConf &config)
     new_master_port("busy", &this->busy_itf);
 
     this->clock_itf.set_sync_meth(&emulation::clock_sync);
-    new_slave_port("clock", &this->clock_itf);
+    new_slave_port("clock_en", &this->clock_itf);
 
     this->fetchen_itf.set_sync_meth(&emulation::fetchen_sync);
     new_slave_port("fetchen", &this->fetchen_itf);

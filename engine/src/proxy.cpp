@@ -94,8 +94,8 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
 {
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
-    vp::TimeEngine *engine = gv_time_engine;
     gv::GvsocLauncher *launcher = this->launcher;
+    vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
 
     if (!this->is_async)
     {
@@ -242,18 +242,18 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                     {
                         if (words[1] == "add")
                         {
-                            this->top->traces.get_trace_manager()->add_trace_path(0, words[2]);
-                            this->top->traces.get_trace_manager()->check_traces();
+                            this->top->traces.get_trace_engine()->add_trace_path(0, words[2]);
+                            this->top->traces.get_trace_engine()->check_traces();
                         }
                         else if (words[1] == "level")
                         {
-                            this->top->traces.get_trace_manager()->set_trace_level(words[2].c_str());
-                            this->top->traces.get_trace_manager()->check_traces();
+                            this->top->traces.get_trace_engine()->set_trace_level(words[2].c_str());
+                            this->top->traces.get_trace_engine()->check_traces();
                         }
                         else
                         {
-                            this->top->traces.get_trace_manager()->add_exclude_trace_path(0, words[2]);
-                            this->top->traces.get_trace_manager()->check_traces();
+                            this->top->traces.get_trace_engine()->add_exclude_trace_path(0, words[2]);
+                            this->top->traces.get_trace_engine()->check_traces();
                         }
                         fprintf(reply_sock, "req=%s\n", req.c_str());
                         fflush(reply_sock);
@@ -271,15 +271,15 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                         {
                             // TODO regular expressions are too slow for the profiler, should be moved
                             // to a new command
-                            //this->top->traces.get_trace_manager()->add_trace_path(1, words[2]);
-                            //this->top->traces.get_trace_manager()->check_traces();
-                            this->top->traces.get_trace_manager()->conf_trace(1, words[2], 1);
+                            //this->top->traces.get_trace_engine()->add_trace_path(1, words[2]);
+                            //this->top->traces.get_trace_engine()->check_traces();
+                            this->top->traces.get_trace_engine()->conf_trace(1, words[2], 1);
                         }
                         else
                         {
-                            //this->top->traces.get_trace_manager()->add_exclude_trace_path(1, words[2]);
-                            //this->top->traces.get_trace_manager()->check_traces();
-                            this->top->traces.get_trace_manager()->conf_trace(1, words[2], 0);
+                            //this->top->traces.get_trace_engine()->add_exclude_trace_path(1, words[2]);
+                            //this->top->traces.get_trace_engine()->check_traces();
+                            this->top->traces.get_trace_engine()->conf_trace(1, words[2], 0);
                         }
                         fprintf(reply_sock, "req=%s\n", req.c_str());
                     }

@@ -26,9 +26,9 @@
 
 namespace vp
 {
-    class time_event;
+    class TimeEvent;
 
-    typedef void (time_event_meth_t)(void *, time_event *event);
+    typedef void (TimeEventMeth)(void *, TimeEvent *event);
 
     #define TIME_EVENT_PAYLOAD_SIZE 64
     #define TIME_EVENT_NB_ARGS 8
@@ -41,9 +41,9 @@ namespace vp
         friend class TimeEngine;
 
     public:
-        BlockTime(vp::Block &top);
+        BlockTime(vp::Block *parent, vp::Block &top, vp::TimeEngine *engine);
 
-        void time_event_init(vp::time_event *, vp::time_event_meth_t *meth);
+        void time_event_init(vp::TimeEvent *, vp::TimeEventMeth *meth);
 
         inline vp::TimeEngine *get_engine();
 
@@ -57,9 +57,9 @@ namespace vp
 
         inline int64_t get_time();
 
-        void add_event(time_event *event);
-        void cancel(time_event *event);
-        void enqueue(time_event *event, int64_t time);
+        void add_event(TimeEvent *event);
+        void cancel(TimeEvent *event);
+        void enqueue(TimeEvent *event, int64_t time);
 
         vp::Block &top;
         vp::Block *next;
@@ -73,20 +73,21 @@ namespace vp
         bool running = false;
         bool is_enqueued = false;
 
-        vp::time_event *first_event = NULL;
-        std::vector<vp::time_event *> events;
+        vp::TimeEvent *first_event = NULL;
+        std::vector<vp::TimeEvent *> events;
+        vp::TimeEngine *time_engine = NULL;
     };
 
-    class time_event
+    class TimeEvent
     {
         friend class BlockTime;
         friend class Block;
 
     public:
 
-        time_event(vp::Block *top);
+        TimeEvent(vp::Block *top);
 
-        inline void set_callback(time_event_meth_t *meth) { this->meth = meth; }
+        inline void set_callback(TimeEventMeth *meth) { this->meth = meth; }
 
         inline int get_payload_size() { return TIME_EVENT_PAYLOAD_SIZE; }
         inline uint8_t *get_payload() { return payload; }
@@ -105,10 +106,10 @@ namespace vp
         uint8_t payload[TIME_EVENT_PAYLOAD_SIZE];
         void *args[TIME_EVENT_NB_ARGS];
         vp::Block *top;
-        time_event_meth_t *meth;
-        time_event *next;
+        TimeEventMeth *meth;
+        TimeEvent *next;
         bool enqueued=false;
         int64_t time;
-    }; 
+    };
 
 };

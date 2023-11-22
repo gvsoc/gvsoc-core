@@ -22,8 +22,6 @@
 #include <vp/vp.hpp>
 #include "vp/time/time_engine.hpp"
 
-vp::TimeEngine *gv_time_engine = NULL;
-
 vp::TimeEngine::TimeEngine(js::Config *config)
     : first_client(NULL), config(config)
 {
@@ -148,7 +146,7 @@ void vp::TimeEngine::step_register(int64_t end_time)
 int64_t vp::TimeEngine::run_until(int64_t end_time)
 {
     int64_t time;
-    vp::time_event *event = this->stop_event->step_nofree(end_time);
+    vp::TimeEvent *event = this->stop_event->step_nofree(end_time);
     // In synchronous mode, since several threads can control the time, there is a retain
     // mechanism which makes sure time is progressins only if all threads ask for it.
     // Since wwe are now ready to make time progress, decrease our counter, it will be increased
@@ -348,34 +346,34 @@ vp::Time_engine_stop_event::Time_engine_stop_event(vp::Component *top)
 
 int64_t vp::Time_engine_stop_event::step(int64_t time)
 {
-    vp::time_event *event = new vp::time_event(this);
+    vp::TimeEvent *event = new vp::TimeEvent(this);
     event->set_callback(this->event_handler);
-    event->enqueue(time - gv_time_engine->get_time());
+    event->enqueue(time - top->time.get_engine()->get_time());
     return 0;
 }
 
-vp::time_event *vp::Time_engine_stop_event::step_nofree(int64_t time)
+vp::TimeEvent *vp::Time_engine_stop_event::step_nofree(int64_t time)
 {
-    vp::time_event *event = new vp::time_event(this);
+    vp::TimeEvent *event = new vp::TimeEvent(this);
     event->set_callback(this->event_handler_nofree);
-    event->enqueue(time - gv_time_engine->get_time());
+    event->enqueue(time - top->time.get_engine()->get_time());
     return event;
 }
 
-void vp::Time_engine_stop_event::event_handler(void *__this, vp::time_event *event)
+void vp::Time_engine_stop_event::event_handler(void *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    gv_time_engine->pause();
-    gv_time_engine->retain_inc(1);
+    _this->top->time.get_engine()->pause();
+    _this->top->time.get_engine()->retain_inc(1);
 }
 
-void vp::Time_engine_stop_event::event_handler_nofree(void *__this, vp::time_event *event)
+void vp::Time_engine_stop_event::event_handler_nofree(void *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    gv_time_engine->pause();
+    _this->top->time.get_engine()->pause();
 
     // Increase the retain count to stop time progress.
-    gv_time_engine->retain_inc(1);
+    _this->top->time.get_engine()->retain_inc(1);
 }
 
 void vp::TimeEngine::retain_inc(int inc)

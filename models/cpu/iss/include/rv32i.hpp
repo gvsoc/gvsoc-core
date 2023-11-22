@@ -26,6 +26,12 @@
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
+static inline iss_reg_t my_instr_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    REG_SET(0, REG_GET(0) + 2*REG_GET(1));
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t lui_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, UIM_GET(0));

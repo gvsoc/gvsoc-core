@@ -501,5 +501,7 @@ namespace vp
         FILE *file; // File where the power reports are dumped
     };
 
+    vp::PowerEngine *get_power_engine();
+    void set_power_engine(vp::PowerEngine *engine);
 };
 

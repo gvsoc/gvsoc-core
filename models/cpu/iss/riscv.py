@@ -83,6 +83,7 @@ class RiscvCommon(st.Component):
             timed=True,
             scoreboard=False,
             cflags=None,
+            prefetcher_size=None,
             wrapper="pulp/cpu/iss/default_iss_wrapper.cpp"):
 
         super().__init__(parent, name)
@@ -165,6 +166,9 @@ class RiscvCommon(st.Component):
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])
+
+        if prefetcher_size is not None:
+            self.add_c_flags([f'-DCONFIG_GVSOC_ISS_PREFETCHER_SIZE={prefetcher_size}'])
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -359,10 +363,12 @@ class Riscv(RiscvCommon):
         True if the core should immediately start executing instructions.
     boot_addr: int
         Boot address, i.e. address where the core will start executing instructions.
+    timed: bool
+        True if the core should model timing.
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0):
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True):
 
         # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
@@ -371,7 +377,7 @@ class Riscv(RiscvCommon):
         super().__init__(parent, name, isa=isa_instance, misa=0,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True, timed=False)
+            supervisor=True, user=True, timed=timed, prefetcher_size=64)
 
         self.add_c_flags([
             "-DPIPELINE_STAGES=2",

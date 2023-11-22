@@ -22,9 +22,13 @@
 #include "vp/vp.hpp"
 #include "vp/trace/trace.hpp"
 
-vp::BlockPower::BlockPower(vp::Block &top)
-    : top(top), report(top)
+vp::BlockPower::BlockPower(vp::Block *parent, vp::Block &top, vp::PowerEngine *engine)
+    : top(top), report(top), engine(engine)
 {
+    if (this->engine == NULL && parent != NULL)
+    {
+        this->engine = parent->power.get_engine();
+    }
 }
 
 void vp::BlockPower::build()

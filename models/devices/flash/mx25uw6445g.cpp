@@ -245,7 +245,7 @@ private:
      *      static method.
      * @param event  The event associated to this handler.
      */
-    static void set_available_handler(void *__this, vp::time_event *event);
+    static void set_available_handler(void *__this, vp::TimeEvent *event);
 
     // Trace for dumping debug messages.
     vp::Trace trace;
@@ -292,12 +292,12 @@ private:
     // operation.
     int program_size;
     // Time event used to make the flash available after a specific duration.
-    vp::time_event busy_event;
+    vp::TimeEvent busy_event;
 };
 
 
 
-void Mx25::set_available_handler(void *__this, vp::time_event *event)
+void Mx25::set_available_handler(void *__this, vp::TimeEvent *event)
 {
     Mx25 *_this = (Mx25 *)__this;
 

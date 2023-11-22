@@ -33,6 +33,13 @@ namespace vp {
     public:
         SignalCommon(Block &parent, std::string name, int width, bool do_reset);
 
+        inline void release()
+        {
+            this->trace.msg("Release register\n");
+            if (this->reg_event.get_event_active())
+                this->reg_event.event(NULL);
+        }
+
     protected:
         virtual void reset(bool active) {};
 

@@ -32,20 +32,21 @@ vp::top::top(std::string config_path, bool is_async)
 
     this->gv_config = js_config->get("target/gvsoc");
 
-    trace_manager = new vp::TraceEngine(this->gv_config);
-    power_engine = new vp::PowerEngine();
-    gv_time_engine = new vp::TimeEngine(this->gv_config);
+    this->time_engine = new vp::TimeEngine(this->gv_config);
+    this->trace_engine = new vp::TraceEngine(this->gv_config);
+    this->power_engine = new vp::PowerEngine();
 
-    this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config, NULL, "");
+    this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config,
+        NULL, "", this->time_engine, this->trace_engine, this->power_engine);
 
     power_engine->init(this->top_instance);
-    trace_manager->init(this->top_instance);
-    gv_time_engine->init(this->top_instance);
+    trace_engine->init(this->top_instance);
+    time_engine->init(this->top_instance);
 }
 
 
 vp::top::~top()
 {
-    delete power_engine;
-    delete trace_manager;
+    delete this->power_engine;
+    delete this->trace_engine;
 }

@@ -286,7 +286,9 @@ std::string vp::Component::get_module_path(js::Config *gv_config, std::string re
 }
 
 
-vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_config, vp::Component *parent, std::string name)
+vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_config,
+    vp::Component *parent, std::string name, vp::TimeEngine *time_engine,
+    vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)
 {
     std::string module_name = config->get_child_str("vp_component");
 
@@ -325,7 +327,8 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
     vp::Component *(*gv_new)(ComponentConf &conf) = (vp::Component * (*)(ComponentConf &conf)) dlsym(module, "gv_new");
     if (gv_new)
     {
-        ComponentConf conf(name, parent, config, gv_config);
+        ComponentConf conf(name, parent, config, gv_config, time_engine, trace_engine,
+            power_engine);
         return gv_new(conf);
     }
 
@@ -352,7 +355,8 @@ void vp::Component::reset_sync(void *__this, bool active)
 
 vp::Component *vp::Component::new_component(std::string name, js::Config *config, std::string module_name)
 {
-    vp::Component *instance = vp::Component::load_component(config, this->gv_config, this, name);
+    vp::Component *instance = vp::Component::load_component(config, this->gv_config, this, name,
+        this->time.get_engine(), this->traces.get_trace_engine(), this->power.get_engine());
 
     this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New component (name: %s)\n", name.c_str());
 
@@ -360,7 +364,8 @@ vp::Component *vp::Component::new_component(std::string name, js::Config *config
 }
 
 vp::Component::Component(vp::ComponentConf &config)
-    : Block(config.parent, config.name)
+    : Block(config.parent, config.name, config.time_engine, config.trace_engine,
+    config.power_engine)
 {
     this->js_config = config.config;
     this->name = config.name;
@@ -372,8 +377,12 @@ vp::Component::Component(vp::ComponentConf &config)
     }
 
     this->create_comps();
-    this->create_ports();
-    this->create_bindings();
+
+    if (!this->childs_dict.empty())
+    {
+        this->create_ports();
+        this->create_bindings();
+    }
 
     clock_port.set_reg_meth((vp::ClkRegMeth *)&Component::clk_reg);
     clock_port.set_set_frequency_meth((vp::ClkSetFrequencyMeth *)&Component::clk_set_frequency);
@@ -442,11 +451,11 @@ void vp::Component::create_bindings()
             std::string master_port_name = master_binding.substr(pos + 2);
             pos = slave_binding.find_first_of("->");
             std::string slave_comp_name = slave_binding.substr(0, pos);
-            std::string SlavePort_name = slave_binding.substr(pos + 2);
+            std::string slave_port_name = slave_binding.substr(pos + 2);
 
             this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating binding (%s:%s -> %s:%s)\n",
                 master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), SlavePort_name.c_str()
+                slave_comp_name.c_str(), slave_port_name.c_str()
             );
 
             vp::Component *master_comp = master_comp_name == "self" ? this : this->get_childs_dict()[master_comp_name];
@@ -455,25 +464,25 @@ void vp::Component::create_bindings()
             vp_assert_always(master_comp != NULL, this->get_trace(),
                 "Binding from invalid master (master: %s / %s, slave: %s / %s)\n",
                 master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), SlavePort_name.c_str());
+                slave_comp_name.c_str(), slave_port_name.c_str());
 
             vp_assert_always(slave_comp != NULL, this->get_trace(),
                 "Binding from invalid slave (master: %s / %s, slave: %s / %s)\n",
                 master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), SlavePort_name.c_str());
+                slave_comp_name.c_str(), slave_port_name.c_str());
 
             vp::Port *master_port = master_comp->get_port(master_port_name);
-            vp::Port *slave_port = slave_comp->get_port(SlavePort_name);
+            vp::Port *slave_port = slave_comp->get_port(slave_port_name);
 
             vp_assert_always(master_port != NULL, this->get_trace(),
                 "Binding from invalid master port (master: %s / %s, slave: %s / %s)\n",
                 master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), SlavePort_name.c_str());
+                slave_comp_name.c_str(), slave_port_name.c_str());
 
             vp_assert_always(slave_port != NULL, this->get_trace(),
                 "Binding from invalid slave port (master: %s / %s, slave: %s / %s)\n",
                 master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), SlavePort_name.c_str());
+                slave_comp_name.c_str(), slave_port_name.c_str());
 
             master_port->bind_to_virtual(slave_port);
         }

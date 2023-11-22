@@ -35,8 +35,4 @@ public:
 
 protected:
     vp::Trace     trace;
-
-private:
-    void add_port(std::string name, vp::Port *port);
-    std::map<std::string, vp::Port *> ports;
 };

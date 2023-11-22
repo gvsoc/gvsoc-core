@@ -65,12 +65,18 @@ namespace vp
     class ComponentConf
     {
     public:
-        ComponentConf(string name, vp::Component *parent, js::Config *config, js::Config *gv_config)
-            : name(name), parent(parent), config(config), gv_config(gv_config) {}
+        ComponentConf(string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
+            vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
+            vp::PowerEngine *power_engine)
+            : name(name), parent(parent), config(config), gv_config(gv_config),
+            time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine) {}
         string name;
         vp::Component *parent;
         js::Config *config;
         js::Config *gv_config;
+        vp::TimeEngine *time_engine;
+        vp::TraceEngine *trace_engine;
+        vp::PowerEngine *power_engine;
     };
 
     /**
@@ -201,7 +207,9 @@ namespace vp
         // Load a component module from workstation. It is static so that the launcher can call it
         // for top component.
         static vp::Component *load_component(js::Config *config, js::Config *gv_config,
-            vp::Component *parent, std::string name);
+            vp::Component *parent, std::string name,
+            vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
+            vp::PowerEngine *power_engine);
 
         // Used by the launcher to set himself as launcher. Could be moved to ComponentConfig
         void set_launcher(gv::GvsocLauncher *launcher);

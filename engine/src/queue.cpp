@@ -22,15 +22,15 @@
 #include <vp/vp.hpp>
 #include <vp/queue.hpp>
 
-vp::queue::queue(Block *parent, std::string name)
+vp::Queue::Queue(Block *parent, std::string name)
     : Block(parent, name)
 {
 
 }
 
-void vp::queue::cancel_callback(void *__this, vp::QueueElem *elem)
+void vp::Queue::cancel_callback(void *__this, vp::QueueElem *elem)
 {
-    vp::queue *_this = (vp::queue *)__this;
+    vp::Queue *_this = (vp::Queue *)__this;
     vp::QueueElem *current = _this->first, *prev=NULL;
 
     while(current && current != elem)
@@ -49,17 +49,17 @@ void vp::queue::cancel_callback(void *__this, vp::QueueElem *elem)
     }
 }
 
-bool vp::queue::empty()
+bool vp::Queue::empty()
 {
     return this->first == NULL;
 }
 
-void vp::queue::reset(bool active)
+void vp::Queue::reset(bool active)
 {
     this->first = NULL;
 }
 
-void vp::queue::push_back(QueueElem *elem)
+void vp::Queue::push_back(QueueElem *elem)
 {
     if (this->first)
     {
@@ -73,11 +73,11 @@ void vp::queue::push_back(QueueElem *elem)
     this->last = elem;
     elem->next = NULL;
 
-    elem->cancel_callback = &vp::queue::cancel_callback;
+    elem->cancel_callback = &vp::Queue::cancel_callback;
     elem->cancel_this = this;
 }
 
-void vp::queue::push_front(QueueElem *elem)
+void vp::Queue::push_front(QueueElem *elem)
 {
     if (!this->first)
     {
@@ -87,16 +87,16 @@ void vp::queue::push_front(QueueElem *elem)
     elem->next = this->first;
     this->first = elem;
 
-    elem->cancel_callback = &vp::queue::cancel_callback;
+    elem->cancel_callback = &vp::Queue::cancel_callback;
     elem->cancel_this = this;
 }
 
-vp::QueueElem *vp::queue::head()
+vp::QueueElem *vp::Queue::head()
 {
     return this->first;
 }
 
-vp::QueueElem *vp::queue::pop()
+vp::QueueElem *vp::Queue::pop()
 {
     vp::QueueElem *result = this->first;
     if (result)

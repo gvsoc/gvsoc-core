@@ -29,7 +29,6 @@
 
 namespace vp
 {
-
 class BlockTime;
 class Component;
 class Time_engine_stop_event;
@@ -114,8 +113,6 @@ private:
 }; // namespace vp
 
 
-extern vp::TimeEngine *gv_time_engine;
-
 
 namespace vp
 {
@@ -125,11 +122,11 @@ namespace vp
     public:
         Time_engine_stop_event(Component *top);
         int64_t step(int64_t duration);
-        vp::time_event *step_nofree(int64_t duration);
+        vp::TimeEvent *step_nofree(int64_t duration);
 
     private:
-        static void event_handler(void *__this, vp::time_event *event);
-        static void event_handler_nofree(void *__this, vp::time_event *event);
+        static void event_handler(void *__this, vp::TimeEvent *event);
+        static void event_handler_nofree(void *__this, vp::TimeEvent *event);
         Component *top;
     };
 }
@@ -191,14 +188,14 @@ inline int64_t vp::TimeEngine::get_next_event_time()
 
 inline bool vp::BlockTime::enqueue_to_engine(int64_t time)
 {
-    return gv_time_engine->enqueue(&this->top, time);
+    return this->get_engine()->enqueue(&this->top, time);
 }
 
 inline bool vp::BlockTime::dequeue_from_engine()
 {
-    return gv_time_engine->dequeue(&this->top);
+    return this->get_engine()->dequeue(&this->top);
 }
 
-inline int64_t vp::BlockTime::get_time() { return gv_time_engine->get_time(); }
+inline int64_t vp::BlockTime::get_time() { return this->get_engine()->get_time(); }
 
 #endif

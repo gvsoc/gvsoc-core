@@ -110,14 +110,14 @@ bool vp::ClockEngine::dequeue_from_engine()
     if (this->time.is_running() || !this->time.get_is_enqueued())
         return false;
 
-    gv_time_engine->dequeue(this);
+    this->time_engine->dequeue(this);
 
     return true;
 }
 
 void vp::ClockEngine::reenqueue_to_engine()
 {
-    gv_time_engine->enqueue(this, this->time.next_event_time);
+    this->time_engine->enqueue(this, this->time.next_event_time);
 }
 
 void vp::ClockEngine::apply_frequency(int frequency)
@@ -397,6 +397,7 @@ void vp::ClockEngine::pre_start()
 vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
     : vp::Component(config), cycles(0), period(0), freq(0)
 {
+    this->time_engine = config.time_engine;
     delayed_queue = NULL;
     current_cycle = 0;
 

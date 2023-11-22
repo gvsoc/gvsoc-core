@@ -24,13 +24,17 @@
 #include <vp/time/block_time.hpp>
 
 
-vp::BlockTime::BlockTime(vp::Block &top) : top(top)
+vp::BlockTime::BlockTime(vp::Block *parent, vp::Block &top, vp::TimeEngine *engine) : top(top), time_engine(engine)
 {
+    if (this->time_engine == NULL && parent != NULL)
+    {
+        this->time_engine = parent->time.get_engine();
+    }
 }
 
 int64_t vp::Block::exec()
 {
-    vp::time_event *current = this->time.first_event;
+    vp::TimeEvent *current = this->time.first_event;
 
     while (current && current->time == this->time.get_time())
     {
@@ -53,18 +57,18 @@ int64_t vp::Block::exec()
 }
 
 
-vp::time_event::time_event(vp::Block *top)
+vp::TimeEvent::TimeEvent(vp::Block *top)
     : top(top)
 {
     top->time.add_event(this);
 }
 
-void vp::BlockTime::cancel(vp::time_event *event)
+void vp::BlockTime::cancel(vp::TimeEvent *event)
 {
     if (!event->is_enqueued())
         return;
 
-    vp::time_event *current = this->first_event, *prev = NULL;
+    vp::TimeEvent *current = this->first_event, *prev = NULL;
 
     while (current && current != event)
     {
@@ -89,15 +93,15 @@ void vp::BlockTime::cancel(vp::time_event *event)
     }
 }
 
-void vp::BlockTime::add_event(time_event *event)
+void vp::BlockTime::add_event(TimeEvent *event)
 {
     this->events.push_back(event);
 }
 
 
-void vp::BlockTime::enqueue(time_event *event, int64_t time)
+void vp::BlockTime::enqueue(TimeEvent *event, int64_t time)
 {
-    vp::time_event *current = this->first_event, *prev = NULL;
+    vp::TimeEvent *current = this->first_event, *prev = NULL;
     int64_t full_time = time + this->get_time();
 
     event->set_enqueued(true);
@@ -119,7 +123,7 @@ void vp::BlockTime::enqueue(time_event *event, int64_t time)
 }
 
 
-void vp::time_event::enqueue(int64_t time)
+void vp::TimeEvent::enqueue(int64_t time)
 {
     this->top->time.enqueue(this, time);
 }

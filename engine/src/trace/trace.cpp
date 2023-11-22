@@ -26,17 +26,18 @@
 #include <inttypes.h>
 
 
-vp::TraceEngine *trace_manager = NULL;
-
-
-vp::BlockTrace::BlockTrace(vp::Block &top)
-    : top(top)
+vp::BlockTrace::BlockTrace(vp::Block *parent, vp::Block &top, vp::TraceEngine *engine)
+    : top(top), engine(engine)
 {
+    if (this->engine == NULL && parent != NULL)
+    {
+        this->engine = parent->traces.get_trace_engine();
+    }
 }
 
 void vp::BlockTrace::reg_trace(Trace *trace, int event)
 {
-    this->get_trace_manager()->reg_trace(trace, event, top.get_path(), trace->get_name());
+    this->get_trace_engine()->reg_trace(trace, event, top.get_path(), trace->get_name());
 }
 
 void vp::BlockTrace::new_trace(std::string name, Trace *trace, TraceLevel level)
@@ -102,7 +103,7 @@ void vp::BlockTrace::new_trace_event_string(std::string name, Trace *trace)
 #ifdef VP_TRACE_ACTIVE
 bool vp::Trace::get_active(int level)
 {
-    return is_active && this->comp->traces.get_trace_manager()->get_trace_level() >= level;
+    return is_active && this->comp->traces.get_trace_engine()->get_trace_level() >= level;
 }
 #endif
 
@@ -119,14 +120,14 @@ void vp::Trace::dump_header()
         time = comp->time.get_engine()->get_time();
     }
 
-    int format = comp->traces.get_trace_manager()->get_format();
+    int format = comp->traces.get_trace_engine()->get_format();
     if (format == TRACE_FORMAT_SHORT)
     {
         fprintf(this->trace_file, "%" PRId64 "ps %" PRId64 " ", time, cycles);
     }
     else
     {
-        int max_trace_len = comp->traces.get_trace_manager()->get_max_path_len();
+        int max_trace_len = comp->traces.get_trace_engine()->get_max_path_len();
         fprintf(this->trace_file, "%" PRId64 ": %" PRId64": [\033[34m%-*.*s\033[0m] ", time, cycles, max_trace_len, max_trace_len, path.c_str());
     }
 }
@@ -140,7 +141,7 @@ void vp::Trace::force_warning(const char *fmt, ...)
     if (vfprintf(this->trace_file, fmt, ap) < 0) {}
     va_end(ap);
 
-    if (comp->traces.get_trace_manager()->get_werror())
+    if (comp->traces.get_trace_engine()->get_werror())
     {
         exit(1);
     }
@@ -149,7 +150,7 @@ void vp::Trace::force_warning(const char *fmt, ...)
 
 void vp::Trace::force_warning(vp::Trace::warning_type_e type, const char *fmt, ...)
 {
-    if (comp->traces.get_trace_manager()->is_warning_active(type))
+    if (comp->traces.get_trace_engine()->is_warning_active(type))
     {
         dump_warning_header();
         va_list ap;
@@ -157,7 +158,7 @@ void vp::Trace::force_warning(vp::Trace::warning_type_e type, const char *fmt, .
         if (vfprintf(this->trace_file, fmt, ap) < 0) {}
         va_end(ap);
 
-        if (comp->traces.get_trace_manager()->get_werror())
+        if (comp->traces.get_trace_engine()->get_werror())
         {
             exit(1);
         }
@@ -167,7 +168,7 @@ void vp::Trace::force_warning(vp::Trace::warning_type_e type, const char *fmt, .
 
 void vp::Trace::dump_warning_header()
 {
-    int max_trace_len = comp->traces.get_trace_manager()->get_max_path_len();
+    int max_trace_len = comp->traces.get_trace_engine()->get_max_path_len();
     int64_t cycles = 0;
     int64_t time = 0;
     if (comp->clock.get_engine())
@@ -256,7 +257,7 @@ void vp::TraceEngine::flush()
 {
     // Flush only the events until the current timestamp as we may resume
     // the execution right after
-    this->check_pending_events(gv_time_engine->get_time());
+    this->check_pending_events(this->top->time.get_engine()->get_time());
 
     if (current_buffer_size)
     {

@@ -86,7 +86,7 @@ private:
     vp::Trace refill_event;
     std::vector<vp::Trace> io_event;
 
-    vp::queue refill_pending_reqs;
+    vp::Queue refill_pending_reqs;
 
     cache_line_t *lines;
 

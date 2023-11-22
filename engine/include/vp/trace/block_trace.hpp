@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -26,53 +26,52 @@
 
 using namespace std;
 
-namespace vp {
+namespace vp
+{
+    class trace;
+    class TraceEngine;
+    class Block;
 
-  class trace;
-  class TraceEngine;
-  class Block;
+    typedef enum
+    {
+        ERROR,
+        WARNING,
+        INFO,
+        DEBUG,
+        TRACE
+    } TraceLevel;
 
-  typedef enum {
-    ERROR,
-    WARNING,
-    INFO,
-    DEBUG,
-    TRACE
-  } TraceLevel;
+    class BlockTrace
+    {
 
-  class BlockTrace
-  {
+        friend class vp::Component;
+        friend class vp::Block;
 
-  public:
+    public:
+        BlockTrace(vp::Block *parent, Block &top, vp::TraceEngine *engine);
 
-    BlockTrace(Block &top);
+        void new_trace(std::string name, Trace *trace, TraceLevel level = vp::TraceLevel::DEBUG);
 
-    void new_trace(std::string name, Trace *trace, TraceLevel level);
+        void new_trace_event(std::string name, Trace *trace, int width);
 
-    void new_trace_event(std::string name, Trace *trace, int width);
+        void new_trace_event_string(std::string name, Trace *trace);
 
-    void new_trace_event_string(std::string name, Trace *trace);
+        void new_trace_event_real(std::string name, Trace *trace);
 
-    void new_trace_event_real(std::string name, Trace *trace);
+        inline TraceEngine *get_trace_engine();
 
-    inline TraceEngine *get_trace_manager();
+        std::map<std::string, Trace *> traces;
+        std::map<std::string, Trace *> trace_events;
 
-    std::map<std::string, Trace *> traces;
-    std::map<std::string, Trace *> trace_events;
-    
-  protected:
+    protected:
+    private:
+        void reg_trace(Trace *trace, int event);
 
-  private:
-    void reg_trace(Trace *trace, int event);
+        Block &top;
 
-    Block &top;
+        vp::TraceEngine *engine = NULL;
+    };
 
-  };
-
-};  
-
-
-extern vp::TraceEngine *trace_manager;
-
+};
 
 #endif

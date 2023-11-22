@@ -53,6 +53,8 @@ namespace vp {
         friend class vp::RegisterCommon;
         friend class gv::GvsocLauncher;
         friend class vp::BlockPower;
+        friend class vp::BlockTime;
+        friend class vp::BlockTrace;
         friend class vp::PowerTrace;
         friend class vp::CompPowerReport;
         friend class vp::ClockEngine;
@@ -67,8 +69,9 @@ namespace vp {
          * @param parent Specify the parent block containing this block.
          * @param name Specify the block name.
          */
-        Block(Block *parent, std::string name);
 
+        Block(Block *parent, std::string name, vp::TimeEngine *time_engine=NULL,
+        vp::TraceEngine *trace_engine=NULL, vp::PowerEngine *power_engine=NULL);
         ~Block();
 
         /**

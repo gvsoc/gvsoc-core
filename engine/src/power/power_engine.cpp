@@ -23,8 +23,6 @@
 #include "vp/trace/trace.hpp"
 
 
-vp::PowerEngine *power_engine = NULL;
-
 
 void vp::PowerEngine::reg_trace(vp::PowerTrace *trace)
 {

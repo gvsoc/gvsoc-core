@@ -22,8 +22,10 @@
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 
-vp::Block::Block(Block *parent, std::string name)
-    : traces(*this), power(*this), time(*this), parent(parent)
+vp::Block::Block(Block *parent, std::string name, vp::TimeEngine *time_engine,
+        vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)
+    : parent(parent), time(parent, *this, time_engine), traces(parent, *this, trace_engine),
+    power(parent, *this, power_engine)
 {
     if (parent)
     {
@@ -33,9 +35,15 @@ vp::Block::Block(Block *parent, std::string name)
     this->name = name;
     this->path = this->get_path_from_parents();
 
+    if (this->time.get_engine() == NULL)
+    {
+        this->block_trace.fatal("BLock has no time engine\n");
+    }
+
     this->power.build();
 
     this->traces.new_trace("trace", &this->block_trace, vp::DEBUG);
+
 }
 
 vp::Block::~Block()

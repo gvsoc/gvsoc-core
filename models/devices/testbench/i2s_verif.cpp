@@ -195,7 +195,7 @@ private:
 I2s_verif::~I2s_verif()
 {
     this->trace.msg(vp::Trace::LEVEL_INFO, "Closing I2S verif\n");
-    gv_time_engine->dequeue(this);
+    this->time.get_engine()->dequeue(this);
     this->itf->sync(2, 2, (2 << 2) | 2, this->is_full_duplex);
 }
 

@@ -65,7 +65,7 @@ void Syscalls::handle_ebreak()
       }
       else
       {
-        vp::Trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_path(path);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
         if (trace == NULL)
         {
           this->trace.force_warning("Invalid trace (path: %s)\n", path.c_str());
@@ -84,7 +84,7 @@ void Syscalls::handle_ebreak()
     
     case GV_SEMIHOSTING_TRACE_ENABLE: {
       int id = this->iss.regfile.regs[11];
-      vp::Trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+      vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
       if (trace == NULL)
       {
         this->trace.force_warning("Unknown trace ID while dumping trace (id: %d)\n", id);
@@ -382,13 +382,13 @@ void Syscalls::handle_riscv_ebreak()
         {
             if (args[1])
             {
-                this->iss.top.traces.get_trace_manager()->add_trace_path(0, path);
+                this->iss.top.traces.get_trace_engine()->add_trace_path(0, path);
             }
             else
             {
-                this->iss.top.traces.get_trace_manager()->add_exclude_trace_path(0, path);
+                this->iss.top.traces.get_trace_engine()->add_exclude_trace_path(0, path);
             }
-            this->iss.top.traces.get_trace_manager()->check_traces();
+            this->iss.top.traces.get_trace_engine()->check_traces();
         }
         break;
     }
@@ -522,7 +522,7 @@ void Syscalls::handle_riscv_ebreak()
             this->iss.regfile.regs[10] = -1;
             return;
         }
-        this->iss.top.traces.get_trace_manager()->set_global_enable(args[0]);
+        this->iss.top.traces.get_trace_engine()->set_global_enable(args[0]);
         break;
     }
 
@@ -543,7 +543,7 @@ void Syscalls::handle_riscv_ebreak()
         }
         else
         {
-            vp::Trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_path(path);
+            vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
             if (trace == NULL)
             {
                 this->trace.force_warning("Invalid VCD trace (path: %s)\n", path.c_str());
@@ -573,7 +573,7 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::Trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
             this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
@@ -606,7 +606,7 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::Trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
             this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
@@ -629,7 +629,7 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::Trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
             this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);

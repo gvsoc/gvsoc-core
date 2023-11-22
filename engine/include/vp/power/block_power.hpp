@@ -36,6 +36,8 @@ namespace vp
     {
         friend class PowerTrace;
         friend class CompPowerReport;
+        friend class vp::Component;
+        friend class vp::Block;
 
     public:
         /**
@@ -43,7 +45,7 @@ namespace vp
          *
          * @param top Component containing this object.
          */
-        BlockPower(Block &top);
+        BlockPower(vp::Block *parent, Block &top, vp::PowerEngine *engine);
 
         /**
          * @brief Get the power engine
@@ -176,10 +178,9 @@ namespace vp
         std::vector<vp::PowerTrace *> traces;  // Vector of power traces of this component
         std::vector<vp::PowerSource *> sources;  // Vector of power sources of this component
         CompPowerReport report;
+        PowerEngine *engine = NULL;
     };
 };
 
-extern vp::PowerEngine *power_engine;
 
-
-inline vp::PowerEngine *vp::BlockPower::get_engine() { return power_engine; }
+inline vp::PowerEngine *vp::BlockPower::get_engine() { return this->engine; }

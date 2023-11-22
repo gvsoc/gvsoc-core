@@ -27,10 +27,10 @@ namespace vp {
     class QueueElem;
     class Block;
 
-    class queue : public Block
+    class Queue : public Block
     {
     public:
-        queue(Block *parent, std::string name);
+        Queue(Block *parent, std::string name);
         void push_back(QueueElem *elem);
         void push_front(QueueElem *elem);
         QueueElem *head();
@@ -45,7 +45,7 @@ namespace vp {
 
     class QueueElem
     {
-        friend class queue;
+        friend class Queue;
 
     public:
         void cancel();

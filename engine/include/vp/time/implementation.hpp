@@ -38,7 +38,7 @@ namespace vp {
 };
 
 
-inline vp::TimeEngine *vp::BlockTime::get_engine() { return gv_time_engine; }
+inline vp::TimeEngine *vp::BlockTime::get_engine() { return this->time_engine; }
 
 
 

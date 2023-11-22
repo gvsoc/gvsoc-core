@@ -66,7 +66,7 @@ protected:
 private:
     void check_state();
     std::vector<Mem_plug_port *> ports;       // Output ports, each one can handle a request.
-    vp::queue waiting_reqs;  // Pending input requests waiting for available
+    vp::Queue waiting_reqs;  // Pending input requests waiting for available
         // output put
     int nb_ports;                             // Number of output ports
     vp::Trace         trace;                  // Plug trace
@@ -86,7 +86,7 @@ protected:
 
     Mem_plug_implem *top;
     vp::IoReq out_req;
-    vp::queue pending_req;
+    vp::Queue pending_req;
     vp::ClockEvent *event;
     vp::Trace         trace;
     vp::Component *comp;

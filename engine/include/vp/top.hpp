@@ -32,11 +32,18 @@ namespace vp {
       top(std::string config_path, bool is_async);
       ~top();
 
-      vp::TimeEngine *time_engine_get() { return gv_time_engine; }
-
       Component *top_instance;
       js::Config *gv_config;
+
+      vp::TimeEngine *get_time_engine() { return this->time_engine; };
+      vp::TraceEngine *get_trace_engine() { return this->trace_engine; };
+      vp::PowerEngine *get_power_engine() { return this->power_engine; };
+
+
   private:
+      vp::TimeEngine *time_engine;
+      vp::TraceEngine *trace_engine;
+      vp::PowerEngine *power_engine;
   };
 
 };

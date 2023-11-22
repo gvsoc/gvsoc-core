@@ -191,6 +191,8 @@ namespace vp
         int64_t stop_time = 0;
 
         vp::Trace cycles_trace;
+
+        vp::TimeEngine *time_engine = NULL;
     };
 
 };

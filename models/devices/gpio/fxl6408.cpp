@@ -41,7 +41,7 @@ public:
     Fxl6408(vp::ComponentConf &conf);
 
 protected:
-    static void i2c_sync(void *__this, int scl, int sda);
+    static void i2c_sync(vp::Block *__this, int scl, int sda);
     void i2c_start(unsigned int address, bool is_read);
     void i2c_handle_byte(uint8_t byte);
     void i2c_stop();
@@ -118,7 +118,7 @@ void Fxl6408::start()
 }
 
 
-void Fxl6408::i2c_sync(void *__this, int scl, int sda)
+void Fxl6408::i2c_sync(vp::Block *__this, int scl, int sda)
 {
     Fxl6408 *_this = (Fxl6408 *)__this;
 

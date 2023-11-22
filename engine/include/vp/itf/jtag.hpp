@@ -32,14 +32,14 @@ namespace vp {
 
 
 
-  typedef void (JtagSyncMeth)(void *, int tck, int tdi, int tms, int trst);
-  typedef void (JtagSyncCycleMeth)(void *, int tdi, int tms, int trst);
+  typedef void (JtagSyncMeth)(vp::Block *, int tck, int tdi, int tms, int trst);
+  typedef void (JtagSyncCycleMeth)(vp::Block *, int tdi, int tms, int trst);
 
-  typedef void (JtagSyncMethMuxed)(void *, int tck, int tdi, int tms, int trst, int id);
-  typedef void (JtagSyncCycleMethMuxed)(void *, int tdi, int tms, int trst, int id);
+  typedef void (JtagSyncMethMuxed)(vp::Block *, int tck, int tdi, int tms, int trst, int id);
+  typedef void (JtagSyncCycleMethMuxed)(vp::Block *, int tdi, int tms, int trst, int id);
 
-  typedef void (JtagSlaveSyncMeth)(void *, int tdo);
-  typedef void (JtagSlaveSyncMethMuxed)(void *, int tdo, int id);
+  typedef void (JtagSlaveSyncMeth)(vp::Block *, int tdo);
+  typedef void (JtagSlaveSyncMethMuxed)(vp::Block *, int tdo, int id);
 
 
 
@@ -53,12 +53,12 @@ namespace vp {
 
     inline void sync(int tck, int tdi, int tms, int trst)
     {
-      return sync_meth(this->get_remote_context(), tck, tdi, tms, trst);
+      return sync_meth((vp::Block *)this->get_remote_context(), tck, tdi, tms, trst);
     }
 
     inline void sync_cycle(int tdi, int tms, int trst)
     {
-      return sync_cycle_meth(this->get_remote_context(), tdi, tms, trst);
+      return sync_cycle_meth((vp::Block *)this->get_remote_context(), tdi, tms, trst);
     }
 
     void bind_to(vp::Port *port, js::Config *config);
@@ -75,15 +75,15 @@ namespace vp {
     static inline void sync_muxed_stub(JtagMaster *_this, int tck, int tdi, int tms, int trst);
     static inline void sync_cycle_muxed_stub(JtagMaster *_this, int tdi, int tms, int trst);
 
-    void (*slave_sync)(void *comp, int tdo);
-    void (*slave_sync_muxed)(void *comp, int tdo, int id) = NULL;
+    void (*slave_sync)(vp::Block *comp, int tdo);
+    void (*slave_sync_muxed)(vp::Block *comp, int tdo, int id) = NULL;
 
-    void (*sync_meth)(void *, int tck, int tdi, int tms, int trst);
-    void (*sync_meth_mux)(void *, int tck, int tdi, int tms, int trst, int mux);
-    void (*sync_cycle_meth)(void *, int tdi, int tms, int trst);
-    void (*sync_cycle_meth_mux)(void *, int tdi, int tms, int trst, int mux);
+    void (*sync_meth)(vp::Block *, int tck, int tdi, int tms, int trst);
+    void (*sync_meth_mux)(vp::Block *, int tck, int tdi, int tms, int trst, int mux);
+    void (*sync_cycle_meth)(vp::Block *, int tdi, int tms, int trst);
+    void (*sync_cycle_meth_mux)(vp::Block *, int tdi, int tms, int trst, int mux);
 
-    static inline void sync_default(void *, int tdo);
+    static inline void sync_default(vp::Block *, int tdo);
 
 
     vp::Component *comp_mux;
@@ -105,7 +105,7 @@ namespace vp {
 
     inline void sync(int tdo)
     {
-      slave_sync_meth(this->get_remote_context(), tdo);
+      slave_sync_meth((vp::Block *)this->get_remote_context(), tdo);
     }
 
     inline void set_sync_meth(JtagSyncMeth *meth);
@@ -121,13 +121,13 @@ namespace vp {
     static inline void sync_muxed_stub(JtagSlave *_this, int tdo);
     
 
-    void (*slave_sync_meth)(void *, int tdo);
-    void (*slave_sync_mux_meth)(void *, int tdo, int id);
+    void (*slave_sync_meth)(vp::Block *, int tdo);
+    void (*slave_sync_mux_meth)(vp::Block *, int tdo, int id);
 
-    void (*sync_meth)(void *comp, int tck, int tdi, int tms, int trst);
-    void (*sync_mux_meth)(void *comp, int tck, int tdi, int tms, int trst, int mux);
-    void (*sync_cycle_meth)(void *comp, int tdi, int tms, int trst);
-    void (*sync_cycle_mux_meth)(void *comp, int tdi, int tms, int trst, int mux);
+    void (*sync_meth)(vp::Block *comp, int tck, int tdi, int tms, int trst);
+    void (*sync_mux_meth)(vp::Block *comp, int tck, int tdi, int tms, int trst, int mux);
+    void (*sync_cycle_meth)(vp::Block *comp, int tdi, int tms, int trst);
+    void (*sync_cycle_mux_meth)(vp::Block *comp, int tdi, int tms, int trst, int mux);
 
     static inline void sync_default(JtagSlave *, int tck, int tdi, int tms, int trst);
     static inline void sync_cycle_default(JtagSlave *, int tdi, int tms, int trst);
@@ -197,7 +197,7 @@ namespace vp {
     mux_id = id;
   }
 
-  inline void JtagMaster::sync_default(void *, int tdo)
+  inline void JtagMaster::sync_default(vp::Block *, int tdo)
   {
   }
 

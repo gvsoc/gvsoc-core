@@ -34,7 +34,7 @@ public:
 
 private:
 
-    static void sync(void *__this, int scl, int sda, int id);
+    static void sync(vp::Block *__this, int scl, int sda, int id);
 
     vp::Trace trace;
 
@@ -69,7 +69,7 @@ I2c_bus::I2c_bus(vp::ComponentConf &config)
 
 }
 
-void I2c_bus::sync(void *__this, int scl, int sda, int id)
+void I2c_bus::sync(vp::Block *__this, int scl, int sda, int id)
 {
     I2c_bus *_this = (I2c_bus *)__this;
 

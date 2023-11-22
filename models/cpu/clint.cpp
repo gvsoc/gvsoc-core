@@ -55,7 +55,7 @@ public:
 private:
     static void event_handler(vp::Block *_this, vp::ClockEvent *event);
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
-    static void time_sync_back(void *__this, uint64_t *value);
+    static void time_sync_back(vp::Block *__this, uint64_t *value);
     bool load(unsigned int addr, size_t len, uint8_t* bytes);
     bool store(unsigned int addr, size_t len, const uint8_t* bytes);
     uint64_t get_mtime();
@@ -102,7 +102,7 @@ void Clint::event_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void Clint::time_sync_back(void *__this, uint64_t *value)
+void Clint::time_sync_back(vp::Block *__this, uint64_t *value)
 {
     Clint *_this = (Clint *)__this;
     *value = _this->get_mtime();

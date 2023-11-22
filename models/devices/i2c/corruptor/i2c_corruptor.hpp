@@ -36,7 +36,7 @@ class I2c_corruptor : public vp::Component
         static void st_start_event_handler(vp::Block* __this, vp::ClockEvent* event);
         void i2c_enqueue_event(vp::ClockEvent* event, uint64_t time_ps);
         void i2c_cancel_event(vp::ClockEvent* event);
-        static void i2c_sync(void *__this, int scl, int sda);
+        static void i2c_sync(vp::Block *__this, int scl, int sda);
         void i2c_helper_callback(i2c_operation_e id, i2c_status_e status, int value);
         void trigger_start(void);
 

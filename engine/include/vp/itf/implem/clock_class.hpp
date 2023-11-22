@@ -40,13 +40,13 @@ namespace vp {
     inline void sync(bool value)
     {
       if (next) next->sync(value);
-      sync_meth(this->get_remote_context(), value);
+      sync_meth((vp::Block *)this->get_remote_context(), value);
     }
 
     inline void set_frequency(int64_t frequency)
     {
       if (next) next->set_frequency(frequency);
-      set_frequency_meth(this->get_remote_context(), frequency);
+      set_frequency_meth((vp::Block *)this->get_remote_context(), frequency);
     }
 
     void bind_to(vp::Port *port, js::Config *config);
@@ -60,24 +60,24 @@ namespace vp {
     static inline void set_frequency_muxed(ClockMaster *_this, int64_t frequency);
     static inline void sync_freq_cross_stub(ClockMaster *_this, bool value);
 
-    static inline void sync_default(void *, bool value);
-    static inline void set_frequency_default(void *, int64_t value);
+    static inline void sync_default(vp::Block *, bool value);
+    static inline void set_frequency_default(vp::Block *, int64_t value);
     static inline void set_frequency_freq_cross_stub(ClockMaster *_this, int64_t value);
 
-    void (*sync_meth)(void *, bool value);
-    void (*sync_meth_mux)(void *, bool value, int id);
-    void (*sync_meth_freq_cross)(void *, bool value);
+    void (*sync_meth)(vp::Block *, bool value);
+    void (*sync_meth_mux)(vp::Block *, bool value, int id);
+    void (*sync_meth_freq_cross)(vp::Block *, bool value);
 
-    void (*set_frequency_meth)(void *, int64_t frequency);
-    void (*set_frequency_meth_mux)(void *, int64_t frequency, int id);
-    void (*set_frequency_meth_freq_cross)(void *, int64_t value);
+    void (*set_frequency_meth)(vp::Block *, int64_t frequency);
+    void (*set_frequency_meth_mux)(vp::Block *, int64_t frequency, int id);
+    void (*set_frequency_meth_freq_cross)(vp::Block *, int64_t value);
 
     vp::Component *comp_mux;
     int sync_mux;
     ClockSlave *SlavePort = NULL;
     ClockMaster *next = NULL;
 
-    void *slave_context_for_freq_cross;
+    vp::Block *slave_context_for_freq_cross;
   };
 
 
@@ -90,22 +90,22 @@ namespace vp {
 
     inline ClockSlave();
 
-    void set_sync_meth(void (*)(void *_this, bool value));
-    void set_sync_meth_muxed(void (*)(void *_this, bool value, int), int id);
+    void set_sync_meth(void (*)(vp::Block *_this, bool value));
+    void set_sync_meth_muxed(void (*)(vp::Block *_this, bool value, int), int id);
 
-    void set_set_frequency_meth(void (*)(void *_this, int64_t frequency));
-    void set_set_frequency_meth_muxed(void (*)(void *_this, int64_t, int), int id);
+    void set_set_frequency_meth(void (*)(vp::Block *_this, int64_t frequency));
+    void set_set_frequency_meth_muxed(void (*)(vp::Block *_this, int64_t, int), int id);
 
     inline void bind_to(vp::Port *_port, js::Config *config);
 
 
   private:
 
-    void (*sync)(void *comp, bool value);
-    void (*sync_mux)(void *comp, bool value, int id);
+    void (*sync)(vp::Block *comp, bool value);
+    void (*sync_mux)(vp::Block *comp, bool value, int id);
 
-    void (*set_frequency)(void *comp, int64_t frequency);
-    void (*set_frequency_mux)(void *comp, int64_t frequency, int id);
+    void (*set_frequency)(vp::Block *comp, int64_t frequency);
+    void (*set_frequency_mux)(vp::Block *comp, int64_t frequency, int id);
 
     int sync_mux_id;
   };

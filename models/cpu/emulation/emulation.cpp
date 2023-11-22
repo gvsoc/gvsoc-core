@@ -49,14 +49,14 @@ public:
 private:
     void sync_state(std::unique_lock<std::mutex> &lock);
     void check_state();
-    static void clock_sync(void *__this, bool active);
-    static void fetchen_sync(void *__this, bool active);
-    static void bootaddr_sync(void *__this, uint32_t value);
-    static void irq_req_sync(void *__this, int irq);
+    static void clock_sync(vp::Block *__this, bool active);
+    static void fetchen_sync(vp::Block *__this, bool active);
+    static void bootaddr_sync(vp::Block *__this, uint32_t value);
+    static void irq_req_sync(vp::Block *__this, int irq);
     static void data_grant(vp::Block *__this, vp::IoReq *req);
     static void data_response(vp::Block *__this, vp::IoReq *req);
-    static void flush_cache_sync(void *__this, bool active);
-    static void flush_cache_ack_sync(void *__this, bool active);
+    static void flush_cache_sync(vp::Block *__this, bool active);
+    static void flush_cache_ack_sync(vp::Block *__this, bool active);
 
     vp::Trace trace;
 
@@ -394,23 +394,23 @@ void emulation::data_response(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void emulation::flush_cache_sync(void *__this, bool active)
+void emulation::flush_cache_sync(vp::Block *__this, bool active)
 {
 }
 
-void emulation::flush_cache_ack_sync(void *__this, bool active)
+void emulation::flush_cache_ack_sync(vp::Block *__this, bool active)
 {
 }
 
 
-void emulation::bootaddr_sync(void *__this, uint32_t value)
+void emulation::bootaddr_sync(vp::Block *__this, uint32_t value)
 {
   emulation *_this = (emulation *)__this;
   _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting boot address (value: 0x%x)\n", value);
 }
 
 
-void emulation::irq_req_sync(void *__this, int irq)
+void emulation::irq_req_sync(vp::Block *__this, int irq)
 {
     emulation *_this = (emulation *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "IRQ request (irq: %d)\n", irq);
@@ -423,7 +423,7 @@ void emulation::irq_req_sync(void *__this, int irq)
 }
 
 
-void emulation::fetchen_sync(void *__this, bool active)
+void emulation::fetchen_sync(vp::Block *__this, bool active)
 {
     emulation *_this = (emulation *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG,"Setting fetch enable (active: %d)\n", active);
@@ -434,7 +434,7 @@ void emulation::fetchen_sync(void *__this, bool active)
 }
 
 
-void emulation::clock_sync(void *__this, bool active)
+void emulation::clock_sync(vp::Block *__this, bool active)
 {
     emulation *_this = (emulation *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting clock (active: %d)\n", active);

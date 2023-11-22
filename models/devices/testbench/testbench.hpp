@@ -369,8 +369,8 @@ class Spi
 public:
     Spi(Testbench *top, int itf, int cs);
 
-    static void sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    static void cs_sync(void *_this, bool active);
+    static void sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    static void cs_sync(vp::Block *_this, bool active);
 
     void spim_verif_setup(pi_testbench_req_spim_verif_setup_t *config);
     void spim_verif_transfer(pi_testbench_req_spim_verif_transfer_t *transfer);
@@ -402,7 +402,7 @@ public:
     void i2s_verif_slot_setup(pi_testbench_i2s_verif_slot_config_t *config);
     void i2s_verif_slot_start(pi_testbench_i2s_verif_slot_start_config_t *config, std::vector<int> slots);
     void i2s_verif_slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config);
-    static void sync(void *__this, int sck, int ws, int sd, bool full_duplex);
+    static void sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex);
     void sync_sck(int sck);
     void sync_ws(int ws);
 
@@ -526,8 +526,8 @@ public:
 
 private:
 
-    static void sync(void *__this, int data);
-    static void sync_full(void *__this, int data, int clk, int rtr, unsigned int mask);
+    static void sync(vp::Block *__this, int data);
+    static void sync_full(vp::Block *__this, int data, int clk, int rtr, unsigned int mask);
 
     void uart_tx_sampling();
 
@@ -664,8 +664,8 @@ private:
     void handle_i2s_verif_slot_start(std::vector<int> slots);
     void handle_i2s_verif_slot_stop();
 
-    static void gpio_sync(void *__this, int value, int id);
-    static void i2c_sync(void *__this, int scl, int sda, int id);
+    static void gpio_sync(vp::Block *__this, int value, int id);
+    static void i2c_sync(vp::Block *__this, int scl, int sda, int id);
 
     string ctrl_type;
     uint64_t period;

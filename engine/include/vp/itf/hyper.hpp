@@ -32,11 +32,11 @@ namespace vp {
 
 
 
-  typedef void (HyperSyncCycleMeth)(void *, int data);
-  typedef void (HyperCsSyncMeth)(void *, int cs, int active);
+  typedef void (HyperSyncCycleMeth)(vp::Block *, int data);
+  typedef void (HyperCsSyncMeth)(vp::Block *, int cs, int active);
 
-  typedef void (HyperSyncCycleMethMuxed)(void *, int data, int id);
-  typedef void (HyperCsSyncMethMuxed)(void *, int cs, int active, int id);
+  typedef void (HyperSyncCycleMethMuxed)(vp::Block *, int data, int id);
+  typedef void (HyperCsSyncMethMuxed)(vp::Block *, int cs, int active, int id);
 
 
   class HyperMaster : public vp::MasterPort
@@ -49,12 +49,12 @@ namespace vp {
 
     inline void sync_cycle(int data)
     {
-      return sync_cycle_meth(this->get_remote_context(), data);
+      return sync_cycle_meth((vp::Block *)this->get_remote_context(), data);
     }
 
     inline void cs_sync(int cs, int active)
     {
-      return cs_sync_meth(this->get_remote_context(), cs, active);
+      return cs_sync_meth((vp::Block *)this->get_remote_context(), cs, active);
     }
 
     void bind_to(vp::Port *port, js::Config *config);
@@ -69,15 +69,15 @@ namespace vp {
     static inline void sync_cycle_muxed_stub(HyperMaster *_this, int data);
     static inline void cs_sync_muxed_stub(HyperMaster *_this, int cs, int active);
 
-    void (*slave_sync_cycle)(void *comp, int data);
-    void (*slave_sync_cycle_mux)(void *comp, int data, int mux);
+    void (*slave_sync_cycle)(vp::Block *comp, int data);
+    void (*slave_sync_cycle_mux)(vp::Block *comp, int data, int mux);
 
-    void (*sync_cycle_meth)(void *, int data);
-    void (*sync_cycle_meth_mux)(void *, int data, int mux);
-    void (*cs_sync_meth)(void *, int cs, int active);
-    void (*cs_sync_meth_mux)(void *, int cs, int active, int mux);
+    void (*sync_cycle_meth)(vp::Block *, int data);
+    void (*sync_cycle_meth_mux)(vp::Block *, int data, int mux);
+    void (*cs_sync_meth)(vp::Block *, int cs, int active);
+    void (*cs_sync_meth_mux)(vp::Block *, int cs, int active, int mux);
 
-    static inline void sync_cycle_default(void *, int data);
+    static inline void sync_cycle_default(vp::Block *, int data);
 
 
     vp::Component *comp_mux;
@@ -99,7 +99,7 @@ namespace vp {
 
     inline void sync_cycle(int data)
     {
-      slave_sync_cycle_meth(this->get_remote_context(), data);
+      slave_sync_cycle_meth((vp::Block *)this->get_remote_context(), data);
     }
 
     inline void set_sync_cycle_meth(HyperSyncCycleMeth *meth);
@@ -115,13 +115,13 @@ namespace vp {
   private:
 
 
-    void (*slave_sync_cycle_meth)(void *, int data);
-    void (*slave_sync_cycle_meth_mux)(void *, int data, int mux);
+    void (*slave_sync_cycle_meth)(vp::Block *, int data);
+    void (*slave_sync_cycle_meth_mux)(vp::Block *, int data, int mux);
 
-    void (*sync_cycle_meth)(void *comp, int data);
-    void (*sync_cycle_mux_meth)(void *comp, int data, int mux);
-    void (*cs_sync)(void *comp, int cs, int active);
-    void (*cs_sync_mux)(void *comp, int cs, int active, int mux);
+    void (*sync_cycle_meth)(vp::Block *comp, int data);
+    void (*sync_cycle_mux_meth)(vp::Block *comp, int data, int mux);
+    void (*cs_sync)(vp::Block *comp, int cs, int active);
+    void (*cs_sync_mux)(vp::Block *comp, int cs, int active, int mux);
 
     static inline void sync_cycle_default(HyperSlave *, int data);
     static inline void cs_sync_default(HyperSlave *, int cs, int active);
@@ -140,7 +140,7 @@ namespace vp {
   }
 
 
-  inline void HyperMaster::sync_cycle_default(void *, int data)
+  inline void HyperMaster::sync_cycle_default(vp::Block *, int data)
   {
   }
 

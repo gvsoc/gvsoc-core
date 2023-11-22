@@ -32,14 +32,14 @@ namespace vp {
 
 
 
-  typedef void (QspimSyncMeth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-  typedef void (QspimCsSyncMeth)(void *, int cs, int active);
+  typedef void (QspimSyncMeth)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+  typedef void (QspimCsSyncMeth)(vp::Block *, int cs, int active);
 
-  typedef void (QspimSyncMethMuxed)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
-  typedef void (QspimCsSyncMethMuxed)(void *, int cs, int active, int id);
+  typedef void (QspimSyncMethMuxed)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+  typedef void (QspimCsSyncMethMuxed)(vp::Block *, int cs, int active, int id);
 
-  typedef void (QspimSlaveSyncMeth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-  typedef void (QspimSlaveSyncMethMuxed)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+  typedef void (QspimSlaveSyncMeth)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+  typedef void (QspimSlaveSyncMethMuxed)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
 
 
 
@@ -53,12 +53,12 @@ namespace vp {
 
     inline void sync(int sck, int data_0, int data_1, int data_2, int data_3, int mask)
     {
-      return sync_meth(this->get_remote_context(), sck, data_0, data_1, data_2, data_3, mask);
+      return sync_meth((vp::Block *)this->get_remote_context(), sck, data_0, data_1, data_2, data_3, mask);
     }
 
     inline void cs_sync(int cs, int active)
     {
-      return cs_sync_meth(this->get_remote_context(), cs, active);
+      return cs_sync_meth((vp::Block *)this->get_remote_context(), cs, active);
     }
 
     void bind_to(vp::Port *port, js::Config *config);
@@ -74,15 +74,15 @@ namespace vp {
     static inline void sync_muxed_stub(QspimMaster *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
     static inline void cs_sync_muxed_stub(QspimMaster *_this, int cs, int active);
 
-    void (*slave_sync)(void *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    void (*slave_sync_mux)(void *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+    void (*slave_sync)(vp::Block *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    void (*slave_sync_mux)(vp::Block *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
 
-    void (*sync_meth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    void (*sync_meth_mux)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int mux);
-    void (*cs_sync_meth)(void *, int cs, int active);
-    void (*cs_sync_meth_mux)(void *, int cs, int active, int mux);
+    void (*sync_meth)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    void (*sync_meth_mux)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int mux);
+    void (*cs_sync_meth)(vp::Block *, int cs, int active);
+    void (*cs_sync_meth_mux)(vp::Block *, int cs, int active, int mux);
 
-    static inline void sync_default(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    static inline void sync_default(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
 
 
     vp::Component *comp_mux;
@@ -105,7 +105,7 @@ namespace vp {
 
     inline void sync(int sck, int data_0, int data_1, int data_2, int data_3, int mask)
     {
-      slave_sync_meth(this->get_remote_context(), sck, data_0, data_1, data_2, data_3, mask);
+      slave_sync_meth((vp::Block *)this->get_remote_context(), sck, data_0, data_1, data_2, data_3, mask);
     }
 
     inline void set_sync_meth(QspimSyncMeth *meth);
@@ -121,13 +121,13 @@ namespace vp {
     static inline void sync_muxed_stub(QspimSlave *_this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
 
 
-    void (*slave_sync_meth)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    void (*slave_sync_meth_mux)(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int mux);
+    void (*slave_sync_meth)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    void (*slave_sync_meth_mux)(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int mux);
 
-    void (*sync_meth)(void *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-    void (*sync_mux_meth)(void *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int mux);
-    void (*cs_sync)(void *comp, int cs, int active);
-    void (*cs_sync_mux)(void *comp, int cs, int active, int mux);
+    void (*sync_meth)(vp::Block *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+    void (*sync_mux_meth)(vp::Block *comp, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int mux);
+    void (*cs_sync)(vp::Block *comp, int cs, int active);
+    void (*cs_sync_mux)(vp::Block *comp, int cs, int active, int mux);
 
     static inline void sync_default(QspimSlave *, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
     static inline void cs_sync_default(QspimSlave *, int cs, int active);
@@ -197,7 +197,7 @@ namespace vp {
     mux_id = id;
   }
 
-  inline void QspimMaster::sync_default(void *, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+  inline void QspimMaster::sync_default(vp::Block *, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
   {
   }
 

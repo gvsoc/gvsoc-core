@@ -70,7 +70,7 @@ inline vp::ClockEvent *vp::Block::event_new(vp::ClockEventMeth *meth)
     return event;
 }
 
-inline vp::ClockEvent *vp::Block::event_new(void *_this, vp::ClockEventMeth *meth)
+inline vp::ClockEvent *vp::Block::event_new(vp::Block *_this, vp::ClockEventMeth *meth)
 {
     ClockEvent *event = new vp::ClockEvent(this);
     event->_this = (vp::Block *)_this;

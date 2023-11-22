@@ -28,7 +28,7 @@ namespace vp
 {
     class TimeEvent;
 
-    typedef void (TimeEventMeth)(void *, TimeEvent *event);
+    typedef void (TimeEventMeth)(vp::Block *, TimeEvent *event);
 
     #define TIME_EVENT_PAYLOAD_SIZE 64
     #define TIME_EVENT_NB_ARGS 8

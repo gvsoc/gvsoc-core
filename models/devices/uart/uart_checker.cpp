@@ -62,7 +62,7 @@ private:
     void start_rx_sampling(int baudrate);
     void stop_rx_sampling();
 
-    static void sync(void *__this, int data);
+    static void sync(vp::Block *__this, int data);
 
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
@@ -202,7 +202,7 @@ void Uart_checker::event_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void Uart_checker::sync(void *__this, int data)
+void Uart_checker::sync(vp::Block *__this, int data)
 {
     Uart_checker *_this = (Uart_checker *)__this;
 

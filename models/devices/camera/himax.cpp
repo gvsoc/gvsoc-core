@@ -100,7 +100,7 @@ public:
 protected:
 
     static void clock_handler(vp::Block *__this, vp::ClockEvent *event);
-    static void i2c_sync(void *__this, int scl, int sda);
+    static void i2c_sync(vp::Block *__this, int scl, int sda);
 
     vp::CpiMaster cpi_itf;
     vp::I2cSlave i2c_itf;
@@ -308,7 +308,7 @@ unsigned int Camera_stream::get_pixel()
 }
 
 
-void Himax::i2c_sync(void *__this, int scl, int sda)
+void Himax::i2c_sync(vp::Block *__this, int scl, int sda)
 {
 }
 
@@ -524,7 +524,7 @@ Himax::Himax(vp::ComponentConf &config)
     this->i2c_itf.set_sync_meth(&Himax::i2c_sync);
     this->new_slave_port("i2c", &this->i2c_itf);
 
-    this->clock_event = this->event_new(this, Himax::clock_handler);
+    this->clock_event = this->event_new((vp::Block *)this, Himax::clock_handler);
 
 #ifdef __MAGICK__
     InitializeMagick(NULL);

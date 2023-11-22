@@ -51,8 +51,8 @@ public:
 
   void handle_access(int reg_access, int address, int read, uint8_t data);
 
-  static void sync_cycle(void *_this, int data);
-  static void cs_sync(void *__this, int cs, int value);
+  static void sync_cycle(vp::Block *_this, int data);
+  static void cs_sync(vp::Block *__this, int cs, int value);
 
 protected:
   vp::Trace     trace;
@@ -136,7 +136,7 @@ Hyperram::Hyperram(vp::ComponentConf &config)
 
 
 
-void Hyperram::sync_cycle(void *__this, int data)
+void Hyperram::sync_cycle(vp::Block *__this, int data)
 {
   Hyperram *_this = (Hyperram *)__this;
 
@@ -163,7 +163,7 @@ void Hyperram::sync_cycle(void *__this, int data)
   }
 }
 
-void Hyperram::cs_sync(void *__this, int cs, int value)
+void Hyperram::cs_sync(vp::Block *__this, int cs, int value)
 {
   Hyperram *_this = (Hyperram *)__this;
   _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);

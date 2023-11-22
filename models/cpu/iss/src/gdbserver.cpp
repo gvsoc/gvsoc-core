@@ -33,7 +33,7 @@ Gdbserver::Gdbserver(Iss &iss)
 void Gdbserver::build()
 {
     this->iss.top.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
-    this->event = this->iss.top.event_new(this, &Gdbserver::handle_pending_io_access_stub);
+    this->event = this->iss.top.event_new((vp::Block *)this, &Gdbserver::handle_pending_io_access_stub);
     this->io_itf.set_resp_meth(&Gdbserver::data_response);
     this->iss.top.new_master_port("data_debug", &this->io_itf, (vp::Block *)this);
 }

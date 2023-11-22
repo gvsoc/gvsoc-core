@@ -80,7 +80,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param data   Data transmitted through the octospi data line.
      */
-    static void sync_cycle_stub(void *__this, int data);
+    static void sync_cycle_stub(vp::Block *__this, int data);
 
     /**
      * @brief Handle chip select update
@@ -103,7 +103,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
-    static void cs_sync_stub(void *__this, int cs, int value);
+    static void cs_sync_stub(vp::Block *__this, int cs, int value);
 
     /**
      * @brief Handle an access to the ram array
@@ -407,7 +407,7 @@ void Aps::sync_cycle(int data)
 
 
 
-void Aps::sync_cycle_stub(void *__this, int data)
+void Aps::sync_cycle_stub(vp::Block *__this, int data)
 {
     // Stub for real method, just forward the call
     Aps *_this = (Aps *)__this;
@@ -426,7 +426,7 @@ void Aps::cs_sync(int cs, int value)
 
 
 
-void Aps::cs_sync_stub(void *__this, int cs, int value)
+void Aps::cs_sync_stub(vp::Block *__this, int cs, int value)
 {
     // Stub for real method, just forward the call
     Aps *_this = (Aps *)__this;

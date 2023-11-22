@@ -170,7 +170,7 @@ I2c_eeprom::I2c_eeprom(vp::ComponentConf &config)
     this->memory.initialize_memory(this->number_of_pages, this->page_size, 0x55);
 }
 
-void I2c_eeprom::i2c_sync(void *__this, int scl, int sda)
+void I2c_eeprom::i2c_sync(vp::Block *__this, int scl, int sda)
 {
     assert(NULL != __this);
     I2c_eeprom* _this = (I2c_eeprom*) __this;

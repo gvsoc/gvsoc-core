@@ -42,7 +42,7 @@ public:
     int check();
     void wfi_handle();
     void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
+    static void irq_req_sync(vp::Block *__this, int irq);
 
     Iss &iss;
     iss_reg_t vectors[35];

@@ -96,7 +96,7 @@ Mem_plug_port::Mem_plug_port(Mem_plug_implem *top, std::string name, vp::Compone
     : Block(top, name), top(top), pending_req(this, name), comp(comp)
 {
     comp->traces.new_trace(path, &this->trace, vp::DEBUG);
-    this->event = comp->event_new((void *)this, Mem_plug_port::event_handler);
+    this->event = comp->event_new((vp::Block *)this, Mem_plug_port::event_handler);
     this->out_itf = out_itf;
 }
 

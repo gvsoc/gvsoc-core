@@ -39,19 +39,19 @@ namespace vp {
 
     WireMaster();
 
-    void set_sync_meth(void (*)(void *_this, T value));
-    void set_sync_meth_muxed(void (*)(void *_this, T value, int), int id);
+    void set_sync_meth(void (*)(vp::Block *_this, T value));
+    void set_sync_meth_muxed(void (*)(vp::Block *_this, T value, int), int id);
 
     inline void sync(T value)
     {
       if (next) next->sync(value);
-      sync_meth(this->get_remote_context(), value);
+      sync_meth((vp::Block *)this->get_remote_context(), value);
     }
 
     inline void sync_back(T *value)
     {
       if (next) next->sync_back(value);
-      sync_back_meth(this->get_remote_context(), value);
+      sync_back_meth((vp::Block *)this->get_remote_context(), value);
     }
 
     void bind_to(vp::Port *port, js::Config *config);
@@ -65,19 +65,19 @@ namespace vp {
     static inline void sync_freq_cross_stub(WireMaster *_this, T value);
     static inline void sync_back_freq_cross_stub(WireMaster *_this, T *value);
     static inline void sync_back_muxed(WireMaster *_this, T *value);
-    void (*sync_meth)(void *, T value);
-    void (*sync_meth_mux)(void *, T value, int id);
-    void (*sync_back_meth)(void *, T *value);
-    void (*sync_back_meth_mux)(void *, T *value, int id);
+    void (*sync_meth)(vp::Block *, T value);
+    void (*sync_meth_mux)(vp::Block *, T value, int id);
+    void (*sync_back_meth)(vp::Block *, T *value);
+    void (*sync_back_meth_mux)(vp::Block *, T *value, int id);
 
-    void (*sync_meth_freq_cross)(void *, T value);
-    void (*sync_back_meth_freq_cross)(void *, T *value);
+    void (*sync_meth_freq_cross)(vp::Block *, T value);
+    void (*sync_back_meth_freq_cross)(vp::Block *, T *value);
 
-    void (*master_sync_meth)(void *comp, T value);
-    void (*master_sync_meth_mux)(void *comp, T value, int id);
+    void (*master_sync_meth)(vp::Block *comp, T value);
+    void (*master_sync_meth_mux)(vp::Block *comp, T value, int id);
 
     // Default sync callback, just do nothing.
-    static inline void sync_default(void *, T value) {}
+    static inline void sync_default(vp::Block *, T value) {}
 
     vp::Component *comp_mux;
     int sync_mux;
@@ -85,7 +85,7 @@ namespace vp {
     WireSlave<T> *SlavePort = NULL;
     WireMaster<T> *next = NULL;
 
-    void *slave_context_for_freq_cross;
+    vp::Block *slave_context_for_freq_cross;
 
     int master_sync_mux_id;
   };
@@ -104,14 +104,14 @@ namespace vp {
 
     inline void sync(T value)
     {
-      this->master_sync_meth(this->get_remote_context(), value);
+      this->master_sync_meth((vp::Block *)this->get_remote_context(), value);
     }
 
-    void set_sync_meth(void (*)(void *_this, T value));
-    void set_sync_meth_muxed(void (*)(void *_this, T value, int), int id);
+    void set_sync_meth(void (*)(vp::Block *_this, T value));
+    void set_sync_meth_muxed(void (*)(vp::Block *_this, T value, int), int id);
 
-    void set_sync_back_meth(void (*)(void *_this, T *value));
-    void set_sync_back_meth_muxed(void (*)(void *_this, T *value, int), int id);
+    void set_sync_back_meth(void (*)(vp::Block *_this, T *value));
+    void set_sync_back_meth_muxed(void (*)(vp::Block *_this, T *value, int), int id);
 
     inline void bind_to(vp::Port *_port, js::Config *config);
 
@@ -124,14 +124,14 @@ namespace vp {
     
     static inline void sync_muxed_stub(WireSlave *_this, T value);
 
-    void (*sync_meth)(void *comp, T value);
-    void (*sync_meth_mux)(void *comp, T value, int id);
+    void (*sync_meth)(vp::Block *comp, T value);
+    void (*sync_meth_mux)(vp::Block *comp, T value, int id);
 
-    void (*sync_back)(void *comp, T *value);
-    void (*sync_back_mux)(void *comp, T *value, int id);
+    void (*sync_back)(vp::Block *comp, T *value);
+    void (*sync_back_mux)(vp::Block *comp, T *value, int id);
 
-    void (*master_sync_meth)(void *comp, T value);
-    void (*master_sync_meth_mux)(void *comp, T value, int id);
+    void (*master_sync_meth)(vp::Block *comp, T value);
+    void (*master_sync_meth_mux)(vp::Block *comp, T value, int id);
 
     int sync_mux_id;
 

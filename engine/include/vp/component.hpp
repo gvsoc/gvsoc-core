@@ -263,13 +263,13 @@ namespace vp
         static void clk_set_frequency(Component *_this, int64_t frequency);
 
         // Power interface handle to propagate supply change to power framework
-        static void power_supply_sync(void *_this, int state);
+        static void power_supply_sync(vp::Block *_this, int state);
 
         // Power interface handle to propagate voltage change to power framework
-        static void voltage_sync(void *_this, int voltage);
+        static void voltage_sync(vp::Block *_this, int voltage);
 
         // Reset interface handle to propagate reset to all childs
-        static void reset_sync(void *_this, bool active);
+        static void reset_sync(vp::Block *_this, bool active);
 
         // Name of the component
         string name;

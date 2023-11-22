@@ -33,7 +33,7 @@ public:
     void reset(bool active);
 
 private:
-    static void sync(void *__this, int value);
+    static void sync(vp::Block *__this, int value);
 
     vp::WireSlave<int> in_itf;
     int value;
@@ -48,7 +48,7 @@ Switch::Switch(vp::ComponentConf &config)
     this->value = this->get_js_config()->get_child_int("value");
 }
 
-void Switch::sync(void *__this, int value)
+void Switch::sync(vp::Block *__this, int value)
 {
 
 }

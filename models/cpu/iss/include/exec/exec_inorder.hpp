@@ -137,10 +137,10 @@ public:
 
 
 private:
-    static void flush_cache_ack_sync(void *_this, bool active);
-    static void clock_sync(void *_this, bool active);
-    static void bootaddr_sync(void *_this, uint32_t value);
-    static void fetchen_sync(void *_this, bool active);
+    static void flush_cache_ack_sync(vp::Block *_this, bool active);
+    static void clock_sync(vp::Block *_this, bool active);
+    static void bootaddr_sync(vp::Block *_this, uint32_t value);
+    static void fetchen_sync(vp::Block *_this, bool active);
 
     Iss &iss;
 

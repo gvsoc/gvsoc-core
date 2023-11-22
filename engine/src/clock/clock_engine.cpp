@@ -381,7 +381,7 @@ vp::ClockEvent *vp::ClockEngine::reenqueue_ext(vp::ClockEvent *event, int64_t en
     return this->reenqueue(event, enqueue_cycles);
 }
 
-void vp::ClockEngine::set_frequency(void *__this, int64_t frequency)
+void vp::ClockEngine::set_frequency(vp::Block *__this, int64_t frequency)
 {
     ClockEngine *_this = (ClockEngine *)__this;
     _this->out.set_frequency(frequency);

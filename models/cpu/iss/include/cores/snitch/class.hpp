@@ -80,7 +80,7 @@ public:
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
-    static void barrier_sync(void *__this, bool value);
+    static void barrier_sync(vp::Block *__this, bool value);
 
     vp::WireMaster<bool> barrier_req_itf;
     vp::WireSlave<bool> barrier_ack_itf;

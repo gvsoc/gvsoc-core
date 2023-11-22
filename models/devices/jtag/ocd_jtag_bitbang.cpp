@@ -43,7 +43,7 @@ private:
     bool open_proxy();
 
     void set_jtag_pads(int tck, int tms, int tdi, int trst);
-    static void sync(void *__this, int tdo);
+    static void sync(vp::Block *__this, int tdo);
 
     int port;
     int proxy_socket_in;
@@ -82,7 +82,7 @@ void Jtag::set_jtag_pads(int tck, int tms, int tdi, int trst)
 }
 
 
-void Jtag::sync(void *__this, int tdo)
+void Jtag::sync(vp::Block *__this, int tdo)
 {
     Jtag *_this = (Jtag *)__this;
     _this->tdo = tdo;

@@ -37,9 +37,9 @@ public:
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 private:
-    static void power_ctrl_sync(void *__this, bool value);
-    static void meminfo_sync_back(void *__this, void **value);
-    static void meminfo_sync(void *__this, void *value);
+    static void power_ctrl_sync(vp::Block *__this, bool value);
+    static void meminfo_sync_back(vp::Block *__this, void **value);
+    static void meminfo_sync(vp::Block *__this, void *value);
     vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data);
     vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data);
     vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
@@ -414,7 +414,7 @@ void Memory::reset(bool active)
 
 
 
-void Memory::power_ctrl_sync(void *__this, bool value)
+void Memory::power_ctrl_sync(vp::Block *__this, bool value)
 {
     Memory *_this = (Memory *)__this;
     _this->powered_up = value;
@@ -422,7 +422,7 @@ void Memory::power_ctrl_sync(void *__this, bool value)
 
 
 
-void Memory::meminfo_sync_back(void *__this, void **value)
+void Memory::meminfo_sync_back(vp::Block *__this, void **value)
 {
     Memory *_this = (Memory *)__this;
     *value = _this->mem_data;
@@ -430,7 +430,7 @@ void Memory::meminfo_sync_back(void *__this, void **value)
 
 
 
-void Memory::meminfo_sync(void *__this, void *value)
+void Memory::meminfo_sync(vp::Block *__this, void *value)
 {
     Memory *_this = (Memory *)__this;
     _this->mem_data = (uint8_t *)value;

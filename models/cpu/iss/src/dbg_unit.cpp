@@ -70,7 +70,7 @@ void DbgUnit::set_halt_mode(bool halted, int cause)
     }
 }
 
-void DbgUnit::halt_sync(void *__this, bool halted)
+void DbgUnit::halt_sync(vp::Block *__this, bool halted)
 {
     DbgUnit *_this = (DbgUnit *)__this;
 

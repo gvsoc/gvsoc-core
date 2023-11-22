@@ -78,8 +78,8 @@ public:
   void erase_chip();
   int setup_writeback_file(const char *path);
 
-  static void sync_cycle(void *_this, int data);
-  static void cs_sync(void *__this, int cs, int value);
+  static void sync_cycle(vp::Block *_this, int data);
+  static void cs_sync(vp::Block *__this, int cs, int value);
 
   int get_nb_word() {return nb_word;}
 
@@ -473,7 +473,7 @@ Hyperflash::Hyperflash(vp::ComponentConf &config)
 
 
 
-void Hyperflash::sync_cycle(void *__this, int data)
+void Hyperflash::sync_cycle(vp::Block *__this, int data)
 {
   Hyperflash *_this = (Hyperflash *)__this;
 
@@ -504,7 +504,7 @@ void Hyperflash::sync_cycle(void *__this, int data)
   }
 }
 
-void Hyperflash::cs_sync(void *__this, int cs, int value)
+void Hyperflash::cs_sync(vp::Block *__this, int cs, int value)
 {
   Hyperflash *_this = (Hyperflash *)__this;
   _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);

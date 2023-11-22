@@ -119,7 +119,7 @@ public:
 
 private:
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
-    static void irq_sync(void *__this, bool active, int port);
+    static void irq_sync(vp::Block *__this, bool active, int port);
 
     std::vector<vp::WireSlave<bool>> irq_itfs;
     vp::IoSlave input_itf;
@@ -156,7 +156,7 @@ private:
 
 
 
-void Plic::irq_sync(void *__this, bool active, int port)
+void Plic::irq_sync(vp::Block *__this, bool active, int port)
 {
     Plic *_this = (Plic *)__this;
     int id = port + 1;

@@ -125,8 +125,8 @@ namespace vp
         vp::TimeEvent *step_nofree(int64_t duration);
 
     private:
-        static void event_handler(void *__this, vp::TimeEvent *event);
-        static void event_handler_nofree(void *__this, vp::TimeEvent *event);
+        static void event_handler(vp::Block *__this, vp::TimeEvent *event);
+        static void event_handler_nofree(vp::Block *__this, vp::TimeEvent *event);
         Component *top;
     };
 }

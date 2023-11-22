@@ -68,7 +68,7 @@ bool Iss::barrier_update(bool is_write, iss_reg_t &value)
 
 
 // This gets called when the barrier is reached
-void Iss::barrier_sync(void *__this, bool value)
+void Iss::barrier_sync(vp::Block *__this, bool value)
 {
     Iss *_this = (Iss *)__this;
 

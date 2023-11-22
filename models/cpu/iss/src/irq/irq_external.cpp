@@ -140,7 +140,7 @@ void Irq::elw_irq_unstall()
     this->iss.exec.busy_enter();
 }
 
-void Irq::irq_req_sync(void *__this, int irq)
+void Irq::irq_req_sync(vp::Block *__this, int irq)
 {
     Irq *_this = (Irq *)__this;
 

@@ -32,11 +32,11 @@ namespace vp {
 
 
 
-  typedef void (CpiSyncMeth)(void *, int pclk, int href, int vsync, int data);
-  typedef void (CpiSyncMethMuxed)(void *, int pclk, int href, int vsync, int data, int id);
+  typedef void (CpiSyncMeth)(vp::Block *, int pclk, int href, int vsync, int data);
+  typedef void (CpiSyncMethMuxed)(vp::Block *, int pclk, int href, int vsync, int data, int id);
 
-  typedef void (CpiSyncCycleMeth)(void *, int href, int vsync, int data);
-  typedef void (CpiSyncCycleMethMuxed)(void *, int href, int vsync, int data, int id);
+  typedef void (CpiSyncCycleMeth)(vp::Block *, int href, int vsync, int data);
+  typedef void (CpiSyncCycleMethMuxed)(vp::Block *, int href, int vsync, int data, int id);
 
 
   class CpiMaster : public vp::MasterPort
@@ -49,12 +49,12 @@ namespace vp {
 
     inline void sync(int pclk, int href, int vsync, int data)
     {
-      return sync_meth(this->get_remote_context(), pclk, href, vsync, data);
+      return sync_meth((vp::Block *)this->get_remote_context(), pclk, href, vsync, data);
     }
 
     inline void sync_cycle(int href, int vsync, int data)
     {
-      return sync_cycle_meth(this->get_remote_context(), href, vsync, data);
+      return sync_cycle_meth((vp::Block *)this->get_remote_context(), href, vsync, data);
     }
 
     void bind_to(vp::Port *port, js::Config *config);
@@ -66,11 +66,11 @@ namespace vp {
     static inline void sync_muxed_stub(CpiMaster *_this, int pclk, int href, int vsync, int data);
     static inline void sync_cycle_muxed_stub(CpiMaster *_this, int href, int vsync, int data);
 
-    void (*sync_meth)(void *, int pclk, int href, int vsync, int data);
-    void (*sync_meth_mux)(void *, int pclk, int href, int vsync, int data, int mux);
+    void (*sync_meth)(vp::Block *, int pclk, int href, int vsync, int data);
+    void (*sync_meth_mux)(vp::Block *, int pclk, int href, int vsync, int data, int mux);
 
-    void (*sync_cycle_meth)(void *, int href, int vsync, int data);
-    void (*sync_cycle_meth_mux)(void *, int href, int vsync, int data, int mux);
+    void (*sync_cycle_meth)(vp::Block *, int href, int vsync, int data);
+    void (*sync_cycle_meth_mux)(vp::Block *, int href, int vsync, int data, int mux);
 
     vp::Component *comp_mux;
     int sync_mux;
@@ -99,11 +99,11 @@ namespace vp {
 
   private:
 
-    void (*sync_meth)(void *comp, int pclk, int href, int vsync, int data);
-    void (*sync_mux_meth)(void *comp, int pclk, int href, int vsync, int data, int mux);
+    void (*sync_meth)(vp::Block *comp, int pclk, int href, int vsync, int data);
+    void (*sync_mux_meth)(vp::Block *comp, int pclk, int href, int vsync, int data, int mux);
 
-    void (*sync_cycle_meth)(void *comp, int href, int vsync, int data);
-    void (*sync_cycle_mux_meth)(void *comp, int href, int vsync, int data, int mux);
+    void (*sync_cycle_meth)(vp::Block *comp, int href, int vsync, int data);
+    void (*sync_cycle_mux_meth)(vp::Block *comp, int href, int vsync, int data, int mux);
 
     static inline void sync_default(CpiSlave *, int pclk, int href, int vsync, int data);
     static inline void sync_cycle_default(CpiSlave *, int href, int vsync, int data);

@@ -39,7 +39,7 @@ class Dpi_chip_wrapper_callback : public gv::Wire_binding
 {
 public:
     void update(int data);
-    void (*function)(void *_this, int64_t, int);
+    void (*function)(vp::Block *_this, int64_t, int);
     void *_this;
 
     int *pad_value;
@@ -58,7 +58,7 @@ class Pad_group
 public:
     Pad_group(dpi_chip_wrapper *top, std::string name) : name(name), top(top) {}
 
-    static void edge_wrapper(void *_this, int64_t timestamp, int data);
+    static void edge_wrapper(vp::Block *_this, int64_t timestamp, int data);
     virtual void edge(Dpi_chip_wrapper_callback *callback, int64_t timestamp, int data) {}
     virtual bool bind(std::string pad_name, Dpi_chip_wrapper_callback *callback) { return false; }
 
@@ -211,18 +211,18 @@ public:
     void *external_bind(std::string comp_name, std::string itf_name, void *handle);
 
 private:
-    static void qspim_sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
-    static void qspim_cs_sync(void *__this, bool data, int id);
-    static void uart_rx_edge(void *__this, int data, int id);
-    static void uart_rx_edge_full(void *__this, int data, int sck, int rtr, unsigned int mask, int id);
-    static void uart_sync(void *__this, int data, int sck, int rtr, int id);
-    static void i2c_rx_edge(void *__this, int scl, int sda, int id);
-    static void i2c_sync(void *__this, int scl, int sda, int id);
-    static void hyper_sync_cycle(void *__this, int data, int id);
-    static void i2s_slave_edge(void *__this, int sck, int ws, int sd, bool full_duplex, int id);
-    static void cpi_edge(void *__this, int pclk, int href, int vsync, int data, int id);
-    static void gpio_rx_edge(void *__this, int data, int id);
-    static void gpio_sync(void *__this, int data, int id);
+    static void qspim_sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+    static void qspim_cs_sync(vp::Block *__this, bool data, int id);
+    static void uart_rx_edge(vp::Block *__this, int data, int id);
+    static void uart_rx_edge_full(vp::Block *__this, int data, int sck, int rtr, unsigned int mask, int id);
+    static void uart_sync(vp::Block *__this, int data, int sck, int rtr, int id);
+    static void i2c_rx_edge(vp::Block *__this, int scl, int sda, int id);
+    static void i2c_sync(vp::Block *__this, int scl, int sda, int id);
+    static void hyper_sync_cycle(vp::Block *__this, int data, int id);
+    static void i2s_slave_edge(vp::Block *__this, int sck, int ws, int sd, bool full_duplex, int id);
+    static void cpi_edge(vp::Block *__this, int pclk, int href, int vsync, int data, int id);
+    static void gpio_rx_edge(vp::Block *__this, int data, int id);
+    static void gpio_sync(vp::Block *__this, int data, int id);
 
     vp::Trace trace;
 
@@ -381,14 +381,14 @@ dpi_chip_wrapper::dpi_chip_wrapper(vp::ComponentConf &config)
 }
 
 
-void dpi_chip_wrapper::qspim_sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id)
+void dpi_chip_wrapper::qspim_sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Qspim_group *group = static_cast<Qspim_group *>(_this->groups[id]);
     group->rx_edge(sck, data_0, data_1, data_2, data_3, mask);
 }
 
-void dpi_chip_wrapper::qspim_cs_sync(void *__this, bool data, int id)
+void dpi_chip_wrapper::qspim_cs_sync(vp::Block *__this, bool data, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Qspim_group *group = static_cast<Qspim_group *>(_this->groups[id]);
@@ -396,7 +396,7 @@ void dpi_chip_wrapper::qspim_cs_sync(void *__this, bool data, int id)
 }
 
 
-void dpi_chip_wrapper::uart_rx_edge(void *__this, int data, int id)
+void dpi_chip_wrapper::uart_rx_edge(vp::Block *__this, int data, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Uart_group *group = static_cast<Uart_group *>(_this->groups[id]);
@@ -404,7 +404,7 @@ void dpi_chip_wrapper::uart_rx_edge(void *__this, int data, int id)
 }
 
 
-void dpi_chip_wrapper::uart_rx_edge_full(void *__this, int data, int sck, int rtr, unsigned int mask, int id)
+void dpi_chip_wrapper::uart_rx_edge_full(vp::Block *__this, int data, int sck, int rtr, unsigned int mask, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Uart_group *group = static_cast<Uart_group *>(_this->groups[id]);
@@ -412,14 +412,14 @@ void dpi_chip_wrapper::uart_rx_edge_full(void *__this, int data, int sck, int rt
 }
 
 
-void dpi_chip_wrapper::i2c_rx_edge(void *__this, int scl, int data, int id)
+void dpi_chip_wrapper::i2c_rx_edge(vp::Block *__this, int scl, int data, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     I2C_group *group = static_cast<I2C_group *>(_this->groups[id]);
 }
 
 
-void dpi_chip_wrapper::gpio_rx_edge(void *__this, int data, int id)
+void dpi_chip_wrapper::gpio_rx_edge(vp::Block *__this, int data, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Gpio_group *group = static_cast<Gpio_group *>(_this->groups[id]);
@@ -427,7 +427,7 @@ void dpi_chip_wrapper::gpio_rx_edge(void *__this, int data, int id)
 }
 
 
-void dpi_chip_wrapper::i2s_slave_edge(void *__this, int sck, int ws, int sd, bool full_duplex, int id)
+void dpi_chip_wrapper::i2s_slave_edge(vp::Block *__this, int sck, int ws, int sd, bool full_duplex, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     I2s_group *group = static_cast<I2s_group *>(_this->groups[id]);
@@ -435,7 +435,7 @@ void dpi_chip_wrapper::i2s_slave_edge(void *__this, int sck, int ws, int sd, boo
 }
 
 
-void dpi_chip_wrapper::cpi_edge(void *__this, int pclk, int href, int vsync, int data, int id)
+void dpi_chip_wrapper::cpi_edge(vp::Block *__this, int pclk, int href, int vsync, int data, int id)
 {
     dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
     Cpi_group *group = static_cast<Cpi_group *>(_this->groups[id]);
@@ -443,7 +443,7 @@ void dpi_chip_wrapper::cpi_edge(void *__this, int pclk, int href, int vsync, int
 }
 
 
-void dpi_chip_wrapper::hyper_sync_cycle(void *__this, int data, int id)
+void dpi_chip_wrapper::hyper_sync_cycle(vp::Block *__this, int data, int id)
 {
 #if 0
   dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
@@ -489,7 +489,7 @@ void *dpi_chip_wrapper::external_bind(std::string name, std::string itf_name, vo
     return NULL;
 }
 
-void Pad_group::edge_wrapper(void *__this, int64_t timestamp, int data)
+void Pad_group::edge_wrapper(vp::Block *__this, int64_t timestamp, int data)
 {
     Dpi_chip_wrapper_callback *callback = (Dpi_chip_wrapper_callback *)__this;
     Pad_group *_this = (Pad_group *)callback->group;

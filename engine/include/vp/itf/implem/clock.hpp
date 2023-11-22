@@ -56,9 +56,9 @@ namespace vp {
       else
       {
         sync_meth_mux = port->sync_mux;
-        sync_meth = (void (*)(void *, bool))&ClockMaster::sync_muxed;
+        sync_meth = (void (*)(vp::Block *, bool))&ClockMaster::sync_muxed;
         set_frequency_meth_mux = port->set_frequency_mux;
-        set_frequency_meth = (void (*)(void *, int64_t))&ClockMaster::set_frequency_muxed;
+        set_frequency_meth = (void (*)(vp::Block *, int64_t))&ClockMaster::set_frequency_muxed;
         set_remote_context(this);
         comp_mux = (vp::Component *)port->get_context();
         sync_mux = port->sync_mux_id;
@@ -67,11 +67,11 @@ namespace vp {
     }
   }
 
-  inline void ClockMaster::sync_default(void *, bool value)
+  inline void ClockMaster::sync_default(vp::Block *, bool value)
   {
   }
 
-  inline void ClockMaster::set_frequency_default(void *, int64_t value)
+  inline void ClockMaster::set_frequency_default(vp::Block *, int64_t value)
   {
   }
 
@@ -119,12 +119,12 @@ namespace vp {
         // Just save the normal handler and tweak it to enter the stub when the
         // master is pushing the request.
         port->sync_meth_freq_cross = port->sync_meth;
-        port->sync_meth = (void (*)(void *, bool))&ClockMaster::sync_freq_cross_stub;
+        port->sync_meth = (void (*)(vp::Block *, bool))&ClockMaster::sync_freq_cross_stub;
 
         port->set_frequency_meth_freq_cross = port->set_frequency_meth;
-        port->set_frequency_meth = (void (*)(void *, int64_t))&ClockMaster::set_frequency_freq_cross_stub;
+        port->set_frequency_meth = (void (*)(vp::Block *, int64_t))&ClockMaster::set_frequency_freq_cross_stub;
 
-        port->slave_context_for_freq_cross = port->get_remote_context();
+        port->slave_context_for_freq_cross = (vp::Block *)port->get_remote_context();
         port->set_remote_context(port);
       }
 
@@ -145,26 +145,26 @@ namespace vp {
     SlavePort->set_remote_context(port->get_context());
   }
 
-  inline void ClockSlave::set_sync_meth(void (*meth)(void *, bool))
+  inline void ClockSlave::set_sync_meth(void (*meth)(vp::Block *, bool))
   {
     sync = meth;
     sync_mux = NULL;
   }
 
-  inline void ClockSlave::set_sync_meth_muxed(void (*meth)(void *, bool, int), int id)
+  inline void ClockSlave::set_sync_meth_muxed(void (*meth)(vp::Block *, bool, int), int id)
   {
     sync = NULL;
     sync_mux = meth;
     sync_mux_id = id;
   }
 
-  inline void ClockSlave::set_set_frequency_meth(void (*meth)(void *, int64_t))
+  inline void ClockSlave::set_set_frequency_meth(void (*meth)(vp::Block *, int64_t))
   {
     set_frequency = meth;
     set_frequency_mux = NULL;
   }
 
-  inline void ClockSlave::set_set_frequency_meth_muxed(void (*meth)(void *, int64_t, int), int id)
+  inline void ClockSlave::set_set_frequency_meth_muxed(void (*meth)(vp::Block *, int64_t, int), int id)
   {
     set_frequency = NULL;
     set_frequency_mux = meth;

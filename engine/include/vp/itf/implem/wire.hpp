@@ -57,8 +57,8 @@ namespace vp {
       {
         sync_meth_mux = port->sync_meth_mux;
         sync_back_meth_mux = port->sync_back_mux;
-        sync_meth = (void (*)(void *, T))&WireMaster::sync_muxed;
-        sync_back_meth = (void (*)(void *, T *))&WireMaster::sync_back_muxed;
+        sync_meth = (void (*)(vp::Block *, T))&WireMaster::sync_muxed;
+        sync_back_meth = (void (*)(vp::Block *, T *))&WireMaster::sync_back_muxed;
         set_remote_context(this);
         comp_mux = (vp::Component *)port->get_context();
         sync_mux = port->sync_mux_id;
@@ -113,12 +113,12 @@ namespace vp {
       // Just save the normal handler and tweak it to enter the stub when the
       // master is pushing the request.
       this->sync_meth_freq_cross = this->sync_meth;
-      this->sync_meth = (void (*)(void *, T))&WireMaster<T>::sync_freq_cross_stub;
+      this->sync_meth = (void (*)(vp::Block *, T))&WireMaster<T>::sync_freq_cross_stub;
 
       this->sync_back_meth_freq_cross = this->sync_back_meth;
-      this->sync_back_meth = (void (*)(void *, T *))&WireMaster<T>::sync_back_freq_cross_stub;
+      this->sync_back_meth = (void (*)(vp::Block *, T *))&WireMaster<T>::sync_back_freq_cross_stub;
 
-      this->slave_context_for_freq_cross = this->get_remote_context();
+      this->slave_context_for_freq_cross = (vp::Block *)this->get_remote_context();
       this->set_remote_context(this);
     }
   }
@@ -144,7 +144,7 @@ namespace vp {
     else
     {
       this->master_sync_meth_mux = port->master_sync_meth_mux;
-      this->master_sync_meth = (void (*)(void *, T))&WireSlave<T>::sync_muxed_stub;
+      this->master_sync_meth = (void (*)(vp::Block *, T))&WireSlave<T>::sync_muxed_stub;
 
       set_remote_context(this);
       master_comp_mux = (vp::Component *)port->get_context();
@@ -153,14 +153,14 @@ namespace vp {
   }
 
   template<class T>
-  inline void WireMaster<T>::set_sync_meth(void (*meth)(void *, T))
+  inline void WireMaster<T>::set_sync_meth(void (*meth)(vp::Block *, T))
   {
     master_sync_meth = meth;
     master_sync_meth_mux = NULL;
   }
 
   template<class T>
-  inline void WireMaster<T>::set_sync_meth_muxed(void (*meth)(void *, T, int), int id)
+  inline void WireMaster<T>::set_sync_meth_muxed(void (*meth)(vp::Block *, T, int), int id)
   {
     master_sync_meth = NULL;
     master_sync_meth_mux = meth;
@@ -168,14 +168,14 @@ namespace vp {
   }
 
   template<class T>
-  inline void WireSlave<T>::set_sync_meth(void (*meth)(void *, T))
+  inline void WireSlave<T>::set_sync_meth(void (*meth)(vp::Block *, T))
   {
     sync_meth = meth;
     sync_meth_mux = NULL;
   }
 
   template<class T>
-  inline void WireSlave<T>::set_sync_meth_muxed(void (*meth)(void *, T, int), int id)
+  inline void WireSlave<T>::set_sync_meth_muxed(void (*meth)(vp::Block *, T, int), int id)
   {
     sync_meth = NULL;
     sync_meth_mux = meth;
@@ -187,14 +187,14 @@ namespace vp {
   }
 
   template<class T>
-  inline void WireSlave<T>::set_sync_back_meth(void (*meth)(void *, T *))
+  inline void WireSlave<T>::set_sync_back_meth(void (*meth)(vp::Block *, T *))
   {
     sync_back = meth;
     sync_back_mux = NULL;
   }
 
   template<class T>
-  inline void WireSlave<T>::set_sync_back_meth_muxed(void (*meth)(void *, T *, int), int id)
+  inline void WireSlave<T>::set_sync_back_meth_muxed(void (*meth)(vp::Block *, T *, int), int id)
   {
     sync_back = NULL;
     sync_back_mux = meth;

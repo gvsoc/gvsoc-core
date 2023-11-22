@@ -65,7 +65,7 @@ void Exec::build()
     this->stalled.set(false);
     this->halted.set(false);
 
-    instr_event = this->iss.top.event_new(&this->iss, Exec::exec_instr_check_all);
+    instr_event = this->iss.top.event_new((vp::Block *)&this->iss, Exec::exec_instr_check_all);
 
     this->bootaddr_offset = this->iss.top.get_js_config()->get_child_int("bootaddr_offset");
 
@@ -306,7 +306,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
 
 
-void Exec::clock_sync(void *__this, bool active)
+void Exec::clock_sync(vp::Block *__this, bool active)
 {
     Exec *_this = (Exec *)__this;
     _this->trace.msg("Setting clock (active: %d)\n", active);
@@ -316,7 +316,7 @@ void Exec::clock_sync(void *__this, bool active)
 
 
 
-void Exec::fetchen_sync(void *__this, bool active)
+void Exec::fetchen_sync(vp::Block *__this, bool active)
 {
     Exec *_this = (Exec *)__this;
     _this->trace.msg("Setting fetch enable (active: %d)\n", active);
@@ -338,7 +338,7 @@ void Exec::fetchen_sync(void *__this, bool active)
 
 
 
-void Exec::bootaddr_sync(void *__this, uint32_t value)
+void Exec::bootaddr_sync(vp::Block *__this, uint32_t value)
 {
     Exec *_this = (Exec *)__this;
     _this->trace.msg("Setting boot address (value: 0x%x)\n", value);
@@ -356,7 +356,7 @@ void Exec::pc_set(iss_addr_t value)
 
 
 
-void Exec::flush_cache_ack_sync(void *__this, bool active)
+void Exec::flush_cache_ack_sync(vp::Block *__this, bool active)
 {
     Exec *_this = (Exec *)__this;
     if (_this->iss.exec.cache_sync)

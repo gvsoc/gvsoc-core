@@ -171,7 +171,7 @@ Nina_b112::Nina_b112(vp::ComponentConf &config)
 }
 
 
-void Nina_b112::sync_full(void *__this, int data, int clk, int rts)
+void Nina_b112::sync_full(vp::Block *__this, int data, int clk, int rts)
 {
     Nina_b112 *_this = (Nina_b112 *)__this;
 

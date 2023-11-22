@@ -57,7 +57,7 @@ int vp::PowerTrace::init(Block *top, std::string name, vp::PowerTrace *parent)
     this->current_leakage_power = 0;
     this->current_leakage_power_timestamp = 0;
 
-    this->trace_event = this->top->event_new((void *)this, vp::PowerTrace::trace_handler);
+    this->trace_event = this->top->event_new((vp::Block *)this, vp::PowerTrace::trace_handler);
 
     return 0;
 }

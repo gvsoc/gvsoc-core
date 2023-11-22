@@ -41,7 +41,7 @@ public:
     Ak4332(vp::ComponentConf &conf);
 
 protected:
-    static void i2c_sync(void *__this, int scl, int sda);
+    static void i2c_sync(vp::Block *__this, int scl, int sda);
     void i2c_start(unsigned int address, bool is_read);
     void i2c_handle_byte(uint8_t byte);
     void i2c_stop();
@@ -141,7 +141,7 @@ void Ak4332::start()
 }
 
 
-void Ak4332::i2c_sync(void *__this, int scl, int sda)
+void Ak4332::i2c_sync(vp::Block *__this, int scl, int sda)
 {
     Ak4332 *_this = (Ak4332 *)__this;
 

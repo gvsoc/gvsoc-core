@@ -96,10 +96,10 @@ private:
 
     vp::ClockEvent *fsm_event;
 
-    static void enable_sync(void *_this, bool active);
-    static void flush_sync(void *_this, bool active);
-    static void flush_line_sync(void *_this, bool active);
-    static void flush_line_addr_sync(void *_this, uint32_t addr);
+    static void enable_sync(vp::Block *_this, bool active);
+    static void flush_sync(vp::Block *_this, bool active);
+    static void flush_line_sync(vp::Block *_this, bool active);
+    static void flush_line_addr_sync(vp::Block *_this, uint32_t addr);
 
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req, int port);
     vp::IoReqStatus handle_req(vp::IoReq *req);
@@ -466,27 +466,27 @@ unsigned int Cache::stepLru()
     }
 }
 
-void Cache::enable_sync(void *__this, bool active)
+void Cache::enable_sync(vp::Block *__this, bool active)
 {
     Cache *_this = (Cache *)__this;
     _this->enable(active);
 }
 
-void Cache::flush_sync(void *__this, bool active)
+void Cache::flush_sync(vp::Block *__this, bool active)
 {
     Cache *_this = (Cache *)__this;
     if (active)
         _this->flush();
 }
 
-void Cache::flush_line_sync(void *__this, bool active)
+void Cache::flush_line_sync(vp::Block *__this, bool active)
 {
     Cache *_this = (Cache *)__this;
     if (active)
         _this->flush_line(_this->flush_line_addr);
 }
 
-void Cache::flush_line_addr_sync(void *__this, uint32_t addr)
+void Cache::flush_line_addr_sync(vp::Block *__this, uint32_t addr)
 {
     Cache *_this = (Cache *)__this;
     _this->flush_line_addr = addr;

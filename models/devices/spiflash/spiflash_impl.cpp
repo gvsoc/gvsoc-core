@@ -95,14 +95,14 @@ public:
 
   spiflash(vp::ComponentConf &conf);
 
-  static void sector_erase(void *__this, int data_0, int data_1, int data_2, int data_3);
+  static void sector_erase(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
   static void sector_erase_done(vp::Block *__this, vp::ClockEvent *event);
-  static void quad_read(void *__this, int data_0, int data_1, int data_2, int data_3);
-  static void single_read(void *__this, int data_0, int data_1, int data_2, int data_3);
-  static void write_any_register(void *__this, int data_0, int data_1, int data_2, int data_3);
-  static void read_sr2v(void *__this, int data_0, int data_1, int data_2, int data_3);
-  static void read_sr2v_start(void *__this);
-  static void page_program(void *__this, int data_0, int data_1, int data_2, int data_3);
+  static void quad_read(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
+  static void single_read(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
+  static void write_any_register(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
+  static void read_sr2v(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
+  static void read_sr2v_start(vp::Block *__this);
+  static void page_program(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
 
 protected:
   vp::QspimSlave   in_itf;
@@ -110,8 +110,8 @@ protected:
 
 private:
 
-  static void sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
-  static void cs_sync(void *__this, bool active);
+  static void sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
+  static void cs_sync(vp::Block *__this, bool active);
 
   void handle_data(int data_0, int data_1, int data_2, int data_3);
   void start_command();
@@ -168,7 +168,7 @@ static command_t commands_descs[] = {
 };
 
 
-void spiflash::page_program(void *__this, int data_0, int data_1, int data_2, int data_3)
+void spiflash::page_program(vp::Block *__this, int data_0, int data_1, int data_2, int data_3)
 {
   spiflash *_this = (spiflash *)__this;
 
@@ -206,7 +206,7 @@ void spiflash::sector_erase_done(vp::Block *__this, vp::ClockEvent *event)
   _this->sr2v.raw |= 1<<2;
 }
 
-void spiflash::sector_erase(void *__this, int data_0, int data_1, int data_2, int data_3)
+void spiflash::sector_erase(vp::Block *__this, int data_0, int data_1, int data_2, int data_3)
 {
   spiflash *_this = (spiflash *)__this;
 
@@ -224,7 +224,7 @@ void spiflash::sector_erase(void *__this, int data_0, int data_1, int data_2, in
 
 }
 
-void spiflash::read_sr2v_start(void *__this)
+void spiflash::read_sr2v_start(vp::Block *__this)
 {
   spiflash *_this = (spiflash *)__this;
 
@@ -233,14 +233,14 @@ void spiflash::read_sr2v_start(void *__this)
   _this->send_bits();
 }
 
-void spiflash::read_sr2v(void *__this, int data_0, int data_1, int data_2, int data_3)
+void spiflash::read_sr2v(vp::Block *__this, int data_0, int data_1, int data_2, int data_3)
 {
   spiflash *_this = (spiflash *)__this;
 
   _this->send_bits();
 }
 
-void spiflash::quad_read(void *__this, int data_0, int data_1, int data_2, int data_3)
+void spiflash::quad_read(vp::Block *__this, int data_0, int data_1, int data_2, int data_3)
 {
   spiflash *_this = (spiflash *)__this;
 
@@ -281,7 +281,7 @@ void spiflash::quad_read(void *__this, int data_0, int data_1, int data_2, int d
 
 }
 
-void spiflash::single_read(void *__this, int data_0, int data_1, int data_2, int data_3)
+void spiflash::single_read(vp::Block *__this, int data_0, int data_1, int data_2, int data_3)
 {
   spiflash *_this = (spiflash *)__this;
 
@@ -354,7 +354,7 @@ void spiflash::send_bits()
   }
 }
 
-void spiflash::write_any_register(void *__this, int data_0, int data_1, int data_2, int data_3)
+void spiflash::write_any_register(vp::Block *__this, int data_0, int data_1, int data_2, int data_3)
 {
   spiflash *_this = (spiflash *)__this;
 
@@ -418,7 +418,7 @@ void spiflash::handle_data(int data_0, int data_1, int data_2, int data_3)
 }
 
 
-void spiflash::sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+void spiflash::sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
 {
   spiflash *_this = (spiflash *)__this;
   _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received edge (sck: %d, data_0: %d, data_1: %d, data_2: %d, data_3: %d)\n", sck, data_0, data_1, data_2, data_3);
@@ -428,7 +428,7 @@ void spiflash::sync(void *__this, int sck, int data_0, int data_1, int data_2, i
 }
 
 
-void spiflash::cs_sync(void *__this, bool active)
+void spiflash::cs_sync(vp::Block *__this, bool active)
 {
   spiflash *_this = (spiflash *)__this;  
   _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", active);

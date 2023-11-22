@@ -360,14 +360,14 @@ vp::TimeEvent *vp::Time_engine_stop_event::step_nofree(int64_t time)
     return event;
 }
 
-void vp::Time_engine_stop_event::event_handler(void *__this, vp::TimeEvent *event)
+void vp::Time_engine_stop_event::event_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();
     _this->top->time.get_engine()->retain_inc(1);
 }
 
-void vp::Time_engine_stop_event::event_handler_nofree(void *__this, vp::TimeEvent *event)
+void vp::Time_engine_stop_event::event_handler_nofree(vp::Block *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();

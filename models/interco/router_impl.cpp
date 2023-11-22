@@ -41,16 +41,16 @@ public:
   vp::WireSlave<uint32_t> write_stalls_itf;
   vp::WireSlave<uint32_t> stalls_itf;
 
-  static void nb_read_sync_back(void *__this, uint32_t *value);
-  static void nb_read_sync(void *__this, uint32_t value);
-  static void nb_write_sync_back(void *__this, uint32_t *value);
-  static void nb_write_sync(void *__this, uint32_t value);
-  static void read_stalls_sync_back(void *__this, uint32_t *value);
-  static void read_stalls_sync(void *__this, uint32_t value);
-  static void write_stalls_sync_back(void *__this, uint32_t *value);
-  static void write_stalls_sync(void *__this, uint32_t value);
-  static void stalls_sync_back(void *__this, uint32_t *value);
-  static void stalls_sync(void *__this, uint32_t value);
+  static void nb_read_sync_back(vp::Block *__this, uint32_t *value);
+  static void nb_read_sync(vp::Block *__this, uint32_t value);
+  static void nb_write_sync_back(vp::Block *__this, uint32_t *value);
+  static void nb_write_sync(vp::Block *__this, uint32_t value);
+  static void read_stalls_sync_back(vp::Block *__this, uint32_t *value);
+  static void read_stalls_sync(vp::Block *__this, uint32_t value);
+  static void write_stalls_sync_back(vp::Block *__this, uint32_t *value);
+  static void write_stalls_sync(vp::Block *__this, uint32_t value);
+  static void stalls_sync_back(vp::Block *__this, uint32_t *value);
+  static void stalls_sync(vp::Block *__this, uint32_t value);
 };
 
 class MapEntry {
@@ -569,62 +569,62 @@ inline void io_master_map::bind_to(vp::Port *_port, js::Config *config)
   entry->insert((router *)get_comp());
 }
 
-void Perf_counter::nb_read_sync_back(void *__this, uint32_t *value)
+void Perf_counter::nb_read_sync_back(vp::Block *__this, uint32_t *value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   *value = _this->nb_read;
 }
 
-void Perf_counter::nb_read_sync(void *__this, uint32_t value)
+void Perf_counter::nb_read_sync(vp::Block *__this, uint32_t value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   _this->nb_read = value;
 }
 
-void Perf_counter::nb_write_sync_back(void *__this, uint32_t *value)
+void Perf_counter::nb_write_sync_back(vp::Block *__this, uint32_t *value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   *value = _this->nb_write;
 }
 
-void Perf_counter::nb_write_sync(void *__this, uint32_t value)
+void Perf_counter::nb_write_sync(vp::Block *__this, uint32_t value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   _this->nb_write = value;
 }
 
-void Perf_counter::read_stalls_sync_back(void *__this, uint32_t *value)
+void Perf_counter::read_stalls_sync_back(vp::Block *__this, uint32_t *value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   *value = _this->read_stalls;
 }
 
-void Perf_counter::read_stalls_sync(void *__this, uint32_t value)
+void Perf_counter::read_stalls_sync(vp::Block *__this, uint32_t value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   _this->read_stalls = value;
 }
 
-void Perf_counter::write_stalls_sync_back(void *__this, uint32_t *value)
+void Perf_counter::write_stalls_sync_back(vp::Block *__this, uint32_t *value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   *value = _this->write_stalls;
 }
 
-void Perf_counter::write_stalls_sync(void *__this, uint32_t value)
+void Perf_counter::write_stalls_sync(vp::Block *__this, uint32_t value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   _this->write_stalls = value;
 }
 
-void Perf_counter::stalls_sync_back(void *__this, uint32_t *value)
+void Perf_counter::stalls_sync_back(vp::Block *__this, uint32_t *value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
 
   *value = _this->read_stalls + _this->write_stalls;
 }
 
-void Perf_counter::stalls_sync(void *__this, uint32_t value)
+void Perf_counter::stalls_sync(vp::Block *__this, uint32_t value)
 {
   Perf_counter *_this = (Perf_counter *)__this;
   _this->read_stalls = value;

@@ -47,7 +47,7 @@ public:
     Microphone(vp::ComponentConf &conf);
 
 protected:
-    static void sync(void *__this, int sck, int ws, int sd, bool is_full_duplex);
+    static void sync(vp::Block *__this, int sck, int ws, int sd, bool is_full_duplex);
     void start_sample();
     int pop_data();
     int get_data();
@@ -81,7 +81,7 @@ protected:
     vp::Trace trace;
 
 
-    static void ws_in_sync(void *__this, int sck, int ws, int sd, bool full_duplex);
+    static void ws_in_sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex);
 
 };
 
@@ -340,7 +340,7 @@ Microphone::Microphone(vp::ComponentConf &config)
 
 }
 
-void Microphone::ws_in_sync(void *__this, int sck, int ws, int sd, bool full_duplex)
+void Microphone::ws_in_sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex)
 {
     Microphone *_this = (Microphone *)__this;
 
@@ -438,7 +438,7 @@ int Microphone::pop_data()
 }
 
 
-void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
+void Microphone::sync(vp::Block *__this, int sck, int ws, int sdio, bool is_full_duplex)
 {
     Microphone *_this = (Microphone *)__this;
 

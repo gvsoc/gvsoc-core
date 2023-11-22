@@ -35,7 +35,7 @@ public:
 private:
     static void edge_handler(vp::Block *__this, vp::ClockEvent *event);
     inline void raise_edge();
-    static void power_sync(void *__this, bool active);
+    static void power_sync(vp::Block *__this, bool active);
 
     vp::Trace trace;
     vp::WireSlave<bool> power_itf;
@@ -80,7 +80,7 @@ void Clock::edge_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void Clock::power_sync(void *__this, bool active)
+void Clock::power_sync(vp::Block *__this, bool active)
 {
     Clock *_this = (Clock *)__this;
 

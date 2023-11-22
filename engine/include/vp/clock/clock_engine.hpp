@@ -157,7 +157,7 @@ namespace vp
 
         void pre_start();
 
-        static void set_frequency(void *__this, int64_t frequency);
+        static void set_frequency(vp::Block *__this, int64_t frequency);
 
         vp::ClkMaster out;
 

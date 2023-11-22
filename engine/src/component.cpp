@@ -346,7 +346,7 @@ gv::GvsocLauncher *vp::Component::get_launcher()
 }
 
 
-void vp::Component::reset_sync(void *__this, bool active)
+void vp::Component::reset_sync(vp::Block *__this, bool active)
 {
     Component *_this = (Component *)__this;
     _this->reset_all(active, true);
@@ -489,13 +489,13 @@ void vp::Component::create_bindings()
     }
 }
 
-void vp::Component::power_supply_sync(void *__this, int state)
+void vp::Component::power_supply_sync(vp::Block *__this, int state)
 {
     vp::Component *_this = (vp::Component *)__this;
     _this->power.power_supply_set_all((vp::PowerSupplyState)state);
 }
 
-void vp::Component::voltage_sync(void *__this, int voltage)
+void vp::Component::voltage_sync(vp::Block *__this, int voltage)
 {
     vp::Component *_this = (vp::Component *)__this;
     _this->power.voltage_set_all(voltage);

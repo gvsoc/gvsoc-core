@@ -74,7 +74,7 @@ void I2c_corruptor::st_start_event_handler(vp::Block* __this, vp::ClockEvent* ev
     }
 }
 
-void I2c_corruptor::i2c_sync(void *__this, int scl, int sda)
+void I2c_corruptor::i2c_sync(vp::Block *__this, int scl, int sda)
 {
     assert(NULL != __this);
     I2c_corruptor* _this = (I2c_corruptor*) __this;

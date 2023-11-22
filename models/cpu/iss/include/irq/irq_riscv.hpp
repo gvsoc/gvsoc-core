@@ -64,10 +64,10 @@ public:
     void wfi_handle();
     void elw_irq_unstall();
     void check_interrupts();
-    static void msi_sync(void *__this, bool value);
-    static void mti_sync(void *__this, bool value);
-    static void mei_sync(void *__this, bool value);
-    static void sei_sync(void *__this, bool value);
+    static void msi_sync(vp::Block *__this, bool value);
+    static void mti_sync(vp::Block *__this, bool value);
+    static void mei_sync(vp::Block *__this, bool value);
+    static void sei_sync(vp::Block *__this, bool value);
 
     Iss &iss;
 

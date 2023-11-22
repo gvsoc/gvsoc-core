@@ -303,7 +303,7 @@ namespace vp {
         /**
          * @brief DEPRECATED
         */
-        ClockEvent *event_new(void *_this, ClockEventMeth *meth);
+        ClockEvent *event_new(vp::Block *_this, ClockEventMeth *meth);
 
         /**
          * @brief DEPRECATED

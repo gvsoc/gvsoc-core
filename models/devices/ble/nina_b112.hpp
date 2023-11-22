@@ -228,7 +228,7 @@ private:
      *
      * Starting point of incoming data sampling/processing.
      */
-    static void sync_full(void *__this, int data, int clk, int rts);
+    static void sync_full(vp::Block *__this, int data, int clk, int rts);
 
     /**
      * \brief Update the RTR pin value

@@ -43,7 +43,7 @@ Uart_flow_control_checker::Uart_flow_control_checker(Testbench *top, Uart *uart,
     this->tx_size = 0;
     this->rx_timestamp = -1;
 
-    this->bw_limiter_event = top->event_new(this, Uart_flow_control_checker::bw_limiter_handler);
+    this->bw_limiter_event = top->event_new((vp::Block *)this, Uart_flow_control_checker::bw_limiter_handler);
 }
 
 
@@ -412,9 +412,9 @@ void Uart::send_byte(uint8_t byte)
 Uart::Uart(Testbench *top, int id)
 : top(top), id(id)
 {
-    this->uart_sampling_event = top->event_new(this, Uart::uart_sampling_handler);
-    this->uart_tx_event = top->event_new(this, Uart::uart_tx_handler);
-    this->init_event = top->event_new(this, Uart::init_handler);
+    this->uart_sampling_event = top->event_new((vp::Block *)this, Uart::uart_sampling_handler);
+    this->uart_tx_event = top->event_new((vp::Block *)this, Uart::uart_tx_handler);
+    this->init_event = top->event_new((vp::Block *)this, Uart::init_handler);
     this->itf.set_sync_meth(&Uart::sync);
     this->itf.set_sync_full_meth(&Uart::sync_full);
     this->top->new_slave_port("uart" + std::to_string(this->id), &this->itf, (vp::Block *)this);
@@ -480,7 +480,7 @@ void Uart::uart_sampling_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void Uart::sync_full(void *__this, int data, int clk, int rtr, unsigned int mask)
+void Uart::sync_full(vp::Block *__this, int data, int clk, int rtr, unsigned int mask)
 {
     Uart *_this = (Uart *)__this;
 
@@ -494,7 +494,7 @@ void Uart::sync_full(void *__this, int data, int clk, int rtr, unsigned int mask
 }
 
 
-void Uart::sync(void *__this, int data)
+void Uart::sync(vp::Block *__this, int data)
 {
     Uart *_this = (Uart *)__this;
 
@@ -830,7 +830,7 @@ void Spi::create_loader(js::Config *load_config)
 }
 
 
-void Spi::sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+void Spi::sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
 {
     Spi *_this = (Spi *)__this;
     if (_this->spim_verif)
@@ -840,7 +840,7 @@ void Spi::sync(void *__this, int sck, int data_0, int data_1, int data_2, int da
 }
 
 
-void Spi::cs_sync(void *__this, bool active)
+void Spi::cs_sync(vp::Block *__this, bool active)
 {
     Spi *_this = (Spi *)__this;
     if (_this->spim_verif)
@@ -851,7 +851,7 @@ void Spi::cs_sync(void *__this, bool active)
 
 
 
-void Testbench::gpio_sync(void *__this, int value, int id)
+void Testbench::gpio_sync(vp::Block *__this, int value, int id)
 {
     Testbench *_this = (Testbench *)__this;
     Gpio *gpio = _this->gpios[id];
@@ -1010,7 +1010,7 @@ void I2C::sync(int scl, int sda)
 }
 
 
-void Testbench::i2c_sync(void *__this, int scl, int sda, int id)
+void Testbench::i2c_sync(vp::Block *__this, int scl, int sda, int id)
 {
     Testbench *_this = (Testbench *)__this;
 
@@ -1759,7 +1759,7 @@ void Gpio::pulse_handler(vp::Block *__this, vp::ClockEvent *event)
 
 Gpio::Gpio(Testbench *top) : top(top)
 {
-    this->pulse_event = top->event_new(this, Gpio::pulse_handler);
+    this->pulse_event = top->event_new((vp::Block *)this, Gpio::pulse_handler);
     this->get_frequency = false;
 }
 
@@ -1850,7 +1850,7 @@ void I2s::i2s_verif_slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
 }
 
 
-void I2s::sync(void *__this, int sck, int ws, int sd, bool full_duplex)
+void I2s::sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex)
 {
     I2s *_this = (I2s *)__this;
 

@@ -93,7 +93,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param data   Data transmitted through the octospi data line.
      */
-    static void sync_cycle_stub(void *__this, int data);
+    static void sync_cycle_stub(vp::Block *__this, int data);
 
     /**
      * @brief Handle chip select update
@@ -116,7 +116,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
-    static void cs_sync_stub(void *__this, int cs, int value);
+    static void cs_sync_stub(vp::Block *__this, int cs, int value);
 
     /**
      * @brief Preload the specified file into the flash
@@ -245,7 +245,7 @@ private:
      *      static method.
      * @param event  The event associated to this handler.
      */
-    static void set_available_handler(void *__this, vp::TimeEvent *event);
+    static void set_available_handler(vp::Block *__this, vp::TimeEvent *event);
 
     // Trace for dumping debug messages.
     vp::Trace trace;
@@ -297,7 +297,7 @@ private:
 
 
 
-void Mx25::set_available_handler(void *__this, vp::TimeEvent *event)
+void Mx25::set_available_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     Mx25 *_this = (Mx25 *)__this;
 
@@ -952,7 +952,7 @@ int Mx25::preload_file(char *path, bool writeback)
 
 
 
-void Mx25::sync_cycle_stub(void *__this, int data)
+void Mx25::sync_cycle_stub(vp::Block *__this, int data)
 {
     // Stub for real method, just forward the call
     Mx25 *_this = (Mx25 *)__this;
@@ -961,7 +961,7 @@ void Mx25::sync_cycle_stub(void *__this, int data)
 
 
 
-void Mx25::cs_sync_stub(void *__this, int cs, int value)
+void Mx25::cs_sync_stub(vp::Block *__this, int cs, int value)
 {
     // Stub for real method, just forward the call
     Mx25 *_this = (Mx25 *)__this;

@@ -69,14 +69,14 @@ void Irq::reset(bool active)
     }
 }
 
-void Irq::msi_sync(void *__this, bool value)
+void Irq::msi_sync(vp::Block *__this, bool value)
 {
     Irq *_this = (Irq *)__this;
     _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_SOFT)) | (value << IRQ_M_SOFT);
     _this->check_interrupts();
 }
 
-void Irq::mti_sync(void *__this, bool value)
+void Irq::mti_sync(vp::Block *__this, bool value)
 {
     Irq *_this = (Irq *)__this;
     _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_TIMER)) | (value << IRQ_M_TIMER);
@@ -84,14 +84,14 @@ void Irq::mti_sync(void *__this, bool value)
     _this->check_interrupts();
 }
 
-void Irq::mei_sync(void *__this, bool value)
+void Irq::mei_sync(vp::Block *__this, bool value)
 {
     Irq *_this = (Irq *)__this;
     _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_M_EXT)) | (value << IRQ_M_EXT);
     _this->check_interrupts();
 }
 
-void Irq::sei_sync(void *__this, bool value)
+void Irq::sei_sync(vp::Block *__this, bool value)
 {
     Irq *_this = (Irq *)__this;
     _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<IRQ_S_EXT)) | (value << IRQ_S_EXT);

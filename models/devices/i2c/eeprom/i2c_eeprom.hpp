@@ -65,7 +65,7 @@ class I2c_eeprom : public vp::Component
 
         void i2c_enqueue_event(vp::ClockEvent* event, uint64_t time_ps);
         void i2c_cancel_event(vp::ClockEvent* event);
-        static void i2c_sync(void *__this, int scl, int sda);
+        static void i2c_sync(vp::Block *__this, int scl, int sda);
         void i2c_helper_callback(i2c_operation_e id, i2c_status_e status, int value);
 
         /**********/

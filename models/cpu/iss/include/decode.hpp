@@ -34,7 +34,7 @@ public:
 
     vp::Trace trace;
 
-    static void flush_cache_sync(void *_this, bool active);
+    static void flush_cache_sync(vp::Block *_this, bool active);
 
     void parse_isa();
 

@@ -34,7 +34,7 @@ public:
 
     void build();
 
-    static void halt_sync(void *_this, bool active);
+    static void halt_sync(vp::Block *_this, bool active);
     void debug_req();
     void set_halt_mode(bool halted, int cause);
 

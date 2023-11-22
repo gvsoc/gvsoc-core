@@ -38,7 +38,7 @@ typedef struct
 
 
 Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config)
-  : vp::Block(this, "spi_" + std::to_string(config->itf))
+  : vp::Block(top, "spi_" + std::to_string(config->itf))
 {
     this->slave_boot_jump = false;
     ::memcpy(&this->config, config, sizeof(pi_testbench_req_spim_verif_setup_t));

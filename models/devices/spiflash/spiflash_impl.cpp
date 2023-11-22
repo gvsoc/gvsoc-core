@@ -47,7 +47,7 @@ class spiflash;
 typedef struct {
   unsigned char id;
   string desc;
-  void (*handler)(void*,int,int,int,int);
+  void (*handler)(vp::Block*,int,int,int,int);
   void (*start_handler)(void*);
 } command_t;
 
@@ -101,7 +101,7 @@ public:
   static void single_read(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
   static void write_any_register(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
   static void read_sr2v(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
-  static void read_sr2v_start(vp::Block *__this);
+  static void read_sr2v_start(void *__this);
   static void page_program(vp::Block *__this, int data_0, int data_1, int data_2, int data_3);
 
 protected:
@@ -224,7 +224,7 @@ void spiflash::sector_erase(vp::Block *__this, int data_0, int data_1, int data_
 
 }
 
-void spiflash::read_sr2v_start(vp::Block *__this)
+void spiflash::read_sr2v_start(void *__this)
 {
   spiflash *_this = (spiflash *)__this;
 

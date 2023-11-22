@@ -25,14 +25,19 @@
 
 
 
-class composite : public vp::Component
+namespace vp
 {
 
-public:
-    composite(vp::ComponentConf &config);
+    class Composite : public vp::Component
+    {
 
-    void dump_traces(FILE *file);
+    public:
+        Composite(vp::ComponentConf &config);
 
-protected:
-    vp::Trace     trace;
+        void dump_traces(FILE *file);
+
+    protected:
+        vp::Trace     trace;
+    };
+
 };

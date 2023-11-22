@@ -25,13 +25,13 @@
 
 
 
-composite::composite(vp::ComponentConf &config)
+vp::Composite::Composite(vp::ComponentConf &config)
     : vp::Component(config)
 {
 }
 
 
-void composite::dump_traces(FILE *file)
+void vp::Composite::dump_traces(FILE *file)
 {
     this->power.get_power_trace()->dump(file);
 }
@@ -39,5 +39,5 @@ void composite::dump_traces(FILE *file)
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    return new composite(config);
+    return new vp::Composite(config);
 }

@@ -101,7 +101,7 @@ private:
     static void flush_line_sync(void *_this, bool active);
     static void flush_line_addr_sync(void *_this, uint32_t addr);
 
-    static vp::IoReqStatus req(void *__this, vp::IoReq *req, int port);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req, int port);
     vp::IoReqStatus handle_req(vp::IoReq *req);
     void check_state();
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -114,7 +114,7 @@ private:
     inline unsigned int getAddr(unsigned int index, unsigned int tag) { return (tag << (line_size_bits + nb_sets_bits)) | (index << line_size_bits); }
 
     cache_line_t *refill(int line_index, unsigned int addr, unsigned int tag, vp::IoReq *req, bool *pending);
-    static void refill_response(void *_this, vp::IoReq *req);
+    static void refill_response(vp::Block *__this, vp::IoReq *req);
     cache_line_t *get_line(vp::IoReq *req, unsigned int *line_index, unsigned int *tag);
 
     unsigned int stepLru();
@@ -124,7 +124,7 @@ private:
     void flush_line(unsigned int addr);
 };
 
-void Cache::refill_response(void *__this, vp::IoReq *req)
+void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
 {
     Cache *_this = (Cache *)__this;
 
@@ -419,7 +419,7 @@ vp::IoReqStatus Cache::handle_req(vp::IoReq *req)
     return vp::IO_REQ_OK;
 }
 
-vp::IoReqStatus Cache::req(void *__this, vp::IoReq *req, int port)
+vp::IoReqStatus Cache::req(vp::Block *__this, vp::IoReq *req, int port)
 {
     Cache *_this = (Cache *)__this;
 

@@ -31,12 +31,12 @@ public:
 
     interleaver(vp::ComponentConf &conf);
 
-  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 
-  static void grant(void *_this, vp::IoReq *req);
+  static void grant(vp::Block *__this, vp::IoReq *req);
 
-  static void response(void *_this, vp::IoReq *req);
+  static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
   vp::Trace     trace;
@@ -94,7 +94,7 @@ interleaver::interleaver(vp::ComponentConf &config)
 
 }
 
-vp::IoReqStatus interleaver::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
 {
   interleaver *_this = (interleaver *)__this;
   uint64_t offset = req->get_addr();
@@ -172,12 +172,12 @@ vp::IoReqStatus interleaver::req(void *__this, vp::IoReq *req)
   return vp::IO_REQ_OK;
 }
 
-void interleaver::grant(void *_this, vp::IoReq *req)
+void interleaver::grant(vp::Block *__this, vp::IoReq *req)
 {
 
 }
 
-void interleaver::response(void *_this, vp::IoReq *req)
+void interleaver::response(vp::Block *__this, vp::IoReq *req)
 {
 }
 

@@ -39,7 +39,7 @@ public:
     inline void flush();
 
     // Response callback for the refill
-    static void fetch_response(void *_this, vp::IoReq *req);
+    static void fetch_response(vp::Block *__this, vp::IoReq *req);
 
     // Refill interface
     vp::IoMaster fetch_itf;

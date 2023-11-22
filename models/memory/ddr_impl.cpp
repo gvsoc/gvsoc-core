@@ -33,7 +33,7 @@ public:
 
   ddr(vp::ComponentConf &conf);
 
-  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 protected:
   vp::IoReq *first_pending_reqs = NULL;
@@ -86,7 +86,7 @@ ddr::ddr(vp::ComponentConf &config)
 
 }
 
-vp::IoReqStatus ddr::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
 {
   ddr *_this = (ddr *)__this;
 

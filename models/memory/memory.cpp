@@ -34,7 +34,7 @@ public:
 
     void reset(bool active);
 
-    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 private:
     static void power_ctrl_sync(void *__this, bool value);
@@ -166,7 +166,7 @@ Memory::Memory(vp::ComponentConf &config)
 
 
 
-vp::IoReqStatus Memory::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 {
     Memory *_this = (Memory *)__this;
 

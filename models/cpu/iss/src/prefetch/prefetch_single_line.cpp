@@ -186,7 +186,7 @@ int Prefetcher::fill(iss_addr_t addr)
     return this->send_fetch_req(aligned_addr, this->data, ISS_PREFETCHER_SIZE, false);
 }
 
-void Prefetcher::fetch_response(void *__this, vp::IoReq *req)
+void Prefetcher::fetch_response(vp::Block *__this, vp::IoReq *req)
 {
     Prefetcher *_this = (Prefetcher *)__this;
 

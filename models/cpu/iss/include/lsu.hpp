@@ -38,8 +38,8 @@ public:
     int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
 
     static void exec_misaligned(vp::Block *__this, vp::ClockEvent *event);
-    static void data_grant(void *_this, vp::IoReq *req);
-    static void data_response(void *_this, vp::IoReq *req);
+    static void data_grant(vp::Block *__this, vp::IoReq *req);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
 
     inline void store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);

@@ -52,8 +52,8 @@ public:
 
     void reset(bool active);
 
-    static void grant(void *_this, vp::IoReq *req);
-    static void response(void *_this, vp::IoReq *req);
+    static void grant(vp::Block *__this, vp::IoReq *req);
+    static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -94,13 +94,13 @@ loader::loader(vp::ComponentConf &config)
 
 
 
-void loader::grant(void *_this, vp::IoReq *req)
+void loader::grant(vp::Block *__this, vp::IoReq *req)
 {
 }
 
 
 
-void loader::response(void *__this, vp::IoReq *req)
+void loader::response(vp::Block *__this, vp::IoReq *req)
 {
 }
 

@@ -37,11 +37,11 @@ public:
 
     void *external_bind(std::string comp_name, std::string itf_name, void *handle);
 
-    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
-    static void grant(void *_this, vp::IoReq *req);
+    static void grant(vp::Block *__this, vp::IoReq *req);
 
-    static void response(void *_this, vp::IoReq *req);
+    static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
     vp::Trace     trace;
@@ -65,7 +65,7 @@ Router_proxy::Router_proxy(vp::ComponentConf &config)
 
 }
 
-vp::IoReqStatus Router_proxy::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus Router_proxy::req(vp::Block *__this, vp::IoReq *req)
 {
     Router_proxy *_this = (Router_proxy *)__this;
     gv::Io_request *io_req = new gv::Io_request();
@@ -110,7 +110,7 @@ void *Router_proxy::external_bind(std::string comp_name, std::string itf_name, v
 }
 
 
-void Router_proxy::grant(void *__this, vp::IoReq *req)
+void Router_proxy::grant(vp::Block *__this, vp::IoReq *req)
 {
     Router_proxy *_this = (Router_proxy *)__this;
 
@@ -119,7 +119,7 @@ void Router_proxy::grant(void *__this, vp::IoReq *req)
     _this->user->reply(io_req);
 }
 
-void Router_proxy::response(void *__this, vp::IoReq *req)
+void Router_proxy::response(vp::Block *__this, vp::IoReq *req)
 {
     Router_proxy *_this = (Router_proxy *)__this;
 

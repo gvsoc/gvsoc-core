@@ -117,11 +117,11 @@ public:
     void reset(bool active);
 
 private:
-    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     void handle_syscall(uint64_t cmd);
     void dispatch(uint64_t cmd);
     void target_access(reg_t addr, int size, bool is_write, uint8_t *data);
-    static void data_response(void *__this, vp::IoReq *req);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
     void exec_syscall();
     uint8_t read_uint8(reg_t addr);
 
@@ -216,7 +216,7 @@ bus_watchpoint::bus_watchpoint(vp::ComponentConf &config)
 
 }
 
-void bus_watchpoint::data_response(void *__this, vp::IoReq *req)
+void bus_watchpoint::data_response(vp::Block *__this, vp::IoReq *req)
 {
 
 }
@@ -289,7 +289,7 @@ uint8_t bus_watchpoint::read_uint8(reg_t addr)
     return value;
 }
 
-vp::IoReqStatus bus_watchpoint::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus bus_watchpoint::req(vp::Block *__this, vp::IoReq *req)
 {
     bus_watchpoint *_this = (bus_watchpoint *)__this;
     uint64_t offset = req->get_addr();

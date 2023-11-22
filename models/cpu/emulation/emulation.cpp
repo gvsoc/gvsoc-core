@@ -53,8 +53,8 @@ private:
     static void fetchen_sync(void *__this, bool active);
     static void bootaddr_sync(void *__this, uint32_t value);
     static void irq_req_sync(void *__this, int irq);
-    static void data_grant(void *__this, vp::IoReq *req);
-    static void data_response(void *__this, vp::IoReq *req);
+    static void data_grant(vp::Block *__this, vp::IoReq *req);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
     static void flush_cache_sync(void *__this, bool active);
     static void flush_cache_ack_sync(void *__this, bool active);
 
@@ -380,11 +380,11 @@ void emulation::check_state()
     }
 }
 
-void emulation::data_grant(void *__this, vp::IoReq *req)
+void emulation::data_grant(vp::Block *__this, vp::IoReq *req)
 {
 }
 
-void emulation::data_response(void *__this, vp::IoReq *req)
+void emulation::data_response(vp::Block *__this, vp::IoReq *req)
 {
     emulation *_this = (emulation *)__this;
     std::unique_lock<std::mutex> lock(_this->mutex);

@@ -99,11 +99,11 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     }
 }
 
-void Lsu::data_grant(void *__this, vp::IoReq *req)
+void Lsu::data_grant(vp::Block *__this, vp::IoReq *req)
 {
 }
 
-void Lsu::data_response(void *__this, vp::IoReq *req)
+void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
 {
     Lsu *_this = (Lsu *)__this;
     Iss *iss = &_this->iss;

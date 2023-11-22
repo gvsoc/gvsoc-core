@@ -95,12 +95,12 @@ public:
 
   std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
 
-  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 
-  static void grant(void *_this, vp::IoReq *req);
+  static void grant(vp::Block *__this, vp::IoReq *req);
 
-  static void response(void *_this, vp::IoReq *req);
+  static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
   vp::Trace     trace;
@@ -241,7 +241,7 @@ void MapEntry::insert(router *router)
   }
 }
 
-vp::IoReqStatus router::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
 {
   router *_this = (router *)__this;
   vp::IoReqStatus result;
@@ -410,7 +410,7 @@ vp::IoReqStatus router::req(void *__this, vp::IoReq *req)
   return result;
 }
 
-void router::grant(void *__this, vp::IoReq *req)
+void router::grant(vp::Block *__this, vp::IoReq *req)
 {
   router *_this = (router *)__this;
 
@@ -423,7 +423,7 @@ void router::grant(void *__this, vp::IoReq *req)
   req->arg_push(port);
 }
 
-void router::response(void *_this, vp::IoReq *req)
+void router::response(vp::Block *__this, vp::IoReq *req)
 {
   vp::IoSlave *port = (vp::IoSlave *)req->arg_pop();
   if (port != NULL)
@@ -458,7 +458,7 @@ std::string router::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *rep
         req->set_addr(addr);
         req->set_debug(true);
 
-        vp::IoReqStatus result = router::req((void *)this, req);
+        vp::IoReqStatus result = router::req(this, req);
         error |= result != vp::IO_REQ_OK;
 
         if (!is_write)

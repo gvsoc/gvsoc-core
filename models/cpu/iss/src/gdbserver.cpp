@@ -410,7 +410,7 @@ void Gdbserver::handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent 
 
 
 
-void Gdbserver::data_response(void *__this, vp::IoReq *req)
+void Gdbserver::data_response(vp::Block *__this, vp::IoReq *req)
 {
     // Just forward to the common handle so that it either continue the full request or notify
     // the end

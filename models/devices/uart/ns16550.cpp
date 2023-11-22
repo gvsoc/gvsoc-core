@@ -113,7 +113,7 @@ public:
     void stop();
 
 private:
-    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     bool load(unsigned int addr, size_t len, uint8_t *bytes);
     bool store(unsigned int addr, size_t len, const uint8_t *bytes);
     int read(bool blocking=false);
@@ -162,7 +162,7 @@ void Ns16550::reset(bool active)
 {
 }
 
-vp::IoReqStatus Ns16550::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus Ns16550::req(vp::Block *__this, vp::IoReq *req)
 {
     Ns16550 *_this = (Ns16550 *)__this;
     bool status;

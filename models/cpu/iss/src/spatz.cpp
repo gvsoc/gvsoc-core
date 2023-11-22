@@ -27,7 +27,7 @@ VRegfile::VRegfile(Iss &iss) : iss(iss){
 
 
 
-void Vlsu::data_response(void *__this, vp::IoReq *req)
+void Vlsu::data_response(vp::Block *__this, vp::IoReq *req)
 {
 }
 

@@ -53,7 +53,7 @@ public:
   void stop();
   void elab();
 
-  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 protected:
   vp::IoReq *first_pending_reqs = nullptr;
@@ -97,7 +97,7 @@ ddr::ddr(vp::ComponentConf &config) : vp::Component(config)
   new_slave_port("input", &in);
 }
 
-vp::IoReqStatus ddr::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
 {
   ddr *_this = (ddr *)__this;
 

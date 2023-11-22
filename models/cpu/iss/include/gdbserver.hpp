@@ -66,7 +66,7 @@ public:
 
     void handle_pending_io_access();
     static void handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event);
-    static void data_response(void *_this, vp::IoReq *req);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
 
     void breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc);
     void breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc);

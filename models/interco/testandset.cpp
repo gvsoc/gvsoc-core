@@ -31,7 +31,7 @@ public:
 
     testandset(vp::ComponentConf &conf);
 
-    static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 private:
     vp::Trace     trace;
@@ -54,7 +54,7 @@ testandset::testandset(vp::ComponentConf &config)
 
 }
 
-vp::IoReqStatus testandset::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus testandset::req(vp::Block *__this, vp::IoReq *req)
 {
     testandset *_this = (testandset *)__this;
     uint64_t offset = req->get_addr();

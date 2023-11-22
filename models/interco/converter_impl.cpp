@@ -38,12 +38,12 @@ public:
 
 private:
 
-  static vp::IoReqStatus req(void *__this, vp::IoReq *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 
-  static void grant(void *_this, vp::IoReq *req);
+  static void grant(vp::Block *__this, vp::IoReq *req);
 
-  static void response(void *_this, vp::IoReq *req);
+  static void response(vp::Block *__this, vp::IoReq *req);
 
   static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
@@ -194,7 +194,7 @@ vp::IoReqStatus converter::process_req(vp::IoReq *req)
   return this->process_pending_req(req);
 }
 
-vp::IoReqStatus converter::req(void *__this, vp::IoReq *req)
+vp::IoReqStatus converter::req(vp::Block *__this, vp::IoReq *req)
 {
   converter *_this = (converter *)__this;
   uint64_t offset = req->get_addr();
@@ -226,11 +226,11 @@ vp::IoReqStatus converter::req(void *__this, vp::IoReq *req)
   return vp::IO_REQ_PENDING;
 }
 
-void converter::grant(void *_this, vp::IoReq *req)
+void converter::grant(vp::Block *__this, vp::IoReq *req)
 {
 }
 
-void converter::response(void *_this, vp::IoReq *req)
+void converter::response(vp::Block *__this, vp::IoReq *req)
 {
 }
 

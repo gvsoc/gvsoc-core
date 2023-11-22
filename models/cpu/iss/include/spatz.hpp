@@ -80,7 +80,7 @@ public:
     inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
 
     inline void handle_pending_io_access(Iss *iss);
-    static void data_response(void *__this, vp::IoReq *req);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
 
 
     Vlsu(Iss &iss);

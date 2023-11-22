@@ -590,13 +590,28 @@ bool Rsp::regs_send()
     if (reg_size == 4)
     {
         uint32_t regs[nb_regs];
-        char regs_str[512];
+        char regs_str[nb_regs*4];
 
         core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
 
         for (int i=0; i<nb_regs; i++)
         {
             snprintf(&regs_str[i * 8], 9, "%08x", (unsigned int)htonl(regs[i]));
+
+        }
+
+        return this->send_str(regs_str);
+    }
+    if (reg_size == 8)
+    {
+        uint64_t regs[nb_regs];
+        char regs_str[nb_regs*8];
+
+        core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
+
+        for (int i=0; i<nb_regs; i++)
+        {
+            snprintf(&regs_str[i * 16], 17, "%08x%08X", (unsigned int)htonl(regs[i] & 0xFFFFFFFF), (unsigned int)htonl(regs[i] >> 32));
 
         }
 

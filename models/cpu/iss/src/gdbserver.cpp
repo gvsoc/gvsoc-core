@@ -99,7 +99,7 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 
     if (reg == 32)
     {
-        this->iss.exec.pc_set(*(uint32_t *)value);
+        this->iss.exec.pc_set(*(iss_addr_t *)value);
     }
     else
     {
@@ -129,12 +129,12 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
 
     if (reg_size)
     {
-        *reg_size = 4;
+        *reg_size = sizeof(iss_reg_t);
     }
 
     if (value)
     {
-        uint32_t *regs = (uint32_t *)value;
+        iss_reg_t *regs = (iss_reg_t *)value;
         for (int i = 0; i < 32; i++)
         {
             regs[i] = this->iss.regfile.get_reg(i);
@@ -355,7 +355,7 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
                 addr, size, is_write);
             this->iss.exec.stalled_inc();
             this->iss.exec.halted.set(true);
-            uint32_t hit_addr = std::max(wp->addr, addr);
+            iss_reg_t hit_addr = std::max(wp->addr, addr);
             this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver,
                 vp::Gdbserver_engine::SIGNAL_TRAP, is_write ? "watch" : "rwatch", hit_addr);
             return true;

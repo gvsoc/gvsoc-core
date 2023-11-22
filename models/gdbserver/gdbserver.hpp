@@ -38,7 +38,7 @@ public:
 
     void start();
 
-    int io_access(uint32_t addr, int size, uint8_t *data, bool is_write);
+    int io_access(uint64_t addr, int size, uint8_t *data, bool is_write);
 
     int register_core(vp::Gdbserver_core *core);
     void signal(vp::Gdbserver_core *core, int signal, std::string reason="", int info=0);

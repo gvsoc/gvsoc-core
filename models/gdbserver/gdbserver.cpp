@@ -34,7 +34,7 @@ Gdb_server::Gdb_server(vp::ComponentConf &conf)
         this->rsp = new Rsp(this);
     }
 
-    this->active_core = 9;
+    this->active_core = config->get_child_int("default_hartid");
 
     if (this->get_js_config()->get_child_bool("enabled"))
     {
@@ -128,7 +128,7 @@ vp::Gdbserver_core *Gdb_server::get_active_core_for_other()
 
 
 
-int Gdb_server::io_access(uint32_t addr, int size, uint8_t *data, bool is_write)
+int Gdb_server::io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
 {
     return this->get_active_core_for_other()->gdbserver_io_access(addr, size, data, is_write);
 }

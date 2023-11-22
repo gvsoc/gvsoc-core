@@ -252,6 +252,20 @@ class RiscvCommon(st.Component):
         """
         self.itf_bind('data', itf, signature='io')
 
+    def o_DATA_DEBUG(self, itf: gsystree.SlaveItf):
+        """Binds the data debug port.
+
+        This port is used for issuing data accesses from gdb server to the memory.\n
+        It instantiates a port of type vp::IoMaster.\n
+        If gdbserver is used It is mandatory to bind it.\n
+
+        Parameters
+        ----------
+        slave: gsystree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('data_debug', itf, signature='io')
+
     def i_FETCHEN(self) -> gsystree.SlaveItf:
         """Returns the fetch enable port.
 

@@ -23,7 +23,7 @@
 #include <string.h>
 
 
-Iss::Iss(vp::component &top)
+Iss::Iss(vp::Component &top)
     : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
       regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
@@ -33,9 +33,9 @@ Iss::Iss(vp::component &top)
         std::placeholders::_2));
 
     this->barrier_ack_itf.set_sync_meth(&Iss::barrier_sync);
-    this->top.new_slave_port(this, "barrier_ack", &this->barrier_ack_itf);
+    this->top.new_slave_port("barrier_ack", &this->barrier_ack_itf, (vp::Block *)this);
 
-    this->top.new_master_port(this, "barrier_req", &this->barrier_req_itf);
+    this->top.new_master_port("barrier_req", &this->barrier_req_itf, (vp::Block *)this);
 }
 
 
@@ -68,7 +68,7 @@ bool Iss::barrier_update(bool is_write, iss_reg_t &value)
 
 
 // This gets called when the barrier is reached
-void Iss::barrier_sync(void *__this, bool value)
+void Iss::barrier_sync(vp::Block *__this, bool value)
 {
     Iss *_this = (Iss *)__this;
 

@@ -19,13 +19,14 @@
 #define __VP_PROXY_HPP__
 
 #include <mutex>
+#include <vp/launcher.hpp>
 
-class Gvsoc_launcher;
+namespace gv {
 
-class Gv_proxy : vp::Notifier
+class GvProxy : GvsocLauncher_notifier
 {
   public:
-    Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *launcher, bool is_async, int req_pipe=-1, int reply_pipe=-1);
+    GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
     void stop(int status);
     void notify_stop(int64_t time);
@@ -47,16 +48,17 @@ class Gv_proxy : vp::Notifier
 
     std::vector<int> sockets;
 
-    vp::component *top;
+    vp::Component *top;
     int req_pipe;
     int reply_pipe;
 
     std::mutex mutex;
-    Gvsoc_launcher *launcher;
+    gv::GvsocLauncher *launcher;
     bool is_async;
 };
+}
 
-extern Gv_proxy *proxy;
+extern gv::GvProxy *proxy;
 
 
 #endif

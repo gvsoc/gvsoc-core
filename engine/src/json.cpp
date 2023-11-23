@@ -18,7 +18,7 @@
  * Authors: Germain Haugou, ETH (germain.haugou@iis.ee.ethz.ch)
  */
 
-#include "json.hpp"
+#include "vp/json.hpp"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -40,10 +40,10 @@ std::vector<std::string> split(const std::string& s, char delimiter)
    return tokens;
 }
 
-js::config *js::config::create_config(jsmntok_t *tokens, int *_size)
+js::Config *js::Config::create_config(jsmntok_t *tokens, int *_size)
 {
   jsmntok_t *current = tokens;
-  config *config = NULL;
+  Config *config = NULL;
 
   switch (current->type)
   {
@@ -51,31 +51,31 @@ js::config *js::config::create_config(jsmntok_t *tokens, int *_size)
       if (strcmp(current->str, "True") == 0 || strcmp(current->str, "False") == 0 ||
         strcmp(current->str, "true") == 0 || strcmp(current->str, "false") == 0)
       {
-        config = new config_bool(current);
+        config = new ConfigBool(current);
       }
       else
       {
-        config = new config_number(current);
+        config = new ConfigNumber(current);
       }
       current++;
       break;
 
     case JSMN_OBJECT: {
       int size;
-      config = new config_object(current, &size);
+      config = new ConfigObject(current, &size);
       current += size;
       break;
     }
 
     case JSMN_ARRAY: {
       int size;
-      config = new config_array(current, &size);
+      config = new ConfigArray(current, &size);
       current += size;
       break;
     }
 
     case JSMN_STRING:
-      config = new config_string(current);
+      config = new ConfigString(current);
       current++;
       break;
 
@@ -91,39 +91,39 @@ js::config *js::config::create_config(jsmntok_t *tokens, int *_size)
 }
 
 
-void js::config::dump(std::string)
+void js::Config::dump(std::string)
 {
 }
 
-js::config *js::config_string::get_from_list(std::vector<std::string> name_list)
+js::Config *js::ConfigString::get_from_list(std::vector<std::string> name_list)
 {
   if (name_list.size() == 0) return this;
   return NULL;
 }
 
-void js::config_string::dump(std::string)
+void js::ConfigString::dump(std::string)
 {
   fprintf(stderr, "\"%s\"", this->value.c_str());
 }
 
-js::config *js::config_number::get_from_list(std::vector<std::string> name_list)
+js::Config *js::ConfigNumber::get_from_list(std::vector<std::string> name_list)
 {
   if (name_list.size() == 0) return this;
   return NULL;
 }
 
-void js::config_number::dump(std::string)
+void js::ConfigNumber::dump(std::string)
 {
   fprintf(stderr, "\"%f\"", this->value);
 }
 
-js::config *js::config_array::get_from_list(std::vector<std::string> name_list)
+js::Config *js::ConfigArray::get_from_list(std::vector<std::string> name_list)
 {
   if (name_list.size() == 0) return this;
   return NULL;
 }
 
-void js::config_array::dump(std::string indent)
+void js::ConfigArray::dump(std::string indent)
 {
   bool is_first = true;
   fprintf(stderr, "[\n");
@@ -137,18 +137,18 @@ void js::config_array::dump(std::string indent)
   fprintf(stderr, "\n%s]\n", indent.c_str());
 }
 
-js::config *js::config_bool::get_from_list(std::vector<std::string> name_list)
+js::Config *js::ConfigBool::get_from_list(std::vector<std::string> name_list)
 {
   if (name_list.size() == 0) return this;
   return NULL;
 }
 
-void js::config_bool::dump(std::string)
+void js::ConfigBool::dump(std::string)
 {
   fprintf(stderr, "\"%s\"", this->value ? "true" : "false");
 }
 
-void js::config_object::dump(std::string indent)
+void js::ConfigObject::dump(std::string indent)
 {
   bool is_first = true;
 
@@ -164,11 +164,11 @@ void js::config_object::dump(std::string indent)
   fprintf(stderr, "\n%s}\n", indent.c_str());
 }
 
-js::config *js::config_object::get_from_list(std::vector<std::string> name_list)
+js::Config *js::ConfigObject::get_from_list(std::vector<std::string> name_list)
 {
   if (name_list.size() == 0) return this;
 
-  js::config *result = NULL;
+  js::Config *result = NULL;
   std::string name;
   int name_pos = 0;
 
@@ -204,12 +204,12 @@ js::config *js::config_object::get_from_list(std::vector<std::string> name_list)
   return result;
 }
 
-js::config *js::config_object::get(std::string name)
+js::Config *js::ConfigObject::get(std::string name)
 {
   return get_from_list(split(name, '/'));
 }
 
-js::config_string::config_string(jsmntok_t *tokens)
+js::ConfigString::ConfigString(jsmntok_t *tokens)
 {
   value = std::string(tokens->str);
 }
@@ -223,17 +223,17 @@ double json_my_stod (std::string const& s) {
     return d;
 }
 
-js::config_number::config_number(jsmntok_t *tokens)
+js::ConfigNumber::ConfigNumber(jsmntok_t *tokens)
 {
   value = json_my_stod(tokens->str);
 }
 
-js::config_bool::config_bool(jsmntok_t *tokens)
+js::ConfigBool::ConfigBool(jsmntok_t *tokens)
 {
   value = strcmp(tokens->str, "True") == 0 || strcmp(tokens->str, "true") == 0;
 }
 
-js::config_array::config_array(jsmntok_t *tokens, int *_size)
+js::ConfigArray::ConfigArray(jsmntok_t *tokens, int *_size)
 {
   jsmntok_t *current = tokens;
   jsmntok_t *top = current++;
@@ -251,7 +251,7 @@ js::config_array::config_array(jsmntok_t *tokens, int *_size)
   }
 }
 
-js::config_object::config_object(jsmntok_t *tokens, int *_size)
+js::ConfigObject::ConfigObject(jsmntok_t *tokens, int *_size)
 {
   jsmntok_t *current = tokens;
   jsmntok_t *t = current++;
@@ -260,7 +260,7 @@ js::config_object::config_object(jsmntok_t *tokens, int *_size)
   {
     jsmntok_t *child_name = current++;
     int child_size;
-    config *child_config = create_config(current, &child_size);
+    Config *child_config = create_config(current, &child_size);
     current += child_size;
 
     if (child_config != NULL)
@@ -275,7 +275,7 @@ js::config_object::config_object(jsmntok_t *tokens, int *_size)
   }
 }
 
-js::config *js::import_config_from_file(std::string config_path)
+js::Config *js::import_config_from_file(std::string config_path)
 {
   std::ifstream t(config_path);
   if(!t.is_open())
@@ -289,20 +289,20 @@ js::config *js::import_config_from_file(std::string config_path)
 
 }
 
-js::config *js::import_config_from_string(std::string config_str)
+js::Config *js::import_config_from_string(std::string config_str)
 {
-  const char *config_string = strdup(config_str.c_str());
+  const char *ConfigString = strdup(config_str.c_str());
   jsmn_parser parser;
 
   jsmn_init(&parser);
-  int nb_tokens = jsmn_parse(&parser, config_string, strlen(config_string), NULL, 0);
+  int nb_tokens = jsmn_parse(&parser, ConfigString, strlen(ConfigString), NULL, 0);
 
   std::vector<jsmntok_t> tokens(nb_tokens);
 
   jsmn_init(&parser);
-  nb_tokens = jsmn_parse(&parser, config_string, strlen(config_string), &(tokens[0]), nb_tokens);
+  nb_tokens = jsmn_parse(&parser, ConfigString, strlen(ConfigString), &(tokens[0]), nb_tokens);
 
-  char *str = strdup(config_string);
+  char *str = strdup(ConfigString);
   for (int i=0; i<nb_tokens; i++)
   {
     jsmntok_t *tok = &(tokens[i]);
@@ -313,30 +313,30 @@ js::config *js::import_config_from_string(std::string config_str)
 
 
 
-  return new js::config_object(&(tokens[0]));
+  return new js::ConfigObject(&(tokens[0]));
 }
 
-int js::config_object::get_child_int(std::string name)
+int js::ConfigObject::get_child_int(std::string name)
 {
-  js::config *config = this->get(name);
+  js::Config *config = this->get(name);
   if (config)
     return config->get_int();
   else
     return 0;
 }
 
-bool js::config_object::get_child_bool(std::string name)
+bool js::ConfigObject::get_child_bool(std::string name)
 {
-  js::config *config = this->get(name);
+  js::Config *config = this->get(name);
   if (config)
     return config->get_bool();
   else
     return 0;
 }
 
-std::string js::config_object::get_child_str(std::string name)
+std::string js::ConfigObject::get_child_str(std::string name)
 {
-  js::config *config = this->get(name);
+  js::Config *config = this->get(name);
   if (config)
     return config->get_str();
   else

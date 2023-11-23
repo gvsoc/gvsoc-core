@@ -88,28 +88,26 @@ public:
 };
 
 
-class Himax : public vp::component
+class Himax : public vp::Component
 {
     friend class Camera_stream;
 
 public:
-    Himax(js::config *config);
+    Himax(vp::ComponentConf &conf);
 
-    int build();
-    void start();
     void reset(bool active);
 
 protected:
 
-    static void clock_handler(void *__this, vp::clock_event *event);
-    static void i2c_sync(void *__this, int scl, int sda);
+    static void clock_handler(vp::Block *__this, vp::ClockEvent *event);
+    static void i2c_sync(vp::Block *__this, int scl, int sda);
 
-    vp::cpi_master cpi_itf;
-    vp::i2c_slave i2c_itf;
+    vp::CpiMaster cpi_itf;
+    vp::I2cSlave i2c_itf;
 
-    vp::clock_event *clock_event;
+    vp::ClockEvent *clock_event;
 
-    vp::trace trace;
+    vp::Trace trace;
 
     int pclk;
 
@@ -310,12 +308,12 @@ unsigned int Camera_stream::get_pixel()
 }
 
 
-void Himax::i2c_sync(void *__this, int scl, int sda)
+void Himax::i2c_sync(vp::Block *__this, int scl, int sda)
 {
 }
 
 
-void Himax::clock_handler(void *__this, vp::clock_event *event)
+void Himax::clock_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Himax *_this = (Himax *)__this;
 
@@ -328,7 +326,7 @@ void Himax::clock_handler(void *__this, vp::clock_event *event)
         switch (_this->state)
         {
             case STATE_INIT:
-                _this->trace.msg(vp::trace::LEVEL_DEBUG, "State INIT\n");
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "State INIT\n");
                 _this->cnt = 0;
                 _this->targetcnt = 3*TLINE(_this->width);
                 _this->state = STATE_SOF;
@@ -338,8 +336,8 @@ void Himax::clock_handler(void *__this, vp::clock_event *event)
 
             case STATE_SOF:
                 if (_this->cnt == 0)
-                    _this->trace.msg(vp::trace::LEVEL_DEBUG, "Starting frame\n");
-                _this->trace.msg(vp::trace::LEVEL_DEBUG, "State SOF (cnt: %d, targetcnt: %d)\n", _this->cnt, _this->targetcnt);
+                    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting frame\n");
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "State SOF (cnt: %d, targetcnt: %d)\n", _this->cnt, _this->targetcnt);
                 _this->vsync = _this->vsync_polarity;
                 _this->cnt++;
                 if (_this->cnt == _this->targetcnt)
@@ -352,7 +350,7 @@ void Himax::clock_handler(void *__this, vp::clock_event *event)
                 break;
 
             case STATE_WAIT_SOF:
-                _this->trace.msg(vp::trace::LEVEL_DEBUG, "State WAIT_SOF (cnt: %d, targetcnt: %d)\n", _this->cnt, _this->targetcnt);
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "State WAIT_SOF (cnt: %d, targetcnt: %d)\n", _this->cnt, _this->targetcnt);
                 _this->cnt++;
                 if (_this->cnt == _this->targetcnt)
                 {
@@ -472,12 +470,12 @@ void Himax::clock_handler(void *__this, vp::clock_event *event)
                 } else {
                     _this->bytesel++;
                 }
-                _this->trace.msg(vp::trace::LEVEL_DEBUG, "State SEND_LINE (data: 0x%x)\n", _this->data);
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "State SEND_LINE (data: 0x%x)\n", _this->data);
                 break;
             }
 
             case STATE_WAIT_EOF:
-                _this->trace.msg(vp::trace::LEVEL_DEBUG, "State WAIT_EOF (cnt: %d, targetcnt: %d)\n", _this->cnt, _this->targetcnt);
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "State WAIT_EOF (cnt: %d, targetcnt: %d)\n", _this->cnt, _this->targetcnt);
                 _this->href = !_this->hsync_polarity;
                 _this->data = 0;
                 _this->cnt++;
@@ -497,8 +495,27 @@ void Himax::clock_handler(void *__this, vp::clock_event *event)
 
 
 
+void Himax::reset(bool active)
+{
+    if (active)
+    {
+        this->pclk_value = 0;
+        this->state = STATE_INIT;
 
-int Himax::build()
+        this->vsync = !this->vsync_polarity;
+        this->href = !this->hsync_polarity;
+        this->data = 0;
+        this->pixel_bytes = 0;
+    }
+    if (!active && this->stream)
+    {
+        this->event_enqueue(this->clock_event, 1);
+    }
+}
+
+
+Himax::Himax(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -507,7 +524,7 @@ int Himax::build()
     this->i2c_itf.set_sync_meth(&Himax::i2c_sync);
     this->new_slave_port("i2c", &this->i2c_itf);
 
-    this->clock_event = this->event_new(this, Himax::clock_handler);
+    this->clock_event = this->event_new((vp::Block *)this, Himax::clock_handler);
 
 #ifdef __MAGICK__
     InitializeMagick(NULL);
@@ -531,7 +548,7 @@ int Himax::build()
 
     // Default color mode is 16bits RGB565
     //color_mode = COLOR_MODE_RGB565;
-    js::config *stream_config = get_js_config()->get("image-stream");
+    js::Config *stream_config = get_js_config()->get("image-stream");
 
     if (stream_config)
     {
@@ -565,36 +582,10 @@ int Himax::build()
         }
     }
 
-    return 0;
-}
-
-void Himax::start()
-{
-    this->pclk_value = 0;
-    this->state = STATE_INIT;
-
-    this->vsync = !this->vsync_polarity;
-    this->href = !this->hsync_polarity;
-    this->data = 0;
-    this->pixel_bytes = 0;
-}
-
-void Himax::reset(bool active)
-{
-    if (!active && this->stream)
-    {
-        this->event_enqueue(this->clock_event, 1);
-    }
 }
 
 
-Himax::Himax(js::config *config)
-    : vp::component(config)
-{
-}
-
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Himax(config);
 }

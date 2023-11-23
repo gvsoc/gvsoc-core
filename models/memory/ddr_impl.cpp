@@ -24,34 +24,31 @@
 #include <stdio.h>
 #include <string.h>
 
-class ddr : public vp::component
+class ddr : public vp::Component
 {
 
   friend class gvsoc_tlm_br;
 
 public:
 
-  ddr(js::config *config);
+  ddr(vp::ComponentConf &conf);
 
-  int build();
-  void start();
-
-  static vp::io_req_status_e req(void *__this, vp::io_req *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 protected:
-  vp::io_req *first_pending_reqs = NULL;
-  vp::io_req *first_stalled_req = NULL;
+  vp::IoReq *first_pending_reqs = NULL;
+  vp::IoReq *first_stalled_req = NULL;
 
 private:
 
-  vp::trace     trace;
-  vp::io_slave in;
+  vp::Trace     trace;
+  vp::IoSlave in;
 
   uint64_t size = 0;
   int max_reqs = 4;
   int current_reqs = 0;
   int count = 0;
-  vp::io_req *last_pending_reqs = NULL;
+  vp::IoReq *last_pending_reqs = NULL;
 };/* vim: set ts=2 sw=2 expandtab:*/
 /*
  * Copyright (C) 2018 ETH Zurich and University of Bologna
@@ -74,13 +71,22 @@ private:
  */
 
 
-ddr::ddr(js::config *config)
-: vp::component(config)
+ddr::ddr(vp::ComponentConf &config)
+: vp::Component(config)
 {
+  traces.new_trace("trace", &trace, vp::DEBUG);
+
+  in.set_req_meth(&ddr::req);
+  new_slave_port("input", &in);
+
+  size = get_js_config()->get_child_int("size");
+
+  trace.msg("Building ddr (size: 0x%lx)\n", size);
+
 
 }
 
-vp::io_req_status_e ddr::req(void *__this, vp::io_req *req)
+vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
 {
   ddr *_this = (ddr *)__this;
 
@@ -116,27 +122,7 @@ vp::io_req_status_e ddr::req(void *__this, vp::io_req *req)
   }
 }
 
-int ddr::build()
-{
-  traces.new_trace("trace", &trace, vp::DEBUG);
-
-  in.set_req_meth(&ddr::req);
-  new_slave_port("input", &in);
-
-  return 0;
-}
-
-
-
-void ddr::start()
-{
-  size = get_config_int("size");
-
-  trace.msg("Building ddr (size: 0x%lx)\n", size);
-
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new ddr(config);
 }

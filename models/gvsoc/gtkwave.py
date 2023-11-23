@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import gv.gtkw_new
+import gvsoc.gtkw_new
 import os.path
 
 

@@ -22,16 +22,16 @@
 #include <vp/vp.hpp>
 #include <vp/queue.hpp>
 
-vp::queue::queue(block *parent)
-    : block(parent)
+vp::Queue::Queue(Block *parent, std::string name)
+    : Block(parent, name)
 {
 
 }
 
-void vp::queue::cancel_callback(void *__this, vp::queue_elem *elem)
+void vp::Queue::cancel_callback(void *__this, vp::QueueElem *elem)
 {
-    vp::queue *_this = (vp::queue *)__this;
-    vp::queue_elem *current = _this->first, *prev=NULL;
+    vp::Queue *_this = (vp::Queue *)__this;
+    vp::QueueElem *current = _this->first, *prev=NULL;
 
     while(current && current != elem)
     {
@@ -49,17 +49,17 @@ void vp::queue::cancel_callback(void *__this, vp::queue_elem *elem)
     }
 }
 
-bool vp::queue::empty()
+bool vp::Queue::empty()
 {
     return this->first == NULL;
 }
 
-void vp::queue::reset(bool active)
+void vp::Queue::reset(bool active)
 {
     this->first = NULL;
 }
 
-void vp::queue::push_back(queue_elem *elem)
+void vp::Queue::push_back(QueueElem *elem)
 {
     if (this->first)
     {
@@ -73,11 +73,11 @@ void vp::queue::push_back(queue_elem *elem)
     this->last = elem;
     elem->next = NULL;
 
-    elem->cancel_callback = &vp::queue::cancel_callback;
+    elem->cancel_callback = &vp::Queue::cancel_callback;
     elem->cancel_this = this;
 }
 
-void vp::queue::push_front(queue_elem *elem)
+void vp::Queue::push_front(QueueElem *elem)
 {
     if (!this->first)
     {
@@ -87,18 +87,18 @@ void vp::queue::push_front(queue_elem *elem)
     elem->next = this->first;
     this->first = elem;
 
-    elem->cancel_callback = &vp::queue::cancel_callback;
+    elem->cancel_callback = &vp::Queue::cancel_callback;
     elem->cancel_this = this;
 }
 
-vp::queue_elem *vp::queue::head()
+vp::QueueElem *vp::Queue::head()
 {
     return this->first;
 }
 
-vp::queue_elem *vp::queue::pop()
+vp::QueueElem *vp::Queue::pop()
 {
-    vp::queue_elem *result = this->first;
+    vp::QueueElem *result = this->first;
     if (result)
     {
         this->first = result->next;
@@ -106,7 +106,7 @@ vp::queue_elem *vp::queue::pop()
     return result;
 }
 
-void vp::queue_elem::cancel()
+void vp::QueueElem::cancel()
 {
     this->cancel_callback(this->cancel_this, this);
 }

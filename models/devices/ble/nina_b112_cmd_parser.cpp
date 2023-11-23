@@ -60,7 +60,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     /* empty command */
     if (input_cmd.empty())
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received Attention_AT command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received Attention_AT command\n");
         return ::ok_response("");
     }
 
@@ -68,7 +68,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_echo_mode("E[01]");
     if(std::regex_match(input_cmd, match, cmd_echo_mode))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received echo_on_off command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received echo_on_off command\n");
         //TODO
         return ok_response("");
     }
@@ -78,7 +78,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_factory_reset("\\+UFACTORY");
     if(std::regex_match(input_cmd, match, cmd_factory_reset))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received factory_reset command (reboot required)\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received factory_reset command (reboot required)\n");
         //TODO
         return ok_response("");
     }
@@ -87,21 +87,21 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_op_mode_data("O[012]?");
     if(std::regex_match(input_cmd, match, cmd_op_mode_data))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received enter_data_mode command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received enter_data_mode command\n");
         std::string cmd = match[0];
         if (cmd.back() == 2)
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Switching to extended data operating mode: NOT SUPPORTED\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Switching to extended data operating mode: NOT SUPPORTED\n");
         }
         else if (cmd.back() == 0)
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Switching to command mode\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Switching to command mode\n");
             this->behavior.operating_mode = NINA_B112_OPERATING_MODE_COMMAND;
         }
         else
         {
             /* default */
-            this->trace.msg(vp::trace::LEVEL_INFO, "Switching to data operating mode\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Switching to data operating mode\n");
             this->behavior.operating_mode = NINA_B112_OPERATING_MODE_DATA;
         }
         return ok_response("");
@@ -111,7 +111,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_unbond("\\+UBTUB\\=.*");
     if(std::regex_match(input_cmd, match, cmd_unbond))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received unbond command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received unbond command\n");
         //TODO
         return ok_response("");
     }
@@ -120,7 +120,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_ble_role("\\+UBTLE\\=[0123]");
     if(std::regex_match(input_cmd, match, cmd_ble_role))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received bluetooth_low_energy_role command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received bluetooth_low_energy_role command\n");
         //TODO
         return ok_response("");
     }
@@ -129,7 +129,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_local_name("\\+UBTLN\\=.*");
     if(std::regex_match(input_cmd, match, cmd_local_name))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received local_name command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received local_name command\n");
         //TODO
         //TODO parse string (surrounded by double quotes ? not mandatory according to real module),
         //verify length (max 31 characters)
@@ -140,7 +140,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_local_name_read("\\+UBTLN\\?");
     if(std::regex_match(input_cmd, match, cmd_local_name_read))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received local_name_read command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received local_name_read command\n");
         return ok_response(std::string("+UBTLN:\"") + this->behavior.local_name + std::string("\""));
     }
 
@@ -148,7 +148,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_rs232_params("\\+UMRS\\=.*");
     if(std::regex_match(input_cmd, match, cmd_rs232_params))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received rs232_parameters command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received rs232_parameters command\n");
 
         input_cmd.erase(0, 6);
 
@@ -181,7 +181,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
 
             if (!found)
             {
-                this->trace.msg(vp::trace::LEVEL_ERROR, "Baudrate %s is not supported\n", args[0].c_str());
+                this->trace.msg(vp::Trace::LEVEL_ERROR, "Baudrate %s is not supported\n", args[0].c_str());
                 return error_response("");
             }
 
@@ -201,7 +201,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
             }
             else
             {
-                this->trace.msg(vp::trace::LEVEL_ERROR, "flow_control argument %s is not supported\n", args[1].c_str());
+                this->trace.msg(vp::Trace::LEVEL_ERROR, "flow_control argument %s is not supported\n", args[1].c_str());
                 return error_response("");
             }
         }
@@ -216,7 +216,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
             }
             else
             {
-                this->trace.msg(vp::trace::LEVEL_ERROR, "data_bits argument %s is not supported\n", args[2].c_str());
+                this->trace.msg(vp::Trace::LEVEL_ERROR, "data_bits argument %s is not supported\n", args[2].c_str());
                 return error_response("");
             }
         }
@@ -230,7 +230,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
             }
             else
             {
-                this->trace.msg(vp::trace::LEVEL_ERROR, "stop_bits argument %s is not supported\n", args[3].c_str());
+                this->trace.msg(vp::Trace::LEVEL_ERROR, "stop_bits argument %s is not supported\n", args[3].c_str());
                 return error_response("");
             }
         }
@@ -248,7 +248,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
             }
             else
             {
-                this->trace.msg(vp::trace::LEVEL_ERROR, "parity argument %s is not supported\n", args[4].c_str());
+                this->trace.msg(vp::Trace::LEVEL_ERROR, "parity argument %s is not supported\n", args[4].c_str());
                 return error_response("");
             }
         }
@@ -267,20 +267,20 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
             }
             else
             {
-                this->trace.msg(vp::trace::LEVEL_ERROR, "change_after_confirm argument %s is not supported\n", args[5].c_str());
+                this->trace.msg(vp::Trace::LEVEL_ERROR, "change_after_confirm argument %s is not supported\n", args[5].c_str());
                 return error_response("");
             }
         }
 
         if (change_now)
         {
-            this->trace.msg(vp::trace::LEVEL_INFO, "Applying new uart configuration:\n");
-            this->trace.msg(vp::trace::LEVEL_INFO, "- baudrate: %d\n", new_cfg.baudrate);
-            this->trace.msg(vp::trace::LEVEL_INFO, "- data_bits: %d\n", new_cfg.data_bits);
-            this->trace.msg(vp::trace::LEVEL_INFO, "- stop_bits: %d\n", new_cfg.stop_bits);
-            this->trace.msg(vp::trace::LEVEL_INFO, "- parity: %s\n",
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Applying new uart configuration:\n");
+            this->trace.msg(vp::Trace::LEVEL_INFO, "- baudrate: %d\n", new_cfg.baudrate);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "- data_bits: %d\n", new_cfg.data_bits);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "- stop_bits: %d\n", new_cfg.stop_bits);
+            this->trace.msg(vp::Trace::LEVEL_INFO, "- parity: %s\n",
                     (new_cfg.parity == NINA_B112_UART_PARITY_NONE) ? "none" : "even");
-            this->trace.msg(vp::trace::LEVEL_INFO, "- flow_control: %s\n",
+            this->trace.msg(vp::Trace::LEVEL_INFO, "- flow_control: %s\n",
                     (new_cfg.flow_control) ? "enabled" : "disabled");
 
             this->uart_cfg = new_cfg;
@@ -293,7 +293,7 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
     std::regex cmd_rs232_params_read("\\+UMRS\\?");
     if(std::regex_match(input_cmd, match, cmd_rs232_params_read))
     {
-        this->trace.msg(vp::trace::LEVEL_INFO, "Received rs232_parameters_read command\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Received rs232_parameters_read command\n");
 
         std::ostringstream stream;
 
@@ -341,6 +341,6 @@ std::string Nina_b112::parse_cmd(std::string input_cmd)
      * DEVICE_ROLE_GET (+UBTLE? )
      */
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Received unknown command %s\n", input_cmd.c_str());
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Received unknown command %s\n", input_cmd.c_str());
     return error_response("");
 }

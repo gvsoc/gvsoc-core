@@ -44,21 +44,19 @@ typedef enum
 
 
 
-class Hyperram : public vp::component
+class Hyperram : public vp::Component
 {
 public:
-  Hyperram(js::config *config);
+  Hyperram(vp::ComponentConf &conf);
 
   void handle_access(int reg_access, int address, int read, uint8_t data);
 
-  int build();
-
-  static void sync_cycle(void *_this, int data);
-  static void cs_sync(void *__this, int cs, int value);
+  static void sync_cycle(vp::Block *_this, int data);
+  static void cs_sync(vp::Block *__this, int cs, int value);
 
 protected:
-  vp::trace     trace;
-  vp::hyper_slave   in_itf;
+  vp::Trace     trace;
+  vp::HyperSlave   in_itf;
 
 private:
   int size;
@@ -93,20 +91,20 @@ void Hyperram::handle_access(int reg_access, int address, int read, uint8_t data
 {
   if (address >= this->size)
   {
-    this->warning.force_warning("Received out-of-bound request (addr: 0x%x, ram_size: 0x%x)\n", address, this->size);
+    this->trace.force_warning("Received out-of-bound request (addr: 0x%x, ram_size: 0x%x)\n", address, this->size);
   }
   else
   {
     if (read)
     {
       uint8_t data = this->data[address];
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
       this->in_itf.sync_cycle(data);
 
     }
     else
     {
-      this->trace.msg(vp::trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
+      this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
       this->data[address] = data;
     }
   }
@@ -114,50 +112,8 @@ void Hyperram::handle_access(int reg_access, int address, int read, uint8_t data
 
 
 
-Hyperram::Hyperram(js::config *config)
-: vp::component(config)
-{
-}
-
-
-
-void Hyperram::sync_cycle(void *__this, int data)
-{
-  Hyperram *_this = (Hyperram *)__this;
-
-  if (_this->state == HYPERBUS_STATE_CA)
-  {
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command byte (value: 0x%x)\n", data);
-
-    _this->ca_count--;
-    _this->ca.raw[_this->ca_count] = data;
-    if (_this->ca_count == 0)
-    {
-      _this->state = HYPERBUS_STATE_DATA;
-      _this->current_address = _this->ca.low_addr | (_this->ca.high_addr << 3);
-
-      _this->reg_access = _this->ca.address_space == 1;
-
-      _this->trace.msg(vp::trace::LEVEL_TRACE, "Received command header (reg_access: %d, addr: 0x%x, read: %d)\n", _this->ca.address_space, _this->current_address, _this->ca.read);
-    }
-  }
-  else if (_this->state == HYPERBUS_STATE_DATA)
-  {
-    _this->handle_access(_this->reg_access, _this->current_address, _this->ca.read, data);
-    _this->current_address++;
-  }
-}
-
-void Hyperram::cs_sync(void *__this, int cs, int value)
-{
-  Hyperram *_this = (Hyperram *)__this;
-  _this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
-
-  _this->state = HYPERBUS_STATE_CA;
-  _this->ca_count = 6;
-}
-
-int Hyperram::build()
+Hyperram::Hyperram(vp::ComponentConf &config)
+: vp::Component(config)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -165,7 +121,7 @@ int Hyperram::build()
   in_itf.set_cs_sync_meth(&Hyperram::cs_sync);
   new_slave_port("input", &in_itf);
 
-  js::config *conf = this->get_js_config();
+  js::Config *conf = this->get_js_config();
 
   this->size = conf->get("size")->get_int();
 
@@ -176,12 +132,48 @@ int Hyperram::build()
   memset(this->reg_data, 0x57, REGS_AREA_SIZE);
   ((uint16_t *)this->reg_data)[0] = 0x8F1F;
 
-  return 0;
 }
 
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+void Hyperram::sync_cycle(vp::Block *__this, int data)
+{
+  Hyperram *_this = (Hyperram *)__this;
+
+  if (_this->state == HYPERBUS_STATE_CA)
+  {
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received command byte (value: 0x%x)\n", data);
+
+    _this->ca_count--;
+    _this->ca.raw[_this->ca_count] = data;
+    if (_this->ca_count == 0)
+    {
+      _this->state = HYPERBUS_STATE_DATA;
+      _this->current_address = _this->ca.low_addr | (_this->ca.high_addr << 3);
+
+      _this->reg_access = _this->ca.address_space == 1;
+
+      _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received command header (reg_access: %d, addr: 0x%x, read: %d)\n", _this->ca.address_space, _this->current_address, _this->ca.read);
+    }
+  }
+  else if (_this->state == HYPERBUS_STATE_DATA)
+  {
+    _this->handle_access(_this->reg_access, _this->current_address, _this->ca.read, data);
+    _this->current_address++;
+  }
+}
+
+void Hyperram::cs_sync(vp::Block *__this, int cs, int value)
+{
+  Hyperram *_this = (Hyperram *)__this;
+  _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
+
+  _this->state = HYPERBUS_STATE_CA;
+  _this->ca_count = 6;
+}
+
+
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new Hyperram(config);
 }

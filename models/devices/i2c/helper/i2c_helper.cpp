@@ -30,12 +30,12 @@ namespace {
         (void) id;
         (void) status;
         (void) value;
-        //this->trace.msg(vp::trace::LEVEL_TRACE, "null callback: id=%d, status=%d, value=%d\n",
+        //this->trace.msg(vp::Trace::LEVEL_TRACE, "null callback: id=%d, status=%d, value=%d\n",
         //        id, status, value);
     }
 }
 
-I2C_helper::I2C_helper(vp::component* parent, vp::i2c_master* itf,
+I2C_helper::I2C_helper(vp::Component* parent, vp::I2cMaster* itf,
         i2c_enqueue_event_fn_t enqueue_event, i2c_cancel_event_fn_t cancel_event,
         std::string trace_path) :
     parent(parent),
@@ -57,15 +57,15 @@ I2C_helper::I2C_helper(vp::component* parent, vp::i2c_master* itf,
     is_driving_scl(false),
     is_driving_sda(false),
     cb_master_operation(null_callback),
-    clock_event(parent, this, I2C_helper::st_clock_event_handler),
-    fsm_event(parent, this, I2C_helper::fsm_event_handler)
+    clock_event(parent, (vp::Block *)this, I2C_helper::st_clock_event_handler),
+    fsm_event(parent, (vp::Block *)this, I2C_helper::fsm_event_handler)
 {
     assert(NULL != this->parent);
     assert(NULL != this->itf);
 
     parent->traces.new_trace(trace_path + "/i2c_helper", &this->trace, vp::DEBUG);
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Initializing helper interface\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Initializing helper interface\n");
 
     this->pending_data_bits = 0;
     this->fsm_waiting = false;
@@ -73,7 +73,7 @@ I2C_helper::I2C_helper(vp::component* parent, vp::i2c_master* itf,
     this->input_sda = 1;
 }
 
-void I2C_helper::st_clock_event_handler(void* __this, vp::clock_event* event)
+void I2C_helper::st_clock_event_handler(vp::Block *__this, vp::ClockEvent* event)
 {
     assert(NULL != __this);
     assert(NULL != event);
@@ -117,7 +117,7 @@ void I2C_helper::fsm_enqueue_event(int64_t delay)
 }
 
 
-void I2C_helper::fsm_event_handler(void *__this, vp::clock_event* event)
+void I2C_helper::fsm_event_handler(vp::Block *__this, vp::ClockEvent* event)
 {
     I2C_helper* _this = (I2C_helper *) __this;
 
@@ -126,14 +126,14 @@ void I2C_helper::fsm_event_handler(void *__this, vp::clock_event* event)
 }
 
 
-void I2C_helper::clock_event_handler(vp::clock_event* event)
+void I2C_helper::clock_event_handler(vp::ClockEvent* event)
 {
     assert(NULL != event);
 
     /* clock toggling */
     if (this->is_clock_enabled)
     {
-        this->trace.msg(vp::trace::LEVEL_TRACE, "Toggling clock (value: %d)\n", this->clock_value);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Toggling clock (value: %d)\n", this->clock_value);
         if (this->clock_value)
         {
             /* switch to high */
@@ -151,7 +151,7 @@ void I2C_helper::clock_event_handler(vp::clock_event* event)
 
 void I2C_helper::register_callback(i2c_callback_t callback)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "register_callback: none\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "register_callback: none\n");
     this->cb_master_operation = callback;
 }
 
@@ -160,14 +160,14 @@ void I2C_helper::sync_pins(void)
     int res_scl = this->internal_state != I2C_INTERNAL_IDLE ? this->desired_scl : 1;
     int res_sda = this->internal_state != I2C_INTERNAL_IDLE ? this->desired_sda : 1;
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Synchronizing pins (scl:%d, sda:%d)\n", res_scl, res_sda);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Synchronizing pins (scl:%d, sda:%d)\n", res_scl, res_sda);
     this->itf->sync(res_scl, res_sda);
 }
 
 
 void I2C_helper::set_timings(uint64_t delay_low_ps, uint64_t delay_high_ps)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "set_timings: delay_low_ps=%ld, delay_high_ps=%ld\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "set_timings: delay_low_ps=%ld, delay_high_ps=%ld\n",
             delay_low_ps,
             delay_high_ps);
     this->delay_low_ps = delay_low_ps;
@@ -176,7 +176,7 @@ void I2C_helper::set_timings(uint64_t delay_low_ps, uint64_t delay_high_ps)
 
 void I2C_helper::send_start(void)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Request to send start\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Request to send start\n");
 
     this->is_starting = true;
     this->fsm_enqueue_event(1);
@@ -196,7 +196,7 @@ void I2C_helper::update_pins(int scl, int sda)
 
 void I2C_helper::send_address(int addr, bool is_write, bool is_10bits)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Request to send address (addr: 0x%x, is_write:%d, is_10bits:%d)\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Request to send address (addr: 0x%x, is_write:%d, is_10bits:%d)\n",
             addr, is_write, is_10bits);
 
     //TODO support 10 bits mode
@@ -217,7 +217,7 @@ void I2C_helper::send_ack(bool ack)
 
 void I2C_helper::send_data(int byte)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Request to send data (value: 0x%x)\n", byte);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Request to send data (value: 0x%x)\n", byte);
 
     if (this->pending_data_bits)
     {
@@ -233,13 +233,13 @@ void I2C_helper::send_data(int byte)
 
 void I2C_helper::send_stop(void)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Request to stop\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Request to stop\n");
     this->is_stopping = true;
 }
 
 void I2C_helper::start_clock(void)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Starting clock\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Starting clock\n");
 
     //start high then loop(low -> high)
     this->is_clock_enabled = true;
@@ -249,7 +249,7 @@ void I2C_helper::start_clock(void)
 
 void I2C_helper::stop_clock(void)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Stopping clock\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Stopping clock\n");
     this->is_clock_enabled =false;
     this->cancel_event(&this->clock_event);
 }
@@ -279,7 +279,7 @@ std::string I2C_helper::get_state_name(i2c_internal_state_e state)
 void I2C_helper::send_data_bit()
 {
     int bit = (this->pending_data >> 7) & 1;
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", bit);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", bit);
     this->desired_sda = bit;
     this->pending_data <<= 1;
     this->pending_data_bits--;
@@ -293,7 +293,7 @@ void I2C_helper::fsm_step()
         return;
     }
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "FSM update (state: %s, prev_scl: %d, prev_sda: %d, scl: %d, sda: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "FSM update (state: %s, prev_scl: %d, prev_sda: %d, scl: %d, sda: %d)\n",
         this->get_state_name(this->internal_state).c_str(), this->scl, this->sda, this->input_scl, this->input_sda);
 
     bool scl_rising = (this->input_scl == 1 && this->scl == 0);
@@ -318,7 +318,7 @@ void I2C_helper::fsm_step()
         case I2C_INTERNAL_IDLE:
             if (is_starting)
             {
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting start\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting start\n");
                 this->internal_state = I2C_INTERNAL_WAIT_START;
                 this->is_starting = false;
                 this->desired_sda = 0;
@@ -329,7 +329,7 @@ void I2C_helper::fsm_step()
         case I2C_INTERNAL_WAIT_START:
             if (scl_steady && sda_falling)
             {
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Detected start, waiting for data\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Detected start, waiting for data\n");
                 this->internal_state = I2C_INTERNAL_WAIT_DATA;
                 this->cb_master_operation(I2C_OP_START, I2C_STATUS_OK, 0);
             }
@@ -338,7 +338,7 @@ void I2C_helper::fsm_step()
         case I2C_INTERNAL_WAIT_STOP:
             if (scl_steady && sda_rising)
             {
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Detected stop\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Detected stop\n");
                 this->internal_state = I2C_INTERNAL_IDLE;
                 this->cb_master_operation(I2C_OP_STOP, I2C_STATUS_OK, 0);
             }
@@ -347,7 +347,7 @@ void I2C_helper::fsm_step()
         case I2C_INTERNAL_WAIT_DATA:
             if (this->pending_data_bits)
             {
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Detected data, starting clock\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Detected data, starting clock\n");
                 this->internal_state = I2C_INTERNAL_DATA;
             }
             this->start_clock();
@@ -374,7 +374,7 @@ void I2C_helper::fsm_step()
             if (scl_rising)
             {
                 this->pending_data = (this->pending_data << 1) | this->sda;
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Sampled data (bit: %d, pending_value: 0x%x, pending_bits: %d)\n", this->sda, this->pending_data, this->pending_data_bits);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampled data (bit: %d, pending_value: 0x%x, pending_bits: %d)\n", this->sda, this->pending_data, this->pending_data_bits);
                 this->pending_data_bits--;
 
                 if (this->pending_data_bits == 0)
@@ -392,7 +392,7 @@ void I2C_helper::fsm_step()
             {
                 int ack = this->sda;
 
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Sampled ack (value: %d)\n", ack);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampled ack (value: %d)\n", ack);
                 const i2c_status_e status = (ack == 1) ? I2C_STATUS_KO : I2C_STATUS_OK;
                 this->cb_master_operation(I2C_OP_ACK, status, 0);
                 this->internal_state = I2C_INTERNAL_STOP_CLOCK;
@@ -468,7 +468,7 @@ void I2C_helper::fsm_step()
 
         case I2C_INTERNAL_RESTART:
         {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting start\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting start\n");
             this->internal_state = I2C_INTERNAL_WAIT_START;
             this->desired_sda = 0;
             break;

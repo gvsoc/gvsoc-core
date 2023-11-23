@@ -22,66 +22,66 @@
 
 static inline iss_reg_t lr_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, 0, REG_OUT(0), vp::io_req_opcode_e::LR);
+    iss->lsu.atomic(insn, REG_GET(0), 8, 0, REG_OUT(0), vp::IoReqOpcode::LR);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sc_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::SC);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::SC);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoswap_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::SWAP);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::SWAP);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoadd_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::ADD);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::ADD);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoxor_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::XOR);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::XOR);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoand_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::AND);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::AND);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoor_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::OR);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::OR);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amomin_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::MIN);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MIN);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amomax_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::MAX);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MAX);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amominu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::MINU);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MINU);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amomaxu_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::io_req_opcode_e::MAXU);
+    iss->lsu.atomic(insn, REG_GET(0), 8, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MAXU);
     return iss_insn_next(iss, insn, pc);
 }

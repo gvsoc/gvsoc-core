@@ -61,14 +61,14 @@ void Syscalls::handle_ebreak()
       std::string path = this->iss.read_user_string(this->iss.regfile.regs[11]);
       if (path == "")
       {
-        this->iss.top.warning.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", this->iss.regfile.regs[11]);
+        this->trace.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", this->iss.regfile.regs[11]);
       }
       else
       {
-        vp::trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_path(path);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
         if (trace == NULL)
         {
-          this->iss.top.warning.force_warning("Invalid trace (path: %s)\n", path.c_str());
+          this->trace.force_warning("Invalid trace (path: %s)\n", path.c_str());
         }
         else
         {
@@ -84,10 +84,10 @@ void Syscalls::handle_ebreak()
     
     case GV_SEMIHOSTING_TRACE_ENABLE: {
       int id = this->iss.regfile.regs[11];
-      vp::trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+      vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
       if (trace == NULL)
       {
-        this->iss.top.warning.force_warning("Unknown trace ID while dumping trace (id: %d)\n", id);
+        this->trace.force_warning("Unknown trace ID while dumping trace (id: %d)\n", id);
       }
       else
       {
@@ -99,14 +99,14 @@ void Syscalls::handle_ebreak()
 #endif
 
     default:
-        this->iss.top.warning.force_warning("Unknown ebreak call (id: %d)\n", id);
+        this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;
     }
 }
 
 bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bool is_write)
 {
-    vp::io_req *req = &this->iss.lsu.io_req;
+    vp::IoReq *req = &this->iss.lsu.io_req;
     std::string str = "";
     while (size != 0)
     {
@@ -120,9 +120,9 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
         if (err != vp::IO_REQ_OK)
         {
             if (err == vp::IO_REQ_INVALID)
-                this->iss.top.warning.fatal("Invalid IO response during debug request\n");
+                this->trace.fatal("Invalid IO response during debug request\n");
             else
-                this->iss.top.warning.fatal("Pending IO response during debug request\n");
+                this->trace.fatal("Pending IO response during debug request\n");
 
             return true;
         }
@@ -143,7 +143,7 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
 
 std::string Syscalls::read_user_string(iss_addr_t addr, int size)
 {
-    vp::io_req *req = &this->iss.lsu.io_req;
+    vp::IoReq *req = &this->iss.lsu.io_req;
     std::string str = "";
     while (size != 0)
     {
@@ -160,7 +160,7 @@ std::string Syscalls::read_user_string(iss_addr_t addr, int size)
             if (err == vp::IO_REQ_INVALID)
                 return "";
             else
-                this->iss.top.warning.fatal("Pending IO response during debug request\n");
+                this->trace.fatal("Pending IO response during debug request\n");
         }
 
         if (buffer == 0)
@@ -219,7 +219,7 @@ void Syscalls::handle_riscv_ebreak()
         this->iss.regfile.regs[10] = open(path.c_str(), open_modeflags[mode], 0644);
 
         if (this->iss.regfile.regs[10] == -1)
-            this->iss.top.warning.force_warning("Caught error during semi-hosted call (name: open, path: %s, mode: 0x%x, error: %s)\n", path.c_str(), mode, strerror(errno));
+            this->trace.force_warning("Caught error during semi-hosted call (name: open, path: %s, mode: 0x%x, error: %s)\n", path.c_str(), mode, strerror(errno));
 
         break;
     }
@@ -352,7 +352,7 @@ void Syscalls::handle_riscv_ebreak()
     {
         int status = this->iss.regfile.regs[11] == 0x20026 ? 0 : 1;
 
-        this->iss.top.get_clock()->stop_engine(status & 0x7fffffff);
+        this->iss.top.time.get_engine()->quit(status & 0x7fffffff);
 
         break;
     }
@@ -376,19 +376,19 @@ void Syscalls::handle_riscv_ebreak()
         std::string path = this->read_user_string(args[0]);
         if (path == "")
         {
-            this->iss.top.warning.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", args[0]);
+            this->trace.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", args[0]);
         }
         else
         {
             if (args[1])
             {
-                this->iss.top.traces.get_trace_manager()->add_trace_path(0, path);
+                this->iss.top.traces.get_trace_engine()->add_trace_path(0, path);
             }
             else
             {
-                this->iss.top.traces.get_trace_manager()->add_exclude_trace_path(0, path);
+                this->iss.top.traces.get_trace_engine()->add_exclude_trace_path(0, path);
             }
-            this->iss.top.traces.get_trace_manager()->check_traces();
+            this->iss.top.traces.get_trace_engine()->check_traces();
         }
         break;
     }
@@ -415,7 +415,7 @@ void Syscalls::handle_riscv_ebreak()
         iss_csr_read(&this->iss, CSR_PCMR, &value);
         if ((value & 1) == 1)
         {
-            this->cycle_count_start = this->iss.top.get_cycles();
+            this->cycle_count_start = this->iss.top.clock.get_cycles();
         }
         break;
     }
@@ -426,7 +426,7 @@ void Syscalls::handle_riscv_ebreak()
         iss_csr_read(&this->iss, CSR_PCMR, &value);
         if ((value & 1) == 0)
         {
-            this->cycle_count_start = this->iss.top.get_cycles();
+            this->cycle_count_start = this->iss.top.clock.get_cycles();
         }
 
         iss_csr_write(&this->iss, CSR_PCMR, 1);
@@ -440,7 +440,7 @@ void Syscalls::handle_riscv_ebreak()
         iss_csr_read(&this->iss, CSR_PCMR, &value);
         if ((value & 1) == 1)
         {
-            this->cycle_count += this->iss.top.get_cycles() - this->cycle_count_start;
+            this->cycle_count += this->iss.top.clock.get_cycles() - this->cycle_count_start;
         }
 
         iss_csr_write(&this->iss, CSR_PCMR, 0);
@@ -470,13 +470,13 @@ void Syscalls::handle_riscv_ebreak()
         std::string mode = this->read_user_string(args[1]);
         if (path == "")
         {
-            this->iss.top.warning.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", args[0]);
+            this->trace.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", args[0]);
         }
         else
         {
             if (mode == "")
             {
-                this->iss.top.warning.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", args[1]);
+                this->trace.force_warning("Invalid user string while opening trace (addr: 0x%x)\n", args[1]);
             }
             else
             {
@@ -492,11 +492,11 @@ void Syscalls::handle_riscv_ebreak()
                 iss_csr_read(&this->iss, CSR_PCMR, &value);
                 if ((value & 1) == 1)
                 {
-                    this->cycle_count += this->iss.top.get_cycles() - this->cycle_count_start;
-                    this->cycle_count_start = this->iss.top.get_cycles();
+                    this->cycle_count += this->iss.top.clock.get_cycles() - this->cycle_count_start;
+                    this->cycle_count_start = this->iss.top.clock.get_cycles();
                 }
 
-                fprintf(file, "PCER values at timestamp %ld ps, duration %ld cycles\n", this->iss.top.get_time(), this->cycle_count);
+                fprintf(file, "PCER values at timestamp %ld ps, duration %ld cycles\n", this->iss.top.time.get_time(), this->cycle_count);
                 fprintf(file, "Index; Name; Description; Value\n");
                 for (int i = 0; i < 31; i++)
                 {
@@ -522,7 +522,7 @@ void Syscalls::handle_riscv_ebreak()
             this->iss.regfile.regs[10] = -1;
             return;
         }
-        this->iss.top.traces.get_trace_manager()->set_global_enable(args[0]);
+        this->iss.top.traces.get_trace_engine()->set_global_enable(args[0]);
         break;
     }
 
@@ -539,14 +539,14 @@ void Syscalls::handle_riscv_ebreak()
         std::string path = this->read_user_string(args[0]);
         if (path == "")
         {
-            this->iss.top.warning.force_warning("Invalid user string while opening VCD trace (addr: 0x%x)\n", args[0]);
+            this->trace.force_warning("Invalid user string while opening VCD trace (addr: 0x%x)\n", args[0]);
         }
         else
         {
-            vp::trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_path(path);
+            vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
             if (trace == NULL)
             {
-                this->iss.top.warning.force_warning("Invalid VCD trace (path: %s)\n", path.c_str());
+                this->trace.force_warning("Invalid VCD trace (path: %s)\n", path.c_str());
             }
             else
             {
@@ -573,16 +573,16 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
-            this->iss.top.warning.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
         }
         else
         {
             if (trace->width > 32)
             {
-                this->iss.top.warning.force_warning("Trying to write to VCD trace whose width is bigger than 32 (id: %d)\n", id);
+                this->trace.force_warning("Trying to write to VCD trace whose width is bigger than 32 (id: %d)\n", id);
             }
             else
             {
@@ -606,10 +606,10 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
-            this->iss.top.warning.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
         }
         else
         {
@@ -629,16 +629,16 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::trace *trace = this->iss.top.traces.get_trace_manager()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
-            this->iss.top.warning.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
         }
         else
         {
             if (!trace->is_string)
             {
-                this->iss.top.warning.force_warning("Trying to write string to VCD trace which is not a string (id: %d)\n", id);
+                this->trace.force_warning("Trying to write string to VCD trace which is not a string (id: %d)\n", id);
             }
             else
             {
@@ -652,13 +652,13 @@ void Syscalls::handle_riscv_ebreak()
 
     case 0x10D:
     {
-        this->iss.top.get_engine()->pause();
+        this->iss.top.time.get_engine()->pause();
 
         break;
     }
 
     default:
-        this->iss.top.warning.force_warning("Unknown ebreak call (id: %d)\n", id);
+        this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;
     }
 

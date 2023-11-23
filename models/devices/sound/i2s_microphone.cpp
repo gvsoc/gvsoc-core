@@ -39,25 +39,23 @@
 
 class Stim_txt;
 
-class Microphone : public vp::component
+class Microphone : public vp::Component
 {
     friend class Stim_txt;
 
 public:
-    Microphone(js::config *config);
-
-    int build();
+    Microphone(vp::ComponentConf &conf);
 
 protected:
-    static void sync(void *__this, int sck, int ws, int sd, bool is_full_duplex);
+    static void sync(vp::Block *__this, int sck, int ws, int sd, bool is_full_duplex);
     void start_sample();
     int pop_data();
     int get_data();
 
-    vp::i2s_master i2s_itf;
-    vp::i2s_master ws_out_itf;
-    vp::i2s_slave ws_in_itf;
-    vp::clock_master clock_cfg;
+    vp::I2sMaster i2s_itf;
+    vp::I2sMaster ws_out_itf;
+    vp::I2sSlave ws_in_itf;
+    vp::ClockMaster clock_cfg;
 
     int channel_ws;         // Word-Select of this microphone. It will send data whe the ws corresponds to this one
     int prev_ws;            // Value of the previous ws. Updated at each clock cycle to detect the beginning of the frame
@@ -80,10 +78,10 @@ protected:
     bool enabled;
     int prev_sck;
 
-    vp::trace trace;
+    vp::Trace trace;
 
 
-    static void ws_in_sync(void *__this, int sck, int ws, int sd, bool full_duplex);
+    static void ws_in_sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex);
 
 };
 
@@ -137,7 +135,7 @@ Stim_txt::Stim_txt(Microphone *top, std::string file, int width, int freq, bool 
 
     #else
 
-        this->top->get_trace()->fatal("Unable to open file (%s), libsndfile support is not active\n", file.c_str());
+        this->top->trace.fatal("Unable to open file (%s), libsndfile support is not active\n", file.c_str());
         return;
 
     #endif
@@ -148,7 +146,7 @@ Stim_txt::Stim_txt(Microphone *top, std::string file, int width, int freq, bool 
         stim_file = fopen(file.c_str(), "r");
         if (stim_file == NULL)
         {
-            this->top->get_trace()->fatal("Failed to open stimuli file: %s: %s\n", file.c_str(), strerror(errno));
+            this->top->trace.fatal("Failed to open stimuli file: %s: %s\n", file.c_str(), strerror(errno));
         }
     }
 
@@ -206,7 +204,7 @@ long long Stim_txt::get_data_from_file()
 
         long long result = get_signed_value(data, width);
 
-        this->top->trace.msg(vp::trace::LEVEL_TRACE, "Got new sample (value: 0x%x)", result);
+        this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Got new sample (value: 0x%x)", result);
         return result;
     }
     else
@@ -222,7 +220,7 @@ long long Stim_txt::get_data_from_file()
         unsigned long long data = strtol(line, NULL, 16);
         long long result = get_signed_value(data, width);
 
-        this->top->trace.msg(vp::trace::LEVEL_TRACE, "Got new sample2 (value: 0x%x)", result);
+        this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Got new sample2 (value: 0x%x)", result);
     
         return result;
     }
@@ -260,7 +258,7 @@ long long Stim_txt::get_data(int64_t timestamp)
     float value = (float)this->last_data + (float)(this->next_data - this->last_data) * coeff;
 
 
-    this->top->trace.msg(vp::trace::LEVEL_TRACE, "Interpolated new sample (value: %d, timestamp: %ld, prev_timestamp: %ld, next_timestamp: %ld, prev_value: %d, next_value: %d)", value, timestamp, last_data_time, next_data_time, last_data, next_data);
+    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Interpolated new sample (value: %d, timestamp: %ld, prev_timestamp: %ld, next_timestamp: %ld, prev_value: %d, next_value: %d)", value, timestamp, last_data_time, next_data_time, last_data, next_data);
     
 
     //printf("%f %f %d %d %ld %ld %ld\n", coeff, value, last_data, next_data, last_data_time, timestamp, next_data_time);
@@ -269,21 +267,8 @@ long long Stim_txt::get_data(int64_t timestamp)
 }
 
 
-Microphone::Microphone(js::config *config)
-    : vp::component(config)
-{
-}
-
-void Microphone::ws_in_sync(void *__this, int sck, int ws, int sd, bool full_duplex)
-{
-    Microphone *_this = (Microphone *)__this;
-
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received input WS edge (ws: %d)\n", ws);
-
-    _this->ws_in = ws;
-}
-
-int Microphone::build()
+Microphone::Microphone(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -318,8 +303,8 @@ int Microphone::build()
 
             if (ext == NULL)
             {
-                this->get_trace()->fatal("Unsupported file extension: %s\n", stim_file.c_str());
-                return -1;
+                this->trace.fatal("Unsupported file extension: %s\n", stim_file.c_str());
+                return;
             }
 
             if (strcmp(ext, ".hex") == 0)
@@ -336,7 +321,7 @@ int Microphone::build()
             }
             else
             {
-                this->get_trace()->fatal("Unsupported file extension: %s\n", stim_file.c_str());
+                this->trace.fatal("Unsupported file extension: %s\n", stim_file.c_str());
             }
         }
     }
@@ -353,13 +338,21 @@ int Microphone::build()
     this->lower_ws_out = false;
     this->prev_sck = 0;
 
-    return 0;
+}
+
+void Microphone::ws_in_sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex)
+{
+    Microphone *_this = (Microphone *)__this;
+
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received input WS edge (ws: %d)\n", ws);
+
+    _this->ws_in = ws;
 }
 
 
 void Microphone::start_sample()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Starting sample\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Starting sample\n");
     this->pending_bits = this->width;
     this->current_value = this->get_data();
 }
@@ -369,13 +362,13 @@ int Microphone::get_data()
 {
     if (this->stim)
     {
-        return this->stim->get_data(this->get_time());
+        return this->stim->get_data(this->time.get_time());
     }
     else
     {
         if (this->stim_incr)
         {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Incrementing stim (value: 0x%x)\n", this->current_stim);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Incrementing stim (value: 0x%x)\n", this->current_stim);
             int result = this->current_stim;
 
             uint64_t incr_val = (uint64_t)this->current_stim + this->stim_incr_value;
@@ -445,7 +438,7 @@ int Microphone::pop_data()
 }
 
 
-void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
+void Microphone::sync(vp::Block *__this, int sck, int ws, int sdio, bool is_full_duplex)
 {
     Microphone *_this = (Microphone *)__this;
 
@@ -457,7 +450,7 @@ void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_dupl
     if (_this->ws_in_itf.is_bound())
         ws = _this->ws_in;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "I2S edge (sck: %d, ws: %d, sdo: %d)\n", sck, ws, sd);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "I2S edge (sck: %d, ws: %d, sdo: %d)\n", sck, ws, sd);
 
     if (_this->prev_sck != sck)
     {
@@ -468,7 +461,7 @@ void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_dupl
             {
                 if (!_this->is_active)
                 {
-                    _this->trace.msg(vp::trace::LEVEL_TRACE, "Activating channel\n");
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Activating channel\n");
                 }
 
                 _this->is_active = true;
@@ -503,7 +496,7 @@ void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_dupl
                     //fprintf(stderr, "Popped data %d\n", data);
 
                     // If there is no more delay, set the sample now as it wil be sampled by the receiver in 1 cycle
-                    _this->trace.msg(vp::trace::LEVEL_TRACE, "Setting data (value: %d)\n", data);
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Setting data (value: %d)\n", data);
 
                     _this->i2s_itf.sync(2, 2, data | (2 << 2), false);
                 }
@@ -517,7 +510,7 @@ void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_dupl
             else if (_this->pending_bits == 0)
             {
                 _this->pending_bits = -1;
-                _this->trace.msg(vp::trace::LEVEL_TRACE, "Releasing output\n");
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Releasing output\n");
                 _this->i2s_itf.sync(2, 2, 2 | (2 << 2), false);
             }
 
@@ -538,7 +531,7 @@ void Microphone::sync(void *__this, int sck, int ws, int sdio, bool is_full_dupl
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Microphone(config);
 }

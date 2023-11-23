@@ -22,6 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
+#include <vp/register.hpp>
 #include <cpu/iss/include/types.hpp>
 
 class Irq
@@ -42,7 +43,7 @@ public:
     int check();
     void wfi_handle();
     void elw_irq_unstall();
-    static void irq_req_sync(void *__this, int irq);
+    static void irq_req_sync(vp::Block *__this, int irq);
 
     Iss &iss;
     iss_reg_t vectors[35];
@@ -51,11 +52,11 @@ public:
     int req_irq;
     bool req_debug;
     iss_reg_t debug_handler;
-    vp::trace trace;
+    vp::Trace trace;
 
     int irq_req;
     int irq_req_value;
-    vp::wire_master<int> irq_ack_itf;
-    vp::wire_slave<int> irq_req_itf;
+    vp::WireMaster<int> irq_ack_itf;
+    vp::WireSlave<int> irq_req_itf;
 
 };

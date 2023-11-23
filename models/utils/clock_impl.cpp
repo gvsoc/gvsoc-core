@@ -24,24 +24,24 @@
 #include <stdio.h>
 #include <string.h>
 
-class Clock : public vp::component
+class Clock : public vp::Component
 {
 
 public:
-    Clock(js::config *config);
+    Clock(vp::ComponentConf &conf);
 
-    int build();
     void reset(bool active);
 
 private:
-    static void edge_handler(void *__this, vp::clock_event *event);
+    static void edge_handler(vp::Block *__this, vp::ClockEvent *event);
     inline void raise_edge();
-    static void power_sync(void *__this, bool active);
+    static void power_sync(vp::Block *__this, bool active);
 
-    vp::wire_slave<bool> power_itf;
-    vp::clock_master clock_ctrl_itf;
-    vp::clock_master clock_sync_itf;
-    vp::clock_event *event;
+    vp::Trace trace;
+    vp::WireSlave<bool> power_itf;
+    vp::ClockMaster clock_ctrl_itf;
+    vp::ClockMaster clock_sync_itf;
+    vp::ClockEvent *event;
     int value;
     float target_frequency;
     float frequency;
@@ -52,11 +52,11 @@ private:
 
 inline void Clock::raise_edge()
 {
-    this->get_trace()->msg(vp::trace::LEVEL_TRACE, "Changing clock level (level: %d)\n", value);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Changing clock level (level: %d)\n", value);
 
     if (this->target_frequency)
     {
-        int64_t diff_time = this->get_time()- this->start_time;
+        int64_t diff_time = this->time.get_time()- this->start_time;
         if (diff_time >= this->powerup_time)
         {
             this->clock_ctrl_itf.set_frequency(this->target_frequency);
@@ -73,25 +73,25 @@ inline void Clock::raise_edge()
     this->value ^= 1;
 }
 
-void Clock::edge_handler(void *__this, vp::clock_event *event)
+void Clock::edge_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Clock *_this = (Clock *)__this;
     _this->raise_edge();
 }
 
 
-void Clock::power_sync(void *__this, bool active)
+void Clock::power_sync(vp::Block *__this, bool active)
 {
     Clock *_this = (Clock *)__this;
 
-    _this->get_trace()->msg(vp::trace::LEVEL_DEBUG, "Changing clock power (is_on: %d)\n", active);
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Changing clock power (is_on: %d)\n", active);
 
     if (active != _this->powered_on)
     {
         if (active)
         {
             _this->target_frequency = _this->frequency;
-            _this->start_time = _this->get_time();
+            _this->start_time = _this->time.get_time();
             if (_this->clock_sync_itf.is_bound())
             {
                 _this->event->enable();
@@ -110,13 +110,10 @@ void Clock::power_sync(void *__this, bool active)
 }
 
 
-Clock::Clock(js::config *config)
-    : vp::component(config)
+Clock::Clock(vp::ComponentConf &config)
+    : vp::Component(config)
 {
-}
-
-int Clock::build()
-{
+    traces.new_trace("trace", &trace, vp::DEBUG);
     this->event = this->event_new(Clock::edge_handler);
 
     this->power_itf.set_sync_meth(&Clock::power_sync);
@@ -127,7 +124,6 @@ int Clock::build()
     this->powerup_time = this->get_js_config()->get_child_int("powerup_time");
     this->powered_on = this->get_js_config()->get("powered_on") == NULL || this->get_js_config()->get_child_bool("powered_on");
 
-    return 0;
 }
 
 void Clock::reset(bool active)
@@ -135,8 +131,8 @@ void Clock::reset(bool active)
     if (!active)
     {
         this->target_frequency = 0;
-        this->frequency = this->get_clock()->get_frequency();
-        this->clock_sync_itf.set_frequency(this->get_clock()->get_frequency() / 2);
+        this->frequency = this->clock.get_engine()->get_frequency();
+        this->clock_sync_itf.set_frequency(this->clock.get_engine()->get_frequency() / 2);
 
         if (this->powered_on)
         {
@@ -151,7 +147,7 @@ void Clock::reset(bool active)
     }
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Clock(config);
 }

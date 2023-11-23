@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -42,9 +42,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/prctl.h>
-#include <vp/time/time_scheduler.hpp>
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
+#include "vp/top.hpp"
 
 
 static std::vector<std::string> split(const std::string& s, char delimiter)
@@ -60,18 +60,18 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 
-void Gv_proxy::notify_stop(int64_t time)
+void gv::GvProxy::notify_stop(int64_t time)
 {
     this->send_reply("req=-1;msg=stopped=" + std::to_string(time) + '\n');
 }
 
-void Gv_proxy::notify_run(int64_t time)
+void gv::GvProxy::notify_run(int64_t time)
 {
     this->send_reply("req=-1;msg=running=" + std::to_string(time) + '\n');
 }
 
 
-void Gv_proxy::send_reply(std::string msg)
+void gv::GvProxy::send_reply(std::string msg)
 {
     std::unique_lock<std::mutex> lock(this->mutex);
     for (auto x: this->sockets)
@@ -82,7 +82,7 @@ void Gv_proxy::send_reply(std::string msg)
 }
 
 
-bool Gv_proxy::send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size)
+bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size)
 {
     fprintf(reply_file, "req=%s;payload=%d\n", req.c_str(), size);
     int write_size = fwrite(payload, 1, size, reply_file);
@@ -91,12 +91,12 @@ bool Gv_proxy::send_payload(FILE *reply_file, std::string req, uint8_t *payload,
 }
 
 
-void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
+void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
 {
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
-    vp::time_engine *engine = this->launcher->top_get()->time_engine_get();
-    Gvsoc_launcher *launcher = this->launcher;
+    gv::GvsocLauncher *launcher = this->launcher;
+    vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
 
     if (!this->is_async)
     {
@@ -212,7 +212,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
 
                 if (words[0] == "get_component")
                 {
-                    vp::component *comp = this->top->get_component(split(words[1], '/'));
+                    vp::Block *comp = this->top->get_block_from_path(split(words[1], '/'));
                     std::unique_lock<std::mutex> lock(this->mutex);
                     if (comp)
                     {
@@ -226,7 +226,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                 }
                 else if (words[0] == "component")
                 {
-                    vp::component *comp = (vp::component *)strtoll(words[1].c_str(), NULL, 0);
+                    vp::Component *comp = (vp::Component *)strtoll(words[1].c_str(), NULL, 0);
                     std::string retval = comp->handle_command(this, sock, reply_sock, {words.begin() + 2, words.end()}, req);
                     std::unique_lock<std::mutex> lock(this->mutex);
                     fprintf(reply_sock, "req=%s;msg=%s\n", req.c_str(), retval.c_str());
@@ -243,18 +243,18 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                     {
                         if (words[1] == "add")
                         {
-                            this->top->traces.get_trace_manager()->add_trace_path(0, words[2]);
-                            this->top->traces.get_trace_manager()->check_traces();
+                            this->top->traces.get_trace_engine()->add_trace_path(0, words[2]);
+                            this->top->traces.get_trace_engine()->check_traces();
                         }
                         else if (words[1] == "level")
                         {
-                            this->top->traces.get_trace_manager()->set_trace_level(words[2].c_str());
-                            this->top->traces.get_trace_manager()->check_traces();
+                            this->top->traces.get_trace_engine()->set_trace_level(words[2].c_str());
+                            this->top->traces.get_trace_engine()->check_traces();
                         }
                         else
                         {
-                            this->top->traces.get_trace_manager()->add_exclude_trace_path(0, words[2]);
-                            this->top->traces.get_trace_manager()->check_traces();
+                            this->top->traces.get_trace_engine()->add_exclude_trace_path(0, words[2]);
+                            this->top->traces.get_trace_engine()->check_traces();
                         }
                         fprintf(reply_sock, "req=%s\n", req.c_str());
                         fflush(reply_sock);
@@ -272,15 +272,15 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
                         {
                             // TODO regular expressions are too slow for the profiler, should be moved
                             // to a new command
-                            //this->top->traces.get_trace_manager()->add_trace_path(1, words[2]);
-                            //this->top->traces.get_trace_manager()->check_traces();
-                            this->top->traces.get_trace_manager()->conf_trace(1, words[2], 1);
+                            //this->top->traces.get_trace_engine()->add_trace_path(1, words[2]);
+                            //this->top->traces.get_trace_engine()->check_traces();
+                            this->top->traces.get_trace_engine()->conf_trace(1, words[2], 1);
                         }
                         else
                         {
-                            //this->top->traces.get_trace_manager()->add_exclude_trace_path(1, words[2]);
-                            //this->top->traces.get_trace_manager()->check_traces();
-                            this->top->traces.get_trace_manager()->conf_trace(1, words[2], 0);
+                            //this->top->traces.get_trace_engine()->add_exclude_trace_path(1, words[2]);
+                            //this->top->traces.get_trace_engine()->check_traces();
+                            this->top->traces.get_trace_engine()->conf_trace(1, words[2], 0);
                         }
                         fprintf(reply_sock, "req=%s\n", req.c_str());
                     }
@@ -298,7 +298,7 @@ void Gv_proxy::proxy_loop(int socket_fd, int reply_fd)
     }
 }
 
-Gv_proxy::Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *launcher, bool is_async, int req_pipe, int reply_pipe)
+gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe, int reply_pipe)
   : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe)
 {
     this->is_async = is_async;
@@ -309,7 +309,7 @@ Gv_proxy::Gv_proxy(vp::time_engine *engine, vp::component *top, Gvsoc_launcher *
     }
 }
 
-void Gv_proxy::listener(void)
+void gv::GvProxy::listener(void)
 {
     int client_fd;
     while(1)
@@ -322,13 +322,13 @@ void Gv_proxy::listener(void)
         }
 
         this->sockets.push_back(client_fd);
-        this->loop_thread = new std::thread(&Gv_proxy::proxy_loop, this, client_fd, client_fd);
+        this->loop_thread = new std::thread(&gv::GvProxy::proxy_loop, this, client_fd, client_fd);
     }
 }
 
 
 
-int Gv_proxy::open(int port, int *out_port)
+int gv::GvProxy::open(int port, int *out_port)
 {
     if (this->req_pipe == -1)
     {
@@ -372,11 +372,11 @@ int Gv_proxy::open(int port, int *out_port)
             *out_port = ntohs(addr.sin_port);
         }
 
-        this->listener_thread = new std::thread(&Gv_proxy::listener, this);
+        this->listener_thread = new std::thread(&gv::GvProxy::listener, this);
     }
     else
     {
-        this->loop_thread = new std::thread(&Gv_proxy::proxy_loop, this, this->req_pipe, this->reply_pipe);
+        this->loop_thread = new std::thread(&gv::GvProxy::proxy_loop, this, this->req_pipe, this->reply_pipe);
     }
 
     return 0;
@@ -384,7 +384,7 @@ int Gv_proxy::open(int port, int *out_port)
 
 
 
-void Gv_proxy::stop(int status)
+void gv::GvProxy::stop(int status)
 {
     for (auto x: this->sockets)
     {

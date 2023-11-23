@@ -15,55 +15,53 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
 #include <vp/vp.hpp>
 #include "vp/time/time_engine.hpp"
-#include "vp/time/time_scheduler.hpp"
+#include <vp/time/time_event.hpp>
 
-
-
-vp::time_engine::time_engine(vp::component *top, js::config *config)
-    : first_client(NULL), top(top), config(config)
+vp::TimeEngine::TimeEngine(js::Config *config)
+    : first_client(NULL), config(config)
 {
     pthread_mutex_init(&lock_mutex, NULL);
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
-
-    top->new_service("time", static_cast<time_engine *>(this));
-
-    this->stop_event = new vp::Time_engine_stop_event(this->top, this);
 }
 
-
-
-int64_t vp::time_engine::exec()
+void vp::TimeEngine::init(vp::Component *top)
 {
-    time_engine_client *current = first_client;
+    this->top = top;
+    this->stop_event = new vp::Time_engine_stop_event(this->top);
+}
+
+int64_t vp::TimeEngine::exec()
+{
+    vp::Block *current = this->first_client;
 
     if (current)
     {
-        first_client = current->next;
-        current->is_enqueued = false;
+        first_client = current->time.next;
+        current->time.is_enqueued = false;
 
         // Update the global engine time with the current event time
-        this->time = current->next_event_time;
+        this->time = current->time.next_event_time;
 
         while (1)
         {
-            current->running = true;
+            current->time.running = true;
 
             int64_t time = current->exec();
 
-            time_engine_client *next = first_client;
+            vp::Block *next = this->first_client;
 
             // Shortcut to quickly continue with the same client
             if (likely(time > 0))
             {
                 time += this->time;
-                if (likely((!next || next->next_event_time > time)))
+                if (likely((!next || next->time.next_event_time > time)))
                 {
                     if (likely(!this->stop_req))
                     {
@@ -72,11 +70,11 @@ int64_t vp::time_engine::exec()
                     }
                     else
                     {
-                        current->next = first_client;
+                        current->time.next = first_client;
                         first_client = current;
-                        current->next_event_time = time;
-                        current->is_enqueued = true;
-                        current->running = false;
+                        current->time.next_event_time = time;
+                        current->time.is_enqueued = true;
+                        current->time.running = false;
                         break;
                     }
                 }
@@ -88,19 +86,19 @@ int64_t vp::time_engine::exec()
 
             if (time > 0)
             {
-                current->next_event_time = time;
-                time_engine_client *client = next->next, *prev = next;
-                while (client && client->next_event_time < time)
+                current->time.next_event_time = time;
+                vp::Block *client = next->time.next, *prev = next;
+                while (client && client->time.next_event_time < time)
                 {
                     prev = client;
-                    client = client->next;
+                    client = client->time.next;
                 }
-                current->next = client;
-                prev->next = current;
-                current->is_enqueued = true;
+                current->time.next = client;
+                prev->time.next = current;
+                current->time.is_enqueued = true;
             }
 
-            current->running = false;
+            current->time.running = false;
 
             current = first_client;
 
@@ -108,18 +106,18 @@ int64_t vp::time_engine::exec()
             // In case of a stop request, always take it into account when time is increased so that teh engine
             // is stopped at the end of the current timestamp. This will ensure the step operation, which is using a
             // stop event, is stepping until the end of the timestamp.
-            if (!current || (this->stop_req && current->next_event_time > this->time))
+            if (!current || (this->stop_req && current->time.next_event_time > this->time))
             {
                 break;
             }
 
-            vp_assert(first_client->next_event_time >= get_time(), NULL, "event time is before vp time\n");
+            vp_assert(first_client->time.next_event_time >= get_time(), NULL, "event time is before vp time\n");
 
-            first_client = current->next;
-            current->is_enqueued = false;
+            first_client = current->time.next;
+            current->time.is_enqueued = false;
 
             // Update the global engine time with the current event time
-            this->time = current->next_event_time;
+            this->time = current->time.next_event_time;
         }
     }
 
@@ -127,15 +125,13 @@ int64_t vp::time_engine::exec()
 
     if (this->first_client)
     {
-        time = this->first_client->next_event_time;
+        time = this->first_client->time.next_event_time;
     }
 
     return time;
 }
 
-
-
-void vp::time_engine::handle_locks()
+void vp::TimeEngine::handle_locks()
 {
     while (this->lock_req > 0)
     {
@@ -143,16 +139,15 @@ void vp::time_engine::handle_locks()
     }
 }
 
-void vp::time_engine::step_register(int64_t end_time)
+void vp::TimeEngine::step_register(int64_t end_time)
 {
     this->stop_event->step(end_time);
 }
 
-
-int64_t vp::time_engine::run_until(int64_t end_time)
+int64_t vp::TimeEngine::run_until(int64_t end_time)
 {
     int64_t time;
-    vp::time_event *event = this->stop_event->step_nofree(end_time);
+    vp::TimeEvent *event = this->stop_event->step_nofree(end_time);
     // In synchronous mode, since several threads can control the time, there is a retain
     // mechanism which makes sure time is progressins only if all threads ask for it.
     // Since wwe are now ready to make time progress, decrease our counter, it will be increased
@@ -160,7 +155,7 @@ int64_t vp::time_engine::run_until(int64_t end_time)
     // we return
     this->retain--;
 
-    while(1)
+    while (1)
     {
         // If anyone is retaining the engine, it means it did not ask for time progress, thus we
         // need to wait.
@@ -173,7 +168,6 @@ int64_t vp::time_engine::run_until(int64_t end_time)
             // This is the case once our event is not enqueued anymore
             if (!event->is_enqueued())
             {
-                this->stop_event->time_event_del(event);
                 return this->get_next_event_time();
             }
         }
@@ -190,22 +184,18 @@ int64_t vp::time_engine::run_until(int64_t end_time)
         // Leave only once our event is over
         if (!event->is_enqueued())
         {
-            this->stop_event->time_event_del(event);
             break;
         }
-
     }
 
     return time;
 }
 
-
-
-int64_t vp::time_engine::run()
+int64_t vp::TimeEngine::run()
 {
     int64_t time;
 
-    while(1)
+    while (1)
     {
         // Cancel any pause request which was done before running
         this->pause_req = false;
@@ -238,71 +228,65 @@ int64_t vp::time_engine::run()
     return time;
 }
 
-
-
-void vp::time_engine::bind_to_launcher(gv::Gvsoc_user *launcher)
+void vp::TimeEngine::bind_to_launcher(gv::Gvsoc_user *launcher)
 {
     this->launcher = launcher;
 }
 
-
-
-bool vp::time_engine::dequeue(time_engine_client *client)
+bool vp::TimeEngine::dequeue(vp::Block *client)
 {
-    if (!client->is_enqueued)
+    if (!client->time.is_enqueued)
         return false;
 
-    client->is_enqueued = false;
+    client->time.is_enqueued = false;
 
-    time_engine_client *current = this->first_client, *prev = NULL;
+    vp::Block *current = this->first_client, *prev = NULL;
     while (current && current != client)
     {
         prev = current;
-        current = current->next;
+        current = current->time.next;
     }
     if (prev)
-        prev->next = client->next;
+        prev->time.next = client->time.next;
     else
-        this->first_client = client->next;
+        this->first_client = client->time.next;
 
     return true;
 }
 
-
-
-bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
+bool vp::TimeEngine::enqueue(vp::Block *client, int64_t full_time)
 {
     bool update = false;
 
     vp_assert(full_time >= get_time(), NULL, "Time must be higher than current time\n");
 
-    if (client->is_running())
+    if (client->time.is_running())
         return false;
 
-    if (client->is_enqueued)
+    if (client->time.is_enqueued)
     {
-        if (client->next_event_time <= full_time)
+        if (client->time.next_event_time <= full_time)
             return false;
         this->dequeue(client);
     }
 
-    client->is_enqueued = true;
+    client->time.is_enqueued = true;
 
-    time_engine_client *current = first_client, *prev = NULL;
-    client->next_event_time = full_time;
-    while (current && current->next_event_time < client->next_event_time)
+    vp::Block *current = first_client, *prev = NULL;
+    client->time.next_event_time = full_time;
+    while (current && current->time.next_event_time < client->time.next_event_time)
     {
         prev = current;
-        current = current->next;
+        current = current->time.next;
     }
     if (prev)
-        prev->next = client;
+        prev->time.next = client;
     else
     {
         update = true;
         first_client = client;
     }
-    client->next = current;
+    client->time.next = current;
 
     if (update && this->launcher)
     {
@@ -312,9 +296,7 @@ bool vp::time_engine::enqueue(time_engine_client *client, int64_t full_time)
     return true;
 }
 
-
-
-void vp::time_engine::quit(int status)
+void vp::TimeEngine::quit(int status)
 {
     this->pause();
     this->stop_status = status;
@@ -331,9 +313,7 @@ void vp::time_engine::quit(int status)
     }
 }
 
-
-
-void vp::time_engine::pause()
+void vp::TimeEngine::pause()
 {
     this->stop_req = true;
     this->pause_req = true;
@@ -342,16 +322,13 @@ void vp::time_engine::pause()
     pthread_cond_broadcast(&cond);
 }
 
-
-
-void vp::time_engine::flush()
+void vp::TimeEngine::flush()
 {
     this->top->flush_all();
     fflush(NULL);
 }
 
-
-void vp::time_engine::fatal(const char *fmt, ...)
+void vp::TimeEngine::fatal(const char *fmt, ...)
 {
     fprintf(stdout, "[\033[31mFATAL\033[0m] ");
     va_list ap;
@@ -363,46 +340,50 @@ void vp::time_engine::fatal(const char *fmt, ...)
     this->quit(-1);
 }
 
-vp::Time_engine_stop_event::Time_engine_stop_event(vp::component *top, vp::time_engine *engine) : vp::time_scheduler(NULL), top(top)
+vp::Time_engine_stop_event::Time_engine_stop_event(vp::Component *top)
+    : vp::Block(top, "stop_event"), top(top)
 {
-    this->engine = engine;
-
-    this->build_instance("stop_event", top);
 }
 
 int64_t vp::Time_engine_stop_event::step(int64_t time)
 {
-    vp::time_event *event = this->time_event_new(this->event_handler);
-    this->enqueue(event, time - this->engine->get_time());
+    vp::TimeEvent *event = new vp::TimeEvent(this);
+    event->set_callback(this->event_handler);
+    event->enqueue(time - top->time.get_engine()->get_time());
     return 0;
 }
 
-vp::time_event *vp::Time_engine_stop_event::step_nofree(int64_t time)
+vp::TimeEvent *vp::Time_engine_stop_event::step_nofree(int64_t time)
 {
-    vp::time_event *event = this->time_event_new(this->event_handler_nofree);
-    this->enqueue(event, time - this->engine->get_time());
+    vp::TimeEvent *event = new vp::TimeEvent(this);
+    event->set_callback(this->event_handler_nofree);
+    event->enqueue(time - top->time.get_engine()->get_time());
     return event;
 }
 
-void vp::Time_engine_stop_event::event_handler(void *__this, vp::time_event *event)
+void vp::Time_engine_stop_event::event_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    _this->engine->pause();
-    _this->time_event_del(event);
-    _this->engine->retain_inc(1);
+    _this->top->time.get_engine()->pause();
+    _this->top->time.get_engine()->retain_inc(1);
 }
 
-void vp::Time_engine_stop_event::event_handler_nofree(void *__this, vp::time_event *event)
+void vp::Time_engine_stop_event::event_handler_nofree(vp::Block *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    _this->engine->pause();
+    _this->top->time.get_engine()->pause();
 
     // Increase the retain count to stop time progress.
-    _this->engine->retain_inc(1);
+    _this->top->time.get_engine()->retain_inc(1);
+}
+
+void vp::TimeEngine::retain_inc(int inc)
+{
+    this->retain += inc;
 }
 
 
-void vp::time_engine::retain_inc(int inc)
+void vp::TimeEngine::flush_all()
 {
-    this->retain += inc;
+    this->top->flush_all();
 }

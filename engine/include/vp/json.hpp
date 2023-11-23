@@ -32,7 +32,7 @@
 
 namespace js {
 
-  class config
+  class Config
   {
 
   public:
@@ -42,17 +42,17 @@ namespace js {
     virtual double get_double() { return 0; }
     virtual long long int get_int(std::string name)
     {
-      js::config *config = this->get(name);
+      js::Config *config = this->get(name);
       if (config == NULL) return 0;
       return config->get_int();
     }
 
     virtual void dump(std::string indent="");
-    virtual config *get(std::string) { return NULL; }
-    virtual config *get_elem(int) { return NULL; }
+    virtual Config *get(std::string) { return NULL; }
+    virtual Config *get_elem(int) { return NULL; }
     virtual size_t get_size() { return 0; }
     virtual bool get_bool() { return false; }
-    virtual config *get_from_list(std::vector<std::string>) {
+    virtual Config *get_from_list(std::vector<std::string>) {
       return NULL;
     }
 
@@ -60,26 +60,26 @@ namespace js {
     virtual bool get_child_bool(std::string) { return false; }
     virtual std::string get_child_str(std::string) { return ""; }
 
-    virtual std::vector<config *> get_elems() {
-      return std::vector<config *> ();
+    virtual std::vector<Config *> get_elems() {
+      return std::vector<Config *> ();
     }
-    virtual std::map<std::string, config *> get_childs() {
-      return std::map<std::string, config *>();
+    virtual std::map<std::string, Config *> get_childs() {
+      return std::map<std::string, Config *>();
     }
-    config *create_config(jsmntok_t *tokens, int *_size);
+    Config *create_config(jsmntok_t *tokens, int *_size);
 
-    std::map<std::string, config *> childs;
+    std::map<std::string, Config *> childs;
   };
 
-  class config_object : public config
+  class ConfigObject : public Config
   {
 
   public:
-    config_object(jsmntok_t *tokens, int *size=NULL);
+    ConfigObject(jsmntok_t *tokens, int *size=NULL);
 
-    config *get(std::string name);
-    config *get_from_list(std::vector<std::string> name_list);
-    std::map<std::string, config *> get_childs() { return childs; }
+    Config *get(std::string name);
+    Config *get_from_list(std::vector<std::string> name_list);
+    std::map<std::string, Config *> get_childs() { return childs; }
 
     int get_child_int(std::string name);
     bool get_child_bool(std::string name);
@@ -89,31 +89,31 @@ namespace js {
 
   };
 
-  class config_array : public config
+  class ConfigArray : public Config
   {
 
   public:
-    config_array(jsmntok_t *tokens, int *size=NULL);
-    config *get_from_list(std::vector<std::string> name_list);
+    ConfigArray(jsmntok_t *tokens, int *size=NULL);
+    Config *get_from_list(std::vector<std::string> name_list);
 
-    std::vector<config *> get_elems() { return elems; }
-    config *get_elem(int index) { return elems[index]; }
+    std::vector<Config *> get_elems() { return elems; }
+    Config *get_elem(int index) { return elems[index]; }
 
     size_t get_size() { return elems.size(); }
 
     void dump(std::string indent="");
 
   private:
-    std::vector<config *> elems;
+    std::vector<Config *> elems;
   };
 
 
-  class config_string : public config
+  class ConfigString : public Config
   {
 
   public:
-    config_string(jsmntok_t *tokens);
-    config *get_from_list(std::vector<std::string> name_list);
+    ConfigString(jsmntok_t *tokens);
+    Config *get_from_list(std::vector<std::string> name_list);
     std::string get_str() { return value; }
     long long int get_int() { return strtoll(value.c_str(), NULL, 0); }
     bool get_bool() { return strcmp(value.c_str(), "True") == 0 ||  strcmp(value.c_str(), "true") == 0; }
@@ -125,14 +125,14 @@ namespace js {
   };
 
 
-  class config_number : public config
+  class ConfigNumber : public Config
   {
 
   public:
-    config_number(jsmntok_t *tokens);
+    ConfigNumber(jsmntok_t *tokens);
     long long int get_int() { return (long long int)value; }
     double get_double() { return value; }
-    config *get_from_list(std::vector<std::string> name_list);
+    Config *get_from_list(std::vector<std::string> name_list);
 
     void dump(std::string indent="");
 
@@ -141,13 +141,13 @@ namespace js {
 
   };
 
-  class config_bool : public config
+  class ConfigBool : public Config
   {
 
   public:
-    config_bool(jsmntok_t *tokens);
+    ConfigBool(jsmntok_t *tokens);
     bool get_bool() { return (bool)value; }
-    config *get_from_list(std::vector<std::string> name_list);
+    Config *get_from_list(std::vector<std::string> name_list);
 
     void dump(std::string indent="");
 
@@ -155,9 +155,9 @@ namespace js {
     bool value;
   };
 
-  config *import_config_from_string(std::string config_string);
+  Config *import_config_from_string(std::string ConfigString);
 
-  config *import_config_from_file(std::string config_path);
+  Config *import_config_from_file(std::string config_path);
 
 }
 

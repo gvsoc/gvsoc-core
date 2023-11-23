@@ -5579,7 +5579,7 @@ inline int Vlsu::Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data
 inline void Vlsu::handle_pending_io_access(Iss *iss)
 {
     if (this->io_pending_size > 0){
-        vp::io_req *req = &this->io_req;
+        vp::IoReq *req = &this->io_req;
 
         uint32_t addr = this->io_pending_addr;        
         uint32_t addr_aligned = addr & ~(4 - 1);

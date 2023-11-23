@@ -193,7 +193,7 @@ typedef struct
  *
  * JSON configuration can be used to customize its behavior.
  */
-class Nina_b112 : public vp::component
+class Nina_b112 : public vp::Component
 {
 public:
     /**
@@ -201,14 +201,7 @@ public:
      *
      * \param config JSON model configuration
      */
-    Nina_b112(js::config *config);
-
-    /**
-     * \brief build the model (ports, events, clocks)
-     *
-     * \returns TODO
-     */
-    int build();
+    Nina_b112(js::Config *config);
 
     /**
      * \brief called when the model starts
@@ -216,26 +209,26 @@ public:
      * This function enqueues the initialization event needed to
      * put default UART output pin values.
      */
-    void start();
+    void reset(bool active);
 
 private:
 
     /**
      * TODO
      */
-    static void rx_clk_reg(vp::component *__this, vp::component *clock);
+    static void rx_clk_reg(vp::Component *__this, vp::Component *clock);
 
     /**
      * TODO
      */
-    static void tx_clk_reg(vp::component *__this, vp::component *clock);
+    static void tx_clk_reg(vp::Component *__this, vp::Component *clock);
 
     /**
      * \brief called when UART pins are modified
      *
      * Starting point of incoming data sampling/processing.
      */
-    static void sync_full(void *__this, int data, int clk, int rts);
+    static void sync_full(vp::Block *__this, int data, int clk, int rts);
 
     /**
      * \brief Update the RTR pin value
@@ -335,7 +328,7 @@ private:
      * \param __this pointer to the model
      * \param event event triggering this handler
      */
-    static void rx_sampling_handler(void *__this, vp::clock_event *event);
+    static void rx_sampling_handler(vp::Block *__this, vp::ClockEvent *event);
 
     /**
      * \brief UART TX sampling event handler
@@ -345,7 +338,7 @@ private:
      * \param __this pointer to the model
      * \param event event triggering this handler
      */
-    static void tx_sampling_handler(void *__this, vp::clock_event *event);
+    static void tx_sampling_handler(vp::Block *__this, vp::ClockEvent *event);
 
     /**
      * \brief Init event handler
@@ -356,7 +349,7 @@ private:
      * \param __this pointer to the model
      * \param event event triggering this handler
      */
-    static void init_handler(void *__this, vp::clock_event *event);
+    static void init_handler(vp::Block *__this, vp::ClockEvent *event);
 
     /**
      * \brief RTR end handler
@@ -367,32 +360,32 @@ private:
      * \param __this pointer to the model
      * \param event event triggering this handler
      */
-    static void rts_end_handler(void *__this, vp::clock_event *event);
+    static void rts_end_handler(vp::Block *__this, vp::ClockEvent *event);
 
     /* ====== */
     /* Fields */
     /* ====== */
 
     /** used to log information */
-    vp::trace trace;
+    vp::Trace trace;
 
-    vp::clock_master rx_clock_cfg;
-    vp::clk_slave    rx_clock_itf;
+    vp::ClockMaster rx_clock_cfg;
+    vp::ClkSlave    rx_clock_itf;
 
-    vp::clock_master tx_clock_cfg;
-    vp::clk_slave    tx_clock_itf;
+    vp::ClockMaster tx_clock_cfg;
+    vp::ClkSlave    tx_clock_itf;
 
 
-    vp::clock_engine *rx_clock;
-    vp::clock_engine *tx_clock;
+    vp::ClockEngine *rx_clock;
+    vp::ClockEngine *tx_clock;
 
-    vp::uart_slave    uart_itf;
+    vp::UartSlave    uart_itf;
 
     /* events */
-    vp::clock_event* init_event;
-    vp::clock_event* rts_event;
-    vp::clock_event* rx_sampling_event;
-    vp::clock_event* tx_sampling_event;
+    vp::ClockEvent* init_event;
+    vp::ClockEvent* rts_event;
+    vp::ClockEvent* rx_sampling_event;
+    vp::ClockEvent* tx_sampling_event;
 
     /* UART parameters */
     nina_b112_uart_cfg_t uart_cfg;

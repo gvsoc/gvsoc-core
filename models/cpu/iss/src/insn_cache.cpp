@@ -90,7 +90,7 @@ void iss_cache_vflush(Iss *iss)
 
 
 
-void Decode::flush_cache_sync(void *__this, bool active)
+void Decode::flush_cache_sync(vp::Block *__this, bool active)
 {
     Decode *_this = (Decode *)__this;
     iss_cache_flush(&_this->iss);

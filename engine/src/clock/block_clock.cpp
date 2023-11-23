@@ -15,36 +15,26 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <vp/vp.hpp>
 
-#ifndef __VP_VP_DATA_HPP__
-#define __VP_VP_DATA_HPP__
 
-#include "vp/component.hpp"
-#include "vp/clock/clock_event.hpp"
-#include "vp/clock/clock_engine.hpp"
-#include "gv/power.hpp"
+void vp::BlockClock::add_clock_event(ClockEvent *event)
+{
+    this->events.push_back(event);
+}
 
-namespace vp {
-
-  class top
-  {
-  public:
-      top(std::string config_path, bool is_async);
-      ~top();
-
-      vp::time_engine *time_engine_get() { return this->time_engine; }
-
-      component *top_instance;
-      power::engine *power_engine;
-      vp::trace_domain *trace_engine;
-      vp::time_engine *time_engine;
-  private:
-  };
-
-};
-
-#endif
+void vp::BlockClock::remove_clock_event(ClockEvent *event)
+{
+    for (unsigned i=0; i<this->events.size(); ++i)
+    {
+        if (this->events[i] == event)
+        {
+            this->events.erase(this->events.begin() + i);
+            break;
+        }
+    }
+}

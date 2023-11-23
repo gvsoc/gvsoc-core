@@ -20,12 +20,12 @@
 #
 
 import gapylib.target
-import gsystree as st
-import json_tools as js
+import gvsoc.systree as st
+import gvsoc.json_tools as js
 import os.path
-from gv.gtkwave import Gtkwave_tree
-from gv.gui import GuiConfig
-import gv.gui
+from gvsoc.gtkwave import Gtkwave_tree
+from gvsoc.gui import GuiConfig
+import gvsoc.gui
 import gapylib.target as gapy
 import sys
 
@@ -546,9 +546,6 @@ class Target(gapy.Target):
         self.model = model(parent=self, name=None, parser=parser, options=options)
         self.runner = Runner(parser, args, options, self, self.model, rtl_cosim_runner=rtl_cosim_runner)
         self.description = description
-
-    def add_component(self, name, component):
-        pass
 
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
         return child_path

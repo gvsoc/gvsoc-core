@@ -42,28 +42,35 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/prctl.h>
-#include <vp/time/time_scheduler.hpp>
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
 #include <sys/stat.h>
 
-vp::clock_event::clock_event(component_clock *comp, clock_event_meth_t *meth)
-    : comp(comp), _this((void *)static_cast<vp::component *>((vp::component_clock *)(comp))), meth(meth),
+vp::ClockEvent::ClockEvent(Block *comp)
+    : comp(comp), _this(comp), meth(meth),
     enqueued(false), stall_cycle(0)
 {
-    comp->add_clock_event(this);
-    this->clock = comp->get_clock();
+    comp->clock.add_clock_event(this);
+    this->clock = comp->clock.get_engine();
 }
 
-vp::clock_event::clock_event(component_clock *comp, void *_this, clock_event_meth_t *meth)
+vp::ClockEvent::ClockEvent(Block *comp, ClockEventMeth *meth)
+    : comp(comp), _this(comp), meth(meth),
+    enqueued(false), stall_cycle(0)
+{
+    comp->clock.add_clock_event(this);
+    this->clock = comp->clock.get_engine();
+}
+
+vp::ClockEvent::ClockEvent(Block *comp, vp::Block *_this, ClockEventMeth *meth)
 : comp(comp), _this(_this), meth(meth), enqueued(false), stall_cycle(0)
 {
-    comp->add_clock_event(this);
-    this->clock = comp->get_clock();
+    comp->clock.add_clock_event(this);
+    this->clock = comp->clock.get_engine();
 }
 
-vp::clock_event::~clock_event()
+vp::ClockEvent::~ClockEvent()
 {
-    comp->remove_clock_event(this);
+    comp->clock.remove_clock_event(this);
 }

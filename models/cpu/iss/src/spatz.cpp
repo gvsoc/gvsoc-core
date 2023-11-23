@@ -27,7 +27,7 @@ VRegfile::VRegfile(Iss &iss) : iss(iss){
 
 
 
-void Vlsu::data_response(void *__this, vp::io_req *req)
+void Vlsu::data_response(vp::Block *__this, vp::IoReq *req)
 {
 }
 
@@ -41,7 +41,7 @@ void Vlsu::build()
     for (int i=0; i<4; i++)
     {
         this->io_itf[i].set_resp_meth(&Vlsu::data_response);
-        this->iss.top.new_master_port(this, "vlsu_" + std::to_string(i), &this->io_itf[i]);
+        this->iss.top.new_master_port("vlsu_" + std::to_string(i), &this->io_itf[i], (vp::Block *)this);
     }
 
 

@@ -47,13 +47,10 @@ typedef enum
 /**
  * @brief Class for Aps RAM model
  */
-class Aps : public vp::component
+class Aps : public vp::Component
 {
 public:
-    Aps(js::config *config);
-
-    // GVSOC build function overloading
-    int build();
+    Aps(vp::ComponentConf &conf);
 
     // GVSOC reset function overloading
     void reset(bool active);
@@ -83,7 +80,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param data   Data transmitted through the octospi data line.
      */
-    static void sync_cycle_stub(void *__this, int data);
+    static void sync_cycle_stub(vp::Block *__this, int data);
 
     /**
      * @brief Handle chip select update
@@ -106,7 +103,7 @@ private:
      * @param __this This pointer used to call the real method.
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
-    static void cs_sync_stub(void *__this, int cs, int value);
+    static void cs_sync_stub(vp::Block *__this, int cs, int value);
 
     /**
      * @brief Handle an access to the ram array
@@ -148,9 +145,9 @@ private:
     void handle_data_byte(uint8_t byte);
 
     // Trace for dumping debug messages.
-    vp::trace trace;
+    vp::Trace trace;
     // Input octospi interface.
-    vp::hyper_slave in_itf;
+    vp::HyperSlave in_itf;
     // Size of the ram, retrieved from JSON component configuration.
     int size;
     // RAM array
@@ -184,7 +181,7 @@ void Aps::handle_array_access(int address, bool is_write, uint8_t data)
 {
     if (address >= this->size)
     {
-        this->warning.force_warning
+        this->trace.force_warning
             ("Received out-of-bound request (addr: 0x%x, ram_size: 0x%x)\n", address, this->size);
     }
     else
@@ -192,12 +189,12 @@ void Aps::handle_array_access(int address, bool is_write, uint8_t data)
         if (!is_write)
         {
             uint8_t data = this->data[address];
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
             this->in_itf.sync_cycle(data);
         }
         else
         {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
             this->data[address] = data;
         }
     }
@@ -207,7 +204,7 @@ void Aps::handle_array_access(int address, bool is_write, uint8_t data)
 
 void Aps::parse_command()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE,
+    this->trace.msg(vp::Trace::LEVEL_TRACE,
         "Handling command (cmd: 0x%x)\n", this->current_command);
 
     if (this->current_command == 0x40)
@@ -250,7 +247,7 @@ void Aps::handle_command_address()
 {
     if (this->current_command == 0x20 || this->current_command == 0xa0)
     {
-        this->trace.msg(vp::trace::LEVEL_DEBUG, 
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, 
             "Received burst command (command: 0x%x, address: 0x%x, is_write: %d)\n",
             this->current_command, this->current_address, this->is_write);
     }
@@ -274,7 +271,7 @@ void Aps::handle_data_byte(uint8_t data)
             value = this->write_latency_code << 4;
         }
         
-        this->trace.msg(vp::trace::LEVEL_INFO,
+        this->trace.msg(vp::Trace::LEVEL_INFO,
             "Reading ram register (addr: %d, data: 0x%x)\n",
             this->current_address, value);
 
@@ -283,7 +280,7 @@ void Aps::handle_data_byte(uint8_t data)
     // Register write
     else if (this->current_command == 0xc0)
     {
-        this->trace.msg(vp::trace::LEVEL_INFO,
+        this->trace.msg(vp::Trace::LEVEL_INFO,
             "Writing ram register (addr: %d, data: 0x%x)\n",
             this->current_address, data);
 
@@ -292,7 +289,7 @@ void Aps::handle_data_byte(uint8_t data)
             // Compute the number of latency cycle out of the register code
             this->read_latency_code = (data >> 2) & 0x7;
             this->read_latency = this->read_latency_code + 3;
-            this->trace.msg(vp::trace::LEVEL_INFO,
+            this->trace.msg(vp::Trace::LEVEL_INFO,
                 "Set read latency (latency: %d)\n",
                 this->read_latency);
         }
@@ -308,7 +305,7 @@ void Aps::handle_data_byte(uint8_t data)
                 case 0x6: this->write_latency = 6; break;
                 case 0x1: this->write_latency = 7; break;
             }
-            this->trace.msg(vp::trace::LEVEL_INFO, "Set write latency (latency: %d)\n",
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Set write latency (latency: %d)\n",
                 this->write_latency);
         }
     }
@@ -343,7 +340,7 @@ void Aps::sync_cycle(int data)
         this->pending_bytes--;
         this->current_command = (this->current_command >> 8) | (data << 8);
 
-        this->trace.msg(vp::trace::LEVEL_TRACE,
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
             "Received command byte (byte: 0x%x, command: 0x%x, pending_bytes: %d)\n",
             data, this->current_command, this->pending_bytes);
 
@@ -367,7 +364,7 @@ void Aps::sync_cycle(int data)
         this->current_address = (this->current_address << 8) | data;
         this->current_address = this->current_address;
 
-        this->trace.msg(vp::trace::LEVEL_TRACE,
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
             "Received address byte (byte: 0x%x, address: 0x%x, pending_bytes: %d)\n",
             data, this->current_address, this->pending_bytes);
 
@@ -390,7 +387,7 @@ void Aps::sync_cycle(int data)
         {
             this->latency_count--;
 
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Accounting latency (remaining: %d)\n",
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Accounting latency (remaining: %d)\n",
                 this->latency_count);
         }
         else
@@ -399,7 +396,7 @@ void Aps::sync_cycle(int data)
 
             if (this->is_write)
             {
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Received data (data: 0x%x)\n",
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data (data: 0x%x)\n",
                     data);
             }
 
@@ -410,7 +407,7 @@ void Aps::sync_cycle(int data)
 
 
 
-void Aps::sync_cycle_stub(void *__this, int data)
+void Aps::sync_cycle_stub(vp::Block *__this, int data)
 {
     // Stub for real method, just forward the call
     Aps *_this = (Aps *)__this;
@@ -421,7 +418,7 @@ void Aps::sync_cycle_stub(void *__this, int data)
 
 void Aps::cs_sync(int cs, int value)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
 
     this->state = APS_STATE_CMD;
     this->pending_bytes = 2;
@@ -429,7 +426,7 @@ void Aps::cs_sync(int cs, int value)
 
 
 
-void Aps::cs_sync_stub(void *__this, int cs, int value)
+void Aps::cs_sync_stub(vp::Block *__this, int cs, int value)
 {
     // Stub for real method, just forward the call
     Aps *_this = (Aps *)__this;
@@ -452,8 +449,8 @@ void Aps::reset(bool active)
 }
 
 
-
-int Aps::build()
+Aps::Aps(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     // This method is called when the simulated system is built.
     // We just need here to take care of anything which must be done once at platform startup.
@@ -466,7 +463,7 @@ int Aps::build()
     in_itf.set_sync_cycle_meth(&Aps::sync_cycle_stub);
     new_slave_port("input", &in_itf);
 
-    js::config *conf = this->get_js_config();
+    js::Config *conf = this->get_js_config();
 
     // Allocate an array for the ram and fill it with special value to help SW detecting reads
     // to non-initialized data.
@@ -475,21 +472,13 @@ int Aps::build()
     this->data = new uint8_t[this->size];
     memset(this->data, 0x57, this->size);
 
-    return 0;
-}
-
-
-
-Aps::Aps(js::config *config)
-    : vp::component(config)
-{
 }
 
 
 
 // Constructor function needed by GVSOC to instantiate this module.
 // Just instantiate the flash class.
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Aps(config);
 }

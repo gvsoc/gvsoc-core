@@ -160,7 +160,7 @@ public:
 
     Iss &iss;
 
-    vp::trace trace;
+    vp::Trace trace;
 
     Cycle cycle;
     CsrReg time;
@@ -246,6 +246,6 @@ private:
     bool time_access(bool is_write, iss_reg_t &value);
 
     std::map<iss_reg_t, CsrAbtractReg *> regs;
-    vp::wire_master<uint64_t> time_itf;
+    vp::WireMaster<uint64_t> time_itf;
 
 };

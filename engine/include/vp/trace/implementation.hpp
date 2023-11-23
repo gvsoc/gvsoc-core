@@ -23,85 +23,80 @@
 #ifndef __VP_TRACE_IMPLEMENTATION_HPP__
 #define __VP_TRACE_IMPLEMENTATION_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/trace/trace_engine.hpp"
+#include "vp/clock/clock_engine.hpp"
 
 namespace vp {
 
-  inline trace_engine *component_trace::get_trace_manager()
+  inline TraceEngine *BlockTrace::get_trace_engine()
   {
-    if (this->trace_manager == NULL)
-    {
-      this->trace_manager = (trace_engine *)this->top.get_service("trace");
-    }
-
-    return this->trace_manager;
+    return this->engine;
   }
 
-  inline void vp::trace::event(uint8_t *value)
+  inline void vp::Trace::event(uint8_t *value)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      trace_manager->dump_event(this, comp->get_time(), value, bytes);
+      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), value, bytes);
     }
   #endif
   }
 
-  inline void vp::trace::event_pulse(int64_t duration, uint8_t *pulse_value, uint8_t *background_value)
+  inline void vp::Trace::event_pulse(int64_t duration, uint8_t *pulse_value, uint8_t *background_value)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      trace_manager->dump_event_pulse(this, comp->get_time(), comp->get_clock()->get_time() + duration, pulse_value, background_value, bytes);
+      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->clock.get_engine()->time.get_time() + duration, pulse_value, background_value, bytes);
     }   
   #endif
   }
 
-  inline void vp::trace::event_string(std::string value)
+  inline void vp::Trace::event_string(std::string value)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      trace_manager->dump_event_string(this, comp->get_time(), (uint8_t *)value.c_str(), value.length() + 1);
+      this->comp->traces.get_trace_engine()->dump_event_string(this, comp->time.get_time(), (uint8_t *)value.c_str(), value.length() + 1);
     }   
   #endif
   }
 
-  inline void vp::trace::event_real(double value)
+  inline void vp::Trace::event_real(double value)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      trace_manager->dump_event(this, comp->get_time(), (uint8_t *)&value, 8);
+      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), (uint8_t *)&value, 8);
     }  	
   #endif
   }
 
-  inline void vp::trace::event_real_pulse(int64_t duration, double pulse_value, double background_value)
+  inline void vp::Trace::event_real_pulse(int64_t duration, double pulse_value, double background_value)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      trace_manager->dump_event_pulse(this, comp->get_time(), comp->get_time() + duration, (uint8_t *)&pulse_value, (uint8_t *)&background_value, 8);
+      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->time.get_time() + duration, (uint8_t *)&pulse_value, (uint8_t *)&background_value, 8);
     }   
   #endif
   }
 
-  inline void vp::trace::event_real_delayed(double value)
+  inline void vp::Trace::event_real_delayed(double value)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      trace_manager->dump_event_delayed(this, comp->get_time(), (uint8_t *)&value, 8);
+      this->comp->traces.get_trace_engine()->dump_event_delayed(this, comp->time.get_time(), (uint8_t *)&value, 8);
     }   
   #endif
   }
 
 
-  inline void vp::trace::user_msg(const char *fmt, ...) {
+  inline void vp::Trace::user_msg(const char *fmt, ...) {
     #if 0
-    fprintf(trace_file, "%ld: %ld: [\033[34m%-*.*s\033[0m] ", comp->get_clock()->get_time(), comp->get_clock()->get_cycles(), max_trace_len, max_trace_len, comp->get_path());
+    fprintf(trace_file, "%ld: %ld: [\033[34m%-*.*s\033[0m] ", comp->clock.get_engine()->time.get_time(), comp->clock.get_engine()->get_cycles(), max_trace_len, max_trace_len, comp->get_path());
     va_list ap;
     va_start(ap, fmt);
     if (vfprintf(trace_file, format, ap) < 0) {}
@@ -109,7 +104,7 @@ namespace vp {
     #endif
   }
 
-  inline void vp::trace::fatal(const char *fmt, ...)
+  inline void vp::Trace::fatal(const char *fmt, ...)
   {
     dump_fatal_header();
     va_list ap;
@@ -119,9 +114,9 @@ namespace vp {
     exit(1);
   }
 
-  inline void vp::trace::warning(const char *fmt, ...) {
+  inline void vp::Trace::warning(const char *fmt, ...) {
   #ifdef VP_TRACE_ACTIVE
-  	if (is_active && comp->traces.get_trace_manager()->get_trace_level() >= this->level)
+  	if (is_active && comp->traces.get_trace_engine()->get_trace_level() >= this->level)
     {
       dump_warning_header();
       va_list ap;
@@ -130,7 +125,7 @@ namespace vp {
       va_end(ap);
 
 
-      if (comp->traces.get_trace_manager()->get_werror())
+      if (comp->traces.get_trace_engine()->get_werror())
       {
         exit(1);
       }
@@ -138,11 +133,11 @@ namespace vp {
   #endif
   }
 
-  inline void vp::trace::warning(vp::trace::warning_type_e type, const char *fmt, ...) {
+  inline void vp::Trace::warning(vp::Trace::warning_type_e type, const char *fmt, ...) {
   #ifdef VP_TRACE_ACTIVE
-  	if (is_active && comp->traces.get_trace_manager()->get_trace_level() >= vp::trace::LEVEL_WARNING)
+  	if (is_active && comp->traces.get_trace_engine()->get_trace_level() >= vp::Trace::LEVEL_WARNING)
     {
-      if (comp->traces.get_trace_manager()->is_warning_active(type))
+      if (comp->traces.get_trace_engine()->is_warning_active(type))
       {
         dump_warning_header();
         va_list ap;
@@ -150,7 +145,7 @@ namespace vp {
         if (vfprintf(this->trace_file, fmt, ap) < 0) {}
         va_end(ap);
 
-        if (comp->traces.get_trace_manager()->get_werror())
+        if (comp->traces.get_trace_engine()->get_werror())
         {
           exit(1);
         }
@@ -159,10 +154,10 @@ namespace vp {
   #endif
   }
 
-  inline void vp::trace::msg(const char *fmt, ...) 
+  inline void vp::Trace::msg(const char *fmt, ...) 
   {
   #ifdef VP_TRACE_ACTIVE
-  	if (is_active && comp->traces.get_trace_manager()->get_trace_level() >= this->level)
+  	if (is_active && comp->traces.get_trace_engine()->get_trace_level() >= this->level)
     {
       dump_header();
       va_list ap;
@@ -173,17 +168,17 @@ namespace vp {
   #endif
   }
 
-  inline void vp::trace::msg(int level, const char *fmt, ...) 
+  inline void vp::Trace::msg(int level, const char *fmt, ...) 
   {
   #ifdef VP_TRACE_ACTIVE
-    if (is_active && comp->traces.get_trace_manager()->get_trace_level() >= level)
+    if (is_active && comp->traces.get_trace_engine()->get_trace_level() >= level)
     {
       dump_header();
-      if (level == vp::trace::LEVEL_ERROR)
+      if (level == vp::Trace::LEVEL_ERROR)
       {
         fprintf(this->trace_file, "\033[31m");
       }
-      else if (level == vp::trace::LEVEL_WARNING)
+      else if (level == vp::Trace::LEVEL_WARNING)
       {
         fprintf(this->trace_file, "\033[33m");
       }
@@ -191,7 +186,7 @@ namespace vp {
       va_start(ap, fmt);
       if (vfprintf(this->trace_file, fmt, ap) < 0) {}
       va_end(ap);  
-      if (level == vp::trace::LEVEL_ERROR || level == vp::trace::LEVEL_WARNING)
+      if (level == vp::Trace::LEVEL_ERROR || level == vp::Trace::LEVEL_WARNING)
       {
         fprintf(this->trace_file, "\033[0m");
       }

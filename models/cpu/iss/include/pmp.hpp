@@ -68,6 +68,6 @@ private:
     PmpEntry entry[16];
 
     Iss &iss;
-    vp::trace trace;
+    vp::Trace trace;
 };
 

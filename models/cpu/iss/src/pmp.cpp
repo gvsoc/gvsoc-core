@@ -80,7 +80,7 @@ void Pmp::entry_cfg_set(int id, uint8_t config)
         this->entry[id].value = config & 0x9F;
 
         PmpEntry *entry = &this->entry[id];
-        this->trace.msg(vp::trace::LEVEL_DEBUG, "Setting entry (id: %d, R: %d, W: %d, X: %d, mode: %s)\n",
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting entry (id: %d, R: %d, W: %d, X: %d, mode: %s)\n",
             id, entry->R, entry->W, entry->X, entry->get_mode_name().c_str());
     }
 }

@@ -64,10 +64,10 @@ public:
     void wfi_handle();
     void elw_irq_unstall();
     void check_interrupts();
-    static void msi_sync(void *__this, bool value);
-    static void mti_sync(void *__this, bool value);
-    static void mei_sync(void *__this, bool value);
-    static void sei_sync(void *__this, bool value);
+    static void msi_sync(vp::Block *__this, bool value);
+    static void mti_sync(vp::Block *__this, bool value);
+    static void mei_sync(vp::Block *__this, bool value);
+    static void sei_sync(vp::Block *__this, bool value);
 
     Iss &iss;
 
@@ -76,9 +76,9 @@ public:
     int req_irq;
     bool req_debug;
     iss_reg_t debug_handler;
-    vp::trace trace;
-    vp::wire_slave<bool> msi_itf;
-    vp::wire_slave<bool> mti_itf;
-    vp::wire_slave<bool> mei_itf;
-    vp::wire_slave<bool> sei_itf;
+    vp::Trace trace;
+    vp::WireSlave<bool> msi_itf;
+    vp::WireSlave<bool> mti_itf;
+    vp::WireSlave<bool> mei_itf;
+    vp::WireSlave<bool> sei_itf;
 };

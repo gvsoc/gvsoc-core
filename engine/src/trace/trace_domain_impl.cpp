@@ -27,27 +27,8 @@
 #include <set>
 #include <string.h>
 
-vp::trace_engine::trace_engine(js::config *config)
-    : event_dumper(config), first_trace_to_dump(NULL), vcd_user(NULL)
-{
-    pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&cond, NULL);
 
-    for (int i = 0; i < TRACE_EVENT_NB_BUFFER; i++)
-    {
-        event_buffers.push_back(new char[TRACE_EVENT_BUFFER_SIZE]);
-    }
-    current_buffer = event_buffers[0];
-    event_buffers.erase(event_buffers.begin());
-    current_buffer_size = 0;
-    this->first_pending_event = NULL;
-
-    thread = new std::thread(&trace_engine::vcd_routine, this);
-}
-
-
-
-void vp::trace_domain::check_trace_active(vp::trace *trace, int event)
+void vp::TraceEngine::check_trace_active(vp::Trace *trace, int event)
 {
     std::string full_path = trace->get_full_path();
 
@@ -136,7 +117,7 @@ void vp::trace_domain::check_trace_active(vp::trace *trace, int event)
     }
 }
 
-void vp::trace_domain::check_traces()
+void vp::TraceEngine::check_traces()
 {
     for (auto x : this->traces_array)
     {
@@ -144,10 +125,8 @@ void vp::trace_domain::check_traces()
     }
 }
 
-void vp::trace_domain::reg_trace(vp::trace *trace, int event, string path, string name)
+void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string name)
 {
-    trace->set_trace_manager(this);
-
     this->traces_array.push_back(trace);
     trace->id = this->traces_array.size() - 1;
 
@@ -185,9 +164,23 @@ void vp::trace_domain::reg_trace(vp::trace *trace, int event, string path, strin
     }
 }
 
-vp::trace_domain::trace_domain(vp::component *top, js::config *config)
-    : vp::trace_engine(config), top(top)
+vp::TraceEngine::TraceEngine(js::Config *config)
+    : config(config), event_dumper(config), first_trace_to_dump(NULL), vcd_user(NULL)
 {
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&cond, NULL);
+
+    for (int i = 0; i < TRACE_EVENT_NB_BUFFER; i++)
+    {
+        event_buffers.push_back(new char[TRACE_EVENT_BUFFER_SIZE]);
+    }
+    current_buffer = event_buffers[0];
+    event_buffers.erase(event_buffers.begin());
+    current_buffer_size = 0;
+    this->first_pending_event = NULL;
+
+    thread = new std::thread(&TraceEngine::vcd_routine, this);
+
     this->trace_format = TRACE_FORMAT_LONG;
     std::string path = "trace_file.txt";
     this->trace_file = fopen(path.c_str(), "w");
@@ -195,8 +188,6 @@ vp::trace_domain::trace_domain(vp::component *top, js::config *config)
     {
         throw std::runtime_error("Error while opening VCD file (path: " + path + ", error: " + strerror(errno) + ")\n");
     }
-
-    top->new_service("trace", static_cast<trace_engine *>(this));
 
     for (auto x : config->get("traces/include_regex")->get_elems())
     {
@@ -231,11 +222,11 @@ vp::trace_domain::trace_domain(vp::component *top, js::config *config)
     this->werror = config->get_child_bool("werror");
     this->set_trace_level(config->get_child_str("traces/level").c_str());
 
-    this->active_warnings.resize(vp::trace::WARNING_TYPE_UNCONNECTED_DEVICE + 1);
-    this->active_warnings[vp::trace::WARNING_TYPE_UNCONNECTED_DEVICE] = config->get_child_bool("wunconnected-device");
+    this->active_warnings.resize(vp::Trace::WARNING_TYPE_UNCONNECTED_DEVICE + 1);
+    this->active_warnings[vp::Trace::WARNING_TYPE_UNCONNECTED_DEVICE] = config->get_child_bool("wunconnected-device");
 
-    this->active_warnings.resize(vp::trace::WARNING_TYPE_UNCONNECTED_PADFUN + 1);
-    this->active_warnings[vp::trace::WARNING_TYPE_UNCONNECTED_PADFUN] = config->get_child_bool("wunconnected-padfun");
+    this->active_warnings.resize(vp::Trace::WARNING_TYPE_UNCONNECTED_PADFUN + 1);
+    this->active_warnings[vp::Trace::WARNING_TYPE_UNCONNECTED_PADFUN] = config->get_child_bool("wunconnected-padfun");
 
     string format = config->get_child_str("traces/format");
 
@@ -247,7 +238,11 @@ vp::trace_domain::trace_domain(vp::component *top, js::config *config)
     {
         this->trace_format = TRACE_FORMAT_LONG;
     }
+}
 
+void vp::TraceEngine::init(vp::Component *top)
+{
+    this->top = top;
     auto vcd_traces = config->get("events/traces");
 
     if (vcd_traces != NULL)
@@ -259,12 +254,12 @@ vp::trace_domain::trace_domain(vp::component *top, js::config *config)
 
             if (type == "string")
             {
-                vp::trace *trace = new vp::trace();
+                vp::Trace *trace = new vp::Trace();
                 top->traces.new_trace_event_string(path, trace);
             }
             else if (type == "int")
             {
-                vp::trace *trace = new vp::trace();
+                vp::Trace *trace = new vp::Trace();
                 top->traces.new_trace_event(path, trace, 32);
                 this->init_traces.push_back(trace);
             }
@@ -272,19 +267,17 @@ vp::trace_domain::trace_domain(vp::component *top, js::config *config)
     }
 }
 
-void vp::trace_domain::start()
+void vp::TraceEngine::start()
 {
     for (auto x : this->init_traces)
     {
         x->event(NULL);
     }
-
-    this->top->traces.set_trace_manager((vp::trace_engine *)this->top->get_service("trace"));
 }
 
 
 
-void vp::trace_domain::add_exclude_path(int events, const char *path)
+void vp::TraceEngine::add_exclude_path(int events, const char *path)
 {
     regex_t *regex = new regex_t();
 
@@ -329,7 +322,7 @@ void vp::trace_domain::add_exclude_path(int events, const char *path)
 
 
 
-void vp::trace_domain::add_path(int events, const char *path, bool is_path)
+void vp::TraceEngine::add_path(int events, const char *path, bool is_path)
 {
     regex_t *regex = new regex_t();
 
@@ -375,7 +368,7 @@ void vp::trace_domain::add_path(int events, const char *path, bool is_path)
     regcomp(regex, path, 0);
 }
 
-void vp::trace_domain::conf_trace(int event, std::string path_str, bool enabled)
+void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
 {
     const char *file_path = "all.vcd";
     const char *path = path_str.c_str();
@@ -387,17 +380,17 @@ void vp::trace_domain::conf_trace(int event, std::string path_str, bool enabled)
         file_path = delim + 1;
     }
 
-    std::vector<vp::trace *> traces;
-    this->top->get_trace(traces, path_str);
+    std::vector<vp::Trace *> traces;
+    this->top->get_trace_from_path(traces, path_str);
 
-    vp::trace *trace = this->get_trace_from_path(path);
+    vp::Trace *trace = this->get_trace_from_path(path);
 
     if (trace != NULL)
     {
         traces.push_back(trace);
     }
 
-    for (vp::trace *trace: traces)
+    for (vp::Trace *trace: traces)
     {
         if (event && trace->is_event)
         {
@@ -421,17 +414,17 @@ void vp::trace_domain::conf_trace(int event, std::string path_str, bool enabled)
     }
 }
 
-void vp::trace_domain::add_trace_path(int events, std::string path)
+void vp::TraceEngine::add_trace_path(int events, std::string path)
 {
     this->add_path(events, path.c_str());
 }
 
-void vp::trace_domain::add_exclude_trace_path(int events, std::string path)
+void vp::TraceEngine::add_exclude_trace_path(int events, std::string path)
 {
     this->add_exclude_path(events, path.c_str());
 }
 
-void vp::trace_domain::add_paths(int events, int nb_path, const char **paths)
+void vp::TraceEngine::add_paths(int events, int nb_path, const char **paths)
 {
     for (int i = 0; i < nb_path; i++)
     {
@@ -441,7 +434,7 @@ void vp::trace_domain::add_paths(int events, int nb_path, const char **paths)
 
 
 
-void vp::trace_domain::set_trace_level(const char *trace_level)
+void vp::TraceEngine::set_trace_level(const char *trace_level)
 {
     if (strcmp(trace_level, "error") == 0)
     {

@@ -190,15 +190,15 @@ class config(object):
 
     def get_tree(self, config, interpret=False, path=None, do_eval=False, paths=None, indent='', gen=False):
         if type(config) == list:
-            return config_array(config, interpret=interpret)
+            return ConfigArray(config, interpret=interpret)
         elif type(config) == dict or type(config) == OrderedDict:
             return config_object(config, interpret=interpret, path=path, paths=paths, do_eval=do_eval, indent=indent, gen=gen)
         elif is_string(config):
-            return config_string(config, do_eval=do_eval)
+            return ConfigString(config, do_eval=do_eval)
         elif type(config) == bool:
             return config_bool(config, do_eval=do_eval)
         else:
-            return config_number(config, do_eval=do_eval)
+            return ConfigNumber(config, do_eval=do_eval)
 
     def get_string(self):
         return self.dump_to_string()
@@ -436,7 +436,7 @@ class config_object(config):
             prop.dump_help(name=full_name)
 
 
-class config_array(config):
+class ConfigArray(config):
 
     def __init__(self, config, interpret=False):
         self.elems = []
@@ -478,8 +478,8 @@ class config_array(config):
         return self.elems
 
     def merge(self, new_value):
-        if type(new_value) != config_array:
-            new_value = config_array([new_value.get_dict()])
+        if type(new_value) != ConfigArray:
+            new_value = ConfigArray([new_value.get_dict()])
 
         for elem in new_value.elems:
             self.elems.append(elem)
@@ -497,7 +497,7 @@ def do_node_eval(config):
         return config
 
 
-class config_string(config):
+class ConfigString(config):
 
     def __init__(self, config, do_eval=False):
         if do_eval:
@@ -527,7 +527,7 @@ class config_string(config):
             self.value = self.get_tree(value)
 
 
-class config_number(config):
+class ConfigNumber(config):
 
     def __init__(self, config, do_eval=False):
         if do_eval:

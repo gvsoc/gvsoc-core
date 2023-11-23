@@ -25,28 +25,30 @@
 #include <string.h>
 #include <systemc.h>
 
-class ddr : public vp::component
+class ddr : public vp::Component
 {
 
 public:
-    ddr(js::config *config);
+    ddr(vp::ComponentConf &conf);
 
-    int build();
-    void start();
-
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 private:
-    vp::trace trace;
-    vp::io_slave in;
+    vp::Trace trace;
+    vp::IoSlave in;
 };
 
-ddr::ddr(js::config *config)
-    : vp::component(config)
+ddr::ddr(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    traces.new_trace("trace", &trace, vp::DEBUG);
+
+    in.set_req_meth(&ddr::req);
+    new_slave_port("input", &in);
+
 }
 
-vp::io_req_status_e ddr::req(void *__this, vp::io_req *req)
+vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
 {
     ddr *_this = (ddr *)__this;
 
@@ -60,21 +62,7 @@ vp::io_req_status_e ddr::req(void *__this, vp::io_req *req)
 }
 
 
-int ddr::build()
-{
-    traces.new_trace("trace", &trace, vp::DEBUG);
-
-    in.set_req_meth(&ddr::req);
-    new_slave_port("input", &in);
-
-    return 0;
-}
-
-void ddr::start()
-{
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new ddr(config);
 }

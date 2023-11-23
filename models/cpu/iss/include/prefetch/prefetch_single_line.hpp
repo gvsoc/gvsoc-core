@@ -39,10 +39,10 @@ public:
     inline void flush();
 
     // Response callback for the refill
-    static void fetch_response(void *_this, vp::io_req *req);
+    static void fetch_response(vp::Block *__this, vp::IoReq *req);
 
     // Refill interface
-    vp::io_master fetch_itf;
+    vp::IoMaster fetch_itf;
 
     // Fetch the given instruction from prefetch buffer
     inline bool fetch(iss_reg_t pc);
@@ -80,7 +80,7 @@ private:
     iss_addr_t buffer_start_addr;
 
     // Request used for sending fetch request to the fetch interface
-    vp::io_req fetch_req;
+    vp::IoReq fetch_req;
 
     // Callback called when a pending fetch response is received
     void (*fetch_stall_callback)(Prefetcher *_this);
@@ -92,7 +92,7 @@ private:
     iss_opcode_t fetch_stall_opcode;
 
     // Prefetcher trace
-    vp::trace trace;
+    vp::Trace trace;
 
     iss_reg_t current_pc;
 

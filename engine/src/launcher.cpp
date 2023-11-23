@@ -26,6 +26,8 @@
 #include <gv/gvsoc.hpp>
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
+#include <vp/proxy_client.hpp>
+#include "vp/top.hpp"
 
 static pthread_t sigint_thread;
 
@@ -40,9 +42,9 @@ static void sigint_handler(int s)
 
 // This thread takes care of properly stopping the engine when ctrl C is hit
 // so that the python world can properly close everything
-void *Gvsoc_launcher::signal_routine(void *__this)
+void *gv::GvsocLauncher::signal_routine(void *__this)
 {
-    Gvsoc_launcher *launcher = (Gvsoc_launcher *)__this;
+    GvsocLauncher *launcher = (GvsocLauncher *)__this;
     sigset_t sigs_to_catch;
     int caught;
     sigemptyset(&sigs_to_catch);
@@ -50,42 +52,42 @@ void *Gvsoc_launcher::signal_routine(void *__this)
     do
     {
         sigwait(&sigs_to_catch, &caught);
-        launcher->engine->quit(-1);
+        launcher->handler->get_time_engine()->quit(-1);
     } while (1);
     return NULL;
 }
 
-Gvsoc_launcher::Gvsoc_launcher(gv::GvsocConf *conf)
+gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
 {
     this->conf = conf;
     this->is_async = conf->api_mode == gv::Api_mode::Api_mode_async;
 }
 
-void Gvsoc_launcher::open()
+void gv::GvsocLauncher::open()
 {
-    this->handler = new vp::top(conf->config_path, this->is_async);
+    this->handler = new vp::Top(conf->config_path, this->is_async);
 
-    this->instance = ((vp::top *)this->handler)->top_instance;
+    this->instance = this->handler->top_instance;
     this->instance->set_launcher(this);
-    this->engine = ((vp::top *)this->handler)->time_engine;
 
-    js::config *gv_config = this->instance->get_vp_config();
+    js::Config *gv_config = this->handler->gv_config;
 
-    if (instance->get_vp_config()->get_child_bool("proxy/enabled"))
+    this->proxy = NULL;
+    if (gv_config->get_child_bool("proxy/enabled"))
     {
-        int in_port = instance->get_vp_config()->get_child_int("proxy/port");
+        int in_port = gv_config->get_child_int("proxy/port");
         int out_port;
-        this->proxy = new Gv_proxy(this->engine, instance, this, this->is_async);
+        this->proxy = new GvProxy(this->handler->get_time_engine(), instance, this, this->is_async);
 
         if (this->proxy->open(in_port, &out_port))
         {
-            instance->throw_error("Failed to start proxy");
+            throw runtime_error("Failed to start proxy");
         }
 
         this->conf->proxy_socket = out_port;
     }
 
-    this->engine->critical_enter();
+    this->handler->get_time_engine()->critical_enter();
 
     if (this->is_async)
     {
@@ -99,24 +101,24 @@ void Gvsoc_launcher::open()
 
         signal(SIGINT, sigint_handler);
 
-        this->engine_thread = new std::thread(&Gvsoc_launcher::engine_routine, this);
+        this->engine_thread = new std::thread(&gv::GvsocLauncher::engine_routine, this);
     }
 }
 
-void Gvsoc_launcher::bind(gv::Gvsoc_user *user)
+void gv::GvsocLauncher::bind(gv::Gvsoc_user *user)
 {
     this->user = user;
-    this->engine->bind_to_launcher(user);
+    this->handler->get_time_engine()->bind_to_launcher(user);
 }
 
-void Gvsoc_launcher::start()
+void gv::GvsocLauncher::start()
 {
-    this->instance->build_new();
+    this->instance->build_all();
     this->instance->reset_all(true);
     this->instance->reset_all(false);
 }
 
-void Gvsoc_launcher::close()
+void gv::GvsocLauncher::close()
 {
     if (proxy)
     {
@@ -125,84 +127,84 @@ void Gvsoc_launcher::close()
 
     this->instance->stop_all();
 
-    vp::top *top = (vp::top *)this->handler;
+    vp::Top *top = (vp::Top *)this->handler;
 
     delete top;
 }
 
-void Gvsoc_launcher::run()
+void gv::GvsocLauncher::run()
 {
     if (this->is_async)
     {
-        this->engine->lock();
+        this->handler->get_time_engine()->lock();
         this->running = true;
         this->run_req = true;
-        this->engine->unlock();
+        this->handler->get_time_engine()->unlock();
     }
     else
     {
-        this->engine->run();
+        this->handler->get_time_engine()->run();
     }
 }
 
-int Gvsoc_launcher::join()
+int gv::GvsocLauncher::join()
 {
     if (this->is_async)
     {
-        this->engine->critical_enter();
-        while(!this->engine->finished_get())
+        this->handler->get_time_engine()->critical_enter();
+        while(!this->handler->get_time_engine()->finished_get())
         {
-            this->engine->critical_wait();
+            this->handler->get_time_engine()->critical_wait();
         }
-        this->engine->critical_exit();
+        this->handler->get_time_engine()->critical_exit();
     }
 
-    this->retval = this->engine->status_get();
+    this->retval = this->handler->get_time_engine()->status_get();
 
     return this->retval;
 }
 
-int64_t Gvsoc_launcher::stop()
+int64_t gv::GvsocLauncher::stop()
 {
     if (this->is_async)
     {
-        this->engine->lock();
+        this->handler->get_time_engine()->lock();
         this->run_req = false;
-        this->engine->pause();
-        this->engine->unlock();
+        this->handler->get_time_engine()->pause();
+        this->handler->get_time_engine()->unlock();
 
-        return this->engine->get_time();
+        return this->handler->get_time_engine()->get_time();
     }
     return -1;
 }
 
-void Gvsoc_launcher::wait_stopped()
+void gv::GvsocLauncher::wait_stopped()
 {
     if (this->is_async)
     {
-        this->engine->critical_enter();
+        this->handler->get_time_engine()->critical_enter();
         while(this->running)
         {
-            this->engine->critical_wait();
+            this->handler->get_time_engine()->critical_wait();
         }
-        this->engine->critical_exit();
+        this->handler->get_time_engine()->critical_exit();
     }
 }
 
-int64_t Gvsoc_launcher::step(int64_t duration)
+int64_t gv::GvsocLauncher::step(int64_t duration)
 {
-    return this->step_until(this->engine->get_time() + duration);
+    return this->step_until(this->handler->get_time_engine()->get_time() + duration);
 }
 
-int64_t Gvsoc_launcher::step_until(int64_t end_time)
+int64_t gv::GvsocLauncher::step_until(int64_t end_time)
 {
     int64_t time;
     if (this->is_async)
     {
-        this->engine->lock();
-        this->engine->step_register(end_time);
+        this->handler->get_time_engine()->lock();
+        this->handler->get_time_engine()->step_register(end_time);
         this->run_req = true;
-        this->engine->unlock();
+        this->handler->get_time_engine()->unlock();
 
         return end_time;
     }
@@ -210,42 +212,42 @@ int64_t Gvsoc_launcher::step_until(int64_t end_time)
     {
         for (auto x: this->exec_notifiers)
         {
-            x->notify_run(this->engine->get_time());
+            x->notify_run(this->handler->get_time_engine()->get_time());
         }
 
-        time = this->engine->run_until(end_time);
+        time = this->handler->get_time_engine()->run_until(end_time);
 
         for (auto x: this->exec_notifiers)
         {
-            x->notify_stop(this->engine->get_time());
+            x->notify_stop(this->handler->get_time_engine()->get_time());
         }
     }
     return time;
 }
 
-gv::Io_binding *Gvsoc_launcher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
+gv::Io_binding *gv::GvsocLauncher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
 {
     return (gv::Io_binding *)this->instance->external_bind(comp_name, itf_name, (void *)user);
 }
 
-gv::Wire_binding *Gvsoc_launcher::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name)
+gv::Wire_binding *gv::GvsocLauncher::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name)
 {
     return (gv::Wire_binding *)this->instance->external_bind(comp_name, itf_name, (void *)user);
 }
 
-void Gvsoc_launcher::vcd_bind(gv::Vcd_user *user)
+void gv::GvsocLauncher::vcd_bind(gv::Vcd_user *user)
 {
-    this->instance->traces.get_trace_manager()->set_vcd_user(user);
+    this->instance->traces.get_trace_engine()->set_vcd_user(user);
 }
 
-void Gvsoc_launcher::event_add(std::string path, bool is_regex)
+void gv::GvsocLauncher::event_add(std::string path, bool is_regex)
 {
-    this->instance->traces.get_trace_manager()->conf_trace(1, path, 1);
+    this->instance->traces.get_trace_engine()->conf_trace(1, path, 1);
 }
 
-void Gvsoc_launcher::event_exclude(std::string path, bool is_regex)
+void gv::GvsocLauncher::event_exclude(std::string path, bool is_regex)
 {
-    this->instance->traces.get_trace_manager()->conf_trace(1, path, 0);
+    this->instance->traces.get_trace_engine()->conf_trace(1, path, 0);
 }
 
 
@@ -263,29 +265,29 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 
 
 
-void Gvsoc_launcher::update(int64_t timestamp)
+void gv::GvsocLauncher::update(int64_t timestamp)
 {
-    this->engine->update(timestamp);
+    this->handler->get_time_engine()->update(timestamp);
 }
 
 
 
-void *Gvsoc_launcher::get_component(std::string path)
+void *gv::GvsocLauncher::get_component(std::string path)
 {
-    return this->instance->get_component(split(path, '/'));
+    return this->instance->get_block_from_path(split(path, '/'));
 }
 
 
 
-void Gvsoc_launcher::engine_routine()
+void gv::GvsocLauncher::engine_routine()
 {
     while(1)
     {
         // Wait until we receive a run request
         while (!this->run_req)
         {
-            this->engine->critical_wait();
-            this->engine->handle_locks();
+            this->handler->get_time_engine()->critical_wait();
+            this->handler->get_time_engine()->handle_locks();
         }
 
         // Switch to runnning state and properly notify it
@@ -293,10 +295,10 @@ void Gvsoc_launcher::engine_routine()
 
         for (auto x: this->exec_notifiers)
         {
-            x->notify_run(this->engine->get_time());
+            x->notify_run(this->handler->get_time_engine()->get_time());
         }
 
-        this->engine->critical_notify();
+        this->handler->get_time_engine()->critical_notify();
 
         // Run until we are ask to stop or simulation is over
         while (this->running)
@@ -307,27 +309,27 @@ void Gvsoc_launcher::engine_routine()
             // The engine will return -1 if it receives a stop request.
             // Leave only if we have not receive a run request meanwhile which would then cancel
             // the stop request.
-            if (this->engine->run() == -1 && (!this->run_req || this->engine->finished_get()))
+            if (this->handler->get_time_engine()->run() == -1 && (!this->run_req || this->handler->get_time_engine()->finished_get()))
             {
                 this->running = false;
-                this->engine->critical_notify();
+                this->handler->get_time_engine()->critical_notify();
             }
         }
 
         // Properly notify the stop and finish state
         for (auto x: this->exec_notifiers)
         {
-            x->notify_stop(this->engine->get_time());
+            x->notify_stop(this->handler->get_time_engine()->get_time());
         }
 
-        if (this->engine->finished_get())
+        if (this->handler->get_time_engine()->finished_get())
         {
-            this->engine->critical_notify();
+            this->handler->get_time_engine()->critical_notify();
 
             while(1)
             {
-                this->engine->critical_wait();
-                this->engine->handle_locks();
+                this->handler->get_time_engine()->critical_wait();
+                this->handler->get_time_engine()->handle_locks();
             }
         }
     }
@@ -335,48 +337,62 @@ void Gvsoc_launcher::engine_routine()
 
 
 
-void Gvsoc_launcher::register_exec_notifier(vp::Notifier *notifier)
+void gv::GvsocLauncher::register_exec_notifier(GvsocLauncher_notifier *notifier)
 {
     this->exec_notifiers.push_back(notifier);
 }
 
 
-void Gvsoc_launcher::retain()
+void gv::GvsocLauncher::retain()
 {
-    this->engine->retain_inc(1);
+    this->handler->get_time_engine()->retain_inc(1);
 }
 
-int Gvsoc_launcher::retain_count()
+int gv::GvsocLauncher::retain_count()
 {
-    return this->engine->retain_count();
+    return this->handler->get_time_engine()->retain_count();
 }
 
-void Gvsoc_launcher::release()
+void gv::GvsocLauncher::release()
 {
-    this->engine->retain_inc(-1);
+    this->handler->get_time_engine()->retain_inc(-1);
 }
 
-double Gvsoc_launcher::get_instant_power(double &dynamic_power, double &static_power)
+double gv::GvsocLauncher::get_instant_power(double &dynamic_power, double &static_power)
 {
     return this->instance->power.get_instant_power(dynamic_power, static_power);
 }
 
-double Gvsoc_launcher::get_average_power(double &dynamic_power, double &static_power)
+double gv::GvsocLauncher::get_average_power(double &dynamic_power, double &static_power)
 {
     return this->instance->power.get_average_power(dynamic_power, static_power);
 }
 
-void Gvsoc_launcher::report_start()
+void gv::GvsocLauncher::report_start()
 {
     this->instance->power.get_engine()->start_capture();
 }
 
-void Gvsoc_launcher::report_stop()
+void gv::GvsocLauncher::report_stop()
 {
     this->instance->power.get_engine()->stop_capture();
 }
 
-gv::Power_report *Gvsoc_launcher::report_get()
+gv::PowerReport *gv::GvsocLauncher::report_get()
 {
     return this->instance->power.get_report();
+}
+
+
+
+gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
+{
+    if (conf->proxy_socket != -1)
+    {
+        return new Gvsoc_proxy_client(conf);
+    }
+    else
+    {
+        return new gv::GvsocLauncher(conf);
+    }
 }

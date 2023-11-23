@@ -20,7 +20,7 @@
 #include "stdio.h"
 #include <cassert>
 
-#define EEPROM_DEBUG(...) (this->trace.msg(vp::trace::LEVEL_TRACE, __VA_ARGS__))
+#define EEPROM_DEBUG(...) (this->trace.msg(vp::Trace::LEVEL_TRACE, __VA_ARGS__))
 //#define EEPROM_DEBUG(...) fprintf(stderr, "[EEPROM] " __VA_ARGS__)
 //#define EEPROM_DEBUG(...)
 
@@ -30,6 +30,16 @@ I2c_eeprom_memory::I2c_eeprom_memory(void)
     page_size(-1),
     default_value(0)
 {
+    traces.new_trace("trace", &this->trace, vp::DEBUG);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Building component\n");
+
+    this->i2c_itf.set_sync_meth(&I2c_eeprom::i2c_sync);
+    this->new_master_port("i2c", &this->i2c_itf);
+
+    this->new_master_port("clock_cfg", &this->clock_cfg);
+
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Instantiated eeprom (address: 0x%x, page_size: 0x%x, nb_pages: %d)\n", this->i2c_address, this->page_size, this->number_of_pages);
+
 }
 
 void I2c_eeprom_memory::set_address(int address)
@@ -105,8 +115,8 @@ void I2c_eeprom_memory::erase_memory(void)
     }
 }
 
-I2c_eeprom::I2c_eeprom(js::config* config)
-    : vp::component(config),
+I2c_eeprom::I2c_eeprom(vp::ComponentConf &config)
+    : vp::Component(config),
     i2c_helper(this,
             &this->i2c_itf,
             std::bind(&I2c_eeprom::i2c_enqueue_event,
@@ -125,20 +135,20 @@ I2c_eeprom::I2c_eeprom(js::config* config)
     if (NULL != config)
     {
         /* configure address */
-        js::config* address_elt = config->get("address");
+        js::Config* address_elt = config->get("address");
         if (NULL != address_elt)
         {
             this->i2c_address = address_elt->get_int();
         }
 
         /* configure page size */
-        js::config* page_size_elt = config->get("page_size");
+        js::Config* page_size_elt = config->get("page_size");
         if (NULL != page_size_elt)
         {
             this->page_size = page_size_elt->get_int();
         }
         /* configure number of pages*/
-        js::config* number_of_pages_elt= config->get("number_of_pages");
+        js::Config* number_of_pages_elt= config->get("number_of_pages");
         if (NULL != number_of_pages_elt)
         {
             this->number_of_pages = number_of_pages_elt->get_int();
@@ -160,7 +170,7 @@ I2c_eeprom::I2c_eeprom(js::config* config)
     this->memory.initialize_memory(this->number_of_pages, this->page_size, 0x55);
 }
 
-void I2c_eeprom::i2c_sync(void *__this, int scl, int sda)
+void I2c_eeprom::i2c_sync(vp::Block *__this, int scl, int sda)
 {
     assert(NULL != __this);
     I2c_eeprom* _this = (I2c_eeprom*) __this;
@@ -172,30 +182,11 @@ void I2c_eeprom::reset(bool active)
 {
     if (active)
     {
-        this->trace.msg(vp::trace::LEVEL_TRACE, "Resetting component\n");
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Resetting component\n");
         //TODO reset memory ?
         //TODO reset i2c interface
         //TODO reset event
     }
-}
-
-int I2c_eeprom::build(void)
-{
-    traces.new_trace("trace", &this->trace, vp::DEBUG);
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Building component\n");
-
-    this->i2c_itf.set_sync_meth(&I2c_eeprom::i2c_sync);
-    this->new_master_port("i2c", &this->i2c_itf);
-
-    this->new_master_port("clock_cfg", &this->clock_cfg);
-
-    this->trace.msg(vp::trace::LEVEL_INFO, "Instantiated eeprom (address: 0x%x, page_size: 0x%x, nb_pages: %d)\n", this->i2c_address, this->page_size, this->number_of_pages);
-
-    return 0;
-}
-
-void I2c_eeprom::start(void)
-{
 }
 
 void I2c_eeprom::i2c_helper_callback(i2c_operation_e id, i2c_status_e status, int value)
@@ -277,18 +268,18 @@ void I2c_eeprom::i2c_helper_callback(i2c_operation_e id, i2c_status_e status, in
     }
 }
 
-void I2c_eeprom::i2c_enqueue_event(vp::clock_event* event, uint64_t time_ps)
+void I2c_eeprom::i2c_enqueue_event(vp::ClockEvent* event, uint64_t time_ps)
 {
     //TODO compute number of cycles according to time_ps
     this->event_enqueue(event, time_ps);
 }
 
-void I2c_eeprom::i2c_cancel_event(vp::clock_event* event)
+void I2c_eeprom::i2c_cancel_event(vp::ClockEvent* event)
 {
     this->event_cancel(event);
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new I2c_eeprom(config);
 }

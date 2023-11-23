@@ -22,7 +22,6 @@
 #ifndef __VP_GDBSERVER_GDBSERVER_ENGINE_HPP__
 #define __VP_GDBSERVER_GDBSERVER_ENGINE_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 
 namespace vp

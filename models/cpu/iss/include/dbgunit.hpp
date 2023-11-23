@@ -34,20 +34,20 @@ public:
 
     void build();
 
-    static void halt_sync(void *_this, bool active);
+    static void halt_sync(vp::Block *_this, bool active);
     void debug_req();
     void set_halt_mode(bool halted, int cause);
 
-    vp::io_slave dbg_unit;
-    vp::wire_slave<bool> halt_itf;
-    vp::wire_master<bool> halt_status_itf;
+    vp::IoSlave dbg_unit;
+    vp::WireSlave<bool> halt_itf;
+    vp::WireMaster<bool> halt_status_itf;
     bool riscv_dbg_unit;
     iss_reg_t hit_reg = 0;
     int halt_cause;
     vp::reg_1 do_step;
 
 
-    vp::trace trace;
+    vp::Trace trace;
 
 private:
     Iss &iss;

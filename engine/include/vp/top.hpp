@@ -15,30 +15,35 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __GV__DPI_CHIP_WRAPPER_H__
-#define __GV__DPI_CHIP_WRAPPER_H__
+#pragma once
 
-#include <string>
-#include <gv/gvsoc.hpp>
+#include "vp/component.hpp"
+#include "vp/time/time_engine.hpp"
 
-class Dpi_chip_wrapper_callback : public gv::Wire_binding
-{
-public:
-    void update(int data);
-    void (*function)(void *_this, int64_t, int);
-    void *_this;
+namespace vp {
 
-    int *pad_value;
-    std::string name;
-    bool is_cs;
-    bool is_sck;
-    void *group;
-    int cs_id;
-    gv::Wire_user *handle;
+  class Top
+  {
+  public:
+      Top(std::string config_path, bool is_async);
+      ~Top();
+
+      Component *top_instance;
+      js::Config *gv_config;
+
+      vp::TimeEngine *get_time_engine() { return this->time_engine; };
+      vp::TraceEngine *get_trace_engine() { return this->trace_engine; };
+      vp::PowerEngine *get_power_engine() { return this->power_engine; };
+
+
+  private:
+      vp::TimeEngine *time_engine;
+      vp::TraceEngine *trace_engine;
+      vp::PowerEngine *power_engine;
+  };
+
 };
-
-#endif

@@ -104,24 +104,23 @@
 
 
 
-class Ns16550 : public vp::component
+class Ns16550 : public vp::Component
 {
 public:
-    Ns16550(js::config *config);
+    Ns16550(vp::ComponentConf &conf);
 
-    int build();
     void reset(bool active);
     void stop();
 
 private:
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     bool load(unsigned int addr, size_t len, uint8_t *bytes);
     bool store(unsigned int addr, size_t len, const uint8_t *bytes);
     int read(bool blocking=false);
     void write(char ch);
     void stdin_task();
 
-    vp::trace trace;
+    vp::Trace trace;
     uint32_t reg_shift;
     uint32_t reg_io_width;
     std::queue<uint8_t> rx_queue;
@@ -139,8 +138,8 @@ private:
     uint8_t rx_byte(void);
     void tx_byte(uint8_t val);
 
-    vp::io_slave input_itf;
-    vp::wire_master<bool> irq_itf;
+    vp::IoSlave input_itf;
+    vp::WireMaster<bool> irq_itf;
 
     struct termios old_tios;
     bool restore_tios;
@@ -149,41 +148,6 @@ private:
 };
 
 
-
-int Ns16550::build()
-{
-    this->traces.new_trace("trace", &this->trace, vp::DEBUG);
-
-    ier = 0;
-    iir = UART_IIR_NO_INT;
-    fcr = 0;
-    lcr = 0;
-    lsr = UART_LSR_TEMT | UART_LSR_THRE;
-    msr = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS;
-    dll = 0x0C;
-    mcr = UART_MCR_OUT2;
-    scr = 0;
-
-    reg_io_width = 1;
-
-    this->input_itf.set_req_meth(&Ns16550::req);
-    new_slave_port("input", &this->input_itf);
-
-    this->new_master_port("irq", &this->irq_itf);
-
-    this->restore_tios = false;
-    if (tcgetattr(0, &old_tios) == 0)
-    {
-        struct termios new_tios = old_tios;
-        new_tios.c_lflag &= ~(ICANON | ECHO);
-        if (tcsetattr(0, TCSANOW, &new_tios) == 0)
-            restore_tios = true;
-    }
-
-    this->stdin_thread = new std::thread(&Ns16550::stdin_task, this);
-
-    return 0;
-}
 
 
 void Ns16550::stop()
@@ -198,12 +162,12 @@ void Ns16550::reset(bool active)
 {
 }
 
-vp::io_req_status_e Ns16550::req(void *__this, vp::io_req *req)
+vp::IoReqStatus Ns16550::req(vp::Block *__this, vp::IoReq *req)
 {
     Ns16550 *_this = (Ns16550 *)__this;
     bool status;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received request (offset: 0x%x, size: 0x%d, is_write: %d)\n",
         req->get_addr(), req->get_size(), req->get_is_write());
 
     if (req->get_is_write())
@@ -466,15 +430,15 @@ void Ns16550::stdin_task(void)
         int rc = this->read(true);
         if (rc < 0) return;
 
-        this->get_time_engine()->lock();
+        this->time.get_engine()->lock();
 
         while (!(this->fcr & UART_FCR_ENABLE_FIFO) ||
             (this->mcr & UART_MCR_LOOP) ||
             (UART_QUEUE_SIZE <= this->rx_queue.size()))
         {
-            this->get_time_engine()->unlock();
+            this->time.get_engine()->unlock();
             usleep(1000);
-            this->get_time_engine()->lock();
+            this->time.get_engine()->lock();
         }
 
         this->rx_queue.push((uint8_t)rc);
@@ -482,7 +446,7 @@ void Ns16550::stdin_task(void)
 
         this->update_interrupt();
 
-        this->get_time_engine()->unlock();
+        this->time.get_engine()->unlock();
     }
 }
 
@@ -508,13 +472,43 @@ void Ns16550::write(char ch)
     abort();
 }
 
-Ns16550::Ns16550(js::config *config)
-    : vp::component(config)
+Ns16550::Ns16550(vp::ComponentConf &config)
+    : vp::Component(config)
 {
+    this->traces.new_trace("trace", &this->trace, vp::DEBUG);
+
+    ier = 0;
+    iir = UART_IIR_NO_INT;
+    fcr = 0;
+    lcr = 0;
+    lsr = UART_LSR_TEMT | UART_LSR_THRE;
+    msr = UART_MSR_DCD | UART_MSR_DSR | UART_MSR_CTS;
+    dll = 0x0C;
+    mcr = UART_MCR_OUT2;
+    scr = 0;
+
+    reg_io_width = 1;
+
+    this->input_itf.set_req_meth(&Ns16550::req);
+    new_slave_port("input", &this->input_itf);
+
+    this->new_master_port("irq", &this->irq_itf);
+
+    this->restore_tios = false;
+    if (tcgetattr(0, &old_tios) == 0)
+    {
+        struct termios new_tios = old_tios;
+        new_tios.c_lflag &= ~(ICANON | ECHO);
+        if (tcsetattr(0, TCSANOW, &new_tios) == 0)
+            restore_tios = true;
+    }
+
+    this->stdin_thread = new std::thread(&Ns16550::stdin_task, this);
+
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Ns16550(config);
 }

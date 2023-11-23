@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
 #pragma once
 
-#include "vp/vp_data.hpp"
-#include "vp/implementation.hpp"
 #include "vp/trace/implementation.hpp"
 #include "vp/clock/implementation.hpp"
+#include "vp/time/implementation.hpp"
 #include "vp/power/power_trace.hpp"
 #include "vp/power/power_source.hpp"
 #include "vp/power/power_table.hpp"
+#include <vp/register.hpp>
+#include <vp/time/time_event.hpp>

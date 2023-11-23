@@ -25,7 +25,8 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <gv/gvsoc.hpp>
-#include "json.hpp"
+#include "vp/json.hpp"
+#include <string>
 
 namespace vp {
 
@@ -36,7 +37,7 @@ namespace vp {
   public:
     virtual void dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask) {}
     virtual void close() {}
-    virtual void add_trace(string name, int id, int width, bool is_real, bool is_string) {}
+    virtual void add_trace(std::string name, int id, int width, bool is_real, bool is_string) {}
 
   protected:
 
@@ -48,7 +49,7 @@ namespace vp {
   class Event_trace
   {
   public:
-    Event_trace(string trace_name, Event_file *file, int width, bool is_real, bool is_string);
+    Event_trace(std::string trace_name, Event_file *file, int width, bool is_real, bool is_string);
     void reg(int64_t timestamp, uint8_t *event, int width, uint8_t flags, uint8_t *flag_mask);
     inline void dump(int64_t timestamp) { if (this->buffer) file->dump(timestamp, id, this->buffer, this->width, this->is_real, this->is_string, this->flags, this->flags_mask); }
     std::string trace_name;
@@ -72,10 +73,10 @@ namespace vp {
   class Event_dumper
   {
   public:
-    Event_dumper(js::config *config) : config(config) { this->user_vcd = NULL; }
-    Event_trace *get_trace(string trace_name, string file_name, int width, bool is_real=false, bool is_string=false);
-    Event_trace *get_trace_real(string trace_name, string file_name);
-    Event_trace *get_trace_string(string trace_name, string file_name);
+    Event_dumper(js::Config *config) : config(config) { this->user_vcd = NULL; }
+    Event_trace *get_trace(std::string trace_name, std::string file_name, int width, bool is_real=false, bool is_string=false);
+    Event_trace *get_trace_real(std::string trace_name, std::string file_name);
+    Event_trace *get_trace_string(std::string trace_name, std::string file_name);
     void close();
     void set_vcd_user(gv::Vcd_user *user);
 
@@ -83,27 +84,27 @@ namespace vp {
     std::map<std::string, Event_trace *> event_traces;
     std::map<std::string, Event_file *> event_files;
     gv::Vcd_user *user_vcd;
-    js::config *config;
+    js::Config *config;
   };
 
   class Vcd_file : public Event_file
   {
   public:
-    Vcd_file(Event_dumper *dumper, string path);
+    Vcd_file(Event_dumper *dumper, std::string path);
     void close();
-    void add_trace(string name, int id, int width, bool is_real, bool is_string);
+    void add_trace(std::string name, int id, int width, bool is_real, bool is_string);
     void dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask);
 
   private:
-    string parse_path(string path, bool begin);
+    std::string parse_path(std::string path, bool begin);
   };
 
   class Lxt2_file : public Event_file
   {
   public:
-    Lxt2_file(Event_dumper *dumper, string path);
+    Lxt2_file(Event_dumper *dumper, std::string path);
     void close();
-    void add_trace(string name, int id, int width, bool is_real, bool is_string);
+    void add_trace(std::string name, int id, int width, bool is_real, bool is_string);
     void dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask);
 
   private:
@@ -115,13 +116,13 @@ namespace vp {
   class Fst_file : public Event_file
   {
   public:
-    Fst_file(Event_dumper *dumper, string path);
+    Fst_file(Event_dumper *dumper, std::string path);
     void close();
-    void add_trace(string name, int id, int width, bool is_real, bool is_string);
+    void add_trace(std::string name, int id, int width, bool is_real, bool is_string);
     void dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask);
 
   private:
-    string parse_path(string path, bool begin);
+    std::string parse_path(std::string path, bool begin);
 
     void *writer;
     std::vector<uint32_t> vars;
@@ -131,9 +132,9 @@ namespace vp {
   class Raw_file : public Event_file
   {
   public:
-    Raw_file(Event_dumper *dumper, string path);
+    Raw_file(Event_dumper *dumper, std::string path);
     void close();
-    void add_trace(string name, int id, int width, bool is_real, bool is_string);
+    void add_trace(std::string name, int id, int width, bool is_real, bool is_string);
     void dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask);
 
   private:

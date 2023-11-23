@@ -40,7 +40,7 @@ public:
 
     bool dump_trace_enabled;
 
-    vp::trace insn_trace;
+    vp::Trace insn_trace;
     iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];
     int priv_mode;
 

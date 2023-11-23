@@ -435,7 +435,7 @@ void Gvsoc_proxy_client::report_stop()
 
 }
 
-gv::Power_report *Gvsoc_proxy_client::report_get()
+gv::PowerReport *Gvsoc_proxy_client::report_get()
 {
     return NULL;
 }

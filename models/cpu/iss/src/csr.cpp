@@ -186,9 +186,9 @@ void Csr::build()
     this->iss.top.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
     this->iss.top.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
 
-    this->iss.top.new_master_port(this, "time", &this->time_itf);
+    this->iss.top.new_master_port("time", &this->time_itf, (vp::Block *)this);
 
-    this->mhartid = (this->iss.top.get_config_int("cluster_id") << 5) | this->iss.top.get_config_int("core_id");
+    this->mhartid = (this->iss.top.get_js_config()->get_child_int("cluster_id") << 5) | this->iss.top.get_js_config()->get_child_int("core_id");
 
     this->tselect.register_callback(std::bind(&Csr::tselect_access, this, std::placeholders::_1, std::placeholders::_2));
 }

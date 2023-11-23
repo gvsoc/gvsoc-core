@@ -14,14 +14,36 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gvsoc.systree
 
-class Clock_domain(st.Component):
+class Clock_domain(gvsoc.systree.Component):
+    """Clock domain
 
-    def __init__(self, parent, name, frequency, factor=1):
-        super(Clock_domain, self).__init__(parent, name)
+    This model can be used to define a clock domain.\n
+    This instantiates a clock generator which can then be connected to components which are
+    part of the clock domain.\n
+    The clock domain starts with the specified frequency and its frequency can then be dynamically
+    changed through a dedicated interface, so that all components of the frequency domain
+    are clocked with the new frequency.\n
 
-        self.set_component('vp.clock_domain_impl')
+    Attributes
+    ----------
+    parent: gvsoc.systree.Component
+        The parent component where this one should be instantiated.
+    name: str
+        The name of the component within the parent space.
+    frequency: int
+        The initial frequency of the clock generator.
+    factor: int
+        Multiplication factor. The actual output frequency will be multiplied by this factor.
+        This can be used for example to be able to schedule events on both raising
+        and falling edges.
+    """
+
+    def __init__(self, parent: gvsoc.systree.Component, name: str, frequency: int, factor: int=1):
+        super().__init__(parent, name)
+
+        self.set_component('vp.clock_engine_module')
 
         self.add_properties({
             'frequency': frequency,
@@ -32,3 +54,33 @@ class Clock_domain(st.Component):
 
         tree.add_trace(self, 'cycles', 'cycles', tag='clock')
         tree.add_trace(self, 'period', 'period', tag='overview')
+
+    def o_CLOCK(self, itf: gvsoc.systree.SlaveItf):
+        """Binds the output clock port.
+
+        This port can be connected to any component which should be clocked by this
+        clock generator.\n
+        Several components can be bound on it.\n
+        In case the frequency is dynamically modified, all bound components are notified and
+        will  be automatically using the new frequency.\n
+        It instantiates a port of type vp::ClkMaster.\n
+
+        Parameters
+        ----------
+        slave: gvsoc.systree.SlaveItf
+            Slave interface
+        """
+        self.itf_bind('out', itf, signature='clock')
+
+    def i_CTRL(self) -> gvsoc.systree.SlaveItf:
+        """Returns the port for controlling the clock generator.
+
+        This can be used to dynamically change the frequency.\n
+        It instantiates a port of type vp::ClockMaster.\n
+
+        Returns
+        ----------
+        gvsoc.systree.SlaveItf
+            The slave interface
+        """
+        return gvsoc.systree.SlaveItf(self, 'clock_in', signature='clock_ctrl')

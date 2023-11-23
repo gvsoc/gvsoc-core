@@ -7,7 +7,7 @@ from pandas import DataFrame, read_csv
 import matplotlib.pyplot as plt
 import pandas as pd
 import regmap as rmap
-import json_tools as js
+import gvsoc.json_tools as js
 import collections
 import json
 

@@ -21,17 +21,16 @@
 
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
+#include <vp/block.hpp>
 
-vp::signal::signal(block *parent, int64_t reset)
-{
-    this->reset_value = reset;
-    parent->add_signal(this);
-}
 
-void vp::signal::reset(bool active)
+vp::SignalCommon::SignalCommon(vp::Block &parent, std::string name, int width, bool do_reset)
 {
-    if (active)
-    {
-        this->value = this->reset_value;
-    }
+    parent.traces.new_trace(name + "/trace", &this->trace, vp::TRACE);
+    parent.traces.new_trace_event(name, &this->reg_event, width);
+    parent.add_signal(this);
+    this->width = width;
+    this->do_reset = do_reset;
+    this->name = name;
+    this->nb_bytes = (width + 7) / 8;
 }

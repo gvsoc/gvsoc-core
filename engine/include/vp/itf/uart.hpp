@@ -28,96 +28,96 @@ namespace vp {
 
 
 
-  class uart_slave;
+  class UartSlave;
 
 
 
-  typedef void (uart_sync_meth_t)(void *, int data);
-  typedef void (uart_sync_meth_muxed_t)(void *, int data, int id);
+  typedef void (UartSyncMeth)(vp::Block *, int data);
+  typedef void (UartSyncMethMuxed)(vp::Block *, int data, int id);
 
-  typedef void (uart_sync_full_meth_t)(void *, int data, int sck, int rtr, unsigned int mask);
-  typedef void (uart_sync_full_meth_muxed_t)(void *, int data, int sck, int rtr, unsigned int mask, int id);
+  typedef void (UartSyncFullMeth)(vp::Block *, int data, int sck, int rtr, unsigned int mask);
+  typedef void (UartSyncFullMethMuxed)(vp::Block *, int data, int sck, int rtr, unsigned int mask, int id);
 
 
 
-  class uart_master : public vp::master_port
+  class UartMaster : public vp::MasterPort
   {
-    friend class uart_slave;
+    friend class UartSlave;
 
   public:
 
-    inline uart_master();
+    inline UartMaster();
 
     inline void sync(int data)
     {
-      return sync_meth(this->get_remote_context(), data);
+      return sync_meth((vp::Block *)this->get_remote_context(), data);
     }
 
     inline void sync_full(int data, int sck, int rtr, unsigned int mask)
     {
       if (sync_full_meth)
-        return sync_full_meth(this->get_remote_context(), data, sck, rtr, mask);
+        return sync_full_meth((vp::Block *)this->get_remote_context(), data, sck, rtr, mask);
 
       return this->sync(data);
     }
 
-    void bind_to(vp::port *port, vp::config *config);
+    void bind_to(vp::Port *port, js::Config *config);
 
-    inline void set_sync_meth(uart_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(uart_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(UartSyncMeth *meth);
+    inline void set_sync_meth_muxed(UartSyncMethMuxed *meth, int id);
 
-    inline void set_sync_full_meth(uart_sync_full_meth_t *meth);
-    inline void set_sync_full_meth_muxed(uart_sync_full_meth_muxed_t *meth, int id);
+    inline void set_sync_full_meth(UartSyncFullMeth *meth);
+    inline void set_sync_full_meth_muxed(UartSyncFullMethMuxed *meth, int id);
 
-    bool is_bound() { return slave_port != NULL; }
+    bool is_bound() { return SlavePort != NULL; }
 
   private:
 
-    static inline void sync_muxed_stub(uart_master *_this, int data);
-    static inline void sync_full_muxed_stub(uart_master *_this, int data, int sck, int rtr, unsigned int mask);
+    static inline void sync_muxed_stub(UartMaster *_this, int data);
+    static inline void sync_full_muxed_stub(UartMaster *_this, int data, int sck, int rtr, unsigned int mask);
 
-    void (*slave_sync)(void *comp, int data);
-    void (*slave_sync_mux)(void *comp, int data, int mux);
+    void (*slave_sync)(vp::Block *comp, int data);
+    void (*slave_sync_mux)(vp::Block *comp, int data, int mux);
 
-    void (*slave_sync_full)(void *comp, int data, int sck, int rtr, unsigned int mask);
-    void (*slave_sync_full_mux)(void *comp, int data, int sck, int rtr, unsigned int mask, int mux);
+    void (*slave_sync_full)(vp::Block *comp, int data, int sck, int rtr, unsigned int mask);
+    void (*slave_sync_full_mux)(vp::Block *comp, int data, int sck, int rtr, unsigned int mask, int mux);
 
-    void (*sync_meth)(void *, int data);
-    void (*sync_meth_mux)(void *, int data, int mux);
+    void (*sync_meth)(vp::Block *, int data);
+    void (*sync_meth_mux)(vp::Block *, int data, int mux);
 
-    void (*sync_full_meth)(void *, int data, int sck, int rtr, unsigned int mask);
-    void (*sync_full_meth_mux)(void *, int data, int sck, int rtr, unsigned int mask, int mux);
+    void (*sync_full_meth)(vp::Block *, int data, int sck, int rtr, unsigned int mask);
+    void (*sync_full_meth_mux)(vp::Block *, int data, int sck, int rtr, unsigned int mask, int mux);
 
-    static inline void sync_default(void *, int data);
+    static inline void sync_default(vp::Block *, int data);
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
-    uart_slave *slave_port = NULL;
+    UartSlave *SlavePort = NULL;
     int mux_id;
 
   };
 
 
 
-  class uart_slave : public vp::slave_port
+  class UartSlave : public vp::SlavePort
   {
 
-    friend class uart_master;
+    friend class UartMaster;
 
   public:
 
-    inline uart_slave();
+    inline UartSlave();
 
     inline void sync(int data)
     {
-      slave_sync_meth(this->get_remote_context(), data);
+      slave_sync_meth((vp::Block *)this->get_remote_context(), data);
     }
 
     inline void sync_full(int data, int sck, int rtr, unsigned int mask)
     {
       if (slave_sync_full_meth)
       {
-        slave_sync_full_meth(this->get_remote_context(), data, sck, rtr, mask);
+        slave_sync_full_meth((vp::Block *)this->get_remote_context(), data, sck, rtr, mask);
       }
       else
       {
@@ -125,42 +125,42 @@ namespace vp {
       }
     }
 
-    inline void set_sync_meth(uart_sync_meth_t *meth);
-    inline void set_sync_meth_muxed(uart_sync_meth_muxed_t *meth, int id);
+    inline void set_sync_meth(UartSyncMeth *meth);
+    inline void set_sync_meth_muxed(UartSyncMethMuxed *meth, int id);
 
-    inline void set_sync_full_meth(uart_sync_full_meth_t *meth);
-    inline void set_sync_full_meth_muxed(uart_sync_full_meth_muxed_t *meth, int id);
+    inline void set_sync_full_meth(UartSyncFullMeth *meth);
+    inline void set_sync_full_meth_muxed(UartSyncFullMethMuxed *meth, int id);
 
-    inline void bind_to(vp::port *_port, vp::config *config);
+    inline void bind_to(vp::Port *_port, js::Config *config);
 
   private:
 
-    static inline void sync_muxed_stub(uart_slave *_this, int data);
-    static inline void sync_full_muxed_stub(uart_slave *_this, int data, int sck, int rtr, unsigned int mask);
+    static inline void sync_muxed_stub(UartSlave *_this, int data);
+    static inline void sync_full_muxed_stub(UartSlave *_this, int data, int sck, int rtr, unsigned int mask);
 
-    void (*slave_sync_meth)(void *, int data);
-    void (*slave_sync_meth_mux)(void *, int data, int mux);
+    void (*slave_sync_meth)(vp::Block *, int data);
+    void (*slave_sync_meth_mux)(vp::Block *, int data, int mux);
 
-    void (*slave_sync_full_meth)(void *, int data, int sck, int rtr, unsigned int mask);
-    void (*slave_sync_full_meth_mux)(void *, int data, int sck, int rtr, unsigned int mask, int mux);
+    void (*slave_sync_full_meth)(vp::Block *, int data, int sck, int rtr, unsigned int mask);
+    void (*slave_sync_full_meth_mux)(vp::Block *, int data, int sck, int rtr, unsigned int mask, int mux);
 
-    void (*sync_meth)(void *comp, int data);
-    void (*sync_mux_meth)(void *comp, int data, int mux);
+    void (*sync_meth)(vp::Block *comp, int data);
+    void (*sync_mux_meth)(vp::Block *comp, int data, int mux);
 
-    void (*sync_full_meth)(void *comp, int data, int sck, int rtr, unsigned int mask);
-    void (*sync_full_mux_meth)(void *comp, int data, int sck, int rtr, unsigned int mask, int mux);
+    void (*sync_full_meth)(vp::Block *comp, int data, int sck, int rtr, unsigned int mask);
+    void (*sync_full_mux_meth)(vp::Block *comp, int data, int sck, int rtr, unsigned int mask, int mux);
 
-    static inline void sync_default(uart_slave *, int data);
+    static inline void sync_default(UartSlave *, int data);
 
-    vp::component *comp_mux;
+    vp::Component *comp_mux;
     int sync_mux;
     int mux_id;
 
   };
 
 
-  inline uart_master::uart_master() {
-    slave_sync = &uart_master::sync_default;
+  inline UartMaster::UartMaster() {
+    slave_sync = &UartMaster::sync_default;
     slave_sync_mux = NULL;
     slave_sync_full = NULL;
     slave_sync_full_mux = NULL;
@@ -169,19 +169,19 @@ namespace vp {
 
 
 
-  inline void uart_master::sync_muxed_stub(uart_master *_this, int data)
+  inline void UartMaster::sync_muxed_stub(UartMaster *_this, int data)
   {
     return _this->sync_meth_mux(_this->comp_mux, data, _this->sync_mux);
   }
 
-  inline void uart_master::sync_full_muxed_stub(uart_master *_this, int data, int sck, int rtr, unsigned int mask)
+  inline void UartMaster::sync_full_muxed_stub(UartMaster *_this, int data, int sck, int rtr, unsigned int mask)
   {
     return _this->sync_full_meth_mux(_this->comp_mux, data, sck, rtr, rtr, _this->sync_mux);
   }
 
-  inline void uart_master::bind_to(vp::port *_port, vp::config *config)
+  inline void UartMaster::bind_to(vp::Port *_port, js::Config *config)
   {
-    uart_slave *port = (uart_slave *)_port;
+    UartSlave *port = (UartSlave *)_port;
     if (port->sync_mux_meth == NULL && port->sync_full_mux_meth == NULL)
     {
       sync_meth = port->sync_meth;
@@ -191,59 +191,59 @@ namespace vp {
     else
     {
       sync_meth_mux = port->sync_mux_meth;
-      sync_meth = (uart_sync_meth_t *)&uart_master::sync_muxed_stub;
+      sync_meth = (UartSyncMeth *)&UartMaster::sync_muxed_stub;
       sync_full_meth_mux = port->sync_full_mux_meth;
-      sync_full_meth = (uart_sync_full_meth_t *)&uart_master::sync_full_muxed_stub;
+      sync_full_meth = (UartSyncFullMeth *)&UartMaster::sync_full_muxed_stub;
 
       set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline void uart_master::set_sync_meth(uart_sync_meth_t *meth)
+  inline void UartMaster::set_sync_meth(UartSyncMeth *meth)
   {
     slave_sync = meth;
   }
 
-  inline void uart_master::set_sync_meth_muxed(uart_sync_meth_muxed_t *meth, int id)
+  inline void UartMaster::set_sync_meth_muxed(UartSyncMethMuxed *meth, int id)
   {
     slave_sync_mux = meth;
     slave_sync = NULL;
     mux_id = id;
   }
 
-  inline void uart_master::set_sync_full_meth(uart_sync_full_meth_t *meth)
+  inline void UartMaster::set_sync_full_meth(UartSyncFullMeth *meth)
   {
     slave_sync_full = meth;
   }
 
-  inline void uart_master::set_sync_full_meth_muxed(uart_sync_full_meth_muxed_t *meth, int id)
+  inline void UartMaster::set_sync_full_meth_muxed(UartSyncFullMethMuxed *meth, int id)
   {
     slave_sync_full_mux = meth;
     slave_sync_full = NULL;
     mux_id = id;
   }
 
-  inline void uart_master::sync_default(void *, int data)
+  inline void UartMaster::sync_default(vp::Block *, int data)
   {
   }
 
-  inline void uart_slave::sync_muxed_stub(uart_slave *_this, int data)
+  inline void UartSlave::sync_muxed_stub(UartSlave *_this, int data)
   {
     return _this->slave_sync_meth_mux(_this->comp_mux, data, _this->sync_mux);
   }
 
-  inline void uart_slave::sync_full_muxed_stub(uart_slave *_this, int data, int sck,int rtr, unsigned int mask)
+  inline void UartSlave::sync_full_muxed_stub(UartSlave *_this, int data, int sck,int rtr, unsigned int mask)
   {
     return _this->slave_sync_full_meth_mux(_this->comp_mux, data, sck, rtr, mask, _this->sync_mux);
   }
 
-  inline void uart_slave::bind_to(vp::port *_port, vp::config *config)
+  inline void UartSlave::bind_to(vp::Port *_port, js::Config *config)
   {
-    slave_port::bind_to(_port, config);
-    uart_master *port = (uart_master *)_port;
-    port->slave_port = this;
+    SlavePort::bind_to(_port, config);
+    UartMaster *port = (UartMaster *)_port;
+    port->SlavePort = this;
     if (port->slave_sync_mux == NULL)
     {
       this->slave_sync_meth = port->slave_sync;
@@ -253,49 +253,49 @@ namespace vp {
     else
     {
       this->slave_sync_meth_mux = port->slave_sync_mux;
-      this->slave_sync_meth = (uart_sync_meth_t *)&uart_slave::sync_muxed_stub;
+      this->slave_sync_meth = (UartSyncMeth *)&UartSlave::sync_muxed_stub;
 
       this->slave_sync_full_meth_mux = port->slave_sync_full_mux;
       if (port->slave_sync_full_mux == NULL)
         this->slave_sync_full_meth = NULL;
       else
-        this->slave_sync_full_meth = (uart_sync_full_meth_t *)&uart_slave::sync_full_muxed_stub;
+        this->slave_sync_full_meth = (UartSyncFullMeth *)&UartSlave::sync_full_muxed_stub;
 
       set_remote_context(this);
-      comp_mux = (vp::component *)port->get_context();
+      comp_mux = (vp::Component *)port->get_context();
       sync_mux = port->mux_id;
     }
   }
 
-  inline uart_slave::uart_slave() : sync_meth(NULL), sync_mux_meth(NULL), sync_full_meth(NULL), sync_full_mux_meth(NULL) {
-    sync_meth = (uart_sync_meth_t *)&uart_slave::sync_default;
+  inline UartSlave::UartSlave() : sync_meth(NULL), sync_mux_meth(NULL), sync_full_meth(NULL), sync_full_mux_meth(NULL) {
+    sync_meth = (UartSyncMeth *)&UartSlave::sync_default;
     sync_full_meth = NULL;
   }
 
-  inline void uart_slave::set_sync_meth(uart_sync_meth_t *meth)
+  inline void UartSlave::set_sync_meth(UartSyncMeth *meth)
   {
     sync_meth = meth;
     sync_mux_meth = NULL;
   }
 
-  inline void uart_slave::set_sync_meth_muxed(uart_sync_meth_muxed_t *meth, int id)
+  inline void UartSlave::set_sync_meth_muxed(UartSyncMethMuxed *meth, int id)
   {
     sync_mux_meth = meth;
     sync_meth = NULL;
     mux_id = id;
   }
 
-  inline void uart_slave::sync_default(uart_slave *, int data)
+  inline void UartSlave::sync_default(UartSlave *, int data)
   {
   }
 
-  inline void uart_slave::set_sync_full_meth(uart_sync_full_meth_t *meth)
+  inline void UartSlave::set_sync_full_meth(UartSyncFullMeth *meth)
   {
     sync_full_meth = meth;
     sync_full_mux_meth = NULL;
   }
 
-  inline void uart_slave::set_sync_full_meth_muxed(uart_sync_full_meth_muxed_t *meth, int id)
+  inline void UartSlave::set_sync_full_meth_muxed(UartSyncFullMethMuxed *meth, int id)
   {
     sync_full_mux_meth = meth;
     sync_full_meth = NULL;

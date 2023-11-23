@@ -24,6 +24,7 @@
 
 
 #include <vp/vp.hpp>
+#include <vp/register.hpp>
 #include <cpu/iss/include/lsu.hpp>
 #include <cpu/iss/include/decode.hpp>
 #include <cpu/iss/include/trace.hpp>
@@ -53,7 +54,7 @@ class IssWrapper;
 class Iss
 {
 public:
-    Iss(vp::component &top);
+    Iss(vp::Component &top);
 
     Exec exec;
     Timing timing;
@@ -76,31 +77,33 @@ public:
 
 
 
-    vp::component &top;
+    vp::Component &top;
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
-    static void barrier_sync(void *__this, bool value);
+    static void barrier_sync(vp::Block *__this, bool value);
 
-    vp::wire_master<bool> barrier_req_itf;
-    vp::wire_slave<bool> barrier_ack_itf;
+    vp::WireMaster<bool> barrier_req_itf;
+    vp::WireSlave<bool> barrier_ack_itf;
     CsrReg barrier;
     bool waiting_barrier;
 };
 
 
-class IssWrapper : public vp::component
+class IssWrapper : public vp::Component
 {
 
 public:
-    IssWrapper(js::config *config);
+    IssWrapper(vp::ComponentConf &config);
 
-    int build();
     void start();
     void reset(bool active);
     virtual void target_open();
 
     Iss iss;
+
+private:
+    vp::Trace trace;
 };
 
 

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gvsoc.systree as st
 
 
 class Fxl6408(st.Component):

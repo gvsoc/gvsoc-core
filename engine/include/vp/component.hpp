@@ -15,234 +15,281 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_COMPONENT_HPP__
-#define __VP_COMPONENT_HPP__
+#pragma once
 
-#include "vp/vp_data.hpp"
 #include <map>
-#include <list>
 #include <string>
-#include <vector>
-#include <functional>
-#include "vp/ports.hpp"
-#include "vp/config.hpp"
-#include "vp/clock/clock_event.hpp"
-#include "vp/itf/clk.hpp"
-#include "vp/clock/component_clock.hpp"
-#include "vp/trace/component_trace.hpp"
-#include "gv/power.hpp"
-#include "json.hpp"
-#include <functional>
+#include <vp/json.hpp>
 #include <vp/block.hpp>
-#include <vp/register.hpp>
-#include <gv/gvsoc.hpp>
+#include <vp/itf/clk.hpp>
+#include <vp/itf/implem/wire_class.hpp>
 
-
-#define   likely(x) __builtin_expect(x, 1)
+#define likely(x) __builtin_expect(x, 1)
 #define unlikely(x) __builtin_expect(x, 0)
 
-using namespace std;
 
-#define VP_ERROR_SIZE (1<<16)
-extern char vp_error[];
-
-class Gv_proxy;
-
-class Gvsoc_launcher;
-
-namespace vp {
-
-  class config;
-  class clock_engine;
-  class component;
-  class signal;
-  class trace_domain;
-
-
-  class Notifier {
-  public:
-      virtual void notify_stop(int64_t time) {}
-      virtual void notify_run(int64_t time) {}
-  };
-
-
-  class component : public component_clock, public block
-  {
-
-    friend class component_clock;
-    friend class vp::power::component_power;
-
-  public:
-    component(js::config *config);
-
-    static vp::component *load_component(js::config *config, js::config *gv_config);
-
-    virtual void pre_pre_build() { }
-    virtual int build() { return 0; }
-    virtual void pre_start() {}
-    virtual void start() {}
-    virtual void stop() {}
-    virtual void flush() {}
-    virtual void pre_reset() {}
-    virtual void reset(bool active) {}
-    virtual void power_supply_set(int state) {}
-    virtual void register_exec_notifier(Notifier *notifier) {}
-
-    virtual void dump_traces(FILE *file) {}
-
-    std::string get_component_path(std::string);
-
-    void dump_traces_recursive(FILE *file);
-
-    component *get_parent() { return this->parent; }
-    inline js::config *get_js_config() { return comp_js_config; }
-
-    js::config *get_vp_config();
-    void set_vp_config(js::config *config);
-
-    inline config *get_config(std::string name);
-
-
-    inline int get_config_int(std::string name, int index);
-
-    inline int get_config_int(std::string name);
-
-    inline bool get_config_bool(std::string name);
-
-    inline std::string get_config_str(std::string name);
-
-    inline int64_t get_time();
-
-    virtual vp::time_engine *get_time_engine() ;
-
-    string get_path() { return path; }
-    string get_name() { return name; }
-
-
-    void conf(string name, string path, vp::component *parent);
-
-    void add_child(std::string name, vp::component *child);
-
-    config *import_config(const char *config_string);
-
-    void reg_step_pre_start(std::function<void()> callback);
-    void register_build_callback(std::function<void()> callback);
-
-    void post_post_build();
-
-    void pre_build() {
-      component_clock::pre_build(this);
-    }
-
-    int build_new();
-
-    void flush_all();
-
-    void post_post_build_all();
-
-    void pre_start_all();
-
-    void start_all();
-
-    void stop_all();
-
-    void final_bind();
-
-    virtual void *external_bind(std::string comp_name, std::string itf_name, void *handle);
-    virtual void time_engine_update(int64_t timestamp) {}
-
-    void reset_all(bool active, bool from_itf=false);
-
-    void new_master_port(std::string name, master_port *port);
-
-    void new_master_port(void *comp, std::string name, master_port *port);
-
-    void new_slave_port(std::string name, slave_port *port);
-
-    void new_slave_port(void *comp, std::string name, slave_port *port);
-
-    void new_service(std::string name, void *service);
-
-    void add_service(std::string name, void *service);
-
-    vp::component *new_component(std::string name, js::config *config, std::string module="");
-    void build_instance(std::string name, vp::component *parent);
-
-    int get_ports(bool master, int size, const char *names[], void *ports[]);
-
-    void *get_service(string name);
-
-    void get_trace(std::vector<vp::trace *> &traces, std::string path);
-
-    void new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset=true);
-    void new_reg(std::string name, vp::reg_8 *reg, uint8_t reset_val, bool reset=true);
-    void new_reg(std::string name, vp::reg_16 *reg, uint16_t reset_val, bool reset=true);
-    void new_reg(std::string name, vp::reg_32 *reg, uint32_t reset_val, bool reset=true);
-    void new_reg(std::string name, vp::reg_64 *reg, uint64_t reset_val, bool reset=true);
-
-    inline trace *get_trace() { return &this->root_trace; }
-
-    std::vector<vp::component *> get_childs() { return childs; }
-    std::map<std::string, vp::component *> get_childs_dict() { return childs_dict; }
-    vp::component *get_component(std::vector<std::string> path_list);
-
-    virtual vp::port *get_slave_port(std::string name) { return this->slave_ports[name]; }
-    virtual vp::port *get_master_port(std::string name) { return this->master_ports[name]; }
-
-    virtual void add_slave_port(std::string name, vp::slave_port *port);
-    virtual void add_master_port(std::string name, vp::master_port *port);
-
-    void throw_error(std::string error);
-
-    virtual std::string handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req) { return ""; }
-
-    component_trace traces;
-    vp::power::component_power power;
-
-    trace warning;
-
-    void set_launcher(Gvsoc_launcher *launcher) { this->launcher = launcher; }
-
-  protected:
-    Gvsoc_launcher *get_launcher();
-    void create_comps();
-    void create_ports();
-    void create_bindings();
-    void bind_comps();
-
-    std::map<std::string, void *> all_services;
- 
-    std::vector<component *> childs;
-    std::map<std::string, component *> childs_dict;
-
-  private:
-    js::config *comp_js_config;
-    js::config *vp_config = NULL;
-    trace root_trace;
-
-    std::map<std::string, master_port *> master_ports;
-    std::map<std::string, slave_port *> slave_ports;
-
-    string path;
-    string name;
-
-    component *parent = NULL;
-
-    vector<std::function<void()>> pre_start_callbacks;
-    vector<std::function<void()>> build_callbacks;
-    vector<vp::reg *> regs;
-
-    bool reset_done_from_itf;
-
-    time_engine *time_engine_ptr = NULL;
-    Gvsoc_launcher *launcher;
-  };
-
-  std::string __gv_get_component_path(js::config *gv_config, std::string relpath);
+namespace gv {
+    class GvProxy;
+    class GvsocLauncher;
 };
 
-#endif
+namespace vp
+{
+
+    class config;
+    class ClockEngine;
+    class Component;
+    class signal;
+    class TraceEngine;
+    class Top;
+    class reg_1;
+    class reg_8;
+    class reg_16;
+    class reg_32;
+    class reg_64;
+
+    class ComponentConf
+    {
+    public:
+        ComponentConf(std::string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
+            vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
+            vp::PowerEngine *power_engine)
+            : name(name), parent(parent), config(config), gv_config(gv_config),
+            time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine) {}
+        std::string name;
+        vp::Component *parent;
+        js::Config *config;
+        js::Config *gv_config;
+        vp::TimeEngine *time_engine;
+        vp::TraceEngine *trace_engine;
+        vp::PowerEngine *power_engine;
+    };
+
+    /**
+     * @brief Component model
+     *
+     * The component is the basic building block of the GVSOC component-based model.
+     * It is supposed to be a coarse-grain model of a piece of hardware.
+     * It inherits from the block model and adds on top of it all what is needed to be
+     * able to make it interact with other components through interfaces and bindings
+     * defined together with the Python generator.
+     */
+    class Component : public Block
+    {
+
+        friend class vp::BlockClock;
+        friend class vp::BlockPower;
+        friend class vp::PowerSource;
+        friend class vp::MasterPort;
+        friend class vp::Top;
+        friend class vp::TimeEngine;
+        friend class gv::GvsocLauncher;
+
+    public:
+        /**
+         * @brief Construct a new component
+         *
+         * @note Components are instantiated by the framework, based on what was generated
+         * by the python generators. They should not be instantiated by the models directly.
+         *
+         * @param config The component configuration.
+         */
+        Component(vp::ComponentConf &config);
+
+        /**
+         * @brief Declare a master port
+         *
+         * A master port can be created to let the upper component bind it to the slave port of
+         * another component.
+         * Although ports are used to connect components together, it is also possible to connect
+         * them to a sub-block of a component by specifying the block instance.
+         *
+         * @note A port must have a unique port name within the component scope. A master port can
+         * not have the same name as a slave port.
+         *
+         * @param name Name of the port in the component scope
+         * @param port Pointer to the master port
+         * @param comp Instance owning the port. The handler will be called with this instance as
+         *     first argument. If it is NULL, the instance will be the component where the port
+         *     is created.
+         */
+        void new_master_port(std::string name, vp::MasterPort *port, vp::Block *comp=NULL);
+
+        /**
+         * @brief Declare a slave port
+         *
+         * A slave port can be created to let the upper component bind the master port of
+         * another component to it.
+         * Although ports are used to connect components together, it is also possible to connect
+         * them to a sub-block of a component by specifying the block instance.
+         *
+         * @note A port must have a unique port name within the component scope. A master port can
+         * not have the same name as a slave port.
+         *
+         * @param name Name of the port in the component scope
+         * @param port Pointer to the slave port
+         * @param comp Instance owning the port. The handler will be called with this instance as
+         *     first argument. If it is NULL, the instance will be the component where the port
+         *     is created.
+         */
+        void new_slave_port(std::string name, SlavePort *port, void *comp=NULL);
+
+        /**
+         * @brief Get the component JSON configuration
+         *
+         * Each component is associated a JSON configuration which was generated from the
+         * properties specified by this component Python generator.
+         * This configuration can be used to get the properties values associated to this instance
+         * to take them into account in the model.
+         *
+         * @return The JSON configuration of the component
+         */
+        inline js::Config *get_js_config() { return js_config; }
+
+        /**
+         * @brief Get the launcher
+         *
+         * The launcher is the top class controlling the GVSOC execution.
+         * It can be retrieved in order to control the simulation at high-level point of view,
+         * for example to pause it.
+         *
+         * @return The launcher
+         */
+        gv::GvsocLauncher *get_launcher();
+
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_8 *reg, uint8_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_16 *reg, uint16_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_32 *reg, uint32_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_64 *reg, uint64_t reset_val, bool reset = true);
+
+    private:
+        /*
+         * Private members accessed by other classes of the framework
+         */
+        // Used by the launcher to build the whole system hierarchy (bind, start, etc)
+        int build_all();
+
+        // Load a component module from workstation. It is static so that the launcher can call it
+        // for top component.
+        static vp::Component *load_component(js::Config *config, js::Config *gv_config,
+            vp::Component *parent, std::string name,
+            vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
+            vp::PowerEngine *power_engine);
+
+        // Used by the launcher to set himself as launcher. Could be moved to ComponentConfig
+        void set_launcher(gv::GvsocLauncher *launcher);
+
+        std::map<std::string, Component *> childs_dict;
+
+        bool is_component() { return true; }
+
+
+
+        /*
+         * Real private members
+         */
+        // Create all sub-components specified in json config
+        void create_comps();
+
+        // Create all ports specified in json config
+        void create_ports();
+
+        // Create all bindings specified in json config
+        void create_bindings();
+
+        // Do the connectins between master and slave ports
+        void bind_comps();
+
+        // Do the final binding which is a step that ports can overload to do extra operations
+        void final_bind();
+
+        // Return a port from its name
+        vp::Port *get_port(std::string name);
+
+        // Register a new port
+        void add_port(std::string name, vp::Port *port);
+
+        // Get child from its name, used for bindings
+        std::map<std::string, vp::Component *> get_childs_dict() { return childs_dict; }
+
+        // Search for a module from its name into the module search dirs and return its path
+        static std::string get_module_path(js::Config *gv_config, std::string relpath);
+
+        // Add a new component
+        void add_child(std::string name, vp::Component *child);
+
+        // Create a new component
+        vp::Component *new_component(std::string name, js::Config *config, std::string module = "");
+
+        // Clock interface handler to catch clock registering and propagate to sub components
+        static void clk_reg(vp::Component *_this, vp::Component *clock);
+
+        // Clock interface handle to catche frequency setting to propagate to power framework
+        static void clk_set_frequency(vp::Component *_this, int64_t frequency);
+
+        // Power interface handle to propagate supply change to power framework
+        static void power_supply_sync(vp::Block *_this, int state);
+
+        // Power interface handle to propagate voltage change to power framework
+        static void voltage_sync(vp::Block *_this, int voltage);
+
+        // Reset interface handle to propagate reset to all childs
+        static void reset_sync(vp::Block *_this, bool active);
+
+        // Name of the component
+        std::string name;
+
+        // Parent of the component
+        vp::Component *parent;
+
+        // JSON config of the component
+        js::Config *js_config;
+
+        // GVSOC global config
+        js::Config *gv_config;
+
+        // Ports of the component, used for bindings
+        std::unordered_map<std::string, vp::Port *> ports;
+
+        // Top launcher, this can sometimes be needed by components to interact with the launcher.
+        gv::GvsocLauncher *launcher;
+
+        // Reset port to synchronize the component reset with a wire instead of the upper component
+        vp::WireSlave<bool> reset_port;
+
+        // Power port to update power supply
+        vp::WireSlave<int> power_port;
+
+        // Power port to update power voltage
+        vp::WireSlave<int> voltage_port;
+
+        // Power port to update frequency from wire instead of uppper component
+        vp::ClkSlave            clock_port;
+    };
+
+};

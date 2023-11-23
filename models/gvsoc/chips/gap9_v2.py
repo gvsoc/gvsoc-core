@@ -20,7 +20,7 @@
 #
 
 
-import gv.gvsoc
+import gvsoc.gvsoc
 import runner.chips.gap9_v2
 import os
 from elftools.elf.elffile import *

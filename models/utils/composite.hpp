@@ -25,28 +25,19 @@
 
 
 
-class composite : public vp::component
+namespace vp
 {
 
-public:
-    composite(js::config *config);
+    class Composite : public vp::Component
+    {
 
-    vp::port *get_slave_port(std::string name) { return this->ports[name]; }
-    vp::port *get_master_port(std::string name) { return this->ports[name]; }
+    public:
+        Composite(vp::ComponentConf &config);
 
-    void add_slave_port(std::string name, vp::slave_port *port) { this->add_port(name, port); }
-    void add_master_port(std::string name, vp::master_port *port) { this->add_port(name, port); }
+        void dump_traces(FILE *file);
 
-    int build();
-    void start();
-    void power_supply_set(int state);
+    protected:
+        vp::Trace     trace;
+    };
 
-    void dump_traces(FILE *file);
-
-protected:
-    vp::trace     trace;
-
-private:
-    void add_port(std::string name, vp::port *port);
-    std::map<std::string, vp::port *> ports;
 };

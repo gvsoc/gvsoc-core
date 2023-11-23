@@ -20,10 +20,10 @@
 #include "stdio.h"
 #include <cassert>
 
-#define CORRUPTOR_DEBUG(...) (this->trace.msg(vp::trace::LEVEL_TRACE, __VA_ARGS__))
+#define CORRUPTOR_DEBUG(...) (this->trace.msg(vp::Trace::LEVEL_TRACE, __VA_ARGS__))
 
-I2c_corruptor::I2c_corruptor(js::config* config)
-    : vp::component(config),
+I2c_corruptor::I2c_corruptor(vp::ComponentConf &config)
+    : vp::Component(config),
     i2c_helper(this,
             &this->i2c_itf,
             std::bind(&I2c_corruptor::i2c_enqueue_event,
@@ -49,9 +49,17 @@ I2c_corruptor::I2c_corruptor(js::config* config)
                 std::placeholders::_2,
                 std::placeholders::_3));
     this->i2c_helper.set_timings(100, 100);
+
+    traces.new_trace("trace", &this->trace, vp::DEBUG);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Building component\n");
+
+    this->i2c_itf.set_sync_meth(&I2c_corruptor::i2c_sync);
+    this->new_master_port("i2c", &this->i2c_itf);
+
+    this->new_master_port("clock_cfg", &this->clock_cfg);
 }
 
-void I2c_corruptor::st_start_event_handler(void* __this, vp::clock_event* event)
+void I2c_corruptor::st_start_event_handler(vp::Block* __this, vp::ClockEvent* event)
 {
     assert(NULL != __this);
     assert(NULL != event);
@@ -61,12 +69,12 @@ void I2c_corruptor::st_start_event_handler(void* __this, vp::clock_event* event)
     if (!_this->i2c_helper.is_busy())
     {
         _this->is_started = true;
-        _this->trace.msg(vp::trace::LEVEL_TRACE, "sending start\n");
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "sending start\n");
         _this->i2c_helper.send_start();
     }
 }
 
-void I2c_corruptor::i2c_sync(void *__this, int scl, int sda)
+void I2c_corruptor::i2c_sync(vp::Block *__this, int scl, int sda)
 {
     assert(NULL != __this);
     I2c_corruptor* _this = (I2c_corruptor*) __this;
@@ -109,25 +117,9 @@ void I2c_corruptor::reset(bool active)
 {
     if (active)
     {
-        this->trace.msg(vp::trace::LEVEL_TRACE, "Resetting component\n");
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Resetting component\n");
         //TODO reset i2c interface
     }
-}
-
-int I2c_corruptor::build(void)
-{
-    traces.new_trace("trace", &this->trace, vp::DEBUG);
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Building component\n");
-
-    this->i2c_itf.set_sync_meth(&I2c_corruptor::i2c_sync);
-    this->new_master_port("i2c", &this->i2c_itf);
-
-    this->new_master_port("clock_cfg", &this->clock_cfg);
-    return 0;
-}
-
-void I2c_corruptor::start(void)
-{
 }
 
 void I2c_corruptor::i2c_helper_callback(i2c_operation_e id, i2c_status_e status, int value)
@@ -168,17 +160,17 @@ void I2c_corruptor::i2c_helper_callback(i2c_operation_e id, i2c_status_e status,
     }
 }
 
-void I2c_corruptor::i2c_enqueue_event(vp::clock_event* event, uint64_t time_unit)
+void I2c_corruptor::i2c_enqueue_event(vp::ClockEvent* event, uint64_t time_unit)
 {
     this->event_enqueue(event, time_unit);
 }
 
-void I2c_corruptor::i2c_cancel_event(vp::clock_event* event)
+void I2c_corruptor::i2c_cancel_event(vp::ClockEvent* event)
 {
     this->event_cancel(event);
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new I2c_corruptor(config);
 }

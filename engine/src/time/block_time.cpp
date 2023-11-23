@@ -19,67 +19,51 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#include <string>
 #include <vp/vp.hpp>
-#include <vp/time/time_scheduler.hpp>
+#include <vp/signal.hpp>
+#include <vp/time/block_time.hpp>
+#include <vp/time/time_event.hpp>
 
 
-vp::time_scheduler::time_scheduler(js::config *config)
-    : time_engine_client(config), first_event(NULL)
+vp::BlockTime::BlockTime(vp::Block *parent, vp::Block &top, vp::TimeEngine *engine) : top(top), time_engine(engine)
 {
-
+    if (this->time_engine == NULL && parent != NULL)
+    {
+        this->time_engine = parent->time.get_engine();
+    }
 }
 
-
-int64_t vp::time_scheduler::exec()
+int64_t vp::Block::exec()
 {
-    vp::time_event *current = this->first_event;
+    vp::TimeEvent *current = this->time.first_event;
 
-    while (current && current->time == this->get_time())
+    while (current && current->time == this->time.get_time())
     {
-        this->first_event = current->next;
+        this->time.first_event = current->next;
         current->set_enqueued(false);
 
-        current->meth(current->_this, current);
+        current->meth(current->top, current);
 
-        current = this->first_event;
+        current = this->time.first_event;
     }
 
-    if (this->first_event == NULL)
+    if (this->time.first_event == NULL)
     {
         return -1;
     }
     else
     {
-        return this->first_event->time - this->get_time();
+        return this->time.first_event->time - this->time.get_time();
     }
 }
 
 
-vp::time_event::time_event(time_scheduler *comp, time_event_meth_t *meth)
-    : comp(comp), _this((void *)static_cast<vp::component *>((vp::time_scheduler *)(comp))), meth(meth), enqueued(false)
-{
-    comp->add_event(this);
-}
-
-
-void vp::time_scheduler::reset(bool active)
-{
-    if (active)
-    {
-        for (time_event *event: this->events)
-        {
-            this->cancel(event);
-        }
-    }
-}
-
-void vp::time_scheduler::cancel(vp::time_event *event)
+void vp::BlockTime::cancel(vp::TimeEvent *event)
 {
     if (!event->is_enqueued())
         return;
 
-    vp::time_event *current = this->first_event, *prev = NULL;
+    vp::TimeEvent *current = this->first_event, *prev = NULL;
 
     while (current && current != event)
     {
@@ -104,15 +88,15 @@ void vp::time_scheduler::cancel(vp::time_event *event)
     }
 }
 
-void vp::time_scheduler::add_event(time_event *event)
+void vp::BlockTime::add_event(TimeEvent *event)
 {
     this->events.push_back(event);
 }
 
 
-vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
+void vp::BlockTime::enqueue(TimeEvent *event, int64_t time)
 {
-    vp::time_event *current = this->first_event, *prev = NULL;
+    vp::TimeEvent *current = this->first_event, *prev = NULL;
     int64_t full_time = time + this->get_time();
 
     event->set_enqueued(true);
@@ -131,6 +115,5 @@ vp::time_event *vp::time_scheduler::enqueue(time_event *event, int64_t time)
     event->time = full_time;
 
     this->enqueue_to_engine(this->get_time() + time);
-
-    return event;
 }
+

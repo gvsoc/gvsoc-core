@@ -26,36 +26,30 @@
 #include <vp/itf/clock.hpp>
 
 
-class I2s_clock : public vp::component
+class I2s_clock : public vp::Component
 {
     friend class Stim_txt;
 
 public:
-    I2s_clock(js::config *config);
+    I2s_clock(vp::ComponentConf &conf);
 
-    int build();
     void start();
 
 protected:
 
-    static void handler(void *__this, vp::clock_event *event);
+    static void handler(vp::Block *__this, vp::ClockEvent *event);
 
-    vp::i2s_master i2s_itf;
-    vp::clock_master clock_cfg;
-    vp::clock_event *event;
+    vp::I2sMaster i2s_itf;
+    vp::ClockMaster clock_cfg;
+    vp::ClockEvent *event;
 
     int sck;
     bool is_ws;
 };
 
 
-I2s_clock::I2s_clock(js::config *config)
-    : vp::component(config)
-{
-}
-
-
-int I2s_clock::build()
+I2s_clock::I2s_clock(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     this->new_master_port("i2s", &this->i2s_itf);
     this->new_master_port("clock_cfg", &this->clock_cfg);
@@ -64,7 +58,6 @@ int I2s_clock::build()
     this->sck = 0;
     this->is_ws = this->get_js_config()->get_child_bool("is_ws");
 
-    return 0;
 }
 
 
@@ -80,7 +73,7 @@ void I2s_clock::start()
 }
 
 
-void I2s_clock::handler(void *__this, vp::clock_event *event)
+void I2s_clock::handler(vp::Block *__this, vp::ClockEvent *event)
 {
     I2s_clock *_this = (I2s_clock *)__this;
 
@@ -99,7 +92,7 @@ void I2s_clock::handler(void *__this, vp::clock_event *event)
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new I2s_clock(config);
 }

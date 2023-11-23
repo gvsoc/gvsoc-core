@@ -106,23 +106,22 @@ class fds_t
   std::vector<int> fds;
 };
 
-class bus_watchpoint : public vp::component
+class bus_watchpoint : public vp::Component
 {
 
     friend class MapEntry;
 
 public:
-    bus_watchpoint(js::config *config);
+    bus_watchpoint(vp::ComponentConf &conf);
 
-    int build();
     void reset(bool active);
 
 private:
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     void handle_syscall(uint64_t cmd);
     void dispatch(uint64_t cmd);
     void target_access(reg_t addr, int size, bool is_write, uint8_t *data);
-    static void data_response(void *__this, vp::io_req *req);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
     void exec_syscall();
     uint8_t read_uint8(reg_t addr);
 
@@ -152,15 +151,15 @@ private:
     void set_chroot(const char* where);
     std::string do_chroot(const char* fn);
     std::string undo_chroot(const char* fn);
-    vp::trace trace;
+    vp::Trace trace;
 
-    vp::io_master out;
-    vp::io_slave in;
+    vp::IoMaster out;
+    vp::IoSlave in;
 
     unsigned int riscv_fesvr_tohost_addr;
     unsigned int riscv_fesvr_fromhost_addr;
 
-    vp::io_req syscall_req;
+    vp::IoReq syscall_req;
     uint64_t syscall_args[8];
 
     std::vector<syscall_func_t> table;
@@ -169,117 +168,8 @@ private:
     std::string chroot;
 };
 
-bus_watchpoint::bus_watchpoint(js::config *config)
-    : vp::component(config)
-{
-}
-
-void bus_watchpoint::data_response(void *__this, vp::io_req *req)
-{
-
-}
-
-
-void bus_watchpoint::handle_syscall(uint64_t cmd)
-{
-    if (cmd & 1) // test pass/fail
-    {
-        this->clock->stop_engine(cmd >> 1);
-    }
-    else
-    {
-        this->dispatch(cmd);
-        reg_t value = 1;
-        this->target_access(this->riscv_fesvr_fromhost_addr, sizeof(reg_t), true, (uint8_t *)&value);
-    }
-}
-
-void bus_watchpoint::exec_syscall()
-{
-    reg_t n = this->syscall_args[0];
-    if (n >= table.size() || !table[n])
-        throw std::runtime_error("bad syscall #" + std::to_string(n));
-
-    this->syscall_args[0] = (this->*table[n])(this->syscall_args[1],
-        this->syscall_args[2], this->syscall_args[3], this->syscall_args[4], this->syscall_args[5],
-        this->syscall_args[6], this->syscall_args[7]);
-
-
-}
-
-void bus_watchpoint::dispatch(uint64_t cmd)
-{
-    vp::io_req *req = &this->syscall_req;
-    req->init();
-    req->set_addr(cmd);
-    req->set_size(sizeof(this->syscall_args));
-    req->set_is_write(false);
-    req->set_data((uint8_t *)this->syscall_args);
-    int err = this->out.req(req);
-    if (err != vp::IO_REQ_OK)
-    {
-    }
-
-    this->exec_syscall();
-
-    this->target_access(cmd, sizeof(this->syscall_args), true, (uint8_t *)this->syscall_args);
-}
-
-void bus_watchpoint::target_access(reg_t addr, int size, bool is_write, uint8_t *data)
-{
-    vp::io_req *req = &this->syscall_req;
-    req->init();
-    req->set_addr(addr);
-    req->set_size(size);
-    req->set_is_write(is_write);
-    req->set_data(data);
-    int err = this->out.req(req);
-    if (err != vp::IO_REQ_OK)
-    {
-        return;
-    }
-}
-
-uint8_t bus_watchpoint::read_uint8(reg_t addr)
-{
-    uint8_t value;
-    this->target_access(addr, 1, false, &value);
-    return value;
-}
-
-vp::io_req_status_e bus_watchpoint::req(void *__this, vp::io_req *req)
-{
-    bus_watchpoint *_this = (bus_watchpoint *)__this;
-    uint64_t offset = req->get_addr();
-    bool is_write = req->get_is_write();
-    uint64_t size = req->get_size();
-    uint8_t *data = req->get_data();
-
-    _this->trace.msg("Received IO req (req: %p, offset: 0x%llx, size: 0x%llx, is_write: %d)\n", req, offset, size, is_write);
-
-    vp::io_req_status_e err = _this->out.req_forward(req);
-
-    if (err != vp::IO_REQ_OK)
-    {
-        return err;
-    }
-
-    if ((offset == _this->riscv_fesvr_tohost_addr || offset == _this->riscv_fesvr_fromhost_addr) && (size == 4 || size == 8))
-    {
-        if (offset == _this->riscv_fesvr_tohost_addr && is_write)
-        {
-            reg_t cmd;
-            _this->target_access(_this->riscv_fesvr_tohost_addr, size, false, (uint8_t *)&cmd);
-            reg_t value = 0;
-            _this->target_access(_this->riscv_fesvr_tohost_addr, size, true, (uint8_t *)&value);
-            _this->handle_syscall(cmd);
-        }
-    }
-
-    return vp::IO_REQ_OK;
-}
-
-int bus_watchpoint::build()
+bus_watchpoint::bus_watchpoint(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -289,8 +179,8 @@ int bus_watchpoint::build()
     out.set_resp_meth(&bus_watchpoint::data_response);
     new_master_port("output", &out);
 
-    this->riscv_fesvr_tohost_addr = this->get_config_int("riscv_fesvr_tohost_addr");
-    this->riscv_fesvr_fromhost_addr = this->get_config_int("riscv_fesvr_fromhost_addr");
+    this->riscv_fesvr_tohost_addr = this->get_js_config()->get_child_int("riscv_fesvr_tohost_addr");
+    this->riscv_fesvr_fromhost_addr = this->get_js_config()->get_child_int("riscv_fesvr_fromhost_addr");
 
     table.resize(2048);
     table[17] = &bus_watchpoint::sys_getcwd;
@@ -324,7 +214,111 @@ int bus_watchpoint::build()
     fds.alloc(stdout_fd0); // stdout -> stdout
     fds.alloc(stdout_fd1); // stderr -> stdout
 
-    return 0;
+}
+
+void bus_watchpoint::data_response(vp::Block *__this, vp::IoReq *req)
+{
+
+}
+
+
+void bus_watchpoint::handle_syscall(uint64_t cmd)
+{
+    if (cmd & 1) // test pass/fail
+    {
+        this->time.get_engine()->quit(cmd >> 1);
+    }
+    else
+    {
+        this->dispatch(cmd);
+        reg_t value = 1;
+        this->target_access(this->riscv_fesvr_fromhost_addr, sizeof(reg_t), true, (uint8_t *)&value);
+    }
+}
+
+void bus_watchpoint::exec_syscall()
+{
+    reg_t n = this->syscall_args[0];
+    if (n >= table.size() || !table[n])
+        throw std::runtime_error("bad syscall #" + std::to_string(n));
+
+    this->syscall_args[0] = (this->*table[n])(this->syscall_args[1],
+        this->syscall_args[2], this->syscall_args[3], this->syscall_args[4], this->syscall_args[5],
+        this->syscall_args[6], this->syscall_args[7]);
+
+
+}
+
+void bus_watchpoint::dispatch(uint64_t cmd)
+{
+    vp::IoReq *req = &this->syscall_req;
+    req->init();
+    req->set_addr(cmd);
+    req->set_size(sizeof(this->syscall_args));
+    req->set_is_write(false);
+    req->set_data((uint8_t *)this->syscall_args);
+    int err = this->out.req(req);
+    if (err != vp::IO_REQ_OK)
+    {
+    }
+
+    this->exec_syscall();
+
+    this->target_access(cmd, sizeof(this->syscall_args), true, (uint8_t *)this->syscall_args);
+}
+
+void bus_watchpoint::target_access(reg_t addr, int size, bool is_write, uint8_t *data)
+{
+    vp::IoReq *req = &this->syscall_req;
+    req->init();
+    req->set_addr(addr);
+    req->set_size(size);
+    req->set_is_write(is_write);
+    req->set_data(data);
+    int err = this->out.req(req);
+    if (err != vp::IO_REQ_OK)
+    {
+        return;
+    }
+}
+
+uint8_t bus_watchpoint::read_uint8(reg_t addr)
+{
+    uint8_t value;
+    this->target_access(addr, 1, false, &value);
+    return value;
+}
+
+vp::IoReqStatus bus_watchpoint::req(vp::Block *__this, vp::IoReq *req)
+{
+    bus_watchpoint *_this = (bus_watchpoint *)__this;
+    uint64_t offset = req->get_addr();
+    bool is_write = req->get_is_write();
+    uint64_t size = req->get_size();
+    uint8_t *data = req->get_data();
+
+    _this->trace.msg("Received IO req (req: %p, offset: 0x%llx, size: 0x%llx, is_write: %d)\n", req, offset, size, is_write);
+
+    vp::IoReqStatus err = _this->out.req_forward(req);
+
+    if (err != vp::IO_REQ_OK)
+    {
+        return err;
+    }
+
+    if ((offset == _this->riscv_fesvr_tohost_addr || offset == _this->riscv_fesvr_fromhost_addr) && (size == 4 || size == 8))
+    {
+        if (offset == _this->riscv_fesvr_tohost_addr && is_write)
+        {
+            reg_t cmd;
+            _this->target_access(_this->riscv_fesvr_tohost_addr, size, false, (uint8_t *)&cmd);
+            reg_t value = 0;
+            _this->target_access(_this->riscv_fesvr_tohost_addr, size, true, (uint8_t *)&value);
+            _this->handle_syscall(cmd);
+        }
+    }
+
+    return vp::IO_REQ_OK;
 }
 
 std::string bus_watchpoint::do_chroot(const char* fn)
@@ -548,7 +542,7 @@ reg_t bus_watchpoint::sys_lstat(reg_t pname, reg_t len, reg_t pbuf, reg_t a3, re
 
 reg_t bus_watchpoint::sys_exit(reg_t code, reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6)
 {
-    this->clock->stop_engine(code);
+    this->time.get_engine()->quit(code);
     return 0;
 }
 
@@ -634,7 +628,7 @@ void bus_watchpoint::reset(bool active)
     }
 }
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new bus_watchpoint(config);
 }

@@ -75,27 +75,26 @@ private:
 
 
 
-class Speaker : public vp::component
+class Speaker : public vp::Component
 {
     friend class Outfile_hex;
     friend class Outfile_wav;
 
 public:
-    Speaker(js::config *config);
+    Speaker(vp::ComponentConf &conf);
 
-    int build();
     void stop();
     int push_data();
 
 protected:
-    static void sync(void *__this, int sck, int ws, int sd, bool is_full_duplex);
+    static void sync(vp::Block *__this, int sck, int ws, int sd, bool is_full_duplex);
     void start_sample();
     void  push_data(int data);
     int get_data();
     void write_data();
 
-    vp::i2s_master i2s_itf;
-    vp::clock_master clock_cfg;
+    vp::I2sMaster i2s_itf;
+    vp::ClockMaster clock_cfg;
 
     int prev_ws;            // Value of the previous ws. Updated at each clock cycle to detect the beginning of the frame
     int ws_delay;           // Tells after how many cycles the first data is sampled when the ws of this channel becomes active
@@ -108,7 +107,7 @@ protected:
     Output *out = NULL;
     int prev_sck;
     
-    vp::trace trace;
+    vp::Trace trace;
 
 };
 
@@ -122,7 +121,7 @@ Outfile_hex::Outfile_hex(Speaker *top, std::string file, int width)
 
 void Outfile_hex::write_data(int64_t timestamp, long long int data)
 {
-    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Writing sample (value: 0x%x)\n", data);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Writing sample (value: 0x%x)\n", data);
     fprintf(this->file, "0x%llx\n", data);
 }
 
@@ -137,7 +136,7 @@ Outfile_wav::Outfile_wav(Speaker *top, std::string file, int width, int sample_r
 
 #else
 
-    this->top->get_trace()->fatal("Unable to open file (%s), libsndfile support is not active\n", file.c_str());
+    this->top->trace.fatal("Unable to open file (%s), libsndfile support is not active\n", file.c_str());
     return;
 
 #endif
@@ -152,7 +151,7 @@ Outfile_wav::~Outfile_wav()
 
 void Outfile_wav::write_data(int64_t timestamp, long long int data)
 {
-    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Writing sample (value: 0x%x)\n", data);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Writing sample (value: 0x%x)\n", data);
 #ifdef USE_SNDFILE
     if (this->width <= 16)
     {
@@ -168,13 +167,8 @@ void Outfile_wav::write_data(int64_t timestamp, long long int data)
 }
 
 
-Speaker::Speaker(js::config *config)
-    : vp::component(config)
-{
-}
-
-
-int Speaker::build()
+Speaker::Speaker(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -202,8 +196,8 @@ int Speaker::build()
 
             if (ext == NULL)
             {
-                this->get_trace()->fatal("Unsupported file extension: %s\n", out_file.c_str());
-                return -1;
+                this->trace.fatal("Unsupported file extension: %s\n", out_file.c_str());
+                return;
             }
 
             if (strcmp(ext, ".hex") == 0)
@@ -216,13 +210,13 @@ int Speaker::build()
             }
             else
             {
-                this->get_trace()->fatal("Unsupported file extension: %s\n", out_file.c_str());
+                this->trace.fatal("Unsupported file extension: %s\n", out_file.c_str());
             }
         }
     }
     this->prev_sck = 0;
-    return 0;
 }
+
 
 
 void Speaker::stop()
@@ -234,7 +228,7 @@ void Speaker::stop()
 
 void Speaker::start_sample()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Starting sample\n");
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Starting sample\n");
     this->pending_bits = this->width;
     this->current_value = 0;
 }
@@ -244,7 +238,7 @@ void Speaker::write_data()
 {
     if (this->out)
     {
-        this->out->write_data(this->get_time(), this->current_value);
+        this->out->write_data(this->time.get_time(), this->current_value);
     }
 }
 
@@ -254,7 +248,7 @@ void Speaker::push_data(int data)
     if (this->pending_bits == 0)
         return;
 
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Writing data (value: %d)\n", data);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Writing data (value: %d)\n", data);
     // Shift bits from MSB
     this->current_value |= data << (this->pending_bits - 1);
     this->pending_bits--;
@@ -268,13 +262,13 @@ void Speaker::push_data(int data)
 }
 
 
-void Speaker::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
+void Speaker::sync(vp::Block *__this, int sck, int ws, int sdio, bool is_full_duplex)
 {
     Speaker *_this = (Speaker *)__this;
 
     int sd = sdio >> 2;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "I2S edge (sck: %d, ws: %d, sdo: %d)\n", sck, ws, sd);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "I2S edge (sck: %d, ws: %d, sdo: %d)\n", sck, ws, sd);
 
     if(_this->prev_sck != sck)
     {
@@ -302,7 +296,7 @@ void Speaker::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
             {
                 if (!_this->is_active)
                 {
-                    _this->trace.msg(vp::trace::LEVEL_TRACE, "Activating channel\n");
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Activating channel\n");
                 }
 
                 // If the WS just changed, apply the delay before starting sending
@@ -326,7 +320,7 @@ void Speaker::sync(void *__this, int sck, int ws, int sdio, bool is_full_duplex)
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Speaker(config);
 }

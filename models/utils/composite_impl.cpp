@@ -25,48 +25,19 @@
 
 
 
-composite::composite(js::config *config)
-    : vp::component(config)
+vp::Composite::Composite(vp::ComponentConf &config)
+    : vp::Component(config)
 {
 }
 
 
-void composite::dump_traces(FILE *file)
+void vp::Composite::dump_traces(FILE *file)
 {
     this->power.get_power_trace()->dump(file);
 }
 
 
-int composite::build()
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    this->create_comps();
-    this->create_ports();
-    this->create_bindings();
-
-    return 0;
-}
-
-
-void composite::start()
-{
-}
-
-
-
-void composite::add_port(std::string name, vp::port *port)
-{
-    vp_assert_always(port != NULL, this->get_trace(), "Adding NULL port\n");
-    //vp_assert_always(this->ports[name] == NULL, this->get_trace(), "Adding already existing port\n");
-    this->ports[name] = port;
-}
-
-void composite::power_supply_set(int state)
-{
-    //printf("%s power set %d\n", this->get_path().c_str(), state);
-}
-
-
-extern "C" vp::component *vp_constructor(js::config *config)
-{
-    return new composite(config);
+    return new vp::Composite(config);
 }

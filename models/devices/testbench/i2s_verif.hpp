@@ -27,10 +27,10 @@
 class Testbench;
 class Slot;
 
-class I2s_verif : public vp::time_engine_client
+class I2s_verif : public vp::Block
 {
 public:
-    I2s_verif(Testbench *top, vp::i2s_master *itf, int itf_id, pi_testbench_i2s_verif_config_t *config);
+    I2s_verif(Testbench *top, vp::I2sMaster *itf, int itf_id, pi_testbench_i2s_verif_config_t *config);
     ~I2s_verif();
 
     void start(pi_testbench_i2s_verif_start_config_t *config);
@@ -44,8 +44,8 @@ public:
     void set_pdm_data(int slot, int data);
 
     Testbench *top;
-    vp::trace trace;
-    vp::i2s_master *itf;
+    vp::Trace trace;
+    vp::I2sMaster *itf;
     pi_testbench_i2s_verif_config_t config;
     int ws_delay;
     

@@ -24,14 +24,12 @@
 #include <gv/gvsoc.hpp>
 
 
-class Router_proxy : public vp::component, public gv::Io_binding
+class Router_proxy : public vp::Component, public gv::Io_binding
 {
 
 public:
 
-    Router_proxy(js::config *config);
-
-    int build();
+    Router_proxy(vp::ComponentConf &conf);
 
     void grant(gv::Io_request *req);
     void reply(gv::Io_request *req);
@@ -39,26 +37,35 @@ public:
 
     void *external_bind(std::string comp_name, std::string itf_name, void *handle);
 
-    static vp::io_req_status_e req(void *__this, vp::io_req *req);
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
-    static void grant(void *_this, vp::io_req *req);
+    static void grant(vp::Block *__this, vp::IoReq *req);
 
-    static void response(void *_this, vp::io_req *req);
+    static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
-    vp::trace     trace;
-    vp::io_slave  in;
-    vp::io_master out;
+    vp::Trace     trace;
+    vp::IoSlave  in;
+    vp::IoMaster out;
     gv::Io_user   *user;
 };
 
-Router_proxy::Router_proxy(js::config *config)
-: vp::component(config)
+Router_proxy::Router_proxy(vp::ComponentConf &config)
+: vp::Component(config)
 {
+    traces.new_trace("trace", &trace, vp::DEBUG);
+
+    in.set_req_meth(&Router_proxy::req);
+    new_slave_port("input", &in);
+
+    out.set_resp_meth(&Router_proxy::response);
+    out.set_grant_meth(&Router_proxy::grant);
+    new_master_port("out", &out);
+
 
 }
 
-vp::io_req_status_e Router_proxy::req(void *__this, vp::io_req *req)
+vp::IoReqStatus Router_proxy::req(vp::Block *__this, vp::IoReq *req)
 {
     Router_proxy *_this = (Router_proxy *)__this;
     gv::Io_request *io_req = new gv::Io_request();
@@ -103,7 +110,7 @@ void *Router_proxy::external_bind(std::string comp_name, std::string itf_name, v
 }
 
 
-void Router_proxy::grant(void *__this, vp::io_req *req)
+void Router_proxy::grant(vp::Block *__this, vp::IoReq *req)
 {
     Router_proxy *_this = (Router_proxy *)__this;
 
@@ -112,7 +119,7 @@ void Router_proxy::grant(void *__this, vp::io_req *req)
     _this->user->reply(io_req);
 }
 
-void Router_proxy::response(void *__this, vp::io_req *req)
+void Router_proxy::response(vp::Block *__this, vp::IoReq *req)
 {
     Router_proxy *_this = (Router_proxy *)__this;
 
@@ -129,10 +136,10 @@ void Router_proxy::grant(gv::Io_request *io_req)
     if (io_req->sent)
     {
         // Asynchronous, just forward to the engine after locking
-        this->get_time_engine()->lock();
-        vp::io_req *req = (vp::io_req *)io_req->handle;
+        this->time.get_engine()->lock();
+        vp::IoReq *req = (vp::IoReq *)io_req->handle;
         req->get_resp_port()->grant(req);
-        this->get_time_engine()->unlock();
+        this->time.get_engine()->unlock();
     }
     else
     {
@@ -148,10 +155,10 @@ void Router_proxy::reply(gv::Io_request *io_req)
     if (io_req->sent)
     {
         // Asynchronous, just forward to the engine after locking
-        this->get_time_engine()->lock();
-        vp::io_req *req = (vp::io_req *)io_req->handle;
+        this->time.get_engine()->lock();
+        vp::IoReq *req = (vp::IoReq *)io_req->handle;
         req->get_resp_port()->resp(req);
-        this->get_time_engine()->unlock();
+        this->time.get_engine()->unlock();
         delete io_req;
     }
     else
@@ -163,8 +170,8 @@ void Router_proxy::reply(gv::Io_request *io_req)
 
 void Router_proxy::access(gv::Io_request *io_req)
 {
-    this->get_time_engine()->lock();
-    vp::io_req *req = new vp::io_req();
+    this->time.get_engine()->lock();
+    vp::IoReq *req = new vp::IoReq();
     req->init();
     req->set_addr(io_req->addr);
     req->set_size(io_req->size);
@@ -177,26 +184,12 @@ void Router_proxy::access(gv::Io_request *io_req)
     {
         this->response(this, req);
     }
-    this->get_time_engine()->unlock();
+    this->time.get_engine()->unlock();
 }
 
 
 
-int Router_proxy::build()
-{
-    traces.new_trace("trace", &trace, vp::DEBUG);
-
-    in.set_req_meth(&Router_proxy::req);
-    new_slave_port("input", &in);
-
-    out.set_resp_meth(&Router_proxy::response);
-    out.set_grant_meth(&Router_proxy::grant);
-    new_master_port("out", &out);
-
-    return 0;
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Router_proxy(config);
 }

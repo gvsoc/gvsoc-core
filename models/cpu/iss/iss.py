@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gvsoc.systree as st
 import os.path
-import gv.gui
+import gvsoc.gui
 
 class Iss(st.Component):
     """

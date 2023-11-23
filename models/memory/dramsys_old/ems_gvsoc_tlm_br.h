@@ -57,15 +57,15 @@ public:
 private:
   // Thread process member function
   void run();
-  // Conversion vp::io_req to tlm::tlm_generic_payload
-  void req_to_gp(vp::io_req *r, tlm::tlm_generic_payload *p, uint32_t tid, bool last);
+  // Conversion vp::IoReq to tlm::tlm_generic_payload
+  void req_to_gp(vp::IoReq *r, tlm::tlm_generic_payload *p, uint32_t tid, bool last);
   // Called at the end of the lifetime of a transaction to inspect it
   void inspect(tlm::tlm_generic_payload &p);
   // Payload event queue (PEQ)
   void peq_cb(tlm::tlm_generic_payload &p, const tlm::tlm_phase &phase);
 
   ddr *vp_component;
-  vp::io_req *curr_req;
+  vp::IoReq *curr_req;
   sc_core::sc_event event;
   sc_core::sc_event end_req_event;
   sc_core::sc_event all_trans_completed;
@@ -76,7 +76,7 @@ private:
   uint32_t bytes_per_access;
 };
 
-void gvsoc_tlm_br::req_to_gp(vp::io_req *r, tlm::tlm_generic_payload *p, uint32_t tid, bool last)
+void gvsoc_tlm_br::req_to_gp(vp::IoReq *r, tlm::tlm_generic_payload *p, uint32_t tid, bool last)
 {
   assert(r);
   assert(p);
@@ -189,7 +189,7 @@ void gvsoc_tlm_br::run()
       wait(event);
     }
 
-    vp::io_req *req = vp_component->first_pending_reqs;
+    vp::IoReq *req = vp_component->first_pending_reqs;
     vp_component->first_pending_reqs = vp_component->first_pending_reqs->get_next();
 
     curr_req = req;
@@ -246,7 +246,7 @@ void gvsoc_tlm_br::run()
     req->get_resp_port()->resp(req);
 
     if (vp_component->current_reqs >= vp_component->max_reqs) {
-      vp::io_req *stalled_req = vp_component->first_stalled_req;
+      vp::IoReq *stalled_req = vp_component->first_stalled_req;
       vp_component->first_stalled_req = vp_component->first_stalled_req->get_next();
       stalled_req->get_resp_port()->grant(stalled_req);
     }

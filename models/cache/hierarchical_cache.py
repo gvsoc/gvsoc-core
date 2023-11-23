@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gvsoc.systree as st
 from cache.cache import Cache
 from interco.interleaver import Interleaver
 import math

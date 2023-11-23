@@ -65,8 +65,8 @@ public:
     bool watchpoint_check(bool is_write, iss_addr_t addr, int size);
 
     void handle_pending_io_access();
-    static void handle_pending_io_access_stub(void *__this, vp::clock_event *event);
-    static void data_response(void *_this, vp::io_req *req);
+    static void handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event);
+    static void data_response(vp::Block *__this, vp::IoReq *req);
 
     void breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc);
     void breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc);
@@ -75,10 +75,10 @@ public:
     void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     Iss &iss;
-    vp::io_master io_itf;
-    vp::io_req io_req;
-    vp::trace trace;
-    vp::clock_event *event;
+    vp::IoMaster io_itf;
+    vp::IoReq io_req;
+    vp::Trace trace;
+    vp::ClockEvent *event;
     vp::Gdbserver_engine *gdbserver;
     std::list<iss_addr_t> breakpoints;
     bool halt_on_reset;

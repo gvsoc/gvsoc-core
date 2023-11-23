@@ -24,79 +24,91 @@
 #include <stdio.h>
 #include <math.h>
 
-class converter : public vp::component
+class converter : public vp::Component
 {
 
   friend class MapEntry;
 
 public:
 
-  converter(js::config *config);
+    converter(vp::ComponentConf &conf);
 
-  int build();
   void reset(bool active);
 
 
 private:
 
-  static vp::io_req_status_e req(void *__this, vp::io_req *req);
+  static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
 
-  static void grant(void *_this, vp::io_req *req);
+  static void grant(vp::Block *__this, vp::IoReq *req);
 
-  static void response(void *_this, vp::io_req *req);
+  static void response(vp::Block *__this, vp::IoReq *req);
 
-  static void event_handler(void *__this, vp::clock_event *event);
+  static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
-  vp::io_req_status_e process_req(vp::io_req *req);
+  vp::IoReqStatus process_req(vp::IoReq *req);
 
-  vp::io_req_status_e process_pending_req(vp::io_req *req);
+  vp::IoReqStatus process_pending_req(vp::IoReq *req);
 
   void check_state();
 
 
-  vp::trace     trace;
+  vp::Trace     trace;
 
-  vp::io_master out;
-  vp::io_slave in;
+  vp::IoMaster out;
+  vp::IoSlave in;
 
   int output_width;
   int output_align;
 
-  vp::io_req *pending_req;
-  vp::clock_event *event;
+  vp::IoReq *pending_req;
+  vp::ClockEvent *event;
 
   int64_t ready_cycle;
   int ongoing_size;
-  vp::io_req *ongoing_req;
-  vp::io_req *stalled_req;
-  vp::io_req *last_stalled_req;
+  vp::IoReq *ongoing_req;
+  vp::IoReq *stalled_req;
+  vp::IoReq *last_stalled_req;
 };
 
-converter::converter(js::config *config)
-: vp::component(config)
+converter::converter(vp::ComponentConf &config)
+: vp::Component(config)
 {
+  traces.new_trace("trace", &trace, vp::DEBUG);
+
+  in.set_req_meth(&converter::req);
+  new_slave_port("input", &in);
+
+  out.set_resp_meth(&converter::response);
+  out.set_grant_meth(&converter::grant);
+  new_master_port("out", &out);
+
+  output_width = get_js_config()->get_child_int("output_width");
+  output_align = get_js_config()->get_child_int("output_align");
+
+  event = event_new(converter::event_handler);
 
 }
 
 
-void converter::event_handler(void *__this, vp::clock_event *event)
+void converter::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
   converter *_this = (converter *)__this;
-  vp::io_req *req = _this->pending_req;
+  vp::IoReq *req = _this->pending_req;
   _this->pending_req = req->get_next();
 
   _this->trace.msg("Sending partial packet (req: %p, offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
     req, req->get_addr(), req->get_size(), req->get_is_write());
 
-  vp::io_req_status_e err = _this->out.req(req);
+  vp::IoReqStatus err = _this->out.req(req);
   if (err == vp::IO_REQ_OK)
   {
-    _this->ready_cycle = _this->get_cycles() + req->get_latency() + 1;
+    _this->ready_cycle = _this->clock.get_cycles() + req->get_latency() + 1;
     _this->ongoing_size -= req->get_size();
     if (_this->ongoing_size == 0)
     {
-      vp::io_req *req = _this->ongoing_req;
+      vp::IoReq *req = _this->ongoing_req;
       _this->trace.msg("Finished handling request (req: %p)\n", req);
       _this->ongoing_req = NULL;
       req->set_latency(req->get_latency() + 1);
@@ -125,14 +137,14 @@ void converter::check_state()
 {
   if (pending_req)
   {
-    int64_t cycle = get_cycles();
+    int64_t cycle = clock.get_cycles();
     int64_t latency = 1;
     if (ready_cycle > cycle) latency = ready_cycle - cycle;
     if (!event->is_enqueued()) event_enqueue(event, latency);
   }
 }
 
-vp::io_req_status_e converter::process_pending_req(vp::io_req *req)
+vp::IoReqStatus converter::process_pending_req(vp::IoReq *req)
 {
   uint64_t offset = req->get_addr();
   uint64_t size = req->get_size();
@@ -150,7 +162,7 @@ vp::io_req_status_e converter::process_pending_req(vp::io_req *req)
     if (offset & mask) iter_size -= offset & mask;
     if (iter_size > size) iter_size = size;
 
-    vp::io_req *req = out.req_new(offset, data, iter_size, is_write);
+    vp::IoReq *req = out.req_new(offset, data, iter_size, is_write);
     req->set_next(pending_req);
     pending_req = req;
 
@@ -163,7 +175,7 @@ vp::io_req_status_e converter::process_pending_req(vp::io_req *req)
   return vp::IO_REQ_PENDING;
 }
 
-vp::io_req_status_e converter::process_req(vp::io_req *req)
+vp::IoReqStatus converter::process_req(vp::IoReq *req)
 {
   uint64_t offset = req->get_addr();
   uint64_t size = req->get_size();
@@ -182,7 +194,7 @@ vp::io_req_status_e converter::process_req(vp::io_req *req)
   return this->process_pending_req(req);
 }
 
-vp::io_req_status_e converter::req(void *__this, vp::io_req *req)
+vp::IoReqStatus converter::req(vp::Block *__this, vp::IoReq *req)
 {
   converter *_this = (converter *)__this;
   uint64_t offset = req->get_addr();
@@ -214,33 +226,15 @@ vp::io_req_status_e converter::req(void *__this, vp::io_req *req)
   return vp::IO_REQ_PENDING;
 }
 
-void converter::grant(void *_this, vp::io_req *req)
+void converter::grant(vp::Block *__this, vp::IoReq *req)
 {
 }
 
-void converter::response(void *_this, vp::io_req *req)
+void converter::response(vp::Block *__this, vp::IoReq *req)
 {
 }
 
-int converter::build()
-{
-  traces.new_trace("trace", &trace, vp::DEBUG);
-
-  in.set_req_meth(&converter::req);
-  new_slave_port("input", &in);
-
-  out.set_resp_meth(&converter::response);
-  out.set_grant_meth(&converter::grant);
-  new_master_port("out", &out);
-
-  output_width = get_config_int("output_width");
-  output_align = get_config_int("output_align");
-
-  event = event_new(converter::event_handler);
-  return 0;
-}
-
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new converter(config);
 }

@@ -61,22 +61,22 @@ public:
 
     void reset(bool active);
 
-    vp::clock_event *ipc_clock_event;
-    vp::trace state_event;
-    vp::trace pc_trace_event;
-    vp::trace active_pc_trace_event;
-    vp::trace func_trace_event;
-    vp::trace inline_trace_event;
-    vp::trace line_trace_event;
-    vp::trace file_trace_event;
-    vp::trace binaries_trace_event;
-    vp::trace pcer_trace_event[32];
-    vp::trace insn_trace_event;
-    vp::wire_master<uint32_t> ext_counter[32];
-    std::vector<vp::power::power_source> insn_groups_power;
-    vp::power::power_source power_stall_first;
-    vp::power::power_source power_stall_next;
-    vp::power::power_source background_power;
+    vp::ClockEvent *ipc_clock_event;
+    vp::Trace state_event;
+    vp::Trace pc_trace_event;
+    vp::Trace active_pc_trace_event;
+    vp::Trace func_trace_event;
+    vp::Trace inline_trace_event;
+    vp::Trace line_trace_event;
+    vp::Trace file_trace_event;
+    vp::Trace binaries_trace_event;
+    vp::Trace pcer_trace_event[32];
+    vp::Trace insn_trace_event;
+    vp::WireMaster<uint32_t> ext_counter[32];
+    std::vector<vp::PowerSource> insn_groups_power;
+    vp::PowerSource power_stall_first;
+    vp::PowerSource power_stall_next;
+    vp::PowerSource background_power;
 
 
 private:

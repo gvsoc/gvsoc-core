@@ -22,7 +22,6 @@
 #ifndef __VP_TRACE_ENGINE_HPP__
 #define __VP_TRACE_ENGINE_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 #include "vp/trace/trace.hpp"
 #include "gv/gvsoc.hpp"
@@ -32,151 +31,133 @@
 
 namespace vp {
 
-  #define TRACE_EVENT_BUFFER_SIZE (1<<16)
-  #define TRACE_EVENT_NB_BUFFER   4
 
-  #define TRACE_FORMAT_LONG  0
-  #define TRACE_FORMAT_SHORT 1
+    #define TRACE_EVENT_BUFFER_SIZE (1<<16)
+    #define TRACE_EVENT_NB_BUFFER   4
 
-  class trace_engine
-  {
-  public:
-    trace_engine(js::config *config);
-    ~trace_engine();
+    #define TRACE_FORMAT_LONG  0
+    #define TRACE_FORMAT_SHORT 1
 
-    virtual void reg_trace(vp::trace *trace, int event, string path, string name) = 0;
-
-    virtual int get_max_path_len() = 0;
-    virtual int get_trace_level() = 0;
-    virtual void set_trace_level(const char *trace_level) = 0;
-
-    int get_format() { return this->trace_format; }
-    
-    void set_vcd_user(gv::Vcd_user *user)
+    class trace_regex
     {
-        this->event_dumper.set_vcd_user(user);
-        this->vcd_user = user;
-    }
+    public:
+        trace_regex(std::string path, regex_t *regex, std::string file_path, bool is_path=false) : is_path(is_path), path(path), regex(regex), file_path(file_path) {}
 
-    void dump_event(vp::trace *trace, int64_t timestamp, uint8_t *event, int width);
+        bool is_path;
+        std::string path;
+        regex_t *regex;
+        std::string file_path;
+    };
 
-    void dump_event_string(vp::trace *trace, int64_t timestamp, uint8_t *event, int width);
-
-    void dump_event_pulse(vp::trace *trace, int64_t timestamp, int64_t end_timestamp, uint8_t *pulse_event, uint8_t *event, int width);
-
-    void dump_event_delayed(vp::trace *trace, int64_t timestamp, uint8_t *event, int width);
-
-    void set_global_enable(bool enable) { this->global_enable = enable; }
-
-    Event_dumper event_dumper;
-
-    vp::trace *get_trace_from_path(std::string path);
-
-    vp::trace *get_trace_from_id(int id);
-
-    virtual void add_trace_path(int events, std::string path) {}
-    virtual void conf_trace(int event, std::string path, bool enabled) {}
-    virtual void add_exclude_trace_path(int events, std::string path) {}
-    virtual void check_traces() {}
-
-    inline bool get_werror() { return this->werror; }
-    inline bool is_warning_active(vp::trace::warning_type_e type) { return this->active_warnings[type]; }
-
-    vp::time_engine *time_engine;
-
-  protected:
-    std::map<std::string, trace *> traces_map;
-    std::vector<trace *> traces_array;
-    std::vector<bool> active_warnings;
-    int trace_format;
-    bool werror;
-
-  private:
-    void enqueue_pending(vp::trace *trace, int64_t timestamp, uint8_t *event);
-    char *get_event_buffer(int bytes);
-    void vcd_routine();
-    void flush();
-    void check_pending_events(int64_t timestamp);
-    void dump_event_to_buffer(vp::trace *trace, int64_t timestamp, uint8_t *event, int bytes, bool include_size=false);
-
-    // This can be called to flush all the pending traces which have been registered for the
-    // specified timestamp.
-    // This mechanism is used to merged different values of the same trace dumped during
-    // the same timestamp.
-    void flush_event_traces(int64_t timestamp);
-
-    vector<char *> event_buffers;
-    vector<char *> ready_event_buffers;
-    char *current_buffer;
-    int current_buffer_size;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int end = 0;
-    std::thread *thread;
-    trace *first_pending_event;
-
-    Event_trace *first_trace_to_dump;
-    bool global_enable = true;
-    gv::Vcd_user *vcd_user;
-  };
-
-class trace_regex
-{
-public:
-    trace_regex(std::string path, regex_t *regex, std::string file_path, bool is_path=false) : is_path(is_path), path(path), regex(regex), file_path(file_path) {}
-
-    bool is_path;
-    std::string path;
-    regex_t *regex;
-    std::string file_path;
-};
-
-class trace_domain : public vp::trace_engine
-{
-
-public:
-    trace_domain(vp::component *top, js::config *config);
-
-    void set_trace_level(const char *trace_level);
-    void add_paths(int events, int nb_path, const char **paths);
-    void add_path(int events, const char *path, bool is_path=false);
-    void add_exclude_path(int events, const char *path);
-    void add_trace_path(int events, std::string path);
-    void conf_trace(int event, std::string path, bool enabled);
-    void add_exclude_trace_path(int events, std::string path);
-    void reg_trace(vp::trace *trace, int event, string path, string name);
-
-    void start();
-    void check_traces();
-
-    int get_max_path_len() { return max_path_len; }
-
-    int exchange_max_path_len(int max_len)
+    class TraceEngine
     {
-        if (max_len > max_path_len)
-            max_path_len = max_len;
-        return max_path_len;
-    }
 
-    int get_trace_level() { return this->trace_level; }
+    public:
+        TraceEngine(js::Config *config);
+        ~TraceEngine();
 
-private:
-    void check_trace_active(vp::trace *trace, int event = 0);
+        int get_format() { return this->trace_format; }
+        
+        void set_vcd_user(gv::Vcd_user *user)
+        {
+            this->event_dumper.set_vcd_user(user);
+            this->vcd_user = user;
+        }
 
-    std::unordered_map<std::string, trace_regex *> trace_regexs;
-    std::unordered_map<std::string, trace_regex *> trace_exclude_regexs;
-    std::unordered_map<std::string, trace_regex *> events_path_regex;
-    std::unordered_map<std::string, trace_regex *> events_exclude_path_regex;
-    int max_path_len = 0;
-    vp::trace_level_e trace_level = vp::TRACE;
-    std::vector<vp::trace *> init_traces;
-    std::unordered_map<std::string, FILE *> trace_files;
-    std::unordered_map<std::string, std::string> active_events;
+        void dump_event(vp::Trace *trace, int64_t timestamp, uint8_t *event, int width);
 
-    FILE *trace_file;
-    vp::component *top;
-};
+        void dump_event_string(vp::Trace *trace, int64_t timestamp, uint8_t *event, int width);
 
+        void dump_event_pulse(vp::Trace *trace, int64_t timestamp, int64_t end_timestamp, uint8_t *pulse_event, uint8_t *event, int width);
+
+        void dump_event_delayed(vp::Trace *trace, int64_t timestamp, uint8_t *event, int width);
+
+        void set_global_enable(bool enable) { this->global_enable = enable; }
+
+        Event_dumper event_dumper;
+
+        vp::Trace *get_trace_from_path(std::string path);
+
+        vp::Trace *get_trace_from_id(int id);
+
+        inline bool get_werror() { return this->werror; }
+        inline bool is_warning_active(vp::Trace::warning_type_e type) { return this->active_warnings[type]; }
+
+        void init(vp::Component *top);
+        void set_trace_level(const char *trace_level);
+        void add_paths(int events, int nb_path, const char **paths);
+        void add_path(int events, const char *path, bool is_path=false);
+        void add_exclude_path(int events, const char *path);
+        void add_trace_path(int events, std::string path);
+        void conf_trace(int event, std::string path, bool enabled);
+        void add_exclude_trace_path(int events, std::string path);
+        void reg_trace(vp::Trace *trace, int event, string path, string name);
+
+        void start();
+        void check_traces();
+
+        int get_max_path_len() { return max_path_len; }
+
+        int exchange_max_path_len(int max_len)
+        {
+            if (max_len > max_path_len)
+                max_path_len = max_len;
+            return max_path_len;
+        }
+
+        int get_trace_level() { return this->trace_level; }
+
+    protected:
+        std::map<std::string, Trace *> traces_map;
+        std::vector<Trace *> traces_array;
+        std::vector<bool> active_warnings;
+        int trace_format;
+        bool werror;
+
+    private:
+        void check_trace_active(vp::Trace *trace, int event = 0);
+
+        std::unordered_map<std::string, trace_regex *> trace_regexs;
+        std::unordered_map<std::string, trace_regex *> trace_exclude_regexs;
+        std::unordered_map<std::string, trace_regex *> events_path_regex;
+        std::unordered_map<std::string, trace_regex *> events_exclude_path_regex;
+        int max_path_len = 0;
+        vp::TraceLevel trace_level = vp::TRACE;
+        std::vector<vp::Trace *> init_traces;
+        std::unordered_map<std::string, FILE *> trace_files;
+        std::unordered_map<std::string, std::string> active_events;
+
+        FILE *trace_file;
+        vp::Component *top;
+        js::Config *config;
+
+        void enqueue_pending(vp::Trace *trace, int64_t timestamp, uint8_t *event);
+        char *get_event_buffer(int bytes);
+        void vcd_routine();
+        void flush();
+        void check_pending_events(int64_t timestamp);
+        void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, uint8_t *event, int bytes, bool include_size=false);
+
+        // This can be called to flush all the pending traces which have been registered for the
+        // specified timestamp.
+        // This mechanism is used to merged different values of the same trace dumped during
+        // the same timestamp.
+        void flush_event_traces(int64_t timestamp);
+
+        vector<char *> event_buffers;
+        vector<char *> ready_event_buffers;
+        char *current_buffer;
+        int current_buffer_size;
+        pthread_mutex_t mutex;
+        pthread_cond_t cond;
+        int end = 0;
+        std::thread *thread;
+        Trace *first_pending_event;
+
+        Event_trace *first_trace_to_dump;
+        bool global_enable = true;
+        gv::Vcd_user *vcd_user;
+    };
 };
 
 #endif

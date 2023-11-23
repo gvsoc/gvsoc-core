@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-#include "jsmn.h"
+#include "vp/jsmn.h"
 
 /**
  * Allocates a fresh unused token from the token pull.

@@ -33,21 +33,21 @@ double my_stod (std::string const& s) {
     return d;
 }
 
-vp::power::Linear_table::Linear_table(js::config *config)
+vp::PowerLinearTable::PowerLinearTable(js::Config *config)
 {
     // Extract the power table from json file for each temperature
     for (auto &x : config->get_childs())
     {
-        temp_tables.push_back(new Linear_temp_table(my_stod(x.first), x.second));
+        temp_tables.push_back(new PowerLinearTempTable(my_stod(x.first), x.second));
     }
 
     std::sort(this->temp_tables.begin(), this->temp_tables.end(),
-    [](vp::power::Linear_temp_table *a, vp::power::Linear_temp_table *b){ return a->get_temp() <= b->get_temp(); });
+    [](vp::PowerLinearTempTable *a, vp::PowerLinearTempTable *b){ return a->get_temp() <= b->get_temp(); });
 }
 
 
 
-double vp::power::Linear_table::get(double temp, double volt, double frequency)
+double vp::PowerLinearTable::get(double temp, double volt, double frequency)
 {
     int low_temp_index = -1, high_temp_index = -1;
 
@@ -109,22 +109,22 @@ double vp::power::Linear_table::get(double temp, double volt, double frequency)
 
 
 
-vp::power::Linear_temp_table::Linear_temp_table(double temp, js::config *config)
+vp::PowerLinearTempTable::PowerLinearTempTable(double temp, js::Config *config)
 {
     this->temp = temp;
 
     for (auto &x : config->get_childs())
     {
-        volt_tables.push_back(new Linear_volt_table(my_stod(x.first), x.second));
+        volt_tables.push_back(new PowerLinearVoltTable(my_stod(x.first), x.second));
     }
 
     std::sort(this->volt_tables.begin(), this->volt_tables.end(),
-    [](vp::power::Linear_volt_table *a, vp::power::Linear_volt_table *b){ return a->get_volt() <= b->get_volt(); });
+    [](vp::PowerLinearVoltTable *a, vp::PowerLinearVoltTable *b){ return a->get_volt() <= b->get_volt(); });
 }
 
 
 
-double vp::power::Linear_temp_table::get(double volt, double frequency)
+double vp::PowerLinearTempTable::get(double volt, double frequency)
 {
     int low_index = -1, high_index = -1;
 
@@ -184,7 +184,7 @@ double vp::power::Linear_temp_table::get(double volt, double frequency)
 
 
 
-vp::power::Linear_volt_table::Linear_volt_table(double volt, js::config *config)
+vp::PowerLinearVoltTable::PowerLinearVoltTable(double volt, js::Config *config)
 {
     this->volt = volt;
 
@@ -194,21 +194,21 @@ vp::power::Linear_volt_table::Linear_volt_table(double volt, js::config *config)
     {
         if (x.first == "any")
         {
-            this->any = new Linear_freq_table(0, x.second);
+            this->any = new PowerLinearFreqTable(0, x.second);
         }
         else
         {
-            this->freq_tables.push_back(new Linear_freq_table(my_stod(x.first), x.second));
+            this->freq_tables.push_back(new PowerLinearFreqTable(my_stod(x.first), x.second));
         }
     }
 
     std::sort(this->freq_tables.begin(), this->freq_tables.end(),
-        [](vp::power::Linear_freq_table *a, vp::power::Linear_freq_table *b){ return a->get_freq() <= b->get_freq(); });
+        [](vp::PowerLinearFreqTable *a, vp::PowerLinearFreqTable *b){ return a->get_freq() <= b->get_freq(); });
 }
 
 
 
-double vp::power::Linear_volt_table::get(double frequency)
+double vp::PowerLinearVoltTable::get(double frequency)
 {
     if (this->any != NULL)
     {
@@ -273,7 +273,7 @@ double vp::power::Linear_volt_table::get(double frequency)
 
 
 
-vp::power::Linear_freq_table::Linear_freq_table(double freq, js::config *config)
+vp::PowerLinearFreqTable::PowerLinearFreqTable(double freq, js::Config *config)
 : freq(freq)
 {
     this->value = config->get_double();

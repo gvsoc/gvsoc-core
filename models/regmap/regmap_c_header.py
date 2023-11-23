@@ -243,7 +243,7 @@ class Register(object):
             width = 32
 
         self.__dump_file(header.file, '\n', rst)
-        self.__dump_file(header.file, 'class %s : public vp::reg_%d\n' % (self.get_vp_name(header), width), rst)
+        self.__dump_file(header.file, 'class %s : public vp::Register<uint%d_t>\n' % (self.get_vp_name(header), width), rst)
         self.__dump_file(header.file, '{\n', rst)
         self.__dump_file(header.file, 'public:\n', rst)
 
@@ -257,7 +257,7 @@ class Register(object):
 
         if not rst:
 
-            reg_code = '        this->hw_name = "%s";\n' % (self.name)
+            reg_code = '        this->name = "%s";\n' % (self.name)
             reg_code += '        this->offset = 0x%x;\n' % (self.offset if self.offset is not None else 0)
             reg_code += '        this->width = %d;\n' % (self.width if self.width is not None else 32)
             reg_code += '        this->do_reset = %d;\n' % (self.do_reset)
@@ -267,7 +267,7 @@ class Register(object):
             for field in self.get_fields():
                 reg_code += '        this->regfields.push_back(new vp::regfield("%s", %d, %d));\n' % (field.name, field.bit, field.width)
 
-            self.__dump_file(header.file, '    %s()\n    {\n%s    }\n' % (self.get_vp_name(header), reg_code))
+            self.__dump_file(header.file, '    %s(vp::Block &top, std::string name) : vp::Register<uint%d_t>(top, name, %d, true, 0)\n    {\n%s    }\n' % (self.get_vp_name(header), width, width, reg_code))
 
         self.__dump_file(header.file, '};\n', rst)
 
@@ -324,9 +324,14 @@ class Regmap(object):
             reg_init_code = ''
             for register in self.registers.values():
                 if register.offset is not None:
-                    reg_init_code += '        this->registers.push_back(&this->%s);\n' % (register.name.lower())
+                    reg_init_code += '        this->registers_new.push_back(&this->%s);\n' % (register.name.lower())
 
-            self.__dump_file(header.file, '    vp_regmap_%s()\n    {\n%s    }\n' % (get_c_name(self.name).lower(), reg_init_code))
+            reg_decl = []
+            for register in self.registers.values():
+                if register.offset is not None:
+                    reg_decl.append('        %s(top, "%s")' % (register.name.lower(), register.name.lower()))
+
+            self.__dump_file(header.file, '    vp_regmap_%s(vp::Block &top, std::string name): vp::regmap(top, name),\n%s\n    {\n%s    }\n' % (get_c_name(self.name).lower(), ',\n'.join(reg_decl), reg_init_code))
 
         self.__dump_file(header.file, '};\n', rst)
 

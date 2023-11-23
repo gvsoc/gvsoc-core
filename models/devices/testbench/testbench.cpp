@@ -43,11 +43,11 @@ Uart_flow_control_checker::Uart_flow_control_checker(Testbench *top, Uart *uart,
     this->tx_size = 0;
     this->rx_timestamp = -1;
 
-    this->bw_limiter_event = top->event_new(this, Uart_flow_control_checker::bw_limiter_handler);
+    this->bw_limiter_event = top->event_new((vp::Block *)this, Uart_flow_control_checker::bw_limiter_handler);
 }
 
 
-void Uart_flow_control_checker::bw_limiter_handler(void *__this, vp::clock_event *event)
+void Uart_flow_control_checker::bw_limiter_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart_flow_control_checker *_this = (Uart_flow_control_checker *)__this;
     _this->uart->set_cts(0);
@@ -99,7 +99,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
         }
         else
         {
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "UART flow control received command (command: %s)\n", this->current_string.c_str());
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "UART flow control received command (command: %s)\n", this->current_string.c_str());
 
             std::regex regex{R"([\s]+)"};
             std::sregex_token_iterator it{this->current_string.begin(), this->current_string.end(), regex, -1};
@@ -107,7 +107,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
 
             if (words[0] == "START")
             {
-                this->trace.msg(vp::trace::LEVEL_INFO, "UART flow control received start command\n");
+                this->trace.msg(vp::Trace::LEVEL_INFO, "UART flow control received start command\n");
                 this->waiting_command = false;
                 this->status = 0;
                 if (this->rx_size > 0)
@@ -121,7 +121,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
                 this->rx_size = std::stoi(words[3]);
                 this->rx_bandwidth = std::stoi(words[4]);
                 this->rx_nb_iter = std::stoi(words[5]);
-                this->trace.msg(vp::trace::LEVEL_INFO, "UART flow control received traffic rx command (start: %d, incr: %d, size: %d, bandwidth: %d, nb_iter: %d)\n", this->rx_start, this->rx_incr, this->rx_size, this->rx_bandwidth, this->rx_nb_iter);
+                this->trace.msg(vp::Trace::LEVEL_INFO, "UART flow control received traffic rx command (start: %d, incr: %d, size: %d, bandwidth: %d, nb_iter: %d)\n", this->rx_start, this->rx_incr, this->rx_size, this->rx_bandwidth, this->rx_nb_iter);
             }
             else if (words[0] == "TRAFFIC_TX")
             {
@@ -132,11 +132,11 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
                 this->tx_size = std::stoi(words[3]);
                 this->tx_iter_size = std::stoi(words[4]);
                 this->tx_iter_size_init = this->tx_iter_size;
-                this->trace.msg(vp::trace::LEVEL_INFO, "UART flow control received traffic tx command (start: %d, incr: %d, size: %d, iter_size: %d)\n", this->tx_start, this->tx_incr, this->tx_size, this->tx_iter_size);
+                this->trace.msg(vp::Trace::LEVEL_INFO, "UART flow control received traffic tx command (start: %d, incr: %d, size: %d, iter_size: %d)\n", this->tx_start, this->tx_incr, this->tx_size, this->tx_iter_size);
             }
             else if (words[0] == "STATUS")
             {
-                this->trace.msg(vp::trace::LEVEL_INFO, "UART flow control received status command\n");
+                this->trace.msg(vp::Trace::LEVEL_INFO, "UART flow control received status command\n");
                 this->send_reply = true;
                 this->reply_index = 0;
                 if (this->status == 0)
@@ -157,12 +157,12 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
     {
         if (this->tx_size > 0)
         {
-            int64_t current_time = this->top->get_time();
+            int64_t current_time = this->top->time.get_time();
 
             if (byte != (this->tx_value & 0xFF))
             {
                 this->status = 1;
-                this->trace.msg(vp::trace::LEVEL_DEBUG, "Received unexpected byte (value: 0x%x, expected: 0x%x)\n",
+                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received unexpected byte (value: 0x%x, expected: 0x%x)\n",
                     byte, this->tx_value & 0xFF);
             }
             this->tx_value += this->tx_incr;
@@ -210,17 +210,12 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
 
 
 
-Testbench::Testbench(js::config *config)
-    : vp::component(config)
+Testbench::Testbench(vp::ComponentConf &config)
+    : vp::Component(config)
 {
     this->state = STATE_WAITING_CMD;
     this->current_req_size = 0;
     this->is_pdm = false;
-}
-
-
-int Testbench::build()
-{
     traces.new_trace("trace", &trace, vp::DEBUG);
 
     this->ctrl_type = get_js_config()->get("ctrl_type")->get_str();
@@ -278,8 +273,8 @@ int Testbench::build()
         this->uart_ctrl = this->uarts[uart_id];
     }
 
-    return 0;
 }
+
 
 
 void Testbench::start()
@@ -323,13 +318,13 @@ void Uart::handle_received_byte(uint8_t byte)
 
 void Uart::uart_tx_sampling()
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Sampling bit (value: %d)\n", uart_current_tx);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampling bit (value: %d)\n", uart_current_tx);
 
     if (uart_tx_wait_stop)
     {
         if (uart_current_tx == 1)
         {
-            this->trace.msg(vp::trace::LEVEL_TRACE, "Received stop bit\n", uart_current_tx);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received stop bit\n", uart_current_tx);
             uart_tx_wait_start = true;
             uart_tx_wait_stop = false;
             this->uart_stop_tx_sampling();
@@ -337,16 +332,16 @@ void Uart::uart_tx_sampling()
     }
     else
     {
-        this->trace.msg(vp::trace::LEVEL_TRACE, "Received data bit (data: %d)\n", uart_current_tx);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data bit (data: %d)\n", uart_current_tx);
         uart_byte = (uart_byte >> 1) | (uart_current_tx << 7);
         uart_nb_bits++;
         if (uart_nb_bits == 8)
         {
-            this->trace.msg(vp::trace::LEVEL_DEBUG, "Sampled TX byte (value: 0x%x)\n", uart_byte);
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampled TX byte (value: 0x%x)\n", uart_byte);
 
             if (!this->is_usart)
             {
-                this->trace.msg(vp::trace::LEVEL_TRACE, "Waiting for stop bit\n");
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for stop bit\n");
                 uart_tx_wait_stop = true;
             }
             else
@@ -394,7 +389,7 @@ void Uart::send_buffer(uint8_t *buffer, int size)
 
 void Uart::send_byte(uint8_t byte)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Send byte (value: 0x%x)\n", byte);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Send byte (value: 0x%x)\n", byte);
 
     this->tx_pending_byte = byte;
     this->tx_pending_bits = 8;
@@ -417,20 +412,20 @@ void Uart::send_byte(uint8_t byte)
 Uart::Uart(Testbench *top, int id)
 : top(top), id(id)
 {
-    this->uart_sampling_event = top->event_new(this, Uart::uart_sampling_handler);
-    this->uart_tx_event = top->event_new(this, Uart::uart_tx_handler);
-    this->init_event = top->event_new(this, Uart::init_handler);
+    this->uart_sampling_event = top->event_new((vp::Block *)this, Uart::uart_sampling_handler);
+    this->uart_tx_event = top->event_new((vp::Block *)this, Uart::uart_tx_handler);
+    this->init_event = top->event_new((vp::Block *)this, Uart::init_handler);
     this->itf.set_sync_meth(&Uart::sync);
     this->itf.set_sync_full_meth(&Uart::sync_full);
-    this->top->new_slave_port(this, "uart" + std::to_string(this->id), &this->itf);
-    this->top->new_master_port(this, "uart" + std::to_string(this->id) + "_clock_cfg", &clock_cfg);
-    this->top->new_master_port(this, "uart" + std::to_string(this->id) + "_tx_clock_cfg", &tx_clock_cfg);
+    this->top->new_slave_port("uart" + std::to_string(this->id), &this->itf, (vp::Block *)this);
+    this->top->new_master_port( "uart" + std::to_string(this->id) + "_clock_cfg", &clock_cfg, (vp::Block *)this);
+    this->top->new_master_port("uart" + std::to_string(this->id) + "_tx_clock_cfg", &tx_clock_cfg, (vp::Block *)this);
 
     this->clock_itf.set_reg_meth(&Uart::clk_reg);
-    this->top->new_slave_port(this, "uart" + std::to_string(this->id) + "_clock", &this->clock_itf);
+    this->top->new_slave_port("uart" + std::to_string(this->id) + "_clock", &this->clock_itf, (vp::Block *)this);
 
     this->tx_clock_itf.set_reg_meth(&Uart::tx_clk_reg);
-    this->top->new_slave_port(this, "uart" + std::to_string(this->id) + "_tx_clock", &this->tx_clock_itf);
+    this->top->new_slave_port("uart" + std::to_string(this->id) + "_tx_clock", &this->tx_clock_itf, (vp::Block *)this);
 
     top->traces.new_trace("uart_" + std::to_string(id), &trace, vp::DEBUG);
 
@@ -451,28 +446,28 @@ void Uart::start()
 }
 
 
-void Uart::tx_clk_reg(vp::component *__this, vp::component *clock)
+void Uart::tx_clk_reg(vp::Component *__this, vp::Component *clock)
 {
     Uart *_this = (Uart *)__this;
-    _this->tx_clock = (vp::clock_engine *)clock;
+    _this->tx_clock = (vp::ClockEngine *)clock;
 }
 
 
-void Uart::clk_reg(vp::component *__this, vp::component *clock)
+void Uart::clk_reg(vp::Component *__this, vp::Component *clock)
 {
     Uart *_this = (Uart *)__this;
-    _this->clock = (vp::clock_engine *)clock;
+    _this->clock = (vp::ClockEngine *)clock;
 }
 
 
-void Uart::init_handler(void *__this, vp::clock_event *event)
+void Uart::init_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart *_this = (Uart *)__this;
     _this->itf.sync_full(1, 2, 2, 0xf);
 }
 
 
-void Uart::uart_sampling_handler(void *__this, vp::clock_event *event)
+void Uart::uart_sampling_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart *_this = (Uart *)__this;
 
@@ -485,11 +480,11 @@ void Uart::uart_sampling_handler(void *__this, vp::clock_event *event)
 }
 
 
-void Uart::sync_full(void *__this, int data, int clk, int rtr, unsigned int mask)
+void Uart::sync_full(vp::Block *__this, int data, int clk, int rtr, unsigned int mask)
 {
     Uart *_this = (Uart *)__this;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "UART sync (data: %d, clk: %d, rtr: %d)\n", data, clk, rtr);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "UART sync (data: %d, clk: %d, rtr: %d)\n", data, clk, rtr);
     _this->rtr = rtr;
     _this->clk = clk ^ _this->polarity;
 
@@ -499,21 +494,21 @@ void Uart::sync_full(void *__this, int data, int clk, int rtr, unsigned int mask
 }
 
 
-void Uart::sync(void *__this, int data)
+void Uart::sync(vp::Block *__this, int data)
 {
     Uart *_this = (Uart *)__this;
 
     if (!_this->is_control && !_this->dev && !_this->proxy_file)
         return;
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "UART control sync (value: %d, waiting_start: %d)\n", data, _this->uart_tx_wait_start);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "UART control sync (value: %d, waiting_start: %d)\n", data, _this->uart_tx_wait_start);
 
     int prev_data = _this->uart_current_tx;
     _this->uart_current_tx = data;
 
     if (_this->uart_tx_wait_start && prev_data == 1 && data == 0)
     {
-        _this->trace.msg(vp::trace::LEVEL_TRACE, "Received start bit\n");
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received start bit\n");
 
         if (!_this->is_usart)
         {
@@ -550,7 +545,7 @@ void Uart::set_cts(int cts)
 }
 
 
-void Uart::uart_tx_handler(void *__this, vp::clock_event *event)
+void Uart::uart_tx_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart *_this = (Uart *)__this;
     _this->send_bit();
@@ -628,7 +623,7 @@ void Uart::send_bit()
     }
 
     this->tx_bit = bit;
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", bit);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", bit);
     this->itf.sync_full(this->tx_bit, 2, this->tx_cts, 0xf);
 
     if (!this->is_usart && this->tx_state != UART_TX_STATE_START)
@@ -640,7 +635,7 @@ void Uart::send_bit()
 
 void Uart::uart_start_tx_sampling(int baudrate)
 {
-    this->trace.msg(vp::trace::LEVEL_TRACE, "Start TX sampling (baudrate: %d)\n", this->baudrate);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Start TX sampling (baudrate: %d)\n", this->baudrate);
 
     // We set the frequency to twice the baudrate to be able sampling in the
     // middle of the cycle
@@ -733,7 +728,7 @@ void Testbench::handle_received_byte(uint8_t byte)
             case PI_TESTBENCH_CMD_GET_TIME_PS:
                 this->state = STATE_SENDING_REPLY;
                 this->tx_buff = new uint8_t[8];
-                *(uint64_t *)this->tx_buff = this->get_time();
+                *(uint64_t *)this->tx_buff = this->time.get_time();
                 this->tx_buff_size = 8;
                 this->tx_buff_index = 0;
                 this->uart_ctrl->itf.sync_full(1, 2, 0, 0xf);
@@ -814,7 +809,7 @@ void Testbench::handle_received_byte(uint8_t byte)
 }
 
 
-void Spi::create_loader(js::config *load_config)
+void Spi::create_loader(js::Config *load_config)
 {
     uint8_t enabled;
     uint8_t itf;
@@ -835,7 +830,7 @@ void Spi::create_loader(js::config *load_config)
 }
 
 
-void Spi::sync(void *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
+void Spi::sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask)
 {
     Spi *_this = (Spi *)__this;
     if (_this->spim_verif)
@@ -845,7 +840,7 @@ void Spi::sync(void *__this, int sck, int data_0, int data_1, int data_2, int da
 }
 
 
-void Spi::cs_sync(void *__this, bool active)
+void Spi::cs_sync(vp::Block *__this, bool active)
 {
     Spi *_this = (Spi *)__this;
     if (_this->spim_verif)
@@ -856,12 +851,12 @@ void Spi::cs_sync(void *__this, bool active)
 
 
 
-void Testbench::gpio_sync(void *__this, int value, int id)
+void Testbench::gpio_sync(vp::Block *__this, int value, int id)
 {
     Testbench *_this = (Testbench *)__this;
     Gpio *gpio = _this->gpios[id];
 
-    _this->trace.msg(vp::trace::LEVEL_TRACE, "Received GPIO sync (id: %d, value: %d)\n", id, value);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received GPIO sync (id: %d, value: %d)\n", id, value);
 
     if (gpio->get_frequency && gpio->value != value)
     {
@@ -869,10 +864,10 @@ void Testbench::gpio_sync(void *__this, int value, int id)
         {
             if (gpio->get_frequency_current_period)
             {
-                gpio->get_frequency_period += _this->get_time() - gpio->get_frequency_start;
+                gpio->get_frequency_period += _this->time.get_time() - gpio->get_frequency_start;
             }
 
-            gpio->get_frequency_start = _this->get_time();
+            gpio->get_frequency_start = _this->time.get_time();
             gpio->get_frequency_current_period++;
 
             if (gpio->get_frequency_current_period == gpio->get_frequency_nb_period + 1)
@@ -881,7 +876,7 @@ void Testbench::gpio_sync(void *__this, int value, int id)
                 reply->period = gpio->get_frequency_period / gpio->get_frequency_nb_period;
                 reply->width = gpio->get_frequency_width / gpio->get_frequency_nb_period;
 
-                _this->trace.msg(vp::trace::LEVEL_INFO, "Finished sampling frequency (gpio: %d, period: %ld, width: %ld)\n", id, reply->period, reply->width);
+                _this->trace.msg(vp::Trace::LEVEL_INFO, "Finished sampling frequency (gpio: %d, period: %ld, width: %ld)\n", id, reply->period, reply->width);
 
                 _this->tx_buff = (uint8_t *)reply;
                 _this->tx_buff_size = sizeof(pi_testbench_req_gpio_get_frequency_reply_t);
@@ -896,7 +891,7 @@ void Testbench::gpio_sync(void *__this, int value, int id)
         {
             if (gpio->get_frequency_start != -1)
             {
-                gpio->get_frequency_width += _this->get_time() - gpio->get_frequency_start;
+                gpio->get_frequency_width += _this->time.get_time() - gpio->get_frequency_start;
             }
         }
     }
@@ -905,7 +900,7 @@ void Testbench::gpio_sync(void *__this, int value, int id)
 
     if (gpio->loopback != -1)
     {
-        _this->trace.msg(vp::trace::LEVEL_DEBUG, "Generating gpio on loopback (id: %d)\n", gpio->loopback);
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Generating gpio on loopback (id: %d)\n", gpio->loopback);
         _this->gpios[gpio->loopback]->itf.sync(value);
     }
 }
@@ -923,19 +918,19 @@ void I2C::conf(Testbench *top, int id)
 
 void I2C::handle_byte()
 {
-    this->top->trace.msg(vp::trace::LEVEL_DEBUG, "Received I2C byte (id: %d, value: 0x%x)\n", this->id, this->pending_data & 0xff);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Received I2C byte (id: %d, value: 0x%x)\n", this->id, this->pending_data & 0xff);
 }
 
 
 void I2C::sync(int scl, int sda)
 {
-    this->top->trace.msg(vp::trace::LEVEL_TRACE, "Received I2C sync (id: %d, scl: %d, sda: %d)\n", this->id, scl, sda);
+    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Received I2C sync (id: %d, scl: %d, sda: %d)\n", this->id, scl, sda);
 
     if (scl == 1 && this->prev_sda != sda)
     {
         if (this->prev_sda == 1)
         {
-            this->top->trace.msg(vp::trace::LEVEL_TRACE, "Received I2C start bit (id: %d)\n", id);
+            this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Received I2C start bit (id: %d)\n", id);
 
             this->state = I2C_STATE_WAIT_ADDRESS;
             this->address = 0;
@@ -943,7 +938,7 @@ void I2C::sync(int scl, int sda)
         }
         else
         {
-            this->top->trace.msg(vp::trace::LEVEL_TRACE, "Received I2C stop bit (id: %d)\n", id);
+            this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Received I2C stop bit (id: %d)\n", id);
             this->state = I2C_STATE_WAIT_START;
         }
     }
@@ -987,7 +982,7 @@ void I2C::sync(int scl, int sda)
                     //    *sda_out = (this->pending_send_byte >> 7) & 1;
                     //    this->pending_send_byte <<= 1;
                     //}
-                    this->top->trace.msg(vp::trace::LEVEL_TRACE, "Got I2C data (id: %d, sda: %d)\n", id, this->pending_bits);
+                    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Got I2C data (id: %d, sda: %d)\n", id, this->pending_bits);
                     this->pending_data = (this->pending_data << 1) | sda;
                     this->pending_bits--;
                     if (this->pending_bits == 0)
@@ -1001,7 +996,7 @@ void I2C::sync(int scl, int sda)
                 
                 case I2C_STATE_ACK:
                 {
-                    this->top->trace.msg(vp::trace::LEVEL_TRACE, "Generate I2C ack (id: %d)\n", id);
+                    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Generate I2C ack (id: %d)\n", id);
 
                     this->itf.sync(2, 0);
                     this->state = I2C_STATE_GET_DATA;
@@ -1015,7 +1010,7 @@ void I2C::sync(int scl, int sda)
 }
 
 
-void Testbench::i2c_sync(void *__this, int scl, int sda, int id)
+void Testbench::i2c_sync(vp::Block *__this, int scl, int sda, int id)
 {
     Testbench *_this = (Testbench *)__this;
 
@@ -1046,7 +1041,7 @@ void Testbench::handle_set_status()
 {
     pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
 
-    this->clock->stop_engine(req->set_status.status);
+    this->time.get_engine()->quit(req->set_status.status);
 }
 
 
@@ -1054,7 +1049,7 @@ void Testbench::handle_gpio_loopback()
 {
     pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling GPIO loopback (enabled: %d, output: %d, intput: %d)\n", req->gpio.enabled, req->gpio.output, req->gpio.input);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling GPIO loopback (enabled: %d, output: %d, intput: %d)\n", req->gpio.enabled, req->gpio.output, req->gpio.input);
 
     if (req->gpio.enabled)
     {
@@ -1080,7 +1075,7 @@ void Testbench::handle_gpio_get_frequency()
 {
     pi_testbench_req_t *req = (pi_testbench_req_t *)this->req;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling GPIO get frequency (gpio: %d, nb_period: %d)\n", req->gpio_get_frequency.gpio, req->gpio_get_frequency.nb_period);
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling GPIO get frequency (gpio: %d, nb_period: %d)\n", req->gpio_get_frequency.gpio, req->gpio_get_frequency.nb_period);
 
     Gpio *gpio = this->gpios[req->gpio_get_frequency.gpio];
 
@@ -1107,7 +1102,7 @@ void Testbench::handle_gpio_pulse_gen()
     int64_t period_ps = req->gpio_pulse_gen.period_ps;
     Gpio *gpio = this->gpios[gpio_id];
     
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling GPIO pulse generator (gpio: %d, enabled: %d, duration_ps: %ld, period_ps: %ld)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling GPIO pulse generator (gpio: %d, enabled: %d, duration_ps: %ld, period_ps: %ld)\n",
         gpio_id, enabled, duration_ps, period_ps);
 
     gpio->pulse_enabled = enabled;
@@ -1130,7 +1125,7 @@ void Testbench::handle_spim_verif_setup()
     int itf = req->itf;
     int cs = req->cs;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling Spim verif setup (itf: %d, cs: %d, mem_size: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling Spim verif setup (itf: %d, cs: %d, mem_size: %d)\n",
         itf, cs, 1<<req->mem_size_log2);
 
     this->spis[cs + itf*4]->spim_verif_setup(req);
@@ -1144,7 +1139,7 @@ void Testbench::handle_spim_verif_transfer()
     int itf = req->itf;
     int cs = req->cs;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling Spim verif transfer (itf: %d, cs: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling Spim verif transfer (itf: %d, cs: %d)\n",
         itf, cs);
 
     this->spis[cs + itf*4]->spim_verif_transfer((pi_testbench_req_spim_verif_transfer_t *)req);
@@ -1158,7 +1153,7 @@ void Testbench::handle_spim_verif_spi_wakeup()
     int itf = req->itf;
     int cs = req->cs;
 
-    this->trace.msg(vp::trace::LEVEL_INFO, "Handling Spim verif spi wakeup (itf: %d, cs: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling Spim verif spi wakeup (itf: %d, cs: %d)\n",
         itf, cs);
 
     this->spis[cs + itf*4]->spim_verif_spi_wakeup((pi_testbench_req_spim_verif_spi_wakeup_t *)req);
@@ -1239,7 +1234,7 @@ void Testbench::handle_i2s_verif_slot_stop()
 }
 
 
-std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req)
+std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req)
 {
     bool error = false;
     string error_str = "";
@@ -1743,7 +1738,7 @@ std::string Testbench::handle_command(Gv_proxy *proxy, FILE *req_file, FILE *rep
 }
 
 
-void Gpio::pulse_handler(void *__this, vp::clock_event *event)
+void Gpio::pulse_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Gpio *_this = (Gpio *)__this;
 
@@ -1764,7 +1759,7 @@ void Gpio::pulse_handler(void *__this, vp::clock_event *event)
 
 Gpio::Gpio(Testbench *top) : top(top)
 {
-    this->pulse_event = top->event_new(this, Gpio::pulse_handler);
+    this->pulse_event = top->event_new((vp::Block *)this, Gpio::pulse_handler);
     this->get_frequency = false;
 }
 
@@ -1772,9 +1767,9 @@ Gpio::Gpio(Testbench *top) : top(top)
 Spi::Spi(Testbench *top, int itf, int cs) : top(top)
 {
     this->itf.set_sync_meth(&Spi::sync);
-    this->top->new_slave_port(this, "spi" + std::to_string(itf) + "_cs" + std::to_string(cs) + "_data", &this->itf);
+    this->top->new_slave_port("spi" + std::to_string(itf) + "_cs" + std::to_string(cs) + "_data", &this->itf, (vp::Block *)this);
     this->cs_itf.set_sync_meth(&Spi::cs_sync);
-    this->top->new_slave_port(this, "spi" + std::to_string(itf) + "_cs" + std::to_string(cs), &this->cs_itf);
+    this->top->new_slave_port("spi" + std::to_string(itf) + "_cs" + std::to_string(cs), &this->cs_itf, (vp::Block *)this);
     
     this->spim_verif = NULL;
     this->itf_id = itf;
@@ -1825,7 +1820,7 @@ I2s::I2s(Testbench *top, int itf) : top(top)
     this->ws_propagate = 0;
 
     this->itf.set_sync_meth(&I2s::sync);
-    top->new_master_port(this, "i2s" + std::to_string(itf), &this->itf);
+    top->new_master_port("i2s" + std::to_string(itf), &this->itf, (vp::Block *)this);
 
     top->traces.new_trace("i2s_itf" + std::to_string(itf), &trace, vp::DEBUG);
 }
@@ -1855,7 +1850,7 @@ void I2s::i2s_verif_slot_stop(pi_testbench_i2s_verif_slot_stop_config_t *config)
 }
 
 
-void I2s::sync(void *__this, int sck, int ws, int sd, bool full_duplex)
+void I2s::sync(vp::Block *__this, int sck, int ws, int sd, bool full_duplex)
 {
     I2s *_this = (I2s *)__this;
 
@@ -1906,7 +1901,7 @@ void I2s::sync_ws(int ws)
 
 void I2s::i2s_verif_setup(pi_testbench_i2s_verif_config_t *config)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "I2S verif setup (enabled: %d, sampling_rate: %d, word_size: %d, nb_slots: %d, ext_clk: %d, ext_ws: %d, pdm: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "I2S verif setup (enabled: %d, sampling_rate: %d, word_size: %d, nb_slots: %d, ext_clk: %d, ext_ws: %d, pdm: %d)\n",
         config->enabled, config->sampling_freq, config->word_size, config->nb_slots, config->is_ext_clk, config->is_ext_ws, config->is_pdm);
 
     if (this->i2s_verif)
@@ -1924,7 +1919,7 @@ void I2s::i2s_verif_setup(pi_testbench_i2s_verif_config_t *config)
 
 void I2s::i2s_verif_start(pi_testbench_i2s_verif_start_config_t *config)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "I2S verif start (start: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "I2S verif start (start: %d)\n",
         config->start);
 
     if (!this->i2s_verif)
@@ -1939,7 +1934,7 @@ void I2s::i2s_verif_start(pi_testbench_i2s_verif_start_config_t *config)
 
 void I2s::i2s_verif_slot_setup(pi_testbench_i2s_verif_slot_config_t *config)
 {
-    this->trace.msg(vp::trace::LEVEL_INFO, "I2S verif slot setup (slot: %d, is_rx: %d, enabled: %d, word_size: %d, format: %x)\n",
+    this->trace.msg(vp::Trace::LEVEL_INFO, "I2S verif slot setup (slot: %d, is_rx: %d, enabled: %d, word_size: %d, format: %x)\n",
         config->slot, config->is_rx, config->enabled, config->word_size, config->format);
 
     if (!this->i2s_verif)
@@ -1952,7 +1947,7 @@ void I2s::i2s_verif_slot_setup(pi_testbench_i2s_verif_slot_config_t *config)
 }
 
 
-extern "C" vp::component *vp_constructor(js::config *config)
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new Testbench(config);
 }

@@ -411,7 +411,7 @@ namespace gv {
      * To get a description of the hierarchy of blocks, the childs of the block can recursively
      * retrieved.
      */
-    class Power_report
+    class PowerReport
     {
     public:
         /** The name of the clock in the hardware hierarchy. */
@@ -431,7 +431,7 @@ namespace gv {
          *
          * @return A vector of the power reports of the child blocks
          */
-        virtual std::vector<Power_report *> get_childs() = 0;
+        virtual std::vector<PowerReport *> get_childs() = 0;
     };
 
 
@@ -497,7 +497,7 @@ namespace gv {
          * @return A pointer to the power report. The report is reused everytime this method is called and thus must
          * not be kept or freed.
          */
-        virtual Power_report *report_get() = 0;
+        virtual PowerReport *report_get() = 0;
 
     };
 

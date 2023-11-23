@@ -177,6 +177,18 @@ namespace vp
         inline void cancel();
 
         /**
+         * @brief Get the number of cycles.
+         *
+         * Get the number of cycles at which this event should execute
+         *
+         * @note This method must be used only in the mode where the event is enqueued everytime
+         * it must execute.
+         *
+         * @return The number of cycles
+         */
+        inline int64_t get_cycle();
+
+        /**
          * @brief Tell if the event is enqueued
          *
          * This can be called to know is the event is currently enqueued in the clock engine
@@ -247,10 +259,6 @@ namespace vp
 
 
     private:
-        // Get the number of cycles at which this event should execute. Used by the clock engine
-        // to schedule this event
-        inline int64_t get_cycle();
-
         // Set the clock domain of this event. This is done by the framework when the clock
         // is registered in the block owning this event
         inline void set_clock(ClockEngine *clock);

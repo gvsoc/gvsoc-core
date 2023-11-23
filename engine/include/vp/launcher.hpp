@@ -82,14 +82,14 @@ class GvsocLauncher : public gv::Gvsoc
         void *get_component(std::string path) override;
         void register_exec_notifier(GvsocLauncher_notifier *notifier);
 
-        vp::top *top_get() { return this->handler; }
+        vp::Top *top_get() { return this->handler; }
 
     private:
         void engine_routine();
         static void *signal_routine(void *__this);
 
         gv::GvsocConf *conf;
-        vp::top *handler;
+        vp::Top *handler;
         int retval = -1;
         gv::Gvsoc_user *user;
         bool is_async;

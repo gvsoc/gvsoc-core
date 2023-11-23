@@ -22,93 +22,114 @@
 #ifndef __VP_TIME_ENGINE_HPP__
 #define __VP_TIME_ENGINE_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 #include "vp/json.hpp"
 #include "gv/gvsoc.hpp"
 
 namespace vp
 {
-class BlockTime;
-class Component;
-class Time_engine_stop_event;
+    class BlockTime;
+    class Component;
+    class Time_engine_stop_event;
 
-class TimeEngine
-{
-public:
-    TimeEngine(js::Config *config);
+    class TimeEngine
+    {
 
-    void init(Component *top);
+        friend class gv::GvsocLauncher;
+        friend class vp::Time_engine_stop_event;
+        friend class vp::BlockTime;
+        friend class vp::ClockEngine;
+        friend class vp::Top;
+        friend class gv::GvProxy;
 
-    void step_register(int64_t time);
+    public:
+        TimeEngine(js::Config *config);
 
-    int64_t run();
-    int64_t run_until(int64_t end_time);
+        int64_t get_time() { return time; }
 
-    inline void lock();
+        inline void lock();
 
-    inline void unlock();
+        inline void unlock();
 
-    inline void critical_enter();
-    inline void critical_exit();
-    inline void critical_wait();
-    inline void critical_notify();
+        void quit(int status);
 
-    void quit(int status);
-
-    void handle_locks();
-
-    void pause();
-
-    void flush();
-
-    bool dequeue(vp::Block *client);
-
-    bool enqueue(vp::Block *client, int64_t time);
-
-    int64_t get_time() { return time; }
-
-    inline int64_t get_next_event_time();
-
-    void fatal(const char *fmt, ...);
-
-    inline void update(int64_t time);
-
-    void bind_to_launcher(gv::Gvsoc_user *launcher);
-
-    int status_get() { return this->stop_status; }
-    bool finished_get() { return this->finished; }
-    gv::Gvsoc_user *launcher_get() { return this->launcher; }
-
-    void retain_inc(int inc);
-    int retain_count() { return this->retain; }
-
-private:
-
-    int64_t exec();
-    void flush_all();
+        void pause();
 
 
-    vp::Block *first_client = NULL;
 
 
-    pthread_mutex_t lock_mutex;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
 
-    int64_t time = 0;
-    int stop_status = -1;
 
-    Component *top;
-    js::Config *config;
-    bool finished = false;
-    int lock_req = 0;
-    bool stop_req = false;
-    bool pause_req = false;
-    gv::Gvsoc_user *launcher = NULL;
-    Time_engine_stop_event *stop_event;
-    int retain = 0;
-};
+
+        /**
+         * @brief DEPRECATED
+         * I2s_verif still using it, should switch to time_event
+        */
+        bool dequeue(vp::Block *client);
+
+        /**
+         * @brief DEPRECATED
+         * dpi wrapper still using to sync time before propagating an edge.
+         * needs to be friend class.
+        */
+        inline void update(int64_t time);
+
+    private:
+        void step_register(int64_t time);
+
+        int64_t run();
+        int64_t run_until(int64_t end_time);
+
+        inline void critical_enter();
+        inline void critical_exit();
+        inline void critical_wait();
+        inline void critical_notify();
+
+        void init(Component *top);
+
+        void flush();
+
+        void fatal(const char *fmt, ...);
+
+        bool enqueue(vp::Block *client, int64_t time);
+
+        void handle_locks();
+
+        inline int64_t get_next_event_time();
+
+        void bind_to_launcher(gv::Gvsoc_user *launcher);
+
+        int status_get() { return this->stop_status; }
+        bool finished_get() { return this->finished; }
+
+        gv::Gvsoc_user *launcher_get() { return this->launcher; }
+        void retain_inc(int inc);
+        int retain_count() { return this->retain; }
+
+        int64_t exec();
+        void flush_all();
+
+
+        vp::Block *first_client = NULL;
+
+
+        pthread_mutex_t lock_mutex;
+        pthread_mutex_t mutex;
+        pthread_cond_t cond;
+
+        int64_t time = 0;
+        int stop_status = -1;
+
+        Component *top;
+        js::Config *config;
+        bool finished = false;
+        int lock_req = 0;
+        bool stop_req = false;
+        bool pause_req = false;
+        gv::Gvsoc_user *launcher = NULL;
+        Time_engine_stop_event *stop_event;
+        int retain = 0;
+    };
 
 }; // namespace vp
 

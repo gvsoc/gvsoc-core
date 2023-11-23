@@ -23,7 +23,6 @@
 #ifndef __VP_PORTS_HPP__
 #define __VP_PORTS_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/json.hpp"
 
 namespace vp

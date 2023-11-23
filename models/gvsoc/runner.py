@@ -20,12 +20,12 @@
 #
 
 import gapylib.target
-import gsystree as st
-import json_tools as js
+import gvsoc.systree as st
+import gvsoc.json_tools as js
 import os.path
-from gv.gtkwave import Gtkwave_tree
-from gv.gui import GuiConfig
-import gv.gui
+from gvsoc.gtkwave import Gtkwave_tree
+from gvsoc.gui import GuiConfig
+import gvsoc.gui
 import gapylib.target as gapy
 import sys
 

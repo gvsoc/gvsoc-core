@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include "vp/time/time_engine.hpp"
+#include <vp/time/time_event.hpp>
 
 vp::TimeEngine::TimeEngine(js::Config *config)
     : first_client(NULL), config(config)

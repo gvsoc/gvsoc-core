@@ -23,39 +23,48 @@
 
 #include <stdint.h>
 
-
 namespace vp
 {
     class TimeEvent;
-
-    typedef void (TimeEventMeth)(vp::Block *, TimeEvent *event);
-
-    #define TIME_EVENT_PAYLOAD_SIZE 64
-    #define TIME_EVENT_NB_ARGS 8
 
     class TimeEngine;
 
     class BlockTime
     {
-
-        friend class TimeEngine;
+        friend class vp::Block;
+        friend class vp::TimeEngine;
+        friend class vp::ClockEngine;
+        friend class vp::TimeEvent;
 
     public:
         BlockTime(vp::Block *parent, vp::Block &top, vp::TimeEngine *engine);
 
-        void time_event_init(vp::TimeEvent *, vp::TimeEventMeth *meth);
-
         inline vp::TimeEngine *get_engine();
 
-        inline bool is_running() { return running; }
+        inline int64_t get_time();
 
+        /**
+         * @brief DEPRECATED
+        */
         inline bool get_is_enqueued() { return is_enqueued; }
 
+        /**
+         * @brief DEPRECATED
+        */
+        inline int64_t get_next_event_time() { return this->next_event_time; }
+
+        /**
+         * @brief DEPRECATED
+        */
         inline bool enqueue_to_engine(int64_t time);
 
+        /**
+         * @brief DEPRECATED
+        */
         inline bool dequeue_from_engine();
 
-        inline int64_t get_time();
+    private:
+        inline bool is_running() { return running; }
 
         void add_event(TimeEvent *event);
         void cancel(TimeEvent *event);
@@ -64,52 +73,19 @@ namespace vp
         vp::Block &top;
         vp::Block *next;
 
-        // This gives the time of the next event.
-        // It is only valid when the client is not the currently active one,
-        // and is then updated either when the client is not the active one
-        // anymore or when the client is enqueued to the engine.
-        int64_t next_event_time = 0;
-
         bool running = false;
         bool is_enqueued = false;
 
         vp::TimeEvent *first_event = NULL;
         std::vector<vp::TimeEvent *> events;
         vp::TimeEngine *time_engine = NULL;
-    };
 
-    class TimeEvent
-    {
-        friend class BlockTime;
-        friend class Block;
+        // This gives the time of the next event.
+        // It is only valid when the client is not the currently active one,
+        // and is then updated either when the client is not the active one
+        // anymore or when the client is enqueued to the engine.
+        int64_t next_event_time = 0;
 
-    public:
-
-        TimeEvent(vp::Block *top);
-
-        inline void set_callback(TimeEventMeth *meth) { this->meth = meth; }
-
-        inline int get_payload_size() { return TIME_EVENT_PAYLOAD_SIZE; }
-        inline uint8_t *get_payload() { return payload; }
-
-        inline int get_nb_args() { return TIME_EVENT_NB_ARGS; }
-        inline void **get_args() { return args; }
-
-        inline bool is_enqueued() { return enqueued; }
-        inline void set_enqueued(bool enqueued) { this->enqueued = enqueued; }
-
-        int64_t get_time() { return time; }
-
-        void enqueue(int64_t time);
-
-    private:
-        uint8_t payload[TIME_EVENT_PAYLOAD_SIZE];
-        void *args[TIME_EVENT_NB_ARGS];
-        vp::Block *top;
-        TimeEventMeth *meth;
-        TimeEvent *next;
-        bool enqueued=false;
-        int64_t time;
     };
 
 };

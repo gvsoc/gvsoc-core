@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
+#include <vp/register.hpp>
 
 vp::Block::Block(Block *parent, std::string name, vp::TimeEngine *time_engine,
         vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)

@@ -27,6 +27,7 @@
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
 #include <vp/proxy_client.hpp>
+#include "vp/top.hpp"
 
 static pthread_t sigint_thread;
 
@@ -64,7 +65,7 @@ gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
 
 void gv::GvsocLauncher::open()
 {
-    this->handler = new vp::top(conf->config_path, this->is_async);
+    this->handler = new vp::Top(conf->config_path, this->is_async);
 
     this->instance = this->handler->top_instance;
     this->instance->set_launcher(this);
@@ -126,7 +127,7 @@ void gv::GvsocLauncher::close()
 
     this->instance->stop_all();
 
-    vp::top *top = (vp::top *)this->handler;
+    vp::Top *top = (vp::Top *)this->handler;
 
     delete top;
 }

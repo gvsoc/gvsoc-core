@@ -554,9 +554,9 @@ void I2s_verif::sync(int sck, int ws, int sdio, bool is_full_duplex)
                         // Delay a bit the WS so that it does not raise at the same time as the clock
                         this->ws_gen_timestamp = this->time.get_time() + this->config.ws_trigger_delay + 100;
 
-                        if (!this->time.is_enqueued || this->ws_gen_timestamp < this->time.next_event_time)
+                        if (!this->time.get_is_enqueued() || this->ws_gen_timestamp < this->time.get_next_event_time())
                         {
-                            if (this->time.is_enqueued)
+                            if (this->time.get_is_enqueued())
                             {
                                 this->time.dequeue_from_engine();
                             }
@@ -583,7 +583,7 @@ void I2s_verif::start(pi_testbench_i2s_verif_start_config_t *config)
     if (this->clk_active && this->is_ext_clk)
     {
             this->clk_gen_timestamp = this->time.get_time() + this->clk_period;
-            if (!this->time.is_enqueued || this->clk_gen_timestamp < this->time.next_event_time)
+            if (!this->time.get_is_enqueued() || this->clk_gen_timestamp < this->time.get_next_event_time())
             {
                 this->time.enqueue_to_engine(this->clk_gen_timestamp);
             }

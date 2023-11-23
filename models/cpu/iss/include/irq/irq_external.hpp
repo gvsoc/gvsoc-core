@@ -22,6 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
+#include <vp/register.hpp>
 #include <cpu/iss/include/types.hpp>
 
 class Irq

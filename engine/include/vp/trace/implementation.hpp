@@ -23,8 +23,8 @@
 #ifndef __VP_TRACE_IMPLEMENTATION_HPP__
 #define __VP_TRACE_IMPLEMENTATION_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/trace/trace_engine.hpp"
+#include "vp/clock/clock_engine.hpp"
 
 namespace vp {
 

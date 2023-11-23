@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include "vp/vp_data.hpp"
-
 
 inline void vp::PowerSource::turn_on()
 {

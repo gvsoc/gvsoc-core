@@ -22,15 +22,17 @@
 #ifndef __VP_TRACE_TRACE_HPP__
 #define __VP_TRACE_TRACE_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/trace/event_dumper.hpp"
 #include <stdarg.h>
+#include <functional>
+#include <vector>
 
 namespace vp {
 
   #define BUFFER_SIZE (1<<16)
 
   class TraceEngine;
+  class Component;
 
   class Trace
   {
@@ -70,7 +72,7 @@ namespace vp {
 
     void register_callback(std::function<void()> callback) { this->callbacks.push_back(callback); }
 
-    inline string get_name() { return this->name; }
+    inline std::string get_name() { return this->name; }
 
     void set_full_path(std::string path) { this->full_path = path; }
     std::string get_full_path() { return this->full_path; }
@@ -106,15 +108,15 @@ namespace vp {
     int level;
     Component *comp;
     bool is_event_active = false;
-    string name;
-    string path;
+    std::string name;
+    std::string path;
     uint8_t *buffer = NULL;
     uint8_t *buffer2 = NULL;
     Trace *next;
     Trace *prev;
     int64_t pending_timestamp;
-    string full_path;
-    vector<std::function<void()>> callbacks;
+    std::string full_path;
+    std::vector<std::function<void()>> callbacks;
   };
 
 

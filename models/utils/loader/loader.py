@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gsystree
+import gvsoc.systree
 
-class ElfLoader(gsystree.Component):
+class ElfLoader(gvsoc.systree.Component):
     """ELF loader
 
     This model can be used to load an ELF binary from the workstation into a simulated memory.
@@ -29,7 +29,7 @@ class ElfLoader(gsystree.Component):
 
     Attributes
     ----------
-    parent: gsystree.Component
+    parent: gvsoc.systree.Component
         The parent component where this one should be instantiated.
     name: str
         The name of the component within the parent space.
@@ -39,7 +39,7 @@ class ElfLoader(gsystree.Component):
         Address of the first instruction to be executed. If it is None, the entry will be
         taken from the binary.
     """
-    def __init__(self, parent: gsystree.Component, name: str, binary: str=None, entry: int=None):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None, entry: int=None):
 
         super().__init__(parent, name)
 
@@ -58,7 +58,7 @@ class ElfLoader(gsystree.Component):
                 'entry': entry
             })
 
-    def o_OUT(self, itf: gsystree.SlaveItf):
+    def o_OUT(self, itf: gvsoc.systree.SlaveItf):
         """Binds the output port.
 
         This ports is used by the loader to inject memory requests to transfer the binary
@@ -69,12 +69,12 @@ class ElfLoader(gsystree.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('out', itf, signature='io')
 
-    def o_START(self, itf: gsystree.SlaveItf):
+    def o_START(self, itf: gvsoc.systree.SlaveItf):
         """Binds the fetch enable port.
 
         This ports is used by the loader to tell to another component that the loading is done, so
@@ -83,12 +83,12 @@ class ElfLoader(gsystree.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('start', itf, signature='wire<bool>')
 
-    def o_ENTRY(self, itf: gsystree.SlaveItf):
+    def o_ENTRY(self, itf: gvsoc.systree.SlaveItf):
         """Binds the entry port.
 
         This ports is used by the loader to tell to another component what is the entry point of
@@ -97,7 +97,7 @@ class ElfLoader(gsystree.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('entry', itf, signature='wire<uint64_t>')

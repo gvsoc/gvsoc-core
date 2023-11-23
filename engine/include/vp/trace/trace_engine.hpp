@@ -22,7 +22,6 @@
 #ifndef __VP_TRACE_ENGINE_HPP__
 #define __VP_TRACE_ENGINE_HPP__
 
-#include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 #include "vp/trace/trace.hpp"
 #include "gv/gvsoc.hpp"

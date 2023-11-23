@@ -58,7 +58,7 @@ class GvProxy : GvsocLauncher_notifier
 };
 }
 
-extern GvProxy *proxy;
+extern gv::GvProxy *proxy;
 
 
 #endif

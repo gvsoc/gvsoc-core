@@ -22,6 +22,7 @@
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/time/block_time.hpp>
+#include <vp/time/time_event.hpp>
 
 
 vp::BlockTime::BlockTime(vp::Block *parent, vp::Block &top, vp::TimeEngine *engine) : top(top), time_engine(engine)
@@ -56,12 +57,6 @@ int64_t vp::Block::exec()
     }
 }
 
-
-vp::TimeEvent::TimeEvent(vp::Block *top)
-    : top(top)
-{
-    top->time.add_event(this);
-}
 
 void vp::BlockTime::cancel(vp::TimeEvent *event)
 {
@@ -122,8 +117,3 @@ void vp::BlockTime::enqueue(TimeEvent *event, int64_t time)
     this->enqueue_to_engine(this->get_time() + time);
 }
 
-
-void vp::TimeEvent::enqueue(int64_t time)
-{
-    this->top->time.enqueue(this, time);
-}

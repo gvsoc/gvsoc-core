@@ -24,6 +24,7 @@
 
 
 #include <vp/vp.hpp>
+#include <vp/register.hpp>
 #include <cpu/iss/include/lsu.hpp>
 #include <cpu/iss/include/decode.hpp>
 #include <cpu/iss/include/trace.hpp>

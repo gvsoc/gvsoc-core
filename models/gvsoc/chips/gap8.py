@@ -19,17 +19,17 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
-import gv.gvsoc
-import runner.chips.vega
-import os
+import gvsoc.gvsoc
+import runner.chips.gap8
+import os.path
 
 
-
-class Runner(gv.gvsoc.Runner, runner.chips.vega.Runner):
+class Runner(gv.gvsoc.Runner, runner.chips.gap8.Runner):
 
     def __init__(self, args, config, system):
         gv.gvsoc.Runner.__init__(self, args, config, system)
-        runner.chips.vega.Runner.__init__(self, args, config, system)
+        runner.chips.gap8.Runner.__init__(self, args, config, system)
+
 
     def gen_stimuli(self):
         gv.gvsoc.Runner.gen_stimuli(self)

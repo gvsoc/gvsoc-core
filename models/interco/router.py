@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gsystree
+import gvsoc.systree
 
-class Router(gsystree.Component):
+class Router(gvsoc.systree.Component):
     """Interconnect router
 
     This models a simple interconnect.
@@ -30,7 +30,7 @@ class Router(gsystree.Component):
 
     Attributes
     ----------
-    parent: gsystree.Component
+    parent: gvsoc.systree.Component
         The parent component where this one should be instantiated.
     name: str
         The name of the component within the parent space.
@@ -40,7 +40,7 @@ class Router(gsystree.Component):
         Global bandwidth, in bytes per cycle, applied to all incoming request. This impacts the
         end time of the burst.
     """
-    def __init__(self, parent: gsystree.Component, name: str, latency: int=0, bandwidth: int=0):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0):
         super(Router, self).__init__(parent, name)
 
         self.set_component('interco.router_impl')
@@ -102,7 +102,7 @@ class Router(gsystree.Component):
 
         self.get_property('mappings')[name] =  mapping
 
-    def i_INPUT(self) -> gsystree.SlaveItf:
+    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         """Returns the input port.
 
         Incoming requests to be routed can be sent to the port.\n
@@ -112,12 +112,12 @@ class Router(gsystree.Component):
 
         Returns
         ----------
-        gsystree.SlaveItf
+        gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gsystree.SlaveItf(self, 'input', signature='io')
+        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
 
-    def o_MAP(self, itf: gsystree.SlaveItf, name:str, base: int=None, size: int=None,
+    def o_MAP(self, itf: gvsoc.systree.SlaveItf, name:str, base: int=None, size: int=None,
             rm_base: bool=True, remove_offset: int=None, id: int=None, latency: int=None):
         """Binds the output to a memory region.
 
@@ -130,7 +130,7 @@ class Router(gsystree.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         name: str
             Name of the mapping. An interface of the same name will be created.

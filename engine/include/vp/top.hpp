@@ -26,11 +26,11 @@
 
 namespace vp {
 
-  class top
+  class Top
   {
   public:
-      top(std::string config_path, bool is_async);
-      ~top();
+      Top(std::string config_path, bool is_async);
+      ~Top();
 
       Component *top_instance;
       js::Config *gv_config;

@@ -27,6 +27,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/clock/block_clock.cpp"
     "src/time/block_time.cpp"
     "src/time/time_engine.cpp"
+    "src/time/time_event.cpp"
     "src/power/power_table.cpp"
     "src/power/power_engine.cpp"
     "src/power/block_power.cpp"
@@ -145,9 +146,3 @@ if(${BUILD_DEBUG_M32})
     target_compile_options(gvsoc_debug_m32 PRIVATE -m32 -D__M32_MODE__)
     target_link_options(gvsoc_debug_m32 PRIVATE "-m32")
 endif()
-
-# ==============
-# Subdirectories
-# ==============
-
-add_subdirectory(vp)

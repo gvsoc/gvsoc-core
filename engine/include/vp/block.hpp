@@ -26,6 +26,7 @@
 #include <vp/time/block_time.hpp>
 #include <vp/power/block_power.hpp>
 #include <vp/trace/block_trace.hpp>
+#include <vp/clock/clock_event.hpp>
 
 namespace gv {
     class GvProxy;

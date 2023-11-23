@@ -19,36 +19,21 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_COMPONENT_HPP__
-#define __VP_COMPONENT_HPP__
+#pragma once
 
-#include "vp/vp_data.hpp"
 #include <map>
-#include <list>
 #include <string>
-#include <vector>
-#include <functional>
-#include "vp/ports.hpp"
-#include "vp/json.hpp"
-#include "vp/clock/clock_event.hpp"
-#include "vp/itf/clk.hpp"
-#include "vp/clock/block_clock.hpp"
-#include "vp/trace/block_trace.hpp"
-#include "vp/power/power.hpp"
-#include "vp/json.hpp"
-#include <functional>
+#include <vp/json.hpp>
 #include <vp/block.hpp>
-#include <vp/register.hpp>
-#include <gv/gvsoc.hpp>
+#include <vp/itf/clk.hpp>
+#include <vp/itf/implem/wire_class.hpp>
 
 #define likely(x) __builtin_expect(x, 1)
 #define unlikely(x) __builtin_expect(x, 0)
 
-using namespace std;
-
-class GvProxy;
 
 namespace gv {
+    class GvProxy;
     class GvsocLauncher;
 };
 
@@ -60,17 +45,22 @@ namespace vp
     class Component;
     class signal;
     class TraceEngine;
-    class top;
+    class Top;
+    class reg_1;
+    class reg_8;
+    class reg_16;
+    class reg_32;
+    class reg_64;
 
     class ComponentConf
     {
     public:
-        ComponentConf(string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
+        ComponentConf(std::string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
             vp::PowerEngine *power_engine)
             : name(name), parent(parent), config(config), gv_config(gv_config),
             time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine) {}
-        string name;
+        std::string name;
         vp::Component *parent;
         js::Config *config;
         js::Config *gv_config;
@@ -91,11 +81,11 @@ namespace vp
     class Component : public Block
     {
 
-        friend class BlockClock;
+        friend class vp::BlockClock;
         friend class vp::BlockPower;
         friend class vp::PowerSource;
         friend class vp::MasterPort;
-        friend class vp::top;
+        friend class vp::Top;
         friend class vp::TimeEngine;
         friend class gv::GvsocLauncher;
 
@@ -127,7 +117,7 @@ namespace vp
          *     first argument. If it is NULL, the instance will be the component where the port
          *     is created.
          */
-        void new_master_port(std::string name, MasterPort *port, vp::Block *comp=NULL);
+        void new_master_port(std::string name, vp::MasterPort *port, vp::Block *comp=NULL);
 
         /**
          * @brief Declare a slave port
@@ -257,10 +247,10 @@ namespace vp
         vp::Component *new_component(std::string name, js::Config *config, std::string module = "");
 
         // Clock interface handler to catch clock registering and propagate to sub components
-        static void clk_reg(Component *_this, Component *clock);
+        static void clk_reg(vp::Component *_this, vp::Component *clock);
 
         // Clock interface handle to catche frequency setting to propagate to power framework
-        static void clk_set_frequency(Component *_this, int64_t frequency);
+        static void clk_set_frequency(vp::Component *_this, int64_t frequency);
 
         // Power interface handle to propagate supply change to power framework
         static void power_supply_sync(vp::Block *_this, int state);
@@ -272,10 +262,10 @@ namespace vp
         static void reset_sync(vp::Block *_this, bool active);
 
         // Name of the component
-        string name;
+        std::string name;
 
         // Parent of the component
-        Component *parent;
+        vp::Component *parent;
 
         // JSON config of the component
         js::Config *js_config;
@@ -284,7 +274,7 @@ namespace vp
         js::Config *gv_config;
 
         // Ports of the component, used for bindings
-        std::unordered_map<std::string, Port *> ports;
+        std::unordered_map<std::string, vp::Port *> ports;
 
         // Top launcher, this can sometimes be needed by components to interact with the launcher.
         gv::GvsocLauncher *launcher;
@@ -299,9 +289,7 @@ namespace vp
         vp::WireSlave<int> voltage_port;
 
         // Power port to update frequency from wire instead of uppper component
-        ClkSlave            clock_port;
+        vp::ClkSlave            clock_port;
     };
 
 };
-
-#endif

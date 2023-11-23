@@ -20,7 +20,7 @@
 #
 
 
-import gv.gvsoc
+import gvsoc.gvsoc
 import runner.chips.pulp
 import os
 

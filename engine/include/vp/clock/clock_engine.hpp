@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include "vp/vp_data.hpp"
 #include "vp/component.hpp"
 #include "vp/time/time_engine.hpp"
 #include <vp/itf/clk.hpp>

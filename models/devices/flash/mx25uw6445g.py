@@ -19,7 +19,7 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
-import gsystree as st
+import gvsoc.systree as st
 
 from devices.flash.flash import Flash
 

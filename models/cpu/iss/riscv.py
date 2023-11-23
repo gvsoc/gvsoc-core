@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
-import gsystree
-import gsystree as st
+import gvsoc.systree
+import gvsoc.systree as st
 import os.path
-import gv.gui
+import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 
@@ -224,7 +224,7 @@ class RiscvCommon(st.Component):
             tree.add_trace(self, 'insn_cont', 'pcer_insn_cont', tag='core_events')
             tree.end_group('events')
 
-    def o_FETCH(self, itf: gsystree.SlaveItf):
+    def o_FETCH(self, itf: gvsoc.systree.SlaveItf):
         """Binds the fetch port.
 
         This port is used for fetching instructions from memory.\n
@@ -233,12 +233,12 @@ class RiscvCommon(st.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('fetch', itf, signature='io')
 
-    def o_DATA(self, itf: gsystree.SlaveItf):
+    def o_DATA(self, itf: gvsoc.systree.SlaveItf):
         """Binds the data port.
 
         This port is used for issuing data accesses to the memory.\n
@@ -247,12 +247,12 @@ class RiscvCommon(st.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('data', itf, signature='io')
 
-    def o_DATA_DEBUG(self, itf: gsystree.SlaveItf):
+    def o_DATA_DEBUG(self, itf: gvsoc.systree.SlaveItf):
         """Binds the data debug port.
 
         This port is used for issuing data accesses from gdb server to the memory.\n
@@ -261,12 +261,12 @@ class RiscvCommon(st.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('data_debug', itf, signature='io')
 
-    def i_FETCHEN(self) -> gsystree.SlaveItf:
+    def i_FETCHEN(self) -> gvsoc.systree.SlaveItf:
         """Returns the fetch enable port.
 
         This can be used to control whether the core should execute instructions or not.\n
@@ -274,12 +274,12 @@ class RiscvCommon(st.Component):
 
         Returns
         ----------
-        gsystree.SlaveItf
+        gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gsystree.SlaveItf(self, itf_name='fetchen', signature='wire<bool>')
+        return gvsoc.systree.SlaveItf(self, itf_name='fetchen', signature='wire<bool>')
 
-    def i_ENTRY(self) -> gsystree.SlaveItf:
+    def i_ENTRY(self) -> gvsoc.systree.SlaveItf:
         """Returns the boot address port.
 
         This can be used to set the address of the first instruction to be executed, i.e. when the
@@ -288,10 +288,10 @@ class RiscvCommon(st.Component):
 
         Returns
         ----------
-        gsystree.SlaveItf
+        gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gsystree.SlaveItf(self, itf_name='bootaddr', signature='wire<uint64_t>')
+        return gvsoc.systree.SlaveItf(self, itf_name='bootaddr', signature='wire<uint64_t>')
 
 
     def gen_gtkw_conf(self, tree, traces):
@@ -363,7 +363,7 @@ class Riscv(RiscvCommon):
 
     Attributes
     ----------
-    parent: gsystree.Component
+    parent: gvsoc.systree.Component
         The parent component where this one should be instantiated.
     name: str
         The name of the component within the parent space.

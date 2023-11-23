@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gsystree
+import gvsoc.systree
 
-class Memory(gsystree.Component):
+class Memory(gvsoc.systree.Component):
     """Memory array
 
     This models a simple memory model.
@@ -26,7 +26,7 @@ class Memory(gsystree.Component):
 
     Attributes
     ----------
-    parent: gsystree.Component
+    parent: gvsoc.systree.Component
         The parent component where this one should be instantiated.
     name: str
         The name of the component within the parent space.
@@ -47,7 +47,7 @@ class Memory(gsystree.Component):
         True if the memory should support riscv atomics. Since this is slowing down the model, it
         should be set to True only if needed.
     """
-    def __init__(self, parent: gsystree.Component, name: str, size: int, width_log2: int=2,
+    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=2,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False):
 
@@ -69,7 +69,7 @@ class Memory(gsystree.Component):
             'align': align
         })
 
-    def i_INPUT(self) -> gsystree.SlaveItf:
+    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         """Returns the input port.
 
         Incoming requests to be handled by the memory should be sent to this port.\n
@@ -77,7 +77,7 @@ class Memory(gsystree.Component):
 
         Returns
         ----------
-        gsystree.SlaveItf
+        gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gsystree.SlaveItf(self, 'input', signature='io')
+        return gvsoc.systree.SlaveItf(self, 'input', signature='io')

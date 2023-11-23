@@ -16,7 +16,7 @@
 #
 
 
-import json_tools as js
+import gvsoc.json_tools as js
 import collections
 import os
 import json
@@ -24,7 +24,7 @@ import sys
 import shutil
 from importlib import import_module
 import gapylib.target
-import gv.gui
+import gvsoc.gui
 import hashlib
 
 

@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gsystree
+import gvsoc.systree
 
-class Clock_domain(gsystree.Component):
+class Clock_domain(gvsoc.systree.Component):
     """Clock domain
 
     This model can be used to define a clock domain.\n
@@ -28,7 +28,7 @@ class Clock_domain(gsystree.Component):
 
     Attributes
     ----------
-    parent: gsystree.Component
+    parent: gvsoc.systree.Component
         The parent component where this one should be instantiated.
     name: str
         The name of the component within the parent space.
@@ -40,7 +40,7 @@ class Clock_domain(gsystree.Component):
         and falling edges.
     """
 
-    def __init__(self, parent: gsystree.Component, name: str, frequency: int, factor: int=1):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, frequency: int, factor: int=1):
         super().__init__(parent, name)
 
         self.set_component('vp.clock_engine_module')
@@ -55,7 +55,7 @@ class Clock_domain(gsystree.Component):
         tree.add_trace(self, 'cycles', 'cycles', tag='clock')
         tree.add_trace(self, 'period', 'period', tag='overview')
 
-    def o_CLOCK(self, itf: gsystree.SlaveItf):
+    def o_CLOCK(self, itf: gvsoc.systree.SlaveItf):
         """Binds the output clock port.
 
         This port can be connected to any component which should be clocked by this
@@ -67,12 +67,12 @@ class Clock_domain(gsystree.Component):
 
         Parameters
         ----------
-        slave: gsystree.SlaveItf
+        slave: gvsoc.systree.SlaveItf
             Slave interface
         """
         self.itf_bind('out', itf, signature='clock')
 
-    def i_CTRL(self) -> gsystree.SlaveItf:
+    def i_CTRL(self) -> gvsoc.systree.SlaveItf:
         """Returns the port for controlling the clock generator.
 
         This can be used to dynamically change the frequency.\n
@@ -80,7 +80,7 @@ class Clock_domain(gsystree.Component):
 
         Returns
         ----------
-        gsystree.SlaveItf
+        gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gsystree.SlaveItf(self, 'clock_in', signature='clock_ctrl')
+        return gvsoc.systree.SlaveItf(self, 'clock_in', signature='clock_ctrl')

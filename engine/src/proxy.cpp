@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -44,6 +44,7 @@
 #include <sys/prctl.h>
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
+#include "vp/top.hpp"
 
 
 static std::vector<std::string> split(const std::string& s, char delimiter)

@@ -27,6 +27,7 @@
 namespace vp {
 
   class Component;
+  class Block;
 
   template<class T>
   class WireSlave;

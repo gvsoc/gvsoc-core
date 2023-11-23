@@ -19,11 +19,24 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#pragma once
+#include <vp/vp.hpp>
+#include <vp/signal.hpp>
+#include <vp/time/block_time.hpp>
+#include <vp/time/time_event.hpp>
 
-#include "vp/component.hpp"
-#include "vp/top.hpp"
-#include "vp/clock/clock_event.hpp"
-#include "vp/clock/clock_engine.hpp"
-#include "vp/time/time_engine.hpp"
-#include "vp/power/power.hpp"
+vp::TimeEvent::TimeEvent(vp::Block *top)
+    : top(top)
+{
+    top->time.add_event(this);
+}
+
+vp::TimeEvent::TimeEvent(vp::Block *top, vp::TimeEventMeth *meth)
+    : top(top), meth(meth)
+{
+    top->time.add_event(this);
+}
+
+void vp::TimeEvent::enqueue(int64_t time)
+{
+    this->top->time.enqueue(this, time);
+}

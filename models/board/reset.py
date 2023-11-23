@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
-import gsystree
+import gvsoc.systree
 
 
-class Reset(gsystree.Component):
+class Reset(gvsoc.systree.Component):
 
     def __init__(self, parent, name):
         super(Reset, self).__init__(parent, name)

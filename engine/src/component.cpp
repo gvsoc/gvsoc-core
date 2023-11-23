@@ -49,6 +49,7 @@
 #include <vp/launcher.hpp>
 #include <sys/stat.h>
 #include <vp/trace/trace_engine.hpp>
+#include <vp/register.hpp>
 
 
 

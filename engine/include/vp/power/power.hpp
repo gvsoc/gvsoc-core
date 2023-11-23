@@ -22,7 +22,8 @@
 #pragma once
 
 #include "vp/json.hpp"
-#include "vp/vp_data.hpp"
+#include "gv/gvsoc.hpp"
+#include <vp/trace/trace.hpp>
 
 /**
  * @brief Power framework
@@ -39,6 +40,9 @@
 
 namespace vp
 {
+
+    class ClockEvent;
+    class Block;
 
     class CompPowerReport : public gv::PowerReport
     {

@@ -21,8 +21,9 @@
 
 #include <string>
 #include <vp/vp.hpp>
+#include "vp/top.hpp"
 
-vp::top::top(std::string config_path, bool is_async)
+vp::Top::Top(std::string config_path, bool is_async)
 {
     js::Config *js_config = js::import_config_from_file(config_path);
     if (js_config == NULL)
@@ -45,7 +46,7 @@ vp::top::top(std::string config_path, bool is_async)
 }
 
 
-vp::top::~top()
+vp::Top::~Top()
 {
     delete this->power_engine;
     delete this->trace_engine;

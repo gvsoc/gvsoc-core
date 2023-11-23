@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-import gsystree as st
+import gvsoc.systree as st
 
 from devices.flash.flash import Flash
 

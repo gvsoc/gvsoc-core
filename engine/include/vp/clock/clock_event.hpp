@@ -21,8 +21,6 @@
 
 #pragma once
 
-#include "vp/vp_data.hpp"
-
 namespace vp
 {
 

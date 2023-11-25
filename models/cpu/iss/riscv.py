@@ -409,12 +409,13 @@ class Snitch(RiscvCommon):
             misa: int=0,
             binaries: list=[],
             fetch_enable: bool=False,
-            boot_addr: int=0):
+            boot_addr: int=0,
+            core_id: int=0):
 
 
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
 
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True)
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id)
 
         self.add_c_flags([
             "-DPIPELINE_STAGES=1",

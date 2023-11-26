@@ -22,6 +22,7 @@
 #ifndef __CPU_IssYPES_HPP
 #define __CPU_IssYPES_HPP
 
+
 #include <vp/vp.hpp>
 
 class Iss;

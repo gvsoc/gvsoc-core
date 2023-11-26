@@ -109,7 +109,6 @@ int systemc_launcher(const char *config_path)
     gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
     gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
     gvsoc->open();
-    gvsoc->retain();
     gvsoc->start();
     sc_gvsoc = gvsoc;
     my_module module("Gvsoc SystemC wrapper", gvsoc);

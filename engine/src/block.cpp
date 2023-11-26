@@ -108,20 +108,7 @@ void vp::Block::reset_all(bool active, bool from_itf)
             reg->reset(active);
         }
 
-
-
-
-// void vp::time_scheduler::reset(bool active)
-// {
-//     if (active)
-//     {
-//         for (time_event *event: this->events)
-//         {
-//             this->cancel(event);
-//         }
-//     }
-// }
-
+        this->time.reset(active);
 
         this->reset(active);
     }

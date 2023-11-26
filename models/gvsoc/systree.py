@@ -212,6 +212,32 @@ class Component(object):
         """
         return SlaveItf(self, 'clock', signature='clock')
 
+    def i_POWER(self) -> SlaveItf:
+        """Returns the power port.
+
+        Returns the port for controlling component power.\n
+        It instantiates a port of type vp::WireSlave<int>.\n
+
+        Returns
+        ----------
+        SlaveItf
+            The slave interface
+        """
+        return SlaveItf(self, 'power_supply', signature='wire<int>')
+
+    def i_VOLTAGE(self) -> SlaveItf:
+        """Returns the power port.
+
+        Returns the port for controlling component voltage.\n
+        It instantiates a port of type vp::WireSlave<int>.\n
+
+        Returns
+        ----------
+        SlaveItf
+            The slave interface
+        """
+        return SlaveItf(self, 'voltage', signature='wire<int>')
+
     def add_property(self, name: str, property: str, format: type=None):
         """Add a property.
 

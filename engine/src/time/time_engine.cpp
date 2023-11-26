@@ -23,8 +23,25 @@
 #include "vp/time/time_engine.hpp"
 #include <vp/time/time_event.hpp>
 
+
+namespace vp
+{
+    class Time_engine_stop_event : public vp::Block
+    {
+    public:
+        Time_engine_stop_event(Component *top);
+        int64_t step(int64_t duration);
+        vp::TimeEvent *step_nofree(int64_t duration);
+
+    private:
+        static void event_handler(vp::Block *__this, vp::TimeEvent *event);
+        static void event_handler_nofree(vp::Block *__this, vp::TimeEvent *event);
+        Component *top;
+    };
+}
+
 vp::TimeEngine::TimeEngine(js::Config *config)
-    : first_client(NULL), config(config)
+    : first_client(NULL)
 {
     pthread_mutex_init(&lock_mutex, NULL);
     pthread_mutex_init(&mutex, NULL);

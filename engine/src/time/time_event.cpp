@@ -36,6 +36,11 @@ vp::TimeEvent::TimeEvent(vp::Block *top, vp::TimeEventMeth *meth)
     top->time.add_event(this);
 }
 
+vp::TimeEvent::~TimeEvent()
+{
+    top->time.remove_event(this);
+}
+
 void vp::TimeEvent::enqueue(int64_t time)
 {
     this->top->time.enqueue(this, time);

@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_IMPLEMENTATION_HPP__
-#define __VP_IMPLEMENTATION_HPP__
+#pragma once
+
 
 #include <map>
 #include <list>
@@ -30,16 +30,83 @@
 #include "vp/vp.hpp"
 #include "vp/clock/implementation.hpp"
 
-using namespace std;
 
-namespace vp {
+inline vp::TimeEngine *vp::BlockTime::get_engine()
+{
+    return this->time_engine;
+}
 
+inline void vp::TimeEngine::lock()
+{
+    // Increase the number of lock request by one, so that the main engine loop leaves the critical loop
+    // This needs to be protected as severall thread may try to lock at the same time.
+    pthread_mutex_lock(&lock_mutex);
+    this->lock_req++;
+    this->stop_req = true;
+    pthread_cond_broadcast(&cond);
+    pthread_mutex_unlock(&lock_mutex);
 
-};
+    // Now wait until the engine has left the main loop.
+    pthread_mutex_lock(&mutex);
+}
 
+inline void vp::TimeEngine::unlock()
+{
+    pthread_mutex_lock(&lock_mutex);
+    this->lock_req--;
+    pthread_mutex_unlock(&lock_mutex);
 
-inline vp::TimeEngine *vp::BlockTime::get_engine() { return this->time_engine; }
+    pthread_cond_broadcast(&cond);
+    pthread_mutex_unlock(&mutex);
+}
 
+inline void vp::TimeEngine::critical_enter()
+{
+    pthread_mutex_lock(&mutex);
+}
 
+inline void vp::TimeEngine::critical_exit()
+{
+    pthread_mutex_unlock(&mutex);
+}
 
-#endif
+inline void vp::TimeEngine::critical_wait()
+{
+    pthread_cond_wait(&cond, &mutex);
+}
+
+inline void vp::TimeEngine::critical_notify()
+{
+    pthread_cond_broadcast(&cond);
+}
+
+inline void vp::TimeEngine::update(int64_t time)
+{
+    if (time > this->time)
+        this->time = time;
+}
+
+inline int64_t vp::TimeEngine::get_next_event_time()
+{
+    return this->first_client ? this->first_client->time.next_event_time : -1;
+}
+
+inline bool vp::BlockTime::enqueue_to_engine(int64_t time)
+{
+    return this->get_engine()->enqueue(&this->top, time);
+}
+
+inline bool vp::BlockTime::dequeue_from_engine()
+{
+    return this->get_engine()->dequeue(&this->top);
+}
+
+inline int64_t vp::BlockTime::get_time()
+{
+    return this->get_engine()->get_time();
+}
+
+inline int vp::TimeEngine::retain_count()
+{
+    return this->retain;
+}

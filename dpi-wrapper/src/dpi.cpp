@@ -88,7 +88,6 @@ extern "C" void *dpi_open(char *config_path)
   gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
   gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
   gvsoc->open();
-  gvsoc->retain();
   gvsoc->bind(new Dpi_launcher(*gvsoc));
 
 

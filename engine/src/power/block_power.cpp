@@ -183,45 +183,32 @@ void vp::BlockPower::dump_child_traces(FILE *file, double total)
 
 void vp::BlockPower::power_supply_set_all(vp::PowerSupplyState state)
 {
-    this->top.power_supply_set(state);
+    this->top.get_trace()->msg(vp::TraceLevel::DEBUG, "Setting power state (state: %d)\n", state);
 
     for (auto &x : this->top.get_childs())
     {
         x->power.power_supply_set_all(state);
     }
 
-    if (state >= 2)
+    for (auto &x : this->sources)
     {
-        // for (auto &x : this->sources)
-        // {
-        //     if (state == 3)
-        //     {
-        //         x->turn_dynamic_power_on();
-        //     }
-        //     else
-        //     {
-        //         x->turn_dynamic_power_off();
-        //     }
-        // }
-    }
-    else
-    {
-        for (auto &x : this->sources)
+        if (state == 1 || state == 2)
         {
-            if (state == 1)
-            {
-                x->turn_on();
-            }
-            else
-            {
-                x->turn_off();
-            }
+            x->turn_on();
+        }
+        else
+        {
+            x->turn_off();
         }
     }
+
+    this->top.power_supply_set(state);
 }
 
 void vp::BlockPower::voltage_set_all(int voltage)
 {
+    this->top.get_trace()->msg(vp::TraceLevel::DEBUG, "Setting voltage (voltage: %d)\n", voltage);
+
     for (PowerSource *power_source : this->sources)
     {
         power_source->set_voltage(voltage);

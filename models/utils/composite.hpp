@@ -34,8 +34,6 @@ namespace vp
     public:
         Composite(vp::ComponentConf &config);
 
-        void dump_traces(FILE *file);
-
     protected:
         vp::Trace     trace;
     };

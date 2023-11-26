@@ -49,7 +49,11 @@ void vp::PowerEngine::stop_capture()
 
     if (this->file)
     {
+        fprintf(file, "Power report start\n");
+        fprintf(file, "------------------\n");
+        fprintf(file, "\n");
         this->top->power.dump_traces_recursive(file);
+        fprintf(file, "\n\n\n");
     }
 }
 

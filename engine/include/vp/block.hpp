@@ -70,7 +70,6 @@ namespace vp {
          * @param parent Specify the parent block containing this block.
          * @param name Specify the block name.
          */
-
         Block(Block *parent, std::string name, vp::TimeEngine *time_engine=NULL,
         vp::TraceEngine *trace_engine=NULL, vp::PowerEngine *power_engine=NULL);
         ~Block();

@@ -22,7 +22,6 @@
 #include "rsp.hpp"
 #include "gdbserver.hpp"
 #include <sys/socket.h>
-#include <sys/prctl.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
@@ -31,18 +30,18 @@
 
 
 #define UNAVAILABLE10 "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000" \
-                      "00000000"
+              "00000000" \
+              "00000000" \
+              "00000000" \
+              "00000000" \
+              "00000000" \
+              "00000000" \
+              "00000000" \
+              "00000000" \
+              "00000000"
 #define UNAVAILABLE33 UNAVAILABLE10 UNAVAILABLE10 UNAVAILABLE10 "00000000" \
-                                                                "00000000" \
-                                                                "00000000"
+                                "00000000" \
+                                "00000000"
 
 
 Rsp::Rsp(Gdb_server *top) : top(top)
@@ -64,63 +63,63 @@ void Rsp::proxy_loop(int socket)
     this->codec = new RspPacketCodec();
 
     this->codec->on_ack([this]() {
-        this->top->trace.msg(vp::Trace::LEVEL_TRACE, "RSP: received ack\n");
-        // TODO - Should timeout on no ACK
+    this->top->trace.msg(vp::Trace::LEVEL_TRACE, "RSP: received ack\n");
+    // TODO - Should timeout on no ACK
     });
 
-    this->codec->on_error([this](const char *err_str) 
+    this->codec->on_error([this](const char *err_str)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "RSP: packet error: %s\n", err_str);
-        this->stop();
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "RSP: packet error: %s\n", err_str);
+    this->stop();
     });
 
     this->codec->on_packet([this](char *pkt, size_t pkt_len)
     {
-        this->codec->encode_ack(this->out_buffer);
+    this->codec->encode_ack(this->out_buffer);
 
-        if (!this->decode(pkt, pkt_len))
-        {
-            this->stop();
-        }
+    if (!this->decode(pkt, pkt_len))
+    {
+        this->stop();
+    }
     });
 
     this->codec->on_ctrlc([this]()
     {
-        this->stop_all_cores_safe();
+    this->stop_all_cores_safe();
     });
 
     this->stop_all_cores();
 
     while(1)
     {
-        char * buf;
-        size_t len;
-        in_buffer->write_block((void**)&buf, &len);
+    char * buf;
+    size_t len;
+    in_buffer->write_block((void**)&buf, &len);
 
-        int ret = ::recv(socket, buf, len, 0);
+    int ret = ::recv(socket, buf, len, 0);
 
-        if (this->proxy_loop_stop)
-        {
-            return;
-        }
+    if (this->proxy_loop_stop)
+    {
+        return;
+    }
 
-        if((ret == -1 && errno != EWOULDBLOCK) || (ret == 0))
-        {
-            this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Error receiving, leaving proxy loop\n");
-            return;
-        }
+    if((ret == -1 && errno != EWOULDBLOCK) || (ret == 0))
+    {
+        this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Error receiving, leaving proxy loop\n");
+        return;
+    }
 
-        if(ret == -1 && errno == EWOULDBLOCK)
-        {
-            // no data available
-            continue;
-        }
+    if(ret == -1 && errno == EWOULDBLOCK)
+    {
+        // no data available
+        continue;
+    }
 
-        in_buffer->commit_write(ret);
+    in_buffer->commit_write(ret);
 
-        this->top->time.get_engine()->lock();
-        this->codec->decode(in_buffer);
-        this->top->time.get_engine()->unlock();
+    this->top->time.get_engine()->lock();
+    this->codec->decode(in_buffer);
+    this->top->time.get_engine()->unlock();
     }
 }
 
@@ -143,10 +142,10 @@ void Rsp::stop_all_cores_safe()
 {
     for (auto core: this->top->get_cores())
     {
-        if (core->gdbserver_state() == vp::Gdbserver_core::state::running)
-        {
-            core->gdbserver_stop();
-        }
+    if (core->gdbserver_state() == vp::Gdbserver_core::state::running)
+    {
+        core->gdbserver_stop();
+    }
     }
 }
 
@@ -166,8 +165,8 @@ bool Rsp::send(const char *data, size_t len)
 
     if (::send(this->sock, buf, size, 0) != (int)size)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_INFO, "Unable to send data to client\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_INFO, "Unable to send data to client\n");
+    return false;
     }
 
     this->out_buffer->commit_read(size);
@@ -191,13 +190,13 @@ bool Rsp::signal_from_core(vp::Gdbserver_core *core, int signal, std::string rea
     len = snprintf(str, 128, "T%02xthread:%x;", signal, core->gdbserver_get_id()+1);
     if (reason != "")
     {
-        this->top->set_active_core(core->gdbserver_get_id());
-        this->top->set_active_core_for_other(core->gdbserver_get_id());
-        len += snprintf(str + len, 128 - len, "%s:%x;", reason.c_str(), info);
+    this->top->set_active_core(core->gdbserver_get_id());
+    this->top->set_active_core_for_other(core->gdbserver_get_id());
+    len += snprintf(str + len, 128 - len, "%s:%x;", reason.c_str(), info);
     }
     if (!this->send(str, len))
     {
-        return false;
+    return false;
     }
 
     this->stop_all_cores_safe();
@@ -223,14 +222,14 @@ bool Rsp::signal(int signal)
 
     if (signal == -1)
     {
-        if (state == vp::Gdbserver_core::state::running)
-        {
-            signal = vp::Gdbserver_engine::SIGNAL_NONE;
-        }
-        else
-        {
-            signal = vp::Gdbserver_engine::SIGNAL_STOP;
-        }
+    if (state == vp::Gdbserver_core::state::running)
+    {
+        signal = vp::Gdbserver_engine::SIGNAL_NONE;
+    }
+    else
+    {
+        signal = vp::Gdbserver_engine::SIGNAL_STOP;
+    }
     }
 
     len = snprintf(str, 128, "S%02x", signal);
@@ -246,8 +245,8 @@ bool Rsp::reg_write(char *data, size_t)
 
     if (sscanf(data, "%x=%08x", &addr, &wdata) != 2)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
+    return false;
     }
 
     wdata = ntohl(wdata);
@@ -255,11 +254,11 @@ bool Rsp::reg_write(char *data, size_t)
 
     if (core->gdbserver_reg_set(addr, (uint8_t *)&wdata))
     {
-        return send_str("E01");
+    return send_str("E01");
     }
     else
     {
-        return send_str("OK");
+    return send_str("OK");
     }
 }
 
@@ -272,21 +271,21 @@ bool Rsp::reg_read(char *data, size_t)
 
     if (sscanf(data, "%x", &addr) != 1)
     {
-        fprintf(stderr, "Could not parse packet\n");
-        return false;
+    fprintf(stderr, "Could not parse packet\n");
+    return false;
     }
 
     auto core = this->top->get_active_core_for_other();
 
     if (core->gdbserver_reg_get(addr, (uint8_t *)&rdata))
     {
-        return send_str("E01");
+    return send_str("E01");
     }
     else
     {
-        rdata = htonl(rdata);
-        snprintf(data_str, 9, "%08x", rdata);
-        return send_str(data_str);
+    rdata = htonl(rdata);
+    snprintf(data_str, 9, "%08x", rdata);
+    return send_str(data_str);
     }
 }
 
@@ -298,20 +297,20 @@ bool Rsp::mem_write(char *data, size_t len)
 
     if (sscanf(data, "%x,%x:", &addr, &length) != 2)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_INFO, "Could not parse packet\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_INFO, "Could not parse packet\n");
+    return false;
     }
 
     for (i = 0; i < len; i++)
     {
-        if (data[i] == ':')
-        {
-            break;
-        }
+    if (data[i] == ':')
+    {
+        break;
+    }
     }
 
     if (i == len)
-        return false;
+    return false;
 
     // align to hex data
     data = &data[i + 1];
@@ -319,7 +318,7 @@ bool Rsp::mem_write(char *data, size_t len)
 
     if (this->top->io_access(addr, len,(uint8_t *)data, true))
     {
-        return send_str("E03");
+    return send_str("E03");
     }
 
     return send_str("OK");
@@ -338,20 +337,20 @@ bool Rsp::mem_write_ascii(char *data, size_t len)
 
     if (sscanf(data, "%x,%d:", &addr, &length) != 2)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
+    return false;
     }
 
     for (i = 0; i < len; i++)
     {
-        if (data[i] == ':')
-        {
-            break;
-        }
+    if (data[i] == ':')
+    {
+        break;
+    }
     }
 
     if (i == len)
-        return false;
+    return false;
 
     // align to hex data
     data = &data[i + 1];
@@ -361,33 +360,33 @@ bool Rsp::mem_write_ascii(char *data, size_t len)
     buffer = (char *)malloc(buffer_len);
     if (buffer == NULL)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Failed to allocate buffer\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Failed to allocate buffer\n");
+    return false;
     }
 
     for (j = 0; j < len / 2; j++)
     {
-        wdata = 0;
-        for (i = 0; i < 2; i++)
-        {
-            char c = data[j * 2 + i];
-            uint32_t hex = 0;
-            if (c >= '0' && c <= '9')
-                hex = c - '0';
-            else if (c >= 'a' && c <= 'f')
-                hex = c - 'a' + 10;
-            else if (c >= 'A' && c <= 'F')
-                hex = c - 'A' + 10;
+    wdata = 0;
+    for (i = 0; i < 2; i++)
+    {
+        char c = data[j * 2 + i];
+        uint32_t hex = 0;
+        if (c >= '0' && c <= '9')
+        hex = c - '0';
+        else if (c >= 'a' && c <= 'f')
+        hex = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F')
+        hex = c - 'A' + 10;
 
-            wdata |= hex << (4 * i);
-        }
+        wdata |= hex << (4 * i);
+    }
 
-        buffer[j] = wdata;
+    buffer[j] = wdata;
     }
 
     if (this->top->io_access(addr, buffer_len, (uint8_t *)buffer, true))
     {
-        return send_str("E03");
+    return send_str("E03");
     }
 
     free(buffer);
@@ -400,39 +399,39 @@ bool Rsp::multithread(char *data, size_t len)
     int thread_id;
 
     if (len < 1)
-        return false;
+    return false;
 
     switch (data[0])
     {
     case 'c':
     case 'g':
-        if (sscanf(&data[1], "%x", &thread_id) != 1)
-            return false;
+    if (sscanf(&data[1], "%x", &thread_id) != 1)
+        return false;
 
-        if (thread_id == -1) // affects all threads
-            return send_str("OK");
-
-        if (thread_id != 0)
-            thread_id = thread_id - 1;
-        else
-            thread_id = this->top->default_hartid;
-
-        if (data[0] == 'c')
-        {
-            if (this->top->set_active_core(thread_id))
-            {
-                return send_str("E01");
-            }
-        }
-        else
-        {
-            if (this->top->set_active_core_for_other(thread_id))
-            {
-                return send_str("E01");
-            }
-        }
-
+    if (thread_id == -1) // affects all threads
         return send_str("OK");
+
+    if (thread_id != 0)
+        thread_id = thread_id - 1;
+    else
+        thread_id = this->top->default_hartid;
+
+    if (data[0] == 'c')
+    {
+        if (this->top->set_active_core(thread_id))
+        {
+        return send_str("E01");
+        }
+    }
+    else
+    {
+        if (this->top->set_active_core_for_other(thread_id))
+        {
+        return send_str("E01");
+        }
+    }
+
+    return send_str("OK");
     }
 
     return false;
@@ -447,77 +446,77 @@ bool Rsp::query(char* data, size_t len)
 
     if (strncmp ("qSupported", data, strlen("qSupported")) == 0)
     {
-        snprintf(reply, REPLY_BUF_LEN, "PacketSize=%x;vContSupported+;hwbreak+;QNonStop-", RSP_PACKET_MAX_SIZE);
-        return send_str(reply);
+    snprintf(reply, REPLY_BUF_LEN, "PacketSize=%x;vContSupported+;hwbreak+;QNonStop-", RSP_PACKET_MAX_SIZE);
+    return send_str(reply);
     }
     else if (strncmp ("qTStatus", data, strlen ("qTStatus")) == 0)
     {
-        // not supported, send empty packet
-        return send_str("");
+    // not supported, send empty packet
+    return send_str("");
     }
     else if (strncmp ("qfThreadInfo", data, strlen ("qfThreadInfo")) == 0)
     {
-        reply[0] = 'm';
-        ret = 1;
-        for (auto &core : this->top->get_cores())
-        {
-            ret += snprintf(&reply[ret], REPLY_BUF_LEN - ret, "%x,", core->gdbserver_get_id() + 1);
-        }
+    reply[0] = 'm';
+    ret = 1;
+    for (auto &core : this->top->get_cores())
+    {
+        ret += snprintf(&reply[ret], REPLY_BUF_LEN - ret, "%x,", core->gdbserver_get_id() + 1);
+    }
 
-        return send(reply, ret-1);
+    return send(reply, ret-1);
     }
     else if (strncmp ("qsThreadInfo", data, strlen ("qsThreadInfo")) == 0)
     {
-        return send_str("l");
+    return send_str("l");
     }
     else if (strncmp ("qAttached", data, strlen ("qAttached")) == 0)
     {
-        return send_str("1");
+    return send_str("1");
     }
     else if (strncmp ("qC", data, strlen ("qC")) == 0)
     {
-        return send_str("");
-        snprintf(reply, 64, "QC %d", this->top->get_core()->gdbserver_get_id() + 1);
-        return send_str(reply);
+    return send_str("");
+    snprintf(reply, 64, "QC %d", this->top->get_core()->gdbserver_get_id() + 1);
+    return send_str(reply);
     }
     else if (strncmp ("qOffsets", data, strlen ("qOffsets")) == 0)
     {
-        return send_str("Text=0;Data=0;Bss=0");
+    return send_str("Text=0;Data=0;Bss=0");
     }
     else if (strncmp ("qSymbol", data, strlen ("qSymbol")) == 0)
     {
-        return send_str("OK");
+    return send_str("OK");
     }
     else if (strncmp ("qThreadExtraInfo", data, strlen ("qThreadExtraInfo")) == 0)
     {
-        const char* str_default = "Unknown Core";
-        char str[REPLY_BUF_LEN];
-        unsigned int thread_id;
-        if (sscanf(data, "qThreadExtraInfo,%x", &thread_id) != 1)
-        {
-            this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Could not parse qThreadExtraInfo packet\n");
-            return send_str("E01");
-        }
-        auto core = this->top->get_core(thread_id - 1);
+    const char* str_default = "Unknown Core";
+    char str[REPLY_BUF_LEN];
+    unsigned int thread_id;
+    if (sscanf(data, "qThreadExtraInfo,%x", &thread_id) != 1)
+    {
+        this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Could not parse qThreadExtraInfo packet\n");
+        return send_str("E01");
+    }
+    auto core = this->top->get_core(thread_id - 1);
 
-        if (core != NULL)
-        {
-            std::string name = core->gdbserver_get_name();
-            strcpy(str, name.c_str());
-        }
-        else
-            strcpy(str, str_default);
+    if (core != NULL)
+    {
+        std::string name = core->gdbserver_get_name();
+        strcpy(str, name.c_str());
+    }
+    else
+        strcpy(str, str_default);
 
-        ret = 0;
-        for(size_t i = 0; i < strlen(str); i++)
-            ret += snprintf(&reply[ret], REPLY_BUF_LEN - ret, "%02X", str[i]);
+    ret = 0;
+    for(size_t i = 0; i < strlen(str); i++)
+        ret += snprintf(&reply[ret], REPLY_BUF_LEN - ret, "%02X", str[i]);
 
-        return send(reply, ret);
+    return send(reply, ret);
     }
     else if (strncmp ("qT", data, strlen ("qT")) == 0)
     {
-        // not supported, send empty packet
-        return send_str("");
+    // not supported, send empty packet
+    return send_str("");
     }
 
     this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unknown query packet\n");
@@ -530,51 +529,51 @@ bool Rsp::v_packet(char* data, size_t len)
 {
     if (strncmp ("vCont?", data, std::min(strlen ("vCont?"), len)) == 0)
     {
-        return send_str("vCont;c;s;C;S");
+    return send_str("vCont;c;s;C;S");
     }
     else if (strncmp ("vCont", data, std::min(strlen ("vCont"), len)) == 0)
     {
-        // vCont can contains several commands, handle them in sequence
-        char *str = strtok(&data[6], ";");
-        bool thread_is_started=false;
-        int stepped_tid = -1;
-        while(str != NULL)
+    // vCont can contains several commands, handle them in sequence
+    char *str = strtok(&data[6], ";");
+    bool thread_is_started=false;
+    int stepped_tid = -1;
+    while(str != NULL)
+    {
+        // Extract command and thread ID
+        int tid = -1;
+        char *delim = strchr(str, ':');
+        if (delim != NULL)
         {
-            // Extract command and thread ID
-            int tid = -1;
-            char *delim = strchr(str, ':');
-            if (delim != NULL)
-            {
-                tid = atoi(delim+1);
-                if (tid != 0)
-                {
-                    this->top->set_active_core(tid - 1);
-                }
-                *delim = 0;
-            }
-
-            if (str[0] == 'C' || str[0] == 'c')
-            {
-                for (auto core: this->top->get_cores())
-                {
-                    core->gdbserver_cont();
-                }
-            }
-            else if (str[0] == 'S' || str[0] == 's')
-            {
-                this->top->get_core()->gdbserver_stepi();
-            }
-            else
-            {
-                this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unsupported command in vCont packet: %s\n", str);
-            }
-
-            str = strtok(NULL, ";");
+        tid = atoi(delim+1);
+        if (tid != 0)
+        {
+            this->top->set_active_core(tid - 1);
+        }
+        *delim = 0;
         }
 
-        bool result = this->send_str("OK");
+        if (str[0] == 'C' || str[0] == 'c')
+        {
+        for (auto core: this->top->get_cores())
+        {
+            core->gdbserver_cont();
+        }
+        }
+        else if (str[0] == 'S' || str[0] == 's')
+        {
+        this->top->get_core()->gdbserver_stepi();
+        }
+        else
+        {
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unsupported command in vCont packet: %s\n", str);
+        }
 
-        return result;
+        str = strtok(NULL, ";");
+    }
+
+    bool result = this->send_str("OK");
+
+    return result;
     }
 
     return this->send_str("");
@@ -589,37 +588,37 @@ bool Rsp::regs_send()
 
     if (reg_size == 4)
     {
-        uint32_t regs[nb_regs];
-        char regs_str[nb_regs*4];
+    uint32_t regs[nb_regs];
+    char regs_str[nb_regs*4];
 
-        core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
+    core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
 
-        for (int i=0; i<nb_regs; i++)
-        {
-            snprintf(&regs_str[i * 8], 9, "%08x", (unsigned int)htonl(regs[i]));
+    for (int i=0; i<nb_regs; i++)
+    {
+        snprintf(&regs_str[i * 8], 9, "%08x", (unsigned int)htonl(regs[i]));
 
-        }
+    }
 
-        return this->send_str(regs_str);
+    return this->send_str(regs_str);
     }
     if (reg_size == 8)
     {
-        uint64_t regs[nb_regs];
-        char regs_str[nb_regs*8];
+    uint64_t regs[nb_regs];
+    char regs_str[nb_regs*8];
 
-        core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
+    core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
 
-        for (int i=0; i<nb_regs; i++)
-        {
-            snprintf(&regs_str[i * 16], 17, "%08x%08X", (unsigned int)htonl(regs[i] & 0xFFFFFFFF), (unsigned int)htonl(regs[i] >> 32));
+    for (int i=0; i<nb_regs; i++)
+    {
+        snprintf(&regs_str[i * 16], 17, "%08x%08X", (unsigned int)htonl(regs[i] & 0xFFFFFFFF), (unsigned int)htonl(regs[i] >> 32));
 
-        }
+    }
 
-        return this->send_str(regs_str);
+    return this->send_str(regs_str);
     }
     else if (nb_regs > 0)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unsupported register size (size: %d)\n", reg_size);
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unsupported register size (size: %d)\n", reg_size);
     }
 
     return this->send_str(UNAVAILABLE33);
@@ -632,68 +631,68 @@ bool Rsp::decode(char* data, size_t len)
 
     switch (data[0])
     {
-        case 'q':
-            return this->query(data, len);
+    case 'q':
+        return this->query(data, len);
 
-        case 'v':
-            return this->v_packet(data, len);
+    case 'v':
+        return this->v_packet(data, len);
 
-        case 'H':
-            return this->multithread(&data[1], len-1);
+    case 'H':
+        return this->multithread(&data[1], len-1);
 
-        case '?':
-            return this->signal();
+    case '?':
+        return this->signal();
 
-        case 'g':
-            return this->regs_send();
+    case 'g':
+        return this->regs_send();
 
-        case 'X':
-            return this->mem_write(&data[1], len-1);
+    case 'X':
+        return this->mem_write(&data[1], len-1);
 
-        case 'p':
-            return this->reg_read(&data[1], len-1);
+    case 'p':
+        return this->reg_read(&data[1], len-1);
 
-        case 'P':
-            return this->reg_write(&data[1], len-1);
+    case 'P':
+        return this->reg_write(&data[1], len-1);
 
-        case 'c':
-        case 'C': {
-            auto core = this->top->get_core();
-            int ret = core->gdbserver_cont();
-            return ret;
-        }
+    case 'c':
+    case 'C': {
+        auto core = this->top->get_core();
+        int ret = core->gdbserver_cont();
+        return ret;
+    }
 
-        case 'm':
-            return this->mem_read(&data[1], len-1);
+    case 'm':
+        return this->mem_read(&data[1], len-1);
 
-        case 'z':
-            return this->bp_remove(&data[0], len);
+    case 'z':
+        return this->bp_remove(&data[0], len);
 
-        case 'Z':
-            return this->bp_insert(&data[0], len);
+    case 'Z':
+        return this->bp_insert(&data[0], len);
 
-        case 's':
-        case 'S':
-            this->top->get_core()->gdbserver_stepi();
-            return this->send_str("OK");
+    case 's':
+    case 'S':
+        this->top->get_core()->gdbserver_stepi();
+        return this->send_str("OK");
 
-        case 'D':
-            this->top->get_core()->gdbserver_cont();
-            this->send_str("OK");
-            return false;
+    case 'D':
+        this->top->get_core()->gdbserver_cont();
+        this->send_str("OK");
+        return false;
 
-        case 'T':
-            return send_str("OK"); // threads are always alive
+    case 'T':
+        return send_str("OK"); // threads are always alive
 
-        case '!':
-            return send_str(""); // extended mode not supported
+    case '!':
+        return send_str(""); // extended mode not supported
 
-        case 'M':
-            return mem_write_ascii(&data[1], len-1);
+    case 'M':
+        return mem_write_ascii(&data[1], len-1);
 
-        default:
-            this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unknown packet: starts with %c\n", data[0]);
-            break;
+    default:
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unknown packet: starts with %c\n", data[0]);
+        break;
     }
 
     return false;
@@ -708,27 +707,27 @@ void Rsp::proxy_listener()
 
     while(1)
     {
-        if((client = accept(this->proxy_socket_in, NULL, NULL)) == -1)
-        {
-            if(errno == EAGAIN)
-                continue;
+    if((client = accept(this->proxy_socket_in, NULL, NULL)) == -1)
+    {
+        if(errno == EAGAIN)
+        continue;
 
-            this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unable to accept connection: %s\n", strerror(errno));
-            return;
-        }
+        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Unable to accept connection: %s\n", strerror(errno));
+        return;
+    }
 
-        if (this->loop_thread)
-        {
-            this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Client already connected\n");
-        }
-        else
-        {
-            this->top->trace.msg(vp::Trace::LEVEL_INFO, "Client connected\n");
+    if (this->loop_thread)
+    {
+        this->top->trace.msg(vp::Trace::LEVEL_WARNING, "Client already connected\n");
+    }
+    else
+    {
+        this->top->trace.msg(vp::Trace::LEVEL_INFO, "Client connected\n");
 
-            this->proxy_loop_stop = false;
-            this->client_socket = client;
-            this->loop_thread = new std::thread(&Rsp::proxy_loop, this, client);
-        }
+        this->proxy_loop_stop = false;
+        this->client_socket = client;
+        this->loop_thread = new std::thread(&Rsp::proxy_loop, this, client);
+    }
     }
 
     return;
@@ -743,43 +742,43 @@ int Rsp::open_proxy(int port)
 
     while (port < first_port + 10000)
     {
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
-        addr.sin_addr.s_addr = INADDR_ANY;
-        memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = INADDR_ANY;
+    memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
 
-        this->proxy_socket_in = socket(PF_INET, SOCK_STREAM, 0);
-        if(this->proxy_socket_in < 0)
-        {
-            port++;
-            continue;
-        }
+    this->proxy_socket_in = socket(PF_INET, SOCK_STREAM, 0);
+    if(this->proxy_socket_in < 0)
+    {
+        port++;
+        continue;
+    }
 
-        if(setsockopt(this->proxy_socket_in, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
-        {
-            port++;
-            continue;
-        }
+    if(setsockopt(this->proxy_socket_in, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+    {
+        port++;
+        continue;
+    }
 
-        if(bind(this->proxy_socket_in, (struct sockaddr *)&addr, sizeof(addr)) == -1)
-        {
-            port++;
-            continue;
-        }
+    if(bind(this->proxy_socket_in, (struct sockaddr *)&addr, sizeof(addr)) == -1)
+    {
+        port++;
+        continue;
+    }
 
-        if(listen(this->proxy_socket_in, 1) == -1)
-        {
-            port++;
-            continue;
-        }
+    if(listen(this->proxy_socket_in, 1) == -1)
+    {
+        port++;
+        continue;
+    }
 
-        break;
+    break;
     };
 
     if (port == first_port + 10000)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Didn't manage to open socket\n");
-        return -1;
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Didn't manage to open socket\n");
+    return -1;
     }
 
     this->port = port;
@@ -793,7 +792,7 @@ void Rsp::start(int port)
 {
     if (this->open_proxy(port))
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "FAILED to open proxy\n");
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "FAILED to open proxy\n");
     }
 }
 
@@ -807,32 +806,32 @@ bool Rsp::mem_read(char *data, size_t)
 
     if (sscanf(data, "%x,%x", &addr, &length) != 2)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not parse packet\n");
+    return false;
     }
 
     if (length >= 512)
     {
-        return send_str("E01");
+    return send_str("E01");
     }
 
     if (1) //m_top->target->check_mem_access(addr, length))
     {
-        if (this->top->io_access(addr, length, (uint8_t *)buffer, false))
-        {
-            return send_str("E03");
-        }
+    if (this->top->io_access(addr, length, (uint8_t *)buffer, false))
+    {
+        return send_str("E03");
+    }
 
-        for (i = 0; i < length; i++)
-        {
-            snprintf(&reply[i * 2], 3, "%02x", (uint32_t)buffer[i]);
-        }
+    for (i = 0; i < length; i++)
+    {
+        snprintf(&reply[i * 2], 3, "%02x", (uint32_t)buffer[i]);
+    }
     }
     else
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Filtered memory read attempt - area is inaccessible\n");
-        memset(reply, (int)'0', length * 2);
-        reply[length * 2] = '\0';
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Filtered memory read attempt - area is inaccessible\n");
+    memset(reply, (int)'0', length * 2);
+    reply[length * 2] = '\0';
     }
 
     return send(reply, length * 2);
@@ -846,23 +845,23 @@ bool Rsp::bp_insert(char *data, size_t len)
     int bp_len;
 
     if (len < 1)
-        return false;
+    return false;
 
     if (3 != sscanf(data, "Z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not get three arguments\n");
-        return send_str("E01");
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not get three arguments\n");
+    return send_str("E01");
     }
 
     if (type == 0 || type == 1)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
-        this->top->breakpoint_insert(addr);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Inserting breakpoint (addr: 0x%x)\n", addr);
+    this->top->breakpoint_insert(addr);
     }
     else if ( type == 2 || type == 3)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Inserting watchpoint (addr: 0x%x)\n", addr);
-        this->top->watchpoint_insert(type == 2, addr, bp_len);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Inserting watchpoint (addr: 0x%x)\n", addr);
+    this->top->watchpoint_insert(type == 2, addr, bp_len);
     }
 
     return send_str("OK");
@@ -878,19 +877,19 @@ bool Rsp::bp_remove(char *data, size_t len)
 
     if (3 != sscanf(data, "z%1d,%x,%1d", (int *)&type, &addr, &bp_len))
     {
-        this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not get three arguments\n");
-        return false;
+    this->top->trace.msg(vp::Trace::LEVEL_ERROR, "Could not get three arguments\n");
+    return false;
     }
 
     if (type == 0 || type == 1)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
-        this->top->breakpoint_remove(addr);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Removing breakpoint (addr: 0x%x)\n", addr);
+    this->top->breakpoint_remove(addr);
     }
     else if ( type == 2 || type == 3)
     {
-        this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Removing watchpoint (addr: 0x%x)\n", addr);
-        this->top->watchpoint_remove(type == 2, addr, bp_len);
+    this->top->trace.msg(vp::Trace::LEVEL_DEBUG, "Removing watchpoint (addr: 0x%x)\n", addr);
+    this->top->watchpoint_remove(type == 2, addr, bp_len);
     }
 
     return send_str("OK");

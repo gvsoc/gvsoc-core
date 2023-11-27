@@ -78,31 +78,31 @@ if(DEFINED GVSOC_TARGETS)
     string(REPLACE " "  ";" GVSOC_TARGETS_LIST "${GVSOC_TARGETS}")
     foreach(target ${GVSOC_TARGETS_LIST})
 
-        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${target}.config)
+    set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${target}.config)
 
-        message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
+    message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
 
-        # Gapy is used to extract the list of components out of the specified target
-        set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
-            --platform=gvsoc
-            --builddir=${CMAKE_CURRENT_BINARY_DIR}
-            --installdir=${CMAKE_INSTALL_PREFIX}/models
-            --component-file=${TARGET_CONFIG} components
-            --py-stack
-        )
+    # Gapy is used to extract the list of components out of the specified target
+    set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
+        --platform=gvsoc
+        --builddir=${CMAKE_CURRENT_BINARY_DIR}
+        --installdir=${CMAKE_INSTALL_PREFIX}/models
+        --component-file=${TARGET_CONFIG} components
+        --py-stack
+    )
 
-        string(REPLACE ";"  " " GAPY_CMD_STR "    ${GAPY_CMD}")
-        message(STATUS ${GAPY_CMD_STR})
+    string(REPLACE ";"  " " GAPY_CMD_STR "    ${GAPY_CMD}")
+    message(STATUS ${GAPY_CMD_STR})
 
-        # We generate first the list of components for the specified target
-        execute_process (
-            COMMAND ${GAPY_CMD} RESULT_VARIABLE ret
-        )
-        if(ret EQUAL "1")
-            message( FATAL_ERROR "Caught error while generating gvsoc config")
-        endif()
+    # We generate first the list of components for the specified target
+    execute_process (
+        COMMAND ${GAPY_CMD} RESULT_VARIABLE ret
+    )
+    if(ret EQUAL "1")
+        message( FATAL_ERROR "Caught error while generating gvsoc config")
+    endif()
 
-        import_kconfig(CONFIG_ ${TARGET_CONFIG})
+    import_kconfig(CONFIG_ ${TARGET_CONFIG})
 
     endforeach()
 
@@ -148,7 +148,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 
-add_subdirectory(dpi-wrapper)
+if (NOT APPLE)
+    # SCHEREMO: DPI is not supported on anything but Linux anyway / no EDA tools on Apple
+    add_subdirectory(dpi-wrapper)
+endif()
 add_subdirectory(engine)
 add_subdirectory(models)
 
@@ -157,13 +160,13 @@ set(is_first true)
 foreach(subdir ${GVSOC_MODULES})
 
     if (NOT ${is_first})
-        if(IS_DIRECTORY ${subdir})
-            get_filename_component(name ${subdir} NAME)
-            message(STATUS ${subdir})
-            if(EXISTS ${subdir}/CMakeLists.txt)
-                add_subdirectory(${subdir} ${CMAKE_CURRENT_BINARY_DIR}/${name}/models)
-            endif()
+    if(IS_DIRECTORY ${subdir})
+        get_filename_component(name ${subdir} NAME)
+        message(STATUS ${subdir})
+        if(EXISTS ${subdir}/CMakeLists.txt)
+        add_subdirectory(${subdir} ${CMAKE_CURRENT_BINARY_DIR}/${name}/models)
         endif()
+    endif()
     endif()
 
     set(is_first false)
@@ -174,10 +177,10 @@ if(NOT CONFIG_COMPONENTS STREQUAL "")
     string(REPLACE " " ";" CONFIG_COMPONENTS ${CONFIG_COMPONENTS})
 
     foreach(component ${CONFIG_COMPONENTS})
-        string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
-        vp_model(NAME ${component} 
-            SOURCES "${SRCS_LIST}"
-        )
+    string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
+    vp_model(NAME ${component}
+        SOURCES "${SRCS_LIST}"
+    )
     endforeach()
 
 endif()

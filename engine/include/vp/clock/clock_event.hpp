@@ -239,12 +239,12 @@ namespace vp
          */
         inline int64_t stall_cycle_get();
 
-
-    private:
         // Get the number of cycles at which this event should execute. Used by the clock engine
         // to schedule this event
         inline int64_t get_cycle();
 
+
+    private:
         // Set the clock domain of this event. This is done by the framework when the clock
         // is registered in the block owning this event
         inline void set_clock(ClockEngine *clock);

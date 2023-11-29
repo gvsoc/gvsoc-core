@@ -201,10 +201,13 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (set_pipe_latency && darg->u.reg.latency > PIPELINE_STAGES)
                 {
                     next->latency += darg->u.reg.latency - PIPELINE_STAGES + 1;
-                    next->stall_handler = insn->handler;
-                    next->stall_fast_handler = insn->fast_handler;
-                    next->handler = this->iss.exec.insn_stalled_callback_get();
-                    next->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
+                    if (next->stall_handler == NULL)
+                    {
+                        next->stall_handler = insn->handler;
+                        next->stall_fast_handler = insn->fast_handler;
+                        next->handler = this->iss.exec.insn_stalled_callback_get();
+                        next->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
+                    }
                 }
             }
 

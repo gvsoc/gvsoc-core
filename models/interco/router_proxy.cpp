@@ -22,6 +22,7 @@
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <gv/gvsoc.hpp>
+#include <vp/launcher.hpp>
 
 
 class Router_proxy : public vp::Component, public gv::Io_binding
@@ -170,7 +171,10 @@ void Router_proxy::reply(gv::Io_request *io_req)
 
 void Router_proxy::access(gv::Io_request *io_req)
 {
-    this->time.get_engine()->lock();
+    if (this->get_launcher()->get_is_async())
+    {
+        this->time.get_engine()->lock();
+    }
     vp::IoReq *req = new vp::IoReq();
     req->init();
     req->set_addr(io_req->addr);
@@ -184,7 +188,10 @@ void Router_proxy::access(gv::Io_request *io_req)
     {
         this->response(this, req);
     }
-    this->time.get_engine()->unlock();
+    if (this->get_launcher()->get_is_async())
+    {
+        this->time.get_engine()->unlock();
+    }
 }
 
 

@@ -84,6 +84,8 @@ class GvsocLauncher : public gv::Gvsoc
 
         vp::Top *top_get() { return this->handler; }
 
+        bool get_is_async() { return this->is_async; }
+
     private:
         void engine_routine();
         static void *signal_routine(void *__this);

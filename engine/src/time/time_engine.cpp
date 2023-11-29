@@ -44,11 +44,7 @@ vp::TimeEngine::TimeEngine(js::Config *config)
     : first_client(NULL)
 {
     pthread_mutex_init(&lock_mutex, NULL);
-
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(&mutex, &attr);
+    pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
 }
 

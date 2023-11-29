@@ -71,8 +71,7 @@ PdmToPcm::PdmToPcm(int32_t cic_r, int32_t cic_n, int32_t cic_m, int32_t cic_shif
 
 
 
-
-PcmToPdm::PcmToPdm(uint8_t interpolation_ratio_shift, uint8_t interpolation_type)
+PcmToPdm::PcmToPdm(uint8_t interpolation_ratio_shift, uint8_t interp_type)
 {
     int8_t iir_interpolator_shift_in[NB_STAGES] = {0, 0, 0, 0};
     int8_t iir_interpolator_shift_out[NB_STAGES] = {0, 0, 0, 0};
@@ -89,7 +88,7 @@ PcmToPdm::PcmToPdm(uint8_t interpolation_ratio_shift, uint8_t interpolation_type
     int8_t iir_interpolator_shift_left_AR[NB_STAGES] = {1 - 31, 1 - 31, 1 - 31, 1 - 31};
 
     /* default: out belong to (-1,1) couple*/
-    if (interpolation_type == LINEAR)
+    if (interp_type == LINEAR)
     {
         interpolation_type = LINEAR; /* interpolation type ie. linear or interpolation filter*/
     }
@@ -128,7 +127,6 @@ PcmToPdm::PcmToPdm(uint8_t interpolation_ratio_shift, uint8_t interpolation_type
     file_debug_pdm_produced = fopen("file_debug_pdm_produced", "wb");
 #endif
 }
-
 
 #ifdef DEBUG_CONVERSION
 

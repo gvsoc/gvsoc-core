@@ -70,6 +70,7 @@ vp::IoReqStatus testandset::req(vp::Block *__this, vp::IoReq *req)
     {
         _this->trace.msg("Sending test-and-set IO req (offset: 0x%llx, size: 0x%llx)\n", offset & ~(1<<20), size);
         uint64_t ts_data = -1;
+        _this->ts_req.init();
         _this->ts_req.set_addr(offset);
         _this->ts_req.set_size(size);
         _this->ts_req.set_is_write(true);

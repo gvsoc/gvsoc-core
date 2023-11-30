@@ -86,7 +86,6 @@ public:
 
     void start();
     void reset(bool active);
-    virtual void target_open();
 
     Iss iss;
 

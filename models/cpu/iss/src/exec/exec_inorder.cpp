@@ -58,7 +58,7 @@ void Exec::build()
 
     this->iss.top.new_reg("bootaddr", &this->bootaddr_reg, this->iss.top.get_js_config()->get_child_int("boot_addr"));
 
-    this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, this->iss.top.get_js_config()->get("fetch_enable")->get_bool());
+    this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, 0, true);
     this->iss.top.new_reg("stalled", &this->stalled, 0);
     this->iss.top.new_reg("wfi", &this->wfi, false);
 
@@ -90,9 +90,12 @@ void Exec::reset(bool active)
         this->has_exception = false;
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
-        this->instr_event->disable();
         this->insn_table_index = 0;
         this->irq_locked = false;
+
+        // Always increase the stall when reset is asserted since stall count is set to 0
+        // and we need to prevent the core from fetching instructions
+        this->stalled_inc();
     }
     else
     {
@@ -101,16 +104,9 @@ void Exec::reset(bool active)
         this->hwloop_end_insn[0] = 0;
         this->hwloop_end_insn[1] = 0;
 
-        if (this->stalled.get() == 0)
-        {
-            this->instr_event->enable();
-        }
-
-        // In case, the core is not fetch-enabled, stall to prevent it from being active
-        if (fetch_enable_reg.get() == false)
-        {
-            this->stalled_inc();
-        }
+        // Check if the core should start fetching, if so this will unstall it and it will start
+        // executing instructions.
+        this->fetchen_sync((vp::Block *)this, this->iss.top.get_js_config()->get("fetch_enable")->get_bool());
     }
 }
 
@@ -319,9 +315,11 @@ void Exec::clock_sync(vp::Block *__this, bool active)
 void Exec::fetchen_sync(vp::Block *__this, bool active)
 {
     Exec *_this = (Exec *)__this;
-    _this->trace.msg("Setting fetch enable (active: %d)\n", active);
+
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting fetch enable (active: %d)\n", active);
     int old_val = _this->fetch_enable_reg.get();
     _this->fetch_enable_reg.set(active);
+
     if (!old_val && active)
     {
         _this->stalled_dec();

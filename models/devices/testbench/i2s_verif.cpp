@@ -1084,17 +1084,20 @@ void Slot::start_frame()
             int sign_extend = (this->config_rx.format >> 2) & 1;
             int dummy_cycles = this->i2s->config.word_size - this->config_rx.word_size;
 
-            if (this->start_config_rx.rx_iter.incr_end - this->rx_current_value <= this->start_config_rx.rx_iter.incr_value)
+            if (this->start_config_rx.type == PI_TESTBENCH_I2S_VERIF_RX_ITER)
             {
-                this->rx_current_value = this->start_config_rx.rx_iter.incr_start;
-            }
-            else
-            {
-                this->rx_current_value += this->start_config_rx.rx_iter.incr_value;
-            }
-            if (this->start_config_rx.rx_iter.nb_samples > 0)
-            {
-                this->start_config_rx.rx_iter.nb_samples--;
+                if (this->start_config_rx.rx_iter.incr_end - this->rx_current_value <= this->start_config_rx.rx_iter.incr_value)
+                {
+                    this->rx_current_value = this->start_config_rx.rx_iter.incr_start;
+                }
+                else
+                {
+                    this->rx_current_value += this->start_config_rx.rx_iter.incr_value;
+                }
+                if (this->start_config_rx.rx_iter.nb_samples > 0)
+                {
+                    this->start_config_rx.rx_iter.nb_samples--;
+                }
             }
 
             bool changed = false;

@@ -41,9 +41,6 @@ public:
     iss_reg_t sret_handle();
     int mode_get() { return this->mode; }
     void mode_set(int mode);
-
-    bool reset_get() { return this->reset_value; }
-
     iss_reg_t load_reserve_addr_get() { return this->load_reserve_addr; }
     void load_reserve_addr_set(iss_reg_t addr) { this->load_reserve_addr = addr; }
     void load_reserve_addr_clear() { this->load_reserve_addr = -1; }
@@ -58,7 +55,7 @@ private:
     int mode;
     iss_reg_t mstatus_write_mask;
     iss_reg_t sstatus_write_mask;
-    bool reset_value;
     iss_reg_t load_reserve_addr;
+    bool reset_stall = false;
 };
 

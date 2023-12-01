@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_TIME_ENGINE_HPP__
-#define __VP_TIME_ENGINE_HPP__
+#pragma once
 
-#include "vp/component.hpp"
 #include "vp/json.hpp"
-#include "gv/gvsoc.hpp"
 
 namespace vp
 {
@@ -45,20 +42,46 @@ namespace vp
     public:
         TimeEngine(js::Config *config);
 
+        /**
+         * @brief Get current time
+         *
+         * THis returns the absolute time of the platform.
+         *
+         * @return The current time
+         */
         int64_t get_time() { return time; }
 
+        /**
+         * @brief Lock the engine
+         *
+         * This will block the current thread until the time engine has stopped, so that
+         * the current thread can interact with the models.
+         */
         inline void lock();
 
+        /**
+         * @brief Unlock the engine
+         *
+         * This will unblock the time engine which can then resume event execution.
+         */
         inline void unlock();
 
+        /**
+         * @brief Quit simulation
+         *
+         * Make the time engine quit the simulation with the specified exit status.
+         *
+         * @param the exit status
+         */
         void quit(int status);
 
+        /**
+         * @brief Pause simulation
+         *
+         * This makes the time engine pause the simulation. It will not execute events until
+         * someone runs the simulation again.
+         */
         void pause();
-
-
-
-
-
 
 
         /**
@@ -80,11 +103,6 @@ namespace vp
         int64_t run();
         int64_t run_until(int64_t end_time);
 
-        inline void critical_enter();
-        inline void critical_exit();
-        inline void critical_wait();
-        inline void critical_notify();
-
         void init(Component *top);
 
         void flush();
@@ -103,120 +121,73 @@ namespace vp
         bool finished_get() { return this->finished; }
 
         gv::Gvsoc_user *launcher_get() { return this->launcher; }
-        void retain_inc(int inc);
-        int retain_count() { return this->retain; }
 
         int64_t exec();
         void flush_all();
 
+        inline void critical_enter();
+        inline void critical_exit();
+        inline void critical_wait();
+        inline void critical_notify();
 
+        // Increase the retain count, which can be used to prevent the engine from
+        // advancing time
+        void retain_inc(int inc);
+
+        // Get retain count
+        inline int retain_count();
+
+        // List of clients having time events to execute.
+        // They are sorted out according to the timestamp of their first event,
+        // from lowest to highest
         vp::Block *first_client = NULL;
 
-
+        // Mutex used to update the count of pending lock requests
         pthread_mutex_t lock_mutex;
+
+        // Mutex used to lock the engine. It is taken by the engine when it is executing events and
+        // released when it is stopped.
+        // Other threads can then try to lock it to wait until the engine is released.
         pthread_mutex_t mutex;
+
+        // Condition used to wait for some event to happen, like waiting that there is no
+        // lock request
         pthread_cond_t cond;
 
+        // Current time of the engine. This gives the absolute time of the platform
         int64_t time = 0;
+
+        // Top component of the system
+        Component *top;
+
+        // True to make the engine goes out of his main fast loop. This is a way to make it go to
+        // his slow loop so that it checks if there is a lock or a pause request
+        bool stop_req = false;
+
+        // Set to true when the engine should pause the simulation. A stop request should also be
+        // posted to make the engine goes out of the fast loop.
+        bool pause_req = false;
+
+        // True if someone has requested to lock the engine. Locking the engine means that
+        // an external thread wants to interact with the models.
+        // A stop request must also be posted.
+        int lock_req = 0;
+
+        // True if the engine should quit. A stop request must also be posted.
+        bool finished = false;
+
+        // This gives teh exit status when engine has finished
         int stop_status = -1;
 
-        Component *top;
-        js::Config *config;
-        bool finished = false;
-        int lock_req = 0;
-        bool stop_req = false;
-        bool pause_req = false;
+        // Pointer to the top launcher
         gv::Gvsoc_user *launcher = NULL;
+
+        // The stop event is used in step mode to register a time event which will pause
+        // simulation at a specific timestamp corresponding to the step
         Time_engine_stop_event *stop_event;
+
+        // In synchronous mode, since several threads can control the time, there is a retain
+        // mechanism which makes sure time is progressing only if all threads ask for it.
         int retain = 0;
     };
-
-}; // namespace vp
-
-
-
-namespace vp
-{
-
-    class Time_engine_stop_event : public vp::Block
-    {
-    public:
-        Time_engine_stop_event(Component *top);
-        int64_t step(int64_t duration);
-        vp::TimeEvent *step_nofree(int64_t duration);
-
-    private:
-        static void event_handler(vp::Block *__this, vp::TimeEvent *event);
-        static void event_handler_nofree(vp::Block *__this, vp::TimeEvent *event);
-        Component *top;
-    };
-}
-
-inline void vp::TimeEngine::lock()
-{
-    // Increase the number of lock request by one, so that the main engine loop leaves the critical loop
-    // This needs to be protected as severall thread may try to lock at the same time.
-    pthread_mutex_lock(&lock_mutex);
-    this->lock_req++;
-    this->stop_req = true;
-    pthread_cond_broadcast(&cond);
-    pthread_mutex_unlock(&lock_mutex);
-
-    // Now wait until the engine has left the main loop.
-    pthread_mutex_lock(&mutex);
-}
-
-inline void vp::TimeEngine::unlock()
-{
-    pthread_mutex_lock(&lock_mutex);
-    this->lock_req--;
-    pthread_mutex_unlock(&lock_mutex);
-
-    pthread_cond_broadcast(&cond);
-    pthread_mutex_unlock(&mutex);
-}
-
-inline void vp::TimeEngine::critical_enter()
-{
-    pthread_mutex_lock(&mutex);
-}
-
-inline void vp::TimeEngine::critical_exit()
-{
-    pthread_mutex_unlock(&mutex);
-}
-
-inline void vp::TimeEngine::critical_wait()
-{
-    pthread_cond_wait(&cond, &mutex);
-}
-
-inline void vp::TimeEngine::critical_notify()
-{
-    pthread_cond_broadcast(&cond);
-}
-
-inline void vp::TimeEngine::update(int64_t time)
-{
-    if (time > this->time)
-        this->time = time;
-}
-
-inline int64_t vp::TimeEngine::get_next_event_time()
-{
-    return this->first_client ? this->first_client->time.next_event_time : -1;
-}
-
-inline bool vp::BlockTime::enqueue_to_engine(int64_t time)
-{
-    return this->get_engine()->enqueue(&this->top, time);
-}
-
-inline bool vp::BlockTime::dequeue_from_engine()
-{
-    return this->get_engine()->dequeue(&this->top);
-}
-
-inline int64_t vp::BlockTime::get_time() { return this->get_engine()->get_time(); }
-
-#endif
+};

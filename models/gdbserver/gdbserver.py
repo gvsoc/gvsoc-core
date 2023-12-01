@@ -18,7 +18,7 @@ import gvsoc.systree as st
 
 class Gdbserver(st.Component):
 
-    def __init__(self, parent, name, enabled=False, port=12345, default_hartid=0):
+    def __init__(self, parent, name, enabled=False, port=12345, default_hartid=""):
 
         super(Gdbserver, self).__init__(parent, name)
 

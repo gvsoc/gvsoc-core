@@ -78,7 +78,7 @@ void vp::Block::reset_all(bool active, bool from_itf)
 {
     if (!this->reset_is_bound || from_itf)
     {
-        this->get_trace()->msg("Reset\n");
+        this->get_trace()->msg("Reset (active: %d)\n", active);
 
         for (Block *block: this->childs)
         {
@@ -108,20 +108,7 @@ void vp::Block::reset_all(bool active, bool from_itf)
             reg->reset(active);
         }
 
-
-
-
-// void vp::time_scheduler::reset(bool active)
-// {
-//     if (active)
-//     {
-//         for (time_event *event: this->events)
-//         {
-//             this->cancel(event);
-//         }
-//     }
-// }
-
+        this->time.reset(active);
 
         this->reset(active);
     }

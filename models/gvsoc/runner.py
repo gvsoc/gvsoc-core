@@ -338,7 +338,7 @@ class Runner():
                     # To allow it, the ISS should itself read the symbols.
                     if os.path.getsize(binaries[index]) < 5 * 1024*1024:
                         if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
-                            raise RuntimeError('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+                            print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
     def run(self, norun=False):

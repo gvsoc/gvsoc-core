@@ -34,6 +34,20 @@ namespace vp
 
     typedef void(ClockEventMeth)(vp::Block *, ClockEvent *event);
 
+    /**
+     * @brief Clock events
+     *
+     * Clocks events can be used to schedule functions execution at specific clock cycles in
+     * order to model timing.
+     * Each event can schedule one function execution at the same time.
+     * There are 2 ways of using events:
+     * - Enqueue them everytime they need to be executed. This is the most flexible way to use
+     * them but also the slowest. This should be used for models where functions mostly execute
+     * from time to time.
+     * - Enable and disable them so that they execute by default at each cycle. This is the
+     * fastest way to execute events. They can also have some stall cycles to prevent them
+     * from executing at each cycle.
+     */
     class ClockEvent
     {
 
@@ -45,16 +59,6 @@ namespace vp
         /**
          * @brief Construct a new event
          *
-         * Clocks events can be used to schedule functions execution at specific clock cycles in
-         * order to model timing.
-         * Each event can schedule one function execution at the same time.
-         * There are 2 ways of using events:
-         * - Enqueue them everytime they need to be executed. This is the most flexible way to use
-         * them but also the slowest. This should be used for models where functions mostly execute
-         * from time to time.
-         * - Enable and disable them so that they execute by default at each cycle. This is the
-         * fastest way to execute events. They can also have some stall cycles to prevent them
-         * from executing at each cycle.
          * Events must be created associated to a block, from which they will get the clock engine,
          * which is the one where events will be posted.
          *
@@ -68,16 +72,6 @@ namespace vp
         /**
          * @brief Construct a new event
          *
-         * Clocks events can be used to schedule functions execution at specific clock cycles in
-         * order to model timing.
-         * Each event can schedule one function execution at the same time.
-         * There are 2 ways of using events:
-         * - Enqueue them everytime they need to be executed. This is the most flexible way to use
-         * them but also the slowest. This should be used for models where functions mostly execute
-         * from time to time.
-         * - Enable and disable them so that they execute by default at each cycle. This is the
-         * fastest way to execute events. They can also have some stall cycles to prevent them
-         * from executing at each cycle.
          * Events must be created associated to a block, from which they will get the clock engine,
          * which is the one where events will be posted.
          *
@@ -177,18 +171,6 @@ namespace vp
         inline void cancel();
 
         /**
-         * @brief Get the number of cycles.
-         *
-         * Get the number of cycles at which this event should execute
-         *
-         * @note This method must be used only in the mode where the event is enqueued everytime
-         * it must execute.
-         *
-         * @return The number of cycles
-         */
-        inline int64_t get_cycle();
-
-        /**
          * @brief Tell if the event is enqueued
          *
          * This can be called to know is the event is currently enqueued in the clock engine
@@ -256,6 +238,10 @@ namespace vp
          * @return The number of stall cycles
          */
         inline int64_t stall_cycle_get();
+
+        // Get the number of cycles at which this event should execute. Used by the clock engine
+        // to schedule this event
+        inline int64_t get_cycle();
 
 
     private:

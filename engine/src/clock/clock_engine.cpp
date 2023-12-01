@@ -98,8 +98,8 @@ void vp::ClockEngine::disable(vp::ClockEvent *event)
 {
     if (event->enqueued)
     {
-        // Since the event is enqueued in a list which may be being traveled, we cannot directly remove it.
-        // Mark it as removed and the engine will take care of removing it.
+        // Since the event is enqueued in a list which may be being browsed, we cannot directly
+        // remove it. Mark it as removed and the engine will take care of removing it.
         event->stall_cycle = -1;
         event->enqueued = false;
     }
@@ -254,6 +254,8 @@ void vp::ClockEngine::cancel(vp::ClockEvent *event)
         current = current->next;
     }
 
+    event->disable();
+
     // TODO some models are pushing events to a different one that that they belong to
     // vp_assert(0, NULL, "Didn't find event in any queue while canceling event\n");
 
@@ -290,6 +292,8 @@ int64_t vp::ClockEngine::exec()
             {
                 if (current->stall_cycle == -1)
                 {
+                    // Case where the event has been disabled. The disable was just flagged so
+                    // that we can propertly remove it from here.
                     current->stall_cycle = 0;
 
                     current->prev->next = current->next;

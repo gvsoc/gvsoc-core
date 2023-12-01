@@ -28,8 +28,6 @@ Core::Core(Iss &iss)
 
 void Core::build()
 {
-    this->reset_value = false;
-
     this->iss.top.traces.new_trace("core", &this->trace, vp::DEBUG);
 
     // Initialize the mstatus write mask so that WPRI fields are preserved
@@ -72,26 +70,20 @@ void Core::reset(bool active)
 {
     this->mode_set(PRIV_M);
 
-    // Remember the current reset value so that other aspects willing to stall the core
-    // can flag it if the core is under reset
-    this->reset_value = active;
-
     // Everytime the core is reset, the stall counter is automatically set to 0, so
     // we need to set it again to stall the core until the reset is deasserted
     if (active)
     {
+        this->reset_stall = true;
         this->iss.exec.stalled_inc();
     }
     else
     {
-        // In case gdb got connected while we were under reset, we need to stall the core
-        // before releasing the reset
-        if (this->iss.exec.halted.get())
+        if (this->reset_stall)
         {
-            this->iss.exec.stalled_inc();
+            this->reset_stall = false;
+            this->iss.exec.stalled_dec();
         }
-
-        this->iss.exec.stalled_dec();
     }
 }
 

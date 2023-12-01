@@ -34,7 +34,8 @@ Gdb_server::Gdb_server(vp::ComponentConf &conf)
         this->rsp = new Rsp(this);
     }
 
-    this->active_core = config->get_child_int("default_hartid");
+    this->default_hartid = 0;
+    this->active_core = 0;
 
     if (this->get_js_config()->get_child_bool("enabled"))
     {
@@ -54,6 +55,13 @@ int Gdb_server::register_core(vp::Gdbserver_core *core)
 
     this->cores[id] = core;
     this->cores_list.push_back(core);
+
+    js::Config *config = this->get_js_config();
+    if (core->gdbserver_get_name() == config->get_child_str("default_hartid"))
+    {
+        this->default_hartid = core->gdbserver_get_id();
+        this->active_core = core->gdbserver_get_id();
+    }
 
     return 0;
 }
@@ -163,6 +171,19 @@ void Gdb_server::watchpoint_remove(bool is_write, uint64_t addr, int size)
     {
         x.second->gdbserver_watchpoint_remove(is_write, addr, size);
     }
+}
+
+vp::Gdbserver_core *Gdb_server::get_core_from_name(std::string name)
+{
+    for (vp::Gdbserver_core *core: this->get_cores())
+    {
+        if (core->gdbserver_get_name() == name)
+        {
+            return core;
+        }
+    }
+
+    return NULL;
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &conf)

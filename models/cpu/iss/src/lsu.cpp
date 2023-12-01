@@ -144,12 +144,24 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     else if (err == vp::IO_REQ_INVALID)
     {
 #ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-        vp_warning_always(&this->iss.trace,
-                          "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
-                          this->iss.exec.current_insn, addr, size, is_write);
-#endif
+        if (this->iss.gdbserver.gdbserver)
+        {
+            this->trace.msg(vp::Trace::LEVEL_WARNING,"Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
+                            this->iss.exec.current_insn, addr, size, is_write);
+            this->iss.exec.stalled_inc();
+            this->iss.exec.halted.set(true);
+            this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver, vp::Gdbserver_engine::SIGNAL_BUS);
+        }
+        else
+        {
+            vp_warning_always(&this->trace,
+                            "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
+                            this->iss.exec.current_insn, addr, size, is_write);
+        }
+#else
         int trap = is_write ? ISS_EXCEPT_STORE_FAULT : ISS_EXCEPT_LOAD_FAULT;
         this->iss.exception.raise(this->iss.exec.current_insn, trap);
+#endif
         return err;
     }
 

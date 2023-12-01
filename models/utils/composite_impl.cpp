@@ -31,12 +31,6 @@ vp::Composite::Composite(vp::ComponentConf &config)
 }
 
 
-void vp::Composite::dump_traces(FILE *file)
-{
-    this->power.get_power_trace()->dump(file);
-}
-
-
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new vp::Composite(config);

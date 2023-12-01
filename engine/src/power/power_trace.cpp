@@ -63,6 +63,11 @@ int vp::PowerTrace::init(Block *top, std::string name, vp::PowerTrace *parent)
 }
 
 
+void vp::BlockPower::dump_traces(FILE *file)
+{
+    this->get_power_trace()->dump(file);
+}
+
 
 void vp::PowerTrace::trace_handler(vp::Block *__this, vp::ClockEvent *event)
 {

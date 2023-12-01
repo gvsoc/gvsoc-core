@@ -379,10 +379,13 @@ class Riscv(RiscvCommon):
         Boot address, i.e. address where the core will start executing instructions.
     timed: bool
         True if the core should model timing.
+    core_id : int, optional
+        The core ID of the core simulated by the ISS (default: 0).
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True):
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
+            core_id: int=0):
 
         # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
@@ -391,7 +394,7 @@ class Riscv(RiscvCommon):
         super().__init__(parent, name, isa=isa_instance, misa=0,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True, timed=timed, prefetcher_size=64)
+            supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id)
 
         self.add_c_flags([
             "-DPIPELINE_STAGES=2",

@@ -93,6 +93,12 @@ void vp::BlockTime::add_event(TimeEvent *event)
     this->events.push_back(event);
 }
 
+void vp::BlockTime::remove_event(TimeEvent *event)
+{
+    this->events.erase(std::remove(this->events.begin(), this->events.end(), event),
+        this->events.end());
+}
+
 
 void vp::BlockTime::enqueue(TimeEvent *event, int64_t time)
 {
@@ -117,3 +123,14 @@ void vp::BlockTime::enqueue(TimeEvent *event, int64_t time)
     this->enqueue_to_engine(this->get_time() + time);
 }
 
+
+void vp::BlockTime::reset(bool active)
+{
+    if (active)
+    {
+        for (vp::TimeEvent *event: this->events)
+        {
+            this->cancel(event);
+        }
+    }
+}

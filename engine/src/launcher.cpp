@@ -103,6 +103,10 @@ void gv::GvsocLauncher::open()
 
         this->engine_thread = new std::thread(&gv::GvsocLauncher::engine_routine, this);
     }
+    else
+    {
+        this->retain();
+    }
 }
 
 void gv::GvsocLauncher::bind(gv::Gvsoc_user *user)

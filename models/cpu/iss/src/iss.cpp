@@ -85,12 +85,4 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
 #endif
 
     traces.new_trace("wrapper", &this->trace, vp::DEBUG);
-
-    this->target_open();
-
-}
-
-void IssWrapper::target_open()
-{
-
 }

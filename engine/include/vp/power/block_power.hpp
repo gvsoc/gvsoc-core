@@ -121,7 +121,7 @@ namespace vp
 
         gv::PowerReport *get_report() { return &this->report; }
 
-        virtual void dump_traces(FILE *file) {}
+        virtual void dump_traces(FILE *file);
 
         void dump_traces_recursive(FILE *file);
 

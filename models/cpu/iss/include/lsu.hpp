@@ -41,16 +41,16 @@ public:
     static void data_grant(vp::Block *__this, vp::IoReq *req);
     static void data_response(vp::Block *__this, vp::IoReq *req);
 
-    inline void store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+    inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
-    inline void load(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+    inline bool load(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
-    inline void load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+    inline bool load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
     inline bool load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
-    inline void load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
-    inline void store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+    inline bool load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+    inline bool store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
     void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::IoReqOpcode opcode);
 

@@ -452,6 +452,7 @@ std::string router::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *rep
         }
 
         vp::IoReq *req = &this->proxy_req;
+        req->init();
         req->set_data((uint8_t *)buffer);
         req->set_is_write(is_write);
         req->set_size(size);

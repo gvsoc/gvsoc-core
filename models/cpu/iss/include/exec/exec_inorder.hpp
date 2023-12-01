@@ -135,7 +135,6 @@ public:
 
     bool irq_locked;
 
-
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);
     static void clock_sync(vp::Block *_this, bool active);

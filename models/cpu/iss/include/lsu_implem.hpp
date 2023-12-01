@@ -23,12 +23,12 @@
 
 #include "cpu/iss/include/iss_core.hpp"
 
-inline void Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
     {
-        return;
+        return false;
     }
 
     this->iss.regfile.set_reg(reg, 0);
@@ -46,7 +46,18 @@ inline void Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
             this->stall_callback = &Lsu::load_resume;
             this->stall_reg = reg;
         }
+        else
+        {
+            // Return true so that pc is not updated and gdb can see the faulting instruction.
+            // This also prevent the core from continuing to the next instruction.
+            if (this->iss.gdbserver.gdbserver)
+            {
+                return true;
+            }
+        }
     }
+
+    return false;
 }
 
 inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
@@ -64,12 +75,12 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
 }
 
-inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
     {
-        return;
+        return false;
     }
 
     int err;
@@ -85,15 +96,26 @@ inline void Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
             this->stall_reg = reg;
             this->stall_size = size;
         }
+        else
+        {
+            // Return true so that pc is not updated and gdb can see the faulting instruction.
+            // This also prevent the core from continuing to the next instruction.
+            if (this->iss.gdbserver.gdbserver)
+            {
+                return true;
+            }
+        }
     }
+
+    return false;
 }
 
-inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
     {
-        return;
+        return false;
     }
 
     int err;
@@ -109,7 +131,18 @@ inline void Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
             this->stall_callback = &Lsu::store_resume;
             this->stall_reg = reg;
         }
+        else
+        {
+            // Return true so that pc is not updated and gdb can see the faulting instruction.
+            // This also prevent the core from continuing to the next instruction.
+            if (this->iss.gdbserver.gdbserver)
+            {
+                return true;
+            }
+        }
     }
+
+    return false;
 }
 
 inline bool Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
@@ -119,8 +152,7 @@ inline bool Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         return true;
     }
     this->iss.timing.event_load_account(1);
-    this->load(insn, addr, size, reg);
-    return false;
+    return this->load(insn, addr, size, reg);
 }
 
 inline void Lsu::elw_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
@@ -136,8 +168,7 @@ inline bool Lsu::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, i
         return true;
     }
     this->iss.timing.event_load_account(1);
-    this->load_signed(insn, addr, size, reg);
-    return false;
+    return this->load_signed(insn, addr, size, reg);
 }
 
 inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
@@ -147,8 +178,7 @@ inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg
         return true;
     }
     this->iss.timing.event_store_account(1);
-    this->store(insn, addr, size, reg);
-    return false;
+    return this->store(insn, addr, size, reg);
 }
 
 inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
@@ -166,12 +196,12 @@ inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
     }
 }
 
-inline void Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
     {
-        return;
+        return false;
     }
 
     int err;
@@ -187,15 +217,26 @@ inline void Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
             this->stall_reg = reg;
             this->stall_size = size;
         }
+        else
+        {
+            // Return true so that pc is not updated and gdb can see the faulting instruction.
+            // This also prevent the core from continuing to the next instruction.
+            if (this->iss.gdbserver.gdbserver)
+            {
+                return true;
+            }
+        }
     }
+
+    return false;
 }
 
-inline void Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
     {
-        return;
+        return false;
     }
 
     int err;
@@ -211,5 +252,16 @@ inline void Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
             this->stall_callback = &Lsu::store_resume;
             this->stall_reg = reg;
         }
+        else
+        {
+            // Return true so that pc is not updated and gdb can see the faulting instruction.
+            // This also prevent the core from continuing to the next instruction.
+            if (this->iss.gdbserver.gdbserver)
+            {
+                return true;
+            }
+        }
     }
+
+    return false;
 }

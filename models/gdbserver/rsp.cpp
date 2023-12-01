@@ -213,7 +213,7 @@ bool Rsp::send_exit(int status)
     return send(str, len);
 }
 
-bool Rsp::signal(int signal)
+bool Rsp::signal(int signal, bool from_active)
 {
     char str[128];
     int len;
@@ -231,6 +231,11 @@ bool Rsp::signal(int signal)
         {
             signal = vp::Gdbserver_engine::SIGNAL_STOP;
         }
+    }
+
+    if (from_active)
+    {
+        return this->signal_from_core(core, signal, "", 0);
     }
 
     len = snprintf(str, 128, "S%02x", signal);
@@ -642,7 +647,7 @@ bool Rsp::decode(char* data, size_t len)
             return this->multithread(&data[1], len-1);
 
         case '?':
-            return this->signal();
+            return this->signal(-1, true);
 
         case 'g':
             return this->regs_send();

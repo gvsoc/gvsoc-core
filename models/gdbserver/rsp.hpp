@@ -34,7 +34,7 @@ class Rsp {
 public:
     Rsp(Gdb_server *top);
     void start(int port);
-    bool signal(int signal=-1);
+    bool signal(int signal=-1, bool from_active=false);
     bool signal_from_core(vp::Gdbserver_core *core, int signal, std::string reason="", int info=0);
     bool send_exit(int status);
 

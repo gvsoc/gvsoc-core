@@ -134,6 +134,7 @@ inline void Exec::stalled_dec()
     if (this->stalled.get() == 0)
     {
         this->trace.warning("Trying to decrease zero stalled counter\n");
+        exit(1);
         return;
     }
 

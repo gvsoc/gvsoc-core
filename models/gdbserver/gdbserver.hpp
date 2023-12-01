@@ -45,6 +45,7 @@ public:
     int set_active_core(int id);
     int set_active_core_for_other(int id);
     vp::Gdbserver_core *get_core(int id=-1);
+    vp::Gdbserver_core *get_core_from_name(std::string name);
     vp::Gdbserver_core *get_active_core();
     vp::Gdbserver_core *get_active_core_for_other();
     std::vector<vp::Gdbserver_core *> get_cores() { return this->cores_list; }

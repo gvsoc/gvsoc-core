@@ -155,7 +155,6 @@ bool Core::mstatus_update(bool is_write, iss_reg_t &value)
 
         this->iss.timing.stall_insn_dependency_account(4);
         this->iss.irq.global_enable(this->iss.csr.mstatus.mie);
-
     }
     else
     {
@@ -174,6 +173,10 @@ bool Core::sstatus_update(bool is_write, iss_reg_t &value)
     {
         this->iss.csr.mstatus.value = (this->iss.csr.mstatus.value & ~this->sstatus_write_mask) |
             (value & this->sstatus_write_mask);
+        if (this->mode_get() == PRIV_S)
+        {
+            this->iss.irq.global_enable(this->iss.csr.mstatus.sie);
+        }
     }
     else
     {

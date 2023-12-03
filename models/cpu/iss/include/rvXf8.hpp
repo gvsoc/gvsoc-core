@@ -37,7 +37,7 @@ static inline iss_reg_t flb_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t fsb_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.store(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1));
+    iss->lsu.store<uint8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -42,15 +42,28 @@ public:
     static void data_grant(vp::Block *__this, vp::IoReq *req);
     static void data_response(vp::Block *__this, vp::IoReq *req);
 
+    template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
+    template<typename T>
     inline bool load(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
+    template<typename T>
     inline bool load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
     void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::IoReqOpcode opcode);

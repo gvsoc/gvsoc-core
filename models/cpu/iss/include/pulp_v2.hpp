@@ -36,7 +36,7 @@
 
 static inline iss_reg_t LB_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0));
+    iss->lsu.load_signed<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -44,7 +44,7 @@ static inline iss_reg_t LB_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(1));
     iss->lsu.stack_access_check(REG_IN(1), REG_GET(0) + REG_GET(1));
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -53,7 +53,7 @@ static inline iss_reg_t LB_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LH_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0));
+    iss->lsu.load_signed<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -61,7 +61,7 @@ static inline iss_reg_t LH_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(1));
     iss->lsu.stack_access_check(REG_IN(1), REG_GET(0) + REG_GET(1));
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -70,7 +70,7 @@ static inline iss_reg_t LH_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LW_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load(insn, REG_GET(0) + REG_GET(1), 4, REG_OUT(0));
+    iss->lsu.load<int32_t>(insn, REG_GET(0) + REG_GET(1), 4, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -78,7 +78,7 @@ static inline iss_reg_t LW_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(1));
     iss->lsu.stack_access_check(REG_IN(1), REG_GET(0) + REG_GET(1));
-    if (iss->lsu.load_perf(insn, REG_GET(0) + REG_GET(1), 4, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint32_t>(insn, REG_GET(0) + REG_GET(1), 4, REG_OUT(0)))
     {
         return pc;
     }
@@ -87,7 +87,7 @@ static inline iss_reg_t LW_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LBU_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0));
+    iss->lsu.load<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -95,7 +95,7 @@ static inline iss_reg_t LBU_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(1));
     iss->lsu.stack_access_check(REG_IN(1), REG_GET(0) + REG_GET(1));
-    if (iss->lsu.load_perf(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -104,7 +104,7 @@ static inline iss_reg_t LBU_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LHU_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0));
+    iss->lsu.load<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -112,7 +112,7 @@ static inline iss_reg_t LHU_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(1));
     iss->lsu.stack_access_check(REG_IN(1), REG_GET(0) + REG_GET(1));
-    if (iss->lsu.load_perf(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -121,14 +121,14 @@ static inline iss_reg_t LHU_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LB_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed(insn, REG_GET(0), 1, REG_OUT(0));
+    iss->lsu.load_signed<int8_t>(insn, REG_GET(0), 1, REG_OUT(0));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t LB_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0), 1, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -138,14 +138,14 @@ static inline iss_reg_t LB_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t LH_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed(insn, REG_GET(0), 2, REG_OUT(0));
+    iss->lsu.load_signed<int16_t>(insn, REG_GET(0), 2, REG_OUT(0));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t LH_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0), 2, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -155,14 +155,14 @@ static inline iss_reg_t LH_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t LW_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed(insn, REG_GET(0), 4, REG_OUT(0));
+    iss->lsu.load_signed<int32_t>(insn, REG_GET(0), 4, REG_OUT(0));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t LW_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0), 4, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int32_t>(insn, REG_GET(0), 4, REG_OUT(0)))
     {
         return pc;
     }
@@ -172,7 +172,7 @@ static inline iss_reg_t LW_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t LBU_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load(insn, REG_GET(0), 1, REG_OUT(0));
+    iss->lsu.load<int8_t>(insn, REG_GET(0), 1, REG_OUT(0));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -180,7 +180,7 @@ static inline iss_reg_t LBU_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_re
 static inline iss_reg_t LBU_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.load_perf(insn, REG_GET(0), 1, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -190,7 +190,7 @@ static inline iss_reg_t LBU_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
 static inline iss_reg_t LHU_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load(insn, REG_GET(0), 2, REG_OUT(0));
+    iss->lsu.load<int16_t>(insn, REG_GET(0), 2, REG_OUT(0));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -198,7 +198,7 @@ static inline iss_reg_t LHU_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_re
 static inline iss_reg_t LHU_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.load_perf(insn, REG_GET(0), 2, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -208,7 +208,7 @@ static inline iss_reg_t LHU_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
 static inline iss_reg_t SB_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0), 1, REG_IN(1));
+    iss->lsu.store<uint8_t>(insn, REG_GET(0), 1, REG_IN(1));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -216,7 +216,7 @@ static inline iss_reg_t SB_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg
 static inline iss_reg_t SB_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0), 1, REG_IN(1)))
+    if (iss->lsu.store_perf<uint8_t>(insn, REG_GET(0), 1, REG_IN(1)))
     {
         return pc;
     }
@@ -226,7 +226,7 @@ static inline iss_reg_t SB_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t SH_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0), 2, REG_IN(1));
+    iss->lsu.store<uint16_t>(insn, REG_GET(0), 2, REG_IN(1));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -234,7 +234,7 @@ static inline iss_reg_t SH_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg
 static inline iss_reg_t SH_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0), 2, REG_IN(1)))
+    if (iss->lsu.store_perf<uint16_t>(insn, REG_GET(0), 2, REG_IN(1)))
     {
         return pc;
     }
@@ -244,7 +244,7 @@ static inline iss_reg_t SH_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t SW_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0), 4, REG_IN(1));
+    iss->lsu.store<uint32_t>(insn, REG_GET(0), 4, REG_IN(1));
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -252,7 +252,7 @@ static inline iss_reg_t SW_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg
 static inline iss_reg_t SW_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0), 4, REG_IN(1)))
+    if (iss->lsu.store_perf<uint32_t>(insn, REG_GET(0), 4, REG_IN(1)))
     {
         return pc;
     }
@@ -263,7 +263,7 @@ static inline iss_reg_t SW_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t LB_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load_signed(insn, REG_GET(0), 1, REG_OUT(0));
+    iss->lsu.load_signed<int8_t>(insn, REG_GET(0), 1, REG_OUT(0));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -271,7 +271,7 @@ static inline iss_reg_t LB_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_
 static inline iss_reg_t LB_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0), 1, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -282,7 +282,7 @@ static inline iss_reg_t LB_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t LH_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load_signed(insn, REG_GET(0), 2, REG_OUT(0));
+    iss->lsu.load_signed<int16_t>(insn, REG_GET(0), 2, REG_OUT(0));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -290,7 +290,7 @@ static inline iss_reg_t LH_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_
 static inline iss_reg_t LH_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0), 2, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -301,7 +301,7 @@ static inline iss_reg_t LH_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t LW_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load_signed(insn, REG_GET(0), 4, REG_OUT(0));
+    iss->lsu.load_signed<int32_t>(insn, REG_GET(0), 4, REG_OUT(0));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -309,7 +309,7 @@ static inline iss_reg_t LW_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_
 static inline iss_reg_t LW_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0), 4, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int32_t>(insn, REG_GET(0), 4, REG_OUT(0)))
     {
         return pc;
     }
@@ -329,7 +329,7 @@ static inline iss_reg_t LBU_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.load_perf(insn, REG_GET(0), 1, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -349,7 +349,7 @@ static inline iss_reg_t LHU_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0));
-    if (iss->lsu.load_perf(insn, REG_GET(0), 2, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -360,7 +360,7 @@ static inline iss_reg_t LHU_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_
 static inline iss_reg_t SB_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
-    iss->lsu.store(insn, REG_GET(0), 1, REG_IN(1));
+    iss->lsu.store<uint8_t>(insn, REG_GET(0), 1, REG_IN(1));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -369,7 +369,7 @@ static inline iss_reg_t SB_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0), 1, REG_IN(1)))
+    if (iss->lsu.store_perf<uint8_t>(insn, REG_GET(0), 1, REG_IN(1)))
     {
         return pc;
     }
@@ -380,7 +380,7 @@ static inline iss_reg_t SB_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t SH_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
-    iss->lsu.store(insn, REG_GET(0), 2, REG_IN(1));
+    iss->lsu.store<uint16_t>(insn, REG_GET(0), 2, REG_IN(1));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -389,7 +389,7 @@ static inline iss_reg_t SH_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0), 2, REG_IN(1)))
+    if (iss->lsu.store_perf<uint16_t>(insn, REG_GET(0), 2, REG_IN(1)))
     {
         return pc;
     }
@@ -400,7 +400,7 @@ static inline iss_reg_t SH_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t SW_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
-    iss->lsu.store(insn, REG_GET(0), 4, REG_IN(1));
+    iss->lsu.store<uint32_t>(insn, REG_GET(0), 4, REG_IN(1));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -409,7 +409,7 @@ static inline iss_reg_t SW_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0), 4, REG_IN(1)))
+    if (iss->lsu.store_perf<uint32_t>(insn, REG_GET(0), 4, REG_IN(1)))
     {
         return pc;
     }
@@ -665,7 +665,7 @@ static inline iss_reg_t p_abs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t SB_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0) + REG_GET(2), 1, REG_IN(1));
+    iss->lsu.store<uint8_t>(insn, REG_GET(0) + REG_GET(2), 1, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -673,7 +673,7 @@ static inline iss_reg_t SB_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(2));
     iss->lsu.stack_access_check(REG_IN(2), REG_GET(0) + REG_GET(2));
-    if (iss->lsu.store_perf(insn, REG_GET(0) + REG_GET(2), 1, REG_IN(1)))
+    if (iss->lsu.store_perf<uint8_t>(insn, REG_GET(0) + REG_GET(2), 1, REG_IN(1)))
     {
         return pc;
     }
@@ -682,7 +682,7 @@ static inline iss_reg_t SB_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t SH_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0) + REG_GET(2), 2, REG_IN(1));
+    iss->lsu.store<uint16_t>(insn, REG_GET(0) + REG_GET(2), 2, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -690,7 +690,7 @@ static inline iss_reg_t SH_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(2));
     iss->lsu.stack_access_check(REG_IN(2), REG_GET(0) + REG_GET(2));
-    if (iss->lsu.store_perf(insn, REG_GET(0) + REG_GET(2), 2, REG_IN(1)))
+    if (iss->lsu.store_perf<uint16_t>(insn, REG_GET(0) + REG_GET(2), 2, REG_IN(1)))
     {
         return pc;
     }
@@ -699,7 +699,7 @@ static inline iss_reg_t SH_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t SW_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0) + REG_GET(2), 4, REG_IN(1));
+    iss->lsu.store<uint32_t>(insn, REG_GET(0) + REG_GET(2), 4, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -707,7 +707,7 @@ static inline iss_reg_t SW_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + REG_GET(2));
     iss->lsu.stack_access_check(REG_IN(2), REG_GET(0) + REG_GET(2));
-    if (iss->lsu.store_perf(insn, REG_GET(0) + REG_GET(2), 4, REG_IN(1)))
+    if (iss->lsu.store_perf<uint32_t>(insn, REG_GET(0) + REG_GET(2), 4, REG_IN(1)))
     {
         return pc;
     }

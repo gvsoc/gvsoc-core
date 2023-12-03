@@ -23,6 +23,7 @@
 
 #include "cpu/iss/include/iss_core.hpp"
 
+template<typename T>
 inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
@@ -32,6 +33,16 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
 
     this->iss.regfile.set_reg(reg, 0);
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+
+    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    {
+        this->iss.regfile.set_reg(reg, *(T *)&this->mem_array[phys_addr - this->memory_start]);
+
+        return false;
+    }
+#endif
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
@@ -75,6 +86,7 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
 }
 
+template<typename T>
 inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
@@ -82,6 +94,16 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         return false;
     }
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+
+    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    {
+        this->iss.regfile.set_reg(reg, iss_get_signed_value(*(T *)&this->mem_array[phys_addr - this->memory_start], size * 8));
+
+        return false;
+    }
+#endif
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
@@ -110,6 +132,7 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     return false;
 }
 
+template<typename T>
 inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
@@ -117,6 +140,16 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     {
         return false;
     }
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+
+    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    {
+        *(T *)&this->mem_array[phys_addr - this->memory_start] = this->iss.regfile.get_reg(reg);
+
+        return false;
+    }
+#endif
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true)) == 0)
@@ -145,6 +178,7 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     return false;
 }
 
+template<typename T>
 inline bool Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     if (this->iss.gdbserver.watchpoint_check(false, addr, size))
@@ -152,7 +186,7 @@ inline bool Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         return true;
     }
     this->iss.timing.event_load_account(1);
-    return this->load(insn, addr, size, reg);
+    return this->load<T>(insn, addr, size, reg);
 }
 
 inline void Lsu::elw_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
@@ -161,6 +195,7 @@ inline void Lsu::elw_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     this->elw(insn, addr, size, reg);
 }
 
+template<typename T>
 inline bool Lsu::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     if (this->iss.gdbserver.watchpoint_check(false, addr, size))
@@ -168,9 +203,10 @@ inline bool Lsu::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, i
         return true;
     }
     this->iss.timing.event_load_account(1);
-    return this->load_signed(insn, addr, size, reg);
+    return this->load_signed<T>(insn, addr, size, reg);
 }
 
+template<typename T>
 inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     if (this->iss.gdbserver.watchpoint_check(true, addr, size))
@@ -178,7 +214,7 @@ inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg
         return true;
     }
     this->iss.timing.event_store_account(1);
-    return this->store(insn, addr, size, reg);
+    return this->store<T>(insn, addr, size, reg);
 }
 
 inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
@@ -196,6 +232,7 @@ inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
     }
 }
 
+template<typename T>
 inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
@@ -203,6 +240,16 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
     {
         return false;
     }
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+
+    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    {
+        this->iss.regfile.set_freg(reg, iss_get_float_value(*(T *)&this->mem_array[phys_addr - this->memory_start], size * 8));
+
+        return false;
+    }
+#endif
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), size, false)) == 0)
@@ -231,6 +278,7 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
     return false;
 }
 
+template<typename T>
 inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
@@ -238,6 +286,16 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         return false;
     }
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+
+    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    {
+        *(T *)&this->mem_array[phys_addr - this->memory_start] = this->iss.regfile.get_freg(reg);
+
+        return false;
+    }
+#endif
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), size, true)) == 0)

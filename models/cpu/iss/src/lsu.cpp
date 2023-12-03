@@ -197,9 +197,12 @@ void Lsu::build()
 
     this->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
 
-    this->memory_start = this->iss.top.get_js_config()->get("memory_start")->get_int();
-    this->memory_end = this->memory_start +
-        this->iss.top.get_js_config()->get("memory_size")->get_int();
+    if (this->iss.top.get_js_config()->get("memory_start") != NULL)
+    {
+        this->memory_start = this->iss.top.get_js_config()->get("memory_start")->get_int();
+        this->memory_end = this->memory_start +
+            this->iss.top.get_js_config()->get("memory_size")->get_int();
+    }
 }
 
 void Lsu::start()

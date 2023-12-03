@@ -229,6 +229,7 @@ bool Mmu::handle_pte()
             {
                 this->tlb_store_tag[index] = tag;
             }
+            this->tlb_load_use_mem_array[index] = phys_base >= this->iss.lsu.memory_start && phys_base < this->iss.lsu.memory_end;
             this->tlb_ls_phys_addr[index] = phys_base - virt_base;
         }
         this->iss.trace.dump_trace_enabled = true;
@@ -313,7 +314,7 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
 }
 
 
-bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
+bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array)
 {
 
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling miss (virt_addr: 0x%lx)\n", virt_addr);
@@ -333,6 +334,7 @@ bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
     if (mode == PRIV_M || this->mode == MMU_MODE_OFF)
     {
         page_phys_addr = page_virt_addr;
+        phys_addr = virt_addr + page_phys_addr - page_virt_addr;
 
         if (this->access_type & ACCESS_INSN)
         {
@@ -343,9 +345,10 @@ bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr)
         {
             this->tlb_ls_phys_addr[index] = page_phys_addr - page_virt_addr;
             this->tlb_load_tag[index] = tag;
+            this->tlb_load_use_mem_array[index] = phys_addr >= this->iss.lsu.memory_start && phys_addr < this->iss.lsu.memory_end;
             this->tlb_store_tag[index] = tag;
+            use_mem_array = this->tlb_load_use_mem_array[index];
         }
-        phys_addr = virt_addr + page_phys_addr - page_virt_addr;
         return false;
     }
     else

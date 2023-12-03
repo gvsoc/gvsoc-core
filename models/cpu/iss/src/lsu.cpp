@@ -260,14 +260,16 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 
     if (opcode == vp::IoReqOpcode::LR)
     {
-        if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+        bool use_mem_array;
+        if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
         {
             return;
         }
     }
     else
     {
-        if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+        bool use_mem_array;
+        if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
         {
             return;
         }

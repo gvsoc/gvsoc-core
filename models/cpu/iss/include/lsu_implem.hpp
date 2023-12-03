@@ -27,22 +27,23 @@ template<typename T>
 inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    bool use_mem_array;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
 
-    this->iss.regfile.set_reg(reg, 0);
-
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
-    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    if (use_mem_array)
     {
         this->iss.regfile.set_reg(reg, *(T *)&this->mem_array[phys_addr - this->memory_start]);
 
         return false;
     }
 #endif
+
+    this->iss.regfile.set_reg(reg, 0);
 
     int err;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
@@ -90,16 +91,17 @@ template<typename T>
 inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    bool use_mem_array;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
-    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    if (use_mem_array)
     {
-        this->iss.regfile.set_reg(reg, iss_get_signed_value(*(T *)&this->mem_array[phys_addr - this->memory_start], size * 8));
+        this->iss.regfile.set_reg(reg, *(T *)&this->mem_array[phys_addr - this->memory_start]);
 
         return false;
     }
@@ -136,14 +138,15 @@ template<typename T>
 inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
-    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+    bool use_mem_array;
+    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
-    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    if (use_mem_array)
     {
         *(T *)&this->mem_array[phys_addr - this->memory_start] = this->iss.regfile.get_reg(reg);
 
@@ -236,14 +239,15 @@ template<typename T>
 inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+    bool use_mem_array;
+    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
-    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    if (use_mem_array)
     {
         this->iss.regfile.set_freg(reg, iss_get_float_value(*(T *)&this->mem_array[phys_addr - this->memory_start], size * 8));
 
@@ -282,14 +286,15 @@ template<typename T>
 inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
-    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+    bool use_mem_array;
+    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
-    if (phys_addr >= this->memory_start && phys_addr + size <= this->memory_end)
+    if (use_mem_array)
     {
         *(T *)&this->mem_array[phys_addr - this->memory_start] = this->iss.regfile.get_freg(reg);
 

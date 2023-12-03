@@ -150,23 +150,27 @@ void Exec::dbg_unit_step_check()
 
 void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
 {
-    // TODO such a loop could be used for untimed ISS variant
-    abort();
-    // Iss *const iss = (Iss *)__this;
-    // iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
-    // iss->exec.loop_count = 64;
+    Iss *const iss = (Iss *)__this;
+    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
+    iss->exec.loop_count = 64;
 
-    // iss_insn_t *insn = iss->exec.current_insn;
-    // while(1)
-    // {
-    //     bool stalled;
+    iss_reg_t pc = iss->exec.current_insn;
+    while(1)
+    {
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
+        if (insn == NULL) return;
 
-    //     // Execute the instruction and replace the current one with the new one
-    //     insn = insn->fast_handler(iss, insn);
-    //     stalled = iss->exec.stalled.get();
-    //     iss->exec.current_insn = insn;
-    //     if (stalled) break;
-    // }
+        size_t count;
+
+        // Execute the instruction and replace the current one with the new one
+        pc = insn->fast_handler(iss, insn, pc);
+        count = iss->exec.loop_count;
+        iss->exec.current_insn = pc;
+
+        if (count == 0) break;
+
+        iss->exec.loop_count = count - 1;
+    }
 }
 
 

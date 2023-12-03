@@ -75,6 +75,7 @@ inline void Exec::insn_hold(vp::ClockEventMeth *meth)
     // to change the event callback
     this->insn_on_hold = true;
     this->iss.exec.instr_event->set_callback(meth);
+    //this->loop_count = 0;
 }
 
 inline void Exec::insn_resume()
@@ -134,7 +135,7 @@ inline void Exec::stalled_inc()
 {
     if (this->stalled.get() == 0)
     {
-        this->loop_count = 0;
+        // this->loop_count = 0;
         this->instr_event->disable();
     }
     this->stalled.inc(1);
@@ -189,6 +190,7 @@ inline void Exec::switch_to_full_mode()
     if (!this->insn_on_hold)
     {
         this->instr_event->set_callback(&Exec::exec_instr_check_all);
+        // this->loop_count = 0;
     }
 }
 

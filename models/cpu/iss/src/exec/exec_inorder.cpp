@@ -91,7 +91,8 @@ void Exec::reset(bool active)
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->insn_table_index = 0;
-        this->irq_locked = false;
+        this->irq_locked = 0;
+        this->insn_on_hold = false;
 
         // Always increase the stall when reset is asserted since stall count is set to 0
         // and we need to prevent the core from fetching instructions

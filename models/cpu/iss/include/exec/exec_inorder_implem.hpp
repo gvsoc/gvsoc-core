@@ -67,10 +67,21 @@ inline void Exec::insn_stall()
     this->stalled_inc();
 }
 
-inline void Exec::insn_hold()
+inline void Exec::insn_hold(vp::ClockEventMeth *meth)
 {
     this->iss.trace.dump_trace_enabled = false;
     this->stall_insn = this->current_insn;
+    // Flag that we cannto execute instructions so that no one tries
+    // to change the event callback
+    this->insn_on_hold = true;
+    this->iss.exec.instr_event->set_callback(meth);
+}
+
+inline void Exec::insn_resume()
+{
+    // Instruction execution can go on
+    this->insn_on_hold = false;
+    this->instr_event->set_callback(&Exec::exec_instr_check_all);
 }
 
 inline void Exec::insn_terminate()
@@ -173,7 +184,12 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
 
 inline void Exec::switch_to_full_mode()
 {
-    this->instr_event->set_callback(&Exec::exec_instr_check_all);
+    // Only switch to full mode instruction if we are not currently executing instructions,
+    // do not overwrite the event callback used for another activity
+    if (!this->insn_on_hold)
+    {
+        this->instr_event->set_callback(&Exec::exec_instr_check_all);
+    }
 }
 
 

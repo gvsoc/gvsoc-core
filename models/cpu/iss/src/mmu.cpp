@@ -148,7 +148,10 @@ void Mmu::raise_exception()
     }
 
     this->iss.trace.dump_trace_enabled = true;
-    this->iss.exec.switch_to_full_mode();
+
+    this->iss.exec.irq_locked--;
+
+    this->iss.exec.insn_resume();
 }
 
 bool Mmu::handle_pte()
@@ -229,7 +232,8 @@ bool Mmu::handle_pte()
             this->tlb_ls_phys_addr[index] = phys_base - virt_base;
         }
         this->iss.trace.dump_trace_enabled = true;
-        this->iss.exec.switch_to_full_mode();
+        this->iss.exec.irq_locked--;
+        this->iss.exec.insn_resume();
         this->iss.exec.current_insn = this->stall_insn;
 
         return false;
@@ -288,6 +292,8 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Page-table walk (virt_addr: 0x%lx)\n", virt_addr);
 
+    this->iss.exec.irq_locked++;
+
     // Remember now the current instruction, in case walking the page-table is stalling the core
     // so that we can re-execute the instruction once the translatio is done.
     // This is needed for example, when a load instruction is triggering a miss.
@@ -301,8 +307,7 @@ void Mmu::walk_pgtab(iss_addr_t virt_addr)
     int vpn_index = get_field(this->current_virt_addr, this->current_vpn_bit, this->vpn_width);
     iss_addr_t pte_addr = this->pt_base + vpn_index*this->pte_size;
 
-    this->iss.exec.instr_event->set_callback(&Mmu::handle_pte_stub);
-    this->iss.exec.insn_hold();
+    this->iss.exec.insn_hold(&Mmu::handle_pte_stub);
 
     this->read_pte(pte_addr);
 }

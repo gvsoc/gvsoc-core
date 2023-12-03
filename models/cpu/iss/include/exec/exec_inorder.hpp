@@ -56,7 +56,10 @@ public:
     // Compared to insn_stall, this does not stall the ISS which can still execute a callback at
     // each cycle, so that it is usefull to spread one instruction over several cycles, to execute
     // an internal FSM.
-    inline void insn_hold();
+    inline void insn_hold(vp::ClockEventMeth *meth);
+    // Can be called to resume instruction execution
+    inline void insn_resume();
+
 
     // Terminate a previously stalled instruction, by dumping the instruction trace
     inline void insn_terminate();
@@ -133,7 +136,13 @@ public:
 
     int insn_table_index;
 
-    bool irq_locked;
+    // This tells if interrupts should not be handled, due to an on-going activity,
+    // like a page-table walk or a push/pop instruction in its atomic phase.
+    int irq_locked;
+
+    // This tells if instructions should not be executed because they are on hold, due
+    // to something else executing, like mmy page-walk or misaligned access.
+    bool insn_on_hold;
 
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);

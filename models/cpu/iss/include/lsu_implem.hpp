@@ -37,7 +37,7 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
     {
         // We don't need to do anything as the target will write directly to the register
-        // and we the zero extension is already managed by the initial 
+        // and we the zero extension is already managed by the initial
     }
     else
     {

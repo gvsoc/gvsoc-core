@@ -50,7 +50,7 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
     {
         iss->trace.dump_trace_enabled = true;
         _this->stall_callback(_this);
-        iss->exec.switch_to_full_mode();
+        iss->exec.insn_resume();
     }
     else
     {
@@ -88,8 +88,7 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
         // As the transaction is split into 2 parts, we must tell the ISS
         // that the access is pending as the instruction must be executed
         // only when the second access is finished.
-        this->iss.exec.instr_event->set_callback(&Lsu::exec_misaligned);
-        this->iss.exec.insn_hold();
+        this->iss.exec.insn_hold(&Lsu::exec_misaligned);
         return vp::IO_REQ_PENDING;
     }
     else
@@ -192,10 +191,22 @@ void Lsu::build()
     data.set_resp_meth(&Lsu::data_response);
     data.set_grant_meth(&Lsu::data_grant);
     this->iss.top.new_master_port("data", &data, (vp::Block *)this);
+    this->iss.top.new_master_port("meminfo", &this->meminfo, (vp::Block *)this);
 
     this->iss.top.new_reg("elw_stalled", &this->elw_stalled, false);
 
     this->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
+
+    this->memory_start = this->iss.top.get_js_config()->get("memory_start")->get_int();
+    this->memory_end = this->memory_start +
+        this->iss.top.get_js_config()->get("memory_size")->get_int();
+}
+
+void Lsu::start()
+{
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    this->meminfo.sync_back((void **)&this->mem_array);
+#endif
 }
 
 void Lsu::store_resume(Lsu *lsu)

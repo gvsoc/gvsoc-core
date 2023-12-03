@@ -31,6 +31,7 @@ public:
     Lsu(Iss &iss);
 
     void build();
+    void start();
     void reset(bool active);
 
     int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write);
@@ -66,6 +67,7 @@ public:
 
     // lsu
     vp::IoMaster data;
+    vp::WireMaster<void *> meminfo;
     vp::IoReq io_req;
     int misaligned_size;
     uint8_t *misaligned_data;
@@ -78,6 +80,9 @@ public:
     void (*stall_callback)(Lsu *lsu);
     int stall_reg;
     int stall_size;
+    uint8_t *mem_array;
+    iss_addr_t memory_start;
+    iss_addr_t memory_end;
 
 private:
     static void store_resume(void *_this);

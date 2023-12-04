@@ -320,7 +320,7 @@ static inline iss_reg_t LW_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t LBU_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load(insn, REG_GET(0), 1, REG_OUT(0));
+    iss->lsu.load<uint8_t>(insn, REG_GET(0), 1, REG_OUT(0));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -340,7 +340,7 @@ static inline iss_reg_t LBU_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_
 static inline iss_reg_t LHU_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load(insn, REG_GET(0), 2, REG_OUT(0));
+    iss->lsu.load<uint16_t>(insn, REG_GET(0), 2, REG_OUT(0));
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }

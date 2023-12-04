@@ -30,7 +30,7 @@
 static inline iss_reg_t flh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
+    iss->lsu.load<uint16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 

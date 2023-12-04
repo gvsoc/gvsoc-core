@@ -53,6 +53,15 @@ inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr, iss_reg_t &ind
 
 void iss_cache_vflush(Iss *iss);
 
-void insn_init(iss_insn_t *insn, iss_addr_t addr);
+inline void insn_init(iss_insn_t *insn, iss_addr_t addr)
+{
+    insn->handler = iss_decode_pc_handler;
+    insn->fast_handler = iss_decode_pc_handler;
+    insn->addr = addr;
+    insn->stall_handler = NULL;
+    insn->hwloop_handler = NULL;
+    insn->fetched = false;
+    insn->expand_table = NULL;
+}
 
 #endif

@@ -30,25 +30,25 @@ int insn_cache_init(Iss *iss);
 void iss_cache_flush(Iss *iss);
 bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn);
 
-iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr);
+iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr, iss_reg_t &index);
 
 bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
-inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr)
+inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr, iss_reg_t &index)
 {
     iss_insn_cache_t *cache = &iss->decode.insn_cache;
     iss_insn_page_t *page = cache->current_insn_page;
 
     if (likely(page != NULL))
     {
-        iss_reg_t diff = (vaddr - cache->current_insn_page_base) >> 1;
-        if (likely(diff < INSN_PAGE_SIZE))
+        index = (vaddr - cache->current_insn_page_base) >> 1;
+        if (likely(index < INSN_PAGE_SIZE))
         {
-            return &page->insns[diff & INSN_PAGE_MASK];
+            return &page->insns[index];
         }
     }
 
-    return insn_cache_get_insn_from_cache(iss, vaddr);
+    return insn_cache_get_insn_from_cache(iss, vaddr, index);
 }
 
 void iss_cache_vflush(Iss *iss);

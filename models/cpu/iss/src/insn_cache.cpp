@@ -28,11 +28,9 @@ static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
 {
     iss->prefetcher.flush();
 
-    if (cache->first_page)
+    for (auto page: cache->pages)
     {
-        cache->last_page->next = cache->first_free_page;
-        cache->first_free_page = cache->first_page;
-        cache->first_page = NULL;
+        delete page.second;
     }
 
     cache->pages.clear();
@@ -51,8 +49,6 @@ int insn_cache_init(Iss *iss)
 {
     iss_insn_cache_t *cache = &iss->decode.insn_cache;
     cache->current_insn_page = NULL;
-    cache->first_page = NULL;
-    cache->first_free_page = NULL;
     return 0;
 }
 
@@ -87,6 +83,11 @@ void iss_cache_vflush(Iss *iss)
 {
     iss_insn_cache_t *cache = &iss->decode.insn_cache;
     cache->current_insn_page = NULL;
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+    // Since the untimed loop is trying to directly get instruction from page,
+    // we need to stop it when current page is changed
+    iss->exec.loop_count = 0;
+#endif
 }
 
 
@@ -109,44 +110,23 @@ iss_insn_page_t *insn_cache_page_get(Iss *iss, iss_reg_t paddr)
         return page;
     }
 
-    if (cache->first_free_page)
-    {
-        page = cache->first_free_page;
-        cache->first_free_page = page->next;
-    }
-    else
-    {
-        page = new iss_insn_page_t;
-    }
-    
+    page = new iss_insn_page_t;
+
     cache->pages[index] = page;
 
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-    for (int i=0; i<INSN_PAGE_SIZE+1; i++)
-    {
-        insn_init(&page->insns[i], (index << INSN_PAGE_BITS) + (i << 1));
-    }
-    page->insns[INSN_PAGE_SIZE].addr = -1;
-#else
+    iss_reg_t addr = index << INSN_PAGE_BITS;
     for (int i=0; i<INSN_PAGE_SIZE; i++)
     {
-        insn_init(&page->insns[i], (index << INSN_PAGE_BITS) + (i << 1));
+        insn_init(&page->insns[i], addr);
+        addr += 2;
     }
-#endif
-
-    page->next = cache->first_page;
-    if (cache->first_page == NULL)
-    {
-        cache->last_page = page;
-    }
-    cache->first_page = page;
 
     return page;
 }
 
 
 
-iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr)
+iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr, iss_reg_t &index)
 {
     iss_reg_t paddr;
     iss_insn_cache_t *cache = &iss->decode.insn_cache;
@@ -163,5 +143,5 @@ iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr)
     cache->current_insn_page = insn_cache_page_get(iss, paddr);
     cache->current_insn_page_base = (vaddr >> INSN_PAGE_BITS) << INSN_PAGE_BITS;
 
-    return insn_cache_get_insn(iss, vaddr);
+    return insn_cache_get_insn(iss, vaddr, index);
 }

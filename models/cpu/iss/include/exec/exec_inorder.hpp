@@ -95,7 +95,9 @@ public:
     vp::ClockEvent *instr_event;
 
     static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
     static void exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event);
+#endif
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
 
     void hwloop_set_start(int index, iss_reg_t pc);

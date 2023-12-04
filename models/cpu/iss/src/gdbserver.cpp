@@ -295,7 +295,8 @@ void Gdbserver::enable_breakpoint(iss_addr_t addr)
     // the decoder will call us when the instruction is decoded to add it.
     // If the cache returns NULL, it means it is currently translating the virtual address,
     // which means it is not decoded yet.
-    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr);
+    iss_reg_t index;
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr, index);
 
     if (insn != NULL && insn_cache_is_decoded(&this->iss, insn))
     {
@@ -307,7 +308,8 @@ void Gdbserver::enable_breakpoint(iss_addr_t addr)
 
 void Gdbserver::disable_breakpoint(iss_addr_t addr)
 {
-    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr);
+    iss_reg_t index;
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr, index);
     if (insn_cache_is_decoded(&this->iss, insn))
     {
         this->breakpoint_stub_remove(insn, addr);

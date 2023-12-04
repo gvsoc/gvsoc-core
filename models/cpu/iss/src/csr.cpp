@@ -211,7 +211,7 @@ bool Csr::time_access(bool is_write, iss_reg_t &value)
     // Temporary hack, when instructions are executed in a loop without timing, the time
     // reported by the clint is not precise and this seems to disturb Linux boot.
     // Rectifying it like that is fixing this boot issue.
-    value += 64 - this->iss.exec.loop_count;
+    value += ISS_UNTIMED_LOOP_SIZE - this->iss.exec.loop_count;
 #endif
     return false;
 }

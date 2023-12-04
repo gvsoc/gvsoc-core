@@ -86,7 +86,9 @@ public:
     inline void interrupt_taken();
 
     iss_reg_t current_insn;
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
     size_t loop_count;
+#endif
     vp::reg_64 stalled;
 
     vp::Trace trace;

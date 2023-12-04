@@ -442,7 +442,12 @@ typedef struct iss_insn_page_s iss_insn_page_t;
 
 struct iss_insn_page_s
 {
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+    // The extra instruction is used to optimize the detection of the end of page
+    iss_insn_t insns[INSN_PAGE_SIZE+1];
+#else
     iss_insn_t insns[INSN_PAGE_SIZE];
+#endif
     iss_insn_page_t *next;
 };
 

@@ -75,7 +75,11 @@ inline void Exec::insn_hold(vp::ClockEventMeth *meth)
     // to change the event callback
     this->insn_on_hold = true;
     this->iss.exec.instr_event->set_callback(meth);
-    //this->loop_count = 0;
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+    // Set loop count to zero to force untimed loop to leave since there are no more
+    // instructions to execute
+    this->loop_count = 0;
+#endif
 }
 
 inline void Exec::insn_resume()
@@ -135,7 +139,11 @@ inline void Exec::stalled_inc()
 {
     if (this->stalled.get() == 0)
     {
-        // this->loop_count = 0;
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+        // Set loop count to zero to force untimed loop to leave since there are no more
+        // instructions to execute
+        this->loop_count = 0;
+#endif
         this->instr_event->disable();
     }
     this->stalled.inc(1);
@@ -190,7 +198,11 @@ inline void Exec::switch_to_full_mode()
     if (!this->insn_on_hold)
     {
         this->instr_event->set_callback(&Exec::exec_instr_check_all);
-        // this->loop_count = 0;
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+        // Set loop count to zero to force untimed loop to leave since there are no more
+        // instructions to execute
+        this->loop_count = 0;
+#endif
     }
 }
 

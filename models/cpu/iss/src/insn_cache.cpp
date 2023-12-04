@@ -61,7 +61,7 @@ bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn)
     return insn->handler != iss_decode_pc_handler;
 }
 
-void insn_init(iss_insn_t *insn, iss_addr_t addr)
+inline void insn_init(iss_insn_t *insn, iss_addr_t addr)
 {
     insn->handler = iss_decode_pc_handler;
     insn->fast_handler = iss_decode_pc_handler;
@@ -121,10 +121,18 @@ iss_insn_page_t *insn_cache_page_get(Iss *iss, iss_reg_t paddr)
     
     cache->pages[index] = page;
 
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+    for (int i=0; i<INSN_PAGE_SIZE+1; i++)
+    {
+        insn_init(&page->insns[i], (index << INSN_PAGE_BITS) + (i << 1));
+    }
+    page->insns[INSN_PAGE_SIZE].addr = -1;
+#else
     for (int i=0; i<INSN_PAGE_SIZE; i++)
     {
         insn_init(&page->insns[i], (index << INSN_PAGE_BITS) + (i << 1));
     }
+#endif
 
     page->next = cache->first_page;
     if (cache->first_page == NULL)

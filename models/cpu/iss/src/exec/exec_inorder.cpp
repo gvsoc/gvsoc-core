@@ -148,6 +148,7 @@ void Exec::dbg_unit_step_check()
 }
 
 
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
 void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *const iss = (Iss *)__this;
@@ -155,23 +156,33 @@ void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
     iss->exec.loop_count = 64;
 
     iss_reg_t pc = iss->exec.current_insn;
+
     while(1)
     {
         iss_insn_t *insn = insn_cache_get_insn(iss, pc);
-        if (insn == NULL) return;
+        if (unlikely(insn == NULL)) return;
 
-        size_t count;
+        while(1)
+        {
+            size_t count;
 
-        // Execute the instruction and replace the current one with the new one
-        pc = insn->fast_handler(iss, insn, pc);
-        count = iss->exec.loop_count;
-        iss->exec.current_insn = pc;
+            // Execute the instruction and replace the current one with the new one
+            pc = insn->fast_handler(iss, insn, pc);
+            count = iss->exec.loop_count;
+            iss->exec.current_insn = pc;
 
-        if (count == 0) break;
+            if (unlikely(count == 0)) return;
 
-        iss->exec.loop_count = count - 1;
+            iss->exec.loop_count = count - 1;
+            insn++;
+            if (insn->addr != pc)
+            {
+                break;
+            }
+        }
     }
 }
+#endif
 
 
 void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
@@ -270,7 +281,11 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     // if HW counters are disabled as they are checked with the slow handler
     if (_this->can_switch_to_fast_mode())
     {
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+        _this->instr_event->set_callback(&Exec::exec_instr_untimed);
+#else
         _this->instr_event->set_callback(&Exec::exec_instr);
+#endif
     }
 
     _this->insn_exec_profiling();

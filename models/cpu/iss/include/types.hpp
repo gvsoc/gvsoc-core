@@ -108,12 +108,6 @@ class Lsu;
 
 #define ISS_UNTIMED_LOOP_SIZE  64
 
-#define ISS_INSN_BLOCK_SIZE_LOG2 12
-#define ISS_INSN_BLOCK_SIZE (1 << ISS_INSN_BLOCK_SIZE_LOG2)
-#define ISS_INSN_PC_BITS 1
-#define ISS_INSN_BLOCK_ID_BITS 12
-#define ISS_INSN_NB_BLOCKS (1 << ISS_INSN_BLOCK_ID_BITS)
-
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #define ISS_EXCEPT_INSN_MISALIGNED  0
 #define ISS_EXCEPT_INSN_FAULT       1
@@ -149,7 +143,6 @@ class Lsu;
 
 typedef struct iss_cpu_s iss_cpu_t;
 typedef struct iss_insn_s iss_insn_t;
-typedef struct iss_insn_block_s iss_insn_block_t;
 typedef struct iss_insn_cache_s iss_insn_cache_t;
 typedef struct iss_decoder_item_s iss_decoder_item_t;
 
@@ -425,35 +418,7 @@ typedef struct iss_insn_s
 
 } iss_insn_t;
 
-typedef struct iss_insn_block_s
-{
-    iss_addr_t pc;
-    iss_insn_t insns[ISS_INSN_BLOCK_SIZE];
-    iss_insn_block_t *next;
-    bool is_init;
-} iss_insn_block_t;
 
-
-// The size of a page corresponds to the tlb page size with instructions of at least 2 bytes
-#define INSN_PAGE_BITS 8
-#define INSN_PAGE_SIZE (1 << (INSN_PAGE_BITS - 1))
-#define INSN_PAGE_MASK (INSN_PAGE_SIZE - 1)
-
-
-typedef struct iss_insn_page_s iss_insn_page_t;
-
-struct iss_insn_page_s
-{
-    iss_insn_t insns[INSN_PAGE_SIZE];
-    iss_insn_page_t *next;
-};
-
-typedef struct iss_insn_cache_s
-{
-    iss_insn_page_t *current_insn_page;
-    iss_reg_t current_insn_page_base;
-    std::unordered_map<iss_reg_t, iss_insn_page_t *>pages;
-} iss_insn_cache_t;
 
 
 #define HWLOOP_NB_REGS 7

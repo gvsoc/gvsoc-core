@@ -122,7 +122,7 @@ void Exec::icache_flush()
         this->flush_cache_req_itf.sync(true);
     }
 
-    iss_cache_flush(&this->iss);
+    this->iss.insn_cache.flush();
 }
 
 #include <unistd.h>
@@ -162,7 +162,7 @@ void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
     while(1)
     {
         iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(iss, pc, index);
+        iss_insn_t *insn = iss->insn_cache.get_insn(iss, pc, index);
         if (unlikely(insn == NULL)) return;
 
         while(1)
@@ -208,7 +208,7 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 #endif
     {
         iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(iss, pc, index);
+        iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
         if (insn == NULL) return;
 
         // Takes care first of all optional features (traces, VCD and so on)
@@ -252,9 +252,9 @@ void Exec::hwloop_set_end(int index, iss_reg_t pc)
     this->hwloop_end_insn[index] = pc;
 
     iss_reg_t cache_index;
-    iss_insn_t *insn = insn_cache_get_insn(&this->iss, pc, cache_index);
+    iss_insn_t *insn = this->iss.insn_cache.get_insn(pc, cache_index);
 
-    if (insn != NULL && insn_cache_is_decoded(&this->iss, insn))
+    if (insn != NULL && this->iss.insn_cache.insn_is_decoded(insn))
     {
         this->hwloop_stub_insert(insn, pc);
     }
@@ -320,7 +320,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 #endif
     {
         iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(iss, pc, index);
+        iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
         if (insn == NULL) return;
 
         _this->current_insn = _this->insn_exec(insn, pc);

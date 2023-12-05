@@ -97,7 +97,7 @@ inline void Exec::insn_terminate()
         // for staling execution.
         // For now if the cache returns NULL due to mmu or prefetcher, we drop the instruction.
         iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(&this->iss, this->stall_insn, index);
+        iss_insn_t *insn = this->iss.insn_cache.get_insn(this->stall_insn, index);
         if (insn != NULL)
         {
             iss_trace_dump(&this->iss, insn, this->stall_insn);

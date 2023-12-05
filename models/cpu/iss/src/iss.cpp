@@ -67,6 +67,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.syscalls.build();
     this->iss.decode.build();
     this->iss.exec.build();
+    this->iss.insn_cache.build();
     this->iss.dbgunit.build();
     this->iss.csr.build();
     this->iss.lsu.build();

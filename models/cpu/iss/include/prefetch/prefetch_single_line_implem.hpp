@@ -44,7 +44,7 @@ inline bool Prefetcher::fetch(iss_reg_t addr)
 #endif
 
     iss_reg_t cache_index;
-    iss_insn_t *insn = insn_cache_get_insn(&this->iss, addr, cache_index);
+    iss_insn_t *insn = this->iss.insn_cache.get_insn(addr, cache_index);
     if (insn == NULL)
     {
         return false;

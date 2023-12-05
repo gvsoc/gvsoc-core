@@ -40,11 +40,12 @@ public:
 
     // decode
     vp::WireSlave<bool> flush_cache_itf;
-    iss_insn_cache_t insn_cache;
     const char *isa;
     iss_reg_t misa_extensions;
     std::vector<iss_insn_t *> insn_tables;
     bool has_double;
+
+    bool iss_decode_insn(iss_insn_t *insn, iss_reg_t pc);
 
 private:
     int decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode);
@@ -56,3 +57,6 @@ private:
 
     Iss &iss;
 };
+
+
+iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);

@@ -38,14 +38,13 @@ void Decode::build()
     string isa = this->iss.top.get_js_config()->get_child_str("isa");
     this->isa = strdup(isa.c_str());
     this->parse_isa();
-    insn_cache_init(&this->iss);
 }
 
 void Decode::reset(bool active)
 {
     if (active)
     {
-        iss_cache_flush(&this->iss);
+        this->iss.insn_cache.flush();
     }
 }
 
@@ -169,13 +168,13 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
             {
                 iss_reg_t next_pc = pc + insn->size;
                 iss_reg_t index;
-                iss_insn_t *next = insn_cache_get_insn(&this->iss, next_pc, index);
+                iss_insn_t *next = this->iss.insn_cache.get_insn(next_pc, index);
                 if (!next)
                 {
                     return -2;
                 }
 
-                if (!insn_cache_is_decoded(&this->iss, next) && !iss_decode_insn(&this->iss, next, next_pc))
+                if (!this->iss.insn_cache.insn_is_decoded(next) && !this->iss_decode_insn(next, next_pc))
                 {
                     return -2;
                 }
@@ -428,11 +427,11 @@ bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 
 
 
-bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+bool Decode::iss_decode_insn(iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->fetched)
     {
-        if (!iss->prefetcher.fetch(pc))
+        if (!this->iss.prefetcher.fetch(pc))
         {
             return false;
         }
@@ -440,7 +439,7 @@ bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         insn->fetched = true;
     }
 
-    if (!iss->decode.decode_pc(insn, pc))
+    if (!this->decode_pc(insn, pc))
     {
         return false;
     }
@@ -452,7 +451,7 @@ bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (!iss_decode_insn(iss, insn, pc))
+    if (!iss->decode.iss_decode_insn(insn, pc))
     {
         return pc;
     }

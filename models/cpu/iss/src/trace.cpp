@@ -626,5 +626,5 @@ void Trace::insn_trace_callback()
 {
     // This is called when the state of the instruction trace has changed, we need
     // to flush the ISS instruction cache, as it keeps the state of the trace
-    iss_cache_flush(&this->iss);
+    this->iss.insn_cache.flush();
 }

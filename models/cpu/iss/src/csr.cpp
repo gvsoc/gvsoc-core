@@ -113,7 +113,9 @@ void Csr::reset(bool active)
 {
     if (active)
     {
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
         memset(this->hwloop_regs, 0, sizeof(this->hwloop_regs));
+#endif
     #if defined(ISS_HAS_PERF_COUNTERS)
         this->pcmr = 0;
         this->pcer = 3;

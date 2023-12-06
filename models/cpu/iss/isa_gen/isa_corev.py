@@ -163,7 +163,7 @@ class CoreV(IsaSubset):
             Instr('cv.insertr',      Format_I5U2, '1000000 ----- ----- 010 ----- 0110011'),
             Instr('cv.bclrr',        Format_R,    '1000000 ----- ----- 011 ----- 0110011'),
             Instr('cv.bsetr',        Format_R,    '1000000 ----- ----- 100 ----- 0110011'),
-            Instr('cv.bitrev',       Format_BITREV,   '11000-- ----- ----- 101 ----- 0110011', mapTo="cv_bitrev"),
+            Instr('cv.bitrev',       Format_BITREV,   '11000-- ----- ----- 101 ----- 0110011'),
 
             Instr('cv.ror', Format_R,  '0000100 ----- ----- 101 ----- 0110011'),
             Instr('cv.ff1', Format_R1,  '0001000 00000 ----- 000 ----- 0110011'),

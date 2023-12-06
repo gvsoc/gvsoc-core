@@ -23,8 +23,6 @@
 #include <string.h>
 #include <stdexcept>
 
-extern iss_isa_tag_t __iss_isa_tags[];
-
 Decode::Decode(Iss &iss)
     : iss(iss)
 {
@@ -317,19 +315,9 @@ int Decode::decode_opcode_group(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opc
     return -1;
 }
 
-iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name)
+iss_decoder_item_t *iss_isa_get(Iss *iss)
 {
-    for (int i = 0; i < __iss_isa_set.nb_isa; i++)
-    {
-        iss_isa_t *isa = &__iss_isa_set.isa_set[i];
-
-        if (strcmp(isa->name, name) == 0)
-        {
-            return isa->tree;
-        }
-    }
-
-    return NULL;
+    return __iss_isa_set.isa_set;
 }
 
 int Decode::decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item)
@@ -342,21 +330,7 @@ int Decode::decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
 int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
 {
-    for (int i = 0; i < __iss_isa_set.nb_isa; i++)
-    {
-        iss_isa_t *isa = &__iss_isa_set.isa_set[i];
-        int err = this->decode_item(insn, pc, opcode, isa->tree);
-        if (err == 0)
-        {
-            return 0;
-        }
-        else if (err == -2)
-        {
-            return -2;
-        }
-    }
-
-    return -1;
+    return this->decode_item(insn, pc, opcode, __iss_isa_set.isa_set);
 }
 
 

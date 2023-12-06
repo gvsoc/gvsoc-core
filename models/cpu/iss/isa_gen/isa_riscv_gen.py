@@ -483,7 +483,7 @@ class Rv32i(IsaSubset):
             Instr('sh',     Format_S,    '------- ----- ----- 001 ----- 0100011', fast_handler=True, tags=["store"]),
             Instr('sw',     Format_S,    '------- ----- ----- 010 ----- 0100011', fast_handler=True, tags=["store"]),
             Instr('addi',   Format_I,    '------- ----- ----- 000 ----- 0010011'),
-            Instr('addi',   Format_Z,    '0000000 00000 00000 000 00000 0010011', mapTo="nop", L='nop'),
+            Instr('nop',    Format_Z,    '0000000 00000 00000 000 00000 0010011'),
             Instr('slti',   Format_I,    '------- ----- ----- 010 ----- 0010011'),
             Instr('sltiu',  Format_I,    '------- ----- ----- 011 ----- 0010011'),
             Instr('xori',   Format_I,    '------- ----- ----- 100 ----- 0010011'),
@@ -844,13 +844,13 @@ class Rv64c(IsaSubset):
 class RiscvIsa(Isa):
 
     def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, extensions=None):
-        super().__init__(name, isa, [])
+        super().__init__(name, isa)
 
         misa = 0
 
         if extensions is not None:
             for extension in extensions:
-                self.add_tree(extension)
+                self.add_isa(extension)
 
         self.full_name = f'isa_{self.name}'
 

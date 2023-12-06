@@ -358,25 +358,12 @@ typedef struct
     std::vector<iss_resource_instance_t *> instances; // Instances of this resource
 } iss_resource_t;
 
-typedef struct iss_isa_s
-{
-    char *name;
-    iss_decoder_item_t *tree;
-} iss_isa_t;
-
 typedef struct iss_isa_set_s
 {
-    int nb_isa;
-    iss_isa_t *isa_set;
+    iss_decoder_item_t *isa_set;
     int nb_resources;
     iss_resource_t *resources; // Resources associated to this ISA
 } iss_isa_set_t;
-
-typedef struct iss_isa_tag_s
-{
-    char *name;
-    iss_decoder_item_t **insns;
-} iss_isa_tag_t;
 
 typedef struct iss_insn_s
 {

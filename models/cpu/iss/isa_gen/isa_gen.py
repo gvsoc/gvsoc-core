@@ -547,7 +547,7 @@ class DecodeTree(object):
             
         
 class IsaSubset(object):
-    def __init__(self, name, instrs, active=None, file="default", timingTable=None):
+    def __init__(self, name, instrs, active=True, file="default", timingTable=None):
         self.name = name
         self.instrs = instrs
         self.active = active
@@ -826,7 +826,7 @@ defaultIsaGroup   = IsaGroup('ISA_GROUP_OTHER')
 defaultInstrGroup = InstrGroup(defaultIsaGroup, 'INSTR_GROUP_OTHER')
 
 class Instr(object):
-    def __init__(self, label, type, encoding, decode=None, N=None, L=None, mapTo=None, power=None, group=None,
+    def __init__(self, label, format, encoding, decode=None, N=None, L=None, mapTo=None, power=None, group=None,
             fast_handler=False, tags=[], isa_tags=[], is_macro_op=False):
         self.tags = tags
         self.isa_tags = isa_tags
@@ -837,6 +837,7 @@ class Instr(object):
         self.resource_latency = 0
         self.resource_bandwidth = 0
         self.is_macro_op = is_macro_op
+        self.args = format
 
         encoding = encoding[::-1].replace(' ', '')
         self.label = label
@@ -938,7 +939,7 @@ class Instr(object):
 
         self.dump(isaFile, 'static iss_decoder_item_t %s = {\n' % (name))
         self.dump(isaFile, '  .is_insn=true,\n')
-        self.dump(isaFile, '  .is_active=false,\n')
+        self.dump(isaFile, '  .is_active=%d,\n' % self.active)
         self.dump(isaFile, '  .opcode_others=%d,\n' % (1 if others else 0))
         self.dump(isaFile, '  .opcode=0b%s,\n' % opcode)
         self.dump(isaFile, '  .u={\n')

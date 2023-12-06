@@ -489,7 +489,6 @@ void Decode::parse_isa()
     }
 
     iss_decode_activate_isa(iss, (char *)"priv");
-    iss_decode_activate_isa(iss, (char *)"trap_return");
     iss_decode_activate_isa(iss, (char *)"priv_smmu");
 
     bool has_f = false;

@@ -20,6 +20,7 @@ import os.path
 import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
+from cpu.iss.isa_gen.isa_rvv import *
 
 class RiscvCommon(st.Component):
     """

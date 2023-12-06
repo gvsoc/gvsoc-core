@@ -488,9 +488,6 @@ void Decode::parse_isa()
         throw std::runtime_error("Unsupported ISA: " + std::string(current));
     }
 
-    iss_decode_activate_isa(iss, (char *)"priv");
-    iss_decode_activate_isa(iss, (char *)"priv_smmu");
-
     bool has_f = false;
     bool has_d = false;
     bool has_c = false;
@@ -522,7 +519,6 @@ void Decode::parse_isa()
             char name[2];
             name[0] = *current;
             name[1] = 0;
-            iss_decode_activate_isa(iss, name);
             current++;
             len--;
             break;
@@ -530,7 +526,6 @@ void Decode::parse_isa()
         case 'c':
         {
             misa |= 1 << 2;
-            iss_decode_activate_isa(iss, (char *)"c");
             current++;
             len--;
             has_c = true;

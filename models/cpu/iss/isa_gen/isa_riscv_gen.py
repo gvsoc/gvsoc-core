@@ -440,7 +440,7 @@ Format_CJ1 = [
 class Rv64i(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='i', active=False, instrs=[
+        super().__init__(name='i', instrs=[
             Instr('lwu',   Format_L,    '------- ----- ----- 110 ----- 0000011', fast_handler=True, tags=["load"]),
             Instr('ld',    Format_L,    '------- ----- ----- 011 ----- 0000011', fast_handler=True, tags=["load"]),
             Instr('sd',    Format_S,    '------- ----- ----- 011 ----- 0100011', fast_handler=True, tags=["store"]),
@@ -463,7 +463,7 @@ class Rv64i(IsaSubset):
 class Rv32i(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='i', active=False, instrs=[
+        super().__init__(name='i', instrs=[
             Instr('lui',    Format_U,    '------- ----- ----- --- ----- 0110111', 'lui_decode'),
             Instr('auipc',  Format_U,    '------- ----- ----- --- ----- 0010111', 'auipc_decode'),
             Instr('jal',    Format_UJ,   '------- ----- ----- --- ----- 1101111', 'jal_decode', fast_handler=True),
@@ -513,7 +513,7 @@ class Rv32i(IsaSubset):
 class Rv32m(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='m', active=False, instrs=[
+        super().__init__(name='m', instrs=[
             Instr('mul',   Format_R, '0000001 ----- ----- 000 ----- 0110011', tags=['mul']),
             Instr('mulh',  Format_R, '0000001 ----- ----- 001 ----- 0110011', tags=['mulh']),
             Instr('mulhsu',Format_R, '0000001 ----- ----- 010 ----- 0110011', tags=['mulh']),
@@ -530,7 +530,7 @@ class Rv32m(IsaSubset):
 class Rv64m(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='m', active=False, instrs=[
+        super().__init__(name='m', instrs=[
             Instr('mulw',  Format_R, '0000001 ----- ----- 000 ----- 0111011', tags=['mul']),
             Instr('divw',  Format_R, '0000001 ----- ----- 100 ----- 0111011', tags=['div']),
             Instr('divuw', Format_R, '0000001 ----- ----- 101 ----- 0111011', tags=['div']),
@@ -543,7 +543,7 @@ class Rv64m(IsaSubset):
 class Rv32a(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='a', active=False, instrs=[
+        super().__init__(name='a', instrs=[
             Instr('lr.w',       Format_LRES,  '00010 -- 00000 ----- 010 ----- 0101111'),
             Instr('sc.w',       Format_AMO,   '00011 -- ----- ----- 010 ----- 0101111'),
             Instr('amoswap.w',  Format_AMO,   '00001 -- ----- ----- 010 ----- 0101111'),
@@ -562,7 +562,7 @@ class Rv32a(IsaSubset):
 class Rv64a(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='a', active=False, instrs=[
+        super().__init__(name='a', instrs=[
             Instr('lr.d',       Format_LRES,  '00010 -- 00000 ----- 011 ----- 0101111'),
             Instr('sc.d',       Format_AMO,   '00011 -- ----- ----- 011 ----- 0101111'),
             Instr('amoswap.d',  Format_AMO,   '00001 -- ----- ----- 011 ----- 0101111'),
@@ -581,7 +581,7 @@ class Rv64a(IsaSubset):
 class Rv32f(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='f', active=False, instrs=[
+        super().__init__(name='f', instrs=[
             Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', tags=["load"]),
             Instr('fsw',       Format_FS, '------- ----- ----- 010 ----- 0100111'),
 
@@ -628,7 +628,7 @@ class Rv32f(IsaSubset):
 class Rv32d(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='d', active=False, instrs=[
+        super().__init__(name='d', instrs=[
             Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', tags=["load"]),
             Instr('fsd',       Format_FS, '------- ----- ----- 011 ----- 0100111'),
 
@@ -678,7 +678,7 @@ class Rv32d(IsaSubset):
 class Priv(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='priv', active=False, instrs=[
+        super().__init__(name='priv', instrs=[
             Instr('csrrw', Format_IU,  '------- ----- ----- 001 ----- 1110011', decode='csr_decode'),
             Instr('csrrs', Format_IU,  '------- ----- ----- 010 ----- 1110011', decode='csr_decode'),
             Instr('csrrc', Format_IU,  '------- ----- ----- 011 ----- 1110011', decode='csr_decode'),
@@ -708,7 +708,7 @@ class TrapReturn(IsaSubset):
 class PrivSmmu(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='priv_smmu', active=False, instrs=[
+        super().__init__(name='priv_smmu', instrs=[
             Instr('sfence.vma',       Format_INRR,   '0001001 ----- ----- 000 00000 1110011'),
 
         ])
@@ -731,7 +731,7 @@ class Zcmp(IsaSubset):
 class Rv32c(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='c', active=False, instrs=[
+        super().__init__(name='c', instrs=[
             Instr('c.unimp',    Format_CI1, '000 000 000 00 000 00'),
             Instr('c.addi4spn', Format_CIW, '000 --- --- -- --- 00', fast_handler=True),
             Instr('c.lw',       Format_CL,  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),
@@ -783,7 +783,7 @@ class Rv32c(IsaSubset):
 class Rv64c(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='c', active=False, instrs=[
+        super().__init__(name='c', instrs=[
             Instr('c.unimp',    Format_CI1, '000 000 000 00 000 00'),
             Instr('c.addi4spn', Format_CIW, '000 --- --- -- --- 00', fast_handler=True),
             Instr('c.ld',       Format_CLD, '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),

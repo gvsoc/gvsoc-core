@@ -624,7 +624,7 @@ class Rv32f(IsaSubset):
         ])
 
     def check_compatibilities(self, isa):
-        if not isa.has_isa('rv64'):
+        if not isa.has_isa('rv64i'):
             isa.disable_from_isa_tag('rv64f')
 
 
@@ -677,6 +677,9 @@ class Rv32d(IsaSubset):
             Instr('fmv.d.x',  Format_R3F2,'1111001 00000 ----- 000 ----- 1010011'),
         ])
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rv64i'):
+            isa.disable_from_isa_tag('rv64f')
 
 
 class Priv(IsaSubset):

@@ -99,7 +99,7 @@ class Xf16(IsaSubset):
         ])
 
     def check_compatibilities(self, isa):
-        if not isa.has_isa('rv64'):
+        if not isa.has_isa('rv64i'):
             isa.disable_from_isa_tag('rv64f16')
 
         if not isa.has_isa('rvf'):
@@ -241,7 +241,7 @@ class Xf8(IsaSubset):
         ])
 
     def check_compatibilities(self, isa):
-        if not isa.has_isa('rv64'):
+        if not isa.has_isa('rv64i'):
             isa.disable_from_isa_tag('rv64f8')
         if not isa.has_isa('rvf'):
             isa.disable_from_isa_tag('f8f')

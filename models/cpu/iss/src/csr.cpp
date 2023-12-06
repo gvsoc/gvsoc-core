@@ -132,7 +132,7 @@ void Csr::reset(bool active)
             }
         }
 
-        this->misa.value = this->iss.top.get_js_config()->get_int("misa") | this->iss.decode.misa_extensions;
+        this->misa.value = this->iss.top.get_js_config()->get_int("misa");
 
 #if ISS_REG_WIDTH == 64
         this->misa.value |= 2ULL << 62;

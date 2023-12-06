@@ -443,7 +443,6 @@ class PulpV2(IsaSubset):
 
             Instr('p.mac',           Format_RRRR, '0100001 ----- ----- 000 ----- 0110011'),
             Instr('p.msu',           Format_RRRR, '0100001 ----- ----- 001 ----- 0110011'),
-            Instr('p.mul',           Format_R,    '0000001 ----- ----- 000 ----- 0110011'),
 
             Instr('p.muls',          Format_R,    '1000000 ----- ----- 000 ----- 1011011'),
             Instr('p.mulhhs',        Format_R,    '1100000 ----- ----- 000 ----- 1011011'),

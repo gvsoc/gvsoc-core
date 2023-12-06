@@ -604,6 +604,15 @@ class IsaDecodeTree(object):
         self.tree = None
         self.name = name
 
+    def add_isa(self, subsets):
+        if type(subsets) == list:
+            self.subsets += subsets
+            for subset in subsets:
+                subset.reg_to_isa(self.isa)
+        else:
+            self.subsets.append(subsets)
+            subsets.reg_to_isa(self.isa)
+
     def reg_to_isa(self, isa):
         self.isa = isa
         for subset in self.subsets:
@@ -624,14 +633,15 @@ class IsaDecodeTree(object):
     def dumpTree(self, isa, isaFile):
         instrs = self.get_insns()
 
-        if self.tree == None:
-            self.tree = DecodeTree(self.isa, isaFile, instrs, 0xffffffff, '0')
-
         if len(instrs) != 0:
+            if self.tree == None:
+                self.tree = DecodeTree(self.isa, isaFile, instrs, 0xffffffff, '0')
+
             self.tree.gen(isa, is_top=True)
 
     def dump_ref(self, isa, isaFile):
-        dump(isaFile, '  {(char *)"%s", &%s},\n' % (self.name, self.tree.get_name()))
+        if self.tree is not None:
+            dump(isaFile, '  {(char *)"%s", &%s},\n' % (self.name, self.tree.get_name()))
 
 
 class Resource(object):
@@ -663,12 +673,18 @@ class Isa(object):
         for tree in self.trees:
             tree.reg_to_isa(self)
 
+        self.main_tree = IsaDecodeTree('main', [])
+        self.add_tree(self.main_tree)
+
     def check_compatibilities(self):
         for tree in self.trees:
             tree.check_compatibilities(self)
 
     def has_isa(self, name):
         return self.isas.get(name) is not None
+
+    def get_isa(self, name):
+        return self.isas.get(name)
 
     def reg_isa(self, name, isa):
         self.isas[name] = isa
@@ -677,6 +693,9 @@ class Isa(object):
         for insn in self.get_insns():
             if tag in insn.isa_tags:
                 insn.active = False
+
+    def add_isa(self, isa):
+        self.main_tree.add_isa(isa)
 
     def add_tree(self, tree):
         self.trees.append(tree)

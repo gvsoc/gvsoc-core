@@ -37,7 +37,7 @@ void Decode::build()
     this->iss.top.new_slave_port("flush_cache", &this->flush_cache_itf, (vp::Block *)this);
     string isa = this->iss.top.get_js_config()->get_child_str("isa");
     this->isa = strdup(isa.c_str());
-    this->parse_isa();
+    this->has_double = this->iss.top.get_js_config()->get_child_bool("has_double");
 }
 
 void Decode::reset(bool active)
@@ -361,27 +361,6 @@ int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
 
 
 
-void iss_decode_activate_isa(Iss *cpu, char *name)
-{
-    iss_isa_tag_t *isa = &__iss_isa_tags[0];
-    while (isa->name)
-    {
-        if (strcmp(isa->name, name) == 0)
-        {
-            iss_decoder_item_t **insn_ptr = isa->insns;
-            while (*insn_ptr)
-            {
-                iss_decoder_item_t *insn = *insn_ptr;
-                insn->is_active = true;
-                insn_ptr++;
-            }
-        }
-        isa++;
-    }
-}
-
-
-
 static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->decode.trace.msg("Executing illegal instruction\n");
@@ -457,93 +436,4 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     }
 
     return iss->exec.insn_exec(insn, pc);
-}
-
-
-
-void Decode::parse_isa()
-{
-    // TODO this should now be all moved to python generator
-    Iss *iss = &this->iss;
-    const char *current = iss->decode.isa;
-    int len = strlen(current);
-
-    if (strncmp(current, "rv32", 4) == 0)
-    {
-        current += 4;
-        len -= 4;
-    }
-    else if (strncmp(current, "rv64", 4) == 0)
-    {
-        current += 4;
-        len -= 4;
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported ISA: " + std::string(current));
-    }
-
-    bool has_d = false;
-    uint32_t misa = 0;
-
-    while (len > 0)
-    {
-        switch (*current)
-        {
-        case 'd':
-            misa |= 1 << 3;
-            has_d = true; // D needs F
-        case 'f':
-            misa |= 1 << 5;
-        case 'a':
-            misa |= 1 << 0;
-        case 'v':
-        case 'i':
-            misa |= 1 << 8;
-        case 'm':
-        {
-            misa |= 1 << 12;
-            char name[2];
-            name[0] = *current;
-            name[1] = 0;
-            current++;
-            len--;
-            break;
-        }
-        case 'c':
-        {
-            misa |= 1 << 2;
-            current++;
-            len--;
-            break;
-        }
-        case 'X':
-        {
-            char *token = strtok(strdup(current), "X");
-
-            while (token)
-            {
-                token = strtok(NULL, "X");
-            }
-
-            len = 0;
-
-            break;
-        }
-        default:
-            throw std::runtime_error("Unknwon ISA descriptor: " + *current);
-        }
-    }
-
-    this->has_double = has_d;
-
-#ifdef CONFIG_GVSOC_ISS_SUPERVISOR_MODE
-    misa |= 1 << 18;
-#endif
-
-#ifdef CONFIG_GVSOC_ISS_USER_MODE
-    misa |= 1 << 20;
-#endif
-
-    this->misa_extensions = misa;
 }

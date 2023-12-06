@@ -863,66 +863,47 @@ class RiscvIsa(Isa):
         else:
             raise RuntimeError('Isa should start with either rv32 or rv64')
 
-        extensions = isa[4:]
+        for isa in isa[4:]:
 
-        while len(extensions) > 0:
-            if extensions[0] == 'i':
+            if isa == 'i':
                 misa |= 1 << 8
-                if self.word_size == 32:
-                    self.add_tree(IsaDecodeTree('i', [Rv32i()]))
-                else:
-                    self.add_tree(IsaDecodeTree('i', [Rv64i(), Rv32i()]))
-                extensions = extensions[1:]
+                self.add_isa(Rv32i())
+                if self.word_size > 32:
+                    self.add_isa(Rv64i())
 
-            elif extensions[0] == 'm':
+            elif isa == 'm':
                 misa |= 1 << 12
-                if self.word_size == 32:
-                    self.add_tree(IsaDecodeTree('m', [Rv32m()]))
-                else:
-                    self.add_tree(IsaDecodeTree('m', [Rv32m(), Rv64m()]))
-                extensions = extensions[1:]
+                self.add_isa(Rv32m())
+                if self.word_size > 32:
+                    self.add_isa(Rv64m())
 
-            elif extensions[0] == 'a':
+            elif isa == 'a':
                 misa |= 1 << 0
-                if self.word_size == 32:
-                    self.add_tree(IsaDecodeTree('a', [Rv32a()]))
-                else:
-                    self.add_tree(IsaDecodeTree('a', [Rv32a(), Rv64a()]))
-                extensions = extensions[1:]
+                self.add_isa(Rv32a())
+                if self.word_size > 32:
+                    self.add_isa(Rv64a())
 
-            elif extensions[0] == 'c':
+            elif isa == 'c':
                 misa |= 1 << 2
                 if self.word_size == 32:
-                    self.add_tree(IsaDecodeTree('c', [Rv32c()]))
+                    self.add_isa(Rv32c())
                 else:
-                    self.add_tree(IsaDecodeTree('c', [Rv64c()]))
-                extensions = extensions[1:]
+                    self.add_isa(Rv64c())
 
-            elif extensions[0] == 'f':
+            elif isa == 'f':
                 misa |= 1 << 5
-                self.add_tree(IsaDecodeTree('f', [Rv32f()]))
-                extensions = extensions[1:]
+                self.add_isa(Rv32f())
 
-            elif extensions[0] == 'd':
+            elif isa == 'd':
                 misa |= 1 << 3
-                self.add_tree(IsaDecodeTree('d', [Rv32d()]))
-                extensions = extensions[1:]
+                self.add_isa(Rv32d())
 
-            elif extensions[0] == 'X':
-
-                extensions = ''
-
-            else:
-                extensions = extensions[1:]
-
-        priv_trees = []
         if inc_priv:
-            priv_trees.append(Priv())
-            priv_trees.append(TrapReturn())
-        if inc_supervisor:
-            priv_trees.append(PrivSmmu())
+            self.add_isa(Priv())
+            self.add_isa(TrapReturn())
 
-        self.add_tree(IsaDecodeTree('priv', priv_trees))
+        if inc_supervisor:
+            self.add_isa(PrivSmmu())
 
         # Now we need to disable specific instructions depending on the combination of
         # isa subsets

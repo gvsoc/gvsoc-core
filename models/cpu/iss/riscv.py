@@ -140,6 +140,7 @@ class RiscvCommon(st.Component):
             'core_id': core_id,
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
+            'has_double': isa.has_isa('rvd'),
         })
 
         if memory_start is not None and memory_size is not None:

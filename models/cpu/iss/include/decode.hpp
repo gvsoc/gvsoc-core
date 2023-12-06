@@ -36,12 +36,9 @@ public:
 
     static void flush_cache_sync(vp::Block *_this, bool active);
 
-    void parse_isa();
-
     // decode
     vp::WireSlave<bool> flush_cache_itf;
     const char *isa;
-    iss_reg_t misa_extensions;
     std::vector<iss_insn_t *> insn_tables;
     bool has_double;
 

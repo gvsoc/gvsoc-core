@@ -55,7 +55,7 @@ Format_RR = [ OutReg(0, Range(7,  5)),
 class PulpNn(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='pulpnn', active=False, instrs=[
+        super().__init__(name='pulpnn', instrs=[
 
             #add vector instruction ((missing scalar version))
             Instr('pv.add.n',         Format_R,     '0000000 ----- ----- 010 ----- 1010111'),

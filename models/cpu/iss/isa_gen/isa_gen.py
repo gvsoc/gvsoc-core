@@ -559,8 +559,12 @@ class IsaSubset(object):
 
         self.insn_registered = False
 
+    def check_compatibilities(self, isa):
+        pass
+
     def reg_to_isa(self, isa):
         self.isa = isa
+        isa.reg_isa(self.name, self)
         for instr in self.instrs:
             instr.reg_to_isa(isa)
 
@@ -592,7 +596,7 @@ class IsaSubset(object):
             options.update(instr.getOptions())
 
         return options
-        
+
 class IsaDecodeTree(object):
 
     def __init__(self, name, subsets):
@@ -605,9 +609,13 @@ class IsaDecodeTree(object):
         for subset in self.subsets:
             subset.reg_to_isa(isa)
 
+    def check_compatibilities(self, isa):
+        for tree in self.subsets:
+            tree.check_compatibilities(isa)
+
     def get_insns(self):
         result = []
-        
+
         for subset in self.subsets:
             result += subset.get_insns()
 
@@ -646,12 +654,29 @@ class Isa(object):
         self.nb_decoder_tree = 0
         self.nb_insn = 0
         self.name = name
+        self.isas = {}
+
 
         for tree in self.trees:
             self.trees_dict[tree.name] = tree
 
         for tree in self.trees:
             tree.reg_to_isa(self)
+
+    def check_compatibilities(self):
+        for tree in self.trees:
+            tree.check_compatibilities(self)
+
+    def has_isa(self, name):
+        return self.isas.get(name) is not None
+
+    def reg_isa(self, name, isa):
+        self.isas[name] = isa
+
+    def disable_from_isa_tag(self, tag):
+        for insn in self.get_insns():
+            if tag in insn.isa_tags:
+                insn.active = False
 
     def add_tree(self, tree):
         self.trees.append(tree)

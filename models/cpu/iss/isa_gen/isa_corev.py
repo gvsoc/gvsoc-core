@@ -112,7 +112,7 @@ Format_HL1 = [ UnsignedImm(0, Range(7, 1)),
 class CoreV(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='corev', active=False, instrs=[
+        super().__init__(name='corev', instrs=[
 
             Instr('LB_POSTINC',    Format_LPOST, '------- ----- ----- 000 ----- 0001011', L='cv.lb' , fast_handler=True, tags=["load"]),
             Instr('LBU_POSTINC',   Format_LPOST, '------- ----- ----- 100 ----- 0001011', L='cv.lbu', fast_handler=True, tags=["load"]),

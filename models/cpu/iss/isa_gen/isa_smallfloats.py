@@ -47,7 +47,7 @@ Format_R2VF2 = [ OutReg(0, Range(7,  5)),
 class Xf16(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='f16', active=False, instrs=[
+        super().__init__(name='f16', instrs=[
 
             Instr('flh',       Format_FL, '------- ----- ----- 001 ----- 0000111', tags=["load"]),
             Instr('fsh',       Format_FS, '------- ----- ----- 001 ----- 0100111'),
@@ -98,10 +98,22 @@ class Xf16(IsaSubset):
             # Instr('fcvt.h.d', Format_R2F3,'0100010 00001 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f16d']),
         ])
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rv64'):
+            isa.disable_from_isa_tag('rv64f16')
+
+        if not isa.has_isa('rvf'):
+            isa.disable_from_isa_tag('f16f')
+
+        if not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f16d')
+
+
+
 class Xf16alt(IsaSubset):
-    
+
     def __init__(self):
-        super().__init__(name='f16alt', active=False, instrs=[
+        super().__init__(name='f16alt', instrs=[
             Instr('fmadd.ah',   Format_R4U,'-----10 ----- ----- 101 ----- 1000011', tags=['sfmadd']),
             Instr('fmsub.ah',   Format_R4U,'-----10 ----- ----- 101 ----- 1000111', tags=['sfmadd']),
             Instr('fnmsub.ah',  Format_R4U,'-----10 ----- ----- 101 ----- 1001011', tags=['sfmadd']),
@@ -152,10 +164,25 @@ class Xf16alt(IsaSubset):
             Instr('fcvt.ah.h', Format_R2F3,'0100010 00010 ----- 101 ----- 1010011', tags=['sfconv'], isa_tags=['f16altf16']),
         ])
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rv64i'):
+            isa.disable_from_isa_tag('rv64f16alt')
+
+        if not isa.has_isa('rvf'):
+            isa.disable_from_isa_tag('f16altf')
+
+        if not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f16altd')
+
+        if not isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f16altf16')
+
+
+
 class Xf8(IsaSubset):
-    
+
     def __init__(self):
-        super().__init__(name='f8', active=False, instrs=[
+        super().__init__(name='f8', instrs=[
             Instr('flb',       Format_FL, '------- ----- ----- 000 ----- 0000111', tags=["load"]),
             Instr('fsb',       Format_FS, '------- ----- ----- 000 ----- 0100111'),
 
@@ -213,6 +240,18 @@ class Xf8(IsaSubset):
             Instr('fcvt.b.ah',Format_R2F3,'0100011 00110 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f8f16alt']),
         ])
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rv64'):
+            isa.disable_from_isa_tag('rv64f8')
+        if not isa.has_isa('rvf'):
+            isa.disable_from_isa_tag('f8f')
+        if not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f8d')
+        if not isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f8f16')
+        if not isa.has_isa('f16alt'):
+            isa.disable_from_isa_tag('f8f16alt')
+
 
 #
 # Vectorial Floats
@@ -221,7 +260,7 @@ class Xf8(IsaSubset):
 class Xfvec(IsaSubset):
     
     def __init__(self):
-        super().__init__(name='fvec', active=False, instrs=[
+        super().__init__(name='fvec', instrs=[
         #
         # For F
         #
@@ -495,15 +534,54 @@ class Xfvec(IsaSubset):
 
         ])
 
+    def check_compatibilities(self, isa):
+        if isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f16vec')
+
+        if isa.has_isa('rv32i') and isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f16vecno32d')
+
+        if not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f16vecd')
+
+        if not isa.has_isa('f16alt'):
+            isa.disable_from_isa_tag('f16altvec')
+
+        if not isa.has_isa('f16alt') or not isa.has_isa('rv64i') and isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f16altvecno32d')
+
+        if not isa.has_isa('f16alt') or not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f16altvecd')
+
+        if not isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f16altvecf16')
+
+        if not isa.has_isa('f8'):
+            isa.disable_from_isa_tag('f8vec')
+
+        if not isa.has_isa('f8') or not isa.has_isa('rv64i') and isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f8vecno32d')
+
+        if not isa.has_isa('f8') or not isa.has_isa('rvf'):
+            isa.disable_from_isa_tag('f8vecf')
+
+        if not isa.has_isa('f8') or not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f8vecd')
+
+        if not isa.has_isa('f8') or not isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f8vecf16')
+
+        if not isa.has_isa('f8') or not isa.has_isa('f16alt'):
+            isa.disable_from_isa_tag('f8vecf16alt')
 
 #
 # Auxiliary Float operations
 #
 
 class Xfaux(IsaSubset):
-    
+
     def __init__(self):
-        super().__init__(name='faux', active=False, instrs=[
+        super().__init__(name='faux', instrs=[
         #
         # For F
         #
@@ -557,3 +635,22 @@ class Xfaux(IsaSubset):
 
         ])
 
+
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f16aux')
+
+        if not isa.has_isa('f16') or not isa.has_isa('fvec'):
+            isa.disable_from_isa_tag('f16auxvec')
+
+        if not isa.has_isa('f16'):
+            isa.disable_from_isa_tag('f16altaux')
+
+        if not isa.has_isa('f16') or not isa.has_isa('fvec'):
+            isa.disable_from_isa_tag('f16altauxvec')
+
+        if not isa.has_isa('f8'):
+            isa.disable_from_isa_tag('f8aux')
+
+        if not isa.has_isa('f8') or not isa.has_isa('fvec'):
+            isa.disable_from_isa_tag('f8auxvec')

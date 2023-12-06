@@ -125,4 +125,3 @@ inline Iss::Iss(vp::Component &top)
 #include "cpu/iss/include/isa/rvXint64.hpp"
 #include "cpu/iss/include/isa/rnnext.hpp"
 #include "cpu/iss/include/isa/pulp_nn.hpp"
-#include "cpu/iss/include/isa/corev.hpp"

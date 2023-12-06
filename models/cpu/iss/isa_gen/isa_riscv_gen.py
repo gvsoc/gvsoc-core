@@ -440,7 +440,7 @@ Format_CJ1 = [
 class Rv64i(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='i', instrs=[
+        super().__init__(name='rv64i', instrs=[
             Instr('lwu',   Format_L,    '------- ----- ----- 110 ----- 0000011', fast_handler=True, tags=["load"]),
             Instr('ld',    Format_L,    '------- ----- ----- 011 ----- 0000011', fast_handler=True, tags=["load"]),
             Instr('sd',    Format_S,    '------- ----- ----- 011 ----- 0100011', fast_handler=True, tags=["store"]),
@@ -463,7 +463,7 @@ class Rv64i(IsaSubset):
 class Rv32i(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='i', instrs=[
+        super().__init__(name='rv32i', instrs=[
             Instr('lui',    Format_U,    '------- ----- ----- --- ----- 0110111', 'lui_decode'),
             Instr('auipc',  Format_U,    '------- ----- ----- --- ----- 0010111', 'auipc_decode'),
             Instr('jal',    Format_UJ,   '------- ----- ----- --- ----- 1101111', 'jal_decode', fast_handler=True),
@@ -513,7 +513,7 @@ class Rv32i(IsaSubset):
 class Rv32m(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='m', instrs=[
+        super().__init__(name='rv32m', instrs=[
             Instr('mul',   Format_R, '0000001 ----- ----- 000 ----- 0110011', tags=['mul']),
             Instr('mulh',  Format_R, '0000001 ----- ----- 001 ----- 0110011', tags=['mulh']),
             Instr('mulhsu',Format_R, '0000001 ----- ----- 010 ----- 0110011', tags=['mulh']),
@@ -530,7 +530,7 @@ class Rv32m(IsaSubset):
 class Rv64m(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='m', instrs=[
+        super().__init__(name='rv64m', instrs=[
             Instr('mulw',  Format_R, '0000001 ----- ----- 000 ----- 0111011', tags=['mul']),
             Instr('divw',  Format_R, '0000001 ----- ----- 100 ----- 0111011', tags=['div']),
             Instr('divuw', Format_R, '0000001 ----- ----- 101 ----- 0111011', tags=['div']),
@@ -543,7 +543,7 @@ class Rv64m(IsaSubset):
 class Rv32a(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='a', instrs=[
+        super().__init__(name='rv32a', instrs=[
             Instr('lr.w',       Format_LRES,  '00010 -- 00000 ----- 010 ----- 0101111'),
             Instr('sc.w',       Format_AMO,   '00011 -- ----- ----- 010 ----- 0101111'),
             Instr('amoswap.w',  Format_AMO,   '00001 -- ----- ----- 010 ----- 0101111'),
@@ -562,7 +562,7 @@ class Rv32a(IsaSubset):
 class Rv64a(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='a', instrs=[
+        super().__init__(name='rv64a', instrs=[
             Instr('lr.d',       Format_LRES,  '00010 -- 00000 ----- 011 ----- 0101111'),
             Instr('sc.d',       Format_AMO,   '00011 -- ----- ----- 011 ----- 0101111'),
             Instr('amoswap.d',  Format_AMO,   '00001 -- ----- ----- 011 ----- 0101111'),
@@ -581,7 +581,7 @@ class Rv64a(IsaSubset):
 class Rv32f(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='f', instrs=[
+        super().__init__(name='rvf', instrs=[
             Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', tags=["load"]),
             Instr('fsw',       Format_FS, '------- ----- ----- 010 ----- 0100111'),
 
@@ -623,12 +623,16 @@ class Rv32f(IsaSubset):
             Instr('fcvt.s.lu',Format_R2F2,'1101000 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f']),
         ])
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rv64'):
+            isa.disable_from_isa_tag('rv64f')
+
 
 
 class Rv32d(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='d', instrs=[
+        super().__init__(name='rvd', instrs=[
             Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', tags=["load"]),
             Instr('fsd',       Format_FS, '------- ----- ----- 011 ----- 0100111'),
 
@@ -718,7 +722,7 @@ class PrivSmmu(IsaSubset):
 class Zcmp(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='zcmp', active=False, instrs=[
+        super().__init__(name='zcmp', instrs=[
             # Compressed ISA
             Instr('cm.push'    , Format_CMPUSH,'101 110 00- -- --- 10', is_macro_op=True),
             Instr('cm.pop'     , Format_CMPUSH,'101 110 10- -- --- 10', is_macro_op=True),
@@ -731,7 +735,7 @@ class Zcmp(IsaSubset):
 class Rv32c(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='c', instrs=[
+        super().__init__(name='rv32c', instrs=[
             Instr('c.unimp',    Format_CI1, '000 000 000 00 000 00'),
             Instr('c.addi4spn', Format_CIW, '000 --- --- -- --- 00', fast_handler=True),
             Instr('c.lw',       Format_CL,  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),
@@ -778,12 +782,15 @@ class Rv32c(IsaSubset):
                 label = unconmpressed_names.pop(0)
                 insn.traceLabel = label
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rvf'):
+            isa.disable_from_isa_tag('cf')
 
 
 class Rv64c(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='c', instrs=[
+        super().__init__(name='rv64c', instrs=[
             Instr('c.unimp',    Format_CI1, '000 000 000 00 000 00'),
             Instr('c.addi4spn', Format_CIW, '000 --- --- -- --- 00', fast_handler=True),
             Instr('c.ld',       Format_CLD, '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
@@ -825,12 +832,22 @@ class Rv64c(IsaSubset):
             Instr('c.fldsp',    Format_FCI3D, '001 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
         ])
 
+    def check_compatibilities(self, isa):
+        if not isa.has_isa('rvf'):
+            isa.disable_from_isa_tag('cf')
+
 
 
 class RiscvIsa(Isa):
 
-    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True):
+    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, extensions=None):
         super().__init__(name, isa, [])
+
+        misa = 0
+
+        if extensions is not None:
+            for extension in extensions:
+                self.add_tree(extension)
 
         self.full_name = f'isa_{self.name}'
 
@@ -847,6 +864,7 @@ class RiscvIsa(Isa):
 
         while len(extensions) > 0:
             if extensions[0] == 'i':
+                misa |= 1 << 8
                 if self.word_size == 32:
                     self.add_tree(IsaDecodeTree('i', [Rv32i()]))
                 else:
@@ -854,6 +872,7 @@ class RiscvIsa(Isa):
                 extensions = extensions[1:]
 
             elif extensions[0] == 'm':
+                misa |= 1 << 12
                 if self.word_size == 32:
                     self.add_tree(IsaDecodeTree('m', [Rv32m()]))
                 else:
@@ -861,6 +880,7 @@ class RiscvIsa(Isa):
                 extensions = extensions[1:]
 
             elif extensions[0] == 'a':
+                misa |= 1 << 0
                 if self.word_size == 32:
                     self.add_tree(IsaDecodeTree('a', [Rv32a()]))
                 else:
@@ -868,6 +888,7 @@ class RiscvIsa(Isa):
                 extensions = extensions[1:]
 
             elif extensions[0] == 'c':
+                misa |= 1 << 2
                 if self.word_size == 32:
                     self.add_tree(IsaDecodeTree('c', [Rv32c()]))
                 else:
@@ -875,10 +896,12 @@ class RiscvIsa(Isa):
                 extensions = extensions[1:]
 
             elif extensions[0] == 'f':
+                misa |= 1 << 5
                 self.add_tree(IsaDecodeTree('f', [Rv32f()]))
                 extensions = extensions[1:]
 
             elif extensions[0] == 'd':
+                misa |= 1 << 3
                 self.add_tree(IsaDecodeTree('d', [Rv32d()]))
                 extensions = extensions[1:]
 
@@ -898,6 +921,17 @@ class RiscvIsa(Isa):
 
         self.add_tree(IsaDecodeTree('priv', priv_trees))
 
+        # Now we need to disable specific instructions depending on the combination of
+        # isa subsets
+        self.check_compatibilities()
+
+        if inc_supervisor:
+            misa |= 1 << 18
+
+        if inc_user:
+            misa |= 1 << 20
+
+        self.misa = misa
 
     def get_source(self):
         return f'{self.full_name}.cpp'

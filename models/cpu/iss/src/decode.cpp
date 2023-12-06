@@ -468,34 +468,22 @@ void Decode::parse_isa()
     const char *current = iss->decode.isa;
     int len = strlen(current);
 
-    bool arch_rv32 = false;
-    bool arch_rv64 = false;
-
     if (strncmp(current, "rv32", 4) == 0)
     {
         current += 4;
         len -= 4;
-        arch_rv32 = true;
     }
     else if (strncmp(current, "rv64", 4) == 0)
     {
         current += 4;
         len -= 4;
-        arch_rv64 = true;
     }
     else
     {
         throw std::runtime_error("Unsupported ISA: " + std::string(current));
     }
 
-    bool has_f = false;
     bool has_d = false;
-    bool has_c = false;
-    bool has_f16 = false;
-    bool has_f16alt = false;
-    bool has_f8 = false;
-    bool has_fvec = false;
-    bool has_faux = false;
     uint32_t misa = 0;
 
     while (len > 0)
@@ -507,7 +495,6 @@ void Decode::parse_isa()
             has_d = true; // D needs F
         case 'f':
             misa |= 1 << 5;
-            has_f = true;
         case 'a':
             misa |= 1 << 0;
         case 'v':
@@ -528,7 +515,6 @@ void Decode::parse_isa()
             misa |= 1 << 2;
             current++;
             len--;
-            has_c = true;
             break;
         }
         case 'X':
@@ -537,48 +523,6 @@ void Decode::parse_isa()
 
             while (token)
             {
-                iss_decode_activate_isa(iss, token);
-
-                if (strcmp(token, "pulpv2") == 0)
-                {
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-                    iss_isa_pulpv2_activate(iss);
-#endif
-                }
-                else if (strcmp(token, "corev") == 0)
-                {
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-                    iss_isa_corev_activate(iss);
-#endif
-                }
-                else if (strcmp(token, "gap8") == 0)
-                {
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-                    iss_isa_pulpv2_activate(iss);
-                    iss_decode_activate_isa(iss, (char *)"pulpv2");
-#endif
-                }
-                else if (strcmp(token, "f16") == 0)
-                {
-                    has_f16 = true;
-                }
-                else if (strcmp(token, "f16alt") == 0)
-                {
-                    has_f16alt = true;
-                }
-                else if (strcmp(token, "f8") == 0)
-                {
-                    has_f8 = true;
-                }
-                else if (strcmp(token, "fvec") == 0)
-                {
-                    has_fvec = true;
-                }
-                else if (strcmp(token, "faux") == 0)
-                {
-                    has_faux = true;
-                }
-
                 token = strtok(NULL, "X");
             }
 
@@ -591,142 +535,7 @@ void Decode::parse_isa()
         }
     }
 
-    //
-    // Activate inter-dependent ISA extension subsets
-    //
-
-    // Compressed floating-point instructions
-    if (has_c)
-    {
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"cf");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"cd");
-    }
-
-    // For F Extension
-    if (has_f)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f");
-        // Vectors
-        if (has_fvec && has_d)
-        { // make sure FLEN >= 64
-            iss_decode_activate_isa(iss, (char *)"f32vec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f32vecno32d");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            // nothing for scalars as expansions are to fp32
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f32auxvec");
-        }
-    }
-
-    if (has_d)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64d");
-    }
-
     this->has_double = has_d;
-
-    // For Xf16 Extension
-    if (has_f16)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f16");
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"f16f");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"f16d");
-        // Vectors
-        if (has_fvec && has_f)
-        { // make sure FLEN >= 32
-            iss_decode_activate_isa(iss, (char *)"f16vec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f16vecno32d");
-            if (has_d)
-                iss_decode_activate_isa(iss, (char *)"f16vecd");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            iss_decode_activate_isa(iss, (char *)"f16aux");
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f16auxvec");
-        }
-    }
-
-    // For Xf16alt Extension
-    if (has_f16alt)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f16alt");
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"f16altf");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"f16altd");
-        if (has_f16)
-            iss_decode_activate_isa(iss, (char *)"f16altf16");
-        // Vectors
-        if (has_fvec && has_f)
-        { // make sure FLEN >= 32
-            iss_decode_activate_isa(iss, (char *)"f16altvec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f16altvecno32d");
-            if (has_d)
-                iss_decode_activate_isa(iss, (char *)"f16altvecd");
-            if (has_f16)
-                iss_decode_activate_isa(iss, (char *)"f16altvecf16");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            iss_decode_activate_isa(iss, (char *)"f16altaux");
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f16altauxvec");
-        }
-    }
-
-    // For Xf8 Extension
-    if (has_f8)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f8");
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"f8f");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"f8d");
-        if (has_f16)
-            iss_decode_activate_isa(iss, (char *)"f8f16");
-        if (has_f16alt)
-            iss_decode_activate_isa(iss, (char *)"f8f16alt");
-        // Vectors
-        if (has_fvec && (has_f16 || has_f16alt || has_f))
-        { // make sure FLEN >= 16
-            iss_decode_activate_isa(iss, (char *)"f8vec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f8vecno32d");
-            if (has_f)
-                iss_decode_activate_isa(iss, (char *)"f8vecf");
-            if (has_d)
-                iss_decode_activate_isa(iss, (char *)"f8vecd");
-            if (has_f16)
-                iss_decode_activate_isa(iss, (char *)"f8vecf16");
-            if (has_f16alt)
-                iss_decode_activate_isa(iss, (char *)"f8vecf16alt");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            iss_decode_activate_isa(iss, (char *)"f8aux");
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f8auxvec");
-        }
-    }
 
 #ifdef CONFIG_GVSOC_ISS_SUPERVISOR_MODE
     misa |= 1 << 18;

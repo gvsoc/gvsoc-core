@@ -37,7 +37,7 @@ Format_LR = [ OutReg(0, Range(7,  5)),
 class RnnExt(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='rnnext', active=False, instrs=[
+        super().__init__(name='rnnext', instrs=[
             Instr('pl.sdotsp.h.0', Format_LRRRR,'101110- ----- ----- 000 ----- 1110111'),
             Instr('pl.sdotsp.h.1', Format_LRRRR,'101111- ----- ----- 000 ----- 1110111'),
             Instr('pl.tanh',     Format_R1,   '1111100 00000 ----- 000 ----- 1110111'),

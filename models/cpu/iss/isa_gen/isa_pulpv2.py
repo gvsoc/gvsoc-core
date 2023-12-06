@@ -132,7 +132,7 @@ Format_HL1 = [ UnsignedImm(0, Range(7, 1)),
 class PulpV2(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='pulpv2', active=False, instrs=[
+        super().__init__(name='pulpv2', instrs=[
             # Reg-reg LD/ST
             Instr('LB_RR',    Format_LR, '0000000 ----- ----- 111 ----- 0000011', L='p.lb' , fast_handler=True, tags=["load"]),
             Instr('LH_RR',    Format_LR, '0001000 ----- ----- 111 ----- 0000011', L='p.lh' , fast_handler=True, tags=["load"]),

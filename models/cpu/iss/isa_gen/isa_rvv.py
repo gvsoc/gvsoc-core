@@ -80,7 +80,7 @@ Format_OPVL = [ OutReg     (0, Range(7 , 5)),
 class Rv32v(IsaSubset):
 
     def __init__(self):
-        super().__init__(name='v', active=False, instrs=[
+        super().__init__(name='v', instrs=[
             Instr('vadd.vv'       ,   Format_OPV  ,    '000000 - ----- ----- 000 ----- 1010111'),#inst[25] = VM , VM = 0 mask enable
             Instr('vadd.vi'       ,   Format_OPIVI,    '000000 - ----- ----- 011 ----- 1010111'),
             Instr('vadd.vx'       ,   Format_OPV  ,    '000000 - ----- ----- 100 ----- 1010111'),

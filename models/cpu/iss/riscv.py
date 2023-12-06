@@ -404,10 +404,11 @@ class Riscv(RiscvCommon):
             core_id: int=0, memory_start=None, memory_size=None, untimed_loop=False):
 
         # Instantiates the ISA from the provided string.
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
+            inc_user=True)
 
         # And instantiate common class with default parameters
-        super().__init__(parent, name, isa=isa_instance, misa=0,
+        super().__init__(parent, name, isa=isa_instance, misa=isa_instance.misa,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,

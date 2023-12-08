@@ -143,7 +143,14 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->u.reg.id >= insn->nb_out_reg)
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
-                insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
+                if (arg->u.reg.index == 0 && !(darg->flags & ISS_DECODER_ARG_FLAG_FREG))
+                {
+                    insn->out_regs[darg->u.reg.id] = ISS_NB_REGS;
+                }
+                else
+                {
+                    insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
+                }
 
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
@@ -164,18 +171,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
-                iss_reg_t next_pc = pc + insn->size;
                 iss_reg_t index;
-                iss_insn_t *next = this->iss.insn_cache.get_insn(next_pc, index);
-                if (!next)
-                {
-                    return -2;
-                }
-
-                if (!this->iss.insn_cache.insn_is_decoded(next) && !this->iss_decode_insn(next, next_pc))
-                {
-                    return -2;
-                }
 
                 // We can stall the next instruction either if latency is superior
                 // to 2 (due to number of pipeline stages) or if there is a data
@@ -184,27 +180,16 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 // Go through the registers and set the handler to the stall handler
                 // in case we find a register dependency so that we can properly
                 // handle the stall
-                bool set_pipe_latency = true;
-                for (int j = 0; j < next->nb_in_reg; j++)
-                {
-                    if (next->in_regs[j] == arg->u.reg.index)
-                    {
-                        insn->latency += darg->u.reg.latency;
-                        set_pipe_latency = false;
-                        break;
-                    }
-                }
 
                 // If no dependency was found, apply the one for the pipeline stages
-                if (set_pipe_latency && darg->u.reg.latency > PIPELINE_STAGES)
+                if (darg->u.reg.latency != 0)
                 {
-                    next->latency += darg->u.reg.latency - PIPELINE_STAGES + 1;
-                    if (next->stall_handler == NULL)
+                    if (insn->stall_handler == NULL)
                     {
-                        next->stall_handler = insn->handler;
-                        next->stall_fast_handler = insn->fast_handler;
-                        next->handler = this->iss.exec.insn_stalled_callback_get();
-                        next->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
+                        insn->stall_handler = insn->handler;
+                        insn->stall_fast_handler = insn->fast_handler;
+                        insn->handler = this->iss.exec.insn_stalled_callback_get();
+                        insn->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
                     }
                 }
             }
@@ -410,4 +395,9 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     }
 
     return iss->exec.insn_exec(insn, pc);
+}
+
+std::vector<iss_decoder_item_t *> *Decode::get_insns_from_tag(std::string tag)
+{
+    return __iss_isa_set.tag_insns[tag];
 }

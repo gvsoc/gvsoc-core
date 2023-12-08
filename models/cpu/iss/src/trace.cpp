@@ -502,14 +502,14 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
                 saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
             }
             else
-                saved_arg->u.reg.value = iss->regfile.get_reg(insn_arg->u.reg.index);
+                saved_arg->u.reg.value = iss->regfile.get_reg_untimed(insn_arg->u.reg.index);
         }
     }
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_IMM)
     {
         if (save_out)
             return;
-        saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg(insn_arg->u.indirect_imm.reg_index);
+        saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_imm.reg_index);
     }
     // else if (arg->type == TRACE_TYPE_FLAG)
     //   {
@@ -519,8 +519,8 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
     {
         if (save_out)
             return;
-        saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.base_reg_index);
-        saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.offset_reg_index);
+        saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.base_reg_index);
+        saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.offset_reg_index);
     }
     // else
     //   {

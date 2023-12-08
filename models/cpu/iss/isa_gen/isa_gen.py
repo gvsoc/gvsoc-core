@@ -624,11 +624,36 @@ class Isa(object):
 
         tree.gen(isaFile, self)
 
+        self.dump_tag_insns(isaFile)
+
         dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
         dump(isaFile, f'  .isa_set=&{tree.get_name()},\n')
         dump(isaFile, f'  .nb_resources={len(self.resources)},\n')
         dump(isaFile, '  .resources=__iss_resources,\n')
+        dump(isaFile, '  .tag_insns=tag_insn,\n')
+        dump(isaFile, '  .initialized=false,\n')
         dump(isaFile, '};\n')
+        dump(isaFile, '\n')
+
+    def dump_tag_insns(self, isaFile):
+        isa_tags_insns = {}
+
+        for insn in self.get_insns():
+            for tag in insn.tags:
+                if isa_tags_insns.get(tag) is None:
+                    isa_tags_insns[tag] = []
+
+                isa_tags_insns[tag].append(f'&{insn.get_full_name()}')
+
+        for tag_name, insns in isa_tags_insns.items():
+            tag_struct_name = f'tag_insn_{tag_name}'
+            dump(isaFile, f'static std::vector<iss_decoder_item_t *> {tag_struct_name} = {{ {", ".join(insns)} }};\n\n')
+
+        dump(isaFile, f'static std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> tag_insn = {{\n')
+        for tag_name in isa_tags_insns.keys():
+            tag_struct_name = f'&tag_insn_{tag_name}'
+            dump(isaFile, f'    {{ "{tag_name}", {tag_struct_name} }},\n')
+        dump(isaFile, f'}};\n\n')
 
 
 

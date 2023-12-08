@@ -40,21 +40,26 @@ inline iss_reg_t *Regfile::reg_store_ref(int reg)
 
 inline void Regfile::set_reg(int reg, iss_reg_t value)
 {
-    if (reg != 0)
-        this->regs[reg] = value;
+    this->regs[reg] = value;
 }
 
 inline iss_reg_t Regfile::get_reg(int reg)
 {
+#ifdef CONFIG_GVSOC_ISS_TIMED
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    if (this->iss.top.clock.get_cycles() < this->scoreboard_reg_timestamp[reg])
+    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event->stall_cycle_get();
+    if (unlikely(diff > 0))
     {
-        this->iss.timing.stall_load_dependency_account(
-            this->scoreboard_reg_timestamp[reg] - this->iss.top.clock.get_cycles()
-        );
+        this->iss.timing.stall_load_dependency_account(diff);
     }
 #endif
+#endif
 
+    return this->regs[reg];
+}
+
+inline iss_reg_t Regfile::get_reg_untimed(int reg)
+{
     return this->regs[reg];
 }
 

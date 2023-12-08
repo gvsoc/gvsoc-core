@@ -41,6 +41,7 @@
 #define REG_OUT_REF(reg) (insn->out_regs_ref[reg])
 
 #define REG_GET(reg) (iss->regfile.get_reg(insn->in_regs[reg]))
+#define REG_GET_UNTIMED(reg) (iss->regfile.get_reg_untimed(insn->in_regs[reg]))
 #define REG_SET(reg,val) (iss->regfile.set_reg(insn->out_regs[reg], val))
 #define IN_REG_SET(reg,val) iss->regfile.set_reg(insn->in_regs[reg], val)
 

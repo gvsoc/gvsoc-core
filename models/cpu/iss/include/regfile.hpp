@@ -32,13 +32,15 @@ public:
 
     void reset(bool active);
 
-    iss_reg_t regs[ISS_NB_REGS];
+    iss_reg_t regs[ISS_NB_REGS+1];
     iss_freg_t fregs[ISS_NB_FREGS];
 
     inline iss_reg_t *reg_ref(int reg);
     inline iss_reg_t *reg_store_ref(int reg);
     inline void set_reg(int reg, iss_reg_t value);
     inline iss_reg_t get_reg(int reg);
+    inline iss_reg_t get_reg_from_insn(iss_insn_t *insn, int insn_reg_index);
+    inline iss_reg_t get_reg_untimed(int reg);
     inline iss_reg64_t get_reg64(int reg);
     inline void set_reg64(int reg, iss_reg64_t value);
 
@@ -56,6 +58,8 @@ public:
 
 private:
     Iss &iss;
+
+    vp::ClockEngine *engine;
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     int64_t scoreboard_reg_timestamp[ISS_NB_REGS];

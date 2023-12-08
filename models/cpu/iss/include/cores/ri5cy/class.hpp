@@ -52,11 +52,11 @@ class Iss
 public:
     Iss(vp::Component &top);
 
+    Regfile regfile;
     Exec exec;
     InsnCache insn_cache;
     Timing timing;
     Core core;
-    Regfile regfile;
     Prefetcher prefetcher;
     Decode decode;
     Irq irq;

@@ -44,6 +44,8 @@ public:
 
     bool iss_decode_insn(iss_insn_t *insn, iss_reg_t pc);
 
+    std::vector<iss_decoder_item_t *> *get_insns_from_tag(std::string tag);
+
 private:
     int decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode);
     int decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item);
@@ -57,3 +59,34 @@ private:
 
 
 iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+
+typedef struct
+{
+    const char *tag;
+    iss_decoder_item_t **insn;
+} iss_tag_insns_t;
+
+// Structure describing an instance of a resource.
+// This is used to account timing on shared resources.
+// Each instance can accept accesses concurently.
+typedef struct
+{
+    int64_t cycles; // Indicate the time where the next access to this resource is possible
+} iss_resource_instance_t;
+
+// Structure describing a resource.
+typedef struct
+{
+    const char *name;                                 // Name of the resource
+    int nb_instances;                                 // Number of instances of this resource. Each instance can accept accesses concurently
+    std::vector<iss_resource_instance_t *> instances; // Instances of this resource
+} iss_resource_t;
+
+typedef struct iss_isa_set_s
+{
+    iss_decoder_item_t *isa_set;
+    int nb_resources;
+    iss_resource_t *resources; // Resources associated to this ISA
+    std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> &tag_insns;
+    bool initialized;
+} iss_isa_set_t;

@@ -302,8 +302,6 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
     _this->insn_exec_profiling();
 
-    int cycles;
-
     if (!_this->skip_irq_check)
     {
         _this->iss.irq.check();

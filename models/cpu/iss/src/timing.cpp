@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include "cpu/iss/include/iss.hpp"
+#include ISS_CORE_INC(class.hpp)
 
 Timing::Timing(Iss &iss)
     : iss(iss)

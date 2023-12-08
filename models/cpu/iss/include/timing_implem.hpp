@@ -207,14 +207,14 @@ inline void Timing::stall_insn_dependency_account(int latency)
     this->stall_cycles_account(latency - 1);
 }
 
-inline void Timing::stall_load_dependency_account(int latency)
-{
-    this->stall_cycles_account(latency - 1);
-    this->event_account(CSR_PCER_LD_STALL, latency - 1);
-}
-
 inline void Timing::stall_jump_account()
 {
     this->stall_cycles_account(1);
     this->event_jump_account(1);
+}
+
+inline void Timing::stall_load_dependency_account(int latency)
+{
+    this->stall_cycles_account(latency);
+    this->event_account(CSR_PCER_LD_STALL, latency);
 }

@@ -33,14 +33,21 @@ inline void Exec::interrupt_taken()
 
 static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->timing.stall_load_dependency_account(insn->latency);
-    return insn->stall_fast_handler(iss, insn, pc);
+    iss_reg_t next_insn =  insn->stall_fast_handler(iss, insn, pc);
+    int latency = insn->latency;
+    iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], iss->top.clock.get_cycles() + latency);
+#if defined(PIPELINE_STAGES)
+    if (latency > PIPELINE_STAGES)
+    {
+        iss->timing.stall_load_dependency_account(latency - PIPELINE_STAGES);
+    }
+#endif
+    return next_insn;
 }
 
 static inline iss_reg_t iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->timing.stall_load_dependency_account(insn->latency);
-    return insn->stall_handler(iss, insn, pc);
+    return iss_exec_stalled_insn_fast(iss, insn, pc);
 }
 
 inline iss_insn_callback_t Exec::insn_trace_callback_get()

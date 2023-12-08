@@ -1216,7 +1216,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
         if (reg >= CONFIG_GVSOC_ISS_RI5KY && reg <= CSR_HWLOOP1_COUNTER)
         {
-            status = hwloop_read(iss, reg - CONFIG_GVSOC_ISS_RI5KY, value);
+            status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
         }
 #endif
 
@@ -1342,7 +1342,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     if (reg >= CONFIG_GVSOC_ISS_RI5KY && reg <= CSR_HWLOOP1_COUNTER)
-        return hwloop_write(iss, reg - CONFIG_GVSOC_ISS_RI5KY, value);
+        return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
 #endif
 
     iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
@@ -1636,7 +1636,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     {
       if (reg >= CONFIG_GVSOC_ISS_RI5KY && reg <= CSR_HWLOOP1_COUNTER)
       {
-        status = hwloop_read(iss, reg - CONFIG_GVSOC_ISS_RI5KY, value);
+        status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
       }
     }
 #endif

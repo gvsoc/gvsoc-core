@@ -21,11 +21,12 @@
 
 
 #include "cpu/iss/include/regfile.hpp"
+#include "cpu/iss/include/iss.hpp"
+#include ISS_CORE_INC(class.hpp)
 
 Regfile::Regfile(Iss &iss)
 : iss(iss)
 {
-
 }
 
 
@@ -33,6 +34,7 @@ void Regfile::reset(bool active)
 {
     if (active)
     {
+        this->engine = this->iss.top.clock.get_engine();
         this->regs[0] = 0;
         for (int i = 0; i < ISS_NB_REGS; i++)
         {

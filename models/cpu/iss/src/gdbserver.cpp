@@ -141,7 +141,7 @@ int Gdbserver::gdbserver_regs_get(int *nb_regs, int *reg_size, uint8_t *value)
         iss_reg_t *regs = (iss_reg_t *)value;
         for (int i = 0; i < 32; i++)
         {
-            regs[i] = this->iss.regfile.get_reg(i);
+            regs[i] = this->iss.regfile.get_reg_untimed(i);
         }
 
         if (this->iss.exec.current_insn)

@@ -100,9 +100,11 @@ public:
 #endif
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     void hwloop_set_start(int index, iss_reg_t pc);
     void hwloop_set_end(int index, iss_reg_t pc);
     void hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc);
+#endif
     void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     vp::reg_32 bootaddr_reg;
@@ -122,9 +124,11 @@ public:
     vp::reg_1 halted;
     vp::reg_1 step_mode;
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t hwloop_start_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_end_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_next_insn;
+#endif
     // This is used by HW loop to know that we interrupted and replayed
     // a ELW instructin so that it is not accounted twice in the loop.
     int elw_interrupted;

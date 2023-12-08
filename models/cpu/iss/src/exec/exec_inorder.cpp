@@ -72,8 +72,10 @@ void Exec::build()
 
     this->current_insn = 0;
     this->stall_insn = 0;
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     this->hwloop_end_insn[0] = 0;
     this->hwloop_end_insn[1] = 0;
+#endif
 
     iss_resource_init(&this->iss);
 
@@ -102,8 +104,10 @@ void Exec::reset(bool active)
     {
         this->elw_insn = 0;
         this->cache_sync = false;
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
         this->hwloop_end_insn[0] = 0;
         this->hwloop_end_insn[1] = 0;
+#endif
 
         // Check if the core should start fetching, if so this will unstall it and it will start
         // executing instructions.
@@ -162,7 +166,7 @@ void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
     while(1)
     {
         iss_reg_t index;
-        iss_insn_t *insn = iss->insn_cache.get_insn(iss, pc, index);
+        iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
         if (unlikely(insn == NULL)) return;
 
         while(1)
@@ -224,6 +228,8 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
+
 // TODO HW loop methods could be moved to ri5cy specific code by using inheritance
 void Exec::hwloop_set_start(int index, iss_reg_t pc)
 {
@@ -260,10 +266,13 @@ void Exec::hwloop_set_end(int index, iss_reg_t pc)
     }
 }
 
+#endif
+
 
 
 void Exec::decode_insn(iss_insn_t *insn, iss_addr_t pc)
 {
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     for (int i=0; i<CONFIG_GVSOC_ISS_NB_HWLOOP; i++)
     {
         if (this->hwloop_end_insn[i] == pc)
@@ -272,6 +281,7 @@ void Exec::decode_insn(iss_insn_t *insn, iss_addr_t pc)
             break;
         }
     }
+#endif
 }
 
 

@@ -30,7 +30,7 @@ public:
     void build();
     void reset(bool active);
 
-    bool decode_pc(iss_insn_t *insn, iss_reg_t pc);
+    void decode_pc(iss_insn_t *insn, iss_reg_t pc);
 
     vp::Trace trace;
 
@@ -58,6 +58,7 @@ private:
 };
 
 
+iss_reg_t iss_fetch_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 typedef struct

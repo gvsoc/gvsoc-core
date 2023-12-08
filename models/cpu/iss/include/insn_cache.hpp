@@ -77,8 +77,8 @@ inline void InsnCache::insn_init(iss_insn_t *insn, iss_addr_t addr)
     insn->handler = iss_decode_pc_handler;
     insn->fast_handler = iss_decode_pc_handler;
     insn->addr = addr;
-    insn->stall_handler = NULL;
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     insn->hwloop_handler = NULL;
+#endif
     insn->fetched = false;
-    insn->expand_table = NULL;
 }

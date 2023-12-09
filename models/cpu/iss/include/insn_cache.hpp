@@ -22,7 +22,7 @@
 #pragma once
 
 // The size of a page corresponds to the tlb page size with instructions of at least 2 bytes
-#define INSN_PAGE_BITS 8
+#define INSN_PAGE_BITS 9
 #define INSN_PAGE_SIZE (1 << (INSN_PAGE_BITS - 1))
 #define INSN_PAGE_MASK (INSN_PAGE_SIZE - 1)
 
@@ -80,5 +80,4 @@ inline void InsnCache::insn_init(iss_insn_t *insn, iss_addr_t addr)
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     insn->hwloop_handler = NULL;
 #endif
-    insn->fetched = false;
 }

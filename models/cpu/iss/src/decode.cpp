@@ -363,32 +363,14 @@ void Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 }
 
 
-
-bool Decode::iss_decode_insn(iss_insn_t *insn, iss_reg_t pc)
-{
-    if (!insn->fetched)
-    {
-        if (!this->iss.prefetcher.fetch(pc))
-        {
-            return false;
-        }
-
-        insn->fetched = true;
-    }
-
-    this->decode_pc(insn, pc);
-
-    return true;
-}
-
-
-
 iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (!iss->decode.iss_decode_insn(insn, pc))
+    if (!iss->prefetcher.fetch(pc))
     {
         return pc;
     }
+
+    iss->decode.decode_pc(insn, pc);
 
     return iss->exec.insn_exec(insn, pc);
 }

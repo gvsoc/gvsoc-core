@@ -42,8 +42,6 @@ public:
     std::vector<iss_insn_t *> insn_tables;
     bool has_double;
 
-    bool iss_decode_insn(iss_insn_t *insn, iss_reg_t pc);
-
     std::vector<iss_decoder_item_t *> *get_insns_from_tag(std::string tag);
 
 private:

@@ -353,7 +353,6 @@ typedef struct iss_insn_s
     iss_sim_t sim[ISS_MAX_IMMEDIATES];
     iss_addr_t addr;
     iss_reg_t opcode;
-    bool fetched;
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*resource_handler)(Iss *, iss_insn_t *, iss_reg_t); // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
 #if defined(CONFIG_GVSOC_ISS_RI5KY)

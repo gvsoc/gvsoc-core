@@ -129,6 +129,8 @@ namespace vp
 
 
     private:
+        static void stalled_event_handler(vp::Block *, ClockEvent *event);
+
         void update();
 
         vp::ClockEvent *get_next_event();

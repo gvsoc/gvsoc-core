@@ -86,18 +86,12 @@ public:
     inline void interrupt_taken();
 
     iss_reg_t current_insn;
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-    size_t loop_count;
-#endif
     vp::reg_64 stalled;
 
     vp::Trace trace;
     vp::ClockEvent *instr_event;
 
     static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-    static void exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event);
-#endif
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)

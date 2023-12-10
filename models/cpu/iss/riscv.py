@@ -87,8 +87,7 @@ class RiscvCommon(st.Component):
             prefetcher_size=None,
             wrapper="pulp/cpu/iss/default_iss_wrapper.cpp",
             memory_start=None,
-            memory_size=None,
-            untimed_loop=False):
+            memory_size=None):
 
         super().__init__(parent, name)
 
@@ -174,9 +173,6 @@ class RiscvCommon(st.Component):
 
         if scoreboard:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])
-
-        if untimed_loop:
-            self.add_c_flags(['-DCONFIG_GVSOC_ISS_UNTIMED_LOOP=1'])
 
         if user:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_USER_MODE=1'])
@@ -402,7 +398,7 @@ class Riscv(RiscvCommon):
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
             fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
-            core_id: int=0, memory_start=None, memory_size=None, untimed_loop=False):
+            core_id: int=0, memory_start=None, memory_size=None):
 
         # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
@@ -413,7 +409,7 @@ class Riscv(RiscvCommon):
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
-            memory_start=memory_start, memory_size=memory_size, untimed_loop=untimed_loop)
+            memory_start=memory_start, memory_size=memory_size)
 
         self.add_c_flags([
             "-DPIPELINE_STAGES=2",

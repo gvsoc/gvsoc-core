@@ -106,8 +106,6 @@ class Lsu;
 #define ISS_MAX_NB_OUT_REGS 3
 #define ISS_MAX_NB_IN_REGS 3
 
-#define ISS_UNTIMED_LOOP_SIZE  64
-
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #define ISS_EXCEPT_INSN_MISALIGNED  0
 #define ISS_EXCEPT_INSN_FAULT       1
@@ -345,8 +343,8 @@ typedef struct iss_decoder_item_s
 typedef struct iss_insn_s
 {
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
-    int out_regs[ISS_MAX_NB_OUT_REGS];
-    int in_regs[ISS_MAX_NB_IN_REGS];
+    unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
+    unsigned char in_regs[ISS_MAX_NB_IN_REGS];
     void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];

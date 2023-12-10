@@ -253,8 +253,10 @@ namespace vp
         Block *comp;
         // Event callback called when this event gets executed
         ClockEventMeth *meth;
+        ClockEventMeth *meth_saved;
         // Instance of the event, given as first argument of the event callback when called
         vp::Block *_this;
+        vp::Block *_this_saved;
         // Events arguments, models are free to use them
         void *args[VP_CLOCK_EVENT_NB_ARGS];
         // Pointer for event chaining

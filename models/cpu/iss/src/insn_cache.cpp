@@ -29,7 +29,7 @@ InsnCache::InsnCache(Iss &iss)
 
 void InsnCache::build()
 {
-    this->current_insn_page = NULL;
+    this->current_insn_page_base = UINT64_MAX;
 }
 
 bool InsnCache::insn_is_decoded(iss_insn_t *insn)
@@ -65,12 +65,7 @@ void InsnCache::flush()
 
 void InsnCache::mode_flush()
 {
-    this->current_insn_page = NULL;
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-    // Since the untimed loop is trying to directly get instruction from page,
-    // we need to stop it when current page is changed
-    this->iss.exec.loop_count = 0;
-#endif
+    this->current_insn_page_base = UINT64_MAX;
 }
 
 

@@ -58,15 +58,10 @@ private:
 
 inline iss_insn_t *InsnCache::get_insn(iss_reg_t vaddr, iss_reg_t &index)
 {
-    InsnPage *page = this->current_insn_page;
-
-    if (likely(page != NULL))
+    index = (vaddr - this->current_insn_page_base) >> 1;
+    if (likely(index < INSN_PAGE_SIZE))
     {
-        index = (vaddr - this->current_insn_page_base) >> 1;
-        if (likely(index < INSN_PAGE_SIZE))
-        {
-            return &page->insns[index];
-        }
+        return &this->current_insn_page->insns[index];
     }
 
     return this->get_insn_from_cache(vaddr, index);

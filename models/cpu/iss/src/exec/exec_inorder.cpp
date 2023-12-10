@@ -152,52 +152,6 @@ void Exec::dbg_unit_step_check()
 }
 
 
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-// This is an experimental untimed loop to see which improvment can be achieved.
-// Currently improving by 20%, not enough to maintain it
-void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
-{
-    Iss *const iss = (Iss *)__this;
-    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
-    iss->exec.loop_count = ISS_UNTIMED_LOOP_SIZE;
-
-    iss_reg_t pc = iss->exec.current_insn;
-
-    while(1)
-    {
-        iss_reg_t index;
-        iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
-        if (unlikely(insn == NULL)) return;
-
-        while(1)
-        {
-            size_t count;
-
-            // Execute the instruction and replace the current one with the new one
-            iss_reg_t next_pc = insn->fast_handler(iss, insn, pc);
-            count = iss->exec.loop_count;
-            iss->exec.current_insn = next_pc;
-
-            if (unlikely(count == 0)) return;
-
-            iss->exec.loop_count = count - 1;
-
-            iss_reg_t diff_index = ((next_pc - pc) >> 1);
-            index += diff_index;
-
-            pc = next_pc;
-
-            if (index >= INSN_PAGE_SIZE)
-            {
-                break;
-            }
-
-            insn += diff_index;
-        }
-    }
-}
-#endif
-
 
 void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 {
@@ -303,11 +257,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     // if HW counters are disabled as they are checked with the slow handler
     if (_this->can_switch_to_fast_mode())
     {
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-        _this->instr_event->set_callback(&Exec::exec_instr_untimed);
-#else
         _this->instr_event->set_callback(&Exec::exec_instr);
-#endif
     }
 
     _this->insn_exec_profiling();

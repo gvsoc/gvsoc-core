@@ -365,10 +365,12 @@ void Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 
 iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if !defined(CONFIG_GVSOC_ISS_TIMED)
     if (!iss->prefetcher.fetch(pc))
     {
         return pc;
     }
+#endif
 
     iss->decode.decode_pc(insn, pc);
 

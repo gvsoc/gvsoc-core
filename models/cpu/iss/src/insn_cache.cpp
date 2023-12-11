@@ -29,7 +29,7 @@ InsnCache::InsnCache(Iss &iss)
 
 void InsnCache::build()
 {
-    this->current_insn_page_base = UINT64_MAX;
+    this->current_insn_page_base = -1;
 }
 
 bool InsnCache::insn_is_decoded(iss_insn_t *insn)
@@ -65,7 +65,7 @@ void InsnCache::flush()
 
 void InsnCache::mode_flush()
 {
-    this->current_insn_page_base = UINT64_MAX;
+    this->current_insn_page_base = -1;
 }
 
 

@@ -50,7 +50,7 @@ inline void vp::Block::event_enqueue_ext(vp::ClockEvent *event, int64_t cycles)
 
 inline void vp::Block::event_cancel(vp::ClockEvent *event)
 {
-  clock.get_engine()->cancel(event);
+  event->clock->cancel(event);
 }
 
 inline void vp::Block::event_reenqueue(vp::ClockEvent *event, int64_t cycles)

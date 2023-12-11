@@ -76,20 +76,14 @@ vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
 
             if (this->permanent_first)
             {
-                event->next = this->permanent_first;
-                event->prev = this->permanent_first->prev;
-                this->permanent_first->prev->next = event;
                 this->permanent_first->prev = event;
             }
-            else
-            {
-                event->next = event;
-                event->prev = event;
-            }
+            event->next = this->permanent_first;
+            event->prev = NULL;
+            this->permanent_first = event;
+
             event->enqueued = true;
             event->cycle = -1;
-
-            this->permanent_first = event;
         }
     }
 
@@ -100,7 +94,6 @@ void vp::ClockEngine::stalled_event_handler(vp::Block *__this, ClockEvent *event
 {
     vp::ClockEngine *_this = (vp::ClockEngine *)__this;
 
-    static int count = 0;
     if (event->stall_cycle == -1)
     {
         // Case where the event has been disabled. The disable was just flagged so
@@ -109,20 +102,18 @@ void vp::ClockEngine::stalled_event_handler(vp::Block *__this, ClockEvent *event
         event->meth = event->meth_saved;
         event->_this = event->_this_saved;
 
-        event->prev->next = event->next;
-        event->next->prev = event->prev;
+        if (event->prev)
+        {
+            event->prev->next = event->next;
+        }
+        if (event->next)
+        {
+            event->next->prev = event->prev;
+        }
 
         if (_this->permanent_first == event)
         {
-            if (event->next == event)
-            {
-                _this->permanent_first = NULL;
-                return;
-            }
-            else
-            {
-                _this->permanent_first = event->next;
-            }
+            _this->permanent_first = event->next;
         }
     }
     else
@@ -227,6 +218,7 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
     // vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
 
     event->enqueued = true;
+    event->clock = this;
 
     // That should not be needed but in practice, lots of models are pushing from one
     // clock engine to another without synchronizing, creating timing issues.
@@ -250,6 +242,7 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
         prev = current;
         current = current->next;
     }
+
     if (prev)
         prev->next = event;
     else
@@ -334,20 +327,20 @@ int64_t vp::ClockEngine::exec()
         {
             this->cycles++;
 
-            ClockEvent *first = this->permanent_first;
-
             do
             {
                 ClockEvent *next = current->next;
                 current->meth(current->_this, current);
                 current = next;
-            } while (likely(current != first));
+            } while (likely(current != NULL));
 
             if (likely(this->permanent_first != NULL))
             {
+                // TODO restore round-robin in timed version of this callback once we switch to timed
+                // event callbacks.
                 // Round-robin so that we avoid strange patterns if events are always
                 // executed in same order
-                this->permanent_first = this->permanent_first->next;
+                // this->permanent_first = this->permanent_first->next;
 
                 // Shortcut since when we have a permanent event, we probably
                 // don't have a delayed event at the same cycle, since they should be
@@ -358,6 +351,7 @@ int64_t vp::ClockEngine::exec()
                     if (likely(time_engine->first_client == NULL && !time_engine->stop_req))
                     {
                         engine->time += period;
+                        current = this->permanent_first;
                         continue;
                     }
 

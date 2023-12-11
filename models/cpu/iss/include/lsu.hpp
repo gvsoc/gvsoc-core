@@ -31,6 +31,7 @@ public:
     Lsu(Iss &iss);
 
     void build();
+    void start();
     void reset(bool active);
 
     int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write);
@@ -41,15 +42,28 @@ public:
     static void data_grant(vp::Block *__this, vp::IoReq *req);
     static void data_response(vp::Block *__this, vp::IoReq *req);
 
+    template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
+    template<typename T>
     inline bool load(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
+    template<typename T>
     inline bool load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
     inline bool store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
     void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::IoReqOpcode opcode);
@@ -66,6 +80,7 @@ public:
 
     // lsu
     vp::IoMaster data;
+    vp::WireMaster<void *> meminfo;
     vp::IoReq io_req;
     int misaligned_size;
     uint8_t *misaligned_data;
@@ -78,6 +93,9 @@ public:
     void (*stall_callback)(Lsu *lsu);
     int stall_reg;
     int stall_size;
+    uint8_t *mem_array;
+    iss_addr_t memory_start;
+    iss_addr_t memory_end;
 
 private:
     static void store_resume(void *_this);

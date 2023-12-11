@@ -207,6 +207,12 @@ bool Csr::time_access(bool is_write, iss_reg_t &value)
     uint64_t time;
     this->time_itf.sync_back(&time);
     value = time;
+#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
+    // Temporary hack, when instructions are executed in a loop without timing, the time
+    // reported by the clint is not precise and this seems to disturb Linux boot.
+    // Rectifying it like that is fixing this boot issue.
+    value += ISS_UNTIMED_LOOP_SIZE - this->iss.exec.loop_count;
+#endif
     return false;
 }
 

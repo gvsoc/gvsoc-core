@@ -35,6 +35,7 @@ void IssWrapper::start()
     this->iss.timing.background_power.leakage_power_start();
     this->iss.timing.background_power.dynamic_power_start();
 
+    this->iss.lsu.start();
     this->iss.gdbserver.start();
 }
 

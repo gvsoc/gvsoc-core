@@ -29,11 +29,12 @@ void IssWrapper::start()
 #ifdef CONFIG_GVSOC_ISS_TIMED
     vp_assert_always(this->iss.prefetcher.fetch_itf.is_bound(), &this->trace, "Fetch master port is not connected\n");
 #endif
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     // if (!this->iss.fp_ss)
     // {
     //     vp_assert_always(this->iss.acc_req_itf.is_bound(), &this->trace, "Offload request master port is not connected\n");
     // }
-
+#endif
     this->trace.msg("ISS start (fetch: %d, boot_addr: 0x%lx)\n",
         iss.exec.fetch_enable_reg.get(), get_js_config()->get_child_int("boot_addr"));
 
@@ -88,7 +89,9 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.prefetcher.build();
 // #endif
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.build();
+#endif
 
     traces.new_trace("wrapper", &this->trace, vp::DEBUG);
 }

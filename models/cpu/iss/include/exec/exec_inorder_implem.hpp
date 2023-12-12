@@ -142,10 +142,15 @@ inline void Exec::stalled_dec()
 
     if (this->stalled.get() == 0)
     {
+        #ifdef CONFIG_GVSOC_ISS_SNITCH
         if(!this->iss.fp_ss)
         {
             this->instr_event->enable();
         }
+        #endif
+        #ifndef CONFIG_GVSOC_ISS_SNITCH
+        this->instr_event->enable();
+        #endif
     }
 }
 

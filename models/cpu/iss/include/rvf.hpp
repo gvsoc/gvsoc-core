@@ -28,6 +28,7 @@
 
 static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
         // if (iss->send_acc_req(insn, pc, false)) 
@@ -37,6 +38,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         insn->reg_addr = &iss->regfile.regs[0];
         iss->send_acc_req(insn, pc, false);
     }
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

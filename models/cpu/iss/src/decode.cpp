@@ -450,6 +450,7 @@ bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         insn->fetched = true;
     }
 #endif
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     if (!iss->snitch)
     {
         if (!iss->decode.decode_pc(insn, pc))
@@ -465,6 +466,13 @@ bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
             return false;
         }
     }
+#endif
+#ifndef CONFIG_GVSOC_ISS_SNITCH
+    if (!iss->decode.decode_pc(insn, pc))
+    {
+        return false;
+    }
+#endif
 
     return true;
 }
@@ -478,15 +486,21 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
         if(insn->is_fp_op)
         {
+            // Offload floating point instructions to fp subsystem.
             iss->decode.trace.msg("Offload to fp subsystem (opcode: 0x%lx, pc: 0x%lx)\n", insn->opcode, pc);
             return fp_offload_exec(iss, insn, pc);
+            
+            // Not seperate fpu from snitch core, integrate fpu into snitch alu.
             // return iss->exec.insn_exec(insn, pc);
         }
     }
+#endif
+
     return iss->exec.insn_exec(insn, pc);
 }
 

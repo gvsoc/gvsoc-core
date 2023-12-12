@@ -25,7 +25,6 @@
 
 inline void Timing::stall_cycles_account(int cycles)
 {
-#if defined(CONFIG_GVSOC_ISS_TIMED)
     this->iss.exec.instr_event->stall_cycle_inc(cycles);
     if (cycles > 0)
     {
@@ -35,7 +34,6 @@ inline void Timing::stall_cycles_account(int cycles)
             this->power_stall_next.account_energy_quantum();
         }
     }
-#endif
 }
 
 inline void Timing::event_trace_account(unsigned int event, int cycles)

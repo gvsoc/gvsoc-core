@@ -43,15 +43,14 @@ inline bool Mmu::insn_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr)
     }
 
     this->access_type = ACCESS_INSN;
-    bool use_mem_array;
-    return virt_to_phys_miss(virt_addr, phys_addr, use_mem_array);
+    return virt_to_phys_miss(virt_addr, phys_addr);
 #else
     phys_addr = virt_addr;
     return false;
 #endif
 }
 
-inline bool Mmu::load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array)
+inline bool Mmu::load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
 #ifdef CONFIG_GVSOC_ISS_MMU
     iss_addr_t tag = virt_addr >> MMU_PGSHIFT;
@@ -60,25 +59,18 @@ inline bool Mmu::load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, 
     if (likely(this->tlb_load_tag[index] == tag))
     {
         phys_addr = virt_addr + this->tlb_ls_phys_addr[index];
-        use_mem_array = this->tlb_load_use_mem_array[index];
         return false;
     }
 
     this->access_type = ACCESS_LOAD;
-    return virt_to_phys_miss(virt_addr, phys_addr, use_mem_array);
+    return virt_to_phys_miss(virt_addr, phys_addr);
 #else
-
     phys_addr = virt_addr;
-
-#ifdef CONFIG_GVSOC_ISS_MEMORY
-    use_mem_array = phys_addr >= this->iss.lsu.memory_start && phys_addr < this->iss.lsu.memory_end;
-#endif
-
     return false;
 #endif
 }
 
-inline bool Mmu::store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array)
+inline bool Mmu::store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr)
 {
 #ifdef CONFIG_GVSOC_ISS_MMU
     iss_addr_t tag = virt_addr >> MMU_PGSHIFT;
@@ -87,19 +79,13 @@ inline bool Mmu::store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr,
     if (likely(this->tlb_store_tag[index] == tag))
     {
         phys_addr = virt_addr + this->tlb_ls_phys_addr[index];
-        use_mem_array = this->tlb_load_use_mem_array[index];
         return false;
     }
 
     this->access_type = ACCESS_STORE;
-    return virt_to_phys_miss(virt_addr, phys_addr, use_mem_array);
+    return virt_to_phys_miss(virt_addr, phys_addr);
 #else
     phys_addr = virt_addr;
-
-#ifdef CONFIG_GVSOC_ISS_MEMORY
-    use_mem_array = phys_addr >= this->iss.lsu.memory_start && phys_addr < this->iss.lsu.memory_end;
-#endif
-
     return false;
 #endif
 }

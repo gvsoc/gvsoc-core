@@ -28,14 +28,14 @@
 static inline iss_reg_t fld_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.load_float<uint64_t>(insn, REG_GET(0) + SIM_GET(0), 8, REG_OUT(0));
+    iss->lsu.load_float(insn, REG_GET(0) + SIM_GET(0), 8, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsd_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    iss->lsu.store_float<uint64_t>(insn, REG_GET(0) + SIM_GET(0), 8, REG_IN(1));
+    iss->lsu.store_float(insn, REG_GET(0) + SIM_GET(0), 8, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 

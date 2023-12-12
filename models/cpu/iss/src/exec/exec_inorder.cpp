@@ -91,8 +91,7 @@ void Exec::reset(bool active)
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->insn_table_index = 0;
-        this->irq_locked = 0;
-        this->insn_on_hold = false;
+        this->irq_locked = false;
 
         // Always increase the stall when reset is asserted since stall count is set to 0
         // and we need to prevent the core from fetching instructions
@@ -148,51 +147,26 @@ void Exec::dbg_unit_step_check()
 }
 
 
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-// This is an experimental untimed loop to see which improvment can be achieved.
-// Currently improving by 20%, not enough to maintain it
 void Exec::exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event)
 {
-    Iss *const iss = (Iss *)__this;
-    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
-    iss->exec.loop_count = ISS_UNTIMED_LOOP_SIZE;
+    // TODO such a loop could be used for untimed ISS variant
+    abort();
+    // Iss *const iss = (Iss *)__this;
+    // iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
+    // iss->exec.loop_count = 64;
 
-    iss_reg_t pc = iss->exec.current_insn;
+    // iss_insn_t *insn = iss->exec.current_insn;
+    // while(1)
+    // {
+    //     bool stalled;
 
-    while(1)
-    {
-        iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(iss, pc, index);
-        if (unlikely(insn == NULL)) return;
-
-        while(1)
-        {
-            size_t count;
-
-            // Execute the instruction and replace the current one with the new one
-            iss_reg_t next_pc = insn->fast_handler(iss, insn, pc);
-            count = iss->exec.loop_count;
-            iss->exec.current_insn = next_pc;
-
-            if (unlikely(count == 0)) return;
-
-            iss->exec.loop_count = count - 1;
-
-            iss_reg_t diff_index = ((next_pc - pc) >> 1);
-            index += diff_index;
-
-            pc = next_pc;
-
-            if (index >= INSN_PAGE_SIZE)
-            {
-                break;
-            }
-
-            insn += diff_index;
-        }
-    }
+    //     // Execute the instruction and replace the current one with the new one
+    //     insn = insn->fast_handler(iss, insn);
+    //     stalled = iss->exec.stalled.get();
+    //     iss->exec.current_insn = insn;
+    //     if (stalled) break;
+    // }
 }
-#endif
 
 
 void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
@@ -207,8 +181,7 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
     if (iss->prefetcher.fetch(pc))
 #endif
     {
-        iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(iss, pc, index);
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
         if (insn == NULL) return;
 
         // Takes care first of all optional features (traces, VCD and so on)
@@ -251,8 +224,7 @@ void Exec::hwloop_set_end(int index, iss_reg_t pc)
 {
     this->hwloop_end_insn[index] = pc;
 
-    iss_reg_t cache_index;
-    iss_insn_t *insn = insn_cache_get_insn(&this->iss, pc, cache_index);
+    iss_insn_t *insn = insn_cache_get_insn(&this->iss, pc);
 
     if (insn != NULL && insn_cache_is_decoded(&this->iss, insn))
     {
@@ -293,11 +265,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     // if HW counters are disabled as they are checked with the slow handler
     if (_this->can_switch_to_fast_mode())
     {
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-        _this->instr_event->set_callback(&Exec::exec_instr_untimed);
-#else
         _this->instr_event->set_callback(&Exec::exec_instr);
-#endif
     }
 
     _this->insn_exec_profiling();
@@ -319,8 +287,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     if (iss->prefetcher.fetch(pc))
 #endif
     {
-        iss_reg_t index;
-        iss_insn_t *insn = insn_cache_get_insn(iss, pc, index);
+        iss_insn_t *insn = insn_cache_get_insn(iss, pc);
         if (insn == NULL) return;
 
         _this->current_insn = _this->insn_exec(insn, pc);

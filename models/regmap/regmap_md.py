@@ -97,10 +97,7 @@ class Table(Node):
     def __init__(self, md):
         super(Table, self).__init__(is_table=True)
 
-        try:
-            nb_cols = md._num_of_cols
-        except:
-            nb_cols = md.num_of_cols
+        nb_cols = md._num_of_cols
 
         self.table = []
 

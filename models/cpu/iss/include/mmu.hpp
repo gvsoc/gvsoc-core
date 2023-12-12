@@ -64,9 +64,9 @@ public:
     void reset(bool active);
 
     inline bool insn_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr);
-    inline bool load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
-    inline bool store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
-    bool virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
+    inline bool load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr);
+    inline bool store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr);
+    bool virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr);
 
     bool satp_update(bool is_write, iss_reg_t &value);
     void flush(iss_addr_t address, iss_reg_t address_space);
@@ -92,7 +92,6 @@ private:
     iss_addr_t tlb_insn_phys_addr[MMU_TLB_NB_ENTRIES];
 
     iss_addr_t tlb_load_tag[MMU_TLB_NB_ENTRIES];
-    iss_addr_t tlb_load_use_mem_array[MMU_TLB_NB_ENTRIES];
     iss_addr_t tlb_store_tag[MMU_TLB_NB_ENTRIES];
     iss_addr_t tlb_ls_phys_addr[MMU_TLB_NB_ENTRIES];
 

@@ -168,8 +168,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
                 iss_reg_t next_pc = pc + insn->size;
-                iss_reg_t index;
-                iss_insn_t *next = insn_cache_get_insn(&this->iss, next_pc, index);
+                iss_insn_t *next = insn_cache_get_insn(&this->iss, next_pc);
                 if (!next)
                 {
                     return -2;

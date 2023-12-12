@@ -192,8 +192,6 @@ namespace vp
         vp::Trace cycles_trace;
 
         vp::TimeEngine *time_engine = NULL;
-
-        int64_t next_delayed_cycle = INT64_MAX;
     };
 
 };

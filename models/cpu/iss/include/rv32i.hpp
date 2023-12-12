@@ -260,14 +260,14 @@ static inline iss_reg_t bgeu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lb_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0));
+    iss->lsu.load_signed(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lb_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_signed_perf<int8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -276,14 +276,14 @@ static inline iss_reg_t lb_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lh_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
+    iss->lsu.load_signed(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_signed_perf<int16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -292,14 +292,14 @@ static inline iss_reg_t lh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    iss->lsu.load_signed(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_signed_perf<int32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
     {
         return pc;
     }
@@ -308,14 +308,14 @@ static inline iss_reg_t lw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lbu_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<uint8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0));
+    iss->lsu.load(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lbu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_perf<uint8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
+    if (iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
     {
         return pc;
     }
@@ -324,14 +324,14 @@ static inline iss_reg_t lbu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lhu_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<uint16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
+    iss->lsu.load(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lhu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_perf<uint16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0)))
+    if (iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_OUT(0)))
     {
         return pc;
     }
@@ -340,14 +340,14 @@ static inline iss_reg_t lhu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t sb_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1));
+    iss->lsu.store(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sb_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.store_perf<uint8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1)))
+    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 1, REG_IN(1)))
     {
         return pc;
     }
@@ -356,14 +356,14 @@ static inline iss_reg_t sb_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t sh_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_IN(1));
+    iss->lsu.store(insn, REG_GET(0) + SIM_GET(0), 2, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.store_perf<uint16_t>(insn, REG_GET(0) + SIM_GET(0), 2, REG_IN(1)))
+    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 2, REG_IN(1)))
     {
         return pc;
     }
@@ -372,14 +372,14 @@ static inline iss_reg_t sh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t sw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1));
+    iss->lsu.store(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.store_perf<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
+    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
     {
         return pc;
     }
@@ -528,8 +528,7 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     // just before this instruction.
     // The good solution would be to issue load requests and be able to stall the instruction
     // until we got the previous opcode
-    iss_reg_t index;
-    iss_insn_t *prev = insn_cache_get_insn(iss, pc - 4, index);
+    iss_insn_t *prev = insn_cache_get_insn(iss, pc - 4);
     if (prev == NULL)
     {
         return pc;

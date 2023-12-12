@@ -29,7 +29,7 @@
 static inline iss_reg_t flw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    if (iss->lsu.load_float(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
     {
         return pc;
     }
@@ -44,7 +44,7 @@ static inline iss_reg_t fsw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.store_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
+    if (iss->lsu.store_float(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
     {
         return pc;
     }

@@ -431,6 +431,36 @@ class Snitch(RiscvCommon):
         ])
 
 
+# Snitch FP subsystem
+class Snitch_fp_ss(RiscvCommon):
+
+    def __init__(self,
+            parent,
+            name,
+            isa: str='rv32imafdc',
+            misa: int=0,
+            binaries: list=[],
+            fetch_enable: bool=False,
+            boot_addr: int=0,
+            core_id: int=0, 
+            timed: bool=False):
+
+
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed)
+
+        self.add_c_flags([
+            "-DPIPELINE_STAGES=1",
+            "-DCONFIG_ISS_CORE=snitch_fp_ss",
+        ])
+
+        self.add_sources([
+            "cpu/iss/src/snitch/snitch_fp_ss.cpp",
+            "cpu/iss/src/spatz.cpp",
+        ])
+
+
 class Spatz(RiscvCommon):
 
     def __init__(self,

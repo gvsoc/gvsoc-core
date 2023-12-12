@@ -142,7 +142,10 @@ inline void Exec::stalled_dec()
 
     if (this->stalled.get() == 0)
     {
-        this->instr_event->enable();
+        if(!this->iss.fp_ss)
+        {
+            this->instr_event->enable();
+        }
     }
 }
 

@@ -175,7 +175,8 @@ int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
     iss_addr_t addr0 = addr & ADDR_MASK;
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
 
-    if (likely(addr0 == addr1))
+    //Todo: solve misaligned data request issue of fp subsystem by enqueue acceleration request
+    if (likely(addr0 == addr1) || this->iss.fp_ss)
         return this->data_req_aligned(addr, data_ptr, size, is_write);
     else
         return this->data_misaligned_req(addr, data_ptr, size, is_write);

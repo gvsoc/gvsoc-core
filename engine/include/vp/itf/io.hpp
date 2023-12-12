@@ -22,8 +22,11 @@
 #ifndef __VP_ITF_IO_HPP__
 #define __VP_ITF_IO_HPP__
 
+#define RISCY 1
+
 #include "vp/vp.hpp"
 #include "vp/queue.hpp"
+#include "../../models/cpu/iss/include/types.hpp"
 
 namespace vp {
 
@@ -72,8 +75,8 @@ namespace vp {
   public:
     IoReq() {}
 
-    IoReq(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
-    : addr(addr), data(data), size(size), is_write((IoReqOpcode)is_write)
+    IoReq(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write)
+    : addr(addr), data(data), size(size), insn(insn), is_write((IoReqOpcode)is_write)
     {
       init();
     }
@@ -84,6 +87,9 @@ namespace vp {
 
     inline void save();
     inline void restore();
+
+    iss_insn_t *get_insn() { return insn; }
+    void set_insn(iss_insn_t *insn) { this->insn = insn; }
 
     uint64_t get_addr() { return addr; }
     void set_addr(uint64_t value) { addr = value; }
@@ -148,6 +154,7 @@ namespace vp {
     uint8_t *second_data;
     uint64_t size;
     uint64_t actual_size;
+    iss_insn_t *insn;
     IoReqOpcode is_write;
     IoReqStatus status;
     IoSlave *resp_port;
@@ -178,7 +185,7 @@ namespace vp {
      */
 
     // Can be called to allocate an IO request.
-    inline IoReq *req_new(uint64_t addr, uint8_t *data, uint64_t size, bool is_write);
+    inline IoReq *req_new(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write);
 
     // Can be called to deallocate an IO request.
     inline void req_del(IoReq *req);
@@ -488,10 +495,10 @@ namespace vp {
 
 
 
-  inline IoReq *IoMaster::req_new(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+  inline IoReq *IoMaster::req_new(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write)
   {
     // For now we allocate new requests but this would be better to manage a pool of requests
-    IoReq *req = new IoReq(addr, data, size, is_write);
+    IoReq *req = new IoReq(addr, data, size, insn, is_write);
 
     return req;
   }
@@ -720,12 +727,14 @@ namespace vp {
     arg_push((void *)(long)this->addr);
     arg_push((void *)(long)this->size);
     arg_push((void *)this->data);
+    arg_push((void *)this->insn);
     arg_push((void *)(long)this->is_write);
   }
 
   inline void IoReq::restore()
   {
     this->is_write = (IoReqOpcode)(long)arg_pop();
+    this->insn = (iss_insn_t *)arg_pop();
     this->data = (uint8_t *)arg_pop();
     this->size = (long)arg_pop();
     this->addr = (long)arg_pop();

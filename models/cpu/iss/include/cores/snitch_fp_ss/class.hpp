@@ -82,20 +82,11 @@ public:
     bool snitch;
     bool fp_ss;
     
-    // Response callback for the offload request
-    static void acc_response(vp::Block *__this, vp::IoReq *req);
+    static vp::IoReqStatus acc_request(vp::Block *__this, vp::IoReq *req);
     // static void handle_acc(vp::Block *_this, vp::ClockEvent *event);
 
-    // Offload interface
-    vp::IoMaster acc_req_itf;
+    vp::IoSlave acc_rsp_itf;
 
-    // Request used for sending offload request to the accelerator interface
-    vp::IoReq acc_req;
-
-    // Pending opcode
-    iss_opcode_t acc_opcode;
-
-    // Send the offload request
     int send_acc_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
 
 private:

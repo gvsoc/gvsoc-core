@@ -404,7 +404,9 @@ typedef struct iss_insn_s
     int nb_out_reg;
     int nb_in_reg;
     int out_regs[ISS_MAX_NB_OUT_REGS];
+    bool out_regs_fp[ISS_MAX_NB_OUT_REGS];
     int in_regs[ISS_MAX_NB_IN_REGS];
+    bool in_regs_fp[ISS_MAX_NB_IN_REGS];
     iss_insn_arg_t args[ISS_MAX_DECODE_ARGS];
     iss_decoder_item_t *decoder_item;
     int resource_id;        // Identifier of the resource associated to this instruction
@@ -420,6 +422,10 @@ typedef struct iss_insn_s
 
     iss_insn_t *expand_table;
     bool is_macro_op;
+    bool is_fp_op;
+
+    iss_reg_t* reg_addr;
+    iss_freg_t* freg_addr;
 
 } iss_insn_t;
 

@@ -26,6 +26,20 @@
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
+static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    if (iss->snitch & !iss->fp_ss)
+    {
+        // if (iss->send_acc_req(insn, pc, false)) 
+        // {
+        //     return pc;
+        // }
+        insn->reg_addr = &iss->regfile.regs[0];
+        iss->send_acc_req(insn, pc, false);
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t flw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));

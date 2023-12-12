@@ -135,10 +135,12 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_ref(arg->u.reg.index);
+                    insn->in_regs_fp[darg->u.reg.id] = true;
                 }
                 else
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
+                    insn->in_regs_fp[darg->u.reg.id] = false;
                 }
             }
             else
@@ -151,16 +153,19 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_store_ref(arg->u.reg.index);
+                    insn->out_regs_fp[darg->u.reg.id] = true;
                 }
                 else
                 {
                     if (darg->u.reg.id == 0)
                     {
                         insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_store_ref(arg->u.reg.index);
+                        insn->out_regs_fp[darg->u.reg.id] = false;
                     }
                     else
                     {
                         insn->out_regs_ref[darg->u.reg.id] = &null_reg;
+                        insn->out_regs_fp[darg->u.reg.id] = false;
                     }
                 }
             }
@@ -348,6 +353,11 @@ int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
         int err = this->decode_item(insn, pc, opcode, isa->tree);
         if (err == 0)
         {
+            if (strcmp(isa->name, "f") == 0 || strcmp(isa->name, "d") == 0)
+            {
+                insn->is_fp_op = true;
+            }
+            this->trace.msg("Decoding successfully (pc: 0x%lx, isa_name: %s, fp_op: %d)\n", pc, isa->name, insn->is_fp_op);
             return 0;
         }
         else if (err == -2)
@@ -429,6 +439,7 @@ bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 
 bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (!insn->fetched)
     {
         if (!iss->prefetcher.fetch(pc))
@@ -438,10 +449,21 @@ bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
         insn->fetched = true;
     }
-
-    if (!iss->decode.decode_pc(insn, pc))
+#endif
+    if (!iss->snitch)
     {
-        return false;
+        if (!iss->decode.decode_pc(insn, pc))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        iss->decode.trace.msg("Decoding snitch instructions\n");
+        if (!iss->decode.decode_pc(insn, pc))
+        {
+            return false;
+        }
     }
 
     return true;
@@ -456,6 +478,15 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
+    if (iss->snitch & !iss->fp_ss)
+    {
+        if(insn->is_fp_op)
+        {
+            iss->decode.trace.msg("Offload to fp subsystem (opcode: 0x%lx, pc: 0x%lx)\n", insn->opcode, pc);
+            return fp_offload_exec(iss, insn, pc);
+            // return iss->exec.insn_exec(insn, pc);
+        }
+    }
     return iss->exec.insn_exec(insn, pc);
 }
 

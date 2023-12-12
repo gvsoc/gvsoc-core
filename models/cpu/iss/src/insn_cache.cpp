@@ -26,7 +26,9 @@ static void insn_block_init(Iss *iss, iss_insn_block_t *b, iss_addr_t pc);
 
 static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
 {
+#ifdef CONFIG_GVSOC_ISS_TIMED
     iss->prefetcher.flush();
+#endif
 
     if (cache->first_page)
     {

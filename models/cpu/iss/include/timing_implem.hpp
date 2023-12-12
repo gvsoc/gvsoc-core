@@ -188,6 +188,11 @@ inline void Timing::stall_load_account(int cycles)
     this->stall_cycles_account(cycles);
 }
 
+inline void Timing::stall_acc_account(int cycles)
+{
+    this->stall_cycles_account(cycles);
+}
+
 inline void Timing::stall_taken_branch_account()
 {
     this->stall_cycles_account(2);

@@ -24,8 +24,8 @@
 
 
 
-Exec::Exec(Iss &iss)
-    : iss(iss)
+Exec::Exec(IssWrapper &top, Iss &iss)
+    : iss(iss), instr_event(&top, (vp::Block *)&iss, &Exec::exec_instr_check_all)
 {
 }
 
@@ -64,8 +64,6 @@ void Exec::build()
 
     this->stalled.set(false);
     this->halted.set(false);
-
-    instr_event = this->iss.top.event_new((vp::Block *)&this->iss, Exec::exec_instr_check_all);
 
     this->bootaddr_offset = this->iss.top.get_js_config()->get_child_int("bootaddr_offset");
 
@@ -257,7 +255,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     // if HW counters are disabled as they are checked with the slow handler
     if (_this->can_switch_to_fast_mode())
     {
-        _this->instr_event->set_callback(&Exec::exec_instr);
+        _this->instr_event.set_callback(&Exec::exec_instr);
     }
 
     _this->insn_exec_profiling();

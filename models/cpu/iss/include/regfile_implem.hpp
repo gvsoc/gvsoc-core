@@ -47,7 +47,7 @@ inline iss_reg_t Regfile::get_reg(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_TIMED
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event->stall_cycle_get();
+    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
     if (unlikely(diff > 0))
     {
         this->iss.timing.stall_load_dependency_account(diff);

@@ -31,10 +31,12 @@
 
 typedef iss_reg_t (*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
+class IssWrapper;
+
 class Exec
 {
 public:
-    Exec(Iss &iss);
+    Exec(IssWrapper &top, Iss &iss);
     void build();
     void reset(bool active);
 
@@ -86,10 +88,10 @@ public:
     inline void interrupt_taken();
 
     iss_reg_t current_insn;
+    vp::ClockEvent instr_event;
     vp::reg_64 stalled;
 
     vp::Trace trace;
-    vp::ClockEvent *instr_event;
 
     static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);

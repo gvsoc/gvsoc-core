@@ -50,6 +50,9 @@
 
 #include <cpu/iss/include/types.hpp>
 
+#include "OffloadReq.hpp"
+#include "OffloadRsp.hpp"
+
 class IssWrapper;
 
 
@@ -81,22 +84,37 @@ public:
 
     bool snitch;
     bool fp_ss;
-    
+
+
+    // -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
+    /*
     // Response callback for the offload request
     static void acc_response(vp::Block *__this, vp::IoReq *req);
     // static void handle_acc(vp::Block *_this, vp::ClockEvent *event);
 
-    // Offload interface
+    // Offload request interface 
     vp::IoMaster acc_req_itf;
 
     // Request used for sending offload request to the accelerator interface
     vp::IoReq acc_req;
-
-    // Pending opcode
-    iss_opcode_t acc_opcode;
-
     // Send the offload request
     int send_acc_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
+    */
+
+    // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
+
+    // Offload request interface 
+    vp::WireMaster<OffloadReq *> acc_req_itf;
+    // Response interface, receive result from subsystem
+    vp::WireSlave<OffloadRsp *> acc_rsp_itf;
+    OffloadReq acc_req;
+    OffloadRsp acc_rsp;
+
+    void handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
+    static void handle_result(vp::Block *__this, OffloadRsp *result);
+
+    // Checking scoreboard
+    bool acc_stall;
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);

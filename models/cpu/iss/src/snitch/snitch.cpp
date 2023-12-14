@@ -40,10 +40,20 @@ Iss::Iss(vp::Component &top)
 
     this->snitch = true;
     this->fp_ss = false;
-
     this->top.traces.new_trace("offload", &this->trace_iss, vp::DEBUG);
-    this->acc_req_itf.set_resp_meth(&Iss::acc_response);
+
+
+    // -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
+    // this->acc_req_itf.set_resp_meth(&Iss::acc_response);
+    // this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
+
+
+    // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
     this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
+
+    this->acc_rsp_itf.set_sync_meth(&Iss::handle_result);
+    this->top.new_slave_port("acc_rsp", &this->acc_rsp_itf, (vp::Block *)this);
+
 }
 
 
@@ -94,6 +104,8 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 }
 
 
+// -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
+/*
 void Iss::acc_response(vp::Block *__this, vp::IoReq *req)
 {
     Iss *_this = (Iss *)__this;
@@ -161,3 +173,61 @@ int Iss::send_acc_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
 //     Iss *_this = (Iss *)__this;
 
 // }
+*/
+
+// -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
+// This get called when there is floating-point instruction detected in decode stage.
+// Maybe change output type from void to bool later if inserting scoreboard.
+void Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
+{
+    iss_opcode_t opcode = insn->opcode;
+    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
+
+    // Assign arguments to request.
+    this->acc_req = { .pc=pc, .insn=insn, .is_write=is_write };
+    
+    // Todo: currently stall anyway until the accelerator sends back result.
+    this->acc_stall = true;
+
+    // Offload request if the port is connected
+    if (this->acc_req_itf.is_bound())
+    {
+        this->acc_req_itf.sync(&this->acc_req);
+    }
+
+    // Todo: Check if the subsystem side accept the offloaded instruction.
+    // If there's a accelerator stall, stop the current event queue at the master side.
+    if (this->acc_stall)
+    {
+        // If acc_stall, stall the core, this will get unstalled when the response (handle_result) is called
+        this->exec.insn_stall();
+    }
+}
+
+// This get called when it receives result from subsystem.
+void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
+{
+    Iss *_this = (Iss *)__this;
+
+    // Todo: Might need post-processing of result.
+
+    // Pass values of floating point registers from subsystem to core side.
+    for (int i=0; i<ISS_NB_REGS; i++)
+    {
+        _this->regfile.set_freg(i, *((iss_freg_t *)(_this->acc_req.insn->freg_addr)+i));
+    }
+
+    // Output instruction trace for debugging.
+    // iss_trace_dump(_this, _this->acc_req.insn, _this->acc_req.pc);
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Get accelerator response\n");
+
+    // Clear the stall flag.
+    _this->acc_stall = false;
+
+    // Unstall the core when we receive the response.
+    if (_this->exec.is_stalled())
+    {
+        _this->exec.stalled_dec();
+        _this->exec.insn_terminate();
+    }
+}

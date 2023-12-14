@@ -31,12 +31,14 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
+        // Todo: implement scoreboard somewhere, not increment pc if there's dependency or stall
         // if (iss->send_acc_req(insn, pc, false)) 
         // {
         //     return pc;
         // }
         insn->reg_addr = &iss->regfile.regs[0];
-        iss->send_acc_req(insn, pc, false);
+        iss->handle_req(insn, pc, false);
+        // iss->send_acc_req(insn, pc, false);
     }
 #endif
     return iss_insn_next(iss, insn, pc);

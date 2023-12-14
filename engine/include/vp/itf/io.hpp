@@ -26,7 +26,7 @@
 
 #include "vp/vp.hpp"
 #include "vp/queue.hpp"
-#include "../../models/cpu/iss/include/types.hpp"
+// #include "../../models/cpu/iss/include/types.hpp"
 
 namespace vp {
 
@@ -76,11 +76,11 @@ namespace vp {
     IoReq() {}
 
 // #ifdef CONFIG_GVSOC_ISS_SNITCH
-    IoReq(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write)
-    : addr(addr), data(data), size(size), insn(insn), is_write((IoReqOpcode)is_write)
-    {
-      init();
-    }
+    // IoReq(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write)
+    // : addr(addr), data(data), size(size), insn(insn), is_write((IoReqOpcode)is_write)
+    // {
+    //   init();
+    // }
 // #endif
 // #ifndef CONFIG_GVSOC_ISS_SNITCH
     IoReq(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
@@ -98,8 +98,8 @@ namespace vp {
     inline void restore();
 
 // #ifdef CONFIG_GVSOC_ISS_SNITCH
-    iss_insn_t *get_insn() { return insn; }
-    void set_insn(iss_insn_t *insn) { this->insn = insn; }
+    // iss_insn_t *get_insn() { return insn; }
+    // void set_insn(iss_insn_t *insn) { this->insn = insn; }
 // #endif
 
     uint64_t get_addr() { return addr; }
@@ -166,7 +166,7 @@ namespace vp {
     uint64_t size;
     uint64_t actual_size;
 // #ifdef CONFIG_GVSOC_ISS_SNITCH
-    iss_insn_t *insn;
+    // iss_insn_t *insn;
 // #endif
     IoReqOpcode is_write;
     IoReqStatus status;
@@ -199,7 +199,7 @@ namespace vp {
 
 // #ifdef CONFIG_GVSOC_ISS_SNITCH
     // Can be called to allocate an IO request.
-    inline IoReq *req_new(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write);
+    // inline IoReq *req_new(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write);
 // #endif
 // #ifndef CONFIG_GVSOC_ISS_SNITCH
     // Can be called to allocate an IO request.
@@ -514,13 +514,13 @@ namespace vp {
 
 
 // #ifdef CONFIG_GVSOC_ISS_SNITCH
-  inline IoReq *IoMaster::req_new(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write)
-  {
-    // For now we allocate new requests but this would be better to manage a pool of requests
-    IoReq *req = new IoReq(addr, data, size, insn, is_write);
+  // inline IoReq *IoMaster::req_new(uint64_t addr, uint8_t *data, uint64_t size, iss_insn_t *insn, bool is_write)
+  // {
+  //   // For now we allocate new requests but this would be better to manage a pool of requests
+  //   IoReq *req = new IoReq(addr, data, size, insn, is_write);
 
-    return req;
-  }
+  //   return req;
+  // }
 // #endif
 
 
@@ -758,18 +758,18 @@ namespace vp {
     arg_push((void *)(long)this->addr);
     arg_push((void *)(long)this->size);
     arg_push((void *)this->data);
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    arg_push((void *)this->insn);
-#endif
+// #ifdef CONFIG_GVSOC_ISS_SNITCH
+//     arg_push((void *)this->insn);
+// #endif
     arg_push((void *)(long)this->is_write);
   }
 
   inline void IoReq::restore()
   {
     this->is_write = (IoReqOpcode)(long)arg_pop();
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    this->insn = (iss_insn_t *)arg_pop();
-#endif
+// #ifdef CONFIG_GVSOC_ISS_SNITCH
+//     this->insn = (iss_insn_t *)arg_pop();
+// #endif
     this->data = (uint8_t *)arg_pop();
     this->size = (long)arg_pop();
     this->addr = (long)arg_pop();

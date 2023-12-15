@@ -55,7 +55,7 @@ class IssWrapper;
 class Iss
 {
 public:
-    Iss(vp::Component &top);
+    Iss(IssWrapper &top);
 
     Exec exec;
     InsnCache insn_cache;

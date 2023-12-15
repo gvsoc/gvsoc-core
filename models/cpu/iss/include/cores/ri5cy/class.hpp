@@ -50,7 +50,7 @@ class IssWrapper;
 class Iss
 {
 public:
-    Iss(vp::Component &top);
+    Iss(IssWrapper &top);
 
     Regfile regfile;
     Exec exec;
@@ -95,8 +95,8 @@ private:
     vp::Trace trace;
 };
 
-inline Iss::Iss(vp::Component &top)
-    : prefetcher(*this), exec(*this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
+inline Iss::Iss(IssWrapper &top)
+    : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
       regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)
 {

@@ -837,7 +837,7 @@ static bool checkCsrAccess(Iss *iss, int reg, bool isWrite)
 
 bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 {
-    bool status;
+    bool status = true;
 
     iss->csr.trace.msg("Reading CSR (reg: 0x%x, name: %s)\n",
         reg, iss_csr_name(iss, reg));
@@ -1214,7 +1214,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         }
 #endif
 
-        else
+        if (status)
         {
             iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
 #if 0

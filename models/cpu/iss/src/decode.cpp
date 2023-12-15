@@ -353,11 +353,13 @@ int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
         int err = this->decode_item(insn, pc, opcode, isa->tree);
         if (err == 0)
         {
+            #ifdef CONFIG_GVSOC_ISS_SNITCH
             if (strcmp(isa->name, "f") == 0 || strcmp(isa->name, "d") == 0)
             {
                 insn->is_fp_op = true;
             }
             this->trace.msg("Decoding successfully (pc: 0x%lx, isa_name: %s, fp_op: %d)\n", pc, isa->name, insn->is_fp_op);
+            #endif
             return 0;
         }
         else if (err == -2)
@@ -439,7 +441,7 @@ bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 
 bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#if defined(CONFIG_GVSOC_ISS_TIMED)
+// #if defined(CONFIG_GVSOC_ISS_TIMED)
     if (!insn->fetched)
     {
         if (!iss->prefetcher.fetch(pc))
@@ -449,7 +451,7 @@ bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
         insn->fetched = true;
     }
-#endif
+// #endif
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (!iss->snitch)
     {

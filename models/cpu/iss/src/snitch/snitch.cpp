@@ -43,11 +43,6 @@ Iss::Iss(vp::Component &top)
     this->top.traces.new_trace("offload", &this->trace_iss, vp::DEBUG);
 
 
-    // -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
-    // this->acc_req_itf.set_resp_meth(&Iss::acc_response);
-    // this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
-
-
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
     this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
 
@@ -103,77 +98,6 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
     }
 }
 
-
-// -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
-/*
-void Iss::acc_response(vp::Block *__this, vp::IoReq *req)
-{
-    Iss *_this = (Iss *)__this;
-
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Received acceleration response\n");
-
-    // Since a pending response can also include a latency, we need to account it as a stall
-    _this->timing.stall_acc_account(req->get_latency());
-
-    // Now unstall the core and call the fetch callback so that we can continue the operation
-    _this->exec.stalled_dec();
-}
-
-
-int Iss::send_acc_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
-{
-    vp::IoReq *req = &this->acc_req;
-    iss_opcode_t opcode = insn->opcode;
-
-    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
-
-    req->init();
-    req->set_addr(pc);
-    req->set_size(0);
-    req->set_data(NULL);
-    req->set_insn(insn);
-    req->set_is_write(is_write);
-
-    vp::IoReqStatus err = this->acc_req_itf.req(req);
-
-    if (err != vp::IO_REQ_OK)
-    {
-        if (err == vp::IO_REQ_INVALID)
-        {
-#ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-            this->trace_iss.force_warning("Invalid offload request (opcode: 0x%x, pc: 0x%lx)\n", opcode, pc);
-#endif
-            this->exception.raise(this->exec.current_insn, ISS_EXCEPT_INSN_FAULT);
-            return 1;
-        }
-        else
-        {
-            this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
-            this->exec.insn_stall();
-            return -1;
-        }
-    }
-
-    this->timing.stall_acc_account(req->get_latency());
-
-    for (int i=0; i<ISS_NB_REGS; i++)
-    {
-        this->regfile.set_freg(i, *((iss_freg_t *)(insn->freg_addr)+i));
-    }
-
-    iss_trace_dump(this, insn, pc);
-    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Get accelerator response\n");
-
-    return 0;
-}
-
-
-// void Iss::handle_acc(vp::Block *__this, vp::ClockEvent *event)
-// {
-//     Iss *_this = (Iss *)__this;
-
-// }
-*/
 
 // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 // This get called when there is floating-point instruction detected in decode stage.

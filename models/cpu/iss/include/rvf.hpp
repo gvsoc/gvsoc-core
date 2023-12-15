@@ -32,13 +32,12 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     if (iss->snitch & !iss->fp_ss)
     {
         // Todo: implement scoreboard somewhere, not increment pc if there's dependency or stall
-        // if (iss->send_acc_req(insn, pc, false)) 
+        // if (iss->handle_req(insn, pc, false)) 
         // {
         //     return pc;
         // }
         insn->reg_addr = &iss->regfile.regs[0];
         iss->handle_req(insn, pc, false);
-        // iss->send_acc_req(insn, pc, false);
     }
 #endif
     return iss_insn_next(iss, insn, pc);

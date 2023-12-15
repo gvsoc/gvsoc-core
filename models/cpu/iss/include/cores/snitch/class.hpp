@@ -86,21 +86,6 @@ public:
     bool fp_ss;
 
 
-    // -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
-    /*
-    // Response callback for the offload request
-    static void acc_response(vp::Block *__this, vp::IoReq *req);
-    // static void handle_acc(vp::Block *_this, vp::ClockEvent *event);
-
-    // Offload request interface 
-    vp::IoMaster acc_req_itf;
-
-    // Request used for sending offload request to the accelerator interface
-    vp::IoReq acc_req;
-    // Send the offload request
-    int send_acc_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
-    */
-
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 
     // Offload request interface 

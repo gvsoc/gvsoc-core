@@ -27,11 +27,6 @@ Iss::Iss(vp::Component &top)
     : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
       regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
-    //   , event((vp::Block *)this, Iss::handle_event)
-// Iss::Iss(vp::Component &top)
-//     : exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
-//       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-//       regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
@@ -46,11 +41,6 @@ Iss::Iss(vp::Component &top)
     this->snitch = true;
     this->fp_ss = true;
     this->top.traces.new_trace("accelerator", &this->trace_iss, vp::DEBUG);
-
-
-    // -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
-    // this->acc_rsp_itf.set_req_meth(&Iss::acc_request);
-    // this->top.new_slave_port("acc_rsp", &this->acc_rsp_itf, (vp::Block *)this);
 
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
@@ -111,82 +101,6 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 }
 
 
-// -----------USE IO PORT TO HANDLE OFFLOAD REQUEST------------------
-/*
-vp::IoReqStatus Iss::acc_request(vp::Block *__this, vp::IoReq *req)
-{
-    Iss *_this = (Iss *)__this;
-    vp::IoReqStatus result;
-    
-    iss_reg_t pc = req->get_addr();
-    bool isRead = !req->get_is_write();
-    iss_insn_t *insn = req->get_insn();
-    iss_opcode_t opcode = insn->opcode;
-    insn->freg_addr = &_this->regfile.fregs[0];
-    
-    if (insn == NULL)
-    {
-        result = vp::IO_REQ_INVALID;
-    }
-
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Received IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
-
-    int rd = insn->out_regs[0];
-    int rs1 = insn->in_regs[0];
-    int rs2 = insn->in_regs[1];
-    int rs3 = insn->in_regs[2];
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "rd index: %d, rs1 index: %d, rs2 index: %d, rs3 index: %d\n", rd, rs1, rs2, rs3);
-    if (insn->in_regs_fp[0])
-    {
-        insn->in_regs_ref[0] = _this->regfile.freg_store_ref(rs1);
-    }
-    if (insn->in_regs_fp[1])
-    {
-        insn->in_regs_ref[1] = _this->regfile.freg_store_ref(rs2);
-    }
-    if (insn->in_regs_fp[2])
-    {
-        insn->in_regs_ref[2] = _this->regfile.freg_store_ref(rs3);
-    }
-    if (insn->out_regs_fp[0])
-    {
-        insn->out_regs_ref[0] = _this->regfile.freg_store_ref(rd);
-    }
-
-    _this->exec.insn_exec(insn, pc);
-
-    for (int i=0; i<ISS_NB_REGS; i++)
-    {
-        _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
-    }
-
-    // _this->trace.priv_mode = _this->core.mode_get();
-    // iss_trace_save_args(_this, insn, _this->trace.saved_args, false);
-    iss_trace_dump(_this, insn, pc);
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
-    
-    result = vp::IO_REQ_OK;
-    
-    return result;
-}
-
-
-// void Iss::handle_acc(vp::Block *__this, vp::ClockEvent *event)
-// {
-//     Iss *_this = (Iss *)__this;
-
-//     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Handle acc request\n");
-
-// }
-
-
-// int Iss::send_acc_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
-// {
-//     return 0;
-// }
-*/
-
-
 // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 // This gets called when it receives request from master side.
 void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
@@ -230,14 +144,11 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     {
         _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
     }
-    // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish updating integer regfile\n");
 
     // Put the instruction execution part into event queue,
     // in order to realize the parallelism between master and slave.
     // Todo: Specify latency here as the latency of instruction.
-    // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set pc\n");
     _this->acc_req.pc = pc;
-    // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set insn\n");
     _this->acc_req.insn = insn;
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Enqueue the offloaded instruction\n");
     if (!_this->event->is_enqueued())
@@ -273,6 +184,11 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     _this->exec.insn_exec(insn, pc);
     error = false;
     rd = insn->out_regs[0];
+    // Update integer regfile after calculation
+    for (int i=0; i<ISS_NB_REGS; i++)
+    {
+        _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
+    }
 
     // Output the instruction trace.
     iss_trace_dump(_this, insn, pc);
@@ -280,7 +196,6 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
      
     // Assign arguments to result.
     // Todo: assign value for data if the output register is integer register.
-    // OffloadRsp rsp = { .rd=rd, .error=error, .data };
     _this->acc_rsp = { .rd=rd, .error=error, .data=0};
     
     // Send back response of the result

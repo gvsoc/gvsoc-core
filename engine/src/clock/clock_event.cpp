@@ -49,7 +49,7 @@
 
 vp::ClockEvent::ClockEvent(Block *comp)
     : comp(comp), _this(comp), meth(meth),
-    enqueued(false), stall_cycle(0)
+    enqueued(false), stall_cycle(0), meth_saved(NULL)
 {
     comp->clock.add_clock_event(this);
     this->clock = comp->clock.get_engine();
@@ -57,14 +57,14 @@ vp::ClockEvent::ClockEvent(Block *comp)
 
 vp::ClockEvent::ClockEvent(Block *comp, ClockEventMeth *meth)
     : comp(comp), _this(comp), meth(meth),
-    enqueued(false), stall_cycle(0)
+    enqueued(false), stall_cycle(0), meth_saved(NULL)
 {
     comp->clock.add_clock_event(this);
     this->clock = comp->clock.get_engine();
 }
 
 vp::ClockEvent::ClockEvent(Block *comp, vp::Block *_this, ClockEventMeth *meth)
-: comp(comp), _this(_this), meth(meth), enqueued(false), stall_cycle(0)
+: comp(comp), _this(_this), meth(meth), enqueued(false), stall_cycle(0), meth_saved(NULL)
 {
     comp->clock.add_clock_event(this);
     this->clock = comp->clock.get_engine();

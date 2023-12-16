@@ -1208,7 +1208,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 #endif
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
-        if (reg >= CONFIG_GVSOC_ISS_RI5KY && reg <= CSR_HWLOOP1_COUNTER)
+        if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
         {
             status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
         }
@@ -1617,26 +1617,49 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 #endif
     }
 
-#if 0
 #if defined(ISS_HAS_PERF_COUNTERS)
     if ((reg >= CSR_PCCR(0) && reg <= CSR_PCCR(CSR_NB_PCCR)) || reg == CSR_PCER || reg == CSR_PCMR)
     {
-      status = perfCounters_read(iss, reg, value);
+      return "pccr";
+    }
+    if (reg == CSR_PCER)
+    {
+      return "pcer";
+    }
+    if (reg == CSR_PCMR)
+    {
+      return "pcmr";
     }
 #endif
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
-    else if (iss->csr.hwloop)
+    if (reg == CSR_HWLOOP0_START)
     {
-      if (reg >= CONFIG_GVSOC_ISS_RI5KY && reg <= CSR_HWLOOP1_COUNTER)
-      {
-        status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
-      }
+      return "hwloop0_start";
+    }
+    if (reg == CSR_HWLOOP0_END)
+    {
+      return "hwloop0_end";
+    }
+    if (reg == CSR_HWLOOP0_COUNTER)
+    {
+      return "hwloop0_counter";
+    }
+    if (reg == CSR_HWLOOP1_START)
+    {
+      return "hwloop1_start";
+    }
+    if (reg == CSR_HWLOOP1_END)
+    {
+      return "hwloop1_end";
+    }
+    if (reg == CSR_HWLOOP1_COUNTER)
+    {
+      return "hwloop1_counter";
     }
 #endif
-#endif
 
-    return "csr";
+    return std::to_string(reg).c_str();
 }
 
 CsrAbtractReg::CsrAbtractReg(iss_reg_t *value)

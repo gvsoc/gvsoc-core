@@ -256,7 +256,6 @@ namespace vp
         ClockEventMeth *meth_saved;
         // Instance of the event, given as first argument of the event callback when called
         vp::Block *_this;
-        vp::Block *_this_saved;
         // Events arguments, models are free to use them
         void *args[VP_CLOCK_EVENT_NB_ARGS];
         // Pointer for event chaining
@@ -272,6 +271,7 @@ namespace vp
         int64_t stall_cycle;
         // Clock engine owning this event
         ClockEngine *clock;
+        bool pending_disable = false;
     };
 
 };

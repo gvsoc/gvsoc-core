@@ -50,14 +50,17 @@ vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
 {
     if (!event->enqueued)
     {
-        if (event->stall_cycle == -1)
+        if (event->pending_disable)
         {
             // The event has been disabled but not yet removed by the engine.
             // Just cancel the removal.
-            event->stall_cycle = 0;
+            event->pending_disable = false;
             event->enqueued = true;
-            event->meth = event->meth_saved;
-            event->_this = event->_this_saved;
+            if (event->stall_cycle == 0)
+            {
+                event->meth = event->meth_saved;
+                event->meth_saved = NULL;
+            }
         }
         else
         {
@@ -92,15 +95,19 @@ vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
 
 void vp::ClockEngine::stalled_event_handler(vp::Block *__this, ClockEvent *event)
 {
-    vp::ClockEngine *_this = (vp::ClockEngine *)__this;
+    vp::ClockEngine *_this = (vp::ClockEngine *)event->clock;
 
-    if (event->stall_cycle == -1)
+    if (event->pending_disable)
     {
         // Case where the event has been disabled. The disable was just flagged so
         // that we can propertly remove it from here.
-        event->stall_cycle = 0;
-        event->meth = event->meth_saved;
-        event->_this = event->_this_saved;
+        event->pending_disable = false;
+
+        if (event->stall_cycle == 0)
+        {
+            event->meth = event->meth_saved;
+            event->meth_saved = NULL;
+        }
 
         if (event->prev)
         {
@@ -123,7 +130,7 @@ void vp::ClockEngine::stalled_event_handler(vp::Block *__this, ClockEvent *event
         if (event->stall_cycle == 0)
         {
             event->meth = event->meth_saved;
-            event->_this = event->_this_saved;
+            event->meth_saved = NULL;
         }
     }
 }
@@ -134,12 +141,14 @@ void vp::ClockEngine::disable(vp::ClockEvent *event)
     {
         // Since the event is enqueued in a list which may be being browsed, we cannot directly
         // remove it. Mark it as removed and the engine will take care of removing it.
-        event->stall_cycle = -1;
+        event->pending_disable = true;
         event->enqueued = false;
-        event->meth_saved = event->meth;
-        event->_this_saved = event->_this;
-        event->meth = &vp::ClockEngine::stalled_event_handler;
-        event->_this = this;
+
+        if (event->meth_saved == NULL)
+        {
+            event->meth_saved = event->meth;
+            event->meth = &vp::ClockEngine::stalled_event_handler;
+        }
     }
 }
 

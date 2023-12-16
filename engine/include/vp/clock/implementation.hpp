@@ -133,10 +133,32 @@ inline void vp::ClockEvent::disable()
 inline void vp::ClockEvent::stall_cycle_inc(int64_t inc)
 {
     this->stall_cycle += inc;
+
+    if (this->meth_saved == NULL && this->stall_cycle > 0)
+    {
+        this->meth_saved = this->meth;
+        this->meth = &vp::ClockEngine::stalled_event_handler;
+    }
 }
 
 inline void vp::ClockEvent::stall_cycle_set(int64_t value)
 {
+    if (this->meth_saved == NULL)
+    {
+        if (value != 0)
+        {
+            this->meth_saved = this->meth;
+            this->meth = &vp::ClockEngine::stalled_event_handler;
+        }
+    }
+    else
+    {
+        if (value == 0)
+        {
+            this->meth = this->meth_saved;
+            this->meth_saved = NULL;
+        }
+    }
     this->stall_cycle = value;
 }
 
@@ -152,7 +174,14 @@ inline bool vp::ClockEvent::is_enqueued()
 
 inline void vp::ClockEvent::set_callback(ClockEventMeth *meth)
 {
-    this->meth = meth;
+    if (this->meth_saved == NULL)
+    {
+        this->meth = meth;
+    }
+    else
+    {
+        this->meth_saved = meth;
+    }
 }
 
 inline void **vp::ClockEvent::get_args()

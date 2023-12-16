@@ -458,9 +458,9 @@ class Spatz(RiscvCommon):
             use_rv32v=False):
 
 
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa)
+        extensions = [ Rv32v() ]
 
-        isa_instance.add_tree(IsaDecodeTree('rv32v', [Rv32v()]))
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa, extensions=extensions)
 
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch")
 

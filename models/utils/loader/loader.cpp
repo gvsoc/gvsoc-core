@@ -218,7 +218,7 @@ bool loader::load_elf(const char* file, uint64_t *entry)
     struct stat s;
     if (fstat(fd, &s) < 0)
     {
-        this->trace.force_warning("Unable to open binary (path: %s, error: %s)\n", strerror(errno));
+        this->trace.force_warning("Unable to open binary (path: %s, error: %s)\n", file, strerror(errno));
         return true;
     }
     size_t size = s.st_size;
@@ -226,7 +226,7 @@ bool loader::load_elf(const char* file, uint64_t *entry)
     unsigned char* buf = (unsigned char*)mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (buf == MAP_FAILED)
     {
-        this->trace.force_warning("Unable to open binary (path: %s, error: %s)\n", strerror(errno));
+        this->trace.force_warning("Unable to open binary (path: %s, error: %s)\n", file, strerror(errno));
         close(fd);
         return true;
     }

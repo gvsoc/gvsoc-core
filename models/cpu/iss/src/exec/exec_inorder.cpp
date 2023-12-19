@@ -85,6 +85,7 @@ void Exec::reset(bool active)
 {
     if (active)
     {
+        this->pending_flush = false;
         this->clock_active = false;
         this->skip_irq_check = true;
         this->has_exception = false;
@@ -244,6 +245,12 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     Exec *_this = &iss->exec;
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
+
+    if(_this->pending_flush)
+    {
+        iss->insn_cache.flush();
+        _this->pending_flush = false;
+    }
 
     if (_this->has_exception)
     {

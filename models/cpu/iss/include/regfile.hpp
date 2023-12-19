@@ -67,7 +67,7 @@ private:
     vp::ClockEngine *engine;
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    int64_t scoreboard_reg_timestamp[ISS_NB_REGS];
+    int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
 #if !defined(ISS_SINGLE_REGFILE)
     int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
 #endif

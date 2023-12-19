@@ -148,6 +148,8 @@ public:
     // to something else executing, like mmy page-walk or misaligned access.
     bool insn_on_hold;
 
+    bool pending_flush;
+
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);
     static void clock_sync(vp::Block *_this, bool active);

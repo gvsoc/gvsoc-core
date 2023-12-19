@@ -69,11 +69,12 @@ void InsnCache::mode_flush()
 }
 
 
-
 void Decode::flush_cache_sync(vp::Block *__this, bool active)
 {
     Decode *_this = (Decode *)__this;
-    _this->iss.insn_cache.flush();
+    // Delay the flush to the next instruction in case we are in the middle of an instruction
+    _this->iss.exec.pending_flush = true;
+    _this->iss.exec.switch_to_full_mode();
 }
 
 

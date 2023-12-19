@@ -139,7 +139,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     {
         latency = req->get_latency();
 
-#if defined(PIPELINE_STAGES)
+#if defined(PIPELINE_STALL_THRESHOLD)
         if (latency > PIPELINE_STALL_THRESHOLD)
         {
             this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
@@ -152,7 +152,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     {
         latency = this->io_req.get_latency();
 
-#if defined(PIPELINE_STAGES)
+#if defined(PIPELINE_STALL_THRESHOLD)
         if (latency > PIPELINE_STALL_THRESHOLD)
         {
             this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);

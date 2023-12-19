@@ -33,7 +33,10 @@ public:
     void reset(bool active);
 
     iss_reg_t regs[ISS_NB_REGS+1];
+
+#if !defined(ISS_SINGLE_REGFILE)
     iss_freg_t fregs[ISS_NB_FREGS];
+#endif
 
     inline iss_reg_t *reg_ref(int reg);
     inline iss_reg_t *reg_store_ref(int reg);
@@ -54,6 +57,8 @@ public:
     inline void scoreboard_freg_set_timestamp(int reg, int64_t timestamp);
     inline void scoreboard_reg_invalidate(int reg);
     inline void scoreboard_freg_invalidate(int reg);
+    inline void scoreboard_reg_check(int reg);
+    inline void scoreboard_freg_check(int reg);
 #endif
 
 private:
@@ -63,6 +68,8 @@ private:
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     int64_t scoreboard_reg_timestamp[ISS_NB_REGS];
+#if !defined(ISS_SINGLE_REGFILE)
     int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+#endif
 #endif
 };

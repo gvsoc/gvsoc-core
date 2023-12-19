@@ -412,7 +412,6 @@ class Riscv(RiscvCommon):
             memory_start=memory_start, memory_size=memory_size)
 
         self.add_c_flags([
-            "-DPIPELINE_STAGES=2",
             "-DCONFIG_ISS_CORE=riscv",
         ])
 
@@ -435,7 +434,6 @@ class Snitch(RiscvCommon):
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True)
 
         self.add_c_flags([
-            "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch",
         ])
 
@@ -465,7 +463,6 @@ class Spatz(RiscvCommon):
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch")
 
         self.add_c_flags([
-            "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch",
         ])
 

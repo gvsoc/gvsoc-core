@@ -34,9 +34,9 @@ public:
     void start();
     void reset(bool active);
 
-    int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write);
-    int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
-    int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write);
+    int data_req(iss_addr_t addr, uint8_t *data, int size, bool is_write, int64_t &latency);
+    int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency);
+    int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency);
 
     static void exec_misaligned(vp::Block *__this, vp::ClockEvent *event);
     static void data_grant(vp::Block *__this, vp::IoReq *req);
@@ -104,4 +104,6 @@ private:
     static void elw_resume(Lsu *lsu);
     static void load_signed_resume(Lsu *lsu);
     static void load_float_resume(Lsu *lsu);
+
+    int64_t pending_latency;
 };

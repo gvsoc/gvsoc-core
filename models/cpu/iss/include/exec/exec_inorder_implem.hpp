@@ -35,15 +35,18 @@ static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, i
 {
     iss_reg_t next_insn =  insn->stall_fast_handler(iss, insn, pc);
     int latency = insn->latency;
+
 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
     iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], iss->top.clock.get_cycles() + latency);
 #endif
-#if defined(PIPELINE_STAGES)
-    if (latency > PIPELINE_STAGES)
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+    if (latency > PIPELINE_STALL_THRESHOLD)
     {
-        iss->timing.stall_load_dependency_account(latency - PIPELINE_STAGES);
+        iss->timing.stall_load_dependency_account(latency - PIPELINE_STALL_THRESHOLD);
     }
 #endif
+
     return next_insn;
 }
 

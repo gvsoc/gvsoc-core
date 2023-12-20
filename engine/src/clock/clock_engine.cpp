@@ -246,7 +246,7 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
 
     int64_t full_cycle = cycle + get_cycles();
 
-    while (current && current->cycle < full_cycle)
+    while (current && current->cycle <= full_cycle)
     {
         prev = current;
         current = current->next;

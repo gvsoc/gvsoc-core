@@ -351,3 +351,25 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
 
     return false;
 }
+
+template<typename T>
+inline bool Lsu::load_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    if (this->iss.gdbserver.watchpoint_check(false, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_load_account(1);
+    return this->load_float<T>(insn, addr, size, reg);
+}
+
+template<typename T>
+inline bool Lsu::store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    if (this->iss.gdbserver.watchpoint_check(true, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_store_account(1);
+    return this->store_float<T>(insn, addr, size, reg);
+}

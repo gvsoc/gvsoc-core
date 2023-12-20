@@ -56,7 +56,7 @@ static inline iss_reg_t c_ld_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t c_fsd_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    return fsd_exec(iss, insn, pc);
+    return fsd_exec_fast(iss, insn, pc);
 }
 
 static inline iss_reg_t c_fsd_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)

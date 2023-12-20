@@ -582,8 +582,8 @@ class Rv32f(IsaSubset):
 
     def __init__(self):
         super().__init__(name='rvf', instrs=[
-            Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', tags=["load"]),
-            Instr('fsw',       Format_FS, '------- ----- ----- 010 ----- 0100111'),
+            Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', fast_handler=True, tags=["load"]),
+            Instr('fsw',       Format_FS, '------- ----- ----- 010 ----- 0100111', fast_handler=True),
 
             Instr('fmadd.s',   Format_R4U,'-----00 ----- ----- --- ----- 1000011', tags=['fmadd']),
             Instr('fmsub.s',   Format_R4U,'-----00 ----- ----- --- ----- 1000111', tags=['fmadd']),
@@ -633,8 +633,8 @@ class Rv32d(IsaSubset):
 
     def __init__(self):
         super().__init__(name='rvd', instrs=[
-            Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', tags=["load"]),
-            Instr('fsd',       Format_FS, '------- ----- ----- 011 ----- 0100111'),
+            Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', fast_handler=True, tags=["load"]),
+            Instr('fsd',       Format_FS, '------- ----- ----- 011 ----- 0100111', fast_handler=True),
 
             Instr('fmadd.d',   Format_R4U,'-----01 ----- ----- --- ----- 1000011', tags=['fmadd']),
             Instr('fmsub.d',   Format_R4U,'-----01 ----- ----- --- ----- 1000111', tags=['fmadd']),
@@ -768,10 +768,10 @@ class Rv32c(IsaSubset):
             Instr('c.add',      Format_CR,  '100 1-- --- -- --- 10', fast_handler=True),
             Instr('c.swsp',     Format_CSS, '110 --- --- -- --- 10', fast_handler=True),
             Instr('c.sbreak',   Format_CI1, '100 000 000 00 000 10'),
-            Instr('c.flwsp',    Format_FCI3, '011 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
-            Instr('c.fswsp',    Format_FCSS, '111 --- --- -- --- 10', isa_tags=['cf']),
-            Instr('c.fsw',      Format_FCS,  '111 --- --- -- --- 00', isa_tags=['cf']),
-            Instr('c.flw',      Format_FCL,  '011 --- --- -- --- 00', tags=["load"], isa_tags=['cf']),
+            Instr('c.flwsp',    Format_FCI3, '011 --- --- -- --- 10', fast_handler=True, tags=["load"], isa_tags=['cf']),
+            Instr('c.fswsp',    Format_FCSS, '111 --- --- -- --- 10', fast_handler=True, isa_tags=['cf']),
+            Instr('c.fsw',      Format_FCS,  '111 --- --- -- --- 00', fast_handler=True, isa_tags=['cf']),
+            Instr('c.flw',      Format_FCL,  '011 --- --- -- --- 00', fast_handler=True, tags=["load"], isa_tags=['cf']),
         ])
 
 

@@ -66,6 +66,12 @@ public:
     template<typename T>
     inline bool store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
+    template<typename T>
+    inline bool load_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
+    template<typename T>
+    inline bool store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
+
     void atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::IoReqOpcode opcode);
 
     inline void elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg);

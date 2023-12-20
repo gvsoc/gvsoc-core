@@ -684,11 +684,7 @@ static bool hwloop_write(Iss *iss, int reg, unsigned int value)
 
 static inline void iss_csr_ext_counter_set(Iss *iss, int id, unsigned int value)
 {
-    if (!iss->timing.ext_counter[id].is_bound())
-    {
-        iss->csr.trace.warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
-    }
-    else
+    if (iss->timing.ext_counter[id].is_bound())
     {
         iss->timing.ext_counter[id].sync(value);
     }
@@ -696,11 +692,7 @@ static inline void iss_csr_ext_counter_set(Iss *iss, int id, unsigned int value)
 
 static inline void iss_csr_ext_counter_get(Iss *iss, int id, unsigned int *value)
 {
-    if (!iss->timing.ext_counter[id].is_bound())
-    {
-        iss->csr.trace.force_warning("Trying to access external counter through CSR while it is not connected (id: %d)\n", id);
-    }
-    else
+    if (iss->timing.ext_counter[id].is_bound())
     {
         iss->timing.ext_counter[id].sync_back(value);
     }

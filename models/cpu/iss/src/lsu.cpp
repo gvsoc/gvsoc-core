@@ -50,6 +50,7 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
                                 _this->misaligned_size, _this->misaligned_is_write, latency) == vp::IO_REQ_OK)
     {
         iss->trace.dump_trace_enabled = true;
+        _this->pending_latency = latency;
         _this->stall_callback(_this);
         iss->exec.insn_resume();
     }
@@ -259,10 +260,10 @@ void Lsu::load_signed_resume(Lsu *lsu)
 {
     lsu->iss.exec.insn_terminate();
     int reg = lsu->stall_reg;
-    lsu->iss.regfile.scoreboard_reg_set_timestamp(
-        reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
         lsu->stall_size * 8));
+    lsu->iss.regfile.scoreboard_reg_set_timestamp(
+        reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
 }
 
 void Lsu::load_float_resume(Lsu *lsu)

@@ -87,6 +87,11 @@ inline void Timing::event_account(unsigned int event, int incr)
     this->event_trace_account(event, incr);
 }
 
+inline void Timing::event_load_load_account(int incr)
+{
+    this->event_account(CSR_PCER_LD_STALL, incr);
+}
+
 inline void Timing::event_load_account(int incr)
 {
     this->event_account(CSR_PCER_LD, incr);

@@ -51,6 +51,7 @@ public:
     inline void event_jump_account(int incr);
     inline void event_misaligned_account(int incr);
     inline void event_insn_contention_account(int incr);
+    inline void event_load_load_account(int incr);
 
     inline void event_trace_account(unsigned int event, int cycles);
     inline void event_trace_set(unsigned int event);

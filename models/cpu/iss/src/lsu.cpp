@@ -243,8 +243,10 @@ void Lsu::load_resume(Lsu *lsu)
     lsu->iss.exec.insn_terminate();
 
     int reg = lsu->stall_reg;
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_reg_set_timestamp(
         reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
+#endif
 }
 
 void Lsu::elw_resume(Lsu *lsu)
@@ -262,8 +264,10 @@ void Lsu::load_signed_resume(Lsu *lsu)
     int reg = lsu->stall_reg;
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
         lsu->stall_size * 8));
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_reg_set_timestamp(
         reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
+#endif
 }
 
 void Lsu::load_float_resume(Lsu *lsu)

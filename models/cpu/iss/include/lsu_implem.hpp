@@ -50,7 +50,9 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     int64_t latency;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
     {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+#endif
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial
     }
@@ -81,7 +83,9 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     int64_t latency;
     if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency))
     {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+#endif
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial value
     }
@@ -117,7 +121,9 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+#endif
     }
     else
     {
@@ -274,7 +280,9 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), size, false, latency)) == 0)
     {
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg(reg), size * 8));
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_freg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+#endif
     }
     else
     {

@@ -43,6 +43,7 @@ inline void Regfile::set_reg(int reg, iss_reg_t value)
     this->regs[reg] = value;
 }
 
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
 inline void Regfile::scoreboard_reg_check(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_TIMED
@@ -70,6 +71,7 @@ inline void Regfile::scoreboard_freg_check(int reg)
 #endif
 #endif
 }
+#endif
 
 inline iss_reg_t Regfile::get_reg(int reg)
 {

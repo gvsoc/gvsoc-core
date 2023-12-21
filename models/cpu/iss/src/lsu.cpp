@@ -114,9 +114,9 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
     _this->trace.msg("Received data response (stalled: %d)\n", iss->exec.stalled.get());
 
     // First call the ISS to finish the instruction
-    _this->pending_latency = req->get_latency();
+    _this->pending_latency = req->get_latency() + 1;
     // TODO should be applied only when a pipeline stall latency is specified
-    _this->iss.timing.stall_load_account(req->get_latency());
+    _this->iss.timing.stall_load_account(req->get_latency() + 1);
 
     // Call the access termination callback only we the access is not misaligned since
     // in this case, the second access with handle it.
@@ -138,7 +138,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)
     {
-        latency = req->get_latency();
+        latency = req->get_latency() + 1;
 
 #if defined(PIPELINE_STALL_THRESHOLD)
         if (latency > PIPELINE_STALL_THRESHOLD)
@@ -151,7 +151,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     }
     else if (err == vp::IO_REQ_INVALID)
     {
-        latency = this->io_req.get_latency();
+        latency = this->io_req.get_latency() + 1;
 
 #if defined(PIPELINE_STALL_THRESHOLD)
         if (latency > PIPELINE_STALL_THRESHOLD)

@@ -50,7 +50,8 @@ private:
 
     uint64_t size = 0;
     bool check = false;
-    int width_bits = 0; 
+    int width_bits = 0;
+    int latency;
 
     uint8_t *mem_data;
     uint8_t *check_mem;
@@ -105,9 +106,10 @@ Memory::Memory(vp::ComponentConf &config)
     power.new_power_source("write_16", &write_16_power, this->get_js_config()->get("**/write_16"));
     power.new_power_source("write_32", &write_32_power, this->get_js_config()->get("**/write_32"));
 
-    size = this->get_js_config()->get("size")->get_int();
-    check = get_js_config()->get_child_bool("check");
-    width_bits = get_js_config()->get_child_int("width_bits");
+    this->size = this->get_js_config()->get("size")->get_int();
+    this->check = get_js_config()->get_child_bool("check");
+    this->width_bits = get_js_config()->get_child_int("width_bits");
+    this->latency = get_js_config()->get_child_int("latency");
     int align = get_js_config()->get_child_int("align");
 
     trace.msg("Building Memory (size: 0x%x, check: %d)\n", size, check);
@@ -181,6 +183,8 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     }
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
+
+    req->inc_latency(_this->latency);
 
     // Impact the Memory bandwith on the packet
     if (_this->width_bits != 0)

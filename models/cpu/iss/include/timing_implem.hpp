@@ -26,7 +26,7 @@
 inline void Timing::stall_cycles_account(int cycles)
 {
 #if defined(CONFIG_GVSOC_ISS_TIMED)
-    this->iss.exec.instr_event->stall_cycle_inc(cycles);
+    this->iss.exec.instr_event.stall_cycle_inc(cycles);
     if (cycles > 0)
     {
         this->power_stall_first.account_energy_quantum();
@@ -87,6 +87,11 @@ inline void Timing::event_account(unsigned int event, int incr)
     this->event_trace_account(event, incr);
 }
 
+inline void Timing::event_load_load_account(int incr)
+{
+    this->event_account(CSR_PCER_LD_STALL, incr);
+}
+
 inline void Timing::event_load_account(int incr)
 {
     this->event_account(CSR_PCER_LD, incr);
@@ -144,7 +149,7 @@ inline void Timing::cycle_account()
 
 inline void Timing::insn_stall_account()
 {
-    int64_t stall_cycles = this->iss.exec.instr_event->stall_cycle_get();
+    int64_t stall_cycles = this->iss.exec.instr_event.stall_cycle_get();
     if (stall_cycles >= 0)
     {
         this->event_account(CSR_PCER_CYCLES, stall_cycles);
@@ -154,7 +159,7 @@ inline void Timing::insn_stall_account()
 inline void Timing::insn_account()
 {
     this->event_account(CSR_PCER_INSTR, 1);
-    int64_t stall_cycles = this->iss.exec.instr_event->stall_cycle_get();
+    int64_t stall_cycles = this->iss.exec.instr_event.stall_cycle_get();
     int64_t cycles = 1;
     if (stall_cycles >= 0)
     {
@@ -207,14 +212,14 @@ inline void Timing::stall_insn_dependency_account(int latency)
     this->stall_cycles_account(latency - 1);
 }
 
-inline void Timing::stall_load_dependency_account(int latency)
-{
-    this->stall_cycles_account(latency - 1);
-    this->event_account(CSR_PCER_LD_STALL, latency - 1);
-}
-
 inline void Timing::stall_jump_account()
 {
     this->stall_cycles_account(1);
     this->event_jump_account(1);
+}
+
+inline void Timing::stall_load_dependency_account(int latency)
+{
+    this->stall_cycles_account(latency);
+    this->event_account(CSR_PCER_LD_STALL, latency);
 }

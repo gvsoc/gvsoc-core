@@ -47,7 +47,7 @@ static inline iss_reg_t cm_insn_handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc,
 
         for (int i=0; i<nb_insns; i++)
         {
-            insn_init(&table[i], 0);
+            iss->insn_cache.insn_init(&table[i], 0);
         }
 
         // The maximum immediate is a multiple of 4 with 4 bytes per register, and adjusted with second

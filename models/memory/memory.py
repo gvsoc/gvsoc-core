@@ -46,10 +46,12 @@ class Memory(gvsoc.systree.Component):
     atomics: bool
         True if the memory should support riscv atomics. Since this is slowing down the model, it
         should be set to True only if needed.
+    latency: int
+        Specify extra latency which will be added to any incoming request.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=2,
             stim_file: str=None, power_trigger: bool=False,
-            align: int=0, atomics: bool=False):
+            align: int=0, atomics: bool=False, latency=0):
 
         super().__init__(parent, name)
 
@@ -66,7 +68,8 @@ class Memory(gvsoc.systree.Component):
             'stim_file': stim_file,
             'power_trigger': power_trigger,
             'width_bits': width_log2,
-            'align': align
+            'align': align,
+            'latency': latency
         })
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

@@ -314,7 +314,7 @@ static inline iss_reg_t lbu_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lbu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
+    iss->lsu.stack_access_check(REG_IN(0), REG_GET_UNTIMED(0) + SIM_GET(0));
     if (iss->lsu.load_perf<uint8_t>(insn, REG_GET(0) + SIM_GET(0), 1, REG_OUT(0)))
     {
         return pc;
@@ -529,7 +529,7 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     // The good solution would be to issue load requests and be able to stall the instruction
     // until we got the previous opcode
     iss_reg_t index;
-    iss_insn_t *prev = insn_cache_get_insn(iss, pc - 4, index);
+    iss_insn_t *prev = iss->insn_cache.get_insn(pc - 4, index);
     if (prev == NULL)
     {
         return pc;

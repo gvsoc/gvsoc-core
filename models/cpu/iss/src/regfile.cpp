@@ -21,11 +21,12 @@
 
 
 #include "cpu/iss/include/regfile.hpp"
+#include "cpu/iss/include/iss.hpp"
+#include ISS_CORE_INC(class.hpp)
 
 Regfile::Regfile(Iss &iss)
 : iss(iss)
 {
-
 }
 
 
@@ -33,25 +34,31 @@ void Regfile::reset(bool active)
 {
     if (active)
     {
+        this->engine = this->iss.top.clock.get_engine();
         this->regs[0] = 0;
         for (int i = 0; i < ISS_NB_REGS; i++)
         {
             this->regs[i] = i == 0 ? 0 : 0x57575757;
         }
+#if !defined(ISS_SINGLE_REGFILE)
         for (int i = 0; i < ISS_NB_FREGS; i++)
         {
             this->fregs[i] = 0x5757575757575757;
         }
+#endif
+
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         // Initialize the scoreboard so that registers can be read by default.
         for (int i = 0; i < ISS_NB_REGS; i++)
         {
             this->scoreboard_reg_timestamp[i] = 0;
         }
+#if !defined(ISS_SINGLE_REGFILE)
         for (int i = 0; i < ISS_NB_FREGS; i++)
         {
             this->scoreboard_freg_timestamp[i] = 0;
         }
+#endif
 #endif
     }
 }

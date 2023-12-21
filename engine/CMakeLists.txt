@@ -50,6 +50,7 @@ set(GVSOC_ENGINE_INC_DIRS "include")
 
 if(${BUILD_OPTIMIZED})
     add_library(gvsoc SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
+    target_compile_options(gvsoc PRIVATE -fno-stack-protector)
     target_include_directories(gvsoc PUBLIC ${GVSOC_ENGINE_INC_DIRS})
     target_link_libraries(gvsoc PUBLIC z pthread ${CMAKE_DL_LIBS})
     set_target_properties(gvsoc PROPERTIES OUTPUT_NAME "pulpvp")

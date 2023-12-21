@@ -92,7 +92,6 @@ class Lsu;
 
 #define ISS_NB_REGS 32
 #define ISS_NB_FREGS 32
-#define ISS_NB_TOTAL_REGS (ISS_NB_REGS + ISS_NB_FREGS)
 
 #ifndef CONFIG_GVSOC_ISS_PREFETCHER_SIZE
 #define ISS_PREFETCHER_SIZE (ISS_OPCODE_MAX_SIZE * 4)
@@ -105,14 +104,6 @@ class Lsu;
 #define ISS_MAX_IMMEDIATES 4
 #define ISS_MAX_NB_OUT_REGS 3
 #define ISS_MAX_NB_IN_REGS 3
-
-#define ISS_UNTIMED_LOOP_SIZE  64
-
-#define ISS_INSN_BLOCK_SIZE_LOG2 12
-#define ISS_INSN_BLOCK_SIZE (1 << ISS_INSN_BLOCK_SIZE_LOG2)
-#define ISS_INSN_PC_BITS 1
-#define ISS_INSN_BLOCK_ID_BITS 12
-#define ISS_INSN_NB_BLOCKS (1 << ISS_INSN_BLOCK_ID_BITS)
 
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #define ISS_EXCEPT_INSN_MISALIGNED  0
@@ -149,7 +140,6 @@ class Lsu;
 
 typedef struct iss_cpu_s iss_cpu_t;
 typedef struct iss_insn_s iss_insn_t;
-typedef struct iss_insn_block_s iss_insn_block_t;
 typedef struct iss_insn_cache_s iss_insn_cache_t;
 typedef struct iss_decoder_item_s iss_decoder_item_t;
 
@@ -349,55 +339,22 @@ typedef struct iss_decoder_item_s
 
 } iss_decoder_item_t;
 
-// Structure describing an instance of a resource.
-// This is used to account timing on shared resources.
-// Each instance can accept accesses concurently.
-typedef struct
-{
-    int64_t cycles; // Indicate the time where the next access to this resource is possible
-} iss_resource_instance_t;
-
-// Structure describing a resource.
-typedef struct
-{
-    const char *name;                                 // Name of the resource
-    int nb_instances;                                 // Number of instances of this resource. Each instance can accept accesses concurently
-    std::vector<iss_resource_instance_t *> instances; // Instances of this resource
-} iss_resource_t;
-
-typedef struct iss_isa_s
-{
-    char *name;
-    iss_decoder_item_t *tree;
-} iss_isa_t;
-
-typedef struct iss_isa_set_s
-{
-    int nb_isa;
-    iss_isa_t *isa_set;
-    int nb_resources;
-    iss_resource_t *resources; // Resources associated to this ISA
-} iss_isa_set_t;
-
-typedef struct iss_isa_tag_s
-{
-    char *name;
-    iss_decoder_item_t **insns;
-} iss_isa_tag_t;
-
 typedef struct iss_insn_s
 {
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
+    unsigned char in_regs[ISS_MAX_NB_IN_REGS];
     void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
     iss_sim_t sim[ISS_MAX_IMMEDIATES];
     iss_addr_t addr;
     iss_reg_t opcode;
-    bool fetched;
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*resource_handler)(Iss *, iss_insn_t *, iss_reg_t); // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t);
+#endif
     iss_reg_t (*stall_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*stall_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
@@ -405,8 +362,6 @@ typedef struct iss_insn_s
     int size;
     int nb_out_reg;
     int nb_in_reg;
-    int out_regs[ISS_MAX_NB_OUT_REGS];
-    int in_regs[ISS_MAX_NB_IN_REGS];
     iss_insn_arg_t args[ISS_MAX_DECODE_ARGS];
     iss_decoder_item_t *decoder_item;
     int resource_id;        // Identifier of the resource associated to this instruction
@@ -425,35 +380,7 @@ typedef struct iss_insn_s
 
 } iss_insn_t;
 
-typedef struct iss_insn_block_s
-{
-    iss_addr_t pc;
-    iss_insn_t insns[ISS_INSN_BLOCK_SIZE];
-    iss_insn_block_t *next;
-    bool is_init;
-} iss_insn_block_t;
 
-
-// The size of a page corresponds to the tlb page size with instructions of at least 2 bytes
-#define INSN_PAGE_BITS 8
-#define INSN_PAGE_SIZE (1 << (INSN_PAGE_BITS - 1))
-#define INSN_PAGE_MASK (INSN_PAGE_SIZE - 1)
-
-
-typedef struct iss_insn_page_s iss_insn_page_t;
-
-struct iss_insn_page_s
-{
-    iss_insn_t insns[INSN_PAGE_SIZE];
-    iss_insn_page_t *next;
-};
-
-typedef struct iss_insn_cache_s
-{
-    iss_insn_page_t *current_insn_page;
-    iss_reg_t current_insn_page_base;
-    std::unordered_map<iss_reg_t, iss_insn_page_t *>pages;
-} iss_insn_cache_t;
 
 
 #define HWLOOP_NB_REGS 7

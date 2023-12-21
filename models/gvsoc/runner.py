@@ -455,8 +455,8 @@ class Runner():
 
 
     def gen_gui(self, parent_signal):
-        gv.gui.Signal(self, parent_signal, name='kernel', path='/user/kernel/state',
-            display=gv.gui.DisplayStringBox(), groups=["user"])
+        gvsoc.gui.Signal(self, parent_signal, name='kernel', path='/user/kernel/state',
+            display=gvsoc.gui.DisplayStringBox(), groups=["user"])
         return parent_signal
 
 

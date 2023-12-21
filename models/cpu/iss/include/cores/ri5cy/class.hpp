@@ -38,6 +38,7 @@
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
+#include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
@@ -49,12 +50,13 @@ class IssWrapper;
 class Iss
 {
 public:
-    Iss(vp::Component &top);
+    Iss(IssWrapper &top);
 
+    Regfile regfile;
     Exec exec;
+    InsnCache insn_cache;
     Timing timing;
     Core core;
-    Regfile regfile;
     Prefetcher prefetcher;
     Decode decode;
     Irq irq;
@@ -93,37 +95,33 @@ private:
     vp::Trace trace;
 };
 
-inline Iss::Iss(vp::Component &top)
-    : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
+inline Iss::Iss(IssWrapper &top)
+    : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
       regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)
 {
 }
 
 
-#include "cpu/iss/include/rv64i.hpp"
-#include "cpu/iss/include/rv32i.hpp"
-#ifdef CONFIG_RV32V
-#include "rv32v.hpp"
-#endif
-#include "cpu/iss/include/rv32c.hpp"
-#include "cpu/iss/include/zcmp.hpp"
-#include "cpu/iss/include/rv32a.hpp"
-#include "cpu/iss/include/rv64c.hpp"
-#include "cpu/iss/include/rv32m.hpp"
-#include "cpu/iss/include/rv64m.hpp"
-#include "cpu/iss/include/rv64a.hpp"
-#include "cpu/iss/include/rvf.hpp"
-#include "cpu/iss/include/rvd.hpp"
-#include "cpu/iss/include/rvXf16.hpp"
-#include "cpu/iss/include/rvXf16alt.hpp"
-#include "cpu/iss/include/rvXf8.hpp"
-#include "cpu/iss/include/rv32Xfvec.hpp"
-#include "cpu/iss/include/rv32Xfaux.hpp"
-#include "cpu/iss/include/priv.hpp"
-#include "cpu/iss/include/pulp_v2.hpp"
-#include "cpu/iss/include/rvXgap9.hpp"
-#include "cpu/iss/include/rvXint64.hpp"
-#include "cpu/iss/include/rnnext.hpp"
-#include "cpu/iss/include/pulp_nn.hpp"
-#include "cpu/iss/include/corev.hpp"
+#include "cpu/iss/include/isa/rv64i.hpp"
+#include "cpu/iss/include/isa/rv32i.hpp"
+#include "cpu/iss/include/isa/rv32c.hpp"
+#include "cpu/iss/include/isa/zcmp.hpp"
+#include "cpu/iss/include/isa/rv32a.hpp"
+#include "cpu/iss/include/isa/rv64c.hpp"
+#include "cpu/iss/include/isa/rv32m.hpp"
+#include "cpu/iss/include/isa/rv64m.hpp"
+#include "cpu/iss/include/isa/rv64a.hpp"
+#include "cpu/iss/include/isa/rvf.hpp"
+#include "cpu/iss/include/isa/rvd.hpp"
+#include "cpu/iss/include/isa/rvXf16.hpp"
+#include "cpu/iss/include/isa/rvXf16alt.hpp"
+#include "cpu/iss/include/isa/rvXf8.hpp"
+#include "cpu/iss/include/isa/rv32Xfvec.hpp"
+#include "cpu/iss/include/isa/rv32Xfaux.hpp"
+#include "cpu/iss/include/isa/priv.hpp"
+#include "cpu/iss/include/isa/pulp_v2.hpp"
+#include "cpu/iss/include/isa/rvXgap9.hpp"
+#include "cpu/iss/include/isa/rvXint64.hpp"
+#include "cpu/iss/include/isa/rnnext.hpp"
+#include "cpu/iss/include/isa/pulp_nn.hpp"

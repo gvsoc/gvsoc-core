@@ -43,11 +43,14 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
 #endif
 
+    // First set register to zero for zero-extension
     this->iss.regfile.set_reg(reg, 0);
 
     int err;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
+    int64_t latency;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
     {
+        this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial
     }
@@ -75,8 +78,10 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     this->iss.regfile.set_reg(reg, 0);
-    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false))
+    int64_t latency;
+    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency))
     {
+        this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial value
     }
@@ -108,9 +113,11 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
 #endif
 
     int err;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false)) == 0)
+    int64_t latency;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
     {
-        this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg(reg), size * 8));
+        this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
+        this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
     }
     else
     {
@@ -154,8 +161,15 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    // Since the input register is passed through its index and accessed through a pointer,
+    // we need to take care of the scoreboard
+    this->iss.regfile.scoreboard_reg_check(reg);
+#endif
+
     int err;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true)) == 0)
+    int64_t latency;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true, latency)) == 0)
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
@@ -256,9 +270,11 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
 #endif
 
     int err;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), size, false)) == 0)
+    int64_t latency;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), size, false, latency)) == 0)
     {
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg(reg), size * 8));
+        this->iss.regfile.scoreboard_freg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
     }
     else
     {
@@ -302,8 +318,15 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
     }
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    // Since the input register is passed through its index and accessed through a pointer,
+    // we need to take care of the scoreboard
+    this->iss.regfile.scoreboard_freg_check(reg);
+#endif
+
     int err;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), size, true)) == 0)
+    int64_t latency;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), size, true, latency)) == 0)
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
@@ -327,4 +350,26 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
     }
 
     return false;
+}
+
+template<typename T>
+inline bool Lsu::load_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    if (this->iss.gdbserver.watchpoint_check(false, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_load_account(1);
+    return this->load_float<T>(insn, addr, size, reg);
+}
+
+template<typename T>
+inline bool Lsu::store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
+{
+    if (this->iss.gdbserver.watchpoint_check(true, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_store_account(1);
+    return this->store_float<T>(insn, addr, size, reg);
 }

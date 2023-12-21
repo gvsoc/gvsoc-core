@@ -189,5 +189,5 @@ bool Core::sstatus_update(bool is_write, iss_reg_t &value)
 void Core::mode_set(int mode)
 {
     this->mode = mode;
-    iss_cache_vflush(&this->iss);
+    this->iss.insn_cache.mode_flush();
 }

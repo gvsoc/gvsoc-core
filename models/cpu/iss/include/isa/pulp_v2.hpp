@@ -1581,11 +1581,4 @@ static inline iss_reg_t p_bset_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline void iss_isa_pulpv2_activate(Iss *iss)
-{
-    iss->csr.hwloop = true;
-    iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT(0)] = 0;
-    iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT(1)] = 0;
-}
-
 #endif

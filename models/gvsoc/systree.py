@@ -703,7 +703,7 @@ class Component(object):
         # TODO once gui filter-out components with no signal, this can be reactivated
         # to have automatic creation for multi-board
         if self.name is not None:
-            signal = gv.gui.Signal(self, parent_signal, name=self.name)
+            signal = gvsoc.gui.Signal(self, parent_signal, name=self.name)
             return signal
         else:
             return parent_signal

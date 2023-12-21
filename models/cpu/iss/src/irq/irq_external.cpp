@@ -134,6 +134,7 @@ void Irq::elw_irq_unstall()
 {
     this->trace.msg("Interrupting pending elw\n");
     this->iss.exec.current_insn = this->iss.exec.elw_insn;
+
     // Keep the information that we interrupted it, so that features like HW loop
     // knows that the instruction is being replayed
     this->iss.exec.elw_interrupted = 1;
@@ -174,6 +175,7 @@ int Irq::check()
         this->irq_enable.set(0);
         this->req_debug = false;
         this->iss.exec.current_insn = this->debug_handler;
+
         return 1;
     }
     else
@@ -215,6 +217,7 @@ int Irq::check()
             this->irq_enable.set(0);
             this->req_irq = -1;
             this->iss.exec.current_insn = this->vectors[req_irq];
+
             this->iss.csr.mcause.value = (1 << 31) | (unsigned int)req_irq;
 
             this->trace.msg("Acknowledging interrupt (irq: %d)\n", req_irq);

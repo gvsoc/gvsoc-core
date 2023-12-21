@@ -22,86 +22,75 @@
 #include "cpu/iss/include/iss.hpp"
 #include <string.h>
 
-static void insn_block_init(Iss *iss, iss_insn_block_t *b, iss_addr_t pc);
-
-static void flush_cache(Iss *iss, iss_insn_cache_t *cache)
+InsnCache::InsnCache(Iss &iss)
+    : iss(iss)
 {
-    iss->prefetcher.flush();
-
-    for (auto page: cache->pages)
-    {
-        delete page.second;
-    }
-
-    cache->pages.clear();
-
-    iss_cache_vflush(iss);
-
-    for (auto insn_table: iss->decode.insn_tables)
-    {
-        delete[] insn_table;
-    }
-
-    iss->decode.insn_tables.clear();
 }
 
-int insn_cache_init(Iss *iss)
+void InsnCache::build()
 {
-    iss_insn_cache_t *cache = &iss->decode.insn_cache;
-    cache->current_insn_page = NULL;
-    return 0;
+    this->current_insn_page_base = -1;
 }
 
-bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn)
+bool InsnCache::insn_is_decoded(iss_insn_t *insn)
 {
     return insn->handler != iss_decode_pc_handler;
 }
 
 
 
-void iss_cache_flush(Iss *iss)
+void InsnCache::flush()
 {
-    flush_cache(iss, &iss->decode.insn_cache);
+    this->iss.prefetcher.flush();
 
-    iss->gdbserver.enable_all_breakpoints();
+    for (auto page: this->pages)
+    {
+        delete page.second;
+    }
 
-    iss->irq.cache_flush();
+    this->pages.clear();
+
+    this->mode_flush();
+
+    for (auto insn_table: this->iss.decode.insn_tables)
+    {
+        delete[] insn_table;
+    }
+
+    this->iss.decode.insn_tables.clear();
+    this->iss.gdbserver.enable_all_breakpoints();
+
+    this->iss.irq.cache_flush();
 }
 
-void iss_cache_vflush(Iss *iss)
+void InsnCache::mode_flush()
 {
-    iss_insn_cache_t *cache = &iss->decode.insn_cache;
-    cache->current_insn_page = NULL;
-#ifdef CONFIG_GVSOC_ISS_UNTIMED_LOOP
-    // Since the untimed loop is trying to directly get instruction from page,
-    // we need to stop it when current page is changed
-    iss->exec.loop_count = 0;
-#endif
+    this->current_insn_page_base = -1;
 }
-
 
 
 void Decode::flush_cache_sync(vp::Block *__this, bool active)
 {
     Decode *_this = (Decode *)__this;
-    iss_cache_flush(&_this->iss);
+    // Delay the flush to the next instruction in case we are in the middle of an instruction
+    _this->iss.exec.pending_flush = true;
+    _this->iss.exec.switch_to_full_mode();
 }
 
 
 
-iss_insn_page_t *insn_cache_page_get(Iss *iss, iss_reg_t paddr)
+InsnPage *InsnCache::page_get(iss_reg_t paddr)
 {
-    iss_insn_cache_t *cache = &iss->decode.insn_cache;
     iss_reg_t index = paddr >> INSN_PAGE_BITS;
-    iss_insn_page_t *page = cache->pages[index];
+    InsnPage *page = this->pages[index];
     if (page != NULL)
     {
         return page;
     }
 
-    page = new iss_insn_page_t;
+    page = new InsnPage;
 
-    cache->pages[index] = page;
+    this->pages[index] = page;
 
     iss_reg_t addr = index << INSN_PAGE_BITS;
     for (int i=0; i<INSN_PAGE_SIZE; i++)
@@ -115,13 +104,12 @@ iss_insn_page_t *insn_cache_page_get(Iss *iss, iss_reg_t paddr)
 
 
 
-iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr, iss_reg_t &index)
+iss_insn_t *InsnCache::get_insn_from_cache(iss_reg_t vaddr, iss_reg_t &index)
 {
     iss_reg_t paddr;
-    iss_insn_cache_t *cache = &iss->decode.insn_cache;
 
 #ifdef CONFIG_GVSOC_ISS_MMU
-    if (iss->mmu.insn_virt_to_phys(vaddr, paddr))
+    if (this->iss.mmu.insn_virt_to_phys(vaddr, paddr))
     {
         return NULL;
     }
@@ -129,8 +117,8 @@ iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr, iss_reg_t 
     paddr = vaddr;
 #endif
 
-    cache->current_insn_page = insn_cache_page_get(iss, paddr);
-    cache->current_insn_page_base = (vaddr >> INSN_PAGE_BITS) << INSN_PAGE_BITS;
+    this->current_insn_page = this->page_get(paddr);
+    this->current_insn_page_base = (vaddr >> INSN_PAGE_BITS) << INSN_PAGE_BITS;
 
-    return insn_cache_get_insn(iss, vaddr, index);
+    return this->get_insn(vaddr, index);
 }

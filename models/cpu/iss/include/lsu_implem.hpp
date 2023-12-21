@@ -116,7 +116,7 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     int64_t latency;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
     {
-        this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg(reg), size * 8));
+        this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
     }
     else

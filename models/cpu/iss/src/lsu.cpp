@@ -45,12 +45,14 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
     iss->timing.event_load_account(1);
     iss->timing.cycle_account();
 
+    int64_t latency;
     if (_this->data_req_aligned(_this->misaligned_addr, _this->misaligned_data,
-                                _this->misaligned_size, _this->misaligned_is_write) == vp::IO_REQ_OK)
+                                _this->misaligned_size, _this->misaligned_is_write, latency) == vp::IO_REQ_OK)
     {
         iss->trace.dump_trace_enabled = true;
+        _this->pending_latency = latency;
         _this->stall_callback(_this);
-        iss->exec.switch_to_full_mode();
+        iss->exec.insn_resume();
     }
     else
     {
@@ -59,7 +61,7 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
+int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
 {
 
     iss_addr_t addr0 = addr & ADDR_MASK;
@@ -82,14 +84,13 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     this->misaligned_is_write = is_write;
 
     // And do the first one now
-    int err = data_req_aligned(addr, data_ptr, size0, is_write);
+    int err = data_req_aligned(addr, data_ptr, size0, is_write, latency);
     if (err == vp::IO_REQ_OK)
     {
         // As the transaction is split into 2 parts, we must tell the ISS
         // that the access is pending as the instruction must be executed
         // only when the second access is finished.
-        this->iss.exec.instr_event->set_callback(&Lsu::exec_misaligned);
-        this->iss.exec.insn_hold();
+        this->iss.exec.insn_hold(&Lsu::exec_misaligned);
         return vp::IO_REQ_PENDING;
     }
     else
@@ -113,7 +114,9 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
     _this->trace.msg("Received data response (stalled: %d)\n", iss->exec.stalled.get());
 
     // First call the ISS to finish the instruction
-    _this->iss.timing.stall_load_account(req->get_latency());
+    _this->pending_latency = req->get_latency() + 1;
+    // TODO should be applied only when a pipeline stall latency is specified
+    _this->iss.timing.stall_load_account(req->get_latency() + 1);
 
     // Call the access termination callback only we the access is not misaligned since
     // in this case, the second access with handle it.
@@ -123,7 +126,7 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
     }
 }
 
-int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
+int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
     vp::IoReq *req = &this->io_req;
@@ -135,14 +138,28 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)
     {
-        if (this->io_req.get_latency() > 0)
+        latency = req->get_latency() + 1;
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
         {
-            this->iss.timing.stall_load_account(req->get_latency());
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
         }
+#endif
+
         return 0;
     }
     else if (err == vp::IO_REQ_INVALID)
     {
+        latency = this->io_req.get_latency() + 1;
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
 #ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
         if (this->iss.gdbserver.gdbserver)
         {
@@ -170,7 +187,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     return err;
 }
 
-int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
+int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
 {
     iss_addr_t addr0 = addr & ADDR_MASK;
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
@@ -178,17 +195,16 @@ int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write)
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     // Todo: solve misaligned data request issue of fp subsystem by enqueue acceleration request
     if (likely(addr0 == addr1) || this->iss.fp_ss)
-        return this->data_req_aligned(addr, data_ptr, size, is_write);
+        return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
     else
-        return this->data_misaligned_req(addr, data_ptr, size, is_write);
+        return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
 #endif
 #ifndef CONFIG_GVSOC_ISS_SNITCH
     if (likely(addr0 == addr1))
-        return this->data_req_aligned(addr, data_ptr, size, is_write);
+        return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
     else
-        return this->data_misaligned_req(addr, data_ptr, size, is_write);
+        return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
 #endif
-
 }
 
 Lsu::Lsu(Iss &iss)
@@ -202,10 +218,25 @@ void Lsu::build()
     data.set_resp_meth(&Lsu::data_response);
     data.set_grant_meth(&Lsu::data_grant);
     this->iss.top.new_master_port("data", &data, (vp::Block *)this);
+    this->iss.top.new_master_port("meminfo", &this->meminfo, (vp::Block *)this);
 
     this->iss.top.new_reg("elw_stalled", &this->elw_stalled, false);
 
     this->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
+
+    if (this->iss.top.get_js_config()->get("memory_start") != NULL)
+    {
+        this->memory_start = this->iss.top.get_js_config()->get("memory_start")->get_int();
+        this->memory_end = this->memory_start +
+            this->iss.top.get_js_config()->get("memory_size")->get_int();
+    }
+}
+
+void Lsu::start()
+{
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    this->meminfo.sync_back((void **)&this->mem_array);
+#endif
 }
 
 void Lsu::store_resume(Lsu *lsu)
@@ -219,6 +250,12 @@ void Lsu::load_resume(Lsu *lsu)
 {
     // Nothing to do, the zero-extension was done by initializing the register to 0
     lsu->iss.exec.insn_terminate();
+
+    int reg = lsu->stall_reg;
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    lsu->iss.regfile.scoreboard_reg_set_timestamp(
+        reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
+#endif
 }
 
 void Lsu::elw_resume(Lsu *lsu)
@@ -236,6 +273,10 @@ void Lsu::load_signed_resume(Lsu *lsu)
     int reg = lsu->stall_reg;
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
         lsu->stall_size * 8));
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    lsu->iss.regfile.scoreboard_reg_set_timestamp(
+        reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
+#endif
 }
 
 void Lsu::load_float_resume(Lsu *lsu)
@@ -256,14 +297,16 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 
     if (opcode == vp::IoReqOpcode::LR)
     {
-        if (this->iss.mmu.load_virt_to_phys(addr, phys_addr))
+        bool use_mem_array;
+        if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
         {
             return;
         }
     }
     else
     {
-        if (this->iss.mmu.store_virt_to_phys(addr, phys_addr))
+        bool use_mem_array;
+        if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
         {
             return;
         }

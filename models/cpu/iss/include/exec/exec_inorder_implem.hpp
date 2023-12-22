@@ -33,14 +33,26 @@ inline void Exec::interrupt_taken()
 
 static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->timing.stall_load_dependency_account(insn->latency);
-    return insn->stall_fast_handler(iss, insn, pc);
+    iss_reg_t next_insn =  insn->stall_fast_handler(iss, insn, pc);
+    int latency = insn->latency;
+
+#if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+    iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], iss->top.clock.get_cycles() + latency);
+#endif
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+    if (latency > PIPELINE_STALL_THRESHOLD)
+    {
+        iss->timing.stall_load_dependency_account(latency - PIPELINE_STALL_THRESHOLD);
+    }
+#endif
+
+    return next_insn;
 }
 
 static inline iss_reg_t iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->timing.stall_load_dependency_account(insn->latency);
-    return insn->stall_handler(iss, insn, pc);
+    return iss_exec_stalled_insn_fast(iss, insn, pc);
 }
 
 inline iss_insn_callback_t Exec::insn_trace_callback_get()
@@ -67,10 +79,21 @@ inline void Exec::insn_stall()
     this->stalled_inc();
 }
 
-inline void Exec::insn_hold()
+inline void Exec::insn_hold(vp::ClockEventMeth *meth)
 {
     this->iss.trace.dump_trace_enabled = false;
     this->stall_insn = this->current_insn;
+    // Flag that we cannto execute instructions so that no one tries
+    // to change the event callback
+    this->insn_on_hold = true;
+    this->iss.exec.instr_event.set_callback(meth);
+}
+
+inline void Exec::insn_resume()
+{
+    // Instruction execution can go on
+    this->insn_on_hold = false;
+    this->instr_event.set_callback(&Exec::exec_instr_check_all);
 }
 
 inline void Exec::insn_terminate()
@@ -80,7 +103,8 @@ inline void Exec::insn_terminate()
         // TODO this is not possible to correctly handle it for now, a better system should be implemented
         // for staling execution.
         // For now if the cache returns NULL due to mmu or prefetcher, we drop the instruction.
-        iss_insn_t *insn = insn_cache_get_insn(&this->iss, this->stall_insn);
+        iss_reg_t index;
+        iss_insn_t *insn = this->iss.insn_cache.get_insn(this->stall_insn, index);
         if (insn != NULL)
         {
             iss_trace_dump(&this->iss, insn, this->stall_insn);
@@ -123,8 +147,7 @@ inline void Exec::stalled_inc()
 {
     if (this->stalled.get() == 0)
     {
-        this->loop_count = 0;
-        this->instr_event->disable();
+        this->instr_event.disable();
     }
     this->stalled.inc(1);
 }
@@ -142,14 +165,15 @@ inline void Exec::stalled_dec()
 
     if (this->stalled.get() == 0)
     {
+        // this->instr_event.enable();
         #ifdef CONFIG_GVSOC_ISS_SNITCH
         if(!this->iss.fp_ss)
         {
-            this->instr_event->enable();
+            this->instr_event.enable();
         }
         #endif
         #ifndef CONFIG_GVSOC_ISS_SNITCH
-        this->instr_event->enable();
+        this->instr_event.enable();
         #endif
     }
 }
@@ -181,7 +205,12 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
 
 inline void Exec::switch_to_full_mode()
 {
-    this->instr_event->set_callback(&Exec::exec_instr_check_all);
+    // Only switch to full mode instruction if we are not currently executing instructions,
+    // do not overwrite the event callback used for another activity
+    if (!this->insn_on_hold)
+    {
+        this->instr_event.set_callback(&Exec::exec_instr_check_all);
+    }
 }
 
 

@@ -31,10 +31,12 @@
 
 typedef iss_reg_t (*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
+class IssWrapper;
+
 class Exec
 {
 public:
-    Exec(Iss &iss);
+    Exec(IssWrapper &top, Iss &iss);
     void build();
     void reset(bool active);
 
@@ -56,7 +58,10 @@ public:
     // Compared to insn_stall, this does not stall the ISS which can still execute a callback at
     // each cycle, so that it is usefull to spread one instruction over several cycles, to execute
     // an internal FSM.
-    inline void insn_hold();
+    inline void insn_hold(vp::ClockEventMeth *meth);
+    // Can be called to resume instruction execution
+    inline void insn_resume();
+
 
     // Terminate a previously stalled instruction, by dumping the instruction trace
     inline void insn_terminate();
@@ -83,19 +88,19 @@ public:
     inline void interrupt_taken();
 
     iss_reg_t current_insn;
-    size_t loop_count;
+    vp::ClockEvent instr_event;
     vp::reg_64 stalled;
 
     vp::Trace trace;
-    vp::ClockEvent *instr_event;
 
     static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
-    static void exec_instr_untimed(vp::Block *__this, vp::ClockEvent *event);
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     void hwloop_set_start(int index, iss_reg_t pc);
     void hwloop_set_end(int index, iss_reg_t pc);
     void hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc);
+#endif
     void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     vp::reg_32 bootaddr_reg;
@@ -115,9 +120,11 @@ public:
     vp::reg_1 halted;
     vp::reg_1 step_mode;
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t hwloop_start_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_end_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_next_insn;
+#endif
     // This is used by HW loop to know that we interrupted and replayed
     // a ELW instructin so that it is not accounted twice in the loop.
     int elw_interrupted;
@@ -133,7 +140,15 @@ public:
 
     int insn_table_index;
 
-    bool irq_locked;
+    // This tells if interrupts should not be handled, due to an on-going activity,
+    // like a page-table walk or a push/pop instruction in its atomic phase.
+    int irq_locked;
+
+    // This tells if instructions should not be executed because they are on hold, due
+    // to something else executing, like mmy page-walk or misaligned access.
+    bool insn_on_hold;
+
+    bool pending_flush;
 
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);

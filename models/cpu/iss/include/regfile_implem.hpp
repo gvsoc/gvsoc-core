@@ -40,26 +40,59 @@ inline iss_reg_t *Regfile::reg_store_ref(int reg)
 
 inline void Regfile::set_reg(int reg, iss_reg_t value)
 {
-    if (reg != 0)
-        this->regs[reg] = value;
+    this->regs[reg] = value;
 }
+
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+inline void Regfile::scoreboard_reg_check(int reg)
+{
+#ifdef CONFIG_GVSOC_ISS_TIMED
+    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
+
+    if (unlikely(diff > 0))
+    {
+        this->iss.timing.stall_load_dependency_account(diff);
+    }
+#endif
+}
+
+inline void Regfile::scoreboard_freg_check(int reg)
+{
+#ifdef CONFIG_GVSOC_ISS_TIMED
+#if defined(ISS_SINGLE_REGFILE)
+    scoreboard_reg_check(reg);
+#else
+    int64_t diff = this->scoreboard_freg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
+
+    if (unlikely(diff > 0))
+    {
+        this->iss.timing.stall_load_dependency_account(diff);
+    }
+#endif
+#endif
+}
+#endif
 
 inline iss_reg_t Regfile::get_reg(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    if (this->iss.top.clock.get_cycles() < this->scoreboard_reg_timestamp[reg])
-    {
-        this->iss.timing.stall_load_dependency_account(
-            this->scoreboard_reg_timestamp[reg] - this->iss.top.clock.get_cycles()
-        );
-    }
+    this->scoreboard_reg_check(reg);
 #endif
+    return this->regs[reg];
+}
 
+inline iss_reg_t Regfile::get_reg_untimed(int reg)
+{
     return this->regs[reg];
 }
 
 inline iss_reg64_t Regfile::get_reg64(int reg)
 {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    this->scoreboard_reg_check(reg);
+    this->scoreboard_reg_check(reg + 1);
+#endif
+
     if (reg == 0)
         return 0;
     else
@@ -78,8 +111,7 @@ inline void Regfile::set_reg64(int reg, iss_reg64_t value)
 inline void Regfile::set_freg(int reg, iss_freg_t value)
 {
 #ifdef ISS_SINGLE_REGFILE
-    if (reg != 0)
-        this->fregs[reg] = value;
+    this->regs[reg] = value;
 #else
     this->fregs[reg] = value;
 #endif
@@ -88,12 +120,7 @@ inline void Regfile::set_freg(int reg, iss_freg_t value)
 inline iss_freg_t Regfile::get_freg(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    if (this->iss.top.clock.get_cycles() < this->scoreboard_freg_timestamp[reg])
-    {
-        this->iss.timing.stall_load_dependency_account(
-            this->scoreboard_freg_timestamp[reg] - this->iss.top.clock.get_cycles()
-        );
-    }
+    this->scoreboard_freg_check(reg);
 #endif
 
 #ifdef ISS_SINGLE_REGFILE
@@ -129,11 +156,19 @@ inline void Regfile::scoreboard_reg_set_timestamp(int reg, int64_t timestamp)
 
 inline void Regfile::scoreboard_freg_set_timestamp(int reg, int64_t timestamp)
 {
+#ifdef ISS_SINGLE_REGFILE
     this->scoreboard_reg_timestamp[reg] = timestamp;
+#else
+    this->scoreboard_freg_timestamp[reg] = timestamp;
+#endif
 }
 
 inline void Regfile::scoreboard_freg_invalidate(int reg)
 {
+#ifdef ISS_SINGLE_REGFILE
+    this->scoreboard_reg_timestamp[reg] = -1;
+#else
     this->scoreboard_freg_timestamp[reg] = -1;
+#endif
 }
 #endif

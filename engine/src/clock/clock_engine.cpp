@@ -50,12 +50,17 @@ vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
 {
     if (!event->enqueued)
     {
-        if (event->stall_cycle == -1)
+        if (event->pending_disable)
         {
             // The event has been disabled but not yet removed by the engine.
             // Just cancel the removal.
-            event->stall_cycle = 0;
+            event->pending_disable = false;
             event->enqueued = true;
+            if (event->stall_cycle == 0)
+            {
+                event->meth = event->meth_saved;
+                event->meth_saved = NULL;
+            }
         }
         else
         {
@@ -74,24 +79,60 @@ vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
 
             if (this->permanent_first)
             {
-                event->next = this->permanent_first;
-                event->prev = this->permanent_first->prev;
-                this->permanent_first->prev->next = event;
                 this->permanent_first->prev = event;
             }
-            else
-            {
-                event->next = event;
-                event->prev = event;
-            }
+            event->next = this->permanent_first;
+            event->prev = NULL;
+            this->permanent_first = event;
+
             event->enqueued = true;
             event->cycle = -1;
-
-            this->permanent_first = event;
         }
     }
 
     return event;
+}
+
+void vp::ClockEngine::stalled_event_handler(vp::Block *__this, ClockEvent *event)
+{
+    vp::ClockEngine *_this = (vp::ClockEngine *)event->clock;
+
+    if (event->pending_disable)
+    {
+        // Case where the event has been disabled. The disable was just flagged so
+        // that we can propertly remove it from here.
+        event->pending_disable = false;
+
+        if (event->stall_cycle == 0)
+        {
+            event->meth = event->meth_saved;
+            event->meth_saved = NULL;
+        }
+
+        if (event->prev)
+        {
+            event->prev->next = event->next;
+        }
+        if (event->next)
+        {
+            event->next->prev = event->prev;
+        }
+
+        if (_this->permanent_first == event)
+        {
+            _this->permanent_first = event->next;
+        }
+    }
+    else
+    {
+        event->stall_cycle--;
+
+        if (event->stall_cycle == 0)
+        {
+            event->meth = event->meth_saved;
+            event->meth_saved = NULL;
+        }
+    }
 }
 
 void vp::ClockEngine::disable(vp::ClockEvent *event)
@@ -100,8 +141,14 @@ void vp::ClockEngine::disable(vp::ClockEvent *event)
     {
         // Since the event is enqueued in a list which may be being browsed, we cannot directly
         // remove it. Mark it as removed and the engine will take care of removing it.
-        event->stall_cycle = -1;
+        event->pending_disable = true;
         event->enqueued = false;
+
+        if (event->meth_saved == NULL)
+        {
+            event->meth_saved = event->meth;
+            event->meth = &vp::ClockEngine::stalled_event_handler;
+        }
     }
 }
 
@@ -180,6 +227,7 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
     // vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
 
     event->enqueued = true;
+    event->clock = this;
 
     // That should not be needed but in practice, lots of models are pushing from one
     // clock engine to another without synchronizing, creating timing issues.
@@ -198,17 +246,20 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
 
     int64_t full_cycle = cycle + get_cycles();
 
-    while (current && current->cycle < full_cycle)
+    while (current && current->cycle <= full_cycle)
     {
         prev = current;
         current = current->next;
     }
+
     if (prev)
         prev->next = event;
     else
         delayed_queue = event;
     event->next = current;
     event->cycle = full_cycle;
+
+    this->next_delayed_cycle = this->delayed_queue->cycle;
 
     return event;
 }
@@ -262,6 +313,8 @@ void vp::ClockEngine::cancel(vp::ClockEvent *event)
 end:
     event->enqueued = false;
 
+    this->next_delayed_cycle = this->delayed_queue ? this->delayed_queue->cycle : INT64_MAX;
+
     if (!this->has_events())
         this->dequeue_from_engine();
 }
@@ -279,50 +332,43 @@ int64_t vp::ClockEngine::exec()
 
     if (likely(current != NULL))
     {
-        this->cycles++;
-
-        do
+        while(1)
         {
-            ClockEvent *next = current->next;
-            if (likely(current->stall_cycle == 0))
+            this->cycles++;
+
+            do
             {
+                ClockEvent *next = current->next;
                 current->meth(current->_this, current);
-            }
-            else
+                current = next;
+            } while (likely(current != NULL));
+
+            if (likely(this->permanent_first != NULL))
             {
-                if (current->stall_cycle == -1)
+                // TODO restore round-robin in timed version of this callback once we switch to timed
+                // event callbacks.
+                // Round-robin so that we avoid strange patterns if events are always
+                // executed in same order
+                // this->permanent_first = this->permanent_first->next;
+
+                // Shortcut since when we have a permanent event, we probably
+                // don't have a delayed event at the same cycle, since they should be
+                // rare.
+                if (likely(this->next_delayed_cycle > this->cycles))
                 {
-                    // Case where the event has been disabled. The disable was just flagged so
-                    // that we can propertly remove it from here.
-                    current->stall_cycle = 0;
-
-                    current->prev->next = current->next;
-                    current->next->prev = current->prev;
-
-                    if (this->permanent_first == current)
+                    vp::TimeEngine *engine = this->time_engine;
+                    if (likely(time_engine->first_client == NULL && !time_engine->stop_req))
                     {
-                        if (current->next == current)
-                        {
-                            this->permanent_first = NULL;
-                            break;
-                        }
-                        else
-                        {
-                            this->permanent_first = current->next;
-                        }
+                        engine->time += period;
+                        current = this->permanent_first;
+                        continue;
                     }
-                }
-                else
-                {
-                    current->stall_cycle--;
+
+                    return period;
                 }
             }
-            current = next;
-        } while (likely(current != this->permanent_first));
 
-        if (this->permanent_first)
-        {
-            this->permanent_first = this->permanent_first->next;
+            break;
         }
     }
     else
@@ -340,9 +386,14 @@ int64_t vp::ClockEngine::exec()
         ClockEvent *current = delayed_queue;
         current->enqueued = false;
         delayed_queue = delayed_queue->next;
+
+        this->next_delayed_cycle = this->delayed_queue ? this->delayed_queue->cycle : INT64_MAX;
+
         current->meth(current->_this, current);
     }
 
+    // Need to check again if we have a permanent event since it could have been enabled during
+    // the execution of a delayed event
     if (likely(this->permanent_first != NULL))
     {
         return period;

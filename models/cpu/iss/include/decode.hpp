@@ -30,21 +30,19 @@ public:
     void build();
     void reset(bool active);
 
-    bool decode_pc(iss_insn_t *insn, iss_reg_t pc);
+    void decode_pc(iss_insn_t *insn, iss_reg_t pc);
 
     vp::Trace trace;
 
     static void flush_cache_sync(vp::Block *_this, bool active);
 
-    void parse_isa();
-
     // decode
     vp::WireSlave<bool> flush_cache_itf;
-    iss_insn_cache_t insn_cache;
     const char *isa;
-    iss_reg_t misa_extensions;
     std::vector<iss_insn_t *> insn_tables;
     bool has_double;
+
+    std::vector<iss_decoder_item_t *> *get_insns_from_tag(std::string tag);
 
 private:
     int decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode);
@@ -56,3 +54,38 @@ private:
 
     Iss &iss;
 };
+
+
+iss_reg_t iss_fetch_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+
+typedef struct
+{
+    const char *tag;
+    iss_decoder_item_t **insn;
+} iss_tag_insns_t;
+
+// Structure describing an instance of a resource.
+// This is used to account timing on shared resources.
+// Each instance can accept accesses concurently.
+typedef struct
+{
+    int64_t cycles; // Indicate the time where the next access to this resource is possible
+} iss_resource_instance_t;
+
+// Structure describing a resource.
+typedef struct
+{
+    const char *name;                                 // Name of the resource
+    int nb_instances;                                 // Number of instances of this resource. Each instance can accept accesses concurently
+    std::vector<iss_resource_instance_t *> instances; // Instances of this resource
+} iss_resource_t;
+
+typedef struct iss_isa_set_s
+{
+    iss_decoder_item_t *isa_set;
+    int nb_resources;
+    iss_resource_t *resources; // Resources associated to this ISA
+    std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> &tag_insns;
+    bool initialized;
+} iss_isa_set_t;

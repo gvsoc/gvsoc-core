@@ -23,8 +23,6 @@
 #include <string.h>
 #include <stdexcept>
 
-extern iss_isa_tag_t __iss_isa_tags[];
-
 Decode::Decode(Iss &iss)
     : iss(iss)
 {
@@ -37,15 +35,14 @@ void Decode::build()
     this->iss.top.new_slave_port("flush_cache", &this->flush_cache_itf, (vp::Block *)this);
     string isa = this->iss.top.get_js_config()->get_child_str("isa");
     this->isa = strdup(isa.c_str());
-    this->parse_isa();
-    insn_cache_init(&this->iss);
+    this->has_double = this->iss.top.get_js_config()->get_child_bool("has_double");
 }
 
 void Decode::reset(bool active)
 {
     if (active)
     {
-        iss_cache_flush(&this->iss);
+        this->iss.insn_cache.flush();
     }
 }
 
@@ -92,6 +89,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     if (!item->is_active)
         return -1;
 
+    insn->expand_table = NULL;
     insn->latency = 0;
     insn->resource_id = item->u.insn.resource_id;
     insn->resource_latency = item->u.insn.resource_latency;
@@ -148,7 +146,14 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->u.reg.id >= insn->nb_out_reg)
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
-                insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
+                if (arg->u.reg.index == 0 && !(darg->flags & ISS_DECODER_ARG_FLAG_FREG))
+                {
+                    insn->out_regs[darg->u.reg.id] = ISS_NB_REGS;
+                }
+                else
+                {
+                    insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
+                }
 
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
@@ -172,17 +177,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
             if (darg->type == ISS_DECODER_ARG_TYPE_OUT_REG && darg->u.reg.latency != 0)
             {
-                iss_reg_t next_pc = pc + insn->size;
-                iss_insn_t *next = insn_cache_get_insn(&this->iss, next_pc);
-                if (!next)
-                {
-                    return -2;
-                }
-
-                if (!insn_cache_is_decoded(&this->iss, next) && !iss_decode_insn(&this->iss, next, next_pc))
-                {
-                    return -2;
-                }
+                iss_reg_t index;
 
                 // We can stall the next instruction either if latency is superior
                 // to 2 (due to number of pipeline stages) or if there is a data
@@ -191,29 +186,20 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 // Go through the registers and set the handler to the stall handler
                 // in case we find a register dependency so that we can properly
                 // handle the stall
-                bool set_pipe_latency = true;
-                for (int j = 0; j < next->nb_in_reg; j++)
-                {
-                    if (next->in_regs[j] == arg->u.reg.index)
-                    {
-                        insn->latency += darg->u.reg.latency;
-                        set_pipe_latency = false;
-                        break;
-                    }
-                }
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
                 // If no dependency was found, apply the one for the pipeline stages
-                if (set_pipe_latency && darg->u.reg.latency > PIPELINE_STAGES)
+                if (darg->u.reg.latency != 0)
                 {
-                    next->latency += darg->u.reg.latency - PIPELINE_STAGES + 1;
-                    if (next->stall_handler == NULL)
+                    if (insn->stall_handler == NULL)
                     {
-                        next->stall_handler = insn->handler;
-                        next->stall_fast_handler = insn->fast_handler;
-                        next->handler = this->iss.exec.insn_stalled_callback_get();
-                        next->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
+                        insn->stall_handler = insn->handler;
+                        insn->stall_fast_handler = insn->fast_handler;
+                        insn->handler = this->iss.exec.insn_stalled_callback_get();
+                        insn->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
                     }
                 }
+#endif
             }
 
             break;
@@ -264,6 +250,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     insn->fast_handler = item->u.insn.fast_handler;
     insn->handler = item->u.insn.handler;
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     if (insn->hwloop_handler != NULL)
     {
         iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->hwloop_handler;
@@ -271,6 +258,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->handler = hwloop_handler;
         insn->fast_handler = hwloop_handler;
     }
+#endif
 
     this->iss.gdbserver.decode_insn(insn, pc);
     this->iss.exec.decode_insn(insn, pc);
@@ -283,12 +271,14 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     }
 
     insn->is_macro_op = item->u.insn.is_macro_op;
+    insn->is_fp_op = item->u.insn.is_fp_op;
 
     if (item->u.insn.decode != NULL)
     {
         item->u.insn.decode(&this->iss, insn, pc);
     }
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (insn->latency)
     {
         insn->stall_handler = insn->handler;
@@ -296,6 +286,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->handler = this->iss.exec.insn_stalled_callback_get();
         insn->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
     }
+#endif
 
     return 0;
 }
@@ -322,19 +313,9 @@ int Decode::decode_opcode_group(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opc
     return -1;
 }
 
-iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name)
+iss_decoder_item_t *iss_isa_get(Iss *iss)
 {
-    for (int i = 0; i < __iss_isa_set.nb_isa; i++)
-    {
-        iss_isa_t *isa = &__iss_isa_set.isa_set[i];
-
-        if (strcmp(isa->name, name) == 0)
-        {
-            return isa->tree;
-        }
-    }
-
-    return NULL;
+    return __iss_isa_set.isa_set;
 }
 
 int Decode::decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item)
@@ -347,49 +328,7 @@ int Decode::decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
 int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
 {
-    for (int i = 0; i < __iss_isa_set.nb_isa; i++)
-    {
-        iss_isa_t *isa = &__iss_isa_set.isa_set[i];
-        int err = this->decode_item(insn, pc, opcode, isa->tree);
-        if (err == 0)
-        {
-            #ifdef CONFIG_GVSOC_ISS_SNITCH
-            if (strcmp(isa->name, "f") == 0 || strcmp(isa->name, "d") == 0)
-            {
-                insn->is_fp_op = true;
-            }
-            this->trace.msg("Decoding successfully (pc: 0x%lx, isa_name: %s, fp_op: %d)\n", pc, isa->name, insn->is_fp_op);
-            #endif
-            return 0;
-        }
-        else if (err == -2)
-        {
-            return -2;
-        }
-    }
-
-    return -1;
-}
-
-
-
-void iss_decode_activate_isa(Iss *cpu, char *name)
-{
-    iss_isa_tag_t *isa = &__iss_isa_tags[0];
-    while (isa->name)
-    {
-        if (strcmp(isa->name, name) == 0)
-        {
-            iss_decoder_item_t **insn_ptr = isa->insns;
-            while (*insn_ptr)
-            {
-                iss_decoder_item_t *insn = *insn_ptr;
-                insn->is_active = true;
-                insn_ptr++;
-            }
-        }
-        isa++;
-    }
+    return this->decode_item(insn, pc, opcode, __iss_isa_set.isa_set);
 }
 
 
@@ -403,7 +342,7 @@ static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 
 
-bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
+void Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 {
     this->trace.msg("Decoding instruction (pc: 0x%lx)\n", pc);
 
@@ -411,18 +350,12 @@ bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
 
     this->trace.msg("Got opcode (opcode: 0x%lx)\n", opcode);
 
-    int err = this->decode_opcode(insn, pc, opcode);
-
-    if (err == -1)
+    if (this->decode_opcode(insn, pc, opcode))
     {
         this->trace.msg("Unknown instruction\n");
         insn->handler = iss_exec_insn_illegal;
         insn->fast_handler = iss_exec_insn_illegal;
-        return true;
-    }
-    else if (err == -2)
-    {
-        return false;
+        return;
     }
 
     insn->opcode = opcode;
@@ -433,60 +366,19 @@ bool Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
         insn->handler = this->iss.exec.insn_trace_callback_get();
         insn->fast_handler = this->iss.exec.insn_trace_callback_get();
     }
-
-    return true;
 }
-
-
-
-bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-// #if defined(CONFIG_GVSOC_ISS_TIMED)
-    if (!insn->fetched)
-    {
-        if (!iss->prefetcher.fetch(pc))
-        {
-            return false;
-        }
-
-        insn->fetched = true;
-    }
-// #endif
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    if (!iss->snitch)
-    {
-        if (!iss->decode.decode_pc(insn, pc))
-        {
-            return false;
-        }
-    }
-    else
-    {
-        iss->decode.trace.msg("Decoding snitch instructions\n");
-        if (!iss->decode.decode_pc(insn, pc))
-        {
-            return false;
-        }
-    }
-#endif
-#ifndef CONFIG_GVSOC_ISS_SNITCH
-    if (!iss->decode.decode_pc(insn, pc))
-    {
-        return false;
-    }
-#endif
-
-    return true;
-}
-
 
 
 iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (!iss_decode_insn(iss, insn, pc))
+#if !defined(CONFIG_GVSOC_ISS_TIMED)
+    if (!iss->prefetcher.fetch(pc))
     {
         return pc;
     }
+#endif
+
+    iss->decode.decode_pc(insn, pc);
 
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
@@ -506,288 +398,7 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss->exec.insn_exec(insn, pc);
 }
 
-
-
-void Decode::parse_isa()
+std::vector<iss_decoder_item_t *> *Decode::get_insns_from_tag(std::string tag)
 {
-    // TODO this should now be all moved to python generator
-    Iss *iss = &this->iss;
-    const char *current = iss->decode.isa;
-    int len = strlen(current);
-
-    bool arch_rv32 = false;
-    bool arch_rv64 = false;
-
-    if (strncmp(current, "rv32", 4) == 0)
-    {
-        current += 4;
-        len -= 4;
-        arch_rv32 = true;
-    }
-    else if (strncmp(current, "rv64", 4) == 0)
-    {
-        current += 4;
-        len -= 4;
-        arch_rv64 = true;
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported ISA: " + std::string(current));
-    }
-
-    iss_decode_activate_isa(iss, (char *)"priv");
-    iss_decode_activate_isa(iss, (char *)"trap_return");
-    iss_decode_activate_isa(iss, (char *)"priv_smmu");
-
-    bool has_f = false;
-    bool has_d = false;
-    bool has_c = false;
-    bool has_f16 = false;
-    bool has_f16alt = false;
-    bool has_f8 = false;
-    bool has_fvec = false;
-    bool has_faux = false;
-    uint32_t misa = 0;
-
-    while (len > 0)
-    {
-        switch (*current)
-        {
-        case 'd':
-            misa |= 1 << 3;
-            has_d = true; // D needs F
-        case 'f':
-            misa |= 1 << 5;
-            has_f = true;
-        case 'a':
-            misa |= 1 << 0;
-        case 'v':
-        case 'i':
-            misa |= 1 << 8;
-        case 'm':
-        {
-            misa |= 1 << 12;
-            char name[2];
-            name[0] = *current;
-            name[1] = 0;
-            iss_decode_activate_isa(iss, name);
-            current++;
-            len--;
-            break;
-        }
-        case 'c':
-        {
-            misa |= 1 << 2;
-            iss_decode_activate_isa(iss, (char *)"c");
-            current++;
-            len--;
-            has_c = true;
-            break;
-        }
-        case 'X':
-        {
-            char *token = strtok(strdup(current), "X");
-
-            while (token)
-            {
-                iss_decode_activate_isa(iss, token);
-
-                if (strcmp(token, "pulpv2") == 0)
-                {
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-                    iss_isa_pulpv2_activate(iss);
-#endif
-                }
-                else if (strcmp(token, "corev") == 0)
-                {
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-                    iss_isa_corev_activate(iss);
-#endif
-                }
-                else if (strcmp(token, "gap8") == 0)
-                {
-#ifdef CONFIG_GVSOC_ISS_RI5KY
-                    iss_isa_pulpv2_activate(iss);
-                    iss_decode_activate_isa(iss, (char *)"pulpv2");
-#endif
-                }
-                else if (strcmp(token, "f16") == 0)
-                {
-                    has_f16 = true;
-                }
-                else if (strcmp(token, "f16alt") == 0)
-                {
-                    has_f16alt = true;
-                }
-                else if (strcmp(token, "f8") == 0)
-                {
-                    has_f8 = true;
-                }
-                else if (strcmp(token, "fvec") == 0)
-                {
-                    has_fvec = true;
-                }
-                else if (strcmp(token, "faux") == 0)
-                {
-                    has_faux = true;
-                }
-
-                token = strtok(NULL, "X");
-            }
-
-            len = 0;
-
-            break;
-        }
-        default:
-            throw std::runtime_error("Unknwon ISA descriptor: " + *current);
-        }
-    }
-
-    //
-    // Activate inter-dependent ISA extension subsets
-    //
-
-    // Compressed floating-point instructions
-    if (has_c)
-    {
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"cf");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"cd");
-    }
-
-    // For F Extension
-    if (has_f)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f");
-        // Vectors
-        if (has_fvec && has_d)
-        { // make sure FLEN >= 64
-            iss_decode_activate_isa(iss, (char *)"f32vec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f32vecno32d");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            // nothing for scalars as expansions are to fp32
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f32auxvec");
-        }
-    }
-
-    if (has_d)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64d");
-    }
-
-    this->has_double = has_d;
-
-    // For Xf16 Extension
-    if (has_f16)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f16");
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"f16f");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"f16d");
-        // Vectors
-        if (has_fvec && has_f)
-        { // make sure FLEN >= 32
-            iss_decode_activate_isa(iss, (char *)"f16vec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f16vecno32d");
-            if (has_d)
-                iss_decode_activate_isa(iss, (char *)"f16vecd");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            iss_decode_activate_isa(iss, (char *)"f16aux");
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f16auxvec");
-        }
-    }
-
-    // For Xf16alt Extension
-    if (has_f16alt)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f16alt");
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"f16altf");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"f16altd");
-        if (has_f16)
-            iss_decode_activate_isa(iss, (char *)"f16altf16");
-        // Vectors
-        if (has_fvec && has_f)
-        { // make sure FLEN >= 32
-            iss_decode_activate_isa(iss, (char *)"f16altvec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f16altvecno32d");
-            if (has_d)
-                iss_decode_activate_isa(iss, (char *)"f16altvecd");
-            if (has_f16)
-                iss_decode_activate_isa(iss, (char *)"f16altvecf16");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            iss_decode_activate_isa(iss, (char *)"f16altaux");
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f16altauxvec");
-        }
-    }
-
-    // For Xf8 Extension
-    if (has_f8)
-    {
-        if (arch_rv64)
-            iss_decode_activate_isa(iss, (char *)"rv64f8");
-        if (has_f)
-            iss_decode_activate_isa(iss, (char *)"f8f");
-        if (has_d)
-            iss_decode_activate_isa(iss, (char *)"f8d");
-        if (has_f16)
-            iss_decode_activate_isa(iss, (char *)"f8f16");
-        if (has_f16alt)
-            iss_decode_activate_isa(iss, (char *)"f8f16alt");
-        // Vectors
-        if (has_fvec && (has_f16 || has_f16alt || has_f))
-        { // make sure FLEN >= 16
-            iss_decode_activate_isa(iss, (char *)"f8vec");
-            if (!(arch_rv32 && has_d))
-                iss_decode_activate_isa(iss, (char *)"f8vecno32d");
-            if (has_f)
-                iss_decode_activate_isa(iss, (char *)"f8vecf");
-            if (has_d)
-                iss_decode_activate_isa(iss, (char *)"f8vecd");
-            if (has_f16)
-                iss_decode_activate_isa(iss, (char *)"f8vecf16");
-            if (has_f16alt)
-                iss_decode_activate_isa(iss, (char *)"f8vecf16alt");
-        }
-        // Auxiliary Ops
-        if (has_faux)
-        {
-            iss_decode_activate_isa(iss, (char *)"f8aux");
-            if (has_fvec)
-                iss_decode_activate_isa(iss, (char *)"f8auxvec");
-        }
-    }
-
-#ifdef CONFIG_GVSOC_ISS_SUPERVISOR_MODE
-    misa |= 1 << 18;
-#endif
-
-#ifdef CONFIG_GVSOC_ISS_USER_MODE
-    misa |= 1 << 20;
-#endif
-
-    this->misa_extensions = misa;
+    return __iss_isa_set.tag_insns[tag];
 }

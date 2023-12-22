@@ -29,6 +29,7 @@ void IssWrapper::start()
 #ifdef CONFIG_GVSOC_ISS_TIMED
     vp_assert_always(this->iss.prefetcher.fetch_itf.is_bound(), &this->trace, "Fetch master port is not connected\n");
 #endif
+    // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
 
     this->trace.msg("ISS start (fetch: %d, boot_addr: 0x%lx)\n",
         iss.exec.fetch_enable_reg.get(), get_js_config()->get_child_int("boot_addr"));
@@ -36,6 +37,7 @@ void IssWrapper::start()
     this->iss.timing.background_power.leakage_power_start();
     this->iss.timing.background_power.dynamic_power_start();
 
+    this->iss.lsu.start();
     this->iss.gdbserver.start();
 }
 
@@ -43,9 +45,7 @@ void IssWrapper::start()
 
 void IssWrapper::reset(bool active)
 {
-// #ifdef CONFIG_GVSOC_ISS_TIMED
     this->iss.prefetcher.reset(active);
-// #endif
     this->iss.csr.reset(active);
     this->iss.exec.reset(active);
     this->iss.core.reset(active);
@@ -69,6 +69,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.syscalls.build();
     this->iss.decode.build();
     this->iss.exec.build();
+    this->iss.insn_cache.build();
     this->iss.dbgunit.build();
     this->iss.csr.build();
     this->iss.lsu.build();
@@ -80,9 +81,8 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.mmu.build();
     this->iss.pmp.build();
     this->iss.exception.build();
-// #ifdef CONFIG_GVSOC_ISS_TIMED
     this->iss.prefetcher.build();
-// #endif
+
 
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.build();

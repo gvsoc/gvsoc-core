@@ -128,7 +128,6 @@ bool Prefetcher::fetch_check_overflow(iss_insn_t *insn, int index)
         insn->opcode = opcode;
     }
 
-    insn->fetched = true;
     return true;
 }
 
@@ -141,8 +140,6 @@ void Prefetcher::fetch_resume_after_high_refill(Prefetcher *_this)
 
     // And append the second part from second line
     _this->prefetch_insn->opcode = _this->fetch_stall_opcode | ((*(iss_opcode_t *)&_this->data[0]) << (nb_bytes * 8));
-
-    _this->prefetch_insn->fetched = true;
 }
 
 int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)

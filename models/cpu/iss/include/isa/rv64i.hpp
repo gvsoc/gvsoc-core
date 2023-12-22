@@ -27,14 +27,14 @@
 
 static inline iss_reg_t lwu_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    iss->lsu.load<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lwu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_perf(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    if (iss->lsu.load_perf<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
     {
         return pc;
     }
@@ -43,14 +43,14 @@ static inline iss_reg_t lwu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t ld_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed(insn, REG_GET(0) + SIM_GET(0), 8, REG_OUT(0));
+    iss->lsu.load_signed<int64_t>(insn, REG_GET(0) + SIM_GET(0), 8, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t ld_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_signed_perf(insn, REG_GET(0) + SIM_GET(0), 8, REG_OUT(0)))
+    if (iss->lsu.load_signed_perf<int64_t>(insn, REG_GET(0) + SIM_GET(0), 8, REG_OUT(0)))
     {
         return pc;
     }
@@ -59,14 +59,14 @@ static inline iss_reg_t ld_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t sd_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store(insn, REG_GET(0) + SIM_GET(0), 8, REG_IN(1));
+    iss->lsu.store<uint64_t>(insn, REG_GET(0) + SIM_GET(0), 8, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sd_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.store_perf(insn, REG_GET(0) + SIM_GET(0), 8, REG_IN(1)))
+    if (iss->lsu.store_perf<uint64_t>(insn, REG_GET(0) + SIM_GET(0), 8, REG_IN(1)))
     {
         return pc;
     }

@@ -15,44 +15,64 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __CPU_ISS_ISS_INSN_CACHE_HPP
-#define __CPU_ISS_ISS_INSN_CACHE_HPP
+#pragma once
 
+// The size of a page corresponds to the tlb page size with instructions of at least 2 bytes
+#define INSN_PAGE_BITS 9
+#define INSN_PAGE_SIZE (1 << (INSN_PAGE_BITS - 1))
+#define INSN_PAGE_MASK (INSN_PAGE_SIZE - 1)
 
-
-
-
-int insn_cache_init(Iss *iss);
-void iss_cache_flush(Iss *iss);
-bool insn_cache_is_decoded(Iss *iss, iss_insn_t *insn);
-
-iss_insn_t *insn_cache_get_insn_from_cache(Iss *iss, iss_reg_t vaddr);
-
-bool iss_decode_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
-
-inline iss_insn_t *insn_cache_get_insn(Iss *iss, iss_reg_t vaddr)
+struct InsnPage
 {
-    iss_insn_cache_t *cache = &iss->decode.insn_cache;
-    iss_insn_page_t *page = cache->current_insn_page;
+    iss_insn_t insns[INSN_PAGE_SIZE];
+    InsnPage *next;
+};
 
-    if (likely(page != NULL))
+class InsnCache
+{
+public:
+    InsnCache(Iss &iss);
+    void build();
+    void flush();
+    bool insn_is_decoded(iss_insn_t *insn);
+    iss_insn_t *get_insn_from_cache(iss_reg_t vaddr, iss_reg_t &index);
+    inline iss_insn_t *get_insn(iss_reg_t vaddr, iss_reg_t &index);
+    void mode_flush();
+    inline void insn_init(iss_insn_t *insn, iss_addr_t addr);
+    InsnPage *page_get(iss_reg_t paddr);
+
+
+private:
+    InsnPage *current_insn_page;
+    iss_reg_t current_insn_page_base;
+    std::unordered_map<iss_reg_t, InsnPage *>pages;
+
+    Iss &iss;
+};
+
+
+
+inline iss_insn_t *InsnCache::get_insn(iss_reg_t vaddr, iss_reg_t &index)
+{
+    index = (vaddr - this->current_insn_page_base) >> 1;
+    if (likely(index < INSN_PAGE_SIZE))
     {
-        iss_reg_t diff = (vaddr - cache->current_insn_page_base) >> 1;
-        if (likely(diff < INSN_PAGE_SIZE))
-        {
-            return &page->insns[diff & INSN_PAGE_MASK];
-        }
+        return &this->current_insn_page->insns[index];
     }
 
-    return insn_cache_get_insn_from_cache(iss, vaddr);
+    return this->get_insn_from_cache(vaddr, index);
 }
 
-void iss_cache_vflush(Iss *iss);
-
-void insn_init(iss_insn_t *insn, iss_addr_t addr);
-
+inline void InsnCache::insn_init(iss_insn_t *insn, iss_addr_t addr)
+{
+    insn->handler = iss_decode_pc_handler;
+    insn->fast_handler = iss_decode_pc_handler;
+    insn->addr = addr;
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
+    insn->hwloop_handler = NULL;
 #endif
+}

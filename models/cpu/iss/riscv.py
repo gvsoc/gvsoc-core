@@ -20,6 +20,7 @@ import os.path
 import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
+from cpu.iss.isa_gen.isa_rvv import *
 
 class RiscvCommon(st.Component):
     """
@@ -84,7 +85,9 @@ class RiscvCommon(st.Component):
             scoreboard=False,
             cflags=None,
             prefetcher_size=None,
-            wrapper="pulp/cpu/iss/default_iss_wrapper.cpp"):
+            wrapper="pulp/cpu/iss/default_iss_wrapper.cpp",
+            memory_start=None,
+            memory_size=None):
 
         super().__init__(parent, name)
 
@@ -136,7 +139,17 @@ class RiscvCommon(st.Component):
             'core_id': core_id,
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
+            'has_double': isa.has_isa('rvd'),
         })
+
+        if memory_start is not None and memory_size is not None:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_MEMORY=1'])
+
+            self.add_properties({
+                'memory_start': memory_start,
+                'memory_size': memory_size,
+            })
+
 
         if cflags is not None:
             self.add_c_flags(cflags)
@@ -302,48 +315,48 @@ class RiscvCommon(st.Component):
 
 
     def gen_gui(self, parent_signal):
-        active = gv.gui.Signal(self, parent_signal, name=self.name, path='active_function',
-            display=gv.gui.DisplayStringBox())
+        active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='active_function',
+            display=gvsoc.gui.DisplayStringBox())
 
-        gv.gui.Signal(self, active, path='active_pc', groups=['pc'])
-        gv.gui.Signal(self, active, path='binaries', groups=['pc'])
-        gv.gui.SignalGenFunctionFromBinary(self, active, from_signal='active_pc',
+        gvsoc.gui.Signal(self, active, path='active_pc', groups=['pc'])
+        gvsoc.gui.Signal(self, active, path='binaries', groups=['pc'])
+        gvsoc.gui.SignalGenFunctionFromBinary(self, active, from_signal='active_pc',
             to_signal='active_function', binaries=['binaries'])
 
-        gv.gui.Signal(self, active, name='active', path='busy', groups=['core'],
-            display=gv.gui.DisplayLogicBox('ACTIVE'))
-        gv.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
+        gvsoc.gui.Signal(self, active, name='active', path='busy', groups=['core'],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
             properties={'is_hotspot': True})
 
-        gv.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
+        gvsoc.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
             to_signal='function', binaries=['binaries'])
-        gv.gui.Signal(self, active, name='function', path='function',
-            display=gv.gui.DisplayString())
+        gvsoc.gui.Signal(self, active, name='function', path='function',
+            display=gvsoc.gui.DisplayString())
 
-        gv.gui.SignalGenFromSignals(self, active, from_signals=['static_power_trace', 'dyn_power_trace'],
+        gvsoc.gui.SignalGenFromSignals(self, active, from_signals=['static_power_trace', 'dyn_power_trace'],
             to_signal='power')
-        power_signal = gv.gui.Signal(self, active, name='power', path='power', groups='power')
-        gv.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
-        gv.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
+        power_signal = gvsoc.gui.Signal(self, active, name='power', path='power', groups='power')
+        gvsoc.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
+        gvsoc.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
 
-        stalls = gv.gui.Signal(self, active, name='stalls')
-        gv.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="instr",         path="pcer_instr",         display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="ld_stall",      path="pcer_ld_stall",      display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="jmp_stall",     path="pcer_jmp_stall",     display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="imiss",         path="pcer_imiss",         display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="ld",            path="pcer_ld",            display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="st",            path="pcer_st",            display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="jump",          path="pcer_jump",          display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="branch",        path="pcer_branch",        display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="taken_branch",  path="pcer_taken_branch",  display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="rvc",           path="pcer_rvc",           display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="ld_ext",        path="pcer_ld_ext",        display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="st_ext",        path="pcer_st_ext",        display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="ld_ext_cycles", path="pcer_ld_ext_cycles", display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gv.gui.DisplayPulse(), groups=['stall'])
-        gv.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gv.gui.DisplayPulse(), groups=['stall'])
+        stalls = gvsoc.gui.Signal(self, active, name='stalls')
+        gvsoc.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="instr",         path="pcer_instr",         display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="ld_stall",      path="pcer_ld_stall",      display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="jmp_stall",     path="pcer_jmp_stall",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="imiss",         path="pcer_imiss",         display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="ld",            path="pcer_ld",            display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="st",            path="pcer_st",            display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="jump",          path="pcer_jump",          display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="branch",        path="pcer_branch",        display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="taken_branch",  path="pcer_taken_branch",  display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="rvc",           path="pcer_rvc",           display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="ld_ext",        path="pcer_ld_ext",        display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="st_ext",        path="pcer_st_ext",        display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="ld_ext_cycles", path="pcer_ld_ext_cycles", display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+        gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
 
         return active
 
@@ -385,19 +398,20 @@ class Riscv(RiscvCommon):
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
             fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
-            core_id: int=0):
+            core_id: int=0, memory_start=None, memory_size=None):
 
         # Instantiates the ISA from the provided string.
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
+            inc_user=True)
 
         # And instantiate common class with default parameters
-        super().__init__(parent, name, isa=isa_instance, misa=0,
+        super().__init__(parent, name, isa=isa_instance, misa=isa_instance.misa,
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id)
+            supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
+            memory_start=memory_start, memory_size=memory_size)
 
         self.add_c_flags([
-            "-DPIPELINE_STAGES=2",
             "-DCONFIG_ISS_CORE=riscv",
         ])
 
@@ -417,11 +431,11 @@ class Snitch(RiscvCommon):
 
 
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+        misa = 0x40801129
 
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id)
 
         self.add_c_flags([
-            "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch",
         ])
 
@@ -447,6 +461,7 @@ class Snitch_fp_ss(RiscvCommon):
 
 
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+        misa = 0x40801129
 
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed)
 
@@ -474,14 +489,13 @@ class Spatz(RiscvCommon):
             use_rv32v=False):
 
 
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa)
+        extensions = [ Rv32v() ]
 
-        isa_instance.add_tree(IsaDecodeTree('rv32v', [Rv32v()]))
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa, extensions=extensions)
 
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch")
 
         self.add_c_flags([
-            "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch",
         ])
 

@@ -43,10 +43,33 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     return iss_insn_next(iss, insn, pc);
 }
 
+static inline iss_reg_t flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    if (iss->lsu.load_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return pc;
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t flw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.load_float(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    if (iss->lsu.load_float_perf<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return pc;
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t fsw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    if (iss->csr.mstatus.fs == 0)
+    {
+        iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
+        return pc;
+    }
+    if (iss->lsu.store_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
     {
         return pc;
     }
@@ -61,7 +84,7 @@ static inline iss_reg_t fsw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
-    if (iss->lsu.store_float(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
+    if (iss->lsu.store_float_perf<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
     {
         return pc;
     }
@@ -242,39 +265,69 @@ static inline iss_reg_t fcvt_s_lu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 //
 // COMPRESSED INSTRUCTIONS
 //
+static inline iss_reg_t c_fsw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return fsw_exec_fast(iss, insn, pc);
+}
+
 static inline iss_reg_t c_fsw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // perfAccountRvc(cpu);
+    iss->timing.event_rvc_account(1);
     return fsw_exec(iss, insn, pc);
+}
+
+static inline iss_reg_t c_fswsp_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return fsw_exec_fast(iss, insn, pc);
 }
 
 static inline iss_reg_t c_fswsp_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // perfAccountRvc(cpu);
+    iss->timing.event_rvc_account(1);
     return fsw_exec(iss, insn, pc);
+}
+
+static inline iss_reg_t c_fsdsp_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return fsd_exec_fast(iss, insn, pc);
 }
 
 static inline iss_reg_t c_fsdsp_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // perfAccountRvc(cpu);
+    iss->timing.event_rvc_account(1);
     return fsd_exec(iss, insn, pc);
+}
+
+static inline iss_reg_t c_flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return flw_exec_fast(iss, insn, pc);
 }
 
 static inline iss_reg_t c_flw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // perfAccountRvc(cpu);
+    iss->timing.event_rvc_account(1);
     return flw_exec(iss, insn, pc);
+}
+
+static inline iss_reg_t c_flwsp_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return flw_exec_fast(iss, insn, pc);
 }
 
 static inline iss_reg_t c_flwsp_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // perfAccountRvc(cpu);
+    iss->timing.event_rvc_account(1);
     return flw_exec(iss, insn, pc);
+}
+
+static inline iss_reg_t c_fldsp_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return fld_exec_fast(iss, insn, pc);
 }
 
 static inline iss_reg_t c_fldsp_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // perfAccountRvc(cpu);
+    iss->timing.event_rvc_account(1);
     return fld_exec(iss, insn, pc);
 }
 

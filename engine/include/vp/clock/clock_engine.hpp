@@ -129,6 +129,8 @@ namespace vp
 
 
     private:
+        static void stalled_event_handler(vp::Block *, ClockEvent *event);
+
         void update();
 
         vp::ClockEvent *get_next_event();
@@ -192,6 +194,8 @@ namespace vp
         vp::Trace cycles_trace;
 
         vp::TimeEngine *time_engine = NULL;
+
+        int64_t next_delayed_cycle = INT64_MAX;
     };
 
 };

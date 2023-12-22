@@ -37,7 +37,7 @@
  * bffc mtime hi
  */
 
-#define RESOLUTION 1000000
+#define RESOLUTION 100000
 
 #define MSIP_BASE 0x0
 #define MTIMECMP_BASE 0x4000
@@ -132,6 +132,7 @@ vp::IoReqStatus Clint::req(vp::Block *__this, vp::IoReq *req)
 uint64_t Clint::get_mtime()
 {
     uint64_t value = (this->time.get_time() - this->start_time) / RESOLUTION;
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Get mtime (value: %ld)\n", value);
     return value;
 }
 

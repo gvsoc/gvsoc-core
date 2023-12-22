@@ -23,8 +23,8 @@
 #include <string.h>
 
 
-Iss::Iss(vp::Component &top)
-    : prefetcher(*this), exec(*this), decode(*this), timing(*this), core(*this), irq(*this),
+Iss::Iss(IssWrapper &top)
+    : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
       regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
 {
@@ -138,7 +138,8 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
         insn->out_regs_ref[0] = _this->regfile.freg_store_ref(rd);
     }
 
-    // Update all integer register values from master side to subsystem side.
+    // Update all integer register values from master side to subsystem side, 
+    // useful when one of the input operand is integer register.
     // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Update integer regfile from address: 0x%llx\n", insn->reg_addr);
     for (int i=0; i<ISS_NB_REGS; i++)
     {
@@ -173,6 +174,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
 
     bool error;
     int rd;
+    iss_reg_t data = 0;
 
     if (insn == NULL)
     {
@@ -180,14 +182,23 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
         rd = -1;
     }
 
-    // Execute the instruction.
+    // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile
     _this->exec.insn_exec(insn, pc);
     error = false;
     rd = insn->out_regs[0];
-    // Update integer regfile after calculation
-    for (int i=0; i<ISS_NB_REGS; i++)
+    // Update integer regfile at the master side after calculation,
+    // assign integer register value from subsystem to integer core.
+    // Only update the regfile in integer core if the output register is int type.
+    // for (int i=0; i<ISS_NB_REGS; i++)
+    // {
+    //     _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
+    // }
+
+    // Todo: differentiate between reg and reg64
+    if (!insn->out_regs_fp[0])
     {
-        _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
+        data = _this->regfile.get_reg(rd);
+        *((iss_reg_t *)(insn->reg_addr)+rd) = data;
     }
 
     // Output the instruction trace.
@@ -196,7 +207,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
      
     // Assign arguments to result.
     // Todo: assign value for data if the output register is integer register.
-    _this->acc_rsp = { .rd=rd, .error=error, .data=0};
+    _this->acc_rsp = { .rd=rd, .error=error, .data=data};
     
     // Send back response of the result
     if (_this->acc_rsp_itf.is_bound())

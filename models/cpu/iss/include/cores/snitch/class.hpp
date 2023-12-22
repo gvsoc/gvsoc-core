@@ -42,6 +42,7 @@
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
+#include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
@@ -59,9 +60,10 @@ class IssWrapper;
 class Iss
 {
 public:
-    Iss(vp::Component &top);
+    Iss(IssWrapper &top);
 
     Exec exec;
+    InsnCache insn_cache;
     Timing timing;
     Core core;
     Regfile regfile;
@@ -80,7 +82,10 @@ public:
 
     Spatz spatz;
 
+
+
     vp::Component &top;
+
 
     bool snitch;
     bool fp_ss;
@@ -111,7 +116,6 @@ private:
     bool waiting_barrier;
 
     vp::Trace trace_iss;
-
 };
 
 
@@ -131,24 +135,24 @@ private:
 };
 
 
-#include "cpu/iss/include/rv64i.hpp"
-#include "cpu/iss/include/rv32i.hpp"
-#include "cpu/iss/include/rv32v.hpp"
-#include "cpu/iss/include/rv32c.hpp"
-#include "cpu/iss/include/zcmp.hpp"
-#include "cpu/iss/include/rv32a.hpp"
+#include "cpu/iss/include/isa/rv64i.hpp"
+#include "cpu/iss/include/isa/rv32i.hpp"
+#include "cpu/iss/include/isa/rv32v.hpp"
+#include "cpu/iss/include/isa/rv32c.hpp"
+#include "cpu/iss/include/isa/zcmp.hpp"
+#include "cpu/iss/include/isa/rv32a.hpp"
 
 #if ISS_REG_WIDTH == 64
-#include "cpu/iss/include/rv64c.hpp"
+#include "cpu/iss/include/isa/rv64c.hpp"
 #endif
-#include "cpu/iss/include/rv32m.hpp"
-#include "cpu/iss/include/rv64m.hpp"
-#include "cpu/iss/include/rv64a.hpp"
-#include "cpu/iss/include/rvd.hpp"
-#include "cpu/iss/include/rvf.hpp"
-#include "cpu/iss/include/rvXf16.hpp"
-#include "cpu/iss/include/rvXf16alt.hpp"
-#include "cpu/iss/include/rvXf8.hpp"
-#include "cpu/iss/include/rv32Xfvec.hpp"
-#include "cpu/iss/include/rv32Xfaux.hpp"
-#include "cpu/iss/include/priv.hpp"
+#include "cpu/iss/include/isa/rv32m.hpp"
+#include "cpu/iss/include/isa/rv64m.hpp"
+#include "cpu/iss/include/isa/rv64a.hpp"
+#include "cpu/iss/include/isa/rvd.hpp"
+#include "cpu/iss/include/isa/rvf.hpp"
+#include "cpu/iss/include/isa/rvXf16.hpp"
+#include "cpu/iss/include/isa/rvXf16alt.hpp"
+#include "cpu/iss/include/isa/rvXf8.hpp"
+#include "cpu/iss/include/isa/rv32Xfvec.hpp"
+#include "cpu/iss/include/isa/rv32Xfaux.hpp"
+#include "cpu/iss/include/isa/priv.hpp"

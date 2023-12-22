@@ -34,7 +34,7 @@ iss_reg_t iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 void iss_reset(Iss *iss, int active);
 
-iss_decoder_item_t *iss_isa_get(Iss *iss, const char *name);
+iss_decoder_item_t *iss_isa_get(Iss *iss);
 
 void iss_register_debug_info(Iss *iss, const char *binary);
 

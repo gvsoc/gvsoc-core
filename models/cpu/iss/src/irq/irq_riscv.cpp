@@ -223,7 +223,7 @@ void Irq::check_interrupts()
 {
     iss_reg_t pending_interrupts = this->iss.csr.mie.value & this->iss.csr.mip.value;
 
-    if (pending_interrupts)
+    if (pending_interrupts && !this->iss.exec.irq_locked)
     {
         this->iss.exec.switch_to_full_mode();
 
@@ -253,7 +253,7 @@ int Irq::check()
     {
         iss_reg_t pending_interrupts = this->iss.csr.mie.value & this->iss.csr.mip.value;
 
-        if (pending_interrupts && !this->iss.exec.irq_locked)
+        if (pending_interrupts)
         {
             int next_mode = PRIV_M;
 

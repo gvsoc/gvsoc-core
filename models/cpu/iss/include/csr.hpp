@@ -236,9 +236,9 @@ public:
     CsrReg vtype;
     CsrReg vlenb;
 
-
-    bool hwloop = false;
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
+#endif
 
 private:
 

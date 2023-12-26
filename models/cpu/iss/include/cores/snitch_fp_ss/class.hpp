@@ -98,7 +98,7 @@ public:
 
     static void handle_notif(vp::Block *__this, OffloadReq *req);
     static void handle_event(vp::Block *__this, vp::ClockEvent *event);
-    void handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
+    bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);

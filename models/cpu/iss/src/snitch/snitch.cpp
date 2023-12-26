@@ -44,6 +44,8 @@ Iss::Iss(IssWrapper &top)
 
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
+    this->event = this->top.event_new((vp::Block *)this, handle_event);
+
     this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
 
     this->acc_rsp_itf.set_sync_meth(&Iss::handle_result);
@@ -102,31 +104,115 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 // This get called when there is floating-point instruction detected in decode stage.
 // Maybe change output type from void to bool later if inserting scoreboard.
-void Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
+bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
 {
     iss_opcode_t opcode = insn->opcode;
     this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
-
-    // Assign arguments to request.
-    this->acc_req = { .pc=pc, .insn=insn, .is_write=is_write };
     
-    // Todo: currently stall anyway until the accelerator sends back result.
-    this->acc_stall = true;
-
-    // Offload request if the port is connected
-    if (this->acc_req_itf.is_bound())
-    {
-        this->acc_req_itf.sync(&this->acc_req);
-    }
-
     // Todo: Check if the subsystem side accept the offloaded instruction.
+    // The fp instruction can be offloaded when the accelerator queue is empty.
     // If there's a accelerator stall, stop the current event queue at the master side.
+    // Use insn_stall() or insn_hold&insn_resume()
+    // 1. insn_stall(): stall and then start from the stall point, choose this way here because we don't want to 
+    // resume back to instr_event and start from next instruction directly.
+    // 2. insn_hold&insn_resume(): use meth function to solve the remaining execution and then return back to next instruction directly.
+    this->acc_stall = true;
     if (this->acc_stall)
     {
-        // If acc_stall, stall the core, this will get unstalled when the response (handle_result) is called
+        // If acc_stall, stall the core, this will get unstalled when the event (handle_event) is called
+        this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Stall integer core event queue\n");
         this->exec.insn_stall();
     }
+
+    // Todo: currently stall when last fp instruction has been offloaded.
+    // Hierarchical instruction scoreboard, 
+    // only stall the current floating point instruction if the fp subsystem hasn't finished the previous one 
+    // (This situation happens when the fp instruction latency greater than zero).
+    // Implement conditional acc_stall, stall fp and not stall int.
+    // 1. fp instruction: get previous response and continue, compare timestamp 
+    // of current global one and the previous/undergoing fp instruction.
+    // 2. int instruction: continue without check, except data dependency,
+    // some int operands depend on previous fp result.
+    if (insn->is_fp_op)
+    {
+        // Compare timestamp
+        int64_t diff = this->fp_past_timestamp - this->top.clock.get_cycles() - this->exec.instr_event.stall_cycle_get();
+        if (unlikely(diff >= 0))
+        {
+            this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Stall current fp instruction for %d cycles\n", diff+1);
+
+            // Assign arguments to request.
+            this->insn = insn;
+            this->pc = pc;
+            this->is_write=is_write;
+
+            // Update the latest past floating point instruction finishing time
+            this->fp_past_timestamp = this->fp_past_timestamp + insn->latency + 1;
+            this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set fp timestamp for next instruction: %d\n", fp_past_timestamp );
+
+            // Todo: write a function to stall the core for n cycles, and restart again from stall point by itself
+            // Postpone offload happening n cycles later using enqueue.
+            if (!this->event->is_enqueued())
+            {
+                this->event->enqueue(diff+1);
+            }
+
+            // Return true so that pc is not updated.
+            // This also prevent the core from continuing to the next instruction.
+            return true;
+        }
+        else
+        {
+            // For normal fp instruction with latency = NUM_PIPELINE_STAGE - 1.
+            // Offload immediately
+            if (!this->event->is_enqueued())
+            {
+                this->event->enqueue(0);
+            }
+        }
+    }
+
+    // Assign arguments to request variables.
+    this->insn = insn;
+    this->pc = pc;
+    this->is_write=is_write;
+
+    // Update the latest past floating point instruction finishing time
+    this->fp_past_timestamp = this->top.clock.get_cycles() + insn->latency;
+    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set fp timestamp for next instruction: %d\n", fp_past_timestamp );
+    
+    return false;
 }
+
+
+// This gets called when the offloaded instruction needs to be delayed.
+void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
+{
+    Iss *_this = (Iss *)__this;
+
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Handling delayed instruction (opcode: 0x%lx, pc: 0x%lx)\n", _this->insn->opcode, _this->pc);
+
+    // Assign arguments to request.
+    _this->acc_req = { .pc=_this->pc, .insn=_this->insn, .is_write=_this->is_write };
+
+    // Offload request if the port is connected
+    if (_this->acc_req_itf.is_bound())
+    {
+        _this->acc_req_itf.sync(&_this->acc_req);
+    }
+
+    // Call the core to start the next instruction if the previous one has already been offloaded.
+    // Clear the stall flag.
+    _this->acc_stall = false;
+
+    // Unstall the core when we receive the response.
+    if (_this->exec.is_stalled())
+    {
+        _this->exec.stalled_dec();
+    }
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Ready for the next instruction\n");
+}
+
 
 // This get called when it receives result from subsystem.
 void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
@@ -142,16 +228,7 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     }
 
     // Output instruction trace for debugging.
-    // iss_trace_dump(_this, _this->acc_req.insn, _this->acc_req.pc);
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Get accelerator response\n");
-
-    // Clear the stall flag.
-    _this->acc_stall = false;
-
-    // Unstall the core when we receive the response.
-    if (_this->exec.is_stalled())
-    {
-        _this->exec.stalled_dec();
-        _this->exec.insn_terminate();
-    }
+    iss_trace_dump(_this, _this->acc_req.insn, _this->acc_req.pc);
+    
 }

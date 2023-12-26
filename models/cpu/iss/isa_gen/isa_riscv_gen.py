@@ -916,6 +916,25 @@ class RiscvIsa(Isa):
             misa |= 1 << 20
 
         self.misa = misa
+        
+        # Set snitch instruction latency:
+        # 1. the latency of instruction, the core stalls for n cycles at the current instruction.
+        # 2. the latency of output register, the ouput is ready after n cycles to check data dependency.
+        for insn in self.get_insns():
+
+            if "load" in insn.tags:
+                insn.get_out_reg(0).set_latency(2)
+            elif "fdiv" in insn.tags:
+                insn.get_out_reg(0).set_latency(9)
+            elif "sfdiv" in insn.tags:
+                insn.get_out_reg(0).set_latency(4)
+            elif "mul" in insn.tags:
+                insn.get_out_reg(0).set_latency(2)
+            elif "mulh" in insn.tags:
+                insn.set_latency(5)
+            elif "fmadd" in insn.tags:
+                insn.set_latency(3)
+                insn.get_out_reg(0).set_latency(3)
 
     def get_source(self):
         return f'{self.full_name}.cpp'

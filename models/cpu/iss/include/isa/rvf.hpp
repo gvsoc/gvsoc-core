@@ -31,13 +31,18 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
+        insn->reg_addr = &iss->regfile.regs[0];
+        int stall = iss->handle_req(insn, pc, false);
+        
         // Todo: implement scoreboard somewhere, not increment pc if there's dependency or stall
+        // Implement "return pc" also possible to realize parallism, can iterate at pc instruction in instr_event,
+        // but lose efficiency because the instruction will be unnecessarily decoded every cycle.
+        // It's better to enqueue the decoded instruction for later execution.
         // if (iss->handle_req(insn, pc, false)) 
         // {
+        //     iss->exec.trace.msg("Stall at current instruction\n");
         //     return pc;
         // }
-        insn->reg_addr = &iss->regfile.regs[0];
-        iss->handle_req(insn, pc, false);
     }
 #endif
     return iss_insn_next(iss, insn, pc);

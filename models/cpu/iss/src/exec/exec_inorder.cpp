@@ -287,6 +287,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         if (insn == NULL) return;
 
         _this->current_insn = _this->insn_exec(insn, pc);
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Next pc: 0x%lx\n", iss->exec.current_insn);
 
         _this->iss.timing.insn_account();
 

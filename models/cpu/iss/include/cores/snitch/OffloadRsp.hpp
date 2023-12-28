@@ -7,4 +7,5 @@ public:
     int rd;
     bool error;
     iss_reg_t data;
+    unsigned int fflags;
 };

@@ -111,6 +111,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     iss_reg_t pc = req->pc;
     bool isRead = !req->is_write;
     iss_insn_t *insn = req->insn;
+    unsigned int frm = req->frm;
     iss_opcode_t opcode = insn->opcode;
     insn->freg_addr = &_this->regfile.fregs[0];
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Received IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
@@ -146,6 +147,25 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
         _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
     }
 
+    // If the input register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in subsystem.
+    // Add input register scoreboard check instead of writing in each exec handler function.
+    // Floating point register dependency doesn't need to be checked, because current instruction starts executing only if the previous one finishes (in-order).
+    if (!insn->in_regs_fp[0])
+    {
+        _this->regfile.scoreboard_reg_set_timestamp(rs1, insn->scoreboard_reg_timestamp_addr[rs1]);
+    }
+    if (!insn->in_regs_fp[1])
+    {
+        _this->regfile.scoreboard_reg_set_timestamp(rs2, insn->scoreboard_reg_timestamp_addr[rs2]);
+    }
+    if (!insn->in_regs_fp[2])
+    {
+        _this->regfile.scoreboard_reg_set_timestamp(rs3, insn->scoreboard_reg_timestamp_addr[rs3]);
+    }
+
+    // Update csr frm in subsystem
+    _this->csr.fcsr.frm = frm;
+
     // Put the instruction execution part into event queue,
     // in order to realize the parallelism between master and slave.
     // Todo: Specify latency here as the latency of instruction.
@@ -157,6 +177,22 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
         _this->event->enqueue(insn->latency);
     }
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offloaded instruction in event queue\n");
+
+    // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile.
+    // Use sync computing, execute instruction immediately and give back response after certain latency.
+    _this->exec.insn_exec(insn, pc);
+
+    // Assign int register output to input regfile in integer core.
+    // Todo: differentiate between reg and reg64
+    iss_reg_t data;
+    if (!insn->out_regs_fp[0])
+    {
+        data = _this->regfile.get_reg(rd);
+        *((iss_reg_t *)(insn->reg_addr)+rd) = data;
+    }
+
+    // Update fflags in integer core after fp instruction.
+    // *insn->fflags_addr = _this->csr.fcsr.fflags;
 
 }
 
@@ -175,6 +211,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     bool error;
     int rd;
     iss_reg_t data = 0;
+    unsigned int fflags = 0;
 
     if (insn == NULL)
     {
@@ -182,8 +219,6 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
         rd = -1;
     }
 
-    // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile
-    _this->exec.insn_exec(insn, pc);
     error = false;
     rd = insn->out_regs[0];
     // Update integer regfile at the master side after calculation,
@@ -194,20 +229,15 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     //     _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
     // }
 
-    // Todo: differentiate between reg and reg64
-    if (!insn->out_regs_fp[0])
-    {
-        data = _this->regfile.get_reg(rd);
-        *((iss_reg_t *)(insn->reg_addr)+rd) = data;
-    }
-
     // Output the instruction trace.
     iss_trace_dump(_this, insn, pc);
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
      
     // Assign arguments to result.
     // Todo: assign value for data if the output register is integer register.
-    _this->acc_rsp = { .rd=rd, .error=error, .data=data};
+    data = _this->regfile.get_reg(rd);
+    fflags = _this->csr.fcsr.fflags;
+    _this->acc_rsp = { .rd=rd, .error=error, .data=data, .fflags=fflags };
     
     // Send back response of the result
     if (_this->acc_rsp_itf.is_bound())

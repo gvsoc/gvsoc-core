@@ -53,6 +53,13 @@ public:
     inline iss_freg_t get_freg(int reg);
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
+#if !defined(ISS_SINGLE_REGFILE)
+    int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+#endif
+#endif
+
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     inline void scoreboard_reg_set_timestamp(int reg, int64_t timestamp);
     inline void scoreboard_freg_set_timestamp(int reg, int64_t timestamp);
     inline void scoreboard_reg_invalidate(int reg);
@@ -66,10 +73,10 @@ private:
 
     vp::ClockEngine *engine;
 
-#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
-#if !defined(ISS_SINGLE_REGFILE)
-    int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
-#endif
-#endif
+// #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+//     int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
+// #if !defined(ISS_SINGLE_REGFILE)
+//     int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+// #endif
+// #endif
 };

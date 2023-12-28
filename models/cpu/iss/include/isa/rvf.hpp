@@ -31,8 +31,16 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
+        // Pass value related to integer regfile from integer core to subsystem.
         insn->reg_addr = &iss->regfile.regs[0];
+        // Todo: check how hardware implements CSR_FFLAGS
+        // unsigned int fflags= iss->csr.fcsr.fflags;
+        // insn->fflags_addr = &fflags;
+        insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
         int stall = iss->handle_req(insn, pc, false);
+
+        // Todo: handle instruction CSRRSI and CSRRCI later when we add SSR, 
+        // these two instruction also need to be offloaded.
         
         // Todo: implement scoreboard somewhere, not increment pc if there's dependency or stall
         // Implement "return pc" also possible to realize parallism, can iterate at pc instruction in instr_event,

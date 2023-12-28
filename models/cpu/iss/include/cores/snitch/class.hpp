@@ -113,6 +113,7 @@ public:
     iss_insn_t *insn;
     iss_reg_t pc;
     bool is_write;
+    unsigned int frm;
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);

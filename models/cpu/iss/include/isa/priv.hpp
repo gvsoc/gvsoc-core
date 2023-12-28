@@ -81,6 +81,12 @@ static inline iss_reg_t csrrs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
 
+    // Todo: put csr mcycle performance couter value assignment from here to csr.cpp
+    if (UIM_GET(0) == 0xB00)
+    {
+        iss->csr.mcycle.value = iss->top.clock.get_cycles();
+    }
+
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, REG_IN(0) != 0, true))
     {

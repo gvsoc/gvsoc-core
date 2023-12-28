@@ -441,6 +441,12 @@ static bool mbadaddr_write(Iss *iss, unsigned int value)
     return false;
 }
 
+static bool mcycle_read(Iss *iss, iss_reg_t *value)
+{
+    iss->csr.mcycle.value = iss->top.clock.get_cycles();
+    return false;
+}
+
 static bool minstret_read(Iss *iss, iss_reg_t *value)
 {
     printf("WARNING UNIMPLEMENTED CSR: minstret\n");
@@ -1058,6 +1064,9 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 
 
     // Machine timers and counters
+    case 0xB00:
+        status = mcycle_read(iss, value);
+        break;
     case 0xB02:
         status = minstret_read(iss, value);
         break;
@@ -1517,6 +1526,8 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "mcounteren";
 
     // Machine timers and counters
+    case 0xB00:
+        return "mcycle";
     case 0xB02:
         return "minstret";
     case 0xB80:

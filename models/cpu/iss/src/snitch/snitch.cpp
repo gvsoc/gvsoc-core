@@ -131,8 +131,8 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     // Implement conditional acc_stall, stall fp and not stall int.
     // 1. fp instruction: get previous response and continue, compare timestamp 
     // of current global one and the previous/undergoing fp instruction.
-    // 2. int instruction: continue without check, except data dependency,
-    // some int operands depend on previous fp result.
+    // 2. int instruction: continue without check, except data dependency, some int operands depend on previous fp result.
+    // And also int instruction will be stalled if previous fp is still waiting to be offloaded.
     if (insn->is_fp_op)
     {
         // Compare timestamp
@@ -145,6 +145,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
             this->insn = insn;
             this->pc = pc;
             this->is_write=is_write;
+            this->frm = this->csr.fcsr.frm;
 
             // Update the latest past floating point instruction finishing time
             this->fp_past_timestamp = this->fp_past_timestamp + insn->latency + 1;
@@ -176,6 +177,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     this->insn = insn;
     this->pc = pc;
     this->is_write=is_write;
+    this->frm = this->csr.fcsr.frm;
 
     // Update the latest past floating point instruction finishing time
     this->fp_past_timestamp = this->top.clock.get_cycles() + insn->latency;
@@ -189,16 +191,28 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
 void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *_this = (Iss *)__this;
+    iss_insn_t *insn = _this->insn;
 
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Handling delayed instruction (opcode: 0x%lx, pc: 0x%lx)\n", _this->insn->opcode, _this->pc);
 
     // Assign arguments to request.
-    _this->acc_req = { .pc=_this->pc, .insn=_this->insn, .is_write=_this->is_write };
+    _this->acc_req = { .pc=_this->pc, .insn=insn, .is_write=_this->is_write, .frm = _this->frm };
 
     // Offload request if the port is connected
     if (_this->acc_req_itf.is_bound())
     {
         _this->acc_req_itf.sync(&_this->acc_req);
+    }
+
+    // If the output register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in integer core.
+    // And the following instruction with data dependency will execute scoreboard_reg_check when loading the operands,
+    // which will call stall_load_dependency_account.
+    if (!_this->insn->out_regs_fp[0])
+    {
+    #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+        _this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], _this->top.clock.get_cycles() + insn->latency);
+    #endif
+        _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set scoreboard timestamp of int reg index %d to %d\n", insn->out_regs[0], _this->top.clock.get_cycles() + insn->latency);        
     }
 
     // Call the core to start the next instruction if the previous one has already been offloaded.
@@ -220,8 +234,13 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     Iss *_this = (Iss *)__this;
 
     // Todo: Might need post-processing of result.
+    // Update fflags in integer core after fp instruction.
+    // Hardward doesn't stall CSR_FFLAGS when the fp instruction hasn't responded correct status value,
+    // and therefore update here instead of in handle_event.
+    _this->csr.fcsr.fflags = result->fflags;
 
     // Pass values of floating point registers from subsystem to core side.
+    // Pass here but not in handle_event function, because we use fp register value only for trace, not for later computation.
     for (int i=0; i<ISS_NB_REGS; i++)
     {
         _this->regfile.set_freg(i, *((iss_freg_t *)(_this->acc_req.insn->freg_addr)+i));

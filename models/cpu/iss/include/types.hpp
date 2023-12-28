@@ -344,9 +344,13 @@ typedef struct iss_insn_s
 {
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     bool out_regs_fp[ISS_MAX_NB_OUT_REGS];
+#endif
     unsigned char in_regs[ISS_MAX_NB_IN_REGS];
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     bool in_regs_fp[ISS_MAX_NB_IN_REGS];
+#endif
     void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
@@ -380,10 +384,14 @@ typedef struct iss_insn_s
 
     iss_insn_t *expand_table;
     bool is_macro_op;
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     bool is_fp_op;
 
     iss_reg_t* reg_addr;
     iss_freg_t* freg_addr;
+    int64_t* scoreboard_reg_timestamp_addr;
+    // unsigned int* fflags_addr;
+#endif
 
 } iss_insn_t;
 

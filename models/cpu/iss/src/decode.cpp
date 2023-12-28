@@ -133,12 +133,16 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_ref(arg->u.reg.index);
+                    #ifdef CONFIG_GVSOC_ISS_SNITCH
                     insn->in_regs_fp[darg->u.reg.id] = true;
+                    #endif
                 }
                 else
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
+                    #ifdef CONFIG_GVSOC_ISS_SNITCH
                     insn->in_regs_fp[darg->u.reg.id] = false;
+                    #endif
                 }
             }
             else
@@ -158,19 +162,25 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_store_ref(arg->u.reg.index);
+                    #ifdef CONFIG_GVSOC_ISS_SNITCH
                     insn->out_regs_fp[darg->u.reg.id] = true;
+                    #endif
                 }
                 else
                 {
                     if (darg->u.reg.id == 0)
                     {
                         insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_store_ref(arg->u.reg.index);
+                        #ifdef CONFIG_GVSOC_ISS_SNITCH
                         insn->out_regs_fp[darg->u.reg.id] = false;
+                        #endif
                     }
                     else
                     {
                         insn->out_regs_ref[darg->u.reg.id] = &null_reg;
+                        #ifdef CONFIG_GVSOC_ISS_SNITCH
                         insn->out_regs_fp[darg->u.reg.id] = false;
+                        #endif
                     }
                 }
             }
@@ -271,7 +281,9 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     }
 
     insn->is_macro_op = item->u.insn.is_macro_op;
+    #ifdef CONFIG_GVSOC_ISS_SNITCH
     insn->is_fp_op = item->u.insn.is_fp_op;
+    #endif
 
     if (item->u.insn.decode != NULL)
     {

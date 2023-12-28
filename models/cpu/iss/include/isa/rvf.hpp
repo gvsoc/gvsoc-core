@@ -36,7 +36,9 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         // Todo: check how hardware implements CSR_FFLAGS
         // unsigned int fflags= iss->csr.fcsr.fflags;
         // insn->fflags_addr = &fflags;
+        #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
+        #endif
         int stall = iss->handle_req(insn, pc, false);
 
         // Todo: handle instruction CSRRSI and CSRRCI later when we add SSR, 

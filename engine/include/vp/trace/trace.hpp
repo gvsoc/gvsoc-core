@@ -115,6 +115,7 @@ namespace vp {
     Trace *next;
     Trace *prev;
     int64_t pending_timestamp;
+    int64_t pending_cycles;
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
   };

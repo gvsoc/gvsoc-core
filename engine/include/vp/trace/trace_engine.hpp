@@ -64,13 +64,13 @@ namespace vp {
             this->vcd_user = user;
         }
 
-        void dump_event(vp::Trace *trace, int64_t timestamp, uint8_t *event, int width);
+        void dump_event(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int width);
 
-        void dump_event_string(vp::Trace *trace, int64_t timestamp, uint8_t *event, int width);
+        void dump_event_string(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int width);
 
-        void dump_event_pulse(vp::Trace *trace, int64_t timestamp, int64_t end_timestamp, uint8_t *pulse_event, uint8_t *event, int width);
+        void dump_event_pulse(vp::Trace *trace, int64_t timestamp, int64_t cycles, int64_t end_timestamp, uint8_t *pulse_event, uint8_t *event, int width);
 
-        void dump_event_delayed(vp::Trace *trace, int64_t timestamp, uint8_t *event, int width);
+        void dump_event_delayed(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int width);
 
         void set_global_enable(bool enable) { this->global_enable = enable; }
 
@@ -131,12 +131,12 @@ namespace vp {
         vp::Component *top;
         js::Config *config;
 
-        void enqueue_pending(vp::Trace *trace, int64_t timestamp, uint8_t *event);
+        void enqueue_pending(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event);
         char *get_event_buffer(int bytes);
         void vcd_routine();
         void flush();
         void check_pending_events(int64_t timestamp);
-        void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, uint8_t *event, int bytes, bool include_size=false);
+        void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size=false);
 
         // This can be called to flush all the pending traces which have been registered for the
         // specified timestamp.

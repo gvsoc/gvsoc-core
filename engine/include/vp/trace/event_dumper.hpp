@@ -63,6 +63,7 @@ namespace vp {
     uint8_t *buffer;
     uint8_t flags;
     void set_vcd_user(gv::Vcd_user *user);
+    int64_t cycles;
 
   private:
     Event_file *file;

@@ -274,13 +274,13 @@ void vp::TraceEngine::flush()
     }
 }
 
-void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, uint8_t *event, int bytes, bool include_size)
+void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size)
 {
     if (!this->global_enable)
         return;
 
     uint8_t flags = 0;
-    int size = bytes + sizeof(trace) + sizeof(timestamp) + 1;
+    int size = bytes + sizeof(trace) + sizeof(timestamp) + sizeof(cycles) + 1;
     if (include_size)
         size += 4;
 
@@ -309,6 +309,9 @@ void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, 
     *(int64_t *)event_buffer = timestamp;
     event_buffer += sizeof(timestamp);
 
+    *(int64_t *)event_buffer = cycles;
+    event_buffer += sizeof(cycles);
+
     if (include_size)
     {
         *(int32_t *)event_buffer = bytes;
@@ -328,21 +331,21 @@ void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, 
     }
 }
 
-void vp::TraceEngine::dump_event(vp::Trace *trace, int64_t timestamp, uint8_t *event, int bytes)
+void vp::TraceEngine::dump_event(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
     this->check_pending_events(timestamp);
 
-    this->dump_event_to_buffer(trace, timestamp, event, bytes);
+    this->dump_event_to_buffer(trace, timestamp, cycles, event, bytes);
 }
 
-void vp::TraceEngine::dump_event_string(vp::Trace *trace, int64_t timestamp, uint8_t *event, int bytes)
+void vp::TraceEngine::dump_event_string(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
     this->check_pending_events(timestamp);
 
-    this->dump_event_to_buffer(trace, timestamp, event, bytes, true);
+    this->dump_event_to_buffer(trace, timestamp, cycles, event, bytes, true);
 }
 
-void vp::TraceEngine::dump_event_pulse(vp::Trace *trace, int64_t timestamp, int64_t end_timestamp, uint8_t *pulse_event, uint8_t *event, int width)
+void vp::TraceEngine::dump_event_pulse(vp::Trace *trace, int64_t timestamp, int64_t cycles, int64_t end_timestamp, uint8_t *pulse_event, uint8_t *event, int width)
 {
     this->check_pending_events(timestamp);
 
@@ -358,9 +361,9 @@ void vp::TraceEngine::dump_event_pulse(vp::Trace *trace, int64_t timestamp, int6
             trace->next->prev = trace->prev;
     }
 
-    this->dump_event_to_buffer(trace, timestamp, pulse_event, width);
+    this->dump_event_to_buffer(trace, timestamp, cycles, pulse_event, width);
 
-    this->enqueue_pending(trace, end_timestamp, event);
+    this->enqueue_pending(trace, end_timestamp, cycles + 1, event);
 }
 
 void vp::TraceEngine::check_pending_events(int64_t timestamp)
@@ -369,7 +372,7 @@ void vp::TraceEngine::check_pending_events(int64_t timestamp)
 
     while (trace && (timestamp == -1 || trace->pending_timestamp <= timestamp))
     {
-        this->dump_event_to_buffer(trace, trace->pending_timestamp, trace->buffer, trace->bytes);
+        this->dump_event_to_buffer(trace, trace->pending_timestamp, trace->pending_cycles, trace->buffer, trace->bytes);
         trace->pending_timestamp = -1;
         trace = trace->next;
     }
@@ -390,7 +393,7 @@ vp::Trace *vp::TraceEngine::get_trace_from_id(int id)
     return this->traces_array[id];
 }
 
-void vp::TraceEngine::enqueue_pending(vp::Trace *trace, int64_t timestamp, uint8_t *event)
+void vp::TraceEngine::enqueue_pending(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event)
 {
     // Eenqueue the trace to the pending queue
     vp::Trace *current = this->first_pending_event, *prev = NULL;
@@ -416,6 +419,7 @@ void vp::TraceEngine::enqueue_pending(vp::Trace *trace, int64_t timestamp, uint8
         current->prev = trace;
 
     trace->pending_timestamp = timestamp;
+    trace->pending_cycles = cycles;
 
     // And dump the value to the trace
     memcpy(trace->buffer, event, trace->bytes);
@@ -423,12 +427,12 @@ void vp::TraceEngine::enqueue_pending(vp::Trace *trace, int64_t timestamp, uint8
 
 // This is called when several values can be dumped for the same trace
 // and only the last value must be dumped
-void vp::TraceEngine::dump_event_delayed(vp::Trace *trace, int64_t timestamp, uint8_t *event, int bytes)
+void vp::TraceEngine::dump_event_delayed(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
     // First flush pending events
     this->check_pending_events(timestamp);
 
-    this->dump_event_to_buffer(trace, timestamp, event, bytes);
+    this->dump_event_to_buffer(trace, timestamp, cycles, event, bytes);
 }
 
 void vp::TraceEngine::flush_event_traces(int64_t timestamp)
@@ -440,25 +444,25 @@ void vp::TraceEngine::flush_event_traces(int64_t timestamp)
         {
             if (current->is_real)
             {
-                this->vcd_user->event_update_real(timestamp, current->id, *(double *)current->buffer);
+                this->vcd_user->event_update_real(timestamp, current->cycles, current->id, *(double *)current->buffer);
             }
             else if (current->is_string)
             {
-                this->vcd_user->event_update_string(timestamp, current->id, (const char *)current->buffer, current->flags);
+                this->vcd_user->event_update_string(timestamp, current->cycles, current->id, (const char *)current->buffer, current->flags);
             }
             else if (current->width > 8)
             {
                 if (current->width <= 16)
                 {
-                    this->vcd_user->event_update_logical(timestamp, current->id, *(uint16_t *)current->buffer, current->flags);
+                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, *(uint16_t *)current->buffer, current->flags);
                 }
                 else if (current->width <= 32)
                 {
-                    this->vcd_user->event_update_logical(timestamp, current->id, *(uint32_t *)current->buffer, current->flags);
+                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, *(uint32_t *)current->buffer, current->flags);
                 }
                 else if (current->width <= 64)
                 {
-                    this->vcd_user->event_update_logical(timestamp, current->id, *(uint64_t *)current->buffer, current->flags);
+                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, *(uint64_t *)current->buffer, current->flags);
                 }
                 else
                 {
@@ -470,7 +474,7 @@ void vp::TraceEngine::flush_event_traces(int64_t timestamp)
             {
                 uint64_t value = (uint64_t)*(current->buffer);
 
-                this->vcd_user->event_update_logical(timestamp, current->id, value, current->flags);
+                this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, value, current->flags);
             }
         }
         else
@@ -524,6 +528,7 @@ void vp::TraceEngine::vcd_routine()
         while (event_buffer - event_buffer_start < (int)(TRACE_EVENT_BUFFER_SIZE - sizeof(vp::Trace *)))
         {
             int64_t timestamp;
+            int64_t cycles;
             uint8_t flags;
 
             // Unpack the trace.
@@ -562,6 +567,8 @@ void vp::TraceEngine::vcd_routine()
             }
 
             event_buffer += sizeof(timestamp);
+            cycles = *(int64_t *)event_buffer;
+            event_buffer += sizeof(cycles);
 
             if (trace->is_string && flags != 1)
             {
@@ -583,6 +590,7 @@ void vp::TraceEngine::vcd_routine()
             // to dump it when the next timestamp is detected.
             if (trace->event_trace)
             {
+                trace->event_trace->cycles = cycles;
                 trace->event_trace->reg(timestamp, event, trace->width, flags, flags_mask);
                 if (!trace->event_trace->is_enqueued)
                 {

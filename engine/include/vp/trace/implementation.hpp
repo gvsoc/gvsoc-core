@@ -38,7 +38,8 @@ namespace vp {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), value, bytes);
+      // TODO remove the engine check one all events are managed through clock events
+      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, value, bytes);
     }
   #endif
   }
@@ -48,7 +49,7 @@ namespace vp {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->clock.get_engine()->time.get_time() + duration, pulse_value, background_value, bytes);
+      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, comp->clock.get_engine()->time.get_time() + duration, pulse_value, background_value, bytes);
     }   
   #endif
   }
@@ -58,7 +59,7 @@ namespace vp {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      this->comp->traces.get_trace_engine()->dump_event_string(this, comp->time.get_time(), (uint8_t *)value.c_str(), value.length() + 1);
+      this->comp->traces.get_trace_engine()->dump_event_string(this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)value.c_str(), value.length() + 1);
     }   
   #endif
   }
@@ -68,7 +69,7 @@ namespace vp {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), (uint8_t *)&value, 8);
+      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)&value, 8);
     }  	
   #endif
   }
@@ -78,7 +79,7 @@ namespace vp {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->time.get_time() + duration, (uint8_t *)&pulse_value, (uint8_t *)&background_value, 8);
+      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->clock.get_cycles(), comp->time.get_time() + duration, (uint8_t *)&pulse_value, (uint8_t *)&background_value, 8);
     }   
   #endif
   }
@@ -88,7 +89,7 @@ namespace vp {
   #ifdef VP_TRACE_ACTIVE
     if (is_event_active)
     {
-      this->comp->traces.get_trace_engine()->dump_event_delayed(this, comp->time.get_time(), (uint8_t *)&value, 8);
+      this->comp->traces.get_trace_engine()->dump_event_delayed(this, comp->time.get_time(), comp->clock.get_cycles(), (uint8_t *)&value, 8);
     }   
   #endif
   }

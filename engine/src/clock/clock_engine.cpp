@@ -81,6 +81,10 @@ vp::ClockEvent *vp::ClockEngine::enable(vp::ClockEvent *event)
             {
                 this->permanent_first->prev = event;
             }
+            else
+            {
+                this->permanent_last = event;
+            }
             event->next = this->permanent_first;
             event->prev = NULL;
             this->permanent_first = event;
@@ -121,6 +125,11 @@ void vp::ClockEngine::stalled_event_handler(vp::Block *__this, ClockEvent *event
         if (_this->permanent_first == event)
         {
             _this->permanent_first = event->next;
+        }
+
+        if (_this->permanent_last == event)
+        {
+            _this->permanent_last = event->prev;
         }
     }
     else
@@ -345,12 +354,6 @@ int64_t vp::ClockEngine::exec()
 
             if (likely(this->permanent_first != NULL))
             {
-                // TODO restore round-robin in timed version of this callback once we switch to timed
-                // event callbacks.
-                // Round-robin so that we avoid strange patterns if events are always
-                // executed in same order
-                // this->permanent_first = this->permanent_first->next;
-
                 // Shortcut since when we have a permanent event, we probably
                 // don't have a delayed event at the same cycle, since they should be
                 // rare.
@@ -443,6 +446,23 @@ void vp::ClockEngine::set_frequency(vp::Block *__this, int64_t frequency)
     _this->apply_frequency(frequency * _this->factor);
     _this->clock_trace.event_real(_this->period);
 }
+
+
+void vp::ClockEngine::reorder_permanent_events()
+{
+    if (this->permanent_first && this->permanent_last != this->permanent_first)
+    {
+        vp::ClockEvent *event = this->permanent_first;
+        this->permanent_last->next = event;
+        event->prev = this->permanent_last;
+        this->permanent_first = event->next;
+        event->next = NULL;
+        this->permanent_first->prev = NULL;
+        this->permanent_last = event;
+    }
+}
+
+
 
 void vp::ClockEngine::pre_start()
 {

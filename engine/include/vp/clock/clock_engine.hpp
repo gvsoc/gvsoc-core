@@ -103,6 +103,8 @@ namespace vp
          */
         inline void sync();
 
+        void reorder_permanent_events();
+
         /**
          * @brief DEPRECATED
         */
@@ -169,6 +171,7 @@ namespace vp
         int factor;
         ClockEvent *delayed_queue = NULL;
         ClockEvent *permanent_first = NULL;
+        ClockEvent *permanent_last = NULL;
         int current_cycle = 0;
         int64_t period = 0;
         int64_t freq;

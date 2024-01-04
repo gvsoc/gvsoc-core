@@ -23,7 +23,14 @@
 
 #include <cpu/iss/include/types.hpp>
 
+#ifndef CONFIG_GVSOC_ISS_SNITCH
 #define ADDR_MASK (~(ISS_REG_WIDTH / 8 - 1))
+#endif
+
+// Snitch ISS_REG_WIDTH=32, and memory transfer BW is 64 bits.
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+#define ADDR_MASK (~(ISS_REG_WIDTH / 4 - 1))
+#endif
 
 class Lsu
 {

@@ -200,6 +200,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             req->inc_latency(diff);
         }
         _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
+        // _this->trace.msg(vp::Trace::LEVEL_TRACE, "Delayed packet (next_packet_start: %ld)\n", _this->next_packet_start);
     }
 
     if (_this->power.get_power_trace()->get_active())

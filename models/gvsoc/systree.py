@@ -182,6 +182,8 @@ class Component(object):
         self.interfaces = []
         self.c_flags = []
         self.sources = []
+        self.variants = {}
+        self.variant = None
 
         if options is not None and len(options) > 0:
             options_list = []
@@ -307,6 +309,12 @@ class Component(object):
             List of C flags to be added.
         """
         self.c_flags += flags
+
+    def add_c_flags_variant(self, name, flags):
+        self.variants[name] = flags
+
+    def set_c_flags_variant(self, name):
+        self.variant = name
 
     def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None):
         """Bind to a slave interface.
@@ -833,8 +841,17 @@ class Component(object):
         self.build_done = True
 
         if self.component is None and len(self.sources) != 0:
-            self.generated_component = get_generated_component(self.sources, self.c_flags)
-            self.add_property('vp_component', self.generated_component.name)
+            if len(self.variants) == 0:
+                self.generated_component = get_generated_component(self.sources, self.c_flags)
+                self.add_property('vp_component', self.generated_component.name)
+
+            else:
+                variants = {}
+                for variant_name, variant_flags in self.variants.items():
+                    variants[variant_name] = get_generated_component(self.sources, self.c_flags + variant_flags)
+
+                if self.variant is not None:
+                    self.add_property('vp_component', variants[self.variant].name)
 
     def finalize(self):
         pass
@@ -957,20 +974,24 @@ class Component(object):
         if self.parent is not None:
             self.parent.declare_target_property(descriptor)
 
-    def declare_user_property(self, name, value, description, cast=None, dump_format=None):
+    def declare_user_property(self, name, value, description, cast=None, dump_format=None, allowed_values=None):
         self.declare_target_property(
             gapylib.target.Property(
                 name=name, path=self.get_comp_path(), value=value,
-                dump_format=dump_format, cast=cast, description=description
+                dump_format=dump_format, cast=cast, description=description, allowed_values=allowed_values
             )
         )
+
+        return self.get_user_property(name)
 
     def get_target_property(self, name, path=None):
         if self.parent is not None:
             return self.parent.get_target_property(name, path)
 
     def get_user_property(self, name):
-        name = self.get_comp_path() + '/' + name
+        path = self.get_comp_path()
+        if path is not None:
+            name = path + '/' + name
 
         return self.parent.get_target_property(name)
 

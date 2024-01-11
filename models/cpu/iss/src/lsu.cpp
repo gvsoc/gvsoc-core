@@ -115,8 +115,10 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
 
     // First call the ISS to finish the instruction
     _this->pending_latency = req->get_latency() + 1;
+#if defined(PIPELINE_STALL_THRESHOLD)
     // TODO should be applied only when a pipeline stall latency is specified
     _this->iss.timing.stall_load_account(req->get_latency() + 1);
+#endif
 
     // Call the access termination callback only we the access is not misaligned since
     // in this case, the second access with handle it.
@@ -189,6 +191,12 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
 
 int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
 {
+#if !defined(CONFIG_GVSOC_ISS_HANDLE_MISALIGNED)
+
+    return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
+
+#else
+
     iss_addr_t addr0 = addr & ADDR_MASK;
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
 
@@ -196,6 +204,8 @@ int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
         return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
     else
         return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
+
+#endif
 }
 
 Lsu::Lsu(Iss &iss)

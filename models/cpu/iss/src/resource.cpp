@@ -25,13 +25,16 @@ iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // First get the instance associated to this core for the resource associated to this instruction
     iss_resource_instance_t *instance = iss->exec.resources[insn->resource_id];
-    int64_t cycles = 0;
 
     // Check if the instance is ready to accept an access
     if (iss->exec.get_cycles() < instance->cycles)
     {
         // If not, account the number of cycles until the instance becomes available
-        cycles = instance->cycles - iss->exec.get_cycles();
+        int64_t bw_cycles = instance->cycles - iss->exec.get_cycles();
+        // Bandwidth cycles are always accounted as stalls, since they are immediately blocking
+        // the core
+        iss->timing.event_apu_contention_account(bw_cycles);
+        iss->timing.stall_insn_account(bw_cycles);
 
         // And account the access on the instance. The time taken by the access is indicated by the instruction bandwidth
         instance->cycles += insn->resource_bandwidth;
@@ -42,27 +45,25 @@ iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         instance->cycles = iss->exec.get_cycles() + insn->resource_bandwidth;
     }
 
+    // Now that timing is modeled, execute the instruction
+    iss_reg_t retval = insn->resource_handler(iss, insn, pc);
+
     // Account the latency of the resource on the core, as the result is available after the instruction latency
     if (insn->resource_latency > 1)
     {
-        cycles += insn->resource_latency - 1;
-    }
-
-    if (cycles > 0)
-    {
-        iss->timing.event_apu_contention_account(cycles);
+        int64_t latency_cycles = insn->resource_latency;
 
 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-        iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], cycles, -1);
+        iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], latency_cycles, -1);
 #endif
 
 #if defined(PIPELINE_STALL_THRESHOLD)
-        iss->timing.stall_insn_account(cycles);
+        iss->timing.event_apu_contention_account(latency_cycles - 1);
+        iss->timing.stall_insn_account(latency_cycles - 1);
 #endif
     }
 
-    // Now that timing is modeled, execute the instruction
-    return insn->resource_handler(iss, insn, pc);
+    return retval;
 }
 
 void iss_resource_attach_from_tag(Iss *iss, std::string tag, int id, int latency, int bandwidth)

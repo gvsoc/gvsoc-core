@@ -736,6 +736,8 @@ void flushExternalCounters(Iss *iss)
     }
 }
 
+#endif
+
 void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr)
 {
 #if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
@@ -753,8 +755,6 @@ void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr)
     }
 #endif
 }
-
-#endif
 
 static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value)
 {

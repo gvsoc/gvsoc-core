@@ -165,11 +165,13 @@ void Csr::build()
     this->declare_pcer(CSR_PCER_BRANCH, "branch", "Number of branch instructions seen, i.e. bf, bnf");
     this->declare_pcer(CSR_PCER_TAKEN_BRANCH, "taken_branch", "Number of taken branch instructions seen, i.e. bf, bnf");
     this->declare_pcer(CSR_PCER_RVC, "rvc", "Number of compressed instructions");
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
     this->declare_pcer(CSR_PCER_LD_EXT, "ld_ext", "Number of memory loads to EXT executed. Misaligned accesses are counted twice. Every non-TCDM access is considered external");
     this->declare_pcer(CSR_PCER_ST_EXT, "st_ext", "Number of memory stores to EXT executed. Misaligned accesses are counted twice. Every non-TCDM access is considered external");
     this->declare_pcer(CSR_PCER_LD_EXT_CYC, "ld_ext_cycles", "Cycles used for memory loads to EXT. Every non-TCDM access is considered external");
     this->declare_pcer(CSR_PCER_ST_EXT_CYC, "st_ext_cycles", "Cycles used for memory stores to EXT. Every non-TCDM access is considered external");
     this->declare_pcer(CSR_PCER_TCDM_CONT, "tcdm_cont", "Cycles wasted due to TCDM/log-interconnect contention");
+#endif
 
     this->iss.top.traces.new_trace_event("pcer_cycles", &this->iss.timing.pcer_trace_event[0], 1);
     this->iss.top.traces.new_trace_event("pcer_instr", &this->iss.timing.pcer_trace_event[1], 1);
@@ -182,11 +184,13 @@ void Csr::build()
     this->iss.top.traces.new_trace_event("pcer_branch", &this->iss.timing.pcer_trace_event[8], 1);
     this->iss.top.traces.new_trace_event("pcer_taken_branch", &this->iss.timing.pcer_trace_event[9], 1);
     this->iss.top.traces.new_trace_event("pcer_rvc", &this->iss.timing.pcer_trace_event[10], 1);
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
     this->iss.top.traces.new_trace_event("pcer_ld_ext", &this->iss.timing.pcer_trace_event[11], 1);
     this->iss.top.traces.new_trace_event("pcer_st_ext", &this->iss.timing.pcer_trace_event[12], 1);
     this->iss.top.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.timing.pcer_trace_event[13], 1);
     this->iss.top.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
     this->iss.top.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
+#endif
 
     this->iss.top.new_master_port("time", &this->time_itf, (vp::Block *)this);
 
@@ -682,6 +686,7 @@ static bool hwloop_write(Iss *iss, int reg, unsigned int value)
 
 #if defined(ISS_HAS_PERF_COUNTERS)
 
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
 static inline void iss_csr_ext_counter_set(Iss *iss, int id, unsigned int value)
 {
     if (iss->timing.ext_counter[id].is_bound())
@@ -722,41 +727,38 @@ void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr
     // if (cpu->traceEvent) sim_trace_event_incr(cpu, id, incr);
 }
 
+void flushExternalCounters(Iss *iss)
+{
+    int i;
+    for (int i = CSR_PCER_FIRST_EXTERNAL_EVENTS; i < CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS; i++)
+    {
+        update_external_pccr(iss, i, iss->csr.pcer, iss->csr.pcmr);
+    }
+}
+
 void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr)
 {
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
     // In case PCER or PCMR is modified, there is a special care about external signals as they
     // are still counting whatever the event active flag is. Reset them to start again from a
     // clean state
     {
         int i;
         // Check every external signal separatly
-        for (i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)
+        for (int i = CSR_PCER_FIRST_EXTERNAL_EVENTS; i < CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS; i++)
         {
             // This will update our internal counter in case it is active or just reset it
             update_external_pccr(iss, i, pcer, pcmr);
         }
     }
+#endif
 }
 
-void flushExternalCounters(Iss *iss)
-{
-    int i;
-    for (i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)
-    {
-        update_external_pccr(iss, i, iss->csr.pcer, iss->csr.pcmr);
-    }
-}
+#endif
 
 static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value)
 {
-    // In case of counters connected to external signals, we need to synchronize first
-    if (reg >= CSR_PCCR(CSR_PCER_NB_INTERNAL_EVENTS) && reg < CSR_PCCR(CSR_NB_PCCR))
-    {
-        update_external_pccr(iss, reg - CSR_PCCR(0), iss->csr.pcer, iss->csr.pcmr);
-        *value = iss->csr.pccr[reg - CSR_PCCR(0)];
-        iss->csr.trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
-    }
-    else if (reg == CSR_PCER)
+    if (reg == CSR_PCER)
     {
         *value = iss->csr.pcer;
     }
@@ -764,6 +766,15 @@ static bool perfCounters_read(Iss *iss, int reg, iss_reg_t *value)
     {
         *value = iss->csr.pcmr;
     }
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
+    // In case of counters connected to external signals, we need to synchronize first
+    if (reg >= CSR_PCCR(CSR_PCER_FIRST_EXTERNAL_EVENTS) && reg < CSR_PCCR(CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS))
+    {
+        update_external_pccr(iss, reg - CSR_PCCR(0), iss->csr.pcer, iss->csr.pcmr);
+        *value = iss->csr.pccr[reg - CSR_PCCR(0)];
+        iss->csr.trace.msg("Reading PCCR (index: %d, value: 0x%x)\n", reg - CSR_PCCR(0), *value);
+    }
+#endif
     else
     {
         *value = iss->csr.pccr[reg - CSR_PCCR(0)];
@@ -785,14 +796,16 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
         iss->csr.trace.msg("Setting PCMR (value: 0x%x)\n", value);
         return pcmr_write(iss, iss->csr.pcmr, value);
     }
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
     // In case of counters connected to external signals, we need to synchronize the external one
     // with our
-    else if (reg >= CSR_PCCR(CSR_PCER_NB_INTERNAL_EVENTS) && reg < CSR_PCCR(CSR_NB_PCCR))
+    if (reg >= CSR_PCCR(CSR_PCER_FIRST_EXTERNAL_EVENTS) && reg < CSR_PCCR(CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS))
     {
         // This will update out counter, which will be overwritten afterwards by the new value and
         // also set the external counter to 0 which makes sure they are synchroninez
         update_external_pccr(iss, reg - CSR_PCCR(0), iss->csr.pcer, iss->csr.pcmr);
     }
+#endif
     else if (reg == CSR_PCCR(CSR_NB_PCCR))
     {
         iss->csr.trace.msg("Setting value to all PCCR (value: 0x%x)\n", value);
@@ -801,10 +814,12 @@ static bool perfCounters_write(Iss *iss, int reg, unsigned int value)
         for (i = 0; i < 31; i++)
         {
             iss->csr.pccr[i] = value;
-            if (i >= CSR_PCER_NB_INTERNAL_EVENTS && i < CSR_PCER_NB_EVENTS)
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
+            if (i >= CSR_PCER_FIRST_EXTERNAL_EVENTS && i < CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS)
             {
                 update_external_pccr(iss, i, 0, 0);
             }
+#endif
         }
     }
     else

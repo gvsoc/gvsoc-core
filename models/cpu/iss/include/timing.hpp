@@ -50,7 +50,7 @@ public:
     inline void event_taken_branch_account(int incr);
     inline void event_jump_account(int incr);
     inline void event_misaligned_account(int incr);
-    inline void event_insn_contention_account(int incr);
+    inline void event_apu_contention_account(int incr);
     inline void event_load_load_account(int incr);
 
     inline void event_trace_account(unsigned int event, int cycles);
@@ -59,6 +59,8 @@ public:
     inline int event_trace_is_active(unsigned int event);
 
     inline void stall_cycles_account(int incr);
+
+    inline void event_account(unsigned int event, int incr);
 
     void reset(bool active);
 
@@ -81,7 +83,6 @@ public:
 
 
 private:
-    inline void event_account(unsigned int event, int incr);
 
     Iss &iss;
     bool declare_binaries = true;

@@ -127,9 +127,9 @@ inline void Timing::event_misaligned_account(int incr)
     this->event_account(CSR_PCER_MISALIGNED, incr);
 }
 
-inline void Timing::event_insn_contention_account(int incr)
+inline void Timing::event_apu_contention_account(int incr)
 {
-    this->event_account(CSR_PCER_INSN_CONT, incr);
+    this->event_account(CSR_PCER_APU_CONT, incr);
 }
 
 inline void Timing::insn_stall_start()
@@ -168,13 +168,15 @@ inline void Timing::insn_account()
     this->event_account(CSR_PCER_CYCLES, cycles);
 
 #if defined(ISS_HAS_PERF_COUNTERS)
-    for (int i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
+    for (int i = CSR_PCER_FIRST_EXTERNAL_EVENTS; i < CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS; i++)
     {
         if (this->event_trace_is_active(i))
         {
             update_external_pccr(&this->iss, i, this->iss.csr.pcer, this->iss.csr.pcmr);
         }
     }
+#endif
 #endif
 }
 

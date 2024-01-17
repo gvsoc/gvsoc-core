@@ -16,24 +16,9 @@
 
 #include "cpu/iss/include/iss.hpp"
 
-void iss_resource_init(Iss *iss)
-{
-    // Initialize all the resources and assign the first instance by default
-    iss->exec.resources.resize(iss_get_isa_set()->nb_resources);
 
-    for (int i = 0; i < iss_get_isa_set()->nb_resources; i++)
-    {
-        iss_resource_t *resource = &iss_get_isa_set()->resources[i];
-        for (int j = 0; j < resource->nb_instances; j++)
-        {
-            iss_resource_instance_t *instance = new iss_resource_instance_t;
-            instance->cycles = 0;
-            resource->instances.push_back(instance);
-        }
+static std::vector<std::vector<iss_resource_instance_t>> resources;
 
-        iss->exec.resources[i] = resource->instances[0];
-    }
-}
 
 // Called when an instruction with an associated resource is scheduled
 iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -43,11 +28,10 @@ iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     int64_t cycles = 0;
 
     // Check if the instance is ready to accept an access
-    if (iss->top.clock.get_cycles() < instance->cycles)
+    if (iss->exec.get_cycles() < instance->cycles)
     {
         // If not, account the number of cycles until the instance becomes available
-        cycles = instance->cycles - iss->top.clock.get_cycles();
-        iss->timing.event_insn_contention_account(cycles);
+        cycles = instance->cycles - iss->exec.get_cycles();
 
         // And account the access on the instance. The time taken by the access is indicated by the instruction bandwidth
         instance->cycles += insn->resource_bandwidth;
@@ -55,12 +39,54 @@ iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     else
     {
         // The instance is available, just account the time taken by the access, indicated by the instruction bandwidth
-        instance->cycles = iss->top.clock.get_cycles() + insn->resource_bandwidth;
+        instance->cycles = iss->exec.get_cycles() + insn->resource_bandwidth;
     }
 
     // Account the latency of the resource on the core, as the result is available after the instruction latency
-    iss->timing.stall_insn_account(cycles + insn->resource_latency - 1);
+    if (insn->resource_latency > 1)
+    {
+        cycles += insn->resource_latency - 1;
+    }
+
+    if (cycles > 0)
+    {
+        iss->timing.event_apu_contention_account(cycles);
+
+#if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+        iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], cycles, -1);
+#endif
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        iss->timing.stall_insn_account(cycles);
+#endif
+    }
 
     // Now that timing is modeled, execute the instruction
     return insn->resource_handler(iss, insn, pc);
+}
+
+void iss_resource_attach_from_tag(Iss *iss, std::string tag, int id, int latency, int bandwidth)
+{
+    for (iss_decoder_item_t *insn: *iss->decode.get_insns_from_tag(tag))
+    {
+        insn->u.insn.resource_id = id;
+        insn->u.insn.resource_latency = latency;
+        insn->u.insn.resource_bandwidth = bandwidth;
+    }
+}
+
+void iss_resource_declare(Iss *iss, int id, int nb_instances)
+{
+    resources.resize(id + 1);
+    resources[id].resize(nb_instances);
+    for (int i=0; i<nb_instances; i++)
+    {
+        resources[id][i].cycles = 0;
+    }
+}
+
+void iss_resource_assign_instance(Iss *iss, int id, int instance_id)
+{
+    iss->exec.resources.resize(id + 1);
+    iss->exec.resources[id] = &resources[id][instance_id];
 }

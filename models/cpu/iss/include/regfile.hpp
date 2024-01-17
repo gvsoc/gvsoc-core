@@ -45,16 +45,18 @@ public:
     inline iss_reg_t get_reg_from_insn(iss_insn_t *insn, int insn_reg_index);
     inline iss_reg_t get_reg_untimed(int reg);
     inline iss_reg64_t get_reg64(int reg);
+    inline iss_reg64_t get_reg64_untimed(int reg);
     inline void set_reg64(int reg, iss_reg64_t value);
 
     inline iss_freg_t *freg_ref(int reg);
     inline iss_freg_t *freg_store_ref(int reg);
     inline void set_freg(int reg, iss_freg_t value);
     inline iss_freg_t get_freg(int reg);
+    inline iss_freg_t get_freg_untimed(int reg);
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    inline void scoreboard_reg_set_timestamp(int reg, int64_t timestamp);
-    inline void scoreboard_freg_set_timestamp(int reg, int64_t timestamp);
+    inline void scoreboard_reg_set_timestamp(int reg, int64_t latency, int stall_reason);
+    inline void scoreboard_freg_set_timestamp(int reg, int64_t latency, int stall_reason);
     inline void scoreboard_reg_invalidate(int reg);
     inline void scoreboard_freg_invalidate(int reg);
     inline void scoreboard_reg_check(int reg);
@@ -68,8 +70,10 @@ private:
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
+    int scoreboard_reg_stall_reason[ISS_NB_REGS+1];
 #if !defined(ISS_SINGLE_REGFILE)
     int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+    int scoreboard_freg_stall_reason[ISS_NB_FREGS];
 #endif
 #endif
 };

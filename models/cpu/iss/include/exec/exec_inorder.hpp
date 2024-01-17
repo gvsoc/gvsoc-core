@@ -96,6 +96,8 @@ public:
     static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
 
+    int64_t get_cycles();
+
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     void hwloop_set_start(int index, iss_reg_t pc);
     void hwloop_set_end(int index, iss_reg_t pc);

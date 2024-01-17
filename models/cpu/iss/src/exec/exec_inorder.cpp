@@ -74,9 +74,6 @@ void Exec::build()
     this->hwloop_end_insn[0] = 0;
     this->hwloop_end_insn[1] = 0;
 #endif
-
-    iss_resource_init(&this->iss);
-
 }
 
 

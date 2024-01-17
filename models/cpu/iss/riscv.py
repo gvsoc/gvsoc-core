@@ -88,7 +88,8 @@ class RiscvCommon(st.Component):
             wrapper="pulp/cpu/iss/default_iss_wrapper.cpp",
             memory_start=None,
             memory_size=None,
-            handle_misaligned=False):
+            handle_misaligned=False,
+            external_pccr=False):
 
         super().__init__(parent, name)
 
@@ -171,6 +172,9 @@ class RiscvCommon(st.Component):
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
+
+        if external_pccr:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_EXTERNAL_PCCR=1'])
 
         if scoreboard:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])

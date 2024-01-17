@@ -551,7 +551,6 @@ class Isa(object):
     def __init__(self, name, isa_string):
         self.level = 0
         self.isa_string = isa_string
-        self.resources = []
         self.nb_decoder_tree = 0
         self.name = name
         self.isas = {}
@@ -580,18 +579,6 @@ class Isa(object):
     def add_isa(self, isa):
         self.isas[isa.name] = isa
 
-    def get_resource_index(self, resource_name):
-        index = 0
-        for resource in self.resources:
-            if resource.name == resource_name:
-                return index
-            index += 1
-
-        return -1
-
-    def add_resource(self, name, instances=1):
-        self.resources.append(Resource(name, instances))
-
 
     def get_insns(self):
         result = []
@@ -615,21 +602,12 @@ class Isa(object):
         dump(isaFile, '#include <cpu/iss/include/iss.hpp>\n')
         dump(isaFile, '\n')
 
-        dump(isaFile, 'static iss_resource_t __iss_resources[]\n')
-        dump(isaFile, '{\n')
-        for resource in self.resources:
-            dump(isaFile, f'  {{"{resource.name}", {resource.instances}}},\n')
-        dump(isaFile, '};\n')
-        dump(isaFile, '\n')
-
         tree.gen(isaFile, self)
 
         self.dump_tag_insns(isaFile)
 
         dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
         dump(isaFile, f'  .isa_set=&{tree.get_name()},\n')
-        dump(isaFile, f'  .nb_resources={len(self.resources)},\n')
-        dump(isaFile, '  .resources=__iss_resources,\n')
         dump(isaFile, '  .tag_insns=tag_insn,\n')
         dump(isaFile, '  .initialized=false,\n')
         dump(isaFile, '};\n')
@@ -665,9 +643,6 @@ class Instr(object):
         self.out_reg_latencies = []
         self.latency = 0
         self.power_group = 0
-        self.resource = None
-        self.resource_latency = 0
-        self.resource_bandwidth = 0
         self.is_macro_op = is_macro_op
         self.args_format = format
         self.label = label
@@ -694,11 +669,6 @@ class Instr(object):
 
     def set_isa(self, isa):
         self.isa = isa
-
-    def attach_resource(self, name, latency, bandwidth):
-        self.resource = name
-        self.resource_latency = latency
-        self.resource_bandwidth = bandwidth
 
     def set_latency(self, latency):
         self.latency = latency
@@ -736,8 +706,6 @@ class Instr(object):
 
         name = self.get_full_name()
 
-        resource_id = -1 if self.resource is None else isa.get_resource_index(self.resource)
-
         dump(isaFile, f'static iss_decoder_item_t {name} = {{\n')
         dump(isaFile, f'  .is_insn=true,\n')
         dump(isaFile, f'  .is_active={ 1 if self.active else 0},\n')
@@ -757,9 +725,7 @@ class Instr(object):
             for arg in self.args_format:
                 arg.gen(isaFile, indent=8)
         dump(isaFile, f'      }},\n')
-        dump(isaFile, f'      .resource_id={resource_id},\n')
-        dump(isaFile, f'      .resource_latency={int(self.resource_latency)},\n')
-        dump(isaFile, f'      .resource_bandwidth={int(self.resource_bandwidth)},\n')
+        dump(isaFile, f'      .resource_id=-1,\n')
         dump(isaFile, f'      .power_group={self.power_group},\n')
         dump(isaFile, f'      .is_macro_op={1 if self.is_macro_op else 0},\n')
         dump(isaFile, f'    }}\n')

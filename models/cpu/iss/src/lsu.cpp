@@ -87,6 +87,12 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     int err = data_req_aligned(addr, data_ptr, size0, is_write, latency);
     if (err == vp::IO_REQ_OK)
     {
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
         // As the transaction is split into 2 parts, we must tell the ISS
         // that the access is pending as the instruction must be executed
         // only when the second access is finished.
@@ -115,10 +121,6 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
 
     // First call the ISS to finish the instruction
     _this->pending_latency = req->get_latency() + 1;
-#if defined(PIPELINE_STALL_THRESHOLD)
-    // TODO should be applied only when a pipeline stall latency is specified
-    _this->iss.timing.stall_load_account(req->get_latency() + 1);
-#endif
 
     // Call the access termination callback only we the access is not misaligned since
     // in this case, the second access with handle it.
@@ -141,26 +143,11 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     if (err == vp::IO_REQ_OK)
     {
         latency = req->get_latency() + 1;
-
-#if defined(PIPELINE_STALL_THRESHOLD)
-        if (latency > PIPELINE_STALL_THRESHOLD)
-        {
-            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
-        }
-#endif
-
         return 0;
     }
     else if (err == vp::IO_REQ_INVALID)
     {
         latency = this->io_req.get_latency() + 1;
-
-#if defined(PIPELINE_STALL_THRESHOLD)
-        if (latency > PIPELINE_STALL_THRESHOLD)
-        {
-            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
-        }
-#endif
 
 #ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
         if (this->iss.gdbserver.gdbserver)
@@ -250,13 +237,19 @@ void Lsu::store_resume(Lsu *lsu)
 void Lsu::load_resume(Lsu *lsu)
 {
     // Nothing to do, the zero-extension was done by initializing the register to 0
-    lsu->iss.exec.insn_terminate();
 
     int reg = lsu->stall_reg;
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    lsu->iss.regfile.scoreboard_reg_set_timestamp(
-        reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
+    lsu->iss.regfile.scoreboard_reg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
 #endif
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (lsu->pending_latency > PIPELINE_STALL_THRESHOLD)
+        {
+            lsu->iss.timing.stall_load_account(lsu->pending_latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
+    lsu->iss.exec.insn_terminate();
 }
 
 void Lsu::elw_resume(Lsu *lsu)
@@ -270,22 +263,36 @@ void Lsu::elw_resume(Lsu *lsu)
 
 void Lsu::load_signed_resume(Lsu *lsu)
 {
-    lsu->iss.exec.insn_terminate();
     int reg = lsu->stall_reg;
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
         lsu->stall_size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    lsu->iss.regfile.scoreboard_reg_set_timestamp(
-        reg, lsu->iss.top.clock.get_cycles() + lsu->pending_latency + 1);
+    lsu->iss.regfile.scoreboard_reg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
 #endif
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (lsu->pending_latency > PIPELINE_STALL_THRESHOLD)
+        {
+            lsu->iss.timing.stall_load_account(lsu->pending_latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+    lsu->iss.exec.insn_terminate();
 }
 
 void Lsu::load_float_resume(Lsu *lsu)
 {
-    lsu->iss.exec.insn_terminate();
     int reg = lsu->stall_reg;
     lsu->iss.regfile.set_freg(reg, iss_get_float_value(lsu->iss.regfile.get_freg(reg),
         lsu->stall_size * 8));
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    lsu->iss.regfile.scoreboard_freg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
+#endif
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (lsu->pending_latency > PIPELINE_STALL_THRESHOLD)
+        {
+            lsu->iss.timing.stall_load_account(lsu->pending_latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+    lsu->iss.exec.insn_terminate();
 }
 
 void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,

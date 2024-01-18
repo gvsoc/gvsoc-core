@@ -430,12 +430,16 @@ class Snitch(RiscvCommon):
             core_id: int=0):
 
 
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+        extensions = [ Rv32frep() ]
+        
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
 
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id)
 
         self.add_c_flags([
+            "-DPIPELINE_STALL_THRESHOLD=0",
+            "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch",
         ])
 
@@ -460,12 +464,15 @@ class Snitch_fp_ss(RiscvCommon):
             timed: bool=False):
 
 
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+        extensions = [ Rv32frep() ]
+    
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
 
         super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed)
 
         self.add_c_flags([
+            "-DPIPELINE_STALL_THRESHOLD=0",
             "-DPIPELINE_STAGES=1",
             "-DCONFIG_ISS_CORE=snitch_fp_ss",
         ])

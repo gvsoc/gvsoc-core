@@ -327,6 +327,8 @@ typedef struct iss_decoder_item_s
             int power_group;
             int is_macro_op;
             int is_fp_op;
+            int is_frep_op;
+            int isn_seq_op;
         } insn;
 
         struct
@@ -386,11 +388,19 @@ typedef struct iss_insn_s
     bool is_macro_op;
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     bool is_fp_op;
+    bool is_frep_op;
+    bool isn_seq_op;
+    bool is_outer;
+    iss_reg_t max_rpt;
 
     iss_reg_t* reg_addr;
     iss_freg_t* freg_addr;
     int64_t* scoreboard_reg_timestamp_addr;
     // unsigned int* fflags_addr;
+
+    iss_reg_t data_arga;
+    iss_reg_t data_argb;
+    iss_reg_t data_argc;
 #endif
 
 } iss_insn_t;

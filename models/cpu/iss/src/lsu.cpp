@@ -140,9 +140,13 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     {
         latency = req->get_latency() + 1;
 
+        // Total number of latency in memory access instruction is the sum of latency waiting for operands to be ready
+        // and latency resulting from ports contention/conflicts.
+
 #if defined(PIPELINE_STALL_THRESHOLD)
         if (latency > PIPELINE_STALL_THRESHOLD)
         {
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Number of LSU stall cycles: %d\n", latency - PIPELINE_STALL_THRESHOLD);
             this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
         }
 #endif

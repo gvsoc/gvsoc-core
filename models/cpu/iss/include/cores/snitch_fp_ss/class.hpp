@@ -17,6 +17,7 @@
 
 /* 
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 
@@ -90,12 +91,22 @@ public:
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 
+    // Handshaking interface 
+    vp::IoSlave acc_req_ready_itf;
+
+    // Request and Response interface
     vp::WireSlave<OffloadReq *> acc_req_itf;
     vp::WireMaster<OffloadRsp *> acc_rsp_itf;
     vp::ClockEvent *event;
     OffloadReq acc_req;
     OffloadRsp acc_rsp;
 
+    // Handshaking signals and functions
+    bool acc_req_ready;
+    static vp::IoReqStatus rsp_state(vp::Block *__this, vp::IoReq *req);
+    bool check_state(iss_insn_t *insn);
+
+    // Handle request and response functions
     static void handle_notif(vp::Block *__this, OffloadReq *req);
     static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
@@ -158,3 +169,4 @@ private:
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
+#include "cpu/iss/include/isa/rv32frep.hpp"

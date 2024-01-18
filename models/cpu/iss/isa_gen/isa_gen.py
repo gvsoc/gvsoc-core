@@ -659,7 +659,7 @@ class Isa(object):
 
 class Instr(object):
     def __init__(self, label, format, encoding, decode=None, L=None,
-            fast_handler=False, tags=[], isa_tags=[], is_macro_op=False, is_fp_op=False):
+            fast_handler=False, tags=[], isa_tags=[], is_macro_op=False, is_fp_op=False, is_frep_op=False, isn_seq_op=False):
         self.tags = tags
         self.isa_tags = isa_tags
         self.out_reg_latencies = []
@@ -670,6 +670,8 @@ class Instr(object):
         self.resource_bandwidth = 0
         self.is_macro_op = is_macro_op
         self.is_fp_op = is_fp_op
+        self.is_frep_op = is_frep_op
+        self.isn_seq_op = isn_seq_op
         self.args_format = format
         self.label = label
         self.active = True
@@ -764,6 +766,8 @@ class Instr(object):
         dump(isaFile, f'      .power_group={self.power_group},\n')
         dump(isaFile, f'      .is_macro_op={1 if self.is_macro_op else 0},\n')
         dump(isaFile, f'      .is_fp_op={1 if self.is_fp_op else 0},\n')
+        dump(isaFile, f'      .is_frep_op={1 if self.is_frep_op else 0},\n')
+        dump(isaFile, f'      .isn_seq_op={1 if self.isn_seq_op else 0},\n')
         dump(isaFile, f'    }}\n')
         dump(isaFile, f'  }}\n')
         dump(isaFile, f'}};\n')

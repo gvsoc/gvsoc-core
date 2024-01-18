@@ -29,3 +29,7 @@ vp_model_compile_options(NAME interco.bus_watchpoint_32 OPTIONS "-DWORD_SIZE=32"
 vp_model(NAME interco.router_proxy
     SOURCES "router_proxy.cpp"
     )
+
+vp_model(NAME interco.sequencer
+    SOURCES "sequencer.cpp"
+    )

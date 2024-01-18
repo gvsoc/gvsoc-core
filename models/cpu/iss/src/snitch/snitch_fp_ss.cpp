@@ -17,6 +17,7 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 #include "cpu/iss/include/iss.hpp"
@@ -40,6 +41,7 @@ Iss::Iss(IssWrapper &top)
 
     this->snitch = true;
     this->fp_ss = true;
+    this->acc_req_ready = true;
     this->top.traces.new_trace("accelerator", &this->trace_iss, vp::DEBUG);
 
 
@@ -50,6 +52,9 @@ Iss::Iss(IssWrapper &top)
     this->top.new_slave_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
 
     this->top.new_master_port("acc_rsp", &this->acc_rsp_itf, (vp::Block *)this);
+
+    this->acc_req_ready_itf.set_req_meth(&Iss::rsp_state);
+    this->top.new_slave_port("acc_req_ready", &this->acc_req_ready_itf, (vp::Block *)this);
 
 }
 
@@ -106,6 +111,9 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
 {
     Iss *_this = (Iss *)__this;
+
+    // The subsystem is busy upon receiving a new request.
+    _this->acc_req_ready = false;
     
     // Obtain arguments from request.
     iss_reg_t pc = req->pc;
@@ -114,7 +122,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     unsigned int frm = req->frm;
     iss_opcode_t opcode = insn->opcode;
     insn->freg_addr = &_this->regfile.fregs[0];
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Received IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Received IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
 
     // Change address of input and ouput floating point registers.
     int rd = insn->out_regs[0];
@@ -146,25 +154,52 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     {
         _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
     }
-
-    // If the input register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in subsystem.
-    // Add input register scoreboard check instead of writing in each exec handler function.
-    // Floating point register dependency doesn't need to be checked, because current instruction starts executing only if the previous one finishes (in-order).
+    // Or only assign operands of needed register
+    // Rewrite value of data_arga, because there's WAR in integer register if the sequencer is added.
     if (!insn->in_regs_fp[0])
     {
+        _this->regfile.set_reg(rs1, insn->data_arga); 
+    }
+
+    // The following part is not needed because the fp instruction starts execution only if all previous integer instruction has been finished.
+    // If the input register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in subsystem.
+    // Add input register scoreboard check instead of writing in each exec handler function.
+    // REG_GET() function in each handler will deal with latency by calling stall_load_dependency_account() function in iss->regfile.get_reg.
+    // Floating point register dependency doesn't need to be checked, because current instruction starts executing only if the previous one finishes (in-order).
+    /*
+    if (!insn->in_regs_fp[0])
+    {
+        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         _this->regfile.scoreboard_reg_set_timestamp(rs1, insn->scoreboard_reg_timestamp_addr[rs1]);
+        #endif
     }
     if (!insn->in_regs_fp[1])
     {
+        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         _this->regfile.scoreboard_reg_set_timestamp(rs2, insn->scoreboard_reg_timestamp_addr[rs2]);
+        #endif
     }
     if (!insn->in_regs_fp[2])
     {
+        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         _this->regfile.scoreboard_reg_set_timestamp(rs3, insn->scoreboard_reg_timestamp_addr[rs3]);
+        #endif
     }
+    */
 
     // Update csr frm in subsystem
     _this->csr.fcsr.frm = frm;
+
+    // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile.
+    // Use sync computing, execute instruction immediately and give back response after certain latency.
+    _this->exec.insn_exec(insn, pc);
+
+    // Assign dynamic latency to instruction latency if there's no static latency.
+    // Or take MAX(insn->latency, stall_cycle_get())
+    if(!insn->latency)
+    {
+        insn->latency = _this->exec.instr_event.stall_cycle_get();
+    }
 
     // Put the instruction execution part into event queue,
     // in order to realize the parallelism between master and slave.
@@ -172,15 +207,12 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     _this->acc_req.pc = pc;
     _this->acc_req.insn = insn;
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Enqueue the offloaded instruction\n");
+    // Todo: Add insn->latency after stall_insn_dependency_account in corresponding handler function.
     if (!_this->event->is_enqueued())
     {
         _this->event->enqueue(insn->latency);
     }
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offloaded instruction in event queue\n");
-
-    // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile.
-    // Use sync computing, execute instruction immediately and give back response after certain latency.
-    _this->exec.insn_exec(insn, pc);
+    // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offloaded instruction in event queue\n");
 
     // Assign int register output to input regfile in integer core.
     // Todo: differentiate between reg and reg64
@@ -189,6 +221,10 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     {
         data = _this->regfile.get_reg(rd);
         *((iss_reg_t *)(insn->reg_addr)+rd) = data;
+
+        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+        insn->scoreboard_reg_timestamp_addr[rd] = _this->top.clock.get_cycles() + insn->latency;
+        #endif   
     }
 
     // Update fflags in integer core after fp instruction.
@@ -201,7 +237,8 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *_this = (Iss *)__this;
 
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Start handling event\n");
+    _this->acc_req_ready = true;
+    // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Start handling event\n");
     
     iss_reg_t pc = _this->acc_req.pc;
     bool isRead = !_this->acc_req.is_write;
@@ -229,15 +266,37 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     //     _this->regfile.set_reg(i, *((iss_reg_t *)(insn->reg_addr)+i));
     // }
 
+    // Update register index for trace if it's an instruction under frep configuration.
+    // int nb_args = insn->decoder_item->u.insn.nb_args;
+    // for (int i = 0; i < nb_args; i++)
+    // {
+    //     iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
+    //     iss_insn_arg_t *insn_arg = &insn->args[i];
+    //     if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
+    //     {
+    //         if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
+    //         {
+    //             _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
+    //             insn_arg->u.reg.index = insn->out_regs[arg->u.reg.id];
+    //         }
+    //         else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
+    //         {
+    //             _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
+    //             insn_arg->u.reg.index = insn->in_regs[arg->u.reg.id];
+    //         }
+    //         _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "insn_arg->u.reg.index: %d\n", insn_arg->u.reg.index);
+    //     }
+    // }
+
     // Output the instruction trace.
     iss_trace_dump(_this, insn, pc);
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
      
     // Assign arguments to result.
     // Todo: assign value for data if the output register is integer register.
     data = _this->regfile.get_reg(rd);
     fflags = _this->csr.fcsr.fflags;
-    _this->acc_rsp = { .rd=rd, .error=error, .data=data, .fflags=fflags };
+    _this->acc_rsp = { .rd=rd, .error=error, .data=data, .fflags=fflags, .pc=pc, .insn=insn };
     
     // Send back response of the result
     if (_this->acc_rsp_itf.is_bound())
@@ -245,4 +304,25 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
         _this->acc_rsp_itf.sync(&_this->acc_rsp);
     }
 
+    // Clear stalling cycle amount for the next instruction.
+    _this->exec.instr_event.stall_cycle_set(0);
+
+}
+
+// Get called for handshanking and respond if the subsystem is busy or not
+vp::IoReqStatus Iss::rsp_state(vp::Block *__this, vp::IoReq *req)
+{
+    Iss *_this = (Iss *)__this;
+    bool acc_req_ready = _this->acc_req_ready;
+
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Subsystem side acceleration request handshaking signal: %d\n", acc_req_ready);
+
+    if (acc_req_ready)
+    {
+       return vp::IO_REQ_OK; 
+    }
+    else
+    {
+        return vp::IO_REQ_INVALID;
+    }
 }

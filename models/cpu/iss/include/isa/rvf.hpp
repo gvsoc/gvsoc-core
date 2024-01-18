@@ -17,6 +17,7 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 #ifndef __CPU_ISS_RVF_HPP
@@ -31,6 +32,52 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
+        // Register int destination in scoreboard
+        // Scoreboard stall if there's integer operand data dependency.
+        insn->data_arga = REG_GET(0);
+        // insn->data_argb = REG_GET(1);
+
+        // Send an IO request to check whether the subsystem is ready for offloading.
+        bool acc_req_ready = iss->check_state(insn);
+        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
+
+        // If not ready, stay at current PC and fetch the same instruction next cycle.
+        if (!acc_req_ready) 
+        {
+            iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stall at current instruction\n");
+            // Start from offloading handler directly in the next cycle.
+            insn->handler = fp_offload_exec;
+            return pc;
+        }
+
+        // If ready, send offload request.
+        if (acc_req_ready)
+        {
+            // Store the pointer of integer register file and scoreboard inside the instruction.
+            insn->reg_addr = &iss->regfile.regs[0];
+            #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
+            #endif
+
+            // If the instruction can be offloaded, get its correct corresponding handler obtained in decode stage.
+            insn->handler = insn->saved_handler;
+
+            // Set the integer register to invalid for data dependency, if it's the output of offloading fp instruction.
+            if (!insn->out_regs_fp[0])
+            {
+                #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+                // iss->regfile.scoreboard_reg_timestamp[insn->out_regs[0]] = iss->top.clock.get_cycles() + 1000;
+                iss->regfile.scoreboard_reg_valid[insn->out_regs[0]] = false;
+                #endif   
+            }
+
+            // Send out request containing the instruction.
+            int stall = iss->handle_req(insn, pc, false);
+
+            iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Total number of stall cycles: %d\n", iss->exec.instr_event.stall_cycle_get());
+        }
+
+        /*
         // Pass value related to integer regfile from integer core to subsystem.
         insn->reg_addr = &iss->regfile.regs[0];
         // Todo: check how hardware implements CSR_FFLAGS
@@ -40,6 +87,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
         #endif
         int stall = iss->handle_req(insn, pc, false);
+        */
 
         // Todo: handle instruction CSRRSI and CSRRCI later when we add SSR, 
         // these two instruction also need to be offloaded.

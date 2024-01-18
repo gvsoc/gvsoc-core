@@ -17,6 +17,7 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 #include "cpu/iss/include/iss.hpp"
@@ -259,6 +260,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
     insn->fast_handler = item->u.insn.fast_handler;
     insn->handler = item->u.insn.handler;
+    // Backup for the function handler if needs to be revoked after stall
+    insn->saved_handler = insn->handler;
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     if (insn->hwloop_handler != NULL)
@@ -283,6 +286,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     insn->is_macro_op = item->u.insn.is_macro_op;
     #ifdef CONFIG_GVSOC_ISS_SNITCH
     insn->is_fp_op = item->u.insn.is_fp_op;
+    insn->is_frep_op = item->u.insn.is_frep_op;
+    insn->isn_seq_op = item->u.insn.isn_seq_op;
     #endif
 
     if (item->u.insn.decode != NULL)
@@ -291,6 +296,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     }
 
 #if defined(CONFIG_GVSOC_ISS_TIMED)
+    // Todo: if (insn->latency & !insn->is_fp_op)
     if (insn->latency)
     {
         insn->stall_handler = insn->handler;
@@ -392,6 +398,7 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
     iss->decode.decode_pc(insn, pc);
 
+    // For floating point instructions, go to offload handler instead of executing directly.
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
@@ -403,6 +410,55 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
             
             // Not seperate fpu from snitch core, integrate fpu into snitch alu.
             // return iss->exec.insn_exec(insn, pc);
+        }
+    }
+#endif
+
+    // For integer instructions, check whether all operands are ready before execution.
+    // If one of the input and output operand are invalid in regfile.scoreboard_reg_valid, stall at current pc.
+    // If all operands are ready, continue to execute.
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    if (iss->snitch & !iss->fp_ss)
+    {
+        if(!insn->is_fp_op)
+        {
+            bool src_ready = true;
+            bool dst_ready = true;
+            bool operands_ready;
+
+            int nb_args = insn->decoder_item->u.insn.nb_args;
+            for (int i = 0; i < nb_args; i++)
+            {
+                iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
+                iss_insn_arg_t *insn_arg = &insn->args[i];
+                if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
+                {
+                    if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
+                    {
+                        // Check for destination register.
+                        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+                        dst_ready = dst_ready & iss->regfile.scoreboard_reg_valid[insn->out_regs[arg->u.reg.id]];
+                        #endif
+                    }
+                    else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
+                    {
+                        // Check for source registers.
+                        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+                        src_ready = src_ready & iss->regfile.scoreboard_reg_valid[insn->in_regs[arg->u.reg.id]];
+                        #endif
+                    }
+                }
+            }
+            operands_ready = src_ready & dst_ready;
+            iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Check whether all operands ready: %d\n", operands_ready);
+
+            // Stall the stage if we either didn't get all input and output register ready.
+            if (!operands_ready)
+            {
+                insn->handler = iss_decode_pc_handler;
+                insn->fast_handler = iss_decode_pc_handler;
+                return pc;
+            }
         }
     }
 #endif

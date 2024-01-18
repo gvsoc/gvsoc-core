@@ -51,6 +51,7 @@ inline void Regfile::scoreboard_reg_check(int reg)
 
     if (unlikely(diff > 0))
     {
+        this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Number of scoreboard stall cycles: %d\n", diff);
         this->iss.timing.stall_load_dependency_account(diff);
     }
 #endif
@@ -66,6 +67,7 @@ inline void Regfile::scoreboard_freg_check(int reg)
 
     if (unlikely(diff > 0))
     {
+        this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Number of scoreboard stall cycles: %d\n", diff);
         this->iss.timing.stall_load_dependency_account(diff);
     }
 #endif

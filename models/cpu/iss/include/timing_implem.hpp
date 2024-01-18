@@ -27,6 +27,7 @@ inline void Timing::stall_cycles_account(int cycles)
 {
 #if defined(CONFIG_GVSOC_ISS_TIMED)
     this->iss.exec.instr_event.stall_cycle_inc(cycles);
+    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Total number of stall cycles: %d\n", iss.exec.instr_event.stall_cycle_get());
     if (cycles > 0)
     {
         this->power_stall_first.account_energy_quantum();

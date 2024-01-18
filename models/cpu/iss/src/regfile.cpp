@@ -52,11 +52,13 @@ void Regfile::reset(bool active)
         for (int i = 0; i < ISS_NB_REGS; i++)
         {
             this->scoreboard_reg_timestamp[i] = 0;
+            this->scoreboard_reg_valid[i] = true;
         }
 #if !defined(ISS_SINGLE_REGFILE)
         for (int i = 0; i < ISS_NB_FREGS; i++)
         {
             this->scoreboard_freg_timestamp[i] = 0;
+            this->scoreboard_freg_valid[i] = true;
         }
 #endif
 #endif

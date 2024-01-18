@@ -17,6 +17,7 @@
 
 /* 
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 
@@ -93,22 +94,32 @@ public:
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 
+    // Handshaking interface, added to check subsystem state, busy or idle
+    vp::IoMaster acc_req_ready_itf;
+
     // Offload request interface 
     vp::WireMaster<OffloadReq *> acc_req_itf;
     // Response interface, receive result from subsystem
     vp::WireSlave<OffloadRsp *> acc_rsp_itf;
     vp::ClockEvent *event;
+    // Offload request and response
     OffloadReq acc_req;
     OffloadRsp acc_rsp;
 
+    // Handshaking signals and functions
+    bool acc_req_ready;
+    vp::IoReq check_req;
+    bool check_state(iss_insn_t *insn);
+
+    // Request and Response interfaces and events
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
-    static void handle_event(vp::Block *__this, vp::ClockEvent *event);
+    // static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     static void handle_result(vp::Block *__this, OffloadRsp *result);
 
     // Checking scoreboard
-    bool acc_stall;
+    // bool acc_stall;
     // Record the latest past floating point instruction finishing time
-    int64_t fp_past_timestamp;
+    // int64_t fp_past_timestamp;
     // Temporary request information
     iss_insn_t *insn;
     iss_reg_t pc;
@@ -165,3 +176,4 @@ private:
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
+#include "cpu/iss/include/isa/rv32frep.hpp"

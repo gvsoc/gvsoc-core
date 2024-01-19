@@ -178,8 +178,16 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     event_buffers.erase(event_buffers.begin());
     current_buffer_size = 0;
     this->first_pending_event = NULL;
+    this->use_external_dumper = config->get_child_bool("events/use-external-dumper");
 
-    thread = new std::thread(&TraceEngine::vcd_routine, this);
+    if (this->use_external_dumper)
+    {
+        thread = new std::thread(&TraceEngine::vcd_routine_external, this);
+    }
+    else
+    {
+        thread = new std::thread(&TraceEngine::vcd_routine, this);
+    }
 
     this->trace_format = TRACE_FORMAT_LONG;
     std::string path = "trace_file.txt";

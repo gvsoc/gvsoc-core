@@ -302,6 +302,23 @@ namespace gv {
          * @param value The new value.
          */
         virtual void event_update_string(int64_t timestamp, int64_t cycles, int id, const char *value, int flags) = 0;
+
+        /**
+         * Called by GVSOC to lock the external controller.
+         *
+         * As vcd traces are updated in chunks, GVSOC will call this function before the chunk
+         * starts, in case something needs to be protected, and to avoid protecting it in each
+         * call to the event update methods.
+         */
+        virtual void lock() {};
+
+        /**
+         * Called by GVSOC to unlock the external controller.
+         *
+         * As vcd traces are updated in chunks, GVSOC will call this function after the chunk
+         * has ended.
+         */
+        virtual void unlock() {};
     };
 
 

@@ -91,6 +91,7 @@ void Exec::reset(bool active)
         this->insn_table_index = 0;
         this->irq_locked = 0;
         this->insn_on_hold = false;
+        this->stall_cycles = 0;
 
         // Always increase the stall when reset is asserted since stall count is set to 0
         // and we need to prevent the core from fetching instructions
@@ -152,6 +153,8 @@ void Exec::dbg_unit_step_check()
 void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *const iss = (Iss *)__this;
+
+    if (iss->exec.handle_stall_cycles()) return;
 
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
@@ -240,6 +243,17 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
     Exec *_this = &iss->exec;
+
+    if (iss->exec.handle_stall_cycles()) return;
+
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+    if (iss->exec.stall_cycles > 0)
+    {
+        iss->exec.stall_cycles--;
+        iss->timing.handle_pending_events();
+        return;
+    }
+#endif
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 

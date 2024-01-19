@@ -61,6 +61,7 @@ public:
     inline void stall_cycles_account(int incr);
 
     inline void event_account(unsigned int event, int incr);
+    inline void handle_pending_events();
 
     void reset(bool active);
 
@@ -74,13 +75,14 @@ public:
     vp::Trace file_trace_event;
     vp::Trace binaries_trace_event;
     vp::Trace pcer_trace_event[32];
+    int64_t pcer_trace_pending_cycles[32];
     vp::Trace insn_trace_event;
     vp::WireMaster<uint32_t> ext_counter[32];
     std::vector<vp::PowerSource> insn_groups_power;
     vp::PowerSource power_stall_first;
     vp::PowerSource power_stall_next;
     vp::PowerSource background_power;
-
+    uint32_t pcer_trace_active_events;
 
 private:
 

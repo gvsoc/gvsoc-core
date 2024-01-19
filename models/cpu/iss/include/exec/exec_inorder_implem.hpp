@@ -25,6 +25,22 @@
 #include ISS_CORE_INC(class.hpp)
 
 
+
+inline bool Exec::handle_stall_cycles()
+{
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+    this->iss.timing.handle_pending_events();
+
+    if (this->stall_cycles > 0)
+    {
+        this->stall_cycles--;
+        return true;
+    }
+#endif
+
+    return false;
+}
+
 inline void Exec::interrupt_taken()
 {
     this->iss.exec.insn_table_index = 0;
@@ -57,7 +73,7 @@ static inline iss_reg_t iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn, iss_re
 
 inline int64_t Exec::get_cycles()
 {
-    return this->iss.top.clock.get_cycles() + this->instr_event.stall_cycle_get();
+    return this->iss.top.clock.get_cycles() + this->stall_cycles;
 }
 
 inline iss_insn_callback_t Exec::insn_trace_callback_get()

@@ -47,7 +47,7 @@ inline void Regfile::set_reg(int reg, iss_reg_t value)
 inline void Regfile::scoreboard_reg_check(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_TIMED
-    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
+    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.stall_cycles;
 
     if (unlikely(diff > 0))
     {
@@ -67,7 +67,7 @@ inline void Regfile::scoreboard_freg_check(int reg)
 #if defined(ISS_SINGLE_REGFILE)
     scoreboard_reg_check(reg);
 #else
-    int64_t diff = this->scoreboard_freg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
+    int64_t diff = this->scoreboard_freg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.stall_cycles;
 
     if (unlikely(diff > 0))
     {

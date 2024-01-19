@@ -86,6 +86,7 @@ public:
     inline void insn_exec_power(iss_insn_t *insn);
 
     inline void interrupt_taken();
+    inline bool handle_stall_cycles();
 
     iss_reg_t current_insn;
     vp::ClockEvent instr_event;
@@ -151,6 +152,7 @@ public:
     bool insn_on_hold;
 
     bool pending_flush;
+    int64_t stall_cycles;
 
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);

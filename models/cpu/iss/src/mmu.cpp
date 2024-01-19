@@ -110,6 +110,9 @@ void Mmu::handle_pte_stub(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
     Mmu *_this = &iss->mmu;
+
+    if (iss->exec.handle_stall_cycles()) return;
+
     _this->handle_pte();
 }
 

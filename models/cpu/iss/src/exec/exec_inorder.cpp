@@ -123,7 +123,9 @@ void Exec::icache_flush()
         this->flush_cache_req_itf.sync(true);
     }
 
-    this->iss.insn_cache.flush();
+    // Delay the flush to the next instruction in case we are in the middle of an instruction
+    this->pending_flush = true;
+    this->switch_to_full_mode();
 }
 
 #include <unistd.h>
@@ -245,15 +247,6 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     Exec *_this = &iss->exec;
 
     if (iss->exec.handle_stall_cycles()) return;
-
-#if defined(CONFIG_GVSOC_ISS_TIMED)
-    if (iss->exec.stall_cycles > 0)
-    {
-        iss->exec.stall_cycles--;
-        iss->timing.handle_pending_events();
-        return;
-    }
-#endif
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 

@@ -450,7 +450,7 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
                 }
             }
             operands_ready = src_ready & dst_ready;
-            iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Check whether all operands ready: %d\n", operands_ready);
+            iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Check whether all operands are ready: %d\n", operands_ready);
 
             // Stall the stage if we either didn't get all input and output register ready.
             if (!operands_ready)

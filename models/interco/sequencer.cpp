@@ -41,7 +41,7 @@ class OffloadReq
 {
 public:
     iss_reg_t pc;
-    iss_insn_t *insn;
+    iss_insn_t insn;
     bool is_write;
     unsigned int frm;
 };
@@ -198,7 +198,6 @@ sequencer::sequencer(vp::ComponentConf &config)
 
 // Build an event to send instructions every cycle by default if the buffer is not empty.
 // Use .enable() to activate events, because it automates itself to offload instructions but isn't triggered by request.
-// Add out.sync() in this event.
 void sequencer::offload_event(vp::Block *__this, vp::ClockEvent *event)
 {
     sequencer *_this = (sequencer *)__this;
@@ -221,31 +220,9 @@ void sequencer::offload_event(vp::Block *__this, vp::ClockEvent *event)
         // Read out an entry from the buffer.
         offload_entry = _this->read_entry(buf_id);
 
-        // Update register index for trace, put into read_entry()
-        // int nb_args = offload_entry.req.insn->decoder_item->u.insn.nb_args;
-        // for (int i = 0; i < nb_args; i++)
-        // {
-        //     iss_decoder_arg_t *arg = &offload_entry.req.insn->decoder_item->u.insn.args[i];
-        //     iss_insn_arg_t *insn_arg = &offload_entry.req.insn->args[i];
-        //     if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
-        //     {
-        //         if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
-        //         {
-        //             _this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
-        //             insn_arg->u.reg.index = offload_entry.req.insn->out_regs[arg->u.reg.id];
-        //         }
-        //         else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
-        //         {
-        //             _this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
-        //             insn_arg->u.reg.index = offload_entry.req.insn->in_regs[arg->u.reg.id];
-        //         }
-        //         _this->trace.msg(vp::Trace::LEVEL_TRACE, "insn_arg->u.reg.index: %d\n", insn_arg->u.reg.index);
-        //     }
-        // }
-
         // Output handshaking, between sequencer and fp subsystem
         _this->acc_req = offload_entry.req;
-        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Offload to fp subsystem from buffer index %d (opcode: 0x%lx, pc: 0x%lx)\n", buf_id, _this->acc_req.insn->opcode, _this->acc_req.pc);
+        _this->trace.msg("Offload to fp subsystem from buffer index %d (opcode: 0x%lx, pc: 0x%lx)\n", buf_id, _this->acc_req.insn.opcode, _this->acc_req.pc);
 
         // Offload request if the port is connected
         if (_this->out.is_bound())
@@ -322,31 +299,31 @@ void sequencer::req(vp::Block *__this, OffloadReq *req)
     // Obtain arguments from request.
     iss_reg_t pc = req->pc;
     bool isRead = !req->is_write;
-    iss_insn_t *insn = req->insn;
+    iss_insn_t insn = req->insn;
     unsigned int frm = req->frm;
-    iss_opcode_t opcode = insn->opcode;
+    iss_opcode_t opcode = insn.opcode;
 
-    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
+    _this->trace.msg("Received IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
 
     // Instructions are assigned to three paths dependent on the type of the instruction.
     // 1. Bypass lane.
     // 2. FPU sequence buffer.
     // 3. An frep instruction indicates the loop configuration.
 
-    // Todo: put value assignment into handler function, if sequencer is put into ISS
+
     // 3. An frep instruction indicates the loop configuration.
     // frep instruction won't be written into ring buffer.
     // Update frep_config when there is new frep instruction coming.
-    if (insn->is_frep_op)
+    if (unlikely(insn.is_frep_op))
     {
-        _this->frep_config.is_outer = insn->is_outer;
-        _this->frep_config.max_inst = insn->uim[2];
-        _this->frep_config.max_rpt = insn->max_rpt;
-        _this->frep_config.stagger_max = insn->uim[1];
-        _this->frep_config.stagger_mask = insn->uim[0];
+        _this->frep_config.is_outer = insn.is_outer;
+        _this->frep_config.max_inst = insn.uim[2];
+        _this->frep_config.max_rpt = insn.max_rpt;
+        _this->frep_config.stagger_max = insn.uim[1];
+        _this->frep_config.stagger_mask = insn.uim[0];
 
-        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Frep Config (is_outer: %d, max_inst: %d, max_rpt: %d, stagger_max: %d, stagger_mask: 0x%llx)\n", 
-            insn->is_outer, insn->uim[2], insn->max_rpt, insn->uim[1], insn->uim[0]);
+        _this->trace.msg("Frep Config (is_outer: %d, max_inst: %d, max_rpt: %d, stagger_max: %d, stagger_mask: 0x%llx)\n", 
+            insn.is_outer, insn.uim[2], insn.max_rpt, insn.uim[1], insn.uim[0]);
 
         // Assign value of base_id, current write_id is the new base_id when new configuration comes.
         // base_id only updates when new frep instruction comes.
@@ -354,24 +331,25 @@ void sequencer::req(vp::Block *__this, OffloadReq *req)
     }
 
 
-    // Write incoming instructions into ring buffer.
-    // 1. Bypass lane instructions. (first also write to ring buffer individually)
+    // 1. Bypass lane instructions.
     // Offload bypass line instructions only if the ring buffer is empty, where write_id == base_id.
-    if (!insn->is_frep_op & insn->isn_seq_op)
+    if (!insn.is_frep_op & insn.isn_seq_op)
     {
         // Output handshaking also finishes inside rsp_state function, between sequencer and fp subsystem
         // This means the sequencer and subsystem are both ready for a bypass instruction.
         // The request is sent from integer core -> sequencer -> subsystem in one cycle without stall.
+        _this->trace.msg("Offload to fp subsystem from bypass lane (opcode: 0x%lx, pc: 0x%lx)\n", req->insn.opcode, req->pc);
+
         if (_this->out.is_bound())
         {
             _this->out.sync(req);
         }
     }
     
+
     // 2. Instructions are sequenced from the FPU sequence buffer. Write a new entry into the buffer.
     BufferEntry new_entry;
-    // if(!insn->is_frep_op)
-    if(!insn->is_frep_op & !insn->isn_seq_op)
+    if(!insn.is_frep_op & !insn.isn_seq_op)
     {
         // The buffer must have vacancy after rsp_state() function.
         new_entry = _this->gen_entry(req, &_this->frep_config);
@@ -385,25 +363,6 @@ void sequencer::req(vp::Block *__this, OffloadReq *req)
         }
     }
     
-
-    // _this->acc_req_ready_o = _this->check_state();
-    // _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sequencer receives acceleration request output handshaking signal: %d\n", _this->acc_req_ready_o);
-
-    // // Output handshaking, between sequencer and fp subsystem
-    // OffloadReq *out_req;
-    // out_req = req;
-
-    // // Offload request if the port is connected
-    // if(_this->acc_req_ready_o)
-    // {
-    //     if(!insn->is_frep_op)
-    //     {
-    //         if (_this->out.is_bound())
-    //         {
-    //             _this->out.sync(out_req);
-    //         }
-    //     }
-    // }
 }
 
 
@@ -425,6 +384,7 @@ vp::IoReqStatus sequencer::rsp_state(vp::Block *__this, vp::IoReq *req)
     // 2. Bypass instructions: check whether the buffer has no entry and the subsystem is also idle;
     // The bypass instruction gets executed only if all previous sequenceable instructions in the buffer have benn finished.
     bool is_bypass = !req->get_is_write();
+
     if (is_bypass)
     {
         _this->trace.msg(vp::Trace::LEVEL_TRACE, "Go through bypass lane\n");
@@ -439,7 +399,6 @@ vp::IoReqStatus sequencer::rsp_state(vp::Block *__this, vp::IoReq *req)
         {
             _this->acc_req_ready = false;
         }
-        // _this->acc_req_ready = !_this->isFull();
     }
     else
     {
@@ -502,7 +461,7 @@ BufferEntry sequencer::gen_entry(OffloadReq *req, FrepConfig *config)
         new_entry.max_rpt = 0;
         new_entry.base_entry = this->write_id;
         new_entry.next_entry = (this->write_id + 1) % this->size;
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Generate IO req in buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", this->write_id, new_entry.req.insn->opcode, new_entry.req.pc);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Generate IO req in buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", this->write_id, new_entry.req.insn.opcode, new_entry.req.pc);
     }
     else
     {
@@ -573,9 +532,9 @@ BufferEntry sequencer::gen_entry(OffloadReq *req, FrepConfig *config)
             }
         }
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Generate sequenceable IO req in buffer index %d (opcode: 0x%llx, pc: 0x%llx, base_id: %d, next_id: %d)\n", 
-        this->write_id, new_entry.req.insn->opcode, new_entry.req.pc, new_entry.base_entry, new_entry.next_entry);
+            this->write_id, new_entry.req.insn.opcode, new_entry.req.pc, new_entry.base_entry, new_entry.next_entry);
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Sequence frep configuration in buffer index %d (is_outer: %d, max_inst: %d, max_rpt: %d, stagger_max: %d, stagger_mask: 0x%llx)\n", 
-        this->write_id, new_entry.config.is_outer, new_entry.config.max_inst, new_entry.config.max_rpt, new_entry.config.stagger_max, new_entry.config.stagger_mask);
+            this->write_id, new_entry.config.is_outer, new_entry.config.max_inst, new_entry.config.max_rpt, new_entry.config.stagger_max, new_entry.config.stagger_mask);
     }
 
     return new_entry;
@@ -588,20 +547,13 @@ void sequencer::write_entry(BufferEntry entry)
     if (this->isFull()) 
     {
         this->acc_req_ready = false;
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Sequence buffer is full and no longer accepts new instructions\n");
+        this->trace.msg("Sequence buffer is full and no longer accepts new instructions\n");
     }
     else
     {
         // Write new entry to write_id
         this->RingBuffer[this->write_id] = entry;
-        // if (entry.req.pc >= 0x800002e8)
-        // {
-        //     this->trace.msg(vp::Trace::LEVEL_TRACE, "Wrote IO req in buffer index 0 (opcode: 0x%llx, pc: 0x%llx)\n", this->RingBuffer[0].req.insn->opcode, this->RingBuffer[0].req.pc);
-        //     this->trace.msg(vp::Trace::LEVEL_TRACE, "Wrote IO req in buffer index 1 (opcode: 0x%llx, pc: 0x%llx)\n", this->RingBuffer[1].req.insn->opcode, this->RingBuffer[1].req.pc);
-        //     this->trace.msg(vp::Trace::LEVEL_TRACE, "Wrote IO req in buffer index 2 (opcode: 0x%llx, pc: 0x%llx)\n", this->RingBuffer[2].req.insn->opcode, this->RingBuffer[2].req.pc);
-        //     this->trace.msg(vp::Trace::LEVEL_TRACE, "Wrote IO req in buffer index 3 (opcode: 0x%llx, pc: 0x%llx)\n", this->RingBuffer[3].req.insn->opcode, this->RingBuffer[3].req.pc);
-        // }
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Wrote IO req in buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", this->write_id, this->RingBuffer[this->write_id].req.insn->opcode, this->RingBuffer[this->write_id].req.pc);
+        this->trace.msg("Wrote IO request in buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", this->write_id, this->RingBuffer[this->write_id].req.insn.opcode, this->RingBuffer[this->write_id].req.pc);
 
         // Update write_id for the next write operation
         this->write_id = (this->write_id + 1) % this->size;
@@ -615,13 +567,13 @@ BufferEntry sequencer::read_entry(int index)
 {
     if (this->isEmpty()) 
     {
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Sequence buffer is empty and no instruction can be read\n");
+        this->trace.msg("Sequence buffer is empty and no instruction can be read\n");
         // Todo: write a return here to avoid accident happening.
     }
     else
     {
         BufferEntry entry = this->RingBuffer[index];
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Read IO req in buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", index, this->RingBuffer[index].req.insn->opcode, this->RingBuffer[index].req.pc);
+        this->trace.msg("Read IO request in buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", index, this->RingBuffer[index].req.insn.opcode, this->RingBuffer[index].req.pc);
 
         // Assign read_id to index of next instruction
         this->read_id = entry.next_entry;
@@ -630,37 +582,27 @@ BufferEntry sequencer::read_entry(int index)
         // Update register index for trace if this instruction's stagger_max>0
         if (!entry.isn_sequence & entry.config.stagger_max > 0)
         {
-            int nb_args = entry.req.insn->decoder_item->u.insn.nb_args;
+            int nb_args = entry.req.insn.decoder_item->u.insn.nb_args;
             for (int i = 0; i < nb_args; i++)
             {
-                iss_decoder_arg_t *arg = &entry.req.insn->decoder_item->u.insn.args[i];
-                iss_insn_arg_t *insn_arg = &entry.req.insn->args[i];
+                iss_decoder_arg_t *arg = &entry.req.insn.decoder_item->u.insn.args[i];
+                iss_insn_arg_t *insn_arg = &entry.req.insn.args[i];
                 if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
                 {
                     if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
                     {
                         // this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
-                        insn_arg->u.reg.index = entry.req.insn->out_regs[arg->u.reg.id];
+                        insn_arg->u.reg.index = entry.req.insn.out_regs[arg->u.reg.id];
                     }
                     else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
                     {
                         // this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
-                        insn_arg->u.reg.index = entry.req.insn->in_regs[arg->u.reg.id];
+                        insn_arg->u.reg.index = entry.req.insn.in_regs[arg->u.reg.id];
                     }
                     // this->trace.msg(vp::Trace::LEVEL_TRACE, "insn_arg->u.reg.index: %d\n", insn_arg->u.reg.index);
                 }
             }
-
         }
-
-        // // Update the buffer after each read operation.
-        // this->update_entry(index);
-
-        // // The entry becomes invalid if it won't be repeated any more.
-        // if (this->RingBuffer[index].max_rpt < 0)
-        // {
-        //     this->nb_entries--;
-        // }
 
         return entry;
     }
@@ -677,151 +619,129 @@ void sequencer::update_entry(int index)
 
     if(!entry->isn_sequence)
     {
-    // Update next_entry index for the next iteration
-    bool insn_last = false;
-    // base_entry and config.max_inst are const variables after configuration.
-    if (index == ((entry->base_entry + entry->config.max_inst) % this->size))
-    {
-        insn_last = true;
-    }
-
-    bool rpt_last = false;
-    if (entry->max_rpt == 0)
-    {
-        // The next iteration is the last iterations
-        rpt_last = true;
-    }
-
-    // Find the index of next instruction 
-    if (entry->config.is_outer)
-    {
-        if (!insn_last)
+        // Update next_entry index for the next iteration
+        bool insn_last = false;
+        // base_entry and config.max_inst are const variables after configuration.
+        if (index == ((entry->base_entry + entry->config.max_inst) % this->size))
         {
-            // There is still instruction following in this configuration.
-            entry->next_entry = (index + 1) % this->size; 
+            insn_last = true;
         }
-        else
+
+        bool rpt_last = false;
+        if (entry->max_rpt == 0)
         {
-            // This is the last instruction in this configuration.
-            if (!rpt_last)
+            // The next iteration is the last iterations
+            rpt_last = true;
+        }
+
+        // Find the index of next instruction 
+        if (entry->config.is_outer)
+        {
+            if (!insn_last)
             {
-                // If there's still iteration left, go back to the initial instruction index.
-                entry->next_entry = entry->base_entry; 
+                // There is still instruction following in this configuration.
+                entry->next_entry = (index + 1) % this->size; 
             }
             else
+            {
+                // This is the last instruction in this configuration.
+                if (!rpt_last)
+                {
+                    // If there's still iteration left, go back to the initial instruction index.
+                    entry->next_entry = entry->base_entry; 
+                }
+                else
+                {
+                    // No iteration, move to the following entry in buffer.
+                    entry->next_entry = (index + 1) % this->size; 
+                }
+            }
+        }
+        else 
+        {
+            // inner loop
+            if(rpt_last)
             {
                 // No iteration, move to the following entry in buffer.
                 entry->next_entry = (index + 1) % this->size; 
             }
+            else
+            {
+                // Repeat itself, next instruction remains itself
+                entry->next_entry = index;
+            }
         }
-    }
-    else 
-    {
-        // inner loop
-        if(rpt_last)
-        {
-            // No iteration, move to the following entry in buffer.
-            entry->next_entry = (index + 1) % this->size; 
-        }
-        else
-        {
-            // Repeat itself, next instruction remains itself
-            entry->next_entry = index;
-        }
-    }
 
-    // Update stagger related information
-    int temp_out = entry->req.insn->out_regs[0] + entry->stagger_max;
-    int temp_in1 = entry->req.insn->in_regs[0] + entry->stagger_max;
-    int temp_in2 = entry->req.insn->in_regs[1] + entry->stagger_max;
-    int temp_in3 = entry->req.insn->in_regs[2] + entry->stagger_max;
+        // Update stagger related information
+        int temp_out = entry->req.insn.out_regs[0] + entry->stagger_max;
+        int temp_in1 = entry->req.insn.in_regs[0] + entry->stagger_max;
+        int temp_in2 = entry->req.insn.in_regs[1] + entry->stagger_max;
+        int temp_in3 = entry->req.insn.in_regs[2] + entry->stagger_max;
     
-    entry->stagger_max --;
-    int stagger_cnt = entry->stagger_max;
+        entry->stagger_max --;
+        int stagger_cnt = entry->stagger_max;
 
-    if (entry->stagger_mask & 0x1)
-    {
-        if (stagger_cnt < 0)
+        if (entry->stagger_mask & 0x1)
         {
-            entry->stagger_max = entry->config.stagger_max;
-            entry->req.insn->out_regs[0] = temp_out - entry->stagger_max;
+            if (stagger_cnt < 0)
+            {
+                entry->stagger_max = entry->config.stagger_max;
+                entry->req.insn.out_regs[0] = temp_out - entry->stagger_max;
+            }
+            else
+            {
+                entry->req.insn.out_regs[0]++;
+            }
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rd to %d (stagger_mask: 0x%llx)\n", entry->req.insn.out_regs[0], entry->stagger_mask);
         }
-        else
+
+        if (entry->stagger_mask & 0x2)
         {
-            entry->req.insn->out_regs[0]++;
+            if (stagger_cnt < 0)
+            {
+                entry->stagger_max = entry->config.stagger_max;
+                entry->req.insn.in_regs[0] = temp_in1 - entry->stagger_max;
+            }
+            else
+            {
+                entry->req.insn.in_regs[0]++;
+            }
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rs1 to %d (stagger_mask: 0x%llx)\n", entry->req.insn.in_regs[0], entry->stagger_mask);
         }
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rd to %d (stagger_mask: 0x%llx)\n", entry->req.insn->out_regs[0], entry->stagger_mask);
+
+        if (entry->stagger_mask & 0x4)
+        {
+            if (stagger_cnt < 0)
+            {
+                entry->stagger_max = entry->config.stagger_max;
+                entry->req.insn.in_regs[1] = temp_in2 - entry->stagger_max;
+            }
+            else
+            {
+                entry->req.insn.in_regs[1]++;
+            }
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rs2 to %d (stagger_mask: 0x%llx)\n", entry->req.insn.in_regs[1], entry->stagger_mask);
+        }
+
+        if (entry->stagger_mask & 0x8)
+        {
+            if (stagger_cnt < 0)
+            {
+                entry->stagger_max = entry->config.stagger_max;
+                entry->req.insn.in_regs[2] = temp_in3 - entry->stagger_max;
+            }
+            else
+            {
+                entry->req.insn.in_regs[2]++;
+            }
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rs3 to %d (stagger_mask: 0x%llx)\n", entry->req.insn.in_regs[2], entry->stagger_mask);
+        }
+
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update sequence frep configuration in buffer index %d (is_outer: %d, max_inst: %d, max_rpt: %d, stagger_max: %d, stagger_mask: 0x%llx, base_id: %d, next_id: %d)\n", 
+            index, entry->is_outer, entry->max_inst, entry->max_rpt, entry->stagger_max, entry->stagger_mask, entry->base_entry, entry->next_entry);
     }
 
-    if (entry->stagger_mask & 0x2)
-    {
-        if (stagger_cnt < 0)
-        {
-            entry->stagger_max = entry->config.stagger_max;
-            entry->req.insn->in_regs[0] = temp_in1 - entry->stagger_max;
-        }
-        else
-        {
-            entry->req.insn->in_regs[0]++;
-        }
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rs1 to %d (stagger_mask: 0x%llx)\n", entry->req.insn->in_regs[0], entry->stagger_mask);
-    }
-
-    if (entry->stagger_mask & 0x4)
-    {
-        if (stagger_cnt < 0)
-        {
-            entry->stagger_max = entry->config.stagger_max;
-            entry->req.insn->in_regs[1] = temp_in2 - entry->stagger_max;
-        }
-        else
-        {
-            entry->req.insn->in_regs[1]++;
-        }
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rs2 to %d (stagger_mask: 0x%llx)\n", entry->req.insn->in_regs[1], entry->stagger_mask);
-    }
-
-    if (entry->stagger_mask & 0x8)
-    {
-        if (stagger_cnt < 0)
-        {
-            entry->stagger_max = entry->config.stagger_max;
-            entry->req.insn->in_regs[2] = temp_in3 - entry->stagger_max;
-        }
-        else
-        {
-            entry->req.insn->in_regs[2]++;
-        }
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update rs3 to %d (stagger_mask: 0x%llx)\n", entry->req.insn->in_regs[2], entry->stagger_mask);
-    }
-
-    // Update register index for trace 
-    // int nb_args = entry->req.insn->decoder_item->u.insn.nb_args;
-    // for (int i = 0; i < nb_args; i++)
-    // {
-    //     iss_decoder_arg_t *arg = &entry->req.insn->decoder_item->u.insn.args[i];
-    //     iss_insn_arg_t *insn_arg = &entry->req.insn->args[i];
-    //     if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
-    //     {
-    //         if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
-    //         {
-    //             this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
-    //             insn_arg->u.reg.index = entry->req.insn->out_regs[arg->u.reg.id];
-    //         }
-    //         else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
-    //         {
-    //             this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
-    //             insn_arg->u.reg.index = entry->req.insn->in_regs[arg->u.reg.id];
-    //         }
-    //         this->trace.msg(vp::Trace::LEVEL_TRACE, "insn_arg->u.reg.index: %d\n", insn_arg->u.reg.index);
-    //     }
-    // }
-
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Update sequence frep configuration in buffer index %d (is_outer: %d, max_inst: %d, max_rpt: %d, stagger_max: %d, stagger_mask: 0x%llx, base_id: %d, next_id: %d)\n", 
-        index, entry->is_outer, entry->max_inst, entry->max_rpt, entry->stagger_max, entry->stagger_mask, entry->base_entry, entry->next_entry);
-    }
-
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Update buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", index, this->RingBuffer[index].req.insn->opcode, this->RingBuffer[index].req.pc);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Update buffer index %d (opcode: 0x%llx, pc: 0x%llx)\n", index, this->RingBuffer[index].req.insn.opcode, this->RingBuffer[index].req.pc);
 
 }
 
@@ -829,7 +749,7 @@ void sequencer::update_entry(int index)
 // Get called when we need to check whether the buffer is full.
 bool sequencer::isFull()
 {
-    if(this->nb_entries >= this->size)
+    if (this->nb_entries >= this->size)
     {
         return true;
     }

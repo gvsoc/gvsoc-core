@@ -45,8 +45,6 @@ Iss::Iss(IssWrapper &top)
 
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
-    // this->event = this->top.event_new((vp::Block *)this, handle_event);
-
     this->top.new_master_port("acc_req_ready", &this->acc_req_ready_itf);
 
     this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
@@ -108,6 +106,12 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 // Check whether the subsystem is busy or idle.
 bool Iss::check_state(iss_insn_t *insn)
 {
+    // Hierarchical instruction scoreboard, 
+    // only stall the current floating point instruction if the previous one is waiting for offloading.
+    // 1. fp instruction: get successful handshaking and continue.
+    // 2. int instruction: continue without check, except data dependency, some int operands depend on previous fp result.
+    // And also int instruction will be stalled if previous fp is still waiting to be offloaded.
+
     this->check_req.init();
 
     // Set the request is_write bit to differentiate whether it's a sequenceable instruction.
@@ -141,48 +145,32 @@ bool Iss::check_state(iss_insn_t *insn)
 bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
 {
     iss_opcode_t opcode = insn->opcode;
-    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Send offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
-    
-    // Todo: currently stall when last fp instruction has been offloaded.
-    // Hierarchical instruction scoreboard, 
-    // only stall the current floating point instruction if the fp subsystem hasn't finished the previous one 
-    // (This situation happens when the fp instruction latency greater than zero).
-    // Implement conditional acc_stall, stall fp and not stall int.
-    // 1. fp instruction: get previous response and continue, compare timestamp 
-    // of current global one and the previous/undergoing fp instruction.
-    // 2. int instruction: continue without check, except data dependency, some int operands depend on previous fp result.
-    // And also int instruction will be stalled if previous fp is still waiting to be offloaded.
+    this->trace_iss.msg("Send offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
+    // this->trace_iss.msg("Send offload request (insn: %p)\n", insn);
     
     // Assign arguments to request.
-    this->insn = insn;
+    this->insn = *((iss_insn_t *)insn);
     this->pc = pc;
     this->is_write=is_write;
     this->frm = this->csr.fcsr.frm;
 
     // Assign arguments to request.
-    this->acc_req = { .pc=pc, .insn=insn, .is_write=is_write, .frm =frm };
+    this->acc_req = { .pc=pc, .insn=this->insn, .is_write=is_write, .frm =frm };
 
     // Offload request if the port is connected
     if (this->acc_req_itf.is_bound())
     {
         this->acc_req_itf.sync(&this->acc_req);
     }
-    // OffloadReq *out_req;
-    // // Assign arguments to request.
-    // this->acc_req = { .pc=pc, .insn=insn, .is_write=is_write, .frm =frm };
-    // out_req = &this->acc_req;
 
-    // // Offload request if the port is connected
-    // if (this->acc_req_itf.is_bound())
-    // {
-    //     this->acc_req_itf.sync(out_req);
-    // }
+    insn->handler = iss_decode_pc_handler;
+    insn->fast_handler = iss_decode_pc_handler;
 
     // If the output register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in integer core.
     // And the following instruction with data dependency will execute scoreboard_reg_check when loading the operands,
     // which will call stall_load_dependency_account.
     // Assign timestamp as the lower bound of latency, which will be updated to the exact value after the instruction is executed.
-    if (!this->insn->out_regs_fp[0])
+    if (!this->insn.out_regs_fp[0])
     {
     #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], this->top.clock.get_cycles() + insn->latency);
@@ -198,162 +186,31 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
 {
     Iss *_this = (Iss *)__this;
 
+    // Get input information for trace
+    iss_trace_dump_in(_this, &result->insn, result->pc);
+
     // Set scoreboard valid when the instruction finishes execution.
-    if (!result->insn->out_regs_fp[0])
+    if (!result->insn.out_regs_fp[0])
     {
         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-        _this->regfile.scoreboard_reg_valid[result->insn->out_regs[0]] = true;
+        _this->regfile.scoreboard_reg_valid[result->insn.out_regs[0]] = true;
         #endif   
     }
 
-    // Todo: Might need post-processing of result.
+    // Post-processing of result.
     // Update fflags in integer core after fp instruction.
-    // Hardward doesn't stall CSR_FFLAGS when the fp instruction hasn't responded correct status value,
-    // and therefore update here instead of in handle_event.
+    // Hardward doesn't stall CSR_FFLAGS when the fp instruction hasn't responded correct status value.
     _this->csr.fcsr.fflags = result->fflags;
 
     // Pass values of floating point registers from subsystem to core side.
-    // Pass here but not in handle_event function, because we use fp register value only for trace, not for later computation.
-    // for (int i=0; i<ISS_NB_REGS; i++)
-    // {
-    //     _this->regfile.set_freg(i, *((iss_freg_t *)(_this->acc_req.insn->freg_addr)+i));
-    // }
+    // Assign results here because we use fp register value only for trace, not for later computation.
     for (int i=0; i<ISS_NB_REGS; i++)
     {
-        _this->regfile.set_freg(i, *((iss_freg_t *)(result->insn->freg_addr)+i));
+        _this->regfile.set_freg(i, *((iss_freg_t *)(result->insn.freg_addr)+i));
     }
 
     // Output instruction trace for debugging.
-    // _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Get accelerator response\n");
-    // iss_trace_dump(_this, _this->acc_req.insn, _this->acc_req.pc);
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Get accelerator response\n");
-    iss_trace_dump(_this, result->insn, result->pc);
+    _this->trace_iss.msg("Get accelerator response (opcode: 0x%lx, pc: 0x%lx)\n", result->insn.opcode, result->pc);
+    iss_trace_dump(_this, &result->insn, result->pc);
     
 }
-
-
-// This get called when there is floating-point instruction detected in decode stage.
-// Maybe change output type from void to bool later if inserting scoreboard.
-/*
-bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
-{
-    iss_opcode_t opcode = insn->opcode;
-    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
-    
-    // Todo: Check if the subsystem side accept the offloaded instruction.
-    // The fp instruction can be offloaded when the accelerator queue is empty.
-    // If there's a accelerator stall, stop the current event queue at the master side.
-    // Use insn_stall() or insn_hold&insn_resume()
-    // 1. insn_stall(): stall and then start from the stall point, choose this way here because we don't want to 
-    // resume back to instr_event and start from next instruction directly.
-    // 2. insn_hold&insn_resume(): use meth function to solve the remaining execution and then return back to next instruction directly.
-    this->acc_stall = true;
-    if (this->acc_stall)
-    {
-        // If acc_stall, stall the core, this will get unstalled when the event (handle_event) is called
-        this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Stall integer core event queue\n");
-        this->exec.insn_stall();
-    }
-
-    // Todo: currently stall when last fp instruction has been offloaded.
-    // Hierarchical instruction scoreboard, 
-    // only stall the current floating point instruction if the fp subsystem hasn't finished the previous one 
-    // (This situation happens when the fp instruction latency greater than zero).
-    // Implement conditional acc_stall, stall fp and not stall int.
-    // 1. fp instruction: get previous response and continue, compare timestamp 
-    // of current global one and the previous/undergoing fp instruction.
-    // 2. int instruction: continue without check, except data dependency, some int operands depend on previous fp result.
-    // And also int instruction will be stalled if previous fp is still waiting to be offloaded.
-    if (insn->is_fp_op | insn->is_frep_op)
-    {
-        // Compare timestamp
-        int64_t diff = this->fp_past_timestamp - this->top.clock.get_cycles() - this->exec.instr_event.stall_cycle_get();
-        if (unlikely(diff >= 0))
-        {
-            this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Stall current fp instruction for %d cycles\n", diff+1);
-
-            // Assign arguments to request.
-            this->insn = insn;
-            this->pc = pc;
-            this->is_write=is_write;
-            this->frm = this->csr.fcsr.frm;
-
-            // Update the latest past floating point instruction finishing time
-            this->fp_past_timestamp = this->fp_past_timestamp + insn->latency + 1;
-            this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set fp timestamp for next instruction: %d\n", fp_past_timestamp );
-
-            // Todo: write a function to stall the core for n cycles, and restart again from stall point by itself
-            // Postpone offload happening n cycles later using enqueue.
-            if (!this->event->is_enqueued())
-            {
-                this->event->enqueue(diff+1);
-            }
-
-            // Return true so that pc is not updated.
-            // This also prevent the core from continuing to the next instruction.
-            return true;
-        }
-        else
-        {
-            // For normal fp instruction with latency = NUM_PIPELINE_STAGE - 1.
-            // Offload immediately
-            if (!this->event->is_enqueued())
-            {
-                this->event->enqueue(0);
-            }
-        }
-    }
-
-    // Assign arguments to request variables.
-    this->insn = insn;
-    this->pc = pc;
-    this->is_write=is_write;
-    this->frm = this->csr.fcsr.frm;
-
-    // Update the latest past floating point instruction finishing time
-    this->fp_past_timestamp = this->top.clock.get_cycles() + insn->latency;
-    this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set fp timestamp for next instruction: %d\n", fp_past_timestamp );
-    
-    return false;
-}
-*/
-
-// This gets called when the offloaded instruction needs to be delayed.
-// void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
-// {
-//     Iss *_this = (Iss *)__this;
-//     iss_insn_t *insn = _this->insn;
-
-//     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Handling delayed instruction (opcode: 0x%lx, pc: 0x%lx)\n", _this->insn->opcode, _this->pc);
-
-//     // Assign arguments to request.
-//     _this->acc_req = { .pc=_this->pc, .insn=insn, .is_write=_this->is_write, .frm = _this->frm };
-
-//     // Offload request if the port is connected
-//     if (_this->acc_req_itf.is_bound())
-//     {
-//         _this->acc_req_itf.sync(&_this->acc_req);
-//     }
-
-//     // If the output register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in integer core.
-//     // And the following instruction with data dependency will execute scoreboard_reg_check when loading the operands,
-//     // which will call stall_load_dependency_account.
-//     if (!_this->insn->out_regs_fp[0])
-//     {
-//     #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-//         _this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], _this->top.clock.get_cycles() + insn->latency);
-//     #endif
-//         _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Set scoreboard timestamp of int reg index %d to %d\n", insn->out_regs[0], _this->top.clock.get_cycles() + insn->latency);        
-//     }
-
-//     // Call the core to start the next instruction if the previous one has already been offloaded.
-//     // Clear the stall flag.
-//     _this->acc_stall = false;
-
-//     // Unstall the core when we receive the response.
-//     if (_this->exec.is_stalled())
-//     {
-//         _this->exec.stalled_dec();
-//     }
-//     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Ready for the next instruction\n");
-// }

@@ -490,49 +490,6 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
 {
     if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
     {
-        if (save_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
-        {
-            if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
-            {
-                #ifdef CONFIG_GVSOC_ISS_SNITCH
-                if (iss->snitch & iss->fp_ss)
-                {
-                    saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
-                }
-                if (iss->snitch & !iss->fp_ss)
-                {
-                    saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
-                }
-                #endif
-            }
-            else if (arg->flags & ISS_DECODER_ARG_FLAG_REG64)
-            {
-                #ifdef CONFIG_GVSOC_ISS_SNITCH
-                if (iss->snitch & iss->fp_ss)
-                {
-                    saved_arg->u.reg.value_64 = iss->regfile.get_reg64(insn_arg->u.reg.index);
-                }
-                if (iss->snitch & !iss->fp_ss)
-                {
-                    saved_arg->u.reg.value_64 = iss->regfile.get_reg64(insn_arg->u.reg.index);
-                }
-                #endif
-            }
-            else
-            {
-                #ifdef CONFIG_GVSOC_ISS_SNITCH
-                if (iss->snitch & iss->fp_ss)
-                {
-                    saved_arg->u.reg.value = iss->regfile.get_reg(insn_arg->u.reg.index);
-                }
-                if (iss->snitch & !iss->fp_ss)
-                {
-                    saved_arg->u.reg.value = iss->regfile.get_reg(insn_arg->u.reg.index);
-                }
-                #endif
-            }
-        }
-
         if (save_out && arg->type == ISS_DECODER_ARG_TYPE_OUT_REG ||
             !save_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
         {
@@ -550,16 +507,6 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
     }
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_IMM)
     {
-        #ifdef CONFIG_GVSOC_ISS_SNITCH
-        if (save_out & iss->fp_ss)
-        {
-            saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg(insn_arg->u.indirect_imm.reg_index);
-        }
-        if (save_out & !iss->fp_ss)
-        {
-            saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg(insn_arg->u.indirect_imm.reg_index);
-        }
-        #endif
         if (save_out)
             return;
         saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_imm.reg_index);
@@ -570,18 +517,6 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
     //   }
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_REG)
     {
-        #ifdef CONFIG_GVSOC_ISS_SNITCH
-        if (save_out & iss->fp_ss)
-        {
-            saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.base_reg_index);
-            saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.offset_reg_index);
-        }
-        if (save_out & !iss->fp_ss)
-        {
-            saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.base_reg_index);
-            saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg(insn_arg->u.indirect_reg.offset_reg_index);
-        }
-        #endif
         if (save_out)
             return;
         saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.base_reg_index);
@@ -600,6 +535,11 @@ static void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved
         iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
         iss_trace_save_arg(iss, insn, &insn->args[i], arg, &saved_args[i], save_out);
     }
+}
+
+void iss_trace_dump_in(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    iss_trace_save_args(iss, insn, iss->trace.saved_args, false);
 }
 
 void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)

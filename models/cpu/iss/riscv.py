@@ -21,6 +21,7 @@ import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from cpu.iss.isa_gen.isa_rvv import *
+from cpu.iss.isa_gen.isa_smallfloats import *
 
 class RiscvCommon(st.Component):
     """
@@ -430,7 +431,7 @@ class Snitch(RiscvCommon):
             core_id: int=0):
 
 
-        extensions = [ Rv32frep() ]
+        extensions = [ Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
         
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
@@ -464,7 +465,7 @@ class Snitch_fp_ss(RiscvCommon):
             timed: bool=False):
 
 
-        extensions = [ Rv32frep() ]
+        extensions = [ Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
     
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129

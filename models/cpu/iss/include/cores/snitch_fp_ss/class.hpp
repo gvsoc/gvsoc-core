@@ -111,8 +111,7 @@ public:
     static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
 
-    // Todo: add temporary response information to let code more robust.
-    // Pay attention to assignment time of handle_notif and handle_event, avoid confusing offloading and executing instructions.
+    // Temporary response information.
     // bool error;
     // int rd;
     // iss_reg_t data;

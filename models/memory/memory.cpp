@@ -136,7 +136,12 @@ Memory::Memory(vp::ComponentConf &config)
 
     // Initialize the Memory with a special value to detect uninitialized
     // variables
+#ifndef CONFIG_GVSOC_ISS_SNITCH
     memset(mem_data, 0x57, size);
+#endif
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    memset(mem_data, 0x0, size);
+#endif
 
     // Preload the Memory
     js::Config *stim_file_conf = this->get_js_config()->get("stim_file");

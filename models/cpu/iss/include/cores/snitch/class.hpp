@@ -113,15 +113,10 @@ public:
 
     // Request and Response interfaces and events
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
-    // static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     static void handle_result(vp::Block *__this, OffloadRsp *result);
 
-    // Checking scoreboard
-    // bool acc_stall;
-    // Record the latest past floating point instruction finishing time
-    // int64_t fp_past_timestamp;
     // Temporary request information
-    iss_insn_t *insn;
+    iss_insn_t insn;
     iss_reg_t pc;
     bool is_write;
     unsigned int frm;

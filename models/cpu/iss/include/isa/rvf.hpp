@@ -41,6 +41,9 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         bool acc_req_ready = iss->check_state(insn);
         iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
 
+        // Not increment pc if there's dependency or stall
+        // Implement "return pc" also possible to realize parallelism, can iterate at pc instruction in instr_event,
+        // but lose a bit efficiency because the instruction will be unnecessarily decoded every cycle.
         // If not ready, stay at current PC and fetch the same instruction next cycle.
         if (!acc_req_ready) 
         {
@@ -53,6 +56,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         // If ready, send offload request.
         if (acc_req_ready)
         {
+            // Pass value related to integer regfile from integer core to subsystem.
             // Store the pointer of integer register file and scoreboard inside the instruction.
             insn->reg_addr = &iss->regfile.regs[0];
             #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
@@ -77,30 +81,13 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
             iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Total number of stall cycles: %d\n", iss->exec.instr_event.stall_cycle_get());
         }
 
-        /*
-        // Pass value related to integer regfile from integer core to subsystem.
-        insn->reg_addr = &iss->regfile.regs[0];
         // Todo: check how hardware implements CSR_FFLAGS
         // unsigned int fflags= iss->csr.fcsr.fflags;
         // insn->fflags_addr = &fflags;
-        #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-        insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
-        #endif
-        int stall = iss->handle_req(insn, pc, false);
-        */
-
+       
         // Todo: handle instruction CSRRSI and CSRRCI later when we add SSR, 
         // these two instruction also need to be offloaded.
         
-        // Todo: implement scoreboard somewhere, not increment pc if there's dependency or stall
-        // Implement "return pc" also possible to realize parallism, can iterate at pc instruction in instr_event,
-        // but lose efficiency because the instruction will be unnecessarily decoded every cycle.
-        // It's better to enqueue the decoded instruction for later execution.
-        // if (iss->handle_req(insn, pc, false)) 
-        // {
-        //     iss->exec.trace.msg("Stall at current instruction\n");
-        //     return pc;
-        // }
     }
 #endif
     return iss_insn_next(iss, insn, pc);
@@ -264,25 +251,25 @@ static inline iss_reg_t fmv_s_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t feq_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 8, 23));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t flt_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 8, 23));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fle_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 8, 23));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fclass_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 8, 23));
+    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 

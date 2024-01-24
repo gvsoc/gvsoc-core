@@ -34,6 +34,7 @@ typedef struct
         {
             unsigned int fflags : 5;
             unsigned int frm : 3;
+            unsigned int fmode : 2;
         };
         iss_reg_t raw;
     };

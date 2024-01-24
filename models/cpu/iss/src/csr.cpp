@@ -352,7 +352,19 @@ static bool fcsr_read(Iss *iss, iss_reg_t *value)
 
 static bool fcsr_write(Iss *iss, unsigned int value)
 {
-    iss->csr.fcsr.raw = value & 0xff;
+    iss->csr.fcsr.raw = value & 0x3ff;
+    return false;
+}
+
+static bool fmode_read(Iss *iss, iss_reg_t *value)
+{
+    *value = iss->csr.fcsr.fmode;
+    return false;
+}
+
+static bool fmode_write(Iss *iss, unsigned int value)
+{
+    iss->csr.fcsr.fmode = value;
     return false;
 }
 
@@ -901,6 +913,9 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     case 0x003:
         status = fcsr_read(iss, value);
         break;
+    case 0x800:
+        status = fmode_read(iss, value);
+        break;
 
     // User counter / timers
     case 0xC10:
@@ -1285,6 +1300,8 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return frm_write(iss, value);
     case 0x003:
         return fcsr_write(iss, value);
+    case 0x800:
+        return fmode_write(iss, value);
 
     case 0x343:
         return mbadaddr_write(iss, value);
@@ -1386,6 +1403,8 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "frm";
     case 0x003:
         return "fcsr";
+    case 0x800:
+        return "fmode";
 
     // User counter / timers
     case 0xC01:

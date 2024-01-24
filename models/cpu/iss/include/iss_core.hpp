@@ -27,6 +27,7 @@
 
 void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr);
 
+void iss_trace_dump_in(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 void iss_trace_init(Iss *iss);
 

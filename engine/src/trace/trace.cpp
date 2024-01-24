@@ -283,18 +283,18 @@ char *vp::TraceEngine::get_event_buffer(int bytes)
             if ((unsigned int)(TRACE_EVENT_BUFFER_SIZE - current_buffer_size) > sizeof(vp::Trace *))
                 *(vp::Trace **)(current_buffer + current_buffer_size) = NULL;
 
-            ready_event_buffers.push_back(current_buffer);
+            ready_event_buffers.push(current_buffer);
             current_buffer = NULL;
 
             pthread_cond_broadcast(&cond);
         }
 
-        while (event_buffers.size() == 0)
+        while (event_buffers.empty())
         {
             pthread_cond_wait(&cond, &mutex);
         }
-        current_buffer = event_buffers[0];
-        event_buffers.erase(event_buffers.begin());
+        current_buffer = event_buffers.front();
+        event_buffers.pop();
         current_buffer_size = 0;
         pthread_mutex_unlock(&mutex);
     }
@@ -331,7 +331,7 @@ void vp::TraceEngine::flush()
         if (current_buffer)
         {
             *(vp::Trace **)(current_buffer + current_buffer_size) = NULL;
-            ready_event_buffers.push_back(current_buffer);
+            ready_event_buffers.push(current_buffer);
             current_buffer = NULL;
         }
         pthread_cond_broadcast(&cond);
@@ -835,22 +835,22 @@ void vp::TraceEngine::vcd_routine()
         pthread_mutex_lock(&this->mutex);
 
         // Wait for a buffer of event of the end of simulation
-        while (this->ready_event_buffers.size() == 0 && !end)
+        while (this->ready_event_buffers.empty() && !end)
         {
             pthread_cond_wait(&this->cond, &this->mutex);
         }
 
         // In case of the end of simulation, just leave
-        if (this->ready_event_buffers.size() == 0 && end)
+        if (this->ready_event_buffers.empty() && end)
         {
             pthread_mutex_unlock(&this->mutex);
             break;
         }
 
         // Pop the first buffer
-        event_buffer = ready_event_buffers[0];
+        event_buffer = ready_event_buffers.front();
         event_buffer_start = event_buffer;
-        ready_event_buffers.erase(ready_event_buffers.begin());
+        ready_event_buffers.pop();
 
         pthread_mutex_unlock(&this->mutex);
 
@@ -933,7 +933,7 @@ void vp::TraceEngine::vcd_routine()
 
         // Now push back the buffer of events into the list of free buffers
         pthread_mutex_lock(&this->mutex);
-        event_buffers.push_back(event_buffer_start);
+        event_buffers.push(event_buffer_start);
         pthread_cond_broadcast(&cond);
         pthread_mutex_unlock(&this->mutex);
     }
@@ -964,9 +964,9 @@ void vp::TraceEngine::vcd_routine_external()
         }
 
         // Pop the first buffer
-        event_buffer = (uint8_t *)ready_event_buffers[0];
+        event_buffer = (uint8_t *)ready_event_buffers.front();
         event_buffer_start = event_buffer;
-        ready_event_buffers.erase(ready_event_buffers.begin());
+        ready_event_buffers.pop();
 
         pthread_mutex_unlock(&this->mutex);
 
@@ -991,7 +991,7 @@ void vp::TraceEngine::vcd_routine_external()
 
         // Now push back the buffer of events into the list of free buffers
         pthread_mutex_lock(&this->mutex);
-        event_buffers.push_back((char *)event_buffer_start);
+        event_buffers.push((char *)event_buffer_start);
         pthread_cond_broadcast(&cond);
         pthread_mutex_unlock(&this->mutex);
     }

@@ -28,12 +28,13 @@
 #include <pthread.h>
 #include <thread>
 #include <regex.h>
+#include <queue>
 
 namespace vp {
 
 
-    #define TRACE_EVENT_BUFFER_SIZE (1<<16)
-    #define TRACE_EVENT_NB_BUFFER   16
+    #define TRACE_EVENT_BUFFER_SIZE (1<<20)
+    #define TRACE_EVENT_NB_BUFFER   256
 
     #define TRACE_FORMAT_LONG  0
     #define TRACE_FORMAT_SHORT 1
@@ -156,8 +157,8 @@ namespace vp {
         // the same timestamp.
         void flush_event_traces(int64_t timestamp);
 
-        vector<char *> event_buffers;
-        vector<char *> ready_event_buffers;
+        std::queue<char *> event_buffers;
+        std::queue<char *> ready_event_buffers;
         char *current_buffer;
         int current_buffer_size;
         pthread_mutex_t mutex;

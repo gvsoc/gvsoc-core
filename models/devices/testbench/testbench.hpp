@@ -500,6 +500,7 @@ public:
     vp::UartSlave itf;
 
     void start();
+    void reset(bool active);
 
     void set_control(bool active, int baudrate);
     void set_dev(Uart_dev *dev) { this->dev = dev; }
@@ -625,6 +626,7 @@ public:
     Testbench(vp::ComponentConf &config);
 
     void start();
+    void reset(bool active);
     std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
 
     void handle_received_byte(uint8_t byte);

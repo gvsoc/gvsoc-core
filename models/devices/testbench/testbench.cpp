@@ -208,6 +208,13 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
     }
 }
 
+void Testbench::reset(bool active)
+{
+    for (Uart *uart: this->uarts)
+    {
+        uart->reset(active);
+    }
+}
 
 
 Testbench::Testbench(vp::ComponentConf &config)
@@ -288,6 +295,17 @@ void Testbench::start()
     for (int i=0; i<this->nb_uart; i++)
     {
         this->uarts[i]->start();
+    }
+}
+
+void Uart::reset(bool active)
+{
+    if (!active)
+    {
+        if (this->is_control_active)
+        {
+            this->clock->enqueue(this->init_event, 1);
+        }
     }
 }
 
@@ -439,10 +457,6 @@ Uart::Uart(Testbench *top, int id)
 
 void Uart::start()
 {
-    if (this->is_control_active)
-    {
-        this->clock->enqueue(this->init_event, 1);
-    }
 }
 
 

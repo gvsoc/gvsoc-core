@@ -505,19 +505,7 @@ void vp::Component::voltage_sync(vp::Block *__this, int voltage)
 
 void vp::Component::clk_reg(Component *_this, Component *clock_engine_instance)
 {
-    _this->clock.clock_engine_instance = (ClockEngine *)clock_engine_instance;
-    for (vp::Block *x : _this->get_childs())
-    {
-        if (x->is_component())
-        {
-            vp::Component *component = (vp::Component *)x;
-            component->clk_reg(component, clock_engine_instance);
-        }
-    }
-    for (ClockEvent *event: _this->clock.events)
-    {
-        event->set_clock(_this->clock.clock_engine_instance);
-    }
+    _this->clock.set_engine((ClockEngine *)clock_engine_instance);
 }
 
 

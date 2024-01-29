@@ -38,3 +38,21 @@ void vp::BlockClock::remove_clock_event(ClockEvent *event)
         }
     }
 }
+
+void vp::BlockClock::set_engine(vp::ClockEngine *engine)
+{
+    this->clock_engine_instance = engine;
+    for (vp::Block *x : this->top.get_childs())
+    {
+        x->clock.set_engine(engine);
+    }
+    for (ClockEvent *event: this->events)
+    {
+        event->set_clock(engine);
+    }
+}
+
+vp::BlockClock::BlockClock(vp::Block &top)
+: top(top)
+{
+}

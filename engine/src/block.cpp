@@ -26,7 +26,7 @@
 vp::Block::Block(Block *parent, std::string name, vp::TimeEngine *time_engine,
         vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)
     : parent(parent), time(parent, *this, time_engine), traces(parent, *this, trace_engine),
-    power(parent, *this, power_engine)
+    power(parent, *this, power_engine), clock(*this)
 {
     if (parent)
     {

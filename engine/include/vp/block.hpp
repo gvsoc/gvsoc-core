@@ -56,6 +56,7 @@ namespace vp {
         friend class vp::BlockPower;
         friend class vp::BlockTime;
         friend class vp::BlockTrace;
+        friend class vp::BlockClock;
         friend class vp::PowerTrace;
         friend class vp::CompPowerReport;
         friend class vp::ClockEngine;

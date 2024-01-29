@@ -282,8 +282,6 @@ class Runner():
 
             generated_components = self.target.get_generated_components()
 
-            print (generated_components)
-
             gen_comp_list = []
             for comp in generated_components.values():
                 gen_comp_list.append(comp.name)

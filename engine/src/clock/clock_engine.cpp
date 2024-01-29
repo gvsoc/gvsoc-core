@@ -232,6 +232,21 @@ void vp::ClockEngine::update()
 
 vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
 {
+    int64_t full_cycle = cycle + get_cycles();
+
+    if (unlikely(event->is_enqueued()))
+    {
+        // If the event is already enqueued, ignore the enqueue if the existing
+        // cycle count is below the new one
+        if (event->cycle <= full_cycle)
+        {
+            return event;
+        }
+
+        // Otherwise cancel it, so that we can enqueue it with new lower cycle count
+        this->cancel(event);
+    }
+
     vp_assert(!event->enqueued, 0, "Enqueueing already enqueued event\n");
     // vp_assert(cycles > 0, 0, "Enqueueing event with 0 or negative cycles\n");
 
@@ -252,8 +267,6 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
     }
 
     vp::ClockEvent *current = delayed_queue, *prev = NULL;
-
-    int64_t full_cycle = cycle + get_cycles();
 
     while (current && current->cycle <= full_cycle)
     {

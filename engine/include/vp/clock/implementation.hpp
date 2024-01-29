@@ -112,10 +112,6 @@ inline void vp::ClockEvent::cancel()
 
 inline void vp::ClockEvent::enqueue(int64_t cycles)
 {
-    if (this->is_enqueued())
-    {
-      this->clock->cancel(this);
-    }
     this->clock->enqueue(this, cycles);
 }
 

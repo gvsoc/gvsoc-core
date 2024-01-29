@@ -60,6 +60,8 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
     {
         _this->trace.warning("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
     }
+
+    _this->misaligned_size = 0;
 }
 
 

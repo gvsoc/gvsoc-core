@@ -232,6 +232,14 @@ void vp::ClockEngine::update()
 
 vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
 {
+    // That should not be needed but in practice, lots of models are pushing from one
+    // clock engine to another without synchronizing, creating timing issues.
+    // This probably comes from models manipulating 2 clock domains at the same time.
+    if (unlikely(!this->time.is_running()))
+    {
+        this->sync();
+    }
+
     int64_t full_cycle = cycle + get_cycles();
 
     if (unlikely(event->is_enqueued()))
@@ -253,13 +261,8 @@ vp::ClockEvent *vp::ClockEngine::enqueue(vp::ClockEvent *event, int64_t cycle)
     event->enqueued = true;
     event->clock = this;
 
-    // That should not be needed but in practice, lots of models are pushing from one
-    // clock engine to another without synchronizing, creating timing issues.
-    // This probably comes from models manipulating 2 clock domains at the same time.
     if (unlikely(!this->time.is_running()))
     {
-        this->sync();
-
         if (this->period != 0 && !this->permanent_first)
         {
             time.enqueue_to_engine(this->stop_time + cycle * period);
@@ -352,6 +355,10 @@ int64_t vp::ClockEngine::exec()
 
     ClockEvent *current = this->permanent_first;
 
+    // Also remember the current time in order to resynchronize the clock engine
+    // in case we enqueue and event from another engine.
+    this->stop_time = this->time.get_time();
+
     if (likely(current != NULL))
     {
         while(1)
@@ -389,6 +396,8 @@ int64_t vp::ClockEngine::exec()
     }
     else
     {
+        vp_assert(this->cycles <= delayed_queue->cycle, NULL, "Executing event in the past\n");
+
         this->cycles = delayed_queue->cycle;
     }
 
@@ -416,10 +425,6 @@ int64_t vp::ClockEngine::exec()
     }
     else
     {
-
-        // Also remember the current time in order to resynchronize the clock engine
-        // in case we enqueue and event from another engine.
-        this->stop_time = this->time.get_time();
 
         if (delayed_queue)
         {

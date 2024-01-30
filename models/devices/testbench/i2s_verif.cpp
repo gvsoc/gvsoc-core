@@ -29,7 +29,7 @@
 #include <sndfile.hh>
 #endif
 
-#include "pcm_pdm_conversion/pcm_pdm_conversion.hpp"
+#include "pcm_pdm_conversion.hpp"
 
 class Slot;
 

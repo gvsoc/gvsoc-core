@@ -34,6 +34,8 @@ public:
 
 private:
 
+    void start();
+
     static void sync(vp::Block *__this, int scl, int sda, int id);
 
     vp::Trace trace;
@@ -68,6 +70,13 @@ I2c_bus::I2c_bus(vp::ComponentConf &config)
     this->pending_resolve = false;
 
 }
+
+void I2c_bus::start()
+{
+    this->in.sync(1, 1);
+
+}
+
 
 void I2c_bus::sync(vp::Block *__this, int scl, int sda, int id)
 {

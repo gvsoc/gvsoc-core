@@ -40,7 +40,7 @@
 #include <regex>
 #include <queue>
 
-#include "pcm_pdm_conversion/pcm_pdm_conversion.hpp"
+#include "pcm_pdm_conversion.hpp"
 
 class Testbench;
 class Uart;

@@ -279,6 +279,7 @@ class Component(object):
         """
         self.properties = self.__merge_properties(self.properties, properties)
 
+
     def add_sources(self, sources: list):
         """Add sources.
 

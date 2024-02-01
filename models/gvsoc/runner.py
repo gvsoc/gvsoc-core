@@ -84,6 +84,9 @@ def gen_config(args, config, working_dir, runner=None):
         if args.binary is not None:
             debug_binaries.append(args.binary)
 
+        if args.debug_binary is not None:
+            debug_binaries += args.debug_binary
+
         rom_binary = full_config.get_str('**/soc/rom/config/binary')
 
         if rom_binary is not None:

@@ -55,6 +55,8 @@
 
 void vp::Component::final_bind()
 {
+    this->reset_is_bound = this->reset_port.is_bound();
+
     for (auto port : this->ports)
     {
         if (port.second->is_slave())
@@ -88,8 +90,6 @@ void vp::Component::final_bind()
 int vp::Component::build_all()
 {
     this->bind_comps();
-
-    this->reset_is_bound = this->reset_port.is_bound();
 
     this->pre_start_all();
 

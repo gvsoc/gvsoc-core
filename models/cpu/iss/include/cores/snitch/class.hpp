@@ -47,7 +47,9 @@
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
+#endif
 
 class IssWrapper;
 
@@ -75,11 +77,13 @@ public:
     Pmp pmp;
     Exception exception;
 
-    Spatz spatz;
-
-
-
     vp::Component &top;
+
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+    Spatz spatz;
+#endif
+
+
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
@@ -110,7 +114,9 @@ private:
 
 #include "cpu/iss/include/isa/rv64i.hpp"
 #include "cpu/iss/include/isa/rv32i.hpp"
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
 #include "cpu/iss/include/isa/rv32v.hpp"
+#endif
 #include "cpu/iss/include/isa/rv32c.hpp"
 #include "cpu/iss/include/isa/zcmp.hpp"
 #include "cpu/iss/include/isa/rv32a.hpp"

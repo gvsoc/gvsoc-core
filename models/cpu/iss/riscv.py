@@ -312,6 +312,21 @@ class RiscvCommon(st.Component):
         """
         return gvsoc.systree.SlaveItf(self, itf_name='bootaddr', signature='wire<uint64_t>')
 
+    def i_IRQ(self, irq) -> gvsoc.systree.SlaveItf:
+
+        if irq == 3:
+            name = 'msi'
+        elif irq == 7:
+            name = 'mti'
+        elif irq == 11:
+            name = 'mei'
+        elif irq == 9:
+            name = 'sei'
+        else:
+            name = f'external_irq_{irq}'
+
+        return gvsoc.systree.SlaveItf(self, itf_name=name, signature='wire<bool>')
+
 
     def gen_gtkw_conf(self, tree, traces):
         if tree.get_view() == 'overview':
@@ -415,7 +430,7 @@ class Riscv(RiscvCommon):
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
-            memory_start=memory_start, memory_size=memory_size)
+            memory_start=memory_start, memory_size=memory_size, scoreboard=True)
 
         self.add_c_flags([
             "-DCONFIG_ISS_CORE=riscv",
@@ -429,15 +444,21 @@ class Snitch(RiscvCommon):
             parent,
             name,
             isa: str='rv32imafdc',
-            misa: int=0,
+            misa: int=None,
             binaries: list=[],
             fetch_enable: bool=False,
-            boot_addr: int=0):
+            boot_addr: int=0,
+            inc_spatz: bool=False,
+            core_id: int=0):
 
 
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
 
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True)
+        if misa is None:
+            misa = isa_instance.misa
+
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True,
+            fetch_enable=fetch_enable, boot_addr=boot_addr, core_id=core_id, riscv_exceptions=True)
 
         self.add_c_flags([
             "-DCONFIG_ISS_CORE=snitch",
@@ -445,8 +466,12 @@ class Snitch(RiscvCommon):
 
         self.add_sources([
             "cpu/iss/src/snitch/snitch.cpp",
-            "cpu/iss/src/spatz.cpp",
         ])
+
+        if inc_spatz:
+            self.add_sources([
+                "cpu/iss/src/spatz.cpp",
+            ])
 
 
 class Spatz(RiscvCommon):

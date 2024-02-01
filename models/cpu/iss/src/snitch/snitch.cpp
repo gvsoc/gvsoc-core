@@ -26,7 +26,10 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), top(top)
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+      , spatz(*this)
+#endif
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,

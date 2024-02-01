@@ -200,6 +200,9 @@ class Component(object):
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
 
+    def i_RESET(self) -> SlaveItf:
+        return SlaveItf(self, 'reset', signature='wire<bool>')
+
     def i_CLOCK(self) -> SlaveItf:
         """Returns the clock port.
 

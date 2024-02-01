@@ -39,18 +39,21 @@ class ElfLoader(gvsoc.systree.Component):
         Address of the first instruction to be executed. If it is None, the entry will be
         taken from the binary.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None, entry: int=None):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None, binaries: list=None, entry: int=None):
 
         super().__init__(parent, name)
 
-        binaries = []
+        whole_binaries = []
         if binary is not None:
-            binaries.append(binary)
+            whole_binaries.append(binary)
+
+        if binaries is not None:
+            whole_binaries += binaries
 
         self.set_component('utils.loader.loader')
 
         self.add_properties({
-            'binary': binaries
+            'binary': whole_binaries
         })
 
         if entry is not None:

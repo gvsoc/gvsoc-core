@@ -24,15 +24,19 @@
 
 #include <vp/vp.hpp>
 #include <cpu/iss/include/types.hpp>
+#include <cpu/iss/include/htif.hpp>
 
+
+class IssWrapper;
 
 
 class Syscalls
 {
 public:
-    Syscalls(Iss &iss);
+    Syscalls(IssWrapper &top, Iss &iss);
 
     void build();
+    void reset(bool active);
 
     void handle_ebreak();
     void handle_riscv_ebreak();
@@ -45,6 +49,7 @@ public:
     Iss_pcer_info_t pcer_info[32];
     int64_t cycle_count_start;
     int64_t cycle_count;
+    Htif htif;
 
 private:
     Iss &iss;

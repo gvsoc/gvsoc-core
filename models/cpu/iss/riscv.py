@@ -22,6 +22,7 @@ import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from cpu.iss.isa_gen.isa_rvv import *
 from pulp.snitch.snitch_isa import *
+from elftools.elf.elffile import *
 
 class RiscvCommon(st.Component):
     """
@@ -90,7 +91,8 @@ class RiscvCommon(st.Component):
             memory_start=None,
             memory_size=None,
             handle_misaligned=False,
-            external_pccr=False):
+            external_pccr=False,
+            htif=False):
 
         super().__init__(parent, name)
 
@@ -119,6 +121,7 @@ class RiscvCommon(st.Component):
             "cpu/iss/src/resource.cpp",
             "cpu/iss/src/trace.cpp",
             "cpu/iss/src/syscalls.cpp",
+            "cpu/iss/src/htif.cpp",
             "cpu/iss/src/mmu.cpp",
             "cpu/iss/src/pmp.cpp",
             "cpu/iss/src/gdbserver.cpp",
@@ -191,6 +194,22 @@ class RiscvCommon(st.Component):
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
+
+        if htif:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])
+
+            for binary in binaries:
+                with open(binary, 'rb') as file:
+                    elffile = ELFFile(file)
+                    for section in elffile.iter_sections():
+                        if isinstance(section, SymbolTableSection):
+                            for symbol in section.iter_symbols():
+                                if symbol.name == 'tohost':
+                                    tohost_addr = symbol.entry['st_value']
+                                    self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+                                if symbol.name == 'fromhost':
+                                    fromhost_addr = symbol.entry['st_value']
+                                    self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
 
         if pmp:
             self.add_c_flags([
@@ -423,7 +442,7 @@ class Riscv(RiscvCommon):
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
             fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
-            core_id: int=0, memory_start=None, memory_size=None):
+            core_id: int=0, memory_start=None, memory_size=None, htif: bool=False):
 
         # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
@@ -434,7 +453,8 @@ class Riscv(RiscvCommon):
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
-            memory_start=memory_start, memory_size=memory_size, scoreboard=True)
+            memory_start=memory_start, memory_size=memory_size, scoreboard=True,
+            htif=htif)
 
         self.add_c_flags([
             "-DCONFIG_ISS_CORE=riscv",

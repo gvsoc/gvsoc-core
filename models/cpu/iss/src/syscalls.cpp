@@ -32,10 +32,12 @@
 #define O_BINARY 0
 #endif
 
-Syscalls::Syscalls(Iss &iss)
-    : iss(iss)
+Syscalls::Syscalls(IssWrapper &top, Iss &iss)
+    : iss(iss), htif(top, iss)
 {
 }
+
+class IssWrapper;
 
 void Syscalls::build()
 {
@@ -46,7 +48,14 @@ void Syscalls::build()
         this->pcer_info[i].name = "";
     }
 
+    this->htif.build();
 }
+
+void Syscalls::reset(bool active)
+{
+  this->htif.reset(active);
+}
+
 
 void Syscalls::handle_ebreak()
 {

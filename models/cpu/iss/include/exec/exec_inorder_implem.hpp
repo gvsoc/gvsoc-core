@@ -255,3 +255,9 @@ inline void Exec::busy_exit()
         this->iss.timing.active_pc_trace_event.event(NULL);
     }
 }
+
+
+inline void Exec::offload_insn(IssOffloadInsn<iss_reg_t> *insn)
+{
+    this->offload_itf.sync(insn);
+}

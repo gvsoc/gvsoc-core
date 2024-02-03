@@ -24,6 +24,7 @@
 #include <vp/vp.hpp>
 #include <cpu/iss/include/types.hpp>
 #include ISS_CORE_INC(class.hpp)
+#include <cpu/iss/include/offload.hpp>
 
 
 #define CONFIG_GVSOC_ISS_NB_HWLOOP 2
@@ -32,6 +33,7 @@
 typedef iss_reg_t (*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 class IssWrapper;
+
 
 class Exec
 {
@@ -154,6 +156,8 @@ public:
     bool pending_flush;
     int64_t stall_cycles;
 
+    inline void offload_insn(IssOffloadInsn<iss_reg_t> *insn);
+
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);
     static void clock_sync(vp::Block *_this, bool active);
@@ -170,4 +174,6 @@ private:
     vp::WireSlave<bool> fetchen_itf;
 
     bool clock_active;
+
+    vp::WireMaster<IssOffloadInsn<iss_reg_t> *> offload_itf;
 };

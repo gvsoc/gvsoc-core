@@ -37,6 +37,8 @@ void Exec::build()
 
     this->iss.top.new_master_port("busy", &busy_itf);
 
+    this->iss.top.new_master_port("offload", &this->offload_itf);
+
     flush_cache_ack_itf.set_sync_meth(&Exec::flush_cache_ack_sync);
     this->iss.top.new_slave_port("flush_cache_ack", &flush_cache_ack_itf, (vp::Block *)this);
     this->iss.top.new_master_port("flush_cache_req", &flush_cache_req_itf);

@@ -21,6 +21,7 @@ import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from cpu.iss.isa_gen.isa_rvv import *
+from pulp.snitch.snitch_isa import *
 
 class RiscvCommon(st.Component):
     """
@@ -327,6 +328,9 @@ class RiscvCommon(st.Component):
 
         return gvsoc.systree.SlaveItf(self, itf_name=name, signature='wire<bool>')
 
+    def o_OFFLOAD(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('offload', itf, signature=f'wire<IssOffloadInsn<uint{self.isa.word_size}_t>*>')
+
 
     def gen_gtkw_conf(self, tree, traces):
         if tree.get_view() == 'overview':
@@ -452,7 +456,8 @@ class Snitch(RiscvCommon):
             core_id: int=0):
 
 
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa)
+        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa,
+            extensions=[ Xdma() ] )
 
         if misa is None:
             misa = isa_instance.misa

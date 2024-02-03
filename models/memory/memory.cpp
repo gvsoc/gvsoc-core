@@ -135,8 +135,12 @@ Memory::Memory(vp::ComponentConf &config)
     }
 
     // Initialize the Memory with a special value to detect uninitialized
-    // variables
-    memset(mem_data, 0x57, size);
+    // variables.
+    // Only do it for small memories to not slow down too much simulation init.
+    if (size < (2<<24))
+    {
+        memset(mem_data, 0x57, size);
+    }
 
     // Preload the Memory
     js::Config *stim_file_conf = this->get_js_config()->get("stim_file");

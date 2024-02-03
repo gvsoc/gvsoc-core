@@ -135,3 +135,5 @@ private:
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
+#include <cpu/iss/include/isa/xdma.hpp>
+

@@ -21,7 +21,6 @@ import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from cpu.iss.isa_gen.isa_rvv import *
-from pulp.snitch.snitch_isa import *
 from elftools.elf.elffile import *
 
 class RiscvCommon(st.Component):
@@ -458,70 +457,4 @@ class Riscv(RiscvCommon):
 
         self.add_c_flags([
             "-DCONFIG_ISS_CORE=riscv",
-        ])
-
-
-
-class Snitch(RiscvCommon):
-
-    def __init__(self,
-            parent,
-            name,
-            isa: str='rv32imafdc',
-            misa: int=None,
-            binaries: list=[],
-            fetch_enable: bool=False,
-            boot_addr: int=0,
-            inc_spatz: bool=False,
-            core_id: int=0):
-
-
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa,
-            extensions=[ Xdma() ] )
-
-        if misa is None:
-            misa = isa_instance.misa
-
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True,
-            fetch_enable=fetch_enable, boot_addr=boot_addr, core_id=core_id, riscv_exceptions=True)
-
-        self.add_c_flags([
-            "-DCONFIG_ISS_CORE=snitch",
-        ])
-
-        self.add_sources([
-            "cpu/iss/src/snitch/snitch.cpp",
-        ])
-
-        if inc_spatz:
-            self.add_sources([
-                "cpu/iss/src/spatz.cpp",
-            ])
-
-
-class Spatz(RiscvCommon):
-
-    def __init__(self,
-            parent,
-            name,
-            isa: str='rv32imafdc',
-            misa: int=0,
-            binaries: list=[],
-            fetch_enable: bool=False,
-            boot_addr: int=0,
-            use_rv32v=False):
-
-
-        extensions = [ Rv32v() ]
-
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa, extensions=extensions)
-
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch")
-
-        self.add_c_flags([
-            "-DCONFIG_ISS_CORE=snitch",
-        ])
-
-        self.add_sources([
-            "cpu/iss/src/spatz.cpp",
         ])

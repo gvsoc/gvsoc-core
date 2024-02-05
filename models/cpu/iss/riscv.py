@@ -20,7 +20,6 @@ import os.path
 import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
-from cpu.iss.isa_gen.isa_rvv import *
 from elftools.elf.elffile import *
 
 class RiscvCommon(st.Component):
@@ -172,6 +171,9 @@ class RiscvCommon(st.Component):
 
         elif core == 'snitch':
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SNITCH=1'])
+
+        elif core == 'spatz':
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_INC_SPATZ=1'])
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])

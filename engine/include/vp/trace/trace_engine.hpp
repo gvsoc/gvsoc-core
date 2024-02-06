@@ -119,6 +119,8 @@ namespace vp {
 
         bool use_external_dumper;
 
+        void flush();
+
     protected:
         std::map<std::string, Trace *> traces_map;
         std::vector<Trace *> traces_array;
@@ -147,7 +149,6 @@ namespace vp {
         char *get_event_buffer(int bytes);
         void vcd_routine();
         void vcd_routine_external();
-        void flush();
         void check_pending_events(int64_t timestamp);
         void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size=false);
 

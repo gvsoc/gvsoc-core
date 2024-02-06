@@ -151,6 +151,11 @@ void gv::GvsocLauncher::run()
     }
 }
 
+void gv::GvsocLauncher::flush()
+{
+    this->handler->flush();
+}
+
 int gv::GvsocLauncher::join()
 {
     if (this->is_async)

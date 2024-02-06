@@ -538,6 +538,14 @@ namespace gv {
         virtual void has_ended() {};
 
         /**
+         * Called by GVSOC to notify the simulation has stopped.
+         *
+         * This means the an event occurs which stopped the simulation. Simulation can be still be
+         * resumed.
+         */
+        virtual void has_stopped() {};
+
+        /**
          * Called by GVSOC to notify the simulation engine was updated.
          *
          * This means a new event was posted to the engine and modified the timestamp of the next
@@ -664,6 +672,16 @@ namespace gv {
          * @returns The return value of the simulation.
          */
         virtual int join() = 0;
+
+        /**
+         * Flush internal data.
+         *
+         * This can be useful when the simulation reaches an interaction point to flush
+         * all internal data, so that they can be visible to the user.
+         * This can be used for example when the profiler is pausing the simulation
+         * so that it gets all pending events.
+         */
+        virtual void flush() = 0;
 
         /**
          * Get a component.

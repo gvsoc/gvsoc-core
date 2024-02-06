@@ -308,7 +308,10 @@ char *vp::TraceEngine::get_event_buffer(int bytes)
 
 vp::TraceEngine::~TraceEngine()
 {
-    this->check_pending_events(-1);
+    if (!this->use_external_dumper)
+    {
+        this->check_pending_events(-1);
+    }
     this->flush();
     pthread_mutex_lock(&mutex);
     this->end = 1;
@@ -320,9 +323,12 @@ vp::TraceEngine::~TraceEngine()
 
 void vp::TraceEngine::flush()
 {
-    // Flush only the events until the current timestamp as we may resume
-    // the execution right after
-    this->check_pending_events(this->top->time.get_engine()->get_time());
+    if (!this->use_external_dumper)
+    {
+        // Flush only the events until the current timestamp as we may resume
+        // the execution right after
+        this->check_pending_events(this->top->time.get_engine()->get_time());
+    }
 
     if (current_buffer_size)
     {
@@ -560,6 +566,7 @@ uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace
     uint8_t flags;
 
     timestamp = *(int64_t *)buffer;
+
     buffer += sizeof(timestamp);
 
     cycles = *(int64_t *)buffer;
@@ -977,9 +984,6 @@ void vp::TraceEngine::vcd_routine_external()
         // And go through the events to unpack them
         while (event_buffer - event_buffer_start < (int)(TRACE_EVENT_BUFFER_SIZE - sizeof(vp::Trace *)))
         {
-            int64_t timestamp;
-            int64_t cycles;
-
             vp::Trace *trace = *(vp::Trace **)event_buffer;
             if (trace == NULL)
                 break;

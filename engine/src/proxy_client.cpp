@@ -208,6 +208,10 @@ void Gvsoc_proxy_client::close()
 {
 }
 
+void Gvsoc_proxy_client::flush()
+{
+}
+
 void Gvsoc_proxy_client::run()
 {
     this->send_command("run");

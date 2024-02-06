@@ -37,6 +37,8 @@ public:
 
     void start() override;
 
+    void flush() override;
+
     int64_t stop() override;
 
     double get_average_power(double &dynamic_power, double &static_power) override;

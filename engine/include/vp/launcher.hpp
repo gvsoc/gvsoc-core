@@ -50,6 +50,8 @@ class GvsocLauncher : public gv::Gvsoc
 
         void start() override;
 
+        void flush() override;
+
         int64_t stop() override;
 
         void wait_stopped() override;

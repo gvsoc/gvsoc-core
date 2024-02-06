@@ -320,7 +320,8 @@ class Component(object):
     def set_c_flags_variant(self, name):
         self.variant = name
 
-    def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None):
+    def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None,
+            composite_bind: bool=False):
         """Bind to a slave interface.
 
         The specified master interface of this component is bound to the specified
@@ -345,7 +346,10 @@ class Component(object):
             slave_name = f'{slave_itf.signature}@{slave_itf.component.get_path()}->{slave_itf.itf_name}'
             raise RuntimeError(f'Invalid signature (master: {master_name}, slave: {slave_name})')
 
-        self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
+        if composite_bind:
+            self.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
+        else:
+            self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
     def gen_stimuli(self):
         """Generate stimuli.

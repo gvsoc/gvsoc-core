@@ -593,9 +593,6 @@ class Target(gapy.Target):
                 else:
                     subtree = tree.add(self.name)
 
-                for prop_tree in self.prop_trees.values():
-                    prop_tree.fill_tree(subtree)
-
                 if len(self.properties) > 0:
                     table = rich.table.Table(title='Properties')
                     table.add_column('Name')
@@ -622,6 +619,9 @@ class Target(gapy.Target):
                         table.add_row(prop_name, value_str, prop_full_name, allowed_values, prop.description)
 
                     subtree.add(table)
+
+                for prop_tree in self.prop_trees.values():
+                    prop_tree.fill_tree(subtree)
 
         prop_tree = PropTree()
 

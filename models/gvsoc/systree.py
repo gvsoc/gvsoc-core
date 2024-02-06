@@ -710,12 +710,8 @@ class Component(object):
             component.gen_gui_stub(parent_signal)
 
     def gen_gui(self, parent_signal):
-        return parent_signal
-
-        # TODO once gui filter-out components with no signal, this can be reactivated
-        # to have automatic creation for multi-board
         if self.name is not None:
-            signal = gvsoc.gui.Signal(self, parent_signal, name=self.name)
+            signal = gvsoc.gui.Signal(self, parent_signal, name=self.name, skip_if_no_child=True)
             return signal
         else:
             return parent_signal

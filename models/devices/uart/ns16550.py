@@ -14,12 +14,18 @@
 # limitations under the License.
 #
 
-import gvsoc.systree as st
+import gvsoc.systree
 
-class Ns16550(st.Component):
+class Ns16550(gvsoc.systree.Component):
 
     def __init__(self, parent, name):
 
         super(Ns16550, self).__init__(parent, name)
 
         self.set_component('devices.uart.ns16550')
+
+    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+
+    def o_IRQ(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('irq', itf, signature='wire<bool>')

@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gvsoc.systree as st
+import gvsoc.systree
 
-class Clint(st.Component):
+class Clint(gvsoc.systree.Component):
 
     def __init__(self, parent, name, nb_cores=1):
 
@@ -25,3 +25,15 @@ class Clint(st.Component):
         self.set_component('cpu.clint')
 
         self.add_property('nb_cores', nb_cores)
+
+    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+
+    def i_TIME(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, 'time', signature='wire<uint64_t>')
+
+    def o_SW_IRQ(self, core: int, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind(f'sw_irq_{core}', itf, signature=f'wire<bool>')
+
+    def o_TIMER_IRQ(self, core: int, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind(f'timer_irq_{core}', itf, signature=f'wire<bool>')

@@ -292,6 +292,12 @@ class RiscvCommon(st.Component):
         """
         self.itf_bind('data', itf, signature='io')
 
+    def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('meminfo', itf, signature='io')
+
+    def o_TIME(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('time', itf, signature='wire<uint64_t>')
+
     def o_DATA_DEBUG(self, itf: gvsoc.systree.SlaveItf):
         """Binds the data debug port.
 

@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gvsoc.systree as st
+import gvsoc.systree
 
-class Plic(st.Component):
+class Plic(gvsoc.systree.Component):
 
     def __init__(self, parent, name, ndev=0):
 
@@ -25,3 +25,16 @@ class Plic(st.Component):
         self.set_component('cpu.plic')
 
         self.add_property('ndev', ndev)
+
+
+    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+
+    def i_IRQ(self, device) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, f'irq{device+1}', signature='wire<bool>')
+
+    def o_S_IRQ(self, core: int, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind(f's_irq_{core}', itf, signature=f'wire<bool>')
+
+    def o_M_IRQ(self, core: int, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind(f'm_irq_{core}', itf, signature=f'wire<bool>')

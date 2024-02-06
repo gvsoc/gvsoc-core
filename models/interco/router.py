@@ -117,7 +117,7 @@ class Router(gvsoc.systree.Component):
         """
         return gvsoc.systree.SlaveItf(self, 'input', signature='io')
 
-    def o_MAP(self, itf: gvsoc.systree.SlaveItf, name:str, base: int=None, size: int=None,
+    def o_MAP(self, itf: gvsoc.systree.SlaveItf, name:str=None, base: int=None, size: int=None,
             rm_base: bool=True, remove_offset: int=None, id: int=None, latency: int=None):
         """Binds the output to a memory region.
 
@@ -153,5 +153,7 @@ class Router(gvsoc.systree.Component):
         """
         if rm_base and remove_offset is None:
             remove_offset = base
+        if name is None:
+            name = itf.component.name
         self.add_mapping(name, base=base, remove_offset=remove_offset, size=size, id=id, latency=latency)
         self.itf_bind(name, itf, signature='io')

@@ -78,7 +78,10 @@ if(DEFINED GVSOC_TARGETS)
     string(REPLACE " "  ";" GVSOC_TARGETS_LIST "${GVSOC_TARGETS}")
     foreach(target ${GVSOC_TARGETS_LIST})
 
-        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${target}.config)
+        string(REPLACE ","  "_" TARGET_NAME "${target}")
+        string(REPLACE "/"  "." TARGET_NAME "${TARGET_NAME}")
+        string(REPLACE ":"  "_" TARGET_NAME "${TARGET_NAME}")
+        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${TARGET_NAME}.config)
 
         message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
 

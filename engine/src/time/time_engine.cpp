@@ -195,6 +195,20 @@ int64_t vp::TimeEngine::run_until(int64_t end_time)
         // when locks are handled.
         this->stop_req = false;
 
+        // We may has been stopped because the execution is stopped or finished
+        if (this->finished)
+        {
+            gv::Gvsoc_user *launcher = this->launcher_get();
+
+            if (launcher)
+            {
+                if (this->finished)
+                {
+                    launcher->has_ended();
+                }
+            }
+        }
+
         // Checks locks since we may have been stopped by them
         this->handle_locks();
 

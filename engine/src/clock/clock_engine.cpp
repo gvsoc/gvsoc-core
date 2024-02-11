@@ -176,43 +176,57 @@ void vp::ClockEngine::reenqueue_to_engine()
     this->time_engine->enqueue(this, this->time.next_event_time);
 }
 
-void vp::ClockEngine::apply_frequency(int frequency)
+void vp::ClockEngine::apply_frequency_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    vp::ClockEngine *_this = (vp::ClockEngine *)__this;
+
+    bool enqueue_to_engine = _this->period == 0;
+
+    _this->period = 1e12 / _this->frequency_to_be_applied;
+    _this->change_frequency(_this->frequency_to_be_applied);
+
+    if (enqueue_to_engine)
+    {
+        // Case where the clock engine was clock-gated
+        // We need to reenqueue the engine in case it has pending events
+        if (_this->has_events())
+        {
+            // Compute the time of the next event based on the new frequency
+            _this->time.next_event_time = _this->time.get_time() + (_this->get_next_event()->get_cycle() - _this->get_cycles()) * _this->period;
+
+            _this->reenqueue_to_engine();
+        }
+    }
+}
+
+void vp::ClockEngine::apply_frequency(int64_t frequency)
 {
     // Update the number of cycles so that we update the event cycle only on the cycles after the frequency change
-    // TODO this is breaking benchmarks
-    // this->update();
+    this->update();
 
     if (frequency > 0)
     {
-        bool reenqueue = this->dequeue_from_engine();
-        int64_t period = this->period;
-
-        this->freq = frequency;
-        this->period = 1e12 / this->freq;
-
-        if (reenqueue && period > 0)
+        // The frequency change must be applied carefully in order to keep plain cycles, as this
+        // can be called from another clock engine in the middle of a cycle.
+        // If the engine is currently clock-gated, we applied it immediately as the new cycle can
+        // start immediately.
+        // Otherwise, we delay the frequency change to the next cycle, by enqueueing an event, this
+        // way the new frequency will be applied at the start of a cycle.
+        this->frequency_to_be_applied = frequency;
+        if (this->freq == 0)
         {
-            int64_t cycles = (this->time.next_event_time - this->time.get_time()) / period;
-            this->time.next_event_time = this->time.get_time() + cycles * this->period;
-            this->reenqueue_to_engine();
+            this->apply_frequency_handler(this, NULL);
         }
-        else if (period == 0)
+        else
         {
-            // Case where the clock engine was clock-gated
-            // We need to reenqueue the engine in case it has pending events
-            if (this->has_events())
-            {
-                // Compute the time of the next event based on the new frequency
-                this->time.next_event_time = this->time.get_time() + (this->get_next_event()->get_cycle() - this->get_cycles()) * this->period;
-
-                this->reenqueue_to_engine();
-            }
+            this->apply_frequency_event.enqueue();
         }
     }
     else if (frequency == 0)
     {
         this->dequeue_from_engine();
         this->period = 0;
+        this->change_frequency(0);
     }
 }
 
@@ -460,9 +474,13 @@ vp::ClockEvent *vp::ClockEngine::reenqueue_ext(vp::ClockEvent *event, int64_t en
 void vp::ClockEngine::set_frequency(vp::Block *__this, int64_t frequency)
 {
     ClockEngine *_this = (ClockEngine *)__this;
-    _this->out.set_frequency(frequency);
     _this->apply_frequency(frequency * _this->factor);
-    _this->clock_trace.event_real(_this->period);
+}
+
+void vp::ClockEngine::change_frequency(int64_t frequency)
+{
+    this->out.set_frequency(frequency);
+    this->clock_trace.event_real(this->period);
 }
 
 
@@ -488,7 +506,8 @@ void vp::ClockEngine::pre_start()
 }
 
 vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
-    : vp::Component(config), cycles(0), period(0), freq(0)
+: vp::Component(config), cycles(0), period(0), freq(0),
+    apply_frequency_event(this, &vp::ClockEngine::apply_frequency_handler)
 {
     this->time_engine = config.time_engine;
     delayed_queue = NULL;

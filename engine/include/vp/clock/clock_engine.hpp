@@ -144,7 +144,7 @@ namespace vp
 
         void disable(ClockEvent *event);
 
-        void apply_frequency(int frequency);
+        void apply_frequency(int64_t frequency);
 
         ClockEvent *reenqueue_ext(ClockEvent *event, int64_t cycles);
 
@@ -161,6 +161,10 @@ namespace vp
         void pre_start();
 
         static void set_frequency(vp::Block *__this, int64_t frequency);
+
+        static void apply_frequency_handler(vp::Block *_this, vp::ClockEvent *event);
+
+        void change_frequency(int64_t frequency);
 
         vp::ClkMaster out;
 
@@ -199,6 +203,9 @@ namespace vp
         vp::TimeEngine *time_engine = NULL;
 
         int64_t next_delayed_cycle = INT64_MAX;
+
+        vp::ClockEvent apply_frequency_event;
+        int64_t frequency_to_be_applied;
     };
 
 };

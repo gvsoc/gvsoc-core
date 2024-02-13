@@ -666,6 +666,32 @@ void Syscalls::handle_riscv_ebreak()
         break;
     }
 
+    case 0x10E:
+    {
+        this->iss.trace.has_reg_dump = true;
+        this->iss.trace.reg_dump = this->iss.regfile.regs[11];
+        break;
+    }
+
+    case 0x10F:
+    {
+        this->iss.trace.has_reg_dump = false;
+        break;
+    }
+
+    case 0x110:
+    {
+        this->iss.trace.has_str_dump = true;
+        this->iss.trace.str_dump = this->read_user_string(this->iss.regfile.regs[11]);
+        break;
+    }
+
+    case 0x111:
+    {
+        this->iss.trace.has_str_dump = false;
+        break;
+    }
+
     default:
         this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __PMSIS__PLATFORMS__GVSOC__H__
-#define __PMSIS__PLATFORMS__GVSOC__H__
+#ifndef __TARGET__GVSOC__H__
+#define __TARGET__GVSOC__H__
 
 #include <string.h>
 
@@ -26,20 +26,24 @@ extern "C" {
 /// @cond IMPLEM
 
 
-#define SEMIHOSTING_GV_TRACE_SETUP       0x100
-#define SEMIHOSTING_GV_PCER_CONF         0x101
-#define SEMIHOSTING_GV_PCER_RESET        0x102
-#define SEMIHOSTING_GV_PCER_START        0x103
-#define SEMIHOSTING_GV_PCER_STOP         0x104
-#define SEMIHOSTING_GV_PCER_READ         0x105
-#define SEMIHOSTING_GV_PCER_DUMP         0x106
-#define SEMIHOSTING_GV_VCD_CONFIGURE     0x107
-#define SEMIHOSTING_GV_OPEN_TRACE        0x108
-#define SEMIHOSTING_GV_CONF_TRACE        0x109
-#define SEMIHOSTING_GV_DUMP_TRACE        0x10A
-#define SEMIHOSTING_GV_DUMP_TRACE_STRING 0x10B
-#define SEMIHOSTING_GV_RELEASE_TRACE     0x10C
-#define SEMIHOSTING_GV_STOP              0x10D
+#define SEMIHOSTING_GV_TRACE_SETUP            0x100
+#define SEMIHOSTING_GV_PCER_CONF              0x101
+#define SEMIHOSTING_GV_PCER_RESET             0x102
+#define SEMIHOSTING_GV_PCER_START             0x103
+#define SEMIHOSTING_GV_PCER_STOP              0x104
+#define SEMIHOSTING_GV_PCER_READ              0x105
+#define SEMIHOSTING_GV_PCER_DUMP              0x106
+#define SEMIHOSTING_GV_VCD_CONFIGURE          0x107
+#define SEMIHOSTING_GV_OPEN_TRACE             0x108
+#define SEMIHOSTING_GV_CONF_TRACE             0x109
+#define SEMIHOSTING_GV_DUMP_TRACE             0x10A
+#define SEMIHOSTING_GV_DUMP_TRACE_STRING      0x10B
+#define SEMIHOSTING_GV_RELEASE_TRACE          0x10C
+#define SEMIHOSTING_GV_STOP                   0x10D
+#define SEMIHOSTING_GV_ISS_DUMP_REG           0x10E
+#define SEMIHOSTING_GV_ISS_DUMP_REG_STOP      0x10F
+#define SEMIHOSTING_GV_ISS_DUMP_STRING        0x110
+#define SEMIHOSTING_GV_ISS_DUMP_STRING_STOP   0x111
 
 
 
@@ -164,6 +168,44 @@ static inline void gv_trace_enable(char *path)
     __asm__ __volatile__ ("" : : : "memory");
     gvsoc_semihost(SEMIHOSTING_GV_TRACE_SETUP, (long)args);
 
+}
+
+/** \brief Dump value in ISS traces
+ *
+ * Can be called to append a value to each instruction trace dumped by the ISS.
+ * This can be used to attach a user context to instruction trace.
+ *
+ * \param value The value to be dumped.
+ */
+static inline void gv_iss_trace_dump_reg(long value) {
+    gvsoc_semihost(SEMIHOSTING_GV_ISS_DUMP_REG, (long)value);
+}
+
+/** \brief Stop dumping value in ISS traces
+ *
+ * Stop appending user value to instruction trace.
+ */
+static inline void gv_iss_trace_dump_reg_stop() {
+    gvsoc_semihost(SEMIHOSTING_GV_ISS_DUMP_REG_STOP, 0);
+}
+
+/** \brief Dump string in ISS traces
+ *
+ * Can be called to append a string to each instruction trace dumped by the ISS.
+ * This can be used to attach a user context to instruction trace.
+ *
+ * \param str The string to be dumped.
+ */
+static inline void gv_iss_trace_dump_string(char *str) {
+    gvsoc_semihost(SEMIHOSTING_GV_ISS_DUMP_STRING, (long)str);
+}
+
+/** \brief Stop dumping string in ISS traces
+ *
+ * Stop appending user string to instruction trace.
+ */
+static inline void gv_iss_trace_dump_string_stop() {
+    gvsoc_semihost(SEMIHOSTING_GV_ISS_DUMP_STRING_STOP, 0);
 }
 
 
@@ -401,6 +443,7 @@ static inline void gv_vcd_dump_trace_string(int trace, char *str) {
     __asm__ __volatile__ ("" : : : "memory");
     gvsoc_semihost(SEMIHOSTING_GV_DUMP_TRACE_STRING, (long)args);
 }
+
 
 //!@}
 

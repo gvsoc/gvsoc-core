@@ -259,10 +259,10 @@ vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
   uint64_t req_offset = offset;
   uint8_t *req_data = data;
 
+  MapEntry *entry = _this->topMapEntry;
   int count = 0;
   while (size)
   {
-    MapEntry *entry = _this->topMapEntry;
     bool isRead = !req->get_is_write();
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, isRead: %d, bandwidth: %d)\n",
@@ -328,6 +328,9 @@ vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
 
         // Update the bandwidth information
         int64_t router_time = _this->clock.get_cycles();
+        // Two data lanes (FIFO depth 2 in AXI Crossbar) in snitch cluster crossbar, 
+        // divide latency by 2 to simplify the model
+        *next_packet_time += int((_this->latency+1)/2);
         if (router_time < *next_packet_time)
         {
           router_time = *next_packet_time;
@@ -371,8 +374,15 @@ vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
       }
       req->arg_push(req->resp_port);
       result = entry->itf->req(req);
-      if (result == vp::IO_REQ_OK)
+      // Store TCDM start address for simulation (SNRT library)
+      if (result == vp::IO_REQ_OK){
+        if (req_offset == (entry->base + entry->size - 0x4))
+        {
+            *(uint32_t *)data = entry->base;
+            req->set_data(data);
+        }
         req->arg_pop();
+      }
     }
 
     if (entry->id != -1) 

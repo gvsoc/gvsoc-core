@@ -189,7 +189,9 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
 
+    // _this->trace.msg(vp::Trace::LEVEL_TRACE, "IO req latency before entering router %d\n", req->get_latency());
     req->inc_latency(_this->latency);
+    // _this->trace.msg(vp::Trace::LEVEL_TRACE, "IO req latency after entering router %d\n", req->get_latency());
 
     // Impact the Memory bandwith on the packet
     if (_this->width_bits != 0)
@@ -204,7 +206,13 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
             req->inc_latency(diff);
         }
+        // _this->trace.msg(vp::Trace::LEVEL_TRACE, "IO req latency after sending packet %d, duration %d\n", req->get_latency(), duration);
+        #ifndef CONFIG_TCDM
         _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
+        #endif
+        #ifdef CONFIG_TCDM
+        _this->next_packet_start = cycles + duration;
+        #endif
         // _this->trace.msg(vp::Trace::LEVEL_TRACE, "Delayed packet (next_packet_start: %ld)\n", _this->next_packet_start);
     }
 

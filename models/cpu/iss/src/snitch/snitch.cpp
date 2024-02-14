@@ -45,6 +45,8 @@ Iss::Iss(IssWrapper &top)
 
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
+    this->event = this->top.event_new((vp::Block *)this, handle_event);
+    
     this->top.new_master_port("acc_req_ready", &this->acc_req_ready_itf);
 
     this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
@@ -162,6 +164,11 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     {
         this->acc_req_itf.sync(&this->acc_req);
     }
+    // Todo: Increment the latency going through i_spill_register_acc_demux_req.
+    // if (this->event->is_enqueued())
+    // {
+    //     this->event->enqueue(1);
+    // }
 
     insn->handler = iss_decode_pc_handler;
     insn->fast_handler = iss_decode_pc_handler;
@@ -178,6 +185,22 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     }
 
     return false;
+}
+
+
+// This gets called when the offloaded instruction go through spill register.
+void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
+{
+    Iss *_this = (Iss *)__this;
+
+    // Assign arguments to request.
+    _this->acc_req = { .pc=_this->pc, .insn=_this->insn, .is_write=_this->is_write, .frm =_this->frm };
+
+    // Offload request if the port is connected
+    if (_this->acc_req_itf.is_bound())
+    {
+        _this->acc_req_itf.sync(&_this->acc_req);
+    }
 }
 
 

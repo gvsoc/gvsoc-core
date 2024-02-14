@@ -624,9 +624,9 @@ class Rv32f(IsaSubset):
             Instr('fcvt.s.w', Format_R2F2,'1101000 00000 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
             Instr('fcvt.s.wu',Format_R2F2,'1101000 00001 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
 
-            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv'], is_fp_op=True, isn_seq_op=True),
             Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', is_fp_op=True, isn_seq_op=True),
-            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv'], is_fp_op=True, isn_seq_op=True),
 
             # If RV64F supported
             Instr('fcvt.l.s', Format_R2F1,'1100000 00010 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f'], is_fp_op=True),
@@ -683,10 +683,10 @@ class Rv32d(IsaSubset):
             # # If RV64F supported
             Instr('fcvt.l.d', Format_R2F1,'1100001 00010 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f'], is_fp_op=True),
             Instr('fcvt.lu.d',Format_R2F1,'1100001 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f'], is_fp_op=True),
-            Instr('fmv.x.d',   Format_R3F,'1110001 00000 ----- 000 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('fmv.x.d',   Format_R3F,'1110001 00000 ----- 000 ----- 1010011', tags=['fmv'], is_fp_op=True, isn_seq_op=True),
             Instr('fcvt.d.l', Format_R2F2,'1101001 00010 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f'], is_fp_op=True),
             Instr('fcvt.d.lu',Format_R2F2,'1101001 00011 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f'], is_fp_op=True),
-            Instr('fmv.d.x',  Format_R3F2,'1111001 00000 ----- 000 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('fmv.d.x',  Format_R3F2,'1111001 00000 ----- 000 ----- 1010011', tags=['fmv'], is_fp_op=True, isn_seq_op=True),
         ])
 
     def check_compatibilities(self, isa):
@@ -945,17 +945,23 @@ class RiscvIsa(Isa):
         # 2. the latency of output register, the output is ready after n cycles to check data dependency. (reg.latency)
         for insn in self.get_insns():
 
-            # if "load" in insn.tags:
-            #     insn.get_out_reg(0).set_latency(2)
-            # elif "fdiv" in insn.tags:
-            #     insn.get_out_reg(0).set_latency(9)
-            # elif "sfdiv" in insn.tags:
-            #     insn.get_out_reg(0).set_latency(4)
-            # elif "mul" in insn.tags:
-            #     insn.get_out_reg(0).set_latency(2)
-            # elif "mulh" in insn.tags:
-            #     insn.set_latency(5)
+            # Pipelined instruction (allow parallelsim)
             if "fmadd" in insn.tags:
+                insn.set_latency(3)
+                insn.get_out_reg(0).set_latency(3)
+            elif "fadd" in insn.tags:
+                insn.set_latency(3)
+                insn.get_out_reg(0).set_latency(3)
+            elif "fmul" in insn.tags:
+                insn.set_latency(3)
+                insn.get_out_reg(0).set_latency(3)
+            elif "fconv" in insn.tags:
+                insn.set_latency(2)
+                insn.get_out_reg(0).set_latency(2)
+            elif "fmv" in insn.tags:
+                insn.set_latency(2)
+                insn.get_out_reg(0).set_latency(2)
+            elif "fother" in insn.tags:
                 insn.set_latency(2)
                 insn.get_out_reg(0).set_latency(2)
 

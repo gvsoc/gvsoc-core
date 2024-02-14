@@ -172,10 +172,18 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
 
     // Assign dynamic latency to instruction latency if there's no static latency.
     // Or take MAX(insn->latency, stall_cycle_get())
-    if(!insn.latency)
+    if (insn.latency < _this->exec.instr_event.stall_cycle_get())
     {
         insn.latency = _this->exec.instr_event.stall_cycle_get();
     }
+    _this->trace_iss.msg("Total latency of fp instruction (opcode: 0x%llx, pc: 0x%llx, latency: %d)\n", opcode, pc, insn.latency);
+
+    // Get real latency considering pipeline stages in FPU.
+    int final_latency = _this->get_latency(insn, pc, _this->top.clock.get_cycles());
+    // Update the pipeline FIFOs.
+    // _this->update_pipereg(insn, pc, insn.latency, _this->top.clock.get_cycles(), _this->top.clock.get_cycles() + final_latency);
+    _this->trace_iss.msg("Calculate latency considering FPU pipeline: %d\n", final_latency);
+    insn.latency = final_latency;
 
     // Regard the instruction execution part into event queue,
     // in order to realize the parallelism between master and slave.
@@ -268,5 +276,207 @@ vp::IoReqStatus Iss::rsp_state(vp::Block *__this, vp::IoReq *req)
     else
     {
         return vp::IO_REQ_INVALID;
+    }
+}
+
+// Get called when we need to calculate the latency of instruction after considering pipeline registers in fpu.
+int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
+{
+    int rs1 = insn.in_regs[0];
+    int rs2 = insn.in_regs[1];
+    int rs3 = insn.in_regs[2];
+    if (!insn.in_regs_fp[0])
+    {
+        rs1 = -1;
+    }
+    if (!insn.in_regs_fp[1])
+    {
+        rs2 = -1;
+    }
+    if (!insn.in_regs_fp[2])
+    {
+        rs3 = -1;
+    }
+
+    bool fma_label = strstr(insn.decoder_item->u.insn.label, "add")
+                    || strstr(insn.decoder_item->u.insn.label, "sub")
+                    || strstr(insn.decoder_item->u.insn.label, "mul")
+                    || strstr(insn.decoder_item->u.insn.label, "mac");
+
+    bool divsqrt_label = strstr(insn.decoder_item->u.insn.label, "div")
+                        || strstr(insn.decoder_item->u.insn.label, "sqrt");
+
+    bool noncomp_label = strstr(insn.decoder_item->u.insn.label, "sgnj")
+                        || strstr(insn.decoder_item->u.insn.label, "min")
+                        || strstr(insn.decoder_item->u.insn.label, "max")
+                        || strstr(insn.decoder_item->u.insn.label, "feq")
+                        || strstr(insn.decoder_item->u.insn.label, "fle")
+                        || strstr(insn.decoder_item->u.insn.label, "flt")
+                        || strstr(insn.decoder_item->u.insn.label, "class");
+
+    bool conv_label = strstr(insn.decoder_item->u.insn.label, "fmv")
+                    || strstr(insn.decoder_item->u.insn.label, "fcvt")
+                    || strstr(insn.decoder_item->u.insn.label, "fcpka");
+
+    bool dotp_label = strstr(insn.decoder_item->u.insn.label, "dotp")
+                    || strstr(insn.decoder_item->u.insn.label, "sum");
+
+    bool lsu_label = strstr(insn.decoder_item->u.insn.label, "flw")
+                    || strstr(insn.decoder_item->u.insn.label, "fsw")
+                    || strstr(insn.decoder_item->u.insn.label, "fld")
+                    || strstr(insn.decoder_item->u.insn.label, "fsd");
+
+    int latency = insn.latency;
+    int latency_pipe;
+
+    if (fma_label) 
+    {
+        latency_pipe = this->FMA_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+        if (latency_pipe < latency)
+        {
+            latency = latency_pipe;
+        }
+    }
+    if (divsqrt_label)
+    {
+        latency_pipe = this->DIVSQRT_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+        if (latency_pipe < latency)
+        {
+            latency = latency_pipe;
+        }
+    }
+    if (noncomp_label)
+    {
+        latency_pipe = this->NONCOMP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+        if (latency_pipe < latency)
+        {
+            latency = latency_pipe;
+        }
+
+    }
+    if (conv_label)
+    {
+        latency_pipe = this->CONV_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+        if (latency_pipe < latency)
+        {
+            latency = latency_pipe;
+        }
+    }
+    if (dotp_label)
+    {
+        latency_pipe = this->DOTP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+        if (latency_pipe < latency)
+        {
+            latency = latency_pipe;
+        }
+    }
+    if (lsu_label)
+    {
+        latency_pipe = this->LSU_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+        if (latency_pipe < latency)
+        {
+            latency = latency_pipe;
+        }
+    }
+
+
+    int rd = insn.out_regs[0];
+    if (!insn.out_regs_fp[0])
+    {
+        rd = -1;
+    }
+
+    FpuOp entry = { .pc=pc, .insn_latency=insn.latency, .start_timestamp=timestamp, .end_timestamp=timestamp+latency, .rd=rd };
+
+    if (fma_label)
+    {
+        this->FMA_OPGROUP.enqueue(entry);
+    }
+    else if (divsqrt_label)
+    {
+        this->DIVSQRT_OPGROUP.enqueue(entry);
+    }
+    else if (noncomp_label)
+    {
+        this->NONCOMP_OPGROUP.enqueue(entry);
+    }
+    else if (conv_label)
+    {
+        this->CONV_OPGROUP.enqueue(entry);
+    }
+    else if (dotp_label)
+    {
+        this->DOTP_OPGROUP.enqueue(entry);
+    }
+    else if (lsu_label)
+    {
+        this->LSU_OPGROUP.enqueue(entry);
+    }
+
+    return latency;
+}
+
+// Get called when update the situation of  pipeline registers in fpu.
+void Iss::update_pipereg(iss_insn_t insn, iss_reg_t pc, int insn_latency, int start_timestamp, int finish_timestamp)
+{
+    int rd = insn.out_regs[0];
+    if (!insn.out_regs_fp[0])
+    {
+        rd = -1;
+    }
+
+    FpuOp entry = { .pc=pc, .insn_latency=insn_latency, .start_timestamp=start_timestamp, .end_timestamp=finish_timestamp, .rd=rd };
+
+    bool fma_label = strstr(insn.decoder_item->u.insn.label, "add")
+                    || strstr(insn.decoder_item->u.insn.label, "sub")
+                    || strstr(insn.decoder_item->u.insn.label, "mul")
+                    || strstr(insn.decoder_item->u.insn.label, "mac");
+
+    bool divsqrt_label = strstr(insn.decoder_item->u.insn.label, "div")
+                        || strstr(insn.decoder_item->u.insn.label, "sqrt");
+
+    bool noncomp_label = strstr(insn.decoder_item->u.insn.label, "sgnj")
+                        || strstr(insn.decoder_item->u.insn.label, "min")
+                        || strstr(insn.decoder_item->u.insn.label, "max")
+                        || strstr(insn.decoder_item->u.insn.label, "feq")
+                        || strstr(insn.decoder_item->u.insn.label, "fle")
+                        || strstr(insn.decoder_item->u.insn.label, "flt")
+                        || strstr(insn.decoder_item->u.insn.label, "class");
+
+    bool conv_label = strstr(insn.decoder_item->u.insn.label, "fmv")
+                    || strstr(insn.decoder_item->u.insn.label, "fcvt")
+                    || strstr(insn.decoder_item->u.insn.label, "fcpka");
+
+    bool dotp_label = strstr(insn.decoder_item->u.insn.label, "dotp")
+                    || strstr(insn.decoder_item->u.insn.label, "sum");
+
+    bool lsu_label = strstr(insn.decoder_item->u.insn.label, "flw")
+                    || strstr(insn.decoder_item->u.insn.label, "fsw")
+                    || strstr(insn.decoder_item->u.insn.label, "fld")
+                    || strstr(insn.decoder_item->u.insn.label, "fsd");
+
+    if (fma_label)
+    {
+        this->FMA_OPGROUP.enqueue(entry);
+    }
+    else if (divsqrt_label)
+    {
+        this->DIVSQRT_OPGROUP.enqueue(entry);
+    }
+    else if (noncomp_label)
+    {
+        this->NONCOMP_OPGROUP.enqueue(entry);
+    }
+    else if (conv_label)
+    {
+        this->CONV_OPGROUP.enqueue(entry);
+    }
+    else if (dotp_label)
+    {
+        this->DOTP_OPGROUP.enqueue(entry);
+    }
+    else if (lsu_label)
+    {
+        this->LSU_OPGROUP.enqueue(entry);
     }
 }

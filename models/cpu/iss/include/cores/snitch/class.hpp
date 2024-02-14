@@ -54,6 +54,7 @@
 
 #include "OffloadReq.hpp"
 #include "OffloadRsp.hpp"
+#include "PipeRegs.hpp"
 
 class IssWrapper;
 
@@ -112,6 +113,7 @@ public:
     bool check_state(iss_insn_t *insn);
 
     // Request and Response interfaces and events
+    static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
     static void handle_result(vp::Block *__this, OffloadRsp *result);
 

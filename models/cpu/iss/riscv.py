@@ -428,7 +428,8 @@ class Snitch(RiscvCommon):
             binaries: list=[],
             fetch_enable: bool=False,
             boot_addr: int=0,
-            core_id: int=0):
+            core_id: int=0,
+            timed: bool=True):
 
 
         extensions = [ Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
@@ -436,7 +437,7 @@ class Snitch(RiscvCommon):
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
 
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id)
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed, prefetcher_size=32)
 
         self.add_c_flags([
             "-DPIPELINE_STALL_THRESHOLD=0",
@@ -470,7 +471,7 @@ class Snitch_fp_ss(RiscvCommon):
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
 
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed)
+        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed, prefetcher_size=32)
 
         self.add_c_flags([
             "-DPIPELINE_STALL_THRESHOLD=0",

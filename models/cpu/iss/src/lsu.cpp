@@ -138,7 +138,23 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)
     {
+        #ifndef CONFIG_GVSOC_ISS_SNITCH
         latency = req->get_latency() + 1;
+        #endif
+        #ifdef CONFIG_GVSOC_ISS_SNITCH
+        // In case of a write, don't signal a valid transaction. Stores are always
+        // without ans answer to the core.
+        if (is_write)
+        {
+            // Suppress stores
+            latency = req->get_latency(); 
+        }
+        else
+        {
+            // Load needs one more cycle to write result back from tcdm/mem response.
+            latency = req->get_latency() + 1;
+        }
+        #endif
 
         // Total number of latency in memory access instruction is the sum of latency waiting for operands to be ready
         // and latency resulting from ports contention/conflicts.

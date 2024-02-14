@@ -54,6 +54,7 @@
 
 #include "OffloadReq.hpp"
 #include "OffloadRsp.hpp"
+#include "PipeRegs.hpp"
 
 class IssWrapper;
 
@@ -116,6 +117,18 @@ public:
     // int rd;
     // iss_reg_t data;
     // unsigned int fflags;
+
+    // Operation groups in FPU
+    FIFODepth3 FMA_OPGROUP;
+    FIFODepth1 DIVSQRT_OPGROUP;
+    FIFODepth1 NONCOMP_OPGROUP;
+    FIFODepth2 CONV_OPGROUP;
+    FIFODepth3 DOTP_OPGROUP;
+    // Operation group in LSU
+    FIFODepth1 LSU_OPGROUP;
+
+    int get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp);
+    void update_pipereg(iss_insn_t insn, iss_reg_t pc, int insn_latency, int start_timestamp, int finish_timestamp);
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);

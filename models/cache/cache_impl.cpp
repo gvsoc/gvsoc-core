@@ -53,7 +53,9 @@ public:
     unsigned int widthBits = 2;
     int nb_ports = 1;
 
-    bool enabled = false;
+    // Enable cache by default
+    // bool enabled = false;
+    bool enabled = true;
 
 private:
     vp::Trace trace;

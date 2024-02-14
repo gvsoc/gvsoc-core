@@ -26,6 +26,8 @@ class Interleaver(st.Component):
     ----------
     nb_slaves : int
         The number of slave ports where the accesses will be dispatched.
+    nb_masters : int
+        The number of masters ports where the accesses will be required.
     interleaving_bits : int
         Number of interleaving bits, i.e. the size in bits of the accesseses dispatched
         to banks.
@@ -38,7 +40,7 @@ class Interleaver(st.Component):
     
     """
 
-    def __init__(self, parent, name, nb_slaves: int, interleaving_bits: int, stage_bits: int=0, remove_offset: int=0):
+    def __init__(self, parent, name, nb_slaves: int, nb_masters: int, interleaving_bits: int, stage_bits: int=0, remove_offset: int=0):
 
         super(Interleaver, self).__init__(parent, name)
 
@@ -46,6 +48,7 @@ class Interleaver(st.Component):
 
         self.add_properties({
             'nb_slaves': nb_slaves,
+            'nb_masters': nb_masters,
             'interleaving_bits': interleaving_bits,
             'stage_bits': stage_bits,
             'remove_offset': remove_offset,

@@ -250,12 +250,12 @@ void gv::GvsocLauncher::vcd_bind(gv::Vcd_user *user)
     this->instance->traces.get_trace_engine()->set_vcd_user(user);
 }
 
-void gv::GvsocLauncher::enable()
+void gv::GvsocLauncher::vcd_enable()
 {
     this->instance->traces.get_trace_engine()->set_global_enable(1);
 }
 
-void gv::GvsocLauncher::disable()
+void gv::GvsocLauncher::vcd_disable()
 {
     this->instance->traces.get_trace_engine()->set_global_enable(0);
 }

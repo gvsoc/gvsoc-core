@@ -346,7 +346,7 @@ namespace gv {
          *
          * This allows VCD traces to be dumped. This is by default enabled.
          */
-        virtual void enable() = 0;
+        virtual void vcd_enable() = 0;
 
         /**
          * Disable VCD tracing
@@ -354,7 +354,7 @@ namespace gv {
          * After this call, no more VCD trace is dumped. They have to be reenabled again to
          * continue dumping.
          */
-        virtual void disable() = 0;
+        virtual void vcd_disable() = 0;
 
         /**
          * Enable VCD events

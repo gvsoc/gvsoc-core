@@ -101,9 +101,15 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "UART flow control received command (command: %s)\n", this->current_string.c_str());
 
-            std::regex regex{R"([\s]+)"};
-            std::sregex_token_iterator it{this->current_string.begin(), this->current_string.end(), regex, -1};
-            std::vector<std::string> words{it, {}};
+            std::vector<std::string> words;
+            std::istringstream iss(this->current_string);
+            std::string token;
+
+            while (std::getline(iss, token, ' ')) {
+                if (!token.empty()) {
+                    words.push_back(token);
+                }
+            }
 
             if (words[0] == "START")
             {
@@ -420,8 +426,12 @@ void Uart::send_byte(uint8_t byte)
     else
     {
         this->tx_state = UART_TX_STATE_START;
+        // Work-around. Since frequency is now changed only at end of current cycle, we need to set it
+        // to zero so that the next time we set a real frequency, this is immediate.
+        // To do it properly, the testbench should use timed events.
+        this->tx_clock_cfg.set_frequency(0);
         this->tx_clock_cfg.set_frequency(this->baudrate*2);
-    
+
         this->check_send_byte();
     }
 }
@@ -631,6 +641,7 @@ void Uart::send_bit()
                 {
                     this->dev->send_byte_done();
                 }
+
             }
             break;
         }
@@ -651,6 +662,11 @@ void Uart::uart_start_tx_sampling(int baudrate)
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Start TX sampling (baudrate: %d)\n", this->baudrate);
 
+    // Work-around. Since frequency is now changed only at end of current cycle, we need to set it
+    // to zero so that the next time we set a real frequency, this is immediate.
+    // To do it properly, the testbench should use timed events.
+    this->clock_cfg.set_frequency(0);
+
     // We set the frequency to twice the baudrate to be able sampling in the
     // middle of the cycle
     this->clock_cfg.set_frequency(this->baudrate*2*10);
@@ -664,7 +680,7 @@ void Uart::uart_start_tx_sampling(int baudrate)
 void Uart::uart_stop_tx_sampling(void)
 {
     this->uart_sampling_tx = 0;
-    
+
     if (this->uart_sampling_event->is_enqueued())
     {
         this->clock->cancel(this->uart_sampling_event);

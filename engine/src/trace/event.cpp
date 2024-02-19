@@ -113,7 +113,7 @@ vp::Event_trace *vp::Event_dumper::get_trace(string trace_name, string file_name
     trace = new Event_trace(trace_name, event_file, width, is_real, is_string);
     event_traces[trace_name] = trace;
 
-    if (this->user_vcd)
+    if (!this->is_external_dumper && this->user_vcd)
     {
       trace->set_vcd_user(this->user_vcd);
     }
@@ -148,12 +148,16 @@ void vp::Event_dumper::close()
   }
 }
 
-void vp::Event_dumper::set_vcd_user(gv::Vcd_user *user)
+void vp::Event_dumper::set_vcd_user(gv::Vcd_user *user, bool is_external_dumper)
 {
     this->user_vcd = user;
+    this->is_external_dumper = is_external_dumper;
 
-    for (auto const& x : event_traces)
+    if (!is_external_dumper)
     {
-      x.second->set_vcd_user(user);
+        for (auto const& x : event_traces)
+        {
+            x.second->set_vcd_user(user);
+        }
     }
 }

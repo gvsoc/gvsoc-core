@@ -42,6 +42,7 @@ namespace vp
         friend class vp::Component;
         friend class vp::Block;
         friend class vp::ClockEvent;
+        friend class vp::ClockEngine;
 
     public:
         /**

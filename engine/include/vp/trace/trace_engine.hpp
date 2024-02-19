@@ -59,11 +59,7 @@ namespace vp {
 
         int get_format() { return this->trace_format; }
         
-        void set_vcd_user(gv::Vcd_user *user)
-        {
-            this->event_dumper.set_vcd_user(user);
-            this->vcd_user = user;
-        }
+        void set_vcd_user(gv::Vcd_user *user);
 
         static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
         static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);

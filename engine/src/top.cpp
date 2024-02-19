@@ -52,6 +52,10 @@ void vp::Top::flush()
     this->time_engine->flush();
 }
 
+void vp::Top::start()
+{
+    this->trace_engine->start();
+}
 
 vp::Top::~Top()
 {

@@ -117,6 +117,7 @@ namespace vp {
     int64_t pending_cycles;
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
+    vp::Trace *clock_trace = NULL;
   };
 
 

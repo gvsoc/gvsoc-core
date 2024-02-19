@@ -44,6 +44,8 @@ namespace vp
         friend class vp::Block;
         friend class vp::BlockClock;
         friend class vp::ClockEvent;
+        friend class vp::BlockTrace;
+        friend class vp::TraceEngine;
 
     public:
         /**
@@ -56,6 +58,8 @@ namespace vp
          * @param config The component config coming from Python generator.
          */
         ClockEngine(vp::ComponentConf &config);
+
+        void start();
 
         /**
          * @brief Get current cycles

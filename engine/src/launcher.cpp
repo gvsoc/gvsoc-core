@@ -118,6 +118,7 @@ void gv::GvsocLauncher::bind(gv::Gvsoc_user *user)
 void gv::GvsocLauncher::start()
 {
     this->instance->build_all();
+    this->handler->start();
     this->instance->reset_all(true);
     this->instance->reset_all(false);
 }
@@ -247,6 +248,16 @@ gv::Wire_binding *gv::GvsocLauncher::wire_bind(gv::Wire_user *user, std::string 
 void gv::GvsocLauncher::vcd_bind(gv::Vcd_user *user)
 {
     this->instance->traces.get_trace_engine()->set_vcd_user(user);
+}
+
+void gv::GvsocLauncher::enable()
+{
+    this->instance->traces.get_trace_engine()->set_global_enable(1);
+}
+
+void gv::GvsocLauncher::disable()
+{
+    this->instance->traces.get_trace_engine()->set_global_enable(0);
 }
 
 void gv::GvsocLauncher::event_add(std::string path, bool is_regex)

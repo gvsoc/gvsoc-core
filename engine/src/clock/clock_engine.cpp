@@ -213,13 +213,14 @@ void vp::ClockEngine::apply_frequency(int64_t frequency)
         // Otherwise, we delay the frequency change to the next cycle, by enqueueing an event, this
         // way the new frequency will be applied at the start of a cycle.
         this->frequency_to_be_applied = frequency;
-        if (this->freq == 0)
+        if (this->period == 0)
         {
+            this->update();
             this->apply_frequency_handler(this, NULL);
         }
         else
         {
-            this->apply_frequency_event.enqueue();
+            this->enqueue(&this->apply_frequency_event, 1);
         }
     }
     else if (frequency == 0)
@@ -233,7 +234,10 @@ void vp::ClockEngine::apply_frequency(int64_t frequency)
 void vp::ClockEngine::update()
 {
     if (this->period == 0)
+    {
+        this->stop_time = this->time.get_time();
         return;
+    }
 
     if (this->stop_time + this->period <= this->time.get_time())
     {
@@ -480,7 +484,8 @@ void vp::ClockEngine::set_frequency(vp::Block *__this, int64_t frequency)
 void vp::ClockEngine::change_frequency(int64_t frequency)
 {
     this->out.set_frequency(frequency);
-    this->clock_trace.event_real(this->period);
+    this->clock_trace.msg(vp::Trace::LEVEL_TRACE, "Changing frequency (frequency: %d)\n", this->period);
+    this->clock_trace.event((uint8_t *)&this->period);
 }
 
 
@@ -505,6 +510,12 @@ void vp::ClockEngine::pre_start()
     out.reg(this);
 }
 
+void vp::ClockEngine::start()
+{
+    // Set ourself as clock engine so that the trace reports cycles from our engine
+    this->clock.set_engine(this);
+}
+
 vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
 : vp::Component(config), cycles(0), period(0), freq(0),
     apply_frequency_event(this, &vp::ClockEngine::apply_frequency_handler)
@@ -520,7 +531,7 @@ vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
     clock_in.set_set_frequency_meth(&ClockEngine::set_frequency);
     new_slave_port("clock_in", &clock_in);
 
-    this->traces.new_trace_event_real("period", &this->clock_trace);
+    this->traces.new_trace_event("period", &this->clock_trace, sizeof(this->period)*8);
 
     this->traces.new_trace_event_real("cycles", &this->cycles_trace);
 

@@ -269,6 +269,14 @@ void Gvsoc_proxy_client::vcd_bind(gv::Vcd_user *user)
 {
 }
 
+void Gvsoc_proxy_client::enable()
+{
+}
+
+void Gvsoc_proxy_client::disable()
+{
+}
+
 void Gvsoc_proxy_client::event_add(std::string path, bool is_regex)
 {
 }

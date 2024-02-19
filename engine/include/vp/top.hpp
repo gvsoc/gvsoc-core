@@ -40,6 +40,7 @@ namespace vp {
       vp::PowerEngine *get_power_engine() { return this->power_engine; };
 
     void flush();
+    void start();
 
   private:
       vp::TimeEngine *time_engine;

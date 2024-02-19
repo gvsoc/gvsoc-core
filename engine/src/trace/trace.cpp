@@ -271,7 +271,6 @@ void vp::Trace::set_event_active(bool active)
     }
 }
 
-
 char *vp::TraceEngine::get_event_buffer(int bytes)
 {
     if (current_buffer == NULL || bytes > TRACE_EVENT_BUFFER_SIZE - current_buffer_size)
@@ -553,7 +552,7 @@ uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint64_t *)buffer;
     buffer += 8;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->event_trace->id, value, flags);
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
@@ -578,7 +577,7 @@ uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace
     flags = *(uint8_t *)buffer;
     buffer += 1;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->event_trace->id, value, flags);
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
@@ -602,7 +601,7 @@ uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint16_t *)buffer;
     buffer += 2;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->event_trace->id, value, flags);
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
@@ -626,7 +625,7 @@ uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint32_t *)buffer;
     buffer += 4;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->event_trace->id, value, flags);
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
@@ -680,11 +679,11 @@ uint8_t *vp::TraceEngine::parse_event_string(vp::TraceEngine *_this, vp::Trace *
 
     if (string_size == 0)
     {
-        _this->vcd_user->event_update_string(timestamp, cycles, trace->event_trace->id, (const char *)NULL, 1);
+        _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)NULL, 1);
     }
     else
     {
-        _this->vcd_user->event_update_string(timestamp, cycles, trace->event_trace->id, (const char *)buffer, 0);
+        _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)buffer, 0);
     }
 
     buffer += string_size;
@@ -824,6 +823,12 @@ void vp::TraceEngine::flush_event_traces(int64_t timestamp)
         current = current->next;
     }
     first_trace_to_dump = NULL;
+}
+
+void vp::TraceEngine::set_vcd_user(gv::Vcd_user *user)
+{
+    this->event_dumper.set_vcd_user(user, this->use_external_dumper);
+    this->vcd_user = user;
 }
 
 

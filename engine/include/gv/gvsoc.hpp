@@ -252,8 +252,10 @@ namespace gv {
          * @param path The path of the VCD event in the simulated system.
          * @param type The type of the VCD event.
          * @param width The width of the VCD event.
+         * @param clock_path If any, path of the clock trace.
          */
-        virtual void event_register(int id, std::string path, Vcd_event_type type, int width) = 0;
+        virtual void event_register(int id, std::string path, Vcd_event_type type, int width,
+            std::string clock_path="") = 0;
 
         /**
          * Called by GVSOC to update the value of a logical VCD event.
@@ -338,6 +340,21 @@ namespace gv {
          *             must implement all the methods defined in class Vcd_user
          */
         virtual void vcd_bind(Vcd_user *user) = 0;
+
+        /**
+         * Enable VCD tracing
+         *
+         * This allows VCD traces to be dumped. This is by default enabled.
+         */
+        virtual void enable() = 0;
+
+        /**
+         * Disable VCD tracing
+         *
+         * After this call, no more VCD trace is dumped. They have to be reenabled again to
+         * continue dumping.
+         */
+        virtual void disable() = 0;
 
         /**
          * Enable VCD events

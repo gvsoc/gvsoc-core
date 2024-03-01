@@ -28,7 +28,7 @@ template<typename T>
 class IssOffloadInsn
 {
 public:
-    uint32_t opcode;
+    iss_reg_t opcode;
     T arg_a;
     T arg_b;
     T arg_c;

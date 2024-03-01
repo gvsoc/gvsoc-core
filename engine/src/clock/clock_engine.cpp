@@ -514,6 +514,7 @@ void vp::ClockEngine::start()
 {
     // Set ourself as clock engine so that the trace reports cycles from our engine
     this->clock.set_engine(this);
+    this->clock_trace.event((uint8_t *)&this->period);
 }
 
 vp::ClockEngine::ClockEngine(vp::ComponentConf &config)

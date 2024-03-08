@@ -357,6 +357,9 @@ class RiscvCommon(st.Component):
     def o_OFFLOAD(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('offload', itf, signature=f'wire<IssOffloadInsn<uint{self.isa.word_size}_t>*>')
 
+    def i_OFFLOAD_GRANT(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, itf_name='offload_grant',
+            signature=f'wire<IssOffloadInsnGrant<uint{self.isa.word_size}_t>*>')
 
     def gen_gtkw_conf(self, tree, traces):
         if tree.get_view() == 'overview':

@@ -28,9 +28,17 @@ template<typename T>
 class IssOffloadInsn
 {
 public:
+    bool granted;
     uint64_t opcode;
     T arg_a;
     T arg_b;
     T arg_c;
+    T result;
+};
+
+template<typename T>
+class IssOffloadInsnGrant
+{
+public:
     T result;
 };

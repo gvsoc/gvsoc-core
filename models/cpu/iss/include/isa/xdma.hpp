@@ -73,7 +73,17 @@ static inline iss_reg_t dmcpy_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         .arg_b=REG_GET(1),
     };
     iss->exec.offload_insn(&offload_insn);
-    REG_SET(0, offload_insn.result);
+
+    if (offload_insn.granted)
+    {
+        REG_SET(0, offload_insn.result);
+    }
+    else
+    {
+        iss->exec.stall_reg = REG_OUT(0);
+        iss->exec.insn_stall();
+    }
+
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -85,7 +95,17 @@ static inline iss_reg_t dmcpyi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         .arg_b=UIM_GET(0),
     };
     iss->exec.offload_insn(&offload_insn);
-    REG_SET(0, offload_insn.result);
+
+    if (offload_insn.granted)
+    {
+        REG_SET(0, offload_insn.result);
+    }
+    else
+    {
+        iss->exec.stall_reg = REG_OUT(0);
+        iss->exec.insn_stall();
+    }
+
     return iss_insn_next(iss, insn, pc);
 }
 

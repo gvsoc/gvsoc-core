@@ -442,7 +442,10 @@ void Htif::reset(bool active)
     if (active)
     {
 #ifdef CONFIG_GVSOC_ISS_HTIF
-        this->htif_event.enqueue();
+        if (this->tohost_addr != 0)
+        {
+            this->htif_event.enqueue();
+        }
 #endif
     }
 }

@@ -78,6 +78,8 @@ namespace vp {
       init();
     }
 
+    inline void reset(bool active);
+
     IoSlave *get_resp_port() { return resp_port;}
     void set_next(IoReq *req) { next = req; }
     IoReq *get_next() { return next; }
@@ -151,6 +153,7 @@ namespace vp {
     IoReqOpcode is_write;
     IoReqStatus status;
     IoSlave *resp_port;
+    int id;
     int initiator = -1;
 
 
@@ -729,6 +732,10 @@ namespace vp {
     this->data = (uint8_t *)arg_pop();
     this->size = (long)arg_pop();
     this->addr = (long)arg_pop();
+  }
+
+  inline void IoReq::reset(bool active)
+  {
   }
 
 };

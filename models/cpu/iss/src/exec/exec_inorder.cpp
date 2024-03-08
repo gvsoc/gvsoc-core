@@ -39,6 +39,9 @@ void Exec::build()
 
     this->iss.top.new_master_port("offload", &this->offload_itf);
 
+    this->offload_grant_itf.set_sync_meth(&Exec::offload_grant);
+    this->iss.top.new_slave_port("offload_grant", &this->offload_grant_itf, (vp::Block *)this);
+
     flush_cache_ack_itf.set_sync_meth(&Exec::flush_cache_ack_sync);
     this->iss.top.new_slave_port("flush_cache_ack", &flush_cache_ack_itf, (vp::Block *)this);
     this->iss.top.new_master_port("flush_cache_req", &flush_cache_req_itf);
@@ -355,6 +358,13 @@ void Exec::pc_set(iss_addr_t value)
 }
 
 
+void Exec::offload_grant(vp::Block *__this, IssOffloadInsnGrant<iss_reg_t> *result)
+{
+    Exec *_this = (Exec *)__this;
+    _this->iss.regfile.set_reg(_this->stall_reg, result->result);
+    _this->stalled_dec();
+    _this->insn_terminate();
+}
 
 void Exec::flush_cache_ack_sync(vp::Block *__this, bool active)
 {

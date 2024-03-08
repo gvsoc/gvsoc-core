@@ -156,6 +156,8 @@ public:
     bool pending_flush;
     int64_t stall_cycles;
 
+    int stall_reg;
+
     inline void offload_insn(IssOffloadInsn<iss_reg_t> *insn);
 
 private:
@@ -163,6 +165,7 @@ private:
     static void clock_sync(vp::Block *_this, bool active);
     static void bootaddr_sync(vp::Block *_this, uint32_t value);
     static void fetchen_sync(vp::Block *_this, bool active);
+    static void offload_grant(vp::Block *_this, IssOffloadInsnGrant<iss_reg_t> *result);
 
     Iss &iss;
 
@@ -176,4 +179,5 @@ private:
     bool clock_active;
 
     vp::WireMaster<IssOffloadInsn<iss_reg_t> *> offload_itf;
+    vp::WireSlave<IssOffloadInsnGrant<iss_reg_t> *> offload_grant_itf;
 };

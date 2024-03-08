@@ -29,6 +29,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--input-hjson", dest="input_hjson", default=None,
+    help="Specify input HJON file"
+)
+
+parser.add_argument(
     "--input-json", dest="input_json", default=None,
     help="Specify input JSON file"
 )
@@ -87,6 +92,7 @@ import regmap.regmap_xls
 import regmap.regmap_md_mistune
 import regmap.regmap_md
 import regmap.regmap_json
+import regmap.regmap_hjson
 import regmap.regmap_c_header
 import regmap.regmap_rst
 import regmap.regmap_ipxact
@@ -104,6 +110,9 @@ if args.input_md_mistune is not None:
 
 if args.input_md is not None:
     regmap.regmap_md.import_md(rmap, args.input_md, registers=args.registers)
+
+if args.input_hjson is not None:
+    regmap.regmap_hjson.import_hjson(rmap, args.input_hjson, registers=args.registers)
 
 if args.input_json is not None:
     regmap.regmap_json.import_json_file(rmap, args.input_json)

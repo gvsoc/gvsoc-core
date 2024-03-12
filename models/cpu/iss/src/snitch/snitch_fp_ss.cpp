@@ -27,7 +27,7 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), ssr(*this), top(top)
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
@@ -164,14 +164,29 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     _this->csr.fcsr.frm = frm;
 
     // Get input information for trace
-    iss_trace_dump_in(_this, &insn, pc);
+    if (!_this->ssr.ssr_enable)
+    {
+        iss_trace_dump_in(_this, &insn, pc);
+    }
 
     // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile.
     // Use sync computing, execute instruction immediately and give back response after certain latency.
+    _this->trace_iss.msg("Execute instruction\n");
     _this->exec.insn_exec(&insn, pc);
+
+    // Update loop counter if SSR enabled (work under no dm_event)
+    _this->ssr.update_ssr();
+    // Clear dm_read and dm_write flag after execution
+    _this->ssr.clear_flags();
 
     // Assign dynamic latency to instruction latency if there's no static latency.
     // Or take MAX(insn->latency, stall_cycle_get())
+    // If SSR is enabled, the latency of instruction includes memory access + execution time in fpu.
+    if (_this->ssr.ssr_enable)
+    {
+        insn.latency += _this->exec.instr_event.stall_cycle_get();
+    }
+    // If SSR is disabled, the instruction is either memory access or arithmetic instruction.
     if (insn.latency < _this->exec.instr_event.stall_cycle_get())
     {
         insn.latency = _this->exec.instr_event.stall_cycle_get();
@@ -241,12 +256,18 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     error = false;
     rd = insn.out_regs[0];
 
-    // Output the instruction trace.
+    // Output the instruction trace for output information.
+    // When SSR is enabled, trace of input data need special handler, because we know the operands after dm_read or dm_write.
+    if (_this->ssr.ssr_enable)
+    {
+        iss_trace_dump_in(_this, &insn, pc);
+    }
     iss_trace_dump(_this, &insn, pc);
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
      
     // Assign arguments to result.
     data = _this->regfile.get_reg(rd);
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "data: 0x%llx\n", data);
     fflags = _this->csr.fcsr.fflags;
     _this->acc_rsp = { .rd=rd, .error=error, .data=data, .fflags=fflags, .pc=pc, .insn=insn };
     
@@ -298,6 +319,7 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
         rs3 = -1;
     }
 
+    // Determine operation groups dependent on the label of instruction
     bool fma_label = strstr(insn.decoder_item->u.insn.label, "add")
                     || strstr(insn.decoder_item->u.insn.label, "sub")
                     || strstr(insn.decoder_item->u.insn.label, "mul")
@@ -308,15 +330,15 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
 
     bool noncomp_label = strstr(insn.decoder_item->u.insn.label, "sgnj")
                         || strstr(insn.decoder_item->u.insn.label, "min")
-                        || strstr(insn.decoder_item->u.insn.label, "max")
-                        || strstr(insn.decoder_item->u.insn.label, "feq")
-                        || strstr(insn.decoder_item->u.insn.label, "fle")
-                        || strstr(insn.decoder_item->u.insn.label, "flt")
-                        || strstr(insn.decoder_item->u.insn.label, "class");
+                        || strstr(insn.decoder_item->u.insn.label, "max");
 
     bool conv_label = strstr(insn.decoder_item->u.insn.label, "fmv")
                     || strstr(insn.decoder_item->u.insn.label, "fcvt")
-                    || strstr(insn.decoder_item->u.insn.label, "fcpka");
+                    || strstr(insn.decoder_item->u.insn.label, "fcpka")
+                    || strstr(insn.decoder_item->u.insn.label, "feq")
+                    || strstr(insn.decoder_item->u.insn.label, "fle")
+                    || strstr(insn.decoder_item->u.insn.label, "flt")
+                    || strstr(insn.decoder_item->u.insn.label, "class");
 
     bool dotp_label = strstr(insn.decoder_item->u.insn.label, "dotp")
                     || strstr(insn.decoder_item->u.insn.label, "sum");
@@ -329,57 +351,90 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
     int latency = insn.latency;
     int latency_pipe;
 
-    if (fma_label) 
-    {
-        latency_pipe = this->FMA_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
-        if (latency_pipe < latency)
-        {
-            latency = latency_pipe;
-        }
-    }
-    if (divsqrt_label)
-    {
-        latency_pipe = this->DIVSQRT_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
-        if (latency_pipe < latency)
-        {
-            latency = latency_pipe;
-        }
-    }
-    if (noncomp_label)
-    {
-        latency_pipe = this->NONCOMP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
-        if (latency_pipe < latency)
-        {
-            latency = latency_pipe;
-        }
+    // Only compare with its own operation group.
+    // if (fma_label) 
+    // {
+    //     latency_pipe = this->FMA_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    //     if (latency_pipe < latency)
+    //     {
+    //         latency = latency_pipe;
+    //     }
+    // }
+    // if (divsqrt_label)
+    // {
+    //     latency_pipe = this->DIVSQRT_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    //     if (latency_pipe < latency)
+    //     {
+    //         latency = latency_pipe;
+    //     }
+    // }
+    // if (noncomp_label)
+    // {
+    //     latency_pipe = this->NONCOMP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    //     if (latency_pipe < latency)
+    //     {
+    //         latency = latency_pipe;
+    //     }
 
-    }
-    if (conv_label)
+    // }
+    // if (conv_label)
+    // {
+    //     latency_pipe = this->CONV_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    //     if (latency_pipe < latency)
+    //     {
+    //         latency = latency_pipe;
+    //     }
+    // }
+    // if (dotp_label)
+    // {
+    //     latency_pipe = this->DOTP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    //     if (latency_pipe < latency)
+    //     {
+    //         latency = latency_pipe;
+    //     }
+    // }
+    // if (lsu_label)
+    // {
+    //     latency_pipe = this->LSU_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    //     if (latency_pipe < latency)
+    //     {
+    //         latency = latency_pipe;
+    //     }
+    // }
+
+    // Check status of all operation FIFOs and get the real pipelined latency.
+    latency_pipe = this->FMA_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    if (latency_pipe < latency)
     {
-        latency_pipe = this->CONV_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
-        if (latency_pipe < latency)
-        {
-            latency = latency_pipe;
-        }
+        latency = latency_pipe;
     }
-    if (dotp_label)
+    latency_pipe = this->DIVSQRT_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    if (latency_pipe < latency)
     {
-        latency_pipe = this->DOTP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
-        if (latency_pipe < latency)
-        {
-            latency = latency_pipe;
-        }
+        latency = latency_pipe;
     }
-    if (lsu_label)
+    latency_pipe = this->NONCOMP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    if (latency_pipe < latency)
     {
-        latency_pipe = this->LSU_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
-        if (latency_pipe < latency)
-        {
-            latency = latency_pipe;
-        }
+        latency = latency_pipe;
+    }
+    latency_pipe = this->CONV_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    if (latency_pipe < latency)
+    {
+        latency = latency_pipe;
+    }
+    latency_pipe = this->DOTP_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    if (latency_pipe < latency)
+    {
+        latency = latency_pipe;
+    }
+    latency_pipe = this->LSU_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);
+    if (latency_pipe < latency)
+    {
+        latency = latency_pipe;
     }
 
-
+    // Store finished instruction as new entry inside its own operation group FIFO
     int rd = insn.out_regs[0];
     if (!insn.out_regs_fp[0])
     {
@@ -388,6 +443,7 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
 
     FpuOp entry = { .pc=pc, .insn_latency=insn.latency, .start_timestamp=timestamp, .end_timestamp=timestamp+latency, .rd=rd };
 
+    // Store the new instruction execution information in its own operation group fifo.
     if (fma_label)
     {
         this->FMA_OPGROUP.enqueue(entry);
@@ -417,6 +473,7 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
 }
 
 // Get called when update the situation of  pipeline registers in fpu.
+// This function is not needed and be put into get_latency() function for simplicity.
 void Iss::update_pipereg(iss_insn_t insn, iss_reg_t pc, int insn_latency, int start_timestamp, int finish_timestamp)
 {
     int rd = insn.out_regs[0];

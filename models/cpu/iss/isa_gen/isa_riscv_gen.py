@@ -448,6 +448,37 @@ Format_FREP = [
     UnsignedImm(2, Range(20, 12)),
 ]
 
+# Encodings for extended Snitch instruction set
+      #   3 3 2 2 2 2 2       2 2 2 2 2       1 1 1 1 1       1 1 1       1 1
+      #   1 0 9 8 7 6 5       4 3 2 1 0       9 8 7 6 5       4 3 2       1 0 9 8 7       6 5 4 3 2 1 0
+      #   X X X X X X X   |   X X X X X   |   X X X X X   |   X X X   |   X X X X X   |   X X X X X X X
+# SCFGRI#    ui1[6:0]     |    ui0[4:0]   |     00000     |    001    |      rd       |      opcode
+# SCFGWI#    ui1[6:0]     |    ui0[4:0]   |      rs1      |    010    |     00000     |      opcode
+# SCFGR #    0000000      |      rs1      |     00001     |    001    |      rd       |      opcode
+# SCFGW #    0000000      |      rs2      |      rs1      |    010    |     00001     |      opcode
+
+Format_SCFGRI = [   
+    OutReg(0, Range(7, 5)),
+    UnsignedImm(0, Range(20, 5)),
+    UnsignedImm(1, Range(25, 7))
+]
+
+Format_SCFGWI = [   
+    InReg(0, Range(15, 5)),
+    UnsignedImm(0, Range(20, 5)),
+    UnsignedImm(1, Range(25, 7))
+]
+
+Format_SCFGR = [   
+    OutReg(0, Range(7, 5)),
+    InReg(0, Range(20, 5))
+]
+
+Format_SCFGW = [ 
+    InReg(0, Range(15, 5)), 
+    InReg(1, Range(20, 5))
+]
+
 
 class Rv64i(IsaSubset):
 
@@ -594,7 +625,7 @@ class Rv32f(IsaSubset):
 
     def __init__(self):
         super().__init__(name='rvf', instrs=[
-            Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', fast_handler=True, tags=["load"], is_fp_op=True),
+            Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', fast_handler=True, tags=["fload"], is_fp_op=True),
             Instr('fsw',       Format_FS, '------- ----- ----- 010 ----- 0100111', fast_handler=True, is_fp_op=True),
 
             Instr('fmadd.s',   Format_R4U,'-----00 ----- ----- --- ----- 1000011', tags=['fmadd'], is_fp_op=True),
@@ -608,16 +639,16 @@ class Rv32f(IsaSubset):
             Instr('fdiv.s',    Format_RF, '0001100 ----- ----- --- ----- 1010011', tags=['fdiv'], is_fp_op=True),
             Instr('fsqrt.s',  Format_R2F3,'0101100 00000 ----- --- ----- 1010011', tags=['fdiv'], is_fp_op=True),
 
-            Instr('fsgnj.s',   Format_RF, '0010000 ----- ----- 000 ----- 1010011', tags=['fconv'], is_fp_op=True),
-            Instr('fsgnjn.s',  Format_RF, '0010000 ----- ----- 001 ----- 1010011', tags=['fconv'], is_fp_op=True),
-            Instr('fsgnjx.s',  Format_RF, '0010000 ----- ----- 010 ----- 1010011', tags=['fconv'], is_fp_op=True),
+            Instr('fsgnj.s',   Format_RF, '0010000 ----- ----- 000 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
+            Instr('fsgnjn.s',  Format_RF, '0010000 ----- ----- 001 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
+            Instr('fsgnjx.s',  Format_RF, '0010000 ----- ----- 010 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
 
-            Instr('fmin.s',    Format_RF, '0010100 ----- ----- 000 ----- 1010011', tags=['fconv'], is_fp_op=True),
-            Instr('fmax.s',    Format_RF, '0010100 ----- ----- 001 ----- 1010011', tags=['fconv'], is_fp_op=True),
+            Instr('fmin.s',    Format_RF, '0010100 ----- ----- 000 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
+            Instr('fmax.s',    Format_RF, '0010100 ----- ----- 001 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
 
-            Instr('feq.s',    Format_RF2, '1010000 ----- ----- 010 ----- 1010011', is_fp_op=True, isn_seq_op=True),
-            Instr('flt.s',    Format_RF2, '1010000 ----- ----- 001 ----- 1010011', is_fp_op=True, isn_seq_op=True),
-            Instr('fle.s',    Format_RF2, '1010000 ----- ----- 000 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('feq.s',    Format_RF2, '1010000 ----- ----- 010 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
+            Instr('flt.s',    Format_RF2, '1010000 ----- ----- 001 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
+            Instr('fle.s',    Format_RF2, '1010000 ----- ----- 000 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
 
             Instr('fcvt.w.s', Format_R2F1,'1100000 00000 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
             Instr('fcvt.wu.s',Format_R2F1,'1100000 00001 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
@@ -625,7 +656,7 @@ class Rv32f(IsaSubset):
             Instr('fcvt.s.wu',Format_R2F2,'1101000 00001 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
 
             Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv'], is_fp_op=True, isn_seq_op=True),
-            Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
             Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv'], is_fp_op=True, isn_seq_op=True),
 
             # If RV64F supported
@@ -645,7 +676,7 @@ class Rv32d(IsaSubset):
 
     def __init__(self):
         super().__init__(name='rvd', instrs=[
-            Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', fast_handler=True, tags=["load"], is_fp_op=True),
+            Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', fast_handler=True, tags=["fload"], is_fp_op=True),
             Instr('fsd',       Format_FS, '------- ----- ----- 011 ----- 0100111', fast_handler=True, is_fp_op=True),
 
             Instr('fmadd.d',   Format_R4U,'-----01 ----- ----- --- ----- 1000011', tags=['fmadd'], is_fp_op=True),
@@ -659,26 +690,26 @@ class Rv32d(IsaSubset):
             Instr('fdiv.d',    Format_RF, '0001101 ----- ----- --- ----- 1010011', tags=['fdiv'], is_fp_op=True),
             Instr('fsqrt.d',  Format_R2F3,'0101101 00000 ----- --- ----- 1010011', tags=['fdiv'], is_fp_op=True),
 
-            Instr('fsgnj.d',   Format_RF, '0010001 ----- ----- 000 ----- 1010011', tags=['fconv'], is_fp_op=True),
-            Instr('fsgnjn.d',  Format_RF, '0010001 ----- ----- 001 ----- 1010011', tags=['fconv'], is_fp_op=True),
-            Instr('fsgnjx.d',  Format_RF, '0010001 ----- ----- 010 ----- 1010011', tags=['fconv'], is_fp_op=True),
+            Instr('fsgnj.d',   Format_RF, '0010001 ----- ----- 000 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
+            Instr('fsgnjn.d',  Format_RF, '0010001 ----- ----- 001 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
+            Instr('fsgnjx.d',  Format_RF, '0010001 ----- ----- 010 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
 
-            Instr('fmin.d',    Format_RF, '0010101 ----- ----- 000 ----- 1010011', tags=['fconv'], is_fp_op=True),
-            Instr('fmax.d',    Format_RF, '0010101 ----- ----- 001 ----- 1010011', tags=['fconv'], is_fp_op=True),
+            Instr('fmin.d',    Format_RF, '0010101 ----- ----- 000 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
+            Instr('fmax.d',    Format_RF, '0010101 ----- ----- 001 ----- 1010011', tags=['fnoncomp'], is_fp_op=True),
 
             Instr('fcvt.s.d', Format_R2F3,'0100000 00001 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True),
             Instr('fcvt.d.s', Format_R2F3,'0100001 00000 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True),
 
-            Instr('feq.d',    Format_RF2, '1010001 ----- ----- 010 ----- 1010011', is_fp_op=True, isn_seq_op=True),
-            Instr('flt.d',    Format_RF2, '1010001 ----- ----- 001 ----- 1010011', is_fp_op=True, isn_seq_op=True),
-            Instr('fle.d',    Format_RF2, '1010001 ----- ----- 000 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('feq.d',    Format_RF2, '1010001 ----- ----- 010 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
+            Instr('flt.d',    Format_RF2, '1010001 ----- ----- 001 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
+            Instr('fle.d',    Format_RF2, '1010001 ----- ----- 000 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
 
             Instr('fcvt.w.d', Format_R2F1,'1100001 00000 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
             Instr('fcvt.wu.d',Format_R2F1,'1100001 00001 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
             Instr('fcvt.d.w', Format_R2F2,'1101001 00000 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
             Instr('fcvt.d.wu',Format_R2F2,'1101001 00001 ----- --- ----- 1010011', tags=['fconv'], is_fp_op=True, isn_seq_op=True),
 
-            Instr('fclass.d',  Format_R3F,'1110001 00000 ----- 001 ----- 1010011', is_fp_op=True, isn_seq_op=True),
+            Instr('fclass.d',  Format_R3F,'1110001 00000 ----- 001 ----- 1010011', tags=['fother'], is_fp_op=True, isn_seq_op=True),
 
             # # If RV64F supported
             Instr('fcvt.l.d', Format_R2F1,'1100001 00010 ----- --- ----- 1010011', tags=['fconv'], isa_tags=['rv64f'], is_fp_op=True),
@@ -698,12 +729,12 @@ class Priv(IsaSubset):
 
     def __init__(self):
         super().__init__(name='priv', instrs=[
-            Instr('csrrw', Format_IU,  '------- ----- ----- 001 ----- 1110011', decode='csr_decode'),
-            Instr('csrrs', Format_IU,  '------- ----- ----- 010 ----- 1110011', decode='csr_decode'),
-            Instr('csrrc', Format_IU,  '------- ----- ----- 011 ----- 1110011', decode='csr_decode'),
-            Instr('csrrwi',Format_IUR, '------- ----- ----- 101 ----- 1110011', decode='csr_decode'),
-            Instr('csrrsi',Format_IUR, '------- ----- ----- 110 ----- 1110011', decode='csr_decode'),
-            Instr('csrrci',Format_IUR, '------- ----- ----- 111 ----- 1110011', decode='csr_decode'),
+            Instr('csrrw', Format_IU,  '------- ----- ----- 001 ----- 1110011', decode='csr_decode', isn_seq_op=True),
+            Instr('csrrs', Format_IU,  '------- ----- ----- 010 ----- 1110011', decode='csr_decode', isn_seq_op=True),
+            Instr('csrrc', Format_IU,  '------- ----- ----- 011 ----- 1110011', decode='csr_decode', isn_seq_op=True),
+            Instr('csrrwi',Format_IUR, '------- ----- ----- 101 ----- 1110011', decode='csr_decode', isn_seq_op=True),
+            Instr('csrrsi',Format_IUR, '------- ----- ----- 110 ----- 1110011', decode='csr_decode', isn_seq_op=True),
+            Instr('csrrci',Format_IUR, '------- ----- ----- 111 ----- 1110011', decode='csr_decode', isn_seq_op=True),
 
         ])
 
@@ -780,10 +811,10 @@ class Rv32c(IsaSubset):
             Instr('c.add',      Format_CR,  '100 1-- --- -- --- 10', fast_handler=True),
             Instr('c.swsp',     Format_CSS, '110 --- --- -- --- 10', fast_handler=True),
             Instr('c.sbreak',   Format_CI1, '100 000 000 00 000 10'),
-            Instr('c.flwsp',    Format_FCI3, '011 --- --- -- --- 10', fast_handler=True, tags=["load"], isa_tags=['cf']),
+            Instr('c.flwsp',    Format_FCI3, '011 --- --- -- --- 10', fast_handler=True, tags=["fload"], isa_tags=['cf']),
             Instr('c.fswsp',    Format_FCSS, '111 --- --- -- --- 10', fast_handler=True, isa_tags=['cf']),
             Instr('c.fsw',      Format_FCS,  '111 --- --- -- --- 00', fast_handler=True, isa_tags=['cf']),
-            Instr('c.flw',      Format_FCL,  '011 --- --- -- --- 00', fast_handler=True, tags=["load"], isa_tags=['cf']),
+            Instr('c.flw',      Format_FCL,  '011 --- --- -- --- 00', fast_handler=True, tags=["fload"], isa_tags=['cf']),
         ])
 
 
@@ -810,7 +841,7 @@ class Rv64c(IsaSubset):
             Instr('c.addi4spn', Format_CIW, '000 --- --- -- --- 00', fast_handler=True),
             Instr('c.ld',       Format_CLD, '011 --- --- -- --- 00', fast_handler=True, tags=["load"]),
             Instr('c.lw',       Format_CL,  '010 --- --- -- --- 00', fast_handler=True, tags=["load"]),
-            Instr('c.fld',      Format_CFLD, '001 --- --- -- --- 00', fast_handler=True, tags=["load"]),
+            Instr('c.fld',      Format_CFLD, '001 --- --- -- --- 00', fast_handler=True, tags=["fload"]),
             Instr('c.sw',       Format_CS,  '110 --- --- -- --- 00', fast_handler=True),
             Instr('c.sd',       Format_CSD, '111 --- --- -- --- 00', fast_handler=True),
             Instr('c.fsd',      Format_CFSD, '101 --- --- -- --- 00', fast_handler=True),
@@ -844,7 +875,7 @@ class Rv64c(IsaSubset):
             Instr('c.sdsp',     Format_DCSS, '111 --- --- -- --- 10', fast_handler=True),
             Instr('c.sbreak',   Format_CI1, '100 000 000 00 000 10'),
             Instr('c.fsdsp',    Format_FCSSD, '101 --- --- -- --- 10', isa_tags=['cf']),
-            Instr('c.fldsp',    Format_FCI3D, '001 --- --- -- --- 10', tags=["load"], isa_tags=['cf']),
+            Instr('c.fldsp',    Format_FCI3D, '001 --- --- -- --- 10', tags=["fload"], isa_tags=['cf']),
         ])
 
     def check_compatibilities(self, isa):
@@ -860,6 +891,19 @@ class Rv32frep(IsaSubset):
         super().__init__(name='frep', instrs=[
             Instr('frep.o', Format_FREP, '------------ ----- --- ---- 10001011', tags=["frep"], is_frep_op=True),
             Instr('frep.i', Format_FREP, '------------ ----- --- ---- 00001011', tags=["frep"], is_frep_op=True),
+        ])
+
+
+
+# RV32 Extension SSR
+class Rv32ssr(IsaSubset):
+    
+    def __init__(self):
+        super().__init__(name='ssr', instrs=[
+            Instr('scfgri', Format_SCFGRI, '------------ 00000 001 ---- -0101011', tags=["ssr"], is_fp_op=True, isn_seq_op=True),
+            Instr('scfgwi', Format_SCFGWI, '------------ ----- 010 0000 00101011', tags=["ssr"], is_fp_op=True, isn_seq_op=True),
+            Instr('scfgr', Format_SCFGR, '0000000----- 00001 001 ---- -0101011', tags=["ssr"], is_fp_op=True, isn_seq_op=True),
+            Instr('scfgw', Format_SCFGW, '0000000----- ----- 010 0000 00101011', tags=["ssr"], is_fp_op=True, isn_seq_op=True),
         ])
 
 
@@ -961,7 +1005,13 @@ class RiscvIsa(Isa):
             elif "fmv" in insn.tags:
                 insn.set_latency(2)
                 insn.get_out_reg(0).set_latency(2)
+            elif "fnoncomp" in insn.tags:
+                insn.set_latency(1)
+                insn.get_out_reg(0).set_latency(1)
             elif "fother" in insn.tags:
+                insn.set_latency(2)
+                insn.get_out_reg(0).set_latency(2)
+            elif "load" in insn.tags:
                 insn.set_latency(2)
                 insn.get_out_reg(0).set_latency(2)
 

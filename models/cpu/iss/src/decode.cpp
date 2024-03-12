@@ -415,11 +415,38 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #endif
 
     // For integer instructions, check whether all operands are ready before execution.
-    // If one of the input and output operand are invalid in regfile.scoreboard_reg_valid, stall at current pc.
+    // 1. If the memory access address is written by a previous offloaded load/store instruction, 
+    // check whether that operation has finished. Otherwise, block the integer core.
+    // 2. If one of the input and output operand are invalid in regfile.scoreboard_reg_valid, stall at current pc.
     // If all operands are ready, continue to execute.
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
+        // Check availability in memory access.
+        iss_addr_t mem_map;
+        if(!insn->is_fp_op)
+        {
+            bool lsu_label = strstr(insn->decoder_item->u.insn.label, "lw")
+                    || strstr(insn->decoder_item->u.insn.label, "sw")
+                    || strstr(insn->decoder_item->u.insn.label, "ld")
+                    || strstr(insn->decoder_item->u.insn.label, "sd");
+            if (lsu_label)
+            {
+                // Get memory address in the load/store instruction
+                mem_map = REG_GET(0) + SIM_GET(0);
+                iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Integer instruction memory access address: 0x%llx\n", mem_map);
+                // Check whether this address is within the range of previous and unfinished offloaded memory access.
+                // If it's dependent and from the same memory address, stall and check again in the next cycle. 
+                if (mem_map >= iss->mem_map & mem_map < (iss->mem_map+0x8))
+                {
+                    insn->handler = iss_decode_pc_handler;
+                    insn->fast_handler = iss_decode_pc_handler;
+                    return pc;
+                }
+            }
+        }
+
+        // Check availability in register operands.
         if(!insn->is_fp_op)
         {
             bool src_ready = true;

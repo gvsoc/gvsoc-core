@@ -60,6 +60,7 @@ void IssWrapper::reset(bool active)
     this->iss.gdbserver.reset(active);
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.reset(active);
+    this->iss.ssr.reset(active);
 #endif
 }
 
@@ -86,6 +87,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
 
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     this->iss.spatz.build();
+    this->iss.ssr.build();
 #endif
 
     traces.new_trace("wrapper", &this->trace, vp::DEBUG);

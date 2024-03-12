@@ -238,10 +238,11 @@ void sequencer::offload_event(vp::Block *__this, vp::ClockEvent *event)
         {
             _this->nb_entries--;
         }
+        _this->trace.msg("nb_entries: %d\n", _this->nb_entries);
     }
 
-    // Stall the event if the buffer is empty.
-    if (_this->isEmpty() && !_this->stalled)
+    // Stall the event if the buffer is empty or the next entry to be read is invalid.
+    if ((_this->isEmpty() | _this->RingBuffer[_this->read_id].max_rpt < 0) && !_this->stalled)
     {
         _this->stalled_inc();
     }
@@ -446,10 +447,13 @@ BufferEntry sequencer::gen_entry(OffloadReq *req, FrepConfig *config)
 
     // Observe whether it's inside a sequence defined by a frep configuration
     bool sequence = true;
-    if (this->write_id > ((this->base_id + config->max_inst) % this->size))
+    if (((this->write_id > ((this->base_id + config->max_inst) % this->size)) & (this->write_id < this->base_id))
+        | config->max_inst < 0)
     {
         sequence = false;
     }
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "write_id: %d, base_id: %d, config->max_inst: %d, size:%d, sequence: %d\n", 
+            this->write_id, this->base_id, config->max_inst, this->size, sequence);
 
     if (!sequence)
     {
@@ -535,6 +539,15 @@ BufferEntry sequencer::gen_entry(OffloadReq *req, FrepConfig *config)
             this->write_id, new_entry.req.insn.opcode, new_entry.req.pc, new_entry.base_entry, new_entry.next_entry);
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Sequence frep configuration in buffer index %d (is_outer: %d, max_inst: %d, max_rpt: %d, stagger_max: %d, stagger_mask: 0x%llx)\n", 
             this->write_id, new_entry.config.is_outer, new_entry.config.max_inst, new_entry.config.max_rpt, new_entry.config.stagger_max, new_entry.config.stagger_mask);
+        
+        // Reset frep config if this sequence is over
+        if (this->write_id == ((this->base_id + config->max_inst) % this->size))
+        {
+            config->max_inst = -1;
+            config->max_rpt = -1;
+            config->stagger_max = 0;
+            config->stagger_mask = 0x0;
+        }
     }
 
     return new_entry;

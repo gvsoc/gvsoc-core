@@ -324,7 +324,22 @@ vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
         }
 
         // Then apply the router latency
+        // Router in snitch has a request FIFO of depth 2, 
+        // so every _this->latency time can finish 2 data requests on average.
+        // _this->latency is the latency from a request to response.
+        // int((_this->latency-1)/2) is the average latency for each request to finish.
+
+        // Two router latency models under two conditions
+        // 1. Use this latency model if the working mechanism if multi-core
+        // If works in multi-core mode, continuous requests are not from the same core,
+        // each core needs to wait a complete _this->latency to continue the next fp instruction.
         req->set_latency(latency + entry->latency + _this->latency);
+        // 2. Use this latency model if the working mechanism if single-core
+        // If works in single core mode, continuous requests are typically from the same core,
+        // each core needs to wait an average to continue the next fp instruction, 
+        // which means each data fetch request takes int((_this->latency-1)/2) stall time
+        // (we can consider this like pipelined).
+        // req->set_latency(latency + entry->latency + int((_this->latency+1)/2));
 
         // Update the bandwidth information
         int64_t router_time = _this->clock.get_cycles();
@@ -336,6 +351,17 @@ vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
           router_time = *next_packet_time;
         }
         *next_packet_time = router_time + packet_duration;
+        // _this->trace.msg(vp::Trace::LEVEL_TRACE, "req->get_is_write() %d, next_packet_time %d\n", req->get_is_write(), *next_packet_time);
+
+        // In snitch data transfer, read and write share handshaking and next_packet_time in reqrsp_to_axi module
+        if (req->get_is_write())
+        {
+          entry->next_read_packet_time = *next_packet_time;
+        }
+        else
+        {
+          entry->next_write_packet_time = *next_packet_time;
+        }
       }
       else
       {

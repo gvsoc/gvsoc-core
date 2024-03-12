@@ -37,6 +37,19 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         insn->data_arga = REG_GET(0);
         // insn->data_argb = REG_GET(1);
 
+        // Record the memory addess for offloaded load/store instrution, 
+        // stall the following instruction which gets access to same memory block.
+        bool lsu_label = strstr(insn->decoder_item->u.insn.label, "flw")
+                    || strstr(insn->decoder_item->u.insn.label, "fsw")
+                    || strstr(insn->decoder_item->u.insn.label, "fld")
+                    || strstr(insn->decoder_item->u.insn.label, "fsd");
+        if (lsu_label)
+        {
+            iss->mem_map = REG_GET(0) + SIM_GET(0);
+            iss->mem_pc = pc;
+            iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "FP instruction memory access address: 0x%llx\n", iss->mem_map);
+        }
+
         // Send an IO request to check whether the subsystem is ready for offloading.
         bool acc_req_ready = iss->check_state(insn);
         iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);

@@ -55,6 +55,7 @@
 #include "OffloadReq.hpp"
 #include "OffloadRsp.hpp"
 #include "PipeRegs.hpp"
+#include <cpu/iss/include/ssr.hpp>
 
 class IssWrapper;
 
@@ -84,7 +85,10 @@ public:
 
     Spatz spatz;
 
+    Ssr ssr;
+
     vp::Component &top;
+    
 
     bool snitch;
     bool fp_ss;
@@ -117,6 +121,10 @@ public:
     // int rd;
     // iss_reg_t data;
     // unsigned int fflags;
+    // Temporary variable to process RAW caused by SSR, 
+    // for result is written to memory directly.
+    iss_addr_t mem_map;
+    iss_reg_t mem_pc;
 
     // Operation groups in FPU
     FIFODepth3 FMA_OPGROUP;
@@ -182,3 +190,4 @@ private:
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 #include "cpu/iss/include/isa/rv32frep.hpp"
+#include "cpu/iss/include/isa/rv32ssr.hpp"

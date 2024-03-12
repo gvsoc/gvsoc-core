@@ -499,7 +499,21 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             }
             else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
             {
+                #ifdef CONFIG_GVSOC_ISS_SNITCH
+                // Special case: when SSR is enabled, the operand value is no longer from the register file.
+                // The register file is bypassed and we go to ssr_fregs to fetch data.
+                if (iss->ssr.ssr_enable & insn_arg->u.reg.index>=0 & insn_arg->u.reg.index<=2)
+                {
+                    saved_arg->u.reg.value_64 = iss->ssr.ssr_fregs[insn_arg->u.reg.index];
+                }
+                else
+                {
+                    saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
+                }
+                #endif
+                #ifndef CONFIG_GVSOC_ISS_SNITCH
                 saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
+                #endif
             }
             else
             {

@@ -27,7 +27,7 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), ssr(*this), top(top)
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
@@ -209,6 +209,14 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
 {
     Iss *_this = (Iss *)__this;
 
+    // Store dependent input integer register value when we receive the response from fp subsystem.
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "rd: %d, data: 0x%llx\n", result->rd, result->data);
+    if (!result->insn.out_regs_fp[0])
+    {
+        _this->regfile.set_reg(result->rd, result->data);
+    }
+    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "data: 0x%llx\n", _this->regfile.get_reg(result->rd));
+
     // Get input information for trace
     iss_trace_dump_in(_this, &result->insn, result->pc);
 
@@ -218,6 +226,15 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         _this->regfile.scoreboard_reg_valid[result->insn.out_regs[0]] = true;
         #endif   
+    }
+    // Reset memory address when the instruction finishes execution.
+    bool lsu_label = strstr(result->insn.decoder_item->u.insn.label, "flw")
+                    || strstr(result->insn.decoder_item->u.insn.label, "fsw")
+                    || strstr(result->insn.decoder_item->u.insn.label, "fld")
+                    || strstr(result->insn.decoder_item->u.insn.label, "fsd");
+    if (lsu_label & result->pc==_this->mem_pc)
+    {
+        _this->mem_map = 0x0;
     }
 
     // Post-processing of result.

@@ -237,6 +237,10 @@ public:
     CsrReg vtype;
     CsrReg vlenb;
 
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
+    CsrReg ssr;
+#endif
+
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 #endif

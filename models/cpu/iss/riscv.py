@@ -432,7 +432,7 @@ class Snitch(RiscvCommon):
             timed: bool=True):
 
 
-        extensions = [ Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
+        extensions = [ Rv32ssr(), Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
         
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
@@ -448,6 +448,7 @@ class Snitch(RiscvCommon):
         self.add_sources([
             "cpu/iss/src/snitch/snitch.cpp",
             "cpu/iss/src/spatz.cpp",
+            "cpu/iss/src/ssr.cpp",
         ])
 
 
@@ -466,7 +467,7 @@ class Snitch_fp_ss(RiscvCommon):
             timed: bool=False):
 
 
-        extensions = [ Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
+        extensions = [ Rv32ssr(), Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
     
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
         misa = 0x40801129
@@ -482,6 +483,7 @@ class Snitch_fp_ss(RiscvCommon):
         self.add_sources([
             "cpu/iss/src/snitch/snitch_fp_ss.cpp",
             "cpu/iss/src/spatz.cpp",
+            "cpu/iss/src/ssr.cpp",
         ])
 
 

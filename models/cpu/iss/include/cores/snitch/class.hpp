@@ -55,6 +55,7 @@
 #include "OffloadReq.hpp"
 #include "OffloadRsp.hpp"
 #include "PipeRegs.hpp"
+#include <cpu/iss/include/ssr.hpp>
 
 class IssWrapper;
 
@@ -84,7 +85,7 @@ public:
 
     Spatz spatz;
 
-
+    Ssr ssr;
 
     vp::Component &top;
 
@@ -122,6 +123,10 @@ public:
     iss_reg_t pc;
     bool is_write;
     unsigned int frm;
+    // Temporary variable to process RAW caused by SSR, 
+    // for result is written to memory directly.
+    iss_addr_t mem_map;
+    iss_reg_t mem_pc;
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
@@ -174,3 +179,4 @@ private:
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 #include "cpu/iss/include/isa/rv32frep.hpp"
+#include "cpu/iss/include/isa/rv32ssr.hpp"

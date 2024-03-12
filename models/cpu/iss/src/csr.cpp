@@ -107,6 +107,11 @@ Csr::Csr(Iss &iss)
         this->declare_csr(&this->pmpaddr[i],  "pmpaddr" + std::to_string(i),  0x3B0 + i);
     }
 #endif
+
+// Enanble or disable stream semantics
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
+    this->declare_csr(&this->ssr,   "ssr",    0x7C0);
+#endif
 }
 
 void Csr::reset(bool active)
@@ -225,6 +230,31 @@ void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr);
 /*
  *   USER CSRS
  */
+
+ static bool ssr_read(Iss *iss, iss_reg_t *value)
+{
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
+    *value = iss->csr.ssr.value;
+    return false;
+#endif
+}
+
+static bool ssr_write(Iss *iss, unsigned int value)
+{
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
+    iss->csr.ssr.value = value;
+    // Enable or disable ssr
+    if (value)
+    {
+        iss->ssr.enable();
+    }
+    else
+    {
+        iss->ssr.disable();
+    }
+    return false;
+#endif
+}
 
 static bool ustatus_read(Iss *iss, iss_reg_t *value)
 {
@@ -865,6 +895,14 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
   }
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // SSR extensions
+    if(reg == 0x7C0)
+    {
+        status = ssr_read(iss, value);
+    }
+#endif
+
     // New generic way of handling CSR access, all CSR should be accessed there
     if (!iss->csr.access(false, reg, *value))
     {
@@ -1191,6 +1229,13 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = dscratch_read(iss, value);
         break;
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // SSR extensions
+    case 0x7C0:
+        status = ssr_read(iss, value);
+        break;
+#endif
+
     // PULP extensions
     case 0x014:
         status = mhartid_read(iss, value);
@@ -1263,6 +1308,14 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
   }
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // SSR extensions
+    if (reg == 0x7C0)
+    {
+        return ssr_write(iss, value);
+    }
+#endif
+
     // New generic way of handling CSR access, all CSR should be accessed there
     if (!iss->csr.access(true, reg, value))
     {
@@ -1329,6 +1382,13 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return scratch0_write(iss, value);
     case 0x7b3:
         return scratch1_write(iss, value);
+#endif
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // SSR extensions
+    case 0x7C0:
+        return ssr_write(iss, value);
+        break;
 #endif
 
     case 0xF13:
@@ -1621,6 +1681,12 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "depc";
     case 0x7B2:
         return "dscratch";
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // SSR extensions
+    case 0x7C0:
+        return "ssr";
+#endif
 
     // PULP extensions
     case 0x014:

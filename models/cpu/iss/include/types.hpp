@@ -172,6 +172,7 @@ typedef enum
     ISS_DECODER_ARG_FLAG_FREG = 8,
     ISS_DECODER_ARG_FLAG_REG64 = 16,
     ISS_DECODER_ARG_FLAG_DUMP_NAME = 32,
+    ISS_DECODER_ARG_FLAG_VREG = 64,
 } iss_decoder_arg_flag_e;
 
 typedef struct iss_insn_arg_s

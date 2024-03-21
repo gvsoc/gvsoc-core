@@ -248,6 +248,10 @@ class OutFReg(OutReg):
     def __init__(self, id, ranges, dumpName=True):
         super(OutFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
 
+class OutVReg(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_VREG'])
+
 
 
 class OutReg64(OutReg):
@@ -301,6 +305,11 @@ class InReg(OpcodeField):
 class InFReg(InReg):
     def __init__(self, id, ranges, dumpName=True):
         super(InFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
+
+
+class InVReg(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_VREG'])
 
 
 

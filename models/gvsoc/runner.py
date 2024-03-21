@@ -33,7 +33,7 @@ import rich
 import rich.table
 
 
-def gen_config(args, config, working_dir, runner=None):
+def gen_config(args, config, working_dir, runner, cosim_mode):
 
     full_config =  js.import_config(config, interpret=False, gen=False)
 
@@ -41,7 +41,7 @@ def gen_config(args, config, working_dir, runner=None):
 
     gvsoc_config.set('systemc', full_config.get('**/require_systemc') is not None)
     gvsoc_config.set('werror', args.werror)
-    gvsoc_config.set('events/use-external-dumper', args.gui)
+    gvsoc_config.set('events/use-external-dumper', args.gui and not cosim_mode)
     gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)
 
     for trace in args.traces:
@@ -74,7 +74,7 @@ def gen_config(args, config, working_dir, runner=None):
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
         len(gvsoc_config.get('events/include_regex')) != 0 or \
-        args.gui
+        args.gui and not cosim_mode
 
     gvsoc_config.set("debug-mode", debug_mode)
 
@@ -205,7 +205,7 @@ class Runner():
         [args, _] = parser.parse_known_args()
 
         self.full_config, self.gvsoc_config_path = gen_config(
-            args, { 'target': self.target.get_config() }, gapy_target.get_working_dir(), self)
+            args, { 'target': self.target.get_config() }, gapy_target.get_working_dir(), self, cosim_mode)
 
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)

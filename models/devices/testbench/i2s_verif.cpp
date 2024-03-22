@@ -201,7 +201,7 @@ I2s_verif::~I2s_verif()
 
 
 I2s_verif::I2s_verif(Testbench *top, vp::I2sMaster *itf, int itf_id, pi_testbench_i2s_verif_config_t *config)
-  : vp::Block(top, "i2s_" + itf_id), top(top)
+  : vp::Block(top, "i2s_" + std::to_string(itf_id)), top(top)
 {
     ::memcpy(&this->config, config, sizeof(pi_testbench_i2s_verif_config_t));
 

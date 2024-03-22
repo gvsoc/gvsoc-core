@@ -521,6 +521,8 @@ int64_t Spim_verif::exec()
                 }
                 break;
 
+            default:
+                break;
         }
     }
     else
@@ -550,6 +552,9 @@ int64_t Spim_verif::exec()
                 }
             }
             break;
+
+            default:
+                break;
         }
     }
 
@@ -865,16 +870,16 @@ void Spim_verif::handle_boot_protocol_transfer()
             break;
 
         case SPIS_BOOT_STATE_SEND_DATA:
+        {
             int size = this->slave_boot_size < CMD_BUFFER_SIZE ? this->slave_boot_size : CMD_BUFFER_SIZE;
             this->trace.msg(vp::Trace::LEVEL_INFO, "Sending data (size: 0x%x)\n", size);
             this->enqueue_transfer(this->slave_boot_verif_address, size, 0, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA_DONE;
             break;
+        }
 
-
-
-
-
+        default:
+            break;
     }
 }
 

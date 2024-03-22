@@ -68,8 +68,8 @@ namespace gv {
         uint8_t *data;
         // Size in bytes of the access
         size_t size;
-        // True if the request is a write
-        Io_request_type type;
+        // Request type, possible values defined by Io_request_type.
+        int type;
         // Address of the access
         uint64_t addr;
         // Status of the access

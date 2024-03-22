@@ -73,7 +73,7 @@ class GvsocLauncher : public gv::Gvsoc
 
         void release() override;
 
-        void update(int64_t timestamp);
+        void update(int64_t timestamp) override;
 
         gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
         gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;

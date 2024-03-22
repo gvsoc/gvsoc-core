@@ -200,16 +200,18 @@ bool flexfloat_sticky_bit(const flexfloat_t *a, int_fast16_t exp)
 bool flexfloat_nearest_rounding(const flexfloat_t *a, int_fast16_t exp)
 {
     if (flexfloat_round_bit(a, exp))
+    {
         if (flexfloat_sticky_bit(a, exp)) // > ulp/2 away
         {
             return 1;
         }
-        else // = ulp/2 away, round towards even result, decided by LSB of mantissa
+        else// = ulp/2 away, round towards even result, decided by LSB of mantissa
         {
             if (exp <= 0) // denormal
                 return flexfloat_denorm_frac(a, exp) & 0x1;
             return flexfloat_frac(a) & 0x1;
         }
+    }
     return 0; // < ulp/2 away
 }
 
@@ -349,7 +351,7 @@ void flexfloat_sanitize(flexfloat_t *a)
         exp  = inf_exp;
         // Sanitize to canonical NaN (positive sign, quiet bit set)
         sign = 0;
-        frac = UINT_C(1) << a->desc.frac_bits-1;
+        frac = UINT_C(1) << (a->desc.frac_bits-1);
     }
     else if(exp == INF_EXP) // Inf
     {
@@ -598,7 +600,7 @@ INLINE void ff_min(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     if ((a->value == 0) && (a->value == b->value))
     {
         if (flexfloat_sign(a) || flexfloat_sign(b))
-            CAST_TO_INT(dest->value) = (UINT_C(0x1) << NUM_BITS-1);
+            CAST_TO_INT(dest->value) = (UINT_C(0x1) << (NUM_BITS-1));
         else
             CAST_TO_INT(dest->value) = 0;
     }
@@ -623,7 +625,7 @@ INLINE void ff_max(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     if ((a->value == 0) && (a->value == b->value))
     {
         if (flexfloat_sign(a) && flexfloat_sign(b))
-            CAST_TO_INT(dest->value) = (UINT_C(0x1) << NUM_BITS-1);
+            CAST_TO_INT(dest->value) = (UINT_C(0x1) << (NUM_BITS-1));
         else
             CAST_TO_INT(dest->value) = 0;
     }

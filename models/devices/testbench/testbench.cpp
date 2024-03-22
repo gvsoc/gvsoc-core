@@ -182,11 +182,11 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
 
             if (current_time > this->rx_timestamp)
             {
-                if ((float)this->received_bytes * 1000000000000ULL  / (current_time - this->rx_timestamp) > this->rx_bandwidth)
+                if ((int64_t)this->received_bytes  / (current_time - this->rx_timestamp) * 1000000000000ULL > this->rx_bandwidth)
                 {
                     this->uart->set_cts(1);
 
-                    int64_t next_time = (float)this->received_bytes * 1000000000000ULL / this->rx_bandwidth + this->rx_timestamp;
+                    int64_t next_time = (int64_t)this->received_bytes / this->rx_bandwidth * 1000000000000ULL + this->rx_timestamp;
                     int64_t period = this->uart->clock->get_period();
                     int64_t cycles = (next_time - current_time + period - 1) / period;
 
@@ -1001,6 +1001,8 @@ void I2C::sync(int scl, int sda)
         {
             switch (this->state)
             {
+                case I2C_STATE_WAIT_START:
+                    break;
                 case I2C_STATE_WAIT_ADDRESS:
                 {
                     if (this->pending_bits > 1)

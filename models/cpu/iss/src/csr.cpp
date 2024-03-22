@@ -847,7 +847,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     bool status = true;
 
     iss->csr.trace.msg("Reading CSR (reg: 0x%x, name: %s)\n",
-        reg, iss_csr_name(iss, reg));
+        reg, iss_csr_name(iss, reg).c_str());
 
 #if 0
   // First check permissions
@@ -1223,7 +1223,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 
         if (status)
         {
-            iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
+            iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg).c_str());
 #if 0
       triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);
 #endif
@@ -1239,7 +1239,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 {
     iss->csr.trace.msg("Writing CSR (reg: 0x%x, name: %s, value: 0x%x)\n",
-        reg, iss_csr_name(iss, reg), value);
+        reg, iss_csr_name(iss, reg).c_str(), value);
 
     // If there is any write to a CSR, switch to full check instruction handler
     // in case something special happened (like HW counting become active)
@@ -1346,7 +1346,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
 #endif
 
-    iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
+    iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg).c_str());
 #if 0
   triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);
 #endif
@@ -1354,12 +1354,12 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     return true;
 }
 
-const char *iss_csr_name(Iss *iss, iss_reg_t reg)
+std::string iss_csr_name(Iss *iss, iss_reg_t reg)
 {
     CsrAbtractReg *csr = iss->csr.get_csr(reg);
     if (csr != NULL)
     {
-        return csr->name.c_str();
+        return csr->name;
     }
 
     switch (reg)
@@ -1666,7 +1666,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     }
 #endif
 
-    return std::to_string(reg).c_str();
+    return std::to_string(reg);
 }
 
 CsrAbtractReg::CsrAbtractReg(iss_reg_t *value)

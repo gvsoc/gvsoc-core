@@ -654,7 +654,7 @@ void vp::TraceEngine::dump_event_string_external(vp::TraceEngine *_this, vp::Tra
     }
     else
     {
-        memset(buffer, string_size, 0);
+        memset(buffer, 0, string_size);
     }
     buffer += string_size;
 

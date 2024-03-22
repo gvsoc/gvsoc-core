@@ -47,7 +47,7 @@
 #include <sys/stat.h>
 
 vp::ClockEvent::ClockEvent(Block *comp)
-    : comp(comp), _this(comp), meth(meth),
+    : comp(comp), _this(comp),
     enqueued(false), stall_cycle(0), meth_saved(NULL)
 {
     comp->clock.add_clock_event(this);

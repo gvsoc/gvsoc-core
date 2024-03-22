@@ -28,7 +28,7 @@ static inline void csr_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     // In case traces are active, convert the CSR number into a name
 #ifdef VP_TRACE_ACTIVE
     insn->args[2].flags = (iss_decoder_arg_flag_e)(insn->args[2].flags | ISS_DECODER_ARG_FLAG_DUMP_NAME);
-    insn->args[2].name = iss_csr_name(iss, UIM_GET(0));
+    insn->args[2].name = iss_csr_name(iss, UIM_GET(0)).c_str();
 #endif
 }
 

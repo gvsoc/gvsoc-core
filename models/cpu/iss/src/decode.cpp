@@ -240,6 +240,9 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 insn->nb_in_reg = darg->u.indirect_reg.offset_reg.id + 1;
 
             break;
+
+        default:
+            break;
         }
     }
 

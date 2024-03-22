@@ -2265,7 +2265,7 @@ static inline unsigned long int lib_flexfloat_vclass(Iss *s, unsigned long int a
             {
                 cblock |= 0x1; // infinity
             }
-            else if (frac & (0x1ULL << m - 1))
+            else if (frac & (0x1ULL << (m - 1)))
             {
                 cblock |= (0x1ULL << 5); // quiet NaN
             }

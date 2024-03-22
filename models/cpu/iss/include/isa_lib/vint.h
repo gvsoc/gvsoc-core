@@ -6880,12 +6880,12 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
     uint32_t AVL;
 
     if((int)(vtype/pow(2,31))){
-        iss->csr.vtype.value = 0x80000000;
+        iss->csr.vtype.value = 0x8000000000000000;
         VL = 0;
         AVL = 0;
         return 0;
     }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
-        iss->csr.vtype.value = 0x80000000;
+        iss->csr.vtype.value = 0x8000000000000000;
         VL = 0;
         AVL = 0;
         return 0;
@@ -6919,12 +6919,12 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
     int sew = (rs2/8)%8;
     int lmul = rs2%8;
     if((int)(rs2/pow(2,31))){
-        iss->csr.vtype.value = 0x80000000;
+        iss->csr.vtype.value = 0x8000000000000000;
         VL = 0;
         AVL = 0;
         return 0;
     }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
-        iss->csr.vtype.value = 0x80000000;
+        iss->csr.vtype.value = 0x8000000000000000;
         VL = 0;
         AVL = 0;
         return 0;

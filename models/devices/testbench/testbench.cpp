@@ -344,35 +344,49 @@ void Uart::uart_tx_sampling()
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampling bit (value: %d)\n", uart_current_tx);
 
-    if (uart_tx_wait_stop)
+    switch (this->rx_state)
     {
-        if (uart_current_tx == 1)
+        case UART_TX_STATE_DATA:
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received stop bit\n", uart_current_tx);
-            uart_tx_wait_start = true;
-            uart_tx_wait_stop = false;
-            this->uart_stop_tx_sampling();
-        }
-    }
-    else
-    {
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data bit (data: %d)\n", uart_current_tx);
-        uart_byte = (uart_byte >> 1) | (uart_current_tx << 7);
-        uart_nb_bits++;
-        if (uart_nb_bits == 8)
-        {
-            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampled TX byte (value: 0x%x)\n", uart_byte);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data bit (data: %d)\n", uart_current_tx);
+            uart_byte = (uart_byte >> 1) | (uart_current_tx << 7);
+            uart_nb_bits++;
+            if (uart_nb_bits == 8)
+            {
+                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampled TX byte (value: 0x%x)\n", uart_byte);
 
-            if (!this->is_usart)
-            {
-                this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for stop bit\n");
-                uart_tx_wait_stop = true;
+                if (!this->is_usart)
+                {
+                    this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for stop bit\n");
+                    if (this->tx_parity_en)
+                        this->rx_state = UART_TX_STATE_PARITY;
+                    else
+                    {
+                        this->rx_state = UART_TX_STATE_STOP;
+                    }
+                }
+                else
+                {
+                    uart_tx_wait_start = true;
+                }
+                this->handle_received_byte(uart_byte);
             }
-            else
+            break;
+        }
+        case UART_TX_STATE_PARITY:
+        {
+            this->rx_state = UART_TX_STATE_STOP;
+            break;
+        }
+        case UART_TX_STATE_STOP:
+        {
+            if (uart_current_tx == 1)
             {
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Received stop bit\n", uart_current_tx);
                 uart_tx_wait_start = true;
+                this->uart_stop_tx_sampling();
             }
-            this->handle_received_byte(uart_byte);
+            break;
         }
     }
 }
@@ -539,6 +553,7 @@ void Uart::sync(vp::Block *__this, int data)
             _this->uart_start_tx_sampling(_this->baudrate);
         }
         _this->uart_tx_wait_start = false;
+        _this->rx_state = UART_TX_STATE_DATA;
         _this->uart_nb_bits = 0;
     }
     else if (_this->is_usart)
@@ -1063,6 +1078,7 @@ void Testbench::handle_uart_checker()
         uart->polarity = req->uart.polarity;
         uart->phase = req->uart.phase;
         uart->flow_control = req->uart.flow_control;
+        uart->tx_parity_en = req->uart.parity;
     }
 }
 

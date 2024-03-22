@@ -559,7 +559,6 @@ private:
     int prev_clk;
 
     bool uart_tx_wait_start = true;
-    bool uart_tx_wait_stop = false;
     int uart_current_tx;
     int uart_nb_bits;
     bool uart_sampling_tx = false;
@@ -585,6 +584,7 @@ private:
     int rtr = 0;
 
     uart_tx_state_e tx_state;
+    uart_tx_state_e rx_state;
 
 };
 

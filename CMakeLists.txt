@@ -148,7 +148,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 
-add_subdirectory(dpi-wrapper)
+if (NOT APPLE)
+    # SCHEREMO: DPI is not supported on anything but Linux anyway / no EDA tools on Apple
+    add_subdirectory(dpi-wrapper)
+endif()
 add_subdirectory(engine)
 add_subdirectory(models)
 
@@ -175,7 +178,7 @@ if(NOT CONFIG_COMPONENTS STREQUAL "")
 
     foreach(component ${CONFIG_COMPONENTS})
         string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
-        vp_model(NAME ${component} 
+        vp_model(NAME ${component}
             SOURCES "${SRCS_LIST}"
         )
     endforeach()

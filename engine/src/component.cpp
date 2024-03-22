@@ -41,7 +41,6 @@
 #include <regex>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/prctl.h>
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
@@ -274,7 +273,11 @@ std::string vp::Component::get_module_path(js::Config *gv_config, std::string re
     for (auto x: inc_dirs->get_elems())
     {
         std::string inc_dir = x->get_str();
+    #if !(__llvm__)
         std::string path = inc_dir + "/" + relpath + ".so";
+    #else
+        std::string path = inc_dir + "/" + relpath + ".dylib";
+    #endif
         inc_dirs_str += inc_dirs_str == "" ? inc_dir : ":" + inc_dir;
         struct stat buffer;
         if (stat(path.c_str(), &buffer) == 0)
@@ -319,7 +322,12 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
 
     std::string module_path = vp::Component::get_module_path(gv_config, module_name);
 
+#if !(__APPLE__)
     void *module = dlopen(module_path.c_str(), RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
+#else
+    // SCHEREMO: The behaviour of DEEPBIND is default on MAC OS, but the macro does not exist.
+    void *module = dlopen(module_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+#endif
     if (module == NULL)
     {
         throw std::invalid_argument("ERROR, Failed to open periph model (module: " + module_name + ", error: " + std::string(dlerror()) + ")");

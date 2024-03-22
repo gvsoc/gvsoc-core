@@ -22,7 +22,6 @@
 #include "rsp.hpp"
 #include "gdbserver.hpp"
 #include <sys/socket.h>
-#include <sys/prctl.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
@@ -68,7 +67,7 @@ void Rsp::proxy_loop(int socket)
         // TODO - Should timeout on no ACK
     });
 
-    this->codec->on_error([this](const char *err_str) 
+    this->codec->on_error([this](const char *err_str)
     {
         this->top->trace.msg(vp::Trace::LEVEL_ERROR, "RSP: packet error: %s\n", err_str);
         this->stop();

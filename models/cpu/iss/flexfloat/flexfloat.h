@@ -40,7 +40,7 @@ extern "C" {
 #pragma STDC FENV_ACCESS ON
 #endif
 
-#if !(__APPLE__)
+#if !defined(__APPLE__)
 #ifndef __STDC_IEC_559__
 #error "Implementation not IEEE compliant"
 #endif

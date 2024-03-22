@@ -388,6 +388,9 @@ void Uart::uart_tx_sampling()
             }
             break;
         }
+
+        default:
+            break;
     }
 }
 

@@ -273,7 +273,7 @@ std::string vp::Component::get_module_path(js::Config *gv_config, std::string re
     for (auto x: inc_dirs->get_elems())
     {
         std::string inc_dir = x->get_str();
-    #if !(__llvm__)
+    #if !defined(__APPLE__)
         std::string path = inc_dir + "/" + relpath + ".so";
     #else
         std::string path = inc_dir + "/" + relpath + ".dylib";
@@ -322,7 +322,7 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
 
     std::string module_path = vp::Component::get_module_path(gv_config, module_name);
 
-#if !(__APPLE__)
+#if !defined(__APPLE__)
     void *module = dlopen(module_path.c_str(), RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
 #else
     // SCHEREMO: The behaviour of DEEPBIND is default on MAC OS, but the macro does not exist.

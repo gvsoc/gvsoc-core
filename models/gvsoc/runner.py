@@ -457,6 +457,7 @@ class Runner():
                     port = random.randint(4000, 20000)
 
                     self.full_config.set('target/gvsoc/proxy/port', port)
+                    self.full_config.set('target/gvsoc/proxy/enabled', True)
                     dump_config(self.full_config, self.gapy_target.get_abspath(self.gvsoc_config_path))
 
                     run = pexpect.spawn(' '.join(command), encoding='utf-8', logfile=sys.stdout,

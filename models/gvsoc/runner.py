@@ -31,6 +31,13 @@ import sys
 import rich.tree
 import rich
 import rich.table
+import random
+import pexpect
+import threading
+import importlib
+import gvsoc.gvsoc_control
+import signal
+import traceback
 
 
 def gen_config(args, config, working_dir, runner, cosim_mode):
@@ -114,6 +121,24 @@ def dump_config(full_config, gvsoc_config_path):
 
 
 class Runner():
+
+    class ExpectLoopThread(threading.Thread):
+
+        def __init__(self, process):
+            super().__init__()
+            self.process = process
+            self.kill = False
+
+        def run(self):
+            while not self.kill:
+                match = self.process.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.01)
+                if match == 0:
+                    self.kill = False
+                    break
+
+            if self.kill:
+                self.process.kill(signal.SIGKILL)
+
 
     def __init__(self, parser, args, options, gapy_target, target, rtl_cosim_runner=None):
 
@@ -349,6 +374,7 @@ class Runner():
 
     def run(self, norun=False):
 
+        args = self.gapy_target.get_args()
         gvsoc_config = self.full_config.get('target/gvsoc')
 
         dump_config(self.full_config, self.gapy_target.get_abspath(self.gvsoc_config_path))
@@ -358,20 +384,20 @@ class Runner():
         if norun:
             return 0
 
-        stub = self.gapy_target.get_args().stub
+        stub = args.stub
 
-        if self.gapy_target.get_args().gdb:
+        if args.gdb:
             stub = ['gdb', '--args'] + stub
 
-        if self.gapy_target.get_args().valgrind:
+        if args.valgrind:
             stub = ['valgrind'] + stub
 
         if self.rtl_runner is not None:
             self.rtl_runner.run()
 
-        elif self.gapy_target.get_args().emulation:
+        elif args.emulation:
 
-            launcher = self.gapy_target.get_args().binary
+            launcher = args.binary
 
             command = stub
 
@@ -386,10 +412,10 @@ class Runner():
 
         else:
 
-            if self.gapy_target.get_args().valgrind:
+            if args.valgrind:
                 stub = ['valgrind'] + stub
 
-            if self.gapy_target.get_args().gui:
+            if args.gui:
                 command = stub + ['gvsoc-gui',
                     '--gv-config=' + self.gvsoc_config_path,
                     '--gui-config=gvsoc_gui_config.json',
@@ -411,13 +437,67 @@ class Runner():
 
                 command += [launcher, '--config=' + self.gvsoc_config_path]
 
-            if True: #self.verbose:
-                print ('Launching GVSOC with command: ')
-                print (' '.join(command))
-
             os.chdir(self.gapy_target.get_working_dir())
 
-            return os.execvp(command[0], command)
+            if args.gvcontrol is not None:
+
+                # Import the user gvcontrol script
+                try:
+                    spec = importlib.util.spec_from_file_location(args.gvcontrol, args.gvcontrol)
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules["module.name"] = module
+                    spec.loader.exec_module(module)
+                except FileNotFoundError as exc:
+                    raise RuntimeError('Unable to open test configuration file: ' + args.gvcontrol)
+
+                # Launch gvsoc with a random port for the proxy and iterate until we manage
+                # to launch it
+                while True:
+
+                    port = random.randint(4000, 20000)
+
+                    self.full_config.set('target/gvsoc/proxy/port', port)
+                    dump_config(self.full_config, self.gapy_target.get_abspath(self.gvsoc_config_path))
+
+                    run = pexpect.spawn(' '.join(command), encoding='utf-8', logfile=sys.stdout,
+                        codec_errors='replace')
+                    match = run.expect(['Opened proxy on socket '], timeout=None)
+                    if match == 0:
+                        break
+
+                    run.expect(pexpect.EOF, timeout=None)
+                    port = port + 1
+                    if port == 20000:
+                        port = 4000
+
+                # Keep pexpect checking gvsoc output in the thread so that its output is
+                # displayed in real time
+                gv_thread = Runner.ExpectLoopThread(run)
+                gv_thread.start()
+
+                # And call user script with gvsoc proxy
+                try:
+                    proxy = gvsoc.gvsoc_control.Proxy('localhost', port)
+                    status = module.target_control(proxy)
+                    proxy.quit(status)
+                    proxy.close()
+                except:
+                    traceback.print_exc()
+                    gv_thread.kill = True
+                    proxy.close()
+                    gv_thread.join()
+                    return -1
+
+                # Once script is over, wait for gvsoc to finish and return its status
+                gv_thread.join()
+                return run.exitstatus
+
+            else:
+                if True: #self.verbose:
+                    print ('Launching GVSOC with command: ')
+                    print (' '.join(command))
+
+                return os.execvp(command[0], command)
 
 
     def gen_gui_config(self, work_dir, path):
@@ -543,6 +623,9 @@ class Target(gapy.Target):
 
             parser.add_argument("--installdir", dest="installdir", default=None,
                 help="Specify install directory. This can be used when generating components code.")
+
+            parser.add_argument("--control-script", dest="gvcontrol", default=None,
+                help="Specify gvcontrol script")
 
             [args, otherArgs] = parser.parse_known_args()
 

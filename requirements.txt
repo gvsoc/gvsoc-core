@@ -9,3 +9,4 @@ pyelftools>=0.29
 pytablewriter>=1.2.0
 rich>=13.7.0
 six>=1.16.0
+pexpect>=4.9.0

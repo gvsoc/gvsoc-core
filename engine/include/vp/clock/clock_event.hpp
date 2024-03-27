@@ -165,7 +165,7 @@ namespace vp
          * yet been executed.
          * The event is then removed from the clock engine queues and can then be reenqueue.
          *
-         * @note This should be called only if the event is enqueued.
+         * @note This can be called also if the event is not enqueued.
          * @note This method must be used only in the mode where the event is enqueued everytime
          * it must execute.
          */

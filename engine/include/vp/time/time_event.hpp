@@ -127,6 +127,17 @@ namespace vp
          */
         void enqueue(int64_t time);
 
+        /**
+         * @brief Cancel the event
+         *
+         * This can be called to cancel an event which has been enqueued for execution but has not
+         * yet been executed.
+         * The event is then removed from the time engine queue and can then be reenqueue.
+         *
+         * @note This can be called also if the event is not enqueued.
+         */
+        void cancel();
+
     private:
         // Can be called to set the event as enqueued or not
         inline void set_enqueued(bool enqueued) { this->enqueued = enqueued; }

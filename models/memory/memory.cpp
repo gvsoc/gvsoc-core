@@ -180,12 +180,6 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();
 
-    if (!_this->powered_up)
-    {
-        _this->trace.force_warning("Accessing Memory while it is down (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
-        return vp::IO_REQ_INVALID;
-    }
-
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
 
     req->inc_latency(_this->latency);
@@ -280,6 +274,12 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
 vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data)
 {
+    // Writes on powered-down memory are silently ignored
+    if (!this->powered_up)
+    {
+        return vp::IO_REQ_OK;
+    }
+
     if (this->check_mem)
     {
         for (unsigned int i = 0; i < size; i++)
@@ -299,6 +299,13 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
 
 vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data)
 {
+    // Reads on powered-down memory return 0
+    if (!this->powered_up)
+    {
+        memset((void *)data, 0, size);
+        return vp::IO_REQ_OK;
+    }
+
     if (this->check_mem)
     {
         for (unsigned int i = 0; i < size; i++)

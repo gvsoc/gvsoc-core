@@ -29,9 +29,6 @@
 // Get called when we need to update credit counter after a preloading dm_event.
 void CreditCnt::update_cnt()
 {
-    // bool increment;
-    // bool decrement;
-
     if (this->credit_give & !this->credit_take)
     {
         this->credit_cnt++;
@@ -64,21 +61,11 @@ iss_reg_t DataMover::addr_gen_unit(bool is_write)
     // Address update is based on previous address and the value of increment.
     // temp_addr: memory address of previous access
     // inc_addr: the increase of address in the next access, obtained by the configurations and iterations.
-    if (is_write)
-    {
-        // mem_addr = this->config.REG_WPTR[ssr_dim] + mem_inc;
-        mem_addr = this->temp_addr + this->inc_addr;
-    }
-    else
-    {
-        // mem_addr = this->config.REG_RPTR[ssr_dim] + mem_inc;
-        mem_addr = this->temp_addr + this->inc_addr;
-    }
+    mem_addr = this->temp_addr + this->inc_addr;
 
     this->temp_addr = mem_addr;
 
     return mem_addr;
-
 }
 
 
@@ -179,12 +166,6 @@ void Ssr::disable()
     {
         this->trace.msg("Disable SSR\n");
         this->ssr_enable = false;
-        // this->dm0.temp_addr = 0;
-        // this->dm0.inc_addr = 0;
-        // this->dm1.temp_addr = 0;
-        // this->dm1.inc_addr = 0;
-        // this->dm2.temp_addr = 0;
-        // this->dm2.inc_addr = 0;
         // (Work under dm_event)
         // this->event->disable();
     }
@@ -206,17 +187,17 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
         else if (unlikely(reg == 1))
         {
             this->dm0.config.set_REG_REPEAT(value);
-            this->trace.msg("Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >=2 & reg < 6)
         {
             this->dm0.config.set_REG_BOUNDS(reg-2, value);
-            this->trace.msg("Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >=6 & reg < 10)
         {
             this->dm0.config.set_REG_STRIDES(reg-6, value);
-            this->trace.msg("Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 24 & reg < 28)
         {
@@ -225,8 +206,8 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm0.config.set_REG_RPTR(reg-24, value);
             this->dm0.temp_addr = value;
             this->dm0.inc_addr = 0;
-            this->trace.msg("Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
-            this->trace.msg("Loop dimension in data mover %d to %d\n", ssr, this->dm0.config.DIM+1);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Loop dimension in data mover %d to %d\n", ssr, this->dm0.config.DIM+1);
             // Todo: delete this
             this->dm0.config.set_REG_WPTR(reg-24, value);
         }
@@ -237,7 +218,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm0.config.set_REG_WPTR(reg-28, value);
             this->dm0.temp_addr = value;
             this->dm0.inc_addr = 0;
-            this->trace.msg("Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
             // Todo: delete this
             this->dm0.config.set_REG_RPTR(reg-28, value);
         }
@@ -245,7 +226,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
         {
             // Invalid configuration
             this->dm0.is_config = false;
-            this->trace.msg("Invalid configuration register\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
         }
     }
     // Set data mover 1
@@ -260,17 +241,17 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
         else if (unlikely(reg == 1))
         {
             this->dm1.config.set_REG_REPEAT(value);
-            this->trace.msg("Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 2 & reg < 6)
         {
             this->dm1.config.set_REG_BOUNDS(reg-2, value);
-            this->trace.msg("Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 6 & reg < 10)
         {
             this->dm1.config.set_REG_STRIDES(reg-6, value);
-            this->trace.msg("Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 24 & reg < 28)
         {
@@ -279,8 +260,8 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm1.config.set_REG_RPTR(reg-24, value);
             this->dm1.temp_addr = value;
             this->dm1.inc_addr = 0;
-            this->trace.msg("Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
-            this->trace.msg("Loop dimension in data mover %d to %d\n", ssr, this->dm1.config.DIM+1);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Loop dimension in data mover %d to %d\n", ssr, this->dm1.config.DIM+1);
             // Todo: delete this
             this->dm1.config.set_REG_WPTR(reg-24, value);
         }
@@ -291,7 +272,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm1.config.set_REG_WPTR(reg-28, value);
             this->dm1.temp_addr = value;
             this->dm1.inc_addr = 0;
-            this->trace.msg("Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
             // Todo: delete this
             this->dm1.config.set_REG_RPTR(reg-28, value);
         }
@@ -299,7 +280,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
         {
             // Invalid configuration
             this->dm1.is_config = false;
-            this->trace.msg("Invalid configuration register\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
         }
     }
     // Set data mover 2
@@ -314,17 +295,17 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
         else if (unlikely(reg == 1))
         {
             this->dm2.config.set_REG_REPEAT(value);
-            this->trace.msg("Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 2 & reg < 6)
         {
             this->dm2.config.set_REG_BOUNDS(reg-2, value);
-            this->trace.msg("Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 6 & reg < 10)
         {
             this->dm2.config.set_REG_STRIDES(reg-6, value);
-            this->trace.msg("Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
         }
         else if (reg >= 24 & reg < 28)
         {
@@ -333,7 +314,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm2.config.set_REG_RPTR(reg-24, value);
             this->dm2.temp_addr = value;
             this->dm2.inc_addr = 0;
-            this->trace.msg("Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
             // Todo: delete this
             this->dm2.config.set_REG_WPTR(reg-24, value);
         }
@@ -344,7 +325,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm2.config.set_REG_WPTR(reg-28, value);
             this->dm2.temp_addr = value;
             this->dm2.inc_addr = 0;
-            this->trace.msg("Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
             // Todo: delete this
             this->dm2.config.set_REG_RPTR(reg-28, value);
         }
@@ -352,13 +333,13 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
         {
             // Invalid configuration
             this->dm2.is_config = false;
-            this->trace.msg("Invalid configuration register\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
         }
     }
     else
     {
         // Invalid data mover index
-        this->trace.msg("Invalid configuration data mover\n");
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration data mover\n");
     }
 
 }
@@ -399,7 +380,7 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         else
         {
             // Invalid configuration
-            this->trace.msg("Invalid configuration register\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
             value = 0;
         }
     }
@@ -433,7 +414,7 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         else
         {
             // Invalid configuration
-            this->trace.msg("Invalid configuration register\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
             value = 0;
         }
     }
@@ -467,14 +448,14 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         else
         {
             // Invalid configuration
-            this->trace.msg("Invalid configuration register\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
             value = 0;
         }
     }
     else
     {
         // Invalid data mover index
-        this->trace.msg("Invalid configuration data mover\n");
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration data mover\n");
     }
     return value;
 }
@@ -515,7 +496,6 @@ int Ssr::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
         #ifdef CONFIG_GVSOC_ISS_SNITCH
         // In case of a write, don't signal a valid transaction. Stores are always
         // without ans answer to the core.
-        // latency = req->get_latency();
         if (is_write)
         {
             // Suppress stores
@@ -1018,24 +998,17 @@ iss_freg_t Ssr::dm_read(int dm)
             this->dm0.temp = iss_get_float_value(this->dm0.temp, 4 * 8);
             this->dm0.fifo.push(this->dm0.temp);
             this->ssr_fregs[0] = this->dm0.fifo.pop();
-            // this->dm0.update_cnt();
         }
         else if (this->dm0.config.REG_STRIDES[0] == 0x8)
         {
-            this->trace.msg("temp_addr: 0x%llx, inc_addr: 0x%llx\n", this->dm0.temp_addr, this->dm0.inc_addr);
             this->load_float<uint64_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
             this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
             this->dm0.fifo.push(this->dm0.temp);
             this->ssr_fregs[0] = this->dm0.fifo.pop();
-            // this->dm0.update_cnt();
-            this->trace.msg("%d %d %d %d %d %d %d %d %d %d %d %d\n", this->dm0.counter.bound[0], this->dm0.counter.bound[1], this->dm0.counter.bound[2], this->dm0.counter.bound[3],
-                                                        this->dm0.config.REG_STRIDES[0], this->dm0.config.REG_STRIDES[1], this->dm0.config.REG_STRIDES[2], this->dm0.config.REG_STRIDES[3],
-                                                        this->dm0.config.REG_BOUNDS[0], this->dm0.config.REG_BOUNDS[1], this->dm0.config.REG_BOUNDS[2], this->dm0.config.REG_BOUNDS[3]);
         }
         else
         {
-            this->trace.msg("temp_addr: 0x%llx, inc_addr: 0x%llx\n", this->dm0.temp_addr, this->dm0.inc_addr);
-            this->trace.msg("Misaligned data request in data mover\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
             this->load_float<uint64_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
             this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
             this->dm0.fifo.push(this->dm0.temp);
@@ -1053,7 +1026,6 @@ iss_freg_t Ssr::dm_read(int dm)
             this->dm1.temp = iss_get_float_value(this->dm1.temp, 4 * 8);
             this->dm1.fifo.push(this->dm1.temp);
             this->ssr_fregs[1] = this->dm1.fifo.pop();
-            // this->dm1.update_cnt();
         }
         else if (this->dm1.config.REG_STRIDES[0] == 0x8)
         {
@@ -1061,18 +1033,14 @@ iss_freg_t Ssr::dm_read(int dm)
             this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
             this->dm1.fifo.push(this->dm1.temp);
             this->ssr_fregs[1] = this->dm1.fifo.pop();
-            // this->dm1.update_cnt();
         }
         else
         {
-            this->trace.msg("Misaligned data request in data mover\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
             this->load_float<uint64_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 8, dm);
             this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
             this->dm1.fifo.push(this->dm1.temp);
             this->ssr_fregs[1] = this->dm1.fifo.pop();
-            // this->dm1.update_cnt();
-            this->trace.msg("%d %d %d %d %d %d %d %d\n", this->dm1.counter.bound[0], this->dm1.counter.bound[1], this->dm1.counter.bound[2], this->dm1.counter.bound[3],
-                                                        this->dm1.config.REG_STRIDES[0], this->dm1.config.REG_STRIDES[1], this->dm1.config.REG_STRIDES[2], this->dm1.config.REG_STRIDES[3]);
         }
 
         return ssr_fregs[1];
@@ -1086,7 +1054,6 @@ iss_freg_t Ssr::dm_read(int dm)
             this->dm2.temp = iss_get_float_value(this->dm2.temp, 4 * 8);
             this->dm2.fifo.push(this->dm2.temp);
             this->ssr_fregs[2] = this->dm2.fifo.pop();
-            // this->dm2.update_cnt();
         }
         else if (this->dm2.config.REG_STRIDES[0] == 0x8)
         {
@@ -1094,11 +1061,10 @@ iss_freg_t Ssr::dm_read(int dm)
             this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
             this->dm2.fifo.push(this->dm2.temp);
             this->ssr_fregs[2] = this->dm2.fifo.pop();
-            // this->dm2.update_cnt();
         }
         else
         {
-            this->trace.msg("Misaligned data request in data mover\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
             this->load_float<uint64_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 8, dm);
             this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
             this->dm2.fifo.push(this->dm2.temp);
@@ -1130,7 +1096,6 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             this->store_float<uint32_t>(this->dm0.addr_gen_unit(true), (uint8_t *)(&this->dm0.temp), 4, dm);
             this->dm0.fifo.push(this->dm0.temp);
             this->ssr_fregs[0] = this->dm0.fifo.pop();
-            // this->dm0.update_cnt();
             return true;
         }
         else if (this->dm0.config.REG_STRIDES[0] == 0x8)
@@ -1138,12 +1103,11 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             this->store_float<uint64_t>(this->dm0.addr_gen_unit(true), (uint8_t *)(&this->dm0.temp), 8, dm);
             this->dm0.fifo.push(this->dm0.temp);
             this->ssr_fregs[0] = this->dm0.fifo.pop();
-            // this->dm0.update_cnt();
             return true;
         }
         else
         {
-            this->trace.msg("Misaligned data request in data mover\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
             this->store_float<uint64_t>(this->dm0.addr_gen_unit(true), (uint8_t *)(&this->dm0.temp), 8, dm);
             this->dm0.fifo.push(this->dm0.temp);
             this->ssr_fregs[0] = this->dm0.fifo.pop();
@@ -1160,7 +1124,6 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             this->store_float<uint32_t>(this->dm1.addr_gen_unit(true), (uint8_t *)(&this->dm1.temp), 4, dm);
             this->dm1.fifo.push(this->dm1.temp);
             this->ssr_fregs[1] = this->dm1.fifo.pop();
-            // this->dm1.update_cnt();
             return true;
         }
         else if (this->dm1.config.REG_STRIDES[0] == 0x8)
@@ -1168,12 +1131,11 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             this->store_float<uint64_t>(this->dm1.addr_gen_unit(true), (uint8_t *)(&this->dm1.temp), 8, dm);
             this->dm1.fifo.push(this->dm1.temp);
             this->ssr_fregs[1] = this->dm1.fifo.pop();
-            // this->dm1.update_cnt();
             return true;
         }
         else
         {
-            this->trace.msg("Misaligned data request in data mover\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
             this->store_float<uint64_t>(this->dm1.addr_gen_unit(true), (uint8_t *)(&this->dm1.temp), 8, dm);
             this->dm1.fifo.push(this->dm1.temp);
             this->ssr_fregs[1] = this->dm1.fifo.pop();
@@ -1190,7 +1152,6 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             this->store_float<uint32_t>(this->dm2.addr_gen_unit(true), (uint8_t *)(&this->dm2.temp), 4, dm);
             this->dm2.fifo.push(this->dm2.temp);
             this->ssr_fregs[2] = this->dm2.fifo.pop();
-            // this->dm2.update_cnt();
             return true;
         }
         else if (this->dm2.config.REG_STRIDES[0] == 0x8)
@@ -1198,12 +1159,11 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             this->store_float<uint64_t>(this->dm2.addr_gen_unit(true), (uint8_t *)(&this->dm2.temp), 8, dm);
             this->dm2.fifo.push(this->dm2.temp);
             this->ssr_fregs[2] = this->dm2.fifo.pop();
-            // this->dm2.update_cnt();
             return true;
         }
         else
         {
-            this->trace.msg("Misaligned data request in data mover\n");
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
             this->store_float<uint64_t>(this->dm2.addr_gen_unit(true), (uint8_t *)(&this->dm2.temp), 8, dm);
             this->dm2.fifo.push(this->dm2.temp);
             this->ssr_fregs[2] = this->dm2.fifo.pop();
@@ -1265,12 +1225,11 @@ void Ssr::dm_event(vp::Block *__this, vp::ClockEvent *event)
 {
     Ssr *_this = (Ssr *)__this;
 
-    _this->trace.msg("dm_event\n");
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover automation data preloading\n");
 
     // Data mover 0
     // First check whether the target data mover is active
     if (_this->dm0.is_config)
-    // if (_this->dm0.is_config)
     {
         // Then check whether it's a read or write lane
         // Read lane: read data from memory to lane

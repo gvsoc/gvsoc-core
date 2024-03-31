@@ -302,7 +302,6 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     }
 
 #if defined(CONFIG_GVSOC_ISS_TIMED)
-    // Todo: if (insn->latency & !insn->is_fp_op)
     if (insn->latency)
     {
         insn->stall_handler = insn->handler;

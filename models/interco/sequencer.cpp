@@ -238,7 +238,7 @@ void sequencer::offload_event(vp::Block *__this, vp::ClockEvent *event)
         {
             _this->nb_entries--;
         }
-        _this->trace.msg("nb_entries: %d\n", _this->nb_entries);
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Number of entries in the ring buffer: %d\n", _this->nb_entries);
     }
 
     // Stall the event if the buffer is empty or the next entry to be read is invalid.
@@ -452,7 +452,7 @@ BufferEntry sequencer::gen_entry(OffloadReq *req, FrepConfig *config)
     {
         sequence = false;
     }
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "write_id: %d, base_id: %d, config->max_inst: %d, size:%d, sequence: %d\n", 
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Entry arguments write_id: %d, base_id: %d, config->max_inst: %d, size:%d, sequence: %d\n", 
             this->write_id, this->base_id, config->max_inst, this->size, sequence);
 
     if (!sequence)
@@ -604,15 +604,12 @@ BufferEntry sequencer::read_entry(int index)
                 {
                     if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
                     {
-                        // this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
                         insn_arg->u.reg.index = entry.req.insn.out_regs[arg->u.reg.id];
                     }
                     else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
                     {
-                        // this->trace.msg(vp::Trace::LEVEL_TRACE, "arg->u.reg.index: %d\n", arg->u.reg.id);
                         insn_arg->u.reg.index = entry.req.insn.in_regs[arg->u.reg.id];
                     }
-                    // this->trace.msg(vp::Trace::LEVEL_TRACE, "insn_arg->u.reg.index: %d\n", insn_arg->u.reg.index);
                 }
             }
         }

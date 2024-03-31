@@ -151,7 +151,6 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
 {
     iss_opcode_t opcode = insn->opcode;
     this->trace_iss.msg("Send offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
-    // this->trace_iss.msg("Send offload request (insn: %p)\n", insn);
     
     // Assign arguments to request.
     this->insn = *((iss_insn_t *)insn);
@@ -173,6 +172,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     //     this->event->enqueue(1);
     // }
 
+    // Reset handler function after offloading and execution.
     insn->handler = iss_decode_pc_handler;
     insn->fast_handler = iss_decode_pc_handler;
 
@@ -213,15 +213,13 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     Iss *_this = (Iss *)__this;
 
     // Store dependent input integer register value when we receive the response from fp subsystem.
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "rd: %d, data: 0x%llx\n", result->rd, result->data);
     if (!result->insn.out_regs_fp[0])
     {
         _this->regfile.set_reg(result->rd, result->data);
     }
-    _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "data: 0x%llx\n", _this->regfile.get_reg(result->rd));
 
     // Get input information for trace
-    iss_trace_dump_in(_this, &result->insn, result->pc);
+    // iss_trace_dump_in(_this, &result->insn, result->pc);
 
     // Set scoreboard valid when the instruction finishes execution.
     if (!result->insn.out_regs_fp[0])
@@ -254,6 +252,6 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
 
     // Output instruction trace for debugging.
     _this->trace_iss.msg("Get accelerator response (opcode: 0x%lx, pc: 0x%lx)\n", result->insn.opcode, result->pc);
-    iss_trace_dump(_this, &result->insn, result->pc);
+    // iss_trace_dump(_this, &result->insn, result->pc);
     
 }

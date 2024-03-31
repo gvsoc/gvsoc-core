@@ -84,3 +84,8 @@ class Clock_domain(gvsoc.systree.Component):
             The slave interface
         """
         return gvsoc.systree.SlaveItf(self, 'clock_in', signature='clock_ctrl')
+
+    def gen_gui(self, parent_signal):
+        active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='period', groups='regmap', display=gvsoc.gui.DisplayBox())
+
+        return active

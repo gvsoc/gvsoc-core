@@ -54,6 +54,7 @@ namespace vp
         friend class ClockEngine;
         friend class Component;
         friend class Block;
+        friend class BlockClock;
 
     public:
         /**

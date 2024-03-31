@@ -101,7 +101,6 @@ private:
     int32_t cic_order = 8;
     int32_t cic_depth = 2;
     int32_t cic_output_shift = 1;
-    int32_t filter_coef;
     bool cic_filter_enable = false;
     int32_t cic_parkor_shift = 0;
     int32_t cic_ladder_shift = 14;

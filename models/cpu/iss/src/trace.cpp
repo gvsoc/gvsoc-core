@@ -420,6 +420,16 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *
             buff = trace_dump_debug(iss, insn, pc, buff);
     }
 
+    if (iss->trace.has_reg_dump)
+    {
+        buff += sprintf(buff, "%" PRIxFULLREG " ", iss->trace.reg_dump);
+    }
+
+    if (iss->trace.has_str_dump)
+    {
+        buff += sprintf(buff, "%s ", iss->trace.str_dump.c_str());
+    }
+
     if (!is_event)
     {
         buff += sprintf(buff, "%c %" PRIxFULLREG " ", iss_trace_get_mode(mode), pc);
@@ -495,7 +505,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
         {
             if (arg->flags & ISS_DECODER_ARG_FLAG_REG64)
             {
-                saved_arg->u.reg.value_64 = iss->regfile.get_reg64(insn_arg->u.reg.index);
+                saved_arg->u.reg.value_64 = iss->regfile.get_reg64_untimed(insn_arg->u.reg.index);
             }
             else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
             {

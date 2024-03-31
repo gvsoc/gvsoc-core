@@ -135,10 +135,12 @@ Memory::Memory(vp::ComponentConf &config)
     }
 
     // Initialize the Memory with a special value to detect uninitialized
-    // variables
-#ifndef CONFIG_GVSOC_ISS_SNITCH
-    memset(mem_data, 0x57, size);
-#endif
+    // variables.
+    // Only do it for small memories to not slow down too much simulation init.
+    if (size < (2<<24))
+    {
+        memset(mem_data, 0x57, size);
+    }
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     memset(mem_data, 0x0, size);
 #endif
@@ -206,14 +208,12 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
             req->inc_latency(diff);
         }
-        // _this->trace.msg(vp::Trace::LEVEL_TRACE, "IO req latency after sending packet %d, duration %d\n", req->get_latency(), duration);
         #ifndef CONFIG_TCDM
         _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
-        #endif
-        #ifdef CONFIG_TCDM
+        #else
+        // Bank conflicts special for TCDM
         _this->next_packet_start = cycles + duration;
         #endif
-        // _this->trace.msg(vp::Trace::LEVEL_TRACE, "Delayed packet (next_packet_start: %ld)\n", _this->next_packet_start);
     }
 
     if (_this->power.get_power_trace()->get_active())

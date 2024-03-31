@@ -26,8 +26,11 @@
 
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), ssr(*this), top(top)
+      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), ssr(*this), top(top)
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+      , spatz(*this)
+#endif
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
@@ -180,7 +183,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     if (!this->insn.out_regs_fp[0])
     {
     #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-        this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], this->top.clock.get_cycles() + insn->latency);
+        this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], insn->latency, -1);
     #endif   
     }
 

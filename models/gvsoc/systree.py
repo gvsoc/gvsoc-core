@@ -182,6 +182,8 @@ class Component(object):
         self.interfaces = []
         self.c_flags = []
         self.sources = []
+        self.variants = {}
+        self.variant = None
 
         if options is not None and len(options) > 0:
             options_list = []
@@ -197,6 +199,9 @@ class Component(object):
 
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
+
+    def i_RESET(self) -> SlaveItf:
+        return SlaveItf(self, 'reset', signature='wire<bool>')
 
     def i_CLOCK(self) -> SlaveItf:
         """Returns the clock port.
@@ -277,6 +282,7 @@ class Component(object):
         """
         self.properties = self.__merge_properties(self.properties, properties)
 
+
     def add_sources(self, sources: list):
         """Add sources.
 
@@ -308,7 +314,14 @@ class Component(object):
         """
         self.c_flags += flags
 
-    def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None):
+    def add_c_flags_variant(self, name, flags):
+        self.variants[name] = flags
+
+    def set_c_flags_variant(self, name):
+        self.variant = name
+
+    def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None,
+            composite_bind: bool=False):
         """Bind to a slave interface.
 
         The specified master interface of this component is bound to the specified
@@ -333,7 +346,10 @@ class Component(object):
             slave_name = f'{slave_itf.signature}@{slave_itf.component.get_path()}->{slave_itf.itf_name}'
             raise RuntimeError(f'Invalid signature (master: {master_name}, slave: {slave_name})')
 
-        self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
+        if composite_bind:
+            self.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
+        else:
+            self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
     def gen_stimuli(self):
         """Generate stimuli.
@@ -698,12 +714,8 @@ class Component(object):
             component.gen_gui_stub(parent_signal)
 
     def gen_gui(self, parent_signal):
-        return parent_signal
-
-        # TODO once gui filter-out components with no signal, this can be reactivated
-        # to have automatic creation for multi-board
         if self.name is not None:
-            signal = gvsoc.gui.Signal(self, parent_signal, name=self.name)
+            signal = gvsoc.gui.Signal(self, parent_signal, name=self.name, skip_if_no_child=True)
             return signal
         else:
             return parent_signal
@@ -833,8 +845,17 @@ class Component(object):
         self.build_done = True
 
         if self.component is None and len(self.sources) != 0:
-            self.generated_component = get_generated_component(self.sources, self.c_flags)
-            self.add_property('vp_component', self.generated_component.name)
+            if len(self.variants) == 0:
+                self.generated_component = get_generated_component(self.sources, self.c_flags)
+                self.add_property('vp_component', self.generated_component.name)
+
+            else:
+                variants = {}
+                for variant_name, variant_flags in self.variants.items():
+                    variants[variant_name] = get_generated_component(self.sources, self.c_flags + variant_flags)
+
+                if self.variant is not None:
+                    self.add_property('vp_component', variants[self.variant].name)
 
     def finalize(self):
         pass
@@ -957,20 +978,24 @@ class Component(object):
         if self.parent is not None:
             self.parent.declare_target_property(descriptor)
 
-    def declare_user_property(self, name, value, description, cast=None, dump_format=None):
+    def declare_user_property(self, name, value, description, cast=None, dump_format=None, allowed_values=None):
         self.declare_target_property(
             gapylib.target.Property(
                 name=name, path=self.get_comp_path(), value=value,
-                dump_format=dump_format, cast=cast, description=description
+                dump_format=dump_format, cast=cast, description=description, allowed_values=allowed_values
             )
         )
+
+        return self.get_user_property(name)
 
     def get_target_property(self, name, path=None):
         if self.parent is not None:
             return self.parent.get_target_property(name, path)
 
     def get_user_property(self, name):
-        name = self.get_comp_path() + '/' + name
+        path = self.get_comp_path()
+        if path is not None:
+            name = path + '/' + name
 
         return self.parent.get_target_property(name)
 

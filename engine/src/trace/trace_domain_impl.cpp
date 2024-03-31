@@ -172,14 +172,22 @@ vp::TraceEngine::TraceEngine(js::Config *config)
 
     for (int i = 0; i < TRACE_EVENT_NB_BUFFER; i++)
     {
-        event_buffers.push_back(new char[TRACE_EVENT_BUFFER_SIZE]);
+        event_buffers.push(new char[TRACE_EVENT_BUFFER_SIZE]);
     }
-    current_buffer = event_buffers[0];
-    event_buffers.erase(event_buffers.begin());
+    current_buffer = event_buffers.front();
+    event_buffers.pop();
     current_buffer_size = 0;
     this->first_pending_event = NULL;
+    this->use_external_dumper = config->get_child_bool("events/use-external-dumper");
 
-    thread = new std::thread(&TraceEngine::vcd_routine, this);
+    if (this->use_external_dumper)
+    {
+        thread = new std::thread(&TraceEngine::vcd_routine_external, this);
+    }
+    else
+    {
+        thread = new std::thread(&TraceEngine::vcd_routine, this);
+    }
 
     this->trace_format = TRACE_FORMAT_LONG;
     std::string path = "trace_file.txt";
@@ -269,6 +277,28 @@ void vp::TraceEngine::init(vp::Component *top)
 
 void vp::TraceEngine::start()
 {
+    if (this->use_external_dumper)
+    {
+        for (Trace *trace: this->traces_array)
+        {
+            if (trace->is_event)
+            {
+                if (trace->comp->clock.get_engine())
+                {
+                    trace->clock_trace = &trace->comp->clock.get_engine()->clock_trace;
+                }
+
+                std::string clock_trace_name = "";
+                if (trace->clock_trace != NULL)
+                {
+                    clock_trace_name = trace->clock_trace->path;
+                }
+                gv::Vcd_event_type trace_type = trace->is_real ? gv::Vcd_event_type_real : trace->is_string ? gv::Vcd_event_type_string : gv::Vcd_event_type_logical;
+                int width = trace->is_real ? 8 : trace->is_string ? 0 : trace->width;
+                this->vcd_user->event_register(trace->id, trace->get_full_path(), trace_type, width, clock_trace_name);
+            }
+        }
+    }
     for (auto x : this->init_traces)
     {
         x->event(NULL);
@@ -381,7 +411,6 @@ void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
     }
 
     std::vector<vp::Trace *> traces;
-    this->top->get_trace_from_path(traces, path_str);
 
     vp::Trace *trace = this->get_trace_from_path(path);
 
@@ -389,6 +418,11 @@ void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
     {
         traces.push_back(trace);
     }
+    else
+    {
+        this->top->get_trace_from_path(traces, path_str);
+    }
+
 
     for (vp::Trace *trace: traces)
     {

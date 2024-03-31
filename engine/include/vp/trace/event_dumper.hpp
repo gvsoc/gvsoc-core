@@ -63,6 +63,7 @@ namespace vp {
     uint8_t *buffer;
     uint8_t flags;
     void set_vcd_user(gv::Vcd_user *user);
+    int64_t cycles;
 
   private:
     Event_file *file;
@@ -78,13 +79,14 @@ namespace vp {
     Event_trace *get_trace_real(std::string trace_name, std::string file_name);
     Event_trace *get_trace_string(std::string trace_name, std::string file_name);
     void close();
-    void set_vcd_user(gv::Vcd_user *user);
+    void set_vcd_user(gv::Vcd_user *user, bool is_external_dumper);
 
   private:
     std::map<std::string, Event_trace *> event_traces;
     std::map<std::string, Event_file *> event_files;
     gv::Vcd_user *user_vcd;
     js::Config *config;
+    bool is_external_dumper = false;
   };
 
   class Vcd_file : public Event_file

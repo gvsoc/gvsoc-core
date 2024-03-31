@@ -78,7 +78,10 @@ if(DEFINED GVSOC_TARGETS)
     string(REPLACE " "  ";" GVSOC_TARGETS_LIST "${GVSOC_TARGETS}")
     foreach(target ${GVSOC_TARGETS_LIST})
 
-        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${target}.config)
+        string(REPLACE ","  "_" TARGET_NAME "${target}")
+        string(REPLACE "/"  "." TARGET_NAME "${TARGET_NAME}")
+        string(REPLACE ":"  "_" TARGET_NAME "${TARGET_NAME}")
+        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${TARGET_NAME}.config)
 
         message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
 
@@ -148,7 +151,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 install(DIRECTORY bin/ DESTINATION bin USE_SOURCE_PERMISSIONS)
 
-add_subdirectory(dpi-wrapper)
+if (NOT APPLE)
+    # SCHEREMO: DPI is not supported on anything but Linux anyway / no EDA tools on Apple
+    add_subdirectory(dpi-wrapper)
+endif()
 add_subdirectory(engine)
 add_subdirectory(models)
 
@@ -175,7 +181,7 @@ if(NOT CONFIG_COMPONENTS STREQUAL "")
 
     foreach(component ${CONFIG_COMPONENTS})
         string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
-        vp_model(NAME ${component} 
+        vp_model(NAME ${component}
             SOURCES "${SRCS_LIST}"
         )
     endforeach()

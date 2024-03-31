@@ -319,6 +319,9 @@ void Hyperflash::handle_access(int reg_access, int address, int read, uint8_t da
                 this->state = HYPERFLASH_STATE_WAIT_CMD0;
               }
             break;
+
+            default:
+              break;
           }
         }
       }

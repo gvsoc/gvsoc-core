@@ -20,7 +20,9 @@
 
 #include "cpu/iss/include/types.hpp"
 
-void iss_resource_init(Iss *iss);
 iss_reg_t iss_resource_offload(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+void iss_resource_attach_from_tag(Iss *iss, std::string tag, int id, int latency, int bandwidth);
+void iss_resource_declare(Iss *iss, int id, int nb_instances);
+void iss_resource_assign_instance(Iss *iss, int id, int instance_id);
 
 #endif

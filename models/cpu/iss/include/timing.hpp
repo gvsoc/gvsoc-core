@@ -50,7 +50,7 @@ public:
     inline void event_taken_branch_account(int incr);
     inline void event_jump_account(int incr);
     inline void event_misaligned_account(int incr);
-    inline void event_insn_contention_account(int incr);
+    inline void event_apu_contention_account(int incr);
     inline void event_load_load_account(int incr);
 
     inline void event_trace_account(unsigned int event, int cycles);
@@ -59,6 +59,9 @@ public:
     inline int event_trace_is_active(unsigned int event);
 
     inline void stall_cycles_account(int incr);
+
+    inline void event_account(unsigned int event, int incr);
+    inline void handle_pending_events();
 
     void reset(bool active);
 
@@ -72,16 +75,16 @@ public:
     vp::Trace file_trace_event;
     vp::Trace binaries_trace_event;
     vp::Trace pcer_trace_event[32];
+    int64_t pcer_trace_pending_cycles[32];
     vp::Trace insn_trace_event;
     vp::WireMaster<uint32_t> ext_counter[32];
     std::vector<vp::PowerSource> insn_groups_power;
     vp::PowerSource power_stall_first;
     vp::PowerSource power_stall_next;
     vp::PowerSource background_power;
-
+    uint32_t pcer_trace_active_events;
 
 private:
-    inline void event_account(unsigned int event, int incr);
 
     Iss &iss;
     bool declare_binaries = true;

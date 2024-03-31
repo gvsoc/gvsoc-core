@@ -23,10 +23,15 @@
 #include <vp/signal.hpp>
 #include <vp/register.hpp>
 
+vp::BlockObject::BlockObject(Block &parent)
+{
+    parent.register_object(this);
+}
+
 vp::Block::Block(Block *parent, std::string name, vp::TimeEngine *time_engine,
         vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)
     : parent(parent), time(parent, *this, time_engine), traces(parent, *this, trace_engine),
-    power(parent, *this, power_engine)
+    power(parent, *this, power_engine), clock(*this)
 {
     if (parent)
     {
@@ -53,6 +58,11 @@ vp::Block::~Block()
     {
         this->parent->remove_block(this);
     }
+}
+
+void vp::Block::register_object(vp::BlockObject *object)
+{
+    this->objects.push_back(object);
 }
 
 std::string vp::Block::get_path_from_parents()
@@ -83,6 +93,11 @@ void vp::Block::reset_all(bool active, bool from_itf)
         for (Block *block: this->childs)
         {
             block->reset_all(active, false);
+        }
+
+        for (vp::BlockObject *object: this->objects)
+        {
+            object->reset(active);
         }
 
         for (SignalCommon *signal: this->signals)

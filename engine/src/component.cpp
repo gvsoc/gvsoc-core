@@ -41,7 +41,6 @@
 #include <regex>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/prctl.h>
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
@@ -55,6 +54,8 @@
 
 void vp::Component::final_bind()
 {
+    this->reset_is_bound = this->reset_port.is_bound();
+
     for (auto port : this->ports)
     {
         if (port.second->is_slave())
@@ -88,8 +89,6 @@ void vp::Component::final_bind()
 int vp::Component::build_all()
 {
     this->bind_comps();
-
-    this->reset_is_bound = this->reset_port.is_bound();
 
     this->pre_start_all();
 
@@ -274,7 +273,11 @@ std::string vp::Component::get_module_path(js::Config *gv_config, std::string re
     for (auto x: inc_dirs->get_elems())
     {
         std::string inc_dir = x->get_str();
+    #if !defined(__APPLE__)
         std::string path = inc_dir + "/" + relpath + ".so";
+    #else
+        std::string path = inc_dir + "/" + relpath + ".dylib";
+    #endif
         inc_dirs_str += inc_dirs_str == "" ? inc_dir : ":" + inc_dir;
         struct stat buffer;
         if (stat(path.c_str(), &buffer) == 0)
@@ -319,7 +322,12 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
 
     std::string module_path = vp::Component::get_module_path(gv_config, module_name);
 
+#if !defined(__APPLE__)
     void *module = dlopen(module_path.c_str(), RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
+#else
+    // SCHEREMO: The behaviour of DEEPBIND is default on MAC OS, but the macro does not exist.
+    void *module = dlopen(module_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+#endif
     if (module == NULL)
     {
         throw std::invalid_argument("ERROR, Failed to open periph model (module: " + module_name + ", error: " + std::string(dlerror()) + ")");
@@ -505,19 +513,7 @@ void vp::Component::voltage_sync(vp::Block *__this, int voltage)
 
 void vp::Component::clk_reg(Component *_this, Component *clock_engine_instance)
 {
-    _this->clock.clock_engine_instance = (ClockEngine *)clock_engine_instance;
-    for (vp::Block *x : _this->get_childs())
-    {
-        if (x->is_component())
-        {
-            vp::Component *component = (vp::Component *)x;
-            component->clk_reg(component, clock_engine_instance);
-        }
-    }
-    for (ClockEvent *event: _this->clock.events)
-    {
-        event->set_clock(_this->clock.clock_engine_instance);
-    }
+    _this->clock.set_engine((ClockEngine *)clock_engine_instance);
 }
 
 

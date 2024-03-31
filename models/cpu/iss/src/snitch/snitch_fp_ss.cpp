@@ -26,8 +26,11 @@
 
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(*this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), ssr(*this), top(top)
+      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), ssr(*this), top(top)
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+      , spatz(*this)
+#endif
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
@@ -184,12 +187,12 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // If SSR is enabled, the latency of instruction includes memory access + execution time in fpu.
     if (_this->ssr.ssr_enable)
     {
-        insn.latency += _this->exec.instr_event.stall_cycle_get();
+        insn.latency += _this->exec.stall_cycles;
     }
     // If SSR is disabled, the instruction is either memory access or arithmetic instruction.
-    if (insn.latency < _this->exec.instr_event.stall_cycle_get())
+    if (insn.latency < _this->exec.stall_cycles)
     {
-        insn.latency = _this->exec.instr_event.stall_cycle_get();
+        insn.latency = _this->exec.stall_cycles;
     }
     _this->trace_iss.msg("Total latency of fp instruction (opcode: 0x%llx, pc: 0x%llx, latency: %d)\n", opcode, pc, insn.latency);
 
@@ -278,7 +281,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     }
 
     // Clear stalling cycle amount for the next instruction.
-    _this->exec.instr_event.stall_cycle_set(0);
+    _this->exec.stall_cycles = 0;
 
 }
 

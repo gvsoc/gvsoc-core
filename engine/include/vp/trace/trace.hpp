@@ -64,11 +64,8 @@ namespace vp {
     inline void fatal(const char *fmt, ...);
 
     inline void event(uint8_t *value);
-    inline void event_pulse(int64_t duration, uint8_t *pulse_value, uint8_t *background_value);
     inline void event_string(std::string value);
     inline void event_real(double value);
-    inline void event_real_pulse(int64_t duration, double pulse_value, double background_value);
-    inline void event_real_delayed(double value);
 
     void register_callback(std::function<void()> callback) { this->callbacks.push_back(callback); }
 
@@ -91,7 +88,7 @@ namespace vp {
   #else
     inline bool get_active() { return is_active; }
     bool get_active(int level);
-    inline bool get_event_active() { return is_event_active; }
+    inline bool get_event_active() { return this->dump_event_callback != NULL; }
   #endif
     bool is_active = false;
 
@@ -107,6 +104,8 @@ namespace vp {
   protected:
     int level;
     Component *comp;
+    void (*dump_event_callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = NULL;
+    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer);
     bool is_event_active = false;
     std::string name;
     std::string path;
@@ -115,8 +114,10 @@ namespace vp {
     Trace *next;
     Trace *prev;
     int64_t pending_timestamp;
+    int64_t pending_cycles;
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
+    vp::Trace *clock_trace = NULL;
   };
 
 

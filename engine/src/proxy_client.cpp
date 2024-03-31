@@ -208,6 +208,10 @@ void Gvsoc_proxy_client::close()
 {
 }
 
+void Gvsoc_proxy_client::flush()
+{
+}
+
 void Gvsoc_proxy_client::run()
 {
     this->send_command("run");
@@ -262,6 +266,14 @@ void Gvsoc_proxy_client::update(int64_t timestamp)
 }
 
 void Gvsoc_proxy_client::vcd_bind(gv::Vcd_user *user)
+{
+}
+
+void Gvsoc_proxy_client::vcd_enable()
+{
+}
+
+void Gvsoc_proxy_client::vcd_disable()
 {
 }
 

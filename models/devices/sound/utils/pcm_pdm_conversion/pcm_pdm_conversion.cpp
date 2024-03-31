@@ -60,7 +60,6 @@ PdmToPcm::PdmToPcm(int32_t cic_r, int32_t cic_n, int32_t cic_m, int32_t cic_shif
     this->cic_order = cic_n;
     this->cic_depth = cic_m;
     this->cic_output_shift = cic_shift;
-    this->filter_coef = filter_coef;
     this->subsampling_state = 0;
 
 #ifdef DEBUG_CONVERSION

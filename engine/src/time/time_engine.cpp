@@ -195,6 +195,20 @@ int64_t vp::TimeEngine::run_until(int64_t end_time)
         // when locks are handled.
         this->stop_req = false;
 
+        // We may has been stopped because the execution is stopped or finished
+        if (this->finished)
+        {
+            gv::Gvsoc_user *launcher = this->launcher_get();
+
+            if (launcher)
+            {
+                if (this->finished)
+                {
+                    launcher->has_ended();
+                }
+            }
+        }
+
         // Checks locks since we may have been stopped by them
         this->handle_locks();
 
@@ -236,8 +250,21 @@ int64_t vp::TimeEngine::run()
         // the launcher handles it, otherwise we just continue to run events
         if (this->pause_req || this->finished)
         {
+            gv::Gvsoc_user *launcher = this->launcher_get();
+
             this->pause_req = false;
             time = -1;
+            if (launcher)
+            {
+                if (this->finished)
+                {
+                    launcher->has_ended();
+                }
+                else
+                {
+                    launcher->has_stopped();
+                }
+            }
             break;
         }
     }
@@ -321,13 +348,6 @@ void vp::TimeEngine::quit(int status)
 
     // Notify the condition in case we are waiting for locks, to allow leaving the engine.
     pthread_cond_broadcast(&cond);
-
-    gv::Gvsoc_user *launcher = this->launcher_get();
-
-    if (launcher)
-    {
-        launcher->has_ended();
-    }
 }
 
 void vp::TimeEngine::pause()
@@ -339,6 +359,7 @@ void vp::TimeEngine::pause()
     pthread_cond_broadcast(&cond);
 }
 
+// TODO shoud be moved to Top class
 void vp::TimeEngine::flush()
 {
     this->top->flush_all();

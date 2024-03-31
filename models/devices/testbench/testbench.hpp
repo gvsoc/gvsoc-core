@@ -40,7 +40,7 @@
 #include <regex>
 #include <queue>
 
-#include "pcm_pdm_conversion/pcm_pdm_conversion.hpp"
+#include "pcm_pdm_conversion.hpp"
 
 class Testbench;
 class Uart;
@@ -500,6 +500,7 @@ public:
     vp::UartSlave itf;
 
     void start();
+    void reset(bool active);
 
     void set_control(bool active, int baudrate);
     void set_dev(Uart_dev *dev) { this->dev = dev; }
@@ -558,7 +559,6 @@ private:
     int prev_clk;
 
     bool uart_tx_wait_start = true;
-    bool uart_tx_wait_stop = false;
     int uart_current_tx;
     int uart_nb_bits;
     bool uart_sampling_tx = false;
@@ -584,6 +584,7 @@ private:
     int rtr = 0;
 
     uart_tx_state_e tx_state;
+    uart_tx_state_e rx_state;
 
 };
 
@@ -625,6 +626,7 @@ public:
     Testbench(vp::ComponentConf &config);
 
     void start();
+    void reset(bool active);
     std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
 
     void handle_received_byte(uint8_t byte);

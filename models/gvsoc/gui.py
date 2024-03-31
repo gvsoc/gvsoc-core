@@ -85,7 +85,8 @@ class SignalGenFromSignals(object):
 
 class Signal(object):
 
-    def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None):
+    def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
+                 skip_if_no_child=False):
         if path is not None and comp is not None and path[0] != '/':
             path = comp.get_comp_path(inc_top=True) + '/' + path
         self.parent = parent
@@ -99,6 +100,7 @@ class Signal(object):
         self.properties = properties
         self.is_group = is_group
         self.comp = comp
+        self.skip_if_no_child = skip_if_no_child
         if parent is not None:
             parent.child_signals.append(self)
 
@@ -112,7 +114,7 @@ class Signal(object):
         return config
 
     def get_config(self):
-        if self.name is None:
+        if self.name is None or self.skip_if_no_child and len(self.child_signals) == 0:
             return None
 
         config = {}

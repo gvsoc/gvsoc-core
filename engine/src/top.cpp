@@ -46,6 +46,17 @@ vp::Top::Top(std::string config_path, bool is_async)
 }
 
 
+void vp::Top::flush()
+{
+    this->trace_engine->flush();
+    this->time_engine->flush();
+}
+
+void vp::Top::start()
+{
+    this->trace_engine->start();
+}
+
 vp::Top::~Top()
 {
     delete this->power_engine;

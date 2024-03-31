@@ -51,6 +51,13 @@ void Irq::build()
 
     this->sei_itf.set_sync_meth(&Irq::sei_sync);
     this->iss.top.new_slave_port("sei", &this->sei_itf, (vp::Block *)this);
+
+    for (int i=0; i<20; i++)
+    {
+        this->external_irq_itf[i].set_sync_meth_muxed(&Irq::external_irq_sync, i + 12);
+        this->iss.top.new_slave_port("external_irq_" + std::to_string(i + 12),
+            &this->external_irq_itf[i], (vp::Block *)this);
+    }
 }
 
 void Irq::reset(bool active)
@@ -67,6 +74,13 @@ void Irq::reset(bool active)
         this->mtvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
         this->stvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
     }
+}
+
+void Irq::external_irq_sync(vp::Block *__this, bool value, int id)
+{
+    Irq *_this = (Irq *)__this;
+    _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<id)) | (value << id);
+    _this->check_interrupts();
 }
 
 void Irq::msi_sync(vp::Block *__this, bool value)
@@ -121,7 +135,7 @@ bool Irq::mie_access(bool is_write, iss_reg_t &value)
 {
     if (is_write)
     {
-        this->iss.csr.mie.value = value & 0x00000AAA;
+        this->iss.csr.mie.value = value;
     }
     else
     {
@@ -302,6 +316,10 @@ int Irq::check()
                 else if ((enabled_interrupts >> 5) & 1)
                 {
                     irq = 5;
+                }
+                else
+                {
+                    irq = ffs(enabled_interrupts) - 1;
                 }
 
                 this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling IRQ (irq: %d)\n", irq);

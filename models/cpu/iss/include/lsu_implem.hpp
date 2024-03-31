@@ -51,8 +51,16 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
     {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-        this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+        this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
 #endif
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial
     }
@@ -84,8 +92,16 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency))
     {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-        this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+        this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
 #endif
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
         // We don't need to do anything as the target will write directly to the register
         // and we the zero extension is already managed by the initial value
     }
@@ -122,8 +138,16 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-        this->iss.regfile.scoreboard_reg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+        this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
 #endif
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
     }
     else
     {
@@ -177,6 +201,14 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     int64_t latency;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true, latency)) == 0)
     {
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
     }
@@ -281,8 +313,16 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
     {
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg(reg), size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-        this->iss.regfile.scoreboard_freg_set_timestamp(reg, this->iss.top.clock.get_cycles() + latency + 1);
+        this->iss.regfile.scoreboard_freg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
 #endif
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
     }
     else
     {
@@ -338,6 +378,14 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
+
+#if defined(PIPELINE_STALL_THRESHOLD)
+        if (latency > PIPELINE_STALL_THRESHOLD)
+        {
+            this->iss.timing.stall_load_account(latency - PIPELINE_STALL_THRESHOLD);
+        }
+#endif
+
     }
     else
     {

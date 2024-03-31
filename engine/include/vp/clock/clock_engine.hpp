@@ -44,6 +44,8 @@ namespace vp
         friend class vp::Block;
         friend class vp::BlockClock;
         friend class vp::ClockEvent;
+        friend class vp::BlockTrace;
+        friend class vp::TraceEngine;
 
     public:
         /**
@@ -56,6 +58,8 @@ namespace vp
          * @param config The component config coming from Python generator.
          */
         ClockEngine(vp::ComponentConf &config);
+
+        void start();
 
         /**
          * @brief Get current cycles
@@ -103,6 +107,8 @@ namespace vp
          */
         inline void sync();
 
+        void reorder_permanent_events();
+
         /**
          * @brief DEPRECATED
         */
@@ -142,7 +148,7 @@ namespace vp
 
         void disable(ClockEvent *event);
 
-        void apply_frequency(int frequency);
+        void apply_frequency(int64_t frequency);
 
         ClockEvent *reenqueue_ext(ClockEvent *event, int64_t cycles);
 
@@ -160,6 +166,10 @@ namespace vp
 
         static void set_frequency(vp::Block *__this, int64_t frequency);
 
+        static void apply_frequency_handler(vp::Block *_this, vp::ClockEvent *event);
+
+        void change_frequency(int64_t frequency);
+
         vp::ClkMaster out;
 
         vp::ClockSlave clock_in;
@@ -169,6 +179,7 @@ namespace vp
         int factor;
         ClockEvent *delayed_queue = NULL;
         ClockEvent *permanent_first = NULL;
+        ClockEvent *permanent_last = NULL;
         int current_cycle = 0;
         int64_t period = 0;
         int64_t freq;
@@ -196,6 +207,9 @@ namespace vp
         vp::TimeEngine *time_engine = NULL;
 
         int64_t next_delayed_cycle = INT64_MAX;
+
+        vp::ClockEvent apply_frequency_event;
+        int64_t frequency_to_be_applied;
     };
 
 };

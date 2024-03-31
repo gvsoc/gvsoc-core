@@ -39,12 +39,19 @@ namespace js {
 
     virtual std::string get_str() { return ""; }
     virtual long long int get_int() { return 0; }
+    virtual unsigned long long int get_uint() { return 0; }
     virtual double get_double() { return 0; }
     virtual long long int get_int(std::string name)
     {
       js::Config *config = this->get(name);
       if (config == NULL) return 0;
       return config->get_int();
+    }
+    virtual long long int get_uint(std::string name)
+    {
+      js::Config *config = this->get(name);
+      if (config == NULL) return 0;
+      return config->get_uint();
     }
 
     virtual void dump(std::string indent="");
@@ -116,6 +123,7 @@ namespace js {
     Config *get_from_list(std::vector<std::string> name_list);
     std::string get_str() { return value; }
     long long int get_int() { return strtoll(value.c_str(), NULL, 0); }
+    unsigned long long int get_uint() { return strtoull(value.c_str(), NULL, 0); }
     bool get_bool() { return strcmp(value.c_str(), "True") == 0 ||  strcmp(value.c_str(), "true") == 0; }
 
     void dump(std::string indent="");

@@ -50,6 +50,8 @@ class GvsocLauncher : public gv::Gvsoc
 
         void start() override;
 
+        void flush() override;
+
         int64_t stop() override;
 
         void wait_stopped() override;
@@ -71,12 +73,14 @@ class GvsocLauncher : public gv::Gvsoc
 
         void release() override;
 
-        void update(int64_t timestamp);
+        void update(int64_t timestamp) override;
 
         gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
         gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
 
         void vcd_bind(gv::Vcd_user *user) override;
+        void vcd_enable() override;
+        void vcd_disable() override;
         void event_add(std::string path, bool is_regex) override;
         void event_exclude(std::string path, bool is_regex) override;
         void *get_component(std::string path) override;

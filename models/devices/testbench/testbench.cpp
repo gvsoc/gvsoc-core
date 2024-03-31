@@ -101,9 +101,15 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "UART flow control received command (command: %s)\n", this->current_string.c_str());
 
-            std::regex regex{R"([\s]+)"};
-            std::sregex_token_iterator it{this->current_string.begin(), this->current_string.end(), regex, -1};
-            std::vector<std::string> words{it, {}};
+            std::vector<std::string> words;
+            std::istringstream iss(this->current_string);
+            std::string token;
+
+            while (std::getline(iss, token, ' ')) {
+                if (!token.empty()) {
+                    words.push_back(token);
+                }
+            }
 
             if (words[0] == "START")
             {
@@ -176,11 +182,11 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
 
             if (current_time > this->rx_timestamp)
             {
-                if ((float)this->received_bytes * 1000000000000ULL  / (current_time - this->rx_timestamp) > this->rx_bandwidth)
+                if ((int64_t)this->received_bytes  / (current_time - this->rx_timestamp) * 1000000000000ULL > this->rx_bandwidth)
                 {
                     this->uart->set_cts(1);
 
-                    int64_t next_time = (float)this->received_bytes * 1000000000000ULL / this->rx_bandwidth + this->rx_timestamp;
+                    int64_t next_time = (int64_t)this->received_bytes / this->rx_bandwidth * 1000000000000ULL + this->rx_timestamp;
                     int64_t period = this->uart->clock->get_period();
                     int64_t cycles = (next_time - current_time + period - 1) / period;
 
@@ -208,6 +214,13 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
     }
 }
 
+void Testbench::reset(bool active)
+{
+    for (Uart *uart: this->uarts)
+    {
+        uart->reset(active);
+    }
+}
 
 
 Testbench::Testbench(vp::ComponentConf &config)
@@ -291,6 +304,17 @@ void Testbench::start()
     }
 }
 
+void Uart::reset(bool active)
+{
+    if (!active)
+    {
+        if (this->is_control_active)
+        {
+            this->clock->enqueue(this->init_event, 1);
+        }
+    }
+}
+
 void Uart::set_control(bool active, int baudrate)
 {
     this->is_control_active = active;
@@ -320,36 +344,53 @@ void Uart::uart_tx_sampling()
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampling bit (value: %d)\n", uart_current_tx);
 
-    if (uart_tx_wait_stop)
+    switch (this->rx_state)
     {
-        if (uart_current_tx == 1)
+        case UART_TX_STATE_DATA:
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received stop bit\n", uart_current_tx);
-            uart_tx_wait_start = true;
-            uart_tx_wait_stop = false;
-            this->uart_stop_tx_sampling();
-        }
-    }
-    else
-    {
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data bit (data: %d)\n", uart_current_tx);
-        uart_byte = (uart_byte >> 1) | (uart_current_tx << 7);
-        uart_nb_bits++;
-        if (uart_nb_bits == 8)
-        {
-            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampled TX byte (value: 0x%x)\n", uart_byte);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data bit (data: %d)\n", uart_current_tx);
+            uart_byte = (uart_byte >> 1) | (uart_current_tx << 7);
+            uart_nb_bits++;
+            if (uart_nb_bits == 8)
+            {
+                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampled TX byte (value: 0x%x)\n", uart_byte);
 
-            if (!this->is_usart)
-            {
-                this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for stop bit\n");
-                uart_tx_wait_stop = true;
+                if (!this->is_usart)
+                {
+                    this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for stop bit\n");
+                    if (this->tx_parity_en)
+                        this->rx_state = UART_TX_STATE_PARITY;
+                    else
+                    {
+                        this->rx_state = UART_TX_STATE_STOP;
+                    }
+                }
+                else
+                {
+                    uart_tx_wait_start = true;
+                }
+                this->handle_received_byte(uart_byte);
             }
-            else
-            {
-                uart_tx_wait_start = true;
-            }
-            this->handle_received_byte(uart_byte);
+            break;
         }
+        case UART_TX_STATE_PARITY:
+        {
+            this->rx_state = UART_TX_STATE_STOP;
+            break;
+        }
+        case UART_TX_STATE_STOP:
+        {
+            if (uart_current_tx == 1)
+            {
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Received stop bit\n", uart_current_tx);
+                uart_tx_wait_start = true;
+                this->uart_stop_tx_sampling();
+            }
+            break;
+        }
+
+        default:
+            break;
     }
 }
 
@@ -402,8 +443,12 @@ void Uart::send_byte(uint8_t byte)
     else
     {
         this->tx_state = UART_TX_STATE_START;
+        // Work-around. Since frequency is now changed only at end of current cycle, we need to set it
+        // to zero so that the next time we set a real frequency, this is immediate.
+        // To do it properly, the testbench should use timed events.
+        this->tx_clock_cfg.set_frequency(0);
         this->tx_clock_cfg.set_frequency(this->baudrate*2);
-    
+
         this->check_send_byte();
     }
 }
@@ -439,10 +484,6 @@ Uart::Uart(Testbench *top, int id)
 
 void Uart::start()
 {
-    if (this->is_control_active)
-    {
-        this->clock->enqueue(this->init_event, 1);
-    }
 }
 
 
@@ -515,6 +556,7 @@ void Uart::sync(vp::Block *__this, int data)
             _this->uart_start_tx_sampling(_this->baudrate);
         }
         _this->uart_tx_wait_start = false;
+        _this->rx_state = UART_TX_STATE_DATA;
         _this->uart_nb_bits = 0;
     }
     else if (_this->is_usart)
@@ -617,6 +659,7 @@ void Uart::send_bit()
                 {
                     this->dev->send_byte_done();
                 }
+
             }
             break;
         }
@@ -637,6 +680,11 @@ void Uart::uart_start_tx_sampling(int baudrate)
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Start TX sampling (baudrate: %d)\n", this->baudrate);
 
+    // Work-around. Since frequency is now changed only at end of current cycle, we need to set it
+    // to zero so that the next time we set a real frequency, this is immediate.
+    // To do it properly, the testbench should use timed events.
+    this->clock_cfg.set_frequency(0);
+
     // We set the frequency to twice the baudrate to be able sampling in the
     // middle of the cycle
     this->clock_cfg.set_frequency(this->baudrate*2*10);
@@ -650,7 +698,7 @@ void Uart::uart_start_tx_sampling(int baudrate)
 void Uart::uart_stop_tx_sampling(void)
 {
     this->uart_sampling_tx = 0;
-    
+
     if (this->uart_sampling_event->is_enqueued())
     {
         this->clock->cancel(this->uart_sampling_event);
@@ -956,6 +1004,8 @@ void I2C::sync(int scl, int sda)
         {
             switch (this->state)
             {
+                case I2C_STATE_WAIT_START:
+                    break;
                 case I2C_STATE_WAIT_ADDRESS:
                 {
                     if (this->pending_bits > 1)
@@ -1033,8 +1083,11 @@ void Testbench::handle_uart_checker()
         uart->polarity = req->uart.polarity;
         uart->phase = req->uart.phase;
         uart->flow_control = req->uart.flow_control;
+        uart->tx_parity_en = req->uart.parity;
     }
 }
+
+
 
 
 void Testbench::handle_set_status()

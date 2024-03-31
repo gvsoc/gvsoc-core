@@ -362,7 +362,6 @@ void Aps::sync_cycle(int data)
         // Queue the incoming byte
         this->pending_bytes--;
         this->current_address = (this->current_address << 8) | data;
-        this->current_address = this->current_address;
 
         this->trace.msg(vp::Trace::LEVEL_TRACE,
             "Received address byte (byte: 0x%x, address: 0x%x, pending_bytes: %d)\n",

@@ -40,8 +40,10 @@ extern "C" {
 #pragma STDC FENV_ACCESS ON
 #endif
 
+#if !defined(__APPLE__)
 #ifndef __STDC_IEC_559__
 #error "Implementation not IEEE compliant"
+#endif
 #endif
 
 // GCC versions before 8.2 (for sure not on 7.2, don't know when it was fixed) don't raise flags on comparisons correctly

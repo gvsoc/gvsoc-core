@@ -48,7 +48,9 @@
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
+#endif
 
 #include <cpu/iss/include/types.hpp>
 
@@ -83,11 +85,13 @@ public:
     Pmp pmp;
     Exception exception;
 
+    vp::Component &top;
+
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
     Spatz spatz;
+#endif
 
     Ssr ssr;
-
-    vp::Component &top;
 
 
     bool snitch;
@@ -159,7 +163,9 @@ private:
 
 #include "cpu/iss/include/isa/rv64i.hpp"
 #include "cpu/iss/include/isa/rv32i.hpp"
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
 #include "cpu/iss/include/isa/rv32v.hpp"
+#endif
 #include "cpu/iss/include/isa/rv32c.hpp"
 #include "cpu/iss/include/isa/zcmp.hpp"
 #include "cpu/iss/include/isa/rv32a.hpp"
@@ -178,5 +184,6 @@ private:
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
+#include <cpu/iss/include/isa/xdma.hpp>
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"

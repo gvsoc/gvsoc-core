@@ -36,60 +36,39 @@ namespace vp {
   inline void vp::Trace::event(uint8_t *value)
   {
   #ifdef VP_TRACE_ACTIVE
-    if (is_event_active)
-    {
-      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), value, bytes);
-    }
-  #endif
-  }
 
-  inline void vp::Trace::event_pulse(int64_t duration, uint8_t *pulse_value, uint8_t *background_value)
-  {
-  #ifdef VP_TRACE_ACTIVE
-    if (is_event_active)
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = this->dump_event_callback;
+
+    if (callback)
     {
-      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->clock.get_engine()->time.get_time() + duration, pulse_value, background_value, bytes);
-    }   
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, value, bytes);
+    }
   #endif
   }
 
   inline void vp::Trace::event_string(std::string value)
   {
   #ifdef VP_TRACE_ACTIVE
-    if (is_event_active)
+
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = this->dump_event_callback;
+
+    if (callback)
     {
-      this->comp->traces.get_trace_engine()->dump_event_string(this, comp->time.get_time(), (uint8_t *)value.c_str(), value.length() + 1);
-    }   
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)value.c_str(), value.length() + 1);
+    }
   #endif
   }
 
   inline void vp::Trace::event_real(double value)
   {
   #ifdef VP_TRACE_ACTIVE
-    if (is_event_active)
-    {
-      this->comp->traces.get_trace_engine()->dump_event(this, comp->time.get_time(), (uint8_t *)&value, 8);
-    }  	
-  #endif
-  }
 
-  inline void vp::Trace::event_real_pulse(int64_t duration, double pulse_value, double background_value)
-  {
-  #ifdef VP_TRACE_ACTIVE
-    if (is_event_active)
-    {
-      this->comp->traces.get_trace_engine()->dump_event_pulse(this, comp->time.get_time(), comp->time.get_time() + duration, (uint8_t *)&pulse_value, (uint8_t *)&background_value, 8);
-    }   
-  #endif
-  }
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = this->dump_event_callback;
 
-  inline void vp::Trace::event_real_delayed(double value)
-  {
-  #ifdef VP_TRACE_ACTIVE
-    if (is_event_active)
+    if (callback)
     {
-      this->comp->traces.get_trace_engine()->dump_event_delayed(this, comp->time.get_time(), (uint8_t *)&value, 8);
-    }   
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)&value, 8);
+    }
   #endif
   }
 

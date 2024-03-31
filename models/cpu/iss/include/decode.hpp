@@ -65,27 +65,9 @@ typedef struct
     iss_decoder_item_t **insn;
 } iss_tag_insns_t;
 
-// Structure describing an instance of a resource.
-// This is used to account timing on shared resources.
-// Each instance can accept accesses concurently.
-typedef struct
-{
-    int64_t cycles; // Indicate the time where the next access to this resource is possible
-} iss_resource_instance_t;
-
-// Structure describing a resource.
-typedef struct
-{
-    const char *name;                                 // Name of the resource
-    int nb_instances;                                 // Number of instances of this resource. Each instance can accept accesses concurently
-    std::vector<iss_resource_instance_t *> instances; // Instances of this resource
-} iss_resource_t;
-
 typedef struct iss_isa_set_s
 {
     iss_decoder_item_t *isa_set;
-    int nb_resources;
-    iss_resource_t *resources; // Resources associated to this ISA
     std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> &tag_insns;
     bool initialized;
 } iss_isa_set_t;

@@ -20,8 +20,7 @@ import os.path
 import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
-from cpu.iss.isa_gen.isa_rvv import *
-from cpu.iss.isa_gen.isa_smallfloats import *
+from elftools.elf.elffile import *
 
 class RiscvCommon(st.Component):
     """
@@ -88,7 +87,10 @@ class RiscvCommon(st.Component):
             prefetcher_size=None,
             wrapper="pulp/cpu/iss/default_iss_wrapper.cpp",
             memory_start=None,
-            memory_size=None):
+            memory_size=None,
+            handle_misaligned=False,
+            external_pccr=False,
+            htif=False):
 
         super().__init__(parent, name)
 
@@ -117,6 +119,7 @@ class RiscvCommon(st.Component):
             "cpu/iss/src/resource.cpp",
             "cpu/iss/src/trace.cpp",
             "cpu/iss/src/syscalls.cpp",
+            "cpu/iss/src/htif.cpp",
             "cpu/iss/src/mmu.cpp",
             "cpu/iss/src/pmp.cpp",
             "cpu/iss/src/gdbserver.cpp",
@@ -169,8 +172,14 @@ class RiscvCommon(st.Component):
         elif core == 'snitch':
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SNITCH=1'])
 
+        elif core == 'spatz':
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_INC_SPATZ=1'])
+
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
+
+        if external_pccr:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_EXTERNAL_PCCR=1'])
 
         if scoreboard:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])
@@ -187,6 +196,22 @@ class RiscvCommon(st.Component):
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
 
+        if htif:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])
+
+            for binary in binaries:
+                with open(binary, 'rb') as file:
+                    elffile = ELFFile(file)
+                    for section in elffile.iter_sections():
+                        if isinstance(section, SymbolTableSection):
+                            for symbol in section.iter_symbols():
+                                if symbol.name == 'tohost':
+                                    tohost_addr = symbol.entry['st_value']
+                                    self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+                                if symbol.name == 'fromhost':
+                                    fromhost_addr = symbol.entry['st_value']
+                                    self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
+
         if pmp:
             self.add_c_flags([
                 '-DCONFIG_GVSOC_ISS_PMP=1',
@@ -198,7 +223,8 @@ class RiscvCommon(st.Component):
         else:
             self.add_sources(["cpu/iss/src/irq/irq_external.cpp"])
 
-
+        if handle_misaligned:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
 
     def gen_gtkw(self, tree, comp_traces):
 
@@ -266,6 +292,12 @@ class RiscvCommon(st.Component):
         """
         self.itf_bind('data', itf, signature='io')
 
+    def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('meminfo', itf, signature='io')
+
+    def o_TIME(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('time', itf, signature='wire<uint64_t>')
+
     def o_DATA_DEBUG(self, itf: gvsoc.systree.SlaveItf):
         """Binds the data debug port.
 
@@ -307,6 +339,27 @@ class RiscvCommon(st.Component):
         """
         return gvsoc.systree.SlaveItf(self, itf_name='bootaddr', signature='wire<uint64_t>')
 
+    def i_IRQ(self, irq) -> gvsoc.systree.SlaveItf:
+
+        if irq == 3:
+            name = 'msi'
+        elif irq == 7:
+            name = 'mti'
+        elif irq == 11:
+            name = 'mei'
+        elif irq == 9:
+            name = 'sei'
+        else:
+            name = f'external_irq_{irq}'
+
+        return gvsoc.systree.SlaveItf(self, itf_name=name, signature='wire<bool>')
+
+    def o_OFFLOAD(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('offload', itf, signature=f'wire<IssOffloadInsn<uint{self.isa.word_size}_t>*>')
+
+    def i_OFFLOAD_GRANT(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, itf_name='offload_grant',
+            signature=f'wire<IssOffloadInsnGrant<uint{self.isa.word_size}_t>*>')
 
     def gen_gtkw_conf(self, tree, traces):
         if tree.get_view() == 'overview':
@@ -399,7 +452,7 @@ class Riscv(RiscvCommon):
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
             fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
-            core_id: int=0, memory_start=None, memory_size=None):
+            core_id: int=0, memory_start=None, memory_size=None, htif: bool=False):
 
         # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
@@ -410,106 +463,9 @@ class Riscv(RiscvCommon):
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
-            memory_start=memory_start, memory_size=memory_size)
+            memory_start=memory_start, memory_size=memory_size, scoreboard=True,
+            htif=htif)
 
         self.add_c_flags([
             "-DCONFIG_ISS_CORE=riscv",
-        ])
-
-
-
-class Snitch(RiscvCommon):
-
-    def __init__(self,
-            parent,
-            name,
-            isa: str='rv32imafdc',
-            misa: int=0,
-            binaries: list=[],
-            fetch_enable: bool=False,
-            boot_addr: int=0,
-            core_id: int=0,
-            timed: bool=True):
-
-
-        extensions = [ Rv32ssr(), Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
-        
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
-        misa = 0x40801129
-
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed, prefetcher_size=32)
-
-        self.add_c_flags([
-            "-DPIPELINE_STALL_THRESHOLD=0",
-            "-DPIPELINE_STAGES=1",
-            "-DCONFIG_ISS_CORE=snitch",
-        ])
-
-        self.add_sources([
-            "cpu/iss/src/snitch/snitch.cpp",
-            "cpu/iss/src/spatz.cpp",
-            "cpu/iss/src/ssr.cpp",
-        ])
-
-
-# Snitch FP subsystem
-class Snitch_fp_ss(RiscvCommon):
-
-    def __init__(self,
-            parent,
-            name,
-            isa: str='rv32imafdc',
-            misa: int=0,
-            binaries: list=[],
-            fetch_enable: bool=False,
-            boot_addr: int=0,
-            core_id: int=0, 
-            timed: bool=False):
-
-
-        extensions = [ Rv32ssr(), Rv32frep(), Rv32v(), Xf16(), Xf16alt(), Xf8(), Xfvec(), Xfaux() ]
-    
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("snitch_" + isa, isa, extensions=extensions)
-        misa = 0x40801129
-
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch", scoreboard=True, core_id=core_id, timed=timed, prefetcher_size=32)
-
-        self.add_c_flags([
-            "-DPIPELINE_STALL_THRESHOLD=0",
-            "-DPIPELINE_STAGES=1",
-            "-DCONFIG_ISS_CORE=snitch_fp_ss",
-        ])
-
-        self.add_sources([
-            "cpu/iss/src/snitch/snitch_fp_ss.cpp",
-            "cpu/iss/src/spatz.cpp",
-            "cpu/iss/src/ssr.cpp",
-        ])
-
-
-class Spatz(RiscvCommon):
-
-    def __init__(self,
-            parent,
-            name,
-            isa: str='rv32imafdc',
-            misa: int=0,
-            binaries: list=[],
-            fetch_enable: bool=False,
-            boot_addr: int=0,
-            use_rv32v=False):
-
-
-        extensions = [ Rv32v() ]
-
-        isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa("spatz_" + isa, isa, extensions=extensions)
-
-        super().__init__(parent, name, isa=isa_instance, misa=misa, core="snitch")
-
-        self.add_c_flags([
-            "-DCONFIG_ISS_CORE=snitch",
-        ])
-
-        self.add_sources([
-            "cpu/iss/src/spatz.cpp",
         ])

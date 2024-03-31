@@ -28,9 +28,12 @@ from gvsoc.gui import GuiConfig
 import gvsoc.gui
 import gapylib.target as gapy
 import sys
+import rich.tree
+import rich
+import rich.table
 
 
-def gen_config(args, config, working_dir, runner=None):
+def gen_config(args, config, working_dir, runner, cosim_mode):
 
     full_config =  js.import_config(config, interpret=False, gen=False)
 
@@ -38,7 +41,7 @@ def gen_config(args, config, working_dir, runner=None):
 
     gvsoc_config.set('systemc', full_config.get('**/require_systemc') is not None)
     gvsoc_config.set('werror', args.werror)
-    gvsoc_config.set('wunconnected-device', args.w_unconnected_device)
+    gvsoc_config.set('events/use-external-dumper', args.gui and not cosim_mode)
     gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)
 
     for trace in args.traces:
@@ -71,7 +74,7 @@ def gen_config(args, config, working_dir, runner=None):
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
         len(gvsoc_config.get('events/include_regex')) != 0 or \
-        args.gui
+        args.gui and not cosim_mode
 
     gvsoc_config.set("debug-mode", debug_mode)
 
@@ -80,6 +83,9 @@ def gen_config(args, config, working_dir, runner=None):
 
         if args.binary is not None:
             debug_binaries.append(args.binary)
+
+        if args.debug_binary is not None:
+            debug_binaries += args.debug_binary
 
         rom_binary = full_config.get_str('**/soc/rom/config/binary')
 
@@ -199,7 +205,7 @@ class Runner():
         [args, _] = parser.parse_known_args()
 
         self.full_config, self.gvsoc_config_path = gen_config(
-            args, { 'target': self.target.get_config() }, gapy_target.get_working_dir(), self)
+            args, { 'target': self.target.get_config() }, gapy_target.get_working_dir(), self, cosim_mode)
 
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
@@ -558,3 +564,70 @@ class Target(gapy.Target):
 
     def __str__(self) -> str:
         return self.description
+
+
+    def dump_target_properties(self):
+
+        class PropTree:
+
+            def __init__(self, name=None):
+                self.name = name
+                self.prop_trees = {}
+                self.properties = {}
+
+            def add_property_recursive(self, name, value, name_array):
+                if len(name_array) == 1:
+                    self.properties[name] = value
+                else:
+                    if self.prop_trees.get(name_array[0]) is None:
+                        self.prop_trees[name_array[0]] = PropTree(name_array[0])
+
+                    self.prop_trees[name_array[0]].add_property_recursive(name, value, name_array[1:])
+
+            def add_property(self, name, value):
+                self.add_property_recursive(name, value, name.split('/'))
+
+            def fill_tree(self, tree):
+                if self.name is None:
+                    subtree = tree
+                else:
+                    subtree = tree.add(self.name)
+
+                if len(self.properties) > 0:
+                    table = rich.table.Table(title='Properties')
+                    table.add_column('Name')
+                    table.add_column('Value')
+                    table.add_column('Full name')
+                    table.add_column('Allowed values')
+                    table.add_column('Description')
+
+                    for prop_full_name, prop in self.properties.items():
+                        value_str = prop.value
+                        if prop.format is not None:
+                            value_str = prop.format % prop.value
+                        value_str = str(value_str)
+                        prop_name = prop_full_name.split('/')[-1]
+
+                        if prop.allowed_values is None:
+                            if prop.cast == int:
+                                allowed_values = 'any integer'
+                            else:
+                                allowed_values = 'any string'
+                        else:
+                            allowed_values = ', '.join(prop.allowed_values)
+
+                        table.add_row(prop_name, value_str, prop_full_name, allowed_values, prop.description)
+
+                    subtree.add(table)
+
+                for prop_tree in self.prop_trees.values():
+                    prop_tree.fill_tree(subtree)
+
+        prop_tree = PropTree()
+
+        for prop in self.target_properties.values():
+            prop_tree.add_property(prop.full_name, prop)
+
+        tree = rich.tree.Tree('Properties')
+        prop_tree.fill_tree(tree)
+        rich.print (tree)

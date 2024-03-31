@@ -42,8 +42,16 @@ namespace vp
         friend class vp::Component;
         friend class vp::Block;
         friend class vp::ClockEvent;
+        friend class vp::ClockEngine;
 
     public:
+        /**
+         * @brief Construct a new BlockClock
+         *
+         * @param top Specify the parent block class including this time block.
+         */
+        BlockClock(vp::Block &top);
+
         /**
          * @brief Get current cycles
          *
@@ -88,12 +96,16 @@ namespace vp
         inline vp::ClockEngine *get_engine();
 
     private:
+        // Set the clock engine of this block and all its sub-blocks
+        void set_engine(vp::ClockEngine *engine);
         // Used by clock events to get registered so that the block can cancel them during resets
         void add_clock_event(ClockEvent *);
         // Used by clock events to get unregistered
         void remove_clock_event(ClockEvent *);
         // Clock events currently registered in this clock. This is used to cancel them during
         // resets
+        // Access to parent class owning this BlockClock
+        vp::Block &top;
         std::vector<ClockEvent *> events;
         // CLock engine associated with this block
         vp::ClockEngine *clock_engine_instance = NULL;

@@ -1,4 +1,11 @@
-pyelftools>=0.24
-six
-
-
+beautifulsoup4>=4.11.1
+html2text>=2020.1.16
+marko>=2.0.2
+matplotlib>=3.8.2
+mistune>=3.0.2
+pandas>=2.1.4
+prettytable>=0.7.2
+pyelftools>=0.29
+pytablewriter>=1.2.0
+rich>=13.7.0
+six>=1.16.0

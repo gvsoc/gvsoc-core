@@ -473,6 +473,9 @@ void I2C_helper::fsm_step()
             this->desired_sda = 0;
             break;
         }
+
+        default:
+            break;
     }
 
     this->sync_pins();

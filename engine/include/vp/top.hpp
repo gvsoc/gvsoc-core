@@ -39,6 +39,8 @@ namespace vp {
       vp::TraceEngine *get_trace_engine() { return this->trace_engine; };
       vp::PowerEngine *get_power_engine() { return this->power_engine; };
 
+    void flush();
+    void start();
 
   private:
       vp::TimeEngine *time_engine;

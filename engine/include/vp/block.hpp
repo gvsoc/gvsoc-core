@@ -40,6 +40,13 @@ namespace vp {
     class TraceEngine;
     class reg;
 
+    class BlockObject
+    {
+    public:
+        BlockObject(Block &parent);
+        virtual void reset(bool active) {};
+    };
+
     /**
      * @brief Block model
      *
@@ -56,12 +63,14 @@ namespace vp {
         friend class vp::BlockPower;
         friend class vp::BlockTime;
         friend class vp::BlockTrace;
+        friend class vp::BlockClock;
         friend class vp::PowerTrace;
         friend class vp::CompPowerReport;
         friend class vp::ClockEngine;
         friend class vp::TraceEngine;
         friend class vp::Component;
         friend class vp::TimeEngine;
+        friend class vp::BlockObject;
 
     public:
         /**
@@ -358,6 +367,7 @@ namespace vp {
         // Start the whole hierarchy of this block This is called by the top component.
         void start_all();
 
+        void register_object(vp::BlockObject *object);
 
 
         /*
@@ -384,6 +394,8 @@ namespace vp {
         std::vector<SignalCommon *> signals;
         // Block registers
         std::vector<RegisterCommon *> registers;
+        // Other kinds of block objects
+        std::vector<vp::BlockObject *> objects;
         // Block old-style registers, to be removed
         vector<vp::reg *> regs;
         // Services from this block and its childs

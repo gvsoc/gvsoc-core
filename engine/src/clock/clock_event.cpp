@@ -41,14 +41,13 @@
 #include <regex>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/prctl.h>
 #include <vp/proxy.hpp>
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
 #include <sys/stat.h>
 
 vp::ClockEvent::ClockEvent(Block *comp)
-    : comp(comp), _this(comp), meth(meth),
+    : comp(comp), _this(comp),
     enqueued(false), stall_cycle(0), meth_saved(NULL)
 {
     comp->clock.add_clock_event(this);

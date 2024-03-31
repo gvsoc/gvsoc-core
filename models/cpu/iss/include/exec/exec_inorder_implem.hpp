@@ -25,6 +25,22 @@
 #include ISS_CORE_INC(class.hpp)
 
 
+
+inline bool Exec::handle_stall_cycles()
+{
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+    this->iss.timing.handle_pending_events();
+
+    if (this->stall_cycles > 0)
+    {
+        this->stall_cycles--;
+        return true;
+    }
+#endif
+
+    return false;
+}
+
 inline void Exec::interrupt_taken()
 {
     this->iss.exec.insn_table_index = 0;
@@ -37,7 +53,7 @@ static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, i
     int latency = insn->latency;
 
 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-    iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], iss->top.clock.get_cycles() + latency);
+    iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], latency, -1);
 #endif
 
 #if defined(PIPELINE_STALL_THRESHOLD)
@@ -53,6 +69,11 @@ static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, i
 static inline iss_reg_t iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     return iss_exec_stalled_insn_fast(iss, insn, pc);
+}
+
+inline int64_t Exec::get_cycles()
+{
+    return this->iss.top.clock.get_cycles() + this->stall_cycles;
 }
 
 inline iss_insn_callback_t Exec::insn_trace_callback_get()
@@ -242,4 +263,10 @@ inline void Exec::busy_exit()
     {
         this->iss.timing.active_pc_trace_event.event(NULL);
     }
+}
+
+
+inline void Exec::offload_insn(IssOffloadInsn<iss_reg_t> *insn)
+{
+    this->offload_itf.sync(insn);
 }

@@ -37,6 +37,11 @@ void Exec::build()
 
     this->iss.top.new_master_port("busy", &busy_itf);
 
+    this->iss.top.new_master_port("offload", &this->offload_itf);
+
+    this->offload_grant_itf.set_sync_meth(&Exec::offload_grant);
+    this->iss.top.new_slave_port("offload_grant", &this->offload_grant_itf, (vp::Block *)this);
+
     flush_cache_ack_itf.set_sync_meth(&Exec::flush_cache_ack_sync);
     this->iss.top.new_slave_port("flush_cache_ack", &flush_cache_ack_itf, (vp::Block *)this);
     this->iss.top.new_master_port("flush_cache_req", &flush_cache_req_itf);
@@ -74,9 +79,6 @@ void Exec::build()
     this->hwloop_end_insn[0] = 0;
     this->hwloop_end_insn[1] = 0;
 #endif
-
-    iss_resource_init(&this->iss);
-
 }
 
 
@@ -94,6 +96,7 @@ void Exec::reset(bool active)
         this->insn_table_index = 0;
         this->irq_locked = 0;
         this->insn_on_hold = false;
+        this->stall_cycles = 0;
 
         // Always increase the stall when reset is asserted since stall count is set to 0
         // and we need to prevent the core from fetching instructions
@@ -125,7 +128,9 @@ void Exec::icache_flush()
         this->flush_cache_req_itf.sync(true);
     }
 
-    this->iss.insn_cache.flush();
+    // Delay the flush to the next instruction in case we are in the middle of an instruction
+    this->pending_flush = true;
+    this->switch_to_full_mode();
 }
 
 #include <unistd.h>
@@ -155,6 +160,8 @@ void Exec::dbg_unit_step_check()
 void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *const iss = (Iss *)__this;
+
+    if (iss->exec.handle_stall_cycles()) return;
 
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
@@ -243,6 +250,8 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
     Exec *_this = &iss->exec;
+
+    if (iss->exec.handle_stall_cycles()) return;
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
@@ -359,6 +368,13 @@ void Exec::pc_set(iss_addr_t value)
 }
 
 
+void Exec::offload_grant(vp::Block *__this, IssOffloadInsnGrant<iss_reg_t> *result)
+{
+    Exec *_this = (Exec *)__this;
+    _this->iss.regfile.set_reg(_this->stall_reg, result->result);
+    _this->stalled_dec();
+    _this->insn_terminate();
+}
 
 void Exec::flush_cache_ack_sync(vp::Block *__this, bool active)
 {

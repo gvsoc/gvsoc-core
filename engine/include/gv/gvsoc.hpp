@@ -68,8 +68,8 @@ namespace gv {
         uint8_t *data;
         // Size in bytes of the access
         size_t size;
-        // True if the request is a write
-        Io_request_type type;
+        // Request type, possible values defined by Io_request_type.
+        int type;
         // Address of the access
         uint64_t addr;
         // Status of the access
@@ -252,8 +252,10 @@ namespace gv {
          * @param path The path of the VCD event in the simulated system.
          * @param type The type of the VCD event.
          * @param width The width of the VCD event.
+         * @param clock_path If any, path of the clock trace.
          */
-        virtual void event_register(int id, std::string path, Vcd_event_type type, int width) = 0;
+        virtual void event_register(int id, std::string path, Vcd_event_type type, int width,
+            std::string clock_path="") = 0;
 
         /**
          * Called by GVSOC to update the value of a logical VCD event.
@@ -265,7 +267,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_logical(int64_t timestamp, int id, uint64_t value, int flags) = 0;
+        virtual void event_update_logical(int64_t timestamp, int64_t cycles, int id, uint64_t value, int flags) = 0;
 
         /**
          * Called by GVSOC to update the value of a bitfield VCD event.
@@ -277,7 +279,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_bitfield(int64_t timestamp, int id, uint8_t *value, uint8_t *flags) = 0;
+        virtual void event_update_bitfield(int64_t timestamp, int64_t cycles, int id, uint8_t *value, uint8_t *flags) = 0;
 
         /**
          * Called by GVSOC to update the value of a real VCD event.
@@ -289,7 +291,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_real(int64_t timestamp, int id, double value) = 0;
+        virtual void event_update_real(int64_t timestamp, int64_t cycles, int id, double value) = 0;
 
         /**
          * Called by GVSOC to update the value of a string VCD event.
@@ -301,7 +303,24 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_string(int64_t timestamp, int id, const char *value, int flags) = 0;
+        virtual void event_update_string(int64_t timestamp, int64_t cycles, int id, const char *value, int flags) = 0;
+
+        /**
+         * Called by GVSOC to lock the external controller.
+         *
+         * As vcd traces are updated in chunks, GVSOC will call this function before the chunk
+         * starts, in case something needs to be protected, and to avoid protecting it in each
+         * call to the event update methods.
+         */
+        virtual void lock() {};
+
+        /**
+         * Called by GVSOC to unlock the external controller.
+         *
+         * As vcd traces are updated in chunks, GVSOC will call this function after the chunk
+         * has ended.
+         */
+        virtual void unlock() {};
     };
 
 
@@ -321,6 +340,21 @@ namespace gv {
          *             must implement all the methods defined in class Vcd_user
          */
         virtual void vcd_bind(Vcd_user *user) = 0;
+
+        /**
+         * Enable VCD tracing
+         *
+         * This allows VCD traces to be dumped. This is by default enabled.
+         */
+        virtual void vcd_enable() = 0;
+
+        /**
+         * Disable VCD tracing
+         *
+         * After this call, no more VCD trace is dumped. They have to be reenabled again to
+         * continue dumping.
+         */
+        virtual void vcd_disable() = 0;
 
         /**
          * Enable VCD events
@@ -521,6 +555,14 @@ namespace gv {
         virtual void has_ended() {};
 
         /**
+         * Called by GVSOC to notify the simulation has stopped.
+         *
+         * This means the an event occurs which stopped the simulation. Simulation can be still be
+         * resumed.
+         */
+        virtual void has_stopped() {};
+
+        /**
          * Called by GVSOC to notify the simulation engine was updated.
          *
          * This means a new event was posted to the engine and modified the timestamp of the next
@@ -647,6 +689,16 @@ namespace gv {
          * @returns The return value of the simulation.
          */
         virtual int join() = 0;
+
+        /**
+         * Flush internal data.
+         *
+         * This can be useful when the simulation reaches an interaction point to flush
+         * all internal data, so that they can be visible to the user.
+         * This can be used for example when the profiler is pausing the simulation
+         * so that it gets all pending events.
+         */
+        virtual void flush() = 0;
 
         /**
          * Get a component.

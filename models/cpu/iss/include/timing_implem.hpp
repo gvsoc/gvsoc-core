@@ -26,8 +26,7 @@
 inline void Timing::stall_cycles_account(int cycles)
 {
 #if defined(CONFIG_GVSOC_ISS_TIMED)
-    this->iss.exec.instr_event.stall_cycle_inc(cycles);
-    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Total number of stall cycles: %d\n", iss.exec.instr_event.stall_cycle_get());
+    this->iss.exec.stall_cycles += cycles;
     if (cycles > 0)
     {
         this->power_stall_first.account_energy_quantum();
@@ -39,15 +38,39 @@ inline void Timing::stall_cycles_account(int cycles)
 #endif
 }
 
+inline void Timing::handle_pending_events()
+{
+    uint32_t check_events = this->pcer_trace_active_events;
+
+    while(check_events)
+    {
+        int event = __builtin_ffs(check_events) - 1;
+        this->pcer_trace_pending_cycles[event]--;
+
+        if (this->pcer_trace_pending_cycles[event] == 0)
+        {
+            static uint64_t zero = 0;
+            this->pcer_trace_event[event].event((uint8_t *)&zero);
+            this->pcer_trace_active_events &= ~(1 << event);
+        }
+
+        check_events &= ~(1 << event);
+    }
+}
+
+
 inline void Timing::event_trace_account(unsigned int event, int cycles)
 {
-    static uint64_t zero = 0;
     static uint64_t one = 1;
 
     if (this->pcer_trace_event[event].get_event_active())
     {
-        // TODO this is incompatible with frequency scaling, this should be replaced by an event scheduled with cycles
-        this->pcer_trace_event[event].event_pulse(cycles * this->iss.top.clock.get_period(), (uint8_t *)&one, (uint8_t *)&zero);
+        if (cycles > 0)
+        {
+            this->pcer_trace_event[event].event((uint8_t *)&one);
+            this->pcer_trace_pending_cycles[event] += cycles;
+            this->pcer_trace_active_events |= 1 << event;
+        }
     }
 }
 
@@ -58,6 +81,8 @@ inline void Timing::event_trace_set(unsigned int event)
     if (this->pcer_trace_event[event].get_event_active())
     {
         this->pcer_trace_event[event].event((uint8_t *)&one);
+        this->pcer_trace_pending_cycles[event] = 0;
+        this->pcer_trace_active_events &= ~(1 << event);
     }
 }
 
@@ -68,6 +93,8 @@ inline void Timing::event_trace_reset(unsigned int event)
     if (this->pcer_trace_event[event].get_event_active())
     {
         this->pcer_trace_event[event].event((uint8_t *)&zero);
+        this->pcer_trace_pending_cycles[event] = 0;
+        this->pcer_trace_active_events &= ~(1 << event);
     }
 }
 
@@ -128,9 +155,9 @@ inline void Timing::event_misaligned_account(int incr)
     this->event_account(CSR_PCER_MISALIGNED, incr);
 }
 
-inline void Timing::event_insn_contention_account(int incr)
+inline void Timing::event_apu_contention_account(int incr)
 {
-    this->event_account(CSR_PCER_INSN_CONT, incr);
+    this->event_account(CSR_PCER_APU_CONT, incr);
 }
 
 inline void Timing::insn_stall_start()
@@ -150,7 +177,7 @@ inline void Timing::cycle_account()
 
 inline void Timing::insn_stall_account()
 {
-    int64_t stall_cycles = this->iss.exec.instr_event.stall_cycle_get();
+    int64_t stall_cycles = this->iss.exec.stall_cycles;
     if (stall_cycles >= 0)
     {
         this->event_account(CSR_PCER_CYCLES, stall_cycles);
@@ -160,7 +187,7 @@ inline void Timing::insn_stall_account()
 inline void Timing::insn_account()
 {
     this->event_account(CSR_PCER_INSTR, 1);
-    int64_t stall_cycles = this->iss.exec.instr_event.stall_cycle_get();
+    int64_t stall_cycles = this->iss.exec.stall_cycles;
     int64_t cycles = 1;
     if (stall_cycles >= 0)
     {
@@ -169,13 +196,15 @@ inline void Timing::insn_account()
     this->event_account(CSR_PCER_CYCLES, cycles);
 
 #if defined(ISS_HAS_PERF_COUNTERS)
-    for (int i = CSR_PCER_NB_INTERNAL_EVENTS; i < CSR_PCER_NB_EVENTS; i++)
+#if defined(CONFIG_GVSOC_ISS_EXTERNAL_PCCR)
+    for (int i = CSR_PCER_FIRST_EXTERNAL_EVENTS; i < CSR_PCER_FIRST_EXTERNAL_EVENTS + CSR_PCER_NB_EXTERNAL_EVENTS; i++)
     {
         if (this->event_trace_is_active(i))
         {
             update_external_pccr(&this->iss, i, this->iss.csr.pcer, this->iss.csr.pcmr);
         }
     }
+#endif
 #endif
 }
 

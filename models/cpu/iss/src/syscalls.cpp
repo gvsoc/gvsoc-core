@@ -32,10 +32,12 @@
 #define O_BINARY 0
 #endif
 
-Syscalls::Syscalls(Iss &iss)
-    : iss(iss)
+Syscalls::Syscalls(IssWrapper &top, Iss &iss)
+    : iss(iss), htif(top, iss)
 {
 }
+
+class IssWrapper;
 
 void Syscalls::build()
 {
@@ -46,7 +48,14 @@ void Syscalls::build()
         this->pcer_info[i].name = "";
     }
 
+    this->htif.build();
 }
+
+void Syscalls::reset(bool active)
+{
+  this->htif.reset(active);
+}
+
 
 void Syscalls::handle_ebreak()
 {
@@ -654,6 +663,32 @@ void Syscalls::handle_riscv_ebreak()
     {
         this->iss.top.time.get_engine()->pause();
 
+        break;
+    }
+
+    case 0x10E:
+    {
+        this->iss.trace.has_reg_dump = true;
+        this->iss.trace.reg_dump = this->iss.regfile.regs[11];
+        break;
+    }
+
+    case 0x10F:
+    {
+        this->iss.trace.has_reg_dump = false;
+        break;
+    }
+
+    case 0x110:
+    {
+        this->iss.trace.has_str_dump = true;
+        this->iss.trace.str_dump = this->read_user_string(this->iss.regfile.regs[11]);
+        break;
+    }
+
+    case 0x111:
+    {
+        this->iss.trace.has_str_dump = false;
         break;
     }
 

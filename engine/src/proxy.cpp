@@ -41,7 +41,6 @@
 #include <regex>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/prctl.h>
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
 #include "vp/top.hpp"
@@ -153,7 +152,7 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
         std::regex regex{R"([\s]+)"};
         std::sregex_token_iterator it{cmd.begin(), cmd.end(), regex, -1};
         std::vector<std::string> words{it, {}};
-        
+
         if (words.size() > 0)
         {
             if (words[0] == "run")
@@ -355,7 +354,7 @@ int gv::GvProxy::open(int port, int *out_port)
             return -1;
         }
 
-        if (bind(this->telnet_socket, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        if (::bind(this->telnet_socket, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
             fprintf(stderr, "Unable to bind the socket: %s\n", strerror(errno));
             return -1;
         }

@@ -68,6 +68,7 @@ public:
     static void mti_sync(vp::Block *__this, bool value);
     static void mei_sync(vp::Block *__this, bool value);
     static void sei_sync(vp::Block *__this, bool value);
+    static void external_irq_sync(vp::Block *__this, bool value, int id);
 
     Iss &iss;
 
@@ -81,4 +82,5 @@ public:
     vp::WireSlave<bool> mti_itf;
     vp::WireSlave<bool> mei_itf;
     vp::WireSlave<bool> sei_itf;
+    vp::WireSlave<bool> external_irq_itf[20];
 };

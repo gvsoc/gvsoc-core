@@ -30,31 +30,31 @@ from cpu.iss.isa_gen.isa_riscv_gen import *
 # OPVLS #  NF  |w|mop|m|  lumop  |   rs1   |width|    vd   |     op      #
 # OPVLI # 0|         zimm        |   rs1   |1 1 1|    rd   |     op      #
 
-Format_OPV = [ OutReg     (0, Range(7 , 5)),
-               InReg      (0, Range(15, 5)),#rs1/vs1
-               InReg      (1, Range(20, 5)),#vs2
+Format_OPV = [ OutVReg     (0, Range(7 , 5)),
+               InVReg      (0, Range(15, 5)),#rs1/vs1
+               InVReg      (1, Range(20, 5)),#vs2
                #UnsignedImm(0, Range(25, 0)),
                UnsignedImm(0, Range(25, 1)),
 ]
-Format_OPVF = [ OutReg     (0, Range(7 , 5)),
+Format_OPVF = [ OutVReg     (0, Range(7 , 5)),
                 InFReg     (0, Range(15, 5)),#rs1/vs1
-                InReg      (1, Range(20, 5)),#vs2
+                InVReg      (1, Range(20, 5)),#vs2
                 #UnsignedImm(0, Range(25, 0)),
                 UnsignedImm(0, Range(25, 1)),
 ]
 Format_OPVFF = [ OutFReg    (0, Range(7 , 5)),
                  InFReg     (0, Range(15, 5)),#rs1/vs1
-                 InReg      (1, Range(20, 5)),#vs2
+                 InVReg      (1, Range(20, 5)),#vs2
                  #UnsignedImm(0, Range(25, 0)),
                  UnsignedImm(0, Range(25, 1)),
 ]
-Format_OPIVI = [ OutReg     (0, Range(7 , 5)),
+Format_OPIVI = [ OutVReg     (0, Range(7 , 5)),
                  SignedImm  (0, Range(15, 5)),
                  InReg      (0, Range(20, 5)),
                  UnsignedImm(0, Range(25, 1)),
 ]
-Format_OPVLS = [ OutReg     (0, Range(7 , 5)),
-                 InReg      (0, Range(15, 5)),
+Format_OPVLS = [ OutVReg     (0, Range(7 , 5)),
+                 InVReg      (0, Range(15, 5)),
                  UnsignedImm(0, Range(25, 0)),
 ]
 #                           V 0.8

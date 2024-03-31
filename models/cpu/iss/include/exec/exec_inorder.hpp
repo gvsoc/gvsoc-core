@@ -24,6 +24,7 @@
 #include <vp/vp.hpp>
 #include <cpu/iss/include/types.hpp>
 #include ISS_CORE_INC(class.hpp)
+#include <cpu/iss/include/offload.hpp>
 
 
 #define CONFIG_GVSOC_ISS_NB_HWLOOP 2
@@ -32,6 +33,7 @@
 typedef iss_reg_t (*iss_insn_callback_t)(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 class IssWrapper;
+
 
 class Exec
 {
@@ -86,6 +88,7 @@ public:
     inline void insn_exec_power(iss_insn_t *insn);
 
     inline void interrupt_taken();
+    inline bool handle_stall_cycles();
 
     iss_reg_t current_insn;
     vp::ClockEvent instr_event;
@@ -95,6 +98,8 @@ public:
 
     static void exec_instr(vp::Block *__this, vp::ClockEvent *event);
     static void exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event);
+
+    int64_t get_cycles();
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     void hwloop_set_start(int index, iss_reg_t pc);
@@ -149,12 +154,18 @@ public:
     bool insn_on_hold;
 
     bool pending_flush;
+    int64_t stall_cycles;
+
+    int stall_reg;
+
+    inline void offload_insn(IssOffloadInsn<iss_reg_t> *insn);
 
 private:
     static void flush_cache_ack_sync(vp::Block *_this, bool active);
     static void clock_sync(vp::Block *_this, bool active);
     static void bootaddr_sync(vp::Block *_this, uint32_t value);
     static void fetchen_sync(vp::Block *_this, bool active);
+    static void offload_grant(vp::Block *_this, IssOffloadInsnGrant<iss_reg_t> *result);
 
     Iss &iss;
 
@@ -166,4 +177,7 @@ private:
     vp::WireSlave<bool> fetchen_itf;
 
     bool clock_active;
+
+    vp::WireMaster<IssOffloadInsn<iss_reg_t> *> offload_itf;
+    vp::WireSlave<IssOffloadInsnGrant<iss_reg_t> *> offload_grant_itf;
 };

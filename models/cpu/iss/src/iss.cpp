@@ -58,7 +58,8 @@ void IssWrapper::reset(bool active)
     this->iss.regfile.reset(active);
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+    this->iss.syscalls.reset(active);
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
     this->iss.spatz.reset(active);
     this->iss.ssr.reset(active);
 #endif
@@ -85,8 +86,10 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.prefetcher.build();
 
 
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
     this->iss.spatz.build();
+#endif
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
     this->iss.ssr.build();
 #endif
 

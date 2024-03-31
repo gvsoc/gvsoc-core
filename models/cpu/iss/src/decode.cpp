@@ -151,7 +151,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->u.reg.id >= insn->nb_out_reg)
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
-                if (arg->u.reg.index == 0 && !(darg->flags & ISS_DECODER_ARG_FLAG_FREG))
+                if (arg->u.reg.index == 0 && !(darg->flags & ISS_DECODER_ARG_FLAG_FREG)
+                     && !(darg->flags & ISS_DECODER_ARG_FLAG_VREG))
                 {
                     insn->out_regs[darg->u.reg.id] = ISS_NB_REGS;
                 }
@@ -255,6 +256,9 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 insn->nb_in_reg = darg->u.indirect_reg.offset_reg.id + 1;
 
             break;
+
+        default:
+            break;
         }
     }
 
@@ -276,12 +280,14 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     this->iss.gdbserver.decode_insn(insn, pc);
     this->iss.exec.decode_insn(insn, pc);
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (item->u.insn.resource_id != -1)
     {
         insn->resource_handler = insn->handler;
         insn->fast_handler = iss_resource_offload;
         insn->handler = iss_resource_offload;
     }
+#endif
 
     insn->is_macro_op = item->u.insn.is_macro_op;
     #ifdef CONFIG_GVSOC_ISS_SNITCH

@@ -2,17 +2,17 @@
 set(TESTBENCH_SRCS "i2s_verif.cpp"
     "spim_verif.cpp"
     "testbench.cpp"
-
-    "pcm_pdm_conversion/sigma_delta.cpp"
-    "pcm_pdm_conversion/sigma_delta_arithmetics.cpp"
-    "pcm_pdm_conversion/linear_interpolator.cpp"
-    "pcm_pdm_conversion/iir_interpolator.cpp"
-    "pcm_pdm_conversion/pcm_pdm_conversion.cpp"
     )
 
 vp_model(NAME devices.testbench.testbench
     FORCE_BUILD 1
     SOURCES ${TESTBENCH_SRCS}
+    )
+
+vp_model_link_blocks(
+    NAME devices.testbench.testbench
+    FORCE_BUILD 1
+    BLOCK pcm_pdm_conversion
     )
 
 find_library(SNDFILE_LIB sndfile)

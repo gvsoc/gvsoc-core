@@ -1,4 +1,6 @@
 add_subdirectory(dac)
+add_subdirectory(utils)
+add_subdirectory(microphone)
 
 vp_model(NAME devices.sound.i2s_microphone
          SOURCES "i2s_microphone.cpp")

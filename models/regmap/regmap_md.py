@@ -202,7 +202,7 @@ def import_md(regmap, path, registers=[]):
 
             if width_index != -1:
                 # Too many IPs has wrong register width, hard-code it to 32 bits
-                reg.width = 32 #table.get_elem_int(index, width_index)
+                reg.width = table.get_elem_int(index, width_index)
 
             if reset_index != -1:
                 reg.reset = table.get_elem_int(index, reset_index)
@@ -218,7 +218,8 @@ def import_md(regmap, path, registers=[]):
             reg_name = register.get_field_template()
             register_ast = ast.get(reg_name)
             if register_ast is None:
-                print ("WARNING: Didn't find section for register %s" % reg_name)
+                pass
+                # print ("WARNING: Didn't find section for register %s" % reg_name)
 
             else:
                 fields_ast = register_ast.get('Fields')

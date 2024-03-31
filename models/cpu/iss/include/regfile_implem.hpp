@@ -48,12 +48,16 @@ inline void Regfile::set_reg(int reg, iss_reg_t value)
 inline void Regfile::scoreboard_reg_check(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_TIMED
-    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
+    int64_t diff = this->scoreboard_reg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.stall_cycles;
 
     if (unlikely(diff > 0))
     {
-        this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Number of scoreboard stall cycles: %d\n", diff);
-        this->iss.timing.stall_load_dependency_account(diff);
+        int stall_reason = this->scoreboard_reg_stall_reason[reg];
+        this->iss.timing.stall_cycles_account(diff);
+        if (stall_reason != -1)
+        {
+            this->iss.timing.event_account(stall_reason, diff);
+        }
     }
 #endif
 }
@@ -64,12 +68,16 @@ inline void Regfile::scoreboard_freg_check(int reg)
 #if defined(ISS_SINGLE_REGFILE)
     scoreboard_reg_check(reg);
 #else
-    int64_t diff = this->scoreboard_freg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.instr_event.stall_cycle_get();
+    int64_t diff = this->scoreboard_freg_timestamp[reg] - this->engine->get_cycles() - this->iss.exec.stall_cycles;
 
     if (unlikely(diff > 0))
     {
-        this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Number of scoreboard stall cycles: %d\n", diff);
-        this->iss.timing.stall_load_dependency_account(diff);
+        int stall_reason = this->scoreboard_freg_stall_reason[reg];
+        this->iss.timing.stall_cycles_account(diff);
+        if (stall_reason != -1)
+        {
+            this->iss.timing.event_account(stall_reason, diff);
+        }
     }
 #endif
 #endif
@@ -89,6 +97,14 @@ inline iss_reg_t Regfile::get_reg_untimed(int reg)
     return this->regs[reg];
 }
 
+inline iss_reg64_t Regfile::get_reg64_untimed(int reg)
+{
+    if (reg == 0)
+        return 0;
+    else
+        return (((uint64_t)this->regs[reg + 1]) << 32) + this->regs[reg];
+}
+
 inline iss_reg64_t Regfile::get_reg64(int reg)
 {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
@@ -96,10 +112,7 @@ inline iss_reg64_t Regfile::get_reg64(int reg)
     this->scoreboard_reg_check(reg + 1);
 #endif
 
-    if (reg == 0)
-        return 0;
-    else
-        return (((uint64_t)this->regs[reg + 1]) << 32) + this->regs[reg];
+    return this->get_reg64_untimed(reg);
 }
 
 inline void Regfile::set_reg64(int reg, iss_reg64_t value)
@@ -150,6 +163,15 @@ inline void Regfile::set_freg(int reg, iss_freg_t value)
 #endif
 }
 
+inline iss_freg_t Regfile::get_freg_untimed(int reg)
+{
+#ifdef ISS_SINGLE_REGFILE
+    return this->regs[reg];
+#else
+    return this->fregs[reg];
+#endif
+}
+
 inline iss_freg_t Regfile::get_freg(int reg)
 {
 #ifndef CONFIG_GVSOC_ISS_SNITCH
@@ -157,11 +179,7 @@ inline iss_freg_t Regfile::get_freg(int reg)
     this->scoreboard_freg_check(reg);
 #endif
 
-#ifdef ISS_SINGLE_REGFILE
-    return this->regs[reg];
-#else
-    return this->fregs[reg];
-#endif
+    return this->get_freg_untimed(reg);
 #endif
 
 #ifdef CONFIG_GVSOC_ISS_SNITCH
@@ -172,11 +190,7 @@ inline iss_freg_t Regfile::get_freg(int reg)
         this->scoreboard_freg_check(reg);
     #endif
 
-    #ifdef ISS_SINGLE_REGFILE
-        return this->regs[reg];
-    #else
-        return this->fregs[reg];
-    #endif
+        return this->get_freg_untimed(reg);
     }
     else
     {
@@ -208,7 +222,8 @@ inline iss_freg_t Regfile::get_freg(int reg)
         #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
             this->scoreboard_freg_check(reg);
         #endif
-            return this->fregs[reg];
+
+            return this->get_freg_untimed(reg);
         }
     #endif
     }
@@ -234,17 +249,22 @@ inline iss_freg_t *Regfile::freg_store_ref(int reg)
 }
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-inline void Regfile::scoreboard_reg_set_timestamp(int reg, int64_t timestamp)
+inline void Regfile::scoreboard_reg_set_timestamp(int reg, int64_t latency, int stall_reason)
 {
+    int64_t timestamp = this->iss.exec.get_cycles() + latency;
     this->scoreboard_reg_timestamp[reg] = timestamp;
+    this->scoreboard_reg_stall_reason[reg] = stall_reason;
 }
 
-inline void Regfile::scoreboard_freg_set_timestamp(int reg, int64_t timestamp)
+inline void Regfile::scoreboard_freg_set_timestamp(int reg, int64_t latency, int stall_reason)
 {
+    int64_t timestamp = this->iss.exec.get_cycles() + latency;
 #ifdef ISS_SINGLE_REGFILE
     this->scoreboard_reg_timestamp[reg] = timestamp;
+    this->scoreboard_reg_stall_reason[reg] = stall_reason;
 #else
     this->scoreboard_freg_timestamp[reg] = timestamp;
+    this->scoreboard_freg_stall_reason[reg] = stall_reason;
 #endif
 }
 

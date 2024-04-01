@@ -114,6 +114,7 @@ private:
     void handle_syscall(uint64_t cmd);
     void dispatch(uint64_t cmd);
     void target_access(iss_reg_t addr, int size, bool is_write, uint8_t *data);
+    bool target_access_async(iss_reg_t addr, int size, bool is_write, uint8_t *data);
     static void data_response(vp::Block *__this, vp::IoReq *req);
     void exec_syscall();
     uint8_t read_uint8(iss_reg_t addr);

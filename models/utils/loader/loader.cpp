@@ -174,7 +174,7 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
                 }
                 else
                 {
-                    _this->trace.force_warning("Unimplemented synchronous requests in loader\n");
+                    _this->trace.force_warning("Unimplemented asynchronous requests in loader\n");
                 }
             }
 

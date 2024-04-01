@@ -41,7 +41,6 @@ typedef void    (AsynCallbackUpdateReq_Meth)(CallbackInstance_t instance);
 
 #define GRANULARITY 64
 #define GRAN_CLOG 6
-#define BASE_ADDR 0x80000000
 
 
 class ddr : public vp::Component
@@ -136,7 +135,7 @@ ddr::ddr(vp::ComponentConf &config)
 }
 
 void ddr::paraSendRequest(vp::IoReq *req){
-    uint64_t offset = req->get_addr() - BASE_ADDR;
+    uint64_t offset = req->get_addr();
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();
 
@@ -225,7 +224,7 @@ void ddr::rspCallback(void *__this, int is_write){
     } else {
         while(_this->dram_has_read_rsp(_this->dram_id) && _this->pending_read_req_queue.size() != 0){
             vp::IoReq *req = _this->pending_read_req_queue.front().first;
-            uint64_t offset = req->get_addr() - BASE_ADDR;
+            uint64_t offset = req->get_addr();
             uint8_t *data = req->get_data();
             uint64_t size = req->get_size();
 

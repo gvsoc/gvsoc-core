@@ -25,7 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <json.hpp>
+#include <vp/json.hpp>
 #include <systemc.h>
 #include "main_systemc.hpp"
 

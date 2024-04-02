@@ -586,8 +586,12 @@ class Testbench_uart(object):
         self.lock.acquire()
 
         if size is not None:
-            while len(self.pending_rx_bytes) < size:
+            while len(self.pending_rx_bytes) < size and self.rx_enabled:
                 self.condition.wait()
+
+            if not self.rx_enabled:
+                self.lock.release()
+                return None
         else:
             size = len(self.pending_rx_bytes)
 
@@ -612,6 +616,8 @@ class Testbench_uart(object):
         cmd = 'component %s uart rx %d 1 %d' % (self.testbench, self.id, self.req)
         self.proxy._send_cmd(cmd)
 
+        self.rx_enabled = True
+
 
     def rx_disable(self):
         """Disable receiving bytes from the uart.
@@ -621,6 +627,11 @@ class Testbench_uart(object):
         self.proxy.reader.unregister_callback(self.req)
         cmd = 'component %s uart rx %d 0' % (self.testbench, self.id)
         self.proxy._send_cmd(cmd)
+
+        self.lock.acquire()
+        self.rx_enabled = False
+        self.condition.notify_all()
+        self.lock.release()
 
 
     def __handle_rx(self):

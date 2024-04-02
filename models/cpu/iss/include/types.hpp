@@ -51,7 +51,7 @@ typedef uint64_t iss_freg_t;
 
 #if defined(ISS_WORD_64)
 
-#define ISS_OPCODE_MAX_SIZE 8
+#define ISS_OPCODE_MAX_SIZE 4
 #define ISS_REG_WIDTH 64
 #define ISS_REG_WIDTH_LOG2 6
 
@@ -61,7 +61,7 @@ typedef int64_t iss_sim_t;
 typedef __int128 iss_lsim_t;
 typedef __int128 iss_luim_t;
 typedef uint64_t iss_addr_t;
-typedef uint64_t iss_opcode_t;
+typedef uint32_t iss_opcode_t;
 
 #define PRIxREG PRIx64
 #define PRIxFULLREG "16.16" PRIx64

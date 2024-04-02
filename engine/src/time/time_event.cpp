@@ -45,3 +45,8 @@ void vp::TimeEvent::enqueue(int64_t time)
 {
     this->top->time.enqueue(this, time);
 }
+
+void vp::TimeEvent::cancel()
+{
+    this->top->time.cancel(this);
+}

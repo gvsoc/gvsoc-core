@@ -71,6 +71,7 @@ private:
     vp::WireMaster<uint64_t> entry_itf;
     vp::IoReq req;
     uint64_t entry;
+    bool is_32 = true;
 };
 
 
@@ -113,6 +114,13 @@ void loader::reset(bool active)
         for (auto x:this->get_js_config()->get("binary")->get_elems())
         {
             this->load_elf(x->get_str().c_str(), &this->entry);
+        }
+
+        js::Config *entry_addr_conf = this->get_js_config()->get("entry_addr");
+        if (entry_addr_conf != NULL)
+        {
+            uint64_t entry_addr = entry_addr_conf->get_int();
+            this->section_copy(entry_addr, &this->entry, this->is_32 ? 4 : 8);
         }
 
         if (this->sections.size() > 0)
@@ -231,6 +239,8 @@ bool loader::load_elf(const char* file, uint64_t *entry)
         return true;
     }
     close(fd);
+
+    this->is_32 = buf[EI_CLASS] == ELFCLASS32;
 
     if (buf[EI_CLASS] == ELFCLASS32)
     {

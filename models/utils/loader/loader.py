@@ -38,8 +38,11 @@ class ElfLoader(gvsoc.systree.Component):
     entry: int
         Address of the first instruction to be executed. If it is None, the entry will be
         taken from the binary.
+    entry_addr: int
+        Address where the entry should be written.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None, binaries: list=None, entry: int=None):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None,
+            binaries: list=None, entry: int=None, entry_addr: int=None):
 
         super().__init__(parent, name)
 
@@ -58,7 +61,8 @@ class ElfLoader(gvsoc.systree.Component):
 
         if entry is not None:
             self.add_properties({
-                'entry': entry
+                'entry': entry,
+                'entry_addr': entry_addr
             })
 
     def o_OUT(self, itf: gvsoc.systree.SlaveItf):

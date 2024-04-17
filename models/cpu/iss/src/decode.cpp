@@ -44,6 +44,9 @@ void Decode::reset(bool active)
     if (active)
     {
         this->iss.insn_cache.flush();
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+        this->iss.mem_map = -1;
+#endif
     }
 }
 
@@ -107,6 +110,12 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->out_regs[i] = -1;
         insn->in_regs[i] = -1;
     }
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    insn->in_regs_fp[0] = false;
+    insn->in_regs_fp[1] = false;
+    insn->in_regs_fp[2] = false;
+#endif
 
     for (int i = 0; i < item->u.insn.nb_args; i++)
     {
@@ -203,13 +212,10 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 // If no dependency was found, apply the one for the pipeline stages
                 if (darg->u.reg.latency != 0)
                 {
-                    if (insn->stall_handler == NULL)
-                    {
-                        insn->stall_handler = insn->handler;
-                        insn->stall_fast_handler = insn->fast_handler;
-                        insn->handler = this->iss.exec.insn_stalled_callback_get();
-                        insn->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
-                    }
+                    insn->stall_handler = insn->handler;
+                    insn->stall_fast_handler = insn->fast_handler;
+                    insn->handler = this->iss.exec.insn_stalled_callback_get();
+                    insn->fast_handler = this->iss.exec.insn_stalled_fast_callback_get();
                 }
 #endif
             }

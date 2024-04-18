@@ -115,6 +115,9 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     insn->in_regs_fp[0] = false;
     insn->in_regs_fp[1] = false;
     insn->in_regs_fp[2] = false;
+    insn->out_regs_fp[0] = false;
+    insn->out_regs_fp[1] = false;
+    insn->out_regs_fp[2] = false;
 #endif
 
     for (int i = 0; i < item->u.insn.nb_args; i++)

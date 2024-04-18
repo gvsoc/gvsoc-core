@@ -175,6 +175,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile.
     // Use sync computing, execute instruction immediately and give back response after certain latency.
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Execute instruction and accumulate latency\n");
+    _this->trace.priv_mode = _this->core.mode_get();
     _this->exec.insn_exec(&insn, pc);
 
     // Update loop counter if SSR enabled (work under no dm_event)
@@ -350,7 +351,7 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
                     || strstr(insn.decoder_item->u.insn.label, "fsd");
 
     int latency = insn.latency;
-    int latency_pipe;
+    int latency_pipe = 0;
 
     // Check status of all operation FIFOs and get the real pipelined latency.
     latency_pipe = this->FMA_OPGROUP.get_latency(timestamp, insn.latency, rs1, rs2, rs3);

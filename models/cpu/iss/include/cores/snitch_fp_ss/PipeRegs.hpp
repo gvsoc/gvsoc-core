@@ -5,9 +5,9 @@ class FpuOp
 {
 public:
     // PC of past instruction.
-    iss_reg_t pc;
+    iss_reg_t pc = 0x0;
     // Latency of the instruction.
-    int insn_latency;
+    int insn_latency = 0;
     // Start time of the instruction
     int start_timestamp = 0;
     // Finish time of the instruction

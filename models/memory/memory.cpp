@@ -141,9 +141,6 @@ Memory::Memory(vp::ComponentConf &config)
     {
         memset(mem_data, 0x57, size);
     }
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    memset(mem_data, 0x0, size);
-#endif
 
     // Preload the Memory
     js::Config *stim_file_conf = this->get_js_config()->get("stim_file");
@@ -185,9 +182,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
 
-    // _this->trace.msg(vp::Trace::LEVEL_TRACE, "IO req latency before entering router %d\n", req->get_latency());
     req->inc_latency(_this->latency);
-    // _this->trace.msg(vp::Trace::LEVEL_TRACE, "IO req latency after entering router %d\n", req->get_latency());
 
     // Impact the Memory bandwith on the packet
     if (_this->width_bits != 0)
@@ -202,12 +197,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
             req->inc_latency(diff);
         }
-        #ifndef CONFIG_TCDM
         _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
-        #else
-        // Bank conflicts special for TCDM
-        _this->next_packet_start = cycles + duration;
-        #endif
     }
 
     if (_this->power.get_power_trace()->get_active())

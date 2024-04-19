@@ -50,8 +50,8 @@ class Memory(gvsoc.systree.Component):
         Specify extra latency which will be added to any incoming request.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=2,
-            stim_file: str=None, power_trigger: bool=False, align: int=0, atomics: bool=False, 
-            latency=0, core='riscv', mem='mem'):
+            stim_file: str=None, power_trigger: bool=False,
+            align: int=0, atomics: bool=False, latency=0):
 
         super().__init__(parent, name)
 
@@ -62,12 +62,6 @@ class Memory(gvsoc.systree.Component):
         # if both memories with and without atomics are instantiated.
         if atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
-            
-        if core == 'snitch':
-            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SNITCH=1'])
-            
-        if mem == 'tcdm':
-            self.add_c_flags(['-DCONFIG_TCDM=1'])
 
         self.add_properties({
             'size': size,
@@ -75,8 +69,7 @@ class Memory(gvsoc.systree.Component):
             'power_trigger': power_trigger,
             'width_bits': width_log2,
             'align': align,
-            'latency': latency,
-            'atomics': atomics
+            'latency': latency
         })
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

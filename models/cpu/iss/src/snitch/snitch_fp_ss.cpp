@@ -176,7 +176,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Use sync computing, execute instruction immediately and give back response after certain latency.
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Execute instruction and accumulate latency\n");
     _this->trace.priv_mode = _this->core.mode_get();
-    _this->exec.insn_exec(&insn, pc);
+    insn.resource_handler(_this, &insn, pc);
 
     // Update loop counter if SSR enabled (work under no dm_event)
     _this->ssr.update_ssr();

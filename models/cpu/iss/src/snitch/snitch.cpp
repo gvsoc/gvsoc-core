@@ -172,10 +172,6 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     //     this->event->enqueue(1);
     // }
 
-    // Reset handler function after offloading and execution.
-    insn->handler = iss_decode_pc_handler;
-    insn->fast_handler = iss_decode_pc_handler;
-
     // If the output register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in integer core.
     // And the following instruction with data dependency will execute scoreboard_reg_check when loading the operands,
     // which will call stall_load_dependency_account.

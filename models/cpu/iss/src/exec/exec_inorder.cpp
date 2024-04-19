@@ -298,14 +298,6 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         // _this->trace.msg(vp::Trace::LEVEL_TRACE, "Search for register value: 0x%lx\n", iss->regfile.get_reg(2));
 
         _this->current_insn = _this->insn_exec(insn, pc);
-        #ifdef CONFIG_GVSOC_ISS_SNITCH
-        // Decode again if the same instruction is executed the next time.
-        // Snitch integer instructions always need to check data dependency in memory and register file before execution.
-        // Reset the handler function to ensure functionally correct, but sacrifice simulation speed.
-        insn->handler = iss_decode_pc_handler;
-        insn->fast_handler = iss_decode_pc_handler;
-        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Next pc: 0x%lx\n", iss->exec.current_insn);
-        #endif
 
         _this->iss.timing.insn_account();
 

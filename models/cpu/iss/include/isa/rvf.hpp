@@ -62,7 +62,6 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         {
             iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stall at current instruction\n");
             // Start from offloading handler directly in the next cycle.
-            insn->handler = fp_offload_exec;
             return pc;
         }
 
@@ -75,9 +74,6 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
             #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
             insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
             #endif
-
-            // If the instruction can be offloaded, get its correct corresponding handler obtained in decode stage.
-            insn->handler = insn->saved_handler;
 
             // Set the integer register to invalid for data dependency, if it's the output of offloading fp instruction.
             if (!insn->out_regs_fp[0])
@@ -97,10 +93,9 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         // Todo: check how hardware implements CSR_FFLAGS
         // unsigned int fflags= iss->csr.fcsr.fflags;
         // insn->fflags_addr = &fflags;
-       
+
         // Todo: handle instruction CSRRSI and CSRRCI later when we add SSR, 
         // these two instruction also need to be offloaded.
-        
     }
 #endif
     return iss_insn_next(iss, insn, pc);

@@ -23,12 +23,13 @@
 
 #include "cpu/iss/include/types.hpp"
 
+class IssWrapper;
 
 class Regfile
 {
 public:
 
-    Regfile(Iss &iss);
+    Regfile(IssWrapper &top, Iss &iss);
 
     void reset(bool active);
 
@@ -38,14 +39,19 @@ public:
     iss_freg_t fregs[ISS_NB_FREGS];
 #endif
 
+    iss_reg_t regs_check[ISS_NB_REGS+1];
+
     inline iss_reg_t *reg_ref(int reg);
+    inline iss_reg_t *reg_check_ref(int reg);
     inline iss_reg_t *reg_store_ref(int reg);
+    inline iss_reg_t *reg_check_store_ref(int reg);
     inline void set_reg(int reg, iss_reg_t value);
     inline iss_reg_t get_reg(int reg);
     inline iss_reg_t get_reg_from_insn(iss_insn_t *insn, int insn_reg_index);
     inline iss_reg_t get_reg_untimed(int reg);
     inline iss_reg64_t get_reg64(int reg);
     inline iss_reg64_t get_reg64_untimed(int reg);
+    inline iss_reg64_t get_check_reg64(int reg);
     inline void set_reg64(int reg, iss_reg64_t value);
 
     inline iss_freg_t *freg_ref(int reg);
@@ -63,17 +69,21 @@ public:
     inline void scoreboard_freg_check(int reg);
 #endif
 
-#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-    int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
-    int scoreboard_reg_stall_reason[ISS_NB_REGS+1];
-#if !defined(ISS_SINGLE_REGFILE)
-    int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
-    int scoreboard_freg_stall_reason[ISS_NB_FREGS];
-#endif
-#endif
+    inline bool check_reg(int reg);
+    inline void check_branch_reg(int reg);
+    inline void check_load_reg(int reg);
+    inline void check_fault();
+    inline iss_reg_t check_get(int reg);
+    inline void check_set(int reg, iss_reg_t value);
 
 protected:
     Iss &iss;
 
+    vp::Trace trace;
+
     vp::ClockEngine *engine;
+
+    bool check_reg_fault;
+    int check_reg_fault_id;
+    std::string check_reg_fault_message;
 };

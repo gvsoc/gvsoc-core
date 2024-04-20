@@ -24,6 +24,7 @@
 #include "cpu/iss/include/regfile.hpp"
 
 static iss_reg_t null_reg = 0;
+static iss_reg_t null_check_reg = -1;
 
 inline iss_reg_t *Regfile::reg_ref(int reg)
 {
@@ -33,9 +34,22 @@ inline iss_reg_t *Regfile::reg_ref(int reg)
         return &this->regs[reg];
 }
 
+inline iss_reg_t *Regfile::reg_check_ref(int reg)
+{
+    if (reg == 0)
+        return &null_check_reg;
+    else
+        return &this->regs_check[reg];
+}
+
 inline iss_reg_t *Regfile::reg_store_ref(int reg)
 {
     return &this->regs[reg];
+}
+
+inline iss_reg_t *Regfile::reg_check_store_ref(int reg)
+{
+    return &this->regs_check[reg];
 }
 
 inline void Regfile::set_reg(int reg, iss_reg_t value)
@@ -102,6 +116,14 @@ inline iss_reg64_t Regfile::get_reg64_untimed(int reg)
         return 0;
     else
         return (((uint64_t)this->regs[reg + 1]) << 32) + this->regs[reg];
+}
+
+inline iss_reg64_t Regfile::get_check_reg64(int reg)
+{
+    if (reg == 0)
+        return 0;
+    else
+        return (((uint64_t)this->regs_check[reg + 1]) << 32) + this->regs_check[reg];
 }
 
 inline iss_reg64_t Regfile::get_reg64(int reg)
@@ -197,3 +219,78 @@ inline void Regfile::scoreboard_freg_invalidate(int reg)
 #endif
 }
 #endif
+
+inline bool Regfile::check_reg(int reg)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+
+    if (this->regs_check[reg] != -1)
+    {
+        if (this->iss.top.traces.get_trace_engine()->is_memcheck_enabled())
+        {
+            return true;
+        }
+    }
+#endif
+
+    return false;
+}
+
+inline void Regfile::check_branch_reg(int reg)
+{
+    if (this->check_reg(reg))
+    {
+        this->check_reg_fault = true;
+        this->check_reg_fault_message = "Conditional jump depends on uninitialised register";
+    }
+}
+
+inline void Regfile::check_load_reg(int reg)
+{
+    if (this->check_reg(reg))
+    {
+        this->check_reg_fault = true;
+        this->check_reg_fault_message = "Load address depends on uninitialised register";
+    }
+}
+
+inline void Regfile::check_fault()
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    if (this->check_reg_fault)
+    {
+        // When GDB is connected, throw a message without exiting and notify gdb
+        // since this will do a break, so that user can continue
+        if (this->iss.gdbserver.is_enabled())
+        {
+            this->trace.force_warning_no_error("%s (reg: %d)\n", this->check_reg_fault_message.c_str(), this->check_reg_fault_id);
+
+            this->check_reg_fault = false;
+
+            this->iss.exec.stalled_inc();
+            this->iss.exec.halted.set(true);
+            this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver, vp::Gdbserver_engine::SIGNAL_BUS);
+        }
+        else
+        {
+            this->trace.force_warning("%s (reg: %d)\n", this->check_reg_fault_message.c_str(), this->check_reg_fault_id);
+        }
+    }
+#endif
+}
+
+inline iss_reg_t Regfile::check_get(int reg)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    return this->regs_check[reg];
+#else
+    return 0;
+#endif
+}
+
+inline void Regfile::check_set(int reg, iss_reg_t value)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    this->regs_check[reg] = value;
+#endif
+}

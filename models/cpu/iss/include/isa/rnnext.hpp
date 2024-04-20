@@ -36,7 +36,7 @@ static inline iss_reg_t pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     REG_SET(0, LIB_CALL3(lib_VEC_SDOTSP_16, REG_GET(2), iss->rnnext.sdot_prefetch_0, REG_GET(1)));
 
     int64_t latency;
-    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_0, 4, false, latency))
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_0, NULL, 4, false, latency))
     {
         iss->csr.trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", iss->rnnext.sdot_prefetch_0);
     }
@@ -64,7 +64,7 @@ static inline iss_reg_t pl_sdotsp_h_1_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     REG_SET(0, LIB_CALL3(lib_VEC_SDOTSP_16, REG_GET(2), iss->rnnext.sdot_prefetch_1, REG_GET(1)));
 
     int64_t latency;
-    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_1, 4, false, latency))
+    if (!iss->lsu.data_req(addr, (uint8_t *)&iss->rnnext.sdot_prefetch_1, NULL, 4, false, latency))
     {
         iss->csr.trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", iss->rnnext.sdot_prefetch_1);
     }

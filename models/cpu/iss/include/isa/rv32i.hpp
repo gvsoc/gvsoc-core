@@ -28,6 +28,9 @@
 
 static inline iss_reg_t lui_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // Since we produced a new value in register, set it as valid
+    iss->regfile.check_set(REG_OUT(0), -1);
+
     REG_SET(0, UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -98,6 +101,10 @@ static inline void bxx_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t beq_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // Memcheck fails if any of the register is not valid
+    iss->regfile.check_branch_reg(REG_IN(0));
+    iss->regfile.check_branch_reg(REG_IN(1));
+
     if (REG_GET(0) == REG_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -298,6 +305,10 @@ static inline iss_reg_t lw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // If address register is not valid, we are reading from random location, trigger
+    // a memcheck fail
+    iss->regfile.check_load_reg(REG_IN(0));
+
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
     if (iss->lsu.load_signed_perf<int32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
     {

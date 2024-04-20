@@ -246,6 +246,8 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     {
         this->trace_format = TRACE_FORMAT_LONG;
     }
+
+    this->memcheck_enabled = config->get("memcheck")->get_bool();
 }
 
 void vp::TraceEngine::init(vp::Component *top)

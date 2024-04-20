@@ -1,4 +1,4 @@
-#
+8#
 # Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
 #                    University of Bologna
 #
@@ -50,6 +50,7 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
     gvsoc_config.set('werror', args.werror)
     gvsoc_config.set('events/use-external-dumper', args.gui and not cosim_mode)
     gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)
+    gvsoc_config.set('memcheck', args.memcheck)
 
     for trace in args.traces:
         gvsoc_config.set('traces/include_regex', trace)
@@ -81,7 +82,8 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
         len(gvsoc_config.get('events/include_regex')) != 0 or \
-        args.gui and not cosim_mode
+        args.gui and not cosim_mode or \
+        args.memcheck
 
     gvsoc_config.set("debug-mode", debug_mode)
 
@@ -613,6 +615,9 @@ class Target(gapy.Target):
                 action="store_false", default=False, help="Deactivate warnings when updating padframe with no connected device")
             parser.add_argument("--wno-unconnected-padfun", dest="w_unconnected_padfun",
                 action="store_false", default=False, help="Deactivate warnings when updating padframe with no connected padfun")
+
+            parser.add_argument("--memcheck", dest="memcheck",
+                action="store_true", default=False, help="Enable memory checks")
 
             parser.add_argument("--wunconnected-device", dest="w_unconnected_device",
                 action="store_true", help="Activate warnings when updating padframe with no connected device")

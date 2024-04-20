@@ -24,9 +24,10 @@
 #include "cpu/iss/include/iss.hpp"
 #include ISS_CORE_INC(class.hpp)
 
-Regfile::Regfile(Iss &iss)
+Regfile::Regfile(IssWrapper &top, Iss &iss)
 : iss(iss)
 {
+    top.traces.new_trace("regfile", &this->trace, vp::DEBUG);
 }
 
 
@@ -60,5 +61,12 @@ void Regfile::reset(bool active)
         }
 #endif
 #endif
+
+        this->check_reg_fault = false;
+
+        for (int i = 0; i < ISS_NB_REGS; i++)
+        {
+            this->regs_check[i] = i == 0 ? -1 : 0;
+        }
     }
 }

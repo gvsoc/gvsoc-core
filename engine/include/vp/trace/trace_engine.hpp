@@ -117,6 +117,8 @@ namespace vp {
 
         void flush();
 
+        bool is_memcheck_enabled() { return this->memcheck_enabled; }
+
     protected:
         std::map<std::string, Trace *> traces_map;
         std::vector<Trace *> traces_array;
@@ -168,6 +170,7 @@ namespace vp {
         bool global_enable = true;
         gv::Vcd_user *vcd_user;
         int64_t last_event_timestamp;
+        bool memcheck_enabled;
     };
 };
 

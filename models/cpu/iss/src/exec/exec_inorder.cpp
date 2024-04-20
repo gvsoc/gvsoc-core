@@ -185,6 +185,9 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         // make sure we account it only after the instruction is executed
         iss->exec.insn_exec_power(insn);
     }
+
+    // Check now register file access faults so that instruction is finished and properly displayed
+    iss->regfile.check_fault();
 }
 
 
@@ -303,6 +306,9 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
         _this->dbg_unit_step_check();
     }
+
+    // Check now register file access faults so that instruction is finished and properly displayed
+    iss->regfile.check_fault();
 }
 
 

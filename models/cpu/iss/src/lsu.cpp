@@ -48,7 +48,7 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
     iss->timing.cycle_account();
 
     int64_t latency;
-    if (_this->data_req_aligned(_this->misaligned_addr, _this->misaligned_data,
+    if (_this->data_req_aligned(_this->misaligned_addr, _this->misaligned_data, _this->misaligned_check_data,
                                 _this->misaligned_size, _this->misaligned_is_write, latency) == vp::IO_REQ_OK)
     {
         iss->trace.dump_trace_enabled = true;
@@ -65,7 +65,7 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
+int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *check_data, int size, bool is_write, int64_t &latency)
 {
 
     iss_addr_t addr0 = addr & ADDR_MASK;
@@ -84,11 +84,12 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool 
     // Remember the access properties for the second access
     this->misaligned_size = size1;
     this->misaligned_data = data_ptr + size0;
+    this->misaligned_check_data = check_data + size0;
     this->misaligned_addr = addr1;
     this->misaligned_is_write = is_write;
 
     // And do the first one now
-    int err = data_req_aligned(addr, data_ptr, size0, is_write, latency);
+    int err = data_req_aligned(addr, data_ptr, check_data, size0, is_write, latency);
     if (err == vp::IO_REQ_OK)
     {
 #if defined(PIPELINE_STALL_THRESHOLD)
@@ -134,7 +135,7 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
     }
 }
 
-int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
+int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *check_data, int size, bool is_write, int64_t &latency)
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
     vp::IoReq *req = &this->io_req;
@@ -143,6 +144,13 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     req->set_size(size);
     req->set_is_write(is_write);
     req->set_data(data_ptr);
+#ifdef VP_MEMCHECK_ACTIVE
+    if (!is_write)
+    {
+        memset(check_data, 0xFF, size);
+    }
+    req->set_check_data(check_data);
+#endif
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)
     {
@@ -195,11 +203,11 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     return err;
 }
 
-int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency)
+int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *check_data, int size, bool is_write, int64_t &latency)
 {
 #if !defined(CONFIG_GVSOC_ISS_HANDLE_MISALIGNED)
 
-    return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
+    return this->data_req_aligned(addr, data_ptr, check_data, size, is_write, latency);
 
 #else
 
@@ -215,9 +223,9 @@ int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
 #endif
 #ifndef CONFIG_GVSOC_ISS_SNITCH
     if (likely(addr0 == addr1))
-        return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
+        return this->data_req_aligned(addr, data_ptr, check_data, size, is_write, latency);
     else
-        return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
+        return this->data_misaligned_req(addr, data_ptr, check_data, size, is_write, latency);
 
 #endif
 #endif
@@ -237,8 +245,6 @@ void Lsu::build()
     this->iss.top.new_master_port("meminfo", &this->meminfo, (vp::Block *)this);
 
     this->iss.top.new_reg("elw_stalled", &this->elw_stalled, false);
-
-    this->io_req.set_data(new uint8_t[sizeof(iss_reg_t)]);
 
     this->memory_start = -1;
     this->memory_end = -1;
@@ -357,6 +363,13 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
     req->set_opcode(opcode);
     req->set_data((uint8_t *)this->iss.regfile.reg_store_ref(reg_in));
     req->set_second_data((uint8_t *)this->iss.regfile.reg_ref(reg_out));
+#ifdef VP_MEMCHECK_ACTIVE
+    uint8_t *check_data = (uint8_t *)this->iss.regfile.reg_store_ref(reg_in);
+    memset(check_data, 0xFF, size);
+    req->set_check_data(check_data);
+    uint8_t *check_second_data = (uint8_t *)this->iss.regfile.reg_ref(reg_out);
+    req->set_second_check_data(check_second_data);
+#endif
     req->set_initiator(this->iss.csr.mhartid);
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)

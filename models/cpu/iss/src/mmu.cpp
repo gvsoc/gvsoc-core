@@ -273,7 +273,7 @@ void Mmu::read_pte(iss_addr_t pte_addr)
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Read pte (addr: 0x%lx)\n", pte_addr);
 
     int64_t latency;
-    int err = this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, this->pte_size, false, latency);
+    int err = this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, NULL, this->pte_size, false, latency);
     if (err == vp::IO_REQ_OK)
     {
         // The should have already accounted the request latency.

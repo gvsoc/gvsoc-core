@@ -111,7 +111,7 @@ if(${BUILD_DEBUG})
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_debug PRIVATE "-DVP_TRACE_ACTIVE=1")
+    target_compile_definitions(gvsoc_debug PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
 
     add_executable(gvsoc_launcher_debug "src/main.cpp")
 
@@ -130,7 +130,7 @@ if(${BUILD_DEBUG})
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_launcher_debug PRIVATE "-DVP_TRACE_ACTIVE=1")
+    target_compile_definitions(gvsoc_launcher_debug PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
 endif()
 
 if(${BUILD_DEBUG_M32})
@@ -143,7 +143,7 @@ if(${BUILD_DEBUG_M32})
         ARCHIVE DESTINATION lib
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_debug_m32 PRIVATE "-DVP_TRACE_ACTIVE=1")
+    target_compile_definitions(gvsoc_debug_m32 PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
     target_compile_options(gvsoc_debug_m32 PRIVATE -m32 -D__M32_MODE__)
     target_link_options(gvsoc_debug_m32 PRIVATE "-m32")
 endif()

@@ -48,7 +48,8 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg),
+        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency)) == 0)
     {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
@@ -89,7 +90,8 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     this->iss.regfile.set_reg(reg, 0);
     int64_t latency;
-    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency))
+    if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg),
+        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency))
     {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
@@ -134,7 +136,8 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg), size, false, latency)) == 0)
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg),
+        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency)) == 0)
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
@@ -199,7 +202,8 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg), size, true, latency)) == 0)
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg),
+        (uint8_t *)this->iss.regfile.reg_check_store_ref(reg), size, true, latency)) == 0)
     {
 
 #if defined(PIPELINE_STALL_THRESHOLD)
@@ -309,7 +313,7 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), size, false, latency)) == 0)
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), NULL, size, false, latency)) == 0)
     {
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg(reg), size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
@@ -374,7 +378,7 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), size, true, latency)) == 0)
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), NULL, size, true, latency)) == 0)
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;

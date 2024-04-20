@@ -61,6 +61,8 @@ namespace vp {
     inline void warning(warning_type_e type, const char *fmt, ...);
     void force_warning(const char *fmt, ...);
     void force_warning(warning_type_e type, const char *fmt, ...);
+    void force_warning_no_error(const char *fmt, ...);
+    void force_warning_no_error(warning_type_e type, const char *fmt, ...);
     inline void fatal(const char *fmt, ...);
 
     inline void event(uint8_t *value);

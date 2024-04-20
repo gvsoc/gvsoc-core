@@ -48,6 +48,7 @@ public:
 
     vp::Trace insn_trace;
     iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];
+    iss_insn_arg_t check_args[ISS_MAX_DECODE_ARGS];
     int priv_mode;
     bool has_reg_dump = false;
     iss_reg_t reg_dump;

@@ -165,6 +165,28 @@ void vp::Trace::force_warning(vp::Trace::warning_type_e type, const char *fmt, .
     }
 }
 
+void vp::Trace::force_warning_no_error(const char *fmt, ...)
+{
+    dump_warning_header();
+    va_list ap;
+    va_start(ap, fmt);
+    if (vfprintf(this->trace_file, fmt, ap) < 0) {}
+    va_end(ap);
+}
+
+
+void vp::Trace::force_warning_no_error(vp::Trace::warning_type_e type, const char *fmt, ...)
+{
+    if (comp->traces.get_trace_engine()->is_warning_active(type))
+    {
+        dump_warning_header();
+        va_list ap;
+        va_start(ap, fmt);
+        if (vfprintf(this->trace_file, fmt, ap) < 0) {}
+        va_end(ap);
+    }
+}
+
 
 void vp::Trace::dump_warning_header()
 {

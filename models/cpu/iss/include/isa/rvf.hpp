@@ -79,7 +79,6 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
             if (!insn->out_regs_fp[0])
             {
                 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-                // iss->regfile.scoreboard_reg_timestamp[insn->out_regs[0]] = iss->top.clock.get_cycles() + 1000;
                 iss->regfile.scoreboard_reg_valid[insn->out_regs[0]] = false;
                 #endif   
             }
@@ -89,13 +88,6 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
             iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Total number of stall cycles: %d\n", iss->exec.instr_event.stall_cycle_get());
         }
-
-        // Todo: check how hardware implements CSR_FFLAGS
-        // unsigned int fflags= iss->csr.fcsr.fflags;
-        // insn->fflags_addr = &fflags;
-
-        // Todo: handle instruction CSRRSI and CSRRCI later when we add SSR, 
-        // these two instruction also need to be offloaded.
     }
 #endif
     return iss_insn_next(iss, insn, pc);

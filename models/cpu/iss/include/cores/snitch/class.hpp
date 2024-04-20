@@ -127,7 +127,7 @@ public:
     iss_reg_t pc;
     bool is_write;
     unsigned int frm;
-    // Temporary variable to process RAW caused by SSR, 
+    // Temporary variable to process RAW caused by SSR and accessing stack pointer, 
     // for result is written to memory directly.
     iss_addr_t mem_map;
     iss_reg_t mem_pc;

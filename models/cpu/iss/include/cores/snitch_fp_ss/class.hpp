@@ -120,16 +120,13 @@ public:
     static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
 
-    // Temporary response information.
-    // bool error;
-    // int rd;
-    // iss_reg_t data;
-    // unsigned int fflags;
-    // Temporary variable to process RAW caused by SSR, 
+    // Temporary variable to process RAW caused by SSR and accessing stack pointer, 
     // for result is written to memory directly.
     iss_addr_t mem_map;
     iss_reg_t mem_pc;
 
+    // Add operation groups and store intructions like a FIFO 
+    // to abstract behavior of pipeline. Most of fp instructions are pipelined in Snitch.
     // Operation groups in FPU
     FIFODepth3 FMA_OPGROUP;
     FIFODepth1 DIVSQRT_OPGROUP;
@@ -139,6 +136,7 @@ public:
     // Operation group in LSU
     FIFODepth1 LSU_OPGROUP;
 
+    // Timing model of pipelined FPU
     int get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp);
     void update_pipereg(iss_insn_t insn, iss_reg_t pc, int insn_latency, int start_timestamp, int finish_timestamp);
 

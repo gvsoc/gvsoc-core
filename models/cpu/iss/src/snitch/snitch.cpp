@@ -167,10 +167,6 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
         this->acc_req_itf.sync(&this->acc_req);
     }
     // Todo: Increment the latency going through i_spill_register_acc_demux_req.
-    // if (this->event->is_enqueued())
-    // {
-    //     this->event->enqueue(1);
-    // }
 
     // If the output register of fp instruction is integer type, set timestamp of scoreboard at integer regfile in integer core.
     // And the following instruction with data dependency will execute scoreboard_reg_check when loading the operands,
@@ -214,9 +210,6 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
         _this->regfile.set_reg(result->rd, result->data);
     }
 
-    // Get input information for trace
-    // iss_trace_dump_in(_this, &result->insn, result->pc);
-
     // Set scoreboard valid when the instruction finishes execution.
     if (!result->insn.out_regs_fp[0])
     {
@@ -248,6 +241,5 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
 
     // Output instruction trace for debugging.
     _this->trace_iss.msg("Get accelerator response (opcode: 0x%lx, pc: 0x%lx)\n", result->insn.opcode, result->pc);
-    // iss_trace_dump(_this, &result->insn, result->pc);
     
 }

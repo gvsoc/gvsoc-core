@@ -95,6 +95,7 @@ public:
     iss_reg_t REG_RPTR[4];
     iss_reg_t REG_WPTR[4];
 
+    // Dimension of nested-loop data access pattern
     int DIM;
 
 
@@ -179,18 +180,24 @@ public:
 };
 
 
-// The Credit Counter
+// The Credit Counter to determine whether there's need to read/write new data
 class CreditCnt
 {
 public:
 
+    // Maximum data of credits equals to the depth of data lane
     const int DataCredits = 4;
 
+    // Data consumed and more empty space
     bool credit_give;
+    // Data produced and less empty space
     bool credit_take;
+    // Accept new data
     bool has_credit;
+    // No space to accept new data
     bool credit_full;
 
+    // Number of credits currently
     int credit_cnt;
     void update_cnt();
 };

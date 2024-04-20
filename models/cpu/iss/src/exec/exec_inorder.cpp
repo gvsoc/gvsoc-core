@@ -295,8 +295,6 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
         if (insn == NULL) return;
 
-        // _this->trace.msg(vp::Trace::LEVEL_TRACE, "Search for register value: 0x%lx\n", iss->regfile.get_reg(2));
-
         _this->current_insn = _this->insn_exec(insn, pc);
 
         _this->iss.timing.insn_account();

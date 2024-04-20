@@ -184,7 +184,6 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     _this->ssr.clear_flags();
 
     // Assign dynamic latency to instruction latency if there's no static latency.
-    // Or take MAX(insn->latency, stall_cycle_get())
     // If SSR is enabled, the latency of instruction includes memory access + execution time in fpu.
     if (_this->ssr.ssr_enable)
     {
@@ -227,9 +226,6 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
         insn.scoreboard_reg_timestamp_addr[rd] = _this->top.clock.get_cycles() + insn.latency;
         #endif   
     }
-
-    // Update fflags in integer core after fp instruction.
-    // *insn.fflags_addr = _this->csr.fcsr.fflags;
 
 }
 

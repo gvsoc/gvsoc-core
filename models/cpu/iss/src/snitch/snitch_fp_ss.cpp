@@ -178,7 +178,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     _this->trace.priv_mode = _this->core.mode_get();
     insn.resource_handler(_this, &insn, pc);
 
-    // Update loop counter if SSR enabled (work under no dm_event)
+    // Update loop counter if SSR enabled 
     _this->ssr.update_ssr();
     // Clear dm_read and dm_write flag after execution
     _this->ssr.clear_flags();

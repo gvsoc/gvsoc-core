@@ -33,10 +33,10 @@ class FifoSsr
 {
 public:
 
-    iss_freg_t lane[4]; // Array to store the elements of the queue
-    int head; // Index of the first element
-    int tail; // Index where the next element will be inserted
-    int size; // Current number of elements in the queue
+    iss_freg_t lane[4] = {0, 0, 0, 0}; // Array to store the elements of the queue
+    int head = 0; // Index of the first element
+    int tail = 0; // Index where the next element will be inserted
+    int size = 0; // Current number of elements in the queue
 
 
     // Constructor initializes an empty queue
@@ -86,17 +86,17 @@ class CfgSsr
 {
 public:
 
-    int REG_STATUS;
-    int REG_REPEAT;
+    int REG_STATUS = 0;
+    int REG_REPEAT = 0;
 
     // Configuration of Address Generation Units with 4-dim nested loop
-    int REG_BOUNDS[4];
-    int REG_STRIDES[4];
-    iss_reg_t REG_RPTR[4];
-    iss_reg_t REG_WPTR[4];
+    int REG_BOUNDS[4] = {0, 0, 0, 0};
+    int REG_STRIDES[4] = {0, 0, 0, 0};
+    iss_reg_t REG_RPTR[4] = {0, 0, 0, 0};
+    iss_reg_t REG_WPTR[4] = {0, 0, 0, 0};
 
     // Dimension of nested-loop data access pattern
-    int DIM;
+    int DIM = 0;
 
 
     // Function to set the value of REG_STATUS
@@ -169,13 +169,13 @@ class LoopCnt
 public:
 
     // Stride counter of loop
-    int stride[4];
+    int stride[4] = {0, 0, 0, 0};
     // Bound counter of loop
-    int bound[4];
+    int bound[4] = {0, 0, 0, 0};
     // Repetition counter
-    int rep;
+    int rep = 0;
     // Status of dm counters
-    int status;
+    int status = 0;
 
 };
 
@@ -189,16 +189,16 @@ public:
     const int DataCredits = 4;
 
     // Data consumed and more empty space
-    bool credit_give;
+    bool credit_give = false;
     // Data produced and less empty space
-    bool credit_take;
+    bool credit_take = false;
     // Accept new data
-    bool has_credit;
+    bool has_credit = false;
     // No space to accept new data
-    bool credit_full;
+    bool credit_full = false;
 
     // Number of credits currently
-    int credit_cnt;
+    int credit_cnt = 0;
     void update_cnt();
 };
 
@@ -224,18 +224,18 @@ public:
 
     // Properties of data mover
     // Whether data mover is read/write
-    bool is_write;
+    bool is_write = false;
     // Whether data mover is active
-    bool is_config;
+    bool is_config = false;
 
     // Temporary variable used to get load/store result
-    iss_freg_t temp;
+    iss_freg_t temp = 0x0;
 
     // Address generation unit, compute address of memory access
-    iss_reg_t temp_addr;
-    iss_reg_t inc_addr;
-    bool rep_done;
-    bool ssr_done;
+    iss_reg_t temp_addr = 0x0;
+    iss_reg_t inc_addr = 0x0;
+    bool rep_done = false;
+    bool ssr_done = false;
     iss_reg_t addr_gen_unit(bool is_write);
 
     // Update loop counters after every memory access
@@ -285,10 +285,10 @@ public:
 
     // Three operands used in this round
     // Temporary variable stored for traces
-    iss_freg_t ssr_fregs[3];
+    iss_freg_t ssr_fregs[3] = {0x0, 0x0, 0x0};
 
     // ssr enable and disable flag controlled by ssrcfg
-    bool ssr_enable;
+    bool ssr_enable = false;
     // Enable or disable SSR in core
     void enable();
     void disable();
@@ -313,12 +313,9 @@ public:
     void clear_flags();
     void update_ssr();
 
-    static void dm_event(vp::Block *__this, vp::ClockEvent *event);
-
 private:
     Iss &iss;
 
     vp::ClockEngine *engine;
-    vp::ClockEvent *event;
 
 };

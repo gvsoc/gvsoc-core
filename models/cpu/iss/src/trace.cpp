@@ -529,7 +529,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             {
                 saved_arg->u.reg.value = iss->regfile.get_reg_untimed(insn_arg->u.reg.index);
                 #ifdef CONFIG_GVSOC_ISS_SNITCH
-                if (iss->snitch & !iss->fp_ss & insn->is_fp_op)
+                if (iss->snitch & !iss->fp_ss & insn->desc->tags[ISA_TAG_FP_OP_ID])
                 {
                     saved_arg->u.reg.value = insn->data_arga;
                 }
@@ -543,7 +543,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             return;
         saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_imm.reg_index);
         #ifdef CONFIG_GVSOC_ISS_SNITCH
-        if (iss->snitch & !iss->fp_ss & insn->is_fp_op)
+        if (iss->snitch & !iss->fp_ss & insn->desc->tags[ISA_TAG_FP_OP_ID])
         {
             saved_arg->u.indirect_imm.reg_value = insn->data_arga;
         }
@@ -560,7 +560,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
         saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.base_reg_index);
         saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.offset_reg_index);
         #ifdef CONFIG_GVSOC_ISS_SNITCH
-        if (iss->snitch & !iss->fp_ss & insn->is_fp_op)
+        if (iss->snitch & !iss->fp_ss & insn->desc->tags[ISA_TAG_FP_OP_ID])
         {
             saved_arg->u.indirect_reg.base_reg_value = insn->data_arga;
         }

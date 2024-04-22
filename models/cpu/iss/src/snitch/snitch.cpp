@@ -121,7 +121,7 @@ bool Iss::check_state(iss_insn_t *insn)
 
     // Set the request is_write bit to differentiate whether it's a sequenceable instruction.
     // This is important because the handshaking methods and instruction lanes in the sequencer are different. 
-    if (insn->isn_seq_op)
+    if (insn->desc->tags[ISA_TAG_NSEQ_ID])
     {
         // Instructions in bypass lane
         this->check_req.set_is_write(false);

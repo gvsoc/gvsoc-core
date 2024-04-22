@@ -100,6 +100,10 @@ class RiscvCommon(st.Component):
             isa.get_source()
         ])
 
+        self.add_c_flags([
+            f'--include {isa.get_header()}'
+        ])
+
         self.add_sources([
             wrapper
         ])

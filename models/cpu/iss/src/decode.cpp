@@ -100,7 +100,7 @@ static inline iss_reg_t int_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
     {
         // Check availability in memory access.
         iss_addr_t mem_map;
-        if(!insn->is_fp_op)
+        if(!insn->desc->tags[ISA_TAG_FP_OP_ID])
         {
             bool lsu_label = strstr(insn->decoder_item->u.insn.label, "lw")
                     || strstr(insn->decoder_item->u.insn.label, "sw")
@@ -121,7 +121,7 @@ static inline iss_reg_t int_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
         }
 
         // Check availability in register operands.
-        if(!insn->is_fp_op)
+        if(!insn->desc->tags[ISA_TAG_FP_OP_ID])
         {
             bool src_ready = true;
             bool dst_ready = true;
@@ -172,6 +172,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     if (!item->is_active)
         return -1;
 
+    insn->desc = &item->u.insn;
     insn->expand_table = NULL;
     insn->latency = 0;
     insn->resource_id = item->u.insn.resource_id;
@@ -375,17 +376,12 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     }
 #endif
 
-    #ifdef CONFIG_GVSOC_ISS_SNITCH
-    insn->is_fp_op = item->u.insn.is_fp_op;
-    insn->is_frep_op = item->u.insn.is_frep_op;
-    insn->isn_seq_op = item->u.insn.isn_seq_op;
-    #endif
     // For floating point instructions, go to offload handler instead of executing directly.
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (this->iss.snitch & !this->iss.fp_ss)
     {
         insn->resource_handler = insn->handler;
-        if(insn->is_fp_op)
+        if(insn->desc->tags[ISA_TAG_FP_OP_ID])
         {
             insn->fast_handler = fp_offload_exec;
             insn->handler = fp_offload_exec;

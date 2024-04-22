@@ -53,9 +53,7 @@ public:
     unsigned int widthBits = 2;
     int nb_ports = 1;
 
-    // Enable cache by default
-    // bool enabled = false;
-    bool enabled = true;
+    bool enabled = false;
 
 private:
     vp::Trace trace;
@@ -497,6 +495,7 @@ void Cache::flush_line_addr_sync(vp::Block *__this, uint32_t addr)
 Cache::Cache(vp::ComponentConf &config)
     : vp::Component(config), refill_pending_reqs(this, "refill_queue"), pending_refill(*this, "refill", 0)
 {
+    this->enabled = this->get_js_config()->get_child_bool("enabled");
     this->nb_ports = this->get_js_config()->get_child_int("nb_ports");
     this->nb_sets_bits = this->get_js_config()->get_child_int("nb_sets_bits");
     this->nb_ways_bits = this->get_js_config()->get_child_int("nb_ways_bits");

@@ -303,9 +303,7 @@ public:
     // Data request sent from SSR to memory, fetch operands 
     int data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, int64_t &latency, int dm);
     // Load or store fp data from or to memory
-    template<typename T>
     inline bool load_float(iss_addr_t addr, uint8_t *data_ptr, int size, int dm);
-    template<typename T>
     inline bool store_float(iss_addr_t addr, uint8_t *data_ptr, int size, int dm);
 
     // Read or write in data mover
@@ -318,7 +316,7 @@ public:
     void update_ssr();
 
     // Clear SSR counters and configurations after we have new configs coming
-    void clear_ssr();
+    void clear_ssr(int dm);
 
     // Each data lane has its own private event for data preloading and storing,
     // because they have their own memory ports.

@@ -138,6 +138,9 @@ void Ssr::build()
     // Todo: Initialize all data mover configurations
 
     iss.top.traces.new_trace("ssr", &this->trace, vp::DEBUG);
+    this->event_0 = this->iss.top.event_new((vp::Block *)this, Ssr::dm_event_0);
+    this->event_1 = this->iss.top.event_new((vp::Block *)this, Ssr::dm_event_1);
+    this->event_2 = this->iss.top.event_new((vp::Block *)this, Ssr::dm_event_2);
 
     this->iss.top.new_master_port("ssr_dm0", &ssr_dm0, (vp::Block *)this);
     this->iss.top.new_master_port("ssr_dm1", &ssr_dm1, (vp::Block *)this);
@@ -155,6 +158,11 @@ void Ssr::enable()
         this->dm0.ssr_done = 0;
         this->dm1.ssr_done = 0;
         this->dm2.ssr_done = 0;
+
+        // Enable clock events for pre-reading and post-writing
+        this->event_0->enable();
+        this->event_1->enable();
+        this->event_2->enable();
     }
 }
 
@@ -166,6 +174,11 @@ void Ssr::disable()
     {
         this->trace.msg("Disable SSR\n");
         this->ssr_enable = false;
+
+        // Disable clock events for pre-reading and post-writing
+        this->event_0->disable();
+        this->event_1->disable();
+        this->event_2->disable();
     }
 }
 
@@ -173,6 +186,9 @@ void Ssr::disable()
 // Get called when set the configuration registers.
 void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
 {
+    // Clear data lanes when SSR is enabled again
+    this->clear_ssr();
+
     // Set data mover 0
     if (ssr == 0)
     {
@@ -360,8 +376,8 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
             }
             else
             {
-                value = ((this->dm0.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm0.config.DIM&0x3) << 28) 
-                    + (this->dm0.config.REG_RPTR[this->dm0.config.DIM] & 0x07ffffff);
+                value = ((this->dm0.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm0.config.DIM&0x3) << 28) + 
+                    (this->dm0.config.REG_RPTR[this->dm0.config.DIM] & 0x07ffffff);
             }
         }
         else if (unlikely(reg == 1))
@@ -398,13 +414,13 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         {
             if (this->dm1.is_write)
             {
-                value = ((this->dm1.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm1.config.DIM&0x3) << 28) 
-                    + (this->dm1.config.REG_WPTR[this->dm1.config.DIM] & 0x07ffffff);
+                value = ((this->dm1.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm1.config.DIM&0x3) << 28) + 
+                    (this->dm1.config.REG_WPTR[this->dm1.config.DIM] & 0x07ffffff);
             }
             else
             {
-                value = ((this->dm1.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm1.config.DIM&0x3) << 28) 
-                    + (this->dm1.config.REG_RPTR[this->dm1.config.DIM] & 0x07ffffff);
+                value = ((this->dm1.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm1.config.DIM&0x3) << 28) + 
+                    (this->dm1.config.REG_RPTR[this->dm1.config.DIM] & 0x07ffffff);
             }
         }
         else if (unlikely(reg == 1))
@@ -535,13 +551,24 @@ int Ssr::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
 
         // Total number of latency in memory access instruction is the sum of latency waiting for operands to be ready
         // and latency resulting from ports contention/conflicts.
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Number of SSR stall cycles in data mover %d: %d\n", dm, latency);
 
-        // Typically data can be preloaded to data lane.
-        // In this case, there's no latency for loading data before computation.
-        if (latency > 0) latency -= 1;
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Number of SSR stall cycles: %d\n", latency);
-        this->iss.exec.stall_cycles += latency;
-        
+        // Latency model of each data lane 
+        // The number of stall cycles of each FIFO event is determined by the latency of memory ports.
+        // Increment latency on each data mover private clock event
+        if (dm == 0)
+        {
+            this->event_0->stall_cycle_set(latency);
+        } 
+        else if (dm == 1)
+        {
+            this->event_1->stall_cycle_set(latency);
+        } 
+        else if (dm == 2)
+        {
+            this->event_2->stall_cycle_set(latency);
+        } 
+
         return 0;
     }
     else if (err == vp::IO_REQ_INVALID)
@@ -647,6 +674,8 @@ inline bool Ssr::store_float(iss_addr_t addr, uint8_t *data_ptr, int size, int d
 
 
 // Get called when the computation unit needs to read data from memory.
+// The function needs to process the situation when target data has been preloaded to FIFO
+// or the data needs to be fetched from TCDM.
 iss_freg_t Ssr::dm_read(int dm)
 {
     this->trace.msg("Read register value from SSR data mover %d\n", dm);
@@ -655,24 +684,46 @@ iss_freg_t Ssr::dm_read(int dm)
         this->dm0.dm_read = true;
         if (this->dm0.config.REG_STRIDES[0] == 0x4)
         {
-            this->load_float<uint32_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 4, dm);
-            this->dm0.temp = iss_get_float_value(this->dm0.temp, 4 * 8);
-            this->dm0.fifo.push(this->dm0.temp);
+            // If data lane is empty, read in new data when the access is needed.
+            // And the latency will be accumulated at core's clock event, because the load will stall the instruction execution,
+            // unlike data preloading (increment to data lane's clock event).
+            if (this->dm0.fifo.isEmpty())
+            {
+                this->load_float<uint32_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 4, dm);
+                this->dm0.temp = iss_get_float_value(this->dm0.temp, 4 * 8);
+                this->dm0.fifo.push(this->dm0.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
+                this->dm0.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_0->stall_cycle_get());
+            }
+            // Output the data when there's data in fifo
             this->ssr_fregs[0] = this->dm0.fifo.pop();
         }
         else if (this->dm0.config.REG_STRIDES[0] == 0x8)
         {
-            this->load_float<uint64_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
-            this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
-            this->dm0.fifo.push(this->dm0.temp);
+            if (this->dm0.fifo.isEmpty())
+            {
+                this->load_float<uint64_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
+                this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
+                this->dm0.fifo.push(this->dm0.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
+                this->dm0.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_0->stall_cycle_get());
+            }
             this->ssr_fregs[0] = this->dm0.fifo.pop();
         }
         else
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
-            this->load_float<uint64_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
-            this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
-            this->dm0.fifo.push(this->dm0.temp);
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (this->dm0.fifo.isEmpty())
+            {
+                this->load_float<uint64_t>(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
+                this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
+                this->dm0.fifo.push(this->dm0.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
+                this->dm0.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_0->stall_cycle_get());
+            }
             this->ssr_fregs[0] = this->dm0.fifo.pop();
         }
 
@@ -683,24 +734,42 @@ iss_freg_t Ssr::dm_read(int dm)
         this->dm1.dm_read = true;
         if (this->dm1.config.REG_STRIDES[0] == 0x4)
         {
-            this->load_float<uint32_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 4, dm);
-            this->dm1.temp = iss_get_float_value(this->dm1.temp, 4 * 8);
-            this->dm1.fifo.push(this->dm1.temp);
+            if (this->dm1.fifo.isEmpty())
+            {
+                this->load_float<uint32_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 4, dm);
+                this->dm1.temp = iss_get_float_value(this->dm1.temp, 4 * 8);
+                this->dm1.fifo.push(this->dm1.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
+                this->dm1.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_1->stall_cycle_get());
+            }
             this->ssr_fregs[1] = this->dm1.fifo.pop();
         }
         else if (this->dm1.config.REG_STRIDES[0] == 0x8)
         {
-            this->load_float<uint64_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 8, dm);
-            this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
-            this->dm1.fifo.push(this->dm1.temp);
+            if (this->dm1.fifo.isEmpty())
+            {
+                this->load_float<uint64_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 8, dm);
+                this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
+                this->dm1.fifo.push(this->dm1.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
+                this->dm1.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_1->stall_cycle_get());
+            }
             this->ssr_fregs[1] = this->dm1.fifo.pop();
         }
         else
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
-            this->load_float<uint64_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 8, dm);
-            this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
-            this->dm1.fifo.push(this->dm1.temp);
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (this->dm1.fifo.isEmpty())
+            {
+                this->load_float<uint64_t>(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 8, dm);
+                this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
+                this->dm1.fifo.push(this->dm1.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
+                this->dm1.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_1->stall_cycle_get());
+            }
             this->ssr_fregs[1] = this->dm1.fifo.pop();
         }
 
@@ -711,24 +780,42 @@ iss_freg_t Ssr::dm_read(int dm)
         this->dm2.dm_read = true;
         if (this->dm2.config.REG_STRIDES[0] == 0x4)
         {
-            this->load_float<uint32_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 4, dm);
-            this->dm2.temp = iss_get_float_value(this->dm2.temp, 4 * 8);
-            this->dm2.fifo.push(this->dm2.temp);
+            if (this->dm2.fifo.isEmpty())
+            {
+                this->load_float<uint32_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 4, dm);
+                this->dm2.temp = iss_get_float_value(this->dm2.temp, 4 * 8);
+                this->dm2.fifo.push(this->dm2.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
+                this->dm2.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_2->stall_cycle_get());
+            }
             this->ssr_fregs[2] = this->dm2.fifo.pop();
         }
         else if (this->dm2.config.REG_STRIDES[0] == 0x8)
         {
-            this->load_float<uint64_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 8, dm);
-            this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
-            this->dm2.fifo.push(this->dm2.temp);
+            if (this->dm2.fifo.isEmpty())
+            {
+                this->load_float<uint64_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 8, dm);
+                this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
+                this->dm2.fifo.push(this->dm2.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
+                this->dm2.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_2->stall_cycle_get());
+            }
             this->ssr_fregs[2] = this->dm2.fifo.pop();
         }
         else
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
-            this->load_float<uint64_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 8, dm);
-            this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
-            this->dm2.fifo.push(this->dm2.temp);
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (this->dm2.fifo.isEmpty())
+            {
+                this->load_float<uint64_t>(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 8, dm);
+                this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
+                this->dm2.fifo.push(this->dm2.temp);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
+                this->dm2.update_cnt();
+                this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_2->stall_cycle_get());
+            }
             this->ssr_fregs[2] = this->dm2.fifo.pop();
         }
 
@@ -743,92 +830,197 @@ iss_freg_t Ssr::dm_read(int dm)
 
 
 // Get called when the computation unit needs to write back result to memory.
+// The function needs to process the situation when the FIFO is full or still has empty space.
 bool Ssr::dm_write(iss_freg_t value, int dm)
 {
-    this->trace.msg("Write register value to SSR data mover %d\n", dm);
+    this->trace.msg("Write register value 0x%llx to SSR data mover %d\n", value, dm);
     if (dm == 0)
     {
         this->dm0.dm_write = true;
+        // Write data into FIFO
         this->dm0.temp = value;
 
         // Write data to memory
         if (this->dm0.config.REG_STRIDES[0] == 0x4)
         {
-            this->store_float<uint32_t>(this->dm0.addr_gen_unit(true), (uint8_t *)(&this->dm0.temp), 4, dm);
-            this->dm0.fifo.push(this->dm0.temp);
-            this->ssr_fregs[0] = this->dm0.fifo.pop();
-            return true;
+            if (!this->dm0.fifo.isFull())
+            {
+                // Write to fifo if the lane has empty space
+                this->dm0.dm_write_full = false;
+                this->dm0.fifo.push(this->dm0.temp);
+                this->ssr_fregs[0] = this->dm0.temp; 
+                return true;
+            }
+            else
+            {
+                this->dm0.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_0->stall_cycle_get());
+                // Add stall cycles of memory port when the FIFO is full to current instruction execution time.
+                // this->iss.timing.stall_load_account(this->event_0->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_0->stall_cycle_get();
+                return false;
+            }
         }
         else if (this->dm0.config.REG_STRIDES[0] == 0x8)
         {
-            this->store_float<uint64_t>(this->dm0.addr_gen_unit(true), (uint8_t *)(&this->dm0.temp), 8, dm);
-            this->dm0.fifo.push(this->dm0.temp);
-            this->ssr_fregs[0] = this->dm0.fifo.pop();
-            return true;
+            if (!this->dm0.fifo.isFull())
+            {
+                this->dm0.dm_write_full = false;
+                this->dm0.fifo.push(this->dm0.temp);
+                this->ssr_fregs[0] = this->dm0.temp;
+                return true;
+            }
+            else
+            {
+                this->dm0.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_0->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_0->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_0->stall_cycle_get();
+                return false;
+            }
         }
         else
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
-            this->store_float<uint64_t>(this->dm0.addr_gen_unit(true), (uint8_t *)(&this->dm0.temp), 8, dm);
-            this->dm0.fifo.push(this->dm0.temp);
-            this->ssr_fregs[0] = this->dm0.fifo.pop();
-            return false;
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (!this->dm0.fifo.isFull())
+            {
+                this->dm0.dm_write_full = false;
+                this->dm0.fifo.push(this->dm0.temp);
+                this->ssr_fregs[0] = this->dm0.temp;
+                return true;
+            }
+            else
+            {
+                this->dm0.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_0->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_0->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_0->stall_cycle_get();
+                return false;
+            }
         }
     }
     else if (dm == 1)
     {
         this->dm1.dm_write = true;
+        // Write data into FIFO
         this->dm1.temp = value;
 
         if (this->dm1.config.REG_STRIDES[0] == 0x4)
         {
-            this->store_float<uint32_t>(this->dm1.addr_gen_unit(true), (uint8_t *)(&this->dm1.temp), 4, dm);
-            this->dm1.fifo.push(this->dm1.temp);
-            this->ssr_fregs[1] = this->dm1.fifo.pop();
-            return true;
+            if (!this->dm1.fifo.isFull())
+            {
+                this->dm1.dm_write_full = false;
+                this->dm1.fifo.push(this->dm1.temp);
+                this->ssr_fregs[1] = this->dm1.temp;
+                return true;
+            }
+            else
+            {
+                this->dm1.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_1->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_1->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_1->stall_cycle_get();
+                return false;
+            }
         }
         else if (this->dm1.config.REG_STRIDES[0] == 0x8)
         {
-            this->store_float<uint64_t>(this->dm1.addr_gen_unit(true), (uint8_t *)(&this->dm1.temp), 8, dm);
-            this->dm1.fifo.push(this->dm1.temp);
-            this->ssr_fregs[1] = this->dm1.fifo.pop();
-            return true;
+            if (!this->dm1.fifo.isFull())
+            {
+                this->dm1.dm_write_full = false;
+                this->dm1.fifo.push(this->dm1.temp);
+                this->ssr_fregs[1] = this->dm1.temp;
+                return true;
+            }
+            else
+            {
+                this->dm1.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_1->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_1->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_1->stall_cycle_get();
+                return false;
+            }
         }
         else
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
-            this->store_float<uint64_t>(this->dm1.addr_gen_unit(true), (uint8_t *)(&this->dm1.temp), 8, dm);
-            this->dm1.fifo.push(this->dm1.temp);
-            this->ssr_fregs[1] = this->dm1.fifo.pop();
-            return false;
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (!this->dm1.fifo.isFull())
+            {
+                this->dm1.dm_write_full = false;
+                this->dm1.fifo.push(this->dm1.temp);
+                this->ssr_fregs[1] = this->dm1.temp;
+                return true;
+            }
+            else
+            {
+                this->dm1.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_1->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_1->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_1->stall_cycle_get();
+                return false;
+            }
         }
     }
     else if (dm == 2)
     {
         this->dm2.dm_write = true;
+        // Write data into FIFO
         this->dm2.temp = value;
 
         if (this->dm2.config.REG_STRIDES[0] == 0x4)
         {
-            this->store_float<uint32_t>(this->dm2.addr_gen_unit(true), (uint8_t *)(&this->dm2.temp), 4, dm);
-            this->dm2.fifo.push(this->dm2.temp);
-            this->ssr_fregs[2] = this->dm2.fifo.pop();
-            return true;
+            if (!this->dm2.fifo.isFull())
+            {
+                this->dm2.dm_write_full = false;
+                this->dm2.fifo.push(this->dm2.temp);
+                this->ssr_fregs[2] = this->dm2.temp;
+                return true;
+            }
+            else
+            {
+                this->dm2.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_2->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_2->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_2->stall_cycle_get();
+                return false;
+            }
         }
         else if (this->dm2.config.REG_STRIDES[0] == 0x8)
         {
-            this->store_float<uint64_t>(this->dm2.addr_gen_unit(true), (uint8_t *)(&this->dm2.temp), 8, dm);
-            this->dm2.fifo.push(this->dm2.temp);
-            this->ssr_fregs[2] = this->dm2.fifo.pop();
-            return true;
+            if (!this->dm2.fifo.isFull())
+            {
+                this->dm2.dm_write_full = false;
+                this->dm2.fifo.push(this->dm2.temp);
+                this->ssr_fregs[2] = this->dm2.temp;
+                return true;
+            }
+            else
+            {
+                this->dm2.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_2->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_2->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_2->stall_cycle_get();
+                return false;
+            }
         }
         else
         {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Misaligned data request in data mover\n");
-            this->store_float<uint64_t>(this->dm2.addr_gen_unit(true), (uint8_t *)(&this->dm2.temp), 8, dm);
-            this->dm2.fifo.push(this->dm2.temp);
-            this->ssr_fregs[2] = this->dm2.fifo.pop();
-            return false;
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (!this->dm2.fifo.isFull())
+            {
+                this->dm2.dm_write_full = false;
+                this->dm2.fifo.push(this->dm2.temp);
+                this->ssr_fregs[2] = this->dm2.temp;
+                return true;
+            }
+            else
+            {
+                this->dm2.dm_write_full = true;
+                this->trace.msg("No space to store new computation result, core stalled for %d cycles\n", this->event_2->stall_cycle_get());
+                // this->iss.timing.stall_load_account(this->event_2->stall_cycle_get());
+                this->iss.exec.stall_cycles += this->event_2->stall_cycle_get();
+                return false;
+            }
         }
     }
     else
@@ -837,6 +1029,165 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
         return false;
     }
 
+}
+
+
+// Get called when the data FIFO is full when the computation result is ready.
+// After stall of current instruction, the result needs to be written to FIFO again after the FIFO has empty space.
+bool Ssr::dm_write_again()
+{
+    if (this->dm0.dm_write_full)
+    {
+        this->trace.msg("Write register value to SSR data mover again\n");
+        this->dm0.dm_write = true;
+
+        // Write data into FIFO
+        if (this->dm0.config.REG_STRIDES[0] == 0x4)
+        {
+            if (!this->dm0.fifo.isFull())
+            {
+                this->dm0.dm_write_full = false;
+                this->dm0.fifo.push(this->dm0.temp);
+                this->ssr_fregs[0] = this->dm0.temp; 
+                return true;
+            }
+        }
+        else if (this->dm0.config.REG_STRIDES[0] == 0x8)
+        {
+            if (!this->dm0.fifo.isFull())
+            {
+                this->dm0.dm_write_full = false;
+                this->dm0.fifo.push(this->dm0.temp);
+                this->ssr_fregs[0] = this->dm0.temp;
+                return true;
+            }
+        }
+        else
+        {
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (!this->dm0.fifo.isFull())
+            {
+                this->dm0.dm_write_full = false;
+                this->dm0.fifo.push(this->dm0.temp);
+                this->ssr_fregs[0] = this->dm0.temp;
+                return true;
+            }
+        }
+    }
+    if (this->dm1.dm_write_full)
+    {
+        this->trace.msg("Write register value to SSR data mover again\n");
+        this->dm1.dm_write = true;
+
+        // Write data into FIFO
+        if (this->dm1.config.REG_STRIDES[0] == 0x4)
+        {
+            if (!this->dm1.fifo.isFull())
+            {
+                this->dm1.dm_write_full = false;
+                this->dm1.fifo.push(this->dm1.temp);
+                this->ssr_fregs[1] = this->dm1.temp;
+                return true;
+            }
+        }
+        else if (this->dm1.config.REG_STRIDES[0] == 0x8)
+        {
+            if (!this->dm1.fifo.isFull())
+            {
+                this->dm1.dm_write_full = false;
+                this->dm1.fifo.push(this->dm1.temp);
+                this->ssr_fregs[1] = this->dm1.temp;
+                return true;
+            }
+        }
+        else
+        {
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (!this->dm1.fifo.isFull())
+            {
+                this->dm1.dm_write_full = false;
+                this->dm1.fifo.push(this->dm1.temp);
+                this->ssr_fregs[1] = this->dm1.temp;
+                return true;
+            }
+        }
+    }
+    if (this->dm2.dm_write_full)
+    {
+        this->trace.msg("Write register value to SSR data mover again\n");
+        this->dm2.dm_write = true;
+
+        // Write data into FIFO
+        if (this->dm2.config.REG_STRIDES[0] == 0x4)
+        {
+            if (!this->dm2.fifo.isFull())
+            {
+                this->dm2.dm_write_full = false;
+                this->dm2.fifo.push(this->dm2.temp);
+                this->ssr_fregs[2] = this->dm2.temp;
+                return true;
+            }
+        }
+        else if (this->dm2.config.REG_STRIDES[0] == 0x8)
+        {
+            if (!this->dm2.fifo.isFull())
+            {
+                this->dm2.dm_write_full = false;
+                this->dm2.fifo.push(this->dm2.temp);
+                this->ssr_fregs[2] = this->dm2.temp;
+                return true;
+            }
+        }
+        else
+        {
+            this->trace.msg("Misaligned data request in data mover\n");
+            if (!this->dm2.fifo.isFull())
+            {
+                this->dm2.dm_write_full = false;
+                this->dm2.fifo.push(this->dm2.temp);
+                this->ssr_fregs[2] = this->dm2.temp;
+                return true;
+            }
+        }
+    }
+    else
+    {
+        this->trace.msg("Invalid data request in data mover\n");
+        return false;
+    }
+
+}
+
+
+// Clear SSR old configs and counters (loop counter and credit counter) after new config is coming
+// New config setting is called in cfg_write().
+void Ssr::clear_ssr()
+{
+    // Clear FIFOs
+    this->dm0.fifo.head = 0;
+    this->dm1.fifo.head = 0;
+    this->dm2.fifo.head = 0;
+    this->dm0.fifo.tail = 0;
+    this->dm1.fifo.tail = 0;
+    this->dm2.fifo.tail = 0;
+    this->dm0.fifo.size = 0;
+    this->dm1.fifo.size = 0;
+    this->dm2.fifo.size = 0;
+
+    // Clear credit counters
+    this->dm0.credit.credit_cnt = 0;
+    this->dm1.credit.credit_cnt = 0;
+    this->dm2.credit.credit_cnt = 0;
+    this->dm0.counter.rep = 0;
+    this->dm1.counter.rep = 0;
+    this->dm2.counter.rep = 0;
+    for (int i=0; i<4; i++)
+    {
+        this->dm0.counter.bound[i] = 0;
+        this->dm1.counter.bound[i] = 0;
+        this->dm2.counter.bound[i] = 0;
+
+    }
 }
 
 
@@ -872,5 +1223,158 @@ void Ssr::update_ssr()
     {
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
         this->dm2.update_cnt();
+    }
+}
+
+
+// Get called for data fetching before the corresponding computation instruction.
+// This executes by default every cycle if we don't consider any stall.
+// This is critical for data preloading.
+// Note: write logic hard to deal with when the fifo is full.
+// In real hardware, if fifo is full, stall the subsystem and rewrite to new computation result.
+void Ssr::dm_event_0(vp::Block *__this, vp::ClockEvent *event)
+{
+    Ssr *_this = (Ssr *)__this;
+
+    // Data mover 0
+    // First check whether the target data mover is active
+    if (_this->dm0.is_config)
+    {
+        // Then check whether it's a read or write lane
+        // Read lane: read data from memory to lane
+        if (!_this->dm0.is_write & !_this->dm0.ssr_done)
+        {
+            // Send data request from ssr streamer to memory,
+            // when fifo is not fill and there's remaining memory access.
+            _this->dm0.credit.credit_take = false;
+            if (_this->dm0.rep_done | (_this->dm0.temp_addr==_this->dm0.config.REG_RPTR[_this->dm0.config.DIM]))
+            {
+                _this->dm0.credit.credit_give = true;
+            }
+            _this->dm0.credit.update_cnt();
+
+            // Push memory response to fifo
+            if (!_this->dm0.fifo.isFull() & _this->dm0.credit.has_credit)
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover 0 automation data preloading\n");
+                _this->load_float<uint64_t>(_this->dm0.addr_gen_unit(false), (uint8_t *)(&_this->dm0.temp), 8, 0);
+                _this->dm0.temp = iss_get_float_value(_this->dm0.temp, 8 * 8);
+                _this->dm0.fifo.push(_this->dm0.temp);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
+                _this->dm0.update_cnt();
+            }
+        }
+        // Write lane: write data from lane to memory
+        else if (_this->dm0.is_write)
+        {
+            // Pop computation result from fifo to memory
+            if (!_this->dm0.fifo.isEmpty())
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover 0 automation data postwriting\n");
+                iss_freg_t value;
+                value = _this->dm0.fifo.pop();
+                _this->store_float<uint64_t>(_this->dm0.addr_gen_unit(true), (uint8_t *)(&value), 8, 0);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
+                _this->dm0.update_cnt();
+            }
+        }
+    }
+}
+
+void Ssr::dm_event_1(vp::Block *__this, vp::ClockEvent *event)
+{
+    Ssr *_this = (Ssr *)__this;
+
+    // Data mover 1
+    // First check whether the target data mover is active
+    if (_this->dm1.is_config)
+    {
+        // Then check whether it's a read or write lane
+        // Read lane: read data from memory to lane
+        if (!_this->dm1.is_write & !_this->dm1.ssr_done)
+        {
+            // Send data request from ssr streamer to memory,
+            // when fifo is not fill and there's remaining memory access.
+            _this->dm1.credit.credit_take = false;
+            if (_this->dm1.rep_done | (_this->dm1.temp_addr==_this->dm1.config.REG_RPTR[_this->dm1.config.DIM]))
+            {
+                _this->dm1.credit.credit_give = true;
+            }
+            _this->dm1.credit.update_cnt();
+
+            // Push memory response to fifo
+            if (!_this->dm1.fifo.isFull() & _this->dm1.credit.has_credit)
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover 1 automation data preloading\n");
+                _this->load_float<uint64_t>(_this->dm1.addr_gen_unit(false), (uint8_t *)(&_this->dm1.temp), 8, 1);
+                _this->dm1.temp = iss_get_float_value(_this->dm1.temp, 8 * 8);
+                _this->dm1.fifo.push(_this->dm1.temp);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
+                _this->dm1.update_cnt();
+            }
+        }
+        // Write lane: write data from lane to memory
+        else if (_this->dm1.is_write)
+        {
+            // Pop computation result from fifo to memory
+            if (!_this->dm1.fifo.isEmpty())
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover 1 automation data postwriting\n");
+                iss_freg_t value;
+                value = _this->dm1.fifo.pop();
+                _this->store_float<uint64_t>(_this->dm1.addr_gen_unit(true), (uint8_t *)(&value), 8, 1);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
+                _this->dm1.update_cnt();
+            }
+        }
+    }
+}
+
+void Ssr::dm_event_2(vp::Block *__this, vp::ClockEvent *event)
+{
+    Ssr *_this = (Ssr *)__this;
+
+    // Data mover 2
+    // First check whether the target data mover is active
+    if (_this->dm2.is_config)
+    {
+        // Then check whether it's a read or write lane
+        // Read lane: read data from memory to lane
+        if (!_this->dm2.is_write & !_this->dm2.ssr_done)
+        {
+            // Send data request from ssr streamer to memory,
+            // when fifo is not fill and there's remaining memory access.
+            _this->dm2.credit.credit_take = false;
+            if (_this->dm2.rep_done | (_this->dm2.temp_addr==_this->dm2.config.REG_RPTR[_this->dm2.config.DIM]))
+            {
+                _this->dm2.credit.credit_give = true;
+            }
+            _this->dm2.credit.update_cnt();
+
+            // Push memory response to fifo
+            if (!_this->dm2.fifo.isFull() & _this->dm2.credit.has_credit)
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover 2 automation data preloading\n");
+                _this->load_float<uint64_t>(_this->dm2.addr_gen_unit(false), (uint8_t *)(&_this->dm2.temp), 8, 2);
+                _this->dm2.temp = iss_get_float_value(_this->dm2.temp, 8 * 8);
+                _this->dm2.fifo.push(_this->dm2.temp);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
+                _this->dm2.update_cnt();
+            }
+        }
+        // Write lane: write data from lane to memory
+        else if (_this->dm2.is_write)
+        {
+            // Pop computation result from fifo to memory
+            if (!_this->dm2.fifo.isEmpty())
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Data mover 2 automation data postwriting\n");
+                iss_freg_t value;
+                value = _this->dm2.fifo.pop();
+                _this->store_float<uint64_t>(_this->dm2.addr_gen_unit(true), (uint8_t *)(&value), 8, 2);
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
+                _this->dm2.update_cnt();
+            }
+        }
     }
 }

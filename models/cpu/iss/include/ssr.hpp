@@ -243,6 +243,9 @@ public:
     bool dm_write = false;
     void update_cnt();
 
+    // When the fifo is full, data can't be written from computation unit to fifo any more.
+    // Under this condition, the core need to stall and wait for empty space to write again.
+    bool dm_write_full = false;
 };
         
 
@@ -308,10 +311,25 @@ public:
     // Read or write in data mover
     iss_freg_t dm_read(int dm);
     bool dm_write(iss_freg_t value, int dm);
+    bool dm_write_again();
 
     // Update SSR after one instruction
     void clear_flags();
     void update_ssr();
+
+    // Clear SSR counters and configurations after we have new configs coming
+    void clear_ssr();
+
+    // Each data lane has its own private event for data preloading and storing,
+    // because they have their own memory ports.
+    static void dm_event_0(vp::Block *__this, vp::ClockEvent *event);
+    static void dm_event_1(vp::Block *__this, vp::ClockEvent *event);
+    static void dm_event_2(vp::Block *__this, vp::ClockEvent *event);
+
+    // Definition of three clock events
+    vp::ClockEvent *event_0;
+    vp::ClockEvent *event_1;
+    vp::ClockEvent *event_2;
 
 private:
     Iss &iss;

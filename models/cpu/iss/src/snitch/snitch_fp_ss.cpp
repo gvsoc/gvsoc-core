@@ -23,6 +23,7 @@
 #include "cpu/iss/include/iss.hpp"
 #include <string.h>
 
+#define MAX_OF_THREE(a, b, c) ((a) > (b) ? ((a) > (c) ? (a) : (c)) : ((b) > (c) ? (b) : (c)))
 
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
@@ -179,7 +180,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     insn.resource_handler(_this, &insn, pc);
 
     // Update loop counter if SSR enabled 
-    _this->ssr.update_ssr();
+    // _this->ssr.update_ssr();
     // Clear dm_read and dm_write flag after execution
     _this->ssr.clear_flags();
 
@@ -199,6 +200,9 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Get real latency considering pipeline stages in FPU.
     int final_latency = _this->get_latency(insn, pc, _this->top.clock.get_cycles());
     // Update the pipeline FIFOs.
+    // Latency caused by no data preloading in SSR
+    final_latency += MAX_OF_THREE(_this->ssr.event_0->stall_cycle_get(),
+        _this->ssr.event_1->stall_cycle_get(), _this->ssr.event_2->stall_cycle_get());
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Calculate latency considering FPU pipeline: %d\n", final_latency);
     insn.latency = final_latency;
 
@@ -257,9 +261,16 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
 
     // Output the instruction trace for output information.
     // When SSR is enabled, trace of input data need special handler, because we know the operands after dm_read or dm_write.
+    // Also process the dm_write_full and write computation result again after stall to data lane.
     if (_this->ssr.ssr_enable)
     {
         iss_trace_dump_in(_this, &insn, pc);
+
+        // Reset stall cycles for SSR clock events
+        _this->ssr.dm_write_again();
+        _this->ssr.event_0->stall_cycle_set(0);
+        _this->ssr.event_1->stall_cycle_set(0);
+        _this->ssr.event_2->stall_cycle_set(0);
     }
     iss_trace_dump(_this, &insn, pc);
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);

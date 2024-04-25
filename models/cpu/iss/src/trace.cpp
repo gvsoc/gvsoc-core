@@ -550,11 +550,6 @@ void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved_args[]
     }
 }
 
-void iss_trace_dump_in(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    iss_trace_save_args(iss, insn, iss->trace.saved_args, false);
-}
-
 void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->is_macro_op || iss->top.traces.get_trace_engine()->get_format() == TRACE_FORMAT_LONG)

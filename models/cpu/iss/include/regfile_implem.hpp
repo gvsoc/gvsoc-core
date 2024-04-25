@@ -165,10 +165,37 @@ inline void Regfile::set_freg(int reg, iss_freg_t value)
 
 inline iss_freg_t Regfile::get_freg_untimed(int reg)
 {
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    if (!this->iss.ssr.ssr_enable)
+    {
+        return this->fregs[reg];
+    }
+    else
+    {
+        if (reg >= 0 & reg <= 2)
+        {
+            if (reg == 0)
+            {
+                return this->iss.ssr.ssr_fregs[0];
+            }
+            if (reg == 1)
+            {
+                return this->iss.ssr.ssr_fregs[1];
+            }
+            if (reg == 2)
+            {
+                return this->iss.ssr.ssr_fregs[2];
+            }
+        }
+
+        return this->fregs[reg];
+    }
+#else
 #ifdef ISS_SINGLE_REGFILE
     return this->regs[reg];
 #else
     return this->fregs[reg];
+#endif
 #endif
 }
 

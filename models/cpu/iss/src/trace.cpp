@@ -48,6 +48,7 @@ void Trace::reset(bool active)
     if (active)
     {
         this->dump_trace_enabled = true;
+        this->skip_insn_dump = false;
     }
 }
 
@@ -509,31 +510,11 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             }
             else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
             {
-                #ifdef CONFIG_GVSOC_ISS_SNITCH
-                // Special case: when SSR is enabled, the operand value is no longer from the register file.
-                // The register file is bypassed and we go to ssr_fregs to fetch data.
-                if (iss->ssr.ssr_enable & insn_arg->u.reg.index>=0 & insn_arg->u.reg.index<=2)
-                {
-                    saved_arg->u.reg.value_64 = iss->ssr.ssr_fregs[insn_arg->u.reg.index];
-                }
-                else
-                {
-                    saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
-                }
-                #endif
-                #ifndef CONFIG_GVSOC_ISS_SNITCH
-                saved_arg->u.reg.value_64 = iss->regfile.get_freg(insn_arg->u.reg.index);
-                #endif
+                saved_arg->u.reg.value_64 = iss->regfile.get_freg_untimed(insn_arg->u.reg.index);
             }
             else
             {
                 saved_arg->u.reg.value = iss->regfile.get_reg_untimed(insn_arg->u.reg.index);
-                #ifdef CONFIG_GVSOC_ISS_SNITCH
-                if (iss->snitch & !iss->fp_ss & insn->desc->tags[ISA_TAG_FP_OP_ID])
-                {
-                    saved_arg->u.reg.value = insn->data_arga;
-                }
-                #endif
             }
         }
     }
@@ -542,12 +523,6 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
         if (save_out)
             return;
         saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_imm.reg_index);
-        #ifdef CONFIG_GVSOC_ISS_SNITCH
-        if (iss->snitch & !iss->fp_ss & insn->desc->tags[ISA_TAG_FP_OP_ID])
-        {
-            saved_arg->u.indirect_imm.reg_value = insn->data_arga;
-        }
-        #endif
     }
     // else if (arg->type == TRACE_TYPE_FLAG)
     //   {
@@ -559,12 +534,6 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             return;
         saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.base_reg_index);
         saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.offset_reg_index);
-        #ifdef CONFIG_GVSOC_ISS_SNITCH
-        if (iss->snitch & !iss->fp_ss & insn->desc->tags[ISA_TAG_FP_OP_ID])
-        {
-            saved_arg->u.indirect_reg.base_reg_value = insn->data_arga;
-        }
-        #endif
     }
     // else
     //   {
@@ -636,8 +605,10 @@ iss_reg_t iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
         next_insn = insn->saved_handler(iss, insn, pc);
 
-        if (!iss->exec.is_stalled() && iss->trace.dump_trace_enabled)
+        if (!iss->exec.is_stalled() && iss->trace.dump_trace_enabled && !iss->trace.skip_insn_dump)
             iss_trace_dump(iss, insn, pc);
+
+        iss->trace.skip_insn_dump = false;
     }
     else
     {

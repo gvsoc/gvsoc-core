@@ -32,6 +32,9 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     if (iss->snitch & !iss->fp_ss)
     {
+        // Skip current instruction dump since it will be dumped by subsystem
+        iss->trace.skip_insn_dump = true;
+
         // Register int destination in scoreboard
         // Scoreboard stall if there's integer operand data dependency.
         insn->data_arga = REG_GET(0);

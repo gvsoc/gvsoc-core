@@ -38,6 +38,12 @@ public:
     void insn_trace_callback();
     void dump_debug_traces();
 
+    // This will skip the dump of the current instruction. This is set back to false
+    // immediately after current instruction is executed so that only once instruction dump
+    // is skipped
+    bool skip_insn_dump;
+    // Contrary to skip_insn_dump. this can permanently disabled instruction dump until it is
+    // explicitely reactivated
     bool dump_trace_enabled;
 
     vp::Trace insn_trace;

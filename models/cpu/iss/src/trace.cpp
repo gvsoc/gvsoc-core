@@ -541,7 +541,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
     //   }
 }
 
-static void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved_args[], bool save_out)
+void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved_args[], bool save_out)
 {
     for (int i = 0; i < insn->decoder_item->u.insn.nb_args; i++)
     {

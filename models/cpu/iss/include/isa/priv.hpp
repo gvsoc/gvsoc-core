@@ -46,7 +46,10 @@ static inline iss_reg_t csrrw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
+        {
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
+        }
     }
 
     iss_csr_write(iss, UIM_GET(0), reg_value);
@@ -68,7 +71,10 @@ static inline iss_reg_t csrrc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
+        {
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
+        }
     }
 
     iss_csr_write(iss, UIM_GET(0), value & ~reg_value);
@@ -98,7 +104,10 @@ static inline iss_reg_t csrrs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
+        {
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
+        }
     }
     if (REG_IN(0) != 0)
     {
@@ -120,7 +129,10 @@ static inline iss_reg_t csrrwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
+        {
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
+        }
     }
     iss_csr_write(iss, UIM_GET(0), UIM_GET(1));
     return iss_insn_next(iss, insn, pc);
@@ -139,7 +151,10 @@ static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
+        {
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
+        }
     }
     iss_csr_write(iss, UIM_GET(0), value & ~UIM_GET(1));
     return iss_insn_next(iss, insn, pc);
@@ -158,7 +173,10 @@ static inline iss_reg_t csrrsi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
+        {
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
+        }
     }
     iss_csr_write(iss, UIM_GET(0), value | UIM_GET(1));
     return iss_insn_next(iss, insn, pc);

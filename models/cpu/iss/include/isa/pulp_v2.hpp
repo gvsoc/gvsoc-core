@@ -618,7 +618,7 @@ static inline iss_reg_t p_ror_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         // Otherwise, handle the bits separately
         iss->regfile.memcheck_set(REG_OUT(0),
-            LIB_CALL2(lib_ROR, iss->regfile.memcheck_get(REG_GET(0)), REG_GET(1)));
+            LIB_CALL2(lib_ROR, iss->regfile.memcheck_get(REG_IN(0)), REG_GET(1)));
     }
 
     REG_SET(0, LIB_CALL2(lib_ROR, REG_GET(0), REG_GET(1)));
@@ -660,7 +660,7 @@ static inline iss_reg_t p_cnt_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t p_exths_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->regfile.memcheck_set(REG_OUT(0),
-        iss_get_signed_value(iss->regfile.memcheck_get(REG_GET(0)), 16));
+        iss_get_signed_value(iss->regfile.memcheck_get(REG_IN(0)), 16));
 
     REG_SET(0, iss_get_signed_value(REG_GET(0), 16));
     return iss_insn_next(iss, insn, pc);
@@ -669,7 +669,7 @@ static inline iss_reg_t p_exths_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t p_exthz_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->regfile.memcheck_set(REG_OUT(0),
-        iss_get_field(iss->regfile.memcheck_get(REG_GET(0)), 0, 16) |
+        iss_get_field(iss->regfile.memcheck_get(REG_IN(0)), 0, 16) |
         (((1 << (ISS_REG_WIDTH - 16)) - 1) << 16));
 
     REG_SET(0, iss_get_field(REG_GET(0), 0, 16));
@@ -679,7 +679,7 @@ static inline iss_reg_t p_exthz_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t p_extbs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->regfile.memcheck_set(REG_OUT(0),
-        iss_get_signed_value(iss->regfile.memcheck_get(REG_GET(0)), 8));
+        iss_get_signed_value(iss->regfile.memcheck_get(REG_IN(0)), 8));
 
     REG_SET(0, iss_get_signed_value(REG_GET(0), 8));
     return iss_insn_next(iss, insn, pc);
@@ -688,7 +688,7 @@ static inline iss_reg_t p_extbs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t p_extbz_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->regfile.memcheck_set(REG_OUT(0),
-        iss_get_field(iss->regfile.memcheck_get(REG_GET(0)), 0, 8) |
+        iss_get_field(iss->regfile.memcheck_get(REG_IN(0)), 0, 8) |
         (((1 << (ISS_REG_WIDTH - 8)) - 1) << 8));
 
     REG_SET(0, iss_get_field(REG_GET(0), 0, 8));

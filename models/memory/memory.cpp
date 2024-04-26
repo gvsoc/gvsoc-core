@@ -306,7 +306,12 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
         if (req_check_data != NULL)
         {
             memcpy((void *)&this->check_data[offset], (void *)req_check_data, size);
-
+        }
+        else
+        {
+            // If there is no memcheck data, it means the model which is writting does not have
+            // support to it. Set all data to valid to avoid false negative
+            memset((void *)&this->check_data[offset], -1, size);
         }
     }
 #endif

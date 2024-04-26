@@ -1157,6 +1157,8 @@ PV_OP_RU_EXEC(cmpleu, CMPLEU)
 
 static inline iss_reg_t p_bneimm_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+
     if ((int32_t)REG_GET(0) != SIM_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -1184,6 +1186,8 @@ static inline iss_reg_t p_bneimm_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t p_beqimm_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+
     if ((int32_t)REG_GET(0) == SIM_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -1505,6 +1509,9 @@ static inline iss_reg_t p_bclri_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     int width = UIM_GET(0) + 1;
     int shift = UIM_GET(1);
     REG_SET(0, LIB_CALL2(lib_BCLR, REG_GET(0), ((1ULL << width) - 1) << shift));
+
+    iss->regfile.memcheck_set(REG_OUT(0),
+        iss->regfile.memcheck_get(REG_IN(0)) | ((1ULL << width) - 1) << shift);
 
     return iss_insn_next(iss, insn, pc);
 }

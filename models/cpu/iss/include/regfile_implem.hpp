@@ -24,7 +24,7 @@
 #include "cpu/iss/include/regfile.hpp"
 
 static iss_reg_t null_reg = 0;
-static iss_reg_t null_check_reg = -1;
+static iss_reg_t null_memcheck_reg = -1;
 
 inline iss_reg_t *Regfile::reg_ref(int reg)
 {
@@ -37,7 +37,7 @@ inline iss_reg_t *Regfile::reg_ref(int reg)
 inline iss_reg_t *Regfile::reg_check_ref(int reg)
 {
     if (reg == 0)
-        return &null_check_reg;
+        return &null_memcheck_reg;
     else
         return &this->regs_check[reg];
 }
@@ -118,7 +118,7 @@ inline iss_reg64_t Regfile::get_reg64_untimed(int reg)
         return (((uint64_t)this->regs[reg + 1]) << 32) + this->regs[reg];
 }
 
-inline iss_reg64_t Regfile::get_check_reg64(int reg)
+inline iss_reg64_t Regfile::get_memcheck_reg64(int reg)
 {
     if (reg == 0)
         return 0;
@@ -220,7 +220,7 @@ inline void Regfile::scoreboard_freg_invalidate(int reg)
 }
 #endif
 
-inline bool Regfile::check_reg(int reg)
+inline bool Regfile::memcheck_reg(int reg)
 {
 #ifdef VP_MEMCHECK_ACTIVE
 
@@ -236,36 +236,36 @@ inline bool Regfile::check_reg(int reg)
     return false;
 }
 
-inline void Regfile::check_branch_reg(int reg)
+inline void Regfile::memcheck_branch_reg(int reg)
 {
-    if (this->check_reg(reg))
+    if (this->memcheck_reg(reg))
     {
-        this->check_reg_fault = true;
-        this->check_reg_fault_message = "Conditional jump depends on uninitialised register";
+        this->memcheck_reg_fault = true;
+        this->memcheck_reg_fault_message = "Conditional jump depends on uninitialised register";
     }
 }
 
-inline void Regfile::check_load_reg(int reg)
+inline void Regfile::memcheck_load_reg(int reg)
 {
-    if (this->check_reg(reg))
+    if (this->memcheck_reg(reg))
     {
-        this->check_reg_fault = true;
-        this->check_reg_fault_message = "Load address depends on uninitialised register";
+        this->memcheck_reg_fault = true;
+        this->memcheck_reg_fault_message = "Load address depends on uninitialised register";
     }
 }
 
-inline void Regfile::check_fault()
+inline void Regfile::memcheck_fault()
 {
 #ifdef VP_MEMCHECK_ACTIVE
-    if (this->check_reg_fault)
+    if (this->memcheck_reg_fault)
     {
         // When GDB is connected, throw a message without exiting and notify gdb
         // since this will do a break, so that user can continue
         if (this->iss.gdbserver.is_enabled())
         {
-            this->trace.force_warning_no_error("%s (reg: %d)\n", this->check_reg_fault_message.c_str(), this->check_reg_fault_id);
+            this->trace.force_warning_no_error("%s (reg: %d)\n", this->memcheck_reg_fault_message.c_str(), this->memcheck_reg_fault_id);
 
-            this->check_reg_fault = false;
+            this->memcheck_reg_fault = false;
 
             this->iss.exec.stalled_inc();
             this->iss.exec.halted.set(true);
@@ -273,13 +273,13 @@ inline void Regfile::check_fault()
         }
         else
         {
-            this->trace.force_warning("%s (reg: %d)\n", this->check_reg_fault_message.c_str(), this->check_reg_fault_id);
+            this->trace.force_warning("%s (reg: %d)\n", this->memcheck_reg_fault_message.c_str(), this->memcheck_reg_fault_id);
         }
     }
 #endif
 }
 
-inline iss_reg_t Regfile::check_get(int reg)
+inline iss_reg_t Regfile::memcheck_get(int reg)
 {
 #ifdef VP_MEMCHECK_ACTIVE
     return this->regs_check[reg];
@@ -288,9 +288,79 @@ inline iss_reg_t Regfile::check_get(int reg)
 #endif
 }
 
-inline void Regfile::check_set(int reg, iss_reg_t value)
+inline void Regfile::memcheck_set(int reg, iss_reg_t value)
 {
 #ifdef VP_MEMCHECK_ACTIVE
     this->regs_check[reg] = value;
 #endif
+}
+
+inline bool Regfile::memcheck_get_valid(int reg)
+{
+    return this->memcheck_get(reg) == -1;
+}
+
+inline void Regfile::memcheck_set_valid(int reg, bool valid)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    if (valid)
+    {
+        this->regs_check[reg] = -1;
+    }
+    else
+    {
+        this->regs_check[reg] = 0;
+    }
+#endif
+}
+
+inline void Regfile::memcheck_merge(int out_reg, int in_reg)
+{
+    this->memcheck_set_valid(out_reg, this->memcheck_get_valid(in_reg));
+}
+
+inline void Regfile::memcheck_copy(int out_reg, int in_reg)
+{
+    this->memcheck_set(out_reg, this->memcheck_get(in_reg));
+}
+
+inline void Regfile::memcheck_bitwise_and(int out_reg, int in_reg_0, int in_reg_1)
+{
+    iss_reg_t in_reg_0_valid = this->memcheck_get(in_reg_0);
+    iss_reg_t in_reg_1_valid = this->memcheck_get(in_reg_1);
+    this->memcheck_set(out_reg, in_reg_0_valid & in_reg_1_valid);
+}
+
+inline void Regfile::memcheck_shift_left(int out_reg, int in_reg, int shift)
+{
+    // When shifting, keep the valid bit for bits being shifted and introduce
+    // new valid ones from the right
+    iss_reg_t in_reg_valid = this->memcheck_get(in_reg);
+    in_reg_valid = (in_reg_valid << shift) | ((1 << shift) - 1);
+    this->memcheck_set(out_reg, in_reg_valid);
+}
+
+inline void Regfile::memcheck_shift_right(int out_reg, int in_reg, int shift)
+{
+    // When shifting, keep the valid bit for bits being shifted and introduce
+    // new valid ones from the left
+    iss_reg_t in_reg_valid = this->memcheck_get(in_reg);
+    in_reg_valid = (in_reg_valid >> shift) |
+        (((1 << shift) - 1) << (sizeof(iss_reg_t) * 8 - shift));
+    this->memcheck_set(out_reg, in_reg_valid);
+}
+
+inline void Regfile::memcheck_shift_right_signed(int out_reg, int in_reg, int shift)
+{
+    // When shifting, keep the valid bit for bits being shifted
+    iss_reg_t in_reg_valid = this->memcheck_get(in_reg);
+    in_reg_valid = (in_reg_valid >> shift);
+
+    // Then introduce new valid ones from the left only if sign bit is valid
+    if ((in_reg_valid >> (sizeof(iss_reg_t) * 8 - 1)) & 1)
+    {
+        in_reg_valid |= (((1 << shift) - 1) << (sizeof(iss_reg_t) * 8 - shift));
+    }
+
+    this->memcheck_set(out_reg, in_reg_valid);
 }

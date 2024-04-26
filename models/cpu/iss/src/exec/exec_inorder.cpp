@@ -187,7 +187,7 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
     }
 
     // Check now register file access faults so that instruction is finished and properly displayed
-    iss->regfile.check_fault();
+    iss->regfile.memcheck_fault();
 }
 
 
@@ -308,7 +308,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     }
 
     // Check now register file access faults so that instruction is finished and properly displayed
-    iss->regfile.check_fault();
+    iss->regfile.memcheck_fault();
 }
 
 

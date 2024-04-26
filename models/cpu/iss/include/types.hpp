@@ -204,7 +204,7 @@ typedef struct iss_insn_arg_s
             int reg_index;
             iss_sim_t imm;
             iss_reg_t reg_value;
-            iss_reg_t check_reg_value;
+            iss_reg_t memcheck_reg_value;
         } indirect_imm;
         struct
         {

@@ -145,7 +145,6 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
 
         // Due to sign extension, whole register is valid only if sign is valid
-        printf("%x %d\n", this->iss.regfile.memcheck_get(reg), (this->iss.regfile.memcheck_get(reg) >> (size *8 - 1)) & 1);
         this->iss.regfile.memcheck_set_valid(reg, (this->iss.regfile.memcheck_get(reg) >> (size *8 - 1)) & 1);
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD

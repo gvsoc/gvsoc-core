@@ -245,12 +245,12 @@ inline void Regfile::memcheck_branch_reg(int reg)
     }
 }
 
-inline void Regfile::memcheck_load_reg(int reg)
+inline void Regfile::memcheck_access_reg(int reg)
 {
     if (this->memcheck_reg(reg))
     {
         this->memcheck_reg_fault = true;
-        this->memcheck_reg_fault_message = "Load address depends on uninitialised register";
+        this->memcheck_reg_fault_message = "Access address depends on uninitialised register";
     }
 }
 
@@ -317,6 +317,13 @@ inline void Regfile::memcheck_set_valid(int reg, bool valid)
 inline void Regfile::memcheck_merge(int out_reg, int in_reg)
 {
     this->memcheck_set_valid(out_reg, this->memcheck_get_valid(in_reg));
+}
+
+inline void Regfile::memcheck_merge64(int out_reg, int in_reg)
+{
+    bool valid = this->memcheck_get_valid(in_reg) && this->memcheck_get_valid(in_reg + 1);
+    this->memcheck_set_valid(out_reg, valid);
+    this->memcheck_set_valid(out_reg + 1, valid);
 }
 
 inline void Regfile::memcheck_copy(int out_reg, int in_reg)

@@ -29,7 +29,7 @@
 static inline iss_reg_t lui_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // Since we produced a new value in register, set it as valid
-    iss->regfile.check_set(REG_OUT(0), -1);
+    iss->regfile.memcheck_set(REG_OUT(0), -1);
 
     REG_SET(0, UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
@@ -43,6 +43,9 @@ static inline void lui_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t auipc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // Since we produced a new value in register, set it as valid
+    iss->regfile.memcheck_set(REG_OUT(0), -1);
+
     REG_SET(0, get_signed_value(insn->uim[0], 32) + pc);
     return iss_insn_next(iss, insn, pc);
 }
@@ -53,6 +56,10 @@ static inline void auipc_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t jal_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // We produce a value in output register computed from the PC which is always
+    // considered as valid
+    iss->regfile.memcheck_set(REG_OUT(0), -1);
+
     unsigned int D = insn->out_regs[0];
     if (D != 0)
         REG_SET(0, pc + insn->size);
@@ -76,6 +83,8 @@ static inline void jal_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t jalr_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+
     iss_reg_t next_pc = (insn->sim[0] + iss->regfile.get_reg(insn->in_regs[0])) & ~1;
     unsigned int D = insn->out_regs[0];
     if (D != 0)
@@ -102,8 +111,8 @@ static inline void bxx_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t beq_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
     // Memcheck fails if any of the register is not valid
-    iss->regfile.check_branch_reg(REG_IN(0));
-    iss->regfile.check_branch_reg(REG_IN(1));
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+    iss->regfile.memcheck_branch_reg(REG_IN(1));
 
     if (REG_GET(0) == REG_GET(1))
     {
@@ -132,6 +141,10 @@ static inline iss_reg_t beq_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t bne_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // Memcheck fails if any of the register is not valid
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+    iss->regfile.memcheck_branch_reg(REG_IN(1));
+
     if (REG_GET(0) != REG_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -159,6 +172,10 @@ static inline iss_reg_t bne_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t blt_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // Memcheck fails if any of the register is not valid
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+    iss->regfile.memcheck_branch_reg(REG_IN(1));
+
     if ((iss_sim_t)REG_GET(0) < (iss_sim_t)REG_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -186,6 +203,10 @@ static inline iss_reg_t blt_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t bge_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // Memcheck fails if any of the register is not valid
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+    iss->regfile.memcheck_branch_reg(REG_IN(1));
+
     if ((iss_sim_t)REG_GET(0) >= (iss_sim_t)REG_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -213,6 +234,10 @@ static inline iss_reg_t bge_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t bltu_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // Memcheck fails if any of the register is not valid
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+    iss->regfile.memcheck_branch_reg(REG_IN(1));
+
     if (REG_GET(0) < REG_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -240,6 +265,10 @@ static inline iss_reg_t bltu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t bgeu_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // Memcheck fails if any of the register is not valid
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+    iss->regfile.memcheck_branch_reg(REG_IN(1));
+
     if (REG_GET(0) >= REG_GET(1))
     {
         iss->timing.stall_taken_branch_account();
@@ -307,7 +336,7 @@ static inline iss_reg_t lw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // If address register is not valid, we are reading from random location, trigger
     // a memcheck fail
-    iss->regfile.check_load_reg(REG_IN(0));
+    iss->regfile.memcheck_load_reg(REG_IN(0));
 
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
     if (iss->lsu.load_signed_perf<int32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
@@ -399,6 +428,10 @@ static inline iss_reg_t sw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t addi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // Since addition can change any bit, mark destination as invalid as soon as input register
+    // has 1 bit invalid
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+
     iss_reg_t in = REG_GET(0);
     iss_reg_t imm = SIM_GET(0);
     REG_SET(0, LIB_CALL2(lib_ADD, in, imm));
@@ -412,108 +445,182 @@ static inline iss_reg_t nop_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t slti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+
     REG_SET(0, (iss_sim_t)REG_GET(0) < insn->sim[0]);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sltiu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+
     REG_SET(0, REG_GET(0) < (iss_uim_t)SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t xori_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_copy(REG_OUT(0), REG_IN(0));
+
     REG_SET(0, LIB_CALL2(lib_XOR, REG_GET(0), SIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t ori_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_copy(REG_OUT(0), REG_IN(0));
+
     REG_SET(0, LIB_CALL2(lib_OR, REG_GET(0), SIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t andi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_copy(REG_OUT(0), REG_IN(0));
+
     REG_SET(0, LIB_CALL2(lib_AND, REG_GET(0), SIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t slli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_shift_left(REG_OUT(0), REG_IN(0), UIM_GET(0));
+
     REG_SET(0, LIB_CALL2(lib_SLL, REG_GET(0), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t srli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_shift_right(REG_OUT(0), REG_IN(0), UIM_GET(0));
+
     REG_SET(0, LIB_CALL2(lib_SRL, REG_GET(0), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t srai_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_shift_right_signed(REG_OUT(0), REG_IN(0), UIM_GET(0));
+
     REG_SET(0, LIB_CALL2(lib_SRA, REG_GET(0), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t add_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // Since addition can change any bit, mark destination as invalid as soon as input register
+    // has 1 bit invalid
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(1));
+
     REG_SET(0, LIB_CALL2(lib_ADD, REG_GET(0), REG_GET(1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sub_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // Since substraction can change any bit, mark destination as invalid as soon as input register
+    // has 1 bit invalid
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(1));
+
     REG_SET(0, LIB_CALL2(lib_SUB, REG_GET(0), REG_GET(1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sll_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    if (!iss->regfile.memcheck_get_valid(REG_IN(1)))
+    {
+        // If register containing the shift is invalid, this is making the whole output
+        // register invalid
+        iss->regfile.memcheck_set_valid(REG_OUT(0), false);
+    }
+    else
+    {
+        // Otherwise, handle the bits separately
+        iss->regfile.memcheck_shift_left(REG_OUT(0), REG_IN(0), REG_GET(1) & ((1 << ISS_REG_WIDTH_LOG2) - 1));
+    }
+
     REG_SET(0, LIB_CALL2(lib_SLL, REG_GET(0), REG_GET(1) & ((1 << ISS_REG_WIDTH_LOG2) - 1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t slt_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(1));
+
     REG_SET(0, (iss_sim_t)REG_GET(0) < (iss_sim_t)REG_GET(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sltu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(1));
+
     REG_SET(0, REG_GET(0) < REG_GET(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t xor_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_bitwise_and(REG_OUT(0), REG_IN(0), REG_IN(1));
+
     REG_SET(0, LIB_CALL2(lib_XOR, REG_GET(0), REG_GET(1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t srl_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    if (!iss->regfile.memcheck_get_valid(REG_IN(1)))
+    {
+        // If register containing the shift is invalid, this is making the whole output
+        // register invalid
+        iss->regfile.memcheck_set_valid(REG_OUT(0), false);
+    }
+    else
+    {
+        // Otherwise, handle the bits separately
+        iss->regfile.memcheck_shift_right(REG_OUT(0), REG_IN(0), REG_GET(1) & ((1 << ISS_REG_WIDTH_LOG2) - 1));
+    }
+
     REG_SET(0, LIB_CALL2(lib_SRL, REG_GET(0), REG_GET(1) & ((1 << ISS_REG_WIDTH_LOG2) - 1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sra_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    if (!iss->regfile.memcheck_get_valid(REG_IN(1)))
+    {
+        // If register containing the shift is invalid, this is making the whole output
+        // register invalid
+        iss->regfile.memcheck_set_valid(REG_OUT(0), false);
+    }
+    else
+    {
+        // Otherwise, handle the bits separately
+        iss->regfile.memcheck_shift_right_signed(REG_OUT(0), REG_IN(0), REG_GET(1) & ((1 << ISS_REG_WIDTH_LOG2) - 1));
+    }
+
     REG_SET(0, LIB_CALL2(lib_SRA, REG_GET(0), REG_GET(1) & ((1 << ISS_REG_WIDTH_LOG2) - 1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t or_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_bitwise_and(REG_OUT(0), REG_IN(0), REG_IN(1));
+
     REG_SET(0, LIB_CALL2(lib_OR, REG_GET(0), REG_GET(1)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t and_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->regfile.memcheck_bitwise_and(REG_OUT(0), REG_IN(0), REG_IN(1));
+
     REG_SET(0, LIB_CALL2(lib_AND, REG_GET(0), REG_GET(1)));
     return iss_insn_next(iss, insn, pc);
 }

@@ -51,7 +51,7 @@ public:
     inline iss_reg_t get_reg_untimed(int reg);
     inline iss_reg64_t get_reg64(int reg);
     inline iss_reg64_t get_reg64_untimed(int reg);
-    inline iss_reg64_t get_check_reg64(int reg);
+    inline iss_reg64_t get_memcheck_reg64(int reg);
     inline void set_reg64(int reg, iss_reg64_t value);
 
     inline iss_freg_t *freg_ref(int reg);
@@ -69,12 +69,30 @@ public:
     inline void scoreboard_freg_check(int reg);
 #endif
 
-    inline bool check_reg(int reg);
-    inline void check_branch_reg(int reg);
-    inline void check_load_reg(int reg);
-    inline void check_fault();
-    inline iss_reg_t check_get(int reg);
-    inline void check_set(int reg, iss_reg_t value);
+    inline bool memcheck_reg(int reg);
+    inline void memcheck_branch_reg(int reg);
+    inline void memcheck_propagate_1(int out_reg, int in_reg);
+    inline void memcheck_load_reg(int reg);
+    inline void memcheck_fault();
+    inline iss_reg_t memcheck_get(int reg);
+    inline void memcheck_set(int reg, iss_reg_t value);
+    inline bool memcheck_get_valid(int reg);
+    inline void memcheck_set_valid(int reg, bool valid);
+    inline void memcheck_merge(int out_reg, int in_reg);
+    inline void memcheck_copy(int out_reg, int in_reg);
+    inline void memcheck_bitwise_and(int out_reg, int in_reg_0, int in_reg_1);
+    inline void memcheck_shift_left(int out_reg, int in_reg, int shift);
+    inline void memcheck_shift_right(int out_reg, int in_reg, int shift);
+    inline void memcheck_shift_right_signed(int out_reg, int in_reg, int shift);
+
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
+    int scoreboard_reg_stall_reason[ISS_NB_REGS+1];
+#if !defined(ISS_SINGLE_REGFILE)
+    int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+    int scoreboard_freg_stall_reason[ISS_NB_FREGS];
+#endif
+#endif
 
 protected:
     Iss &iss;
@@ -83,7 +101,7 @@ protected:
 
     vp::ClockEngine *engine;
 
-    bool check_reg_fault;
-    int check_reg_fault_id;
-    std::string check_reg_fault_message;
+    bool memcheck_reg_fault;
+    int memcheck_reg_fault_id;
+    std::string memcheck_reg_fault_message;
 };

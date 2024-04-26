@@ -303,6 +303,10 @@ void Lsu::load_signed_resume(Lsu *lsu)
     int reg = lsu->stall_reg;
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
         lsu->stall_size * 8));
+
+    // Due to sign extension, whole register is valid only if sign is valid
+    lsu->iss.regfile.memcheck_set_valid(reg, (lsu->iss.regfile.memcheck_get(reg) >> (lsu->stall_size *8)) & 1);
+
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_reg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
 #endif

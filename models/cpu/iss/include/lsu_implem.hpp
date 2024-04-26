@@ -45,6 +45,9 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     // First set register to zero for zero-extension
     this->iss.regfile.set_reg(reg, 0);
+    // Due to zero extension, whole register is valid, except the part which will be
+    // overwritten by memory access later
+    this->iss.regfile.memcheck_set_valid(reg, -1);
 
     int err;
     int64_t latency;
@@ -140,6 +143,11 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
         (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency)) == 0)
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
+
+        // Due to sign extension, whole register is valid only if sign is valid
+        printf("%x %d\n", this->iss.regfile.memcheck_get(reg), (this->iss.regfile.memcheck_get(reg) >> (size *8 - 1)) & 1);
+        this->iss.regfile.memcheck_set_valid(reg, (this->iss.regfile.memcheck_get(reg) >> (size *8 - 1)) & 1);
+
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
 #endif

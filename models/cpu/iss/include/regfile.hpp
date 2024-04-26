@@ -72,13 +72,14 @@ public:
     inline bool memcheck_reg(int reg);
     inline void memcheck_branch_reg(int reg);
     inline void memcheck_propagate_1(int out_reg, int in_reg);
-    inline void memcheck_load_reg(int reg);
+    inline void memcheck_access_reg(int reg);
     inline void memcheck_fault();
     inline iss_reg_t memcheck_get(int reg);
     inline void memcheck_set(int reg, iss_reg_t value);
     inline bool memcheck_get_valid(int reg);
     inline void memcheck_set_valid(int reg, bool valid);
     inline void memcheck_merge(int out_reg, int in_reg);
+    inline void memcheck_merge64(int out_reg, int in_reg);
     inline void memcheck_copy(int out_reg, int in_reg);
     inline void memcheck_bitwise_and(int out_reg, int in_reg_0, int in_reg_1);
     inline void memcheck_shift_left(int out_reg, int in_reg, int shift);

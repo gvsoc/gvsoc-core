@@ -15,23 +15,20 @@
 #
 
 import gvsoc.systree
-import regmap.regmap
-import regmap.regmap_md
-import regmap.regmap_c_header
 
 
-class Microphone_pdm(gvsoc.systree.Component):
+class TransferFunction(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, slot = None,  generated_freq = 1000):
-        super(Microphone_pdm, self).__init__(parent, name)
+    def __init__(self, parent, name, sample_rate=44100):
+        super(TransferFunction, self).__init__(parent, name)
 
-        self.set_component('devices.sound.microphone.pdm.pdm_microphone')
+        self.set_component('devices.sound.transfer_function')
 
-        self.add_property('slot', slot)
-        self.add_property('generated_freq', generated_freq)
+        self.add_property('sample_rate', sample_rate)
 
     def i_AUDIO(self) -> gvsoc.systree.SlaveItf:
-        return gvsoc.systree.SlaveItf(self, 'audio_input', signature='audio')
+        return gvsoc.systree.SlaveItf(self, 'audio_in', signature='audio')
 
     def o_AUDIO(self, itf: gvsoc.systree.SlaveItf):
-        self.itf_bind('audio_output', itf, signature='audio')
+        self.itf_bind('audio_out', itf, signature='audio')
+

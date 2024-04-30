@@ -387,12 +387,6 @@ vp::Component::Component(vp::ComponentConf &config)
 
     this->create_comps();
 
-    if (!this->childs_dict.empty())
-    {
-        this->create_ports();
-        this->create_bindings();
-    }
-
     clock_port.set_reg_meth((vp::ClkRegMeth *)&Component::clk_reg);
     clock_port.set_set_frequency_meth((vp::ClkSetFrequencyMeth *)&Component::clk_set_frequency);
     this->new_slave_port("clock", &clock_port);
@@ -406,6 +400,12 @@ vp::Component::Component(vp::ComponentConf &config)
 
     this->voltage_port.set_sync_meth(&this->voltage_sync);
     this->new_slave_port("voltage", &this->voltage_port, (vp::Block *)this);
+
+    if (!this->childs_dict.empty())
+    {
+        this->create_ports();
+        this->create_bindings();
+    }
 }
 
 

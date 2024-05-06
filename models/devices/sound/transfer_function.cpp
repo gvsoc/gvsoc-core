@@ -18,6 +18,9 @@
 #include <vp/itf/audio.hpp>
 #include "io_audio.h"
 #include <limits>
+#include <fstream>
+#include <vector>
+
 
 
 class DelayLine {
@@ -78,9 +81,8 @@ private:
 
     double current_sample = 0;
 
-    std::vector<double> filter = {0,0.00171806475781913691944225,0,-0.0360751204341629369554134,0,
-                                    0.284254771499991731875667,0.499999999999999944488849,0.284254771499991731875667,
-                                    0,-0.0360751204341629369554134,0,0.00171806475781913691944225,0};
+    std::vector<double> filter = {0.5, 0.5};
+
 };
 
 double TransferFunction::apply(double sample) {
@@ -194,9 +196,17 @@ std::string TransferFunction::handle_command(gv::GvProxy *proxy, FILE *req_file,
         else if (args[i] == "filter")
         {
             filter.clear();
-            for (size_t j = i+1; j < args.size(); ++j) {
-                filter.push_back(std::stod(args[j]));
+            std::ifstream file_filt(args[i+1]);
+            if (file_filt)
+            {
+                double val;
+                while (file_filt >> val) {
+                    filter.push_back(val);
+                }
+                file_filt.close();
             }
+            delete delay_line;
+            delay_line = new DelayLine(filter.size());
             break;
         }
         else if(args[i] == "debug_files"){

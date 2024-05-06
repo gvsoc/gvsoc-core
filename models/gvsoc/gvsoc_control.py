@@ -538,12 +538,20 @@ class TransferFunction(object):
 
         :raises: RuntimeError, if the access generates an error in the architecture.
         """
+        # Put filter into a file
+        filter_path = self.component + "filter_params.txt"
+
+        # Écriture de la liste dans le fichier
+        with open(filter_path, 'w') as file_filt:
+            for element in filter:
+                file_filt.write(str(element) + '\n')
+
         option = ''
         if(debug_files):
             option += ' debug_files %d' % (debug_files)
         if(frequency):
             option += ' rate %d' % (frequency)
-        cmd = 'component %s %s filter %s' % (self.component, option, ' '.join(map(str, filter)))
+        cmd = 'component %s %s filter %s' % (self.component, option, filter_path)
 
         req = self.proxy._send_cmd(cmd)
 

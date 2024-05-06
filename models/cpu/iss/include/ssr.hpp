@@ -234,7 +234,7 @@ public:
     // Address generation unit, compute address of memory access
     iss_reg_t temp_addr = 0x0;
     iss_reg_t inc_addr = 0x0;
-    bool rep_done = false;
+    bool rep_done = true;
     bool ssr_done = false;
     iss_reg_t addr_gen_unit(bool is_write);
 
@@ -246,6 +246,9 @@ public:
     // When the fifo is full, data can't be written from computation unit to fifo any more.
     // Under this condition, the core need to stall and wait for empty space to write again.
     bool dm_write_full = false;
+
+    // When the data is not preloaded, set the flag to true.
+    bool dm_not_preload = false;
 };
         
 

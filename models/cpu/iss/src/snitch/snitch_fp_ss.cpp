@@ -159,7 +159,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     }
     // Or only assign operands of needed register
     // Rewrite value of data_arga, because there's WAR in integer register if the sequencer is added.
-    if (!insn.in_regs_fp[0])
+    if (!insn.in_regs_fp[0] & insn.in_regs[0] != 0xFF)
     {
         _this->regfile.set_reg(rs1, insn.data_arga); 
     }
@@ -199,9 +199,15 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     int final_latency = _this->get_latency(insn, pc, _this->top.clock.get_cycles());
     // Update the pipeline FIFOs.
     // Latency caused by no data preloading in SSR
-    final_latency += MAX_OF_THREE(_this->ssr.event_0->stall_cycle_get(),
-        _this->ssr.event_1->stall_cycle_get(), _this->ssr.event_2->stall_cycle_get());
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Calculate latency considering FPU pipeline: %d\n", final_latency);
+    
+    // Latency of SSR clock event also needs to be changed with the core event.
+    int diff = insn.latency - final_latency;
+    if (_this->ssr.ssr_enable)
+    {
+        _this->ssr_latency(diff);
+    }
+    
     insn.latency = final_latency;
 
     // Regard the instruction execution part into event queue,
@@ -219,7 +225,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Assign int register output to input regfile in integer core.
     // Todo: differentiate between reg and reg64
     iss_reg_t data;
-    if (!insn.out_regs_fp[0])
+    if (!insn.out_regs_fp[0] & insn.out_regs[0] != 0xFF)
     {
         data = _this->regfile.get_reg(rd);
         *((iss_reg_t *)(insn.reg_addr)+rd) = data;
@@ -264,11 +270,11 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     {
         iss_trace_dump_in(_this, &insn, pc);
 
-        // Reset stall cycles for SSR clock events
+        // Reset for SSR clock events and settings
         _this->ssr.dm_write_again();
-        _this->ssr.event_0->stall_cycle_set(0);
-        _this->ssr.event_1->stall_cycle_set(0);
-        _this->ssr.event_2->stall_cycle_set(0);
+        _this->ssr.dm0.dm_not_preload = false;
+        _this->ssr.dm1.dm_not_preload = false;
+        _this->ssr.dm2.dm_not_preload = false;
     }
     iss_trace_dump(_this, &insn, pc);
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
@@ -426,4 +432,42 @@ int Iss::get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp)
     }
 
     return latency;
+}
+
+
+// Get called when we need to calculate the latency of ssr clock events after considering pipeline registers in fpu.
+void Iss::ssr_latency(int diff)
+{
+    if (this->ssr.dm0.dm_not_preload)
+    {
+        if (this->ssr.event_0->stall_cycle_get() - diff > 0) this->ssr.event_0->stall_cycle_set(this->ssr.event_0->stall_cycle_get() - diff);
+        else this->ssr.event_0->stall_cycle_set(1);
+    }
+    else
+    {
+        if (this->ssr.event_0->stall_cycle_get() - diff > 0) this->ssr.event_0->stall_cycle_set(this->ssr.event_0->stall_cycle_get() - diff);
+        else this->ssr.event_0->stall_cycle_set(0);
+    }
+
+    if (this->ssr.dm1.dm_not_preload)
+    {
+        if (this->ssr.event_1->stall_cycle_get() - diff > 0) this->ssr.event_1->stall_cycle_set(this->ssr.event_1->stall_cycle_get() - diff);
+        else this->ssr.event_1->stall_cycle_set(1);
+    }
+    else
+    {
+        if (this->ssr.event_1->stall_cycle_get() - diff > 0) this->ssr.event_1->stall_cycle_set(this->ssr.event_1->stall_cycle_get() - diff);
+        else this->ssr.event_1->stall_cycle_set(0);
+    }
+
+    if (this->ssr.dm2.dm_not_preload)
+    {
+        if (this->ssr.event_2->stall_cycle_get() - diff > 0) this->ssr.event_2->stall_cycle_set(this->ssr.event_2->stall_cycle_get() - diff);
+        else this->ssr.event_2->stall_cycle_set(1);
+    }
+    else
+    {
+        if (this->ssr.event_2->stall_cycle_get() - diff > 0) this->ssr.event_2->stall_cycle_set(this->ssr.event_2->stall_cycle_get() - diff);
+        else this->ssr.event_2->stall_cycle_set(0);
+    }
 }

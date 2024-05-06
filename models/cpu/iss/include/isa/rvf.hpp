@@ -76,7 +76,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
             #endif
 
             // Set the integer register to invalid for data dependency, if it's the output of offloading fp instruction.
-            if (!insn->out_regs_fp[0])
+            if (!insn->out_regs_fp[0] && insn->out_regs[0] != 0xFF)
             {
                 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
                 iss->regfile.scoreboard_reg_valid[insn->out_regs[0]] = false;

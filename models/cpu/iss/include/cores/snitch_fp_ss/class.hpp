@@ -138,7 +138,7 @@ public:
 
     // Timing model of pipelined FPU
     int get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp);
-    void update_pipereg(iss_insn_t insn, iss_reg_t pc, int insn_latency, int start_timestamp, int finish_timestamp);
+    void ssr_latency(int diff);
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);

@@ -172,7 +172,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     // And the following instruction with data dependency will execute scoreboard_reg_check when loading the operands,
     // which will call stall_load_dependency_account.
     // Assign timestamp as the lower bound of latency, which will be updated to the exact value after the instruction is executed.
-    if (!this->insn.out_regs_fp[0])
+    if (!this->insn.out_regs_fp[0] & this->insn.out_regs[0] != 0xFF)
     {
     #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], insn->latency, -1);
@@ -205,13 +205,13 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     Iss *_this = (Iss *)__this;
 
     // Store dependent input integer register value when we receive the response from fp subsystem.
-    if (!result->insn.out_regs_fp[0])
+    if (!result->insn.out_regs_fp[0] & result->insn.out_regs[0] != 0xFF)
     {
         _this->regfile.set_reg(result->rd, result->data);
     }
 
     // Set scoreboard valid when the instruction finishes execution.
-    if (!result->insn.out_regs_fp[0])
+    if (!result->insn.out_regs_fp[0] && result->insn.out_regs[0] != 0xFF)
     {
         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         _this->regfile.scoreboard_reg_valid[result->insn.out_regs[0]] = true;

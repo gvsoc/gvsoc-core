@@ -39,6 +39,15 @@ void CreditCnt::update_cnt()
         this->credit_cnt--;
     }
 
+    if (this->credit_cnt < 0)
+    {
+        this->credit_cnt = 0;
+    }
+    else if (this->credit_cnt > this->DataCredits)
+    {
+        this->credit_cnt = this->DataCredits;
+    }
+
     // Determine wether there's remaining data can be and need to be preloaded.
     if (this->credit_cnt > 0)
     {
@@ -83,6 +92,7 @@ void DataMover::update_cnt()
         this->counter.bound[0]++;
         this->counter.rep = 0;
         this->rep_done = true;
+        this->credit.credit_take = false;
         this->inc_addr = this->config.REG_STRIDES[0];
     }
     else
@@ -545,20 +555,7 @@ int Ssr::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
 
     if (err == vp::IO_REQ_OK)
     {
-        #ifdef CONFIG_GVSOC_ISS_SNITCH
-        // In case of a write, don't signal a valid transaction. Stores are always
-        // without ans answer to the core.
-        if (is_write)
-        {
-            // Suppress stores
-            latency = req->get_latency(); 
-        }
-        else
-        {
-            // Load needs one more cycle to write result back from tcdm/mem response.
-            latency = req->get_latency() + 1;
-        }
-        #endif
+        latency = req->get_latency();
 
         // Total number of latency in memory access instruction is the sum of latency waiting for operands to be ready
         // and latency resulting from ports contention/conflicts.
@@ -695,17 +692,28 @@ iss_freg_t Ssr::dm_read(int dm)
         // If data lane is empty, read in new data when the access is needed.
         // And the latency will be accumulated at core's clock event, because the load will stall the instruction execution,
         // unlike data preloading (increment to data lane's clock event).
-        if (this->dm0.fifo.isEmpty())
+        if (this->dm0.fifo.isEmpty() & this->dm0.rep_done)
         {
+            this->dm0.dm_not_preload = true;
             this->load_float(this->dm0.addr_gen_unit(false), (uint8_t *)(&this->dm0.temp), 8, dm);
             this->dm0.temp = iss_get_float_value(this->dm0.temp, 8 * 8);
             this->dm0.fifo.push(this->dm0.temp);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
-            this->dm0.update_cnt();
             this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_0->stall_cycle_get());
+            if (this->event_0->stall_cycle_get() > this->iss.exec.stall_cycles)
+            {
+                this->iss.exec.stall_cycles = this->event_0->stall_cycle_get();
+            }
         }
-        // Output the data when there's data in fifo
-        this->ssr_fregs[0] = this->dm0.fifo.pop();
+
+        if (this->dm0.rep_done)
+        {
+            // Output the data when there's data in fifo
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Read preloaded data in data mover 0\n");
+            this->ssr_fregs[0] = this->dm0.fifo.pop();
+        }
+
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
+        this->dm0.update_cnt();
 
         return ssr_fregs[0];
     }
@@ -715,14 +723,26 @@ iss_freg_t Ssr::dm_read(int dm)
        
         if (this->dm1.fifo.isEmpty())
         {
+            this->dm1.dm_not_preload = true;
             this->load_float(this->dm1.addr_gen_unit(false), (uint8_t *)(&this->dm1.temp), 8, dm);
             this->dm1.temp = iss_get_float_value(this->dm1.temp, 8 * 8);
             this->dm1.fifo.push(this->dm1.temp);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
-            this->dm1.update_cnt();
             this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_1->stall_cycle_get());
+            if (this->event_1->stall_cycle_get() > this->iss.exec.stall_cycles)
+            {
+                this->iss.exec.stall_cycles = this->event_1->stall_cycle_get();
+            }
         }
-        this->ssr_fregs[1] = this->dm1.fifo.pop();
+
+        if (this->dm1.rep_done)
+        {
+            // Output the data when there's data in fifo
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Read preloaded data in data mover 1\n");
+            this->ssr_fregs[1] = this->dm1.fifo.pop();
+        }
+
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
+        this->dm1.update_cnt();
         
         return ssr_fregs[1];
     }
@@ -732,14 +752,26 @@ iss_freg_t Ssr::dm_read(int dm)
     
         if (this->dm2.fifo.isEmpty())
         {
+            this->dm2.dm_not_preload = true;
             this->load_float(this->dm2.addr_gen_unit(false), (uint8_t *)(&this->dm2.temp), 8, dm);
             this->dm2.temp = iss_get_float_value(this->dm2.temp, 8 * 8);
             this->dm2.fifo.push(this->dm2.temp);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
-            this->dm2.update_cnt();
             this->trace.msg("No data preloaded, SSR stalled for %d cycles\n", this->event_2->stall_cycle_get());
+            if (this->event_2->stall_cycle_get() > this->iss.exec.stall_cycles)
+            {
+                this->iss.exec.stall_cycles = this->event_2->stall_cycle_get();
+            }
         }
-        this->ssr_fregs[2] = this->dm2.fifo.pop();
+
+        if (this->dm2.rep_done)
+        {
+            // Output the data when there's data in fifo
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Read preloaded data in data mover 2\n");
+            this->ssr_fregs[2] = this->dm2.fifo.pop();
+        }
+
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
+        this->dm2.update_cnt();
 
         return ssr_fregs[2];
     }
@@ -898,6 +930,7 @@ void Ssr::clear_ssr(int dm)
         this->dm0.fifo.size = 0;
 
         // Clear credit counters
+        this->dm0.rep_done = true;
         this->dm0.credit.credit_cnt = 0;
         this->dm0.counter.rep = 0;
         for (int i=0; i<4; i++)
@@ -913,6 +946,7 @@ void Ssr::clear_ssr(int dm)
         this->dm1.fifo.size = 0;
 
         // Clear credit counters
+        this->dm1.rep_done = true;
         this->dm1.credit.credit_cnt = 0;
         this->dm1.counter.rep = 0;
         for (int i=0; i<4; i++)
@@ -928,6 +962,7 @@ void Ssr::clear_ssr(int dm)
         this->dm2.fifo.size = 0;
 
         // Clear credit counters
+        this->dm2.rep_done = true;
         this->dm2.credit.credit_cnt = 0;
         this->dm2.counter.rep = 0;
         for (int i=0; i<4; i++)
@@ -993,8 +1028,7 @@ void Ssr::dm_event_0(vp::Block *__this, vp::ClockEvent *event)
         {
             // Send data request from ssr streamer to memory,
             // when fifo is not fill and there's remaining memory access.
-            _this->dm0.credit.credit_take = false;
-            if (_this->dm0.rep_done | (_this->dm0.temp_addr==_this->dm0.config.REG_RPTR[_this->dm0.config.DIM]))
+            if (_this->dm0.rep_done)
             {
                 _this->dm0.credit.credit_give = true;
             }
@@ -1008,7 +1042,10 @@ void Ssr::dm_event_0(vp::Block *__this, vp::ClockEvent *event)
                 _this->dm0.temp = iss_get_float_value(_this->dm0.temp, 8 * 8);
                 _this->dm0.fifo.push(_this->dm0.temp);
                 _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 0\n");
-                _this->dm0.update_cnt();
+
+                _this->dm0.credit.credit_take = true;
+                _this->dm0.credit.credit_give = false;
+                _this->dm0.credit.update_cnt();
             }
         }
         // Write lane: write data from lane to memory
@@ -1042,8 +1079,7 @@ void Ssr::dm_event_1(vp::Block *__this, vp::ClockEvent *event)
         {
             // Send data request from ssr streamer to memory,
             // when fifo is not fill and there's remaining memory access.
-            _this->dm1.credit.credit_take = false;
-            if (_this->dm1.rep_done | (_this->dm1.temp_addr==_this->dm1.config.REG_RPTR[_this->dm1.config.DIM]))
+            if (_this->dm1.rep_done)
             {
                 _this->dm1.credit.credit_give = true;
             }
@@ -1057,7 +1093,10 @@ void Ssr::dm_event_1(vp::Block *__this, vp::ClockEvent *event)
                 _this->dm1.temp = iss_get_float_value(_this->dm1.temp, 8 * 8);
                 _this->dm1.fifo.push(_this->dm1.temp);
                 _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
-                _this->dm1.update_cnt();
+
+                _this->dm1.credit.credit_take = true;
+                _this->dm1.credit.credit_give = false;
+                _this->dm1.credit.update_cnt();
             }
         }
         // Write lane: write data from lane to memory
@@ -1091,8 +1130,7 @@ void Ssr::dm_event_2(vp::Block *__this, vp::ClockEvent *event)
         {
             // Send data request from ssr streamer to memory,
             // when fifo is not fill and there's remaining memory access.
-            _this->dm2.credit.credit_take = false;
-            if (_this->dm2.rep_done | (_this->dm2.temp_addr==_this->dm2.config.REG_RPTR[_this->dm2.config.DIM]))
+            if (_this->dm2.rep_done)
             {
                 _this->dm2.credit.credit_give = true;
             }
@@ -1106,7 +1144,10 @@ void Ssr::dm_event_2(vp::Block *__this, vp::ClockEvent *event)
                 _this->dm2.temp = iss_get_float_value(_this->dm2.temp, 8 * 8);
                 _this->dm2.fifo.push(_this->dm2.temp);
                 _this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 2\n");
-                _this->dm2.update_cnt();
+
+                _this->dm2.credit.credit_take = true;
+                _this->dm2.credit.credit_give = false;
+                _this->dm2.credit.update_cnt();
             }
         }
         // Write lane: write data from lane to memory

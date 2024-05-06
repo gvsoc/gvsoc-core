@@ -942,6 +942,9 @@ class RiscvIsa(Isa):
             elif "fother" in insn.tags:
                 insn.set_latency(2)
                 insn.get_out_reg(0).set_latency(2)
+            elif "fdiv" in insn.tags:
+                insn.set_latency(11)
+                insn.get_out_reg(0).set_latency(11)
             elif "load" in insn.tags:
                 insn.set_latency(2)
                 insn.get_out_reg(0).set_latency(2)

@@ -44,6 +44,10 @@ extern "C" {
 #define SEMIHOSTING_GV_ISS_DUMP_REG_STOP      0x10F
 #define SEMIHOSTING_GV_ISS_DUMP_STRING        0x110
 #define SEMIHOSTING_GV_ISS_DUMP_STRING_STOP   0x111
+#define SEMIHOSTING_GV_MEMCHECK_MEM_OPEN      0x112
+#define SEMIHOSTING_GV_MEMCHECK_MEM_CLOSE     0x113
+#define SEMIHOSTING_GV_MEMCHECK_MEM_ALLOC     0x114
+#define SEMIHOSTING_GV_MEMCHECK_MEM_FREE      0x115
 
 
 
@@ -80,6 +84,75 @@ gvsoc_semihost(long n, long _a1)
 #endif
 #else
     return 0;
+#endif
+}
+
+
+static inline long gvsoc_semihost_4args(long n, long _a1, long _a2, long _a3)
+{
+#ifdef __PLATFORM_GVSOC__
+    register long a0 asm("a0") = n;
+    register long a1 asm("a1") = _a1;
+    register long a2 asm("a2") = _a2;
+    register long a3 asm("a3") = _a3;
+
+    // riscv magic values for semihosting
+    asm volatile (
+        ".option norvc;\t\n"
+        "slli    zero,zero,0x1f\t\n"
+        "ebreak\t\n"
+        "srai    zero,zero,0x7\t\n"
+        ".option rvc;\t\n"
+        : "+r"(a0) 
+        : "r"(a1), "r"(a2), "r"(a3)
+    );
+
+    return a0;
+#endif
+}
+
+static inline long gvsoc_semihost_5args(long n, long _a1, long _a2, long _a3, long _a4)
+{
+#ifdef __PLATFORM_GVSOC__
+    register long a0 asm("a0") = n;
+    register long a1 asm("a1") = _a1;
+    register long a2 asm("a2") = _a2;
+    register long a3 asm("a3") = _a3;
+    register long a4 asm("a4") = _a4;
+
+    // riscv magic values for semihosting
+    asm volatile (
+        ".option norvc;\t\n"
+        "slli    zero,zero,0x1f\t\n"
+        "ebreak\t\n"
+        "srai    zero,zero,0x7\t\n"
+        ".option rvc;\t\n"
+        : "+r"(a0) 
+        : "r"(a1), "r"(a2), "r"(a3), "r"(a4)
+    );
+
+    return a0;
+#endif
+}
+
+static inline long gvsoc_semihost_2args(long n, long _a1)
+{
+#ifdef __PLATFORM_GVSOC__
+    register long a0 asm("a0") = n;
+    register long a1 asm("a1") = _a1;
+
+    // riscv magic values for semihosting
+    asm volatile (
+        ".option norvc;\t\n"
+        "slli    zero,zero,0x1f\t\n"
+        "ebreak\t\n"
+        "srai    zero,zero,0x7\t\n"
+        ".option rvc;\t\n"
+        : "+r"(a0) 
+        : "r"(a1)
+    );
+
+    return a0;
 #endif
 }
 
@@ -446,6 +519,42 @@ static inline void gv_vcd_dump_trace_string(int trace, char *str) {
 
 
 //!@}
+
+/**
+ * @}
+ */
+
+/**        
+ * @addtogroup Memcheck
+ * @{        
+ */
+
+/**@{*/
+
+//!@}
+
+static inline void gv_memcheck_mem_open(int mem_id, void *base, size_t size, void *virtual_base)
+{
+    gvsoc_semihost_5args(SEMIHOSTING_GV_MEMCHECK_MEM_OPEN,
+        mem_id, (uint32_t)base, (uint32_t)size, (uint32_t)virtual_base);
+}
+
+static inline void gv_memcheck_mem_close(int mem_id)
+{
+    gvsoc_semihost_2args(SEMIHOSTING_GV_MEMCHECK_MEM_CLOSE, mem_id);
+}
+
+static inline void *gv_memcheck_mem_alloc(int mem_id, void *ptr, size_t size)
+{
+    return (void *)gvsoc_semihost_4args(SEMIHOSTING_GV_MEMCHECK_MEM_ALLOC,
+        mem_id, (uint32_t)ptr, (uint32_t)size);
+}
+
+static inline void *gv_memcheck_mem_free(int mem_id, void *ptr, size_t size)
+{
+    return (void *)gvsoc_semihost_4args(SEMIHOSTING_GV_MEMCHECK_MEM_FREE,
+        mem_id, (uint32_t)ptr, (uint32_t)size);
+}
 
 /**
  * @}

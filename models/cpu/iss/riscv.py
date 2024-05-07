@@ -92,6 +92,7 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False):
+            memcheck_nb_memory=0):
 
         super().__init__(parent, name)
 
@@ -126,6 +127,7 @@ class RiscvCommon(st.Component):
                 "cpu/iss/src/trace.cpp",
                 "cpu/iss/src/syscalls.cpp",
                 "cpu/iss/src/htif.cpp",
+                "cpu/iss/src/memcheck.cpp",
                 "cpu/iss/src/mmu.cpp",
                 "cpu/iss/src/pmp.cpp",
                 "cpu/iss/src/gdbserver.cpp",
@@ -150,6 +152,7 @@ class RiscvCommon(st.Component):
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
             'has_double': isa.has_isa('rvd'),
+            'memcheck': { 'nb_memories': memcheck_nb_memory }
         })
 
         if memory_start is not None and memory_size is not None:

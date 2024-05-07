@@ -692,6 +692,39 @@ void Syscalls::handle_riscv_ebreak()
         break;
     }
 
+    case 0x112:
+    {
+        this->iss.memcheck.mem_open(this->iss.regfile.regs[11], this->iss.regfile.regs[12],
+          this->iss.regfile.regs[13], this->iss.regfile.regs[14]);
+
+        break;
+    }
+
+    case 0x113:
+    {
+        this->iss.memcheck.mem_close(this->iss.regfile.regs[11]);
+
+        break;
+
+    }
+
+    case 0x114:
+    {
+        this->iss.regfile.regs[10] = this->iss.memcheck.mem_alloc(
+          this->iss.regfile.regs[11], this->iss.regfile.regs[12], this->iss.regfile.regs[13]);
+
+        break;
+    }
+
+    case 0x115:
+    {
+        this->iss.regfile.regs[10] = this->iss.memcheck.mem_free(this->iss.regfile.regs[11],
+          this->iss.regfile.regs[12],
+          this->iss.regfile.regs[13]);
+
+        break;
+    }
+
     default:
         this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;

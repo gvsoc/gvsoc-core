@@ -38,6 +38,7 @@
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
+#include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
@@ -69,6 +70,7 @@ public:
     Mmu mmu;
     Pmp pmp;
     Exception exception;
+    Memcheck memcheck;
 
     iss_pulp_nn_t pulp_nn;
     iss_rnnext_t rnnext;
@@ -98,7 +100,7 @@ private:
 inline Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), top(top)
+      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), memcheck(top, *this), top(top)
 {
 }
 

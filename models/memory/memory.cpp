@@ -24,6 +24,7 @@
 #include <vp/itf/wire.hpp>
 #include <stdio.h>
 #include <string.h>
+#include "memory_memcheck.hpp"
 
 
 class Memory : public vp::Component
@@ -40,6 +41,7 @@ private:
     static void power_ctrl_sync(vp::Block *__this, bool value);
     static void meminfo_sync_back(vp::Block *__this, void **value);
     static void meminfo_sync(vp::Block *__this, void *value);
+    static void memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info);
     vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *check_data);
     vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *check_data);
     vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
@@ -56,11 +58,13 @@ private:
     uint8_t *mem_data;
     uint8_t *check_data = NULL;
     uint8_t *check_mem;
+    uint8_t *memcheck_valid_flags = NULL;
 
     int64_t next_packet_start;
 
     vp::WireSlave<bool> power_ctrl_itf;
     vp::WireSlave<void *> meminfo_itf;
+    vp::WireSlave<MemoryMemcheckBuffer *> memcheck_itf;
 
     bool power_trigger;
     bool powered_up;
@@ -95,6 +99,9 @@ Memory::Memory(vp::ComponentConf &config)
     this->meminfo_itf.set_sync_back_meth(&Memory::meminfo_sync_back);
     this->meminfo_itf.set_sync_meth(&Memory::meminfo_sync);
     new_slave_port("meminfo", &this->meminfo_itf);
+
+    this->memcheck_itf.set_sync_meth(&Memory::memcheck_sync);
+    new_slave_port("memcheck", &this->memcheck_itf);
 
     js::Config *js_config = get_js_config()->get("power_trigger");
     this->power_trigger = js_config != NULL && js_config->get_bool();
@@ -139,6 +146,12 @@ Memory::Memory(vp::ComponentConf &config)
     {
         this->check_data = (uint8_t *)calloc(size, 1);
         if (this->check_data == NULL) throw std::bad_alloc();
+
+        if (this->get_js_config()->get_child_bool("is_memcheck"))
+        {
+            this->memcheck_valid_flags = (uint8_t *)calloc((size + 7) / 8, 1);
+            if (this->memcheck_valid_flags == NULL) throw std::bad_alloc();
+        }
     }
 
     // Initialize the Memory with a special value to detect uninitialized
@@ -336,6 +349,26 @@ vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *dat
     }
 
 #ifdef VP_MEMCHECK_ACTIVE
+
+    if (this->memcheck_valid_flags != NULL)
+    {
+        for (int i=0; i<size; i++)
+        {
+            uint64_t valid_offset = offset + i;
+            int valid_byte = valid_offset >> 3;
+            int valid_bit = valid_offset & 0x7;
+            bool is_valid = (this->memcheck_valid_flags[valid_byte] >> valid_bit) & 1;
+
+            if (!is_valid)
+            {
+                this->trace.force_warning_no_error("Read access outside buffer "
+                    "(offset: 0x%x)\n",
+                    valid_offset);
+                return vp::IO_REQ_INVALID;
+            }
+        }
+    }
+
     if (this->check_data != NULL)
     {
         if (req_check_data != NULL)
@@ -480,6 +513,26 @@ void Memory::meminfo_sync(vp::Block *__this, void *value)
 }
 
 
+
+void Memory::memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info)
+{
+    Memory *_this = (Memory *)__this;
+    for (int i=0; i<info->size; i++)
+    {
+        uint64_t offset = info->base + i;
+        int valid_byte = offset >> 3;
+        int valid_bit = offset & 0x7;
+        if (info->enable)
+        {
+            _this->memcheck_valid_flags[valid_byte] |= 1 << valid_bit;
+        }
+        else
+        {
+            _this->memcheck_valid_flags[valid_byte] &= ~(1 << valid_bit);
+        }
+
+    }
+}
 
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

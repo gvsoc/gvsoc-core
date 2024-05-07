@@ -44,6 +44,8 @@ class Cache : public vp::Component
 public:
     Cache(vp::ComponentConf &conf);
 
+    void reset(bool active);
+
     unsigned int nb_ways_bits = 2;
     unsigned int line_size_bits = 5;
     unsigned int nb_sets_bits = 352;
@@ -123,6 +125,15 @@ private:
     void flush();
     void flush_line(unsigned int addr);
 };
+
+void Cache::reset(bool active)
+{
+    if (active)
+    {
+        this->flush();
+        this->enabled = false;
+    }
+}
 
 void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
 {
@@ -312,7 +323,6 @@ void Cache::flush()
         for (int j = 0; j < this->nb_ways; j++)
         {
             this->lines[i * this->nb_ways + j].tag = -1;
-            ;
         }
     }
 
@@ -476,7 +486,9 @@ void Cache::flush_sync(vp::Block *__this, bool active)
 {
     Cache *_this = (Cache *)__this;
     if (active)
+    {
         _this->flush();
+    }
 }
 
 void Cache::flush_line_sync(vp::Block *__this, bool active)

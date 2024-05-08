@@ -37,7 +37,10 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
         // Register int destination in scoreboard
         // Scoreboard stall if there's integer operand data dependency.
-        insn->data_arga = REG_GET(0);
+        if (REG_IN(0) != 0xFF)
+        {
+            insn->data_arga = REG_GET(0);
+        }
         // insn->data_argb = REG_GET(1);
 
         // Record the memory addess for offloaded load/store instrution, 

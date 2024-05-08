@@ -138,14 +138,14 @@ static inline iss_reg_t int_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
                     {
                         // Check for destination register.
                         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-                        dst_ready = dst_ready & iss->regfile.scoreboard_reg_valid[insn->out_regs[arg->u.reg.id]];
+                        dst_ready = dst_ready && iss->regfile.scoreboard_reg_valid[insn->out_regs[arg->u.reg.id]];
                         #endif
                     }
                     else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
                     {
                         // Check for source registers.
                         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-                        src_ready = src_ready & iss->regfile.scoreboard_reg_valid[insn->in_regs[arg->u.reg.id]];
+                        src_ready = src_ready && iss->regfile.scoreboard_reg_valid[insn->in_regs[arg->u.reg.id]];
                         #endif
                     }
                 }

@@ -32,9 +32,13 @@ Iss::Iss(IssWrapper &top)
       , spatz(*this)
 #endif
 {
-    this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
+    this->csr.declare_csr(&this->barrier, "barrier", 0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
         std::placeholders::_2));
+    this->csr.declare_csr(&this->csr_ssr, "ssr", 0x7C0);
+    this->csr_ssr.register_callback(std::bind(&Iss::ssr_access, this, std::placeholders::_1,
+        std::placeholders::_2));
+    this->csr.declare_csr(&this->csr_fmode, "fmode", 0x800);
 
     this->barrier_ack_itf.set_sync_meth(&Iss::barrier_sync);
     this->top.new_slave_port("barrier_ack", &this->barrier_ack_itf, (vp::Block *)this);
@@ -56,7 +60,6 @@ Iss::Iss(IssWrapper &top)
 
     this->acc_rsp_itf.set_sync_meth(&Iss::handle_result);
     this->top.new_slave_port("acc_rsp", &this->acc_rsp_itf, (vp::Block *)this);
-
 }
 
 
@@ -142,6 +145,8 @@ bool Iss::check_state(iss_insn_t *insn)
     {
         return false;
     }
+
+    return false;
 }
 
 
@@ -242,4 +247,21 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     // Output instruction trace for debugging.
     _this->trace_iss.msg("Get accelerator response (opcode: 0x%lx, pc: 0x%lx)\n", result->insn.opcode, result->pc);
     
+}
+
+
+bool Iss::ssr_access(bool is_write, iss_reg_t &value)
+{
+    if (is_write)
+    {
+        if (value)
+        {
+            this->ssr.enable();
+        }
+        else
+        {
+            this->ssr.disable();
+        }
+    }
+    return true;
 }

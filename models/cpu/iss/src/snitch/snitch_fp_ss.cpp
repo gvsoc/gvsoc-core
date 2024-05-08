@@ -36,6 +36,9 @@ Iss::Iss(IssWrapper &top)
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
         std::placeholders::_2));
+    this->csr.declare_csr(&this->csr_ssr,   "ssr",    0x7C0);
+    this->csr_ssr.register_callback(std::bind(&Iss::ssr_access, this, std::placeholders::_1,
+        std::placeholders::_2));
 
     this->barrier_ack_itf.set_sync_meth(&Iss::barrier_sync);
     this->top.new_slave_port("barrier_ack", &this->barrier_ack_itf, (vp::Block *)this);
@@ -470,4 +473,20 @@ void Iss::ssr_latency(int diff)
         if (this->ssr.event_2->stall_cycle_get() - diff > 0) this->ssr.event_2->stall_cycle_set(this->ssr.event_2->stall_cycle_get() - diff);
         else this->ssr.event_2->stall_cycle_set(0);
     }
+}
+
+bool Iss::ssr_access(bool is_write, iss_reg_t &value)
+{
+    if (is_write)
+    {
+        if (value)
+        {
+            this->ssr.enable();
+        }
+        else
+        {
+            this->ssr.disable();
+        }
+    }
+    return true;
 }

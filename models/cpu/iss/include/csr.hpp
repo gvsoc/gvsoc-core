@@ -34,7 +34,6 @@ typedef struct
         {
             unsigned int fflags : 5;
             unsigned int frm : 3;
-            unsigned int fmode : 2;
         };
         iss_reg_t raw;
     };
@@ -237,10 +236,6 @@ public:
     CsrReg vtype;
     CsrReg vlenb;
 
-#if defined(CONFIG_GVSOC_ISS_SNITCH)
-    CsrReg ssr;
-#endif
-
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 #endif
@@ -249,6 +244,7 @@ private:
 
     bool tselect_access(bool is_write, iss_reg_t &value);
     bool time_access(bool is_write, iss_reg_t &value);
+    bool mcycle_access(bool is_write, iss_reg_t &value);
 
     std::map<iss_reg_t, CsrAbtractReg *> regs;
     vp::WireMaster<uint64_t> time_itf;

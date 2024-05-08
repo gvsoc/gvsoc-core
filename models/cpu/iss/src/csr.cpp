@@ -72,6 +72,7 @@ Csr::Csr(Iss &iss)
 
     // Machine timers and counters
     this->declare_csr(&this->mcycle,   "mcycle",    0xB00);
+    this->time.register_callback(std::bind(&Csr::mcycle_access, this, std::placeholders::_1, std::placeholders::_2));
     // Machine counter / timers
     for (int i=0; i<29; i++)
     {
@@ -106,11 +107,6 @@ Csr::Csr(Iss &iss)
     {
         this->declare_csr(&this->pmpaddr[i],  "pmpaddr" + std::to_string(i),  0x3B0 + i);
     }
-#endif
-
-// Enanble or disable stream semantics
-#if defined(CONFIG_GVSOC_ISS_SNITCH)
-    this->declare_csr(&this->ssr,   "ssr",    0x7C0);
 #endif
 }
 
@@ -226,6 +222,15 @@ bool Csr::time_access(bool is_write, iss_reg_t &value)
     return false;
 }
 
+bool Csr::mcycle_access(bool is_write, iss_reg_t &value)
+{
+    if (!is_write)
+    {
+        value = this->iss.top.clock.get_cycles();
+    }
+    return false;
+}
+
 
 #if defined(ISS_HAS_PERF_COUNTERS)
 void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr);
@@ -234,31 +239,6 @@ void check_perf_config_change(Iss *iss, unsigned int pcer, unsigned int pcmr);
 /*
  *   USER CSRS
  */
-
- static bool ssr_read(Iss *iss, iss_reg_t *value)
-{
-#if defined(CONFIG_GVSOC_ISS_SNITCH)
-    *value = iss->csr.ssr.value;
-    return false;
-#endif
-}
-
-static bool ssr_write(Iss *iss, unsigned int value)
-{
-#if defined(CONFIG_GVSOC_ISS_SNITCH)
-    iss->csr.ssr.value = value;
-    // Enable or disable ssr
-    if (value)
-    {
-        iss->ssr.enable();
-    }
-    else
-    {
-        iss->ssr.disable();
-    }
-    return false;
-#endif
-}
 
 static bool ustatus_read(Iss *iss, iss_reg_t *value)
 {
@@ -390,18 +370,6 @@ static bool fcsr_write(Iss *iss, unsigned int value)
     return false;
 }
 
-static bool fmode_read(Iss *iss, iss_reg_t *value)
-{
-    *value = iss->csr.fcsr.fmode;
-    return false;
-}
-
-static bool fmode_write(Iss *iss, unsigned int value)
-{
-    iss->csr.fcsr.fmode = value;
-    return false;
-}
-
 static bool hpmcounter_read(Iss *iss, iss_reg_t *value, int id)
 {
     printf("WARNING UNIMPLEMENTED CSR: hpmcounter\n");
@@ -484,12 +452,6 @@ static bool mbadaddr_read(Iss *iss, iss_reg_t *value)
 static bool mbadaddr_write(Iss *iss, unsigned int value)
 {
     // iss->badaddr[GVSIM_MODE_MACHINE] = value;
-    return false;
-}
-
-static bool mcycle_read(Iss *iss, iss_reg_t *value)
-{
-    iss->csr.mcycle.value = iss->top.clock.get_cycles();
     return false;
 }
 
@@ -910,14 +872,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
   }
 #endif
 
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // SSR extensions
-    if(reg == 0x7C0)
-    {
-        status = ssr_read(iss, value);
-    }
-#endif
-
     // New generic way of handling CSR access, all CSR should be accessed there
     if (!iss->csr.access(false, reg, *value))
     {
@@ -965,9 +919,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
     case 0x003:
         status = fcsr_read(iss, value);
-        break;
-    case 0x800:
-        status = fmode_read(iss, value);
         break;
 
     // User counter / timers
@@ -1132,9 +1083,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 
 
     // Machine timers and counters
-    case 0xB00:
-        status = mcycle_read(iss, value);
-        break;
     case 0xB02:
         status = minstret_read(iss, value);
         break;
@@ -1244,13 +1192,6 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         status = dscratch_read(iss, value);
         break;
 
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // SSR extensions
-    case 0x7C0:
-        status = ssr_read(iss, value);
-        break;
-#endif
-
     // PULP extensions
     case 0x014:
         status = mhartid_read(iss, value);
@@ -1323,14 +1264,6 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
   }
 #endif
 
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // SSR extensions
-    if (reg == 0x7C0)
-    {
-        return ssr_write(iss, value);
-    }
-#endif
-
     // New generic way of handling CSR access, all CSR should be accessed there
     if (!iss->csr.access(true, reg, value))
     {
@@ -1368,8 +1301,6 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return frm_write(iss, value);
     case 0x003:
         return fcsr_write(iss, value);
-    case 0x800:
-        return fmode_write(iss, value);
 
     case 0x343:
         return mbadaddr_write(iss, value);
@@ -1397,13 +1328,6 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return scratch0_write(iss, value);
     case 0x7b3:
         return scratch1_write(iss, value);
-#endif
-
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // SSR extensions
-    case 0x7C0:
-        return ssr_write(iss, value);
-        break;
 #endif
 
     case 0xF13:
@@ -1478,8 +1402,6 @@ std::string iss_csr_name(Iss *iss, iss_reg_t reg)
         return "frm";
     case 0x003:
         return "fcsr";
-    case 0x800:
-        return "fmode";
 
     // User counter / timers
     case 0xC01:
@@ -1620,8 +1542,6 @@ std::string iss_csr_name(Iss *iss, iss_reg_t reg)
         return "mcounteren";
 
     // Machine timers and counters
-    case 0xB00:
-        return "mcycle";
     case 0xB02:
         return "minstret";
     case 0xB80:
@@ -1696,12 +1616,6 @@ std::string iss_csr_name(Iss *iss, iss_reg_t reg)
         return "depc";
     case 0x7B2:
         return "dscratch";
-
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // SSR extensions
-    case 0x7C0:
-        return "ssr";
-#endif
 
     // PULP extensions
     case 0x014:

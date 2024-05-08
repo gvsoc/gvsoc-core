@@ -17,7 +17,6 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
- *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 #pragma once
@@ -126,135 +125,29 @@ inline void Regfile::set_reg64(int reg, iss_reg64_t value)
 
 inline void Regfile::set_freg(int reg, iss_freg_t value)
 {
-#ifndef CONFIG_GVSOC_ISS_SNITCH
 #ifdef ISS_SINGLE_REGFILE
     this->regs[reg] = value;
 #else
     this->fregs[reg] = value;
 #endif
-#endif
-
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // Conditionally choose operands from regfile or external streams.
-    // Choose operands from streamer when SSR is enabled and fp register index is 0/1/2.
-    if (!this->iss.ssr.ssr_enable)
-    {
-    #ifdef ISS_SINGLE_REGFILE
-        this->regs[reg] = value;
-    #else
-        this->fregs[reg] = value;
-    #endif
-    }
-    else
-    {
-    #ifdef ISS_SINGLE_REGFILE
-        this->regs[reg] = value;
-    #else
-        if (reg >= 0 & reg <= 2)
-        {
-            this->iss.ssr.dm_write(value, reg);
-        }
-        else
-        {
-            this->fregs[reg] = value;
-        }
-    #endif  
-    }
-#endif
 }
 
 inline iss_freg_t Regfile::get_freg_untimed(int reg)
 {
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    if (!this->iss.ssr.ssr_enable)
-    {
-        return this->fregs[reg];
-    }
-    else
-    {
-        if (reg >= 0 & reg <= 2)
-        {
-            if (reg == 0)
-            {
-                return this->iss.ssr.ssr_fregs[0];
-            }
-            if (reg == 1)
-            {
-                return this->iss.ssr.ssr_fregs[1];
-            }
-            if (reg == 2)
-            {
-                return this->iss.ssr.ssr_fregs[2];
-            }
-        }
-
-        return this->fregs[reg];
-    }
-#else
 #ifdef ISS_SINGLE_REGFILE
     return this->regs[reg];
 #else
     return this->fregs[reg];
 #endif
-#endif
 }
 
 inline iss_freg_t Regfile::get_freg(int reg)
 {
-#ifndef CONFIG_GVSOC_ISS_SNITCH
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     this->scoreboard_freg_check(reg);
 #endif
 
     return this->get_freg_untimed(reg);
-#endif
-
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // Conditionally choose operands from regfile or external streams.
-    if (!this->iss.ssr.ssr_enable)
-    {
-    #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-        this->scoreboard_freg_check(reg);
-    #endif
-
-        return this->get_freg_untimed(reg);
-    }
-    else
-    {
-    // There's no need to check scoreboard if SSR is enabled.
-    #ifdef ISS_SINGLE_REGFILE
-        return this->regs[reg];
-    #else
-        if (reg >= 0 & reg <= 2)
-        {
-            if (reg == 0 & this->iss.ssr.dm0.dm_read)
-            {
-                return this->iss.ssr.ssr_fregs[0];
-            }
-            if (reg == 1 & this->iss.ssr.dm1.dm_read)
-            {
-                return this->iss.ssr.ssr_fregs[1];
-            }
-            if (reg == 2 & this->iss.ssr.dm2.dm_read)
-            {
-                return this->iss.ssr.ssr_fregs[2];
-            }
-            // Only need to fetch from memory once at the first time
-            // and the memory access from/to the same address would be finished by fetching from ssr_fregs[i].
-            return this->iss.ssr.dm_read(reg);
-        }
-        else
-        {
-            // There's no need to check scoreboard if SSR is enabled.
-        #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-            this->scoreboard_freg_check(reg);
-        #endif
-
-            return this->get_freg_untimed(reg);
-        }
-    #endif
-    }
-#endif
 }
 
 inline iss_freg_t *Regfile::freg_ref(int reg)

@@ -780,6 +780,7 @@ iss_freg_t Ssr::dm_read(int dm)
         this->trace.msg("Invalid data request in data mover\n");
     }
 
+    return 0;
 }
 
 
@@ -915,6 +916,7 @@ bool Ssr::dm_write_again()
         return false;
     }
 
+    return false;
 }
 
 

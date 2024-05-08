@@ -34,7 +34,7 @@
 #include <cpu/iss/include/exception.hpp>
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
-#include <cpu/iss/include/regfile.hpp>
+#include <cpu/iss/include/cores/snitch/regfile.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
 #else
@@ -71,7 +71,7 @@ public:
     InsnCache insn_cache;
     Timing timing;
     Core core;
-    Regfile regfile;
+    SnitchRegfile regfile;
     Prefetcher prefetcher;
     Decode decode;
     Irq irq;
@@ -143,6 +143,7 @@ public:
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
     static void barrier_sync(vp::Block *__this, bool value);
+    bool ssr_access(bool is_write, iss_reg_t &value);
 
     vp::WireMaster<bool> barrier_req_itf;
     vp::WireSlave<bool> barrier_ack_itf;
@@ -150,6 +151,7 @@ private:
     bool waiting_barrier;
 
     vp::Trace trace_iss;
+    CsrReg csr_ssr;
 
 };
 
@@ -196,3 +198,6 @@ private:
 #include <cpu/iss/include/isa/xdma.hpp>
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
+
+
+#include <cpu/iss/include/cores/snitch/regfile_implem.hpp>

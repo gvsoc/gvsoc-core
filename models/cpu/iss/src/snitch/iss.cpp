@@ -57,9 +57,7 @@ void IssWrapper::reset(bool active)
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
     this->iss.syscalls.reset(active);
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
-    this->iss.spatz.reset(active);
-#endif
+    this->iss.ssr.reset(active);
 }
 
 IssWrapper::IssWrapper(vp::ComponentConf &config)
@@ -81,11 +79,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
-
-
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
-    this->iss.spatz.build();
-#endif
+    this->iss.ssr.build();
 
     traces.new_trace("wrapper", &this->trace, vp::DEBUG);
 }

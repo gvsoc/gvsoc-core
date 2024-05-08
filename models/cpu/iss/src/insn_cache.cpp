@@ -41,9 +41,7 @@ bool InsnCache::insn_is_decoded(iss_insn_t *insn)
 
 void InsnCache::flush()
 {
-#ifdef CONFIG_GVSOC_ISS_TIMED
     this->iss.prefetcher.flush();
-#endif
 
     for (auto page: this->pages)
     {

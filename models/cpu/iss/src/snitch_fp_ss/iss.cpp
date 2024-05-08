@@ -26,8 +26,6 @@
 void IssWrapper::start()
 {
     vp_assert_always(this->iss.lsu.data.is_bound(), &this->trace, "Data master port is not connected\n");
-    vp_assert_always(this->iss.prefetcher.fetch_itf.is_bound(), &this->trace, "Fetch master port is not connected\n");
-    // vp_assert_always(this->irq_ack_itf.is_bound(), &this->trace, "IRQ ack master port is not connected\n");
 
     this->trace.msg("ISS start (fetch: %d, boot_addr: 0x%lx)\n",
         iss.exec.fetch_enable_reg.get(), get_js_config()->get_child_int("boot_addr"));
@@ -57,9 +55,7 @@ void IssWrapper::reset(bool active)
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
     this->iss.syscalls.reset(active);
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
-    this->iss.spatz.reset(active);
-#endif
+    this->iss.ssr.reset(active);
 }
 
 IssWrapper::IssWrapper(vp::ComponentConf &config)
@@ -81,11 +77,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
-
-
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
-    this->iss.spatz.build();
-#endif
+    this->iss.ssr.build();
 
     traces.new_trace("wrapper", &this->trace, vp::DEBUG);
 }

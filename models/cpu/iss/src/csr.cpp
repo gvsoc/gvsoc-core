@@ -366,7 +366,7 @@ static bool fcsr_read(Iss *iss, iss_reg_t *value)
 
 static bool fcsr_write(Iss *iss, unsigned int value)
 {
-    iss->csr.fcsr.raw = value & 0x3ff;
+    iss->csr.fcsr.raw = value & 0xff;
     return false;
 }
 

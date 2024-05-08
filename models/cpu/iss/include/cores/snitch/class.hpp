@@ -136,6 +136,7 @@ private:
     bool barrier_update(bool is_write, iss_reg_t &value);
     static void barrier_sync(vp::Block *__this, bool value);
     bool ssr_access(bool is_write, iss_reg_t &value);
+    static void handle_wait_acc_ready(vp::Block *__this, vp::ClockEvent *event);
 
     vp::WireMaster<bool> barrier_req_itf;
     vp::WireSlave<bool> barrier_ack_itf;

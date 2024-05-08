@@ -130,36 +130,6 @@ static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
 
-    // Instruction to clear ssr register at 0x7C0 (disable SSR): csrrci ssr, 1;
-    #ifdef CONFIG_GVSOC_ISS_SNITCH
-    // csr_ssr needs to be offloaded to subsystem
-    if (UIM_GET(0) == 0x7C0 & !iss->fp_ss)
-    {
-        // Send an IO request to check whether the subsystem is ready for offloading.
-        bool acc_req_ready = iss->check_state(insn);
-        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
-
-        // If not ready, stay at current PC and fetch the same instruction next cycle.
-        if (!acc_req_ready) 
-        {
-            iss->exec.trace.msg("Stall at current instruction\n");
-            insn->handler = csrrci_exec;
-            return pc;
-        }
-
-        // If ready, send offload request.
-        if (acc_req_ready)
-        {
-            insn->reg_addr = &iss->regfile.regs[0];
-            #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-            insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
-            #endif
-            int stall = iss->handle_req(insn, pc, false);
-        }
-        return iss_insn_next(iss, insn, pc);
-    }
-#endif
-
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
@@ -178,36 +148,6 @@ static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t csrrsi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t value;
-
-    // Instruction to set ssr register at 0x7C0 (enable/disable SSR): csrrsi ssr, value;
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    // csr_ssr needs to be offloaded to subsystem
-    if (UIM_GET(0) == 0x7C0 & !iss->fp_ss)
-    {
-        // Send an IO request to check whether the subsystem is ready for offloading.
-        bool acc_req_ready = iss->check_state(insn);
-        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
-
-        // If not ready, stay at current PC and fetch the same instruction next cycle.
-        if (!acc_req_ready) 
-        {
-            iss->exec.trace.msg("Stall at current instruction\n");
-            insn->handler = csrrsi_exec;
-            return pc;
-        }
-
-        // If ready, send offload request.
-        if (acc_req_ready)
-        {
-            insn->reg_addr = &iss->regfile.regs[0];
-            #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
-            insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
-            #endif
-            int stall = iss->handle_req(insn, pc, false);
-        }
-        return iss_insn_next(iss, insn, pc);
-    }
-#endif
 
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))

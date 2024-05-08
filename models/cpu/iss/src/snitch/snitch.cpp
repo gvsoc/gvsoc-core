@@ -254,14 +254,42 @@ bool Iss::ssr_access(bool is_write, iss_reg_t &value)
 {
     if (is_write)
     {
-        if (value)
+        iss_reg_t index;
+        iss_reg_t pc = this->exec.current_insn;
+        iss_insn_t *insn = this->insn_cache.get_insn(pc, index);
+
+        // Instruction to set ssr register at 0x7C0 (enable/disable SSR): csrrsi ssr, value;
+        // csr_ssr needs to be offloaded to subsystem
+
+        // Send an IO request to check whether the subsystem is ready for offloading.
+        bool acc_req_ready = this->check_state(insn);
+        this->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
+
+        // If not ready, stay at current PC and fetch the same instruction next cycle.
+        if (!acc_req_ready) 
         {
-            this->ssr.enable();
+            this->exec.trace.msg("Stall at current instruction\n");
+
+            this->exec.insn_hold(&Iss::handle_wait_acc_ready);
         }
         else
         {
-            this->ssr.disable();
+            // If ready, send offload request.
+            insn->reg_addr = &this->regfile.regs[0];
+            #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            insn->scoreboard_reg_timestamp_addr = &this->regfile.scoreboard_reg_timestamp[0];
+            #endif
+            int stall = this->handle_req(insn, pc, false);
         }
     }
-    return true;
+
+    return false;
+}
+
+void Iss::handle_wait_acc_ready(vp::Block *__this, vp::ClockEvent *event)
+{
+    Iss *_this = (Iss *)__this;
+    _this->trace.dump_trace_enabled = true;
+    _this->exec.current_insn = _this->exec.stall_insn;
+    _this->exec.insn_resume();
 }

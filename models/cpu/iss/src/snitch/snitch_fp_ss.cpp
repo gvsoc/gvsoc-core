@@ -62,7 +62,6 @@ Iss::Iss(IssWrapper &top)
 
     this->acc_req_ready_itf.set_req_meth(&Iss::rsp_state);
     this->top.new_slave_port("acc_req_ready", &this->acc_req_ready_itf, (vp::Block *)this);
-
 }
 
 

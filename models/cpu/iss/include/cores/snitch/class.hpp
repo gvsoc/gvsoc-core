@@ -193,3 +193,4 @@ private:
 #include "cpu/iss/include/isa/rv32ssr.hpp"
 
 #include <cpu/iss/include/cores/snitch/regfile_implem.hpp>
+#include <cpu/iss/include/exec/exec_inorder_implem.hpp>

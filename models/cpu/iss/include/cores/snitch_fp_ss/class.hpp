@@ -44,7 +44,7 @@
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
-#include <cpu/iss/include/exec/exec_inorder.hpp>
+#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
@@ -60,7 +60,6 @@
 #include <cpu/iss/include/ssr.hpp>
 
 class IssWrapper;
-
 
 class Iss
 {
@@ -201,3 +200,4 @@ private:
 
 
 #include <cpu/iss/include/cores/snitch/regfile_implem.hpp>
+#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder_implem.hpp>

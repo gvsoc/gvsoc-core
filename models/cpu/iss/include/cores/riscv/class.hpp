@@ -108,3 +108,5 @@ inline Iss::Iss(IssWrapper &top)
 #include "cpu/iss/include/isa/rvf.hpp"
 #include "cpu/iss/include/isa/rvd.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
+
+#include <cpu/iss/include/exec/exec_inorder_implem.hpp>

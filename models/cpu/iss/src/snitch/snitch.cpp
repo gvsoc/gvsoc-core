@@ -289,7 +289,13 @@ bool Iss::ssr_access(bool is_write, iss_reg_t &value)
 void Iss::handle_wait_acc_ready(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *_this = (Iss *)__this;
-    _this->trace.dump_trace_enabled = true;
-    _this->exec.current_insn = _this->exec.stall_insn;
-    _this->exec.insn_resume();
+    iss_reg_t index;
+    iss_reg_t pc = _this->exec.stall_insn;
+    iss_insn_t *insn = _this->insn_cache.get_insn(pc, index);
+    if (_this->check_state(insn))
+    {
+        _this->trace.dump_trace_enabled = true;
+        _this->exec.current_insn = _this->exec.stall_insn;
+        _this->exec.insn_resume();
+    }
 }

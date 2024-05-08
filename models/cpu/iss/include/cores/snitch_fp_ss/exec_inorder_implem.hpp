@@ -183,11 +183,6 @@ inline void Exec::stalled_dec()
     }
 
     this->stalled.dec(1);
-
-    if (this->stalled.get() == 0)
-    {
-        this->instr_event.enable();
-    }
 }
 
 inline void Exec::insn_exec_profiling()

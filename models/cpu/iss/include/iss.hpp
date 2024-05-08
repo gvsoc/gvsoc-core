@@ -43,7 +43,6 @@
 #include <cpu/iss/include/irq/irq_external_implem.hpp>
 #endif
 #include <cpu/iss/include/mmu_implem.hpp>
-#include <cpu/iss/include/exec/exec_inorder_implem.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line_implem.hpp>
 
 

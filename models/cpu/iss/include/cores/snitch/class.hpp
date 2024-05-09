@@ -57,7 +57,7 @@
 #include "OffloadReq.hpp"
 #include "OffloadRsp.hpp"
 #include "PipeRegs.hpp"
-#include <cpu/iss/include/ssr.hpp>
+#include <cpu/iss/include/cores/snitch/ssr.hpp>
 
 class IssWrapper;
 

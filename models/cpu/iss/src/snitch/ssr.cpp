@@ -21,7 +21,7 @@
  */
 
 
-#include "cpu/iss/include/ssr.hpp"
+#include <cpu/iss/include/cores/snitch/ssr.hpp>
 #include "cpu/iss/include/iss.hpp"
 #include ISS_CORE_INC(class.hpp)
 

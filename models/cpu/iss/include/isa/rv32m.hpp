@@ -79,10 +79,12 @@ static inline iss_reg_t div_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         cycles = 1;
     }
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     else if (dividend == 0)
     {
         cycles = 5;
     }
+#endif
     else if (divider > 0)
     {
         cycles = __builtin_clz(divider) + 3;
@@ -138,10 +140,12 @@ static inline iss_reg_t rem_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         cycles = __builtin_clz(divider) + 3;
     }
+#ifdef CONFIG_GVSOC_ISS_SNITCH
     else if (dividend == 0)
     {
         cycles = 5;
     }
+#endif
     else
     {
         cycles = __builtin_clz((~divider) + 1) + 2;

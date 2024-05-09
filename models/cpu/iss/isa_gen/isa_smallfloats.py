@@ -541,6 +541,9 @@ class Xfvec(IsaSubset):
         ])
 
     def check_compatibilities(self, isa):
+        if not isa.has_isa('rvf') or not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f32vec')
+
         if not isa.has_isa('f16'):
             isa.disable_from_isa_tag('f16vec')
 

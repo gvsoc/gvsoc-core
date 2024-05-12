@@ -145,8 +145,12 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->u.reg.id >= insn->nb_out_reg)
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
+#ifdef ISS_SINGLE_REGFILE
+                if (arg->u.reg.index == 0)
+#else
                 if (arg->u.reg.index == 0 && !(darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                      && !(darg->flags & ISS_DECODER_ARG_FLAG_VREG))
+#endif
                 {
                     insn->out_regs[darg->u.reg.id] = ISS_NB_REGS;
                 }

@@ -48,7 +48,7 @@ private:
     vp::Trace     trace;
     vp::IoSlave  in;
     vp::IoMaster out;
-    gv::Io_user   *user;
+    gv::Io_user   *user = NULL;
 };
 
 Router_proxy::Router_proxy(vp::ComponentConf &config)
@@ -75,6 +75,13 @@ vp::IoReqStatus Router_proxy::req(vp::Block *__this, vp::IoReq *req)
     io_req->data = req->get_data();
     io_req->type = req->get_is_write() ? gv::Io_request_write : gv::Io_request_read;
     io_req->handle = (void *)req;
+
+    if (_this->user == NULL)
+    {
+        _this->trace.warning("Trying to access router proxy while it is not connected\n");
+        return vp::IO_REQ_INVALID;
+    }
+
     _this->user->access(io_req);
 
     // Mark the request as sent so that the callbacks can now handle it as asynchronous

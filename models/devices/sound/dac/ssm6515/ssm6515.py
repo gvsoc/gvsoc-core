@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
-import gvsoc.systree as st
+import gvsoc.systree
 import regmap.regmap
 import regmap.regmap_md
 import regmap.regmap_c_header
 
 
-class Ssm6515(st.Component):
+class Ssm6515(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, i2c_address=0x00, output_filepath = "ssm6515.wav"):
+    def __init__(self, parent, name, i2c_address=0x00, sd = "sdi", output_filepath = "ssm6515.wav"):
         super(Ssm6515, self).__init__(parent, name)
 
         self.set_component('devices.sound.dac.ssm6515.ssm6515')
@@ -31,6 +31,7 @@ class Ssm6515(st.Component):
 
         self.add_property('i2c_address', i2c_address)
         self.add_property('output_filepath', output_filepath)
+        self.add_property('sd', sd)
 
 
     def gen(self, builddir, installdir):
@@ -40,4 +41,10 @@ class Ssm6515(st.Component):
         regmap.regmap_md.import_md(regmap_instance, self.get_file_path(regmap_path))
         regmap.regmap_c_header.dump_to_header(regmap=regmap_instance, name='i2c_regmap',
             header_path=f'{builddir}/{comp_path}/headers', headers=['regfields', 'gvsoc'])
+
+    def o_AUDIO(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('audio_output', itf, signature='audio')
+
+    def i_AUDIO(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, 'audio_input', signature='audio')
 

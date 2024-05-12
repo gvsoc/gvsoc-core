@@ -29,7 +29,7 @@ project(gvsoc-core)
 # introduce all the symbols that are prefixed with 'prefix' into the
 # CMake namespace. List all created variable names in the 'keys'
 # output variable if present.
-function(import_kconfig prefix kconfig_fragment)
+function(import_kconfig prefix kconfig_fragment list_name)
   # Parse the lines prefixed with 'prefix' in ${kconfig_fragment}
   file(
     STRINGS
@@ -55,7 +55,22 @@ function(import_kconfig prefix kconfig_fragment)
       set(CONF_VARIABLE_VALUE ${CMAKE_MATCH_1})
     endif()
 
-    set("${CONF_VARIABLE_NAME}" "${CONF_VARIABLE_VALUE}" PARENT_SCOPE)
+    if("${CONF_VARIABLE_NAME}" STREQUAL "CONFIG_COMPONENTS")
+        string(REPLACE " "  ";" COMPONENT_LIST "${CONF_VARIABLE_VALUE}")
+        foreach (COMPONENT ${COMPONENT_LIST})
+            list(FIND ${list_name} "${COMPONENT}" INDEX)
+
+            # Check if "Orange" was not found and append it
+            if(INDEX EQUAL -1)
+                list(APPEND ${list_name} "${COMPONENT}")
+            endif()
+
+            set(${list_name} "${${list_name}}" PARENT_SCOPE)
+        endforeach()
+    else()
+        set("${CONF_VARIABLE_NAME}" "${CONF_VARIABLE_VALUE}" PARENT_SCOPE)
+    endif()
+
     list(APPEND keys "${CONF_VARIABLE_NAME}")
   endforeach()
 
@@ -72,6 +87,8 @@ endforeach()
 
 set(TARGET_CONFIG_DIR ${CMAKE_BINARY_DIR}/gvsoc/configs)
 file(MAKE_DIRECTORY ${TARGET_CONFIG_DIR})
+
+set(COMPONENTS)
 
 if(DEFINED GVSOC_TARGETS)
 
@@ -105,14 +122,13 @@ if(DEFINED GVSOC_TARGETS)
             message( FATAL_ERROR "Caught error while generating gvsoc config")
         endif()
 
-        import_kconfig(CONFIG_ ${TARGET_CONFIG})
+        import_kconfig(CONFIG_ ${TARGET_CONFIG} "COMPONENTS")
 
     endforeach()
 
 else()
     set(CONFIG_BUILD_ALL 1)
 endif()
-
 
 # install sub folder
 set(GVSOC_MODELS_INSTALL_FOLDER       "models")
@@ -175,15 +191,9 @@ foreach(subdir ${GVSOC_MODULES})
     set(is_first false)
 endforeach()
 
-if(NOT CONFIG_COMPONENTS STREQUAL "")
-
-    string(REPLACE " " ";" CONFIG_COMPONENTS ${CONFIG_COMPONENTS})
-
-    foreach(component ${CONFIG_COMPONENTS})
-        string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
-        vp_model(NAME ${component}
-            SOURCES "${SRCS_LIST}"
-        )
-    endforeach()
-
-endif()
+foreach(component ${COMPONENTS})
+    string(REPLACE " " ";" SRCS_LIST "${CONFIG_SRCS_${component}}")
+    vp_model(NAME ${component}
+        SOURCES "${SRCS_LIST}"
+    )
+endforeach()

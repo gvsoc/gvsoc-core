@@ -180,6 +180,7 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
                 else if (name == "baudrate")
                 {
                     this->baudrate = value;
+                    this->period = 1000000000000UL / this->baudrate;
                 }
                 else if (name == "stop_bits")
                 {

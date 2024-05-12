@@ -1,4 +1,17 @@
 #include "io_audio.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdexcept>
+
+#include <vp/vp.hpp>
+#include <string.h>
+#ifdef USE_SNDFILE
+#include <sndfile.hh>
+#endif
+#ifdef USE_SAMPLERATE
+#include <samplerate.h>
+#endif
 
 /*
 Tx_stream_raw_file::Tx_stream_raw_file(Slot *slot, std::string filepath, int width, bool is_bin, pi_testbench_i2s_verif_start_config_file_encoding_type_e encoding)
@@ -50,7 +63,7 @@ Tx_stream_libsnd_file::Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_ve
 #ifdef USE_SNDFILE
 
     unsigned int pcm_width;
-    
+
     this->width = width != 0 ? width : i2s->config.word_size;
 
     switch (this->width)
@@ -184,46 +197,292 @@ uint32_t Rx_stream_raw_file::get_sample(int channel_id)
         return strtol(line, NULL, 0);
     }
 }
+*/
 
-
-Rx_stream_libsnd_file::Rx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_verif_start_config_rx_file_reader_type_e type, std::string filepath, int nb_channels, int width)
+void Rx_stream::build_rx_stream(int nb_channels, int32_t desired_sample_rate, int32_t sample_rate)
 {
-    this->i2s = i2s;
+    if (desired_sample_rate != sample_rate)
+    {
+#ifdef USE_SAMPLERATE
+        if (nb_channels < 2) // TODO : manage several channels in interpolator
+        {
+            double ratio = (double)desired_sample_rate / (double)sample_rate;
+            srcState = src_new(SRC_SINC_BEST_QUALITY, 1, nullptr);
+            if (srcState)
+            {
+                // printf("Interpolation ON ! \n");
+                interpolate = 1;
+                output_buffer = new float[int(ratio) + 1];
+                srcData.src_ratio = ratio;
+                srcData.data_in = &input_buffer;
+                srcData.data_out = output_buffer;
 
+                srcData.input_frames = 1; // samples are given one by one to the resampler
+                srcData.output_frames = static_cast<long>(ratio) + 1;
+                srcData.output_frames_gen = 0;
+                srcData.end_of_input = 0;
+
+                input_buffer = 0;
+                while (srcData.output_frames_gen == 0)
+                {
+                    if (src_process(srcState, &srcData) != 0)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+#else
+        throw std::invalid_argument("Libsamplerate not found, please install it\n");
+#endif
+    }
+}
+
+// void Rx_stream::init_interpolation_context()
+// {
+//     printf("Interpolation ON !!!!!!! \n");
+//     // initialise context
+//     for (int i = 0; i < nb_channels; ++i) {
+//             context[i].base_period = 1000000000000ULL / this->sample_rate;
+//             context[i].period = 1000000000000ULL / this->desired_sample_rate;
+//             context[i].t1 = 0;
+//             context[i].t = 0;
+//             context[i].t2 = context[i].base_period;
+//             context[i].v1 = (int32_t)get_sample(i);
+//             context[i].v2 = (int32_t)get_sample(i);
+//             context[i].coef = (double)(context[i].v2 - context[i].v1) / (double)(context[i].base_period);
+//     }
+// }
+
+Rx_stream::~Rx_stream()
+{
+#ifdef USE_SAMPLERATE
+    delete[] output_buffer; // Deallocate memory allocated for interpolation_context array
+    if (srcState)
+    {
+        src_delete(srcState);
+    }
+#endif
+}
+
+Tx_stream::~Tx_stream()
+{
+#ifdef USE_SAMPLERATE
+    delete[] output_buffer; // Deallocate memory allocated for interpolation_context array
+    if (srcState)
+    {
+        src_delete(srcState);
+    }
+#endif
+}
+
+uint32_t Rx_stream::get_sample_interpol(int channel_id)
+{
+    // struct interpolation_context& this_context = context[channel_id]; // Use a reference to modify the interpolation context
+
+    // if(this_context.base_period == -1){
+    //     init_interpolation_context();
+    // }
+
+    // if (this_context.t > this_context.t2)
+    // {
+    //     // Update context
+    //     this_context.t1 = this_context.t2;
+    //     this_context.t2 = this_context.t1 + this_context.base_period;
+    //     this_context.v1 = this_context.v2;
+    //     this_context.v2 = (int32_t)get_sample(channel_id);
+    //     this_context.coef = (double)(this_context.v2 - this_context.v1) / (double)(this_context.period);
+    // }
+
+    // // Calculate interpolated value
+    // int32_t return_val = this_context.v1 + (int32_t)((double)(this_context.t - this_context.t1) * this_context.coef);
+    // this_context.t += this_context.period;
+    // return (uint32_t)return_val;
+#ifdef USE_SAMPLERATE
+    if (this->cnt_in_resampler >= srcData.output_frames_gen)
+    {
+        this->cnt_in_resampler = 0;
+        uint32_t sample = get_sample(channel_id);
+        int32_t int_sample = (int32_t)sample;
+        input_buffer = (float)int_sample;
+        // src_process(srcState, &srcData);
+        if (src_process(srcState, &srcData) != 0)
+        {
+            std::cout << "Error in resampling process" << std::endl;
+        }
+    }
+    int32_t return_val = (int32_t)output_buffer[this->cnt_in_resampler++];
+    return (uint32_t)return_val;
+#else
+    return 0;
+#endif
+}
+
+void Rx_stream_wav::initialize(std::string filepath, uint32_t *samplerate)
+{
 #ifdef USE_SNDFILE
-
-    unsigned int pcm_width;
-    
-    this->width = width != 0 ? width : i2s->config.word_size;
-    this->pending_channels = 0;
-
-    int format = type == PI_TESTBENCH_I2S_VERIF_RX_FILE_READER_TYPE_AU ? SF_FORMAT_AU : SF_FORMAT_WAV;
-
-    this->sfinfo.format = 0;
-    this->sfinfo.channels = nb_channels;
+    // this->sfinfo.format = 0;
+    // this->sfinfo.channels = nb_channels;
     this->sndfile = sf_open(filepath.c_str(), SFM_READ, &this->sfinfo);
     if (this->sndfile == NULL)
     {
         throw std::invalid_argument(("Failed to open file " + filepath + ": " + strerror(errno)).c_str());
     }
-    this->period = 1000000000000UL / this->sfinfo.samplerate;
+    // this->period = 1000000000000UL / this->sfinfo.samplerate;
 
-    this->last_data_time = -1;
-    this->next_data_time = -1;
+    switch (this->sfinfo.format & SF_FORMAT_SUBMASK)
+    {
+    case SF_FORMAT_PCM_16:
+        this->width = 16;
+        break;
+    case SF_FORMAT_PCM_24:
+        this->width = 24;
+        break;
+    case SF_FORMAT_PCM_32:
+        this->width = 32;
+        break;
+    default:
+        throw std::invalid_argument("File format is not supported, please use a PCM format 16, 24 or 32");
+        break;
+    };
+    *samplerate = this->sfinfo.samplerate;
 
-    this->items = new int32_t[nb_channels];
+    this->items = new int32_t[1]; // only one channel supported
 #else
-
-    this->i2s->top->trace.fatal("Unable to open file (%s), libsndfile support is not active\n", filepath.c_str());
-    return;
-
+    throw std::invalid_argument("Libsnd file not found, please install it\n");
 #endif
 }
 
-uint32_t Rx_stream_libsnd_file::get_sample(int channel)
+Rx_stream_wav::Rx_stream_wav(std::string filepath, uint32_t *samplerate)
+{
+    initialize(filepath, samplerate);
+}
+
+Rx_stream_wav::Rx_stream_wav(std::string filepath, uint32_t *samplerate, uint32_t des_samplerate)
+{
+    initialize(filepath, samplerate);
+    // printf("Sample rate %i, desired %i \n", (int32_t) *samplerate, (int32_t) des_samplerate);
+    build_rx_stream(1, des_samplerate, *samplerate);
+}
+
+void Tx_stream::build_tx_stream(int nb_channels, int32_t desired_sample_rate, int32_t sample_rate)
+{
+    if (desired_sample_rate != sample_rate)
+    {
+#ifdef USE_SAMPLERATE
+        if (nb_channels < 2) // TODO : manage several channels in interpolator
+        {
+            double ratio = (double)desired_sample_rate / (double)sample_rate;
+            srcState = src_new(SRC_SINC_BEST_QUALITY, 1, nullptr);
+            if (srcState)
+            {
+                interpolate = 1;
+                output_buffer = new float[int(ratio) + 1];
+                srcData.src_ratio = ratio;
+                srcData.data_in = &input_buffer;
+                srcData.data_out = output_buffer;
+
+                srcData.input_frames = 1; // samples are given one by one to the resampler
+                srcData.output_frames = static_cast<long>(ratio) + 1;
+                srcData.output_frames_gen = 0;
+                srcData.end_of_input = 0;
+            }
+        }
+#else
+        throw std::invalid_argument("Libsamplerate not found, please install it\n");
+#endif
+    }
+}
+
+void Tx_stream::push_sample_interpol(uint32_t sample, int channel_id)
+{
+#ifdef USE_SAMPLERATE
+    int32_t int_sample = (int32_t)sample;
+    input_buffer = (float)int_sample;
+    if (src_process(srcState, &srcData) != 0)
+    {
+        std::cout << "Error in resampling process" << std::endl;
+    }
+    for (int i = 0; i < srcData.output_frames_gen; i++)
+    {
+        int32_t return_val = (int32_t)output_buffer[i];
+        push_sample((uint32_t)return_val, channel_id);
+    }
+#endif
+}
+
+Tx_stream_wav::Tx_stream_wav(std::string filepath, uint32_t width, uint32_t wav_desired_sampling_freq, uint32_t provided_sampling_freq)
+    : width(width)
 {
 #ifdef USE_SNDFILE
+    build_tx_stream(1, wav_desired_sampling_freq, provided_sampling_freq);
+    unsigned int pcm_width;
 
+    switch (this->width)
+    {
+    case 8:
+        pcm_width = SF_FORMAT_PCM_S8;
+        break;
+    case 16:
+        pcm_width = SF_FORMAT_PCM_16;
+        break;
+    case 24:
+        pcm_width = SF_FORMAT_PCM_24;
+        break;
+    case 32:
+        pcm_width = SF_FORMAT_PCM_32;
+        break;
+    default:
+        pcm_width = SF_FORMAT_PCM_32;
+        break;
+    }
+
+    this->sfinfo.format = pcm_width | SF_FORMAT_WAV;
+    this->sfinfo.samplerate = wav_desired_sampling_freq;
+    this->sfinfo.channels = 1;
+    this->sndfile = sf_open(filepath.c_str(), SFM_WRITE, &this->sfinfo);
+    if (this->sndfile == NULL)
+    {
+        throw std::invalid_argument(("Failed to open file " + filepath + ": " + strerror(errno)).c_str());
+    }
+    this->pending_channels = 0;
+    this->items = new int32_t;
+    memset(this->items, 0, sizeof(uint32_t) * this->sfinfo.channels);
+#else
+    throw std::invalid_argument("Libsnd file not found, please install it\n");
+#endif
+}
+
+Tx_stream_wav::~Tx_stream_wav()
+{
+#ifdef USE_SNDFILE
+    if (this->pending_channels)
+    {
+        sf_writef_int(this->sndfile, (const int *)this->items, 1);
+    }
+    sf_close(this->sndfile);
+#endif
+}
+
+void Tx_stream_wav::push_sample(uint32_t data, int channel_id)
+{
+#ifdef USE_SNDFILE
+    if (this->pending_channels == 1)
+    {
+        sf_writef_int(this->sndfile, (const int *)this->items, 1);
+        this->pending_channels = 0;
+        memset(this->items, 0, sizeof(uint32_t) * this->sfinfo.channels);
+    }
+
+    data <<= (32 - this->width);
+    items[0] = data;
+    this->pending_channels = 1;
+#endif
+}
+
+uint32_t Rx_stream_wav::get_sample(int channel)
+{
+#ifdef USE_SNDFILE
     if (((this->pending_channels >> channel) & 1) == 0)
     {
         sf_readf_int(this->sndfile, this->items, 1);
@@ -237,4 +496,4 @@ uint32_t Rx_stream_libsnd_file::get_sample(int channel)
 #else
     return 0;
 #endif
-}*/
+}

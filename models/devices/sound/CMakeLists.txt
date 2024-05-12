@@ -10,6 +10,16 @@ vp_model(NAME devices.sound.i2s_speaker
 
 vp_model(NAME devices.sound.i2s_clock
          SOURCES "i2s_clock.cpp")
+         
+vp_model(NAME devices.sound.transfer_function
+         FORCE_BUILD 1
+         SOURCES "transfer_function.cpp")
+
+vp_model_link_blocks(
+    NAME devices.sound.transfer_function
+    FORCE_BUILD 1
+    BLOCK io_audio
+)
 
 find_library(SNDFILE_LIB sndfile)
 if(SNDFILE_LIB)

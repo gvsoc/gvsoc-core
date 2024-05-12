@@ -169,6 +169,20 @@ function(vp_block)
 
 endfunction()
 
+function(vp_block_compile_options)
+    cmake_parse_arguments(
+        VP_MODEL
+        ""
+        "NAME;FORCE_BUILD;"
+        "OPTIONS"
+        ${ARGN}
+        )
+
+    foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
+        set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
+        target_compile_options(${VP_MODEL_NAME_TYPE} INTERFACE ${VP_MODEL_OPTIONS})
+    endforeach()
+endfunction()
 
 # vp_model function
 function(vp_model)

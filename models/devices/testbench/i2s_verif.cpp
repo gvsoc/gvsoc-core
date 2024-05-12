@@ -670,8 +670,8 @@ Tx_stream_libsnd_file::Tx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_ve
         this->sndfile = sf_open(filepath.c_str(), SFM_WRITE, &this->sfinfo);
         if (this->sndfile == NULL)
         {
-            throw std::invalid_argument(("Failed to open file " + filepath + ": " + strerror(errno)).c_str());
-    }
+            this->i2s->top->trace.fatal("Failed to open file filepath %s: %s\n",  filepath.c_str(), strerror(errno));
+        }
     this->period = 1000000000000UL / this->sfinfo.samplerate;
 
     this->pending_channels = 0;
@@ -794,7 +794,7 @@ Rx_stream_libsnd_file::Rx_stream_libsnd_file(I2s_verif *i2s, pi_testbench_i2s_ve
     this->sndfile = sf_open(filepath.c_str(), SFM_READ, &this->sfinfo);
     if (this->sndfile == NULL)
     {
-        throw std::invalid_argument(("Failed to open file " + filepath + ": " + strerror(errno)).c_str());
+        this->i2s->top->trace.fatal("Failed to open file filepath %s: %s\n",  filepath.c_str(), strerror(errno));
     }
     this->period = 1000000000000UL / this->sfinfo.samplerate;
 

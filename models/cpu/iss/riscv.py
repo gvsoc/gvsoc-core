@@ -90,7 +90,8 @@ class RiscvCommon(st.Component):
             memory_size=None,
             handle_misaligned=False,
             external_pccr=False,
-            htif=False):
+            htif=False,
+            custom_sources=False):
 
         super().__init__(parent, name)
 
@@ -100,32 +101,37 @@ class RiscvCommon(st.Component):
             isa.get_source()
         ])
 
+        self.add_c_flags([
+            f'--include {isa.get_header()}'
+        ])
+
         self.add_sources([
             wrapper
         ])
 
-        self.add_sources([
-            "cpu/iss/src/prefetch/prefetch_single_line.cpp",
-            "cpu/iss/src/csr.cpp",
-            "cpu/iss/src/exec/exec_inorder.cpp",
-            "cpu/iss/src/decode.cpp",
-            "cpu/iss/src/lsu.cpp",
-            "cpu/iss/src/timing.cpp",
-            "cpu/iss/src/insn_cache.cpp",
-            "cpu/iss/src/iss.cpp",
-            "cpu/iss/src/core.cpp",
-            "cpu/iss/src/exception.cpp",
-            "cpu/iss/src/regfile.cpp",
-            "cpu/iss/src/resource.cpp",
-            "cpu/iss/src/trace.cpp",
-            "cpu/iss/src/syscalls.cpp",
-            "cpu/iss/src/htif.cpp",
-            "cpu/iss/src/mmu.cpp",
-            "cpu/iss/src/pmp.cpp",
-            "cpu/iss/src/gdbserver.cpp",
-            "cpu/iss/src/dbg_unit.cpp",
-            "cpu/iss/flexfloat/flexfloat.c",
-        ])
+        if not custom_sources:
+            self.add_sources([
+                "cpu/iss/src/prefetch/prefetch_single_line.cpp",
+                "cpu/iss/src/csr.cpp",
+                "cpu/iss/src/exec/exec_inorder.cpp",
+                "cpu/iss/src/decode.cpp",
+                "cpu/iss/src/lsu.cpp",
+                "cpu/iss/src/timing.cpp",
+                "cpu/iss/src/insn_cache.cpp",
+                "cpu/iss/src/iss.cpp",
+                "cpu/iss/src/core.cpp",
+                "cpu/iss/src/exception.cpp",
+                "cpu/iss/src/regfile.cpp",
+                "cpu/iss/src/resource.cpp",
+                "cpu/iss/src/trace.cpp",
+                "cpu/iss/src/syscalls.cpp",
+                "cpu/iss/src/htif.cpp",
+                "cpu/iss/src/mmu.cpp",
+                "cpu/iss/src/pmp.cpp",
+                "cpu/iss/src/gdbserver.cpp",
+                "cpu/iss/src/dbg_unit.cpp",
+                "cpu/iss/flexfloat/flexfloat.c",
+            ])
 
         if power_models_file is not None:
             power_models = self.load_property_file(power_models_file)

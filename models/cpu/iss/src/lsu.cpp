@@ -146,7 +146,22 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)
     {
+        #ifndef CONFIG_GVSOC_ISS_SNITCH
         latency = req->get_latency() + 1;
+        #else
+        // In case of a write, don't signal a valid transaction. Stores are always
+        // without ans answer to the core.
+        if (is_write)
+        {
+            // Suppress stores
+            latency = req->get_latency(); 
+        }
+        else
+        {
+            // Load needs one more cycle to write result back from tcdm/mem response.
+            latency = req->get_latency() + 1;
+        }
+        #endif
         return 0;
     }
     else if (err == vp::IO_REQ_INVALID)
@@ -191,11 +206,20 @@ int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
     iss_addr_t addr0 = addr & ADDR_MASK;
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // Todo: solve misaligned data request issue of fp subsystem by enqueue acceleration request
+    if (likely(addr0 == addr1) || this->iss.fp_ss)
+        return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
+    else
+        return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
+#endif
+#ifndef CONFIG_GVSOC_ISS_SNITCH
     if (likely(addr0 == addr1))
         return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
     else
         return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
 
+#endif
 #endif
 }
 

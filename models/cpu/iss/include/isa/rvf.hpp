@@ -17,6 +17,7 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 #ifndef __CPU_ISS_RVF_HPP
@@ -184,25 +185,25 @@ static inline iss_reg_t fmv_s_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t feq_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 8, 23));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t flt_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 8, 23));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fle_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 8, 23));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fclass_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 8, 23));
+    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 8, 23));
     return iss_insn_next(iss, insn, pc);
 }
 

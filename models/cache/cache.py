@@ -27,7 +27,7 @@ class Cache(st.Component):
     
     """
 
-    def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0):
+    def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False):
 
         super(Cache, self).__init__(parent, name)
 
@@ -40,7 +40,8 @@ class Cache(st.Component):
             'nb_ports': nb_ports,
             'refill_latency': refill_latency,
             'add_offset': add_offset,
-            'refill_shift': refill_shift
+            'refill_shift': refill_shift,
+            'enabled': enabled
         })
 
 

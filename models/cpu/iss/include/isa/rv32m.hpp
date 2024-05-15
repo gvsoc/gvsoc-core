@@ -25,24 +25,36 @@
 static inline iss_reg_t mul_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_CALL2(lib_MULU, REG_GET(0), REG_GET(1)));
+    #ifdef CONFIG_GVSOC_ISS_SNITCH
+    iss->timing.stall_insn_dependency_account(5);
+    #endif
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t mulh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, ((iss_lsim_t)(iss_sim_t)REG_GET(0) * (iss_lsim_t)(iss_sim_t)REG_GET(1)) >> ISS_REG_WIDTH);
+    #ifdef CONFIG_GVSOC_ISS_SNITCH
+    iss->timing.stall_insn_dependency_account(5);
+    #endif
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t mulhsu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, ((iss_lsim_t)(iss_sim_t)REG_GET(0) * (iss_uim_t)REG_GET(1)) >> ISS_REG_WIDTH);
+    #ifdef CONFIG_GVSOC_ISS_SNITCH
+    iss->timing.stall_insn_dependency_account(5);
+    #endif
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t mulhu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, ((iss_luim_t)REG_GET(0) * (iss_luim_t)REG_GET(1)) >> ISS_REG_WIDTH);
+    #ifdef CONFIG_GVSOC_ISS_SNITCH
+    iss->timing.stall_insn_dependency_account(5);
+    #endif
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -67,6 +79,12 @@ static inline iss_reg_t div_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         cycles = 1;
     }
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    else if (dividend == 0)
+    {
+        cycles = 5;
+    }
+#endif
     else if (divider > 0)
     {
         cycles = __builtin_clz(divider) + 3;
@@ -122,6 +140,12 @@ static inline iss_reg_t rem_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         cycles = __builtin_clz(divider) + 3;
     }
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    else if (dividend == 0)
+    {
+        cycles = 5;
+    }
+#endif
     else
     {
         cycles = __builtin_clz((~divider) + 1) + 2;

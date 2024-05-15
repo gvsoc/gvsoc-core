@@ -31,6 +31,10 @@ Format_RVF = [ OutFReg(0, Range(7,  5)),
 Format_RVF2 = [ OutFReg(0, Range(7,  5)),
                 InFReg (0, Range(15, 5)),
 ]
+Format_RVF3 = [ OutFReg(0, Range(7,  5)),
+                InFReg (0, Range(15, 5)),
+                InFReg (1, Range(7, 5)),
+]
 Format_RVF4 = [ OutFReg(0, Range(7,  5)),
                 InFReg (2, Range(7,  5), dumpName=False),
                 InFReg (0, Range(15, 5)),
@@ -264,12 +268,12 @@ class Xfvec(IsaSubset):
         #
         # For F
         #
-            # Instr('vfadd.s',    Format_RVF, '1000001 ----- ----- 000 ----- 0110011', tags=['fadd'], isa_tags=['f32vec']),
-            # Instr('vfadd.r.s',  Format_RVF, '1000001 ----- ----- 100 ----- 0110011', tags=['fadd'], isa_tags=['f32vec']),
-            # Instr('vfsub.s',    Format_RVF, '1000010 ----- ----- 000 ----- 0110011', tags=['fadd'], isa_tags=['f32vec']),
-            # Instr('vfsub.r.s',  Format_RVF, '1000010 ----- ----- 100 ----- 0110011', tags=['fadd'], isa_tags=['f32vec']),
-            # Instr('vfmul.s',    Format_RVF, '1000011 ----- ----- 000 ----- 0110011', tags=['fmul'], isa_tags=['f32vec']),
-            # Instr('vfmul.r.s',  Format_RVF, '1000011 ----- ----- 100 ----- 0110011', tags=['fmul'], isa_tags=['f32vec']),
+            Instr('vfadd.s',    Format_RVF, '1000001 ----- ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfadd.r.s',  Format_RVF, '1000001 ----- ----- 100 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsub.s',    Format_RVF, '1000010 ----- ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsub.r.s',  Format_RVF, '1000010 ----- ----- 100 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfmul.s',    Format_RVF, '1000011 ----- ----- 000 ----- 0110011', tags=['fmul', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfmul.r.s',  Format_RVF, '1000011 ----- ----- 100 ----- 0110011', tags=['fmul', 'fp_op'], isa_tags=['f32vec']),
             # Instr('vfdiv.s',    Format_RVF, '1000100 ----- ----- 000 ----- 0110011', tags=['fdiv'], isa_tags=['f32vec']),
             # Instr('vfdiv.r.s',  Format_RVF, '1000100 ----- ----- 100 ----- 0110011', tags=['fdiv'], isa_tags=['f32vec']),
 
@@ -280,21 +284,23 @@ class Xfvec(IsaSubset):
 
             # Instr('vfsqrt.s',   Format_RVF2,'1000111 00000 ----- 000 ----- 0110011', tags=['fdiv'], isa_tags=['f32vec']),
 
-            # Instr('vfmac.s',    Format_RVF4,'1001000 ----- ----- 000 ----- 0110011', tags=['fmadd'], isa_tags=['f32vec']),
-            # Instr('vfmac.r.s',  Format_RVF4,'1001000 ----- ----- 100 ----- 0110011', tags=['fmadd'], isa_tags=['f32vec']),
-            # Instr('vfmre.s',    Format_RVF4,'1001001 ----- ----- 000 ----- 0110011', tags=['fmadd'], isa_tags=['f32vec']),
-            # Instr('vfmre.r.s',  Format_RVF4,'1001001 ----- ----- 100 ----- 0110011', tags=['fmadd'], isa_tags=['f32vec']),
+            Instr('vfmac.s',    Format_RVF4,'1001000 ----- ----- 000 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfmac.r.s',  Format_RVF4,'1001000 ----- ----- 100 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfmre.s',    Format_RVF4,'1001001 ----- ----- 000 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfmre.r.s',  Format_RVF4,'1001001 ----- ----- 100 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
+            
+            Instr('vfsum.s',   Format_RVF3,'1000111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
 
             # Instr('vfclass.s', Format_R2VF2,'1001100 00001 ----- 000 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
 
-            # Instr('vfsgnj.r.s', Format_RVF, '1001101 ----- ----- 000 ----- 0110011', tags=['fconv'], isa_tags=['f32vec']),
-            # Instr('vfsgnj.s',   Format_RVF, '1001101 ----- ----- 100 ----- 0110011', tags=['fconv'], isa_tags=['f32vec']),
-            # Instr('vfsgnjn.s',  Format_RVF, '1001110 ----- ----- 000 ----- 0110011', tags=['fconv'], isa_tags=['f32vec']),
-            # Instr('vfsgnjn.r.s',Format_RVF, '1001110 ----- ----- 100 ----- 0110011', tags=['fconv'], isa_tags=['f32vec']),
-            # Instr('vfsgnjx.s',  Format_RVF, '1001111 ----- ----- 000 ----- 0110011', tags=['fconv'], isa_tags=['f32vec']),
-            # Instr('vfsgnjx.r.s',Format_RVF, '1001111 ----- ----- 100 ----- 0110011', tags=['fconv'], isa_tags=['f32vec']),
+            Instr('vfsgnj.r.s', Format_RVF, '1001101 ----- ----- 100 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsgnj.s',   Format_RVF, '1001101 ----- ----- 000 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsgnjn.s',  Format_RVF, '1001110 ----- ----- 000 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsgnjn.r.s',Format_RVF, '1001110 ----- ----- 100 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsgnjx.s',  Format_RVF, '1001111 ----- ----- 000 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f32vec']),
+            Instr('vfsgnjx.r.s',Format_RVF, '1001111 ----- ----- 100 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f32vec']),
 
-            # Instr('vfeq.s',    Format_R2VF, '1010000 ----- ----- 000 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
+            Instr('vfeq.s',    Format_R2VF, '1010000 ----- ----- 000 ----- 0110011', tags=['fother', 'fp_op', 'nseq'], isa_tags=['f32vec']),
             # Instr('vfeq.r.s',  Format_R2VF, '1010000 ----- ----- 100 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
             # Instr('vfne.s',    Format_R2VF, '1010001 ----- ----- 000 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
             # Instr('vfne.r.s',  Format_R2VF, '1010001 ----- ----- 100 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
@@ -307,7 +313,7 @@ class Xfvec(IsaSubset):
             # Instr('vfgt.s',    Format_R2VF, '1010101 ----- ----- 000 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
             # Instr('vfgt.r.s',  Format_R2VF, '1010101 ----- ----- 100 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
 
-            # Instr('vfcpka.s.s', Format_RVF, '1011000 ----- ----- 000 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
+            Instr('vfcpka.s.s', Format_RVF, '1011000 ----- ----- 000 ----- 0110011', tags=['fother', 'fp_op'], isa_tags=['f32vec']),
             # # Instr('vfcpka.s.d', Format_RVF, '1011010 ----- ----- 000 ----- 0110011', tags=['fother'], isa_tags=['f32vec']),
 
             # # Unless RV32D supported
@@ -535,6 +541,9 @@ class Xfvec(IsaSubset):
         ])
 
     def check_compatibilities(self, isa):
+        if not isa.has_isa('rvf') or not isa.has_isa('rvd'):
+            isa.disable_from_isa_tag('f32vec')
+
         if not isa.has_isa('f16'):
             isa.disable_from_isa_tag('f16vec')
 

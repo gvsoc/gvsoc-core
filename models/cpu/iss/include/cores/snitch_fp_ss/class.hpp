@@ -44,7 +44,7 @@
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
-#include <cpu/iss/include/exec/exec_inorder.hpp>
+#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
@@ -60,7 +60,6 @@
 #include <cpu/iss/include/cores/snitch/ssr.hpp>
 
 class IssWrapper;
-
 
 class Iss
 {
@@ -92,51 +91,58 @@ public:
 #endif
 
     Ssr ssr;
-
+    
 
     bool snitch;
     bool fp_ss;
-
+    
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 
-    // Handshaking interface, added to check subsystem state, busy or idle
-    vp::IoMaster acc_req_ready_itf;
+    // Handshaking interface 
+    vp::IoSlave acc_req_ready_itf;
 
-    // Offload request interface 
-    vp::WireMaster<OffloadReq *> acc_req_itf;
-    // Response interface, receive result from subsystem
-    vp::WireSlave<OffloadRsp *> acc_rsp_itf;
+    // Request and Response interface
+    vp::WireSlave<OffloadReq *> acc_req_itf;
+    vp::WireMaster<OffloadRsp *> acc_rsp_itf;
     vp::ClockEvent *event;
-    // Offload request and response
     OffloadReq acc_req;
     OffloadRsp acc_rsp;
 
     // Handshaking signals and functions
     bool acc_req_ready;
-    vp::IoReq check_req;
+    static vp::IoReqStatus rsp_state(vp::Block *__this, vp::IoReq *req);
     bool check_state(iss_insn_t *insn);
 
-    // Request and Response interfaces and events
+    // Handle request and response functions
+    static void handle_notif(vp::Block *__this, OffloadReq *req);
     static void handle_event(vp::Block *__this, vp::ClockEvent *event);
     bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
-    static void handle_result(vp::Block *__this, OffloadRsp *result);
 
-    // Temporary request information
-    iss_insn_t insn;
-    iss_reg_t pc;
-    bool is_write;
-    unsigned int frm;
     // Temporary variable to process RAW caused by SSR and accessing stack pointer, 
     // for result is written to memory directly.
     iss_addr_t mem_map;
     iss_reg_t mem_pc;
 
+    // Add operation groups and store intructions like a FIFO 
+    // to abstract behavior of pipeline. Most of fp instructions are pipelined in Snitch.
+    // Operation groups in FPU
+    FIFODepth3 FMA_OPGROUP;
+    FIFODepth1 DIVSQRT_OPGROUP;
+    FIFODepth1 NONCOMP_OPGROUP;
+    FIFODepth2 CONV_OPGROUP;
+    FIFODepth3 DOTP_OPGROUP;
+    // Operation group in LSU
+    FIFODepth1 LSU_OPGROUP;
+
+    // Timing model of pipelined FPU
+    int get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp);
+    void ssr_latency(int diff);
+
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
     static void barrier_sync(vp::Block *__this, bool value);
     bool ssr_access(bool is_write, iss_reg_t &value);
-    static void handle_wait_acc_ready(vp::Block *__this, vp::ClockEvent *event);
 
     vp::WireMaster<bool> barrier_req_itf;
     vp::WireSlave<bool> barrier_ack_itf;
@@ -145,7 +151,7 @@ private:
 
     vp::Trace trace_iss;
     CsrReg csr_ssr;
-    CsrReg csr_fmode;
+
 };
 
 
@@ -192,5 +198,6 @@ private:
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
 
+
 #include <cpu/iss/include/cores/snitch/regfile_implem.hpp>
-#include <cpu/iss/include/exec/exec_inorder_implem.hpp>
+#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder_implem.hpp>

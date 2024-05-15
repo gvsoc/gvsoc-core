@@ -139,13 +139,13 @@ static inline iss_reg_t fcvt_wu_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fmv_x_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_fmv_x_ff, REG_GET(0), 5, 10));
+    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_fmv_x_ff, FREG_GET(0), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmv_h_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_fmv_ff_x, REG_GET(0), 5, 10));
+    FREG_SET(0, LIB_FF_CALL1(lib_flexfloat_fmv_ff_x, REG_GET(0), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 

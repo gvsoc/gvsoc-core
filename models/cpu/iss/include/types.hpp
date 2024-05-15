@@ -309,6 +309,24 @@ typedef struct iss_decoder_arg_s
     } u;
 } iss_decoder_arg_t;
 
+typedef struct iss_decoder_insn_s
+{
+    iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    void (*decode)(Iss *, iss_insn_t *, iss_reg_t pc);
+    char *label;
+    int size;
+    int nb_args;
+    int latency;
+    iss_decoder_arg_t args[ISS_MAX_DECODE_ARGS];
+    int resource_id;
+    int resource_latency;   // Time required to get the result when accessing the resource
+    int resource_bandwidth; // Time required to accept the next access when accessing the resource
+    int power_group;
+    int is_macro_op;
+    bool tags[ISA_NB_TAGS];
+} iss_decoder_insn_t;
+
 typedef struct iss_decoder_item_s
 {
 
@@ -320,22 +338,7 @@ typedef struct iss_decoder_item_s
 
     union
     {
-        struct
-        {
-            iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
-            iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
-            void (*decode)(Iss *, iss_insn_t *, iss_reg_t pc);
-            char *label;
-            int size;
-            int nb_args;
-            int latency;
-            iss_decoder_arg_t args[ISS_MAX_DECODE_ARGS];
-            int resource_id;
-            int resource_latency;   // Time required to get the result when accessing the resource
-            int resource_bandwidth; // Time required to accept the next access when accessing the resource
-            int power_group;
-            int is_macro_op;
-        } insn;
+        iss_decoder_insn_t insn;
 
         struct
         {
@@ -352,7 +355,13 @@ typedef struct iss_insn_s
 {
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    bool out_regs_fp[ISS_MAX_NB_OUT_REGS];
+#endif
     unsigned char in_regs[ISS_MAX_NB_IN_REGS];
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    bool in_regs_fp[ISS_MAX_NB_IN_REGS];
+#endif
     void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
@@ -386,6 +395,21 @@ typedef struct iss_insn_s
 
     iss_insn_t *expand_table;
     bool is_macro_op;
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    bool is_outer;
+    iss_reg_t max_rpt;
+
+    iss_reg_t* reg_addr;
+    iss_freg_t* freg_addr;
+    int64_t* scoreboard_reg_timestamp_addr;
+    // unsigned int* fflags_addr;
+
+    iss_reg_t data_arga;
+    iss_reg_t data_argb;
+    iss_reg_t data_argc;
+#endif
+
+    iss_decoder_insn_t *desc;
 
 } iss_insn_t;
 

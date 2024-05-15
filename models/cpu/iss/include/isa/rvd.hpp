@@ -161,25 +161,25 @@ static inline iss_reg_t fmv_d_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t feq_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 11, 52));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 11, 52));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t flt_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 11, 52));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 11, 52));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fle_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 11, 52));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 11, 52));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fclass_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 11, 52));
+    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 11, 52));
     return iss_insn_next(iss, insn, pc);
 }
 

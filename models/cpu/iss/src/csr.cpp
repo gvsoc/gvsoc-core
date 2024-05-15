@@ -72,6 +72,7 @@ Csr::Csr(Iss &iss)
 
     // Machine timers and counters
     this->declare_csr(&this->mcycle,   "mcycle",    0xB00);
+    this->time.register_callback(std::bind(&Csr::mcycle_access, this, std::placeholders::_1, std::placeholders::_2));
     // Machine counter / timers
     for (int i=0; i<29; i++)
     {
@@ -218,6 +219,15 @@ bool Csr::time_access(bool is_write, iss_reg_t &value)
     uint64_t time;
     this->time_itf.sync_back(&time);
     value = time;
+    return false;
+}
+
+bool Csr::mcycle_access(bool is_write, iss_reg_t &value)
+{
+    if (!is_write)
+    {
+        value = this->iss.top.clock.get_cycles();
+    }
     return false;
 }
 

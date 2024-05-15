@@ -17,44 +17,22 @@
 
 /* 
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
-
 
 #pragma once
 
-#include <vp/vp.hpp>
 #include <cpu/iss/include/types.hpp>
 
-
-
-class Trace
+class OffloadReq
 {
 public:
-    Trace(Iss &iss);
-
-    void build();
-    void reset(bool active);
-
-    void insn_trace_callback();
-    void dump_debug_traces();
-
-    // This will skip the dump of the current instruction. This is set back to false
-    // immediately after current instruction is executed so that only once instruction dump
-    // is skipped
-    bool skip_insn_dump;
-    // Contrary to skip_insn_dump. this can permanently disabled instruction dump until it is
-    // explicitely reactivated
-    bool dump_trace_enabled;
-
-    vp::Trace insn_trace;
-    iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];
-    int priv_mode;
-    bool has_reg_dump = false;
-    iss_reg_t reg_dump;
-    bool has_str_dump = false;
-    std::string str_dump;
-
-private:
-
-    Iss &iss;
+    // PC of offloaded instruction
+    iss_reg_t pc;
+    // Offloaded instruction info
+    iss_insn_t insn;
+    // Whether the instruction is memory write
+    bool is_write;
+    // Rounding mode of fp instruction
+    unsigned int frm;
 };

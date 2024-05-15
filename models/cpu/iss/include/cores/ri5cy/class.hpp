@@ -125,3 +125,5 @@ inline Iss::Iss(IssWrapper &top)
 #include "cpu/iss/include/isa/rvXint64.hpp"
 #include "cpu/iss/include/isa/rnnext.hpp"
 #include "cpu/iss/include/isa/pulp_nn.hpp"
+
+#include <cpu/iss/include/exec/exec_inorder_implem.hpp>

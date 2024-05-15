@@ -17,6 +17,7 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 #include "cpu/iss/include/iss.hpp"
@@ -43,6 +44,9 @@ void Decode::reset(bool active)
     if (active)
     {
         this->iss.insn_cache.flush();
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+        this->iss.mem_map = -1;
+#endif
     }
 }
 
@@ -84,6 +88,157 @@ int Decode::decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_i
     return 0;
 }
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    if (iss->snitch & !iss->fp_ss)
+    {
+        // Skip current instruction dump since it will be dumped by subsystem
+        iss->trace.skip_insn_dump = true;
+
+        // Register int destination in scoreboard
+        // Scoreboard stall if there's integer operand data dependency.
+        if (REG_IN(0) != 0xFF)
+        {
+            insn->data_arga = REG_GET(0);
+        }
+        // insn->data_argb = REG_GET(1);
+
+        // Record the memory addess for offloaded load/store instrution, 
+        // stall the following instruction which gets access to same memory block.
+        bool lsu_label = strstr(insn->decoder_item->u.insn.label, "flw")
+                    || strstr(insn->decoder_item->u.insn.label, "fsw")
+                    || strstr(insn->decoder_item->u.insn.label, "fld")
+                    || strstr(insn->decoder_item->u.insn.label, "fsd");
+        if (lsu_label)
+        {
+            iss->mem_map = REG_GET(0) + SIM_GET(0);
+            iss->mem_pc = pc;
+            iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "FP instruction memory access address: 0x%llx\n", iss->mem_map);
+        }
+
+        // Send an IO request to check whether the subsystem is ready for offloading.
+        bool acc_req_ready = iss->check_state(insn);
+        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
+
+        // Not increment pc if there's dependency or stall
+        // Implement "return pc" also possible to realize parallelism, can iterate at pc instruction in instr_event,
+        // but lose a bit efficiency because the instruction will be unnecessarily decoded every cycle.
+        // If not ready, stay at current PC and fetch the same instruction next cycle.
+        if (!acc_req_ready) 
+        {
+            iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stall at current instruction\n");
+            // Start from offloading handler directly in the next cycle.
+            return pc;
+        }
+
+        // If ready, send offload request.
+        if (acc_req_ready)
+        {
+            // Pass value related to integer regfile from integer core to subsystem.
+            // Store the pointer of integer register file and scoreboard inside the instruction.
+            insn->reg_addr = &iss->regfile.regs[0];
+            #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            insn->scoreboard_reg_timestamp_addr = &iss->regfile.scoreboard_reg_timestamp[0];
+            #endif
+
+            // Set the integer register to invalid for data dependency, if it's the output of offloading fp instruction.
+            if (!insn->out_regs_fp[0] && insn->out_regs[0] != 0xFF)
+            {
+                #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+                iss->regfile.scoreboard_reg_valid[insn->out_regs[0]] = false;
+                #endif   
+            }
+
+            // Send out request containing the instruction.
+            int stall = iss->handle_req(insn, pc, false);
+
+            iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Total number of stall cycles: %d\n", iss->exec.instr_event.stall_cycle_get());
+        }
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+#endif
+
+    // For integer instructions, check whether all operands are ready before execution.
+    // 1. If the memory access address is written by a previous offloaded load/store instruction, 
+    // check whether that operation has finished. Otherwise, block the integer core.
+    // 2. If one of the input and output operand are invalid in regfile.scoreboard_reg_valid, stall at current pc.
+    // If all operands are ready, continue to execute.
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+static inline iss_reg_t int_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    if (iss->snitch & !iss->fp_ss)
+    {
+        // Check availability in memory access.
+        iss_addr_t mem_map;
+        if(!insn->desc->tags[ISA_TAG_FP_OP_ID])
+        {
+            bool lsu_label = strstr(insn->decoder_item->u.insn.label, "lw")
+                    || strstr(insn->decoder_item->u.insn.label, "sw")
+                    || strstr(insn->decoder_item->u.insn.label, "ld")
+                    || strstr(insn->decoder_item->u.insn.label, "sd");
+            if (lsu_label)
+            {
+                // Get memory address in the load/store instruction
+                mem_map = REG_GET(0) + SIM_GET(0);
+                iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Integer instruction memory access address: 0x%llx\n", mem_map);
+                // Check whether this address is within the range of previous and unfinished offloaded memory access.
+                // If it's dependent and from the same memory address, stall and check again in the next cycle. 
+                if (mem_map >= iss->mem_map & mem_map < (iss->mem_map+0x8))
+                {
+                    return pc;
+                }
+            }
+        }
+
+        // Check availability in register operands.
+        if(!insn->desc->tags[ISA_TAG_FP_OP_ID])
+        {
+            bool src_ready = true;
+            bool dst_ready = true;
+            bool operands_ready;
+
+            int nb_args = insn->decoder_item->u.insn.nb_args;
+            for (int i = 0; i < nb_args; i++)
+            {
+                iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
+                iss_insn_arg_t *insn_arg = &insn->args[i];
+                if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
+                {
+                    if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG)
+                    {
+                        // Check for destination register.
+                        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+                        dst_ready = dst_ready && iss->regfile.scoreboard_reg_valid[insn->out_regs[arg->u.reg.id]];
+                        #endif
+                    }
+                    else if (arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
+                    {
+                        // Check for source registers.
+                        #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
+                        src_ready = src_ready && iss->regfile.scoreboard_reg_valid[insn->in_regs[arg->u.reg.id]];
+                        #endif
+                    }
+                }
+            }
+            operands_ready = src_ready & dst_ready;
+            iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Check whether all operands are ready: %d\n", operands_ready);
+
+            // Stall the stage if we either didn't get all input and output register ready.
+            if (!operands_ready)
+            {
+                return pc;
+            }
+        }
+
+        return insn->resource_handler(iss, insn, pc);
+    }
+    return iss_insn_next(iss, insn, pc);
+
+}
+#endif
+
 int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss_decoder_item_t *item)
 {
     if (!item->is_active)
@@ -107,6 +262,15 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->out_regs[i] = -1;
         insn->in_regs[i] = -1;
     }
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    insn->in_regs_fp[0] = false;
+    insn->in_regs_fp[1] = false;
+    insn->in_regs_fp[2] = false;
+    insn->out_regs_fp[0] = false;
+    insn->out_regs_fp[1] = false;
+    insn->out_regs_fp[2] = false;
+#endif
 
     for (int i = 0; i < item->u.insn.nb_args; i++)
     {
@@ -134,10 +298,16 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_ref(arg->u.reg.index);
+                    #ifdef CONFIG_GVSOC_ISS_SNITCH
+                    insn->in_regs_fp[darg->u.reg.id] = true;
+                    #endif
                 }
                 else
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_ref(arg->u.reg.index);
+                    #ifdef CONFIG_GVSOC_ISS_SNITCH
+                    insn->in_regs_fp[darg->u.reg.id] = false;
+                    #endif
                 }
             }
             else
@@ -145,12 +315,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->u.reg.id >= insn->nb_out_reg)
                     insn->nb_out_reg = darg->u.reg.id + 1;
 
-#ifdef ISS_SINGLE_REGFILE
-                if (arg->u.reg.index == 0)
-#else
                 if (arg->u.reg.index == 0 && !(darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                      && !(darg->flags & ISS_DECODER_ARG_FLAG_VREG))
-#endif
                 {
                     insn->out_regs[darg->u.reg.id] = ISS_NB_REGS;
                 }
@@ -162,16 +328,25 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_store_ref(arg->u.reg.index);
+                    #ifdef CONFIG_GVSOC_ISS_SNITCH
+                    insn->out_regs_fp[darg->u.reg.id] = true;
+                    #endif
                 }
                 else
                 {
                     if (darg->u.reg.id == 0)
                     {
                         insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.reg_store_ref(arg->u.reg.index);
+                        #ifdef CONFIG_GVSOC_ISS_SNITCH
+                        insn->out_regs_fp[darg->u.reg.id] = false;
+                        #endif
                     }
                     else
                     {
                         insn->out_regs_ref[darg->u.reg.id] = &null_reg;
+                        #ifdef CONFIG_GVSOC_ISS_SNITCH
+                        insn->out_regs_fp[darg->u.reg.id] = false;
+                        #endif
                     }
                 }
             }
@@ -270,6 +445,24 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->resource_handler = insn->handler;
         insn->fast_handler = iss_resource_offload;
         insn->handler = iss_resource_offload;
+    }
+#endif
+
+    // For floating point instructions, go to offload handler instead of executing directly.
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    if (this->iss.snitch & !this->iss.fp_ss)
+    {
+        insn->resource_handler = insn->handler;
+        if(insn->desc->tags[ISA_TAG_FP_OP_ID])
+        {
+            insn->fast_handler = fp_offload_exec;
+            insn->handler = fp_offload_exec;
+        }
+        else
+        {
+            insn->fast_handler = int_offload_exec;
+            insn->handler = int_offload_exec;
+        }
     }
 #endif
 

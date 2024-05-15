@@ -63,11 +63,6 @@ public:
     inline void scoreboard_freg_check(int reg);
 #endif
 
-private:
-    Iss &iss;
-
-    vp::ClockEngine *engine;
-
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     int64_t scoreboard_reg_timestamp[ISS_NB_REGS+1];
     int scoreboard_reg_stall_reason[ISS_NB_REGS+1];
@@ -76,4 +71,9 @@ private:
     int scoreboard_freg_stall_reason[ISS_NB_FREGS];
 #endif
 #endif
+
+protected:
+    Iss &iss;
+
+    vp::ClockEngine *engine;
 };

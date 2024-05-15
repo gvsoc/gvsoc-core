@@ -59,6 +59,6 @@ inline void VRegfile::reset(bool active){
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), ssr(*this), spatz(*this), top(top)
+      regfile(*this), mmu(*this), pmp(*this), exception(*this), spatz(*this), top(top)
 {
 }

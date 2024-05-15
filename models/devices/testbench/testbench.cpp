@@ -310,7 +310,10 @@ void Uart::reset(bool active)
     {
         if (this->is_control_active)
         {
-            this->clock->enqueue(this->init_event, 1);
+            if (this->clock != NULL)
+            {
+                this->clock->enqueue(this->init_event, 1);
+            }
         }
     }
 }

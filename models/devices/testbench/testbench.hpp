@@ -509,7 +509,7 @@ public:
     void set_cts(int cts);
 
     uint64_t baudrate;
-    vp::ClockEngine *clock;
+    vp::ClockEngine *clock = NULL;
     vp::ClockEngine *tx_clock;
 
     int tx_parity_en = 0;

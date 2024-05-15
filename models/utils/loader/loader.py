@@ -61,7 +61,11 @@ class ElfLoader(gvsoc.systree.Component):
 
         if entry is not None:
             self.add_properties({
-                'entry': entry,
+                'entry': entry
+            })
+
+        if entry_addr is not None:
+            self.add_properties({
                 'entry_addr': entry_addr
             })
 

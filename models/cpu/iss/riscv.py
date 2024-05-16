@@ -91,7 +91,7 @@ class RiscvCommon(st.Component):
             handle_misaligned=False,
             external_pccr=False,
             htif=False,
-            custom_sources=False):
+            custom_sources=False,
             memcheck_nb_memory=0):
 
         super().__init__(parent, name)

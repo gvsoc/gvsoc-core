@@ -46,6 +46,10 @@ private:
     vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *check_data);
     vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
         vp::IoReqOpcode opcode, int initiator, uint8_t *in_check_data, uint8_t *out_check_data);
+    // Check if an access to the specified offset falls into a valid buffer
+    bool memcheck_is_valid_address(uint64_t offset);
+    // In case of a faulting access, find the closest valid buffer to the offset
+    void memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance, uint64_t &buffer_offset, uint64_t &buffer_size);
 
     vp::Trace trace;
     vp::IoSlave in;
@@ -338,6 +342,102 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
 }
 
 
+bool Memory::memcheck_is_valid_address(uint64_t offset)
+{
+    // Valid bytes are monitored through an array, one bit per byte
+    size_t valid_byte = offset >> 3;
+    int valid_bit = offset & 0x7;
+    return (this->memcheck_valid_flags[valid_byte] >> valid_bit) & 1;
+}
+
+void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
+    uint64_t &buffer_offset, uint64_t &buffer_size)
+{
+    // First go through the memory in descending order from the current offset to see if we find a
+    // valid buffer before the offset
+    uint64_t valid_before_offset;
+    uint64_t valid_before_offset_last;
+    uint64_t distance_before = 0;
+    if (offset > 0)
+    {
+        uint64_t current_offset = offset;
+
+        // First look for the first valid bit to get end of buffer
+        do
+        {
+            current_offset--;
+
+            if (this->memcheck_is_valid_address(current_offset))
+            {
+                valid_before_offset_last = current_offset;
+                valid_before_offset = current_offset;
+                distance_before = offset - current_offset;
+                break;
+            }
+        } while (current_offset != 0);
+
+        // And then for the first invalid bit to get start of buffer
+        if (current_offset > 0)
+        {
+            do
+            {
+                current_offset--;
+                if (this->memcheck_is_valid_address(current_offset))
+                {
+                    valid_before_offset = current_offset;
+                }
+                else
+                {
+                    break;
+                }
+            } while (current_offset != 0);
+        }
+    }
+
+    // First go through the memory in ascending order from the current offset to see if we find a
+    // valid buffer after the offset
+    uint64_t valid_after_offset;
+    uint64_t valid_after_offset_last;
+    uint64_t distance_after = 0;
+    // First look for the first valid bit to get start of buffer
+    for (uint64_t current_offset = offset; current_offset<this->size; current_offset++)
+    {
+        if (this->memcheck_is_valid_address(current_offset))
+        {
+            valid_after_offset = current_offset;
+            valid_after_offset_last = current_offset;
+            distance_after = current_offset - offset;
+            break;
+        }
+    }
+
+    // And then for the first invalid bit to get end of buffer
+    for (uint64_t current_offset = valid_after_offset; current_offset<this->size; current_offset++)
+    {
+        if (this->memcheck_is_valid_address(current_offset))
+        {
+            valid_after_offset_last = current_offset;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // Finally return the one which is closer
+    if (distance_before == 0 || distance_after < distance_before)
+    {
+        distance = distance_after;
+        buffer_offset = valid_after_offset;
+        buffer_size = valid_after_offset_last - valid_after_offset + 1;
+    }
+    else
+    {
+        distance = distance_before;
+        buffer_offset = valid_before_offset;
+        buffer_size = valid_before_offset_last - valid_before_offset + 1;
+    }
+}
 
 vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_check_data)
 {
@@ -352,18 +452,27 @@ vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *dat
 
     if (this->memcheck_valid_flags != NULL)
     {
+        // Go through all bytes of the access to see if one is not valid
         for (int i=0; i<size; i++)
         {
-            uint64_t valid_offset = offset + i;
-            int valid_byte = valid_offset >> 3;
-            int valid_bit = valid_offset & 0x7;
-            bool is_valid = (this->memcheck_valid_flags[valid_byte] >> valid_bit) & 1;
+            uint64_t current_offset = offset + i;
+            bool is_valid = this->memcheck_is_valid_address(current_offset);
 
             if (!is_valid)
             {
+                // If not, get the closest valid buffer and throw a warning to help the user
+                // understand better the overflow
+                uint64_t buffer_offset, buffer_size, distance;
+                this->memcheck_find_closest_buffer(current_offset, distance, buffer_offset, buffer_size);
+
                 this->trace.force_warning_no_error("Read access outside buffer "
-                    "(offset: 0x%x)\n",
-                    valid_offset);
+                    "(offset: 0x%x)\n", current_offset);
+
+                bool is_before = buffer_offset > current_offset;
+
+                this->trace.force_warning_no_error("Access is %ld byte(s) %s buffer (buffer_offset: 0x%lx, buffer_size: 0x%lx)\n",
+                    distance, is_before ? "before" : "after", buffer_offset, buffer_size);
+
                 return vp::IO_REQ_INVALID;
             }
         }
@@ -520,6 +629,10 @@ void Memory::meminfo_sync(vp::Block *__this, void *value)
 void Memory::memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info)
 {
     Memory *_this = (Memory *)__this;
+
+    _this->trace.msg(vp::Trace::LEVEL_INFO, "%s valid buffer (offset: 0x%lx, size: 0x%lx)\n",
+        info->enable ? "Adding" : "Removing", info->base, info->size);
+
     for (int i=0; i<info->size; i++)
     {
         uint64_t offset = info->base + i;

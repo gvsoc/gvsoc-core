@@ -124,8 +124,6 @@ iss_reg_t MemcheckMemory::alloc(iss_reg_t ptr, iss_reg_t size)
     iss_reg_t virtual_offset = (ptr - this->base) * this->top->expansion_factor + size * (this->top->expansion_factor  / 2) ;
     iss_reg_t virtual_ptr = virtual_offset + this->virtual_base;
 
-    printf("%x %x %x %x\n", ptr, ptr - this->base, (ptr - this->base) * this->top->expansion_factor, (ptr - this->base) * this->top->expansion_factor + size * (this->top->expansion_factor  / 2));
-
     MemoryMemcheckBuffer info = { .enable=true, .base=virtual_offset,
         .size=size};
     this->top->mem_itfs[this->mem_id].sync(&info);

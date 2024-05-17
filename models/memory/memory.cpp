@@ -180,7 +180,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();
 
-    _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
+    _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d, op: %d)\n", offset, size, req->get_is_write(), req->get_opcode());
 
     req->inc_latency(_this->latency);
 
@@ -358,7 +358,9 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
             is_write = false;
             break;
         case vp::IoReqOpcode::SC:
-            if (this->res_table[initiator] == addr)
+        {
+            auto it = this->res_table.find(initiator);
+            if (it != this->res_table.end() && it->second == addr)
             {
                 // Valid reservation --> clear all others as we are going to write
                 for (auto &it : this->res_table) {
@@ -376,6 +378,7 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
                 prev_val = 1;
             }
             break;
+        }
         case vp::IoReqOpcode::SWAP:
             result = operand;
             break;

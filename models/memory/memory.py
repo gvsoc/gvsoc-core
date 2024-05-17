@@ -48,12 +48,19 @@ class Memory(gvsoc.systree.Component):
         should be set to True only if needed.
     latency: int
         Specify extra latency which will be added to any incoming request.
-    is_memcheck: bool
-        True if this memory is used to track buffer overflow.
+    memcheck_id: int
+        If this memory is used to track buffer overflow, this gives the global memory check id.
+    memcheck_base: int
+        Absolute base of memory where buffer overflow is tracked.
+    memcheck_virtual_base: int
+        Absolute virtual base of allocated buffers.
+    memcheck_expansion_factor: int
+        Extra size used to track buffer overflow.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=2,
             stim_file: str=None, power_trigger: bool=False,
-            align: int=0, atomics: bool=False, latency=0, is_memcheck: bool=False):
+            align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
+            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5):
 
         super().__init__(parent, name)
 
@@ -72,7 +79,10 @@ class Memory(gvsoc.systree.Component):
             'width_bits': width_log2,
             'align': align,
             'latency': latency,
-            'is_memcheck': is_memcheck
+            'memcheck_id': memcheck_id,
+            'memcheck_base': memcheck_base,
+            'memcheck_virtual_base': memcheck_virtual_base,
+            'memcheck_expansion_factor': memcheck_expansion_factor,
         })
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

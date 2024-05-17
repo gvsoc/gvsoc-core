@@ -44,8 +44,6 @@ extern "C" {
 #define SEMIHOSTING_GV_ISS_DUMP_REG_STOP      0x10F
 #define SEMIHOSTING_GV_ISS_DUMP_STRING        0x110
 #define SEMIHOSTING_GV_ISS_DUMP_STRING_STOP   0x111
-#define SEMIHOSTING_GV_MEMCHECK_MEM_OPEN      0x112
-#define SEMIHOSTING_GV_MEMCHECK_MEM_CLOSE     0x113
 #define SEMIHOSTING_GV_MEMCHECK_MEM_ALLOC     0x114
 #define SEMIHOSTING_GV_MEMCHECK_MEM_FREE      0x115
 
@@ -532,17 +530,6 @@ static inline void gv_vcd_dump_trace_string(int trace, char *str) {
 /**@{*/
 
 //!@}
-
-static inline void gv_memcheck_mem_open(int mem_id, void *base, size_t size, void *virtual_base)
-{
-    gvsoc_semihost_5args(SEMIHOSTING_GV_MEMCHECK_MEM_OPEN,
-        mem_id, (uint32_t)base, (uint32_t)size, (uint32_t)virtual_base);
-}
-
-static inline void gv_memcheck_mem_close(int mem_id)
-{
-    gvsoc_semihost_2args(SEMIHOSTING_GV_MEMCHECK_MEM_CLOSE, mem_id);
-}
 
 static inline void *gv_memcheck_mem_alloc(int mem_id, void *ptr, size_t size)
 {

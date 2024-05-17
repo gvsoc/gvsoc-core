@@ -361,13 +361,13 @@ inline void Regfile::memcheck_shift_right_signed(int out_reg, int in_reg, int sh
 {
     // When shifting, keep the valid bit for bits being shifted
     iss_reg_t in_reg_valid = this->memcheck_get(in_reg);
-    in_reg_valid = (in_reg_valid >> shift);
+    iss_reg_t new_in_reg_valid = (in_reg_valid >> shift);
 
     // Then introduce new valid ones from the left only if sign bit is valid
     if ((in_reg_valid >> (sizeof(iss_reg_t) * 8 - 1)) & 1)
     {
-        in_reg_valid |= (((1 << shift) - 1) << (sizeof(iss_reg_t) * 8 - shift));
+        new_in_reg_valid |= (((1 << shift) - 1) << (sizeof(iss_reg_t) * 8 - shift));
     }
 
-    this->memcheck_set(out_reg, in_reg_valid);
+    this->memcheck_set(out_reg, new_in_reg_valid);
 }

@@ -37,6 +37,9 @@ public:
 
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
+    uint64_t memcheck_alloc(uint64_t ptr, uint64_t size);
+    uint64_t memcheck_free(uint64_t ptr, uint64_t size);
+
 private:
     static void power_ctrl_sync(vp::Block *__this, bool value);
     static void meminfo_sync_back(vp::Block *__this, void **value);
@@ -50,6 +53,7 @@ private:
     bool memcheck_is_valid_address(uint64_t offset);
     // In case of a faulting access, find the closest valid buffer to the offset
     void memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance, uint64_t &buffer_offset, uint64_t &buffer_size);
+    void memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable);
 
     vp::Trace trace;
     vp::IoSlave in;
@@ -86,6 +90,10 @@ private:
 
     // Load-reserved reservation table
     std::map<uint64_t, uint64_t> res_table;
+
+    uint64_t memcheck_base;
+    uint64_t memcheck_virtual_base;
+    uint64_t memcheck_expansion_factor;
 };
 
 
@@ -151,10 +159,18 @@ Memory::Memory(vp::ComponentConf &config)
         this->check_data = (uint8_t *)calloc(size, 1);
         if (this->check_data == NULL) throw std::bad_alloc();
 
-        if (this->get_js_config()->get_child_bool("is_memcheck"))
+        int memcheck_id = this->get_js_config()->get_child_int("memcheck_id");
+        if (memcheck_id != -1)
         {
+            this->new_service("memcheck_memory" + std::to_string(memcheck_id),
+                new MemoryMemcheck((void *)this));
+
             this->memcheck_valid_flags = (uint8_t *)calloc((size + 7) / 8, 1);
             if (this->memcheck_valid_flags == NULL) throw std::bad_alloc();
+
+            this->memcheck_base = this->get_js_config()->get_child_int("memcheck_base");
+            this->memcheck_virtual_base = this->get_js_config()->get_child_int("memcheck_virtual_base");
+            this->memcheck_expansion_factor = this->get_js_config()->get_child_int("memcheck_expansion_factor");
         }
     }
 
@@ -625,28 +641,94 @@ void Memory::meminfo_sync(vp::Block *__this, void *value)
 
 void Memory::memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info)
 {
-    Memory *_this = (Memory *)__this;
 
-    _this->trace.msg(vp::Trace::LEVEL_INFO, "%s valid buffer (offset: 0x%lx, size: 0x%lx)\n",
-        info->enable ? "Adding" : "Removing", info->base, info->size);
-
-    for (int i=0; i<info->size; i++)
-    {
-        uint64_t offset = info->base + i;
-        int valid_byte = offset >> 3;
-        int valid_bit = offset & 0x7;
-        if (info->enable)
-        {
-            _this->memcheck_valid_flags[valid_byte] |= 1 << valid_bit;
-        }
-        else
-        {
-            _this->memcheck_valid_flags[valid_byte] &= ~(1 << valid_bit);
-        }
-
-    }
 }
 
+
+void Memory::memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    if (this->memcheck_valid_flags != NULL)
+    {
+        this->trace.msg(vp::Trace::LEVEL_INFO, "%s valid buffer (offset: 0x%lx, size: 0x%lx)\n",
+            enable ? "Adding" : "Removing", base, size);
+
+        if (base + size >= this->size)
+        {
+            this->trace.force_warning("Trying to %s invalid buffer  (offset: 0x%lx, size: 0x%lx, mem_size: 0x%lx)\n",
+                enable ? "add" : "remove", base, size, this->size);
+            return;
+        }
+
+        for (int i=0; i<size; i++)
+        {
+            uint64_t offset = base + i;
+            int valid_byte = offset >> 3;
+            int valid_bit = offset & 0x7;
+            if (enable)
+            {
+                this->memcheck_valid_flags[valid_byte] |= 1 << valid_bit;
+            }
+            else
+            {
+                this->memcheck_valid_flags[valid_byte] &= ~(1 << valid_bit);
+            }
+        }
+    }
+#endif
+}
+
+uint64_t Memory::memcheck_alloc(uint64_t ptr, uint64_t size)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    if (this->memcheck_valid_flags != NULL)
+    {
+        uint64_t virtual_offset = (ptr - this->memcheck_base) * this->memcheck_expansion_factor +
+            size * (this->memcheck_expansion_factor  / 2) ;
+        uint64_t virtual_ptr = virtual_offset + this->memcheck_virtual_base;
+
+        this->memcheck_buffer_setup(virtual_offset, size, true);
+
+        return virtual_ptr;
+    }
+#endif
+
+    return ptr;
+}
+
+uint64_t Memory::memcheck_free(uint64_t virtual_ptr, uint64_t size)
+{
+#ifdef VP_MEMCHECK_ACTIVE
+    if (this->memcheck_valid_flags != NULL)
+    {
+        uint64_t virtual_offset = virtual_ptr - this->memcheck_virtual_base;
+        uint64_t offset = (virtual_offset - size * (this->memcheck_expansion_factor  / 2)) / this->memcheck_expansion_factor + this->memcheck_base;
+
+        this->memcheck_buffer_setup(virtual_offset, size, false);
+
+        return offset;
+    }
+#endif
+
+    return virtual_ptr;
+}
+
+uint64_t MemoryMemcheck::alloc(uint64_t ptr, uint64_t size)
+{
+    Memory *memory = (Memory *)this->data;
+    return memory->memcheck_alloc(ptr, size);
+}
+
+uint64_t MemoryMemcheck::free(uint64_t ptr, uint64_t size)
+{
+    Memory *memory = (Memory *)this->data;
+    return memory->memcheck_free(ptr, size);
+}
+
+MemoryMemcheck::MemoryMemcheck(void *data)
+{
+    this->data = data;
+}
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {

@@ -24,6 +24,18 @@
 #include <stdint.h>
 
 
+class MemoryMemcheck
+{
+public:
+    MemoryMemcheck(void *data);
+    uint64_t alloc(uint64_t offset, uint64_t size);
+    uint64_t free(uint64_t offset, uint64_t size);
+
+private:
+    void *data;
+};
+
+
 class MemoryMemcheckBuffer
 {
 public:

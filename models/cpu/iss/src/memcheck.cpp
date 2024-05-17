@@ -37,108 +37,67 @@ Memcheck::Memcheck(IssWrapper &top, Iss &iss)
     }
 }
 
-void Memcheck::mem_open(iss_reg_t mem_id, iss_reg_t base, iss_reg_t size,
-    iss_reg_t virtual_base)
+
+MemoryMemcheck *Memcheck::get_memory(iss_reg_t mem_id)
 {
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Memory open (id: %d, base: 0x%x, size: 0x%x, "
-        "virtual_base: 0x%x, expansion factor: %d)\n",
-        mem_id, base, size, virtual_base, this->expansion_factor);
-
-    if (this->memories.count(mem_id) > 0)
-    {
-        this->trace.force_warning("Trying to open already opened memory (id: %d)\n", mem_id);
-        return;
-    }
-
-    if (mem_id >= this->nb_mem_itf)
-    {
-        this->trace.force_warning("Trying to open invalid memory (id: %d, nb_memories: %d)\n",
-            mem_id, this->nb_mem_itf);
-        return;
-    }
-
-    this->memories[mem_id] = new MemcheckMemory(this, mem_id, base, size, virtual_base);
-}
-
-void Memcheck::mem_close(iss_reg_t mem_id)
-{
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Memory close (id: %d)\n", mem_id);
-
     if (this->memories.count(mem_id) == 0)
     {
-        this->trace.force_warning("Trying to close invalid memory (id: %d)\n", mem_id);
-        return;
+        MemoryMemcheck *memory = (MemoryMemcheck *)this->iss.top.get_service(
+            "memcheck_memory" + std::to_string(mem_id));
+        if (memory == NULL) return NULL;
+
+        this->memories[mem_id] = memory;
     }
 
-    delete this->memories[mem_id];
-    this->memories.erase(mem_id);
+    return this->memories[mem_id];
 }
 
 iss_reg_t Memcheck::mem_alloc(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size)
 {
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Memory alloc (id: %d, ptr: 0x%x, size: 0x%x)\n",
-        mem_id, ptr, size);
-
-    if (this->memories.count(mem_id) == 0)
+    if (this->iss.top.traces.get_trace_engine()->is_memcheck_enabled())
     {
-        this->trace.force_warning("Trying to alloc from invalid memory (id: %d)\n", mem_id);
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Memory alloc (id: %d, ptr: 0x%x, size: 0x%x)\n",
+            mem_id, ptr, size);
+
+        MemoryMemcheck *memory = this->get_memory(mem_id);
+        if (memory == NULL)
+        {
+            this->trace.force_warning("Trying to alloc from invalid memory (id: %d)\n", mem_id);
+            return ptr;
+        }
+
+        iss_reg_t virtual_ptr = memory->alloc(ptr, size);
+
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Translated to virtual address (id: %d, virtual_ptr: 0x%x)\n",
+            mem_id, virtual_ptr);
+
+        return virtual_ptr;
+    }
+
+    return ptr;
+}
+
+iss_reg_t Memcheck::mem_free(iss_reg_t mem_id, iss_reg_t virtual_ptr, iss_reg_t size)
+{
+    if (this->iss.top.traces.get_trace_engine()->is_memcheck_enabled())
+    {
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Memory free (id: %d, ptr: 0x%x, size: 0x%x)\n",
+            mem_id, virtual_ptr, size);
+
+        MemoryMemcheck *memory = this->get_memory(mem_id);
+        if (memory == NULL)
+        {
+            this->trace.force_warning("Trying to free from invalid memory (id: %d)\n", mem_id);
+            return virtual_ptr;
+        }
+
+        iss_reg_t ptr = memory->free(virtual_ptr, size);
+
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Translated to physical address (id: %d, ptr: 0x%x)\n",
+            mem_id, ptr);
+
         return ptr;
     }
 
-    iss_reg_t virtual_ptr = this->memories[mem_id]->alloc(ptr, size);
-
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Translated to virtual address (id: %d, virtual_ptr: 0x%x)\n",
-        mem_id, virtual_ptr);
-
     return virtual_ptr;
-}
-
-iss_reg_t Memcheck::mem_free(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size)
-{
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Memory free (id: %d, ptr: 0x%x, size: 0x%x)\n",
-        mem_id, ptr, size);
-
-    if (this->memories.count(mem_id) == 0)
-    {
-        this->trace.force_warning("Trying to free from invalid memory (id: %d)\n", mem_id);
-        return ptr;
-    }
-
-    return this->memories[mem_id]->free(ptr, size);
-}
-
-
-MemcheckMemory::MemcheckMemory(Memcheck *top, iss_reg_t mem_id, iss_reg_t base, iss_reg_t size,
-    iss_reg_t virtual_base)
-{
-    this->top = top;
-    this->mem_id = mem_id;
-    this->base = base;
-    this->size = size;
-    this->virtual_base = virtual_base;
-}
-
-
-iss_reg_t MemcheckMemory::alloc(iss_reg_t ptr, iss_reg_t size)
-{
-    iss_reg_t virtual_offset = (ptr - this->base) * this->top->expansion_factor + size * (this->top->expansion_factor  / 2) ;
-    iss_reg_t virtual_ptr = virtual_offset + this->virtual_base;
-
-    MemoryMemcheckBuffer info = { .enable=true, .base=virtual_offset,
-        .size=size};
-    this->top->mem_itfs[this->mem_id].sync(&info);
-
-    return virtual_ptr;
-}
-
-iss_reg_t MemcheckMemory::free(iss_reg_t virtual_ptr, iss_reg_t size)
-{
-    iss_reg_t virtual_offset = virtual_ptr - this->virtual_base;
-    iss_reg_t offset = (virtual_offset - size * (this->top->expansion_factor  / 2)) / this->top->expansion_factor + this->base;
-
-    MemoryMemcheckBuffer info = { .enable=false, .base=virtual_offset,
-        .size=size};
-    this->top->mem_itfs[this->mem_id].sync(&info);
-
-    return offset;
 }

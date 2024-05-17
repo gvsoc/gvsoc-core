@@ -25,41 +25,22 @@
 #include <cpu/iss/include/types.hpp>
 #include <memory/memory_memcheck.hpp>
 
-class Memcheck;
-
-
-class MemcheckMemory
-{
-public:
-    MemcheckMemory(Memcheck *top, iss_reg_t mem_id, iss_reg_t base, iss_reg_t size, iss_reg_t virtual_base);
-    iss_reg_t alloc(iss_reg_t ptr, iss_reg_t size);
-    iss_reg_t free(iss_reg_t ptr, iss_reg_t size);
-private:
-    Memcheck *top;
-    iss_reg_t mem_id;
-    iss_reg_t base;
-    iss_reg_t size;
-    iss_reg_t virtual_base;
-};
-
 class Memcheck
 {
-    friend class MemcheckMemory;
-
 public:
     Memcheck(IssWrapper &top, Iss &iss);
-    void mem_open(iss_reg_t mem_id, iss_reg_t base, iss_reg_t size, iss_reg_t virtual_base);
-    void mem_close(iss_reg_t mem_id);
     iss_reg_t mem_alloc(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size);
     iss_reg_t mem_free(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size);
 
 private:
+    MemoryMemcheck *get_memory(iss_reg_t mem_id);
+
     Iss &iss;
     vp::Trace trace;
 
     int nb_mem_itf;
     int expansion_factor;
 
-    std::map<iss_reg_t, MemcheckMemory *> memories;
+    std::map<iss_reg_t, MemoryMemcheck *> memories;
     std::vector<vp::WireMaster<MemoryMemcheckBuffer *>> mem_itfs;
 };

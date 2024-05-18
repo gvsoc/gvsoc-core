@@ -23,7 +23,7 @@
 #include <vp/signal.hpp>
 #include <vp/time/block_time.hpp>
 #include <vp/time/time_event.hpp>
-
+#include <algorithm>
 
 vp::BlockTime::BlockTime(vp::Block *parent, vp::Block &top, vp::TimeEngine *engine) : top(top), time_engine(engine)
 {

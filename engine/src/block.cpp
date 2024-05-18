@@ -22,6 +22,7 @@
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/register.hpp>
+#include <algorithm>
 
 vp::BlockObject::BlockObject(Block &parent)
 {

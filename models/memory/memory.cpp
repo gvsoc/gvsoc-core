@@ -165,12 +165,13 @@ Memory::Memory(vp::ComponentConf &config)
             this->new_service("memcheck_memory" + std::to_string(memcheck_id),
                 new MemoryMemcheck((void *)this));
 
-            this->memcheck_valid_flags = (uint8_t *)calloc((size + 7) / 8, 1);
+            this->memcheck_expansion_factor = this->get_js_config()->get_child_int("memcheck_expansion_factor");
+            int memcheck_size = size * this->memcheck_expansion_factor;
+            this->memcheck_valid_flags = (uint8_t *)calloc((memcheck_size + 7) / 8, 1);
             if (this->memcheck_valid_flags == NULL) throw std::bad_alloc();
 
             this->memcheck_base = this->get_js_config()->get_child_int("memcheck_base");
             this->memcheck_virtual_base = this->get_js_config()->get_child_int("memcheck_virtual_base");
-            this->memcheck_expansion_factor = this->get_js_config()->get_child_int("memcheck_expansion_factor");
         }
     }
 
@@ -653,7 +654,7 @@ void Memory::memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable)
         this->trace.msg(vp::Trace::LEVEL_INFO, "%s valid buffer (offset: 0x%lx, size: 0x%lx)\n",
             enable ? "Adding" : "Removing", base, size);
 
-        if (base + size >= this->size)
+        if (base + size >= this->size * this->memcheck_expansion_factor)
         {
             this->trace.force_warning("Trying to %s invalid buffer  (offset: 0x%lx, size: 0x%lx, mem_size: 0x%lx)\n",
                 enable ? "add" : "remove", base, size, this->size);

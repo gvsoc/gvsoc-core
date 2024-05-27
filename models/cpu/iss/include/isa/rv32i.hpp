@@ -83,6 +83,10 @@ static inline void jal_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t jalr_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc, int perf)
 {
+    // We produce a value in output register computed from the PC which is always
+    // considered as valid
+    iss->regfile.memcheck_set(REG_OUT(0), -1);
+
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
     iss_reg_t next_pc = (insn->sim[0] + iss->regfile.get_reg(insn->in_regs[0])) & ~1;

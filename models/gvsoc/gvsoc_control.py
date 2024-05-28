@@ -829,6 +829,17 @@ class Testbench_uart(object):
         """
         self.callback = None
 
+    def flush(self):
+        req = self.proxy._get_req()
+        cmd = 'component %s uart flush %d %d' % (self.testbench, self.id, req)
+        self.proxy._send_cmd(cmd)
+        self.proxy.reader.wait_reply(req)
+
+    def clear(self):
+        self.lock.acquire()
+        self.pending_rx_bytes = bytearray()
+        self.lock.release()
+
 
 class Testbench_i2s(object):
     """Class instantiated for each manipulated SAI.

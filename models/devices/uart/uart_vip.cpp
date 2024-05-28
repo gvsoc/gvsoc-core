@@ -70,6 +70,8 @@ private:
     static void rx_sample_handler(vp::Block *__this, vp::TimeEvent *event);
     static void tx_send_handler(vp::Block *__this, vp::TimeEvent *event);
 
+    void pending_flush_check();
+
     vp::Trace trace;
 
     vp::UartSlave in;
@@ -92,6 +94,7 @@ private:
     uint8_t rx_pending_byte;
     int rx_parity;
     FILE *rx_proxy_file=NULL;
+    FILE *pending_flush_proxy_file=NULL;
     int rx_req_id;
 
     vp::TimeEvent tx_send_bit_event;
@@ -101,6 +104,8 @@ private:
     int tx_pending_bits;
     uint8_t tx_pending_byte;
     int tx_bit;
+
+    int pending_flush_req_id = -1;
 };
 
 
@@ -156,6 +161,7 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
 
     if (args[0] == "uart")
     {
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Received commands (command: %s)\n", args[1].c_str());
         if (args[1] == "setup")
         {
             std::vector<std::string> params = {args.begin() + 2, args.end()};
@@ -235,6 +241,18 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
                 this->rx_proxy_file = NULL;
             }
         }
+        else if (args[1] == "flush")
+        {
+            int req = strtol(args[3].c_str(), NULL, 0);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received flush request\n");
+
+            fprintf(stderr, "FLUSHING %d\n\n\n\n", req);
+
+            this->pending_flush_proxy_file = reply_file;
+            this->pending_flush_req_id = req;
+
+            this->pending_flush_check();
+        }
         return "err=0";
     }
     else
@@ -243,7 +261,17 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
     }
 }
 
-
+void UartVip::pending_flush_check()
+{
+    if (this->pending_flush_req_id != -1 && this->tx_queue.empty())
+    {
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Flush done\n");
+        printf("FLUSH REPLY\n");
+        this->proxy->send_payload(this->pending_flush_proxy_file, std::to_string(this->pending_flush_req_id),
+            NULL, 0);
+        this->pending_flush_req_id = -1;
+    }
+}
 
 void UartVip::sync(vp::Block *__this, int data)
 {
@@ -372,6 +400,7 @@ void UartVip::sample_rx_bit()
 
 void UartVip::send_byte(uint8_t byte)
 {
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Pushing TX byte to queue (value: 0x%x)\n", byte);
     this->tx_queue.push(byte);
 
     if (this->tx_state == UART_TX_STATE_IDLE)
@@ -446,6 +475,7 @@ void UartVip::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)
                 if (_this->tx_queue.empty())
                 {
                     _this->tx_state = UART_TX_STATE_IDLE;
+                    _this->pending_flush_check();
                 }
                 else
                 {

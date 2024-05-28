@@ -246,8 +246,6 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
             int req = strtol(args[3].c_str(), NULL, 0);
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Received flush request\n");
 
-            fprintf(stderr, "FLUSHING %d\n\n\n\n", req);
-
             this->pending_flush_proxy_file = reply_file;
             this->pending_flush_req_id = req;
 
@@ -266,7 +264,6 @@ void UartVip::pending_flush_check()
     if (this->pending_flush_req_id != -1 && this->tx_queue.empty())
     {
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Flush done\n");
-        printf("FLUSH REPLY\n");
         this->proxy->send_payload(this->pending_flush_proxy_file, std::to_string(this->pending_flush_req_id),
             NULL, 0);
         this->pending_flush_req_id = -1;

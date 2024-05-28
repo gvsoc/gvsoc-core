@@ -491,6 +491,11 @@ uint32_t Rx_stream_wav::get_sample(int channel)
 
     this->pending_channels &= ~(1 << channel);
     int32_t result = this->items[channel] >> (32 - this->width);
+    if(this->width < 24)
+    {
+        int shift = 24 - this->width;
+        result = result << shift;
+    }
 
     return result;
 #else

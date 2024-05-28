@@ -52,7 +52,7 @@ void sigma_delta_modulator(int32_t input,int32_t *output, int64_t *delay_line)
     int8_t  loopback_gain_shift_right = 8;
     int32_t forward_coefficient[CRFB_ORDER+1] = {5540, 70669, 458739, 2098672, 4665325, 8388608};
     int32_t *feedback_coefficient = forward_coefficient;
-    int8_t pdm_scaling_left_shift = PRECISION+SHIFT_12dB; // to allow full-scale - 12dB
+    int8_t pdm_scaling_left_shift = PRECISION+SHIFT_12dB-1; // to allow full-scale - 12dB
     cascade_of_resonator_feedforward(input, output, forward_coefficient, feedback_coefficient, loopback_gain,loopback_gain_shift_right, pdm_scaling_left_shift , delay_line);
 
     }

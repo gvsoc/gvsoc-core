@@ -138,6 +138,9 @@ with open(args.input, 'r') as fd:
 
     for line in fd.readlines():
 
+        if started and line.find('Hierarchy') != -1:
+            break
+
         if line.find('----------------------------------------------------------------------------------') == 0:
             started = True
             continue

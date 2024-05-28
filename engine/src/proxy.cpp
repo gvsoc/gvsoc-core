@@ -84,9 +84,17 @@ void gv::GvProxy::send_reply(std::string msg)
 bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size)
 {
     fprintf(reply_file, "req=%s;payload=%d\n", req.c_str(), size);
-    int write_size = fwrite(payload, 1, size, reply_file);
-    fflush(reply_file);
-    return write_size != size;
+    if (size > 0)
+    {
+        int write_size = fwrite(payload, 1, size, reply_file);
+        fflush(reply_file);
+        return write_size != size;
+    }
+    else
+    {
+        fflush(reply_file);
+        return false;
+    }
 }
 
 

@@ -145,7 +145,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *check_dat
     req->set_is_write(is_write);
     req->set_data(data_ptr);
 #ifdef VP_MEMCHECK_ACTIVE
-    if (!is_write)
+    if (!is_write && check_data)
     {
         memset(check_data, 0xFF, size);
     }

@@ -53,49 +53,49 @@ class Xf16(IsaSubset):
     def __init__(self):
         super().__init__(name='f16', instrs=[
 
-            Instr('flh',       Format_FL, '------- ----- ----- 001 ----- 0000111', tags=["load"]),
-            Instr('fsh',       Format_FS, '------- ----- ----- 001 ----- 0100111'),
+            Instr('flh',       Format_FL, '------- ----- ----- 001 ----- 0000111', tags=["load", 'fp_op']),
+            Instr('fsh',       Format_FS, '------- ----- ----- 001 ----- 0100111', tags=['fp_op']),
 
-            Instr('fmadd.h',   Format_R4U,'-----10 ----- ----- --- ----- 1000011', tags=['sfmadd']),
-            Instr('fmsub.h',   Format_R4U,'-----10 ----- ----- --- ----- 1000111', tags=['sfmadd']),
-            Instr('fnmsub.h',  Format_R4U,'-----10 ----- ----- --- ----- 1001011', tags=['sfmadd']),
-            Instr('fnmadd.h',  Format_R4U,'-----10 ----- ----- --- ----- 1001111', tags=['sfmadd']),
+            Instr('fmadd.h',   Format_R4U,'-----10 ----- ----- --- ----- 1000011', tags=['sfmadd', 'fp_op']),
+            Instr('fmsub.h',   Format_R4U,'-----10 ----- ----- --- ----- 1000111', tags=['sfmadd', 'fp_op']),
+            Instr('fnmsub.h',  Format_R4U,'-----10 ----- ----- --- ----- 1001011', tags=['sfmadd', 'fp_op']),
+            Instr('fnmadd.h',  Format_R4U,'-----10 ----- ----- --- ----- 1001111', tags=['sfmadd', 'fp_op']),
 
-            Instr('fadd.h',    Format_RF, '0000010 ----- ----- --- ----- 1010011', tags=['sfadd']),
-            Instr('fsub.h',    Format_RF, '0000110 ----- ----- --- ----- 1010011', tags=['sfadd']),
-            Instr('fmul.h',    Format_RF, '0001010 ----- ----- --- ----- 1010011', tags=['sfmul']),
-            Instr('fdiv.h',    Format_RF, '0001110 ----- ----- --- ----- 1010011', tags=['sfdiv']),
-            Instr('fsqrt.h',  Format_R2F3,'0101110 00000 ----- --- ----- 1010011', tags=['sfdiv']),
+            Instr('fadd.h',    Format_RF, '0000010 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
+            Instr('fsub.h',    Format_RF, '0000110 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
+            Instr('fmul.h',    Format_RF, '0001010 ----- ----- --- ----- 1010011', tags=['sfmul', 'fp_op']),
+            Instr('fdiv.h',    Format_RF, '0001110 ----- ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
+            Instr('fsqrt.h',  Format_R2F3,'0101110 00000 ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
 
-            Instr('fsgnj.h',   Format_RF, '0010010 ----- ----- 000 ----- 1010011', tags=['sfconv']),
-            Instr('fsgnjn.h',  Format_RF, '0010010 ----- ----- 001 ----- 1010011', tags=['sfconv']),
-            Instr('fsgnjx.h',  Format_RF, '0010010 ----- ----- 010 ----- 1010011', tags=['sfconv']),
+            Instr('fsgnj.h',   Format_RF, '0010010 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnjn.h',  Format_RF, '0010010 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnjx.h',  Format_RF, '0010010 ----- ----- 010 ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('fmin.h',    Format_RF, '0010110 ----- ----- 000 ----- 1010011', tags=['sfconv']),
-            Instr('fmax.h',    Format_RF, '0010110 ----- ----- 001 ----- 1010011', tags=['sfconv']),
+            Instr('fmin.h',    Format_RF, '0010110 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fmax.h',    Format_RF, '0010110 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('feq.h',    Format_RF2, '1010010 ----- ----- 010 ----- 1010011', tags=['sfother']),
-            Instr('flt.h',    Format_RF2, '1010010 ----- ----- 001 ----- 1010011', tags=['sfother']),
-            Instr('fle.h',    Format_RF2, '1010010 ----- ----- 000 ----- 1010011', tags=['sfother']),
+            Instr('feq.h',    Format_RF2, '1010010 ----- ----- 010 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('flt.h',    Format_RF2, '1010010 ----- ----- 001 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('fle.h',    Format_RF2, '1010010 ----- ----- 000 ----- 1010011', tags=['sfother', 'fp_op']),
 
-            Instr('fcvt.w.h', Format_R2F1,'1100010 00000 ----- --- ----- 1010011', tags=['sfconv']),
-            Instr('fcvt.wu.h',Format_R2F1,'1100010 00001 ----- --- ----- 1010011', tags=['sfconv']),
-            Instr('fcvt.h.w', Format_R2F2,'1101010 00000 ----- --- ----- 1010011', tags=['sfconv']),
-            Instr('fcvt.h.wu',Format_R2F2,'1101010 00001 ----- --- ----- 1010011', tags=['sfconv']),
+            Instr('fcvt.w.h', Format_R2F1,'1100010 00000 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fcvt.wu.h',Format_R2F1,'1100010 00001 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fcvt.h.w', Format_R2F2,'1101010 00000 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fcvt.h.wu',Format_R2F2,'1101010 00001 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('fmv.x.h',   Format_R3F,'1110010 00000 ----- 000 ----- 1010011', tags=['sfother']),
-            Instr('fclass.h',  Format_R3F,'1110010 00000 ----- 001 ----- 1010011', tags=['sfother']),
-            Instr('fmv.h.x',  Format_R3F2,'1111010 00000 ----- 000 ----- 1010011', tags=['sfother']),
+            Instr('fmv.x.h',   Format_R3F,'1110010 00000 ----- 000 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('fclass.h',  Format_R3F,'1110010 00000 ----- 001 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('fmv.h.x',  Format_R3F2,'1111010 00000 ----- 000 ----- 1010011', tags=['sfother', 'fp_op']),
 
             # If RV64Xf16 supported
-            Instr('fcvt.l.h', Format_R2F1,'1100010 00010 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f16']),
-            Instr('fcvt.lu.h',Format_R2F1,'1100010 00011 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f16']),
-            Instr('fcvt.h.l', Format_R2F2,'1101010 00010 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f16']),
-            Instr('fcvt.h.lu',Format_R2F2,'1101010 00011 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f16']),
+            Instr('fcvt.l.h', Format_R2F1,'1100010 00010 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f16']),
+            Instr('fcvt.lu.h',Format_R2F1,'1100010 00011 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f16']),
+            Instr('fcvt.h.l', Format_R2F2,'1101010 00010 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f16']),
+            Instr('fcvt.h.lu',Format_R2F2,'1101010 00011 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f16']),
 
             # If F also supported
-            Instr('fcvt.s.h', Format_R2F3,'0100000 00010 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f16f']),
-            Instr('fcvt.h.s', Format_R2F3,'0100010 00000 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f16f']),
+            Instr('fcvt.s.h', Format_R2F3,'0100000 00010 ----- 000 ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f16f']),
+            Instr('fcvt.h.s', Format_R2F3,'0100010 00000 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f16f']),
 
             # # If D also supported
             # Instr('fcvt.d.h', Format_R2F3,'0100001 00010 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f16d']),
@@ -187,61 +187,61 @@ class Xf8(IsaSubset):
 
     def __init__(self):
         super().__init__(name='f8', instrs=[
-            Instr('flb',       Format_FL, '------- ----- ----- 000 ----- 0000111', tags=["load"]),
-            Instr('fsb',       Format_FS, '------- ----- ----- 000 ----- 0100111'),
+            Instr('flb',       Format_FL, '------- ----- ----- 000 ----- 0000111', tags=["load", 'fp_op']),
+            Instr('fsb',       Format_FS, '------- ----- ----- 000 ----- 0100111', tags=['fp_op']),
 
-            Instr('fmadd.b',   Format_R4U,'-----11 ----- ----- --- ----- 1000011', tags=['sfmadd']),
-            Instr('fmsub.b',   Format_R4U,'-----11 ----- ----- --- ----- 1000111', tags=['sfmadd']),
-            Instr('fnmsub.b',  Format_R4U,'-----11 ----- ----- --- ----- 1001011', tags=['sfmadd']),
-            Instr('fnmadd.b',  Format_R4U,'-----11 ----- ----- --- ----- 1001111', tags=['sfmadd']),
+            Instr('fmadd.b',   Format_R4U,'-----11 ----- ----- --- ----- 1000011', tags=['sfmadd', 'fp_op']),
+            Instr('fmsub.b',   Format_R4U,'-----11 ----- ----- --- ----- 1000111', tags=['sfmadd', 'fp_op']),
+            Instr('fnmsub.b',  Format_R4U,'-----11 ----- ----- --- ----- 1001011', tags=['sfmadd', 'fp_op']),
+            Instr('fnmadd.b',  Format_R4U,'-----11 ----- ----- --- ----- 1001111', tags=['sfmadd', 'fp_op']),
 
-            Instr('fadd.b',    Format_RF, '0000011 ----- ----- --- ----- 1010011', tags=['sfadd']),
-            Instr('fsub.b',    Format_RF, '0000111 ----- ----- --- ----- 1010011', tags=['sfadd']),
-            Instr('fmul.b',    Format_RF, '0001011 ----- ----- --- ----- 1010011', tags=['sfmul']),
-            Instr('fdiv.b',    Format_RF, '0001111 ----- ----- --- ----- 1010011', tags=['sfdiv']),
-            Instr('fsqrt.b',  Format_R2F3,'0101111 00000 ----- --- ----- 1010011', tags=['sfdiv']),
+            Instr('fadd.b',    Format_RF, '0000011 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
+            Instr('fsub.b',    Format_RF, '0000111 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
+            Instr('fmul.b',    Format_RF, '0001011 ----- ----- --- ----- 1010011', tags=['sfmul', 'fp_op']),
+            Instr('fdiv.b',    Format_RF, '0001111 ----- ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
+            Instr('fsqrt.b',  Format_R2F3,'0101111 00000 ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
 
-            Instr('fsgnj.b',   Format_RF, '0010011 ----- ----- 000 ----- 1010011', tags=['sfconv']),
-            Instr('fsgnjn.b',  Format_RF, '0010011 ----- ----- 001 ----- 1010011', tags=['sfconv']),
-            Instr('fsgnjx.b',  Format_RF, '0010011 ----- ----- 010 ----- 1010011', tags=['sfconv']),
+            Instr('fsgnj.b',   Format_RF, '0010011 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnjn.b',  Format_RF, '0010011 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnjx.b',  Format_RF, '0010011 ----- ----- 010 ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('fmin.b',    Format_RF, '0010111 ----- ----- 000 ----- 1010011', tags=['sfconv']),
-            Instr('fmax.b',    Format_RF, '0010111 ----- ----- 001 ----- 1010011', tags=['sfconv']),
+            Instr('fmin.b',    Format_RF, '0010111 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fmax.b',    Format_RF, '0010111 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('feq.b',    Format_RF2, '1010011 ----- ----- 010 ----- 1010011', tags=['sfother']),
-            Instr('flt.b',    Format_RF2, '1010011 ----- ----- 001 ----- 1010011', tags=['sfother']),
-            Instr('fle.b',    Format_RF2, '1010011 ----- ----- 000 ----- 1010011', tags=['sfother']),
+            Instr('feq.b',    Format_RF2, '1010011 ----- ----- 010 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('flt.b',    Format_RF2, '1010011 ----- ----- 001 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('fle.b',    Format_RF2, '1010011 ----- ----- 000 ----- 1010011', tags=['sfother', 'fp_op']),
 
-            Instr('fcvt.w.b', Format_R2F1,'1100011 00000 ----- --- ----- 1010011', tags=['sfconv']),
-            Instr('fcvt.wu.b',Format_R2F1,'1100011 00001 ----- --- ----- 1010011', tags=['sfconv']),
-            Instr('fcvt.b.w', Format_R2F2,'1101011 00000 ----- --- ----- 1010011', tags=['sfconv']),
-            Instr('fcvt.b.wu',Format_R2F2,'1101011 00001 ----- --- ----- 1010011', tags=['sfconv']),
+            Instr('fcvt.w.b', Format_R2F1,'1100011 00000 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fcvt.wu.b',Format_R2F1,'1100011 00001 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fcvt.b.w', Format_R2F2,'1101011 00000 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fcvt.b.wu',Format_R2F2,'1101011 00001 ----- --- ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('fmv.x.b',   Format_R3F,'1110011 00000 ----- 000 ----- 1010011', tags=['sfother']),
-            Instr('fclass.b',  Format_R3F,'1110011 00000 ----- 001 ----- 1010011', tags=['sfother']),
-            Instr('fmv.b.x',  Format_R3F2,'1111011 00000 ----- 000 ----- 1010011', tags=['sfother']),
+            Instr('fmv.x.b',   Format_R3F,'1110011 00000 ----- 000 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('fclass.b',  Format_R3F,'1110011 00000 ----- 001 ----- 1010011', tags=['sfother', 'fp_op']),
+            Instr('fmv.b.x',  Format_R3F2,'1111011 00000 ----- 000 ----- 1010011', tags=['sfother', 'fp_op']),
 
             # If RV64Xf8 supported
-            Instr('fcvt.l.b', Format_R2F1,'1100011 00010 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f8']),
-            Instr('fcvt.lu.b',Format_R2F1,'1100011 00011 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f8']),
-            Instr('fcvt.b.l', Format_R2F2,'1101011 00010 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f8']),
-            Instr('fcvt.b.lu',Format_R2F2,'1101011 00011 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['rv64f8']),
+            Instr('fcvt.l.b', Format_R2F1,'1100011 00010 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f8']),
+            Instr('fcvt.lu.b',Format_R2F1,'1100011 00011 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f8']),
+            Instr('fcvt.b.l', Format_R2F2,'1101011 00010 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f8']),
+            Instr('fcvt.b.lu',Format_R2F2,'1101011 00011 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['rv64f8']),
 
             # If F also supported
-            Instr('fcvt.s.b', Format_R2F3,'0100000 00011 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f8f']),
-            Instr('fcvt.b.s', Format_R2F3,'0100011 00000 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f8f']),
+            Instr('fcvt.s.b', Format_R2F3,'0100000 00011 ----- 000 ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f8f']),
+            Instr('fcvt.b.s', Format_R2F3,'0100011 00000 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f8f']),
 
             # # If D also supported
             # Instr('fcvt.d.b', Format_R2F3,'0100001 00011 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f8d']),
             # Instr('fcvt.b.d', Format_R2F3,'0100011 00001 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f8d']),
 
             # If Xf16 also supported
-            Instr('fcvt.h.b', Format_R2F3,'0100010 00011 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f8f16']),
-            Instr('fcvt.b.h', Format_R2F3,'0100011 00010 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f8f16']),
+            Instr('fcvt.h.b', Format_R2F3,'0100010 00011 ----- 000 ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f8f16']),
+            Instr('fcvt.b.h', Format_R2F3,'0100011 00010 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f8f16']),
 
             # If Xf16alt also supported
-            Instr('fcvt.ah.b',Format_R2F3,'0100010 00011 ----- 101 ----- 1010011', tags=['sfconv'], isa_tags=['f8f16alt']),
-            Instr('fcvt.b.ah',Format_R2F3,'0100011 00110 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f8f16alt']),
+            Instr('fcvt.ah.b',Format_R2F3,'0100010 00011 ----- 101 ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f8f16alt']),
+            Instr('fcvt.b.ah',Format_R2F3,'0100011 00110 ----- --- ----- 1010011', tags=['sfconv', 'fp_op'], isa_tags=['f8f16alt']),
         ])
 
     def check_compatibilities(self, isa):

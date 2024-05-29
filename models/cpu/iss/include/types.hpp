@@ -412,6 +412,11 @@ typedef struct iss_insn_s
     iss_reg_t data_arga;
     iss_reg_t data_argb;
     iss_reg_t data_argc;
+
+    // TODO this have been put here since fp ss is taking handlers from main core while it
+    // should not
+    unsigned int fmode;
+
 #endif
 
     iss_decoder_insn_t *desc;

@@ -93,7 +93,6 @@ public:
 
     Ssr ssr;
 
-
     bool snitch;
     bool fp_ss;
 
@@ -131,6 +130,7 @@ public:
     // for result is written to memory directly.
     iss_addr_t mem_map;
     iss_reg_t mem_pc;
+    CsrReg csr_fmode;
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
@@ -145,7 +145,6 @@ private:
 
     vp::Trace trace_iss;
     CsrReg csr_ssr;
-    CsrReg csr_fmode;
 };
 
 
@@ -184,7 +183,10 @@ private:
 #include "cpu/iss/include/isa/rvf.hpp"
 #include "cpu/iss/include/isa/rvXf16.hpp"
 #include "cpu/iss/include/isa/rvXf16alt.hpp"
+#include "cpu/iss/include/isa/rvXf16_switch.hpp"
 #include "cpu/iss/include/isa/rvXf8.hpp"
+#include "cpu/iss/include/isa/rvXf8alt.hpp"
+#include "cpu/iss/include/isa/rvXf8_switch.hpp"
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"

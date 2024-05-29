@@ -92,7 +92,6 @@ public:
 
     Ssr ssr;
     
-
     bool snitch;
     bool fp_ss;
     
@@ -155,6 +154,7 @@ private:
 };
 
 
+
 class IssWrapper : public vp::Component
 {
 
@@ -190,7 +190,10 @@ private:
 #include "cpu/iss/include/isa/rvf.hpp"
 #include "cpu/iss/include/isa/rvXf16.hpp"
 #include "cpu/iss/include/isa/rvXf16alt.hpp"
+#include "cpu/iss/include/isa/rvXf16_switch.hpp"
 #include "cpu/iss/include/isa/rvXf8.hpp"
+#include "cpu/iss/include/isa/rvXf8alt.hpp"
+#include "cpu/iss/include/isa/rvXf8_switch.hpp"
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"

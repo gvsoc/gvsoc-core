@@ -43,97 +43,97 @@ static inline iss_reg_t fsh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fmadd_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_madd_round, REG_GET(0), REG_GET(1), REG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_madd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmsub_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_msub_round, REG_GET(0), REG_GET(1), REG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_msub_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fnmsub_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmsub_round, REG_GET(0), REG_GET(1), REG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmsub_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fnmadd_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmadd_round, REG_GET(0), REG_GET(1), REG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmadd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fadd_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round, REG_GET(0), REG_GET(1), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round, FREG_GET(0), FREG_GET(1), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsub_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_sub_round, REG_GET(0), REG_GET(1), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL3(lib_flexfloat_sub_round, FREG_GET(0), FREG_GET(1), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmul_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_mul_round, REG_GET(0), REG_GET(1), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL3(lib_flexfloat_mul_round, FREG_GET(0), FREG_GET(1), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fdiv_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_div_round, REG_GET(0), REG_GET(1), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL3(lib_flexfloat_div_round, FREG_GET(0), FREG_GET(1), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsqrt_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_sqrt_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_sqrt_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsgnj_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnj, REG_GET(0), REG_GET(1), 5, 10));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnj, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsgnjn_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnjn, REG_GET(0), REG_GET(1), 5, 10));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnjn, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsgnjx_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnjx, REG_GET(0), REG_GET(1), 5, 10));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_sgnjx, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmin_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_min, REG_GET(0), REG_GET(1), 5, 10));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_min, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmax_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_max, REG_GET(0), REG_GET(1), 5, 10));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_max, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_w_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_w_ff_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_w_ff_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_wu_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_wu_ff_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_wu_ff_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -151,49 +151,52 @@ static inline iss_reg_t fmv_h_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t feq_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, REG_GET(0), REG_GET(1), 5, 10));
+    uint32_t a = FREG_GET(0);
+    uint32_t b = FREG_GET(1);
+
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t flt_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, REG_GET(0), REG_GET(1), 5, 10));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fle_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, REG_GET(0), REG_GET(1), 5, 10));
+    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0), FREG_GET(1), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fclass_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, REG_GET(0), 5, 10));
+    REG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG_GET(0), 5, 10));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_h_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_w_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_w_round, REG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_h_wu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_wu_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_wu_round, REG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_s_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0), 5, 10, 8, 23, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0), 5, 10, 8, 23, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_h_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0), 8, 23, 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0), 8, 23, 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -202,25 +205,25 @@ static inline iss_reg_t fcvt_h_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 //
 static inline iss_reg_t fcvt_l_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_l_ff_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_l_ff_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_lu_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_lu_ff_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_lu_ff_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_h_l_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_l_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_l_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_h_lu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_lu_round, REG_GET(0), 5, 10, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_ff_lu_round, FREG_GET(0), 5, 10, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 

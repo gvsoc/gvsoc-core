@@ -35,4 +35,6 @@ public:
     bool is_write;
     // Rounding mode of fp instruction
     unsigned int frm;
+    // Alt mode
+    unsigned int fmode;
 };

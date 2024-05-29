@@ -126,6 +126,8 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     bool isRead = !req->is_write;
     iss_insn_t insn = req->insn;
     unsigned int frm = req->frm;
+    insn.fmode = req->fmode;
+
     iss_opcode_t opcode = insn.opcode;
     insn.freg_addr = &_this->regfile.fregs[0];
     _this->trace_iss.msg("Received IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);

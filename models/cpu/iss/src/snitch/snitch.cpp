@@ -164,7 +164,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     this->frm = this->csr.fcsr.frm;
 
     // Assign arguments to request.
-    this->acc_req = { .pc=pc, .insn=this->insn, .is_write=is_write, .frm =frm };
+    this->acc_req = { .pc=pc, .insn=this->insn, .is_write=is_write, .frm =frm, .fmode=this->csr_fmode.value };
 
     // Offload request if the port is connected
     if (this->acc_req_itf.is_bound())
@@ -194,7 +194,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     Iss *_this = (Iss *)__this;
 
     // Assign arguments to request.
-    _this->acc_req = { .pc=_this->pc, .insn=_this->insn, .is_write=_this->is_write, .frm =_this->frm };
+    _this->acc_req = { .pc=_this->pc, .insn=_this->insn, .is_write=_this->is_write, .frm =_this->frm, .fmode=_this->csr_fmode.value };
 
     // Offload request if the port is connected
     if (_this->acc_req_itf.is_bound())
@@ -236,6 +236,15 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     // Update fflags in integer core after fp instruction.
     // Hardward doesn't stall CSR_FFLAGS when the fp instruction hasn't responded correct status value.
     _this->csr.fcsr.fflags = result->fflags;
+
+    // for (int i=0; i<3; i++)
+    // {
+    //     if (result->insn.out_regs_fp[0])
+    //     {
+    //         int reg = result->insn.out_regs[i];
+    //         _this->regfile.set_freg(reg, *((iss_freg_t *)(result->insn.freg_addr)+reg));
+    //     }
+    // }
 
     // Pass values of floating point registers from subsystem to core side.
     // Assign results here because we use fp register value only for trace, not for later computation.

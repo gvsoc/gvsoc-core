@@ -61,7 +61,7 @@ static inline iss_reg_t fnmsub_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fnmadd_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmadd_round, REG_GET(0), REG_GET(1), REG_GET(2), 5, 2, UIM_GET(0)));
+    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmadd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 2, UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 

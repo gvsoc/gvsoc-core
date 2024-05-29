@@ -43,6 +43,7 @@
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>
+#include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
@@ -83,6 +84,7 @@ public:
     Mmu mmu;
     Pmp pmp;
     Exception exception;
+    Memcheck memcheck;
 
     vp::Component &top;
 

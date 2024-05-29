@@ -28,7 +28,7 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(*this), mmu(*this), pmp(*this), exception(*this), ssr(*this), top(top)
+      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), ssr(*this), memcheck(top, *this), top(top)
 #if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
       , spatz(*this)
 #endif

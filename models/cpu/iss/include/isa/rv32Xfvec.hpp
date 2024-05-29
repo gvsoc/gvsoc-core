@@ -1141,6 +1141,105 @@ static inline iss_reg_t vfeq_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
+static inline iss_reg_t vfeq_r_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_eq, FREG_GET(0) >> 32, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfne_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_ne, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_ne, FREG_GET(0) >> 32, FREG_GET(1) >> 32, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfne_r_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_ne, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_ne, FREG_GET(0) >> 32, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vflt_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0) >> 32, FREG_GET(1) >> 32, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vflt_r_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_lt, FREG_GET(0) >> 32, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfle_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0) >> 32, FREG_GET(1) >> 32, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfle_r_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_le, FREG_GET(0) >> 32, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfgt_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_gt, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_gt, FREG_GET(0) >> 32, FREG_GET(1) >> 32, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfgt_r_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_gt, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_gt, FREG_GET(0) >> 32, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfge_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_ge, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_ge, FREG_GET(0) >> 32, FREG_GET(1) >> 32, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfge_r_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    REG_SET(0, ((LIB_FF_CALL2(lib_flexfloat_ge, FREG_GET(0) & 0xffffffff, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) |
+                   (((LIB_FF_CALL2(lib_flexfloat_ge, FREG_GET(0) >> 32, FREG_GET(1) & 0xffffffff, 8, 23)) & 0xffffffff) << 1));
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t vfsgnj_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 #ifdef CONFIG_GVSOC_ISS_SNITCH

@@ -28,7 +28,7 @@
 class SnitchRegfile : public Regfile
 {
 public:
-    SnitchRegfile(Iss &iss) : Regfile(iss) {}
+    SnitchRegfile(IssWrapper &top, Iss &iss) : Regfile(top, iss) {}
 
     void reset(bool active);
 

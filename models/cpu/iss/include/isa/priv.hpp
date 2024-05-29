@@ -47,6 +47,8 @@ static inline iss_reg_t csrrw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (insn->out_regs[0] != 0)
         {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
             iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
         }
@@ -72,6 +74,8 @@ static inline iss_reg_t csrrc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (insn->out_regs[0] != 0)
         {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
             iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
         }
@@ -105,6 +109,8 @@ static inline iss_reg_t csrrs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (insn->out_regs[0] != 0)
         {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
             iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
         }
@@ -130,6 +136,8 @@ static inline iss_reg_t csrrwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (insn->out_regs[0] != 0)
         {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
             iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
         }
@@ -152,6 +160,8 @@ static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (insn->out_regs[0] != 0)
         {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
             iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
         }
@@ -174,6 +184,8 @@ static inline iss_reg_t csrrsi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (insn->out_regs[0] != 0)
         {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
             iss->regfile.memcheck_set_valid(REG_OUT(0), true);
             REG_SET(0, value);
         }

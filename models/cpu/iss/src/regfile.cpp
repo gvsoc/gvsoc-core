@@ -67,11 +67,11 @@ void Regfile::reset(bool active)
         // Mark all registers as invalid after reset
         for (int i = 1; i < ISS_NB_REGS; i++)
         {
-            this->regs_check[i] = 0;
+            this->regs_memcheck[i] = 0;
         }
 
         // Except x0 which is always valid
-        this->regs_check[0] = -1;
-        this->regs_check[ISS_NB_REGS] = -1;
+        this->regs_memcheck[0] = -1;
+        this->regs_memcheck[ISS_NB_REGS] = -1;
     }
 }

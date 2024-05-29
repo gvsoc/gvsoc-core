@@ -300,7 +300,7 @@ static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, is
         {
             buff = iss_trace_dump_reg_value(iss, insn, buff, arg->type == ISS_DECODER_ARG_TYPE_OUT_REG, insn_arg->u.reg.index,
                 (arg->flags & ISS_DECODER_ARG_FLAG_REG64) || (arg->flags & ISS_DECODER_ARG_FLAG_FREG) ? saved_arg->u.reg.value_64 : saved_arg->u.reg.value,
-                (arg->flags & ISS_DECODER_ARG_FLAG_REG64) ? saved_arg->u.reg.check_value_64 : saved_arg->u.reg.check_value,
+                (arg->flags & ISS_DECODER_ARG_FLAG_REG64) ? saved_arg->u.reg.memcheck_value_64 : saved_arg->u.reg.memcheck_value,
                 arg, prev_arg, is_long);
         }
     }
@@ -325,15 +325,15 @@ static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, is
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_REG)
     {
         if (!dump_out)
-            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.offset_reg_index, saved_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.check_offset_reg_value, arg, prev_arg, is_long);
+            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.offset_reg_index, saved_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.memcheck_offset_reg_value, arg, prev_arg, is_long);
         if (!dump_out)
-            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.base_reg_index, saved_arg->u.indirect_reg.base_reg_value, saved_arg->u.indirect_reg.check_base_reg_value, arg, prev_arg, is_long);
+            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.base_reg_index, saved_arg->u.indirect_reg.base_reg_value, saved_arg->u.indirect_reg.memcheck_base_reg_value, arg, prev_arg, is_long);
         iss_addr_t addr;
         if (arg->flags & ISS_DECODER_ARG_FLAG_POSTINC)
         {
             addr = saved_arg->u.indirect_reg.base_reg_value;
             if (dump_out)
-                buff = iss_trace_dump_reg_value(iss, insn, buff, 1, insn_arg->u.indirect_reg.base_reg_index, addr + insn_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.check_offset_reg_value, arg, prev_arg, is_long);
+                buff = iss_trace_dump_reg_value(iss, insn, buff, 1, insn_arg->u.indirect_reg.base_reg_index, addr + insn_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.memcheck_offset_reg_value, arg, prev_arg, is_long);
         }
         else
         {
@@ -550,7 +550,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             if (arg->flags & ISS_DECODER_ARG_FLAG_REG64)
             {
                 saved_arg->u.reg.value_64 = iss->regfile.get_reg64_untimed(insn_arg->u.reg.index);
-                saved_arg->u.reg.check_value_64 = iss->regfile.get_memcheck_reg64(insn_arg->u.reg.index);
+                saved_arg->u.reg.memcheck_value_64 = iss->regfile.get_memcheck_reg64(insn_arg->u.reg.index);
             }
             else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
             {
@@ -559,7 +559,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
             else
             {
                 saved_arg->u.reg.value = iss->regfile.get_reg_untimed(insn_arg->u.reg.index);
-                saved_arg->u.reg.check_value = iss->regfile.regs_check[insn_arg->u.reg.index];
+                saved_arg->u.reg.memcheck_value = iss->regfile.regs_memcheck[insn_arg->u.reg.index];
             }
         }
     }
@@ -568,7 +568,7 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
         if (save_out)
             return;
         saved_arg->u.indirect_imm.reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_imm.reg_index);
-        saved_arg->u.indirect_imm.memcheck_reg_value = iss->regfile.regs_check[insn_arg->u.indirect_imm.reg_index];
+        saved_arg->u.indirect_imm.memcheck_reg_value = iss->regfile.regs_memcheck[insn_arg->u.indirect_imm.reg_index];
     }
     // else if (arg->type == TRACE_TYPE_FLAG)
     //   {
@@ -579,9 +579,9 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
         if (save_out)
             return;
         saved_arg->u.indirect_reg.base_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.base_reg_index);
-        saved_arg->u.indirect_reg.check_base_reg_value = iss->regfile.regs_check[insn_arg->u.indirect_reg.base_reg_index];
+        saved_arg->u.indirect_reg.memcheck_base_reg_value = iss->regfile.regs_memcheck[insn_arg->u.indirect_reg.base_reg_index];
         saved_arg->u.indirect_reg.offset_reg_value = iss->regfile.get_reg_untimed(insn_arg->u.indirect_reg.offset_reg_index);
-        saved_arg->u.indirect_reg.check_offset_reg_value = iss->regfile.regs_check[insn_arg->u.indirect_reg.offset_reg_index];
+        saved_arg->u.indirect_reg.memcheck_offset_reg_value = iss->regfile.regs_memcheck[insn_arg->u.indirect_reg.offset_reg_index];
     }
     // else
     //   {

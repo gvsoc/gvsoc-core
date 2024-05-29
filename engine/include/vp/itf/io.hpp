@@ -117,11 +117,11 @@ namespace vp {
     uint8_t *get_second_data() { return this->second_data; }
     void set_second_data(uint8_t *data) { this->second_data = data; }
 
-    uint8_t *get_check_data() { return check_data; }
-    void set_check_data(uint8_t *check_data) { this->check_data = check_data; }
+    uint8_t *get_memcheck_data() { return memcheck_data; }
+    void set_memcheck_data(uint8_t *memcheck_data) { this->memcheck_data = memcheck_data; }
 
-    uint8_t *get_second_check_data() { return this->second_check_data; }
-    void set_second_check_data(uint8_t *data) { this->second_check_data = data; }
+    uint8_t *get_second_memcheck_data() { return this->second_memcheck_data; }
+    void set_second_memcheck_data(uint8_t *data) { this->second_memcheck_data = data; }
 
     inline int get_payload_size() { return IO_REQ_PAYLOAD_SIZE; }
     inline uint8_t *get_payload() { return payload; }
@@ -148,10 +148,10 @@ namespace vp {
     inline void prepare() { latency = 0; duration=0;}
     inline void init() {
       prepare(); current_arg=0;
-#ifndef VP_MEMCHECK_ACTIVE
+#ifdef VP_MEMCHECK_ACTIVE
       // In case case memory check is enabled, set it to NULL since models will check it
       // to know if they should report valid flags
-      check_data = NULL;
+      memcheck_data = NULL;
 #endif
     }
 
@@ -161,10 +161,10 @@ namespace vp {
     uint64_t addr;
     uint8_t *data;
     // Non-initialized flags for data
-    uint8_t *check_data;
+    uint8_t *memcheck_data;
     // Non-initialized flags for additional atomics data
     uint8_t *second_data;
-    uint8_t *second_check_data;
+    uint8_t *second_memcheck_data;
     uint64_t size;
     uint64_t actual_size;
     IoReqOpcode is_write;

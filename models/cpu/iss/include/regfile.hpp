@@ -39,7 +39,7 @@ public:
     iss_freg_t fregs[ISS_NB_FREGS];
 #endif
 
-    iss_reg_t regs_check[ISS_NB_REGS+1];
+    iss_reg_t regs_memcheck[ISS_NB_REGS+1];
 
     inline iss_reg_t *reg_ref(int reg);
     inline iss_reg_t *reg_check_ref(int reg);

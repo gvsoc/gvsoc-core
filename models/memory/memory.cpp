@@ -45,10 +45,10 @@ private:
     static void meminfo_sync_back(vp::Block *__this, void **value);
     static void meminfo_sync(vp::Block *__this, void *value);
     static void memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info);
-    vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *check_data);
-    vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *check_data);
+    vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
+    vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
     vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
-        vp::IoReqOpcode opcode, int initiator, uint8_t *in_check_data, uint8_t *out_check_data);
+        vp::IoReqOpcode opcode, int initiator, uint8_t *in_memcheck_data, uint8_t *out_memcheck_data);
     // Check if an access to the specified offset falls into a valid buffer
     bool memcheck_is_valid_address(uint64_t offset);
     // In case of a faulting access, find the closest valid buffer to the offset
@@ -64,7 +64,7 @@ private:
     int latency;
 
     uint8_t *mem_data;
-    uint8_t *check_data = NULL;
+    uint8_t *memcheck_data = NULL;
     uint8_t *check_mem;
     uint8_t *memcheck_valid_flags = NULL;
 
@@ -156,8 +156,8 @@ Memory::Memory(vp::ComponentConf &config)
 
     if (this->traces.get_trace_engine()->is_memcheck_enabled())
     {
-        this->check_data = (uint8_t *)calloc(size, 1);
-        if (this->check_data == NULL) throw std::bad_alloc();
+        this->memcheck_data = (uint8_t *)calloc(size, 1);
+        if (this->memcheck_data == NULL) throw std::bad_alloc();
 
         int memcheck_id = this->get_js_config()->get_child_int("memcheck_id");
         if (memcheck_id != -1)
@@ -294,7 +294,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     if (req->get_opcode() == vp::IoReqOpcode::READ)
     {
 #ifdef VP_MEMCHECK_ACTIVE
-        return _this->handle_read(offset, size, data, req->get_check_data());
+        return _this->handle_read(offset, size, data, req->get_memcheck_data());
 #else
         return _this->handle_read(offset, size, data, NULL);
 #endif
@@ -302,7 +302,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     else if (req->get_opcode() == vp::IoReqOpcode::WRITE)
     {
 #ifdef VP_MEMCHECK_ACTIVE
-        return _this->handle_write(offset, size, data, req->get_check_data());
+        return _this->handle_write(offset, size, data, req->get_memcheck_data());
 #else
         return _this->handle_write(offset, size, data, NULL);
 #endif
@@ -312,7 +312,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 #ifdef CONFIG_ATOMICS
 #ifdef VP_MEMCHECK_ACTIVE
         return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
-            req->get_initiator(), req->get_check_data(), req->get_second_check_data());
+            req->get_initiator(), req->get_memcheck_data(), req->get_second_memcheck_data());
 #else
         return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
             req->get_initiator(), NULL, NULL);
@@ -326,7 +326,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
 
 
-vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_check_data)
+vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
 {
     // Writes on powered-down memory are silently ignored
     if (!this->powered_up)
@@ -335,17 +335,17 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
     }
 
 #ifdef VP_MEMCHECK_ACTIVE
-    if (this->check_data != NULL)
+    if (this->memcheck_data != NULL)
     {
-        if (req_check_data != NULL)
+        if (req_memcheck_data != NULL)
         {
-            memcpy((void *)&this->check_data[offset], (void *)req_check_data, size);
+            memcpy((void *)&this->memcheck_data[offset], (void *)req_memcheck_data, size);
         }
         else
         {
             // If there is no memcheck data, it means the model which is writting does not have
             // support to it. Set all data to valid to avoid false negative
-            memset((void *)&this->check_data[offset], -1, size);
+            memset((void *)&this->memcheck_data[offset], -1, size);
         }
     }
 #endif
@@ -456,7 +456,7 @@ void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
     }
 }
 
-vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_check_data)
+vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
 {
     // Reads on powered-down memory return 0
     if (!this->powered_up)
@@ -495,11 +495,11 @@ vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *dat
         }
     }
 
-    if (this->check_data != NULL)
+    if (this->memcheck_data != NULL)
     {
-        if (req_check_data != NULL)
+        if (req_memcheck_data != NULL)
         {
-            memcpy((void *)req_check_data, (void *)&this->check_data[offset], size);
+            memcpy((void *)req_memcheck_data, (void *)&this->memcheck_data[offset], size);
         }
     }
 #endif
@@ -520,8 +520,8 @@ static inline int64_t get_signed_value(int64_t val, int bits)
 
 
 vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data,
-    uint8_t *out_data, vp::IoReqOpcode opcode, int initiator, uint8_t *in_check_data,
-    uint8_t *out_check_data)
+    uint8_t *out_data, vp::IoReqOpcode opcode, int initiator, uint8_t *in_memcheck_data,
+    uint8_t *out_memcheck_data)
 {
     int64_t operand = 0;
     int64_t prev_val = 0;
@@ -530,7 +530,7 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
 
     memcpy((uint8_t *)&operand, in_data, size);
 
-    this->handle_read(addr, size, (uint8_t *)&prev_val, out_check_data);
+    this->handle_read(addr, size, (uint8_t *)&prev_val, out_memcheck_data);
 
     if (size < 8)
     {
@@ -600,7 +600,7 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
     memcpy(out_data, (uint8_t *)&prev_val, size);
     if (is_write)
     {
-        this->handle_write(addr, size, (uint8_t *)&result, in_check_data);
+        this->handle_write(addr, size, (uint8_t *)&result, in_memcheck_data);
     }
 
     return vp::IO_REQ_OK;

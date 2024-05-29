@@ -39,7 +39,7 @@ inline iss_reg_t *Regfile::reg_check_ref(int reg)
     if (reg == 0)
         return &null_memcheck_reg;
     else
-        return &this->regs_check[reg];
+        return &this->regs_memcheck[reg];
 }
 
 inline iss_reg_t *Regfile::reg_store_ref(int reg)
@@ -49,7 +49,7 @@ inline iss_reg_t *Regfile::reg_store_ref(int reg)
 
 inline iss_reg_t *Regfile::reg_check_store_ref(int reg)
 {
-    return &this->regs_check[reg];
+    return &this->regs_memcheck[reg];
 }
 
 inline void Regfile::set_reg(int reg, iss_reg_t value)
@@ -123,7 +123,7 @@ inline iss_reg64_t Regfile::get_memcheck_reg64(int reg)
     if (reg == 0)
         return 0;
     else
-        return (((uint64_t)this->regs_check[reg + 1]) << 32) + this->regs_check[reg];
+        return (((uint64_t)this->regs_memcheck[reg + 1]) << 32) + this->regs_memcheck[reg];
 }
 
 inline iss_reg64_t Regfile::get_reg64(int reg)
@@ -224,7 +224,7 @@ inline bool Regfile::memcheck_reg(int reg)
 {
 #ifdef VP_MEMCHECK_ACTIVE
 
-    if (this->regs_check[reg] != -1)
+    if (this->regs_memcheck[reg] != -1)
     {
         if (this->iss.top.traces.get_trace_engine()->is_memcheck_enabled())
         {
@@ -282,7 +282,7 @@ inline void Regfile::memcheck_fault()
 inline iss_reg_t Regfile::memcheck_get(int reg)
 {
 #ifdef VP_MEMCHECK_ACTIVE
-    return this->regs_check[reg];
+    return this->regs_memcheck[reg];
 #else
     return 0;
 #endif
@@ -291,7 +291,7 @@ inline iss_reg_t Regfile::memcheck_get(int reg)
 inline void Regfile::memcheck_set(int reg, iss_reg_t value)
 {
 #ifdef VP_MEMCHECK_ACTIVE
-    this->regs_check[reg] = value;
+    this->regs_memcheck[reg] = value;
 #endif
 }
 
@@ -305,11 +305,11 @@ inline void Regfile::memcheck_set_valid(int reg, bool valid)
 #ifdef VP_MEMCHECK_ACTIVE
     if (valid)
     {
-        this->regs_check[reg] = -1;
+        this->regs_memcheck[reg] = -1;
     }
     else
     {
-        this->regs_check[reg] = 0;
+        this->regs_memcheck[reg] = 0;
     }
 #endif
 }

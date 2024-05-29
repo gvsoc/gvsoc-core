@@ -188,8 +188,8 @@ typedef struct iss_insn_arg_s
             int index;
             iss_reg_t value;
             iss_reg64_t value_64;
-            iss_reg_t check_value;
-            iss_reg64_t check_value_64;
+            iss_reg_t memcheck_value;
+            iss_reg64_t memcheck_value_64;
         } reg;
         struct
         {
@@ -210,10 +210,10 @@ typedef struct iss_insn_arg_s
         {
             int base_reg_index;
             iss_reg_t base_reg_value;
-            iss_reg_t check_base_reg_value;
+            iss_reg_t memcheck_base_reg_value;
             int offset_reg_index;
             iss_reg_t offset_reg_value;
-            iss_reg_t check_offset_reg_value;
+            iss_reg_t memcheck_offset_reg_value;
         } indirect_reg;
     } u;
 } iss_insn_arg_t;

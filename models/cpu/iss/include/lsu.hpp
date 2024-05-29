@@ -41,9 +41,9 @@ public:
     void start();
     void reset(bool active);
 
-    int data_req(iss_addr_t addr, uint8_t *data, uint8_t *check_data, int size, bool is_write, int64_t &latency);
-    int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *check_data, int size, bool is_write, int64_t &latency);
-    int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *check_data, int size, bool is_write, int64_t &latency);
+    int data_req(iss_addr_t addr, uint8_t *data, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
+    int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
+    int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
 
     static void exec_misaligned(vp::Block *__this, vp::ClockEvent *event);
     static void data_grant(vp::Block *__this, vp::IoReq *req);
@@ -97,7 +97,7 @@ public:
     vp::IoReq io_req;
     int misaligned_size;
     uint8_t *misaligned_data;
-    uint8_t *misaligned_check_data;
+    uint8_t *misaligned_memcheck_data;
     iss_addr_t misaligned_addr;
     bool misaligned_is_write;
     vp::reg_1 elw_stalled;

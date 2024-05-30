@@ -155,6 +155,9 @@ class RiscvCommon(st.Component):
             'memcheck': { 'nb_memories': memcheck_nb_memory }
         })
 
+        fp_size = 64 if isa.has_isa('rvd') else 32
+        self.add_c_flags([f'-DCONFIG_GVSOC_ISS_FP_WIDTH={fp_size}'])
+
         if memory_start is not None and memory_size is not None:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MEMORY=1'])
 

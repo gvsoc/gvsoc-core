@@ -25,6 +25,7 @@
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
+#include "rv32Xfvec.hpp"
 
 static inline iss_reg_t flh_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

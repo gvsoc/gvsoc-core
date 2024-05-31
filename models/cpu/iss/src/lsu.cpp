@@ -367,13 +367,13 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
     req->set_opcode(opcode);
     req->set_data((uint8_t *)this->iss.regfile.reg_store_ref(reg_in));
     req->set_second_data((uint8_t *)this->iss.regfile.reg_ref(reg_out));
-#ifdef VP_MEMCHECK_ACTIVE
-    uint8_t *memcheck_data = (uint8_t *)this->iss.regfile.reg_store_ref(reg_in);
-    memset(memcheck_data, 0xFF, size);
-    req->set_memcheck_data(memcheck_data);
-    uint8_t *check_second_data = (uint8_t *)this->iss.regfile.reg_ref(reg_out);
-    req->set_second_memcheck_data(check_second_data);
-#endif
+// #ifdef VP_MEMCHECK_ACTIVE
+//     uint8_t *memcheck_data = (uint8_t *)this->iss.regfile.reg_store_ref(reg_in);
+//     memset(memcheck_data, 0xFF, size);
+//     req->set_memcheck_data(memcheck_data);
+//     uint8_t *check_second_data = (uint8_t *)this->iss.regfile.reg_ref(reg_out);
+//     req->set_second_memcheck_data(check_second_data);
+// #endif
     req->set_initiator(this->iss.csr.mhartid);
     int err = this->data.req(req);
     if (err == vp::IO_REQ_OK)

@@ -443,3 +443,31 @@ static inline iss_reg_t fcvt_b_lu_exec_switch(Iss *iss, iss_insn_t *insn, iss_re
         return fcvt_b_lu_exec(iss, insn, pc);
     }
 }
+
+//
+// with Xf8alt stubs
+//
+
+VF_ALT_STUB(vfadd, b, ab)
+VF_ALT_STUB(vfsub, b, ab)
+VF_ALT_STUB(vfmul, b, ab)
+VF_ALT_STUB(vfdiv, b, ab)
+VF_ALT_STUB(vfmin, b, ab)
+VF_ALT_STUB(vfmax, b, ab)
+VF_ALT_STUB_NO_R(vfsqrt, b, ab)
+VF_ALT_STUB(vfmac, b, ab)
+VF_ALT_STUB(vfmre, b, ab)
+VF_ALT_STUB(vfsgnj, b, ab)
+VF_ALT_STUB(vfsgnjn, b, ab)
+VF_ALT_STUB(vfsgnjx, b, ab)
+VF_ALT_STUB(vfeq, b, ab)
+VF_ALT_STUB(vfne, b, ab)
+VF_ALT_STUB(vflt, b, ab)
+VF_ALT_STUB(vfge, b, ab)
+VF_ALT_STUB(vfle, b, ab)
+VF_ALT_STUB(vfgt, b, ab)
+VF_ALT_STUB_NO_R(vfcpka, b_s, ab_s)
+VF_ALT_STUB_NO_R(vfcpkb, b_s, ab_s)
+VF_ALT_STUB_NO_R(vfcpkc, b_s, ab_s)
+VF_ALT_STUB_NO_R(vfcpkd, b_s, ab_s)
+VF_ALT_STUB_NO_R(vfclass, b, ab)

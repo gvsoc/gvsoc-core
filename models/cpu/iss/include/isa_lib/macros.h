@@ -53,6 +53,7 @@
 
 #ifdef ISS_SINGLE_REGFILE
 #define FREG_GET(reg) REG_GET(reg)
+#define FREG_OUT_GET(reg) (iss->regfile.get_reg(insn->out_regs[reg]))
 #define FREG_SET(reg,val) REG_SET(reg, val)
 #else
 #define FREG_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))

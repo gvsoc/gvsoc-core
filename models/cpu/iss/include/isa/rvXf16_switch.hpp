@@ -395,3 +395,29 @@ static inline iss_reg_t fcvt_h_lu_exec_switch(Iss *iss, iss_insn_t *insn, iss_re
         return fcvt_h_lu_exec(iss, insn, pc);
     }
 }
+
+//
+// with Xf16alt stubs
+//
+
+VF_ALT_STUB(vfadd, h, ah)
+VF_ALT_STUB(vfsub, h, ah)
+VF_ALT_STUB(vfmul, h, ah)
+VF_ALT_STUB(vfdiv, h, ah)
+VF_ALT_STUB(vfmin, h, ah)
+VF_ALT_STUB(vfmax, h, ah)
+VF_ALT_STUB_NO_R(vfsqrt, h, ah)
+VF_ALT_STUB(vfmac, h, ah)
+VF_ALT_STUB(vfmre, h, ah)
+VF_ALT_STUB(vfsgnj, h, ah)
+VF_ALT_STUB(vfsgnjn, h, ah)
+VF_ALT_STUB(vfsgnjx, h, ah)
+VF_ALT_STUB(vfeq, h, ah)
+VF_ALT_STUB(vfne, h, ah)
+VF_ALT_STUB(vflt, h, ah)
+VF_ALT_STUB(vfge, h, ah)
+VF_ALT_STUB(vfle, h, ah)
+VF_ALT_STUB(vfgt, h, ah)
+VF_ALT_STUB_NO_R(vfcpka, h_s, ah_s)
+VF_ALT_STUB_NO_R(vfcpkb, h_s, ah_s)
+VF_ALT_STUB_NO_R(vfclass, h, ah)

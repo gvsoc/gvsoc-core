@@ -209,7 +209,11 @@ VF_OP(min, min, h, 16, 5, 10)
 VF_OP(max, max, h, 16, 5, 10)
 VF_OP1(sqrt, sqrt_round, h, 16, 5, 10)
 VF_OP3(mac, madd_round, h, 16, 5, 10)
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
+VF_OP3(mre, msub_round, h, 16, 5, 10)
+#else
 VF_OP3(mre, nmsub_round, h, 16, 5, 10)
+#endif
 VF_OP(sgnj, sgnj, h, 16, 5, 10)
 VF_OP(sgnjn, sgnjn, h, 16, 5, 10)
 VF_OP(sgnjx, sgnjx, h, 16, 5, 10)
@@ -285,7 +289,11 @@ VF_OP(min, min, ah, 16, 8, 7)
 VF_OP(max, max, ah, 16, 8, 7)
 VF_OP1(sqrt, sqrt_round, ah, 16, 8, 7)
 VF_OP3(mac, madd_round, ah, 16, 8, 7)
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
+VF_OP3(mre, msub_round, ah, 16, 8, 7)
+#else
 VF_OP3(mre, nmsub_round, ah, 16, 8, 7)
+#endif
 VF_OP(sgnj, sgnj, ah, 16, 8, 7)
 VF_OP(sgnjn, sgnjn, ah, 16, 8, 7)
 VF_OP(sgnjx, sgnjx, ah, 16, 8, 7)

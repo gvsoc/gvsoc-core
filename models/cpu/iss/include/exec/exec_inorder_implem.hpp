@@ -49,12 +49,13 @@ inline void Exec::interrupt_taken()
 
 static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t next_insn =  insn->stall_fast_handler(iss, insn, pc);
     int latency = insn->latency;
 
 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
     iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], latency, -1);
 #endif
+
+    iss_reg_t next_insn =  insn->stall_fast_handler(iss, insn, pc);
 
 #if defined(PIPELINE_STALL_THRESHOLD)
     if (latency > PIPELINE_STALL_THRESHOLD)

@@ -2435,7 +2435,6 @@ static inline unsigned int lib_log_div_s(Iss *s, unsigned int a, unsigned int b)
 }
 
 static inline unsigned int lib_log_itof_s(Iss *s, unsigned int a) {
-  printf("%s %d\n", __FILE__, __LINE__);
   return 0;
 }
 
@@ -2447,12 +2446,10 @@ static inline unsigned int lib_log_ftoi_s(Iss *s, unsigned int a) {
 }
 
 static inline unsigned int lib_log_powi_s(Iss *s, unsigned int a, unsigned int b) {
-  printf("%s %d\n", __FILE__, __LINE__);
   return 0;
 }
 
 static inline unsigned int lib_log_powi_inv_s(Iss *s, unsigned int a, unsigned int b) {
-  printf("%s %d\n", __FILE__, __LINE__);
   return 0;
 }
 

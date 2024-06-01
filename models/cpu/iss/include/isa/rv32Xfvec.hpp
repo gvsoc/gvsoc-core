@@ -61,6 +61,38 @@ static inline iss_reg_t vf##op##_r_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_
     return iss_insn_next(iss, insn, pc);                                                                                \
 }
 
+#define VF_OP_ROUND(op, ff_name, fmt, fmt_size, exp, mant)                                                                             \
+                                                                                                                        \
+static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
+{                                                                                                                       \
+    iss_freg_t result = 0;                                                                                              \
+    for (int i=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++)                                                                                             \
+    {                                                                                                                   \
+        iss_freg_t op1 = FREG_GET(0) >> (i*fmt_size);                                                                   \
+        iss_freg_t op2 = FREG_GET(1) >> (i*fmt_size);                                                                   \
+        result |= (LIB_FF_CALL3(lib_flexfloat_##ff_name##_round, op1, op2, exp, mant, 0) & ((1ULL << fmt_size) - 1)) << (i*fmt_size);   \
+    }                                                                                                                   \
+                                                                                                                        \
+    FREG_SET(0, result);                                                                                                \
+                                                                                                                        \
+    return iss_insn_next(iss, insn, pc);                                                                                \
+}                                                                                                                       \
+                                                                                                                        \
+static inline iss_reg_t vf##op##_r_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                               \
+{                                                                                                                       \
+    iss_freg_t result = 0;                                                                                              \
+    iss_freg_t value = FREG_GET(1);                                                                                     \
+    for (int i=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++)                                                                                             \
+    {                                                                                                                   \
+        iss_freg_t op1 = FREG_GET(0) >> (i*fmt_size);                                                                   \
+        result |= (LIB_FF_CALL3(lib_flexfloat_##ff_name##_round, op1, value, exp, mant, 0) & ((1ULL << fmt_size) - 1)) << (i*fmt_size); \
+    }                                                                                                                   \
+                                                                                                                        \
+    FREG_SET(0, result);                                                                                                \
+                                                                                                                        \
+    return iss_insn_next(iss, insn, pc);                                                                                \
+}
+
 #define VF_OP3(op, ff_name, fmt, fmt_size, exp, mant)                                                                             \
                                                                                                                         \
 static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
@@ -201,10 +233,10 @@ static inline iss_reg_t op##_##fmt##_exec_switch(Iss *iss, iss_insn_t *insn, iss
 //
 // with Xf16
 //
-VF_OP(add, add, h, 16, 5, 10)
-VF_OP(sub, sub, h, 16, 5, 10)
-VF_OP(mul, mul, h, 16, 5, 10)
-VF_OP(div, div, h, 16, 5, 10)
+VF_OP_ROUND(add, add, h, 16, 5, 10)
+VF_OP_ROUND(sub, sub, h, 16, 5, 10)
+VF_OP_ROUND(mul, mul, h, 16, 5, 10)
+VF_OP_ROUND(div, div, h, 16, 5, 10)
 VF_OP(min, min, h, 16, 5, 10)
 VF_OP(max, max, h, 16, 5, 10)
 VF_OP1(sqrt, sqrt_round, h, 16, 5, 10)
@@ -281,10 +313,10 @@ static inline iss_reg_t vfcvt_h_xu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 // with Xf16alt
 //
 
-VF_OP(add, add, ah, 16, 8, 7)
-VF_OP(sub, sub, ah, 16, 8, 7)
-VF_OP(mul, mul, ah, 16, 8, 7)
-VF_OP(div, div, ah, 16, 8, 7)
+VF_OP_ROUND(add, add, ah, 16, 8, 7)
+VF_OP_ROUND(sub, sub, ah, 16, 8, 7)
+VF_OP_ROUND(mul, mul, ah, 16, 8, 7)
+VF_OP_ROUND(div, div, ah, 16, 8, 7)
 VF_OP(min, min, ah, 16, 8, 7)
 VF_OP(max, max, ah, 16, 8, 7)
 VF_OP1(sqrt, sqrt_round, ah, 16, 8, 7)
@@ -375,10 +407,10 @@ static inline iss_reg_t vfcvt_ah_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 //
 // with Xf8
 //
-VF_OP(add, add, b, 8, 5, 2)
-VF_OP(sub, sub, b, 8, 5, 2)
-VF_OP(mul, mul, b, 8, 5, 2)
-VF_OP(div, div, b, 8, 5, 2)
+VF_OP_ROUND(add, add, b, 8, 5, 2)
+VF_OP_ROUND(sub, sub, b, 8, 5, 2)
+VF_OP_ROUND(mul, mul, b, 8, 5, 2)
+VF_OP_ROUND(div, div, b, 8, 5, 2)
 VF_OP(min, min, b, 8, 5, 2)
 VF_OP(max, max, b, 8, 5, 2)
 VF_OP1(sqrt, sqrt_round, b, 8, 5, 2)
@@ -461,10 +493,10 @@ static inline iss_reg_t vfcvt_b_xu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 // with Xf8alt
 //
 
-VF_OP(add, add, ab, 8, 4, 3)
-VF_OP(sub, sub, ab, 8, 4, 3)
-VF_OP(mul, mul, ab, 8, 4, 3)
-VF_OP(div, div, ab, 8, 4, 3)
+VF_OP_ROUND(add, add, ab, 8, 4, 3)
+VF_OP_ROUND(sub, sub, ab, 8, 4, 3)
+VF_OP_ROUND(mul, mul, ab, 8, 4, 3)
+VF_OP_ROUND(div, div, ab, 8, 4, 3)
 VF_OP(min, min, ab, 8, 4, 3)
 VF_OP(max, max, ab, 8, 4, 3)
 VF_OP1(sqrt, sqrt_round, ab, 8, 4, 3)
@@ -496,10 +528,10 @@ static inline iss_reg_t vfclass_ab_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 // with Xf32
 //
 
-VF_OP(add, add, s, 32, 8, 23)
-VF_OP(sub, sub, s, 32, 8, 23)
-VF_OP(mul, mul, s, 32, 8, 23)
-VF_OP(div, div, s, 32, 8, 23)
+VF_OP_ROUND(add, add, s, 32, 8, 23)
+VF_OP_ROUND(sub, sub, s, 32, 8, 23)
+VF_OP_ROUND(mul, mul, s, 32, 8, 23)
+VF_OP_ROUND(div, div, s, 32, 8, 23)
 VF_OP(min, min, s, 32, 8, 23)
 VF_OP(max, max, s, 32, 8, 23)
 VF_OP1(sqrt, sqrt_round, s, 32, 8, 23)

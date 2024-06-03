@@ -221,10 +221,12 @@ void Rx_stream::build_rx_stream(int nb_channels, int32_t desired_sample_rate, in
                 srcData.output_frames = static_cast<long>(ratio) + 1;
                 srcData.output_frames_gen = 0;
                 srcData.end_of_input = 0;
-
-                input_buffer = 0;
                 while (srcData.output_frames_gen == 0)
                 {
+
+                    uint32_t sample = get_sample(0);
+                    int32_t int_sample = (int32_t)sample;
+                    input_buffer = (float)int_sample;
                     if (src_process(srcState, &srcData) != 0)
                     {
                         break;

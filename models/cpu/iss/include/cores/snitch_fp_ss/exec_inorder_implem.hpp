@@ -53,7 +53,7 @@ static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, i
     int latency = insn->latency;
 
 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-    iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], latency, -1);
+    iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], latency + 1, -1);
 #endif
 
 #if defined(PIPELINE_STALL_THRESHOLD)

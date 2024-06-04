@@ -40,6 +40,7 @@
 Htif::Htif(IssWrapper &top, Iss &iss)
     : iss(iss), htif_event(&top, (vp::Block *)&iss, &Htif::htif_handler)
 {
+#ifdef CONFIG_GVSOC_ISS_HTIF
     table.resize(2048);
     table[17] = &Htif::sys_getcwd;
     table[25] = &Htif::sys_fcntl;
@@ -71,7 +72,7 @@ Htif::Htif(IssWrapper &top, Iss &iss)
     fds.alloc(stdin_fd); // stdin -> stdin
     fds.alloc(stdout_fd0); // stdout -> stdout
     fds.alloc(stdout_fd1); // stderr -> stdout
-
+#endif
 }
 
 

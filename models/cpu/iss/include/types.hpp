@@ -180,6 +180,7 @@ typedef struct iss_insn_arg_s
     iss_decoder_arg_type_e type;
     iss_decoder_arg_flag_e flags;
     const char *name;
+    bool is_name_allocated;
 
     union
     {
@@ -216,6 +217,15 @@ typedef struct iss_insn_arg_s
             iss_reg_t memcheck_offset_reg_value;
         } indirect_reg;
     } u;
+
+    public:
+        iss_insn_arg_s() {
+            this->is_name_allocated = false;
+        }
+        ~iss_insn_arg_s() {
+            if (this->is_name_allocated)
+                free((void*)(this->name));
+        }
 } iss_insn_arg_t;
 
 typedef struct iss_decoder_range_s

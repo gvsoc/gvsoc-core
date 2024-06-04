@@ -166,6 +166,7 @@ private:
     static void bootaddr_sync(vp::Block *_this, uint32_t value);
     static void fetchen_sync(vp::Block *_this, bool active);
     static void offload_grant(vp::Block *_this, IssOffloadInsnGrant<iss_reg_t> *result);
+    void bootaddr_apply(uint32_t value);
 
     Iss &iss;
 

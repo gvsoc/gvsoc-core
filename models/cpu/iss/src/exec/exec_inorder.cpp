@@ -91,6 +91,7 @@ void Exec::reset(bool active)
         this->clock_active = false;
         this->skip_irq_check = true;
         this->has_exception = false;
+        this->bootaddr_apply(this->bootaddr_reg.get());
         this->pc_set(this->bootaddr_reg.get() + this->bootaddr_offset);
 
         this->insn_table_index = 0;
@@ -346,14 +347,20 @@ void Exec::fetchen_sync(vp::Block *__this, bool active)
 }
 
 
+void Exec::bootaddr_apply(uint32_t value)
+{
+    this->trace.msg("Setting boot address (value: 0x%x)\n", value);
+    iss_reg_t bootaddr = this->bootaddr_reg.get() & ~((1 << 8) - 1);
+    this->iss.csr.mtvec.access(true, bootaddr);
+
+}
+
 
 void Exec::bootaddr_sync(vp::Block *__this, uint32_t value)
 {
     Exec *_this = (Exec *)__this;
-    _this->trace.msg("Setting boot address (value: 0x%x)\n", value);
     _this->bootaddr_reg.set(value);
-    iss_reg_t bootaddr = _this->bootaddr_reg.get() & ~((1 << 8) - 1);
-    _this->iss.csr.mtvec.access(true, bootaddr);
+    _this->bootaddr_apply(value);
 }
 
 

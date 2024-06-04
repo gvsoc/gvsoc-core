@@ -54,6 +54,7 @@ private:
     // In case of a faulting access, find the closest valid buffer to the offset
     void memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance, uint64_t &buffer_offset, uint64_t &buffer_size);
     void memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable);
+    bool check_buffer_access(uint64_t offset, uint64_t size, bool is_write);
 
     vp::Trace trace;
     vp::IoSlave in;
@@ -335,6 +336,11 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
     }
 
 #ifdef VP_MEMCHECK_ACTIVE
+    if (this->check_buffer_access(offset, size, true))
+    {
+        return vp::IO_REQ_INVALID;
+    }
+
     if (this->memcheck_data != NULL)
     {
         if (req_memcheck_data != NULL)
@@ -456,17 +462,8 @@ void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
     }
 }
 
-vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
+bool Memory::check_buffer_access(uint64_t offset, uint64_t size, bool is_write)
 {
-    // Reads on powered-down memory return 0
-    if (!this->powered_up)
-    {
-        memset((void *)data, 0, size);
-        return vp::IO_REQ_OK;
-    }
-
-#ifdef VP_MEMCHECK_ACTIVE
-
     if (this->memcheck_valid_flags != NULL)
     {
         // Go through all bytes of the access to see if one is not valid
@@ -482,17 +479,36 @@ vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *dat
                 uint64_t buffer_offset, buffer_size, distance;
                 this->memcheck_find_closest_buffer(current_offset, distance, buffer_offset, buffer_size);
 
-                this->trace.force_warning_no_error("Read access outside buffer "
-                    "(offset: 0x%x)\n", current_offset);
+                this->trace.force_warning_no_error("%s access outside buffer "
+                    "(offset: 0x%x)\n", is_write ? "Write" : "Read", current_offset);
 
                 bool is_before = buffer_offset > current_offset;
 
-                this->trace.force_warning_no_error("Access is %ld byte(s) %s buffer (buffer_offset: 0x%lx, buffer_size: 0x%lx)\n",
-                    distance, is_before ? "before" : "after", buffer_offset, buffer_size);
+                this->trace.force_warning_no_error("%s access is %ld byte(s) %s buffer (buffer_offset: 0x%lx, buffer_size: 0x%lx)\n",
+                    is_write ? "Write" : "Read", distance, is_before ? "before" : "after", buffer_offset, buffer_size);
 
-                return vp::IO_REQ_INVALID;
+                return true;
             }
         }
+    }
+
+    return false;
+}
+
+vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
+{
+    // Reads on powered-down memory return 0
+    if (!this->powered_up)
+    {
+        memset((void *)data, 0, size);
+        return vp::IO_REQ_OK;
+    }
+
+#ifdef VP_MEMCHECK_ACTIVE
+
+    if (this->check_buffer_access(offset, size, false))
+    {
+        return vp::IO_REQ_INVALID;
     }
 
     if (this->memcheck_data != NULL)

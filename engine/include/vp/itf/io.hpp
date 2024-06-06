@@ -138,6 +138,9 @@ namespace vp {
     inline int arg_alloc() { return current_arg++; }
     inline void arg_free() { current_arg--; }
 
+    inline int arg_alloc(int nb_slots) { int slot = current_arg; current_arg += nb_slots; return slot; }
+    inline void arg_free(int nb_slots) { current_arg -= nb_slots; }
+
     inline void arg_push(void *arg) { this->args[this->current_arg++] = arg; }
     inline void *arg_pop() { return this->args[--this->current_arg];}
 

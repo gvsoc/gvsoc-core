@@ -139,6 +139,7 @@ namespace js {
   public:
     ConfigNumber(jsmntok_t *tokens);
     long long int get_int() { return (long long int)value; }
+    unsigned long long int get_uint() { return (unsigned long long int)value; }
     double get_double() { return value; }
     Config *get_from_list(std::vector<std::string> name_list);
 

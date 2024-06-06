@@ -72,6 +72,7 @@ private:
     vp::IoReq req;
     uint64_t entry;
     bool is_32 = true;
+    Section *current_section = NULL;
 };
 
 
@@ -103,6 +104,8 @@ void loader::grant(vp::Block *__this, vp::IoReq *req)
 
 void loader::response(vp::Block *__this, vp::IoReq *req)
 {
+    loader *_this = (loader *)__this;
+    _this->event_enqueue(_this->event, _this->req.get_full_latency());
 }
 
 
@@ -134,70 +137,69 @@ void loader::reset(bool active)
 void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     loader *_this = (loader *)__this;
-    if (_this->sections.size() > 0)
+    if (_this->sections.size() > 0 && _this->current_section == NULL)
     {
-        Section *section = _this->sections.front();
+        _this->current_section = _this->sections.front();
         _this->sections.pop_front();
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
+            _this->current_section->paddr, _this->current_section->data, _this->current_section->size);
+    }
 
-        int size = section->size;
-        uint64_t paddr = section->paddr;
-        uint8_t *data = (uint8_t *)section->data;
+    if (_this->current_section != NULL)
+    {
+        int size = _this->current_section->size;
+        uint64_t paddr = _this->current_section->paddr;
+        uint8_t *data = (uint8_t *)_this->current_section->data;
         int64_t latency = 1;
 
-        while (size > 0)
+        int itersize = std::min(size, 1 << 16);
+
+        uint8_t buffer[itersize];
+
+        _this->req.init();
+        _this->req.set_addr(paddr);
+        _this->req.set_size(itersize);
+        _this->req.set_is_write(true);
+
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Handling section chunk (addr: 0x%x, data: %p, size: 0x%x)\n",
+            paddr, data, size);
+
+        if (data)
         {
-            int itersize = std::min(size, 1 << 16);
-
-            uint8_t buffer[itersize];
-
-            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting section (addr: 0x%x, data: %p, size: 0x%x)\n",
-                paddr, data, itersize);
-
-            _this->req.init();
-            _this->req.set_addr(paddr);
-            _this->req.set_size(itersize);
-            _this->req.set_is_write(true);
-
-            if (data)
-            {
-                _this->req.set_data((uint8_t *)data);
-            }
-            else
-            {
-                memset(buffer, 0, itersize);
-                _this->req.set_data(buffer);
-            }
-
-            vp::IoReqStatus err = _this->out_itf.req(&_this->req);
-            if (err == vp::IO_REQ_OK)
-            {
-                latency += _this->req.get_full_latency();
-            }
-            else
-            {
-                if (err == vp::IO_REQ_INVALID)
-                {
-                    _this->trace.force_warning("Received error during copy (addr: 0x%x, data: %p, size: 0x%x)\n",
-                        paddr, data, itersize);
-                }
-                else
-                {
-                    _this->trace.force_warning("Unimplemented asynchronous requests in loader\n");
-                }
-            }
-
-            size -= itersize;
-            paddr += itersize;
-            if (data)
-            {
-                data += itersize;
-            }
+            _this->req.set_data((uint8_t *)data);
+        }
+        else
+        {
+            memset(buffer, 0, itersize);
+            _this->req.set_data(buffer);
         }
 
-        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Section done (latency: %d)\n",
-            _this->req.get_full_latency());
+        _this->current_section->paddr += itersize;
+        if (data)
+        {
+            _this->current_section->data += itersize;
+        }
+        _this->current_section->size -= itersize;
 
-        _this->event_enqueue(_this->event, latency);
+        if (_this->current_section->size == 0)
+        {
+            _this->current_section = NULL;
+        }
+
+        vp::IoReqStatus err = _this->out_itf.req(&_this->req);
+        if (err == vp::IO_REQ_OK)
+        {
+            latency += _this->req.get_full_latency();
+            _this->event_enqueue(_this->event, latency);
+        }
+        else
+        {
+            if (err == vp::IO_REQ_INVALID)
+            {
+                _this->trace.force_warning("Received error during copy (addr: 0x%x, data: %p, size: 0x%x)\n",
+                    paddr, data, itersize);
+            }
+        }
     }
     else
     {

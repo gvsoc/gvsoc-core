@@ -447,8 +447,14 @@ void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
         }
     }
 
+    if (distance_before == 0 && distance_after == 0)
+    {
+        distance = 0;
+        return;
+    }
+
     // Finally return the one which is closer
-    if (distance_before == 0 || distance_after < distance_before)
+    if (distance_before == 0 || (distance_after != 0 && distance_after < distance_before))
     {
         distance = distance_after;
         buffer_offset = valid_after_offset;
@@ -482,12 +488,19 @@ bool Memory::check_buffer_access(uint64_t offset, uint64_t size, bool is_write)
                 this->trace.force_warning_no_error("%s access outside buffer "
                     "(offset: 0x%x)\n", is_write ? "Write" : "Read", current_offset);
 
-                bool is_before = buffer_offset > current_offset;
+                if (distance == 0)
+                {
+                    this->trace.force_warning_no_error("%s access with no buffer\n");
+                }
+                else
+                {
+                    bool is_before = buffer_offset > current_offset;
 
-                this->trace.force_warning_no_error("%s access is %ld byte(s) %s buffer (buffer_offset: 0x%lx, buffer_size: 0x%lx)\n",
-                    is_write ? "Write" : "Read", distance, is_before ? "before" : "after", buffer_offset, buffer_size);
+                    this->trace.force_warning_no_error("%s access is %ld byte(s) %s buffer (buffer_offset: 0x%llx, buffer_size: 0x%llx)\n",
+                        is_write ? "Write" : "Read", distance, is_before ? "before" : "after", buffer_offset, buffer_size);
 
-                return true;
+                    return true;
+                }
             }
         }
     }

@@ -152,6 +152,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
     req->set_memcheck_data(memcheck_data);
 #endif
     int err = this->data.req(req);
+
     if (err == vp::IO_REQ_OK)
     {
         #ifndef CONFIG_GVSOC_ISS_SNITCH

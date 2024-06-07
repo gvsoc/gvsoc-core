@@ -22,10 +22,10 @@
 #include <vp/vp.hpp>
 #include <vp/queue.hpp>
 
-vp::Queue::Queue(Block *parent, std::string name)
+vp::Queue::Queue(Block *parent, std::string name, vp::ClockEvent *ready_event)
     : Block(parent, name)
 {
-
+    this->ready_event = ready_event;
 }
 
 void vp::Queue::cancel_callback(void *__this, vp::QueueElem *elem)
@@ -49,17 +49,27 @@ void vp::Queue::cancel_callback(void *__this, vp::QueueElem *elem)
     }
 }
 
+int vp::Queue::size()
+{
+    return this->nb_elem;
+}
+
 bool vp::Queue::empty()
 {
-    return this->first == NULL;
+    // Queue is empty if there is no element or if first element is delayed and not yet available
+    return this->first == NULL || this->first->timestamp > this->clock.get_cycles();
 }
 
 void vp::Queue::reset(bool active)
 {
-    this->first = NULL;
+    if (active)
+    {
+        this->first = NULL;
+        this->nb_elem = 0;
+    }
 }
 
-void vp::Queue::push_back(QueueElem *elem)
+void vp::Queue::push_back(QueueElem *elem, int64_t delay)
 {
     if (this->first)
     {
@@ -71,10 +81,17 @@ void vp::Queue::push_back(QueueElem *elem)
     }
 
     this->last = elem;
+    this->nb_elem++;
     elem->next = NULL;
+    elem->timestamp = this->clock.get_cycles() + delay + 1;
 
     elem->cancel_callback = &vp::Queue::cancel_callback;
     elem->cancel_this = this;
+
+    if (this->ready_event)
+    {
+        this->ready_event->enqueue();
+    }
 }
 
 void vp::Queue::push_front(QueueElem *elem)
@@ -84,6 +101,7 @@ void vp::Queue::push_front(QueueElem *elem)
         this->last = elem;
     }
 
+    this->nb_elem++;
     elem->next = this->first;
     this->first = elem;
 
@@ -103,6 +121,7 @@ vp::QueueElem *vp::Queue::pop()
     {
         this->first = result->next;
     }
+    this->nb_elem--;
     return result;
 }
 

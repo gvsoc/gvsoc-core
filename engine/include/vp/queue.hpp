@@ -30,17 +30,21 @@ namespace vp {
     class Queue : public Block
     {
     public:
-        Queue(Block *parent, std::string name);
-        void push_back(QueueElem *elem);
+        Queue(Block *parent, std::string name, vp::ClockEvent *ready_event=NULL);
+        void push_back(QueueElem *elem, int64_t delay=0);
         void push_front(QueueElem *elem);
         QueueElem *head();
         QueueElem *pop();
         bool empty();
         void reset(bool active);
+        int size();
+
     private:
         static void cancel_callback(void *__this, vp::QueueElem *elem);
         QueueElem *first=NULL;
         QueueElem *last;
+        vp::ClockEvent *ready_event;
+        int nb_elem;
     };
 
     class QueueElem
@@ -50,9 +54,9 @@ namespace vp {
     public:
         void cancel();
 
-    protected:
         QueueElem *next;
         void *cancel_this;
         void (*cancel_callback)(void *, vp::QueueElem *);
+        int64_t timestamp;
     };
 };

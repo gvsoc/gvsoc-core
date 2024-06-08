@@ -35,11 +35,11 @@
 class Section
 {
 public:
-    Section(uint64_t paddr, void *data, size_t size) :
+    Section(uint64_t paddr, uint8_t *data, size_t size) :
         paddr(paddr), data(data), size(size) {}
 
     uint64_t paddr;
-    void *data;
+    uint8_t *data;
     size_t size;    
 };
 
@@ -60,7 +60,7 @@ private:
     bool load_elf(const char* file, uint64_t *entry);
     bool load_elf32(unsigned char* file, uint64_t *entry);
     bool load_elf64(unsigned char* file, uint64_t *entry);
-    void section_copy(uint64_t paddr, void *data, size_t size);
+    void section_copy(uint64_t paddr, uint8_t *data, size_t size);
     void section_clear(uint64_t paddr, size_t size);
 
     vp::Trace trace;
@@ -123,7 +123,7 @@ void loader::reset(bool active)
         if (entry_addr_conf != NULL)
         {
             uint64_t entry_addr = entry_addr_conf->get_int();
-            this->section_copy(entry_addr, &this->entry, this->is_32 ? 4 : 8);
+            this->section_copy(entry_addr, (uint8_t *)&this->entry, this->is_32 ? 4 : 8);
         }
 
         if (this->sections.size() > 0)
@@ -256,7 +256,7 @@ bool loader::load_elf(const char* file, uint64_t *entry)
 
 
 
-void loader::section_copy(uint64_t paddr, void *data, size_t size)
+void loader::section_copy(uint64_t paddr, uint8_t *data, size_t size)
 {
     this->sections.push_back(new Section(paddr, data, size));
 }

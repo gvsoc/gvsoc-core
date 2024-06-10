@@ -49,10 +49,10 @@ protected:
 
 #ifdef USE_SAMPLERATE
     SRC_DATA srcData;
-    SRC_STATE *srcState;
+    SRC_STATE *srcState = nullptr;
 #endif
-    float input_buffer; // one sqmple buffer as input
-    float *output_buffer;
+    float input_buffer; // one sample buffer as input
+    float *output_buffer = nullptr;
 
 private:
     int interpolate = 0;

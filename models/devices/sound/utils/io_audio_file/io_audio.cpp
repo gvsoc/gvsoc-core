@@ -221,17 +221,6 @@ void Rx_stream::build_rx_stream(int nb_channels, int32_t desired_sample_rate, in
                 srcData.output_frames = static_cast<long>(ratio) + 1;
                 srcData.output_frames_gen = 0;
                 srcData.end_of_input = 0;
-                while (srcData.output_frames_gen == 0)
-                {
-
-                    uint32_t sample = get_sample(0);
-                    int32_t int_sample = (int32_t)sample;
-                    input_buffer = (float)int_sample;
-                    if (src_process(srcState, &srcData) != 0)
-                    {
-                        break;
-                    }
-                }
             }
         }
 #else
@@ -240,26 +229,13 @@ void Rx_stream::build_rx_stream(int nb_channels, int32_t desired_sample_rate, in
     }
 }
 
-// void Rx_stream::init_interpolation_context()
-// {
-//     printf("Interpolation ON !!!!!!! \n");
-//     // initialise context
-//     for (int i = 0; i < nb_channels; ++i) {
-//             context[i].base_period = 1000000000000ULL / this->sample_rate;
-//             context[i].period = 1000000000000ULL / this->desired_sample_rate;
-//             context[i].t1 = 0;
-//             context[i].t = 0;
-//             context[i].t2 = context[i].base_period;
-//             context[i].v1 = (int32_t)get_sample(i);
-//             context[i].v2 = (int32_t)get_sample(i);
-//             context[i].coef = (double)(context[i].v2 - context[i].v1) / (double)(context[i].base_period);
-//     }
-// }
-
 Rx_stream::~Rx_stream()
 {
 #ifdef USE_SAMPLERATE
-    delete[] output_buffer; // Deallocate memory allocated for interpolation_context array
+    if(output_buffer)
+    {
+        delete[] output_buffer; // Deallocate memory allocated for interpolation_context array
+    }
     if (srcState)
     {
         src_delete(srcState);
@@ -280,41 +256,29 @@ Tx_stream::~Tx_stream()
 
 uint32_t Rx_stream::get_sample_interpol(int channel_id)
 {
-    // struct interpolation_context& this_context = context[channel_id]; // Use a reference to modify the interpolation context
-
-    // if(this_context.base_period == -1){
-    //     init_interpolation_context();
-    // }
-
-    // if (this_context.t > this_context.t2)
-    // {
-    //     // Update context
-    //     this_context.t1 = this_context.t2;
-    //     this_context.t2 = this_context.t1 + this_context.base_period;
-    //     this_context.v1 = this_context.v2;
-    //     this_context.v2 = (int32_t)get_sample(channel_id);
-    //     this_context.coef = (double)(this_context.v2 - this_context.v1) / (double)(this_context.period);
-    // }
-
-    // // Calculate interpolated value
-    // int32_t return_val = this_context.v1 + (int32_t)((double)(this_context.t - this_context.t1) * this_context.coef);
-    // this_context.t += this_context.period;
-    // return (uint32_t)return_val;
 #ifdef USE_SAMPLERATE
-    if (this->cnt_in_resampler >= srcData.output_frames_gen)
+    if(srcState)
     {
-        this->cnt_in_resampler = 0;
-        uint32_t sample = get_sample(channel_id);
-        int32_t int_sample = (int32_t)sample;
-        input_buffer = (float)int_sample;
-        // src_process(srcState, &srcData);
-        if (src_process(srcState, &srcData) != 0)
+        if (this->cnt_in_resampler >= srcData.output_frames_gen)
         {
-            std::cout << "Error in resampling process" << std::endl;
+            this->cnt_in_resampler = 0;
+            do
+            {
+                uint32_t sample = get_sample(channel_id);
+                int32_t int_sample = (int32_t)sample;
+                input_buffer = (float)int_sample;
+                if (src_process(srcState, &srcData) != 0)
+                {
+                    std::cout << "Error in resampling process" << std::endl;
+                }
+            } while (srcData.output_frames_gen == 0);
         }
+        int32_t return_val = (int32_t)output_buffer[this->cnt_in_resampler++];
+        return (uint32_t)return_val;
     }
-    int32_t return_val = (int32_t)output_buffer[this->cnt_in_resampler++];
-    return (uint32_t)return_val;
+    else{
+        return 0;
+    }
 #else
     return 0;
 #endif

@@ -40,14 +40,18 @@ class Router(gvsoc.systree.Component):
         Global bandwidth, in bytes per cycle, applied to all incoming request. This impacts the
         end time of the burst.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0, async_req: bool=False):
         super(Router, self).__init__(parent, name)
-
-        self.set_component('interco.router_impl')
 
         self.add_property('mappings', {})
         self.add_property('latency', latency)
         self.add_property('bandwidth', bandwidth)
+
+        if async_req:
+            self.add_sources(['interco/router_async.cpp'])
+        else:
+            self.add_sources(['interco/router.cpp'])
+
 
     def add_mapping(self, name: str, base: int=None, size: int=None, remove_offset: int=None,
             add_offset: int=None, id: int=None, latency: int=None):

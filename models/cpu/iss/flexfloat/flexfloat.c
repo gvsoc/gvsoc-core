@@ -62,6 +62,7 @@ uint_t flexfloat_pack(flexfloat_desc_t desc, bool sign, int_fast16_t exp, uint_t
 {
     int_fast16_t bias    = flexfloat_bias(desc);
     int_fast16_t inf_exp = flexfloat_inf_exp(desc);
+    uint_t mask = 0;
 
     if(exp == inf_exp)   // Inf or NaN
     {
@@ -71,7 +72,10 @@ uint_t flexfloat_pack(flexfloat_desc_t desc, bool sign, int_fast16_t exp, uint_t
     {
         exp = (exp - bias) + BIAS;
     }
-    return PACK(sign, exp, frac << (NUM_BITS_FRAC - desc.frac_bits));
+    if ((desc.exp_bits + desc.frac_bits) == 15) {
+        mask = 0xffff0000;
+    }
+    return mask | PACK(sign, exp, frac << (NUM_BITS_FRAC - desc.frac_bits));
 }
 
 uint_t flexfloat_denorm_pack(flexfloat_desc_t desc, bool sign, uint_t frac)
@@ -135,6 +139,9 @@ uint_t flexfloat_get_bits(flexfloat_t *a)
            + frac;
 #else
     uint_t Mask = ((uint_t)flexfloat_sign(a))?((uint_t)(-1)<<(a->desc.exp_bits + a->desc.frac_bits)):0;
+    if ((a->desc.exp_bits + a->desc.frac_bits) == 15) {
+        Mask |= 0xFfffFfffFfff0000;
+    }
     return ((((uint_t)flexfloat_sign(a) << (a->desc.exp_bits + a->desc.frac_bits))
            + ((uint_t)exp << a->desc.frac_bits)
            + frac) | Mask);

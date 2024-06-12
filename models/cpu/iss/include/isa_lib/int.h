@@ -28,13 +28,14 @@
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 
 static inline unsigned long int DoExtend(unsigned long int R, unsigned long int e, unsigned long int m)
-
 {
 #ifdef OLD
     return R;
 #else
     if ((m + e) == 31)
         return R;
+    else if ((m + e) == 15)
+        return R | 0xffff0000;
     else
     {
         unsigned int S = (R >> (e + m)) & 0x1;

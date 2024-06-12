@@ -602,7 +602,8 @@ INLINE void ff_acc(flexfloat_t *dest, const flexfloat_t *a) {
 INLINE void ff_min(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b) {
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
-    dest->value = fmin(a->value,b->value);
+    // dest->value = fmin(a->value,b->value);
+    dest->value = (a->value < b->value) ? a->value : b->value;
     // fmin's zero sign handling is implementation defined! Check for 0 cases to ensure right result
     if ((a->value == 0) && (a->value == b->value))
     {
@@ -627,7 +628,8 @@ INLINE void ff_min(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
 INLINE void ff_max(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b) {
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
-    dest->value = fmax(a->value,b->value);
+    // dest->value = fmax(a->value,b->value);
+    dest->value = (a->value >= b->value) ? a->value : b->value;
     // fmin's zero sign handling is implementation defined! Check for 0 cases to ensure right result
     if ((a->value == 0) && (a->value == b->value))
     {

@@ -148,9 +148,9 @@ static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_re
 static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                         \
 {                                                                                                               \
     iss_freg_t result = 0;                                                                                      \
-    for (int i=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++)                                                                                     \
+    for (int i=0, offset=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++, offset+=fmt_size)                        \
     {                                                                                                           \
-        result |= LIB_FF_CALL2(lib_flexfloat_##op, FREG_GET(0) >> (i*fmt_size), FREG_GET(1) >> (i*fmt_size), exp, mant) << i; \
+        result |= LIB_FF_CALL2(lib_flexfloat_##op, FREG_GET(0) >> (i*fmt_size), FREG_GET(1) >> (i*fmt_size), exp, mant) << offset; \
     }                                                                                                           \
                                                                                                                 \
     REG_SET(0, result);                                                                                         \
@@ -163,9 +163,9 @@ static inline iss_reg_t vf##op##_r_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_
     iss_freg_t result = 0;                                                                                      \
     iss_freg_t value = FREG_GET(1);                                                                             \
                                                                                                                 \
-    for (int i=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++)                                                                                     \
+    for (int i=0, offset=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++, offset+=fmt_size)                        \
     {                                                                                                           \
-        result |= LIB_FF_CALL2(lib_flexfloat_##op, FREG_GET(0) >> (i*fmt_size), value, exp, mant) << i;                \
+        result |= LIB_FF_CALL2(lib_flexfloat_##op, FREG_GET(0) >> (i*fmt_size), value, exp, mant) << offset;    \
     }                                                                                                           \
                                                                                                                 \
     REG_SET(0, result);                                                                                         \

@@ -98,7 +98,6 @@ class fds_t
   void dealloc(iss_reg_t fd);
   int lookup(iss_reg_t fd);
  private:
-  std::vector<int> fds;
 };
 
 class Htif

@@ -36,6 +36,8 @@
 #include <cpu/iss/include/htif.hpp>
 #include <cpu/iss/include/iss.hpp>
 
+static std::vector<int> fds;
+static bool fds_init = false;
 
 Htif::Htif(IssWrapper &top, Iss &iss)
     : iss(iss), htif_event(&top, (vp::Block *)&iss, &Htif::htif_handler)
@@ -65,13 +67,18 @@ Htif::Htif(IssWrapper &top, Iss &iss)
     table[1039] = &Htif::sys_lstat;
     table[2011] = &Htif::sys_getmainvars;
 
-    int stdin_fd = dup(0), stdout_fd0 = dup(1), stdout_fd1 = dup(1);
-    if (stdin_fd < 0 || stdout_fd0 < 0 || stdout_fd1 < 0)
-        throw std::runtime_error("could not dup stdin/stdout");
+    if (!fds_init)
+    {
+        int stdin_fd = dup(0), stdout_fd0 = dup(1), stdout_fd1 = dup(1);
+        if (stdin_fd < 0 || stdout_fd0 < 0 || stdout_fd1 < 0)
+            throw std::runtime_error("could not dup stdin/stdout");
 
-    fds.alloc(stdin_fd); // stdin -> stdin
-    fds.alloc(stdout_fd0); // stdout -> stdout
-    fds.alloc(stdout_fd1); // stderr -> stdout
+        fds.alloc(stdin_fd); // stdin -> stdin
+        fds.alloc(stdout_fd0); // stdout -> stdout
+        fds.alloc(stdout_fd1); // stderr -> stdout
+
+        fds_init = true;
+    }
 #endif
 }
 

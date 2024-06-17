@@ -143,6 +143,40 @@ static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_re
     return iss_insn_next(iss, insn, pc);                                                                                \
 }
 
+#if defined(CONFIG_GVSOC_ISS_RI5KY)
+
+#define VF_CMP(op,fmt,fmt_size,exp,mant)                                                                                 \
+                                                                                                                \
+static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                         \
+{                                                                                                               \
+    iss_freg_t result = 0;                                                                                      \
+    for (int i=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++)                                                                                     \
+    {                                                                                                           \
+        result |= LIB_FF_CALL2(lib_flexfloat_##op, FREG_GET(0) >> (i*fmt_size), FREG_GET(1) >> (i*fmt_size), exp, mant) << (i*fmt_size); \
+    }                                                                                                           \
+                                                                                                                \
+    REG_SET(0, result);                                                                                         \
+                                                                                                                \
+    return iss_insn_next(iss, insn, pc);                                                                        \
+}                                                                                                               \
+                                                                                                                \
+static inline iss_reg_t vf##op##_r_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                       \
+{                                                                                                               \
+    iss_freg_t result = 0;                                                                                      \
+    iss_freg_t value = FREG_GET(1);                                                                             \
+                                                                                                                \
+    for (int i=0; i<CONFIG_GVSOC_ISS_FP_WIDTH/fmt_size; i++)                                                                                     \
+    {                                                                                                           \
+        result |= LIB_FF_CALL2(lib_flexfloat_##op, FREG_GET(0) >> (i*fmt_size), value, exp, mant) << (i*fmt_size);                \
+    }                                                                                                           \
+                                                                                                                \
+    REG_SET(0, result);                                                                                         \
+                                                                                                                \
+    return iss_insn_next(iss, insn, pc);                                                                        \
+}
+
+#else
+
 #define VF_CMP(op,fmt,fmt_size,exp,mant)                                                                                 \
                                                                                                                 \
 static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                         \
@@ -172,6 +206,8 @@ static inline iss_reg_t vf##op##_r_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_
                                                                                                                 \
     return iss_insn_next(iss, insn, pc);                                                                        \
 }
+
+#endif
 
 #define VF_CPK(pos, dst_format, index, width, dst_exp, dst_mant)                                                                                     \
                                                                                                         \

@@ -2316,6 +2316,7 @@ static inline int lib_flexfloat_cvt_x_ff_round(Iss *s, unsigned long int a, uint
     else if ((S == 0) && (E == ((1ULL << e) - 1) && M == 0))
         return 0X07FFF; // + infinity
 
+
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, e, m)
     int result;
@@ -2324,7 +2325,9 @@ static inline int lib_flexfloat_cvt_x_ff_round(Iss *s, unsigned long int a, uint
     else if (ff_a.value > (float)(int)0x7FFFFFFF)
         result = 0x7FFFFFFF;
     else
-        result = (int)ff_a.value;
+    {
+        result = llrint(ff_a.value);
+    }
     restoreFFRoundingMode(old);
     if (result < -32768)
         result = 0x08000;
@@ -2364,7 +2367,7 @@ static inline unsigned long int lib_flexfloat_cvt_xu_ff_round(Iss *s, unsigned l
     else if (ff_a.value > (float)(long int)0x0FFFFFFFF)
         result = 0xFFFFFFFF;
     else
-        result = (unsigned long int)ff_a.value;
+        result = llrint(ff_a.value);
     restoreFFRoundingMode(old);
     if (result > 65535)
         result = 0x0ffff;

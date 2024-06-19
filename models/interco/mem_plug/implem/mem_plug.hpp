@@ -64,7 +64,9 @@ protected:
     int output_latency;
 
 private:
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     void check_state();
+    vp::ClockEvent fsm_event;
     std::vector<Mem_plug_port *> ports;       // Output ports, each one can handle a request.
     vp::Queue waiting_reqs;  // Pending input requests waiting for available
         // output put
@@ -82,8 +84,10 @@ public:
 
 protected:
     void check_state();
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
+    vp::ClockEvent fsm_event;
     Mem_plug_implem *top;
     vp::IoReq out_req;
     vp::Queue pending_req;

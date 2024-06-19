@@ -1,9 +1,5 @@
 add_subdirectory(mem_plug)
 
-vp_model(NAME interco.router_impl
-    SOURCES "router_impl.cpp"
-    )
-
 vp_model(NAME interco.interleaver_impl
     SOURCES "interleaver_impl.cpp"
     )

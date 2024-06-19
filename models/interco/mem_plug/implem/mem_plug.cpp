@@ -33,7 +33,8 @@ Mem_plug::Mem_plug(vp::Block *parent, std::string name, vp::Component *comp, std
 
 Mem_plug_implem::Mem_plug_implem(vp::Block *parent, std::string name, vp::Component *comp, std::string path,
     vp::IoMaster *out_itf, int nb_ports, int output_latency)
-: Block(parent, name), waiting_reqs(this, "queue"), nb_pending_reqs(*this, "nb_pending_reqs", 0), output_latency(output_latency)
+: fsm_event(this, Mem_plug_implem::fsm_handler), Block(parent, name), waiting_reqs(this, "queue", &this->fsm_event),
+    nb_pending_reqs(*this, "nb_pending_reqs", 0), output_latency(output_latency)
 {
     comp->traces.new_trace(path, &this->trace, vp::DEBUG);
     this->nb_ports = nb_ports;
@@ -42,6 +43,13 @@ Mem_plug_implem::Mem_plug_implem(vp::Block *parent, std::string name, vp::Compon
     {
         this->ports.push_back(new Mem_plug_port(this, "port_" + std::to_string(i), comp, path + "/port_" + std::to_string(i), out_itf));
     }
+}
+
+
+void Mem_plug_implem::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    Mem_plug_implem *_this = (Mem_plug_implem *)__this;
+    _this->check_state();
 }
 
 
@@ -93,11 +101,18 @@ void Mem_plug::enqueue(Mem_plug_req *req)
  */
 
 Mem_plug_port::Mem_plug_port(Mem_plug_implem *top, std::string name, vp::Component *comp, std::string path, vp::IoMaster *out_itf)
-    : Block(top, name), top(top), pending_req(this, name), comp(comp)
+    : fsm_event(this, Mem_plug_port::fsm_handler), Block(top, name), top(top),
+    pending_req(this, name, &this->fsm_event), comp(comp)
 {
     comp->traces.new_trace(path, &this->trace, vp::DEBUG);
     this->event = comp->event_new((vp::Block *)this, Mem_plug_port::event_handler);
     this->out_itf = out_itf;
+}
+
+void Mem_plug_port::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    Mem_plug_port *_this = (Mem_plug_port *)__this;
+    _this->check_state();
 }
 
 bool Mem_plug_port::enqueue(Mem_plug_req *req)

@@ -262,10 +262,10 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
 
         // Allocate arguments in the request, they will be used to store information that we will
         // need in the response callback
-        req->arg_alloc(Router::REQ_NB_ARGS);
-        *(int64_t *)req->arg_get(Router::REQ_REM_SIZE) = size;
-        *(int64_t *)req->arg_get(Router::REQ_CYCLES) = this->clock.get_cycles();
-        *(int64_t *)req->arg_get(Router::REQ_LATENCY) = 0;
+        int arg_index = req->arg_alloc(Router::REQ_NB_ARGS);
+        *(int64_t *)req->arg_get(arg_index + Router::REQ_REM_SIZE) = size;
+        *(int64_t *)req->arg_get(arg_index + Router::REQ_CYCLES) = this->clock.get_cycles();
+        *(int64_t *)req->arg_get(arg_index + Router::REQ_LATENCY) = 0;
 
         // Now go through entries matching the access and send one new request for each
         while (size)
@@ -333,7 +333,7 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
 
         // Either return OK or INVALID if there parent request is over, or PENDING if some child
         // requests are still pending
-        if (*(int64_t *)req->arg_get(Router::REQ_REM_SIZE) == 0)
+        if (*(int64_t *)req->arg_get(arg_index + Router::REQ_REM_SIZE) == 0)
         {
             // Release the argument now that we are done with the request to not disturb the caller
             // if it needs to allocate arguments
@@ -367,7 +367,8 @@ void Router::response(vp::Block *__this, vp::IoReq *req)
     }
 
     int port = *(int *)req->arg_get(1);
-    if (*(int64_t *)parent_req->arg_get(Router::REQ_REM_SIZE) == 0)
+    int arg_index = parent_req->arg_current_index() - Router::REQ_NB_ARGS;
+    if (*(int64_t *)parent_req->arg_get(arg_index + Router::REQ_REM_SIZE) == 0)
     {
         // Release the argument now that we are done with the request to not disturb the caller
         // if it needs to allocate arguments
@@ -384,22 +385,25 @@ void Router::handle_entry_req_end(vp::IoReq *entry_req)
 {
     // This is called when a child request is over and should be accounted on the parent request
     vp::IoReq *req = *(vp::IoReq **)entry_req->arg_get(0);
+    int arg_index = req->arg_current_index() - Router::REQ_NB_ARGS;
 
     // First compute the latency of the request, which is the cycle between now and the time where
     // it was sent
-    int64_t latency = this->clock.get_cycles() - *(int64_t *)req->arg_get(Router::REQ_CYCLES);
+    int64_t latency = this->clock.get_cycles() -
+        *(int64_t *)req->arg_get(arg_index + Router::REQ_CYCLES);
 
     // Timing model is that all child requests are sent at the same time and the latency of the
     // parent request is the longest one amongst the child requests.
-    *(int64_t *)req->arg_get(Router::REQ_LATENCY) =
-        std::max(*(int64_t *)req->arg_get(Router::REQ_LATENCY), latency);
+    *(int64_t *)req->arg_get(arg_index + Router::REQ_LATENCY) =
+        std::max(*(int64_t *)req->arg_get(arg_index + Router::REQ_LATENCY), latency);
 
     // The same for the duration
-    *(int64_t *)req->arg_get(Router::REQ_DURATION) =
-        std::max(*(uint64_t *)req->arg_get(Router::REQ_DURATION), entry_req->get_duration());
+    *(int64_t *)req->arg_get(arg_index + Router::REQ_DURATION) =
+        std::max(*(uint64_t *)req->arg_get(arg_index + Router::REQ_DURATION),
+            entry_req->get_duration());
 
     // Finally remove the child size from the parent request
-    *(int64_t *)req->arg_get(Router::REQ_REM_SIZE) -= entry_req->get_size();
+    *(int64_t *)req->arg_get(arg_index + Router::REQ_REM_SIZE) -= entry_req->get_size();
 }
 
 OutputPort::OutputPort(Router *top, int64_t bandwidth, int64_t latency)

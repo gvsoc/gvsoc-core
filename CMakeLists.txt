@@ -151,8 +151,8 @@ option(BUILD_DEBUG         "build GVSOC with debug information"                O
 option(BUILD_OPTIMIZED_M32 "build GVSOC with optimizations in 32bits mode"     OFF)
 option(BUILD_DEBUG_M32     "build GVSOC with debug information in 32bits mode" OFF)
 
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O0")
-set(CMAKE_CC_FLAGS_RELWITHDEBINFO "-g -O0")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O3")
+set(CMAKE_CC_FLAGS_RELWITHDEBINFO "-g -O3")
 
 
 # set target types

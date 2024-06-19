@@ -263,7 +263,7 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
         // Allocate arguments in the request, they will be used to store information that we will
         // need in the response callback
         req->arg_alloc(Router::REQ_NB_ARGS);
-        *(int *)req->arg_get(Router::REQ_REM_SIZE) = size;
+        *(int64_t *)req->arg_get(Router::REQ_REM_SIZE) = size;
         *(int64_t *)req->arg_get(Router::REQ_CYCLES) = this->clock.get_cycles();
         *(int64_t *)req->arg_get(Router::REQ_LATENCY) = 0;
 
@@ -333,7 +333,17 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
 
         // Either return OK or INVALID if there parent request is over, or PENDING if some child
         // requests are still pending
-        return *(int64_t *)req->arg_get(Router::REQ_REM_SIZE) == 0 ? req->status : vp::IO_REQ_PENDING;
+        if (*(int64_t *)req->arg_get(Router::REQ_REM_SIZE) == 0)
+        {
+            // Release the argument now that we are done with the request to not disturb the caller
+            // if it needs to allocate arguments
+            req->arg_free(Router::REQ_NB_ARGS);
+            return req->status;
+        }
+        else
+        {
+            return vp::IO_REQ_PENDING;
+        }
     }
 }
 
@@ -349,16 +359,21 @@ void Router::response(vp::Block *__this, vp::IoReq *req)
 
     // And reply to the parent request in case it is over
     vp::IoReq *parent_req = *(vp::IoReq **)req->arg_get(0);
-    int port = *(int *)req->arg_get(1);
-    if (*(int64_t *)parent_req->arg_get(Router::REQ_REM_SIZE) == 0)
-    {
-        parent_req->resp_port->resp(parent_req);
-    }
 
     // If one child request is failing, the whole parent request is failing
     if (req->status == vp::IO_REQ_INVALID)
     {
         parent_req->status = vp::IO_REQ_INVALID;
+    }
+
+    int port = *(int *)req->arg_get(1);
+    if (*(int64_t *)parent_req->arg_get(Router::REQ_REM_SIZE) == 0)
+    {
+        // Release the argument now that we are done with the request to not disturb the caller
+        // if it needs to allocate arguments
+        parent_req->arg_free(Router::REQ_NB_ARGS);
+        // Notify the initiator about the response
+        parent_req->resp_port->resp(parent_req);
     }
 
     // Child request is no more needed

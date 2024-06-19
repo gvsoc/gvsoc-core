@@ -19,14 +19,42 @@ import gvsoc.systree
 class Router(gvsoc.systree.Component):
     """Interconnect router
 
-    This models a simple interconnect.
-    It has a single input port and several output ports, one for each target memory area.
-    It routes incoming requests to the right output ports, depending on the address of
-    the requests.
-    It can apply a latency to each, either global, or depending on the output port.
-    It can also apply a global bandwidth, which impacts the duration of the request.
-    The timing model is based on bursts. The latency can delay the starting point of the burst,
-    while the bandwidth impacts the end point of the burst.
+    This models an AXI-like router.
+    It is capable of routing memory-mapped requests from an input port to output ports based on
+    the request address.
+    It has several input ports, one for each set of independent initiators, and several output
+    ports, one for each target memory area.
+    In terms of timing behavior, the router makes sure the flow of requests going throught it
+    respects a certain bandwidth and can also apply a latency to the requests.
+    This models a full crossbar, one input port can always send to an output port without being
+    disturbed by other paths.
+    Read and write bursts can also go through the router in parallel.
+    The timing behavior can be specialized by tuning the 3 following properties:
+    - The global latency. This applies the same latency to each requests injected into the router.
+    - The entry latency. This applies the latency only to requests going through the output port
+      to which the latency is associated.
+    - The bandwidth. The router will use it to delay requests so that the amount of bytes going
+      through an output repects the global bandwidth.
+
+    The router has 2 main modes, either synchronous or asynchronous.
+
+    The synchronous mode can be used when the simulation speed should be privileged.
+    In this case the router forwards the requests as fast as possible in a synchronous way so that
+    everything is handled within a function call.
+    There are some rare cases where the requests will be handled asynchronously:
+    - The slave where the request is forwarded handled it asynchronously
+    - The request is spread accross several entries and of the slave where part of the request
+      was forwarded handled the request asynchronously.
+    In this mode, the router lets the requests go through it as they arrive and use the request
+    latency to respect the bandwidth. If we are already above the bandwidth, the latency of the
+    request, which is the starting point of the burst, is delayed to the cycle where we get under
+    the bandwidth. The bandwidth is also used to set the duration of the burst.
+    The bandwidth is applied first on input ports to model the fact that requests coming from same
+    port are serialized, and applied a second time on output port, for the same reason.
+    The drawback of this synchronous router is that any incoming request is immediately forwarded
+    to an output port. This means several requests can be routed in the same cycle, even to the same
+    output port. When this happens, the next slave can handle a big amount of data in the same cycle,
+    which means it can block activity for some time, creating some artificial holes in the execution.
 
     Attributes
     ----------
@@ -39,22 +67,30 @@ class Router(gvsoc.systree.Component):
     bandwidth: int
         Global bandwidth, in bytes per cycle, applied to all incoming request. This impacts the
         end time of the burst.
+    synchronous: True if the router should use synchronous mode where all incoming requests are
+        handled as far as possible in synchronous IO mode.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0, async_req: bool=False):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
+            synchronous: bool=True):
         super(Router, self).__init__(parent, name)
 
+        # This will store the whole set of mappings and passed to model as a dictionary
         self.add_property('mappings', {})
         self.add_property('latency', latency)
         self.add_property('bandwidth', bandwidth)
+        # The number of input port is automatically increased each time i_INPUT is called if needed.
+        # Set number of input ports to 1 by default because some models do not use i_INPUT yet.
+        self.add_property('nb_input_port', 1)
 
-        if async_req:
-            self.add_sources(['interco/router_async.cpp'])
-        else:
+        self.add_sources(['interco/router_common.cpp'])
+        if synchronous:
             self.add_sources(['interco/router.cpp'])
+        else:
+            self.add_sources(['interco/router_async.cpp'])
 
 
-    def add_mapping(self, name: str, base: int=None, size: int=None, remove_offset: int=None,
-            add_offset: int=None, id: int=None, latency: int=None):
+    def add_mapping(self, name: str, base: int=0, size: int=0, remove_offset: int=0,
+            add_offset: int=0, latency: int=0):
         """Add a target port with an associated target memory map.
 
         The port is created with the specified name, so that the same name can be used to connect
@@ -63,6 +99,9 @@ class Router(gvsoc.systree.Component):
 
         On top of the global latency, a latency specific to this mapping can be added when a request
         goes through this mapping.
+
+        Deprecated:
+            Use `o_MAP` instead.
 
         Parameters
         ----------
@@ -76,39 +115,32 @@ class Router(gvsoc.systree.Component):
         remove_offset: int
             This address is substracted to the address of any request going through this mapping.
             This can be used to convert an address into a local offset.
-        id: int
-            Counter id where this mapping is reporting statistics. All mappings with same id
-            are cumulated together, which is a way to collect statistics fro several mappings.
+        add_offset: int
+            This address is added to the address of any request going through this mapping.
+            This can be used to remap a request to a different network, like in a bridge.
         latency: int
             Latency applied to any request going through this mapping. This impacts the start time
             of the request.
         """
 
-        mapping = {}
+        self.get_property('mappings')[name] =  {
+            'base': base,
+            'size': size,
+            'remove_offset': remove_offset,
+            'add_offset': add_offset,
+            'latency': latency,
+        }
 
-        if base is not None:
-            mapping['base'] = base
+    def __alloc_input_port(self, id):
+        nb_input_port = self.get_property("nb_input_port")
+        if id >= nb_input_port:
+            self.add_property("nb_input_port", id + 1)
 
-        if size is not None:
-            mapping['size'] = size
-
-        if remove_offset is not None:
-            mapping['remove_offset'] = remove_offset
-
-        if add_offset is not None:
-            mapping['add_offset'] = add_offset
-
-        if latency is not None:
-            mapping['latency'] = latency
-
-        if id is not None:
-            mapping['id'] = id
-
-        self.get_property('mappings')[name] =  mapping
-
-    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
+    def i_INPUT(self, id: int=0) -> gvsoc.systree.SlaveItf:
         """Returns the input port.
 
+        Since the model can handle several input ports, the identifier of the input port
+        can be specified.
         Incoming requests to be routed can be sent to the port.\n
         The router will forward them to the correct output port depending on the request
         address.\n
@@ -119,45 +151,49 @@ class Router(gvsoc.systree.Component):
         gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+        self.__alloc_input_port(id)
+        if id == 0:
+            return gvsoc.systree.SlaveItf(self, f'input', signature='io')
+        else:
+            return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='io')
 
-    def o_MAP(self, itf: gvsoc.systree.SlaveItf, name:str=None, base: int=None, size: int=None,
-            rm_base: bool=True, remove_offset: int=None, id: int=None, latency: int=None):
+    def o_MAP(self, itf: gvsoc.systree.SlaveItf, name: str=None, base: int=0, size: int=0,
+            rm_base: bool=True, remove_offset: int=0, latency: int=0):
         """Binds the output to a memory region.
 
         This ports can be used to attach a memory region to the specified slave interface.\n
         Any requests whose base address is inside the memory region is forwarded to the
         associated port.\n
-        Requests should not cross several regions. In this case, they are forwarded to the
-        region containing the base address of the request.
         It instantiates a port of type vp::IoMaster.\n
 
         Parameters
         ----------
         slave: gvsoc.systree.SlaveItf
-            Slave interface
+            Slave interface where requests matching the mapping must be forwarded.
         name: str
-            Name of the mapping. An interface of the same name will be created.
+            Name of the mapping, which is used for connecting to output port interface. Specifying
+            the name is normally not needed, but might be in case several mappings are connected
+            to same target.
         base: int
             Base address of the target memory area.
         size: int
             Size of the target memory area.
-        rm_base: int
-            The base address is substracted to the address of any request going through this mapping.
-            This can be used to convert an address into a local offset.
+        rm_base: bool
+            if True, the base address is substracted to the address of any request going through
+            this mapping. This can be used to convert an address into a local offset.
         remove_offset: int
             This address is substracted to the address of any request going through this mapping.
             This can be used to convert an address into a local offset.
-        id: int
-            Counter id where this mapping is reporting statistics. All mappings with same id
-            are cumulated together, which is a way to collect statistics fro several mappings.
         latency: int
             Latency applied to any request going through this mapping. This impacts the start time
             of the request.
         """
-        if rm_base and remove_offset is None:
+        # We remove the base if specified, but only if remove_offset is not already specified as
+        # they are redundant
+        if rm_base and remove_offset == 0:
             remove_offset = base
+        # Normal case when name is not specified, we take the target component name
         if name is None:
             name = itf.component.name
-        self.add_mapping(name, base=base, remove_offset=remove_offset, size=size, id=id, latency=latency)
+        self.add_mapping(name, base=base, remove_offset=remove_offset, size=size, latency=latency)
         self.itf_bind(name, itf, signature='io')

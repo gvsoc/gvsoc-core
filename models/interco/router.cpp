@@ -21,148 +21,172 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
-#include <vp/itf/wire.hpp>
-#include <vp/proxy.hpp>
 #include <stdio.h>
 #include <math.h>
 #include <vp/mapping_tree.hpp>
+#include "router_common.hpp"
 
-class router;
+class Router;
 
-class Perf_counter
+
+/**
+ * @brief Bandwidth limiter
+ *
+ * This is used on both input and output ports to impact requests latency and durations so that
+ * the specified bandwidth is respected in average.
+ *
+ */
+class BandwidthLimiter
 {
 public:
-    int64_t nb_read;
-    int64_t nb_write;
-    int64_t read_stalls;
-    int64_t write_stalls;
-
-    vp::WireSlave<uint32_t> nb_read_itf;
-    vp::WireSlave<uint32_t> nb_write_itf;
-    vp::WireSlave<uint32_t> read_stalls_itf;
-    vp::WireSlave<uint32_t> write_stalls_itf;
-    vp::WireSlave<uint32_t> stalls_itf;
-
-    static void nb_read_sync_back(vp::Block *__this, uint32_t *value);
-    static void nb_read_sync(vp::Block *__this, uint32_t value);
-    static void nb_write_sync_back(vp::Block *__this, uint32_t *value);
-    static void nb_write_sync(vp::Block *__this, uint32_t value);
-    static void read_stalls_sync_back(vp::Block *__this, uint32_t *value);
-    static void read_stalls_sync(vp::Block *__this, uint32_t value);
-    static void write_stalls_sync_back(vp::Block *__this, uint32_t *value);
-    static void write_stalls_sync(vp::Block *__this, uint32_t value);
-    static void stalls_sync_back(vp::Block *__this, uint32_t *value);
-    static void stalls_sync(vp::Block *__this, uint32_t value);
-};
-
-class MapEntry
-{
-public:
-    vp::IoMaster itf;
-    uint64_t remove_offset = 0;
-    uint64_t add_offset = 0;
-        uint32_t latency = 0;
-        int64_t next_read_packet_time = 0;
-        int64_t next_write_packet_time = 0;
-};
-
-class router : public vp::Component
-{
-public:
-    router(vp::ComponentConf &conf);
-
-    std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string req);
-
-    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
-
-    static void grant(vp::Block *__this, vp::IoReq *req);
-
-    static void response(vp::Block *__this, vp::IoReq *req);
+    // Overall bandwidth to be respected, and global latency to be applied to each request
+    BandwidthLimiter(Router *top, int64_t bandwidth, int64_t latency);
+    // Can be called on any request going through the limiter to add the fixed latency and impact
+    // the latency and duration with the current utilization of the limiter with respect to the
+    // bandwidth
+    void apply_bandwidth(int64_t cycles, vp::IoReq *req);
 
 private:
+    Router *top;
+    // Bandwidth in bytes per cycle to be respected
+    int64_t bandwidth;
+    // Fixed latency to be added to each request
+    int64_t latency;
+    // Cyclestamp at which the next read burst can go through the limiter. Used to delay a request
+    // which arrives before this cyclestamp.
+    int64_t next_read_burst_cycle = 0;
+    // Cyclestamp at which the write read burst can go through the limiter. Used to delay a request
+    // which arrives before this cyclestamp.
+    int64_t next_write_burst_cycle = 0;
+};
+
+
+
+/**
+ * @brief OutputPort
+ *
+ * This represents a possible OutputPort in the memory map.
+ * It is used to implement the bandwidth limiter, store the OutputPort interface and other mapping
+ * information.
+ */
+class OutputPort
+{
+public:
+    OutputPort(Router *top, int64_t bandwidth, int64_t latency);
+    // OutputPort output IO interface where requests matching the mapping should be forwarded
+    vp::IoMaster itf;
+    // Bandwidth limiter to impact request timing
+    BandwidthLimiter bw_limiter;
+    // Offset to be removed when request is forwarded
+    uint64_t remove_offset = 0;
+    // Offset to be added when request is forwarded
+    uint64_t add_offset = 0;
+};
+
+
+class InputPort
+{
+public:
+    InputPort(Router *top, int64_t bandwidth, int64_t latency);
+    vp::IoSlave itf;
+    BandwidthLimiter bw_limiter;
+};
+
+
+/**
+ * @brief Synchronous router
+ *
+ * This models an AXI-like router that is capable of routing memory-mapped requests from an input
+ * port to output ports based on the request address.
+ */
+class Router : public RouterCommon
+{
+    friend class BandwidthLimiter;
+
+public:
+    Router(vp::ComponentConf &conf);
+
+private:
+    // Incoming requests are received here. The port indicates from which input port it is received.
+    vp::IoReqStatus handle_req(vp::IoReq *req, int port) override;
+    // Interface callback where incoming requests are received. Just a wrapper for handle_req
+    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req, int port);
+    // Asynchronous response are received here in case a request is spread over multiple mappings.
+    static void response(vp::Block *__this, vp::IoReq *req);
+    // Called to handle the end of a request, either because it was handled synchronously or through
+    // the response callback
+    void handle_entry_req_end(vp::IoReq *req);
+
+    // Constants giving the position of the temporary arguments stored in the requests.
+    static constexpr int REQ_REM_SIZE = 0;
+    static constexpr int REQ_CYCLES = 1;
+    static constexpr int REQ_LATENCY = 2;
+    static constexpr int REQ_DURATION = 3;
+    static constexpr int REQ_NB_ARGS = 4;
+
+    // This component trace
     vp::Trace trace;
 
-    vp::IoMaster out;
-    vp::IoSlave in;
+    // Array of input ports
+    std::vector<InputPort *> inputs;
+    // Array of output ports
+    std::vector<OutputPort *> entries;
+    // Tree of mappings
     vp::MappingTree mapping_tree;
-    std::vector<MapEntry *> entries;
-
-    std::map<int, Perf_counter *> counters;
-
-    int bandwidth = 0;
-    int latency = 0;
-    vp::IoReq proxy_req;
+    // Gives the ID of the error mapping, the one returning an error when a request is matching
+    // this mapping
     int error_id = -1;
 };
 
-router::router(vp::ComponentConf &config)
-    : vp::Component(config), mapping_tree(&this->trace)
+
+
+Router::Router(vp::ComponentConf &config)
+    : RouterCommon(config), mapping_tree(&this->trace)
 {
-    traces.new_trace("trace", &trace, vp::DEBUG);
+    this->traces.new_trace("trace", &trace, vp::DEBUG);
 
-    in.set_req_meth(&router::req);
-    new_slave_port("input", &in);
+    int bandwidth = this->get_js_config()->get_int("bandwidth");
+    int latency = this->get_js_config()->get_int("latency");
+    int nb_input_port = this->get_js_config()->get_int("nb_input_port");
 
-    out.set_resp_meth(&router::response);
-    out.set_grant_meth(&router::grant);
-    new_master_port("out", &out);
+    // Instantiates input ports
+    this->inputs.resize(nb_input_port);
+    for (int i=0; i<nb_input_port; i++)
+    {
+        InputPort *input_port = new InputPort(this, bandwidth, latency);
+        this->inputs[i] = input_port;
 
-    bandwidth = get_js_config()->get_child_int("bandwidth");
-    latency = get_js_config()->get_child_int("latency");
+        vp::IoSlave *input = &input_port->itf;
+        std::string name = i == 0 ? "input" : "input_" + std::to_string(i);
+        input->set_req_meth_muxed(&Router::req, i);
+        this->new_slave_port(name, input, this);
+    }
 
-    js::Config *mappings = get_js_config()->get("mappings");
-
-    this->proxy_req.set_data(new uint8_t[4]);
-
+    // Then mappings and output ports
+    js::Config *mappings = this->get_js_config()->get("mappings");
     if (mappings != NULL)
     {
         int mapping_id = 0;
         for (auto &mapping : mappings->get_childs())
         {
             js::Config *config = mapping.second;
+            std::string name = mapping.first;
 
-            this->mapping_tree.insert(mapping_id, mapping.first, config);
+            this->mapping_tree.insert(mapping_id, name, config);
 
-            MapEntry *entry = new MapEntry();
+            OutputPort *entry = new OutputPort(this, bandwidth, config->get_int("latency"));
 
-            entry->itf.set_resp_meth(&router::response);
-            entry->itf.set_grant_meth(&router::grant);
-            new_master_port(mapping.first, &entry->itf);
+            entry->itf.set_resp_meth(&Router::response);
+            this->new_master_port(name, &entry->itf);
 
             entry->remove_offset = config->get_uint("remove_offset");
             entry->add_offset = config->get_uint("add_offset");
 
-            entries.push_back(entry);
+            this->entries.push_back(entry);
 
-            if (mapping.first == "error")
+            if (name == "error")
             {
                 this->error_id = mapping_id;
-            }
-
-            if (this->counters.find(mapping_id) == this->counters.end())
-            {
-                Perf_counter *counter = new Perf_counter();
-                this->counters[mapping_id] = counter;
-
-                counter->nb_read_itf.set_sync_back_meth(&Perf_counter::nb_read_sync_back);
-                counter->nb_read_itf.set_sync_meth(&Perf_counter::nb_read_sync);
-                new_slave_port("nb_read[" + std::to_string(mapping_id) + "]", &counter->nb_read_itf, (void *)counter);
-
-                counter->nb_write_itf.set_sync_back_meth(&Perf_counter::nb_write_sync_back);
-                counter->nb_write_itf.set_sync_meth(&Perf_counter::nb_write_sync);
-                new_slave_port("nb_write[" + std::to_string(mapping_id) + "]", &counter->nb_write_itf, (void *)counter);
-
-                counter->read_stalls_itf.set_sync_back_meth(&Perf_counter::read_stalls_sync_back);
-                counter->read_stalls_itf.set_sync_meth(&Perf_counter::read_stalls_sync);
-                new_slave_port("read_stalls[" + std::to_string(mapping_id) + "]", &counter->read_stalls_itf, (void *)counter);
-
-                counter->write_stalls_itf.set_sync_back_meth(&Perf_counter::write_stalls_sync_back);
-                counter->write_stalls_itf.set_sync_meth(&Perf_counter::write_stalls_sync);
-                new_slave_port("write_stalls[" + std::to_string(mapping_id) + "]", &counter->write_stalls_itf, (void *)counter);
-
-                counter->stalls_itf.set_sync_back_meth(&Perf_counter::stalls_sync_back);
-                counter->stalls_itf.set_sync_meth(&Perf_counter::stalls_sync);
-                new_slave_port("stalls[" + std::to_string(mapping_id) + "]", &counter->stalls_itf, (void *)counter);
             }
 
             mapping_id++;
@@ -172,276 +196,257 @@ router::router(vp::ComponentConf &config)
     }
 }
 
-vp::IoReqStatus router::req(vp::Block *__this, vp::IoReq *req)
+vp::IoReqStatus Router::req(vp::Block *__this, vp::IoReq *req, int port)
 {
-    router *_this = (router *)__this;
+    Router *_this = (Router *)__this;
+    return _this->handle_req(req, port);
+}
 
-    // Since this is a a synchronous router, we will iterate sending requests to entries until
-    // the whole requests has been processed
-
-    // Consider the result as OK by default, this will be overriden if any of the sub requests
-    // is failing
-    vp::IoReqStatus result = vp::IO_REQ_OK;
-
+vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
+{
     uint64_t offset = req->get_addr();
     uint64_t size = req->get_size();
     uint8_t *data = req->get_data();
     bool is_write = req->get_is_write();
 
-    // Save the requests  information as we will need to restore them at the end since we will
-    // use the request for smaller requests
-    uint64_t req_size = size;
-    uint64_t req_offset = offset;
-    uint8_t *req_data = data;
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+        offset, size, is_write);
 
-    while (size)
+    // First apply the bandwidth limitation coming from the input port
+    this->inputs[port]->bw_limiter.apply_bandwidth(this->clock.get_cycles(), req);
+
+    // Get the mapping from the tree
+    vp::MappingTreeEntry *mapping = this->mapping_tree.get(offset, size, req->get_is_write());
+
+    // In case no mapping was found, or we hit the error mapping, return an error
+    if (!mapping || mapping->id == this->error_id)
     {
-        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d, bandwidth: %d)\n",
-                         offset, size, req->get_is_write(), _this->bandwidth);
+        return vp::IO_REQ_INVALID;
+    }
 
-        vp::MappingTreeEntry *mapping = _this->mapping_tree.get(offset, size, req->get_is_write());
+    // First check if we are in the common case where the requests is entirely within the mapping.
+    // This can happen either if it is the default one (size equal 0) or base and size fully fits
+    // the mapping
+    if (mapping->size == 0 || offset + size <= mapping->base + mapping->size)
+    {
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Routing to entry (OutputPort: %s)\n", mapping->name.c_str());
 
-        if (!mapping || mapping->id == _this->error_id)
-        {
-            return vp::IO_REQ_INVALID;
-        }
+        OutputPort *entry = this->entries[mapping->id];
 
-        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Routing to entry (target: %s)\n", mapping->name.c_str());
-
-        MapEntry *entry = _this->entries[mapping->id];
-
-        if (_this->bandwidth != 0)
-        {
-            // Duration of this packet in this router according to router bandwidth
-            int64_t packet_duration = (size + _this->bandwidth - 1) / _this->bandwidth;
-
-            // Update packet duration
-            // This will update it only if it is bigger than the current duration, in case there is a
-            // slower router on the path
-            req->set_duration(packet_duration);
-
-            // Update the request latency.
-            int64_t latency = req->get_latency();
-            // First check if the latency should be increased due to bandwidth
-            int64_t *next_packet_time = req->get_is_write() ? &entry->next_write_packet_time : &entry->next_read_packet_time;
-            int64_t router_latency = *next_packet_time - _this->clock.get_cycles();
-            if (router_latency > latency)
-            {
-                latency = router_latency;
-            }
-
-            // Then apply the router latency
-            req->set_latency(latency + entry->latency + _this->latency);
-
-            // Update the bandwidth information
-            int64_t router_time = _this->clock.get_cycles();
-            if (router_time < *next_packet_time)
-            {
-                router_time = *next_packet_time;
-            }
-            *next_packet_time = router_time + packet_duration;
-        }
-        else
-        {
-            req->inc_latency(entry->latency + _this->latency);
-        }
-
-        int iter_size = mapping->size - (offset - mapping->base);
-
-        if (iter_size > size)
-        {
-            iter_size = size;
-        }
-
-        // Forward the request to the target port
-        req->set_addr(offset - entry->remove_offset + entry->add_offset);
-        req->set_size(iter_size);
-        req->set_data(data);
-        req->set_addr(offset - entry->remove_offset);
-
+        // The mapping may exist and not be connected, return an error in this case
         if (!entry->itf.is_bound())
         {
-            _this->trace.msg(vp::Trace::LEVEL_WARNING, "Invalid access, trying to route to non-connected interface (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+            this->trace.msg(vp::Trace::LEVEL_WARNING, "Invalid access, trying to route to non-connected interface (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
                 offset, size, is_write);
             return vp::IO_REQ_INVALID;
         }
 
-        req->arg_push(req->resp_port);
-        result = entry->itf.req(req);
-        if (result == vp::IO_REQ_OK)
+        // Apply the bandwidth limitation to the output port
+        entry->bw_limiter.apply_bandwidth(this->clock.get_cycles(), req);
+
+        // Translate the offset of the output request based on entry information
+        req->set_addr(offset - entry->remove_offset + entry->add_offset);
+
+        // And forward to the next target. Note than whatever the kind of response, synchronous
+        // or asynchronous, this router is not involved anymore in the request since it is
+        // forwarded.
+        return entry->itf.req_forward(req);
+    }
+    else
+    {
+        // Slow and rare case where we have to split the request into several smaller requests.
+
+        // Consider the result as OK by default, this will be overriden if any of the sub requests
+        // is failing
+        req->status = vp::IO_REQ_OK;
+
+        // Allocate arguments in the request, they will be used to store information that we will
+        // need in the response callback
+        req->arg_alloc(Router::REQ_NB_ARGS);
+        *(int *)req->arg_get(Router::REQ_REM_SIZE) = size;
+        *(int64_t *)req->arg_get(Router::REQ_CYCLES) = this->clock.get_cycles();
+        *(int64_t *)req->arg_get(Router::REQ_LATENCY) = 0;
+
+        // Now go through entries matching the access and send one new request for each
+        while (size)
         {
-            req->arg_pop();
-        }
-        else
-        {
-            if (result == vp::IO_REQ_INVALID)
+            vp::MappingTreeEntry *mapping = this->mapping_tree.get(offset, size, is_write);
+
+            if (!mapping || mapping->id == this->error_id)
             {
-                req->arg_pop();
-                break;
+                return vp::IO_REQ_INVALID;
             }
-            else
+
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Routing to entry (OutputPort: %s)\n", mapping->name.c_str());
+
+            OutputPort *entry = this->entries[mapping->id];
+
+            if (!entry->itf.is_bound())
             {
-                if (iter_size != size)
+                this->trace.msg(vp::Trace::LEVEL_WARNING, "Invalid access, trying to route to non-connected interface (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+                    offset, size, is_write);
+                return vp::IO_REQ_INVALID;
+            }
+
+            // Compute the size of the request which falls into this entry
+            int iter_size = std::min(mapping->size - (offset - mapping->base), size);
+
+            // We need one new request per entry
+            vp::IoReq *entry_req = entry->itf.req_new(
+                offset - entry->remove_offset + entry->add_offset, data, iter_size, is_write
+            );
+
+            // Allocate one argument and store the parent request in it so that we can update it
+            // even if the request is handled asynchronously
+            entry_req->arg_alloc(2);
+            *(vp::IoReq **)entry_req->arg_get(0) = req;
+            *(int *)entry_req->arg_get(1) = mapping->id;
+
+            // Apply the bandwidth limitation to the child request.
+            // This is important to update the router bandwidth information and also to impact
+            // child request so that we can then impact the parent request
+            entry->bw_limiter.apply_bandwidth(this->clock.get_cycles(), entry_req);
+
+            // Now send the request. We cannot forward it since we need to know when the parent
+            // request can be replied.
+            vp::IoReqStatus status = entry->itf.req(entry_req);
+            if (status == vp::IO_REQ_OK || status == vp::IO_REQ_INVALID)
+            {
+                // In case we receive a synchronous reply, the request is no more needed, it can
+                // be accounted and freed
+                this->handle_entry_req_end(entry_req);
+
+                // If one child request is failing, the whole parent request is failing
+                if (status == vp::IO_REQ_INVALID)
                 {
-                    _this->trace.force_warning("Unsupported asynchronous response in synchronous router (offset: 0x%llx, size: 0x%llx, is_write: %d)\n", offset, size,
-                        is_write);
+                    req->status = vp::IO_REQ_INVALID;
                 }
+
+                entry->itf.req_del(entry_req);
             }
+
+            // Updated current burst to go to next entry
+            size -= iter_size;
+            offset += iter_size;
+            data += iter_size;
         }
 
-
-        int64_t latency = req->get_latency();
-        int64_t duration = req->get_duration();
-        if (duration > 1)
-            latency += duration - 1;
-
-        Perf_counter *counter = _this->counters[mapping->id];
-
-        if (!is_write)
-            counter->read_stalls += latency;
-        else
-            counter->write_stalls += latency;
-
-        if (!is_write)
-            counter->nb_read++;
-        else
-            counter->nb_write++;
-
-        size -= iter_size;
-        offset += iter_size;
-        data += iter_size;
+        // Either return OK or INVALID if there parent request is over, or PENDING if some child
+        // requests are still pending
+        return *(int64_t *)req->arg_get(Router::REQ_REM_SIZE) == 0 ? req->status : vp::IO_REQ_PENDING;
     }
+}
 
-    // Restore request information now that we are done
-    if (result == vp::IO_REQ_OK)
+void Router::response(vp::Block *__this, vp::IoReq *req)
+{
+    Router *_this = (Router *)__this;
+
+    // We get here in case the input port request is spread over several and one of the child
+    // request was handled asynchronously.
+
+    // Account the request
+    _this->handle_entry_req_end(req);
+
+    // And reply to the parent request in case it is over
+    vp::IoReq *parent_req = *(vp::IoReq **)req->arg_get(0);
+    int port = *(int *)req->arg_get(1);
+    if (*(int64_t *)parent_req->arg_get(Router::REQ_REM_SIZE) == 0)
     {
-        req->set_addr(req_offset);
-        req->set_size(req_size);
-        req->set_data(req_data);
+        parent_req->resp_port->resp(parent_req);
     }
 
-    return result;
-}
-
-void router::grant(vp::Block *__this, vp::IoReq *req)
-{
-    vp::IoSlave *port = (vp::IoSlave *)req->arg_pop();
-    port->grant(req);
-    req->arg_push(port);
-}
-
-void router::response(vp::Block *__this, vp::IoReq *req)
-{
-    vp::IoSlave *port = (vp::IoSlave *)req->arg_pop();
-    port->resp(req);
-}
-
-std::string router::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file, std::vector<std::string> args, std::string cmd_req)
-{
-    if (args[0] == "mem_write" || args[0] == "mem_read")
+    // If one child request is failing, the whole parent request is failing
+    if (req->status == vp::IO_REQ_INVALID)
     {
-        int error = 0;
-        bool is_write = args[0] == "mem_write";
-        long long int addr = strtoll(args[1].c_str(), NULL, 0);
-        long long int size = strtoll(args[2].c_str(), NULL, 0);
-
-        uint8_t *buffer = new uint8_t[size];
-
-        if (is_write)
-        {
-            int read_size = fread(buffer, 1, size, req_file);
-            if (read_size != size)
-            {
-                error = 1;
-            }
-        }
-
-        vp::IoReq *req = &this->proxy_req;
-        req->init();
-        req->set_data((uint8_t *)buffer);
-        req->set_is_write(is_write);
-        req->set_size(size);
-        req->set_addr(addr);
-        req->set_debug(true);
-
-        vp::IoReqStatus result = router::req(this, req);
-        error |= result != vp::IO_REQ_OK;
-
-        if (!is_write)
-        {
-            error = proxy->send_payload(reply_file, cmd_req, buffer, size);
-        }
-
-        delete[] buffer;
-
-        return "err=" + std::to_string(error);
+        parent_req->status = vp::IO_REQ_INVALID;
     }
-    return "err=1";
+
+    // Child request is no more needed
+    _this->entries[port]->itf.req_del(req);
+}
+
+void Router::handle_entry_req_end(vp::IoReq *entry_req)
+{
+    // This is called when a child request is over and should be accounted on the parent request
+    vp::IoReq *req = *(vp::IoReq **)entry_req->arg_get(0);
+
+    // First compute the latency of the request, which is the cycle between now and the time where
+    // it was sent
+    int64_t latency = this->clock.get_cycles() - *(int64_t *)req->arg_get(Router::REQ_CYCLES);
+
+    // Timing model is that all child requests are sent at the same time and the latency of the
+    // parent request is the longest one amongst the child requests.
+    *(int64_t *)req->arg_get(Router::REQ_LATENCY) =
+        std::max(*(int64_t *)req->arg_get(Router::REQ_LATENCY), latency);
+
+    // The same for the duration
+    *(int64_t *)req->arg_get(Router::REQ_DURATION) =
+        std::max(*(uint64_t *)req->arg_get(Router::REQ_DURATION), entry_req->get_duration());
+
+    // Finally remove the child size from the parent request
+    *(int64_t *)req->arg_get(Router::REQ_REM_SIZE) -= entry_req->get_size();
+}
+
+OutputPort::OutputPort(Router *top, int64_t bandwidth, int64_t latency)
+    : bw_limiter(top, bandwidth, latency)
+{
+}
+
+InputPort::InputPort(Router *top, int64_t bandwidth, int64_t latency)
+    : bw_limiter(top, bandwidth, latency)
+{
+}
+
+BandwidthLimiter::BandwidthLimiter(Router *top, int64_t bandwidth, int64_t latency)
+{
+    this->top = top;
+    this->latency = latency;
+    this->bandwidth = bandwidth;
+}
+
+void BandwidthLimiter::apply_bandwidth(int64_t cycles, vp::IoReq *req)
+{
+    uint64_t size = req->get_size();
+
+    if (this->bandwidth != 0)
+    {
+        // Bandwidth was specified
+
+        // Duration in cycles of this burst in this router according to router bandwidth
+        int64_t burst_duration = (size + this->bandwidth - 1) / this->bandwidth;
+
+        // Update burst duration
+        // This will update it only if it is bigger than the current duration, in case there is a
+        // slower router on the path
+        req->set_duration(burst_duration);
+
+        // Now we need to compute the start cycle of the burst, which is its latency.
+        // First get the cyclestamp where the router becomes available, due to previous requests
+        int64_t *next_burst_cycle = req->get_is_write() ?
+            &this->next_write_burst_cycle : &this->next_read_burst_cycle;
+        int64_t router_latency = *next_burst_cycle - cycles;
+
+        // Then compare that to the request latency and take the highest to properly delay the
+        // request in case the bandwidth is reached.
+        int64_t latency = std::max((int64_t)req->get_latency(), router_latency);
+
+        // Apply the computed latency and add the fixed one
+        req->set_latency(latency + this->latency);
+
+        // Update the bandwidth information by appending the new burst right after the previous one.
+        *next_burst_cycle = std::max(cycles, *next_burst_cycle) + burst_duration;
+
+        this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Updating %s burst bandwidth cyclestamp (bandwidth: %d, next_burst: %d)\n",
+            req->get_is_write() ? "write" : "read", this->bandwidth, *next_burst_cycle);
+    }
+    else
+    {
+        // No bandwidth was specified, just add the specified latency
+        req->inc_latency(this->latency);
+    }
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    return new router(config);
-}
-
-void Perf_counter::nb_read_sync_back(vp::Block *__this, uint32_t *value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    *value = _this->nb_read;
-}
-
-void Perf_counter::nb_read_sync(vp::Block *__this, uint32_t value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    _this->nb_read = value;
-}
-
-void Perf_counter::nb_write_sync_back(vp::Block *__this, uint32_t *value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    *value = _this->nb_write;
-}
-
-void Perf_counter::nb_write_sync(vp::Block *__this, uint32_t value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    _this->nb_write = value;
-}
-
-void Perf_counter::read_stalls_sync_back(vp::Block *__this, uint32_t *value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    *value = _this->read_stalls;
-}
-
-void Perf_counter::read_stalls_sync(vp::Block *__this, uint32_t value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    _this->read_stalls = value;
-}
-
-void Perf_counter::write_stalls_sync_back(vp::Block *__this, uint32_t *value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    *value = _this->write_stalls;
-}
-
-void Perf_counter::write_stalls_sync(vp::Block *__this, uint32_t value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    _this->write_stalls = value;
-}
-
-void Perf_counter::stalls_sync_back(vp::Block *__this, uint32_t *value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-
-    *value = _this->read_stalls + _this->write_stalls;
-}
-
-void Perf_counter::stalls_sync(vp::Block *__this, uint32_t value)
-{
-    Perf_counter *_this = (Perf_counter *)__this;
-    _this->read_stalls = value;
-    _this->write_stalls = value;
+    return new Router(config);
 }

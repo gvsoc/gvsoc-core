@@ -98,6 +98,7 @@ void Exec::reset(bool active)
         this->irq_locked = 0;
         this->insn_on_hold = false;
         this->stall_cycles = 0;
+        this->cache_sync = false;
 
         // Always increase the stall when reset is asserted since stall count is set to 0
         // and we need to prevent the core from fetching instructions
@@ -106,7 +107,6 @@ void Exec::reset(bool active)
     else
     {
         this->elw_insn = 0;
-        this->cache_sync = false;
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
         this->hwloop_end_insn[0] = 0;
         this->hwloop_end_insn[1] = 0;

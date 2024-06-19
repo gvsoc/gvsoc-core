@@ -193,12 +193,7 @@ inline iss_freg_t *Regfile::freg_store_ref(int reg)
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
 inline void Regfile::scoreboard_reg_set_timestamp(int reg, int64_t latency, int stall_reason)
 {
-    int64_t cycles = this->iss.exec.get_cycles();
-    if (this->scoreboard_reg_timestamp[reg] > cycles)
-    {
-        cycles = this->scoreboard_reg_timestamp[reg];
-    }
-    int64_t timestamp = cycles + latency;
+    int64_t timestamp = latency + this->iss.exec.get_cycles();
     this->scoreboard_reg_timestamp[reg] = timestamp;
     this->scoreboard_reg_stall_reason[reg] = stall_reason;
 }

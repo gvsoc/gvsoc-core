@@ -677,13 +677,16 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
+    // Get next PC now since the ebreak might flush instuction cache and make insn unusable
+    iss_reg_t next_pc = iss_insn_next(iss, insn, pc);
+
     // The opcode on rv64 is on 64bits. It should be on 32bits but there is a bug
     // somwhere in this case, to be investigated.
     // Until it is fixed, we just cast it for now.
     if (((uint32_t)prev->opcode) == 0x01f01013)
     {
         iss->syscalls.handle_riscv_ebreak();
-        return iss_insn_next(iss, insn, pc);
+        return next_pc;
     }
 
     if (iss->exec.debug_mode)

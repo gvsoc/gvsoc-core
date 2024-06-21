@@ -236,10 +236,10 @@ class RiscvCommon(st.Component):
                 else:
                     tohost_addr, fromhost_addr = binary_info
 
-                if fromhost_addr is None:
+                if fromhost_addr is not None:
                     self.add_property('htif_tohost', f'0x{fromhost_addr:x}')
 
-                if tohost_addr is None:
+                if tohost_addr is not None:
                     self.add_property('htif_tohost', f'0x{tohost_addr:x}')
 
         if pmp:

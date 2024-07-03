@@ -27,6 +27,8 @@
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
+// #define CONFIG_GVSOC_ISS_USE_NATIVE_FLOAT 1
+
 static inline iss_reg_t flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (iss->lsu.load_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
@@ -101,7 +103,13 @@ static inline iss_reg_t fnmadd_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fadd_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if CONFIG_GVSOC_ISS_USE_NATIVE_FLOAT
+    uint32_t a = FREG_GET(0), b = FREG_GET(1);
+    float result = *(float *)&a + *(float *)&b;
+    FREG_SET(0, *(uint32_t *)&result);
+#else
     FREG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round, FREG_GET(0), FREG_GET(1), 8, 23, UIM_GET(0)));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -69,6 +69,7 @@ private:
 
     static void rx_sample_handler(vp::Block *__this, vp::TimeEvent *event);
     static void tx_send_handler(vp::Block *__this, vp::TimeEvent *event);
+    static void tx_init_handler(vp::Block *__this, vp::TimeEvent *event);
 
     void pending_flush_check();
 
@@ -98,6 +99,7 @@ private:
     int rx_req_id;
 
     vp::TimeEvent tx_send_bit_event;
+    vp::TimeEvent tx_init_event;
     std::queue<uint8_t> tx_queue;
     uart_tx_state_e tx_state;
     int tx_parity;
@@ -113,7 +115,8 @@ private:
 UartVip::UartVip(vp::ComponentConf &config)
     : vp::Component(config),
     sample_rx_bit_event(this, &UartVip::rx_sample_handler),
-    tx_send_bit_event(this, &UartVip::tx_send_handler)
+    tx_send_bit_event(this, &UartVip::tx_send_handler),
+    tx_init_event(this, &UartVip::tx_init_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -166,6 +169,8 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
         {
             std::vector<std::string> params = {args.begin() + 2, args.end()};
 
+            bool enabled = false;
+
             for (std::string x: params)
             {
                 int pos = x.find_first_of("=");
@@ -178,6 +183,7 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
                 }
                 else if (name == "enabled")
                 {
+                    enabled = value;
                 }
                 else if (name == "word_size")
                 {
@@ -212,6 +218,11 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
                 {
                     return "err=1;msg=invalid option: " + name;
                 }
+            }
+
+            if (enabled)
+            {
+                this->tx_init_event.enqueue(this->period);
             }
         }
         else if (args[1] == "tx")
@@ -337,7 +348,7 @@ void UartVip::sample_rx_bit()
             this->rx_pending_bits--;
             if (this->rx_pending_bits == 0)
             {
-                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sampled RX byte (value: 0x%x)\n", this->rx_pending_byte);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampled RX byte (value: 0x%x)\n", this->rx_pending_byte);
                 if (this->stdout)
                 {
                     std::cout << this->rx_pending_byte;
@@ -405,6 +416,12 @@ void UartVip::send_byte(uint8_t byte)
         this->tx_state = UART_TX_STATE_START;
         this->tx_send_bit_event.enqueue(this->period);
     }
+}
+
+void UartVip::tx_init_handler(vp::Block *__this, vp::TimeEvent *event)
+{
+    UartVip *_this = (UartVip *)__this;
+    _this->in.sync_full(1, 2, 1, 0xf);
 }
 
 void UartVip::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)

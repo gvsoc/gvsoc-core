@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <gv/gvsoc.hpp>
+#include "svdpi.h"
 
 using namespace std;
 
@@ -34,6 +35,7 @@ extern "C" void dpi_raise_event();
 extern "C" void dpi_set_status(int status);
 extern "C" void dpi_external_edge(int handle, uint32_t value);
 
+static svScope scope;
 
 
 class Dpi_launcher : public gv::Gvsoc_user
@@ -66,9 +68,17 @@ class Dpi_wire_binding
         gv::Wire_binding *binding;
 };
 
+static bool updated = false;
+
 void Dpi_launcher::was_updated()
 {
-    dpi_raise_event();
+    // Since dpi exported function can only be called from a systemverilog thread, we can only
+    // trigger the event if the scope is the one used when opening the dpi wrapper.
+    // If an external thread pushed something, this will be handled with polling with some delay.
+    if (svGetScope() == scope)
+    {
+        dpi_raise_event();
+    }
 }
 
 void Dpi_launcher::has_ended()
@@ -85,6 +95,8 @@ void Dpi_wire::update(int value)
 
 extern "C" void *dpi_open(char *config_path)
 {
+    scope = svGetScope();
+
   gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
   gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
   gvsoc->open();
@@ -118,7 +130,13 @@ static void gvsoc_sync_task(void *arg)
         {
             if (next_timestamp == -1)
             {
-                dpi_wait_event();
+                gvsoc->unlock();
+                // Since raise event can not be called from external thread when using proxy mode,
+                // we have to poll instead of using an event, in case an external thread pushed
+                // something.
+                // dpi_wait_event();
+                dpi_wait_event_timeout_ps(100000);
+                gvsoc->lock();
             }
             else
             {

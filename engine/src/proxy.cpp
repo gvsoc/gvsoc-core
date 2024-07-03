@@ -107,22 +107,33 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
 
     if (!this->is_async)
     {
-        engine->critical_enter();
+        engine->lock();
     }
 
     while(1)
     {
         char line_array[1024];
 
+        if (!this->is_async)
+        {
+            engine->unlock();
+        }
+
         if (!fgets(line_array, 1024, sock))
         {
             if (!this->is_async)
             {
+                engine->lock();
                 launcher->release();
                 engine->critical_notify();
-                engine->critical_exit();
+                engine->unlock();
             }
             return ;
+        }
+
+        if (!this->is_async)
+        {
+            engine->lock();
         }
 
         std::string line = std::string(line_array);
@@ -163,9 +174,30 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
 
         if (words.size() > 0)
         {
-            if (words[0] == "run")
+            if (words[0] == "release")
             {
-                launcher->run();
+                if (!this->is_async)
+                {
+                    launcher->release();
+                    engine->critical_notify();
+                }
+                std::unique_lock<std::mutex> lock(this->mutex);
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+            }
+            else if (words[0] == "retain")
+            {
+                if (!this->is_async)
+                {
+                    launcher->retain();
+                }
+                std::unique_lock<std::mutex> lock(this->mutex);
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+            }
+            else if (words[0] == "run")
+            {
+                launcher->run_internal();
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -180,7 +212,7 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
                     int64_t timestamp = engine->get_time() + duration;
-                    launcher->step(duration);
+                    launcher->step_internal(duration);
                     std::unique_lock<std::mutex> lock(this->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();

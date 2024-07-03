@@ -680,6 +680,12 @@ namespace gv {
          */
         virtual int64_t step_until(int64_t timestamp) = 0;
 
+        // Temporary workaround, do not use
+        virtual int64_t step_and_wait(int64_t duration) = 0;
+
+        // Temporary workaround, do not use
+        virtual int64_t step_until_and_wait(int64_t timestamp) = 0;
+
         /**
          * Wait end of execution.
          *
@@ -742,6 +748,11 @@ namespace gv {
          */
         virtual int retain_count() { return 0; }
 
+        // Temporary workaround, do not use
+        virtual void lock() {}
+
+        // Temporary workaround, do not use
+        virtual void unlock() {}
     };
 
 

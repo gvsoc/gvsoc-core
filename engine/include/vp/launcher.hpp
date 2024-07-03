@@ -47,6 +47,7 @@ class GvsocLauncher : public gv::Gvsoc
         void close() override;
 
         void run() override;
+        void run_internal(bool main_controller=false);
 
         void start() override;
 
@@ -63,7 +64,12 @@ class GvsocLauncher : public gv::Gvsoc
         gv::PowerReport *report_get() override;
 
         int64_t step(int64_t duration) override;
+        int64_t step_internal(int64_t duration, bool main_controller=false);
         int64_t step_until(int64_t timestamp) override;
+        int64_t step_until_internal(int64_t timestamp, bool main_controller=false);
+        int64_t step_and_wait(int64_t duration) override;
+        int64_t step_until_and_wait(int64_t timestamp) override;
+
 
         int join() override;
 
@@ -72,6 +78,9 @@ class GvsocLauncher : public gv::Gvsoc
         int retain_count() override;
 
         void release() override;
+
+        void lock() override;
+        void unlock() override;
 
         void update(int64_t timestamp) override;
 

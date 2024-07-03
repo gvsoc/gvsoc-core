@@ -52,6 +52,8 @@ public:
 
     int64_t step(int64_t duration) override;
     int64_t step_until(int64_t timestamp) override;
+    int64_t step_and_wait(int64_t duration) override;
+    int64_t step_until_and_wait(int64_t timestamp) override;
 
     int join() override;
 

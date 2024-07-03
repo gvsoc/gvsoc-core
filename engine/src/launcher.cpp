@@ -137,20 +137,27 @@ void gv::GvsocLauncher::close()
     delete top;
 }
 
-void gv::GvsocLauncher::run()
+void gv::GvsocLauncher::run_internal(bool main_controller)
 {
     if (this->is_async)
     {
         this->handler->get_time_engine()->lock();
+        // Mark the engine now as running to block wait_stopped until engine has been run
         this->running = true;
         this->run_req = true;
         this->handler->get_time_engine()->unlock();
     }
     else
     {
-        this->handler->get_time_engine()->run();
+        this->handler->get_time_engine()->run(main_controller);
     }
 }
+
+void gv::GvsocLauncher::run()
+{
+    this->run_internal(true);
+}
+
 
 void gv::GvsocLauncher::flush()
 {
@@ -201,18 +208,25 @@ void gv::GvsocLauncher::wait_stopped()
     }
 }
 
-int64_t gv::GvsocLauncher::step(int64_t duration)
+int64_t gv::GvsocLauncher::step_internal(int64_t duration, bool main_controller)
 {
     return this->step_until(this->handler->get_time_engine()->get_time() + duration);
 }
 
-int64_t gv::GvsocLauncher::step_until(int64_t end_time)
+int64_t gv::GvsocLauncher::step(int64_t duration)
+{
+    return this->step_internal(duration, true);
+}
+
+int64_t gv::GvsocLauncher::step_until_internal(int64_t end_time, bool main_controller)
 {
     int64_t time;
     if (this->is_async)
     {
         this->handler->get_time_engine()->lock();
         this->handler->get_time_engine()->step_register(end_time);
+        // Mark the engine now as running to block wait_stopped until engine has been run
+        this->running = true;
         this->run_req = true;
         this->handler->get_time_engine()->unlock();
 
@@ -225,7 +239,7 @@ int64_t gv::GvsocLauncher::step_until(int64_t end_time)
             x->notify_run(this->handler->get_time_engine()->get_time());
         }
 
-        time = this->handler->get_time_engine()->run_until(end_time);
+        time = this->handler->get_time_engine()->run_until(end_time, main_controller);
 
         for (auto x: this->exec_notifiers)
         {
@@ -233,6 +247,31 @@ int64_t gv::GvsocLauncher::step_until(int64_t end_time)
         }
     }
     return time;
+}
+
+int64_t gv::GvsocLauncher::step_until(int64_t end_time)
+{
+    return this->step_until_internal(end_time, true);
+}
+
+int64_t gv::GvsocLauncher::step_and_wait(int64_t duration)
+{
+    return this->step_until_and_wait(this->handler->get_time_engine()->get_time() + duration);
+}
+
+int64_t gv::GvsocLauncher::step_until_and_wait(int64_t timestamp)
+{
+    int64_t end_time = this->step_until(timestamp);
+
+    if (this->is_async)
+    {
+        while (this->handler->get_time_engine()->get_time() < timestamp)
+        {
+            this->wait_stopped();
+        }
+    }
+
+    return end_time;
 }
 
 gv::Io_binding *gv::GvsocLauncher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
@@ -329,7 +368,7 @@ void gv::GvsocLauncher::engine_routine()
             // The engine will return -1 if it receives a stop request.
             // Leave only if we have not receive a run request meanwhile which would then cancel
             // the stop request.
-            if (this->handler->get_time_engine()->run() == -1 && (!this->run_req || this->handler->get_time_engine()->finished_get()))
+            if (this->handler->get_time_engine()->run(true) == -1 && (!this->run_req || this->handler->get_time_engine()->finished_get()))
             {
                 this->running = false;
                 this->handler->get_time_engine()->critical_notify();
@@ -371,6 +410,16 @@ void gv::GvsocLauncher::retain()
 int gv::GvsocLauncher::retain_count()
 {
     return this->handler->get_time_engine()->retain_count();
+}
+
+void gv::GvsocLauncher::lock()
+{
+    this->handler->get_time_engine()->critical_enter();
+}
+
+void gv::GvsocLauncher::unlock()
+{
+    this->handler->get_time_engine()->critical_exit();
 }
 
 void gv::GvsocLauncher::release()

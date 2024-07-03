@@ -148,12 +148,23 @@ int64_t vp::TimeEngine::exec()
     return time;
 }
 
-void vp::TimeEngine::handle_locks()
+bool vp::TimeEngine::handle_locks()
 {
-    while (this->lock_req > 0)
+    __asm__ __volatile__ ("" : : : "memory");
+    bool result = this->lock_req > 0;
+
+    if (result > 0)
     {
         pthread_cond_wait(&cond, &mutex);
+
+        if (this->lock_req > 0)
+        {
+            this->stop_req = true;
+        }
     }
+
+    __asm__ __volatile__ ("" : : : "memory");
+    return result;
 }
 
 void vp::TimeEngine::step_register(int64_t end_time)
@@ -161,7 +172,7 @@ void vp::TimeEngine::step_register(int64_t end_time)
     this->stop_event->step(end_time);
 }
 
-int64_t vp::TimeEngine::run_until(int64_t end_time)
+int64_t vp::TimeEngine::run_until(int64_t end_time, bool main_controller)
 {
     int64_t time;
     vp::TimeEvent *event = this->stop_event->step_nofree(end_time);
@@ -185,15 +196,21 @@ int64_t vp::TimeEngine::run_until(int64_t end_time)
             // This is the case once our event is not enqueued anymore
             if (!event->is_enqueued())
             {
+                delete event;
                 return this->get_next_event_time();
             }
         }
 
         time = this->exec();
 
+        __asm__ __volatile__ ("" : : : "memory");
+
         // Cancel now the requests that may have stopped us so that anyone can stop us again
         // when locks are handled.
+        // fprintf(stderr, "Disable stop\n");
         this->stop_req = false;
+
+        __asm__ __volatile__ ("" : : : "memory");
 
         // We may has been stopped because the execution is stopped or finished
         if (this->finished)
@@ -210,11 +227,15 @@ int64_t vp::TimeEngine::run_until(int64_t end_time)
         }
 
         // Checks locks since we may have been stopped by them
-        this->handle_locks();
+        if (main_controller && this->handle_locks())
+        {
+            time = this->first_client == NULL ? -1 : this->first_client->time.next_event_time;
+        }
 
         // Leave only once our event is over
         if (!event->is_enqueued())
         {
+            delete event;
             break;
         }
     }
@@ -222,9 +243,11 @@ int64_t vp::TimeEngine::run_until(int64_t end_time)
     return time;
 }
 
-int64_t vp::TimeEngine::run()
+int64_t vp::TimeEngine::run(bool main_controller)
 {
     int64_t time;
+
+    this->retain--;
 
     while (1)
     {
@@ -233,9 +256,14 @@ int64_t vp::TimeEngine::run()
 
         time = this->exec();
 
+        // The locking mechanism is lock-free so that the time engine can check at each timestamp if there is a lock
+        // request with small overhead
         // Cancel now the requests that may have stopped us so that anyone can stop us again
         // when locks are handled.
         this->stop_req = false;
+    
+        // Ensure memory ordering so that we handle locks while stop_req is false
+        __sync_synchronize();
 
         // In case there is no more event, stall the engine until something happens.
         if (time == -1)
@@ -244,7 +272,10 @@ int64_t vp::TimeEngine::run()
         }
 
         // Checks locks since we may have been stopped by them
-        this->handle_locks();
+        if (main_controller)
+        {
+            this->handle_locks();
+        }
 
         // In case of a pause request or the simulation is finished, we leave the engine to let
         // the launcher handles it, otherwise we just continue to run events
@@ -268,6 +299,7 @@ int64_t vp::TimeEngine::run()
             break;
         }
     }
+    this->retain++;
 
     return time;
 }
@@ -348,6 +380,11 @@ void vp::TimeEngine::quit(int status)
 
     // Notify the condition in case we are waiting for locks, to allow leaving the engine.
     pthread_cond_broadcast(&cond);
+
+    if (this->launcher)
+    {
+        this->launcher->was_updated();
+    }
 }
 
 void vp::TimeEngine::pause()

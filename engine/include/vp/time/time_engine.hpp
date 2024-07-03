@@ -100,8 +100,8 @@ namespace vp
     private:
         void step_register(int64_t time);
 
-        int64_t run();
-        int64_t run_until(int64_t end_time);
+        int64_t run(bool main_controller);
+        int64_t run_until(int64_t end_time, bool main_controller);
 
         void init(Component *top);
 
@@ -111,7 +111,7 @@ namespace vp
 
         bool enqueue(vp::Block *client, int64_t time);
 
-        void handle_locks();
+        bool handle_locks();
 
         inline int64_t get_next_event_time();
 

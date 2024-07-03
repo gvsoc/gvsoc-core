@@ -189,11 +189,13 @@ void Router_proxy::access(gv::Io_request *io_req)
     req->set_is_write(io_req->type == gv::Io_request_write);
     req->set_data(io_req->data);
     req->arg_push(io_req);
+    req->set_debug(true);
 
     int err = this->out.req(req);
     if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
     {
         this->response(this, req);
+        delete req;
     }
     if (this->get_launcher()->get_is_async())
     {

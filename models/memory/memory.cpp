@@ -226,43 +226,46 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     req->inc_latency(_this->latency);
 
-    // Impact the Memory bandwith on the packet
-    if (_this->width_bits != 0)
+    if (req->is_debug())
     {
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-        int duration = MAX(size >> _this->width_bits, 1);
-        req->set_duration(duration);
-        int64_t cycles = _this->clock.get_cycles();
-        int64_t diff = _this->next_packet_start - cycles;
-        if (diff > 0)
+        // Impact the Memory bandwith on the packet
+        if (_this->width_bits != 0)
         {
-            _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
-            req->inc_latency(diff);
+    #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+            int duration = MAX(size >> _this->width_bits, 1);
+            req->set_duration(duration);
+            int64_t cycles = _this->clock.get_cycles();
+            int64_t diff = _this->next_packet_start - cycles;
+            if (diff > 0)
+            {
+                _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
+                req->inc_latency(diff);
+            }
+            _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
         }
-        _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
-    }
 
-    if (_this->power.get_power_trace()->get_active())
-    {
-        _this->last_access_timestamp = _this->time.get_time();
+        if (_this->power.get_power_trace()->get_active())
+        {
+            _this->last_access_timestamp = _this->time.get_time();
 
-        if (req->get_is_write())
-        {
-            if (size == 1)
-                _this->write_8_power.account_energy_quantum();
-            else if (size == 2)
-                _this->write_16_power.account_energy_quantum();
-            else if (size == 4)
-                _this->write_32_power.account_energy_quantum();
-        }
-        else
-        {
-            if (size == 1)
-                _this->read_8_power.account_energy_quantum();
-            else if (size == 2)
-                _this->read_16_power.account_energy_quantum();
-            else if (size == 4)
-                _this->read_32_power.account_energy_quantum();
+            if (req->get_is_write())
+            {
+                if (size == 1)
+                    _this->write_8_power.account_energy_quantum();
+                else if (size == 2)
+                    _this->write_16_power.account_energy_quantum();
+                else if (size == 4)
+                    _this->write_32_power.account_energy_quantum();
+            }
+            else
+            {
+                if (size == 1)
+                    _this->read_8_power.account_energy_quantum();
+                else if (size == 2)
+                    _this->read_16_power.account_energy_quantum();
+                else if (size == 4)
+                    _this->read_32_power.account_energy_quantum();
+            }
         }
     }
 

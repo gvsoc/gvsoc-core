@@ -132,8 +132,8 @@ namespace vp {
     inline void set_int(int index, int value) { *(int *)&get_args()[index] = value; }
     inline int get_int(int index) { return *(int *)&get_args()[index]; }
 
-    inline bool is_debug() { return false; }
-    inline void set_debug(bool debug) {}
+    inline bool is_debug() { return this->debug; }
+    inline void set_debug(bool debug) { this->debug = debug; }
 
     inline int arg_alloc() { return current_arg++; }
     inline void arg_free() { current_arg--; }
@@ -150,7 +150,7 @@ namespace vp {
 
     inline int arg_current_index() { return this->current_arg; }
 
-    inline void prepare() { latency = 0; duration=0;}
+    inline void prepare() { latency = 0; duration=0; debug=false; }
     inline void init() {
       prepare(); current_arg=0;
 #ifdef VP_MEMCHECK_ACTIVE
@@ -177,6 +177,7 @@ namespace vp {
     IoSlave *resp_port;
     int id;
     int initiator = -1;
+    bool debug=false;
 
 
   private:

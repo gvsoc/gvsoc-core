@@ -414,8 +414,8 @@ class Runner():
 
             
             if self.rtl_runner is not None:
+                os.chdir(self.gapy_target.get_working_dir())
                 command = self.rtl_runner.get_command()
-                print (command)
 
             else:
 
@@ -501,14 +501,11 @@ class Runner():
                 return run.exitstatus
 
             else:
-                print (command)
                 if True: #self.verbose:
                     print ('Launching GVSOC with command: ')
                     print (' '.join(command))
 
                 return os.system(' '.join(command))
-
-                return os.execvp(command[0], command)
 
 
     def gen_gui_config(self, work_dir, path):

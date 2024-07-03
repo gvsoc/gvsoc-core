@@ -38,6 +38,7 @@ import importlib
 import gvsoc.gvsoc_control
 import signal
 import traceback
+import shlex
 
 
 def gen_config(args, config, working_dir, runner, cosim_mode):
@@ -394,10 +395,7 @@ class Runner():
         if args.valgrind:
             stub = ['valgrind'] + stub
 
-        if self.rtl_runner is not None:
-            self.rtl_runner.run()
-
-        elif args.emulation:
+        if args.emulation:
 
             launcher = args.binary
 
@@ -414,30 +412,37 @@ class Runner():
 
         else:
 
-            if args.valgrind:
-                stub = ['valgrind'] + stub
+            
+            if self.rtl_runner is not None:
+                command = self.rtl_runner.get_command()
+                print (command)
 
-            if args.gui:
-                command = stub + ['gvsoc-gui',
-                    '--gv-config=' + self.gvsoc_config_path,
-                    '--gui-config=gvsoc_gui_config.json',
-                ]
-
-                path = os.path.join(self.gapy_target.get_working_dir(), 'gvsoc_gui_config.json')
-
-                gui_config = self.gen_gui_config(
-                    work_dir=self.gapy_target.get_working_dir(),
-                    path=path
-                )
             else:
-                if gvsoc_config.get_bool("debug-mode"):
-                    launcher = gvsoc_config.get_str('launchers/debug')
+
+                if args.valgrind:
+                    stub = ['valgrind'] + stub
+
+                if args.gui:
+                    command = stub + ['gvsoc-gui',
+                        '--gv-config=' + self.gvsoc_config_path,
+                        '--gui-config=gvsoc_gui_config.json',
+                    ]
+
+                    path = os.path.join(self.gapy_target.get_working_dir(), 'gvsoc_gui_config.json')
+
+                    gui_config = self.gen_gui_config(
+                        work_dir=self.gapy_target.get_working_dir(),
+                        path=path
+                    )
                 else:
-                    launcher = gvsoc_config.get_str('launchers/default')
+                    if gvsoc_config.get_bool("debug-mode"):
+                        launcher = gvsoc_config.get_str('launchers/debug')
+                    else:
+                        launcher = gvsoc_config.get_str('launchers/default')
 
-                command = stub
+                    command = stub
 
-                command += [launcher, '--config=' + self.gvsoc_config_path]
+                    command += [launcher, '--config=' + self.gvsoc_config_path]
 
             os.chdir(self.gapy_target.get_working_dir())
 
@@ -496,9 +501,12 @@ class Runner():
                 return run.exitstatus
 
             else:
+                print (command)
                 if True: #self.verbose:
                     print ('Launching GVSOC with command: ')
                     print (' '.join(command))
+
+                return os.system(' '.join(command))
 
                 return os.execvp(command[0], command)
 

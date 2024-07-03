@@ -201,30 +201,38 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
     // Clear the corresponding data lane when SSR is enabled and configured again
     this->clear_ssr(ssr);
 
-    // Set data mover 0
-    if (ssr == 0)
+    if (ssr > 2 && ssr != 31)
     {
+        // Invalid data mover index
+        this->trace.force_warning("Invalid configuration data mover\n");
+    }
+
+
+    // Set data mover 0
+    if (ssr == 0 || ssr == 31)
+    {
+        int ssr_id = 0;
         this->dm0.is_config = true;
 
         if (unlikely(reg == 0))
         {
             this->dm0.config.set_REG_STATUS(value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (unlikely(reg == 1))
         {
             this->dm0.config.set_REG_REPEAT(value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >=2 & reg < 6)
         {
             this->dm0.config.set_REG_BOUNDS(reg-2, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >=6 & reg < 10)
         {
             this->dm0.config.set_REG_STRIDES(reg-6, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 24 & reg < 28)
         {
@@ -233,8 +241,8 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm0.config.set_REG_RPTR(reg-24, value);
             this->dm0.temp_addr = value;
             this->dm0.inc_addr = 0;
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Loop dimension in data mover %d to %d\n", ssr, this->dm0.config.DIM+1);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Loop dimension in data mover %d to %d\n", ssr_id, this->dm0.config.DIM+1);
         }
         else if (reg >= 28 & reg < 32)
         {
@@ -243,7 +251,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm0.config.set_REG_WPTR(reg-28, value);
             this->dm0.temp_addr = value;
             this->dm0.inc_addr = 0;
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else
         {
@@ -252,30 +260,32 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
         }
     }
+
     // Set data mover 1
-    else if (ssr == 1)
+    if (ssr == 1 || ssr == 31)
     {
+        int ssr_id = 1;
         this->dm1.is_config = true;
 
         if (unlikely(reg == 0))
         {
             this->dm1.config.set_REG_STATUS(value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (unlikely(reg == 1))
         {
             this->dm1.config.set_REG_REPEAT(value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 2 & reg < 6)
         {
             this->dm1.config.set_REG_BOUNDS(reg-2, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 6 & reg < 10)
         {
             this->dm1.config.set_REG_STRIDES(reg-6, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 24 & reg < 28)
         {
@@ -284,8 +294,8 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm1.config.set_REG_RPTR(reg-24, value);
             this->dm1.temp_addr = value;
             this->dm1.inc_addr = 0;
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Loop dimension in data mover %d to %d\n", ssr, this->dm1.config.DIM+1);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Loop dimension in data mover %d to %d\n", ssr_id, this->dm1.config.DIM+1);
         }
         else if (reg >=28 & reg < 32)
         {
@@ -294,7 +304,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm1.config.set_REG_WPTR(reg-28, value);
             this->dm1.temp_addr = value;
             this->dm1.inc_addr = 0;
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else
         {
@@ -303,30 +313,32 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
         }
     }
+
     // Set data mover 2
-    else if (ssr == 2)
+    if (ssr == 2 || ssr == 31)
     {
+        int ssr_id = 2;
         this->dm2.is_config = true;
 
         if (unlikely(reg == 0))
         {
             this->dm2.config.set_REG_STATUS(value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (unlikely(reg == 1))
         {
             this->dm2.config.set_REG_REPEAT(value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_REPEAT with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 2 & reg < 6)
         {
             this->dm2.config.set_REG_BOUNDS(reg-2, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_BOUNDS with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 6 & reg < 10)
         {
             this->dm2.config.set_REG_STRIDES(reg-6, value);
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_STRIDES with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 24 & reg < 28)
         {
@@ -335,7 +347,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm2.config.set_REG_RPTR(reg-24, value);
             this->dm2.temp_addr = value;
             this->dm2.inc_addr = 0;
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_RPTR with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else if (reg >= 28 & reg < 32)
         {
@@ -344,7 +356,7 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->dm2.config.set_REG_WPTR(reg-28, value);
             this->dm2.temp_addr = value;
             this->dm2.inc_addr = 0;
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Set REG_WPTR with index %d in data mover %d to 0x%llx\n", reg, ssr_id, value);
         }
         else
         {
@@ -353,12 +365,6 @@ void Ssr::cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value)
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration register\n");
         }
     }
-    else
-    {
-        // Invalid data mover index
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Invalid configuration data mover\n");
-    }
-
 }
 
 

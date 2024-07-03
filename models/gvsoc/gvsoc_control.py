@@ -261,7 +261,7 @@ class Proxy(object):
 
         This will free resources and close threads so that simulation can properly exit.
         """
-        self.socket.shutdown(socket.SHUT_WR)
+        self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
         self.reader.join()
 
@@ -319,6 +319,11 @@ class Proxy(object):
         else:
             self._send_cmd('run')
 
+    def release(self):
+        self._send_cmd('release')
+
+    def retain(self):
+        self._send_cmd('retain')
 
 
 

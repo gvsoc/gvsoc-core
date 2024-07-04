@@ -94,7 +94,8 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False,
-            memcheck_nb_memory=0):
+            memcheck_nb_memory=0,
+            float_lib='flexfloat'):
 
         super().__init__(parent, name)
 
@@ -209,6 +210,33 @@ class RiscvCommon(st.Component):
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
+
+        if not float_lib in ['flexfloat', 'native', 'softfloat']:
+            raise RuntimeError(f'Unsupported float lib: {float_lib}')
+
+        self.add_c_flags([f'-DCONFIG_GVSOC_ISS_FLOAT_USE_{float_lib.upper()}=1'])
+
+        if float_lib == 'softfloat':
+            self.add_sources([
+                "cpu/iss/softfloat/softfloat_state.cpp",
+                "cpu/iss/softfloat/softfloat_raiseFlags.cpp",
+                "cpu/iss/softfloat/s_subMagsF32.cpp",
+                "cpu/iss/softfloat/s_addMagsF32.cpp",
+                "cpu/iss/softfloat/s_countLeadingZeros64.cpp",
+                "cpu/iss/softfloat/s_countLeadingZeros32.cpp",
+                "cpu/iss/softfloat/s_countLeadingZeros8.cpp",
+                "cpu/iss/softfloat/s_shiftRightJam32.cpp",
+                "cpu/iss/softfloat/s_shiftRightJam64.cpp",
+                "cpu/iss/softfloat/s_shortShiftRightJam64.cpp",
+                "cpu/iss/softfloat/s_roundPackToF32.cpp",
+                "cpu/iss/softfloat/s_normRoundPackToF32.cpp",
+                "cpu/iss/softfloat/s_propagateNaNF32UI.cpp",
+                "cpu/iss/softfloat/s_normSubnormalF32Sig.cpp",
+                "cpu/iss/softfloat/s_mulAddF32.cpp",
+                "cpu/iss/softfloat/f32_add.cpp",
+                "cpu/iss/softfloat/f32_mulAdd.cpp",
+            ])
+            self.add_c_flags(['-DSOFTFLOAT_FAST_INT64=1'])
 
         if htif:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])

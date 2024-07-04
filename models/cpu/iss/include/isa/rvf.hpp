@@ -25,9 +25,8 @@
 
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss/include/isa_lib/float.h"
 #include "cpu/iss/include/isa_lib/macros.h"
-
-// #define CONFIG_GVSOC_ISS_USE_NATIVE_FLOAT 1
 
 static inline iss_reg_t flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -79,7 +78,7 @@ static inline iss_reg_t fsw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fmadd_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_madd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 8, 23, UIM_GET(0)));
+    FREG_SET(0, float_madd_32(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -103,13 +102,7 @@ static inline iss_reg_t fnmadd_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fadd_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#if CONFIG_GVSOC_ISS_USE_NATIVE_FLOAT
-    uint32_t a = FREG_GET(0), b = FREG_GET(1);
-    float result = *(float *)&a + *(float *)&b;
-    FREG_SET(0, *(uint32_t *)&result);
-#else
-    FREG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round, FREG_GET(0), FREG_GET(1), 8, 23, UIM_GET(0)));
-#endif
+    FREG_SET(0, float_add_32(iss, FREG_GET(0), FREG_GET(1), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 

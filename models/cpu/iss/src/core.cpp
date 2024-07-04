@@ -76,6 +76,7 @@ void Core::reset(bool active)
     {
         this->reset_stall = true;
         this->iss.exec.stalled_inc();
+        this->float_mode = -1;
     }
     else
     {

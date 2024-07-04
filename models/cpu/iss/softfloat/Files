@@ -1,0 +1,46 @@
+s_addMagsF16.c			DONE	bfloat16_t softfloat_addMagsBF16( uint_fast16_t uiA, uint_fast16_t uiB )
+s_mulAddF16.c			DONE	bfloat16_t softfloat_mulAddBF16(uint_fast16_t uiA, uint_fast16_t uiB, uint_fast16_t uiC, uint_fast8_t op )
+s_normRoundPackToF16.c		DONE	bfloat16_t softfloat_normRoundPackToBF16( bool sign, int_fast16_t exp, uint_fast16_t sig )
+s_normSubnormalF16Sig.c		DONE	struct exp8_sig16 softfloat_normSubnormalBF16Sig( uint_fast16_t sig )
+s_roundPackToF16.c		DONE	bfloat16_t softfloat_roundPackToBF16( bool sign, int_fast16_t exp, uint_fast16_t sig )
+s_subMagsF16.c			DONE	bfloat16_t softfloat_subMagsBF16( uint_fast16_t uiA, uint_fast16_t uiB )
+
+extF80M_to_f16.c		DISCARDED
+extF80_to_f16.c			DISCARDED
+f128M_to_f16.c			DISCARDED
+f128_to_f16.c			DISCARDED
+f16_add.c			DONE	bfloat16_t bf16_add( bfloat16_t a, bfloat16_t b )
+f16_div.c			DONE	bfloat16_t bf16_div( bfloat16_t a, bfloat16_t b )
+f16_eq.c			DONE	bool bf16_eq( bfloat16_t a, bfloat16_t b )
+f16_eq_signaling.c		DONE	bool bf16_eq_signaling( bfloat16_t a, bfloat16_t b )
+f16_isSignalingNaN.c		DONE	bool bf16_isSignalingNaN( bfloat16_t a )
+f16_le.c			DONE	bool bf16_le( bfloat16_t a, bfloat16_t b )
+f16_le_quiet.c			DONE	bool bf16_le_quiet( bfloat16_t a, bfloat16_t b )
+f16_lt.c			DONE	bool bf16_lt( bfloat16_t a, bfloat16_t b )
+f16_lt_quiet.cA			DONE	bool bf16_lt_quiet( bfloat16_t a, bfloat16_t b )
+f16_mulAdd.c			DONE	bfloat16_t bf16_mulAdd( bfloat16_t a, bfloat16_t b, bfloat16_t c )
+f16_mul.c			DONE	bfloat16_t bf16_mul( bfloat16_t a, bfloat16_t b )
+f16_rem.c			DISCARDED
+f16_roundToInt.c		DONE	bfloat16_t bf16_roundToInt( bfloat16_t a, uint_fast8_t roundingMode, bool exact )
+f16_sqrt.c			????	bfloat16_t bf16_sqrt( bfloat16_t a )
+f16_sub.c			DONE	bfloat16_t bf16_sub( bfloat16_t a, bfloat16_t b )
+f16_to_extF80.c			DISCARDED
+f16_to_extF80M.c		DISCARDED
+f16_to_f128.c			DISCARDED
+f16_to_f128M.c			DISCARDED
+f16_to_f32.c			DONE	float32_t bf16_to_f32( bfloat16_t a )
+f16_to_f64.c			DONE	float64_t bf16_to_f64( bfloat16_t a )
+f16_to_i32.c			DONE	int_fast32_t bf16_to_i32( bfloat16_t a, uint_fast8_t roundingMode, bool exact )
+f16_to_i32_r_minMag.c		DONE	int_fast32_t bf16_to_i32_r_minMag( bfloat16_t a, bool exact )
+f16_to_i64.c			DONE	int_fast64_t bf16_to_i64( bfloat16_t a, uint_fast8_t roundingMode, bool exact )
+f16_to_i64_r_minMag.c		DONE	int_fast64_t bf16_to_i64_r_minMag( bfloat16_t a, bool exact )
+f16_to_ui32.c			DONE	uint_fast32_t bf16_to_ui32( bfloat16_t a, uint_fast8_t roundingMode, bool exact )
+f16_to_ui32_r_minMag.c
+f16_to_ui64.c
+f16_to_ui64_r_minMag.c
+f32_to_f16.c
+f64_to_f16.c
+i32_to_f16.c
+i64_to_f16.c
+ui32_to_f16.c
+ui64_to_f16.c

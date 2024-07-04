@@ -45,6 +45,8 @@ public:
     void load_reserve_addr_set(iss_reg_t addr) { this->load_reserve_addr = addr; }
     void load_reserve_addr_clear() { this->load_reserve_addr = -1; }
 
+    int float_mode;
+
 private:
     bool mstatus_update(bool is_write, iss_reg_t &value);
     bool sstatus_update(bool is_write, iss_reg_t &value);

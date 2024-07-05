@@ -30,3 +30,29 @@ static inline uint32_t float_add_32(Iss *iss, uint32_t a, uint32_t b, uint32_t m
     float result = *(float *)&a + *(float *)&b;
     return *(uint32_t *)&result;
 }
+
+static inline uint32_t float_sub_32(Iss *iss, uint32_t a, uint32_t b, uint32_t mode)
+{
+    return LIB_FF_CALL3(lib_flexfloat_sub_round, a, b, 8, 23, mode);
+}
+
+static inline uint32_t float_madd_32(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_madd_round, a, b, c, 8, 23, mode);
+}
+
+static inline uint32_t float_msub_32(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_msub_round, a, b, c, 8, 23, mode);
+}
+
+static inline uint32_t float_nmadd_32(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_nmadd_round, a, b, c, 8, 23, mode);
+}
+
+static inline uint32_t float_nmsub_32(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_nmsub_round, a, b, c, 8, 23, mode);
+}
+

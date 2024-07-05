@@ -34,5 +34,5 @@
 #endif
 
 #if CONFIG_GVSOC_ISS_FLOAT_USE_NATIVE
-#include "cpu/iss/include/isa_lib/float_native.h"
+#include "cpu/iss/include/isa_lib/float_native.hpp"
 #endif

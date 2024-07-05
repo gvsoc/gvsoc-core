@@ -510,7 +510,8 @@ class Riscv(RiscvCommon):
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
             fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
-            core_id: int=0, memory_start=None, memory_size=None, htif: bool=False):
+            core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
+            float_lib='flexfloat'):
 
         # Instantiates the ISA from the provided string.
         isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
@@ -522,7 +523,7 @@ class Riscv(RiscvCommon):
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
             memory_start=memory_start, memory_size=memory_size, scoreboard=True,
-            htif=htif)
+            htif=htif, float_lib=float_lib)
 
         self.add_c_flags([
             "-DCONFIG_ISS_CORE=riscv",

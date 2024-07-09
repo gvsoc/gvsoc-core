@@ -223,9 +223,6 @@ class Runner():
             parser.add_argument("--gui", dest="gui", default=None, action="store_true",
                 help="Open GVSOC gui")
 
-        parser.add_argument("--platform", dest="platform", required=True, choices=choices,
-            type=str, help="specify the platform used for the target")
-
         gapy_target.register_command_handler(self.gv_handle_command)
 
 
@@ -403,8 +400,9 @@ class Runner():
 
             command.append(launcher)
 
-            print ('Launching GVSOC with command: ')
-            print (' '.join(command))
+            if args.verbose in ['debug', 'info']:
+                print ('Launching GVSOC with command: ')
+                print (' '.join(command))
 
             os.chdir(self.gapy_target.get_working_dir())
 
@@ -501,7 +499,7 @@ class Runner():
                 return run.exitstatus
 
             else:
-                if True: #self.verbose:
+                if args.verbose in ['debug', 'info']:
                     print ('Launching GVSOC with command: ')
                     print (' '.join(command))
 
@@ -557,15 +555,12 @@ class Runner():
 
 class Target(gapy.Target):
 
-    def __init__(self, parser, options, model, description, rtl_cosim_runner=None):
+    def __init__(self, parser, options, model, rtl_cosim_runner=None):
         super(Target, self).__init__(parser, options)
 
         args = None
 
         if parser is not None:
-            parser.add_argument("--model-dir", dest="install_dirs", action="append",
-                type=str, help="specify an installation path where to find models")
-
             parser.add_argument("--trace", dest="traces", default=[], action="append",
                 help="Specify gvsoc trace")
 
@@ -640,12 +635,8 @@ class Target(gapy.Target):
 
             [args, otherArgs] = parser.parse_known_args()
 
-            if args.install_dirs is not None:
-                sys.path = args.install_dirs + sys.path
-
         self.model = model(parent=self, name=None, parser=parser, options=options)
         self.runner = Runner(parser, args, options, self, self.model, rtl_cosim_runner=rtl_cosim_runner)
-        self.description = description
 
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
         return child_path
@@ -655,9 +646,6 @@ class Target(gapy.Target):
 
     def get_target(self):
         return self
-
-    def __str__(self) -> str:
-        return self.description
 
 
     def dump_target_properties(self):

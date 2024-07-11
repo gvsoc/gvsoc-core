@@ -467,11 +467,10 @@ class Runner():
 
                     run = pexpect.spawn(' '.join(command), encoding='utf-8', logfile=sys.stdout,
                         codec_errors='replace')
-                    match = run.expect(['Opened proxy on socket '], timeout=None)
+                    match = run.expect(['Opened proxy on socket ', pexpect.EOF], timeout=None)
                     if match == 0:
                         break
 
-                    run.expect(pexpect.EOF, timeout=None)
                     port = port + 1
                     if port == 20000:
                         port = 4000

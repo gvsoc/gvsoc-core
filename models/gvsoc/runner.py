@@ -382,7 +382,7 @@ class Runner():
         self.__gen_debug_info(self.full_config, self.full_config.get('target/gvsoc'))
 
         if norun:
-            return 0
+            return
 
         stub = args.stub
 
@@ -486,23 +486,26 @@ class Runner():
                     status = module.target_control(proxy)
                     proxy.quit(status)
                     proxy.close()
+                    # Once script is over, wait for gvsoc to finish and return its status
+                    gv_thread.join()
+                    retval = run.exitstatus
                 except:
                     traceback.print_exc()
                     gv_thread.kill = True
                     proxy.close()
                     gv_thread.join()
-                    return -1
-
-                # Once script is over, wait for gvsoc to finish and return its status
-                gv_thread.join()
-                return run.exitstatus
+                    retval = 1
 
             else:
                 if args.verbose in ['debug', 'info']:
                     print ('Launching GVSOC with command: ')
                     print (' '.join(command))
 
-                return os.system(' '.join(command))
+                retval = os.waitstatus_to_exitcode(os.system(' '.join(command)))
+
+        if retval != 0:
+            raise RuntimeError(f'Platform returned an error (exitcode: {retval})')
+
 
 
     def gen_gui_config(self, work_dir, path):

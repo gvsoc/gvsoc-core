@@ -488,6 +488,9 @@ class Runner():
                     proxy.close()
                     # Once script is over, wait for gvsoc to finish and return its status
                     gv_thread.join()
+                    # This should not be needed since gv_thread returns when it detects EOF
+                    # but if not there, status can be None
+                    run.expect(pexpect.EOF)
                     retval = run.exitstatus
                 except:
                     traceback.print_exc()
@@ -557,8 +560,14 @@ class Runner():
 
 class Target(gapy.Target):
 
-    def __init__(self, parser, options, model, rtl_cosim_runner=None):
+    def __init__(self, parser, options, model, rtl_cosim_runner=None, description=None):
         super(Target, self).__init__(parser, options)
+
+        # To keep compatibility with old targets where description was described with the argument
+        # we manually set the class attributes.
+        # This should however not work with command "targets"
+        if description is not None:
+            self.gapy_description = description
 
         args = None
 

@@ -8,15 +8,19 @@ GVSOC
    :caption: Contents:
 
    usage
-   configuration
-   options
-   system_traces
-   debug_symbols
-   vcd_traces
-   profiling
-   timing_models
-   power_models
-   devices/index.rst
    commands
-   remote_control
+   customization
+   gdb_server
+   memcheck
+   profiling
+   target_control
+   system_traces
+   devices/index.rst
 
+
+.. toctree::
+   :maxdepth: 1
+   :caption: References:
+
+   remote_control
+   

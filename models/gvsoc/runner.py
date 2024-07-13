@@ -75,9 +75,6 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
     if args.format is not None:
         gvsoc_config.set('events/format', args.format)
 
-    if args.gtkwi:
-        gvsoc_config.set('events/gtkw', True)
-
     debug_mode = gvsoc_config.get_bool('debug-mode') or \
         gvsoc_config.get_bool('traces/enabled') or \
         gvsoc_config.get_bool('events/enabled') or \
@@ -591,9 +588,6 @@ class Target(gapy.Target):
 
             parser.add_argument("--event-format", dest="format", default=None,
                 help="Specify events format (vcd or fst)")
-
-            parser.add_argument("--gtkwi", dest="gtkwi", action="store_true",
-                help="Dump events to pipe and open gtkwave in interactive mode")
 
             parser.add_argument("--emulation", dest="emulation", action="store_true",
                 help="Launch in emulation mode")

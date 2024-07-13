@@ -1,4 +1,7 @@
-Remote control
+.. _target_control_ref:
+
+
+Target control
 --------------
 
 Introduction

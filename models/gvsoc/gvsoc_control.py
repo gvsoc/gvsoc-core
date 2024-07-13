@@ -1008,17 +1008,16 @@ class Testbench_i2s(object):
             Path to the file.
         :param encoding: string, optional,
             Encoding type for binary files, can be: "asis", "plusminus" or "pcm" meaning it is "asis" and a conversion is required
-
-        Modulation part - PCM to PDM conversion
-        :param r : int, optional
-            Interpolation ratio shift : 0 -> no intermolation
-                                        1 -> interpolation by 2 (only linear interpolation)
-                                        2-> interpolation by 4
-                                        3-(DEFAULT)-> interpolation by 8
-                                        4-> interpolation by 16 (only linear interpolation)
-                                        5-> interpolation by 32 (only linear interpolation) ...
-        :param interpolation : str, optional
-            Interpolation type : linear[default] or IIR
+        :param interpolation_ratio_shift: int, optional,
+            Interpolation ratio shift (only for modulation part - PCM to PDM conversion). Values:
+            0 -> no intermolation
+            1 -> interpolation by 2 (only linear interpolation)
+            2-> interpolation by 4
+            3-(DEFAULT)-> interpolation by 8
+            4-> interpolation by 16 (only linear interpolation)
+            5-> interpolation by 32 (only linear interpolation) ...
+        :param interpolation_type: str, optional,
+            Interpolation type (only for modulation part - PCM to PDM conversion): linear[default] or IIR
 
         :raises: RuntimeError, if there is any invalid parameter.
         """
@@ -1060,20 +1059,19 @@ class Testbench_i2s(object):
             width of the samples, in case the file is in binary format
         :param filepath: string, optional,
             Path to the file.
-
-        Demodulation part - PDM to PCM conversion
-        :param cic_n: int, optional
-            Order of the cic : [default = 8] integer\n\
-        :param cic_m: int, optional
-            Depth of the delta section of cic : [default = 2]
-        :param cic_r = 4
-            Ratio of the cic : [default = 4]
-        :param cic_shift = 7
+        :param cic_n: int, optional,
+            Order of the cic (only for modulation part - PCM to PDM conversion): [default = 8] integer\n\
+        :param cic_m: int, optional,
+            Depth of the delta section of cic (only for modulation part - PCM to PDM conversion): [default = 2]
+        :param cic_r: int, optional,
+            Ratio of the cic (only for modulation part - PCM to PDM conversion): [default = 4]
+        :param cic_shift: int, optional,
             Denormalisation after cic & before filter
         :param filter_coef: int, optional
-            Filter coefficient : 0 [default] no use of post-filter
-                                 1: use lattice_ladder 1
-                                 2:use lattice_ladder 2
+            Filter coefficient (only for modulation part - PCM to PDM conversion). Values:
+            0 [default] no use of post-filter
+            1: use lattice_ladder 1
+            2:use lattice_ladder 2
 
         :raises: RuntimeError, if there is any invalid parameter.
         """

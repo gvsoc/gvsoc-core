@@ -684,6 +684,16 @@ void Memory::memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info)
 void Memory::memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable)
 {
 #ifdef VP_MEMCHECK_ACTIVE
+
+    if (this->memcheck_data != NULL)
+    {
+        if (!enable)
+        {
+            memset(&this->memcheck_data[base], 0, size * this->memcheck_expansion_factor);
+        }
+    }
+
+
     if (this->memcheck_valid_flags != NULL)
     {
         this->trace.msg(vp::Trace::LEVEL_INFO, "%s valid buffer (offset: 0x%lx, size: 0x%lx)\n",

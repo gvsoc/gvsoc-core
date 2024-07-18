@@ -41,6 +41,16 @@ import traceback
 import shlex
 
 
+def waitstatus_to_exitcode(status):
+    """Convert a wait status to an exit code."""
+    if os.WIFEXITED(status):
+        return os.WEXITSTATUS(status)
+    if os.WIFSIGNALED(status):
+        return -os.WTERMSIG(status)
+    return -1  # Unknown status
+
+
+
 def gen_config(args, config, working_dir, runner, cosim_mode):
 
     full_config =  js.import_config(config, interpret=False, gen=False)
@@ -501,7 +511,10 @@ class Runner():
                     print ('Launching GVSOC with command: ')
                     print (' '.join(command))
 
-                retval = os.waitstatus_to_exitcode(os.system(' '.join(command)))
+                if sys.version_info >= (3, 9):
+                    retval = os.waitstatus_to_exitcode(os.system(' '.join(command)))
+                else:
+                    retval = waitstatus_to_exitcode(os.system(' '.join(command)))
 
         if retval != 0:
             raise RuntimeError(f'Platform returned an error (exitcode: {retval})')

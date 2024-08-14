@@ -90,7 +90,7 @@ float32_t f32_NmulAdd( Iss *iss, float32_t a, float32_t b, float32_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddF32( iss, uiA, uiB, uiC, 3 );
+    return softfloat_mulAddF32( iss, uiA, uiB, uiC, 2 );
 }
 
 float32_t f32_NmulSub( Iss *iss, float32_t a, float32_t b, float32_t c )
@@ -108,6 +108,6 @@ float32_t f32_NmulSub( Iss *iss, float32_t a, float32_t b, float32_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddF32( iss, uiA, uiB, uiC, 2 );
+    return softfloat_mulAddF32( iss, uiA, uiB, uiC, 3 );
 }
 

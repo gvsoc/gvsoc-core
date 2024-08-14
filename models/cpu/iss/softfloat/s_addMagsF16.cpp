@@ -326,14 +326,14 @@ bfloat16_t softfloat_addMagsBF16_Old( uint_fast16_t uiA, uint_fast16_t uiB )
 bfloat16_t softfloat_addMagsBF16( uint_fast16_t uiA, uint_fast16_t uiB )
 {
     int_fast16_t expA;
-    uint_fast16_t sigA;
+    uint_fast32_t sigA;
     int_fast16_t expB;
-    uint_fast16_t sigB;
+    uint_fast32_t sigB;
     int_fast16_t expDiff;
     uint_fast16_t uiZ;
     bool signZ;
     int_fast16_t expZ;
-    uint_fast16_t sigZ;
+    uint_fast32_t sigZ;
     union ui16_bf16 uZ;
 
     /*------------------------------------------------------------------------

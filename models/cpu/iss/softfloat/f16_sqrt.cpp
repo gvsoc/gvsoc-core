@@ -134,22 +134,18 @@ float16_t f16_sqrt( float16_t a )
 
 }
 
-
 bfloat16_t bf16_sqrt( bfloat16_t a )
+
 {
     union ui16_bf16 uA;
-    uint_fast16_t uiA;
+    uint_fast32_t uiA;
     bool signA;
     int_fast16_t expA;
-    uint_fast16_t sigA, uiZ;
+    uint_fast32_t sigA, uiZ;
     struct exp16_sig16 normExpSig;
     int_fast16_t expZ;
-    int index;
-    uint_fast16_t r0;
-    uint_fast32_t ESqrR0;
-    uint16_t sigma0;
-    uint_fast16_t recipSqrt16, sigZ, shiftedSigZ;
-    uint16_t negRem;
+    uint_fast32_t sigZ, shiftedSigZ;
+    uint32_t negRem;
     union ui16_bf16 uZ;
 
     /*------------------------------------------------------------------------
@@ -187,34 +183,25 @@ bfloat16_t bf16_sqrt( bfloat16_t a )
     *------------------------------------------------------------------------*/
     expZ = ((expA - 0x7F)>>1) + 0x7E;
     expA &= 1;
-    sigA |= 0x0080;
-    // index = (sigA>>6 & 0xE) + expA;
-    index = (sigA>>9 & 0x7E) + expA;	// ??
-    r0 = softfloat_approxRecipSqrt_1k0s[index]
-             - (((uint_fast32_t) softfloat_approxRecipSqrt_1k1s[index]
-                     * (sigA & 0x3F))
-                    >>8);
-    ESqrR0 = ((uint_fast32_t) r0 * r0)>>1;
-    if ( expA ) ESqrR0 >>= 1;
-    sigma0 = ~(uint_fast16_t) ((ESqrR0 * sigA)>>16);
-    recipSqrt16 = r0 + (((uint_fast32_t) r0 * sigma0)>>25);
-    if ( ! (recipSqrt16 & 0x8000) ) recipSqrt16 = 0x8000;
-    sigZ = ((uint_fast32_t) (sigA<<5) * recipSqrt16)>>16;
+    sigA = ((sigA<<16) | 0x00800000)<<8;
+    sigZ =
+        ((uint_fast64_t) sigA * softfloat_approxRecipSqrt32_1( expA, sigA ))
+            >>32;
     if ( expA ) sigZ >>= 1;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
-    ++sigZ;
-    if ( ! (sigZ & 7) ) {
-        shiftedSigZ = sigZ>>1;
+    sigZ += 2;
+    if ( (sigZ & 0x3F) < 2 ) {
+        shiftedSigZ = sigZ>>2;
         negRem = shiftedSigZ * shiftedSigZ;
-        sigZ &= ~1;
-        if ( negRem & 0x8000 ) {
+        sigZ &= ~3;
+        if ( negRem & 0x80000000 ) {
             sigZ |= 1;
         } else {
             if ( negRem ) --sigZ;
         }
     }
-    return softfloat_roundPackToBF16( 0, expZ, sigZ );
+    return softfloat_roundPackToBF16( 0, expZ, sigZ>>16 );
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
  invalid:
@@ -223,6 +210,4 @@ bfloat16_t bf16_sqrt( bfloat16_t a )
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
-
 }
-

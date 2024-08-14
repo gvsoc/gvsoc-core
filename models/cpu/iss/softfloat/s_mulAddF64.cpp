@@ -75,10 +75,10 @@ float64_t
     signB = signF64UI( uiB );
     expB  = expF64UI( uiB );
     sigB  = fracF64UI( uiB );
-    signC = signF64UI( uiC ) ^ (op == softfloat_mulAdd_subC);
+    signC = signF64UI( uiC ) ^ (op == softfloat_mulAdd_subC || op == softfloat_mulAdd_subCsubProd);
     expC  = expF64UI( uiC );
     sigC  = fracF64UI( uiC );
-    signZ = signA ^ signB ^ (op == softfloat_mulAdd_subProd);
+    signZ = signA ^ signB ^ (op == softfloat_mulAdd_subProd || op == softfloat_mulAdd_subCsubProd);
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
     if ( expA == 0x7FF ) {
@@ -233,8 +233,8 @@ float64_t
  completeCancellation:
         uiZ =
             packToF64UI(
-                (iss->core.float_mode == softfloat_round_min), 0, 0 );
-    }
+                (softfloat_roundingMode == softfloat_round_min), 0, 0 );
+    } else uiZ = packToF64UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
@@ -484,7 +484,7 @@ float64_t
  completeCancellation:
         uiZ =
             packToF64UI(
-                (iss->core.float_mode == softfloat_round_min), 0, 0 );
+                (softfloat_roundingMode == softfloat_round_min), 0, 0 );
     } else uiZ = packToF64UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;

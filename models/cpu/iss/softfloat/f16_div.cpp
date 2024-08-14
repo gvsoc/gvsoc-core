@@ -125,7 +125,7 @@ float16_t f16_div( float16_t a, float16_t b )
         --expZ;
         sig32A = (uint_fast32_t) sigA<<15;
     } else {
-        sig32A = (uint_fast32_t) sigA<<14;
+        sig32A = (uint_fast32_t) sigA<<14;	// M:10 + E:5 - 1 = 14
     }
     sigZ = sig32A / sigB;
     if ( ! (sigZ & 7) ) sigZ |= ((uint_fast32_t) sigB * sigZ != sig32A);
@@ -191,16 +191,16 @@ bfloat16_t bf16_div( bfloat16_t a, bfloat16_t b )
     union ui16_bf16 uA;
     uint_fast16_t uiA;
     bool signA;
-    int_fast8_t expA;
+    int_fast16_t expA;
     uint_fast16_t sigA;
     union ui16_bf16 uB;
     uint_fast16_t uiB;
     bool signB;
-    int_fast8_t expB;
+    int_fast16_t expB;
     uint_fast16_t sigB;
     bool signZ;
-    struct exp8_sig16 normExpSig;
-    int_fast8_t expZ;
+    struct exp16_sig16 normExpSig;
+    int_fast16_t expZ;
     uint_fast32_t sig32A;
     uint_fast16_t sigZ;
     uint_fast16_t uiZ;
@@ -210,26 +210,26 @@ bfloat16_t bf16_div( bfloat16_t a, bfloat16_t b )
     *------------------------------------------------------------------------*/
     uA.f = a;
     uiA = uA.ui;
-    signA = signF16UI( uiA );
-    expA  = expF16UI( uiA );
-    sigA  = fracF16UI( uiA );
+    signA = signBF16UI( uiA );
+    expA  = expBF16UI( uiA );
+    sigA  = fracBF16UI( uiA );
     uB.f = b;
     uiB = uB.ui;
-    signB = signF16UI( uiB );
-    expB  = expF16UI( uiB );
-    sigB  = fracF16UI( uiB );
+    signB = signBF16UI( uiB );
+    expB  = expBF16UI( uiB );
+    sigB  = fracBF16UI( uiB );
     signZ = signA ^ signB;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
-    if ( expA == 0x1F ) {
+    if ( expA == 0xFF ) {
         if ( sigA ) goto propagateNaN;
-        if ( expB == 0x1F ) {
+        if ( expB == 0xFF ) {
             if ( sigB ) goto propagateNaN;
             goto invalid;
         }
         goto infinity;
     }
-    if ( expB == 0x1F ) {
+    if ( expB == 0xFF ) {
         if ( sigB ) goto propagateNaN;
         goto zero;
     }
@@ -241,13 +241,13 @@ bfloat16_t bf16_div( bfloat16_t a, bfloat16_t b )
             softfloat_raiseFlags( iss, softfloat_flag_infinite );
             goto infinity;
         }
-        normExpSig = softfloat_normSubnormalF16Sig( sigB );
+        normExpSig = softfloat_normSubnormalBF16Sig( sigB );
         expB = normExpSig.exp;
         sigB = normExpSig.sig;
     }
     if ( ! expA ) {
         if ( ! sigA ) goto zero;
-        normExpSig = softfloat_normSubnormalF16Sig( sigA );
+        normExpSig = softfloat_normSubnormalBF16Sig( sigA );
         expA = normExpSig.exp;
         sigA = normExpSig.sig;
     }
@@ -260,7 +260,7 @@ bfloat16_t bf16_div( bfloat16_t a, bfloat16_t b )
         --expZ;
         sig32A = (uint_fast32_t) sigA<<15;
     } else {
-        sig32A = (uint_fast32_t) sigA<<14;
+        sig32A = (uint_fast32_t) sigA<<14;	// M:7 + E:8 - 1 = 14
     }
     sigZ = sig32A / sigB;
     if ( ! (sigZ & 0x3F) ) sigZ |= ((uint_fast32_t) sigB * sigZ != sig32A);

@@ -182,24 +182,21 @@ float16_t softfloat_subMagsF16( uint_fast16_t uiA, uint_fast16_t uiB )
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
-
 }
-
 
 bfloat16_t softfloat_subMagsBF16( uint_fast16_t uiA, uint_fast16_t uiB )
 {
-    int_fast8_t expA;
-    uint_fast16_t sigA;
-    int_fast8_t expB;
-    uint_fast16_t sigB;
-    int_fast8_t expDiff;
-    uint_fast16_t uiZ;
-    int_fast16_t sigDiff;
+    int_fast16_t expA;
+    uint_fast32_t sigA;
+    int_fast16_t expB;
+    uint_fast32_t sigB;
+    int_fast16_t expDiff;
+    uint_fast32_t uiZ;
+    int_fast32_t sigDiff;
     bool signZ;
-    int_fast8_t shiftDist, expZ;
-    uint_fast16_t sigZ, sigX, sigY;
-    uint_fast32_t sig32Z;
-    int_fast8_t roundingMode;
+    int_fast8_t shiftDist;
+    int_fast16_t expZ;
+    uint_fast32_t sigX, sigY;
     union ui16_bf16 uZ;
 
     /*------------------------------------------------------------------------
@@ -233,18 +230,20 @@ bfloat16_t softfloat_subMagsBF16( uint_fast16_t uiA, uint_fast16_t uiB )
             signZ = ! signZ;
             sigDiff = -sigDiff;
         }
-        shiftDist = softfloat_countLeadingZeros16( sigDiff ) - 8;
+        shiftDist = softfloat_countLeadingZeros32( sigDiff ) - 8;
         expZ = expA - shiftDist;
         if ( expZ < 0 ) {
             shiftDist = expA;
             expZ = 0;
         }
-        sigZ = sigDiff<<shiftDist;
-        goto pack;
+        uiZ = packToBF16UI( signZ, expZ, sigDiff<<shiftDist );
+        goto uiZ;
     } else {
         /*--------------------------------------------------------------------
         *--------------------------------------------------------------------*/
         signZ = signBF16UI( uiA );
+        sigA <<= 7;
+        sigB <<= 7;
         if ( expDiff < 0 ) {
             /*----------------------------------------------------------------
             *----------------------------------------------------------------*/
@@ -254,79 +253,33 @@ bfloat16_t softfloat_subMagsBF16( uint_fast16_t uiA, uint_fast16_t uiB )
                 uiZ = packToBF16UI( signZ, 0xFF, 0 );
                 goto uiZ;
             }
-            if ( expDiff <= -125 ) {
-                uiZ = packToBF16UI( signZ, expB, sigB );
-                if ( expA | sigA ) goto subEpsilon;
-                goto uiZ;
-            }
-            expZ = expA + 19;
-            sigX = sigB | 0x0080;
-            sigY = sigA + (expA ? 0x0080 : sigA);
+            expZ = expB - 1;
+            sigX = sigB | 0x4000;
+            sigY = sigA + (expA ? 0x4000 : sigA);
             expDiff = -expDiff;
         } else {
             /*----------------------------------------------------------------
             *----------------------------------------------------------------*/
-            uiZ = uiA;
             if ( expA == 0xFF ) {
                 if ( sigA ) goto propagateNaN;
+                uiZ = uiA;
                 goto uiZ;
             }
-            if ( 125 <= expDiff ) {
-                if ( expB | sigB ) goto subEpsilon;
-                goto uiZ;
-            }
-            expZ = expB + 19;
-            sigX = sigA | 0x0080;
-            sigY = sigB + (expB ? 0x0080 : sigB);
+            expZ = expA - 1;
+            sigX = sigA | 0x4000;
+            sigY = sigB + (expB ? 0x4000 : sigB);
         }
-        sig32Z = ((uint_fast32_t) sigX<<expDiff) - sigY;
-        shiftDist = softfloat_countLeadingZeros32( sig32Z ) - 1;
-        sig32Z <<= shiftDist;
-        expZ -= shiftDist;
-        sigZ = sig32Z>>16;
-        if ( sig32Z & 0xFFFF ) {
-            sigZ |= 1;
-        } else {
-            if ( ! (sigZ & 0xF) && ((unsigned int) expZ < 0xFE) ) {
-                sigZ >>= 4;
-                goto pack;
-            }
-        }
-        return softfloat_roundPackToBF16( signZ, expZ, sigZ );
+        return
+            softfloat_normRoundPackToBF16(
+                signZ, expZ, sigX - softfloat_shiftRightJam32( sigY, expDiff )
+            );
     }
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
  propagateNaN:
     uiZ = softfloat_propagateNaNBF16UI( uiA, uiB );
-    goto uiZ;
-    /*------------------------------------------------------------------------
-    *------------------------------------------------------------------------*/
- subEpsilon:
-    roundingMode = iss->core.float_mode;
-    if ( roundingMode != softfloat_round_near_even ) {
-        if (
-            (roundingMode == softfloat_round_minMag)
-                || (roundingMode
-                        == (signF16UI( uiZ ) ? softfloat_round_max
-                                : softfloat_round_min))
-        ) {
-            --uiZ;
-        }
-#ifdef SOFTFLOAT_ROUND_ODD
-        else if ( roundingMode == softfloat_round_odd ) {
-            uiZ = (uiZ - 1) | 1;
-        }
-#endif
-    }
-    iss->csr.fcsr.fflags |= softfloat_flag_inexact;
-    goto uiZ;
-    /*------------------------------------------------------------------------
-    *------------------------------------------------------------------------*/
- pack:
-    uiZ = packToBF16UI( signZ, expZ, sigZ );
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
-
 }
 

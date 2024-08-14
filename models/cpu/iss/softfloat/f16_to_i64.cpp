@@ -91,7 +91,7 @@ int_fast64_t f16_to_i64_alt( float16_t a, uint_fast8_t roundingMode, bool exact 
     union ui16_f16 uA;
     uint_fast16_t uiA;
     bool sign;
-    int_fast8_t exp;
+    int_fast16_t exp;
     uint_fast32_t sig;
     uint_fast64_t sig64, extra;
     struct uint64_extra sig64Extra;

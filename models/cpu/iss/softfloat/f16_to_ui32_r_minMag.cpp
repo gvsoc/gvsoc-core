@@ -89,9 +89,9 @@ uint_fast32_t bf16_to_ui32_r_minMag( bfloat16_t a, bool exact )
 {
     union ui16_bf16 uA;
     uint_fast16_t uiA;
-    int_fast8_t exp;
+    int_fast16_t exp;
     uint_fast16_t frac;
-    int_fast8_t shiftDist;
+    int_fast16_t shiftDist;
     bool sign;
     uint_fast32_t alignedSig;
 

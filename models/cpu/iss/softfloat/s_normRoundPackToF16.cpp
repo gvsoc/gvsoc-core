@@ -60,7 +60,7 @@ float16_t
 bfloat16_t
  softfloat_normRoundPackToBF16( bool sign, int_fast16_t exp, uint_fast16_t sig )
 {
-    int_fast8_t shiftDist;
+    int_fast16_t shiftDist;
     union ui16_bf16 uZ;
 
     shiftDist = softfloat_countLeadingZeros16( sig ) - 1;

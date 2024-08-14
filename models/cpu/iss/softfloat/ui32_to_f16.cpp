@@ -67,7 +67,7 @@ float16_t ui32_to_f16( uint32_t a )
 
 bfloat16_t ui32_to_bf16( uint32_t a )
 {
-    int_fast8_t shiftDist;
+    int_fast16_t shiftDist;
     union ui16_bf16 u;
     uint_fast16_t sig;
 

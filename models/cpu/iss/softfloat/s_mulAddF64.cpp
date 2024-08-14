@@ -485,7 +485,7 @@ float64_t
         uiZ =
             packToF64UI(
                 (iss->core.float_mode == softfloat_round_min), 0, 0 );
-    }
+    } else uiZ = packToF64UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;

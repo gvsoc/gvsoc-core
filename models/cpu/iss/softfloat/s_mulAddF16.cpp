@@ -217,7 +217,7 @@ float16_t
         uiZ =
             packToF16UI(
                 (iss->core.float_mode == softfloat_round_min), 0, 0 );
-    }
+    } else uiZ = packToF16UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
@@ -403,7 +403,7 @@ bfloat16_t
         uiZ =
             packToBF16UI(
                 (iss->core.float_mode == softfloat_round_min), 0, 0 );
-    }
+    } else uiZ = packToBF16UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;

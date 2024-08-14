@@ -215,7 +215,7 @@ float32_t
         uiZ =
             packToF32UI(
                 (iss->core.float_mode == softfloat_round_min), 0, 0 );
-    }
+    } else uiZ = packToF32UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;

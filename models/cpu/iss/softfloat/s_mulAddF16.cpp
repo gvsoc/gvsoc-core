@@ -75,10 +75,10 @@ float16_t
     signB = signF16UI( uiB );
     expB  = expF16UI( uiB );
     sigB  = fracF16UI( uiB );
-    signC = signF16UI( uiC ) ^ (op == softfloat_mulAdd_subC);
+    signC = signF16UI( uiC ) ^ (op == softfloat_mulAdd_subC  || op == softfloat_mulAdd_subCsubProd);
     expC  = expF16UI( uiC );
     sigC  = fracF16UI( uiC );
-    signProd = signA ^ signB ^ (op == softfloat_mulAdd_subProd);
+    signProd = signA ^ signB ^ (op == softfloat_mulAdd_subProd  || op == softfloat_mulAdd_subCsubProd);
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
     if ( expA == 0x1F ) {

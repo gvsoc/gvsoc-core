@@ -235,6 +235,7 @@ class RiscvCommon(st.Component):
                 "cpu/iss/softfloat/s_mulAddF32.cpp",
                 "cpu/iss/softfloat/f32_add.cpp",
                 "cpu/iss/softfloat/f32_mulAdd.cpp",
+                "cpu/iss/softfloat/f16_mulAdd.cpp",
             ])
             self.add_c_flags(['-DSOFTFLOAT_FAST_INT64=1'])
 

@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 float16_t
  softfloat_mulAddF16(
-     uint_fast16_t uiA, uint_fast16_t uiB, uint_fast16_t uiC, uint_fast8_t op )
+     Iss *iss, uint_fast16_t uiA, uint_fast16_t uiB, uint_fast16_t uiC, uint_fast8_t op )
 {
     bool signA;
     int_fast8_t expA;
@@ -227,7 +227,7 @@ float16_t
 
 bfloat16_t
  softfloat_mulAddBF16(
-     uint_fast16_t uiA, uint_fast16_t uiB, uint_fast16_t uiC, uint_fast8_t op )
+     Iss *iss, uint_fast16_t uiA, uint_fast16_t uiB, uint_fast16_t uiC, uint_fast8_t op )
 {
     bool signA;
     int_fast16_t expA;

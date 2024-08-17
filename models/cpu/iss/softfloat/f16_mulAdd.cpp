@@ -39,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "internals.h"
 #include "softfloat.h"
 
-float16_t f16_mulAdd( float16_t a, float16_t b, float16_t c )
+float16_t f16_mulAdd( Iss *iss, float16_t a, float16_t b, float16_t c )
 {
     union ui16_f16 uA;
     uint_fast16_t uiA;
@@ -54,10 +54,10 @@ float16_t f16_mulAdd( float16_t a, float16_t b, float16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddF16( uiA, uiB, uiC, 0 );
+    return softfloat_mulAddF16( iss, uiA, uiB, uiC, 0 );
 }
 
-float16_t f16_mulSub( float16_t a, float16_t b, float16_t c )
+float16_t f16_mulSub( Iss *iss, float16_t a, float16_t b, float16_t c )
 {
     union ui16_f16 uA;
     uint_fast16_t uiA;
@@ -72,10 +72,10 @@ float16_t f16_mulSub( float16_t a, float16_t b, float16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddF16( uiA, uiB, uiC, 1 );
+    return softfloat_mulAddF16( iss, uiA, uiB, uiC, 1 );
 }
 
-float16_t f16_NmulAdd( float16_t a, float16_t b, float16_t c )
+float16_t f16_NmulAdd( Iss *iss, float16_t a, float16_t b, float16_t c )
 {
     union ui16_f16 uA;
     uint_fast16_t uiA;
@@ -90,10 +90,10 @@ float16_t f16_NmulAdd( float16_t a, float16_t b, float16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddF16( uiA, uiB, uiC, 2 );
+    return softfloat_mulAddF16( iss, uiA, uiB, uiC, 2 );
 }
 
-float16_t f16_NmulSub( float16_t a, float16_t b, float16_t c )
+float16_t f16_NmulSub( Iss *iss, float16_t a, float16_t b, float16_t c )
 {
     union ui16_f16 uA;
     uint_fast16_t uiA;
@@ -108,10 +108,10 @@ float16_t f16_NmulSub( float16_t a, float16_t b, float16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddF16( uiA, uiB, uiC, 3 );
+    return softfloat_mulAddF16( iss, uiA, uiB, uiC, 3 );
 }
 
-bfloat16_t bf16_mulAdd( bfloat16_t a, bfloat16_t b, bfloat16_t c )
+bfloat16_t bf16_mulAdd( Iss *iss, bfloat16_t a, bfloat16_t b, bfloat16_t c )
 {
     union ui16_bf16 uA;
     uint_fast16_t uiA;
@@ -126,10 +126,10 @@ bfloat16_t bf16_mulAdd( bfloat16_t a, bfloat16_t b, bfloat16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddBF16( uiA, uiB, uiC, 0 );
+    return softfloat_mulAddBF16( iss, uiA, uiB, uiC, 0 );
 }
 
-bfloat16_t bf16_mulSub( bfloat16_t a, bfloat16_t b, bfloat16_t c )
+bfloat16_t bf16_mulSub( Iss *iss, bfloat16_t a, bfloat16_t b, bfloat16_t c )
 {
     union ui16_bf16 uA;
     uint_fast16_t uiA;
@@ -144,10 +144,10 @@ bfloat16_t bf16_mulSub( bfloat16_t a, bfloat16_t b, bfloat16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddBF16( uiA, uiB, uiC, 1 );
+    return softfloat_mulAddBF16( iss, uiA, uiB, uiC, 1 );
 }
 
-bfloat16_t bf16_NmulAdd( bfloat16_t a, bfloat16_t b, bfloat16_t c )
+bfloat16_t bf16_NmulAdd( Iss *iss, bfloat16_t a, bfloat16_t b, bfloat16_t c )
 {
     union ui16_bf16 uA;
     uint_fast16_t uiA;
@@ -162,10 +162,10 @@ bfloat16_t bf16_NmulAdd( bfloat16_t a, bfloat16_t b, bfloat16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddBF16( uiA, uiB, uiC, 2 );
+    return softfloat_mulAddBF16( iss, uiA, uiB, uiC, 2 );
 }
 
-bfloat16_t bf16_NmulSub( bfloat16_t a, bfloat16_t b, bfloat16_t c )
+bfloat16_t bf16_NmulSub( Iss *iss, bfloat16_t a, bfloat16_t b, bfloat16_t c )
 {
     union ui16_bf16 uA;
     uint_fast16_t uiA;
@@ -180,6 +180,6 @@ bfloat16_t bf16_NmulSub( bfloat16_t a, bfloat16_t b, bfloat16_t c )
     uiB = uB.ui;
     uC.f = c;
     uiC = uC.ui;
-    return softfloat_mulAddBF16( uiA, uiB, uiC, 3 );
+    return softfloat_mulAddBF16( iss, uiA, uiB, uiC, 3 );
 }
 

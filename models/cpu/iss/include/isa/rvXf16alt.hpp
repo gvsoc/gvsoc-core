@@ -29,25 +29,25 @@
 
 static inline iss_reg_t fmadd_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_madd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 8, 7, UIM_GET(0)));
+    FREG_SET(0, float_madd_16alt(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmsub_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_msub_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 8, 7, UIM_GET(0)));
+    FREG_SET(0, float_msub_16alt(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fnmsub_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmsub_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 8, 7, UIM_GET(0)));
+    FREG_SET(0, float_nmsub_16alt(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fnmadd_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmadd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 8, 7, UIM_GET(0)));
+    FREG_SET(0, float_nmadd_16alt(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 

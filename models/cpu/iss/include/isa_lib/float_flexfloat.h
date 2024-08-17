@@ -55,3 +55,45 @@ static inline uint32_t float_nmsub_32(Iss *iss, uint32_t a, uint32_t b, uint32_t
     return LIB_FF_CALL4(lib_flexfloat_nmsub_round, a, b, c, 8, 23, mode);
 }
 
+static inline uint32_t float_madd_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_madd_round, a, b, c, 5, 10, mode);
+}
+
+static inline uint32_t float_msub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_msub_round, a, b, c, 5, 10, mode);
+}
+
+static inline uint32_t float_nmadd_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_nmadd_round, a, b, c, 5, 10, mode);
+}
+
+static inline uint32_t float_nmsub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_nmsub_round, a, b, c, 5, 10, mode);
+}
+
+static inline uint32_t float_madd_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_madd_round, a, b, c, 8, 7, mode);
+}
+
+static inline uint32_t float_msub_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_msub_round, a, b, c, 8, 7, mode);
+}
+
+static inline uint32_t float_nmadd_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_nmadd_round, a, b, c, 8, 7, mode);
+}
+
+static inline uint32_t float_nmsub_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_nmsub_round, a, b, c, 8, 7, mode);
+}
+
+
+

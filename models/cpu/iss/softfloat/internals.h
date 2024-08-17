@@ -100,7 +100,7 @@ float16_t softfloat_addMagsF16( uint_fast16_t, uint_fast16_t );
 float16_t softfloat_subMagsF16( uint_fast16_t, uint_fast16_t );
 float16_t
  softfloat_mulAddF16(
-     uint_fast16_t, uint_fast16_t, uint_fast16_t, uint_fast8_t );
+     Iss *, uint_fast16_t, uint_fast16_t, uint_fast16_t, uint_fast8_t );
 
 
 /*----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ bfloat16_t softfloat_addMagsBF16( uint_fast16_t, uint_fast16_t );
 bfloat16_t softfloat_subMagsBF16( uint_fast16_t, uint_fast16_t );
 bfloat16_t
  softfloat_mulAddBF16(
-     uint_fast16_t, uint_fast16_t, uint_fast16_t, uint_fast8_t );
+     Iss *, uint_fast16_t, uint_fast16_t, uint_fast16_t, uint_fast8_t );
 
 /*----------------------------------------------------------------------------
 *----------------------------------------------------------------------------*/

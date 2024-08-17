@@ -25,6 +25,7 @@
 
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss/include/isa_lib/float.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
 static inline iss_reg_t flh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -43,25 +44,25 @@ static inline iss_reg_t fsh_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fmadd_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_madd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, float_madd_16(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmsub_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_msub_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, float_msub_16(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fnmsub_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmsub_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, float_nmsub_16(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fnmadd_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_nmadd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 5, 10, UIM_GET(0)));
+    FREG_SET(0, float_nmadd_16(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 

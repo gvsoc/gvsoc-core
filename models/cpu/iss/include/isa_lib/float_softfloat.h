@@ -36,7 +36,37 @@ static uint32_t sanitize_32(uint32_t value)
 {
     if (is_nan_32(value))
     {
-      return 0x7FC00000;
+        return (value & 0x80000000) | 0x7FC00000;
+    }
+    return value;
+}
+
+static int is_nan_16(uint32_t f) {
+    uint32_t exp = (f >> 10) & 0x1F;
+    uint32_t frac = f & 0x3FF;
+    return (exp == 0x1F && frac != 0);
+}
+
+static uint32_t sanitize_16(uint32_t value)
+{
+    if (is_nan_16(value))
+    {
+        return (value & 0x00008000) | 0x7E00;
+    }
+    return value;
+}
+
+static int is_nan_16alt(uint32_t f) {
+    uint32_t exp = (f >> 7) & 0xFF;
+    uint32_t frac = f & 0x7F;
+    return (exp == 0xFF && frac != 0);
+}
+
+static uint32_t sanitize_16alt(uint32_t value)
+{
+    if (is_nan_16alt(value))
+    {
+        return (value & 0x00008000) | 0x7FC0;
     }
     return value;
 }
@@ -91,25 +121,25 @@ static inline uint32_t float_nmsub_32(Iss *iss, uint32_t a, uint32_t b, uint32_t
 static inline uint32_t float_madd_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16(f16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 static inline uint32_t float_msub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_mulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16(f16_mulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 static inline uint32_t float_nmadd_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_NmulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16(f16_NmulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 static inline uint32_t float_nmsub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16(f16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 
@@ -117,23 +147,23 @@ static inline uint32_t float_nmsub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t
 static inline uint32_t float_madd_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16alt(bf16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 static inline uint32_t float_msub_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_mulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16alt(bf16_mulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 static inline uint32_t float_nmadd_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_NmulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16alt(bf16_NmulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
 
 static inline uint32_t float_nmsub_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return sanitize_16alt(bf16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }

@@ -93,7 +93,7 @@ int_fast64_t softfloat_roundMToI64( bool, uint32_t *, uint_fast8_t, bool );
 struct exp8_sig16 { int_fast8_t exp; uint_fast16_t sig; };
 struct exp8_sig16 softfloat_normSubnormalF16Sig( uint_fast16_t );
 
-float16_t softfloat_roundPackToF16( bool, int_fast16_t, uint_fast16_t );
+float16_t softfloat_roundPackToF16( Iss *iss, bool, int_fast16_t, uint_fast16_t );
 float16_t softfloat_normRoundPackToF16( bool, int_fast16_t, uint_fast16_t );
 
 float16_t softfloat_addMagsF16( uint_fast16_t, uint_fast16_t );
@@ -114,7 +114,7 @@ float16_t
 struct exp16_sig16 { int_fast16_t exp; uint_fast16_t sig; };
 struct exp16_sig16 softfloat_normSubnormalBF16Sig( uint_fast16_t );
 
-bfloat16_t softfloat_roundPackToBF16( bool, int_fast16_t, uint_fast16_t );
+bfloat16_t softfloat_roundPackToBF16( Iss *iss, bool, int_fast16_t, uint_fast16_t );
 bfloat16_t softfloat_normRoundPackToBF16( bool, int_fast16_t, uint_fast16_t );
 
 bfloat16_t softfloat_addMagsBF16( uint_fast16_t, uint_fast16_t );

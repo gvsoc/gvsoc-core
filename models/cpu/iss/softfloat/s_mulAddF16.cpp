@@ -188,11 +188,11 @@ float16_t
         }
     }
  roundPack:
-    return softfloat_roundPackToF16( signZ, expZ, sigZ );
+    return softfloat_roundPackToF16( iss, signZ, expZ, sigZ );
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
  propagateNaN_ABC:
-    uiZ = softfloat_propagateNaNF16UI( uiA, uiB );
+    uiZ = softfloat_propagateNaNF16UI( iss, uiA, uiB );
     goto propagateNaN_ZC;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
@@ -206,7 +206,7 @@ float16_t
     softfloat_raiseFlags( iss, softfloat_flag_invalid );
     uiZ = defaultNaNF16UI;
  propagateNaN_ZC:
-    uiZ = softfloat_propagateNaNF16UI( uiZ, uiC );
+    uiZ = softfloat_propagateNaNF16UI( iss, uiZ, uiC );
     goto uiZ;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
@@ -374,11 +374,11 @@ bfloat16_t
         }
     }
  roundPack:
-    return softfloat_roundPackToBF16( signZ, expZ, sigZ );
+    return softfloat_roundPackToBF16( iss, signZ, expZ, sigZ );
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
  propagateNaN_ABC:
-    uiZ = softfloat_propagateNaNBF16UI( uiA, uiB );
+    uiZ = softfloat_propagateNaNBF16UI( iss, uiA, uiB );
     goto propagateNaN_ZC;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
@@ -392,7 +392,7 @@ bfloat16_t
     softfloat_raiseFlags( iss, softfloat_flag_invalid );
     uiZ = defaultNaNBF16UI;
  propagateNaN_ZC:
-    uiZ = softfloat_propagateNaNBF16UI( uiZ, uiC );
+    uiZ = softfloat_propagateNaNBF16UI( iss, uiZ, uiC );
     goto uiZ;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/

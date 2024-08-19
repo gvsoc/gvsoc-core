@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | signaling NaN, the invalid exception is raised.
 *----------------------------------------------------------------------------*/
 uint_fast16_t
- softfloat_propagateNaNF16UI( uint_fast16_t uiA, uint_fast16_t uiB )
+ softfloat_propagateNaNF16UI( Iss *iss, uint_fast16_t uiA, uint_fast16_t uiB )
 {
     bool isSigNaNA;
 
@@ -62,7 +62,7 @@ uint_fast16_t
 }
 
 uint_fast16_t
- softfloat_propagateNaNBF16UI( uint_fast16_t uiA, uint_fast16_t uiB )
+ softfloat_propagateNaNBF16UI( Iss *iss, uint_fast16_t uiA, uint_fast16_t uiB )
 {
     bool isSigNaNA;
 

@@ -118,8 +118,8 @@ uint_fast16_t softfloat_commonNaNToBF16UI( const struct commonNaN *aPtr );
 | the combined NaN result.  If either 'uiA' or 'uiB' has the pattern of a
 | signaling NaN, the invalid exception is raised.
 *----------------------------------------------------------------------------*/
-uint_fast16_t softfloat_propagateNaNF16UI( uint_fast16_t uiA, uint_fast16_t uiB );
-uint_fast16_t softfloat_propagateNaNBF16UI( uint_fast16_t uiA, uint_fast16_t uiB );
+uint_fast16_t softfloat_propagateNaNF16UI( Iss *iss, uint_fast16_t uiA, uint_fast16_t uiB );
+uint_fast16_t softfloat_propagateNaNBF16UI( Iss *iss, uint_fast16_t uiA, uint_fast16_t uiB );
 
 /*----------------------------------------------------------------------------
 | The bit pattern for a default generated 32-bit floating-point NaN.

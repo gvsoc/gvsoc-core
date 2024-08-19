@@ -97,19 +97,19 @@ static inline uint32_t float_madd_16(Iss *iss, uint32_t a, uint32_t b, uint32_t 
 static inline uint32_t float_msub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return f16_mulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
 }
 
 static inline uint32_t float_nmadd_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return f16_NmulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
 }
 
 static inline uint32_t float_nmsub_16(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return f16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return f16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
 }
 
 
@@ -123,17 +123,17 @@ static inline uint32_t float_madd_16alt(Iss *iss, uint32_t a, uint32_t b, uint32
 static inline uint32_t float_msub_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return bf16_mulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
 }
 
 static inline uint32_t float_nmadd_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return bf16_NmulSub(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
 }
 
 static inline uint32_t float_nmsub_16alt(Iss *iss, uint32_t a, uint32_t b, uint32_t c, uint32_t mode)
 {
     float_set_rounding_mode(iss, mode);
-    return bf16_mulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
+    return bf16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v;
 }

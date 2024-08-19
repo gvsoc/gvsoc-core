@@ -67,11 +67,13 @@ private:
 
     static void sync(vp::Block *__this, int data);
 
+    static void clear_event_handler(vp::Block *__this, vp::TimeEvent *event);
     static void rx_sample_handler(vp::Block *__this, vp::TimeEvent *event);
     static void tx_send_handler(vp::Block *__this, vp::TimeEvent *event);
     static void tx_init_handler(vp::Block *__this, vp::TimeEvent *event);
 
     void pending_flush_check();
+    void pending_clear_check();
 
     vp::Trace trace;
 
@@ -85,6 +87,7 @@ private:
     int data_bits;
     int stop_bits;
     bool parity;
+    int64_t last_symbol_timestamp;
 
     gv::GvProxy *proxy;
 
@@ -108,12 +111,18 @@ private:
     int tx_bit;
 
     int pending_flush_req_id = -1;
+
+    FILE *pending_clear_proxy_file=NULL;
+    int pending_clear_req_id = -1;
+    int64_t pending_clear_period;
+    vp::TimeEvent clear_event;
 };
 
 
 
 UartVip::UartVip(vp::ComponentConf &config)
     : vp::Component(config),
+    clear_event(this, &UartVip::clear_event_handler),
     sample_rx_bit_event(this, &UartVip::rx_sample_handler),
     tx_send_bit_event(this, &UartVip::tx_send_handler),
     tx_init_event(this, &UartVip::tx_init_handler)
@@ -262,6 +271,19 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
 
             this->pending_flush_check();
         }
+        else if (args[1] == "clear")
+        {
+            int req = strtol(args[3].c_str(), NULL, 0);
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received clear request\n");
+
+            this->last_symbol_timestamp = this->time.get_time();
+            this->pending_clear_proxy_file = reply_file;
+            this->pending_clear_req_id = req;
+            // We will check nothing was received every period equivalent to one symbol
+            this->pending_clear_period = this->period * (this->data_bits + this->stop_bits + 2);
+
+            this->pending_clear_check();
+        }
         return "err=0";
     }
     else
@@ -279,6 +301,32 @@ void UartVip::pending_flush_check()
             NULL, 0);
         this->pending_flush_req_id = -1;
     }
+}
+
+void UartVip::pending_clear_check()
+{
+    fprintf(stderr, "Clear check %lld %lld %lld %lld\n", this->last_symbol_timestamp, this->time.get_time(), this->time.get_time() - this->last_symbol_timestamp, this->pending_clear_period);
+
+    if (this->time.get_time() - this->last_symbol_timestamp >= this->pending_clear_period)
+    {
+        fprintf(stderr, "Clear done\n");
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Clear done\n");
+        this->proxy->send_payload(this->pending_clear_proxy_file, std::to_string(this->pending_clear_req_id),
+            NULL, 0);
+        this->pending_clear_req_id = -1;
+
+    }
+    else
+    {
+        this->clear_event.enqueue(this->pending_clear_period);
+    }
+}
+
+
+void UartVip::clear_event_handler(vp::Block *__this, vp::TimeEvent *event)
+{
+    UartVip *_this = (UartVip *)__this;
+    _this->pending_clear_check();
 }
 
 void UartVip::sync(vp::Block *__this, int data)
@@ -396,6 +444,7 @@ void UartVip::sample_rx_bit()
                 this->rx_pending_bits--;
                 if (this->rx_pending_bits == 0)
                 {
+                    this->last_symbol_timestamp = this->time.get_time();
                     this->rx_state = UART_RX_STATE_WAIT_START;
                 }
             }

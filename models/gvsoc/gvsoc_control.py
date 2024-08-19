@@ -841,6 +841,11 @@ class Testbench_uart(object):
         self.proxy.reader.wait_reply(req)
 
     def clear(self):
+        req = self.proxy._get_req()
+        cmd = 'component %s uart clear %d %d' % (self.testbench, self.id, req)
+        self.proxy._send_cmd(cmd)
+        self.proxy.reader.wait_reply(req)
+
         self.lock.acquire()
         self.pending_rx_bytes = bytearray()
         self.lock.release()

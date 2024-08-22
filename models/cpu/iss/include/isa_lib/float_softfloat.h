@@ -73,8 +73,11 @@ static uint32_t sanitize_16alt(uint32_t value)
 
 static inline void float_set_rounding_mode(Iss *iss, int mode)
 {
-    if (mode == 7)
+    if ((mode == 7) || (mode == 5))
     {
+        // mode == 7: normal behavior
+        // mode == 5: bfloat16: normal behavior,
+        // mode == 5: non-bfloat16: illegal value -> don't care.
         mode = iss->csr.fcsr.frm;
     }
     iss->core.float_mode = mode;

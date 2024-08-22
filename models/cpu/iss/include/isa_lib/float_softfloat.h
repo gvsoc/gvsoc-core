@@ -36,7 +36,7 @@ static uint32_t sanitize_32(uint32_t value)
 {
     if (is_nan_32(value))
     {
-        return (value & 0x80000000) | 0x7FC00000;
+        return 0x7FC00000;
     }
     return value;
 }
@@ -51,7 +51,7 @@ static uint32_t sanitize_16(uint32_t value)
 {
     if (is_nan_16(value))
     {
-        return (value & 0x00008000) | 0x7E00;
+        return 0x7E00;
     }
     return value;
 }
@@ -66,7 +66,7 @@ static uint32_t sanitize_16alt(uint32_t value)
 {
     if (is_nan_16alt(value))
     {
-        return (value & 0x00008000) | 0x7FC0;
+        return 0x7FC0;
     }
     return value;
 }

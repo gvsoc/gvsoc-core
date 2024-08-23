@@ -96,7 +96,7 @@ float16_t
             uiZ = 0;
             goto propagateNaN_ZC;
         }
-        uiZ = uiC;
+        uiZ = packToF16UI( signC, expC, sigC);
         goto uiZ;
     }
     /*------------------------------------------------------------------------
@@ -280,7 +280,7 @@ bfloat16_t
             uiZ = 0;
             goto propagateNaN_ZC;
         }
-        uiZ = uiC;
+        uiZ = packToBF16UI( signC, expC, sigC);
         goto uiZ;
     }
     /*------------------------------------------------------------------------

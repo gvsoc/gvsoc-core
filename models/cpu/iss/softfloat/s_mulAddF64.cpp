@@ -96,7 +96,7 @@ float64_t
             uiZ = 0;
             goto propagateNaN_ZC;
         }
-        uiZ = uiC;
+        uiZ = packToF64UI( signC, expC, sigC);
         goto uiZ;
     }
     /*------------------------------------------------------------------------

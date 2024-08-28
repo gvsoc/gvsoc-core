@@ -305,11 +305,8 @@ void UartVip::pending_flush_check()
 
 void UartVip::pending_clear_check()
 {
-    fprintf(stderr, "Clear check %lld %lld %lld %lld\n", this->last_symbol_timestamp, this->time.get_time(), this->time.get_time() - this->last_symbol_timestamp, this->pending_clear_period);
-
     if (this->time.get_time() - this->last_symbol_timestamp >= this->pending_clear_period)
     {
-        fprintf(stderr, "Clear done\n");
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Clear done\n");
         this->proxy->send_payload(this->pending_clear_proxy_file, std::to_string(this->pending_clear_req_id),
             NULL, 0);

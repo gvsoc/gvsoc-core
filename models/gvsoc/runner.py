@@ -154,6 +154,7 @@ class Runner():
 
         self.target = target
         self.gapy_target = gapy_target
+        self.rtl_cosim_runner = rtl_cosim_runner
 
         if parser is not None:
             self.target.add_properties({
@@ -216,6 +217,7 @@ class Runner():
             [args, _] = parser.parse_known_args()
 
             cosim_mode = args.rtl_cosimulation
+            self.cosim = cosim_mode
 
             if args.rtl_cosimulation:
 
@@ -225,6 +227,9 @@ class Runner():
                 choices.append('rtl')
                 self.rtl_runner = rtl_cosim_runner(self.gapy_target)
                 self.rtl_runner.append_args(parser)
+
+        else:
+            self.cosim = False
 
         if not cosim_mode:
             parser.add_argument("--gui", dest="gui", default=None, action="store_true",
@@ -489,7 +494,7 @@ class Runner():
 
                 # And call user script with gvsoc proxy
                 try:
-                    proxy = gvsoc.gvsoc_control.Proxy('localhost', port)
+                    proxy = gvsoc.gvsoc_control.Proxy('localhost', port, cosim=self.cosim)
                     status = module.target_control(proxy)
                     proxy.quit(status)
                     proxy.close()

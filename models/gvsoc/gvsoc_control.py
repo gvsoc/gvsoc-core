@@ -199,8 +199,9 @@ class Proxy(object):
             self.lock.release()
 
 
-    def __init__(self, host: str = 'localhost', port: int = 42951):
+    def __init__(self, host: str = 'localhost', port: int = 42951, cosim: bool=False):
         self.req_id = 0
+        self.cosim = cosim
 
         self.lock = threading.Lock()
 

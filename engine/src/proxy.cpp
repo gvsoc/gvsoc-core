@@ -425,6 +425,8 @@ int gv::GvProxy::open(int port, int *out_port)
 
 void gv::GvProxy::stop(int status)
 {
+    fprintf(stderr, "STOP proxy %d\n", status);
+
     for (auto x: this->sockets)
     {
         dprintf(x, "req=-1;exit=%d\n", status);

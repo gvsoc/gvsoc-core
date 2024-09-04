@@ -250,6 +250,21 @@ class Runner():
 
         gvsoc_config = self.full_config.get('target/gvsoc')
 
+        if args.gvcontrol:
+            # Import the user gvcontrol script
+            try:
+                spec = importlib.util.spec_from_file_location(args.gvcontrol, args.gvcontrol)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules["module.name"] = module
+                spec.loader.exec_module(module)
+            except FileNotFoundError as exc:
+                raise RuntimeError('Unable to open test configuration file: ' + args.gvcontrol)
+
+            self.gvcontrol_module = module
+
+            if hasattr(module, 'parse_args'):
+                module.parse_args(parser, args)
+
         if gvsoc_config.get_bool('events/gen_gtkw'):
             path = os.path.join(gapy_target.get_working_dir(), 'view.gtkw')
 
@@ -458,15 +473,6 @@ class Runner():
 
             if args.gvcontrol is not None:
 
-                # Import the user gvcontrol script
-                try:
-                    spec = importlib.util.spec_from_file_location(args.gvcontrol, args.gvcontrol)
-                    module = importlib.util.module_from_spec(spec)
-                    sys.modules["module.name"] = module
-                    spec.loader.exec_module(module)
-                except FileNotFoundError as exc:
-                    raise RuntimeError('Unable to open test configuration file: ' + args.gvcontrol)
-
                 # Launch gvsoc with a random port for the proxy and iterate until we manage
                 # to launch it
                 while True:
@@ -495,7 +501,11 @@ class Runner():
                 # And call user script with gvsoc proxy
                 try:
                     proxy = gvsoc.gvsoc_control.Proxy('localhost', port, cosim=self.cosim)
-                    status = module.target_control(proxy)
+
+                    if hasattr(self.gvcontrol_module, 'parse_args'):
+                        status = self.gvcontrol_module.target_control(args, proxy)
+                    else:
+                        status = self.gvcontrol_module.target_control(proxy)
                     proxy.quit(status)
                     proxy.close()
                     # Once script is over, wait for gvsoc to finish and return its status

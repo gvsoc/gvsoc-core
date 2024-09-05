@@ -87,6 +87,7 @@ private:
     int data_bits;
     int stop_bits;
     bool parity;
+    bool ctrl_flow;
     int64_t last_symbol_timestamp;
 
     gv::GvProxy *proxy;
@@ -138,6 +139,7 @@ UartVip::UartVip(vp::ComponentConf &config)
     this->data_bits = this->get_js_config()->get("data_bits")->get_int();
     this->stop_bits = this->get_js_config()->get("stop_bits")->get_int();
     this->parity = this->get_js_config()->get("parity")->get_bool();
+    this->ctrl_flow = this->get_js_config()->get("ctrl_flow")->get_bool();
 
     this->loopback = this->get_js_config()->get("loopback")->get_bool();
     this->stdout = this->get_js_config()->get("stdout")->get_bool();
@@ -213,6 +215,7 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
                 }
                 else if (name == "ctrl_flow")
                 {
+                    this->ctrl_flow = value;
                 }
                 else if (name == "usart_polarity")
                 {
@@ -334,7 +337,7 @@ void UartVip::sync(vp::Block *__this, int data)
 
     if (_this->loopback)
     {
-        _this->in.sync_full(data, 2, 2, 0x0);
+        _this->in.sync_full(data, 2, _this->ctrl_flow ? 0 : 2, 0x0);
     }
 
     _this->rx_current_bit = data;
@@ -467,7 +470,7 @@ void UartVip::send_byte(uint8_t byte)
 void UartVip::tx_init_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     UartVip *_this = (UartVip *)__this;
-    _this->in.sync_full(1, 2, 1, 0xf);
+    _this->in.sync_full(1, 2, _this->ctrl_flow ? 0 : 2, 0xf);
 }
 
 void UartVip::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)
@@ -551,7 +554,7 @@ void UartVip::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)
 
     _this->tx_bit = tx_bit;
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", tx_bit);
-    _this->in.sync_full(_this->tx_bit, 2, 1, 0xf);
+    _this->in.sync_full(_this->tx_bit, 2, _this->ctrl_flow ? 0 : 2, 0xf);
 
     if (_this->tx_state != UART_TX_STATE_IDLE)
     {

@@ -20,11 +20,11 @@
  */
 
 #include <vp/vp.hpp>
+#include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
 #include <stdio.h>
 #include <string.h>
-#include "memory_memcheck.hpp"
 
 
 class Memory : public vp::Component
@@ -44,7 +44,7 @@ private:
     static void power_ctrl_sync(vp::Block *__this, bool value);
     static void meminfo_sync_back(vp::Block *__this, void **value);
     static void meminfo_sync(vp::Block *__this, void *value);
-    static void memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info);
+    static void memcheck_sync(vp::Block *__this, vp::MemCheckRequest *info);
     vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
     vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
     vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
@@ -73,7 +73,7 @@ private:
 
     vp::WireSlave<bool> power_ctrl_itf;
     vp::WireSlave<void *> meminfo_itf;
-    vp::WireSlave<MemoryMemcheckBuffer *> memcheck_itf;
+    vp::WireSlave<vp::MemCheckRequest *> memcheck_itf;
 
     bool power_trigger;
     bool powered_up;
@@ -163,9 +163,6 @@ Memory::Memory(vp::ComponentConf &config)
         int memcheck_id = this->get_js_config()->get_child_int("memcheck_id");
         if (memcheck_id != -1)
         {
-            this->new_service("memcheck_memory" + std::to_string(memcheck_id),
-                new MemoryMemcheck((void *)this));
-
             this->memcheck_expansion_factor = this->get_js_config()->get_child_int("memcheck_expansion_factor");
             int memcheck_size = size * this->memcheck_expansion_factor;
             this->memcheck_valid_flags = (uint8_t *)calloc((memcheck_size + 7) / 8, 1);
@@ -173,6 +170,8 @@ Memory::Memory(vp::ComponentConf &config)
 
             this->memcheck_base = this->get_js_config()->get_child_int("memcheck_base");
             this->memcheck_virtual_base = this->get_js_config()->get_child_int("memcheck_virtual_base");
+
+            this->get_memcheck()->register_memory(memcheck_id, &this->memcheck_itf);
         }
     }
 
@@ -675,9 +674,17 @@ void Memory::meminfo_sync(vp::Block *__this, void *value)
 
 
 
-void Memory::memcheck_sync(vp::Block *__this, MemoryMemcheckBuffer *info)
+void Memory::memcheck_sync(vp::Block *__this, vp::MemCheckRequest *req)
 {
-
+    Memory *_this = (Memory *)__this;
+    if (req->is_alloc)
+    {
+        req->offset = _this->memcheck_alloc(req->offset, req->size);
+    }
+    else
+    {
+        req->offset = _this->memcheck_free(req->offset, req->size);
+    }
 }
 
 
@@ -757,23 +764,6 @@ uint64_t Memory::memcheck_free(uint64_t virtual_ptr, uint64_t size)
 #endif
 
     return virtual_ptr;
-}
-
-uint64_t MemoryMemcheck::alloc(uint64_t ptr, uint64_t size)
-{
-    Memory *memory = (Memory *)this->data;
-    return memory->memcheck_alloc(ptr, size);
-}
-
-uint64_t MemoryMemcheck::free(uint64_t ptr, uint64_t size)
-{
-    Memory *memory = (Memory *)this->data;
-    return memory->memcheck_free(ptr, size);
-}
-
-MemoryMemcheck::MemoryMemcheck(void *data)
-{
-    this->data = data;
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

@@ -94,7 +94,6 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False,
-            memcheck_nb_memory=0,
             float_lib='flexfloat'):
 
         super().__init__(parent, name)
@@ -155,7 +154,6 @@ class RiscvCommon(st.Component):
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
             'has_double': isa.has_isa('rvd'),
-            'memcheck': { 'nb_memories': memcheck_nb_memory }
         })
 
         fp_size = 64 if isa.has_isa('rvd') else 32

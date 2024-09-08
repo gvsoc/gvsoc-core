@@ -23,7 +23,6 @@
 
 #include <vp/vp.hpp>
 #include <cpu/iss/include/types.hpp>
-#include <memory/memory_memcheck.hpp>
 
 class Memcheck
 {
@@ -33,14 +32,7 @@ public:
     iss_reg_t mem_free(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size);
 
 private:
-    MemoryMemcheck *get_memory(iss_reg_t mem_id);
-
+    IssWrapper &top;
     Iss &iss;
     vp::Trace trace;
-
-    int nb_mem_itf;
-    int expansion_factor;
-
-    std::map<iss_reg_t, MemoryMemcheck *> memories;
-    std::vector<vp::WireMaster<MemoryMemcheckBuffer *>> mem_itfs;
 };

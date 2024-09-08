@@ -57,9 +57,10 @@ namespace vp
     public:
         ComponentConf(std::string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
-            vp::PowerEngine *power_engine)
+            vp::PowerEngine *power_engine, vp::MemCheck *memcheck)
             : name(name), parent(parent), config(config), gv_config(gv_config),
-            time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine) {}
+            time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine),
+            memcheck(memcheck) {}
         std::string name;
         vp::Component *parent;
         js::Config *config;
@@ -67,6 +68,7 @@ namespace vp
         vp::TimeEngine *time_engine;
         vp::TraceEngine *trace_engine;
         vp::PowerEngine *power_engine;
+        vp::MemCheck *memcheck;
     };
 
     /**
@@ -199,7 +201,7 @@ namespace vp
         static vp::Component *load_component(js::Config *config, js::Config *gv_config,
             vp::Component *parent, std::string name,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
-            vp::PowerEngine *power_engine);
+            vp::PowerEngine *power_engine, vp::MemCheck *memcheck);
 
         // Used by the launcher to set himself as launcher. Could be moved to ComponentConfig
         void set_launcher(gv::GvsocLauncher *launcher);

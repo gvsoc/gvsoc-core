@@ -13,6 +13,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/proxy.cpp"
     "src/launcher.cpp"
     "src/proxy_client.cpp"
+    "src/memcheck.cpp"
     "src/jsmn.cpp"
     "src/json.cpp"
     "src/trace/lxt2.cpp"

@@ -23,6 +23,7 @@
 
 #include "vp/component.hpp"
 #include "vp/time/time_engine.hpp"
+#include "vp/memcheck.hpp"
 
 namespace vp {
 
@@ -46,6 +47,7 @@ namespace vp {
       vp::TimeEngine *time_engine;
       vp::TraceEngine *trace_engine;
       vp::PowerEngine *power_engine;
+      vp::MemCheck *memcheck;
   };
 
 };

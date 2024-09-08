@@ -292,7 +292,7 @@ std::string vp::Component::get_module_path(js::Config *gv_config, std::string re
 
 vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_config,
     vp::Component *parent, std::string name, vp::TimeEngine *time_engine,
-    vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)
+    vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine, vp::MemCheck *memcheck)
 {
     std::string module_name = config->get_child_str("vp_component");
 
@@ -337,7 +337,7 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
     if (gv_new)
     {
         ComponentConf conf(name, parent, config, gv_config, time_engine, trace_engine,
-            power_engine);
+            power_engine, memcheck);
         return gv_new(conf);
     }
 
@@ -365,7 +365,7 @@ void vp::Component::reset_sync(vp::Block *__this, bool active)
 vp::Component *vp::Component::new_component(std::string name, js::Config *config, std::string module_name)
 {
     vp::Component *instance = vp::Component::load_component(config, this->gv_config, this, name,
-        this->time.get_engine(), this->traces.get_trace_engine(), this->power.get_engine());
+        this->time.get_engine(), this->traces.get_trace_engine(), this->power.get_engine(), this->memcheck);
 
     this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New component (name: %s)\n", name.c_str());
 
@@ -374,7 +374,7 @@ vp::Component *vp::Component::new_component(std::string name, js::Config *config
 
 vp::Component::Component(vp::ComponentConf &config)
     : Block(config.parent, config.name, config.time_engine, config.trace_engine,
-    config.power_engine)
+    config.power_engine, config.memcheck)
 {
     this->js_config = config.config;
     this->name = config.name;

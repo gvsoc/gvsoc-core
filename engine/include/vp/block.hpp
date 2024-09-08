@@ -39,6 +39,7 @@ namespace vp {
     class RegisterCommon;
     class TraceEngine;
     class reg;
+    class MemCheck;
 
     class BlockObject
     {
@@ -80,7 +81,8 @@ namespace vp {
          * @param name Specify the block name.
          */
         Block(Block *parent, std::string name, vp::TimeEngine *time_engine=NULL,
-        vp::TraceEngine *trace_engine=NULL, vp::PowerEngine *power_engine=NULL);
+            vp::TraceEngine *trace_engine=NULL, vp::PowerEngine *power_engine=NULL,
+            vp::MemCheck *memcheck=NULL);
         ~Block();
 
         /**
@@ -252,6 +254,14 @@ namespace vp {
         virtual void reset_all(bool active, bool from_itf=false);
 
         /**
+         * @brief Give access to memcheck features
+         *
+         * Memories and chunk allocation/free can be declared to this object so that it can
+         * check for buffer overflow and uninitialized accesses.
+         */
+        inline MemCheck *get_memcheck() { return this->memcheck; }
+
+        /**
          * @brief Give access to tracing features
          *
          * This class gather all available features for system traces.
@@ -404,5 +414,7 @@ namespace vp {
         Trace block_trace;
         // Tells if the reset is connected to an interface or is coming from parent
         bool reset_is_bound = false;
+        // Memory checker where this block can declare memories and chunk allocation/free
+        MemCheck *memcheck;
     };
 };

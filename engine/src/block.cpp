@@ -30,10 +30,15 @@ vp::BlockObject::BlockObject(Block &parent)
 }
 
 vp::Block::Block(Block *parent, std::string name, vp::TimeEngine *time_engine,
-        vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine)
+        vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine, vp::MemCheck *memcheck)
     : parent(parent), time(parent, *this, time_engine), traces(parent, *this, trace_engine),
-    power(parent, *this, power_engine), clock(*this)
+    power(parent, *this, power_engine), clock(*this), memcheck(memcheck)
 {
+    if (memcheck == NULL && parent != NULL)
+    {
+        memcheck = parent->memcheck;
+    }
+
     if (parent)
     {
         parent->add_block(this);

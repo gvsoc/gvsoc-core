@@ -20,37 +20,16 @@
  */
 
 #include "cpu/iss/include/iss.hpp"
+#include "vp/memcheck.hpp"
 
 
 
 Memcheck::Memcheck(IssWrapper &top, Iss &iss)
-: iss(iss)
+: top(top), iss(iss)
 {
     top.traces.new_trace("memcheck", &this->trace, vp::DEBUG);
-    this->nb_mem_itf = top.get_js_config()->get_int("memcheck/nb_memories");
-    this->mem_itfs.resize(this->nb_mem_itf);
-    this->expansion_factor = 5;
-    for (int i=0; i<nb_mem_itf; i++)
-    {
-        top.new_master_port("memcheck_mem_" + std::to_string(i), &this->mem_itfs[i],
-            (vp::Block *)this);
-    }
 }
 
-
-MemoryMemcheck *Memcheck::get_memory(iss_reg_t mem_id)
-{
-    if (this->memories.count(mem_id) == 0)
-    {
-        MemoryMemcheck *memory = (MemoryMemcheck *)this->iss.top.get_service(
-            "memcheck_memory" + std::to_string(mem_id));
-        if (memory == NULL) return NULL;
-
-        this->memories[mem_id] = memory;
-    }
-
-    return this->memories[mem_id];
-}
 
 iss_reg_t Memcheck::mem_alloc(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size)
 {
@@ -59,14 +38,13 @@ iss_reg_t Memcheck::mem_alloc(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size)
         this->trace.msg(vp::Trace::LEVEL_INFO, "Memory alloc (id: %d, ptr: 0x%x, size: 0x%x)\n",
             mem_id, ptr, size);
 
-        MemoryMemcheck *memory = this->get_memory(mem_id);
-        if (memory == NULL)
+        iss_reg_t virtual_ptr = this->top.get_memcheck()->alloc(mem_id, ptr, size);
+
+        if (virtual_ptr == 0)
         {
             this->trace.force_warning("Trying to alloc from invalid memory (id: %d)\n", mem_id);
             return ptr;
         }
-
-        iss_reg_t virtual_ptr = memory->alloc(ptr, size);
 
         this->trace.msg(vp::Trace::LEVEL_INFO, "Translated to virtual address (id: %d, virtual_ptr: 0x%x)\n",
             mem_id, virtual_ptr);
@@ -84,14 +62,13 @@ iss_reg_t Memcheck::mem_free(iss_reg_t mem_id, iss_reg_t virtual_ptr, iss_reg_t 
         this->trace.msg(vp::Trace::LEVEL_INFO, "Memory free (id: %d, ptr: 0x%x, size: 0x%x)\n",
             mem_id, virtual_ptr, size);
 
-        MemoryMemcheck *memory = this->get_memory(mem_id);
-        if (memory == NULL)
+        iss_reg_t ptr = this->top.get_memcheck()->free(mem_id, virtual_ptr, size);
+
+        if (ptr == 0)
         {
             this->trace.force_warning("Trying to free from invalid memory (id: %d)\n", mem_id);
             return virtual_ptr;
         }
-
-        iss_reg_t ptr = memory->free(virtual_ptr, size);
 
         this->trace.msg(vp::Trace::LEVEL_INFO, "Translated to physical address (id: %d, ptr: 0x%x)\n",
             mem_id, ptr);

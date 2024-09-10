@@ -49,6 +49,10 @@ typedef enum
     I2C_STATE_READ_ACK
 } I2c_state_e;
 
+#define SSM6515_VOLUME_ODB          0x40     // Value to set 0dB
+#define SSM6515_ENCODE_COEF         -2.667f  // Volume encoding coefficient. Results of (-71.25 - 0x40) / 253
+
+
 typedef enum
 {
     SSM6515_MODE_PCM = 0, //!< Normal PCM/SAI operation.
@@ -181,6 +185,8 @@ protected:
     uint32_t get_output_pcm_freq();
     void compute_internal_pcm_freq();
 
+    double get_volume_gain();
+
     uint8_t is_manual_mode = 0;
 
     // i2c
@@ -284,6 +290,8 @@ protected:
     uint64_t prev_mean_freq = 0;
     int64_t prev_timestamp = -1;
     int64_t timestamp = -1;
+
+    double global_gain = 1;
 };
 
 
@@ -315,6 +323,7 @@ Ssm6515::Ssm6515(vp::ComponentConf &config)
     this->i2c_being_addressed = false;
     this->device_address = this->get_js_config()->get_child_int("i2c_address");
     this->output_filepath = this->get_js_config()->get_child_str("output_filepath");
+    this->global_gain = this->get_js_config()->get_child_int("global_gain") / 1000;
     if (this->get_js_config()->get_child_str("sd") == "sdi")
     {
         this->i2s_wire = SDI;
@@ -908,6 +917,14 @@ uint32_t Ssm6515::get_input_pdm_freq()
     return in_pdmfreq;
 }
 
+double Ssm6515::get_volume_gain(){
+    double gain = 0;
+    double db_gain = (this->regmap.dac_vol.get() - SSM6515_VOLUME_ODB) / SSM6515_ENCODE_COEF;
+    gain = std::pow(10.0, db_gain / 20.0);
+
+    return gain;
+}
+
 int Ssm6515::get_ws_delay()
 {
     int delay = 1;
@@ -1134,6 +1151,8 @@ void Ssm6515::push_sample(uint32_t data)
     {
         data = normalize_int(data, pdm_dyn_range, out_nb_bits);
     }
+
+    data = (uint32_t)((int32_t) data * this->global_gain * get_volume_gain());
 
     if (debug_file_dac)
     {

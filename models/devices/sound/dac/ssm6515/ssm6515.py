@@ -22,7 +22,7 @@ import regmap.regmap_c_header
 
 class Ssm6515(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, i2c_address=0x00, sd = "sdi", output_filepath = "ssm6515.wav"):
+    def __init__(self, parent, name, i2c_address=0x00, sd = "sdi", output_filepath = "ssm6515.wav", gain = 0.613):
         super(Ssm6515, self).__init__(parent, name)
 
         self.set_component('devices.sound.dac.ssm6515.ssm6515')
@@ -32,6 +32,7 @@ class Ssm6515(gvsoc.systree.Component):
         self.add_property('i2c_address', i2c_address)
         self.add_property('output_filepath', output_filepath)
         self.add_property('sd', sd)
+        self.add_property('global_gain', gain * 1000) # gain is passed as integer
 
 
     def gen(self, builddir, installdir):

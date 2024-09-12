@@ -26,7 +26,7 @@
 
 typedef struct linear_interpolator_context
     {
-    int8_t      interpolation_ratio;           /* integer interpolation ratio for 0 insertion                           */
+    int32_t      interpolation_ratio;           /* integer interpolation ratio for 0 insertion                           */
     int8_t      ratio_shift;                   /* number of biquad stages in cascade                                    */
     int32_t     previous_sample;
     } linear_interpolator_context;

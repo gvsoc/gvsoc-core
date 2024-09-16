@@ -323,7 +323,7 @@ Ssm6515::Ssm6515(vp::ComponentConf &config)
     this->i2c_being_addressed = false;
     this->device_address = this->get_js_config()->get_child_int("i2c_address");
     this->output_filepath = this->get_js_config()->get_child_str("output_filepath");
-    this->global_gain = this->get_js_config()->get_child_int("global_gain") / 1000;
+    this->global_gain = ((double)this->get_js_config()->get_child_int("global_gain")) / 1000.0;
     if (this->get_js_config()->get_child_str("sd") == "sdi")
     {
         this->i2s_wire = SDI;

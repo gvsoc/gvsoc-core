@@ -416,10 +416,10 @@ class Runner():
         if args.gdb:
             stub = ['gdb', '--args'] + stub
 
-        if args.valgrind:
-            stub = ['valgrind'] + stub
-
         if args.emulation:
+
+            if args.valgrind:
+                stub = ['valgrind'] + stub
 
             launcher = args.binary
 

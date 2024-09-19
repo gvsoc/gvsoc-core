@@ -107,7 +107,7 @@ namespace vp {
     int level;
     Component *comp;
     void (*dump_event_callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = NULL;
-    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer);
+    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
     bool is_event_active = false;
     std::string name;
     std::string path;

@@ -26,6 +26,8 @@
 #include <inttypes.h>
 
 
+// #define DIRECT_DUMP 1
+
 vp::BlockTrace::BlockTrace(vp::Block *parent, vp::Block &top, vp::TraceEngine *engine)
     : top(top), engine(engine)
 {
@@ -430,6 +432,11 @@ void vp::TraceEngine::dump_event_external(vp::TraceEngine *_this, vp::Trace *tra
 
 void vp::TraceEngine::dump_event_64_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
+#ifdef DIRECT_DUMP
+    uint64_t flags = event ? 0 : (uint64_t)-1;
+    uint64_t value = event ? *(uint64_t *)event : 0;
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+#else
     int size = sizeof(vp::Trace *) + sizeof(timestamp) + sizeof(cycles) + 8 + 8;
     uint8_t *buffer = (uint8_t *)_this->get_event_buffer(size);
     uint64_t flags = event == NULL ? (uint64_t)-1 : 0;
@@ -456,10 +463,16 @@ void vp::TraceEngine::dump_event_64_external(vp::TraceEngine *_this, vp::Trace *
     buffer += 8;
 
     _this->last_event_timestamp = timestamp;
+#endif
 }
 
 void vp::TraceEngine::dump_event_8_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
+#ifdef DIRECT_DUMP
+    uint8_t flags = event ? 0 : (uint8_t)-1;
+    uint8_t value = event ? *(uint8_t *)event : 0;
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+#else
     int size = sizeof(vp::Trace *) + sizeof(timestamp) + sizeof(cycles) + 1 + 1;
     uint8_t *buffer = (uint8_t *)_this->get_event_buffer(size);
     uint8_t flags = event == NULL ? (uint8_t)-1 : 0;
@@ -486,10 +499,16 @@ void vp::TraceEngine::dump_event_8_external(vp::TraceEngine *_this, vp::Trace *t
     buffer += 1;
 
     _this->last_event_timestamp = timestamp;
+#endif
 }
 
 void vp::TraceEngine::dump_event_16_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
+#ifdef DIRECT_DUMP
+    uint16_t flags = event ? 0 : (uint16_t)-1;
+    uint16_t value = event ? *(uint16_t *)event : 0;
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+#else
     int size = sizeof(vp::Trace *) + sizeof(timestamp) + sizeof(cycles) + 2 + 2;
     uint8_t *buffer = (uint8_t *)_this->get_event_buffer(size);
     uint16_t flags = event == NULL ? (uint16_t)-1 : 0;
@@ -516,10 +535,16 @@ void vp::TraceEngine::dump_event_16_external(vp::TraceEngine *_this, vp::Trace *
     buffer += 2;
 
     _this->last_event_timestamp = timestamp;
+#endif
 }
 
 void vp::TraceEngine::dump_event_32_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes)
 {
+#ifdef DIRECT_DUMP
+    uint32_t flags = event ? 0 : (uint32_t)-1;
+    uint32_t value = event ? *(uint32_t *)event : 0;
+    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+#else
     int size = sizeof(vp::Trace *) + sizeof(timestamp) + sizeof(cycles) + 4 + 4;
     uint8_t *buffer = (uint8_t *)_this->get_event_buffer(size);
     uint32_t flags = event == NULL ? (uint32_t)-1 : 0;
@@ -546,16 +571,17 @@ void vp::TraceEngine::dump_event_32_external(vp::TraceEngine *_this, vp::Trace *
     buffer += 4;
 
     _this->last_event_timestamp = timestamp;
+#endif
 }
 
 
-uint8_t *vp::TraceEngine::parse_event(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer)
+uint8_t *vp::TraceEngine::parse_event(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     // TODO
     return buffer;
 }
 
-uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer)
+uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     int64_t timestamp;
     int64_t cycles;
@@ -574,12 +600,12 @@ uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint64_t *)buffer;
     buffer += 8;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
 
-uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer)
+uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     int64_t timestamp;
     int64_t cycles;
@@ -599,12 +625,12 @@ uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace
     flags = *(uint8_t *)buffer;
     buffer += 1;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
 
-uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer)
+uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     int64_t timestamp;
     int64_t cycles;
@@ -623,12 +649,12 @@ uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint16_t *)buffer;
     buffer += 2;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
 
-uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer)
+uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     int64_t timestamp;
     int64_t cycles;
@@ -647,7 +673,7 @@ uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint32_t *)buffer;
     buffer += 4;
 
-    _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
 
     return buffer;
 }
@@ -683,7 +709,7 @@ void vp::TraceEngine::dump_event_string_external(vp::TraceEngine *_this, vp::Tra
     _this->last_event_timestamp = timestamp;
 }
 
-uint8_t *vp::TraceEngine::parse_event_string(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer)
+uint8_t *vp::TraceEngine::parse_event_string(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     int64_t timestamp;
     int64_t cycles;
@@ -701,11 +727,11 @@ uint8_t *vp::TraceEngine::parse_event_string(vp::TraceEngine *_this, vp::Trace *
 
     if (string_size == 0)
     {
-        _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)NULL, 1);
+        unlock = _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)NULL, 1);
     }
     else
     {
-        _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)buffer, 0);
+        unlock = _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)buffer, 0);
     }
 
     buffer += string_size;
@@ -1017,7 +1043,14 @@ void vp::TraceEngine::vcd_routine_external()
 
             event_buffer += sizeof(trace);
 
-            event_buffer = trace->parse_event_callback(this, trace, event_buffer);
+            bool unlock;
+            event_buffer = trace->parse_event_callback(this, trace, event_buffer, unlock);
+
+            if (unlock)
+            {
+                this->vcd_user->unlock();
+                this->vcd_user->lock();
+            }
         }
 
         this->vcd_user->unlock();

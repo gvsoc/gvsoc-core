@@ -188,6 +188,7 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     {
         thread = new std::thread(&TraceEngine::vcd_routine, this);
     }
+    pthread_setname_np(thread->native_handle(), "event_parser");
 
     this->trace_format = TRACE_FORMAT_LONG;
     std::string path = "trace_file.txt";

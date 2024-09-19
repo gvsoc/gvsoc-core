@@ -267,7 +267,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_logical(int64_t timestamp, int64_t cycles, int id, uint64_t value, int flags) = 0;
+        virtual bool event_update_logical(int64_t timestamp, int64_t cycles, int id, uint64_t value, int flags) = 0;
 
         /**
          * Called by GVSOC to update the value of a bitfield VCD event.
@@ -279,7 +279,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_bitfield(int64_t timestamp, int64_t cycles, int id, uint8_t *value, uint8_t *flags) = 0;
+        virtual bool event_update_bitfield(int64_t timestamp, int64_t cycles, int id, uint8_t *value, uint8_t *flags) = 0;
 
         /**
          * Called by GVSOC to update the value of a real VCD event.
@@ -291,7 +291,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_real(int64_t timestamp, int64_t cycles, int id, double value) = 0;
+        virtual bool event_update_real(int64_t timestamp, int64_t cycles, int id, double value) = 0;
 
         /**
          * Called by GVSOC to update the value of a string VCD event.
@@ -303,7 +303,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual void event_update_string(int64_t timestamp, int64_t cycles, int id, const char *value, int flags) = 0;
+        virtual bool event_update_string(int64_t timestamp, int64_t cycles, int id, const char *value, int flags) = 0;
 
         /**
          * Called by GVSOC to lock the external controller.

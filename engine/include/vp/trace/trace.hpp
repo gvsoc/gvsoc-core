@@ -65,6 +65,7 @@ namespace vp {
     void force_warning_no_error(warning_type_e type, const char *fmt, ...);
     inline void fatal(const char *fmt, ...);
 
+    inline void event_highz();
     inline void event(uint8_t *value);
     inline void event_string(std::string value);
     inline void event_real(double value);
@@ -90,7 +91,7 @@ namespace vp {
   #else
     inline bool get_active() { return is_active; }
     bool get_active(int level);
-    inline bool get_event_active() { return this->dump_event_callback != NULL; }
+    inline bool get_event_active() { return this->dump_event_callback_fixed != NULL; }
   #endif
     bool is_active = false;
 
@@ -106,7 +107,8 @@ namespace vp {
   protected:
     int level;
     Component *comp;
-    void (*dump_event_callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = NULL;
+    void (*dump_event_callback_fixed)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags) = NULL;
+    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags, int bytes) = NULL;
     uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
     bool is_event_active = false;
     std::string name;

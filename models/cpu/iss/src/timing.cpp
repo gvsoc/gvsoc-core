@@ -75,13 +75,13 @@ void Timing::reset(bool active)
     {
         for (int i = 0; i < 32; i++)
         {
-            this->pcer_trace_event[i].event(NULL);
+            this->pcer_trace_event[i].event_highz();
             this->pcer_trace_pending_cycles[i] = 0;
         }
 
         this->pcer_trace_active_events = 0;
 
-        this->active_pc_trace_event.event(NULL);
+        this->active_pc_trace_event.event_highz();
 
         if (this->declare_binaries)
         {

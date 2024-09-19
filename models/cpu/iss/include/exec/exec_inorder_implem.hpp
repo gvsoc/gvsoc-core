@@ -248,7 +248,7 @@ inline void Exec::busy_enter()
 
 inline void Exec::busy_exit()
 {
-    this->iss.timing.state_event.event(NULL);
+    this->iss.timing.state_event.event_highz();
     this->iss.exec.busy.release();
     if (this->iss.exec.busy_itf.is_bound())
     {
@@ -256,7 +256,7 @@ inline void Exec::busy_exit()
     }
     if (this->iss.timing.active_pc_trace_event.get_event_active())
     {
-        this->iss.timing.active_pc_trace_event.event(NULL);
+        this->iss.timing.active_pc_trace_event.event_highz();
     }
 }
 

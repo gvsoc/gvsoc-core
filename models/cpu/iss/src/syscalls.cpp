@@ -596,7 +596,7 @@ void Syscalls::handle_riscv_ebreak()
             else
             {
                 if (0)
-                    trace->event(NULL);
+                    trace->event_highz();
                 else
                     trace->event((uint8_t *)&args[1]);
             }
@@ -622,7 +622,7 @@ void Syscalls::handle_riscv_ebreak()
         }
         else
         {
-            trace->event(NULL);
+            trace->event_highz();
         }
 
         break;

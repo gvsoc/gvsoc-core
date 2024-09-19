@@ -59,7 +59,7 @@ namespace vp
         {
             this->trace.msg("Release register\n");
             if (this->reg_event.get_event_active())
-                this->reg_event.event(NULL);
+                this->reg_event.event_highz();
         }
 
         inline void read(int reg_offset, int size, uint8_t *value) { memcpy((void *)value, (void *)(this->value_bytes + reg_offset), size); }
@@ -189,7 +189,7 @@ namespace vp
         {
             this->trace.msg("Release register\n");
             if (this->reg_event.get_event_active())
-                this->reg_event.event(NULL);
+                this->reg_event.event_highz();
         }
 
         inline void read(int reg_offset, int size, uint8_t *value) { memcpy((void *)value, (void *)(this->value_bytes + reg_offset), size); }

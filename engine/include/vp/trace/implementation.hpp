@@ -33,15 +33,35 @@ namespace vp {
     return this->engine;
   }
 
+  inline void vp::Trace::event_highz()
+  {
+  #ifdef VP_TRACE_ACTIVE
+
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles,
+      uint8_t *value, uint8_t *flags) = this->dump_event_callback_fixed;
+
+    if (callback)
+    {
+      uint64_t value = 0;
+      uint64_t highz = (uint64_t)-1;
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(),
+        comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)&value, (uint8_t *)&highz);
+    }
+  #endif
+  }
+
   inline void vp::Trace::event(uint8_t *value)
   {
   #ifdef VP_TRACE_ACTIVE
 
-    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = this->dump_event_callback;
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles,
+      uint8_t *value, uint8_t *flags) = this->dump_event_callback_fixed;
 
     if (callback)
     {
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, value, bytes);
+      uint64_t zero = (uint64_t)0;
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(),
+        comp->clock.get_engine() ? comp->clock.get_cycles() : -1, value, (uint8_t *)&zero);
     }
   #endif
   }
@@ -50,11 +70,12 @@ namespace vp {
   {
   #ifdef VP_TRACE_ACTIVE
 
-    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = this->dump_event_callback;
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags, int bytes) = this->dump_event_callback_variable;
 
     if (callback)
     {
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)value.c_str(), value.length() + 1);
+      uint64_t zero = (uint64_t)0;
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)value.c_str(), (uint8_t *)&zero, value.length() + 1);
     }
   #endif
   }
@@ -63,11 +84,12 @@ namespace vp {
   {
   #ifdef VP_TRACE_ACTIVE
 
-    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int bytes) = this->dump_event_callback;
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags) = this->dump_event_callback_fixed;
 
     if (callback)
     {
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)&value, 8);
+      uint64_t zero = (uint64_t)0;
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)&value, (uint8_t *)&zero);
     }
   #endif
   }

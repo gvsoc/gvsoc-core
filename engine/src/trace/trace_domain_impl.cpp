@@ -175,8 +175,10 @@ vp::TraceEngine::TraceEngine(js::Config *config)
         event_buffers.push(new char[TRACE_EVENT_BUFFER_SIZE]);
     }
     current_buffer = event_buffers.front();
+    current_buffer_event = current_buffer;
     event_buffers.pop();
     current_buffer_size = 0;
+    current_buffer_remaining_size = TRACE_EVENT_BUFFER_SIZE;
     this->first_pending_event = NULL;
     this->use_external_dumper = config->get_child_bool("events/use-external-dumper");
 
@@ -304,7 +306,7 @@ void vp::TraceEngine::start()
     }
     for (auto x : this->init_traces)
     {
-        x->event(NULL);
+        x->event_highz();
     }
 }
 

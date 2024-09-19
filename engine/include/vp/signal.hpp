@@ -37,7 +37,7 @@ namespace vp {
         {
             this->trace.msg("Release register\n");
             if (this->reg_event.get_event_active())
-                this->reg_event.event(NULL);
+                this->reg_event.event_highz();
         }
 
     protected:

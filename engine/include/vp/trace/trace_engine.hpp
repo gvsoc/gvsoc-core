@@ -61,15 +61,15 @@ namespace vp {
         
         void set_vcd_user(gv::Vcd_user *user);
 
-        static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
-        static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
+        static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags, int bytes);
 
-        static void dump_event_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
-        static void dump_event_8_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
-        static void dump_event_16_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
-        static void dump_event_32_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
-        static void dump_event_64_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
-        static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes);
+        static void dump_event_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_8_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_16_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_32_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_64_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags, int size);
 
         static uint8_t *parse_event(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
         static uint8_t *parse_event_8(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
@@ -145,6 +145,8 @@ namespace vp {
 
         void enqueue_pending(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event);
         char *get_event_buffer(int bytes);
+        inline char *get_event_buffer_external(int size);
+        void get_new_buffer_external();
         void vcd_routine();
         void vcd_routine_external();
         void check_pending_events(int64_t timestamp);
@@ -159,7 +161,9 @@ namespace vp {
         std::queue<char *> event_buffers;
         std::queue<char *> ready_event_buffers;
         char *current_buffer;
+        char *current_buffer_event;
         int current_buffer_size;
+        int current_buffer_remaining_size;
         pthread_mutex_t mutex;
         pthread_cond_t cond;
         int end = 0;
@@ -169,9 +173,22 @@ namespace vp {
         Event_trace *first_trace_to_dump;
         bool global_enable = true;
         gv::Vcd_user *vcd_user;
-        int64_t last_event_timestamp;
         bool memcheck_enabled;
     };
 };
 
+char *vp::TraceEngine::get_event_buffer_external(int size)
+{
+    if (size > this->current_buffer_remaining_size)
+    {
+        this->get_new_buffer_external();
+    }
+
+    char *result = this->current_buffer_event;
+
+    this->current_buffer_remaining_size -= size;
+    this->current_buffer_event += size;
+
+    return result;
+}
 #endif

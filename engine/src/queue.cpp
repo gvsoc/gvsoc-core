@@ -88,9 +88,9 @@ void vp::Queue::push_back(QueueElem *elem, int64_t delay)
     elem->cancel_callback = &vp::Queue::cancel_callback;
     elem->cancel_this = this;
 
-    if (this->ready_event)
+    if (this->nb_elem == 1)
     {
-        this->ready_event->enqueue();
+        this->trigger_next();
     }
 }
 
@@ -128,4 +128,12 @@ vp::QueueElem *vp::Queue::pop()
 void vp::QueueElem::cancel()
 {
     this->cancel_callback(this->cancel_this, this);
+}
+
+void vp::Queue::trigger_next()
+{
+    if (this->first && this->ready_event)
+    {
+        this->ready_event->enqueue(this->first->timestamp - this->clock.get_cycles());
+    }
 }

@@ -38,6 +38,7 @@ namespace vp {
         bool empty();
         void reset(bool active);
         int size();
+        void trigger_next();
 
     private:
         static void cancel_callback(void *__this, vp::QueueElem *elem);

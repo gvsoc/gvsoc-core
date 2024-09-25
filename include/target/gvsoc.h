@@ -18,6 +18,7 @@
 #define __TARGET__GVSOC__H__
 
 #include <string.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,6 +47,7 @@ extern "C" {
 #define SEMIHOSTING_GV_ISS_DUMP_STRING_STOP   0x111
 #define SEMIHOSTING_GV_MEMCHECK_MEM_ALLOC     0x114
 #define SEMIHOSTING_GV_MEMCHECK_MEM_FREE      0x115
+#define SEMIHOSTING_GV_DEBUG_INFO_DUMP        0x116
 
 
 
@@ -473,6 +475,16 @@ static inline int gv_vcd_open_trace(char *path) {
 //     __asm__ __volatile__ ("" : : : "memory");
 //     gvsoc_semihost(SEMIHOSTING_GV_CONF_TRACE, (long)args);
 // }
+
+/** \brief Dump debug information of the current PC.
+ *
+ * This function can be called to dump the debug information of the current PC being executed.
+ *
+ */
+static inline void gv_vcd_debug_info_gen() {
+    __asm__ __volatile__ ("" : : : "memory");
+    gvsoc_semihost(SEMIHOSTING_GV_DEBUG_INFO_DUMP, (long)0);
+}
 
 
 /** \brief Change VCD trace value.

@@ -73,6 +73,10 @@ public:
     vp::Trace inline_trace_event;
     vp::Trace line_trace_event;
     vp::Trace file_trace_event;
+    vp::Trace user_func_trace_event;
+    vp::Trace user_inline_trace_event;
+    vp::Trace user_line_trace_event;
+    vp::Trace user_file_trace_event;
     vp::Trace binaries_trace_event;
     vp::Trace pcer_trace_event[32];
     int64_t pcer_trace_pending_cycles[32];

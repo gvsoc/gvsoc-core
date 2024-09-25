@@ -202,6 +202,7 @@ static inline iss_reg_t wfi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t mret_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->exec.irq_exit.set(1);
     iss->timing.stall_insn_dependency_account(5);
     return iss->core.mret_handle();
 }

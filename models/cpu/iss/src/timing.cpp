@@ -38,8 +38,12 @@ void Timing::build()
     this->iss.top.traces.new_trace_event_string("func", &func_trace_event);
     this->iss.top.traces.new_trace_event_string("inline_func", &inline_trace_event);
     this->iss.top.traces.new_trace_event_string("file", &file_trace_event);
-    this->iss.top.traces.new_trace_event_string("binaries", &binaries_trace_event);
     this->iss.top.traces.new_trace_event("line", &line_trace_event, 32);
+    this->iss.top.traces.new_trace_event_string("binaries", &binaries_trace_event);
+    this->iss.top.traces.new_trace_event_string("user_func", &user_func_trace_event);
+    this->iss.top.traces.new_trace_event_string("user_inline_func", &user_inline_trace_event);
+    this->iss.top.traces.new_trace_event_string("user_file", &user_file_trace_event);
+    this->iss.top.traces.new_trace_event("user_line", &user_line_trace_event, 32);
 
     if (this->iss.top.get_js_config()->get("**/insn_groups"))
     {

@@ -197,6 +197,10 @@ inline void Exec::stalled_dec()
 inline void Exec::insn_exec_profiling()
 {
     this->trace.msg("Executing instruction (addr: 0x%x)\n", this->iss.exec.current_insn);
+
+    this->irq_enter.set(0);
+    this->irq_exit.set(0);
+
     if (this->iss.timing.pc_trace_event.get_event_active())
     {
         this->iss.timing.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn);

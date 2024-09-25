@@ -709,6 +709,20 @@ void Syscalls::handle_riscv_ebreak()
         break;
     }
 
+    case 0x116:
+    {
+      const char *func, *inline_func, *file;
+      int line;
+      if (!iss_trace_pc_info(this->iss.exec.current_insn, &func, &inline_func, &file, &line))
+      {
+          this->iss.timing.user_func_trace_event.event_string(func);
+          this->iss.timing.user_inline_trace_event.event_string(inline_func);
+          this->iss.timing.user_file_trace_event.event_string(file);
+          this->iss.timing.user_line_trace_event.event((uint8_t *)&line);
+      }
+      break;
+    }
+
     default:
         this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;

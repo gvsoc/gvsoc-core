@@ -66,6 +66,8 @@ void Exec::build()
     this->iss.top.new_reg("fetch_enable", &this->fetch_enable_reg, 0, true);
     this->iss.top.new_reg("stalled", &this->stalled, 0);
     this->iss.top.new_reg("wfi", &this->wfi, false);
+    this->iss.top.new_reg("irq_enter", &this->irq_enter, false);
+    this->iss.top.new_reg("irq_exit", &this->irq_exit, false);
 
     this->stalled.set(false);
     this->halted.set(false);

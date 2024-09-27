@@ -369,7 +369,11 @@ vp::TraceEngine::~TraceEngine()
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);
     this->thread->join();
-    fflush(NULL);
+
+    for (auto file: this->trace_files)
+    {
+        fflush(file.second);
+    }
 }
 
 void vp::TraceEngine::flush()

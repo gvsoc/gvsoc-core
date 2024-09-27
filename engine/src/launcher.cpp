@@ -128,14 +128,19 @@ void gv::GvsocLauncher::close()
 {
     if (proxy)
     {
-        proxy->stop(this->retval);
+        proxy->stop();
     }
-
     this->instance->stop_all();
 
     vp::Top *top = (vp::Top *)this->handler;
 
     delete top;
+
+    if (proxy)
+    {
+        proxy->quit(this->retval);
+    }
+
 }
 
 void gv::GvsocLauncher::run_internal(bool main_controller)

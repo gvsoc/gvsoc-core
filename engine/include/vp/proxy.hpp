@@ -28,7 +28,8 @@ class GvProxy : GvsocLauncher_notifier
   public:
     GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
-    void stop(int status);
+    void stop();
+    void quit(int status);
     void notify_stop(int64_t time);
     void notify_run(int64_t time);
     bool send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size);
@@ -55,6 +56,7 @@ class GvProxy : GvsocLauncher_notifier
     std::mutex mutex;
     gv::GvsocLauncher *launcher;
     bool is_async;
+    bool has_exited = false;
 };
 }
 

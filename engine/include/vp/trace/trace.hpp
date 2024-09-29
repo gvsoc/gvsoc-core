@@ -67,7 +67,7 @@ namespace vp {
 
     inline void event_highz();
     inline void event(uint8_t *value);
-    inline void event_string(std::string value);
+    inline void event_string(const char *value, bool realloc);
     inline void event_real(double value);
 
     void register_callback(std::function<void()> callback) { this->callbacks.push_back(callback); }
@@ -108,7 +108,7 @@ namespace vp {
     int level;
     Component *comp;
     void (*dump_event_callback_fixed)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags) = NULL;
-    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags, int bytes) = NULL;
+    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int flags, bool realloc) = NULL;
     uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
     bool is_event_active = false;
     std::string name;

@@ -66,16 +66,18 @@ namespace vp {
   #endif
   }
 
-  inline void vp::Trace::event_string(std::string value)
+  inline void vp::Trace::event_string(const char *value, bool realloc)
   {
   #ifdef VP_TRACE_ACTIVE
 
-    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags, int bytes) = this->dump_event_callback_variable;
+    void (*callback)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int flags, bool realloc) = this->dump_event_callback_variable;
 
     if (callback)
     {
       uint64_t zero = (uint64_t)0;
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(), comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)value.c_str(), (uint8_t *)&zero, value.length() + 1);
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(),
+        comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)value,
+        0, realloc);
     }
   #endif
   }

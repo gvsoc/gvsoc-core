@@ -97,7 +97,7 @@ void Timing::reset(bool active)
                     binaries += " " + x->get_str();
                 }
 
-                this->binaries_trace_event.event_string(binaries);
+                this->binaries_trace_event.event_string(binaries.c_str(), true);
             }
             this->declare_binaries = false;
         }

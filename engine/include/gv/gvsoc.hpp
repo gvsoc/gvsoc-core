@@ -302,8 +302,13 @@ namespace gv {
          * @param timestamp Timestamp of the new value in picoseconds.
          * @param id ID of the VCD event.
          * @param value The new value.
+         * @param flags Signal flags. 0 for normal signal, 1 for high impedance (Z) and 2 for
+         *      conflict (X)
+         * @param realloc True if the string must be reallocated by the callee or false if it the
+         *      string from the caller can be kept.
          */
-        virtual bool event_update_string(int64_t timestamp, int64_t cycles, int id, const char *value, int flags) = 0;
+        virtual bool event_update_string(int64_t timestamp, int64_t cycles, int id,
+            const char *value, int flags, bool realloc) = 0;
 
         /**
          * Called by GVSOC to lock the external controller.

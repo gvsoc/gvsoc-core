@@ -628,7 +628,7 @@ void iss_event_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         current++;
     }
 
-    iss->timing.insn_trace_event.event_string(buffer);
+    iss->timing.insn_trace_event.event_string(buffer, true);
 }
 
 iss_reg_t iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -677,9 +677,9 @@ void Trace::dump_debug_traces()
 
     if (!iss_trace_pc_info(this->iss.exec.current_insn, &func, &inline_func, &file, &line))
     {
-        this->iss.timing.func_trace_event.event_string(func);
-        this->iss.timing.inline_trace_event.event_string(inline_func);
-        this->iss.timing.file_trace_event.event_string(file);
+        this->iss.timing.func_trace_event.event_string(func, false);
+        this->iss.timing.inline_trace_event.event_string(inline_func, false);
+        this->iss.timing.file_trace_event.event_string(file, false);
         this->iss.timing.line_trace_event.event((uint8_t *)&line);
     }
 }

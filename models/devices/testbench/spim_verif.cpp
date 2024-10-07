@@ -397,7 +397,7 @@ int64_t Spim_verif::exec()
     {
         this->init_pads = false;
         this->itf->sync(0, 2, 2, 2, 2, 0xf);
-        this->spi->cs_itf.sync(1);
+        this->spi->itf.cs_sync(0, 0);
     }
 
     if (this->spi_load_config)
@@ -442,7 +442,7 @@ int64_t Spim_verif::exec()
 
             case SPIS_STATE_CS_START:
                 this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs start\n");
-                this->spi->cs_itf.sync(0);
+                this->spi->itf.cs_sync(0, 1);
                 this->slave_state = SPIS_STATE_CS_START_POST_WAIT_CYCLES;
                 this->slave_wait_cycles = 5;
                 break;
@@ -495,7 +495,7 @@ int64_t Spim_verif::exec()
 
             case SPIS_STATE_CS_END:
                 this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master cs end\n");
-                this->spi->cs_itf.sync(1);
+                this->spi->itf.cs_sync(0, 0);
                 this->slave_wait_cycles = this->config.dummy_cycles;
 
                 if (this->slave_wait_cycles == 0)

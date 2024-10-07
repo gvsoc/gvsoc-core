@@ -34,6 +34,8 @@ class Ssm6515(gvsoc.systree.Component):
         self.add_property('sd', sd)
         self.add_property('global_gain', gain * 1000) # gain is passed as integer
 
+    def set_gain(self, gain):
+        self.add_property('global_gain', gain * 1000)
 
     def gen(self, builddir, installdir):
         comp_path = 'devices/sound/dac/ssm6515'

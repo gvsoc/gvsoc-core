@@ -212,6 +212,7 @@ public:
 
 private:
     static void qspim_sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask, int id);
+    static void qspim_slave_cs_sync(vp::Block *__this, int cs, int active, int id);
     static void qspim_cs_sync(vp::Block *__this, bool data, int id);
     static void uart_rx_edge(vp::Block *__this, int data, int id);
     static void uart_rx_edge_full(vp::Block *__this, int data, int sck, int rtr, unsigned int mask, int id);
@@ -283,6 +284,7 @@ dpi_chip_wrapper::dpi_chip_wrapper(vp::ComponentConf &config)
                     group->cs_trace.push_back(trace);
                     vp::QspimMaster *itf = new vp::QspimMaster;
                     itf->set_sync_meth_muxed(&dpi_chip_wrapper::qspim_sync, nb_itf);
+                    itf->set_cs_sync_meth_muxed(&dpi_chip_wrapper::qspim_slave_cs_sync, nb_itf);
 
                     new_master_port(name + "_cs" + std::to_string(i) + "_data", itf);
                     group->master.push_back(itf);
@@ -395,6 +397,12 @@ void dpi_chip_wrapper::qspim_cs_sync(vp::Block *__this, bool data, int id)
     group->rx_cs_edge(data);
 }
 
+void dpi_chip_wrapper::qspim_slave_cs_sync(vp::Block *__this, int cs, int active, int id)
+{
+    dpi_chip_wrapper *_this = (dpi_chip_wrapper *)__this;
+    Qspim_group *group = static_cast<Qspim_group *>(_this->groups[id]);
+    group->rx_cs_edge(!active);
+}
 
 void dpi_chip_wrapper::uart_rx_edge(vp::Block *__this, int data, int id)
 {

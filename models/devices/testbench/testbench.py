@@ -35,11 +35,12 @@ class Testbench(st.Component):
 
     """
 
-    def __init__(self, parent, name, uart=[], i2s=[], nb_gpio=0, spislave_dummy_cycles=0):
+    def __init__(self, parent, name, uart=[], i2s=[], nb_gpio=0, spislave_dummy_cycles=0, spislave_full_duplex=True):
         super(Testbench, self).__init__(parent, name)
 
         # Testbench implementation as this component is just a wrapper
-        testbench = Testbench.Testbench_implem(self, 'testbench', nb_gpio=nb_gpio, spislave_dummy_cycles=spislave_dummy_cycles)
+        testbench = Testbench.Testbench_implem(self, 'testbench', nb_gpio=nb_gpio,
+            spislave_dummy_cycles=spislave_dummy_cycles, spislave_full_duplex=spislave_full_duplex)
 
         # The testbench needs its owm cloc domain to enqueue clock events
         clock = Clock_domain(self, 'clock', frequency=50000000)
@@ -78,7 +79,7 @@ class Testbench(st.Component):
 
     class Testbench_implem(st.Component):
 
-        def __init__(self, parent, name, uart_id=0, uart_baudrate=115200, nb_gpio=0, spislave_dummy_cycles=0):
+        def __init__(self, parent, name, uart_id=0, uart_baudrate=115200, nb_gpio=0, spislave_dummy_cycles=0, spislave_full_duplex=True):
             super(Testbench.Testbench_implem, self).__init__(parent, name)
 
             # Register all parameters as properties so that they can be overwritten from the command-line
@@ -104,6 +105,7 @@ class Testbench(st.Component):
                     "itf": 4,
                     "frequency": 50000000,
                     "stim_file": None,
-                    "dummy_cycles": spislave_dummy_cycles
+                    "dummy_cycles": spislave_dummy_cycles,
+                    "full_duplex": spislave_full_duplex
                 }
             })

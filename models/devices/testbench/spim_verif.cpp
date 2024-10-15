@@ -23,7 +23,8 @@
 #include "spim_verif.hpp"
 
 
-#define CMD_BUFFER_SIZE 256
+#define CMD_BUFFER_SIZE_V1 (256)
+#define CMD_BUFFER_SIZE_V2 (1<<16)
 
 
 
@@ -34,7 +35,15 @@ typedef struct
     uint32_t address;
     uint8_t size_minus_1;
     uint8_t crc;
-} __attribute__((packed)) spi_boot_req_t;
+} __attribute__((packed)) spi_boot_req_v1_t;
+
+typedef struct
+{
+    uint8_t frame_start;
+    uint8_t cmd;
+    uint32_t address;
+    uint16_t size_minus_1;
+} __attribute__((packed)) spi_boot_req_v2_t;
 
 
 Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config)
@@ -44,7 +53,7 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testben
     ::memcpy(&this->config, config, sizeof(pi_testbench_req_spim_verif_setup_t));
     int itf_id = config->itf;
     int cs = config->cs;
-    int mem_size = (1<<config->mem_size_log2) + CMD_BUFFER_SIZE;
+    int mem_size = (1<<config->mem_size_log2) + CMD_BUFFER_SIZE_V1;
     this->itf = itf;
     this->mem_size = mem_size;
     verbose = true; //config->get("verbose")->get_bool();
@@ -604,7 +613,7 @@ void Spim_verif::transfer(pi_testbench_req_spim_verif_transfer_t *config)
 
     if (config->is_boot_protocol)
     {
-        this->start_boot_protocol_transfer(config->address, config->size, config->is_rx);
+        this->start_boot_protocol_transfer(config->address, config->size, config->is_rx, config->is_duplex);
     }
     else
     {
@@ -640,7 +649,7 @@ void Spim_verif::enqueue_boot_protocol_jump(int address)
 
 
 
-void Spim_verif::enqueue_boot_protocol_transfer(uint8_t *buffer, int address, int size, int is_rx)
+void Spim_verif::enqueue_boot_protocol_transfer(uint8_t *buffer, int address, int size, int is_rx, int is_full_duplex)
 {
     if (size > this->mem_size)
     {
@@ -649,17 +658,18 @@ void Spim_verif::enqueue_boot_protocol_transfer(uint8_t *buffer, int address, in
     }
 
     memcpy(this->data, buffer, size);
-    this->start_boot_protocol_transfer(address, size, is_rx);
+    this->start_boot_protocol_transfer(address, size, is_rx, is_full_duplex);
 }
 
 
 
-void Spim_verif::start_boot_protocol_transfer(int address, int size, int is_rx)
+void Spim_verif::start_boot_protocol_transfer(int address, int size, int is_rx, int is_full_duplex)
 {
     this->slave_boot_verif_address = 0;
     this->slave_boot_address = address;
     this->slave_boot_size = size;
     this->slave_boot_is_rx = is_rx;
+    this->slave_boot_is_full_duplex = is_full_duplex;
 
     this->slave_boot_state = SPIS_BOOT_STATE_SEND_SOF;
 
@@ -669,6 +679,8 @@ void Spim_verif::start_boot_protocol_transfer(int address, int size, int is_rx)
 
 void Spim_verif::handle_boot_protocol_transfer()
 {
+    int cmd_buffer_size = this->slave_boot_is_full_duplex ? CMD_BUFFER_SIZE_V1 : CMD_BUFFER_SIZE_V2;
+
     switch (this->slave_boot_state)
     {
         case SPIS_BOOT_STATE_SEND_WAKEUP_CMD:
@@ -740,16 +752,26 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_SOF:
         {
-            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending start of frame (value: 0x5A)\n");
+            if (this->slave_boot_is_full_duplex)
+            {
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Sending start of frame (value: 0x5A)\n");
 
-            spi_boot_req_t *req = (spi_boot_req_t *)&this->data[this->mem_size];
-            req->frame_start = 0x5a;
-            req->cmd = this->slave_boot_jump ? 0x3 : this->slave_boot_is_rx ? 0x01 : 0x02;
-            req->address = this->slave_boot_address;
-            req->size_minus_1 = (this->slave_boot_size < CMD_BUFFER_SIZE ? this->slave_boot_size : CMD_BUFFER_SIZE) - 1;
+                spi_boot_req_v1_t *req = (spi_boot_req_v1_t *)&this->data[this->mem_size];
+                req->frame_start = 0x5a;
+                req->cmd = this->slave_boot_jump ? 0x3 : this->slave_boot_is_rx ? 0x01 : 0x02;
+                req->address = this->slave_boot_address;
+                req->size_minus_1 = (this->slave_boot_size < cmd_buffer_size ? this->slave_boot_size : cmd_buffer_size) - 1;
 
-            this->enqueue_transfer(this->mem_size, 1, 0, 1);
-            this->slave_boot_state = SPIS_BOOT_STATE_CHECK_SOF;
+                this->enqueue_transfer(this->mem_size, 1, 0, 1);
+                this->slave_boot_state = SPIS_BOOT_STATE_CHECK_SOF;
+            }
+            else
+            {
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Waiting for start of frame (value: 0xA5)\n");
+
+                this->enqueue_transfer(this->mem_size, 1, 1, 0);
+                this->slave_boot_state = SPIS_BOOT_STATE_CHECK_SOF;
+            }
             break;
         }
 
@@ -757,22 +779,53 @@ void Spim_verif::handle_boot_protocol_transfer()
         {
             this->trace.msg(vp::Trace::LEVEL_INFO, "Received start of frame (value: 0x%x)\n", this->data[mem_size]);
 
-            if (this->data[mem_size] == 0xA5)
+            if (this->slave_boot_is_full_duplex)
             {
-                this->enqueue_transfer(this->mem_size+1, sizeof(spi_boot_req_t)-1, 0, 1);
-                if (this->slave_boot_jump)
+                if (this->data[mem_size] == 0xA5)
                 {
-                    this->slave_boot_jump = false;
-                    this->slave_boot_state = SPIS_BOOT_STATE_IDLE;
+                    this->enqueue_transfer(this->mem_size+1, sizeof(spi_boot_req_v1_t)-1, 0, 1);
+                    if (this->slave_boot_jump)
+                    {
+                        this->slave_boot_jump = false;
+                        this->slave_boot_state = SPIS_BOOT_STATE_IDLE;
+                    }
+                    else
+                    {
+                        this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_0;
+                    }
                 }
                 else
                 {
-                    this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_0;
+                    this->slave_boot_state = SPIS_BOOT_STATE_SEND_SOF;
                 }
             }
             else
             {
-                this->slave_boot_state = SPIS_BOOT_STATE_SEND_SOF;
+                if (this->data[mem_size] == 0xA5)
+                {
+                    this->trace.msg(vp::Trace::LEVEL_INFO, "Sending frame\n");
+
+                    spi_boot_req_v2_t *req = (spi_boot_req_v2_t *)&this->data[this->mem_size];
+                    req->frame_start = 0x5a;
+                    req->cmd = this->slave_boot_jump ? 0x3 : this->slave_boot_is_rx ? 0x01 : 0x02;
+                    req->address = this->slave_boot_address;
+                    req->size_minus_1 = (this->slave_boot_size < cmd_buffer_size ? this->slave_boot_size : cmd_buffer_size) - 1;
+
+                    this->enqueue_transfer(this->mem_size, sizeof(spi_boot_req_v2_t), 0, 0);
+                    if (this->slave_boot_jump)
+                    {
+                        this->slave_boot_jump = false;
+                        this->slave_boot_state = SPIS_BOOT_STATE_IDLE;
+                    }
+                    else
+                    {
+                        this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_1;
+                    }
+                }
+                else
+                {
+                    this->slave_boot_state = SPIS_BOOT_STATE_SEND_SOF;
+                }
             }
             break;
         }
@@ -790,29 +843,60 @@ void Spim_verif::handle_boot_protocol_transfer()
             break;
 
         case SPIS_BOOT_STATE_GET_ACK_STEP_1:
-            this->trace.msg(vp::Trace::LEVEL_INFO, "Sending ack request (value: 0x00)\n");
-            this->data[this->mem_size] = 0x00;
-            this->enqueue_transfer(this->mem_size, 1, 0, 1);
-            this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_2;
+            if (this->slave_boot_is_full_duplex)
+            {
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Sending ack request (value: 0x00)\n");
+                this->data[this->mem_size] = 0x00;
+                this->enqueue_transfer(this->mem_size, 1, 0, 1);
+                this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_2;
+            }
+            else
+            {
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Waiting ack\n");
+                this->enqueue_transfer(this->mem_size, 1, 1, 0);
+                this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_2;
+            }
             break;
 
         case SPIS_BOOT_STATE_GET_ACK_STEP_2:
             this->trace.msg(vp::Trace::LEVEL_INFO, "Read ack (value: 0x%x)\n", this->data[this->mem_size]);
-            if (this->data[this->mem_size] == 0x79)
+            if (this->slave_boot_is_full_duplex)
             {
-                this->trace.msg(vp::Trace::LEVEL_INFO, "Received ACK\n");
-                if (this->slave_boot_is_rx)
+                if (this->data[this->mem_size] == 0x79)
                 {
-                    this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_CRC;
+                    this->trace.msg(vp::Trace::LEVEL_INFO, "Received ACK\n");
+                    if (this->slave_boot_is_rx)
+                    {
+                        this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_CRC;
+                    }
+                    else
+                    {
+                        this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA_CRC;
+                    }
                 }
                 else
                 {
-                    this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA_CRC;
+                    this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_1;
                 }
             }
             else
             {
-                this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_1;
+                if (this->data[this->mem_size] == 0x79)
+                {
+                    this->trace.msg(vp::Trace::LEVEL_INFO, "Received ACK\n");
+                    if (this->slave_boot_is_rx)
+                    {
+                        this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_DATA;
+                    }
+                    else
+                    {
+                        this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA;
+                    }
+                }
+                else
+                {
+                    this->slave_boot_state = SPIS_BOOT_STATE_GET_ACK_STEP_1;
+                }
             }
             break;
 
@@ -826,7 +910,7 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_RECEIVE_DATA:
         {
-            int size = this->slave_boot_size < CMD_BUFFER_SIZE ? this->slave_boot_size : CMD_BUFFER_SIZE;
+            int size = this->slave_boot_size < cmd_buffer_size ? this->slave_boot_size : cmd_buffer_size;
             this->trace.msg(vp::Trace::LEVEL_INFO, "Receiving data (size: 0x%x)\n", size);
             this->enqueue_transfer(this->slave_boot_verif_address, size, 1, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_RECEIVE_DATA_CRC;
@@ -835,11 +919,11 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_RECEIVE_DATA_CRC:
             this->trace.msg(vp::Trace::LEVEL_INFO, "Finished receiving data\n");
-            this->slave_boot_size -= CMD_BUFFER_SIZE;
+            this->slave_boot_size -= cmd_buffer_size;
             if (this->slave_boot_size > 0)
             {
-                this->slave_boot_verif_address += CMD_BUFFER_SIZE;
-                this->slave_boot_address += CMD_BUFFER_SIZE;
+                this->slave_boot_verif_address += cmd_buffer_size;
+                this->slave_boot_address += cmd_buffer_size;
                 this->slave_boot_state = SPIS_BOOT_STATE_SEND_SOF;
             }
             else
@@ -850,11 +934,11 @@ void Spim_verif::handle_boot_protocol_transfer()
 
         case SPIS_BOOT_STATE_SEND_DATA_DONE:
             this->trace.msg(vp::Trace::LEVEL_INFO, "Finished sending data\n");
-            this->slave_boot_size -= CMD_BUFFER_SIZE;
+            this->slave_boot_size -= cmd_buffer_size;
             if (this->slave_boot_size > 0)
             {
-                this->slave_boot_verif_address += CMD_BUFFER_SIZE;
-                this->slave_boot_address += CMD_BUFFER_SIZE;
+                this->slave_boot_verif_address += cmd_buffer_size;
+                this->slave_boot_address += cmd_buffer_size;
                 this->slave_boot_state = SPIS_BOOT_STATE_SEND_SOF;
             }
             else
@@ -869,9 +953,10 @@ void Spim_verif::handle_boot_protocol_transfer()
             this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA;
             break;
 
+
         case SPIS_BOOT_STATE_SEND_DATA:
         {
-            int size = this->slave_boot_size < CMD_BUFFER_SIZE ? this->slave_boot_size : CMD_BUFFER_SIZE;
+            int size = this->slave_boot_size < cmd_buffer_size ? this->slave_boot_size : cmd_buffer_size;
             this->trace.msg(vp::Trace::LEVEL_INFO, "Sending data (size: 0x%x)\n", size);
             this->enqueue_transfer(this->slave_boot_verif_address, size, 0, 0);
             this->slave_boot_state = SPIS_BOOT_STATE_SEND_DATA_DONE;
@@ -937,7 +1022,7 @@ void Spim_verif::start_spi_load()
 
             if (section->access)
             {
-                this->enqueue_boot_protocol_transfer(section->buffer, section->addr, section->size, 0);
+                this->enqueue_boot_protocol_transfer(section->buffer, section->addr, section->size, 0, this->spi_load_is_full_duplex);
             }
             else
             {
@@ -968,6 +1053,7 @@ void Spim_verif::enqueue_spi_load(js::Config *config)
 void Spim_verif::spi_load(js::Config *config)
 {
     std::string path = config->get_child_str("stim_file");
+    bool full_duplex = config->get_child_bool("full_duplex");
     FILE *file = fopen(path.c_str(), "r");
     if (file == NULL)
     {
@@ -975,7 +1061,7 @@ void Spim_verif::spi_load(js::Config *config)
         return;
     }
 
-    int buffer_size = 64;
+    int buffer_size = full_duplex ? 64 : 1 << 16;
     uint32_t *buffer;
     unsigned int pending_addr;
     unsigned int pending_start_addr = -1;
@@ -1024,5 +1110,6 @@ void Spim_verif::spi_load(js::Config *config)
 
     this->trace.msg(vp::Trace::LEVEL_INFO, "Starting SPI loading\n");
     this->do_spi_load = true;
+    this->spi_load_is_full_duplex = full_duplex;
     this->start_spi_load();
 }

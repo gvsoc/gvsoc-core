@@ -139,8 +139,8 @@ private:
 
     void enqueue_transfer(int address, int size, int is_rx, int is_duplex);
     void handle_boot_protocol_transfer();
-    void start_boot_protocol_transfer(int address, int size, int is_rx);
-    void enqueue_boot_protocol_transfer(uint8_t *buffer, int address, int size, int is_rx);
+    void start_boot_protocol_transfer(int address, int size, int is_rx, int is_full_duplex);
+    void enqueue_boot_protocol_transfer(uint8_t *buffer, int address, int size, int is_rx, int is_full_duplex);
     void enqueue_boot_protocol_jump(int address);
 
     void start_spi_load();
@@ -204,6 +204,7 @@ private:
     int slave_boot_verif_address;
     int slave_boot_size;
     int slave_boot_is_rx;
+    int slave_boot_is_full_duplex;
     spis_boot_state_e slave_boot_state;
     uint8_t slave_boot_crc;
 
@@ -217,6 +218,7 @@ private:
     bool slave_boot_jump;
     bool handle_wakeup;
     bool do_spi_load;
+    bool spi_load_is_full_duplex;
     bool reload_spi;
 };
 

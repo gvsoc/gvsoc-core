@@ -601,24 +601,24 @@ class Rv32f(IsaSubset):
             Instr('fmin.s',    Format_RF, '0010100 ----- ----- 000 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
             Instr('fmax.s',    Format_RF, '0010100 ----- ----- 001 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
 
-            Instr('feq.s',    Format_RF2, '1010000 ----- ----- 010 ----- 1010011', tags=['fother', 'fp_op']),
-            Instr('flt.s',    Format_RF2, '1010000 ----- ----- 001 ----- 1010011', tags=['fother', 'fp_op']),
-            Instr('fle.s',    Format_RF2, '1010000 ----- ----- 000 ----- 1010011', tags=['fother', 'fp_op']),
+            Instr('feq.s',    Format_RF2, '1010000 ----- ----- 010 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
+            Instr('flt.s',    Format_RF2, '1010000 ----- ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
+            Instr('fle.s',    Format_RF2, '1010000 ----- ----- 000 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
 
-            Instr('fcvt.w.s', Format_R2F1,'1100000 00000 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
-            Instr('fcvt.wu.s',Format_R2F1,'1100000 00001 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
-            Instr('fcvt.s.w', Format_R2F2,'1101000 00000 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
-            Instr('fcvt.s.wu',Format_R2F2,'1101000 00001 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
+            Instr('fcvt.w.s', Format_R2F1,'1100000 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
+            Instr('fcvt.wu.s',Format_R2F1,'1100000 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
+            Instr('fcvt.s.w', Format_R2F2,'1101000 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
+            Instr('fcvt.s.wu',Format_R2F2,'1101000 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
 
-            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv', 'fp_op']),
-            Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', tags=['fother', 'fp_op']),
-            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv', 'fp_op']),
+            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
+            Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
+            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
 
             # If RV64F supported
-            Instr('fcvt.l.s', Format_R2F1,'1100000 00010 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.lu.s',Format_R2F1,'1100000 00011 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.s.l', Format_R2F2,'1101000 00010 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.s.lu',Format_R2F2,'1101000 00011 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.l.s', Format_R2F1,'1100000 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.lu.s',Format_R2F1,'1100000 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.s.l', Format_R2F2,'1101000 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.s.lu',Format_R2F2,'1101000 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
         ])
 
     def check_compatibilities(self, isa):
@@ -652,8 +652,8 @@ class Rv32d(IsaSubset):
             Instr('fmin.d',    Format_RF, '0010101 ----- ----- 000 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
             Instr('fmax.d',    Format_RF, '0010101 ----- ----- 001 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
 
-            Instr('fcvt.s.d', Format_R2F3,'0100000 00001 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
-            Instr('fcvt.d.s', Format_R2F3,'0100001 00000 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
+            Instr('fcvt.s.d', Format_R2F3,'0100000 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
+            Instr('fcvt.d.s', Format_R2F3,'0100001 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
 
             Instr('feq.d',    Format_RF2, '1010001 ----- ----- 010 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
             Instr('flt.d',    Format_RF2, '1010001 ----- ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
@@ -667,11 +667,11 @@ class Rv32d(IsaSubset):
             Instr('fclass.d',  Format_R3F,'1110001 00000 ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
 
             # # If RV64F supported
-            Instr('fcvt.l.d', Format_R2F1,'1100001 00010 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.lu.d',Format_R2F1,'1100001 00011 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.l.d', Format_R2F1,'1100001 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.lu.d',Format_R2F1,'1100001 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
             Instr('fmv.x.d',   Format_R3F,'1110001 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
-            Instr('fcvt.d.l', Format_R2F2,'1101001 00010 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.d.lu',Format_R2F2,'1101001 00011 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.d.l', Format_R2F2,'1101001 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Instr('fcvt.d.lu',Format_R2F2,'1101001 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
             Instr('fmv.d.x',  Format_R3F2,'1111001 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
         ])
 

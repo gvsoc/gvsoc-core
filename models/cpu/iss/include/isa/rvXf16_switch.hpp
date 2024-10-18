@@ -39,7 +39,7 @@ static inline iss_reg_t fsh_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t fmadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmadd_ah_exec(iss, insn, pc);
     }
@@ -51,7 +51,7 @@ static inline iss_reg_t fmadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_
 
 static inline iss_reg_t fmsub_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmsub_ah_exec(iss, insn, pc);
     }
@@ -63,7 +63,7 @@ static inline iss_reg_t fmsub_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_
 
 static inline iss_reg_t fnmsub_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fnmsub_ah_exec(iss, insn, pc);
     }
@@ -75,7 +75,7 @@ static inline iss_reg_t fnmsub_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fnmadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fnmadd_ah_exec(iss, insn, pc);
     }
@@ -87,7 +87,7 @@ static inline iss_reg_t fnmadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fadd_ah_exec(iss, insn, pc);
     }
@@ -99,7 +99,7 @@ static inline iss_reg_t fadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t fsub_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fsub_ah_exec(iss, insn, pc);
     }
@@ -111,7 +111,7 @@ static inline iss_reg_t fsub_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t fmul_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmul_ah_exec(iss, insn, pc);
     }
@@ -123,7 +123,7 @@ static inline iss_reg_t fmul_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t fdiv_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fdiv_ah_exec(iss, insn, pc);
     }
@@ -135,7 +135,7 @@ static inline iss_reg_t fdiv_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t fsqrt_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fsqrt_ah_exec(iss, insn, pc);
     }
@@ -147,7 +147,7 @@ static inline iss_reg_t fsqrt_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_
 
 static inline iss_reg_t fsgnj_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fsgnj_ah_exec(iss, insn, pc);
     }
@@ -159,7 +159,7 @@ static inline iss_reg_t fsgnj_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_
 
 static inline iss_reg_t fsgnjn_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fsgnjn_ah_exec(iss, insn, pc);
     }
@@ -171,7 +171,7 @@ static inline iss_reg_t fsgnjn_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fsgnjx_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fsgnjx_ah_exec(iss, insn, pc);
     }
@@ -183,7 +183,7 @@ static inline iss_reg_t fsgnjx_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fmin_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmin_ah_exec(iss, insn, pc);
     }
@@ -195,7 +195,7 @@ static inline iss_reg_t fmin_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t fmax_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmax_ah_exec(iss, insn, pc);
     }
@@ -207,7 +207,7 @@ static inline iss_reg_t fmax_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t fcvt_w_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_w_ah_exec(iss, insn, pc);
     }
@@ -219,7 +219,7 @@ static inline iss_reg_t fcvt_w_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_wu_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_wu_ah_exec(iss, insn, pc);
     }
@@ -231,7 +231,7 @@ static inline iss_reg_t fcvt_wu_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_re
 
 static inline iss_reg_t fmv_x_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmv_x_ah_exec(iss, insn, pc);
     }
@@ -243,7 +243,7 @@ static inline iss_reg_t fmv_x_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_
 
 static inline iss_reg_t fmv_h_x_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fmv_ah_x_exec(iss, insn, pc);
     }
@@ -255,7 +255,7 @@ static inline iss_reg_t fmv_h_x_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_
 
 static inline iss_reg_t feq_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return feq_ah_exec(iss, insn, pc);
     }
@@ -267,7 +267,7 @@ static inline iss_reg_t feq_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t 
 
 static inline iss_reg_t flt_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return flt_ah_exec(iss, insn, pc);
     }
@@ -279,7 +279,7 @@ static inline iss_reg_t flt_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t 
 
 static inline iss_reg_t fle_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fle_ah_exec(iss, insn, pc);
     }
@@ -291,7 +291,7 @@ static inline iss_reg_t fle_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t 
 
 static inline iss_reg_t fclass_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fle_ah_exec(iss, insn, pc);
     }
@@ -303,7 +303,7 @@ static inline iss_reg_t fclass_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_h_w_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_ah_w_exec(iss, insn, pc);
     }
@@ -315,7 +315,7 @@ static inline iss_reg_t fcvt_h_w_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_h_wu_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_ah_wu_exec(iss, insn, pc);
     }
@@ -327,7 +327,7 @@ static inline iss_reg_t fcvt_h_wu_exec_switch(Iss *iss, iss_insn_t *insn, iss_re
 
 static inline iss_reg_t fcvt_s_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_s_ah_exec(iss, insn, pc);
     }
@@ -339,7 +339,7 @@ static inline iss_reg_t fcvt_s_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_h_s_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_ah_s_exec(iss, insn, pc);
     }
@@ -351,7 +351,7 @@ static inline iss_reg_t fcvt_h_s_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_l_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_l_ah_exec(iss, insn, pc);
     }
@@ -363,7 +363,7 @@ static inline iss_reg_t fcvt_l_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_lu_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_lu_ah_exec(iss, insn, pc);
     }
@@ -375,7 +375,7 @@ static inline iss_reg_t fcvt_lu_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_re
 
 static inline iss_reg_t fcvt_h_l_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_ah_l_exec(iss, insn, pc);
     }
@@ -387,7 +387,7 @@ static inline iss_reg_t fcvt_h_l_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fcvt_h_lu_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (insn->fmode == 3)
+    if (fmode_get(iss, insn) == 3)
     {
         return fcvt_ah_lu_exec(iss, insn, pc);
     }

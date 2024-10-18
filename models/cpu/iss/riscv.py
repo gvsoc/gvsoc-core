@@ -94,7 +94,7 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False,
-            float_lib='flexfloat'):
+            float_lib='softfloat'):
 
         super().__init__(parent, name)
 
@@ -220,25 +220,48 @@ class RiscvCommon(st.Component):
                 "cpu/iss/softfloat/softfloat_raiseFlags.cpp",
                 "cpu/iss/softfloat/s_subMagsF32.cpp",
                 "cpu/iss/softfloat/s_addMagsF32.cpp",
+                "cpu/iss/softfloat/s_subMagsF128.cpp",
+                "cpu/iss/softfloat/s_addMagsF128.cpp",
+                "cpu/iss/softfloat/s_add128.cpp",
+                "cpu/iss/softfloat/s_sub128.cpp",
+                "cpu/iss/softfloat/s_normRoundPackToF128.cpp",
+                "cpu/iss/softfloat/s_lt128.cpp",
+                "cpu/iss/softfloat/s_eq128.cpp",
                 "cpu/iss/softfloat/s_countLeadingZeros64.cpp",
                 "cpu/iss/softfloat/s_countLeadingZeros32.cpp",
                 "cpu/iss/softfloat/s_countLeadingZeros16.cpp",
                 "cpu/iss/softfloat/s_countLeadingZeros8.cpp",
                 "cpu/iss/softfloat/s_shiftRightJam32.cpp",
                 "cpu/iss/softfloat/s_shiftRightJam64.cpp",
+                "cpu/iss/softfloat/s_shiftRightJam128.cpp",
+                "cpu/iss/softfloat/s_shiftRightJam128Extra.cpp",
+                "cpu/iss/softfloat/s_shortShiftLeft128.cpp",
                 "cpu/iss/softfloat/s_shortShiftRightJam64.cpp",
+                "cpu/iss/softfloat/s_shortShiftRightJam128.cpp",
+                "cpu/iss/softfloat/s_shortShiftRightJam128Extra.cpp",
                 "cpu/iss/softfloat/s_roundPackToF32.cpp",
                 "cpu/iss/softfloat/s_normRoundPackToF32.cpp",
+                "cpu/iss/softfloat/s_propagateNaNF128UI.cpp",
+                "cpu/iss/softfloat/s_propagateNaNF64UI.cpp",
                 "cpu/iss/softfloat/s_propagateNaNF32UI.cpp",
                 "cpu/iss/softfloat/s_propagateNaNF16UI.cpp",
                 "cpu/iss/softfloat/s_roundPackToF16.cpp",
+                "cpu/iss/softfloat/s_roundPackToF64.cpp",
+                "cpu/iss/softfloat/s_roundPackToF128.cpp",
                 "cpu/iss/softfloat/s_normSubnormalF16Sig.cpp",
                 "cpu/iss/softfloat/s_normSubnormalF32Sig.cpp",
+                "cpu/iss/softfloat/s_normSubnormalF64Sig.cpp",
+                "cpu/iss/softfloat/s_normSubnormalF128Sig.cpp",
                 "cpu/iss/softfloat/s_mulAddF32.cpp",
+                "cpu/iss/softfloat/s_mulAddF64.cpp",
                 "cpu/iss/softfloat/s_mulAddF16.cpp",
                 "cpu/iss/softfloat/f32_add.cpp",
+                "cpu/iss/softfloat/f64_mulAdd.cpp",
                 "cpu/iss/softfloat/f32_mulAdd.cpp",
                 "cpu/iss/softfloat/f16_mulAdd.cpp",
+                "cpu/iss/softfloat/f128_mul.cpp",
+                "cpu/iss/softfloat/f128_add.cpp",
+                "cpu/iss/softfloat/f128_sub.cpp",
             ])
             self.add_c_flags(['-DSOFTFLOAT_FAST_INT64=1'])
 
@@ -269,7 +292,7 @@ class RiscvCommon(st.Component):
                         tohost_addr, fromhost_addr = binary_info
 
                     if fromhost_addr is not None:
-                        self.add_property('htif_tohost', f'0x{fromhost_addr:x}')
+                        self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
 
                     if tohost_addr is not None:
                         self.add_property('htif_tohost', f'0x{tohost_addr:x}')

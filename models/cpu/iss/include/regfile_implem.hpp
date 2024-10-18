@@ -216,6 +216,10 @@ inline void Regfile::scoreboard_freg_set_timestamp(int reg, int64_t latency, int
     }
 }
 
+inline void Regfile::scoreboard_reg_invalidate(int reg)
+{
+    this->scoreboard_reg_timestamp[reg] = -1;
+}
 inline void Regfile::scoreboard_freg_invalidate(int reg)
 {
 #ifdef ISS_SINGLE_REGFILE

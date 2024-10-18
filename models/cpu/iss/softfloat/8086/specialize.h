@@ -185,7 +185,7 @@ uint_fast64_t softfloat_commonNaNToF64UI( const struct commonNaN *aPtr );
 | signaling NaN, the invalid exception is raised.
 *----------------------------------------------------------------------------*/
 uint_fast64_t
- softfloat_propagateNaNF64UI( uint_fast64_t uiA, uint_fast64_t uiB );
+ softfloat_propagateNaNF64UI( Iss *iss, uint_fast64_t uiA, uint_fast64_t uiB );
 
 /*----------------------------------------------------------------------------
 | The bit pattern for a default generated 80-bit extended floating-point NaN.
@@ -368,9 +368,8 @@ void
 *----------------------------------------------------------------------------*/
 void
  softfloat_propagateNaNF128M(
-     const uint32_t *aWPtr, const uint32_t *bWPtr, uint32_t *zWPtr );
+     Iss *iss, const uint32_t *aWPtr, const uint32_t *bWPtr, uint32_t *zWPtr );
 
 #endif
 
 #endif
-

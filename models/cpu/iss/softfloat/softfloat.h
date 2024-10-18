@@ -291,7 +291,7 @@ float64_t f64_roundToInt( float64_t, uint_fast8_t, bool );
 float64_t f64_add( float64_t, float64_t );
 float64_t f64_sub( float64_t, float64_t );
 float64_t f64_mul( float64_t, float64_t );
-float64_t f64_mulAdd( float64_t, float64_t, float64_t );
+float64_t f64_mulAdd( Iss *iss, float64_t, float64_t, float64_t );
 float64_t f64_div( float64_t, float64_t );
 float64_t f64_rem( float64_t, float64_t );
 float64_t f64_sqrt( float64_t );
@@ -393,8 +393,8 @@ float64_t f128_to_f64( float128_t );
 extFloat80_t f128_to_extF80( float128_t );
 float128_t f128_roundToInt( float128_t, uint_fast8_t, bool );
 float128_t f128_add( float128_t, float128_t );
-float128_t f128_sub( float128_t, float128_t );
-float128_t f128_mul( float128_t, float128_t );
+float128_t f128_sub( Iss *iss, float128_t, float128_t );
+float128_t f128_mul( Iss *iss, float128_t, float128_t );
 float128_t f128_mulAdd( float128_t, float128_t, float128_t );
 float128_t f128_div( float128_t, float128_t );
 float128_t f128_rem( float128_t, float128_t );
@@ -439,4 +439,3 @@ bool f128M_lt_quiet( const float128_t *, const float128_t * );
 bool f128M_isSignalingNaN( const float128_t * );
 
 #endif
-

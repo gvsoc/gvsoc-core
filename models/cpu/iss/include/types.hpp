@@ -104,6 +104,7 @@ class Lsu;
 #define ISS_MAX_IMMEDIATES 4
 #define ISS_MAX_NB_OUT_REGS 3
 #define ISS_MAX_NB_IN_REGS 3
+#define ISS_MAX_DATA 1
 
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #define ISS_EXCEPT_INSN_MISALIGNED  0
@@ -324,6 +325,7 @@ typedef struct iss_decoder_insn_s
 {
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);
     void (*decode)(Iss *, iss_insn_t *, iss_reg_t pc);
     char *label;
     int size;
@@ -366,13 +368,9 @@ typedef struct iss_insn_s
 {
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
-#ifdef CONFIG_GVSOC_ISS_SNITCH
     bool out_regs_fp[ISS_MAX_NB_OUT_REGS];
-#endif
     unsigned char in_regs[ISS_MAX_NB_IN_REGS];
-#ifdef CONFIG_GVSOC_ISS_SNITCH
     bool in_regs_fp[ISS_MAX_NB_IN_REGS];
-#endif
     void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
@@ -384,6 +382,7 @@ typedef struct iss_insn_s
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t);
 #endif
+    iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*stall_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*stall_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
@@ -406,6 +405,9 @@ typedef struct iss_insn_s
 
     iss_insn_t *expand_table;
     bool is_macro_op;
+
+    void *data[ISS_MAX_DATA];
+
 #ifdef CONFIG_GVSOC_ISS_SNITCH
     bool is_outer;
     iss_reg_t max_rpt;

@@ -17,7 +17,6 @@
 
 /*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
- *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
 
@@ -34,7 +33,7 @@
 #include <cpu/iss/include/exception.hpp>
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
-#include <cpu/iss/include/cores/snitch/regfile.hpp>
+#include <cpu/iss/include/cores/snitch_fast/regfile.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
 #else
@@ -45,22 +44,18 @@
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
-#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder.hpp>
+#include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
 #if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
 #endif
-
-#include <cpu/iss/include/types.hpp>
-
-#include "OffloadReq.hpp"
-#include "OffloadRsp.hpp"
-#include "PipeRegs.hpp"
-#include <cpu/iss/include/cores/snitch/ssr.hpp>
+#include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
+#include <cpu/iss/include/cores/snitch_fast/sequencer.hpp>
 
 class IssWrapper;
+
 
 class Iss
 {
@@ -93,68 +88,20 @@ public:
 #endif
 
     Ssr ssr;
+    Sequencer sequencer;
 
-    bool snitch;
-    bool fp_ss;
+    CsrReg csr_fmode;
 
-
-    // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
-
-    // Handshaking interface
-    vp::IoSlave acc_req_ready_itf;
-
-    // Request and Response interface
-    vp::WireSlave<OffloadReq *> acc_req_itf;
-    vp::WireMaster<OffloadRsp *> acc_rsp_itf;
-    vp::ClockEvent *event;
-    OffloadReq acc_req;
-    OffloadRsp acc_rsp;
-
-    // Handshaking signals and functions
-    bool acc_req_ready;
-    static vp::IoReqStatus rsp_state(vp::Block *__this, vp::IoReq *req);
-    bool check_state(iss_insn_t *insn);
-
-    // Handle request and response functions
-    static void handle_notif(vp::Block *__this, OffloadReq *req);
-    static void handle_event(vp::Block *__this, vp::ClockEvent *event);
-    bool handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write);
-
-    // Temporary variable to process RAW caused by SSR and accessing stack pointer,
-    // for result is written to memory directly.
-    iss_addr_t mem_map;
-    iss_reg_t mem_pc;
-
-    // Add operation groups and store intructions like a FIFO
-    // to abstract behavior of pipeline. Most of fp instructions are pipelined in Snitch.
-    // Operation groups in FPU
-    FIFODepth3 FMA_OPGROUP;
-    FIFODepth1 DIVSQRT_OPGROUP;
-    FIFODepth1 NONCOMP_OPGROUP;
-    FIFODepth2 CONV_OPGROUP;
-    FIFODepth3 DOTP_OPGROUP;
-    // Operation group in LSU
-    FIFODepth1 LSU_OPGROUP;
-
-    // Timing model of pipelined FPU
-    int get_latency(iss_insn_t insn, iss_reg_t pc, int timestamp);
-    void ssr_latency(int diff);
 
 private:
     bool barrier_update(bool is_write, iss_reg_t &value);
     static void barrier_sync(vp::Block *__this, bool value);
-    bool ssr_access(bool is_write, iss_reg_t &value);
 
     vp::WireMaster<bool> barrier_req_itf;
     vp::WireSlave<bool> barrier_ack_itf;
     CsrReg barrier;
     bool waiting_barrier;
-
-    vp::Trace trace_iss;
-    CsrReg csr_ssr;
-
 };
-
 
 
 class IssWrapper : public vp::Component
@@ -172,9 +119,15 @@ private:
     vp::Trace trace;
 };
 
+typedef struct
+{
+} SnitchInsnData;
+
+static_assert(sizeof(SnitchInsnData) <= sizeof(iss_insn_t::data), "SnitchInsnData size exceeds iss_insn_t::data size");
+
 static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 {
-    return insn->fmode;
+    return iss->csr_fmode.value;
 }
 
 
@@ -208,6 +161,5 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
 
-
-#include <cpu/iss/include/cores/snitch/regfile_implem.hpp>
-#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder_implem.hpp>
+#include <cpu/iss/include/exec/exec_inorder_implem.hpp>
+#include <cpu/iss/include/cores/snitch_fast/regfile_implem.hpp>

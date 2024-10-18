@@ -81,4 +81,3 @@ uint_fast64_t
     return (uiNonsigA < uiNonsigB) ? uiNonsigA : uiNonsigB;
 
 }
-

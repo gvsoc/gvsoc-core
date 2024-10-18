@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 float128_t
  softfloat_addMagsF128(
+     Iss *iss,
      uint_fast64_t uiA64,
      uint_fast64_t uiA0,
      uint_fast64_t uiB64,
@@ -74,7 +75,7 @@ float128_t
             uiZ.v0  = uiA0;
             goto uiZ;
         }
-        sigZ = softfloat_add128( sigA.v64, sigA.v0, sigB.v64, sigB.v0 );
+        sigZ = softfloat_add128( iss, sigA.v64, sigA.v0, sigB.v64, sigB.v0 );
         if ( ! expA ) {
             uiZ.v64 = packToF128UI64( signZ, 0, sigZ.v64 );
             uiZ.v0  = sigZ.v0;
@@ -127,6 +128,7 @@ float128_t
  newlyAligned:
     sigZ =
         softfloat_add128(
+            iss,
             sigA.v64 | UINT64_C( 0x0001000000000000 ),
             sigA.v0,
             sigB.v64,
@@ -143,12 +145,11 @@ float128_t
     sigZExtra = sig128Extra.extra;
  roundAndPack:
     return
-        softfloat_roundPackToF128( signZ, expZ, sigZ.v64, sigZ.v0, sigZExtra );
+        softfloat_roundPackToF128( iss, signZ, expZ, sigZ.v64, sigZ.v0, sigZExtra );
  propagateNaN:
-    uiZ = softfloat_propagateNaNF128UI( uiA64, uiA0, uiB64, uiB0 );
+    uiZ = softfloat_propagateNaNF128UI( iss, uiA64, uiA0, uiB64, uiB0 );
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
 
 }
-

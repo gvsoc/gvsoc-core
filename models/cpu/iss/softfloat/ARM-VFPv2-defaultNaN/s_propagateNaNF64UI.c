@@ -46,7 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | signaling NaN, the invalid exception is raised.
 *----------------------------------------------------------------------------*/
 uint_fast64_t
- softfloat_propagateNaNF64UI( uint_fast64_t uiA, uint_fast64_t uiB )
+ softfloat_propagateNaNF64UI( Iss *iss, uint_fast64_t uiA, uint_fast64_t uiB )
 {
 
     if ( softfloat_isSigNaNF64UI( uiA ) || softfloat_isSigNaNF64UI( uiB ) ) {
@@ -55,4 +55,3 @@ uint_fast64_t
     return defaultNaNF64UI;
 
 }
-

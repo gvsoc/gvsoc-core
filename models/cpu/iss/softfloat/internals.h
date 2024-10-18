@@ -156,14 +156,14 @@ float32_t
 struct exp16_sig64 { int_fast16_t exp; uint_fast64_t sig; };
 struct exp16_sig64 softfloat_normSubnormalF64Sig( uint_fast64_t );
 
-float64_t softfloat_roundPackToF64( bool, int_fast16_t, uint_fast64_t );
+float64_t softfloat_roundPackToF64( Iss *iss, bool, int_fast16_t, uint_fast64_t );
 float64_t softfloat_normRoundPackToF64( bool, int_fast16_t, uint_fast64_t );
 
 float64_t softfloat_addMagsF64( uint_fast64_t, uint_fast64_t, bool );
 float64_t softfloat_subMagsF64( uint_fast64_t, uint_fast64_t, bool );
 float64_t
  softfloat_mulAddF64(
-     uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast8_t );
+     Iss *iss, uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast8_t );
 
 /*----------------------------------------------------------------------------
 *----------------------------------------------------------------------------*/
@@ -210,17 +210,17 @@ struct exp32_sig128
 
 float128_t
  softfloat_roundPackToF128(
-     bool, int_fast32_t, uint_fast64_t, uint_fast64_t, uint_fast64_t );
+     Iss *, bool, int_fast32_t, uint_fast64_t, uint_fast64_t, uint_fast64_t );
 float128_t
  softfloat_normRoundPackToF128(
-     bool, int_fast32_t, uint_fast64_t, uint_fast64_t );
+     Iss *iss, bool, int_fast32_t, uint_fast64_t, uint_fast64_t );
 
 float128_t
  softfloat_addMagsF128(
-     uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast64_t, bool );
+     Iss *iss, uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast64_t, bool );
 float128_t
  softfloat_subMagsF128(
-     uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast64_t, bool );
+     Iss *iss, uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast64_t, bool );
 float128_t
  softfloat_mulAddF128(
      uint_fast64_t,
@@ -299,4 +299,3 @@ void
 #endif
 
 #endif
-

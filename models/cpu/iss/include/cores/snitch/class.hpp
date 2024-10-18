@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
@@ -104,7 +104,7 @@ public:
     // Handshaking interface, added to check subsystem state, busy or idle
     vp::IoMaster acc_req_ready_itf;
 
-    // Offload request interface 
+    // Offload request interface
     vp::WireMaster<OffloadReq *> acc_req_itf;
     // Response interface, receive result from subsystem
     vp::WireSlave<OffloadRsp *> acc_rsp_itf;
@@ -128,7 +128,7 @@ public:
     iss_reg_t pc;
     bool is_write;
     unsigned int frm;
-    // Temporary variable to process RAW caused by SSR and accessing stack pointer, 
+    // Temporary variable to process RAW caused by SSR and accessing stack pointer,
     // for result is written to memory directly.
     iss_addr_t mem_map;
     iss_reg_t mem_pc;
@@ -164,6 +164,11 @@ public:
 private:
     vp::Trace trace;
 };
+
+static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
+{
+    return insn->fmode;
+}
 
 
 #include "cpu/iss/include/isa/rv64i.hpp"

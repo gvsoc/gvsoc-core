@@ -45,6 +45,9 @@ public:
     // Contrary to skip_insn_dump. this can permanently disabled instruction dump until it is
     // explicitely reactivated
     bool dump_trace_enabled;
+    // Used by some features like coprocessor to enable trace dump while main core is stalled
+    // and blocking traces
+    bool force_trace_dump;
 
     vp::Trace insn_trace;
     iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];

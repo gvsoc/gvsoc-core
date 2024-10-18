@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 float128_t
  softfloat_roundPackToF128(
+     Iss *iss,
      bool sign,
      int_fast32_t exp,
      uint_fast64_t sig64,
@@ -106,7 +107,7 @@ float128_t
         } else if (
                (0x7FFD < exp)
             || ((exp == 0x7FFD)
-                    && softfloat_eq128( 
+                    && softfloat_eq128(
                            sig64,
                            sig0,
                            UINT64_C( 0x0001FFFFFFFFFFFF ),
@@ -117,7 +118,7 @@ float128_t
             /*----------------------------------------------------------------
             *----------------------------------------------------------------*/
             softfloat_raiseFlags(
-                softfloat_flag_overflow | softfloat_flag_inexact );
+                iss, softfloat_flag_overflow | softfloat_flag_inexact );
             if (
                    roundNearEven
                 || (roundingMode == softfloat_round_near_maxMag)
@@ -147,7 +148,7 @@ float128_t
 #endif
     }
     if ( doIncrement ) {
-        sig128 = softfloat_add128( sig64, sig0, 0, 1 );
+        sig128 = softfloat_add128( iss, sig64, sig0, 0, 1 );
         sig64 = sig128.v64;
         sig0 =
             sig128.v0
@@ -168,4 +169,3 @@ float128_t
     return uZ.f;
 
 }
-

@@ -229,7 +229,7 @@ static inline iss_reg_t vfcpk##pos##_##dst_format##_s_exec(Iss *iss, iss_insn_t 
                                                                                                 \
 static inline iss_reg_t op##_##fmt##_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)      \
 {                                                                                               \
-    if (insn->fmode == 3)                                                                       \
+    if (fmode_get(iss, insn) == 3)                                                                       \
     {                                                                                           \
         return op##_##alt_fmt##_exec(iss, insn, pc);                                            \
     }                                                                                           \
@@ -241,7 +241,7 @@ static inline iss_reg_t op##_##fmt##_exec_switch(Iss *iss, iss_insn_t *insn, iss
                                                                                                 \
 static inline iss_reg_t op##_r_##fmt##_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)      \
 {                                                                                               \
-    if (insn->fmode == 3)                                                                       \
+    if (fmode_get(iss, insn) == 3)                                                                       \
     {                                                                                           \
         return op##_r_##alt_fmt##_exec(iss, insn, pc);                                            \
     }                                                                                           \
@@ -255,7 +255,7 @@ static inline iss_reg_t op##_r_##fmt##_exec_switch(Iss *iss, iss_insn_t *insn, i
                                                                                                 \
 static inline iss_reg_t op##_##fmt##_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)      \
 {                                                                                               \
-    if (insn->fmode == 3)                                                                       \
+    if (fmode_get(iss, insn) == 3)                                                                       \
     {                                                                                           \
         return op##_##alt_fmt##_exec(iss, insn, pc);                                            \
     }                                                                                           \

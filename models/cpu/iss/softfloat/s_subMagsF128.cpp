@@ -43,6 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 float128_t
  softfloat_subMagsF128(
+     Iss *iss,
      uint_fast64_t uiA64,
      uint_fast64_t uiA0,
      uint_fast64_t uiB64,
@@ -106,7 +107,7 @@ float128_t
     sigB.v64 |= UINT64_C( 0x0010000000000000 );
  bBigger:
     signZ = ! signZ;
-    sigZ = softfloat_sub128( sigB.v64, sigB.v0, sigA.v64, sigA.v0 );
+    sigZ = softfloat_sub128( iss, sigB.v64, sigB.v0, sigA.v64, sigA.v0 );
     goto normRoundPack;
  expABigger:
     if ( expA == 0x7FFF ) {
@@ -126,14 +127,13 @@ float128_t
     expZ = expA;
     sigA.v64 |= UINT64_C( 0x0010000000000000 );
  aBigger:
-    sigZ = softfloat_sub128( sigA.v64, sigA.v0, sigB.v64, sigB.v0 );
+    sigZ = softfloat_sub128( iss, sigA.v64, sigA.v0, sigB.v64, sigB.v0 );
  normRoundPack:
-    return softfloat_normRoundPackToF128( signZ, expZ - 5, sigZ.v64, sigZ.v0 );
+    return softfloat_normRoundPackToF128( iss, signZ, expZ - 5, sigZ.v64, sigZ.v0 );
  propagateNaN:
-    uiZ = softfloat_propagateNaNF128UI( uiA64, uiA0, uiB64, uiB0 );
+    uiZ = softfloat_propagateNaNF128UI( iss, uiA64, uiA0, uiB64, uiB0 );
  uiZ:
     uZ.ui = uiZ;
     return uZ.f;
 
 }
-

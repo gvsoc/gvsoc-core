@@ -198,6 +198,7 @@ static inline iss_reg_t fcvt_s_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t fcvt_h_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0), 8, 23, 5, 10, UIM_GET(0)));
+
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -30,7 +30,6 @@ Memcheck::Memcheck(IssWrapper &top, Iss &iss)
     top.traces.new_trace("memcheck", &this->trace, vp::DEBUG);
 }
 
-
 iss_reg_t Memcheck::mem_alloc(iss_reg_t mem_id, iss_reg_t ptr, iss_reg_t size)
 {
     if (this->iss.top.traces.get_trace_engine()->is_memcheck_enabled())

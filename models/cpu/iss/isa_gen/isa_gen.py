@@ -745,7 +745,7 @@ class Isa(object):
 class Instr(object):
     def __init__(self, label, format, encoding, decode=None, L=None,
             fast_handler=False, tags=[], isa_tags=[], is_macro_op=False):
-        self.tags = tags
+        self.tags = tags + ['all']
         self.isa_tags = isa_tags
         self.out_reg_latencies = []
         self.latency = 0
@@ -826,6 +826,7 @@ class Instr(object):
         dump(isaFile, f'    .insn={{\n')
         dump(isaFile, f'      .handler={self.exec_func},\n')
         dump(isaFile, f'      .fast_handler={self.exec_func_fast},\n')
+        dump(isaFile, f'      .stub_handler=NULL,\n')
         dump(isaFile, f'      .decode={"NULL" if self.decode is None else self.decode},\n')
         dump(isaFile, f'      .label=(char *)"{self.get_label()}",\n')
         dump(isaFile, f'      .size={int(self.len/8)},\n')

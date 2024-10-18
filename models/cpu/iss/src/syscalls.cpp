@@ -130,9 +130,15 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
         if (err != vp::IO_REQ_OK)
         {
             if (err == vp::IO_REQ_INVALID)
-                this->trace.fatal("Invalid IO response during debug request\n");
+            {
+                this->trace.fatal("Invalid IO response during debug request (addr: 0x%lx, size: 0x%lx)\n",
+                    addr, size);
+            }
             else
-                this->trace.fatal("Pending IO response during debug request\n");
+            {
+                this->trace.fatal("Pending IO response during debug request (addr: 0x%lx, size: 0x%lx)\n",
+                    addr, size);
+            }
 
             return true;
         }

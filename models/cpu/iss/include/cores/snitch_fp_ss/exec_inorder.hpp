@@ -124,6 +124,8 @@ public:
 
     vp::reg_1 halted;
     vp::reg_1 step_mode;
+    vp::reg_1 irq_enter;
+    vp::reg_1 irq_exit;
 
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t hwloop_start_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];

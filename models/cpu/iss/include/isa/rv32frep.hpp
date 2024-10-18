@@ -27,6 +27,22 @@
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
+#if defined(CONFIG_GVSOC_ISS_SNITCH_FAST)
+
+#error 1
+
+static inline iss_reg_t frep_o_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return 0;
+}
+
+static inline iss_reg_t frep_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return 0;
+}
+
+#else
+
 static inline iss_reg_t frep_o_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 #ifdef CONFIG_GVSOC_ISS_SNITCH
@@ -82,5 +98,7 @@ static inline iss_reg_t frep_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #endif
     return iss_insn_next(iss, insn, pc);
 }
+
+#endif
 
 #endif

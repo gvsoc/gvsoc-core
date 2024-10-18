@@ -735,6 +735,7 @@ class Instr(object):
         dump(isaFile, f'    .insn={{\n')
         dump(isaFile, f'      .handler={self.exec_func},\n')
         dump(isaFile, f'      .fast_handler={self.exec_func_fast},\n')
+        dump(isaFile, f'      .stub_handler=NULL,\n')
         dump(isaFile, f'      .decode={"NULL" if self.decode is None else self.decode},\n')
         dump(isaFile, f'      .label=(char *)"{self.get_label()}",\n')
         dump(isaFile, f'      .size={int(self.len/8)},\n')

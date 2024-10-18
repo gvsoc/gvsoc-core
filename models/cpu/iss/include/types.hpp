@@ -318,6 +318,7 @@ typedef struct iss_decoder_insn_s
 {
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);
     void (*decode)(Iss *, iss_insn_t *, iss_reg_t pc);
     char *label;
     int size;
@@ -378,6 +379,7 @@ typedef struct iss_insn_s
 #if defined(CONFIG_GVSOC_ISS_RI5KY)
     iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t);
 #endif
+    iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*stall_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*stall_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t);

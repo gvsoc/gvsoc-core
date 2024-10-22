@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -51,7 +51,8 @@
 #if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
 #endif
-#include <cpu/iss/include/cores/snitch/ssr.hpp>
+#include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
+#include <cpu/iss/include/cores/snitch_fast/sequencer.hpp>
 
 class IssWrapper;
 
@@ -87,11 +88,11 @@ public:
 #endif
 
     Ssr ssr;
+    Sequencer sequencer;
 
 
 
 private:
-    static iss_reg_t sequencer_handler(Iss *, iss_insn_t *, iss_reg_t);
     bool barrier_update(bool is_write, iss_reg_t &value);
     static void barrier_sync(vp::Block *__this, bool value);
 

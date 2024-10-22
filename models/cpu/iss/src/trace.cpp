@@ -49,6 +49,7 @@ void Trace::reset(bool active)
     {
         this->dump_trace_enabled = true;
         this->skip_insn_dump = false;
+        this->force_trace_dump = false;
     }
 }
 
@@ -648,7 +649,8 @@ iss_reg_t iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
         next_insn = insn->saved_handler(iss, insn, pc);
 
-        if (!iss->exec.is_stalled() && iss->trace.dump_trace_enabled && !iss->trace.skip_insn_dump)
+        if (!iss->exec.is_stalled() && iss->trace.dump_trace_enabled && !iss->trace.skip_insn_dump ||
+            iss->trace.force_trace_dump)
             iss_trace_dump(iss, insn, pc);
 
         iss->trace.skip_insn_dump = false;

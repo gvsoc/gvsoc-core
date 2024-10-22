@@ -104,7 +104,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         }
         // insn->data_argb = REG_GET(1);
 
-        // Record the memory addess for offloaded load/store instrution, 
+        // Record the memory addess for offloaded load/store instrution,
         // stall the following instruction which gets access to same memory block.
         bool lsu_label = strstr(insn->decoder_item->u.insn.label, "flw")
                     || strstr(insn->decoder_item->u.insn.label, "fsw")
@@ -125,7 +125,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         // Implement "return pc" also possible to realize parallelism, can iterate at pc instruction in instr_event,
         // but lose a bit efficiency because the instruction will be unnecessarily decoded every cycle.
         // If not ready, stay at current PC and fetch the same instruction next cycle.
-        if (!acc_req_ready) 
+        if (!acc_req_ready)
         {
             iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stall at current instruction\n");
             // Start from offloading handler directly in the next cycle.
@@ -147,7 +147,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
             {
                 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
                 iss->regfile.scoreboard_reg_valid[insn->out_regs[0]] = false;
-                #endif   
+                #endif
             }
 
             // Send out request containing the instruction.
@@ -161,7 +161,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 #endif
 
     // For integer instructions, check whether all operands are ready before execution.
-    // 1. If the memory access address is written by a previous offloaded load/store instruction, 
+    // 1. If the memory access address is written by a previous offloaded load/store instruction,
     // check whether that operation has finished. Otherwise, block the integer core.
     // 2. If one of the input and output operand are invalid in regfile.scoreboard_reg_valid, stall at current pc.
     // If all operands are ready, continue to execute.
@@ -184,7 +184,7 @@ static inline iss_reg_t int_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
                 mem_map = REG_GET(0) + SIM_GET(0);
                 iss->decode.trace.msg(vp::Trace::LEVEL_TRACE, "Integer instruction memory access address: 0x%llx\n", mem_map);
                 // Check whether this address is within the range of previous and unfinished offloaded memory access.
-                // If it's dependent and from the same memory address, stall and check again in the next cycle. 
+                // If it's dependent and from the same memory address, stall and check again in the next cycle.
                 if (mem_map >= iss->mem_map & mem_map < (iss->mem_map+0x8))
                 {
                     return pc;

@@ -158,7 +158,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 {
                     insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
                 }
-
+                insn->out_regs_fp[darg->u.reg.id] = darg->flags & ISS_DECODER_ARG_FLAG_FREG;
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_store_ref(arg->u.reg.index);
@@ -290,6 +290,20 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     }
 #endif
 
+    if (iss.trace.insn_trace.get_active() || iss.timing.insn_trace_event.get_event_active())
+    {
+        insn->saved_handler = insn->handler;
+        insn->handler = this->iss.exec.insn_trace_callback_get();
+        insn->fast_handler = this->iss.exec.insn_trace_callback_get();
+    }
+
+    if (item->u.insn.stub_handler != NULL)
+    {
+        insn->stub_handler = insn->handler;
+        insn->handler = item->u.insn.stub_handler;
+        insn->fast_handler = item->u.insn.stub_handler;
+    }
+
     return 0;
 }
 
@@ -361,13 +375,6 @@ void Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
     }
 
     insn->opcode = opcode;
-
-    if (iss.trace.insn_trace.get_active() || iss.timing.insn_trace_event.get_event_active())
-    {
-        insn->saved_handler = insn->handler;
-        insn->handler = this->iss.exec.insn_trace_callback_get();
-        insn->fast_handler = this->iss.exec.insn_trace_callback_get();
-    }
 }
 
 

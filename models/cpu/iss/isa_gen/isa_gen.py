@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# 
+#
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
@@ -390,7 +390,7 @@ class DecodeTree(object):
             for bit in range(0, size):
                 if done or not instr.encoding[bit] in ['0', '1'] or (searchMask & (1<<bit)) == 0: #, '-']:
                     searchMask &= ~(1<<bit)
-                    if firstBit != None: 
+                    if firstBit != None:
                         done = True
                     continue
                 elif firstBit == None:
@@ -401,7 +401,7 @@ class DecodeTree(object):
         # In case we found no common mask, maybe we still have some discriminating
         # bits where some instructions don't care
         # Find a common mask where the opcode is either fully defined or don't care
-        if searchMask == 0 and len(instrs) > 1: 
+        if searchMask == 0 and len(instrs) > 1:
             # First find the biggest common discriminating bits
             searchMask = currentMask
             for instr in instrs:
@@ -414,11 +414,11 @@ class DecodeTree(object):
                     searchMask &= instrMask
 
             for bit in range(0, size):
-                if searchMask & (1<<bit): 
+                if searchMask & (1<<bit):
                     self.firstBit = bit
                     break
 
-        if searchMask == 0 and len(instrs) > 1: 
+        if searchMask == 0 and len(instrs) > 1:
             error = 'Error the following instructions have the same opcode:\n'
             for instr in instrs:
                 error += instr.get_str() + '\n'
@@ -471,7 +471,7 @@ class DecodeTree(object):
                 names.append(instr.label)
 
         for opcode, instrs in groups.items():
-            if len(instrs) == 1 and currentMask == 0 or opcode == 'OTHERS': 
+            if len(instrs) == 1 and currentMask == 0 or opcode == 'OTHERS':
                 self.subtrees[opcode] = DecodeLeaf(instrs[0], self.opcode, others=opcode == 'OTHERS')
             else: self.subtrees[opcode] = DecodeTree(self.isa, instrs, mask, opcode)
 
@@ -654,7 +654,7 @@ class Isa(object):
 class Instr(object):
     def __init__(self, label, format, encoding, decode=None, L=None,
             fast_handler=False, tags=[], isa_tags=[], is_macro_op=False):
-        self.tags = tags
+        self.tags = tags + ['all']
         self.isa_tags = isa_tags
         self.out_reg_latencies = []
         self.latency = 0

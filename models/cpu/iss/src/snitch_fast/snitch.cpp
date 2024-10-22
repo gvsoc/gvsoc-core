@@ -26,7 +26,8 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), ssr(*this), memcheck(top, *this), top(top)
+      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), ssr(*this), sequencer(top, *this),
+      memcheck(top, *this), top(top)
 {
     this->csr.declare_csr(&this->barrier,  "barrier",   0x7C2);
     this->barrier.register_callback(std::bind(&Iss::barrier_update, this, std::placeholders::_1,
@@ -36,19 +37,6 @@ Iss::Iss(IssWrapper &top)
     this->top.new_slave_port("barrier_ack", &this->barrier_ack_itf, (vp::Block *)this);
 
     this->top.new_master_port("barrier_req", &this->barrier_req_itf, (vp::Block *)this);
-
-    for (iss_decoder_item_t *insn: *this->decode.get_insns_from_tag("fp_op"))
-    {
-        insn->u.insn.stub_handler = &Iss::sequencer_handler;
-    }
-}
-
-
-iss_reg_t Iss::sequencer_handler(Iss *, iss_insn_t *, iss_reg_t)
-{
-    printf("Sequencer\n");
-
-    return 0;
 }
 
 

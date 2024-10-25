@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -137,9 +137,8 @@ void gv::GvsocLauncher::close()
     if (proxy)
     {
         proxy->quit(this->retval);
+        proxy->wait();
     }
-
-    proxy->wait();
 
     delete top;
 }

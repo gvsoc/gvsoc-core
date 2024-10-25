@@ -112,14 +112,24 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
 
     while(1)
     {
-        char line_array[1024];
+        std::string line;
 
         if (!this->is_async)
         {
             engine->unlock();
         }
 
-        if (!fgets(line_array, 1024, sock) || this->has_exited)
+        char buffer[1024];
+        while (fgets(buffer, sizeof(buffer), sock))
+        {
+            line += buffer;
+            if (line.back() == '\n') {
+                break;
+            }
+        }
+
+        // Check for errors or exit conditions
+        if (line.empty() || this->has_exited)
         {
             if (!this->is_async || this->has_exited)
             {
@@ -128,15 +138,13 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                 engine->critical_notify();
                 engine->unlock();
             }
-            return ;
+            return;
         }
 
         if (!this->is_async)
         {
             engine->lock();
         }
-
-        std::string line = std::string(line_array);
 
         int start = 0;
         int end = line.find(";");
@@ -426,6 +434,11 @@ int gv::GvProxy::open(int port, int *out_port)
 void gv::GvProxy::stop()
 {
     this->has_exited = true;
+}
+
+void gv::GvProxy::wait()
+{
+    this->loop_thread->join();
 }
 
 void gv::GvProxy::quit(int status)

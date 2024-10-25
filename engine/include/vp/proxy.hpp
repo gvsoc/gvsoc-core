@@ -29,6 +29,7 @@ class GvProxy : GvsocLauncher_notifier
     GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
     void stop();
+    void wait();
     void quit(int status);
     void notify_stop(int64_t time);
     void notify_run(int64_t time);

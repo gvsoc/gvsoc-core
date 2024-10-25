@@ -1440,6 +1440,7 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
             {
                 pi_testbench_i2s_verif_slot_start_config_t *config = (pi_testbench_i2s_verif_slot_start_config_t *)this->req;
                 char *filepath = (char *)config + sizeof(pi_testbench_i2s_verif_slot_start_config_t);
+                int max_filepath_len = PI_TESTBENCH_MAX_REQ_SIZE - sizeof(pi_testbench_i2s_verif_slot_start_config_t);
 
                 *config = {};
                 config->rx_file_reader.pcm2pdm_is_true = FALSE;
@@ -1469,7 +1470,14 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                     }
                     else if (name == "filepath")
                     {
-                        strcpy(filepath, value_str.c_str());
+                        if (max_filepath_len < value_str.size() + 1)
+                        {
+                            this->trace.force_warning("File path is too long: %s", value_str.c_str());
+                        }
+                        else
+                        {
+                            strcpy(filepath, value_str.c_str());
+                        }
                     }
                     else if (name == "filetype")
                     {
@@ -1544,6 +1552,7 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
             {
                 pi_testbench_i2s_verif_slot_start_config_t *config = (pi_testbench_i2s_verif_slot_start_config_t *)this->req;
                 char *filepath = (char *)config + sizeof(pi_testbench_i2s_verif_slot_start_config_t);
+                int max_filepath_len = PI_TESTBENCH_MAX_REQ_SIZE - sizeof(pi_testbench_i2s_verif_slot_start_config_t);
 
                 *config = {};
                 config->tx_file_dumper.pdm2pcm_is_true = FALSE;
@@ -1569,7 +1578,14 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                     }
                     else if (name == "filepath")
                     {
-                        strcpy(filepath, value_str.c_str());
+                        if (max_filepath_len < value_str.size() + 1)
+                        {
+                            this->trace.force_warning("File path is too long: %s", value_str.c_str());
+                        }
+                        else
+                        {
+                            strcpy(filepath, value_str.c_str());
+                        }
                     }
                     else if (name == "width")
                     {

@@ -147,7 +147,7 @@ void Csr::reset(bool active)
 
 void Csr::declare_pcer(int index, std::string name, std::string help)
 {
-    this->iss.syscalls.pcer_info[index].name = name;
+    this->iss.syscalls.pcer_info[index].name = strdup(name.c_str());
     this->iss.syscalls.pcer_info[index].help = help;
 }
 
@@ -857,7 +857,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     bool status = true;
 
     iss->csr.trace.msg("Reading CSR (reg: 0x%x, name: %s)\n",
-        reg, iss_csr_name(iss, reg).c_str());
+        reg, iss_csr_name(iss, reg));
 
 #if 0
   // First check permissions
@@ -1233,7 +1233,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 
         if (status)
         {
-            iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg).c_str());
+            iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
 #if 0
       triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);
 #endif
@@ -1249,7 +1249,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
 {
     iss->csr.trace.msg("Writing CSR (reg: 0x%x, name: %s, value: 0x%x)\n",
-        reg, iss_csr_name(iss, reg).c_str(), value);
+        reg, iss_csr_name(iss, reg), value);
 
     // If there is any write to a CSR, switch to full check instruction handler
     // in case something special happened (like HW counting become active)
@@ -1356,7 +1356,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
 #endif
 
-    iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg).c_str());
+    iss->csr.trace.force_warning("Accessing unsupported CSR (id: 0x%x, name: %s)\n", reg, iss_csr_name(iss, reg));
 #if 0
   triggerException_cause(iss, iss->currentPc, EXCEPTION_ILLEGAL_INSTR, ECAUSE_ILL_INSTR);
 #endif
@@ -1364,7 +1364,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     return true;
 }
 
-std::string iss_csr_name(Iss *iss, iss_reg_t reg)
+const char *iss_csr_name(Iss *iss, iss_reg_t reg)
 {
     CsrAbtractReg *csr = iss->csr.get_csr(reg);
     if (csr != NULL)
@@ -1676,7 +1676,7 @@ std::string iss_csr_name(Iss *iss, iss_reg_t reg)
     }
 #endif
 
-    return std::to_string(reg);
+    return "unknown";
 }
 
 CsrAbtractReg::CsrAbtractReg(iss_reg_t *value)
@@ -1748,7 +1748,7 @@ void Csr::declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, i
     }
 
     this->regs[address] = reg;
-    reg->name = name;
+    reg->name = strdup(name.c_str());
     reg->write_mask = write_mask;
     reg->reset_val = reset_val;
 }

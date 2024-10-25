@@ -367,7 +367,7 @@ static char *iss_trace_dump_arg(Iss *iss, iss_insn_t *insn, char *buff, iss_insn
         {
             if (insn_arg->flags & ISS_DECODER_ARG_FLAG_DUMP_NAME)
             {
-                buff += sprintf(buff, "%s", insn_arg->name.c_str());
+                buff += sprintf(buff, "%s", insn_arg->name);
             }
             else
             {
@@ -378,7 +378,7 @@ static char *iss_trace_dump_arg(Iss *iss, iss_insn_t *insn, char *buff, iss_insn
         {
             if (insn_arg->flags & ISS_DECODER_ARG_FLAG_DUMP_NAME)
             {
-                buff += sprintf(buff, "%s", insn_arg->name.c_str());
+                buff += sprintf(buff, "%s", insn_arg->name);
             }
             else
             {

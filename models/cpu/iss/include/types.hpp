@@ -179,7 +179,7 @@ typedef struct iss_insn_arg_s
 {
     iss_decoder_arg_type_e type;
     iss_decoder_arg_flag_e flags;
-    std::string name;
+    const char *name;
 
     union
     {

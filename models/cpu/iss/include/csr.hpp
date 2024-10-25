@@ -49,7 +49,7 @@ public:
     bool access(bool is_write, iss_reg_t &value);
     virtual bool check_access(Iss *iss, bool write, bool read);
 
-    std::string name;
+    const char *name;
     iss_reg_t reset_val;
     bool write_illegal = false;
 

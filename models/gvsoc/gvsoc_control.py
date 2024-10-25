@@ -637,6 +637,19 @@ class Testbench(object):
         return Testbench_i2s(self.proxy, self.component, id)
 
 
+    def spi_get(self, id: int = 0, cs = 0):
+        """Open a spi interface.
+
+        Open a spi interface and return an object which can be used to interact with it.
+
+        :param id: int, optional, The spi interface identifier.
+        :param cs: int, optional, The spi cs interface identifier.
+
+        :return: Testbench_spi, An object which can be used to access the specified uart interface.
+        """
+        return Testbench_spi(self.proxy, self.component, id, cs)
+
+
     def uart_get(self, id: int = 0):
         """Open a uart interface.
 
@@ -1121,3 +1134,229 @@ class Testbench_i2s(object):
         options += ' stop_tx=%d' % stop_tx
         cmd = 'component %s i2s slot_stop %s' % (self.testbench, options)
         self.proxy._send_cmd(cmd)
+
+
+class Testbench_spi(object):
+    """Class instantiated for each manipulated SPI interface.
+
+    It can used to interact with the SPI.
+
+    :param proxy: Proxy, The proxy object. This class will use it to send command to GVSOC through the proxy connection.
+    :param testbench: int, The testbench object.
+    :param id: int, optional, The identifier of the SAI interface.
+    """
+
+    def __init__(self, proxy: Proxy, testbench: Testbench, itf=0, cs: int = 0):
+        self.id = itf
+        self.cs = cs
+        self.proxy = proxy
+        self.testbench = testbench
+        self.rx_enabled = False
+        
+        self.callback = None
+        self.lock = threading.Lock()
+        self.condition = threading.Condition(self.lock)
+        self.pending_rx_bytes = bytearray()
+        self.req = None
+
+    def open(self, is_master: int = 0, polarity: int = 0, phase: int = 0,
+            mem_size_log2: int = 16, dummy_cycles: int = 0, frequency : int = 10000000):
+        """Open and configure SAI.
+
+        :param word_size: int, optional, Specify the frame word size in bits.
+        :param sampling_freq: int, optional, Specify th
+        :param nb_slots: int, optional,
+            Number of slots in the frame.
+        :param is_pdm: bool, optional
+
+        :raises: RuntimeError, if there is any invalid parameter.
+        """
+
+        options = ''
+        options += ' itf=%d' % self.id
+        options += ' enabled=1'
+        options += ' cs=%d' % self.cs
+        self.is_master = is_master
+        options += ' is_master=%d' % (is_master)
+        options += ' polarity=%d' % polarity
+        options += ' phase=%d' % phase
+        options += ' mem_size_log2=%d' % mem_size_log2
+        options += ' dummy_cycles=%d' % dummy_cycles
+        self.frequency = frequency
+        cmd = 'component %s spi setup %s' % (self.testbench, options)
+        self.proxy._send_cmd(cmd)
+
+    def close(self):
+        """Close the spi interface.
+
+        :raises: RuntimeError, if there is any error while closing.
+        """
+        options = ''
+        options += ' itf=%d' % self.id
+        options += ' cs=%d' % self.cs
+        options += ' enabled=0'
+        cmd = 'component %s spi setup %s' % (self.testbench, options)
+        self.proxy._send_cmd(cmd)
+
+    def send(self, values: bytes):
+        """Send data to the spi.
+
+        This enqueues an array of bytes to be transmitted. If previous transfers are not finished,
+        these bytes will be transfered after.
+
+        :param values: bytes, The sequence of bytes to be sent, in little endian byte ordering.
+
+        :raises: RuntimeError, if the access generates an error in the architecture.
+        """
+        if (self.is_master == 1):
+            # itf_id itf_cs_id number_of_byte_intransfer frequency is_full_duplex is_rx
+            cmd = 'component %s spi master_cmd %d %d %d %d 0 0' % (self.testbench, self.id, self.cs, len(values), self.frequency)
+        else:
+            cmd = 'component %s spi tx %d %d %d' % (self.testbench, self.id, self.cs, len(values))
+
+        # Since we need to send a command and right after the data,
+        # we have to keep the command queue locked to avoid mixing our data
+        # with another command
+        req = self.proxy._send_cmd(cmd, keep_lock=True, wait_reply=False)
+        self.proxy.socket.send(values)
+        self.proxy._unlock_cmd()
+
+        self.proxy.reader.wait_reply(req)
+        
+    def receive(self, size):
+        """Launch a receive command on SPI.
+
+        Enqueue the comand to ask a reception on spi. As soon as all the previous
+        commands are finished this one is executed.
+
+        :param byte_to_send: bytearray, the bytes that must be sent to spi.
+        :param size : the number of byte we want to receie. Must be equal to the length of byte_to_send
+
+        :raises: RuntimeError, If the access generates an error in the architecture.
+        """
+        self.rx_enable()
+        if (self.is_master == 1):
+            # itf_id itf_cs_id number_of_byte_intransfer frequency is_full_duplex is_rx
+            cmd = 'component %s spi master_cmd %d %d %d %d 0 1' % (self.testbench, self.id, self.cs, size, self.frequency)
+        else:
+            cmd = 'component %s spi rx %d %d %d' % (self.testbench, self.id, self.cs, size)
+        self.proxy._send_cmd(cmd)
+
+    def full_duplex(self, byte_to_send, size):
+        """Launch a full duplex transfer on SPI.
+
+        Enqueue the comand to ask a full duplex transfer on spi. As soon as all the previous
+        commands are finished this one is executed.
+
+        :param byte_to_send: bytearray, the bytes that must be sent to spi.
+        :param size : the number of byte we want to receie. Must be equal to the length of byte_to_send
+
+        :raises: RuntimeError, If the access generates an error in the architecture.
+        """
+        if(len(byte_to_send) != size):
+            return -1
+        self.rx_enable()
+        if (self.is_master == 1):
+            # itf_id itf_cs_id number_of_byte_intransfer frequency is_full_duplex is_rx
+            cmd = 'component %s spi master_cmd %d %d %d %d 1 0' % (self.testbench, self.id, self.cs, len(byte_to_send), self.frequency)
+        else:
+            cmd = 'component %s spi full_duplex %d %d %d' % (self.testbench, self.id, self.cs, len(byte_to_send))
+        req = self.proxy._send_cmd(cmd, keep_lock=True, wait_reply=False)
+        self.proxy.socket.send(byte_to_send)
+        self.proxy._unlock_cmd()
+
+        self.proxy.reader.wait_reply(req)
+
+    def get_received_bytes(self, size=None):
+        """Read data from the spi.
+
+        Once reception on the spi is enabled, the received bytes are pushed to a fifo. This method
+        can be called to pop received bytes from the FIFO.
+        Function blocking until the required number of bytes has been received.
+
+        :param size: int, The number of bytes to be read. If it is None, it returns the bytes which has already been received.
+
+        :return: bytes, The sequence of bytes received, in little endian byte ordering.
+
+        :raises: RuntimeError, If the access generates an error in the architecture.
+        """
+        self.lock.acquire()
+
+        if size is not None:
+            while len(self.pending_rx_bytes) < size and self.rx_enabled:
+                self.condition.wait()
+
+            if not self.rx_enabled:
+                self.lock.release()
+                return None
+        else:
+            size = len(self.pending_rx_bytes)
+
+        reply = self.pending_rx_bytes[0:size]
+        self.pending_rx_bytes = self.pending_rx_bytes[size:]
+
+        self.lock.release()
+
+        return reply
+
+
+    def rx_enable(self):
+        """Enable receiving bytes from the spi.
+
+        Any byte received from the spi either triggers the callback execution if it has been registered,
+        or is pushed to a FIFO which can read.
+
+        :raises: RuntimeError, if the access generates an error in the architecture.
+        """
+        if(self.rx_enabled == False):
+            self.req = self.proxy._get_req()
+            self.proxy.reader.register_callback(self.req, self.__handle_rx)
+            cmd = 'component %s spi rx_enable %d %d 1 %d' % (self.testbench, self.id, self.cs, self.req)
+            self.proxy._send_cmd(cmd)
+
+            self.rx_enabled = True
+
+
+    def rx_disable(self):
+        """Disable receiving bytes from the spi.
+
+        :raises: RuntimeError, if the access generates an error in the architecture.
+        """
+        self.proxy.reader.unregister_callback(self.req)
+        cmd = 'component %s spi rx_enable %d %d 0' % (self.testbench, self.id, self.cs)
+        self.proxy._send_cmd(cmd)
+
+        self.lock.acquire()
+        self.rx_enabled = False
+        self.condition.notify_all()
+        self.lock.release()
+
+
+    def __handle_rx(self):
+        self.lock.acquire()
+        reply = self.proxy.socket.recv(1)
+        if self.callback is not None:
+            self.callback[0](1, reply, *self.callback[1], **self.callback[2])
+        else:
+            self.pending_rx_bytes += reply
+            self.condition.notify()
+        self.lock.release()
+
+
+    # def flush(self):
+    #     req = self.proxy._get_req()
+    #     cmd = 'component %s uart flush %d %d' % (self.testbench, self.id, req)
+    #     self.proxy._send_cmd(cmd)
+    #     self.proxy.reader.wait_reply(req)
+
+    # def clear(self):
+    #     req = self.proxy._get_req()
+    #     cmd = 'component %s uart clear %d %d' % (self.testbench, self.id, req)
+    #     self.proxy._send_cmd(cmd)
+    #     self.proxy.reader.wait_reply(req)
+
+    #     self.lock.acquire()
+    #     self.pending_rx_bytes = bytearray()
+    #     self.lock.release()
+
+

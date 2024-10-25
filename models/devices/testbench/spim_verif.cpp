@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include "vp/proxy.hpp"
 #include "spim_verif.hpp"
 
 
@@ -65,6 +66,10 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testben
     this->top = top;
     this->spi = spi;
     this->is_master = config->is_master;
+    if(config->gvcontrol)
+    this->state = STATE_IDLE;
+
+    this->proxy_file = nullptr;
 
     std::string name = "spim_verif_itf" + std::to_string(itf_id) + "_cs" + std::to_string(cs);
 
@@ -197,6 +202,12 @@ void Spim_verif::exec_read()
         if (state == STATE_READ_CMD)
         {
             wait_cs = true;
+            if(config.gvcontrol)
+            {
+            this->state = STATE_IDLE;
+            handle_next_cmd();
+            }
+            else
             state = STATE_GET_CMD;
         }
     }
@@ -226,7 +237,10 @@ void Spim_verif::exec_write(int sdio0, int sdio1, int sdio2, int sdio3)
         else
         {
             data[current_write_addr] = pending_write;
-
+            if (this->proxy_file)
+            {
+                this->top->proxy->send_payload(this->proxy_file, std::to_string(this->req), (uint8_t*) (&pending_write), 1);
+            }
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Wrote byte to memory (addr: 0x%x, value: 0x%x, rem_size: 0x%x)\n", current_write_addr, data[current_write_addr], current_write_size-1);
         }
 
@@ -243,7 +257,14 @@ void Spim_verif::exec_write(int sdio0, int sdio1, int sdio2, int sdio3)
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Wrote byte to memory (value: 0x%x)\n", data[current_write_addr]);
         }
         wait_cs = true;
-        state = STATE_GET_CMD;
+
+        if (config.gvcontrol)
+        {
+            this->state = STATE_IDLE;
+            handle_next_cmd();
+        }
+        else
+            state = STATE_GET_CMD;
     }
 }
 
@@ -550,6 +571,10 @@ int64_t Spim_verif::exec()
                 {
                     this->trace.msg(vp::Trace::LEVEL_DEBUG, "Writing to memory (address: 0x%lx, data: 0x%lx)\n", this->slave_pending_rx_addr, this->slave_pending_rx_byte & 0xff);
                     this->data[this->slave_pending_rx_addr] = this->slave_pending_rx_byte;
+                    if (this->proxy_file)
+                    {
+                        this->top->proxy->send_payload(this->proxy_file, std::to_string(this->req), (uint8_t*) (&this->slave_pending_rx_byte), 1);
+                    }
                     this->slave_pending_rx_size--;
                     this->slave_pending_rx_addr++;
                     this->slave_pending_rx_bits = 0;
@@ -593,6 +618,7 @@ int64_t Spim_verif::exec()
         else
         {
             this->is_enqueued = false;
+            this->handle_next_master_cmd();
             return -1;
         }
     }
@@ -1112,4 +1138,79 @@ void Spim_verif::spi_load(js::Config *config)
     this->do_spi_load = true;
     this->spi_load_is_full_duplex = full_duplex;
     this->start_spi_load();
+}
+
+void Spim_verif::enqueue_cmd(uint64_t cmd)
+{
+    this->cmd_queue.push(cmd);
+    this->handle_next_cmd();
+}
+
+void Spim_verif::enqueue_master_cmd(pi_testbench_req_spim_verif_transfer_t* cmd)
+{
+    this->master_cmd_queue.push(cmd);
+    this->handle_next_master_cmd();
+}
+
+void Spim_verif::enqueue_buffer(uint8_t* buff)
+{
+    this->data_queue.push(buff);
+}
+
+void Spim_verif::handle_next_cmd()
+{
+    if(this->state == STATE_IDLE && !this->cmd_queue.empty())
+    {
+        uint64_t next_cmd = this->cmd_queue.front();
+        this->cmd_queue.pop();
+        int cmd_type = SPIM_VERIF_FIELD_GET(next_cmd, SPIM_VERIF_CMD_BIT, SPIM_VERIF_CMD_WIDTH);
+        int size = SPIM_VERIF_FIELD_GET(next_cmd, SPIM_VERIF_CMD_INFO_BIT, SPIM_VERIF_CMD_INFO_WIDTH);
+        if(cmd_type == SPIM_VERIF_CMD_READ || cmd_type == SPIM_VERIF_CMD_FULL_DUPLEX)
+        {
+            uint8_t* next_buffer = this->data_queue.front();
+            this->data_queue.pop();
+            if(next_buffer)
+            {
+                printf("coucou\n");
+                delete[] data;
+                this->mem_size = size/8;
+                data = next_buffer;
+            }
+        }
+        else if (cmd_type == SPIM_VERIF_CMD_WRITE)
+        {
+            if(mem_size <= size)
+            {
+                // delete[] data;
+                // this->mem_size = size;
+                // data = new unsigned char[size];
+            }
+        }
+
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Handling next command (type %d, size %d)\n", cmd_type, size);
+        handle_command(next_cmd);
+
+    }
+}
+
+void Spim_verif::handle_next_master_cmd()
+{
+    if(this->slave_state == SPIS_STATE_IDLE && !this->master_cmd_queue.empty() && this->is_enqueued == false)
+    {
+        pi_testbench_req_spim_verif_transfer_t* next_cmd = this->master_cmd_queue.front();
+        this->master_cmd_queue.pop();
+        if(!next_cmd->is_rx || next_cmd->is_duplex)
+        {
+            uint8_t* next_buffer = this->data_queue.front();
+            this->data_queue.pop();
+            if(next_buffer)
+            {
+                delete[] data;
+                this->mem_size = next_cmd->size /8;
+                data = next_buffer;
+            }
+        }
+        this->transfer(next_cmd);
+        delete next_cmd;
+    }
 }

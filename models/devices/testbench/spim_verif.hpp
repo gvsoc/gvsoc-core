@@ -37,8 +37,17 @@
 
 #define SPIM_VERIF_FIELD_GET(value, bit, width) (((value) >> (bit)) & ((1ULL << (width)) - 1))
 
+// Macro pour mettre à jour un champ
+#define SPIM_VERIF_BUILD_CMD(cmd, value, bit, width) \
+    do { \
+        uint64_t mask = ((1ULL << (width)) - 1) << (bit); \
+        cmd &= ~mask; \
+        cmd |= ((value) & ((1ULL << (width)) - 1)) << (bit); \
+    } while (0)
+
 typedef enum
 {
+    STATE_IDLE,
     STATE_GET_CMD,
     STATE_WRITE_CMD,
     STATE_FULL_DUPLEX_CMD,
@@ -119,7 +128,12 @@ public:
     void spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config);
     int64_t exec();
     void enqueue_spi_load(js::Config *config);
+    void enqueue_cmd(uint64_t cmd);
+    void enqueue_buffer(uint8_t* buff);
+    void enqueue_master_cmd(pi_testbench_req_spim_verif_transfer_t* cmd);
 
+    FILE *proxy_file;
+    int req;
 
 protected:
     void handle_clk_high(int sdio0, int sdio1, int sdio2, int sdio3, int mask);
@@ -129,6 +143,12 @@ private:
     void handle_read(uint64_t cmd, bool is_quad);
     void handle_write(uint64_t cmd, bool is_quad);
     void handle_full_duplex(uint64_t cmd);
+
+    std::queue<uint64_t> cmd_queue;
+    std::queue<pi_testbench_req_spim_verif_transfer_t*> master_cmd_queue;
+    std::queue<uint8_t*> data_queue;
+    void handle_next_cmd();
+    void handle_next_master_cmd();
 
     void exec_write(int sdio0, int sdio1, int sdio2, int sdio3);
     void exec_read();

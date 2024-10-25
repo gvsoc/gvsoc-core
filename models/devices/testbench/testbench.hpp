@@ -123,6 +123,7 @@ typedef struct {
     uint8_t phase;
     uint16_t mem_size_log2;
     uint8_t dummy_cycles;
+    uint8_t gvcontrol;
 } pi_testbench_req_spim_verif_setup_t;
 
 

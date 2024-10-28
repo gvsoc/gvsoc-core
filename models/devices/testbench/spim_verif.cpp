@@ -540,7 +540,7 @@ int64_t Spim_verif::exec()
 
             case SPIS_STATE_END_WAIT_CYCLES:
                 this->trace.msg(vp::Trace::LEVEL_TRACE, "SPI master end wait cycles (cycles: %d)\n", this->slave_wait_cycles);
-                clock_toggle = true;
+                // clock_toggle = true;
                 if (this->slave_wait_cycles == 0)
                 {
                     this->slave_state = SPIS_STATE_IDLE;
@@ -1171,7 +1171,6 @@ void Spim_verif::handle_next_cmd()
             this->data_queue.pop();
             if(next_buffer)
             {
-                printf("coucou\n");
                 delete[] data;
                 this->mem_size = size/8;
                 data = next_buffer;

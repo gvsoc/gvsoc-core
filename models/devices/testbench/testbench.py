@@ -16,6 +16,7 @@
 
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
+import gapylib.chips.gap.rtl_testbench as testbench
 
 
 class Testbench(st.Component):
@@ -35,7 +36,8 @@ class Testbench(st.Component):
 
     """
 
-    def __init__(self, parent, name, uart=[], i2s=[], nb_gpio=0, spislave_dummy_cycles=0, spislave_full_duplex=True):
+    def __init__(self, parent, name, uart=[], i2s=[], nb_gpio=0, spislave_dummy_cycles=0,
+                 spislave_full_duplex=True):
         super(Testbench, self).__init__(parent, name)
 
         # Testbench implementation as this component is just a wrapper
@@ -79,15 +81,22 @@ class Testbench(st.Component):
 
     class Testbench_implem(st.Component):
 
-        def __init__(self, parent, name, uart_id=0, uart_baudrate=115200, nb_gpio=0, spislave_dummy_cycles=0, spislave_full_duplex=True):
+        def __init__(self, parent, name, uart_id=0, uart_baudrate=115200, nb_gpio=0,
+                     spislave_dummy_cycles=0, spislave_full_duplex=True):
             super(Testbench.Testbench_implem, self).__init__(parent, name)
 
             # Register all parameters as properties so that they can be overwritten from the command-line
             self.add_property('uart_id', uart_id)
             self.add_property('uart_baudrate', 115200)
+            spislave_binary = self.add_property('spislave_boot/binary', None)
 
             self.set_component('devices.testbench.testbench')
             
+            stim_file = None
+            if spislave_binary is not None:
+                stim_file = self.get_target().get_abspath('spislave.slm')
+                testbench.gen_jtag_stimuli(spislave_binary, stim_file)
+
             self.add_properties({
                 "verbose": False,
                 "ctrl_type": "uart",
@@ -104,7 +113,7 @@ class Testbench(st.Component):
                     "delay_ps": "1000000000",
                     "itf": 4,
                     "frequency": 50000000,
-                    "stim_file": None,
+                    "stim_file": stim_file,
                     "dummy_cycles": spislave_dummy_cycles,
                     "full_duplex": spislave_full_duplex
                 }

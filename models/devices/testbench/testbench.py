@@ -17,6 +17,7 @@
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
 import gapylib.chips.gap.rtl_testbench as testbench
+from elftools.elf.elffile import ELFFile
 
 
 class Testbench(st.Component):
@@ -92,10 +93,13 @@ class Testbench(st.Component):
 
             self.set_component('devices.testbench.testbench')
             
+            entry = None
             stim_file = None
             if spislave_binary is not None:
                 stim_file = self.get_target().get_abspath('spislave.slm')
                 testbench.gen_jtag_stimuli(spislave_binary, stim_file)
+                with open(spislave_binary, 'rb') as file:
+                    entry = ELFFile(file)['e_entry']
 
             self.add_properties({
                 "verbose": False,
@@ -110,6 +114,7 @@ class Testbench(st.Component):
 
                 "spislave_boot": {
                     "enabled": False,
+                    "entry": entry,
                     "delay_ps": "1000000000",
                     "itf": 4,
                     "frequency": 50000000,

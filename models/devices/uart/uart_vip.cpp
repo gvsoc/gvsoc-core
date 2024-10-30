@@ -23,31 +23,14 @@
 #include <vp/vp.hpp>
 #include <vp/itf/uart.hpp>
 #include <vp/proxy.hpp>
-
-typedef enum
-{
-    UART_RX_STATE_WAIT_START,
-    UART_RX_STATE_DATA,
-    UART_RX_STATE_PARITY,
-    UART_RX_STATE_WAIT_STOP
-} uart_rx_state_e;
-
-typedef enum
-{
-    UART_TX_STATE_IDLE,
-    UART_TX_STATE_START,
-    UART_TX_STATE_DATA,
-    UART_TX_STATE_PARITY,
-    UART_TX_STATE_STOP
-} uart_tx_state_e;
-
+#include "devices/utils/uart_adapter.hpp"
 
 class UartVip : public vp::Component
 {
 public:
+
     UartVip(vp::ComponentConf &conf);
 
-    void reset(bool active) override;
     std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file,
         std::vector<std::string> args, std::string req) override;
 
@@ -56,60 +39,38 @@ private:
     void tx_edge(int64_t timestamp, int tx);
     void rx_edge(int64_t timestamp, int rx);
 
-    void sample_rx_bit();
-
-    void rx_start_sampling(int baudrate);
     void stop_sample_rx_bit();
 
     void tx_start_sampling(int baudrate);
     void stop_sample_tx_bit();
-    void send_byte(uint8_t byte);
-
-    static void sync(vp::Block *__this, int data);
 
     static void clear_event_handler(vp::Block *__this, vp::TimeEvent *event);
-    static void rx_sample_handler(vp::Block *__this, vp::TimeEvent *event);
-    static void tx_send_handler(vp::Block *__this, vp::TimeEvent *event);
-    static void tx_init_handler(vp::Block *__this, vp::TimeEvent *event);
+    static void rx_event_handler(vp::Block *__this, vp::TimeEvent *event);
+    static void tx_empty_event_handler(vp::Block *__this, vp::TimeEvent *event);
 
     void pending_flush_check();
     void pending_clear_check();
 
     vp::Trace trace;
 
-    vp::UartSlave in;
-
     uint64_t baudrate;
     uint64_t period;
-    bool loopback;
-    FILE *rx_file = NULL;
-    bool stdout;
     int data_bits;
     int stop_bits;
     bool parity;
     bool ctrl_flow;
+
+    UartAdapterBuffered adapter;
+
+    FILE *rx_file = NULL;
+    bool stdout;
     int64_t last_symbol_timestamp;
 
     gv::GvProxy *proxy;
 
-    vp::TimeEvent sample_rx_bit_event;
-    uart_rx_state_e rx_state;
-    int rx_current_bit;
-    int rx_pending_bits;
-    uint8_t rx_pending_byte;
-    int rx_parity;
     FILE *rx_proxy_file=NULL;
     FILE *pending_flush_proxy_file=NULL;
     int rx_req_id;
-
-    vp::TimeEvent tx_send_bit_event;
-    vp::TimeEvent tx_init_event;
-    std::queue<uint8_t> tx_queue;
-    uart_tx_state_e tx_state;
-    int tx_parity;
-    int tx_pending_bits;
-    uint8_t tx_pending_byte;
-    int tx_bit;
 
     int pending_flush_req_id = -1;
 
@@ -117,31 +78,42 @@ private:
     int pending_clear_req_id = -1;
     int64_t pending_clear_period;
     vp::TimeEvent clear_event;
+    vp::TimeEvent rx_event;
+    vp::TimeEvent tx_empty_event;
+
+    uint64_t received_bytes;
+    int64_t rx_timestamp=-1;
 };
 
 
 
 UartVip::UartVip(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config), adapter(this, this, "adapter", "input"),
     clear_event(this, &UartVip::clear_event_handler),
-    sample_rx_bit_event(this, &UartVip::rx_sample_handler),
-    tx_send_bit_event(this, &UartVip::tx_send_handler),
-    tx_init_event(this, &UartVip::tx_init_handler)
+    rx_event(this, &UartVip::rx_event_handler),
+    tx_empty_event(this, &UartVip::tx_empty_event_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    this->in.set_sync_meth(&UartVip::sync);
-    this->new_slave_port("input", &this->in);
+    int baudrate = this->get_js_config()->get("baudrate")->get_int();
 
-    this->baudrate = this->get_js_config()->get("baudrate")->get_int();
-    this->period = 1000000000000UL / this->baudrate;
+    int data_bits = this->get_js_config()->get("data_bits")->get_int();
+    int stop_bits = this->get_js_config()->get("stop_bits")->get_int();
+    bool parity = this->get_js_config()->get("parity")->get_bool();
+    bool ctrl_flow = this->get_js_config()->get("ctrl_flow")->get_bool();
+    int ctrl_flow_limiter = this->get_js_config()->get("ctrl_flow_limiter")->get_int();
 
-    this->data_bits = this->get_js_config()->get("data_bits")->get_int();
-    this->stop_bits = this->get_js_config()->get("stop_bits")->get_int();
-    this->parity = this->get_js_config()->get("parity")->get_bool();
-    this->ctrl_flow = this->get_js_config()->get("ctrl_flow")->get_bool();
+    this->adapter.baudrate_set(baudrate);
+    this->adapter.data_bits_set(data_bits);
+    this->adapter.stop_bits_set(stop_bits);
+    this->adapter.parity_set(parity);
+    this->adapter.ctrl_flow_set(ctrl_flow);
+    this->adapter.rx_fifo_size_set(ctrl_flow ? 1 : INT_MAX);
+    this->adapter.rx_ready_event_set(&this->rx_event);
+    this->adapter.tx_empty_event_set(&this->tx_empty_event);
+    this->adapter.rx_flow_limiter_set(ctrl_flow_limiter);
 
-    this->loopback = this->get_js_config()->get("loopback")->get_bool();
+    this->adapter.loopback_set(this->get_js_config()->get("loopback")->get_bool());
     this->stdout = this->get_js_config()->get("stdout")->get_bool();
 
     std::string rx_filename = this->get_js_config()->get("rx_file")->get_str();
@@ -153,20 +125,9 @@ UartVip::UartVip(vp::ComponentConf &config)
             this->trace.fatal("Unable to open TX log file: %s", strerror(errno));
         }
     }
+
+    this->adapter.tx_flow_ctrl_threshold_set(4);
 }
-
-
-
-void UartVip::reset(bool active)
-{
-    if (active)
-    {
-        this->rx_state = UART_RX_STATE_WAIT_START;
-        this->tx_state = UART_TX_STATE_IDLE;
-    }
-}
-
-
 
 std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file,
     std::vector<std::string> args, std::string req)
@@ -234,7 +195,11 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
 
             if (enabled)
             {
-                this->tx_init_event.enqueue(this->period);
+                this->adapter.baudrate_set(this->baudrate);
+                this->adapter.data_bits_set(this->data_bits);
+                this->adapter.stop_bits_set(this->stop_bits);
+                this->adapter.parity_set(this->parity);
+                this->adapter.ctrl_flow_set(this->ctrl_flow);
             }
         }
         else if (args[1] == "tx")
@@ -245,7 +210,7 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
             {
                 uint8_t byte;
                 int read_size = fread(&byte, 1, 1, req_file);
-                this->send_byte(byte);
+                this->adapter.tx_send_byte(byte);
             }
         }
         else if (args[1] == "rx")
@@ -297,7 +262,7 @@ std::string UartVip::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
 
 void UartVip::pending_flush_check()
 {
-    if (this->pending_flush_req_id != -1 && this->tx_queue.empty())
+    if (this->pending_flush_req_id != -1 && this->adapter.tx_empty())
     {
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Flush done\n");
         this->proxy->send_payload(this->pending_flush_proxy_file, std::to_string(this->pending_flush_req_id),
@@ -329,240 +294,39 @@ void UartVip::clear_event_handler(vp::Block *__this, vp::TimeEvent *event)
     _this->pending_clear_check();
 }
 
-void UartVip::sync(vp::Block *__this, int data)
+void UartVip::rx_event_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     UartVip *_this = (UartVip *)__this;
 
-    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sync (value: %d, loopback: %d)\n", data, _this->loopback);
-
-    if (_this->loopback)
+    while (_this->adapter.rx_ready())
     {
-        _this->in.sync_full(data, 2, _this->ctrl_flow ? 0 : 2, 0x0);
+        uint8_t byte = _this->adapter.rx_pop();
+
+        if (_this->stdout)
+        {
+            std::cout << byte;
+        }
+
+        if (_this->rx_file != NULL)
+        {
+            fwrite((void *)&byte, 1, 1, _this->rx_file);
+        }
+
+        if (_this->rx_proxy_file)
+        {
+            _this->proxy->send_payload(_this->rx_proxy_file, std::to_string(_this->rx_req_id),
+                &byte, 1);
+        }
     }
 
-    _this->rx_current_bit = data;
-
-    if (_this->rx_state == UART_RX_STATE_WAIT_START && data == 0)
-    {
-        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received start bit\n");
-
-        _this->rx_start_sampling(_this->baudrate);
-    }
+    _this->last_symbol_timestamp = _this->time.get_time();
 }
 
-
-
-void UartVip::rx_start_sampling(int baudrate)
-{
-    this->rx_state = UART_RX_STATE_DATA;
-    this->rx_pending_bits = this->data_bits;
-    this->rx_parity = 0;
-
-    // Wait 1 period and a half to start sampling in the middle of the next bit
-
-    this->sample_rx_bit_event.enqueue(3*this->period/2);
-}
-
-
-
-void UartVip::rx_sample_handler(vp::Block *__this, vp::TimeEvent *event)
+void UartVip::tx_empty_event_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     UartVip *_this = (UartVip *)__this;
-
-    _this->sample_rx_bit();
-
-    if (_this->rx_state != UART_RX_STATE_WAIT_START)
-    {
-        _this->sample_rx_bit_event.enqueue(_this->period);
-    }
+    _this->pending_flush_check();
 }
-
-
-
-void UartVip::sample_rx_bit()
-{
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampling bit (value: %d)\n", rx_current_bit);
-
-    switch (this->rx_state)
-    {
-        case UART_RX_STATE_DATA:
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data bit (data: %d)\n", rx_current_bit);
-
-            this->rx_pending_byte = (this->rx_pending_byte >> 1)
-                | (this->rx_current_bit << (this->data_bits - 1));
-
-            this->rx_parity ^= this->rx_current_bit;
-
-            this->rx_pending_bits--;
-            if (this->rx_pending_bits == 0)
-            {
-                this->trace.msg(vp::Trace::LEVEL_TRACE, "Sampled RX byte (value: 0x%x)\n", this->rx_pending_byte);
-                if (this->stdout)
-                {
-                    std::cout << this->rx_pending_byte;
-                }
-
-                if (this->rx_file != NULL)
-                {
-                    fwrite((void *)&this->rx_pending_byte, 1, 1, rx_file);
-                }
-
-                if (this->rx_proxy_file)
-                {
-                    this->proxy->send_payload(this->rx_proxy_file, std::to_string(this->rx_req_id),
-                        &this->rx_pending_byte, 1);
-                }
-
-                if (this->parity)
-                {
-                    this->rx_state = UART_RX_STATE_PARITY;
-                }
-                else
-                {
-                    this->rx_state = UART_RX_STATE_WAIT_STOP;
-                    this->rx_pending_bits = this->stop_bits;
-                }
-            }
-            break;
-
-        case UART_RX_STATE_PARITY:
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Checking parity (got: %d, expected: %d)\n",
-                this->rx_parity, this->rx_current_bit);
-            if (this->rx_current_bit != this->rx_parity)
-            {
-                this->trace.msg(vp::Trace::LEVEL_DEBUG, "Invalid parity\n");
-            }
-
-            this->rx_state = UART_RX_STATE_WAIT_STOP;
-            this->rx_pending_bits = this->stop_bits;
-        break;
-
-        case UART_RX_STATE_WAIT_STOP:
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for stop bit\n");
-            if (this->rx_current_bit == 1)
-            {
-                this->rx_pending_bits--;
-                if (this->rx_pending_bits == 0)
-                {
-                    this->last_symbol_timestamp = this->time.get_time();
-                    this->rx_state = UART_RX_STATE_WAIT_START;
-                }
-            }
-        break;
-
-        default:
-        break;
-    }
-}
-
-void UartVip::send_byte(uint8_t byte)
-{
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Pushing TX byte to queue (value: 0x%x)\n", byte);
-    this->tx_queue.push(byte);
-
-    if (this->tx_state == UART_TX_STATE_IDLE)
-    {
-        this->tx_state = UART_TX_STATE_START;
-        this->tx_send_bit_event.enqueue(this->period);
-    }
-}
-
-void UartVip::tx_init_handler(vp::Block *__this, vp::TimeEvent *event)
-{
-    UartVip *_this = (UartVip *)__this;
-    _this->in.sync_full(1, 2, _this->ctrl_flow ? 0 : 2, 0xf);
-}
-
-void UartVip::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)
-{
-    UartVip *_this = (UartVip *)__this;
-    int tx_bit;
-
-    switch (_this->tx_state)
-    {
-        case UART_TX_STATE_START:
-        {
-            _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending start bit\n");
-            _this->tx_parity = 0;
-            _this->tx_state = UART_TX_STATE_DATA;
-            _this->tx_pending_bits = _this->data_bits;
-            _this->tx_pending_byte = _this->tx_queue.front();
-            _this->tx_queue.pop();
-            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popped TX byte (value: 0x%x)\n", _this->tx_pending_byte);
-            tx_bit = 0;
-            break;
-        }
-
-        case UART_TX_STATE_DATA:
-        {
-            if (_this->tx_pending_bits > 0)
-            {
-                tx_bit = _this->tx_pending_byte & 1;
-                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending data bit (bit: %d)\n", tx_bit);
-                _this->tx_pending_byte >>= 1;
-                _this->tx_pending_bits -= 1;
-                _this->tx_parity ^= tx_bit;
-
-                if (_this->tx_pending_bits == 0)
-                {
-                    if (_this->parity)
-                    {
-                        _this->tx_state = UART_TX_STATE_PARITY;
-                    }
-                    else
-                    {
-                        _this->tx_state = UART_TX_STATE_STOP;
-                        _this->tx_pending_bits = _this->stop_bits;
-                    }
-                }
-            }
-            break;
-        }
-
-        case UART_TX_STATE_PARITY:
-        {
-            tx_bit = _this->tx_parity;
-            _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending parity bit (bit: %d)\n", tx_bit);
-            _this->tx_state = UART_TX_STATE_STOP;
-            _this->tx_pending_bits = _this->stop_bits;
-            break;
-        }
-
-        case UART_TX_STATE_STOP:
-        {
-            tx_bit = 1;
-            _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending stop bit\n");
-            _this->tx_pending_bits--;
-            if (_this->tx_pending_bits == 0)
-            {
-                if (_this->tx_queue.empty())
-                {
-                    _this->tx_state = UART_TX_STATE_IDLE;
-                    _this->pending_flush_check();
-                }
-                else
-                {
-                    _this->tx_state = UART_TX_STATE_START;
-                }
-            }
-            break;
-        }
-
-        default:
-            break;
-    }
-
-    _this->tx_bit = tx_bit;
-    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", tx_bit);
-    _this->in.sync_full(_this->tx_bit, 2, _this->ctrl_flow ? 0 : 2, 0xf);
-
-    if (_this->tx_state != UART_TX_STATE_IDLE)
-    {
-        _this->tx_send_bit_event.enqueue(_this->period);
-    }
-}
-
-
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {

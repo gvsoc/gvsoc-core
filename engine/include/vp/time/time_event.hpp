@@ -138,6 +138,8 @@ namespace vp
          */
         void cancel();
 
+        void exec();
+
     private:
         // Can be called to set the event as enqueued or not
         inline void set_enqueued(bool enqueued) { this->enqueued = enqueued; }

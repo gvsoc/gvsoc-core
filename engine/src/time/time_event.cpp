@@ -24,6 +24,8 @@
 #include <vp/time/block_time.hpp>
 #include <vp/time/time_event.hpp>
 
+#include <unistd.h>
+
 vp::TimeEvent::TimeEvent(vp::Block *top)
     : top(top)
 {
@@ -44,6 +46,11 @@ vp::TimeEvent::~TimeEvent()
 void vp::TimeEvent::enqueue(int64_t time)
 {
     this->top->time.enqueue(this, time);
+}
+
+void vp::TimeEvent::exec()
+{
+    this->meth(this->top, this);
 }
 
 void vp::TimeEvent::cancel()

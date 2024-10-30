@@ -16,6 +16,7 @@
 
 import gvsoc.systree as st
 import gapylib.target
+import devices.utils.uart_adapter
 
 
 class UartVip(st.Component):
@@ -24,6 +25,8 @@ class UartVip(st.Component):
             stdout: bool=False, rx_file: str=None, data_bits: int=None, stop_bits: int=None,
             parity: bool=None, ctrl_flow: bool=None):
         super(UartVip, self).__init__(parent, name)
+
+        devices.utils.uart_adapter.UartAdapter(self)
 
         self.add_sources(['devices/uart/uart_vip.cpp'])
 
@@ -57,6 +60,11 @@ class UartVip(st.Component):
                 description='Enables control flow'
             )
 
+        ctrl_flow_limiter = self.declare_user_property(
+            name='ctrl_flow_limiter', value=0, cast=int,
+            description='Enables control flow limiter'
+        )
+
         self.add_property('baudrate', baudrate)
         self.add_property('loopback', loopback)
         self.add_property('stdout', stdout)
@@ -65,3 +73,4 @@ class UartVip(st.Component):
         self.add_property('stop_bits', stop_bits)
         self.add_property('parity', parity)
         self.add_property('ctrl_flow', ctrl_flow)
+        self.add_property('ctrl_flow_limiter', ctrl_flow_limiter)

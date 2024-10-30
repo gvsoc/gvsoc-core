@@ -134,7 +134,11 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
             if (!this->is_async || this->has_exited)
             {
                 engine->lock();
-                launcher->release();
+                if (this->is_retained)
+                {
+                    this->is_retained = false;
+                    launcher->release();
+                }
                 engine->critical_notify();
                 engine->unlock();
             }
@@ -186,7 +190,11 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
             {
                 if (!this->is_async)
                 {
-                    launcher->release();
+                    if (this->is_retained)
+                    {
+                        this->is_retained = false;
+                        launcher->release();
+                    }
                     engine->critical_notify();
                 }
                 std::unique_lock<std::mutex> lock(this->mutex);
@@ -197,7 +205,11 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
             {
                 if (!this->is_async)
                 {
-                    launcher->retain();
+                    if (!this->is_retained)
+                    {
+                        this->is_retained = true;
+                        launcher->retain();
+                    }
                 }
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
@@ -352,7 +364,11 @@ gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLaunch
     launcher->register_exec_notifier(this);
     if (!this->is_async)
     {
-        launcher->retain();
+        if (!this->is_retained)
+        {
+            this->is_retained = true;
+            launcher->retain();
+        }
     }
 }
 

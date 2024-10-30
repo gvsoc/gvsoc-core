@@ -235,6 +235,8 @@ class Runner():
         if not cosim_mode:
             parser.add_argument("--gui", dest="gui", default=None, action="store_true",
                 help="Open GVSOC gui")
+            parser.add_argument("--gui2", dest="gui2", default=None, action="store_true",
+                help="Open GVSOC gui")
 
         gapy_target.register_command_handler(self.gv_handle_command)
 
@@ -448,8 +450,8 @@ class Runner():
                 if args.valgrind:
                     stub = ['valgrind'] + stub
 
-                if args.gui:
-                    command = stub + ['gvsoc-gui',
+                if args.gui or args.gui2:
+                    command = stub + ['gvsoc-gui2' if args.gui2 else 'gvsoc-gui',
                         '--gv-config=' + self.gvsoc_config_path,
                         '--gui-config=gvsoc_gui_config.json',
                     ]

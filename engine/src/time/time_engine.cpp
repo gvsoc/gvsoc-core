@@ -197,6 +197,7 @@ int64_t vp::TimeEngine::run_until(int64_t end_time, bool main_controller)
             if (!event->is_enqueued())
             {
                 delete event;
+                this->retain++;
                 return this->get_next_event_time();
             }
         }
@@ -240,6 +241,8 @@ int64_t vp::TimeEngine::run_until(int64_t end_time, bool main_controller)
         }
     }
 
+    this->retain++;
+
     return time;
 }
 
@@ -261,7 +264,7 @@ int64_t vp::TimeEngine::run(bool main_controller)
         // Cancel now the requests that may have stopped us so that anyone can stop us again
         // when locks are handled.
         this->stop_req = false;
-    
+
         // Ensure memory ordering so that we handle locks while stop_req is false
         __sync_synchronize();
 
@@ -440,16 +443,12 @@ void vp::Time_engine_stop_event::event_handler(vp::Block *__this, vp::TimeEvent 
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();
-    _this->top->time.get_engine()->retain_inc(1);
 }
 
 void vp::Time_engine_stop_event::event_handler_nofree(vp::Block *__this, vp::TimeEvent *event)
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();
-
-    // Increase the retain count to stop time progress.
-    _this->top->time.get_engine()->retain_inc(1);
 }
 
 void vp::TimeEngine::retain_inc(int inc)

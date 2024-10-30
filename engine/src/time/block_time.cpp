@@ -105,6 +105,11 @@ void vp::BlockTime::enqueue(TimeEvent *event, int64_t time)
     vp::TimeEvent *current = this->first_event, *prev = NULL;
     int64_t full_time = time + this->get_time();
 
+    if (event->enqueued && full_time >= event->time)
+    {
+        return;
+    }
+
     event->set_enqueued(true);
 
     while (current && current->time < full_time)

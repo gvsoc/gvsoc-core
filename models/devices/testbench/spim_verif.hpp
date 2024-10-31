@@ -195,6 +195,7 @@ private:
     int mem_size;
     bool is_quad;
     bool is_master;
+    bool gvcontrol = false;
 
     Testbench *top;
     Spi *spi;

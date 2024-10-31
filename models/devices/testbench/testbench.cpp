@@ -1809,7 +1809,6 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                     std::string name = x.substr(0, pos);
                     std::string value_str = x.substr(pos + 1);
                     int value = strtol(value_str.c_str(), NULL, 0);
-                    config->gvcontrol = 1;
 
                     if (name == "itf")
                     {
@@ -1849,6 +1848,7 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                     }
                 }
 
+                this->spis[config->cs + config->itf*4]->gvcontrol = true;
                 this->handle_spim_verif_setup();
             }
 

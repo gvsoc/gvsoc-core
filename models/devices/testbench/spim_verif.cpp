@@ -66,8 +66,8 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testben
     this->top = top;
     this->spi = spi;
     this->is_master = config->is_master;
-    if(config->gvcontrol)
-    this->state = STATE_IDLE;
+    if(this->gvcontrol)
+        this->state = STATE_IDLE;
 
     this->proxy_file = nullptr;
 
@@ -202,7 +202,7 @@ void Spim_verif::exec_read()
         if (state == STATE_READ_CMD)
         {
             wait_cs = true;
-            if(config.gvcontrol)
+            if(this->gvcontrol)
             {
             this->state = STATE_IDLE;
             handle_next_cmd();
@@ -258,7 +258,7 @@ void Spim_verif::exec_write(int sdio0, int sdio1, int sdio2, int sdio3)
         }
         wait_cs = true;
 
-        if (config.gvcontrol)
+        if (this->gvcontrol)
         {
             this->state = STATE_IDLE;
             handle_next_cmd();

@@ -47,7 +47,7 @@ typedef struct
 } __attribute__((packed)) spi_boot_req_v2_t;
 
 
-Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config)
+Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config, bool is_from_gvcontrol)
   : vp::Block(top, "spi_" + std::to_string(config->itf))
 {
     this->slave_boot_jump = false;
@@ -66,6 +66,7 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testben
     this->top = top;
     this->spi = spi;
     this->is_master = config->is_master;
+    this->gvcontrol = is_from_gvcontrol;
     if(this->gvcontrol)
         this->state = STATE_IDLE;
 

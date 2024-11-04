@@ -875,7 +875,7 @@ void Spi::create_loader(js::Config *load_config)
     config.mem_size_log2 = 20;
     config.dummy_cycles = load_config->get_child_int("dummy_cycles");
 
-    this->spim_verif = new Spim_verif(this->top, this, &this->itf, &config);
+    this->spim_verif = new Spim_verif(this->top, this, &this->itf, &config, false);
 
     this->spim_verif->enqueue_spi_load(load_config);
 }
@@ -1847,9 +1847,8 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                         return "err=1;msg=invalid option: " + name;
                     }
                 }
-
-                this->spis[config->cs + config->itf*4]->gvcontrol = true;
-                this->handle_spim_verif_setup();
+                Spi* spi = this->spis[4 * config->itf + config->cs];
+                spi->spim_verif = new Spim_verif(spi->top, spi, &spi->itf, config, true);
             }
 
             if (args[1] == "full_duplex")
@@ -2011,7 +2010,7 @@ void Spi::spim_verif_setup(pi_testbench_req_spim_verif_setup_t *config)
 
     if (config->enabled)
     {
-        this->spim_verif = new Spim_verif(this->top, this, &this->itf, config);
+        this->spim_verif = new Spim_verif(this->top, this, &this->itf, config, false);
     }
 }
 

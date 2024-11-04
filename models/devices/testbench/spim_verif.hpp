@@ -121,7 +121,7 @@ class Spi;
 class Spim_verif : public vp::Block
 {
 public:
-    Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config);
+    Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testbench_req_spim_verif_setup_t *config, bool is_from_gvcontrol);
     void cs_sync(int cs);
     void sync(int sck, int sdio0, int sdio1, int sdio2, int sdio3, int mask);
     void transfer(pi_testbench_req_spim_verif_transfer_t *transfer);

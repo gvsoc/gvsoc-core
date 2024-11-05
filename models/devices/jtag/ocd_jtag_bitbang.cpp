@@ -227,7 +227,7 @@ bool Jtag::open_proxy() {
       continue;
     }
 
-    if(bind(proxy_socket_in, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    if(::bind(proxy_socket_in, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
       port++;
       continue;
     }

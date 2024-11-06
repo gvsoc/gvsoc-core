@@ -102,7 +102,9 @@ void gv::GvsocLauncher::open()
         signal(SIGINT, sigint_handler);
 
         this->engine_thread = new std::thread(&gv::GvsocLauncher::engine_routine, this);
+#ifndef __APPLE__
         pthread_setname_np(this->engine_thread->native_handle(), "engine");
+#endif
     }
     else
     {

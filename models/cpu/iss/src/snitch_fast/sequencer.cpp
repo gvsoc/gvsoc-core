@@ -58,6 +58,7 @@ void Sequencer::reset(bool active)
 {
     if (active)
     {
+        this->stall_reg = -1;
     }
 }
 
@@ -69,10 +70,14 @@ void Sequencer::build()
 
 iss_reg_t Sequencer::non_float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Checking non-float instructions register dependencies\n");
+
     for (int i=0; i<insn->nb_in_reg; i++)
     {
         if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
         {
+            iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+            iss->sequencer.stall_reg = insn->in_regs[i];
             iss->exec.insn_stall();
             return pc;
         }
@@ -83,14 +88,7 @@ iss_reg_t Sequencer::non_float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 iss_reg_t Sequencer::sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    for (int i=0; i<insn->nb_out_reg; i++)
-    {
-        int reg = insn->out_regs[i];
-        if (!insn->out_regs_fp[i])
-        {
-            iss->regfile.scoreboard_reg_invalidate(reg);
-        }
-    }
+    iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Pushing instruction to sequencer buffer\n");
 
     iss->sequencer.buffer.push_back(insn);
     iss->sequencer.fsm_event.enqueue();
@@ -101,10 +99,27 @@ iss_reg_t Sequencer::direct_branch_handler(Iss *iss, iss_insn_t *insn, iss_reg_t
 {
     // THis is called for each instruction which should bypass the sequence buffer.
     Sequencer *_this = &iss->sequencer;
+
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with direct branch\n");
+
     if (_this->buffer.size() > 0)
     {
-        iss->exec.insn_stall();
-        return pc;
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Buffer non empty, stalling direct branch instruction\n");
+
+        // Since this instruction is synchronizing with snitch core, we need to invalidate output
+        // registers so that any core instruction using one of these registers is stalled
+        for (int i=0; i<insn->nb_out_reg; i++)
+        {
+            int reg = insn->out_regs[i];
+            if (!insn->out_regs_fp[i])
+            {
+                iss->regfile.scoreboard_reg_invalidate(reg);
+            }
+        }
+
+        _this->direct_branch_queue.push(insn);
+
+        return iss_insn_next(iss, insn, pc);
     }
     else
     {
@@ -132,7 +147,45 @@ iss_reg_t Sequencer::frep_handle(iss_insn_t *insn, iss_reg_t pc, bool is_inner)
 void Sequencer::fsm_handler(vp::Block *block, vp::ClockEvent *event)
 {
     Sequencer *_this = (Sequencer *)block;
-    if (_this->insn_count < _this->buffer.size())
+
+    if (_this->buffer.size() == 0)
+    {
+        if (_this->direct_branch_queue.size() > 0)
+        {
+            iss_insn_t *insn = _this->direct_branch_queue.front();
+            _this->direct_branch_queue.pop();
+
+            for (int i=0; i<insn->nb_out_reg; i++)
+            {
+                _this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);
+            }
+
+            bool force_trace_dump = _this->iss.trace.force_trace_dump;
+            _this->iss.trace.force_trace_dump = true;
+            insn->stub_handler(&_this->iss, insn, 0);
+            _this->iss.trace.force_trace_dump = force_trace_dump;
+
+            if (_this->stall_reg != -1)
+            {
+                for (int i=0; i<insn->nb_out_reg; i++)
+                {
+                    if (_this->stall_reg == insn->out_regs[i])
+                    {
+                        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Unstalling instruction (reg: %d)\n", _this->stall_reg);
+                        _this->stall_reg = -1;
+                        _this->iss.trace.dump_trace_enabled = true;
+                        _this->iss.exec.current_insn = _this->iss.exec.stall_insn;
+                        _this->iss.exec.insn_resume();
+                        _this->iss.exec.stalled_dec();
+                        break;
+                    }
+                }
+            }
+
+            _this->fsm_event.enqueue();
+        }
+    }
+    else if (_this->insn_count < _this->buffer.size())
     {
         iss_insn_t *insn = _this->buffer[_this->insn_count];
 

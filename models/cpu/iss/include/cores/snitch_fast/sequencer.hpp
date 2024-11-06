@@ -57,4 +57,6 @@ private:
     int insn_count;
     int rpt_count;
     std::deque<iss_insn_t *> buffer;
+    std::queue<iss_insn_t *> direct_branch_queue;
+    int stall_reg;
 };

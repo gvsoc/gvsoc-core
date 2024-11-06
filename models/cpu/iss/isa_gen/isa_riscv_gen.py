@@ -610,9 +610,9 @@ class Rv32f(IsaSubset):
             Instr('fcvt.s.w', Format_R2F2,'1101000 00000 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
             Instr('fcvt.s.wu',Format_R2F2,'1101000 00001 ----- --- ----- 1010011', tags=['fconv', 'fp_op']),
 
-            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv', 'fp_op']),
+            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
             Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', tags=['fother', 'fp_op']),
-            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv', 'fp_op']),
+            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
 
             # If RV64F supported
             Instr('fcvt.l.s', Format_R2F1,'1100000 00010 ----- --- ----- 1010011', tags=['fconv', 'fp_op'], isa_tags=['rv64f']),

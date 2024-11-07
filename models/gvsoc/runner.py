@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# 
+#
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
@@ -62,6 +62,7 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
     gvsoc_config.set('events/use-external-dumper', args.gui and not cosim_mode)
     gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)
     gvsoc_config.set('memcheck', args.memcheck)
+    gvsoc_config.set('power', args.power)
 
     for trace in args.traces:
         gvsoc_config.set('traces/include_regex', trace)
@@ -91,7 +92,7 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
         len(gvsoc_config.get('events/include_regex')) != 0 or \
         args.gui and not cosim_mode or \
-        args.memcheck
+        args.memcheck or args.power
 
     gvsoc_config.set("debug-mode", debug_mode)
 
@@ -182,18 +183,18 @@ class Runner():
                     "include_dirs": args.install_dirs,
 
                     "runner_module": "gv.gvsoc",
-                
+
                     "cycles_to_seconds": "int(max(cycles * nb_cores / 5000000, 600))",
-                
+
                     "werror": True,
                     "verbose": True,
                     "debug-mode": False,
-                
+
                     "launchers": {
                         "default": "gvsoc_launcher",
                         "debug": "gvsoc_launcher_debug"
                     },
-                
+
                     "traces": {
                         "level": "debug",
                         "format": "long",
@@ -437,7 +438,7 @@ class Runner():
 
         else:
 
-            
+
             if self.rtl_runner is not None:
                 os.chdir(self.gapy_target.get_working_dir())
                 command = self.rtl_runner.get_command()
@@ -651,6 +652,9 @@ class Target(gapy.Target):
 
             parser.add_argument("--memcheck", dest="memcheck",
                 action="store_true", default=False, help="Enable memory checks")
+
+            parser.add_argument("--power", dest="power",
+                            action="store_true", default=False, help="Enable power modeling")
 
             parser.add_argument("--wunconnected-device", dest="w_unconnected_device",
                 action="store_true", help="Activate warnings when updating padframe with no connected device")

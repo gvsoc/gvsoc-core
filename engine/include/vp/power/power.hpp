@@ -27,13 +27,13 @@
 
 /**
  * @brief Power framework
- * 
+ *
  * Power is modeled through 2 classes, one for declaring sources of power consumptions
  * and another one for collecting consumed power from sources.
  * A note on method visibility: all the public functions are there for the HW models
  * to model HW power consumption while protected methods are there for the classes
  * belonging to the framework, to manage the overall power framework.
- * 
+ *
  */
 
 
@@ -95,7 +95,7 @@ namespace vp
     public:
         /**
          * @brief Account the the current energy quantum
-         * 
+         *
          * This should be used in quantum-based power source to trigger the consumption
          * of a quantum of energy.
          * The accounted quantum is the current one, estimated from the current temperature
@@ -106,7 +106,7 @@ namespace vp
 
         /**
          * @brief Start accounting background power
-         * 
+         *
          * This should be used for a background dynamic power to start accounting the associated power.
          * The power is accounted until the background power is stopped.
          * The accounted power is the current one, estimated from the current temperature
@@ -118,7 +118,7 @@ namespace vp
 
         /**
          * @brief Stop accounting background power
-         * 
+         *
          * This will trigger the accounting of energy for the current windows
          * and stop accounting power until it is started again.
          */
@@ -126,7 +126,7 @@ namespace vp
 
         /**
          * @brief Start accounting leakage
-         * 
+         *
          * This should be used for leakage to start accounting the associated power.
          * The power is accounted until the leakage is stopped.
          * The accounted leakage is the current one, estimated from the current temperature
@@ -138,7 +138,7 @@ namespace vp
 
         /**
          * @brief Stop accounting leakage
-         * 
+         *
          * This will trigger the accounting of energy for the current windows
          * and stop accounting leakage until it is started again.
          */
@@ -154,10 +154,10 @@ namespace vp
          * @param trace Power trace where this source should account power consumed.
          */
         int init(Block *top, std::string name, js::Config *config, PowerTrace *trace);
-        
+
         /**
          * @brief Set temperature, voltage and frequency
-         * 
+         *
          * The power source will adapt its power number according to the given characteristics.
          *
          * @param temp Temperature
@@ -215,7 +215,7 @@ namespace vp
 
     /**
      * @brief Used for tracing power consumption
-     * 
+     *
      * This class can be used to gather the power consumption of several power sources and
      * trace it through VCD traces and power reports.
      * Each power source must be associated to a power trace and a power trace can be associated
@@ -245,7 +245,7 @@ namespace vp
 
         /**
          * @brief Return if the trace is enabled
-         * 
+         *
          * @return true if the trace is active and should account power
          * @return false if the trace is inactive and any activity should be ignored
          */
@@ -310,7 +310,7 @@ namespace vp
          * several times in the same cycle. So it is important to call this function
          * everytime the energy in the cycle is increased, to get the proper power at the
          * end of the cycle.
-         * 
+         *
          * @return The current instant power
          */
         inline double get_power();
@@ -435,15 +435,15 @@ namespace vp
                                                     // the energy should be computed and the timestamp updated.
 
         double current_power;    // Instant power of the current cycle. This is updated everytime
-                                    // background or leakage power is updated and also when a quantum of energy is 
+                                    // background or leakage power is updated and also when a quantum of energy is
                                     // accounted, in order to proerly update the VCD trace
 
         double instant_dynamic_power;// Instant dynamic power of the current cycle. This is updated everytime
-                                    // background or leakage power is updated and also when a quantum of energy is 
+                                    // background or leakage power is updated and also when a quantum of energy is
                                     // accounted, in order to proerly update the VCD trace
 
         double instant_static_power;// Instant static power of the current cycle. This is updated everytime
-                                    // background or leakage power is updated and also when a quantum of energy is 
+                                    // background or leakage power is updated and also when a quantum of energy is
                                     // accounted, in order to proerly update the VCD trace
     };
 
@@ -452,7 +452,7 @@ namespace vp
 
     /**
      * @brief Class for power engine
-     * 
+     *
      * The engine is a central object used for managing power modeling.
      */
     class PowerEngine
@@ -462,10 +462,10 @@ namespace vp
     public:
         /**
          * @brief Construct a new engine object
-         * 
+         *
          * @param top Top component of teh simulated system.
          */
-        PowerEngine();
+        PowerEngine(js::Config *config);
 
         ~PowerEngine();
 
@@ -473,26 +473,38 @@ namespace vp
 
         /**
          * @brief Start power report generation
-         * 
+         *
          * This will start accounting power consumption for dumping the power report.
          */
         void start_capture();
 
         /**
          * @brief Dump power report
-         * 
+         *
          * This dumps a report of the power consumed since start_capture was called.
          */
         void stop_capture();
 
         double get_average_power(double &dynamic_power, double &static_power);
 
+        /**
+         * @brief Tell if power modeling is enabled
+         *
+         * If power modeling has not been enabled through option --power, models should not
+         * waste time estimating power consumption.
+         * In normal mode (e.g. when no trace is enabled and power is disabled), this fonction
+         * statically returns false so that all power estimation code is removed by compiler.
+         *
+         * @return true if power modeling is enabled
+         */
+        inline bool is_enabled();
+
     protected:
         /**
          * @brief Register a new trace
-         * 
+         *
          * Any power trace has to be registered in the engine by calling this method.
-         * 
+         *
          * @param trace Trace to be registered.
          */
         void reg_trace(vp::PowerTrace *trace);
@@ -503,9 +515,10 @@ namespace vp
         vp::Block *top;  // Top component of the simulated architecture
 
         FILE *file; // File where the power reports are dumped
+
+        bool enabled; // True if power modeling is enabled
     };
 
     vp::PowerEngine *get_power_engine();
     void set_power_engine(vp::PowerEngine *engine);
 };
-

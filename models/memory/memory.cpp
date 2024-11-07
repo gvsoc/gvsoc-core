@@ -243,7 +243,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
         }
 
-        if (_this->power.get_power_trace()->get_active())
+        if (_this->power.is_enabled())
         {
             _this->last_access_timestamp = _this->time.get_time();
 

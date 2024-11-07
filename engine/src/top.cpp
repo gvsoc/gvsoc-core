@@ -35,7 +35,7 @@ vp::Top::Top(std::string config_path, bool is_async)
 
     this->time_engine = new vp::TimeEngine(this->gv_config);
     this->trace_engine = new vp::TraceEngine(this->gv_config);
-    this->power_engine = new vp::PowerEngine();
+    this->power_engine = new vp::PowerEngine(this->gv_config);
     this->memcheck = new vp::MemCheck();
 
     this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config,

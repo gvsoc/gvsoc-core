@@ -217,7 +217,7 @@ inline void Exec::insn_exec_profiling()
 
 inline void Exec::insn_exec_power(iss_insn_t *insn)
 {
-    if (this->iss.top.power.get_power_trace()->get_active())
+    if (this->iss.top.power.is_enabled())
     {
         this->iss.timing.insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
     }

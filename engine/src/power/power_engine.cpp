@@ -66,13 +66,15 @@ double vp::PowerEngine::get_average_power(double &dynamic_power, double &static_
 
 
 
-vp::PowerEngine::PowerEngine()
+vp::PowerEngine::PowerEngine(js::Config *config)
 {
     this->file = fopen("power_report.csv", "w");
     if (this->file == NULL)
     {
         //vp_warning_always(&this->warning, "Failed to open power report file (path: %s)\n", "power_report.csv");
     }
+
+    this->enabled = config->get("power")->get_bool();
 }
 
 

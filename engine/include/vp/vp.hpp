@@ -24,6 +24,7 @@
 #include "vp/trace/implementation.hpp"
 #include "vp/clock/implementation.hpp"
 #include "vp/time/implementation.hpp"
+#include "vp/power/power_engine.hpp"
 #include "vp/power/power_trace.hpp"
 #include "vp/power/power_source.hpp"
 #include "vp/power/power_table.hpp"

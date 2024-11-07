@@ -48,6 +48,18 @@ namespace vp
         BlockPower(vp::Block *parent, Block &top, vp::PowerEngine *engine);
 
         /**
+         * @brief Tell if power modeling is enabled
+         *
+         * If power modeling has not been enabled through option --power, models should not
+         * waste time estimating power consumption.
+         * In normal mode (e.g. when no trace is enabled and power is disabled), this fonction
+         * statically returns false so that all power estimation code is removed by compiler.
+         *
+         * @return true if power modeling is enabled
+         */
+        inline bool is_enabled();
+
+        /**
          * @brief Get the power engine
          *
          *
@@ -184,3 +196,5 @@ namespace vp
 
 
 inline vp::PowerEngine *vp::BlockPower::get_engine() { return this->engine; }
+
+inline bool vp::BlockPower::is_enabled() { return this->get_engine()->is_enabled(); }

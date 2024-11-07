@@ -225,7 +225,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     req->inc_latency(_this->latency);
 
-    if (req->is_debug())
+    if (!req->is_debug())
     {
         // Impact the Memory bandwith on the packet
         if (_this->width_bits != 0)

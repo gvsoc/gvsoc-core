@@ -383,6 +383,7 @@ void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
     uint64_t valid_before_offset;
     uint64_t valid_before_offset_last;
     uint64_t distance_before = 0;
+
     if (offset > 0)
     {
         uint64_t current_offset = offset;
@@ -492,7 +493,8 @@ bool Memory::check_buffer_access(uint64_t offset, uint64_t size, bool is_write)
 
                 if (distance == 0)
                 {
-                    this->trace.force_warning_no_error("%s access with no buffer\n");
+                    this->trace.force_warning_no_error("%s access with no buffer\n", is_write ? "Write" : "Read");
+                    return true;
                 }
                 else
                 {
@@ -696,7 +698,7 @@ void Memory::memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable)
     {
         if (!enable)
         {
-            memset(&this->memcheck_data[base], 0, size * this->memcheck_expansion_factor);
+            memset(&this->memcheck_data[base], 0, size);
         }
     }
 

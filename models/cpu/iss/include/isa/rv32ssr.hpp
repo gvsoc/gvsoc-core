@@ -35,22 +35,14 @@
 // SSR configration register read
 static inline iss_reg_t scfgri_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#if !defined(CONFIG_GVSOC_ISS_SNITCH_FAST)
-#ifdef CONFIG_GVSOC_ISS_SNITCH
     REG_SET(0, iss->ssr.cfg_read(insn, UIM_GET(1), UIM_GET(0)));
-#endif
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 
 // SSR configration register write
 static inline iss_reg_t scfgwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#if !defined(CONFIG_GVSOC_ISS_SNITCH_FAST)
-#ifdef CONFIG_GVSOC_ISS_SNITCH
     iss->ssr.cfg_write(insn, UIM_GET(1), UIM_GET(0), REG_GET(0));
-#endif
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -63,22 +55,14 @@ static inline iss_reg_t scfgwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 // SSR configration register read
 static inline iss_reg_t scfgr_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#if !defined(CONFIG_GVSOC_ISS_SNITCH_FAST)
-#ifdef CONFIG_GVSOC_ISS_SNITCH
     REG_SET(0, iss->ssr.cfg_read(insn, (REG_GET(0)>>5) & 0x7f, REG_GET(0) & 0x1f));
-#endif
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 
 // SSR configration register write
 static inline iss_reg_t scfgw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#if !defined(CONFIG_GVSOC_ISS_SNITCH_FAST)
-#ifdef CONFIG_GVSOC_ISS_SNITCH
     iss->ssr.cfg_write(insn, (REG_GET(1)>>5) & 0x7f, REG_GET(1) & 0x1f, REG_GET(0));
-#endif
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 

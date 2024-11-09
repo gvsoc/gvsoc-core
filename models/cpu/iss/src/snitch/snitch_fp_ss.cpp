@@ -120,7 +120,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
 
     // The subsystem is busy upon receiving a new request.
     _this->acc_req_ready = false;
-    
+
     // Obtain arguments from request.
     iss_reg_t pc = req->pc;
     bool isRead = !req->is_write;
@@ -155,7 +155,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
         insn.out_regs_ref[0] = _this->regfile.freg_store_ref(rd);
     }
 
-    // Update all integer register values from master side to subsystem side, 
+    // Update all integer register values from master side to subsystem side,
     // useful when one of the input operand is integer register.
     for (int i=0; i<ISS_NB_REGS; i++)
     {
@@ -165,7 +165,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Rewrite value of data_arga, because there's WAR in integer register if the sequencer is added.
     if (!insn.in_regs_fp[0] & insn.in_regs[0] != 0xFF)
     {
-        _this->regfile.set_reg(rs1, insn.data_arga); 
+        _this->regfile.set_reg(rs1, insn.data_arga);
     }
 
     // Update csr frm in subsystem
@@ -204,14 +204,14 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Update the pipeline FIFOs.
     // Latency caused by no data preloading in SSR
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Calculate latency considering FPU pipeline: %d\n", final_latency);
-    
+
     // Latency of SSR clock event also needs to be changed with the core event.
     int diff = insn.latency - final_latency;
     if (_this->ssr.ssr_enable)
     {
         _this->ssr_latency(diff);
     }
-    
+
     insn.latency = final_latency;
 
     // Regard the instruction execution part into event queue,
@@ -236,7 +236,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
 
         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         insn.scoreboard_reg_timestamp_addr[rd] = _this->top.clock.get_cycles() + insn.latency;
-        #endif   
+        #endif
     }
 
 }
@@ -247,7 +247,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     Iss *_this = (Iss *)__this;
 
     _this->acc_req_ready = true;
-    
+
     iss_reg_t pc = _this->acc_req.pc;
     bool isRead = !_this->acc_req.is_write;
     iss_insn_t insn = _this->acc_req.insn;
@@ -282,12 +282,12 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     }
     iss_trace_dump(_this, &insn, pc);
     _this->trace_iss.msg(vp::Trace::LEVEL_TRACE, "Finish offload IO request (opcode: 0x%llx, pc: 0x%llx, isRead: %d)\n", opcode, pc, isRead);
-     
+
     // Assign arguments to result.
     data = _this->regfile.get_reg(rd);
     fflags = _this->csr.fcsr.fflags;
     _this->acc_rsp = { .rd=rd, .error=error, .data=data, .fflags=fflags, .pc=pc, .insn=insn };
-    
+
     // Send back response of the result
     if (_this->acc_rsp_itf.is_bound())
     {
@@ -309,7 +309,7 @@ vp::IoReqStatus Iss::rsp_state(vp::Block *__this, vp::IoReq *req)
 
     if (acc_req_ready)
     {
-       return vp::IO_REQ_OK; 
+       return vp::IO_REQ_OK;
     }
     else
     {

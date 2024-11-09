@@ -24,20 +24,59 @@
 
  #include "cpu/iss/include/types.hpp"
  #include <cpu/iss/include/csr.hpp>
+ #include <pulp/snitch/archi/ssr_gvsoc.h>
 
-class Ssr
+class IssWrapper;
+
+class SsrStreamer : public vp::Block
+{
+public:
+    SsrStreamer(IssWrapper &top, Iss &iss, Block *parent, std::string name, std::string memory_itf_name);
+
+    void reset(bool active);
+    bool cfg_access(uint64_t offset, uint8_t *value, bool is_write);
+    void enable();
+    void disable();
+    void fetch_data();
+
+private:
+
+    static constexpr int fifo_size = 4;
+
+    vp::Trace trace;
+    vp_regmap_ssr regmap;
+    vp::IoMaster memory_itf;
+    vp::IoReq io_req;
+    uint64_t io_req_data;
+
+    uint64_t fifo[fifo_size];
+    int fifo_head;
+    int fifo_tail;
+    int fifo_nb_elem;
+};
+
+class Ssr : public vp::Block
 {
 public:
 
-    Ssr(Iss &iss);
+    Ssr(IssWrapper &top, Iss &iss);
 
-    void build();
     void reset(bool active);
 
-private:
-    bool csr_ssr_access(bool is_write, iss_reg_t &value);
+    void cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value);
+    iss_reg_t cfg_read(iss_insn_t *insn, int reg, int ssr);
 
+private:
+    static void fsm_event_handler(vp::Block *__this, vp::ClockEvent *event);
+    bool ssr_access(bool is_write, iss_reg_t &value);
+    void enable();
+    void disable();
+
+    IssWrapper &top;
     Iss &iss;
+    std::vector<SsrStreamer> streamers;
+    vp::ClockEvent fsm_event;
+
     vp::Trace trace;
     CsrReg csr_ssr;
 };

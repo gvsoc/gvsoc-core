@@ -329,7 +329,7 @@ class Regmap(object):
             reg_decl = []
             for register in self.registers.values():
                 if register.offset is not None:
-                    reg_decl.append('        %s(top, "%s")' % (register.name.lower(), register.name.lower()))
+                    reg_decl.append('        %s(*this, "%s")' % (register.name.lower(), register.name.lower()))
 
             self.__dump_file(header.file, '    vp_regmap_%s(vp::Block &top, std::string name): vp::regmap(top, name),\n%s\n    {\n%s    }\n' % (get_c_name(self.name).lower(), ',\n'.join(reg_decl), reg_init_code))
 
@@ -639,13 +639,13 @@ class Cmd(object):
                 header.file.write('%s' % cmdfield.name.lower())
                 first = 0
         header.file.write(') ')
-        
+
         header.file.write('(')
         first = 1
         for name, cmdfield in self.fields.items():
             if(first != 1):
                 header.file.write('|')
-            first= 0 
+            first= 0
             cmdfield.dump_to_header(header=header)
         header.file.write(')\n')
 

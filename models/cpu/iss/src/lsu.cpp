@@ -106,7 +106,6 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memche
     }
     else
     {
-        this->trace.force_warning("UNIMPLEMENTED AT %s %d, error during misaligned access\n", __FILE__, __LINE__);
         return vp::IO_REQ_INVALID;
     }
 }
@@ -163,7 +162,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
         if (is_write)
         {
             // Suppress stores
-            latency = req->get_latency(); 
+            latency = req->get_latency();
         }
         else
         {

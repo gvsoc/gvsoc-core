@@ -194,20 +194,26 @@ inline iss_freg_t *Regfile::freg_store_ref(int reg)
 inline void Regfile::scoreboard_reg_set_timestamp(int reg, int64_t latency, int stall_reason)
 {
     int64_t timestamp = latency + this->iss.exec.get_cycles();
-    this->scoreboard_reg_timestamp[reg] = timestamp;
-    this->scoreboard_reg_stall_reason[reg] = stall_reason;
+    if (timestamp > this->scoreboard_reg_timestamp[reg])
+    {
+        this->scoreboard_reg_timestamp[reg] = timestamp;
+        this->scoreboard_reg_stall_reason[reg] = stall_reason;
+    }
 }
 
 inline void Regfile::scoreboard_freg_set_timestamp(int reg, int64_t latency, int stall_reason)
 {
     int64_t timestamp = this->iss.exec.get_cycles() + latency;
+    if (timestamp > this->scoreboard_reg_timestamp[reg])
+    {
 #ifdef ISS_SINGLE_REGFILE
-    this->scoreboard_reg_timestamp[reg] = timestamp;
-    this->scoreboard_reg_stall_reason[reg] = stall_reason;
+        this->scoreboard_reg_timestamp[reg] = timestamp;
+        this->scoreboard_reg_stall_reason[reg] = stall_reason;
 #else
-    this->scoreboard_freg_timestamp[reg] = timestamp;
-    this->scoreboard_freg_stall_reason[reg] = stall_reason;
+        this->scoreboard_freg_timestamp[reg] = timestamp;
+        this->scoreboard_freg_stall_reason[reg] = stall_reason;
 #endif
+    }
 }
 
 inline void Regfile::scoreboard_freg_invalidate(int reg)

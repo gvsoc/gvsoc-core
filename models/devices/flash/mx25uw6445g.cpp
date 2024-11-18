@@ -50,7 +50,7 @@ typedef enum
 
 /**
  * @brief Class for Mx25 flash model
- * 
+ *
  * This model derive from the time_scheduler so that it can push events based on time since
  * the flash is not cycle-based.
  */
@@ -60,7 +60,7 @@ class Mx25 : public vp::Component
 public:
     /**
      * @brief Construct a new Mx25 object
-     * 
+     *
      * @param config JSON configuration of this component coming from system generators
      */
     Mx25(vp::ComponentConf &conf);
@@ -77,7 +77,7 @@ private:
      * in STR mode.
      * This method will enqueue the incoming data and handle any impact on the flash state, like
      * handling transmitted commands.
-     * 
+     *
      * @param data   Data transmitted through the octospi data line.
      */
     void sync_cycle(int data);
@@ -100,7 +100,7 @@ private:
      *
      * This is called everytime thechip select is updated on the octospi line.
      * It is active low.
-     * 
+     *
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
     void cs_sync(int cs, int value);
@@ -146,7 +146,7 @@ private:
      * Push incoming bits to the pending value and handle the received value if a full byte has been
      * received.
      * This takes cares of receiving with the proper line width.
-     * 
+     *
      * @param data The input bits.
      */
     void handle_input_data(int data);
@@ -156,7 +156,7 @@ private:
      *
      * This is called when command header and possibly address has already been received and a data
      * byte is received, in order to process it.
-     * 
+     *
      * @param byte The input data byte.
      */
     void handle_data_byte(uint8_t byte);
@@ -166,7 +166,7 @@ private:
      *
      * This will determine if the command does not need to send or receive data and will
      * execute it.
-     * 
+     *
      * @return true if the command has been fully handled.
      * @return false if the command will receive or send data.
      */
@@ -177,7 +177,7 @@ private:
      *
      * This will determine if the command does not need address or data and will
      * execute it.
-     * 
+     *
      * @return true if the command has been fully handled.
      * @return false if the command has not been handled.
      */
@@ -188,7 +188,7 @@ private:
      *
      * This is called once the command header has been received in order to parse it and
      * extract useful information for FSM.
-     * 
+     *
      * @param addr_bits  Number of expected address bits are returned here.
      */
     void parse_command(int &addr_bits);
@@ -197,7 +197,7 @@ private:
      * @brief Handle an access to the flash array
      *
      * This is called for both read and program operations.
-     * 
+     *
      * @param address Address of the access.
      * @param read    True if the access is a read, false if it is a write.
      * @param data    Data byte in case of a write
@@ -212,14 +212,14 @@ private:
 
     /**
      * @brief Erase a sector.
-     * 
+     *
      * @param address Address of the erase.
      */
     void erase_sector(unsigned int addr);
 
     /**
      * @brief Get the number of latency cycles out of the latency code from the register.
-     * 
+     *
      * @param code The register latency code.
      * @result The number of latency cycles.
      */
@@ -227,20 +227,20 @@ private:
 
     /**
      * @brief Mark the flash as busy.
-     * 
+     *
      * This can be used after erase or program operation to reject any other operation during
      * the specified period.
-     * 
+     *
      * @param time The duration in pico-seconds of the period during which the flash is busy.
      */
     void set_busy(int64_t time);
 
     /**
      * @brief Event handler to make the flash available.
-     * 
+     *
      * This is the handler called when the busy event has expired to make the flash available.
      * This is a static method since GVSOC requires static method to handle time events.
-     * 
+     *
      * @param __this The this pointer of the flash, needed as an explicit parameter as it is a
      *      static method.
      * @param event  The event associated to this handler.
@@ -416,7 +416,7 @@ void Mx25::parse_command(int &addr_bits)
     this->current_command = this->pending_value;
 
 
-    // All commands except reset enable and reset will reset the 
+    // All commands except reset enable and reset will reset the
     // reset enable flag
     if(!(this->current_command == 0x66 || this->current_command == 0x99
                 || this->current_command == 0x6699
@@ -588,6 +588,20 @@ bool Mx25::handle_command_address()
         }
     }
 
+    // Adress in OSPI DTR program command must be even, A0 is ignored
+    if (this->current_command == 0x12ed)
+    {
+        if (this->dtr_mode)
+        {
+            if (this->current_address & 1)
+            {
+                this->trace.force_warning("Address for program operation must be even (addr: 0x%llx)\n",
+                    this->current_address);
+                this->current_address &= ~1;
+            }
+        }
+    }
+
     return false;
 }
 
@@ -714,7 +728,7 @@ void Mx25::sync_cycle(int data)
             // Parse the command. This will in particular compute the number of address bits
             // to be received
             int addr_bits;
-            
+
             this->parse_command(addr_bits);
 
             // Check that we are not trying to write without having enabled the write

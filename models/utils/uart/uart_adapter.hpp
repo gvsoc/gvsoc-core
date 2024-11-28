@@ -27,11 +27,11 @@
 /**
  * @brief UART adapter
  *
- * The adapter can be used to interact with a UART interface.
+ * This adapter can be used to interact with a UART interface.\n
  * It takes care of the low-level UART protocol bit interactions and provides a high-level
- * interface for sending and receiving bytes.
+ * interface for sending and receiving bytes.\n
  * The high-level interactions with the upper model are done at byte level using callbacks
- * encapsulated into timed events.
+ * encapsulated into timed events.\n
  */
 class UartAdapter : public vp::Block
 {
@@ -302,18 +302,18 @@ private:
  * This adapter can be used to interact with a UART interface at a higher-level than UartAdapter.
  * This adapter is using the UartAdapter for the low-level UART interaction and adds on top of it
  * a queue of bytes for both TX and RX, so that the upper model does not need to take care about
- * control flow.
+ * control flow.\n
  * The upper model can for example push as many bytes as needed, and this adapter will take care
- * of sending them when it is possible.
+ * of sending them when it is possible.\n
  * This model is using a FIFO to store received bytes, which then do not need to be popped
- * immediately, as the FIFO is by default infinite.
+ * immediately, as the FIFO is by default infinite.\n
  * A size can be given to the FIFO to drop any received byte when it is full and easily model
- * a peripheral FIFO.
+ * a peripheral FIFO.\n
  * A bandwith limit can also be given to let this adapter drives the CTS line to respect the
- * specified number of bytes per second.
+ * specified number of bytes per second.\n
  * The flow control signal driven by the remote side (RTS) is by default immediately taken into
  * account to stop sending bytes. It is then possible to specify a number of bytes which are still
- * sent after the sending is forbidden to reproduce some behaviors like for FTDI chips.
+ * sent after the sending is forbidden to reproduce some behaviors like for FTDI chips.\n
  */
 class UartAdapterBuffered : public vp::Block
 {

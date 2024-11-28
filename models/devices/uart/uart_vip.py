@@ -16,7 +16,7 @@
 
 import gvsoc.systree as st
 import gapylib.target
-import devices.utils.uart_adapter
+import utils.uart.uart_adapter
 
 
 class UartVip(st.Component):
@@ -26,7 +26,7 @@ class UartVip(st.Component):
             parity: bool=None, ctrl_flow: bool=None):
         super(UartVip, self).__init__(parent, name)
 
-        devices.utils.uart_adapter.UartAdapter(self)
+        utils.uart.uart_adapter.UartAdapter(self)
 
         self.add_sources(['devices/uart/uart_vip.cpp'])
 

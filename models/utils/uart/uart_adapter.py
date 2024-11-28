@@ -19,6 +19,6 @@ class UartAdapter(object):
     def __init__(self, component):
 
         component.add_sources([
-            'devices/utils/uart_adapter.cpp',
-            'devices/utils/uart_adapter_buffered.cpp',
+            'utils/uart/uart_adapter.cpp',
+            'utils/uart/uart_adapter_buffered.cpp',
         ])

@@ -23,7 +23,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/uart.hpp>
 #include <vp/proxy.hpp>
-#include "devices/utils/uart_adapter.hpp"
+#include "utils/uart/uart_adapter.hpp"
 
 class UartVip : public vp::Component
 {

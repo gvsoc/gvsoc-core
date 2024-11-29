@@ -102,8 +102,18 @@ if(DEFINED GVSOC_TARGETS)
 
         message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
 
+        # Prefer active venvs.
+        set(Python_FIND_VIRTUALENV "FIRST")
+        find_package(Python COMPONENTS Interpreter REQUIRED)
+
+        find_program(GAPY_SCRIPT_PATH gapy
+                # Hint to use in case we are in the monorepo layout.
+                HINTS ${CMAKE_CURRENT_LIST_DIR}/../gapy/bin
+                REQUIRED
+                DOC "Path to the gapy script to use for generating components")
+
         # Gapy is used to extract the list of components out of the specified target
-        set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
+        set(GAPY_CMD ${Python_EXECUTABLE} ${GAPY_SCRIPT_PATH} --target=${target} ${GAPY_TARGETS_DIR_OPT}
             --platform=gvsoc
             --builddir=${CMAKE_CURRENT_BINARY_DIR}
             --installdir=${CMAKE_INSTALL_PREFIX}/models

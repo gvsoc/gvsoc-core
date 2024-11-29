@@ -23,3 +23,6 @@ class Reset(gvsoc.systree.Component):
         super(Reset, self).__init__(parent, name)
 
         self.add_sources(['board/reset.cpp'])
+
+    def o_RESET(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('reset_gen', itf, signature='wire<bool>')

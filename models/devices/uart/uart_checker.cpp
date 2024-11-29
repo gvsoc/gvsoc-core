@@ -31,7 +31,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <iostream>
-//#include <common/telnet_proxy.hpp>
 
 class Uart_checker : public vp::Component
 {
@@ -49,10 +48,6 @@ private:
     bool rx_is_sampling(void);
     void stdin_task(void);
 
-    bool open_telnet_socket(int);
-    void telnet_listener(void);
-    void telnet_loop(int);
-
     static void dpi_uart_task_stub(Uart_checker *);
     static void dpi_uart_stdin_task_stub(Uart_checker *);
 
@@ -66,22 +61,26 @@ private:
 
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
+    enum UartTxState {
+        WaitStart,
+        WaitStop,
+        DataReceive
+    };
+
+    UartTxState tx_state = WaitStart;
+
     uint64_t period;
-    bool tx_wait_start = true;
-    bool tx_wait_stop = false;
     int current_tx;
     int current_rx;
     uint64_t baudrate;
-    int nb_bits;
+    int received_bits = 0;
     uint32_t rx_bit_buffer = 0;
-    int rx_nb_bits = 0;
+    int sent_bits = 0;
     bool loopback;
-    bool stdout;
+    bool print_stdout;
     bool stdin;
-    bool telnet;
     bool sampling_rx = false;
     bool sampling_tx = false;
-    bool telnet_error = false;
     uint8_t byte;
     FILE *tx_file = NULL;
 
@@ -89,12 +88,6 @@ private:
 
     std::thread *stdin_thread;
 
-    std::thread *telnet_loop_thread;
-    std::thread *telnet_listener_thread;
-    int telnet_socket;
-    int telnet_port;
-
-    //Telnet_proxy *telnet_proxy;
     std::mutex rx_mutex;
     vp::Trace trace;
 
@@ -109,119 +102,93 @@ Uart_checker::Uart_checker(vp::ComponentConf &config)
 
     this->new_master_port("clock_cfg", &clock_cfg);
 
-
     baudrate = get_js_config()->get("baudrate")->get_int();
     loopback = get_js_config()->get("loopback")->get_bool();
-    stdout = get_js_config()->get("stdout")->get_bool();
+    print_stdout = get_js_config()->get("stdout")->get_bool();
     stdin = get_js_config()->get("stdin")->get_bool();
-    telnet = get_js_config()->get("telnet")->get_bool();
 
     this->in.set_sync_meth(&Uart_checker::sync);
     new_slave_port("input", &in);
 
     this->event = event_new(Uart_checker::event_handler);
 
-    if (telnet)
-    {
-        telnet_port = get_js_config()->get("telnet_port")->get_int();
-    }
-    std::string tx_filename = get_js_config()->get("tx_file")->get_str();
     period = 1000000000000UL / baudrate;
-    if (tx_filename != "")
-    {
+
+    std::string tx_filename = get_js_config()->get("tx_file")->get_str();
+    if (tx_filename != "") {
         tx_file = fopen(tx_filename.c_str(), (char *)"w");
-        if (tx_file == NULL)
-        {
-            //print("Unable to open TX log file: %s", strerror(errno));
-        }
-    }
-    if (this->telnet)
-    {
-        //this->telnet_proxy = new Telnet_proxy(this->telnet_port);
-    }
-    if (this->stdin || this->telnet)
-    {
-        stdin_thread = new std::thread(&Uart_checker::stdin_task, this);
     }
 
+    if (this->stdin) {
+        stdin_thread = new std::thread(&Uart_checker::stdin_task, this);
+    }
 }
 
 void Uart_checker::tx_sampling()
 {
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Sampling bit (value: %d)\n", current_tx);
+    switch (this->tx_state) {
+        case WaitStop:
+        case WaitStart:
+            // handled in ::sync()
+            break;
+        case DataReceive:
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Received data bit (data: %d)\n", current_tx);
+            byte = (byte >> 1) | (current_tx << 7);
+            received_bits++;
+            if (received_bits == 8) {
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Sampled TX byte (value: 0x%x)\n", byte);
 
-    if (tx_wait_stop)
-    {
-        if (current_tx == 1)
-        {
-            this->trace.msg(vp::Trace::LEVEL_INFO, "Received stop bit\n", current_tx);
-            tx_wait_start = true;
-            tx_wait_stop = false;
-            this->stop_tx_sampling();
-        }
-    }
-    else
-    {
-        this->trace.msg(vp::Trace::LEVEL_INFO, "Received data bit (data: %d)\n", current_tx);
-        byte = (byte >> 1) | (current_tx << 7);
-        nb_bits++;
-        if (nb_bits == 8)
-        {
-            this->trace.msg(vp::Trace::LEVEL_INFO, "Sampled TX byte (value: 0x%x)\n", byte);
-            if (this->telnet)
-            {
-                //this->telnet_proxy->push_byte(&byte);
+                if (print_stdout) std::putc(byte, stdout);
+                else if (tx_file) std::putc(byte, tx_file);
+
+                this->trace.msg(vp::Trace::LEVEL_INFO, "Waiting for stop bit\n");
+                tx_state = WaitStop;
             }
-            else if (this->stdout)
-            {
-                std::cout << byte;
-            }
-            else if (tx_file)
-            {
-                fwrite((void *)&byte, 1, 1, tx_file);
-            }
-            this->trace.msg(vp::Trace::LEVEL_INFO, "Waiting for stop bit\n");
-            tx_wait_stop = true;
-        }
+            break;
     }
 }
-
 
 void Uart_checker::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart_checker *_this = (Uart_checker *)__this;
 
-    _this->trace.msg(vp::Trace::LEVEL_INFO, "EVENT HANDLER\n");
-
     _this->tx_sampling();
 
-    if (_this->sampling_tx)
-    {
-        _this->event_enqueue(event, 2);
+    if (_this->tx_state == DataReceive) {
+        _this->event_enqueue(event, 4);
     }
 }
-
 
 void Uart_checker::sync(vp::Block *__this, int data)
 {
     Uart_checker *_this = (Uart_checker *)__this;
 
-    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sync (value: %d, waiting_start: %d, loopback: %d)\n", data, _this->tx_wait_start, _this->loopback);
-
-    if (_this->loopback)
-    {
+    if (_this->loopback) {
         _this->in.sync_full(data, 2, 2, 0x0);
     }
 
     _this->current_tx = data;
 
-    if (_this->tx_wait_start && data == 0)
-    {
-        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received start bit\n");
-
-        _this->start_tx_sampling(_this->baudrate);
-        _this->tx_wait_start = false;
-        _this->nb_bits = 0;
+    switch (_this->tx_state) {
+        case WaitStart:
+            if (data == 0) {
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received start bit\n");
+                _this->received_bits = 0;
+                _this->start_tx_sampling(_this->baudrate);
+                _this->tx_state = DataReceive;
+            }
+            break;
+        case WaitStop:
+            if (data == 1) {
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received stop bit\n");
+                _this->received_bits = 0;
+                _this->stop_tx_sampling();
+                _this->tx_state = WaitStart;
+            }
+            break;
+        case DataReceive:
+            // handled in ::tx_sampling()
+            break;
     }
 }
 
@@ -233,8 +200,8 @@ void Uart_checker::rx_sampling()
     //std::cerr << "Sampling bit " << current_rx << std::endl;
 
     //uart->rx_edge(this->current_rx);
-    rx_nb_bits++;
-    if (rx_nb_bits == 10)
+    sent_bits++;
+    if (sent_bits == 10)
     {
         this->stop_rx_sampling();
     }
@@ -243,21 +210,17 @@ void Uart_checker::rx_sampling()
 
 void Uart_checker::start_tx_sampling(int baudrate)
 {
-    // We set the frequency to twice the baudrate to be able sampling in the
+    // We set the frequency to four times the baudrate to be able sampling in the
     // middle of the cycle
-    this->clock_cfg.set_frequency(baudrate*2);
-
-    this->sampling_tx = 1;
-
-    this->event_reenqueue(this->event, 3);
+    this->clock_cfg.set_frequency(baudrate*4);
+    this->sampling_tx = true;
+    this->event_reenqueue(this->event, 6);
 }
 
-void Uart_checker::stop_tx_sampling(void)
+void Uart_checker::stop_tx_sampling()
 {
-    this->sampling_tx = 0;
-
-    if (this->event->is_enqueued())
-    {
+    this->sampling_tx = false;
+    if (this->event->is_enqueued()) {
         this->event_cancel(this->event);
     }
 }
@@ -271,7 +234,7 @@ void Uart_checker::start_rx_sampling(int baudrate)
 void Uart_checker::stop_rx_sampling(void)
 {
     this->sampling_rx = 0;
-    rx_nb_bits = 0;
+    sent_bits = 0;
 }
 
 void Uart_checker::dpi_task(void)
@@ -312,17 +275,12 @@ void Uart_checker::stdin_task(void)
 {
     while (1)
     {
-        //print("stdin task sampling\n");
         uint8_t c = 0;
         if (this->stdin)
         {
             c = getchar();
         }
-        else if (this->telnet)
-        {
-            //this->telnet_proxy->pop_byte(&c);
-        }
-        //print("got char:%c\n",c);
+
         while (this->rx_is_sampling())
         { // TODO: use cond instead
             usleep(5);
@@ -332,7 +290,7 @@ void Uart_checker::stdin_task(void)
         rx_bit_buffer = 0;
         rx_bit_buffer |= ((uint32_t)c) << 1;
         rx_bit_buffer |= 1 << 9;
-        rx_nb_bits = 0;
+        sent_bits = 0;
         this->start_rx_sampling(baudrate);
         this->rx_mutex.unlock();
         //raise_event_from_ext();

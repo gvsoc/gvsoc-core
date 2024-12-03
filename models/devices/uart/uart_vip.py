@@ -74,3 +74,6 @@ class UartVip(st.Component):
         self.add_property('parity', parity)
         self.add_property('ctrl_flow', ctrl_flow)
         self.add_property('ctrl_flow_limiter', ctrl_flow_limiter)
+
+    def i_UART(self) -> st.SlaveItf:
+        return st.SlaveItf(self, 'input', signature='io')

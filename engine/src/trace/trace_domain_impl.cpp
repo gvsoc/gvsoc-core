@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -182,6 +182,8 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     this->first_pending_event = NULL;
     this->use_external_dumper = config->get_child_bool("events/use-external-dumper");
 
+    this->global_enable = config->get_child_bool("events/enabled");
+
     if (this->use_external_dumper)
     {
         thread = new std::thread(&TraceEngine::vcd_routine_external, this);
@@ -215,7 +217,7 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     for (auto x : config->get("events/include_raw")->get_elems())
     {
         std::string file_path, trace_path;
-    
+
         std::string path = x->get_str();
         int pos = path.find('@');
         if (pos != std::string::npos)

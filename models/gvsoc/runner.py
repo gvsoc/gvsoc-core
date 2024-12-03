@@ -75,6 +75,8 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
 
     if args.vcd:
         gvsoc_config.set('events/enabled', True)
+
+    if args.vcd or args.gtkw:
         gvsoc_config.set('events/gen_gtkw', True)
 
     for event in args.events:
@@ -86,7 +88,7 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
     if args.format is not None:
         gvsoc_config.set('events/format', args.format)
 
-    debug_mode = gvsoc_config.get_bool('debug-mode') or \
+    debug_mode = args.debug_mode or gvsoc_config.get_bool('debug-mode') or \
         gvsoc_config.get_bool('traces/enabled') or \
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
@@ -236,6 +238,8 @@ class Runner():
             parser.add_argument("--gui", dest="gui", default=None, action="store_true",
                 help="Open GVSOC gui")
             parser.add_argument("--gui2", dest="gui2", default=None, action="store_true",
+                help="Open GVSOC gui")
+            parser.add_argument("--gui3", dest="gui3", default=None, action="store_true",
                 help="Open GVSOC gui")
 
         gapy_target.register_command_handler(self.gv_handle_command)
@@ -450,8 +454,8 @@ class Runner():
                 if args.valgrind:
                     stub = ['valgrind'] + stub
 
-                if args.gui or args.gui2:
-                    command = stub + ['gvsoc-gui2' if args.gui2 else 'gvsoc-gui',
+                if args.gui or args.gui2 or args.gui3:
+                    command = stub + ['gvsoc-gui3' if args.gui3 else 'gvsoc-gui2' if args.gui2 else 'gvsoc-gui',
                         '--gv-config=' + self.gvsoc_config_path,
                         '--gui-config=gvsoc_gui_config.json',
                     ]
@@ -671,6 +675,12 @@ class Target(gapy.Target):
 
             parser.add_argument("--control-script", dest="gvcontrol", default=None,
                 help="Specify gvcontrol script")
+
+            parser.add_argument("--debug-mode", dest="debug_mode", action="store_true",
+                    help="Launch in debug-mode (for traces and VCD)")
+
+            parser.add_argument("--gtkw", dest="gtkw", action="store_true",
+                                help="Generate GTKwave script")
 
             [args, otherArgs] = parser.parse_known_args()
 

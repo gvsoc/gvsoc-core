@@ -402,7 +402,7 @@ class Component(object):
 
             if self.parent is not None:
                 path = self.parent.get_path(child_path=path, gv_path=gv_path, *kargs, **kwargs)
-        
+
         else:
             path = child_path
 
@@ -531,7 +531,7 @@ class Component(object):
         Returns
         -------
         str, int, float, list or dict
-            Value of the property.    
+            Value of the property.
         """
         option_property = None
 
@@ -596,7 +596,8 @@ class Component(object):
         """
         self.bindings.append([master, master_itf, slave, slave_itf, master_properties, slave_properties])
 
-
+    def slave_itf(self, name: str, signature: str):
+        return SlaveItf(self, name, signature=signature)
 
     def load_property_file(self, path):
         """Loads a JSON property file.
@@ -941,7 +942,7 @@ class Component(object):
             return self.parent.get_abspath(relpath)
 
         return None
-    
+
     def regmap(self, copy=False, gen=False):
 
         for component in self.components.values():

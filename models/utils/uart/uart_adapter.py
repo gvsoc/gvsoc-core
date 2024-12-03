@@ -16,6 +16,17 @@
 
 class UartAdapter(object):
 
+    """UART adapter
+
+    Instantiating this class will make sure the parent component can instantiate any of the UART
+    adapters from its C++ model.
+    This will in practice compile the UART adapter source code together with the model source code.
+
+    Attributes
+    ----------
+    component: gvsoc.systree.Component
+        The parent component where the UART adapter blocks will be instantiated.
+    """
     def __init__(self, component):
 
         component.add_sources([

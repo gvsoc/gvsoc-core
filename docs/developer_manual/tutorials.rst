@@ -2286,3 +2286,166 @@ stimuli using further clock events.
 For a more advanced model-level test, you can refer to pulp/pulp/floonoc/test.
 This test verifies a network-on-chip by deploying traffic generators in various locations depending
 on the specific checks required.
+
+20 - How to model a UART peripheral
+...................................
+
+Modeling a peripheral can be quite difficult as it may have to interact with other components using
+a complex protocol, such as UART, SPI or I2C.
+
+If we take the UART, which is one of the simplest, it alreay takes quite some code to handle
+the protocol as it will need 2 FSMs to properly deal with start, stop, parity bits and so on on
+both RX and TX.
+
+In order to make such models simpler, GVSOC comes with a set of adapters which are meant to deal
+with low-level protocol interaction and provide a high-level interface to the peripheral model, to
+keep them as simple as possible, while still modeling timing.
+
+This tutorial shows how to instantiate a UART adapter and build a UART peripheral model on top of
+it.
+
+Such adapters are provided as GVSOC C++ blocks which can be instantiated inside components to model
+part of the behavior. They are documented in the developer documentation under Models / Utility
+blocks.
+
+There are currently 2 variants of the UART adapter:
+
+- A low-level one which allows the
+  parent model to still control finely timing behavior. This can be useful for
+  example to finely model the FIFOs of the peripheral and how it impacts the flow
+  control.
+
+- A high-level one which allows the parent model to fully delegate the timing behavior
+  to the adapter and focus on sending and receiving bytes. This adapter proposes some options
+  for the timing behavior, like FIFO sizes and control flow threashold, to still choose
+  some timing behavior.
+
+In this tutorial, we will use the high-level adapter called UartAdapterBuffered, which
+contains by default infinite FIFOs so that the upper model can easily push and receive
+bytes when needed.
+
+First the adapter must be included in the model generator, so that the adapter
+sources are properly compiled:
+
+.. code-block:: python
+
+    import utils.uart.uart_adapter
+
+    # This is the generator for our UART model.
+    # It allows the upper generator like the board instantiating it and binding it
+    class MyUart(gvsoc.systree.Component):
+
+        def __init__(self, parent: gvsoc.systree.Component, name: str):
+
+            super(MyUart, self).__init__(parent, name)
+
+            # Include the adapter. This will make sure the adapter sources are compiled
+            utils.uart.uart_adapter.UartAdapter(self)
+
+Then in the C++, the adapter must be instantiated somewhere, for example in the
+model class:
+
+.. code-block:: cpp
+
+    class MyUart : public vp::Component
+    {
+    public:
+        MyUart(vp::ComponentConf &conf);
+    private:
+        UartAdapterBuffered adapter;
+
+Several adapters can be instantiated if the peripheral has several UART interfaces,
+one instance per interface is needed.
+
+The adapter must be properly built in the model constructor:
+
+.. code-block:: cpp
+
+    MyUart::MyUart(vp::ComponentConf &config)
+        : vp::Component(config),
+        adapter(this, this, "adapter", "uart"),
+
+The first argument is the component where the UART interface will be created, in this
+case our model, the second is the parent of the block, which is the same. It can
+be different in case the model has a hierarchy of blocks to better organize the
+model behavior. The third is the name of the block. This name will be used to represent
+the block in the hierarchy of models, and will impact for example the path of the adapter
+traces. The fourth is the name of the UART interface that the adapter will create in
+our component. It must match the name used in the Python generator.
+
+Once it is properly built, the adapter can be configured according to the desired
+configuration, like for setting the baudrate:
+
+.. code-block:: cpp
+
+    this->adapter.baudrate_set(baudrate);
+
+The adapter can be reconfigured dynamically to model the fact that the peripheral
+is reconfigured dynamically like it is often the case for high-speed devices.
+
+Since the adapter is a GVSOC block, it does not need to be reset, the engine will
+automatically take care.
+
+The interactions with the adapter are then mostly done with callbacks.
+For example we have to register a callback for receiving bytes.
+This is done using a timed event which must be declared in the component class:
+
+.. code-block:: cpp
+
+    vp::TimeEvent rx_event;
+
+And properly built in the constructor by giving the parent block and the callback
+function:
+
+.. code-block:: cpp
+
+    MyUart::MyUart(vp::ComponentConf &config)
+        : vp::Component(config),
+        adapter(this, this, "adapter", "uart"),
+        rx_event(this, &MyUart::rx_event_handler)
+
+If the callback is a method, it must be declared static:
+
+.. code-block:: cpp
+
+    static void rx_event_handler(vp::Block *__this, vp::TimeEvent *event);
+
+The class pointer will be received as first argument and can be casted to get access
+to the component instance:
+
+.. code-block:: cpp
+
+    void MyUart::rx_event_handler(vp::Block *__this, vp::TimeEvent *event)
+    {
+        MyUart *_this = (MyUart *)__this;
+
+Once this callback is called, it is supposed to get received bytes and handle them:
+
+.. code-block:: cpp
+
+    while (_this->adapter.rx_ready())
+    {
+        uint8_t byte = _this->adapter.rx_pop();
+
+Sending bytes is simpler since it does not involve callbacks:
+
+.. code-block:: cpp
+
+    this->adapter.tx_send_byte(byte)
+
+TX callbacks can still be attached to be notified for some events, like for example when
+the TX FIFO is empty, to implement some kind of flush.
+
+Debugging this model can be quite tedious, since things can go wrong at bit level
+if the baudrate is slighty off.
+
+The adapter contains traces which can be enabled to understand what is on-going on on the
+interface. In our case they can be enabled with --trace=<our model path>/adapter since
+we gave the name "adapter" to the adapter.
+
+For now we have not enabled the flow control. This can however be enabled by calling
+ctrl_flow_set. The adapter then automatically manages the control flow without requiring
+any interaction from our model. It will for example automatically stop sending
+bytes if the RTS goes high and will resume as soon as it goes low. Some options
+are available to specify the dsigned behavior for the CTS signal used by the
+remote part to send us bytes.

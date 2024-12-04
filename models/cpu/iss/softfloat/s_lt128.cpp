@@ -48,4 +48,3 @@ bool softfloat_lt128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
 }
 
 #endif
-

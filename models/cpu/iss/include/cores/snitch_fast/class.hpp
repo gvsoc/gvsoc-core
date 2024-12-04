@@ -33,7 +33,7 @@
 #include <cpu/iss/include/exception.hpp>
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
-#include <cpu/iss/include/regfile.hpp>
+#include <cpu/iss/include/cores/snitch_fast/regfile.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
 #else
@@ -66,7 +66,7 @@ public:
     InsnCache insn_cache;
     Timing timing;
     Core core;
-    Regfile regfile;
+    SnitchRegfile regfile;
     Prefetcher prefetcher;
     Decode decode;
     Irq irq;
@@ -147,3 +147,4 @@ private:
 #include "cpu/iss/include/isa/rv32ssr.hpp"
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>
+#include <cpu/iss/include/cores/snitch_fast/regfile_implem.hpp>

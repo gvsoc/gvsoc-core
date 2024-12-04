@@ -38,10 +38,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "platform.h"
 #include "primitiveTypes.h"
 
+class Iss;
+
 #ifndef softfloat_sub128
 
 struct uint128
- softfloat_sub128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
+ softfloat_sub128( Iss *iss, uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
 {
     struct uint128 z;
 
@@ -52,4 +54,3 @@ struct uint128
 }
 
 #endif
-

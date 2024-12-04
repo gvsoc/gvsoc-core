@@ -40,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "internals.h"
 #include "softfloat.h"
 
-float128_t f128_add( float128_t a, float128_t b )
+float128_t f128_add( Iss *iss, float128_t a, float128_t b )
 {
     union ui128_f128 uA;
     uint_fast64_t uiA64, uiA0;
@@ -51,7 +51,7 @@ float128_t f128_add( float128_t a, float128_t b )
 #if ! defined INLINE_LEVEL || (INLINE_LEVEL < 2)
     float128_t
         (*magsFuncPtr)(
-            uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast64_t, bool );
+            Iss *iss, uint_fast64_t, uint_fast64_t, uint_fast64_t, uint_fast64_t, bool );
 #endif
 
     uA.f = a;
@@ -64,15 +64,14 @@ float128_t f128_add( float128_t a, float128_t b )
     signB = signF128UI64( uiB64 );
 #if defined INLINE_LEVEL && (2 <= INLINE_LEVEL)
     if ( signA == signB ) {
-        return softfloat_addMagsF128( uiA64, uiA0, uiB64, uiB0, signA );
+        return softfloat_addMagsF128( iss, uiA64, uiA0, uiB64, uiB0, signA );
     } else {
-        return softfloat_subMagsF128( uiA64, uiA0, uiB64, uiB0, signA );
+        return softfloat_subMagsF128( iss, uiA64, uiA0, uiB64, uiB0, signA );
     }
 #else
     magsFuncPtr =
         (signA == signB) ? softfloat_addMagsF128 : softfloat_subMagsF128;
-    return (*magsFuncPtr)( uiA64, uiA0, uiB64, uiB0, signA );
+    return (*magsFuncPtr)( iss, uiA64, uiA0, uiB64, uiB0, signA );
 #endif
 
 }
-

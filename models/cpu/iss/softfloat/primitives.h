@@ -41,6 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "primitiveTypes.h"
 
+class Iss;
+
 #ifndef softfloat_shortShiftRightJam64
 /*----------------------------------------------------------------------------
 | Shifts 'a' right by the number of bits given in 'dist', which must be in
@@ -252,7 +254,7 @@ bool softfloat_le128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 );
 *----------------------------------------------------------------------------*/
 #if defined INLINE_LEVEL && (2 <= INLINE_LEVEL)
 INLINE
-bool softfloat_lt128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
+bool softfloat_lt128( Iss *iss, uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
     { return (a64 < b64) || ((a64 == b64) && (a0 < b0)); }
 #else
 bool softfloat_lt128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 );
@@ -484,7 +486,7 @@ void
 #if defined INLINE_LEVEL && (2 <= INLINE_LEVEL)
 INLINE
 struct uint128
- softfloat_add128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
+ softfloat_add128( Iss *iss, uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
 {
     struct uint128 z;
     z.v0 = a0 + b0;
@@ -493,7 +495,7 @@ struct uint128
 }
 #else
 struct uint128
- softfloat_add128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 );
+ softfloat_add128( Iss *iss, uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 );
 #endif
 #endif
 
@@ -519,7 +521,7 @@ void
 #if defined INLINE_LEVEL && (2 <= INLINE_LEVEL)
 INLINE
 struct uint128
- softfloat_sub128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
+ softfloat_sub128( Iss *iss, uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 )
 {
     struct uint128 z;
     z.v0 = a0 - b0;
@@ -529,7 +531,7 @@ struct uint128
 }
 #else
 struct uint128
- softfloat_sub128( uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 );
+ softfloat_sub128( Iss *iss, uint64_t a64, uint64_t a0, uint64_t b64, uint64_t b0 );
 #endif
 #endif
 
@@ -1157,4 +1159,3 @@ void
 #endif
 
 #endif
-

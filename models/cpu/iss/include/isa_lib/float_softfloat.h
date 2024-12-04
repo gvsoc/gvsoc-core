@@ -170,3 +170,9 @@ static inline uint32_t float_nmsub_16alt(Iss *iss, uint32_t a, uint32_t b, uint3
     float_set_rounding_mode(iss, mode);
     return sanitize_16alt(bf16_NmulAdd(iss, {.v=(uint16_t)a}, {.v=(uint16_t)b}, {.v=(uint16_t)c}).v);
 }
+
+static inline uint64_t float_madd_64(Iss *iss, uint64_t a, uint64_t b, uint64_t c, uint32_t mode)
+{
+    float_set_rounding_mode(iss, mode);
+    return f64_mulAdd(iss, {.v=a}, {.v=b}, {.v=c}).v;
+}

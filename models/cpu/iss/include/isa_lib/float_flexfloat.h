@@ -95,5 +95,7 @@ static inline uint32_t float_nmsub_16alt(Iss *iss, uint32_t a, uint32_t b, uint3
     return LIB_FF_CALL4(lib_flexfloat_nmsub_round, a, b, c, 8, 7, mode);
 }
 
-
-
+static inline uint64_t float_madd_64(Iss *iss, uint64_t a, uint64_t b, uint64_t c, uint32_t mode)
+{
+    return LIB_FF_CALL4(lib_flexfloat_madd_round, a, b, c, 11, 52, mode);
+}

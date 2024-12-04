@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *----------------------------------------------------------------------------*/
 void
  softfloat_propagateNaNF128M(
-     const uint32_t *aWPtr, const uint32_t *bWPtr, uint32_t *zWPtr )
+     Iss *iss, const uint32_t *aWPtr, const uint32_t *bWPtr, uint32_t *zWPtr )
 {
     bool isSigNaNA;
     const uint32_t *ptr;
@@ -73,4 +73,3 @@ void
     zWPtr[indexWord( 4, 0 )] = ptr[indexWord( 4, 0 )];
 
 }
-

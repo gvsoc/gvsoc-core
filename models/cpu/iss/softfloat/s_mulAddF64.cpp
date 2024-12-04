@@ -45,7 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 float64_t
  softfloat_mulAddF64(
-     uint_fast64_t uiA, uint_fast64_t uiB, uint_fast64_t uiC, uint_fast8_t op )
+     Iss *iss, uint_fast64_t uiA, uint_fast64_t uiB, uint_fast64_t uiC, uint_fast8_t op )
 {
     bool signA;
     int_fast16_t expA;
@@ -123,7 +123,7 @@ float64_t
         --expZ;
         sig128Z =
             softfloat_add128(
-                sig128Z.v64, sig128Z.v0, sig128Z.v64, sig128Z.v0 );
+                iss, sig128Z.v64, sig128Z.v0, sig128Z.v64, sig128Z.v0 );
     }
     if ( ! expC ) {
         if ( ! sigC ) {
@@ -160,7 +160,7 @@ float64_t
         } else {
             sig128Z =
                 softfloat_add128(
-                    sig128Z.v64, sig128Z.v0, sig128C.v64, sig128C.v0 );
+                    iss, sig128Z.v64, sig128Z.v0, sig128C.v64, sig128C.v0 );
             sigZ = sig128Z.v64 | (sig128Z.v0 != 0);
         }
         if ( sigZ < UINT64_C( 0x4000000000000000 ) ) {
@@ -172,18 +172,18 @@ float64_t
         *--------------------------------------------------------------------*/
         if ( expDiff < 0 ) {
             signZ = signC;
-            sig128Z = softfloat_sub128( sigC, 0, sig128Z.v64, sig128Z.v0 );
+            sig128Z = softfloat_sub128( iss, sigC, 0, sig128Z.v64, sig128Z.v0 );
         } else if ( ! expDiff ) {
             sig128Z.v64 = sig128Z.v64 - sigC;
             if ( ! (sig128Z.v64 | sig128Z.v0) ) goto completeCancellation;
             if ( sig128Z.v64 & UINT64_C( 0x8000000000000000 ) ) {
                 signZ = ! signZ;
-                sig128Z = softfloat_sub128( 0, 0, sig128Z.v64, sig128Z.v0 );
+                sig128Z = softfloat_sub128( iss, 0, 0, sig128Z.v64, sig128Z.v0 );
             }
         } else {
             sig128Z =
                 softfloat_sub128(
-                    sig128Z.v64, sig128Z.v0, sig128C.v64, sig128C.v0 );
+                    iss, sig128Z.v64, sig128Z.v0, sig128C.v64, sig128C.v0 );
         }
         /*--------------------------------------------------------------------
         *--------------------------------------------------------------------*/
@@ -205,11 +205,11 @@ float64_t
         sigZ |= (sig128Z.v0 != 0);
     }
  roundPack:
-    return softfloat_roundPackToF64( signZ, expZ, sigZ );
+    return softfloat_roundPackToF64( iss, signZ, expZ, sigZ );
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
  propagateNaN_ABC:
-    uiZ = softfloat_propagateNaNF64UI( uiA, uiB );
+    uiZ = softfloat_propagateNaNF64UI( iss, uiA, uiB );
     goto propagateNaN_ZC;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
@@ -223,7 +223,7 @@ float64_t
     softfloat_raiseFlags( iss, softfloat_flag_invalid );
     uiZ = defaultNaNF64UI;
  propagateNaN_ZC:
-    uiZ = softfloat_propagateNaNF64UI( uiZ, uiC );
+    uiZ = softfloat_propagateNaNF64UI( iss, uiZ, uiC );
     goto uiZ;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
@@ -233,7 +233,7 @@ float64_t
  completeCancellation:
         uiZ =
             packToF64UI(
-                (softfloat_roundingMode == softfloat_round_min), 0, 0 );
+                (iss->core.float_mode == softfloat_round_min), 0, 0 );
     } else uiZ = packToF64UI( signC, expC, sigC);
  uiZ:
     uZ.ui = uiZ;
@@ -493,4 +493,3 @@ float64_t
 }
 
 #endif
-

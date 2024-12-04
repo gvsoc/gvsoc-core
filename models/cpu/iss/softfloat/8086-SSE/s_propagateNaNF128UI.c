@@ -52,6 +52,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *----------------------------------------------------------------------------*/
 struct uint128
  softfloat_propagateNaNF128UI(
+     Iss *iss,
      uint_fast64_t uiA64,
      uint_fast64_t uiA0,
      uint_fast64_t uiB64,
@@ -78,4 +79,3 @@ struct uint128
     return uiZ;
 
 }
-

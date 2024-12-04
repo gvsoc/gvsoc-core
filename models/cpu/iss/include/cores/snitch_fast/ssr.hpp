@@ -38,6 +38,7 @@ public:
     void enable();
     void disable();
     void fetch_data();
+    uint64_t pop_data();
 
 private:
 
@@ -65,6 +66,8 @@ public:
 
     void cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value);
     iss_reg_t cfg_read(iss_insn_t *insn, int reg, int ssr);
+    bool ssr_is_enabled() { return this->ssr_enabled; }
+    inline uint64_t pop_data(int ssr) { return this->streamers[ssr].pop_data(); }
 
 private:
     static void fsm_event_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -79,4 +82,6 @@ private:
 
     vp::Trace trace;
     CsrReg csr_ssr;
+
+    bool ssr_enabled;
 };

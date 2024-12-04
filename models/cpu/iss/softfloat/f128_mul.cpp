@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "specialize.h"
 #include "softfloat.h"
 
-float128_t f128_mul( float128_t a, float128_t b )
+float128_t f128_mul( Iss *iss, float128_t a, float128_t b )
 {
     union ui128_f128 uA;
     uint_fast64_t uiA64, uiA0;
@@ -120,6 +120,7 @@ float128_t f128_mul( float128_t a, float128_t b )
     sigZExtra = sig256Z[indexWord( 4, 1 )] | (sig256Z[indexWord( 4, 0 )] != 0);
     sigZ =
         softfloat_add128(
+            iss,
             sig256Z[indexWord( 4, 3 )], sig256Z[indexWord( 4, 2 )],
             sigA.v64, sigA.v0
         );
@@ -132,11 +133,11 @@ float128_t f128_mul( float128_t a, float128_t b )
         sigZExtra = sig128Extra.extra;
     }
     return
-        softfloat_roundPackToF128( signZ, expZ, sigZ.v64, sigZ.v0, sigZExtra );
+        softfloat_roundPackToF128( iss, signZ, expZ, sigZ.v64, sigZ.v0, sigZExtra );
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
  propagateNaN:
-    uiZ = softfloat_propagateNaNF128UI( uiA64, uiA0, uiB64, uiB0 );
+    uiZ = softfloat_propagateNaNF128UI( iss, uiA64, uiA0, uiB64, uiB0 );
     goto uiZ;
     /*------------------------------------------------------------------------
     *------------------------------------------------------------------------*/
@@ -160,4 +161,3 @@ float128_t f128_mul( float128_t a, float128_t b )
     return uZ.f;
 
 }
-

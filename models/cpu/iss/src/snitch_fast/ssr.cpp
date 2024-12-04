@@ -35,7 +35,7 @@ SsrStreamer::SsrStreamer(IssWrapper &top, Iss &iss, Block *parent, std::string n
 
     this->io_req.init();
     this->io_req.set_size(8);
-    this->io_req.set_data((uint8_t *)this->io_req_data);
+    this->io_req.set_data((uint8_t *)&this->io_req_data);
 }
 
 void SsrStreamer::reset(bool active)
@@ -62,6 +62,26 @@ void SsrStreamer::disable()
 
 }
 
+uint64_t SsrStreamer::pop_data()
+{
+    if (this->fifo_nb_elem > 0)
+    {
+        uint64_t value = this->fifo[this->fifo_head];
+        this->fifo_head++;
+        if (this->fifo_head == SsrStreamer::fifo_size)
+        {
+            this->fifo_head = 0;
+        }
+
+        return value;
+    }
+    else
+    {
+        printf("NO DATA\n");
+        return 0;
+    }
+}
+
 void SsrStreamer::fetch_data()
 {
     if (this->fifo_nb_elem < SsrStreamer::fifo_size && this->regmap.bounds_0.get() != 0)
@@ -84,7 +104,7 @@ void SsrStreamer::fetch_data()
         this->fifo_nb_elem++;
 
         this->regmap.bounds_0.set(this->regmap.bounds_0.get() - 1);
-        this->regmap.rptr_0.set(addr + 8);
+        this->regmap.rptr_0.set(addr + this->regmap.strides_0.get());
     }
 }
 
@@ -126,9 +146,11 @@ void Ssr::fsm_event_handler(vp::Block *__this, vp::ClockEvent *event)
 
 bool Ssr::ssr_access(bool is_write, iss_reg_t &value)
 {
+    this->ssr_enabled = value & 1;
+
     if (is_write)
     {
-        if (value & 1)
+        if (this->ssr_enabled)
         {
             this->enable();
         }

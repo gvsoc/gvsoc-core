@@ -23,6 +23,7 @@
 
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss/include/isa_lib/float.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
 static inline iss_reg_t fld_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -53,7 +54,7 @@ static inline iss_reg_t fsd_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fmadd_d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_madd_round, FREG_GET(0), FREG_GET(1), FREG_GET(2), 11, 52, UIM_GET(0)));
+    FREG_SET(0, float_madd_64(iss, FREG_GET(0), FREG_GET(1), FREG_GET(2), UIM_GET(0)));
     return iss_insn_next(iss, insn, pc);
 }
 

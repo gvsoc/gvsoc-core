@@ -24,7 +24,7 @@ class Cache(st.Component):
     ----------
     size : int
         The size of the memory
-    
+
     """
 
     def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False):
@@ -44,6 +44,11 @@ class Cache(st.Component):
             'enabled': enabled
         })
 
+    def i_INPUT(self) -> st.SlaveItf:
+        return st.SlaveItf(self, 'input', signature='io')
+
+    def o_REFILL(self, itf: st.SlaveItf):
+        self.itf_bind('refill', itf, signature='io')
 
     def gen_gtkw2(self, tree, comp_traces):
 
@@ -59,4 +64,3 @@ class Cache(st.Component):
                     tree.add_trace(self, 'tag_%d' % line, 'set_%d.line_%d' % (way, line), '[31:0]', tag='icache')
 
                 tree.end_group('way_%d' % way)
-

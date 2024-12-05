@@ -294,6 +294,7 @@ private:
     vp::TimeEvent *tx_ready_event = NULL;
     vp::TimeEvent *tx_flow_ctrl_event = NULL;
     bool rts;
+    unsigned int sync_mask = 0x3;
 };
 
 /**

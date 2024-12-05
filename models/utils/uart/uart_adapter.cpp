@@ -71,7 +71,7 @@ void UartAdapter::sync(vp::Block *__this, int data, int clk, int rts, unsigned i
 
     if (_this->loopback)
     {
-        _this->in.sync_full(data, 2, _this->cts, 0x0);
+        _this->in.sync_full(data, 2, _this->cts, _this->sync_mask);
     }
 
     _this->rx_current_bit = data;
@@ -208,7 +208,7 @@ void UartAdapter::tx_send_byte(uint8_t byte)
 void UartAdapter::tx_init_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     UartAdapter *_this = (UartAdapter *)__this;
-    _this->in.sync_full(1, 2, _this->ctrl_flow ? 1 : 0, 0xf);
+    _this->in.sync_full(1, 2, _this->ctrl_flow ? 1 : 0, _this->sync_mask);
 }
 
 void UartAdapter::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)
@@ -286,7 +286,7 @@ void UartAdapter::tx_send_handler(vp::Block *__this, vp::TimeEvent *event)
 
     _this->tx_bit = tx_bit;
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending bit (bit: %d)\n", tx_bit);
-    _this->in.sync_full(_this->tx_bit, 2, _this->cts, 0xf);
+    _this->in.sync_full(_this->tx_bit, 2, _this->cts, _this->sync_mask);
 
     if (_this->tx_state != UART_TX_STATE_IDLE)
     {
@@ -349,6 +349,7 @@ void UartAdapter::ctrl_flow_set(bool ctrl_flow)
 {
     this->ctrl_flow = ctrl_flow;
     this->cts = this->ctrl_flow ? 1 : 0;
+    this->sync_mask = ctrl_flow ? 0xF : 0x3;
 }
 
 void UartAdapter::loopback_set(bool enable)
@@ -360,6 +361,6 @@ void UartAdapter::rx_flow_enable(bool enabled)
     if (this->ctrl_flow)
     {
         this->cts = !enabled;
-        this->in.sync_full(this->tx_bit, 2, this->cts, 0xf);
+        this->in.sync_full(this->tx_bit, 2, this->cts, this->sync_mask);
     }
 }

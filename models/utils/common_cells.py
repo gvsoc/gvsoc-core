@@ -29,3 +29,6 @@ class And(gvsoc.systree.Component):
 
     def i_INPUT(self, id: int) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='wire<bool>')
+
+    def o_OUTPUT(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('output', itf, signature='wire<bool>')

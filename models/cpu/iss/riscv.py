@@ -376,6 +376,12 @@ class RiscvCommon(st.Component):
         """
         self.itf_bind('data_debug', itf, signature='io')
 
+    def o_FLUSH_CACHE(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('flush_cache_req', itf, signature='wire<bool>')
+
+    def i_FLUSH_CACHE_ACK(self) -> gvsoc.systree.SlaveItf:
+            return gvsoc.systree.SlaveItf(self, itf_name='flush_cache_ack', signature='wire<bool>')
+
     def i_FETCHEN(self) -> gvsoc.systree.SlaveItf:
         """Returns the fetch enable port.
 

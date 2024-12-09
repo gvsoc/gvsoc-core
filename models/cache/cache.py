@@ -47,6 +47,12 @@ class Cache(st.Component):
     def i_INPUT(self) -> st.SlaveItf:
         return st.SlaveItf(self, 'input', signature='io')
 
+    def i_FLUSH(self) -> st.SlaveItf:
+            return st.SlaveItf(self, 'flush', signature='wire<bool>')
+
+    def o_FLUSH_ACK(self, itf: st.SlaveItf):
+            self.itf_bind('flush_ack', itf, signature='wire<bool>')
+
     def o_REFILL(self, itf: st.SlaveItf):
         self.itf_bind('refill', itf, signature='io')
 

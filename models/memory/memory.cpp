@@ -61,7 +61,7 @@ private:
 
     uint64_t size = 0;
     bool check = false;
-    int width_bits = 0;
+    int width_bits = -1;
     int latency;
 
     uint8_t *mem_data;
@@ -228,7 +228,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     if (!req->is_debug())
     {
         // Impact the Memory bandwith on the packet
-        if (_this->width_bits != 0)
+        if (_this->width_bits != -1)
         {
     #define MAX(a, b) (((a) > (b)) ? (a) : (b))
             int duration = MAX(size >> _this->width_bits, 1);

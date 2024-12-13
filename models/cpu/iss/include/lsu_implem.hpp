@@ -144,8 +144,15 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
 
-        // Due to sign extension, whole register is valid only if sign is valid
-        this->iss.regfile.memcheck_set_valid(reg, (this->iss.regfile.memcheck_get(reg) >> (size *8 - 1)) & 1);
+        // Due to sign extension, propagate left the validity of the sign
+        bool sign_is_valid = (this->iss.regfile.memcheck_get(reg) >> (size *8 - 1)) & 1;
+        iss_reg_t is_valid = sign_is_valid ? -1 : 0;
+        iss_reg_t is_reg_valid = this->iss.regfile.memcheck_get(reg) & ((1 << (size * 8)) - 1);
+        for (int i=size; i<sizeof(iss_reg_t); i++)
+        {
+            is_reg_valid |= is_valid << (i * 8);
+        }
+        this->iss.regfile.memcheck_set(reg, is_reg_valid);
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);

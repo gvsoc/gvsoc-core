@@ -19,13 +19,14 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <optional>
+#include <algorithm>
 #include <vp/vp.hpp>
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
-#include <stdio.h>
-#include <string.h>
-
 
 class Memory : public vp::Component
 {
@@ -290,7 +291,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     if (offset + size > _this->size)
     {
-        _this->trace.force_warning("Received out-of-bound request (reqAddr: 0x%x, reqSize: 0x%x, memSize: 0x%x)\n", offset, size, _this->size);
+        _this->trace.force_warning_no_error("Received out-of-bound request (reqAddr: 0x%x, reqSize: 0x%x, memSize: 0x%x)\n", offset, size, _this->size);
         return vp::IO_REQ_INVALID;
     }
 
@@ -489,7 +490,8 @@ bool Memory::check_buffer_access(uint64_t offset, uint64_t size, bool is_write)
                 this->memcheck_find_closest_buffer(current_offset, distance, buffer_offset, buffer_size);
 
                 this->trace.force_warning_no_error("%s access outside buffer "
-                    "(offset: 0x%x)\n", is_write ? "Write" : "Read", current_offset);
+                    "(virtual addr: 0x%x)\n", is_write ? "Write" : "Read",
+                    current_offset + this->memcheck_virtual_base);
 
                 if (distance == 0)
                 {
@@ -499,9 +501,12 @@ bool Memory::check_buffer_access(uint64_t offset, uint64_t size, bool is_write)
                 else
                 {
                     bool is_before = buffer_offset > current_offset;
+                    uint64_t buffer_real_addr = (buffer_offset - buffer_size * (this->memcheck_expansion_factor  / 2)) /
+                        this->memcheck_expansion_factor + this->memcheck_base;
 
-                    this->trace.force_warning_no_error("%s access is %ld byte(s) %s buffer (buffer_offset: 0x%llx, buffer_size: 0x%llx)\n",
-                        is_write ? "Write" : "Read", distance, is_before ? "before" : "after", buffer_offset, buffer_size);
+                    this->trace.force_warning_no_error("%s access is %ld byte(s) %s buffer (buffer_addr: 0x%llx, buffer_virtual_addr: %llx, buffer_size: 0x%llx)\n",
+                        is_write ? "Write" : "Read", distance, is_before ? "before" : "after",
+                        buffer_real_addr, buffer_offset + this->memcheck_virtual_base, buffer_size);
 
                     return true;
                 }
@@ -730,6 +735,7 @@ void Memory::memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable)
             }
         }
     }
+
 #endif
 }
 

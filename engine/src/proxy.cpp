@@ -22,6 +22,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <stdio.h>
 #include <vp/vp.hpp>
@@ -100,6 +101,7 @@ bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *paylo
 
 void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
 {
+    gv::GvsocLauncherClient *client = new gv::GvsocLauncherClient(NULL);
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
     gv::GvsocLauncher *launcher = this->launcher;
@@ -137,7 +139,7 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                 if (this->is_retained)
                 {
                     this->is_retained = false;
-                    launcher->release();
+                    launcher->release(client);
                 }
                 engine->critical_notify();
                 engine->unlock();
@@ -193,7 +195,7 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                     if (this->is_retained)
                     {
                         this->is_retained = false;
-                        launcher->release();
+                        launcher->release(client);
                     }
                     engine->critical_notify();
                 }
@@ -208,7 +210,7 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                     if (!this->is_retained)
                     {
                         this->is_retained = true;
-                        launcher->retain();
+                        launcher->retain(client);
                     }
                 }
                 std::unique_lock<std::mutex> lock(this->mutex);
@@ -232,7 +234,7 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
                     int64_t timestamp = engine->get_time() + duration;
-                    launcher->step_internal(duration);
+                    launcher->step_internal(duration, client);
                     std::unique_lock<std::mutex> lock(this->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();
@@ -240,23 +242,31 @@ void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
             }
             else if (words[0] == "stop")
             {
-                launcher->stop();
+                launcher->stop(client);
                 std::unique_lock<std::mutex> lock(this->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "quit")
             {
-                if (this->is_async)
-                {
-                    engine->lock();
-                }
-                engine->quit(strtol(words[1].c_str(), NULL, 0));
-                if (this->is_async)
-                {
-                    engine->unlock();
-                }
+            //     if (this->is_async)
+            //     {
+            //         engine->lock();
+            //     }
+            //     engine->quit(strtol(words[1].c_str(), NULL, 0));
+            //     if (this->is_async)
+            //     {
+            //         engine->unlock();
+            //     }
                 std::unique_lock<std::mutex> lock(this->mutex);
+
+                this->exit_status = strtol(words[1].c_str(), NULL, 0);
+                this->has_finished = true;
+                this->cond.notify_all();
+
+                this->launcher->stop(client);
+                this->launcher->close(client);
+
                 dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
                 lock.unlock();
             }
@@ -367,7 +377,8 @@ gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLaunch
         if (!this->is_retained)
         {
             this->is_retained = true;
-            launcher->retain();
+            throw std::logic_error("UNIMPLEMENTED");
+            // launcher->retain();
         }
     }
 }
@@ -446,22 +457,31 @@ int gv::GvProxy::open(int port, int *out_port)
 }
 
 
-
-void gv::GvProxy::stop()
+int gv::GvProxy::join()
 {
+    std::unique_lock<std::mutex> lock(this->mutex);
+    while(!this->has_finished)
+    {
+        this->cond.wait(lock);
+    }
+    lock.unlock();
+
     this->has_exited = true;
-}
 
-void gv::GvProxy::wait()
-{
+    for (auto x: this->sockets)
+    {
+        shutdown(x, SHUT_RDWR);
+    }
+
     this->loop_thread->join();
+
+    return this->exit_status;
 }
 
-void gv::GvProxy::quit(int status)
+void gv::GvProxy::send_quit(int status)
 {
     for (auto x: this->sockets)
     {
         dprintf(x, "req=-1;exit=%d\n", status);
-        shutdown(x, SHUT_RDWR);
     }
 }

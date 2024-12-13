@@ -63,7 +63,7 @@ gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
     this->is_async = conf->api_mode == gv::Api_mode::Api_mode_async;
 }
 
-void gv::GvsocLauncher::open()
+void gv::GvsocLauncher::open(GvsocLauncherClient *client)
 {
     this->handler = new vp::Top(conf->config_path, this->is_async);
 
@@ -108,17 +108,17 @@ void gv::GvsocLauncher::open()
     }
     else
     {
-        this->retain();
+        this->retain(client);
     }
 }
 
-void gv::GvsocLauncher::bind(gv::Gvsoc_user *user)
+void gv::GvsocLauncher::bind(gv::Gvsoc_user *user, GvsocLauncherClient *client)
 {
     this->user = user;
     this->handler->get_time_engine()->bind_to_launcher(user);
 }
 
-void gv::GvsocLauncher::start()
+void gv::GvsocLauncher::start(GvsocLauncherClient *client)
 {
     this->instance->build_all();
     this->handler->start();
@@ -126,21 +126,11 @@ void gv::GvsocLauncher::start()
     this->instance->reset_all(false);
 }
 
-void gv::GvsocLauncher::close()
+void gv::GvsocLauncher::close(GvsocLauncherClient *client)
 {
-    if (proxy)
-    {
-        proxy->stop();
-    }
     this->instance->stop_all();
 
     vp::Top *top = (vp::Top *)this->handler;
-
-    if (proxy)
-    {
-        proxy->quit(this->retval);
-        proxy->wait();
-    }
 
     delete top;
 }
@@ -161,18 +151,18 @@ void gv::GvsocLauncher::run_internal(bool main_controller)
     }
 }
 
-void gv::GvsocLauncher::run()
+void gv::GvsocLauncher::run(GvsocLauncherClient *client)
 {
     this->run_internal(true);
 }
 
 
-void gv::GvsocLauncher::flush()
+void gv::GvsocLauncher::flush(GvsocLauncherClient *client)
 {
     this->handler->flush();
 }
 
-int gv::GvsocLauncher::join()
+int gv::GvsocLauncher::join(GvsocLauncherClient *client)
 {
     if (this->is_async)
     {
@@ -182,14 +172,24 @@ int gv::GvsocLauncher::join()
             this->handler->get_time_engine()->critical_wait();
         }
         this->handler->get_time_engine()->critical_exit();
+
+        if (this->proxy)
+        {
+            this->proxy->send_quit(this->handler->get_time_engine()->status_get());
+            this->retval = this->proxy->join();
+        }
     }
 
-    this->retval = this->handler->get_time_engine()->status_get();
+    // In case the proxy is connected, the retval is filled when proxy sends us command to exit
+    if (!this->proxy)
+    {
+        this->retval = this->handler->get_time_engine()->status_get();
+    }
 
     return this->retval;
 }
 
-int64_t gv::GvsocLauncher::stop()
+int64_t gv::GvsocLauncher::stop(GvsocLauncherClient *client)
 {
     if (this->is_async)
     {
@@ -203,7 +203,7 @@ int64_t gv::GvsocLauncher::stop()
     return -1;
 }
 
-void gv::GvsocLauncher::wait_stopped()
+void gv::GvsocLauncher::wait_stopped(GvsocLauncherClient *client)
 {
     if (this->is_async)
     {
@@ -216,14 +216,14 @@ void gv::GvsocLauncher::wait_stopped()
     }
 }
 
-int64_t gv::GvsocLauncher::step_internal(int64_t duration, bool main_controller)
+int64_t gv::GvsocLauncher::step_internal(int64_t duration, GvsocLauncherClient *client, bool main_controller)
 {
-    return this->step_until(this->handler->get_time_engine()->get_time() + duration);
+    return this->step_until(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
-int64_t gv::GvsocLauncher::step(int64_t duration)
+int64_t gv::GvsocLauncher::step(int64_t duration, GvsocLauncherClient *client)
 {
-    return this->step_internal(duration, true);
+    return this->step_internal(duration, client, true);
 }
 
 int64_t gv::GvsocLauncher::step_until_internal(int64_t end_time, bool main_controller)
@@ -257,62 +257,62 @@ int64_t gv::GvsocLauncher::step_until_internal(int64_t end_time, bool main_contr
     return time;
 }
 
-int64_t gv::GvsocLauncher::step_until(int64_t end_time)
+int64_t gv::GvsocLauncher::step_until(int64_t end_time, GvsocLauncherClient *client)
 {
     return this->step_until_internal(end_time, true);
 }
 
-int64_t gv::GvsocLauncher::step_and_wait(int64_t duration)
+int64_t gv::GvsocLauncher::step_and_wait(int64_t duration, GvsocLauncherClient *client)
 {
-    return this->step_until_and_wait(this->handler->get_time_engine()->get_time() + duration);
+    return this->step_until_and_wait(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
-int64_t gv::GvsocLauncher::step_until_and_wait(int64_t timestamp)
+int64_t gv::GvsocLauncher::step_until_and_wait(int64_t timestamp, GvsocLauncherClient *client)
 {
-    int64_t end_time = this->step_until(timestamp);
+    int64_t end_time = this->step_until(timestamp, client);
 
     if (this->is_async)
     {
         while (this->handler->get_time_engine()->get_time() < timestamp)
         {
-            this->wait_stopped();
+            this->wait_stopped(client);
         }
     }
 
     return end_time;
 }
 
-gv::Io_binding *gv::GvsocLauncher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
+gv::Io_binding *gv::GvsocLauncher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name, GvsocLauncherClient *client)
 {
     return (gv::Io_binding *)this->instance->external_bind(comp_name, itf_name, (void *)user);
 }
 
-gv::Wire_binding *gv::GvsocLauncher::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name)
+gv::Wire_binding *gv::GvsocLauncher::wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name, GvsocLauncherClient *client)
 {
     return (gv::Wire_binding *)this->instance->external_bind(comp_name, itf_name, (void *)user);
 }
 
-void gv::GvsocLauncher::vcd_bind(gv::Vcd_user *user)
+void gv::GvsocLauncher::vcd_bind(gv::Vcd_user *user, GvsocLauncherClient *client)
 {
     this->instance->traces.get_trace_engine()->set_vcd_user(user);
 }
 
-void gv::GvsocLauncher::vcd_enable()
+void gv::GvsocLauncher::vcd_enable(GvsocLauncherClient *client)
 {
     this->instance->traces.get_trace_engine()->set_global_enable(1);
 }
 
-void gv::GvsocLauncher::vcd_disable()
+void gv::GvsocLauncher::vcd_disable(GvsocLauncherClient *client)
 {
     this->instance->traces.get_trace_engine()->set_global_enable(0);
 }
 
-void gv::GvsocLauncher::event_add(std::string path, bool is_regex)
+void gv::GvsocLauncher::event_add(std::string path, bool is_regex, GvsocLauncherClient *client)
 {
     this->instance->traces.get_trace_engine()->conf_trace(1, path, 1);
 }
 
-void gv::GvsocLauncher::event_exclude(std::string path, bool is_regex)
+void gv::GvsocLauncher::event_exclude(std::string path, bool is_regex, GvsocLauncherClient *client)
 {
     this->instance->traces.get_trace_engine()->conf_trace(1, path, 0);
 }
@@ -332,14 +332,14 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 
 
 
-void gv::GvsocLauncher::update(int64_t timestamp)
+void gv::GvsocLauncher::update(int64_t timestamp, GvsocLauncherClient *client)
 {
     this->handler->get_time_engine()->update(timestamp);
 }
 
 
 
-void *gv::GvsocLauncher::get_component(std::string path)
+void *gv::GvsocLauncher::get_component(std::string path, GvsocLauncherClient *client)
 {
     return this->instance->get_block_from_path(split(path, '/'));
 }
@@ -410,52 +410,52 @@ void gv::GvsocLauncher::register_exec_notifier(GvsocLauncher_notifier *notifier)
 }
 
 
-void gv::GvsocLauncher::retain()
+void gv::GvsocLauncher::retain(GvsocLauncherClient *client)
 {
     this->handler->get_time_engine()->retain_inc(1);
 }
 
-int gv::GvsocLauncher::retain_count()
+int gv::GvsocLauncher::retain_count(GvsocLauncherClient *client)
 {
     return this->handler->get_time_engine()->retain_count();
 }
 
-void gv::GvsocLauncher::lock()
+void gv::GvsocLauncher::lock(GvsocLauncherClient *client)
 {
     this->handler->get_time_engine()->critical_enter();
 }
 
-void gv::GvsocLauncher::unlock()
+void gv::GvsocLauncher::unlock(GvsocLauncherClient *client)
 {
     this->handler->get_time_engine()->critical_exit();
 }
 
-void gv::GvsocLauncher::release()
+void gv::GvsocLauncher::release(GvsocLauncherClient *client)
 {
     this->handler->get_time_engine()->retain_inc(-1);
 }
 
-double gv::GvsocLauncher::get_instant_power(double &dynamic_power, double &static_power)
+double gv::GvsocLauncher::get_instant_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client)
 {
     return this->instance->power.get_instant_power(dynamic_power, static_power);
 }
 
-double gv::GvsocLauncher::get_average_power(double &dynamic_power, double &static_power)
+double gv::GvsocLauncher::get_average_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client)
 {
     return this->instance->power.get_average_power(dynamic_power, static_power);
 }
 
-void gv::GvsocLauncher::report_start()
+void gv::GvsocLauncher::report_start(GvsocLauncherClient *client)
 {
     this->instance->power.get_engine()->start_capture();
 }
 
-void gv::GvsocLauncher::report_stop()
+void gv::GvsocLauncher::report_stop(GvsocLauncherClient *client)
 {
     this->instance->power.get_engine()->stop_capture();
 }
 
-gv::PowerReport *gv::GvsocLauncher::report_get()
+gv::PowerReport *gv::GvsocLauncher::report_get(GvsocLauncherClient *client)
 {
     return this->instance->power.get_report();
 }
@@ -470,6 +470,6 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
     }
     else
     {
-        return new gv::GvsocLauncher(conf);
+        return new gv::GvsocLauncherClient(conf);
     }
 }

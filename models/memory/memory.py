@@ -34,7 +34,7 @@ class Memory(gvsoc.systree.Component):
         The size of the memory in bytes.
     width_log2: int
         The log2 of the bandwidth to the memory, i.e. the number of bytes it can transfer per cycle.
-        No timing model is applied if it is zero and the memory is then having an infinite
+        No timing model is applied if it is -1 and the memory is then having an infinite
         bandwidth.
     stim_file: str
         The path to a binary file which should be preloaded at beginning of the memory. The format

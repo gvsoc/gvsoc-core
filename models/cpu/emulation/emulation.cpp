@@ -334,7 +334,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Running engine\n");
             lock.unlock();
-            this->get_launcher()->run();
+            this->get_launcher()->run(NULL);
             lock.lock();
         }
 
@@ -348,7 +348,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Stopping engine\n");
             lock.unlock();
-            this->get_launcher()->stop();
+            this->get_launcher()->stop(NULL);
             lock.lock();
         }
     }

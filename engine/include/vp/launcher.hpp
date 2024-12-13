@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -37,62 +37,64 @@ public:
 
 namespace gv {
 
-class GvsocLauncher : public gv::Gvsoc
+class GvsocLauncherClient;
+
+class GvsocLauncher
 {
     public:
         GvsocLauncher(gv::GvsocConf *conf);
 
-        void open() override;
-        void bind(gv::Gvsoc_user *user) override;
-        void close() override;
+        void open(GvsocLauncherClient *client);
+        void bind(gv::Gvsoc_user *user, GvsocLauncherClient *client);
+        void close(GvsocLauncherClient *client);
 
-        void run() override;
+        void run(GvsocLauncherClient *client);
         void run_internal(bool main_controller=false);
 
-        void start() override;
+        void start(GvsocLauncherClient *client);
 
-        void flush() override;
+        void flush(GvsocLauncherClient *client);
 
-        int64_t stop() override;
+        int64_t stop(GvsocLauncherClient *client);
 
-        void wait_stopped() override;
+        void wait_stopped(GvsocLauncherClient *client);
 
-        double get_instant_power(double &dynamic_power, double &static_power) override;
-        double get_average_power(double &dynamic_power, double &static_power) override;
-        void report_start() override;
-        void report_stop() override;
-        gv::PowerReport *report_get() override;
+        double get_instant_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client);
+        double get_average_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client);
+        void report_start(GvsocLauncherClient *client);
+        void report_stop(GvsocLauncherClient *client);
+        gv::PowerReport *report_get(GvsocLauncherClient *client);
 
-        int64_t step(int64_t duration) override;
-        int64_t step_internal(int64_t duration, bool main_controller=false);
-        int64_t step_until(int64_t timestamp) override;
+        int64_t step(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_internal(int64_t duration, GvsocLauncherClient *client, bool main_controller=false);
+        int64_t step_until(int64_t timestamp, GvsocLauncherClient *client);
         int64_t step_until_internal(int64_t timestamp, bool main_controller=false);
-        int64_t step_and_wait(int64_t duration) override;
-        int64_t step_until_and_wait(int64_t timestamp) override;
+        int64_t step_and_wait(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_until_and_wait(int64_t timestamp, GvsocLauncherClient *client);
 
 
-        int join() override;
+        int join(GvsocLauncherClient *client);
 
-        void retain() override;
+        void retain(GvsocLauncherClient *client);
 
-        int retain_count() override;
+        int retain_count(GvsocLauncherClient *client);
 
-        void release() override;
+        void release(GvsocLauncherClient *client);
 
-        void lock() override;
-        void unlock() override;
+        void lock(GvsocLauncherClient *client);
+        void unlock(GvsocLauncherClient *client);
 
-        void update(int64_t timestamp) override;
+        void update(int64_t timestamp, GvsocLauncherClient *client);
 
-        gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
-        gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
+        gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name, GvsocLauncherClient *client);
+        gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name, GvsocLauncherClient *client);
 
-        void vcd_bind(gv::Vcd_user *user) override;
-        void vcd_enable() override;
-        void vcd_disable() override;
-        void event_add(std::string path, bool is_regex) override;
-        void event_exclude(std::string path, bool is_regex) override;
-        void *get_component(std::string path) override;
+        void vcd_bind(gv::Vcd_user *user, GvsocLauncherClient *client);
+        void vcd_enable(GvsocLauncherClient *client);
+        void vcd_disable(GvsocLauncherClient *client);
+        void event_add(std::string path, bool is_regex, GvsocLauncherClient *client);
+        void event_exclude(std::string path, bool is_regex, GvsocLauncherClient *client);
+        void *get_component(std::string path, GvsocLauncherClient *client);
         void register_exec_notifier(GvsocLauncher_notifier *notifier);
 
         vp::Top *top_get() { return this->handler; }
@@ -117,4 +119,68 @@ class GvsocLauncher : public gv::Gvsoc
         bool run_req = false;
     };
 
+    class Logger
+    {
+    public:
+        Logger(std::string module);
+        inline void info(const char *fmt, ...);
+
+    private:
+        std::string module;
+    };
+
+    class GvsocLauncherClient : public gv::Gvsoc
+    {
+    public:
+        GvsocLauncherClient(gv::GvsocConf *conf, std::string name="main");
+
+        void open() override;
+        void bind(gv::Gvsoc_user *user) override;
+        void close() override;
+        void run() override;
+        void run_internal(bool main_controller=false);
+        void start() override;
+        void flush() override;
+        int64_t stop() override;
+        void wait_stopped() override;
+        double get_instant_power(double &dynamic_power, double &static_power) override;
+        double get_average_power(double &dynamic_power, double &static_power) override;
+        void report_start() override;
+        void report_stop() override;
+        gv::PowerReport *report_get() override;
+        int64_t step(int64_t duration) override;
+        int64_t step_until(int64_t timestamp) override;
+        int64_t step_and_wait(int64_t duration) override;
+        int64_t step_until_and_wait(int64_t timestamp) override;
+        int join() override;
+        void retain() override;
+        int retain_count() override;
+        void release() override;
+        void lock() override;
+        void unlock() override;
+        void update(int64_t timestamp) override;
+        gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;
+        gv::Wire_binding *wire_bind(gv::Wire_user *user, std::string comp_name, std::string itf_name) override;
+        void vcd_bind(gv::Vcd_user *user) override;
+        void vcd_enable() override;
+        void vcd_disable() override;
+        void event_add(std::string path, bool is_regex) override;
+        void event_exclude(std::string path, bool is_regex) override;
+        void *get_component(std::string path) override;
+
+    private:
+        Logger logger;
+    };
+
 };
+
+inline void gv::Logger::info(const char *fmt, ...)
+{
+#ifdef VP_TRACE_ACTIVE
+    fprintf(stdout, "[\033[34m%s\033[0m] ", this->module.c_str());
+    va_list ap;
+    va_start(ap, fmt);
+    if (vfprintf(stdout, fmt, ap) < 0) {}
+    va_end(ap);
+#endif
+}

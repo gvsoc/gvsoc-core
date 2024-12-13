@@ -45,16 +45,21 @@ class Proxy(object):
             self.running = False
             self.timestamp = 0
             self.exit_callback = None
+            self.sim_has_exited = False
+            self.sim_exit_code = -1
 
         def __quit(self, status):
             self.lock.acquire()
+            self.sim_has_exited = True
+            self.sim_exit_code = status
+            self.condition.notify_all()
             if self.exit_callback is not None:
                 self.lock.release()
                 self.exit_callback[0](status, *self.exit_callback[1], **self.exit_callback[2])
             else:
                 self.lock.release()
-                os._exit(status)
-                exit(status)
+            # os._exit(status)
+            # exit(status)
 
         def run(self):
             while True:
@@ -326,6 +331,21 @@ class Proxy(object):
     def retain(self):
         self._send_cmd('retain')
 
+    def join(self):
+        """Wait end of simulation.
+
+        Blocks until the simulation exit and return the simulation return value
+
+        :return The simulation return value
+        """
+        self.reader.lock.acquire()
+
+        while not self.reader.sim_has_exited:
+            self.reader.condition.wait()
+
+        self.reader.lock.release()
+
+        return self.reader.sim_exit_code
 
 
     def quit(self, status: int = 0):
@@ -535,7 +555,7 @@ class TransferFunction(object):
         self.proxy = proxy
         self.component = proxy._get_component(path)
 
-    
+
     def configure(self, filter: list, frequency : int = None, debug_files : bool = False):
         """Configure the transfert function.
 
@@ -574,7 +594,7 @@ class Pdm_microphone(object):
         self.proxy = proxy
         self.component = proxy._get_component(path)
 
-    
+
     def set_generated_sine(self, freq: int, amplitude: float):
         """Inject a memory write.
 
@@ -1152,7 +1172,7 @@ class Testbench_spi(object):
         self.proxy = proxy
         self.testbench = testbench
         self.rx_enabled = False
-        
+
         self.callback = None
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
@@ -1222,7 +1242,7 @@ class Testbench_spi(object):
         self.proxy._unlock_cmd()
 
         self.proxy.reader.wait_reply(req)
-        
+
     def receive(self, size):
         """Launch a receive command on SPI.
 
@@ -1358,5 +1378,3 @@ class Testbench_spi(object):
     #     self.lock.acquire()
     #     self.pending_rx_bytes = bytearray()
     #     self.lock.release()
-
-

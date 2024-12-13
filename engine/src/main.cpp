@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -76,10 +76,15 @@ int main(int argc, char *argv[])
     {
         gvsoc->run();
     }
+
     int retval = gvsoc->join();
 
-    gvsoc->stop();
-    gvsoc->close();
+    // In case the proxy is connected, it is in charge of closing GVSOC
+    if (conf.proxy_socket == -1)
+    {
+        gvsoc->stop();
+        gvsoc->close();
+    }
 
     return retval;
 }

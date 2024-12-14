@@ -38,6 +38,7 @@ namespace vp
         friend class vp::ClockEngine;
         friend class vp::Top;
         friend class gv::GvProxy;
+        friend class gv::GvProxySession;
 
     public:
         TimeEngine(js::Config *config);

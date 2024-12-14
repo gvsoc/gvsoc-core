@@ -60,316 +60,10 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 
-void gv::GvProxy::notify_stop(int64_t time)
-{
-    this->send_reply("req=-1;msg=stopped=" + std::to_string(time) + '\n');
-}
-
-void gv::GvProxy::notify_run(int64_t time)
-{
-    this->send_reply("req=-1;msg=running=" + std::to_string(time) + '\n');
-}
-
-
-void gv::GvProxy::send_reply(std::string msg)
-{
-    std::unique_lock<std::mutex> lock(this->mutex);
-    for (auto x: this->sockets)
-    {
-        dprintf(x, "%s", msg.c_str());
-    }
-    lock.unlock();
-}
-
-
-bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size)
-{
-    fprintf(reply_file, "req=%s;payload=%d\n", req.c_str(), size);
-    if (size > 0)
-    {
-        int write_size = fwrite(payload, 1, size, reply_file);
-        fflush(reply_file);
-        return write_size != size;
-    }
-    else
-    {
-        fflush(reply_file);
-        return false;
-    }
-}
-
-
-void gv::GvProxy::proxy_loop(int socket_fd, int reply_fd)
-{
-    gv::GvsocLauncherClient *client = new gv::GvsocLauncherClient(NULL);
-    FILE *sock = fdopen(socket_fd, "r");
-    FILE *reply_sock = fdopen(reply_fd, "w");
-    gv::GvsocLauncher *launcher = this->launcher;
-    vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
-
-    if (!this->is_async)
-    {
-        engine->lock();
-    }
-
-    while(1)
-    {
-        std::string line;
-
-        if (!this->is_async)
-        {
-            engine->unlock();
-        }
-
-        char buffer[1024];
-        while (fgets(buffer, sizeof(buffer), sock))
-        {
-            line += buffer;
-            if (line.back() == '\n') {
-                break;
-            }
-        }
-
-        // Check for errors or exit conditions
-        if (line.empty() || this->has_exited)
-        {
-            if (!this->is_async || this->has_exited)
-            {
-                engine->lock();
-                if (this->is_retained)
-                {
-                    this->is_retained = false;
-                    launcher->release(client);
-                }
-                engine->critical_notify();
-                engine->unlock();
-            }
-            return;
-        }
-
-        if (!this->is_async)
-        {
-            engine->lock();
-        }
-
-        int start = 0;
-        int end = line.find(";");
-        std::vector<std::string> tokens;
-        while (end != -1) {
-            tokens.push_back(line.substr(start, end - start));
-            start = end + 1;
-            end = line.find(";", start);
-        }
-        tokens.push_back(line.substr(start, end - start));
-
-        std::string req = "";
-        std::string cmd = "";
-
-        for (auto x: tokens)
-        {
-            int start = 0;
-            int index = x.find("=");
-            std::string name = x.substr(start, index - start);
-            std::string value = x.substr(index + 1, x.size());
-
-            if (name == "req")
-            {
-                req = value;
-            }
-            else if (name == "cmd")
-            {
-                cmd = value;
-            }
-        }
-
-        std::regex regex{R"([\s]+)"};
-        std::sregex_token_iterator it{cmd.begin(), cmd.end(), regex, -1};
-        std::vector<std::string> words{it, {}};
-
-        if (words.size() > 0)
-        {
-            if (words[0] == "release")
-            {
-                if (!this->is_async)
-                {
-                    if (this->is_retained)
-                    {
-                        this->is_retained = false;
-                        launcher->release(client);
-                    }
-                    engine->critical_notify();
-                }
-                std::unique_lock<std::mutex> lock(this->mutex);
-                dprintf(reply_fd, "req=%s\n", req.c_str());
-                lock.unlock();
-            }
-            else if (words[0] == "retain")
-            {
-                if (!this->is_async)
-                {
-                    if (!this->is_retained)
-                    {
-                        this->is_retained = true;
-                        launcher->retain(client);
-                    }
-                }
-                std::unique_lock<std::mutex> lock(this->mutex);
-                dprintf(reply_fd, "req=%s\n", req.c_str());
-                lock.unlock();
-            }
-            else if (words[0] == "run")
-            {
-                launcher->run_internal();
-                std::unique_lock<std::mutex> lock(this->mutex);
-                dprintf(reply_fd, "req=%s\n", req.c_str());
-                lock.unlock();
-            }
-            else if (words[0] == "step")
-            {
-                if (words.size() != 2)
-                {
-                    fprintf(stderr, "This command requires 1 argument: step timestamp");
-                }
-                else
-                {
-                    int64_t duration = strtol(words[1].c_str(), NULL, 0);
-                    int64_t timestamp = engine->get_time() + duration;
-                    launcher->step_internal(duration, client);
-                    std::unique_lock<std::mutex> lock(this->mutex);
-                    dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
-                    lock.unlock();
-                }
-            }
-            else if (words[0] == "stop")
-            {
-                launcher->stop(client);
-                std::unique_lock<std::mutex> lock(this->mutex);
-                dprintf(reply_fd, "req=%s\n", req.c_str());
-                lock.unlock();
-            }
-            else if (words[0] == "quit")
-            {
-            //     if (this->is_async)
-            //     {
-            //         engine->lock();
-            //     }
-            //     engine->quit(strtol(words[1].c_str(), NULL, 0));
-            //     if (this->is_async)
-            //     {
-            //         engine->unlock();
-            //     }
-                std::unique_lock<std::mutex> lock(this->mutex);
-
-                this->exit_status = strtol(words[1].c_str(), NULL, 0);
-                this->has_finished = true;
-                this->cond.notify_all();
-
-                this->launcher->stop(client);
-                this->launcher->close(client);
-
-                dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
-                lock.unlock();
-            }
-            else
-            {
-                // Before interacting with the engine, we must lock it since our requests will come
-                // from a different thread.
-                if (this->is_async)
-                {
-                    engine->lock();
-                }
-
-                if (words[0] == "get_component")
-                {
-                    vp::Block *comp = this->top->get_block_from_path(split(words[1], '/'));
-                    std::unique_lock<std::mutex> lock(this->mutex);
-                    if (comp)
-                    {
-                        dprintf(reply_fd, "req=%s;msg=%p\n", req.c_str(), comp);
-                    }
-                    else
-                    {
-                        dprintf(reply_fd, "req=%s;msg=0x0\n", req.c_str());
-                    }
-                    lock.unlock();
-                }
-                else if (words[0] == "component")
-                {
-                    vp::Component *comp = (vp::Component *)strtoll(words[1].c_str(), NULL, 0);
-                    std::string retval = comp->handle_command(this, sock, reply_sock, {words.begin() + 2, words.end()}, req);
-                    std::unique_lock<std::mutex> lock(this->mutex);
-                    fprintf(reply_sock, "req=%s;msg=%s\n", req.c_str(), retval.c_str());
-                    fflush(reply_sock);
-                    lock.unlock();
-                }
-                else if (words[0] == "trace")
-                {
-                    if (words.size() != 3)
-                    {
-                        fprintf(stderr, "This command requires 2 arguments: trace [add|remove] regexp");
-                    }
-                    else
-                    {
-                        if (words[1] == "add")
-                        {
-                            this->top->traces.get_trace_engine()->add_trace_path(0, words[2]);
-                            this->top->traces.get_trace_engine()->check_traces();
-                        }
-                        else if (words[1] == "level")
-                        {
-                            this->top->traces.get_trace_engine()->set_trace_level(words[2].c_str());
-                            this->top->traces.get_trace_engine()->check_traces();
-                        }
-                        else
-                        {
-                            this->top->traces.get_trace_engine()->add_exclude_trace_path(0, words[2]);
-                            this->top->traces.get_trace_engine()->check_traces();
-                        }
-                        fprintf(reply_sock, "req=%s\n", req.c_str());
-                        fflush(reply_sock);
-                    }
-                }
-                else if (words[0] == "event")
-                {
-                    if (words.size() != 3)
-                    {
-                        fprintf(stderr, "This command requires 2 arguments: event [add|remove] regexp");
-                    }
-                    else
-                    {
-                        if (words[1] == "add")
-                        {
-                            // TODO regular expressions are too slow for the profiler, should be moved
-                            // to a new command
-                            //this->top->traces.get_trace_engine()->add_trace_path(1, words[2]);
-                            //this->top->traces.get_trace_engine()->check_traces();
-                            this->top->traces.get_trace_engine()->conf_trace(1, words[2], 1);
-                        }
-                        else
-                        {
-                            //this->top->traces.get_trace_engine()->add_exclude_trace_path(1, words[2]);
-                            //this->top->traces.get_trace_engine()->check_traces();
-                            this->top->traces.get_trace_engine()->conf_trace(1, words[2], 0);
-                        }
-                        fprintf(reply_sock, "req=%s\n", req.c_str());
-                    }
-                }
-                else
-                {
-                    printf("Ignoring2 invalid command: %s\n", words[0].c_str());
-                }
-                if (this->is_async)
-                {
-                    engine->unlock();
-                }
-            }
-        }
-    }
-}
-
 gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe, int reply_pipe)
-  : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe)
+  : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe), logger("PROXY")
 {
+    this->logger.info("Instantiating proxy\n");
     this->is_async = is_async;
     launcher->register_exec_notifier(this);
     if (!this->is_async)
@@ -388,6 +82,8 @@ void gv::GvProxy::listener(void)
     int client_fd;
     while(1)
     {
+        this->logger.info("Waiting for connection\n");
+
         if ((client_fd = accept(this->telnet_socket, NULL, NULL)) == -1)
         {
             if(errno == EAGAIN) continue;
@@ -395,8 +91,10 @@ void gv::GvProxy::listener(void)
             return;
         }
 
+        this->logger.info("Client connected, creating new session\n");
+
         this->sockets.push_back(client_fd);
-        this->loop_thread = new std::thread(&gv::GvProxy::proxy_loop, this, client_fd, client_fd);
+        this->sessions.push_back(new GvProxySession(this, client_fd, client_fd));
     }
 }
 
@@ -450,7 +148,7 @@ int gv::GvProxy::open(int port, int *out_port)
     }
     else
     {
-        this->loop_thread = new std::thread(&gv::GvProxy::proxy_loop, this, this->req_pipe, this->reply_pipe);
+        this->sessions.push_back(new GvProxySession(this, this->req_pipe, this->reply_pipe));
     }
 
     return 0;
@@ -473,7 +171,10 @@ int gv::GvProxy::join()
         shutdown(x, SHUT_RDWR);
     }
 
-    this->loop_thread->join();
+    for (auto x: this->sessions)
+    {
+        x->wait();
+    }
 
     return this->exit_status;
 }
@@ -483,5 +184,327 @@ void gv::GvProxy::send_quit(int status)
     for (auto x: this->sockets)
     {
         dprintf(x, "req=-1;exit=%d\n", status);
+    }
+}
+
+void gv::GvProxy::notify_stop(int64_t time)
+{
+    this->send_reply("req=-1;msg=stopped=" + std::to_string(time) + '\n');
+}
+
+void gv::GvProxy::notify_run(int64_t time)
+{
+    this->send_reply("req=-1;msg=running=" + std::to_string(time) + '\n');
+}
+
+
+void gv::GvProxy::send_reply(std::string msg)
+{
+    std::unique_lock<std::mutex> lock(this->mutex);
+    for (auto x: this->sockets)
+    {
+        dprintf(x, "%s", msg.c_str());
+    }
+    lock.unlock();
+}
+
+
+bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size)
+{
+    fprintf(reply_file, "req=%s;payload=%d\n", req.c_str(), size);
+    if (size > 0)
+    {
+        int write_size = fwrite(payload, 1, size, reply_file);
+        fflush(reply_file);
+        return write_size != size;
+    }
+    else
+    {
+        fflush(reply_file);
+        return false;
+    }
+}
+
+gv::GvProxySession::GvProxySession(GvProxy *proxy, int req_fd, int reply_fd)
+: gv::GvsocLauncherClient(NULL, "PROXY_SESSION(" + std::to_string(req_fd) + ")"),
+    logger("PROXY_SESSION(" + std::to_string(req_fd) + ")"), proxy(proxy),
+    socket_fd(req_fd), reply_fd(reply_fd)
+{
+    this->loop_thread = new std::thread(&gv::GvProxySession::proxy_loop, this);
+}
+
+void gv::GvProxySession::wait()
+{
+    this->loop_thread->join();
+}
+
+void gv::GvProxySession::proxy_loop()
+{
+    gv::GvsocLauncherClient *client = new gv::GvsocLauncherClient(NULL);
+    FILE *sock = fdopen(socket_fd, "r");
+    FILE *reply_sock = fdopen(reply_fd, "w");
+    gv::GvsocLauncher *launcher = this->proxy->launcher;
+    vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
+
+    if (!this->proxy->is_async)
+    {
+        engine->lock();
+    }
+
+    while(1)
+    {
+        std::string line;
+
+        if (!this->proxy->is_async)
+        {
+            engine->unlock();
+        }
+
+        char buffer[1024];
+        this->logger.info("Wait for command\n");
+        while (fgets(buffer, sizeof(buffer), sock))
+        {
+            line += buffer;
+            if (line.back() == '\n') {
+                break;
+            }
+        }
+
+        this->logger.info("Got command (cmd: %s)\n", buffer);
+
+        // Check for errors or exit conditions
+        if (line.empty() || this->proxy->has_exited)
+        {
+            if (!this->proxy->is_async || this->proxy->has_exited)
+            {
+                engine->lock();
+                if (this->proxy->is_retained)
+                {
+                    this->proxy->is_retained = false;
+                    launcher->release(client);
+                }
+                engine->critical_notify();
+                engine->unlock();
+            }
+            return;
+        }
+
+        if (!this->proxy->is_async)
+        {
+            engine->lock();
+        }
+
+        int start = 0;
+        int end = line.find(";");
+        std::vector<std::string> tokens;
+        while (end != -1) {
+            tokens.push_back(line.substr(start, end - start));
+            start = end + 1;
+            end = line.find(";", start);
+        }
+        tokens.push_back(line.substr(start, end - start));
+
+        std::string req = "";
+        std::string cmd = "";
+
+        for (auto x: tokens)
+        {
+            int start = 0;
+            int index = x.find("=");
+            std::string name = x.substr(start, index - start);
+            std::string value = x.substr(index + 1, x.size());
+
+            if (name == "req")
+            {
+                req = value;
+            }
+            else if (name == "cmd")
+            {
+                cmd = value;
+            }
+        }
+
+        std::regex regex{R"([\s]+)"};
+        std::sregex_token_iterator it{cmd.begin(), cmd.end(), regex, -1};
+        std::vector<std::string> words{it, {}};
+
+        if (words.size() > 0)
+        {
+            if (words[0] == "release")
+            {
+                if (!this->proxy->is_async)
+                {
+                    if (this->proxy->is_retained)
+                    {
+                        this->proxy->is_retained = false;
+                        launcher->release(client);
+                    }
+                    engine->critical_notify();
+                }
+                std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+            }
+            else if (words[0] == "retain")
+            {
+                if (!this->proxy->is_async)
+                {
+                    if (!this->proxy->is_retained)
+                    {
+                        this->proxy->is_retained = true;
+                        launcher->retain(client);
+                    }
+                }
+                std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+            }
+            else if (words[0] == "run")
+            {
+                launcher->run_internal();
+                std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+            }
+            else if (words[0] == "step")
+            {
+                if (words.size() != 2)
+                {
+                    fprintf(stderr, "This command requires 1 argument: step timestamp");
+                }
+                else
+                {
+                    int64_t duration = strtol(words[1].c_str(), NULL, 0);
+                    int64_t timestamp = engine->get_time() + duration;
+                    launcher->step_internal(duration, client);
+                    std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                    dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
+                    lock.unlock();
+                }
+            }
+            else if (words[0] == "stop")
+            {
+                launcher->stop(client);
+                std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+            }
+            else if (words[0] == "quit")
+            {
+            //     if (this->is_async)
+            //     {
+            //         engine->lock();
+            //     }
+            //     engine->quit(strtol(words[1].c_str(), NULL, 0));
+            //     if (this->is_async)
+            //     {
+            //         engine->unlock();
+            //     }
+                std::unique_lock<std::mutex> lock(this->proxy->mutex);
+
+                this->proxy->exit_status = strtol(words[1].c_str(), NULL, 0);
+                this->proxy->has_finished = true;
+                this->proxy->cond.notify_all();
+
+                this->proxy->launcher->stop(client);
+                this->proxy->launcher->close(client);
+
+                dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
+                lock.unlock();
+            }
+            else
+            {
+                // Before interacting with the engine, we must lock it since our requests will come
+                // from a different thread.
+                if (this->proxy->is_async)
+                {
+                    engine->lock();
+                }
+
+                if (words[0] == "get_component")
+                {
+                    vp::Block *comp = this->proxy->top->get_block_from_path(split(words[1], '/'));
+                    std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                    if (comp)
+                    {
+                        dprintf(reply_fd, "req=%s;msg=%p\n", req.c_str(), comp);
+                    }
+                    else
+                    {
+                        dprintf(reply_fd, "req=%s;msg=0x0\n", req.c_str());
+                    }
+                    lock.unlock();
+                }
+                else if (words[0] == "component")
+                {
+                    vp::Component *comp = (vp::Component *)strtoll(words[1].c_str(), NULL, 0);
+                    std::string retval = comp->handle_command(this->proxy, sock, reply_sock, {words.begin() + 2, words.end()}, req);
+                    std::unique_lock<std::mutex> lock(this->proxy->mutex);
+                    fprintf(reply_sock, "req=%s;msg=%s\n", req.c_str(), retval.c_str());
+                    fflush(reply_sock);
+                    lock.unlock();
+                }
+                else if (words[0] == "trace")
+                {
+                    if (words.size() != 3)
+                    {
+                        fprintf(stderr, "This command requires 2 arguments: trace [add|remove] regexp");
+                    }
+                    else
+                    {
+                        if (words[1] == "add")
+                        {
+                            this->proxy->top->traces.get_trace_engine()->add_trace_path(0, words[2]);
+                            this->proxy->top->traces.get_trace_engine()->check_traces();
+                        }
+                        else if (words[1] == "level")
+                        {
+                            this->proxy->top->traces.get_trace_engine()->set_trace_level(words[2].c_str());
+                            this->proxy->top->traces.get_trace_engine()->check_traces();
+                        }
+                        else
+                        {
+                            this->proxy->top->traces.get_trace_engine()->add_exclude_trace_path(0, words[2]);
+                            this->proxy->top->traces.get_trace_engine()->check_traces();
+                        }
+                        fprintf(reply_sock, "req=%s\n", req.c_str());
+                        fflush(reply_sock);
+                    }
+                }
+                else if (words[0] == "event")
+                {
+                    if (words.size() != 3)
+                    {
+                        fprintf(stderr, "This command requires 2 arguments: event [add|remove] regexp");
+                    }
+                    else
+                    {
+                        if (words[1] == "add")
+                        {
+                            // TODO regular expressions are too slow for the profiler, should be moved
+                            // to a new command
+                            //this->top->traces.get_trace_engine()->add_trace_path(1, words[2]);
+                            //this->top->traces.get_trace_engine()->check_traces();
+                            this->proxy->top->traces.get_trace_engine()->conf_trace(1, words[2], 1);
+                        }
+                        else
+                        {
+                            //this->top->traces.get_trace_engine()->add_exclude_trace_path(1, words[2]);
+                            //this->top->traces.get_trace_engine()->check_traces();
+                            this->proxy->top->traces.get_trace_engine()->conf_trace(1, words[2], 0);
+                        }
+                        fprintf(reply_sock, "req=%s\n", req.c_str());
+                    }
+                }
+                else
+                {
+                    printf("Ignoring2 invalid command: %s\n", words[0].c_str());
+                }
+                if (this->proxy->is_async)
+                {
+                    engine->unlock();
+                }
+            }
+        }
     }
 }

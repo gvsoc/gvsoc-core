@@ -46,7 +46,10 @@ gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string na
         throw logic_error("Trying to open client with configuration while one has already been opened with configuration");
     }
 
-    launcher = new gv::GvsocLauncher(conf);
+    if (launcher == NULL)
+    {
+        launcher = new gv::GvsocLauncher(conf);
+    }
 }
 
 void gv::GvsocLauncherClient::open()

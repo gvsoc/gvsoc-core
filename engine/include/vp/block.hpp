@@ -30,6 +30,7 @@
 
 namespace gv {
     class GvProxy;
+    class GvProxySession;
     class GvsocLauncher;
 };
 
@@ -58,6 +59,7 @@ namespace vp {
     class Block
     {
         friend class gv::GvProxy;
+        friend class gv::GvProxySession;
         friend class vp::SignalCommon;
         friend class vp::RegisterCommon;
         friend class gv::GvsocLauncher;

@@ -44,6 +44,8 @@ class GvsocLauncher
     public:
         GvsocLauncher(gv::GvsocConf *conf);
 
+        void register_client(GvsocLauncherClient *client);
+        void unregister_client(GvsocLauncherClient *client);
         void open(GvsocLauncherClient *client);
         void bind(gv::Gvsoc_user *user, GvsocLauncherClient *client);
         void close(GvsocLauncherClient *client);
@@ -133,6 +135,7 @@ class GvsocLauncher
     {
     public:
         GvsocLauncherClient(gv::GvsocConf *conf, std::string name="main");
+        ~GvsocLauncherClient();
 
         void open() override;
         void bind(gv::Gvsoc_user *user) override;

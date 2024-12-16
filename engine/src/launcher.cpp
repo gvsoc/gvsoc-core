@@ -473,3 +473,13 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
         return new gv::GvsocLauncherClient(conf);
     }
 }
+
+void gv::GvsocLauncher::register_client(GvsocLauncherClient *client)
+{
+
+}
+
+void gv::GvsocLauncher::unregister_client(GvsocLauncherClient *client)
+{
+
+}

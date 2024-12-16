@@ -50,6 +50,13 @@ gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string na
     {
         launcher = new gv::GvsocLauncher(conf);
     }
+
+    launcher->register_client(this);
+}
+
+gv::GvsocLauncherClient::~GvsocLauncherClient()
+{
+    launcher->unregister_client(this);
 }
 
 void gv::GvsocLauncherClient::open()

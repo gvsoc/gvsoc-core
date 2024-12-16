@@ -21,6 +21,7 @@
 
 #include <pthread.h>
 #include <signal.h>
+#include <algorithm>
 
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
@@ -65,7 +66,7 @@ gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
 
 void gv::GvsocLauncher::open(GvsocLauncherClient *client)
 {
-    this->handler = new vp::Top(conf->config_path, this->is_async);
+    this->handler = new vp::Top(conf->config_path, this->is_async, this);
 
     this->instance = this->handler->top_instance;
     this->instance->set_launcher(this);
@@ -162,29 +163,47 @@ void gv::GvsocLauncher::flush(GvsocLauncherClient *client)
     this->handler->flush();
 }
 
+void gv::GvsocLauncher::sim_finished(int status)
+{
+    this->is_sim_finished = true;
+    this->retval = status;
+
+    for (gv::GvsocLauncherClient *client: this->clients)
+    {
+        client->sim_finished(status);
+    }
+}
+
 int gv::GvsocLauncher::join(GvsocLauncherClient *client)
 {
     if (this->is_async)
     {
         this->handler->get_time_engine()->critical_enter();
-        while(!this->handler->get_time_engine()->finished_get())
+        while(!this->is_sim_finished)
         {
             this->handler->get_time_engine()->critical_wait();
         }
         this->handler->get_time_engine()->critical_exit();
+    }
 
-        if (this->proxy)
+    int retval = this->retval;
+
+    std::unique_lock<std::mutex> lock(this->mutex);
+
+    for (gv::GvsocLauncherClient *client: this->clients)
+    {
+        while (!client->has_quit)
         {
-            this->proxy->send_quit(this->handler->get_time_engine()->status_get());
-            this->retval = this->proxy->join();
+            this->cond.wait(lock);
+        }
+
+        if (client->status != 0)
+        {
+            retval = client->status;
         }
     }
 
-    // In case the proxy is connected, the retval is filled when proxy sends us command to exit
-    if (!this->proxy)
-    {
-        this->retval = this->handler->get_time_engine()->status_get();
-    }
+    lock.unlock();
 
     return this->retval;
 }
@@ -280,6 +299,13 @@ int64_t gv::GvsocLauncher::step_until_and_wait(int64_t timestamp, GvsocLauncherC
     }
 
     return end_time;
+}
+
+void gv::GvsocLauncher::client_quit(gv::GvsocLauncherClient *client)
+{
+    std::unique_lock<std::mutex> lock(this->mutex);
+    this->cond.notify_all();
+    lock.unlock();
 }
 
 gv::Io_binding *gv::GvsocLauncher::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name, GvsocLauncherClient *client)
@@ -476,10 +502,12 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
 
 void gv::GvsocLauncher::register_client(GvsocLauncherClient *client)
 {
-
+    this->clients.push_back(client);
 }
 
 void gv::GvsocLauncher::unregister_client(GvsocLauncherClient *client)
 {
-
+    this->clients.erase(
+        std::remove(this->clients.begin(), this->clients.end(), client),
+        this->clients.end());
 }

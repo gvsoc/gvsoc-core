@@ -41,7 +41,7 @@ namespace vp
         friend class gv::GvProxySession;
 
     public:
-        TimeEngine(js::Config *config);
+        TimeEngine(js::Config *config, gv::GvsocLauncher *launcher);
 
         /**
          * @brief Get current time
@@ -182,6 +182,8 @@ namespace vp
 
         // Pointer to the top launcher
         gv::Gvsoc_user *launcher = NULL;
+
+        gv::GvsocLauncher *gv_launcher;
 
         // The stop event is used in step mode to register a time event which will pause
         // simulation at a specific timestamp corresponding to the step

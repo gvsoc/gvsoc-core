@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include "vp/time/time_engine.hpp"
+#include "vp/launcher.hpp"
 #include <vp/time/time_event.hpp>
 
 
@@ -40,8 +41,8 @@ namespace vp
     };
 }
 
-vp::TimeEngine::TimeEngine(js::Config *config)
-    : first_client(NULL)
+vp::TimeEngine::TimeEngine(js::Config *config, gv::GvsocLauncher *launcher)
+    : first_client(NULL), gv_launcher(launcher)
 {
     pthread_mutex_init(&lock_mutex, NULL);
     pthread_mutex_init(&mutex, NULL);
@@ -383,6 +384,8 @@ void vp::TimeEngine::quit(int status)
 
     // Notify the condition in case we are waiting for locks, to allow leaving the engine.
     pthread_cond_broadcast(&cond);
+
+    this->gv_launcher->sim_finished(status);
 
     if (this->launcher)
     {

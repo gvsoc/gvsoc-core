@@ -44,6 +44,8 @@ class GvsocLauncher
     public:
         GvsocLauncher(gv::GvsocConf *conf);
 
+        void sim_finished(int status);
+
         void register_client(GvsocLauncherClient *client);
         void unregister_client(GvsocLauncherClient *client);
         void open(GvsocLauncherClient *client);
@@ -86,6 +88,8 @@ class GvsocLauncher
         void lock(GvsocLauncherClient *client);
         void unlock(GvsocLauncherClient *client);
 
+        void client_quit(gv::GvsocLauncherClient *client);
+
         void update(int64_t timestamp, GvsocLauncherClient *client);
 
         gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name, GvsocLauncherClient *client);
@@ -119,6 +123,10 @@ class GvsocLauncher
         GvProxy *proxy;
         bool running = false;
         bool run_req = false;
+        std::vector<GvsocLauncherClient *> clients;
+        bool is_sim_finished = false;
+        std::mutex mutex;
+        std::condition_variable cond;
     };
 
     class Logger
@@ -133,6 +141,8 @@ class GvsocLauncher
 
     class GvsocLauncherClient : public gv::Gvsoc
     {
+        friend class GvsocLauncher;
+
     public:
         GvsocLauncherClient(gv::GvsocConf *conf, std::string name="main");
         ~GvsocLauncherClient();
@@ -171,8 +181,14 @@ class GvsocLauncher
         void event_exclude(std::string path, bool is_regex) override;
         void *get_component(std::string path) override;
 
+        virtual void sim_finished(int status) {}
+
+        void quit(int status);
+
     private:
         Logger logger;
+        bool has_quit = false;
+        int status;
     };
 
 };

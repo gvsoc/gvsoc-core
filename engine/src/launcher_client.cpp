@@ -159,6 +159,7 @@ int64_t gv::GvsocLauncherClient::step_until_and_wait(int64_t timestamp)
 int gv::GvsocLauncherClient::join()
 {
     this->logger.info("Join\n");
+    this->quit(0);
     return launcher->join(this);
 }
 
@@ -246,4 +247,11 @@ void gv::GvsocLauncherClient::event_exclude(std::string path, bool is_regex)
 void *gv::GvsocLauncherClient::get_component(std::string path)
 {
     return launcher->get_component(path, this);
+}
+
+void gv::GvsocLauncherClient::quit(int status)
+{
+    this->has_quit = true;
+    this->status = status;
+    launcher->client_quit(this);
 }

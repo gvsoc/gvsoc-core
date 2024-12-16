@@ -240,7 +240,6 @@ void gv::GvProxySession::wait()
 
 void gv::GvProxySession::proxy_loop()
 {
-    gv::GvsocLauncherClient *client = new gv::GvsocLauncherClient(NULL);
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
     gv::GvsocLauncher *launcher = this->proxy->launcher;
@@ -281,7 +280,7 @@ void gv::GvProxySession::proxy_loop()
                 if (this->proxy->is_retained)
                 {
                     this->proxy->is_retained = false;
-                    launcher->release(client);
+                    launcher->release(this);
                 }
                 engine->critical_notify();
                 engine->unlock();
@@ -337,7 +336,7 @@ void gv::GvProxySession::proxy_loop()
                     if (this->proxy->is_retained)
                     {
                         this->proxy->is_retained = false;
-                        launcher->release(client);
+                        launcher->release(this);
                     }
                     engine->critical_notify();
                 }
@@ -352,7 +351,7 @@ void gv::GvProxySession::proxy_loop()
                     if (!this->proxy->is_retained)
                     {
                         this->proxy->is_retained = true;
-                        launcher->retain(client);
+                        launcher->retain(this);
                     }
                 }
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
@@ -376,7 +375,7 @@ void gv::GvProxySession::proxy_loop()
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
                     int64_t timestamp = engine->get_time() + duration;
-                    launcher->step_internal(duration, client);
+                    launcher->step_internal(duration, this);
                     std::unique_lock<std::mutex> lock(this->proxy->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();
@@ -384,7 +383,7 @@ void gv::GvProxySession::proxy_loop()
             }
             else if (words[0] == "stop")
             {
-                launcher->stop(client);
+                launcher->stop(this);
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -406,11 +405,10 @@ void gv::GvProxySession::proxy_loop()
                 this->proxy->has_finished = true;
                 this->proxy->cond.notify_all();
 
-                this->proxy->launcher->stop(client);
-                this->proxy->launcher->close(client);
-
                 dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
                 lock.unlock();
+
+                this->quit(this->proxy->exit_status);
             }
             else
             {
@@ -507,4 +505,9 @@ void gv::GvProxySession::proxy_loop()
             }
         }
     }
+}
+
+void gv::GvProxySession::sim_finished(int status)
+{
+    this->proxy->send_quit(status);
 }

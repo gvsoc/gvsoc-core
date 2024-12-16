@@ -30,6 +30,7 @@ class GvProxySession : public gv::GvsocLauncherClient
 public:
     GvProxySession(GvProxy *proxy, int req_fd, int reply_fd);
     void wait();
+    void sim_finished(int status) override;
 
 private:
     void proxy_loop();

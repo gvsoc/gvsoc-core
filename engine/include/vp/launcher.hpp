@@ -53,7 +53,7 @@ class GvsocLauncher
         void close(GvsocLauncherClient *client);
 
         void run(GvsocLauncherClient *client);
-        void run_internal(bool main_controller=false);
+        void run_internal(GvsocLauncherClient *client, bool main_controller=false);
 
         void start(GvsocLauncherClient *client);
 
@@ -72,7 +72,7 @@ class GvsocLauncher
         int64_t step(int64_t duration, GvsocLauncherClient *client);
         int64_t step_internal(int64_t duration, GvsocLauncherClient *client, bool main_controller=false);
         int64_t step_until(int64_t timestamp, GvsocLauncherClient *client);
-        int64_t step_until_internal(int64_t timestamp, bool main_controller=false);
+        int64_t step_until_internal(int64_t timestamp, GvsocLauncherClient *client, bool main_controller=false);
         int64_t step_and_wait(int64_t duration, GvsocLauncherClient *client);
         int64_t step_until_and_wait(int64_t timestamp, GvsocLauncherClient *client);
 
@@ -110,6 +110,9 @@ class GvsocLauncher
     private:
         void engine_routine();
         static void *signal_routine(void *__this);
+        void check_run();
+        void client_run(GvsocLauncherClient *client);
+        void client_stop(GvsocLauncherClient *client);
 
         gv::GvsocConf *conf;
         vp::Top *handler;
@@ -122,11 +125,11 @@ class GvsocLauncher
         vp::Component *instance;
         GvProxy *proxy;
         bool running = false;
-        bool run_req = false;
         std::vector<GvsocLauncherClient *> clients;
         bool is_sim_finished = false;
         std::mutex mutex;
         std::condition_variable cond;
+        int run_count = 0;
     };
 
     class Logger
@@ -189,6 +192,7 @@ class GvsocLauncher
         Logger logger;
         bool has_quit = false;
         int status;
+        bool running = false;
     };
 
 };

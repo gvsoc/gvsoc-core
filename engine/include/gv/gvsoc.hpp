@@ -140,7 +140,7 @@ namespace gv {
         /**
          * Called by GVSOC to inject a memory-mapped access.
          *
-         * This operation is asynchronous. This method must return immediately and the request must be granted and/or 
+         * This operation is asynchronous. This method must return immediately and the request must be granted and/or
          * replied afterwards.
          * No GVSOC API can be called from this callback.
          *

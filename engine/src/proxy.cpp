@@ -230,6 +230,8 @@ gv::GvProxySession::GvProxySession(GvProxy *proxy, int req_fd, int reply_fd)
     logger("PROXY_SESSION(" + std::to_string(req_fd) + ")"), proxy(proxy),
     socket_fd(req_fd), reply_fd(reply_fd)
 {
+    this->retain();
+
     this->loop_thread = new std::thread(&gv::GvProxySession::proxy_loop, this);
 }
 
@@ -360,7 +362,7 @@ void gv::GvProxySession::proxy_loop()
             }
             else if (words[0] == "run")
             {
-                launcher->run_internal();
+                launcher->run(this);
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();

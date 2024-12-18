@@ -79,12 +79,8 @@ int main(int argc, char *argv[])
 
     int retval = gvsoc->join();
 
-    // In case the proxy is connected, it is in charge of closing GVSOC
-    // if (conf.proxy_socket == -1)
-    {
-        gvsoc->stop();
-        gvsoc->close();
-    }
+    gvsoc->stop();
+    gvsoc->close();
 
     return retval;
 }

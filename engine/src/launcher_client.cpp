@@ -92,7 +92,7 @@ void gv::GvsocLauncherClient::run()
 void gv::GvsocLauncherClient::flush()
 {
     this->logger.info("Flush\n");
-    launcher->stop(this);
+    launcher->flush(this);
 }
 
 int64_t gv::GvsocLauncherClient::stop()
@@ -216,7 +216,7 @@ gv::Wire_binding *gv::GvsocLauncherClient::wire_bind(gv::Wire_user *user,
 
 void gv::GvsocLauncherClient::vcd_bind(gv::Vcd_user *user)
 {
-    this->logger.info("VCD bind (user: %p, comp: %s, itf: %s)\n", user);
+    this->logger.info("VCD bind (user: %p)\n", user);
     launcher->vcd_bind(user, this);
 }
 

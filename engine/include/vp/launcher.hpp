@@ -110,9 +110,10 @@ class GvsocLauncher
     private:
         void engine_routine();
         static void *signal_routine(void *__this);
-        void check_run();
+        void check_run(bool locked=false);
         void client_run(GvsocLauncherClient *client);
-        void client_stop(GvsocLauncherClient *client);
+        void client_stop(GvsocLauncherClient *client, bool locked=false);
+        static void step_handler(vp::Block *__this, vp::TimeEvent *event);
 
         gv::GvsocConf *conf;
         vp::Top *handler;

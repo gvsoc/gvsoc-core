@@ -251,12 +251,10 @@ int64_t vp::TimeEngine::run(bool main_controller)
 {
     int64_t time;
 
-    printf("%s %d\n", __FILE__, __LINE__);
     this->retain--;
 
     while (1)
     {
-        printf("%s %d\n", __FILE__, __LINE__);
         // Cancel any pause request which was done before running
         this->pause_req = false;
 
@@ -271,7 +269,6 @@ int64_t vp::TimeEngine::run(bool main_controller)
         // Ensure memory ordering so that we handle locks while stop_req is false
         __sync_synchronize();
 
-        printf("%s %d\n", __FILE__, __LINE__);
         // In case there is no more event, stall the engine until something happens.
         if (time == -1)
         {
@@ -284,12 +281,10 @@ int64_t vp::TimeEngine::run(bool main_controller)
             this->handle_locks();
         }
 
-        printf("%s %d\n", __FILE__, __LINE__);
         // In case of a pause request or the simulation is finished, we leave the engine to let
         // the launcher handles it, otherwise we just continue to run events
         if (this->pause_req || this->finished)
         {
-            printf("%s %d\n", __FILE__, __LINE__);
             gv::Gvsoc_user *launcher = this->launcher_get();
 
             this->pause_req = false;
@@ -307,12 +302,8 @@ int64_t vp::TimeEngine::run(bool main_controller)
             }
             break;
         }
-        printf("%s %d\n", __FILE__, __LINE__);
     }
-    printf("%s %d\n", __FILE__, __LINE__);
     this->retain++;
-
-        printf("RETURN TIME %ld\n", time);
 
     return time;
 }
@@ -436,38 +427,30 @@ vp::Time_engine_stop_event::Time_engine_stop_event(vp::Component *top)
 
 int64_t vp::Time_engine_stop_event::step(int64_t time)
 {
-    printf("%s %d\n", __FILE__, __LINE__);
     vp::TimeEvent *event = new vp::TimeEvent(this);
     event->set_callback(this->event_handler);
     event->enqueue(time - top->time.get_engine()->get_time());
-    printf("%s %d\n", __FILE__, __LINE__);
     return 0;
 }
 
 vp::TimeEvent *vp::Time_engine_stop_event::step_nofree(int64_t time)
 {
-    printf("%s %d\n", __FILE__, __LINE__);
     vp::TimeEvent *event = new vp::TimeEvent(this);
     event->set_callback(this->event_handler_nofree);
     event->enqueue(time - top->time.get_engine()->get_time());
-    printf("%s %d\n", __FILE__, __LINE__);
     return event;
 }
 
 void vp::Time_engine_stop_event::event_handler(vp::Block *__this, vp::TimeEvent *event)
 {
-    printf("%s %d\n", __FILE__, __LINE__);
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();
-    printf("%s %d\n", __FILE__, __LINE__);
 }
 
 void vp::Time_engine_stop_event::event_handler_nofree(vp::Block *__this, vp::TimeEvent *event)
 {
-    printf("%s %d\n", __FILE__, __LINE__);
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();
-    printf("%s %d\n", __FILE__, __LINE__);
 }
 
 void vp::TimeEngine::retain_inc(int inc)

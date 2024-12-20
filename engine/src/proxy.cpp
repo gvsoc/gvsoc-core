@@ -392,15 +392,8 @@ void gv::GvProxySession::proxy_loop()
             }
             else if (words[0] == "quit")
             {
-            //     if (this->is_async)
-            //     {
-            //         engine->lock();
-            //     }
-            //     engine->quit(strtol(words[1].c_str(), NULL, 0));
-            //     if (this->is_async)
-            //     {
-            //         engine->unlock();
-            //     }
+                this->proxy->launcher->quit(strtol(words[1].c_str(), NULL, 0), this);
+
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
 
                 this->proxy->exit_status = strtol(words[1].c_str(), NULL, 0);

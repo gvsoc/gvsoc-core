@@ -156,7 +156,6 @@ void gv::GvsocLauncher::client_run(GvsocLauncherClient *client)
     {
         client->running = true;
         this->run_count++;
-        printf("CLIENT RUN %p count %d\n", this->run_count);
         this->check_run();
     }
 }
@@ -167,7 +166,6 @@ void gv::GvsocLauncher::client_stop(GvsocLauncherClient *client, bool locked)
     {
         client->running = false;
         this->run_count--;
-        printf("CLIENT STOP %p count %d\n", this->run_count);
         this->check_run(locked);
     }
 }
@@ -191,6 +189,19 @@ void gv::GvsocLauncher::sim_finished(int status)
     for (gv::GvsocLauncherClient *client: this->clients)
     {
         client->sim_finished(status);
+    }
+}
+
+void gv::GvsocLauncher::quit(int status, GvsocLauncherClient *client)
+{
+    if (this->is_async)
+    {
+        this->handler->get_time_engine()->lock();
+    }
+    this->handler->get_time_engine()->quit(status);
+    if (this->is_async)
+    {
+        this->handler->get_time_engine()->unlock();
     }
 }
 
@@ -332,8 +343,6 @@ void gv::GvsocLauncher::check_run(bool locked)
 {
     bool should_run = this->run_count == this->clients.size();
 
-    printf("%d %d %d %d\n", this->run_count, this->clients.size(), should_run, this->running);
-
     if (should_run != this->running)
     {
         if (!locked)
@@ -455,10 +464,8 @@ void gv::GvsocLauncher::engine_routine()
             // The engine will return -1 if it receives a stop request.
             // Leave only if we have not receive a run request meanwhile which would then cancel
             // the stop request.
-            printf("RUN\n");
             if (this->handler->get_time_engine()->run(true) == -1)
             {
-                printf("GOT STOP %d\n", this->running);
                 if (!this->running || this->handler->get_time_engine()->finished_get())
                 {
                     this->running = false;
@@ -500,7 +507,6 @@ void gv::GvsocLauncher::retain(GvsocLauncherClient *client)
     {
         client->running = false;
         this->run_count--;
-        printf("RETAIUN %p count %d\n", client, this->run_count);
     }
 }
 
@@ -568,7 +574,6 @@ void gv::GvsocLauncher::register_client(GvsocLauncherClient *client)
     this->clients.push_back(client);
     client->running = true;
     this->run_count++;
-    printf("REGISTER client count %d\n", this->run_count);
 }
 
 void gv::GvsocLauncher::unregister_client(GvsocLauncherClient *client)
@@ -576,7 +581,6 @@ void gv::GvsocLauncher::unregister_client(GvsocLauncherClient *client)
     if (client->running)
     {
         this->run_count--;
-        printf("UNREGIUSTER %p count %d\n", client, this->run_count);
     }
 
     this->clients.erase(

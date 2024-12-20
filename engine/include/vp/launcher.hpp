@@ -76,6 +76,7 @@ class GvsocLauncher
         int64_t step_and_wait(int64_t duration, GvsocLauncherClient *client);
         int64_t step_until_and_wait(int64_t timestamp, GvsocLauncherClient *client);
 
+        void quit(int status, GvsocLauncherClient *client);
 
         int join(GvsocLauncherClient *client);
 

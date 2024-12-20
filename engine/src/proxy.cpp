@@ -306,29 +306,16 @@ void gv::GvProxySession::proxy_loop()
         {
             if (words[0] == "release")
             {
-                if (!this->proxy->is_async)
-                {
-                    if (this->proxy->is_retained)
-                    {
-                        this->proxy->is_retained = false;
-                        launcher->release(this);
-                    }
-                    engine->critical_notify();
-                }
+                launcher->release(this);
+
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "retain")
             {
-                if (!this->proxy->is_async)
-                {
-                    if (!this->proxy->is_retained)
-                    {
-                        this->proxy->is_retained = true;
-                        launcher->retain(this);
-                    }
-                }
+                launcher->retain(this);
+
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();

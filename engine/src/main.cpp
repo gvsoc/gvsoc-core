@@ -71,6 +71,11 @@ int main(int argc, char *argv[])
     if (conf.proxy_socket != -1)
     {
         printf("Opened proxy on socket %d\n", conf.proxy_socket);
+
+        // In case proxy is opened, we don't run simulation to not start executing something before client is
+        // connected.
+        // We also release the launcher so that the client has full control over execution
+        gvsoc->release();
     }
     else
     {

@@ -505,10 +505,11 @@ void gv::GvsocLauncher::register_exec_notifier(GvsocLauncher_notifier *notifier)
 void gv::GvsocLauncher::retain(GvsocLauncherClient *client)
 {
     client->retain_count++;
-    if (client->retain_count == 1 && client->running)
+    if (client->retain_count == 1)
     {
-        client->running = false;
         this->run_count--;
+
+        this->check_run();
     }
 }
 
@@ -516,9 +517,11 @@ void gv::GvsocLauncher::release(GvsocLauncherClient *client)
 {
     client->retain_count--;
 
-    if (client->retain_count == 0 && client->running)
+    if (client->retain_count == 0)
     {
         this->run_count++;
+
+        this->check_run();
     }
 }
 
@@ -574,8 +577,6 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
 void gv::GvsocLauncher::register_client(GvsocLauncherClient *client)
 {
     this->clients.push_back(client);
-    client->running = true;
-    this->run_count++;
 }
 
 void gv::GvsocLauncher::unregister_client(GvsocLauncherClient *client)

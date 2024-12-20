@@ -192,7 +192,7 @@ class GvsocLauncher
         bool has_quit = false;
         int status;
         bool running = false;
-        int retain_count = 0;
+        int retain_count = 1;
     };
 
 };

@@ -740,19 +740,6 @@ namespace gv {
          */
         virtual void release() {}
 
-        /**
-         * Return the retain count.
-         *
-         * Since the engine can be retained severall times, for example once for each
-         * thread which can control time, this function can be used to get the current number of
-         * of retains.
-         * This information is usefull if there is also an external time engine, in which case
-         * the time should also be prevented from progressing, if someone has retained the engine.
-         *
-         * @returns The retain count.
-         */
-        virtual int retain_count() { return 0; }
-
         // Temporary workaround, do not use
         virtual void lock() {}
 

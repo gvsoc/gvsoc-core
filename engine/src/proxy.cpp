@@ -66,15 +66,15 @@ gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLaunch
     this->logger.info("Instantiating proxy\n");
     this->is_async = is_async;
     launcher->register_exec_notifier(this);
-    if (!this->is_async)
-    {
-        if (!this->is_retained)
-        {
-            this->is_retained = true;
-            throw std::logic_error("UNIMPLEMENTED");
-            // launcher->retain();
-        }
-    }
+    // if (!this->is_async)
+    // {
+    //     if (!this->is_retained)
+    //     {
+    //         this->is_retained = true;
+    //         throw std::logic_error("UNIMPLEMENTED");
+    //         // launcher->retain();
+    //     }
+    // }
 }
 
 void gv::GvProxy::listener(void)
@@ -157,14 +157,13 @@ int gv::GvProxy::open(int port, int *out_port)
 
 int gv::GvProxy::join()
 {
+    // TODO not used anymore
     std::unique_lock<std::mutex> lock(this->mutex);
     while(!this->has_finished)
     {
         this->cond.wait(lock);
     }
     lock.unlock();
-
-    this->has_exited = true;
 
     for (auto x: this->sockets)
     {
@@ -247,19 +246,9 @@ void gv::GvProxySession::proxy_loop()
     gv::GvsocLauncher *launcher = this->proxy->launcher;
     vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
 
-    if (!this->proxy->is_async)
-    {
-        engine->lock();
-    }
-
     while(1)
     {
         std::string line;
-
-        if (!this->proxy->is_async)
-        {
-            engine->unlock();
-        }
 
         char buffer[1024];
         this->logger.info("Wait for command\n");
@@ -274,25 +263,9 @@ void gv::GvProxySession::proxy_loop()
         this->logger.info("Got command (cmd: %s)\n", buffer);
 
         // Check for errors or exit conditions
-        if (line.empty() || this->proxy->has_exited)
+        if (line.empty())
         {
-            if (!this->proxy->is_async || this->proxy->has_exited)
-            {
-                engine->lock();
-                if (this->proxy->is_retained)
-                {
-                    this->proxy->is_retained = false;
-                    launcher->release(this);
-                }
-                engine->critical_notify();
-                engine->unlock();
-            }
             return;
-        }
-
-        if (!this->proxy->is_async)
-        {
-            engine->lock();
         }
 
         int start = 0;
@@ -362,7 +335,7 @@ void gv::GvProxySession::proxy_loop()
             }
             else if (words[0] == "run")
             {
-                launcher->run(this);
+                launcher->run_internal(this, false);
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();

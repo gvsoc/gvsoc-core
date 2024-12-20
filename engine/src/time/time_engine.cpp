@@ -182,26 +182,26 @@ int64_t vp::TimeEngine::run_until(int64_t end_time, bool main_controller)
     // Since wwe are now ready to make time progress, decrease our counter, it will be increased
     // again when our stop event is executed, so that time does not progress any further until
     // we return
-    this->retain--;
+    // this->retain--;
 
     while (1)
     {
         // If anyone is retaining the engine, it means it did not ask for time progress, thus we
         // need to wait.
         // In this case someone else will make the time progress when engine is released.
-        while (this->retain)
-        {
-            pthread_cond_wait(&this->cond, &this->mutex);
+        // while (this->retain)
+        // {
+        //     pthread_cond_wait(&this->cond, &this->mutex);
 
-            // Someone made the time progress, check if we can leave.
-            // This is the case once our event is not enqueued anymore
-            if (!event->is_enqueued())
-            {
-                delete event;
-                this->retain++;
-                return this->get_next_event_time();
-            }
-        }
+        //     // Someone made the time progress, check if we can leave.
+        //     // This is the case once our event is not enqueued anymore
+        //     if (!event->is_enqueued())
+        //     {
+        //         delete event;
+        //         this->retain++;
+        //         return this->get_next_event_time();
+        //     }
+        // }
 
         time = this->exec();
 
@@ -242,16 +242,12 @@ int64_t vp::TimeEngine::run_until(int64_t end_time, bool main_controller)
         }
     }
 
-    this->retain++;
-
     return time;
 }
 
 int64_t vp::TimeEngine::run(bool main_controller)
 {
     int64_t time;
-
-    this->retain--;
 
     while (1)
     {
@@ -303,7 +299,6 @@ int64_t vp::TimeEngine::run(bool main_controller)
             break;
         }
     }
-    this->retain++;
 
     return time;
 }
@@ -451,11 +446,6 @@ void vp::Time_engine_stop_event::event_handler_nofree(vp::Block *__this, vp::Tim
 {
     Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
     _this->top->time.get_engine()->pause();
-}
-
-void vp::TimeEngine::retain_inc(int inc)
-{
-    this->retain += inc;
 }
 
 

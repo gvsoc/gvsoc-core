@@ -82,8 +82,6 @@ class GvsocLauncher
 
         void retain(GvsocLauncherClient *client);
 
-        int retain_count(GvsocLauncherClient *client);
-
         void release(GvsocLauncherClient *client);
 
         void lock(GvsocLauncherClient *client);
@@ -172,7 +170,6 @@ class GvsocLauncher
         int64_t step_until_and_wait(int64_t timestamp) override;
         int join() override;
         void retain() override;
-        int retain_count() override;
         void release() override;
         void lock() override;
         void unlock() override;
@@ -195,6 +192,7 @@ class GvsocLauncher
         bool has_quit = false;
         int status;
         bool running = false;
+        int retain_count = 0;
     };
 
 };

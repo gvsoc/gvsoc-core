@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <algorithm>
 
+#include <stdexcept>
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
 #include <vp/proxy.hpp>
@@ -140,7 +141,7 @@ void gv::GvsocLauncher::close(GvsocLauncherClient *client)
 
 void gv::GvsocLauncher::run_internal(GvsocLauncherClient *client, bool main_controller)
 {
-    if (this->is_async)
+    if (!main_controller || this->is_async)
     {
         this->client_run(client);
     }
@@ -503,16 +504,22 @@ void gv::GvsocLauncher::register_exec_notifier(GvsocLauncher_notifier *notifier)
 
 void gv::GvsocLauncher::retain(GvsocLauncherClient *client)
 {
-    if (client->running)
+    client->retain_count++;
+    if (client->retain_count == 1 && client->running)
     {
         client->running = false;
         this->run_count--;
     }
 }
 
-int gv::GvsocLauncher::retain_count(GvsocLauncherClient *client)
+void gv::GvsocLauncher::release(GvsocLauncherClient *client)
 {
-    return this->handler->get_time_engine()->retain_count();
+    client->retain_count--;
+
+    if (client->retain_count == 0 && client->running)
+    {
+        this->run_count++;
+    }
 }
 
 void gv::GvsocLauncher::lock(GvsocLauncherClient *client)
@@ -523,11 +530,6 @@ void gv::GvsocLauncher::lock(GvsocLauncherClient *client)
 void gv::GvsocLauncher::unlock(GvsocLauncherClient *client)
 {
     this->handler->get_time_engine()->critical_exit();
-}
-
-void gv::GvsocLauncher::release(GvsocLauncherClient *client)
-{
-    this->handler->get_time_engine()->retain_inc(-1);
 }
 
 double gv::GvsocLauncher::get_instant_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client)

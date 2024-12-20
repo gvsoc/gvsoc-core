@@ -131,13 +131,6 @@ namespace vp
         inline void critical_wait();
         inline void critical_notify();
 
-        // Increase the retain count, which can be used to prevent the engine from
-        // advancing time
-        void retain_inc(int inc);
-
-        // Get retain count
-        inline int retain_count();
-
         // List of clients having time events to execute.
         // They are sorted out according to the timestamp of their first event,
         // from lowest to highest
@@ -188,9 +181,5 @@ namespace vp
         // The stop event is used in step mode to register a time event which will pause
         // simulation at a specific timestamp corresponding to the step
         Time_engine_stop_event *stop_event;
-
-        // In synchronous mode, since several threads can control the time, there is a retain
-        // mechanism which makes sure time is progressing only if all threads ask for it.
-        int retain = 0;
     };
 };

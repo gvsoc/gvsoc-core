@@ -113,8 +113,3 @@ inline int64_t vp::BlockTime::get_time()
 {
     return this->get_engine()->get_time();
 }
-
-inline int vp::TimeEngine::retain_count()
-{
-    return this->retain;
-}

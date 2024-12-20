@@ -55,7 +55,6 @@ public:
 
     gv::GvsocLauncher *launcher;
     bool is_async;
-    bool has_exited = false;
     // Use to notify to loop thread to exit
     bool is_retained = false;
     std::mutex mutex;

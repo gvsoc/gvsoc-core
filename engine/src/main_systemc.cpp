@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -53,7 +53,7 @@ public:
             // update the time.
             // If so, just call again the step function so that we release the engine for
             // a while.
-            if (gvsoc->retain_count() == 1)
+            if (1) //gvsoc->retain_count() == 1)
             {
                 if (next_timestamp == -1)
                 {

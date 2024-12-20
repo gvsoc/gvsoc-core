@@ -169,11 +169,6 @@ void gv::GvsocLauncherClient::retain()
     launcher->retain(this);
 }
 
-int gv::GvsocLauncherClient::retain_count()
-{
-    return launcher->retain_count(this);
-}
-
 void gv::GvsocLauncherClient::release()
 {
     this->logger.info("Release\n");

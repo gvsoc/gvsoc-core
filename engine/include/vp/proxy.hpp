@@ -45,7 +45,7 @@ private:
 class GvProxy : public GvsocLauncher_notifier
 {
 public:
-    GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe=-1, int reply_pipe=-1);
+    GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
     void send_quit(int status);
     int join();
@@ -54,9 +54,7 @@ public:
     bool send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size);
 
     gv::GvsocLauncher *launcher;
-    bool is_async;
     // Use to notify to loop thread to exit
-    bool is_retained = false;
     std::mutex mutex;
     // Set to true qhen proxy side has finished, which means engine can exit
     bool has_finished = false;

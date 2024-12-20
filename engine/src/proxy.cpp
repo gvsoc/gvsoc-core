@@ -60,21 +60,11 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 
-gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, bool is_async, int req_pipe, int reply_pipe)
+gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, int req_pipe, int reply_pipe)
   : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe), logger("PROXY")
 {
     this->logger.info("Instantiating proxy\n");
-    this->is_async = is_async;
     launcher->register_exec_notifier(this);
-    // if (!this->is_async)
-    // {
-    //     if (!this->is_retained)
-    //     {
-    //         this->is_retained = true;
-    //         throw std::logic_error("UNIMPLEMENTED");
-    //         // launcher->retain();
-    //     }
-    // }
 }
 
 void gv::GvProxy::listener(void)
@@ -369,10 +359,7 @@ void gv::GvProxySession::proxy_loop()
             {
                 // Before interacting with the engine, we must lock it since our requests will come
                 // from a different thread.
-                if (this->proxy->is_async)
-                {
-                    engine->lock();
-                }
+                engine->lock();
 
                 if (words[0] == "get_component")
                 {
@@ -451,12 +438,10 @@ void gv::GvProxySession::proxy_loop()
                 }
                 else
                 {
-                    printf("Ignoring2 invalid command: %s\n", words[0].c_str());
+                    printf("Ignoring invalid command: %s\n", words[0].c_str());
                 }
-                if (this->proxy->is_async)
-                {
-                    engine->unlock();
-                }
+
+                engine->unlock();
             }
         }
     }

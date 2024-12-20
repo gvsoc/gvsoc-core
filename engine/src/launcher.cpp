@@ -79,7 +79,7 @@ void gv::GvsocLauncher::open(GvsocLauncherClient *client)
     {
         int in_port = gv_config->get_child_int("proxy/port");
         int out_port;
-        this->proxy = new GvProxy(this->handler->get_time_engine(), instance, this, this->is_async);
+        this->proxy = new GvProxy(this->handler->get_time_engine(), instance, this);
 
         if (this->proxy->open(in_port, &out_port))
         {
@@ -107,10 +107,6 @@ void gv::GvsocLauncher::open(GvsocLauncherClient *client)
 #ifndef __APPLE__
         pthread_setname_np(this->engine_thread->native_handle(), "engine");
 #endif
-    }
-    else
-    {
-        this->retain(client);
     }
 }
 
@@ -208,25 +204,19 @@ void gv::GvsocLauncher::quit(int status, GvsocLauncherClient *client)
 
 int gv::GvsocLauncher::join(GvsocLauncherClient *client)
 {
-    if (this->is_async)
+    while(!this->is_sim_finished)
     {
-        this->handler->get_time_engine()->critical_enter();
-        while(!this->is_sim_finished)
-        {
-            this->handler->get_time_engine()->critical_wait();
-        }
-        this->handler->get_time_engine()->critical_exit();
+        this->handler->get_time_engine()->critical_wait();
+        this->handler->get_time_engine()->handle_locks();
     }
-
     int retval = this->retval;
-
-    std::unique_lock<std::mutex> lock(this->mutex);
 
     for (gv::GvsocLauncherClient *client: this->clients)
     {
         while (!client->has_quit)
         {
-            this->cond.wait(lock);
+            this->handler->get_time_engine()->critical_wait();
+            this->handler->get_time_engine()->handle_locks();
         }
 
         if (client->status != 0)
@@ -234,8 +224,6 @@ int gv::GvsocLauncher::join(GvsocLauncherClient *client)
             retval = client->status;
         }
     }
-
-    lock.unlock();
 
     return this->retval;
 }

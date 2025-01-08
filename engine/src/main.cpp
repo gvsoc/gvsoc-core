@@ -20,13 +20,14 @@
  */
 
 #include <gv/gvsoc.hpp>
-#include <algorithm>
 #include <dlfcn.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <vp/json.hpp>
+#ifdef VP_USE_SYSTEMC
 #include "main_systemc.hpp"
+#endif
 
 
 
@@ -66,21 +67,14 @@ int main(int argc, char *argv[])
     gv::GvsocConf conf = { .config_path=config_path };
     gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
     gvsoc->open();
-    gvsoc->start();
 
     if (conf.proxy_socket != -1)
     {
         printf("Opened proxy on socket %d\n", conf.proxy_socket);
+    }
 
-        // In case proxy is opened, we don't run simulation to not start executing something before client is
-        // connected.
-        // We also release the launcher so that the client has full control over execution
-        gvsoc->release();
-    }
-    else
-    {
-        gvsoc->run();
-    }
+    gvsoc->start();
+    gvsoc->run();
 
     int retval = gvsoc->join();
 

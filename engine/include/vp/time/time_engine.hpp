@@ -53,21 +53,6 @@ namespace vp
         int64_t get_time() { return time; }
 
         /**
-         * @brief Lock the engine
-         *
-         * This will block the current thread until the time engine has stopped, so that
-         * the current thread can interact with the models.
-         */
-        inline void lock();
-
-        /**
-         * @brief Unlock the engine
-         *
-         * This will unblock the time engine which can then resume event execution.
-         */
-        inline void unlock();
-
-        /**
          * @brief Quit simulation
          *
          * Make the time engine quit the simulation with the specified exit status.
@@ -101,8 +86,8 @@ namespace vp
     private:
         void step_register(int64_t time);
 
-        int64_t run(bool main_controller);
-        int64_t run_until(int64_t end_time, bool main_controller);
+        int64_t run();
+        int64_t run_until(int64_t end_time);
 
         void init(Component *top);
 
@@ -111,8 +96,6 @@ namespace vp
         void fatal(const char *fmt, ...);
 
         bool enqueue(vp::Block *client, int64_t time);
-
-        bool handle_locks();
 
         inline int64_t get_next_event_time();
 
@@ -126,27 +109,10 @@ namespace vp
         int64_t exec();
         void flush_all();
 
-        inline void critical_enter();
-        inline void critical_exit();
-        inline void critical_wait();
-        inline void critical_notify();
-
         // List of clients having time events to execute.
         // They are sorted out according to the timestamp of their first event,
         // from lowest to highest
         vp::Block *first_client = NULL;
-
-        // Mutex used to update the count of pending lock requests
-        pthread_mutex_t lock_mutex;
-
-        // Mutex used to lock the engine. It is taken by the engine when it is executing events and
-        // released when it is stopped.
-        // Other threads can then try to lock it to wait until the engine is released.
-        pthread_mutex_t mutex;
-
-        // Condition used to wait for some event to happen, like waiting that there is no
-        // lock request
-        pthread_cond_t cond;
 
         // Current time of the engine. This gives the absolute time of the platform
         int64_t time = 0;
@@ -157,15 +123,6 @@ namespace vp
         // True to make the engine goes out of his main fast loop. This is a way to make it go to
         // his slow loop so that it checks if there is a lock or a pause request
         bool stop_req = false;
-
-        // Set to true when the engine should pause the simulation. A stop request should also be
-        // posted to make the engine goes out of the fast loop.
-        bool pause_req = false;
-
-        // True if someone has requested to lock the engine. Locking the engine means that
-        // an external thread wants to interact with the models.
-        // A stop request must also be posted.
-        int lock_req = 0;
 
         // True if the engine should quit. A stop request must also be posted.
         bool finished = false;

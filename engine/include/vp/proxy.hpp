@@ -52,6 +52,7 @@ public:
     void notify_stop(int64_t time);
     void notify_run(int64_t time);
     bool send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size);
+    void wait_connected();
 
     gv::GvsocLauncher *launcher;
     // Use to notify to loop thread to exit

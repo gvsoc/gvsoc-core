@@ -20,25 +20,20 @@
  */
 
 
-#include <iostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <stdio.h>
 #include <vp/vp.hpp>
 #include <stdio.h>
 #include "string.h"
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <dlfcn.h>
-#include <algorithm>
 #include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <signal.h>
 #include <regex>
 #include <sys/types.h>
 #include <unistd.h>
@@ -144,6 +139,10 @@ int gv::GvProxy::open(int port, int *out_port)
     return 0;
 }
 
+
+void gv::GvProxy::wait_connected()
+{
+}
 
 int gv::GvProxy::join()
 {
@@ -296,23 +295,19 @@ void gv::GvProxySession::proxy_loop()
         {
             if (words[0] == "release")
             {
-                launcher->release(this);
-
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "retain")
             {
-                launcher->retain(this);
-
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "run")
             {
-                launcher->run_internal(this, false);
+                this->run();
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -327,7 +322,7 @@ void gv::GvProxySession::proxy_loop()
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
                     int64_t timestamp = engine->get_time() + duration;
-                    launcher->step_internal(duration, this);
+                    this->step(duration);
                     std::unique_lock<std::mutex> lock(this->proxy->mutex);
                     dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
                     lock.unlock();
@@ -335,15 +330,13 @@ void gv::GvProxySession::proxy_loop()
             }
             else if (words[0] == "stop")
             {
-                launcher->stop(this);
+                this->stop();
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
             else if (words[0] == "quit")
             {
-                this->proxy->launcher->quit(strtol(words[1].c_str(), NULL, 0), this);
-
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
 
                 this->proxy->exit_status = strtol(words[1].c_str(), NULL, 0);
@@ -359,7 +352,7 @@ void gv::GvProxySession::proxy_loop()
             {
                 // Before interacting with the engine, we must lock it since our requests will come
                 // from a different thread.
-                engine->lock();
+                this->lock();
 
                 if (words[0] == "get_component")
                 {
@@ -441,7 +434,7 @@ void gv::GvProxySession::proxy_loop()
                     printf("Ignoring invalid command: %s\n", words[0].c_str());
                 }
 
-                engine->unlock();
+                this->unlock();
             }
         }
     }

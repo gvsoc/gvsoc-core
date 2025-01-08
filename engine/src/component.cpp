@@ -20,15 +20,11 @@
  */
 
 
-#include <iostream>
-#include <sstream>
 #include <string>
 #include <stdio.h>
 #include <vp/vp.hpp>
 #include <stdio.h>
 #include "string.h"
-#include <iostream>
-#include <sstream>
 #include <string>
 #include <dlfcn.h>
 #include <algorithm>
@@ -37,8 +33,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <signal.h>
-#include <regex>
 #include <sys/types.h>
 #include <unistd.h>
 #include <vp/proxy.hpp>

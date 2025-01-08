@@ -117,9 +117,11 @@ void Rsp::proxy_loop(int socket)
 
         in_buffer->commit_write(ret);
 
-        this->top->time.get_engine()->lock();
-        this->codec->decode(in_buffer);
-        this->top->time.get_engine()->unlock();
+        printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
+                        abort();
+        // this->top->time.get_engine()->lock();
+        // this->codec->decode(in_buffer);
+        // this->top->time.get_engine()->unlock();
     }
 }
 
@@ -133,9 +135,11 @@ void Rsp::stop()
 
 void Rsp::stop_all_cores()
 {
-    this->top->time.get_engine()->lock();
-    this->stop_all_cores_safe();
-    this->top->time.get_engine()->unlock();
+    printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
+                    abort();
+    // this->top->time.get_engine()->lock();
+    // this->stop_all_cores_safe();
+    // this->top->time.get_engine()->unlock();
 }
 
 void Rsp::stop_all_cores_safe()

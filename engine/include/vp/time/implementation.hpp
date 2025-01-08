@@ -36,6 +36,7 @@ inline vp::TimeEngine *vp::BlockTime::get_engine()
     return this->time_engine;
 }
 
+#if 0
 inline void vp::TimeEngine::lock()
 {
     // Increase the number of lock request by one, so that the main engine loop leaves the critical loop
@@ -87,6 +88,7 @@ inline void vp::TimeEngine::critical_notify()
 {
     pthread_cond_broadcast(&cond);
 }
+#endif
 
 inline void vp::TimeEngine::update(int64_t time)
 {

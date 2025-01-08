@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -87,7 +87,7 @@ vp::IoReqStatus Router_proxy::req(vp::Block *__this, vp::IoReq *req)
     // Mark the request as sent so that the callbacks can now handle it as asynchronous
     io_req->sent = true;
 
-    // Check if the request was already handled during the access call in order to 
+    // Check if the request was already handled during the access call in order to
     // return the proper code
     if (io_req->replied)
     {
@@ -144,10 +144,10 @@ void Router_proxy::grant(gv::Io_request *io_req)
     if (io_req->sent)
     {
         // Asynchronous, just forward to the engine after locking
-        this->time.get_engine()->lock();
+        this->get_launcher()->engine_lock();
         vp::IoReq *req = (vp::IoReq *)io_req->handle;
         req->get_resp_port()->grant(req);
-        this->time.get_engine()->unlock();
+        this->get_launcher()->engine_unlock();
     }
     else
     {
@@ -163,10 +163,10 @@ void Router_proxy::reply(gv::Io_request *io_req)
     if (io_req->sent)
     {
         // Asynchronous, just forward to the engine after locking
-        this->time.get_engine()->lock();
+        this->get_launcher()->engine_lock();
         vp::IoReq *req = (vp::IoReq *)io_req->handle;
         req->get_resp_port()->resp(req);
-        this->time.get_engine()->unlock();
+        this->get_launcher()->engine_unlock();
         delete io_req;
     }
     else
@@ -180,7 +180,7 @@ void Router_proxy::access(gv::Io_request *io_req)
 {
     if (this->get_launcher()->get_is_async())
     {
-        this->time.get_engine()->lock();
+        this->get_launcher()->engine_lock();
     }
     vp::IoReq *req = new vp::IoReq();
     req->init();
@@ -199,7 +199,7 @@ void Router_proxy::access(gv::Io_request *io_req)
     }
     if (this->get_launcher()->get_is_async())
     {
-        this->time.get_engine()->unlock();
+        this->get_launcher()->engine_unlock();
     }
 }
 

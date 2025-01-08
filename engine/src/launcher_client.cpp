@@ -20,14 +20,12 @@
 
 
 #include <pthread.h>
-#include <signal.h>
 
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
 #include <vp/proxy.hpp>
 #include <vp/launcher.hpp>
 #include <vp/proxy_client.hpp>
-#include "vp/top.hpp"
 
 static gv::GvsocLauncher *launcher = NULL;
 
@@ -37,7 +35,7 @@ gv::Logger::Logger(std::string module)
 }
 
 gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string name)
-: logger("LAUNCHER CLIENT(" + name + ")")
+: logger("LAUNCHER CLIENT(" + name + ")"), name(name)
 {
     this->logger.info("Creating client (this: %p)\n", this);
 
@@ -45,6 +43,8 @@ gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string na
     {
         throw logic_error("Trying to open client with configuration while one has already been opened with configuration");
     }
+
+    this->async = conf == NULL || conf->api_mode == gv::Api_mode::Api_mode_async;
 
     if (launcher == NULL)
     {
@@ -86,7 +86,16 @@ void gv::GvsocLauncherClient::start()
 void gv::GvsocLauncherClient::run()
 {
     this->logger.info("Run\n");
-    launcher->run(this);
+    if (this->async)
+    {
+        launcher->lock();
+        launcher->run_async(this);
+        launcher->unlock();
+    }
+    else
+    {
+        launcher->run_sync(this);
+    }
 }
 
 void gv::GvsocLauncherClient::flush()
@@ -98,7 +107,16 @@ void gv::GvsocLauncherClient::flush()
 int64_t gv::GvsocLauncherClient::stop()
 {
     this->logger.info("Stop\n");
-    return launcher->stop(this);
+    launcher->engine_lock();
+    int64_t result = launcher->stop(this);
+    launcher->engine_unlock();
+    return result;
+}
+
+void gv::GvsocLauncherClient::sim_finished(int status)
+{
+    this->logger.info("Simulation finished\n");
+    launcher->stop(this);
 }
 
 void gv::GvsocLauncherClient::wait_stopped()
@@ -135,56 +153,99 @@ gv::PowerReport *gv::GvsocLauncherClient::report_get()
 int64_t gv::GvsocLauncherClient::step(int64_t duration)
 {
     this->logger.info("Step (duration: %lld)\n", duration);
-    return launcher->step(duration, this);
+    int64_t time;
+    if (this->async)
+    {
+        launcher->lock();
+        time = launcher->step_async(duration, this);
+        launcher->unlock();
+    }
+    else
+    {
+        time = launcher->step_sync(duration, this);
+    }
+    return time;
 }
 
 int64_t gv::GvsocLauncherClient::step_until(int64_t timestamp)
 {
     this->logger.info("Step until (timestamp: %lld)\n", timestamp);
-    return launcher->step_until(timestamp, this);
+    int64_t time;
+    if (this->async)
+    {
+        launcher->lock();
+        time = launcher->step_until_async(timestamp, this);
+        launcher->unlock();
+    }
+    else
+    {
+        time = launcher->step_until_sync(timestamp, this);
+    }
+    return time;
 }
 
 int64_t gv::GvsocLauncherClient::step_and_wait(int64_t duration)
 {
     this->logger.info("Step and wait (duration: %lld)\n", duration);
-    return launcher->step_and_wait(duration, this);
+    int64_t time;
+    if (this->async)
+    {
+        launcher->lock();
+        time = launcher->step_and_wait_async(duration, this);
+        launcher->unlock();
+    }
+    else
+    {
+        time = launcher->step_and_wait_sync(duration, this);
+    }
+    return time;
 }
 
 int64_t gv::GvsocLauncherClient::step_until_and_wait(int64_t timestamp)
 {
     this->logger.info("Step until and wait (timestamp: %lld)\n", timestamp);
-    return launcher->step_until_and_wait(timestamp, this);
+    int64_t time;
+    if (this->async)
+    {
+        launcher->lock();
+        time = launcher->step_until_and_wait_async(timestamp, this);
+        launcher->unlock();
+    }
+    else
+    {
+        time = launcher->step_until_and_wait_sync(timestamp, this);
+    }
+    return time;
 }
 
 int gv::GvsocLauncherClient::join()
 {
     this->logger.info("Join\n");
     this->quit(0);
-    return launcher->join(this);
+    launcher->lock();
+    int status = launcher->join(this);
+    launcher->unlock();
+    return status;
 }
 
 void gv::GvsocLauncherClient::retain()
 {
-    this->logger.info("Retain\n");
-    launcher->retain(this);
 }
 
 void gv::GvsocLauncherClient::release()
 {
-    this->logger.info("Release\n");
-    launcher->release(this);
 }
 
 void gv::GvsocLauncherClient::lock()
 {
     this->logger.info("Lock\n");
-    launcher->lock(this);
+    launcher->engine_lock();
 }
 
 void gv::GvsocLauncherClient::unlock()
 {
     this->logger.info("Unlock\n");
-    launcher->unlock(this);
+    launcher->engine_unlock();
 }
 
 void gv::GvsocLauncherClient::update(int64_t timestamp)
@@ -246,7 +307,9 @@ void *gv::GvsocLauncherClient::get_component(std::string path)
 
 void gv::GvsocLauncherClient::quit(int status)
 {
+    launcher->lock();
     this->has_quit = true;
     this->status = status;
     launcher->client_quit(this);
+    launcher->unlock();
 }

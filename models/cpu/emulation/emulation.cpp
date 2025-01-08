@@ -255,9 +255,11 @@ void emulation::access(gv::Io_request *req)
     // MEMINFO
     else if (req->type == 7)
     {
-        this->time.get_engine()->lock();
-        this->meminfo[0].sync_back((void **)&req->data);
-        this->time.get_engine()->unlock();
+        printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
+                    abort();
+        // this->time.get_engine()->lock();
+        // this->meminfo[0].sync_back((void **)&req->data);
+        // this->time.get_engine()->unlock();
     }
     // CORE ID
     else if (req->type == 8)
@@ -283,23 +285,25 @@ void emulation::access(gv::Io_request *req)
         this->core_req.set_is_write(req->type == gv::Io_request_write);
         this->core_req.set_data(req->data);
 
-        this->time.get_engine()->lock();
-        int err = this->data.req(&this->core_req);
-        this->time.get_engine()->unlock();
+        printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
+            abort();
+        // this->time.get_engine()->lock();
+        // int err = this->data.req(&this->core_req);
+        // this->time.get_engine()->unlock();
 
-        if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
-        {
-            req->retval = err == vp::IO_REQ_INVALID ? gv::Io_request_ko : gv::Io_request_ok;
-            this->user->reply(req);
-        }
-        else
-        {
-            std::unique_lock<std::mutex> lock(this->mutex);
-            this->stalled = true;
-            this->check_state();
-            this->sync_state(lock);
-            lock.unlock();
-        }
+        // if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
+        // {
+        //     req->retval = err == vp::IO_REQ_INVALID ? gv::Io_request_ko : gv::Io_request_ok;
+        //     this->user->reply(req);
+        // }
+        // else
+        // {
+        //     std::unique_lock<std::mutex> lock(this->mutex);
+        //     this->stalled = true;
+        //     this->check_state();
+        //     this->sync_state(lock);
+        //     lock.unlock();
+        // }
     }
 }
 
@@ -313,9 +317,11 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         this->pending_irq = -1;
 
         lock.unlock();
-        this->time.get_engine()->lock();
-        this->irq_ack_itf.sync(irq);
-        this->time.get_engine()->unlock();
+        printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
+                    abort();
+        // this->time.get_engine()->lock();
+        // this->irq_ack_itf.sync(irq);
+        // this->time.get_engine()->unlock();
 
         if (handler)
         {
@@ -334,7 +340,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Running engine\n");
             lock.unlock();
-            this->get_launcher()->run(NULL);
+            this->get_launcher()->run_async(NULL);
             lock.lock();
         }
 

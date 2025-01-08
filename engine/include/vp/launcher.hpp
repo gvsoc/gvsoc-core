@@ -39,6 +39,16 @@ namespace gv {
 
 class GvsocLauncherClient;
 
+class Logger
+{
+public:
+    Logger(std::string module);
+    inline void info(const char *fmt, ...);
+
+private:
+    std::string module;
+};
+
 class GvsocLauncher
 {
     public:
@@ -52,8 +62,8 @@ class GvsocLauncher
         void bind(gv::Gvsoc_user *user, GvsocLauncherClient *client);
         void close(GvsocLauncherClient *client);
 
-        void run(GvsocLauncherClient *client);
-        void run_internal(GvsocLauncherClient *client, bool main_controller=false);
+        void run_async(GvsocLauncherClient *client);
+        void run_sync(GvsocLauncherClient *client);
 
         void start(GvsocLauncherClient *client);
 
@@ -69,23 +79,23 @@ class GvsocLauncher
         void report_stop(GvsocLauncherClient *client);
         gv::PowerReport *report_get(GvsocLauncherClient *client);
 
-        int64_t step(int64_t duration, GvsocLauncherClient *client);
-        int64_t step_internal(int64_t duration, GvsocLauncherClient *client, bool main_controller=false);
-        int64_t step_until(int64_t timestamp, GvsocLauncherClient *client);
-        int64_t step_until_internal(int64_t timestamp, GvsocLauncherClient *client, bool main_controller=false);
-        int64_t step_and_wait(int64_t duration, GvsocLauncherClient *client);
-        int64_t step_until_and_wait(int64_t timestamp, GvsocLauncherClient *client);
 
-        void quit(int status, GvsocLauncherClient *client);
+        int64_t step_sync(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_async(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_until_sync(int64_t timestamp, GvsocLauncherClient *client);
+        int64_t step_until_async(int64_t timestamp, GvsocLauncherClient *client);
+        int64_t step_and_wait_sync(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_and_wait_async(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_until_and_wait_sync(int64_t timestamp, GvsocLauncherClient *client);
+        int64_t step_until_and_wait_async(int64_t timestamp, GvsocLauncherClient *client);
 
         int join(GvsocLauncherClient *client);
 
-        void retain(GvsocLauncherClient *client);
+        void lock();
+        void unlock();
 
-        void release(GvsocLauncherClient *client);
-
-        void lock(GvsocLauncherClient *client);
-        void unlock(GvsocLauncherClient *client);
+        void engine_lock();
+        void engine_unlock();
 
         void client_quit(gv::GvsocLauncherClient *client);
 
@@ -109,11 +119,12 @@ class GvsocLauncher
     private:
         void engine_routine();
         static void *signal_routine(void *__this);
-        void check_run(bool locked=false);
+        void check_run();
         void client_run(GvsocLauncherClient *client);
-        void client_stop(GvsocLauncherClient *client, bool locked=false);
+        void client_stop(GvsocLauncherClient *client);
         static void step_handler(vp::Block *__this, vp::TimeEvent *event);
 
+        Logger logger;
         gv::GvsocConf *conf;
         vp::Top *handler;
         int retval = -1;
@@ -127,19 +138,12 @@ class GvsocLauncher
         bool running = false;
         std::vector<GvsocLauncherClient *> clients;
         bool is_sim_finished = false;
-        std::mutex mutex;
-        std::condition_variable cond;
+        pthread_mutex_t lock_mutex;
+        pthread_mutex_t mutex;
+        pthread_cond_t cond;
         int run_count = 0;
-    };
-
-    class Logger
-    {
-    public:
-        Logger(std::string module);
-        inline void info(const char *fmt, ...);
-
-    private:
-        std::string module;
+        int lock_count = 0;
+        bool notified_finish = false;
     };
 
     class GvsocLauncherClient : public gv::Gvsoc
@@ -154,7 +158,6 @@ class GvsocLauncher
         void bind(gv::Gvsoc_user *user) override;
         void close() override;
         void run() override;
-        void run_internal(bool main_controller=false);
         void start() override;
         void flush() override;
         int64_t stop() override;
@@ -183,16 +186,17 @@ class GvsocLauncher
         void event_exclude(std::string path, bool is_regex) override;
         void *get_component(std::string path) override;
 
-        virtual void sim_finished(int status) {}
+        virtual void sim_finished(int status);
 
         void quit(int status);
 
     private:
         Logger logger;
+        std::string name;
         bool has_quit = false;
         int status;
         bool running = false;
-        int retain_count = 1;
+        bool async;
     };
 
 };

@@ -230,12 +230,10 @@ void gv::GvsocLauncher::wait_stopped(GvsocLauncherClient *client)
 {
     if (this->is_async)
     {
-        pthread_mutex_lock(&this->mutex);;
         while(this->running)
         {
             pthread_cond_wait(&this->cond, &this->mutex);
         }
-        pthread_mutex_unlock(&this->mutex);;
     }
 }
 
@@ -328,7 +326,6 @@ void gv::GvsocLauncher::check_run()
             this->logger.info("Enqueue running\n");
             // Mark the engine now as running to block wait_stopped until engine has been run
             this->running = true;
-            pthread_cond_broadcast(&this->cond);
         }
         else
         {
@@ -336,6 +333,7 @@ void gv::GvsocLauncher::check_run()
             this->running = false;
             this->handler->get_time_engine()->pause();
         }
+        pthread_cond_broadcast(&this->cond);
     }
 }
 

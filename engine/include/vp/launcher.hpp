@@ -203,11 +203,11 @@ class GvsocLauncher
 
 inline void gv::Logger::info(const char *fmt, ...)
 {
-#ifdef VP_TRACE_ACTIVE
-    fprintf(stdout, "[\033[34m%s\033[0m] ", this->module.c_str());
-    va_list ap;
-    va_start(ap, fmt);
-    if (vfprintf(stdout, fmt, ap) < 0) {}
-    va_end(ap);
-#endif
+// #ifdef VP_TRACE_ACTIVE
+//     fprintf(stdout, "[\033[34m%s\033[0m] ", this->module.c_str());
+//     va_list ap;
+//     va_start(ap, fmt);
+//     if (vfprintf(stdout, fmt, ap) < 0) {}
+//     va_end(ap);
+// #endif
 }

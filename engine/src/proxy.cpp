@@ -79,7 +79,10 @@ void gv::GvProxy::listener(void)
         this->logger.info("Client connected, creating new session\n");
 
         this->sockets.push_back(client_fd);
+        std::unique_lock<std::mutex> lock(this->mutex);
         this->sessions.push_back(new GvProxySession(this, client_fd, client_fd));
+        this->cond.notify_all();
+        lock.unlock();
     }
 }
 
@@ -142,6 +145,12 @@ int gv::GvProxy::open(int port, int *out_port)
 
 void gv::GvProxy::wait_connected()
 {
+    std::unique_lock<std::mutex> lock(this->mutex);
+    while(this->sessions.size() == 0)
+    {
+        this->cond.wait(lock);
+    }
+    lock.unlock();
 }
 
 int gv::GvProxy::join()

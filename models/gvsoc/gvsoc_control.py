@@ -331,6 +331,9 @@ class Proxy(object):
     def retain(self):
         self._send_cmd('retain')
 
+    def is_sim_finished(self):
+        return self.reader.sim_has_exited
+
     def join(self):
         """Wait end of simulation.
 

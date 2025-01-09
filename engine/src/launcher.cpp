@@ -306,7 +306,7 @@ int64_t gv::GvsocLauncher::step_until_and_wait_async(int64_t timestamp, GvsocLau
 
     while (this->handler->get_time_engine()->get_time() < timestamp)
     {
-        this->wait_stopped(client);
+        pthread_cond_wait(&this->cond, &this->mutex);
     }
 
     return end_time;
@@ -331,6 +331,7 @@ void gv::GvsocLauncher::check_run()
         {
             this->logger.info("Enqueue stop\n");
             this->running = false;
+            __sync_synchronize();
             this->handler->get_time_engine()->pause();
         }
         pthread_cond_broadcast(&this->cond);
@@ -410,6 +411,8 @@ void gv::GvsocLauncher::engine_routine()
 
     while(1)
     {
+        __sync_synchronize();
+
         // Wait until we receive a run request
         while (!this->running)
         {
@@ -513,10 +516,6 @@ void gv::GvsocLauncher::engine_lock()
     pthread_mutex_lock(&this->lock_mutex);
     this->lock_count++;
     __sync_synchronize();
-    if (this->lock_count == 1)
-    {
-        this->handler->get_time_engine()->pause();
-    }
 
     this->check_run();
 

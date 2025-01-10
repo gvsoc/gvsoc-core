@@ -222,9 +222,17 @@ int gv::GvsocLauncherClient::join()
 {
     this->logger.info("Join\n");
     this->quit(0);
-    launcher->lock();
-    int status = launcher->join(this);
-    launcher->unlock();
+    int status;
+    if (this->async)
+    {
+        launcher->lock();
+        status = launcher->join(this);
+        launcher->unlock();
+    }
+    else
+    {
+        status = launcher->join(this);
+    }
     return status;
 }
 
@@ -307,9 +315,18 @@ void *gv::GvsocLauncherClient::get_component(std::string path)
 
 void gv::GvsocLauncherClient::quit(int status)
 {
-    launcher->lock();
-    this->has_quit = true;
-    this->status = status;
-    launcher->client_quit(this);
-    launcher->unlock();
+    if (this->async)
+    {
+        launcher->lock();
+        this->has_quit = true;
+        this->status = status;
+        launcher->client_quit(this);
+        launcher->unlock();
+    }
+    else
+    {
+        this->has_quit = true;
+        this->status = status;
+        launcher->client_quit(this);
+    }
 }

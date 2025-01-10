@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -393,7 +393,7 @@ void gv::TestbenchUart::close()
     command += " enabled=0";
 
     ((Gvsoc_proxy_client *)this->gvsoc)->send_command(command);
-    
+
 }
 
 void gv::TestbenchUart::tx(uint8_t *buffer, int size)

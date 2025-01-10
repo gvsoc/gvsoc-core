@@ -27,13 +27,6 @@
 #include <condition_variable>
 #include <queue>
 
-class GvsocLauncher_notifier
-{
-public:
-    virtual void notify_stop(int64_t time) {}
-    virtual void notify_run(int64_t time) {}
-};
-
 
 namespace gv {
 
@@ -110,7 +103,6 @@ class GvsocLauncher
         void event_add(std::string path, bool is_regex, GvsocLauncherClient *client);
         void event_exclude(std::string path, bool is_regex, GvsocLauncherClient *client);
         void *get_component(std::string path, GvsocLauncherClient *client);
-        void register_exec_notifier(GvsocLauncher_notifier *notifier);
 
         vp::Top *top_get() { return this->handler; }
 
@@ -132,7 +124,6 @@ class GvsocLauncher
         bool is_async;
         std::thread *engine_thread;
         std::thread *signal_thread;
-        std::vector<GvsocLauncher_notifier *> exec_notifiers;
         vp::Component *instance;
         GvProxy *proxy;
         bool running = false;
@@ -203,11 +194,11 @@ class GvsocLauncher
 
 inline void gv::Logger::info(const char *fmt, ...)
 {
-// #ifdef VP_TRACE_ACTIVE
-//     fprintf(stdout, "[\033[34m%s\033[0m] ", this->module.c_str());
-//     va_list ap;
-//     va_start(ap, fmt);
-//     if (vfprintf(stdout, fmt, ap) < 0) {}
-//     va_end(ap);
-// #endif
+#ifdef VP_TRACE_ACTIVE
+    fprintf(stdout, "[\033[34m%s\033[0m] ", this->module.c_str());
+    va_list ap;
+    va_start(ap, fmt);
+    if (vfprintf(stdout, fmt, ap) < 0) {}
+    va_end(ap);
+#endif
 }

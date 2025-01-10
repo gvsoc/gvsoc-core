@@ -119,15 +119,15 @@ void gv::GvsocLauncher::bind(gv::Gvsoc_user *user, GvsocLauncherClient *client)
 
 void gv::GvsocLauncher::start(GvsocLauncherClient *client)
 {
-    if (this->proxy)
-    {
-        this->proxy->wait_connected();
-    }
-
     this->instance->build_all();
     this->handler->start();
     this->instance->reset_all(true);
     this->instance->reset_all(false);
+
+    if (this->proxy)
+    {
+        this->proxy->wait_connected();
+    }
 
     this->check_run();
 }
@@ -239,6 +239,7 @@ void gv::GvsocLauncher::wait_stopped(GvsocLauncherClient *client)
 
 int64_t gv::GvsocLauncher::step_sync(int64_t duration, GvsocLauncherClient *client)
 {
+    printf("%s %d\n", __FILE__, __LINE__);
     return this->step_until_sync(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
@@ -257,18 +258,10 @@ void gv::GvsocLauncher::step_handler(vp::Block *__this, vp::TimeEvent *event)
 
 int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient *client)
 {
+    printf("%s %d\n", __FILE__, __LINE__);
     int64_t time;
-    for (auto x: this->exec_notifiers)
-    {
-        x->notify_run(this->handler->get_time_engine()->get_time());
-    }
-
     time = this->handler->get_time_engine()->run_until(end_time);
 
-    for (auto x: this->exec_notifiers)
-    {
-        x->notify_stop(this->handler->get_time_engine()->get_time());
-    }
     return time;
 }
 
@@ -287,6 +280,7 @@ int64_t gv::GvsocLauncher::step_until_async(int64_t end_time, GvsocLauncherClien
 
 int64_t gv::GvsocLauncher::step_and_wait_sync(int64_t duration, GvsocLauncherClient *client)
 {
+    printf("%s %d\n", __FILE__, __LINE__);
     return this->step_until_and_wait_sync(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
@@ -297,6 +291,7 @@ int64_t gv::GvsocLauncher::step_and_wait_async(int64_t duration, GvsocLauncherCl
 
 int64_t gv::GvsocLauncher::step_until_and_wait_sync(int64_t timestamp, GvsocLauncherClient *client)
 {
+    printf("%s %d\n", __FILE__, __LINE__);
     return this->step_until_sync(timestamp, client);
 }
 
@@ -493,11 +488,6 @@ void gv::GvsocLauncher::engine_routine()
 //     return result;
 // }
 
-
-void gv::GvsocLauncher::register_exec_notifier(GvsocLauncher_notifier *notifier)
-{
-    this->exec_notifiers.push_back(notifier);
-}
 
 void gv::GvsocLauncher::lock()
 {

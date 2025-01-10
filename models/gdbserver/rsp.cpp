@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <vp/launcher.hpp>
 
 #define RSP_PACKET_MAX_SIZE (16*1024)
 #define REPLY_BUF_LEN 256
@@ -117,11 +118,9 @@ void Rsp::proxy_loop(int socket)
 
         in_buffer->commit_write(ret);
 
-        printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
-                        abort();
-        // this->top->time.get_engine()->lock();
-        // this->codec->decode(in_buffer);
-        // this->top->time.get_engine()->unlock();
+        this->top->get_launcher()->engine_lock();
+        this->codec->decode(in_buffer);
+        this->top->get_launcher()->engine_unlock();
     }
 }
 
@@ -135,11 +134,9 @@ void Rsp::stop()
 
 void Rsp::stop_all_cores()
 {
-    printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
-                    abort();
-    // this->top->time.get_engine()->lock();
-    // this->stop_all_cores_safe();
-    // this->top->time.get_engine()->unlock();
+    this->top->get_launcher()->engine_lock();
+    this->stop_all_cores_safe();
+    this->top->get_launcher()->engine_unlock();
 }
 
 void Rsp::stop_all_cores_safe()

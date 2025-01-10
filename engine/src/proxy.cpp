@@ -59,7 +59,6 @@ gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLaunch
   : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe), logger("PROXY")
 {
     this->logger.info("Instantiating proxy\n");
-    launcher->register_exec_notifier(this);
 }
 
 void gv::GvProxy::listener(void)
@@ -182,16 +181,6 @@ void gv::GvProxy::send_quit(int status)
     {
         dprintf(x, "req=-1;exit=%d\n", status);
     }
-}
-
-void gv::GvProxy::notify_stop(int64_t time)
-{
-    this->send_reply("req=-1;msg=stopped=" + std::to_string(time) + '\n');
-}
-
-void gv::GvProxy::notify_run(int64_t time)
-{
-    this->send_reply("req=-1;msg=running=" + std::to_string(time) + '\n');
 }
 
 

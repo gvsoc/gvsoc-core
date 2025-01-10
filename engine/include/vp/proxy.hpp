@@ -42,15 +42,13 @@ private:
     int reply_fd;
 };
 
-class GvProxy : public GvsocLauncher_notifier
+class GvProxy
 {
 public:
     GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
     void send_quit(int status);
     int join();
-    void notify_stop(int64_t time);
-    void notify_run(int64_t time);
     bool send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size);
     void wait_connected();
 

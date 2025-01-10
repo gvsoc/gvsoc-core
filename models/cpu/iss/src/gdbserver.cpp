@@ -21,6 +21,7 @@
 
 #include <cpu/iss/include/iss.hpp>
 #include <algorithm>
+#include <vp/launcher.hpp>
 
 
 
@@ -497,31 +498,29 @@ void Gdbserver::handle_pending_io_access()
 
 int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
 {
-    printf("UNIMPLEMENTED %s %d\n", __FILE__, __LINE__);
-    abort();
-    // this->trace.msg(vp::Trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
 
-    // // Since the whole request may need to be processed in several small requests,
-    // // we setup an internal FSM that will inform us when the whole request is over.
-    // this->io_pending_addr = addr;
-    // this->io_pending_size = size;
-    // this->io_pending_data = data;
-    // this->io_pending_is_write = is_write;
-    // this->waiting_io_response = true;
+    // Since the whole request may need to be processed in several small requests,
+    // we setup an internal FSM that will inform us when the whole request is over.
+    this->io_pending_addr = addr;
+    this->io_pending_size = size;
+    this->io_pending_data = data;
+    this->io_pending_is_write = is_write;
+    this->waiting_io_response = true;
 
-    // // Trigger the first access, with engine locked, since we come from an external thread
-    // this->handle_pending_io_access();
-    // this->iss.top.time.get_engine()->unlock();
+    // Trigger the first access, with engine locked, since we come from an external thread
+    this->handle_pending_io_access();
+    this->iss.top.get_launcher()->engine_unlock();
 
-    // // Then wait until the FSM is over
-    // std::unique_lock<std::mutex> lock(this->mutex);
-    // while (this->waiting_io_response)
-    // {
-    //     this->cond.wait(lock);
-    // }
-    // lock.unlock();
+    // Then wait until the FSM is over
+    std::unique_lock<std::mutex> lock(this->mutex);
+    while (this->waiting_io_response)
+    {
+        this->cond.wait(lock);
+    }
+    lock.unlock();
 
-    // this->iss.top.time.get_engine()->lock();
+    this->iss.top.get_launcher()->engine_lock();
 
     return this->io_retval;
 }

@@ -303,7 +303,10 @@ int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient
 
     this->client_run(client);
 
-    this->run_sync(client);
+    while (this->handler->get_time_engine()->get_time() < end_time)
+    {
+        this->run_sync(client);
+    }
 
     return this->handler->get_time_engine()->get_time();
 }

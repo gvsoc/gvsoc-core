@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
 #pragma once
 
+#include <cstdint>
 #include <stdint.h>
 
 namespace vp
@@ -134,7 +135,7 @@ namespace vp
         // It is only valid when the client is not the currently active one,
         // and is then updated either when the client is not the active one
         // anymore or when the client is enqueued to the engine.
-        int64_t next_event_time = 0;
+        int64_t next_event_time = INT64_MAX;
     };
 
 };

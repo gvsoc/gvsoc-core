@@ -68,6 +68,7 @@ void gv::GvsocLauncherClient::open()
 void gv::GvsocLauncherClient::bind(gv::Gvsoc_user *user)
 {
     this->logger.info("Bind (user: %p)\n", user);
+    this->user = user;
     launcher->bind(user, this);
 }
 
@@ -117,6 +118,10 @@ void gv::GvsocLauncherClient::sim_finished(int status)
 {
     this->logger.info("Simulation finished\n");
     launcher->stop(this);
+    if(this->user)
+    {
+        this->user->has_ended();
+    }
 }
 
 void gv::GvsocLauncherClient::wait_stopped()
@@ -240,6 +245,11 @@ void gv::GvsocLauncherClient::retain()
 {
 }
 
+void gv::GvsocLauncherClient::wait_runnable()
+{
+    launcher->wait_runnable();
+}
+
 void gv::GvsocLauncherClient::release()
 {
 }
@@ -258,7 +268,7 @@ void gv::GvsocLauncherClient::unlock()
 
 void gv::GvsocLauncherClient::update(int64_t timestamp)
 {
-    this->logger.info("Timestamp (timestamp: %lld)\n", timestamp);
+    this->logger.info("Update (timestamp: %lld)\n", timestamp);
     launcher->update(timestamp, this);
 }
 

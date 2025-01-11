@@ -36,60 +36,6 @@ inline vp::TimeEngine *vp::BlockTime::get_engine()
     return this->time_engine;
 }
 
-#if 0
-inline void vp::TimeEngine::lock()
-{
-    // Increase the number of lock request by one, so that the main engine loop leaves the critical loop
-    // This needs to be protected as severall thread may try to lock at the same time.
-    pthread_mutex_lock(&lock_mutex);
-
-    // The locking mechanism is lock-free so that the time engine can check at each timestamp if there is a lock
-    // request with small overhead
-    // After it executes a timestampt, the engine will stop if stop_req is true, will then set it to false,
-    // and check if there is a lock request.
-    // It is important to put a barrier between the accesses to lock_req and stop_req so that the lock-free
-    // mechanism wotks well
-    this->lock_req++;
-    __sync_synchronize();
-    this->stop_req = true;
-    pthread_cond_broadcast(&cond);
-    pthread_mutex_unlock(&lock_mutex);
-
-    // Now wait until the engine has left the main loop.
-    pthread_mutex_lock(&mutex);
-}
-
-inline void vp::TimeEngine::unlock()
-{
-    pthread_mutex_lock(&lock_mutex);
-    this->lock_req--;
-    pthread_mutex_unlock(&lock_mutex);
-
-    pthread_cond_broadcast(&cond);
-    pthread_mutex_unlock(&mutex);
-}
-
-inline void vp::TimeEngine::critical_enter()
-{
-    pthread_mutex_lock(&mutex);
-}
-
-inline void vp::TimeEngine::critical_exit()
-{
-    pthread_mutex_unlock(&mutex);
-}
-
-inline void vp::TimeEngine::critical_wait()
-{
-    pthread_cond_wait(&cond, &mutex);
-}
-
-inline void vp::TimeEngine::critical_notify()
-{
-    pthread_cond_broadcast(&cond);
-}
-#endif
-
 inline void vp::TimeEngine::update(int64_t time)
 {
     if (time > this->time)

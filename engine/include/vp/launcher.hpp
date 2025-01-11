@@ -56,7 +56,7 @@ class GvsocLauncher
         void close(GvsocLauncherClient *client);
 
         void run_async(GvsocLauncherClient *client);
-        void run_sync(GvsocLauncherClient *client);
+        int64_t run_sync(GvsocLauncherClient *client);
 
         void start(GvsocLauncherClient *client);
 
@@ -103,6 +103,8 @@ class GvsocLauncher
         void event_add(std::string path, bool is_regex, GvsocLauncherClient *client);
         void event_exclude(std::string path, bool is_regex, GvsocLauncherClient *client);
         void *get_component(std::string path, GvsocLauncherClient *client);
+        bool is_runnable();
+        void wait_runnable();
 
         vp::Top *top_get() { return this->handler; }
 
@@ -177,6 +179,7 @@ class GvsocLauncher
         void event_add(std::string path, bool is_regex) override;
         void event_exclude(std::string path, bool is_regex) override;
         void *get_component(std::string path) override;
+        void wait_runnable() override;
 
         virtual void sim_finished(int status);
 
@@ -189,6 +192,7 @@ class GvsocLauncher
         int status;
         bool running = false;
         bool async;
+        gv::Gvsoc_user *user = NULL;
     };
 
 };
@@ -196,10 +200,10 @@ class GvsocLauncher
 inline void gv::Logger::info(const char *fmt, ...)
 {
 // #ifdef VP_TRACE_ACTIVE
-//     fprintf(stdout, "[\033[34m%s\033[0m] ", this->module.c_str());
+//     fprintf(stderr, "[\033[34m%s\033[0m] ", this->module.c_str());
 //     va_list ap;
 //     va_start(ap, fmt);
-//     if (vfprintf(stdout, fmt, ap) < 0) {}
+//     if (vfprintf(stderr, fmt, ap) < 0) {}
 //     va_end(ap);
 // #endif
 }

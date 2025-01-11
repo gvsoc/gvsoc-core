@@ -745,6 +745,8 @@ namespace gv {
 
         // Temporary workaround, do not use
         virtual void unlock() {}
+
+        virtual void wait_runnable() {}
     };
 
 

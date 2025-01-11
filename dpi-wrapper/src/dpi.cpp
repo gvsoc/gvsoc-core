@@ -126,22 +126,19 @@ static void gvsoc_sync_task(void *arg)
         // update the time.
         // If so, just call again the step function so that we release the engine for
         // a while.
-        if (1) //gvsoc->retain_count() == 1)
+        gvsoc->wait_runnable();
+
+        if (next_timestamp == -1)
         {
-            if (next_timestamp == -1)
-            {
-                gvsoc->unlock();
-                // Since raise event can not be called from external thread when using proxy mode,
-                // we have to poll instead of using an event, in case an external thread pushed
-                // something.
-                // dpi_wait_event();
-                dpi_wait_event_timeout_ps(100000);
-                gvsoc->lock();
-            }
-            else
-            {
-                dpi_wait_event_timeout_ps(next_timestamp - time);
-            }
+            // Since raise event can not be called from external thread when using proxy mode,
+            // we have to poll instead of using an event, in case an external thread pushed
+            // something.
+            // dpi_wait_event();
+            dpi_wait_event_timeout_ps(100000);
+        }
+        else
+        {
+            dpi_wait_event_timeout_ps(next_timestamp - time);
         }
     }
 }

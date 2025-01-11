@@ -65,6 +65,7 @@ gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
     this->conf = conf;
     this->is_async = conf == NULL || conf->api_mode == gv::Api_mode::Api_mode_async;
     pthread_mutex_init(&this->mutex, NULL);
+    pthread_mutex_init(&this->lock_mutex, NULL);
     pthread_cond_init(&this->cond, NULL);
 }
 
@@ -113,6 +114,7 @@ void gv::GvsocLauncher::open(GvsocLauncherClient *client)
     if (!this->is_async)
     {
         pthread_mutex_lock(&this->mutex);
+        this->client_run(client);
     }
 }
 
@@ -146,16 +148,8 @@ void gv::GvsocLauncher::close(GvsocLauncherClient *client)
     delete top;
 }
 
-void gv::GvsocLauncher::run_sync(GvsocLauncherClient *client)
+int64_t gv::GvsocLauncher::run_sync(GvsocLauncherClient *client)
 {
-    this->client_run(client);
-
-
-
-
-
-
-
     __sync_synchronize();
 
     // Wait until we receive a run request
@@ -164,13 +158,15 @@ void gv::GvsocLauncher::run_sync(GvsocLauncherClient *client)
         pthread_cond_wait(&this->cond, &this->mutex);
     }
 
-    this->handler->get_time_engine()->run();
+    int64_t time = this->handler->get_time_engine()->run();
 
     if (!this->notified_finish && this->handler->get_time_engine()->finished_get())
     {
         this->notified_finish = true;
         this->sim_finished(this->handler->get_time_engine()->stop_status);
     }
+
+    return time;
 }
 
 void gv::GvsocLauncher::run_async(GvsocLauncherClient *client)
@@ -288,27 +284,41 @@ void gv::GvsocLauncher::step_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     GvsocLauncher *_this = (GvsocLauncher *)event->get_args()[0];
     GvsocLauncherClient *client = (GvsocLauncherClient *)event->get_args()[1];
-    _this->client_stop(client);
+    if (_this->is_async)
+    {
+        _this->client_stop(client);
+    }
+    else
+    {
+        _this->handler->get_time_engine()->pause();
+    }
     delete event;
 }
 
 int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient *client)
 {
-    vp::TimeEvent *event = new vp::TimeEvent(this->instance);
-    event->set_callback(this->step_handler);
-    event->get_args()[0] = this;
-    event->get_args()[1] = client;
-
-    event->enqueue(end_time - this->instance->time.get_engine()->get_time());
-
-    this->client_run(client);
-
-    while (this->handler->get_time_engine()->get_time() < end_time)
+    if (end_time > this->instance->time.get_engine()->get_time())
     {
-        this->run_sync(client);
-    }
+        int64_t time = -1;
+        vp::TimeEvent *event = new vp::TimeEvent(this->instance);
+        event->set_callback(this->step_handler);
+        event->get_args()[0] = this;
+        event->get_args()[1] = client;
 
-    return this->handler->get_time_engine()->get_time();
+        event->enqueue(end_time - this->instance->time.get_engine()->get_time());
+
+        while (this->handler->get_time_engine()->get_time() < end_time)
+        {
+            time = this->run_sync(client);
+
+        }
+
+        return time;
+    }
+    else
+    {
+        return this->handler->get_time_engine()->get_next_event_time();
+    }
 }
 
 int64_t gv::GvsocLauncher::step_until_async(int64_t end_time, GvsocLauncherClient *client)
@@ -351,6 +361,19 @@ int64_t gv::GvsocLauncher::step_until_and_wait_async(int64_t timestamp, GvsocLau
     }
 
     return end_time;
+}
+
+void gv::GvsocLauncher::wait_runnable()
+{
+    while (!this->is_runnable())
+    {
+        pthread_cond_wait(&this->cond, &this->mutex);
+    }
+}
+
+bool gv::GvsocLauncher::is_runnable()
+{
+    return this->run_count == this->clients.size() && this->lock_count == 0;
 }
 
 void gv::GvsocLauncher::check_run()

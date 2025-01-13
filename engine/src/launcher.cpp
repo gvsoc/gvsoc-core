@@ -207,20 +207,23 @@ void gv::GvsocLauncher::flush(GvsocLauncherClient *client)
 void gv::GvsocLauncher::sim_finished(int status)
 {
     this->logger.info("Simulation has finished\n");
-    this->is_sim_finished = true;
-    this->retval = status;
 
-    for (gv::GvsocLauncherClient *client: this->clients)
+    if (!this->is_sim_finished)
     {
-        client->sim_finished(status);
-    }
+        this->is_sim_finished = true;
+        this->retval = status;
 
-    pthread_cond_broadcast(&this->cond);
+        for (gv::GvsocLauncherClient *client: this->clients)
+        {
+            client->sim_finished(status);
+        }
+
+        pthread_cond_broadcast(&this->cond);
+    }
 }
 
 int gv::GvsocLauncher::join(GvsocLauncherClient *client)
 {
-
     this->client_run(client);
 
     while(!this->is_sim_finished)
@@ -494,71 +497,8 @@ void gv::GvsocLauncher::engine_routine()
             this->notified_finish = true;
             this->sim_finished(this->handler->get_time_engine()->stop_status);
         }
-
-        // if (this->handler->get_time_engine()->finished_get())
-        // {
-        //     this->handler->get_time_engine()->critical_notify();
-
-        //     while(1)
-        //     {
-        //         this->handler->get_time_engine()->critical_wait();
-        //         this->handler->get_time_engine()->handle_locks();
-        //     }
-        // }
     }
-
-
-    // TODO
-    // In case of a pause request or the simulation is finished, we leave the engine to let
-            // the launcher handles it, otherwise we just continue to run events
-            // if (this->pause_req || this->finished)
-            // {
-            //     gv::Gvsoc_user *launcher = this->launcher_get();
-
-            //     this->pause_req = false;
-            //     time = -1;
-            //     if (launcher)
-            //     {
-            //         if (this->finished)
-            //         {
-            //             launcher->has_ended();
-            //         }
-            //         else
-            //         {
-            //             launcher->has_stopped();
-            //         }
-            //     }
-            //     break;
-            // }
 }
-
-// TODO
-// this->gv_launcher->sim_finished(status);
-
-//     if (this->launcher)
-//     {
-//         this->launcher->was_updated();
-//     }
-
-// TODO
-// bool vp::TimeEngine::handle_locks()
-// {
-//     __asm__ __volatile__ ("" : : : "memory");
-//     bool result = this->lock_req > 0;
-
-//     if (result > 0)
-//     {
-//         pthread_cond_wait(&cond, &mutex);
-
-//         if (this->lock_req > 0)
-//         {
-//             this->stop_req = true;
-//         }
-//     }
-
-//     __asm__ __volatile__ ("" : : : "memory");
-//     return result;
-// }
 
 
 void gv::GvsocLauncher::lock()

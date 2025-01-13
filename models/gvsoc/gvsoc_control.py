@@ -359,6 +359,8 @@ class Proxy(object):
 
         self._send_cmd('quit %d' % status)
 
+    def terminate(self):
+        self._send_cmd('terminate')
 
 
     def _get_component(self, path):

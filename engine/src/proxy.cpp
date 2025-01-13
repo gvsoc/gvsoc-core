@@ -333,6 +333,15 @@ void gv::GvProxySession::proxy_loop()
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
             }
+            else if (words[0] == "terminate")
+            {
+                std::unique_lock<std::mutex> lock(this->proxy->mutex);
+
+                dprintf(reply_fd, "req=%s\n", req.c_str());
+                lock.unlock();
+
+                this->terminate();
+            }
             else if (words[0] == "quit")
             {
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
@@ -341,7 +350,7 @@ void gv::GvProxySession::proxy_loop()
                 this->proxy->has_finished = true;
                 this->proxy->cond.notify_all();
 
-                dprintf(reply_fd, "req=%s;msg=quit\n", req.c_str());
+                dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
 
                 this->quit(this->proxy->exit_status);

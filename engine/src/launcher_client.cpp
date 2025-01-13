@@ -323,15 +323,21 @@ void *gv::GvsocLauncherClient::get_component(std::string path)
     return launcher->get_component(path, this);
 }
 
+void gv::GvsocLauncherClient::terminate()
+{
+    this->logger.info("Forcing simulation termination\n");
+    launcher->sim_finished(0);
+}
+
 void gv::GvsocLauncherClient::quit(int status)
 {
     if (this->async)
     {
-        launcher->lock();
+        launcher->engine_lock();
         this->has_quit = true;
         this->status = status;
         launcher->client_quit(this);
-        launcher->unlock();
+        launcher->engine_unlock();
     }
     else
     {

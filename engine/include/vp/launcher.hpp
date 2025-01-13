@@ -184,6 +184,7 @@ class GvsocLauncher
         virtual void sim_finished(int status);
 
         void quit(int status);
+        void terminate();
 
     private:
         Logger logger;

@@ -178,10 +178,6 @@ void Router_proxy::reply(gv::Io_request *io_req)
 
 void Router_proxy::access(gv::Io_request *io_req)
 {
-    if (this->get_launcher()->get_is_async())
-    {
-        this->get_launcher()->engine_lock();
-    }
     vp::IoReq *req = new vp::IoReq();
     req->init();
     req->set_addr(io_req->addr);
@@ -196,10 +192,6 @@ void Router_proxy::access(gv::Io_request *io_req)
     {
         this->response(this, req);
         delete req;
-    }
-    if (this->get_launcher()->get_is_async())
-    {
-        this->get_launcher()->engine_unlock();
     }
 }
 

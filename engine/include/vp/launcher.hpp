@@ -47,24 +47,61 @@ class GvsocLauncher
     public:
         GvsocLauncher(gv::GvsocConf *conf);
 
-        void sim_finished(int status);
-
-        void register_client(GvsocLauncherClient *client);
-        void unregister_client(GvsocLauncherClient *client);
+        // Open launcher. This instantiate the system and setup simulation loop
         void open(GvsocLauncherClient *client);
+        // Bind a user controller so that it is notified about event enqueueuing
         void bind(gv::Gvsoc_user *user, GvsocLauncherClient *client);
-        void close(GvsocLauncherClient *client);
-
-        void run_async(GvsocLauncherClient *client);
-        int64_t run_sync(GvsocLauncherClient *client);
-
+        // Start the system. This build the whole system, call start on it, reset it,
+        // and wait proxy connection if needed and check if simulation can be run
         void start(GvsocLauncherClient *client);
-
+        // Close system models
+        void close(GvsocLauncherClient *client);
+        // Run events until a stop request is received.
+        int64_t run_sync();
+        // Ask internal loop to run events until a stop request is received
+        void run_async(GvsocLauncherClient *client);
+        // Flush system models
         void flush(GvsocLauncherClient *client);
-
+        // Terminate simulation. THis will mark it as over and will notified all clients
+        void sim_finished(int status);
+        // BLock caller untiul simulation is over and every client is over
+        int join(GvsocLauncherClient *client);
+        // Lock launcher. This is a simple mutex, can be used to enter the launcher when we are
+        // sure the engine is stopped, e.g. for a step or a run.
+        void lock();
+        // Unlock launcher
+        void unlock();
+        // Stop the engine and lock the launcher. Can be used either when engine is running or
+        // stopped but is much expensive that the simple lock
+        void engine_lock();
+        // Unlock the launcher and run the engine if needed.
+        void engine_unlock();
+        // Stop the client. This will prevent simulation from running until client is run again
         int64_t stop(GvsocLauncherClient *client);
-
-        void wait_stopped(GvsocLauncherClient *client);
+        // Run simulation for specified duration in synchronous mode
+        int64_t step_sync(int64_t duration, GvsocLauncherClient *client);
+        // Run simulation for specified duration in asynchronous mode
+        int64_t step_async(int64_t duration, GvsocLauncherClient *client);
+        // Run simulation until specified timestamp is reached, in synchronous mode
+        int64_t step_until_sync(int64_t timestamp, GvsocLauncherClient *client);
+        // Run simulation until specified timestamp is reached, in asynchronous mode
+        int64_t step_until_async(int64_t timestamp, GvsocLauncherClient *client);
+        // Run simulation for specified duration in asynchronous mode and blocks caller until
+        // step is reached
+        int64_t step_and_wait_async(int64_t duration, GvsocLauncherClient *client);
+        // Run simulation until specified timestamp is reached, in asynchronous mode and blocks
+        // caller until step is reached
+        int64_t step_until_and_wait_async(int64_t timestamp, GvsocLauncherClient *client);
+        // Block caller until simulation can be run. Used in synchronous mode to make no other client
+        // is blocking simulation before continuing.
+        void wait_runnable();
+        // Must be called when client wants to quit. This will unblock other clients waiting for its
+        // termination in the join method
+        void client_quit(gv::GvsocLauncherClient *client);
+        // Add a client. This may stop simulation.
+        void register_client(GvsocLauncherClient *client);
+        // Remove a client. This may stop simulation.
+        void unregister_client(GvsocLauncherClient *client);
 
         double get_instant_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client);
         double get_average_power(double &dynamic_power, double &static_power, GvsocLauncherClient *client);
@@ -72,25 +109,6 @@ class GvsocLauncher
         void report_stop(GvsocLauncherClient *client);
         gv::PowerReport *report_get(GvsocLauncherClient *client);
 
-
-        int64_t step_sync(int64_t duration, GvsocLauncherClient *client);
-        int64_t step_async(int64_t duration, GvsocLauncherClient *client);
-        int64_t step_until_sync(int64_t timestamp, GvsocLauncherClient *client);
-        int64_t step_until_async(int64_t timestamp, GvsocLauncherClient *client);
-        int64_t step_and_wait_sync(int64_t duration, GvsocLauncherClient *client);
-        int64_t step_and_wait_async(int64_t duration, GvsocLauncherClient *client);
-        int64_t step_until_and_wait_sync(int64_t timestamp, GvsocLauncherClient *client);
-        int64_t step_until_and_wait_async(int64_t timestamp, GvsocLauncherClient *client);
-
-        int join(GvsocLauncherClient *client);
-
-        void lock();
-        void unlock();
-
-        void engine_lock();
-        void engine_unlock();
-
-        void client_quit(gv::GvsocLauncherClient *client);
 
         void update(int64_t timestamp, GvsocLauncherClient *client);
 
@@ -103,40 +121,69 @@ class GvsocLauncher
         void event_add(std::string path, bool is_regex, GvsocLauncherClient *client);
         void event_exclude(std::string path, bool is_regex, GvsocLauncherClient *client);
         void *get_component(std::string path, GvsocLauncherClient *client);
-        bool is_runnable();
-        void wait_runnable();
 
         vp::Top *top_get() { return this->handler; }
 
-        bool get_is_async() { return this->is_async; }
-
-
     private:
+        // Tells if no client is preventing simulation from being run.
+        bool is_runnable();
+        // Thread engine entry in asynchronous mode
         void engine_routine();
         static void *signal_routine(void *__this);
+        // Check if simulation must be running or stopped depending on client state (stopped/running
+        // and lock count)
         void check_run();
+        // Mark client as runnable, and enable simulation if needed
         void client_run(GvsocLauncherClient *client);
+        // Mark client as stopped, and stop simulation if needed
         void client_stop(GvsocLauncherClient *client);
-        static void step_handler(vp::Block *__this, vp::TimeEvent *event);
+        // Static handler used as time event callback, used to stop engine when a step is reached,
+        // for asynchronous mode
+        static void step_async_handler(vp::Block *__this, vp::TimeEvent *event);
+        // Static handler used as time event callback, used to stop engine when a step is reached,
+        // for synchronous mode
+        static void step_sync_handler(vp::Block *__this, vp::TimeEvent *event);
 
+        // Internal logger
         Logger logger;
+        // Main GVSOC controller configuration
         gv::GvsocConf *conf;
+        // Top model class containing all engines
         vp::Top *handler;
+        // Simulation retval set when simulation terminates
         int retval = -1;
+        // User launcher to be notified when an event is enqueued
         gv::Gvsoc_user *user;
+        // Tell if main controller is asynchronous
         bool is_async;
+        // Thread running the engine in asynchronous mode
         std::thread *engine_thread;
+        // Thread handling ctrlC
         std::thread *signal_thread;
+        // Top system instance
         vp::Component *instance;
+        // Proxy
         GvProxy *proxy;
+        // Tell if time engine should be running. In asynchronous mode, there might be a delay
+        // with the actual state of the engine
         bool running = false;
+        // List of current clients
         std::vector<GvsocLauncherClient *> clients;
+        // True if simulation has terminated
         bool is_sim_finished = false;
+        // Mutex used for managing simulation state, i.e. the fields running, run_count and
+        // lock_count
         pthread_mutex_t lock_mutex;
+        // Time engine mutex. The engine owns the mutex when it is running. Any actor must take
+        // it before accessing the models
         pthread_mutex_t mutex;
+        // Time engine condition used for various wakeup
         pthread_cond_t cond;
+        // Number of runnable clients
         int run_count = 0;
+        // Number of locked clients
         int lock_count = 0;
+        // True when simulation termination has been received and notified to clients
         bool notified_finish = false;
     };
 
@@ -155,7 +202,6 @@ class GvsocLauncher
         void start() override;
         void flush() override;
         int64_t stop() override;
-        void wait_stopped() override;
         double get_instant_power(double &dynamic_power, double &static_power) override;
         double get_average_power(double &dynamic_power, double &static_power) override;
         void report_start() override;
@@ -180,20 +226,30 @@ class GvsocLauncher
         void event_exclude(std::string path, bool is_regex) override;
         void *get_component(std::string path) override;
         void wait_runnable() override;
+        void terminate() override;
+        void quit(int status) override;
 
+        // Called by launcher when simulation is over to notify each client
         virtual void sim_finished(int status);
 
-        void quit(int status);
-        void terminate();
-
     private:
+
+        // Internal logger
         Logger logger;
+        // Client name used for debugging
         std::string name;
+        // True when the client has quit
         bool has_quit = false;
+        // Return status given when the client has quit
         int status;
+        // Tell if the client is runnable or stopped
         bool running = false;
+        // Tell if the client is synchronous or asynchronous
         bool async;
+        // User controller to be notified when simulation has ended
         gv::Gvsoc_user *user = NULL;
+        // Step event used to stop engine when stepping in synchronous mode
+        vp::TimeEvent *step_event = NULL;
     };
 
 };

@@ -236,10 +236,6 @@ int64_t Gvsoc_proxy_client::stop()
     return 0;
 }
 
-void Gvsoc_proxy_client::wait_stopped()
-{
-}
-
 int64_t Gvsoc_proxy_client::step(int64_t duration)
 {
     return 0;

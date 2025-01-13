@@ -640,12 +640,10 @@ namespace gv {
          */
         virtual int64_t stop() = 0;
 
-        /**
-         * Wait until execution is stopped
-         *
-         * This blocks the caller until GVSOC has stopped execution.
-         */
-        virtual void wait_stopped() = 0;
+        // Can be called to force simulation terminate in case it does not terminate by itself
+        virtual void terminate() {}
+
+        virtual void quit(int status) {}
 
         /**
          * Update the engine current time

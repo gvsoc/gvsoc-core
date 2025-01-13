@@ -93,6 +93,12 @@ void gv::GvsocLauncher::open(GvsocLauncherClient *client)
         this->conf->proxy_socket = out_port;
     }
 
+    // The main loop, either internally in asynchronous or externally in synchronous mode,
+    // is by default having the lock so that any client must take it to stop the engine.
+    // The main loop will release the lock after a stop request and when it is waiting that
+    // that the simulation becomes runnable again.
+    pthread_mutex_lock(&this->mutex);
+
     if (this->is_async)
     {
         // Create the sigint thread so that we can properly close simulation
@@ -105,15 +111,16 @@ void gv::GvsocLauncher::open(GvsocLauncherClient *client)
 
         signal(SIGINT, sigint_handler);
 
+        // In asynchronous mode, a dedicated thread is running the time engine.
         this->engine_thread = new std::thread(&gv::GvsocLauncher::engine_routine, this);
 #ifndef __APPLE__
         pthread_setname_np(this->engine_thread->native_handle(), "engine");
 #endif
     }
-
-    if (!this->is_async)
+    else
     {
-        pthread_mutex_lock(&this->mutex);
+        // It is also considered always running since anyway the engine is making progress
+        // only when the external loop is running it.
         this->client_run(client);
     }
 }
@@ -131,11 +138,14 @@ void gv::GvsocLauncher::start(GvsocLauncherClient *client)
     this->instance->reset_all(true);
     this->instance->reset_all(false);
 
+    // Now that all initialization are done, wait for at least one proxy connection before
+    // running.
     if (this->proxy)
     {
         this->proxy->wait_connected();
     }
 
+    // Now simulation can start
     this->check_run();
 }
 
@@ -148,18 +158,27 @@ void gv::GvsocLauncher::close(GvsocLauncherClient *client)
     delete top;
 }
 
-int64_t gv::GvsocLauncher::run_sync(GvsocLauncherClient *client)
+int64_t gv::GvsocLauncher::run_sync()
 {
+    // Since the stop mechanism is lock-free, we need to issue memory barrier to see latest
+    // version of running field
     __sync_synchronize();
 
-    // Wait until we receive a run request
+    // Wait until the simulation becomes runnable.
+    // Simulation can be stopped if any client stopped it or locked it.
     while (!this->running)
     {
         pthread_cond_wait(&this->cond, &this->mutex);
     }
 
+    this->logger.info("Running time engine\n");
+
+    // Now run the engine, this will execute events until a stop request is issued.
+    // The engine will then execute events until the current timestamp is over and will then return.
     int64_t time = this->handler->get_time_engine()->run();
 
+    // We handle the simulation termination only once to notify everyone.
+    // Then simulation can freely continue if needed
     if (!this->notified_finish && this->handler->get_time_engine()->finished_get())
     {
         this->notified_finish = true;
@@ -208,6 +227,8 @@ void gv::GvsocLauncher::sim_finished(int status)
 {
     this->logger.info("Simulation has finished\n");
 
+    // When simulation is over, we record the status, mark simulation as finished and notified
+    // every client.
     if (!this->is_sim_finished)
     {
         this->is_sim_finished = true;
@@ -224,8 +245,11 @@ void gv::GvsocLauncher::sim_finished(int status)
 
 int gv::GvsocLauncher::join(GvsocLauncherClient *client)
 {
+    // Make the calling client runnable so that it does not prevent simulation from running for
+    // other clients
     this->client_run(client);
 
+    // Wait simulation is over
     while(!this->is_sim_finished)
     {
         if (this->is_async)
@@ -234,43 +258,35 @@ int gv::GvsocLauncher::join(GvsocLauncherClient *client)
         }
         else
         {
-            this->run_sync(client);
+            this->run_sync();
         }
     }
-    int retval = this->retval;
 
-    for (gv::GvsocLauncherClient *client: this->clients)
+    // Wait for each client to finish and collect status from everyone
+    int retval = this->retval;
+    for (gv::GvsocLauncherClient *wait_client: this->clients)
     {
-        while (!client->has_quit)
+        while (!wait_client->has_quit)
         {
             pthread_cond_wait(&this->cond, &this->mutex);
         }
 
-        if (client->status != 0)
+        if (wait_client->status != 0)
         {
-            retval = client->status;
+            retval = wait_client->status;
         }
     }
 
-    return this->retval;
+    return retval;
 }
 
 int64_t gv::GvsocLauncher::stop(GvsocLauncherClient *client)
 {
     this->client_stop(client);
 
+    // Since this method must be called with the engine locked, we are sure it is already stopped
+    // thus we can safely return the current time as the time where it was stopped.
     return this->handler->get_time_engine()->get_time();
-}
-
-void gv::GvsocLauncher::wait_stopped(GvsocLauncherClient *client)
-{
-    if (this->is_async)
-    {
-        while(this->running)
-        {
-            pthread_cond_wait(&this->cond, &this->mutex);
-        }
-    }
 }
 
 int64_t gv::GvsocLauncher::step_sync(int64_t duration, GvsocLauncherClient *client)
@@ -283,36 +299,50 @@ int64_t gv::GvsocLauncher::step_async(int64_t duration, GvsocLauncherClient *cli
     return this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
-void gv::GvsocLauncher::step_handler(vp::Block *__this, vp::TimeEvent *event)
+void gv::GvsocLauncher::step_async_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     GvsocLauncher *_this = (GvsocLauncher *)event->get_args()[0];
     GvsocLauncherClient *client = (GvsocLauncherClient *)event->get_args()[1];
-    if (_this->is_async)
-    {
-        _this->client_stop(client);
-    }
-    else
-    {
-        _this->handler->get_time_engine()->pause();
-    }
+    _this->client_stop(client);
     delete event;
+}
+
+void gv::GvsocLauncher::step_sync_handler(vp::Block *__this, vp::TimeEvent *event)
+{
+    GvsocLauncher *_this = (GvsocLauncher *)event->get_args()[0];
+    GvsocLauncherClient *client = (GvsocLauncherClient *)event->get_args()[1];
+    _this->handler->get_time_engine()->pause();
 }
 
 int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient *client)
 {
+    // Only go a step if the end time is not the present time
     if (end_time > this->instance->time.get_engine()->get_time())
     {
+        // The idea to implement the step is to enqueue a time event which will stop the engine
+        // when the step timestamp is reached.
+
+        // In synchronous mode, since only one thread is allowed to do the step, we use a single
+        // event and preallocate it for performance reason.
+        // The event is allocated now, as instance is not know at construct time.
+        if (client->step_event == NULL)
+        {
+            client->step_event = new vp::TimeEvent(this->instance);
+            client->step_event->set_callback(this->step_sync_handler);
+            client->step_event->get_args()[0] = this;
+            client->step_event->get_args()[1] = client;
+        }
         int64_t time = -1;
-        vp::TimeEvent *event = new vp::TimeEvent(this->instance);
-        event->set_callback(this->step_handler);
-        event->get_args()[0] = this;
-        event->get_args()[1] = client;
 
-        event->enqueue(end_time - this->instance->time.get_engine()->get_time());
+        // Enqueue the event which will stop the engine exactly when we need
+        client->step_event->enqueue(end_time - this->instance->time.get_engine()->get_time());
 
+        // Now let the engine run until we reach the end of step.
+        // We may stop several times if other clients ask to, so we need to iterate as long
+        // as needed.
         while (this->handler->get_time_engine()->get_time() < end_time)
         {
-            time = this->run_sync(client);
+            time = this->run_sync();
 
         }
 
@@ -327,7 +357,7 @@ int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient
 int64_t gv::GvsocLauncher::step_until_async(int64_t end_time, GvsocLauncherClient *client)
 {
     vp::TimeEvent *event = new vp::TimeEvent(this->instance);
-    event->set_callback(this->step_handler);
+    event->set_callback(this->step_async_handler);
     event->get_args()[0] = this;
     event->get_args()[1] = client;
 
@@ -338,19 +368,9 @@ int64_t gv::GvsocLauncher::step_until_async(int64_t end_time, GvsocLauncherClien
     return end_time;
 }
 
-int64_t gv::GvsocLauncher::step_and_wait_sync(int64_t duration, GvsocLauncherClient *client)
-{
-    return this->step_until_and_wait_sync(this->handler->get_time_engine()->get_time() + duration, client);
-}
-
 int64_t gv::GvsocLauncher::step_and_wait_async(int64_t duration, GvsocLauncherClient *client)
 {
     return this->step_until_and_wait_async(this->handler->get_time_engine()->get_time() + duration, client);
-}
-
-int64_t gv::GvsocLauncher::step_until_and_wait_sync(int64_t timestamp, GvsocLauncherClient *client)
-{
-    return this->step_until_sync(timestamp, client);
 }
 
 int64_t gv::GvsocLauncher::step_until_and_wait_async(int64_t timestamp, GvsocLauncherClient *client)
@@ -392,13 +412,14 @@ void gv::GvsocLauncher::check_run()
         if (should_run)
         {
             this->logger.info("Enqueue running\n");
-            // Mark the engine now as running to block wait_stopped until engine has been run
             this->running = true;
         }
         else
         {
             this->logger.info("Enqueue stop\n");
             this->running = false;
+            // Since the mechanism is lock-free and to make sure the engine thread sees the engine
+            // not running after the stop, we need to issue memory barrier
             __sync_synchronize();
             this->handler->get_time_engine()->pause();
         }
@@ -409,6 +430,7 @@ void gv::GvsocLauncher::check_run()
 
 void gv::GvsocLauncher::client_quit(gv::GvsocLauncherClient *client)
 {
+    // Just need to wake other clients, the launcher client code takes care of the rest
     pthread_cond_broadcast(&this->cond);
 }
 
@@ -476,27 +498,9 @@ void *gv::GvsocLauncher::get_component(std::string path, GvsocLauncherClient *cl
 
 void gv::GvsocLauncher::engine_routine()
 {
-    pthread_mutex_lock(&this->mutex);
-
     while(1)
     {
-        __sync_synchronize();
-
-        // Wait until we receive a run request
-        while (!this->running)
-        {
-            pthread_cond_wait(&this->cond, &this->mutex);
-        }
-
-        this->logger.info("Running time engine\n");
-
-        this->handler->get_time_engine()->run();
-
-        if (!this->notified_finish && this->handler->get_time_engine()->finished_get())
-        {
-            this->notified_finish = true;
-            this->sim_finished(this->handler->get_time_engine()->stop_status);
-        }
+        this->run_sync();
     }
 }
 
@@ -582,19 +586,23 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
 
 void gv::GvsocLauncher::register_client(GvsocLauncherClient *client)
 {
+    // Add client to list of current clients
     this->clients.push_back(client);
+
+    // And check if simulation must be stopped because of the client we added
+    this->check_run();
 }
 
 void gv::GvsocLauncher::unregister_client(GvsocLauncherClient *client)
 {
-    if (client->running)
-    {
-        this->run_count--;
-    }
+    // Stop the client
+    this->client_stop(client);
 
+    // Remove it from list of current clients
     this->clients.erase(
         std::remove(this->clients.begin(), this->clients.end(), client),
         this->clients.end());
 
+    // And check if simulation must be resumed because of the client we removed
     this->check_run();
 }

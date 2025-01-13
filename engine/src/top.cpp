@@ -33,7 +33,7 @@ vp::Top::Top(std::string config_path, bool is_async, gv::GvsocLauncher *launcher
 
     this->gv_config = js_config->get("target/gvsoc");
 
-    this->time_engine = new vp::TimeEngine(this->gv_config, launcher);
+    this->time_engine = new vp::TimeEngine(this->gv_config);
     this->trace_engine = new vp::TraceEngine(this->gv_config);
     this->power_engine = new vp::PowerEngine(this->gv_config);
     this->memcheck = new vp::MemCheck();

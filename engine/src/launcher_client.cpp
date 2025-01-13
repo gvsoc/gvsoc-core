@@ -39,6 +39,9 @@ gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string na
 {
     this->logger.info("Creating client (this: %p)\n", this);
 
+    // The first client is the main controller and is the only one allowed to give GVSOC
+    // configuration. It can be synchronous or asynchronous but other controllers are always
+    // asynchronous.
     if (launcher != NULL && conf != NULL)
     {
         throw logic_error("Trying to open client with configuration while one has already been opened with configuration");
@@ -95,7 +98,7 @@ void gv::GvsocLauncherClient::run()
     }
     else
     {
-        launcher->run_sync(this);
+        launcher->run_sync();
     }
 }
 
@@ -122,12 +125,6 @@ void gv::GvsocLauncherClient::sim_finished(int status)
     {
         this->user->has_ended();
     }
-}
-
-void gv::GvsocLauncherClient::wait_stopped()
-{
-    this->logger.info("Wait stopped\n");
-    launcher->wait_stopped(this);
 }
 
 double gv::GvsocLauncherClient::get_instant_power(double &dynamic_power, double &static_power)
@@ -201,7 +198,7 @@ int64_t gv::GvsocLauncherClient::step_and_wait(int64_t duration)
     }
     else
     {
-        time = launcher->step_and_wait_sync(duration, this);
+        time = launcher->step_sync(duration, this);
     }
     return time;
 }
@@ -218,7 +215,7 @@ int64_t gv::GvsocLauncherClient::step_until_and_wait(int64_t timestamp)
     }
     else
     {
-        time = launcher->step_until_and_wait_sync(timestamp, this);
+        time = launcher->step_until_sync(timestamp, this);
     }
     return time;
 }

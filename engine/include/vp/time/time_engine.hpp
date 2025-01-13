@@ -27,13 +27,11 @@ namespace vp
 {
     class BlockTime;
     class Component;
-    class Time_engine_stop_event;
 
     class TimeEngine
     {
 
         friend class gv::GvsocLauncher;
-        friend class vp::Time_engine_stop_event;
         friend class vp::BlockTime;
         friend class vp::ClockEngine;
         friend class vp::Top;
@@ -41,7 +39,7 @@ namespace vp
         friend class gv::GvProxySession;
 
     public:
-        TimeEngine(js::Config *config, gv::GvsocLauncher *launcher);
+        TimeEngine(js::Config *config);
 
         /**
          * @brief Get current time
@@ -69,6 +67,13 @@ namespace vp
          */
         void pause();
 
+        /**
+         * @brief Update engine time
+         *
+         * Often used with external controllers to update the time before
+         * accessing the models.
+         */
+        inline void update(int64_t time);
 
         /**
          * @brief DEPRECATED
@@ -76,18 +81,8 @@ namespace vp
         */
         bool dequeue(vp::Block *client);
 
-        /**
-         * @brief DEPRECATED
-         * dpi wrapper still using to sync time before propagating an edge.
-         * needs to be friend class.
-        */
-        inline void update(int64_t time);
-
     private:
-        void step_register(int64_t time);
-
         int64_t run();
-        int64_t run_until(int64_t end_time);
 
         void init(Component *top);
 
@@ -120,8 +115,8 @@ namespace vp
         // Top component of the system
         Component *top;
 
-        // True to make the engine goes out of his main fast loop. This is a way to make it go to
-        // his slow loop so that it checks if there is a lock or a pause request
+        // True to make the engine goes out of his loop. This is a lock-free way to force
+        // the engine to stop so that other actors can interact with the model.
         bool stop_req = false;
 
         // True if the engine should quit. A stop request must also be posted.
@@ -132,11 +127,5 @@ namespace vp
 
         // Pointer to the top launcher
         gv::Gvsoc_user *launcher = NULL;
-
-        gv::GvsocLauncher *gv_launcher;
-
-        // The stop event is used in step mode to register a time event which will pause
-        // simulation at a specific timestamp corresponding to the step
-        Time_engine_stop_event *stop_event;
     };
 };

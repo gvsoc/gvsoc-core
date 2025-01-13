@@ -47,7 +47,6 @@ public:
     void report_stop() override;
     gv::PowerReport *report_get() override;
 
-    void wait_stopped() override;
     void update(int64_t timestamp) override;
 
     int64_t step(int64_t duration) override;

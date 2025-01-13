@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
     gvsoc->start();
     gvsoc->run();
 
+    gvsoc->quit(0);
     int retval = gvsoc->join();
 
     gvsoc->stop();

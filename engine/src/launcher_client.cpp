@@ -54,12 +54,16 @@ gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string na
         launcher = new gv::GvsocLauncher(conf);
     }
 
+    launcher->engine_lock();
     launcher->register_client(this);
+    launcher->engine_unlock();
 }
 
 gv::GvsocLauncherClient::~GvsocLauncherClient()
 {
+    launcher->engine_lock();
     launcher->unregister_client(this);
+    launcher->engine_unlock();
 }
 
 void gv::GvsocLauncherClient::open()
@@ -105,7 +109,9 @@ void gv::GvsocLauncherClient::run()
 void gv::GvsocLauncherClient::flush()
 {
     this->logger.info("Flush\n");
+    launcher->engine_lock();
     launcher->flush(this);
+    launcher->engine_unlock();
 }
 
 int64_t gv::GvsocLauncherClient::stop()
@@ -223,7 +229,6 @@ int64_t gv::GvsocLauncherClient::step_until_and_wait(int64_t timestamp)
 int gv::GvsocLauncherClient::join()
 {
     this->logger.info("Join\n");
-    this->quit(0);
     int status;
     if (this->async)
     {

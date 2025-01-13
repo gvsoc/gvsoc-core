@@ -67,38 +67,35 @@ gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
     pthread_mutex_init(&this->mutex, NULL);
     pthread_mutex_init(&this->lock_mutex, NULL);
     pthread_cond_init(&this->cond, NULL);
+
+    if (conf)
+    {
+        this->handler = new vp::Top(conf->config_path, this->is_async, this);
+
+        this->instance = this->handler->top_instance;
+        this->instance->set_launcher(this);
+
+        js::Config *gv_config = this->handler->gv_config;
+
+        this->proxy = NULL;
+        if (gv_config->get_child_bool("proxy/enabled"))
+        {
+            int in_port = gv_config->get_child_int("proxy/port");
+            int out_port;
+            this->proxy = new GvProxy(this->handler->get_time_engine(), instance, this);
+
+            if (this->proxy->open(in_port, &out_port))
+            {
+                throw runtime_error("Failed to start proxy");
+            }
+
+            this->conf->proxy_socket = out_port;
+        }
+    }
 }
 
 void gv::GvsocLauncher::open(GvsocLauncherClient *client)
 {
-    this->handler = new vp::Top(conf->config_path, this->is_async, this);
-
-    this->instance = this->handler->top_instance;
-    this->instance->set_launcher(this);
-
-    js::Config *gv_config = this->handler->gv_config;
-
-    this->proxy = NULL;
-    if (gv_config->get_child_bool("proxy/enabled"))
-    {
-        int in_port = gv_config->get_child_int("proxy/port");
-        int out_port;
-        this->proxy = new GvProxy(this->handler->get_time_engine(), instance, this);
-
-        if (this->proxy->open(in_port, &out_port))
-        {
-            throw runtime_error("Failed to start proxy");
-        }
-
-        this->conf->proxy_socket = out_port;
-    }
-
-    // The main loop, either internally in asynchronous or externally in synchronous mode,
-    // is by default having the lock so that any client must take it to stop the engine.
-    // The main loop will release the lock after a stop request and when it is waiting that
-    // that the simulation becomes runnable again.
-    pthread_mutex_lock(&this->mutex);
-
     if (this->is_async)
     {
         // Create the sigint thread so that we can properly close simulation
@@ -143,6 +140,15 @@ void gv::GvsocLauncher::start(GvsocLauncherClient *client)
     if (this->proxy)
     {
         this->proxy->wait_connected();
+    }
+
+    if (!this->is_async)
+    {
+        // The main loop, either internally in asynchronous or externally in synchronous mode,
+        // is by default having the lock so that any client must take it to stop the engine.
+        // The main loop will release the lock after a stop request and when it is waiting that
+        // that the simulation becomes runnable again.
+        pthread_mutex_lock(&this->mutex);
     }
 
     // Now simulation can start
@@ -498,6 +504,12 @@ void *gv::GvsocLauncher::get_component(std::string path, GvsocLauncherClient *cl
 
 void gv::GvsocLauncher::engine_routine()
 {
+    // The main loop, either internally in asynchronous or externally in synchronous mode,
+    // is by default having the lock so that any client must take it to stop the engine.
+    // The main loop will release the lock after a stop request and when it is waiting that
+    // that the simulation becomes runnable again.
+    pthread_mutex_lock(&this->mutex);
+
     while(1)
     {
         this->run_sync();
@@ -520,6 +532,7 @@ void gv::GvsocLauncher::engine_lock()
     this->logger.info("Engine lock (lock_count: %d)\n", this->lock_count);
 
     pthread_mutex_lock(&this->lock_mutex);
+
     this->lock_count++;
     this->running = false;
     __sync_synchronize();

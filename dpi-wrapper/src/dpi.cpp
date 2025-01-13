@@ -145,8 +145,9 @@ static void gvsoc_sync_task(void *arg)
 
         if (launcher->is_sim_finished)
         {
-                int status = gvsoc->join();
-                dpi_set_status(status);
+            gvsoc->quit(0);
+            int status = gvsoc->join();
+            dpi_set_status(status);
         }
     }
 }

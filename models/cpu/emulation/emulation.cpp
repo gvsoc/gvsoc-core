@@ -312,6 +312,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
 
         this->pending_irq = -1;
 
+        lock.unlock();
         gv::Controller::get().engine_lock();
         this->irq_ack_itf.sync(irq);
         gv::Controller::get().engine_unlock();
@@ -320,9 +321,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             handler(this->irq_handler_arg[irq]);
         }
-
         lock.lock();
-
     }
 
 

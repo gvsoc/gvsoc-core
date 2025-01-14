@@ -221,6 +221,15 @@ gv::GvProxySession::GvProxySession(GvProxy *proxy, int req_fd, int reply_fd)
     this->loop_thread = new std::thread(&gv::GvProxySession::proxy_loop, this);
 }
 
+
+void gv::GvProxySession::step_handle(void *request)
+{
+    std::unique_lock<std::mutex> lock(this->proxy->mutex);
+    dprintf(reply_fd, "req=%lld;msg=%ld\n", (long long)request,
+        this->proxy->launcher->top_get()->get_time_engine()->get_time());
+    lock.unlock();
+}
+
 void gv::GvProxySession::wait()
 {
     this->loop_thread->join();
@@ -320,10 +329,7 @@ void gv::GvProxySession::proxy_loop()
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
                     int64_t timestamp = engine->get_time() + duration;
-                    this->step(duration);
-                    std::unique_lock<std::mutex> lock(this->proxy->mutex);
-                    dprintf(reply_fd, "req=%s;msg=%ld\n", req.c_str(), timestamp);
-                    lock.unlock();
+                    this->step_request(duration, (void *)atoll(req.c_str()));
                 }
             }
             else if (words[0] == "stop")

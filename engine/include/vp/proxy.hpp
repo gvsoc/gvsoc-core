@@ -31,6 +31,7 @@ public:
     GvProxySession(GvProxy *proxy, int req_fd, int reply_fd);
     void wait();
     void sim_finished(int status) override;
+    void step_handle(void *request) override;
 
 private:
     void proxy_loop();

@@ -81,11 +81,11 @@ class GvsocLauncher
         // Run simulation for specified duration in synchronous mode
         int64_t step_sync(int64_t duration, GvsocLauncherClient *client);
         // Run simulation for specified duration in asynchronous mode
-        int64_t step_async(int64_t duration, GvsocLauncherClient *client);
+        int64_t step_async(int64_t duration, GvsocLauncherClient *client, void *request);
         // Run simulation until specified timestamp is reached, in synchronous mode
         int64_t step_until_sync(int64_t timestamp, GvsocLauncherClient *client);
         // Run simulation until specified timestamp is reached, in asynchronous mode
-        int64_t step_until_async(int64_t timestamp, GvsocLauncherClient *client);
+        int64_t step_until_async(int64_t timestamp, GvsocLauncherClient *client, void *request);
         // Run simulation for specified duration in asynchronous mode and blocks caller until
         // step is reached
         int64_t step_and_wait_async(int64_t duration, GvsocLauncherClient *client);
@@ -185,6 +185,7 @@ class GvsocLauncher
         int lock_count = 0;
         // True when simulation termination has been received and notified to clients
         bool notified_finish = false;
+        vp::Block *step_block;
     };
 
     class GvsocLauncherClient : public gv::Gvsoc
@@ -208,6 +209,7 @@ class GvsocLauncher
         void report_stop() override;
         gv::PowerReport *report_get() override;
         int64_t step(int64_t duration) override;
+        void step_request(int64_t duration, void *data) override;
         int64_t step_until(int64_t timestamp) override;
         int64_t step_and_wait(int64_t duration) override;
         int64_t step_until_and_wait(int64_t timestamp) override;
@@ -231,6 +233,7 @@ class GvsocLauncher
 
         // Called by launcher when simulation is over to notify each client
         virtual void sim_finished(int status);
+        virtual void step_handle(void *request) {}
 
     private:
 

@@ -91,6 +91,9 @@ gv::GvsocLauncher::GvsocLauncher(gv::GvsocConf *conf)
 
             this->conf->proxy_socket = out_port;
         }
+
+        this->step_block = new vp::Block(NULL, "stepper", this->handler->get_time_engine(),
+            this->handler->get_trace_engine(), this->handler->get_power_engine());
     }
 }
 
@@ -300,16 +303,19 @@ int64_t gv::GvsocLauncher::step_sync(int64_t duration, GvsocLauncherClient *clie
     return this->step_until_sync(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
-int64_t gv::GvsocLauncher::step_async(int64_t duration, GvsocLauncherClient *client)
+int64_t gv::GvsocLauncher::step_async(int64_t duration, GvsocLauncherClient *client, void *request)
 {
-    return this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client);
+    return this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client, request);
 }
 
 void gv::GvsocLauncher::step_async_handler(vp::Block *__this, vp::TimeEvent *event)
 {
     GvsocLauncher *_this = (GvsocLauncher *)event->get_args()[0];
     GvsocLauncherClient *client = (GvsocLauncherClient *)event->get_args()[1];
+    _this->logger.info("Step handler\n");
     _this->client_stop(client);
+    client->step_handle(event->get_args()[2]);
+
     delete event;
 }
 
@@ -317,6 +323,7 @@ void gv::GvsocLauncher::step_sync_handler(vp::Block *__this, vp::TimeEvent *even
 {
     GvsocLauncher *_this = (GvsocLauncher *)event->get_args()[0];
     GvsocLauncherClient *client = (GvsocLauncherClient *)event->get_args()[1];
+    _this->logger.info("Step handler\n");
     _this->handler->get_time_engine()->pause();
 }
 
@@ -327,17 +334,6 @@ int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient
     {
         // The idea to implement the step is to enqueue a time event which will stop the engine
         // when the step timestamp is reached.
-
-        // In synchronous mode, since only one thread is allowed to do the step, we use a single
-        // event and preallocate it for performance reason.
-        // The event is allocated now, as instance is not know at construct time.
-        if (client->step_event == NULL)
-        {
-            client->step_event = new vp::TimeEvent(this->instance);
-            client->step_event->set_callback(this->step_sync_handler);
-            client->step_event->get_args()[0] = this;
-            client->step_event->get_args()[1] = client;
-        }
         int64_t time = -1;
 
         // Enqueue the event which will stop the engine exactly when we need
@@ -360,12 +356,13 @@ int64_t gv::GvsocLauncher::step_until_sync(int64_t end_time, GvsocLauncherClient
     }
 }
 
-int64_t gv::GvsocLauncher::step_until_async(int64_t end_time, GvsocLauncherClient *client)
+int64_t gv::GvsocLauncher::step_until_async(int64_t end_time, GvsocLauncherClient *client, void *request)
 {
-    vp::TimeEvent *event = new vp::TimeEvent(this->instance);
+    vp::TimeEvent *event = new vp::TimeEvent(this->step_block);
     event->set_callback(this->step_async_handler);
     event->get_args()[0] = this;
     event->get_args()[1] = client;
+    event->get_args()[2] = request;
 
     event->enqueue(end_time - this->instance->time.get_engine()->get_time());
 
@@ -382,7 +379,7 @@ int64_t gv::GvsocLauncher::step_and_wait_async(int64_t duration, GvsocLauncherCl
 int64_t gv::GvsocLauncher::step_until_and_wait_async(int64_t timestamp, GvsocLauncherClient *client)
 {
     this->logger.info("Step until async (timestamp: %ld)\n", timestamp);
-    int64_t end_time = this->step_until_async(timestamp, client);
+    int64_t end_time = this->step_until_async(timestamp, client, NULL);
 
     while (this->handler->get_time_engine()->get_time() < timestamp)
     {
@@ -599,6 +596,13 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
 
 void gv::GvsocLauncher::register_client(GvsocLauncherClient *client)
 {
+    // In synchronous mode, since only one thread is allowed to do the step, we use a single
+    // event and preallocate it for performance reason.
+    client->step_event = new vp::TimeEvent(this->step_block);
+    client->step_event->set_callback(this->step_sync_handler);
+    client->step_event->get_args()[0] = this;
+    client->step_event->get_args()[1] = client;
+
     // Add client to list of current clients
     this->clients.push_back(client);
 

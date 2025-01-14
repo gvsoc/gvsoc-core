@@ -670,6 +670,8 @@ namespace gv {
          */
         virtual int64_t step(int64_t duration) = 0;
 
+        virtual void step_request(int64_t duration, void *data) {};
+
         /**
          * Step execution for specified timestamp
          *

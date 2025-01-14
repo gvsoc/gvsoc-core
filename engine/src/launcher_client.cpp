@@ -165,7 +165,7 @@ int64_t gv::GvsocLauncherClient::step(int64_t duration)
     if (this->async)
     {
         launcher->lock();
-        time = launcher->step_async(duration, this);
+        time = launcher->step_async(duration, this, NULL);
         launcher->unlock();
     }
     else
@@ -175,6 +175,22 @@ int64_t gv::GvsocLauncherClient::step(int64_t duration)
     return time;
 }
 
+void gv::GvsocLauncherClient::step_request(int64_t duration, void *data)
+{
+    this->logger.info("Step (duration: %lld)\n", duration);
+    if (this->async)
+    {
+        launcher->lock();
+        launcher->step_async(duration, this, data);
+        launcher->unlock();
+    }
+    else
+    {
+        launcher->step_sync(duration, this);
+    }
+}
+
+
 int64_t gv::GvsocLauncherClient::step_until(int64_t timestamp)
 {
     this->logger.info("Step until (timestamp: %lld)\n", timestamp);
@@ -182,7 +198,7 @@ int64_t gv::GvsocLauncherClient::step_until(int64_t timestamp)
     if (this->async)
     {
         launcher->lock();
-        time = launcher->step_until_async(timestamp, this);
+        time = launcher->step_until_async(timestamp, this, NULL);
         launcher->unlock();
     }
     else

@@ -166,12 +166,6 @@ class Proxy(object):
                 self.condition.wait()
             self.lock.release()
 
-        def wait_timestamp(self, timestamp):
-            self.lock.acquire()
-            while self.timestamp < timestamp:
-                self.condition.wait()
-            self.lock.release()
-
         def wait_running(self):
             self.lock.acquire()
             while not self.running:
@@ -319,9 +313,7 @@ class Proxy(object):
         """
 
         if duration is not None:
-            timestamp = self.reader.timestamp + duration
-            timestamp = self._send_cmd('step %d' % (duration))
-            self.reader.wait_timestamp(int(timestamp))
+            self._send_cmd('step %d' % (duration))
         else:
             self._send_cmd('run')
 

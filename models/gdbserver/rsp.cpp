@@ -24,7 +24,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 
 #define RSP_PACKET_MAX_SIZE (16*1024)
 #define REPLY_BUF_LEN 256

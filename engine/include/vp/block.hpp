@@ -31,7 +31,7 @@
 namespace gv {
     class GvProxy;
     class GvProxySession;
-    class GvsocLauncher;
+    class Controller;
 };
 
 namespace vp {
@@ -62,7 +62,7 @@ namespace vp {
         friend class gv::GvProxySession;
         friend class vp::SignalCommon;
         friend class vp::RegisterCommon;
-        friend class gv::GvsocLauncher;
+        friend class gv::Controller;
         friend class vp::BlockPower;
         friend class vp::BlockTime;
         friend class vp::BlockTrace;

@@ -26,7 +26,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <gv/gvsoc.hpp>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 
 static int nb_running = 0;
 

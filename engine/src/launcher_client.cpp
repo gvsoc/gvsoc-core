@@ -24,17 +24,20 @@
 #include <vp/vp.hpp>
 #include <gv/gvsoc.hpp>
 #include <vp/proxy.hpp>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 #include <vp/proxy_client.hpp>
 
-static gv::GvsocLauncher *launcher = NULL;
+namespace gv
+{
+    gv::Controller controller;
+};
 
 gv::Logger::Logger(std::string module)
 : module(module)
 {
 }
 
-gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string name)
+gv::ControllerClient::ControllerClient(gv::GvsocConf *conf, std::string name)
 : logger("LAUNCHER CLIENT(" + name + ")"), name(name)
 {
     this->logger.info("Creating client (this: %p)\n", this);
@@ -42,325 +45,322 @@ gv::GvsocLauncherClient::GvsocLauncherClient(gv::GvsocConf *conf, std::string na
     // The first client is the main controller and is the only one allowed to give GVSOC
     // configuration. It can be synchronous or asynchronous but other controllers are always
     // asynchronous.
-    if (launcher != NULL && conf != NULL)
+    if (gv::Controller::get().is_init && conf != NULL)
     {
         throw logic_error("Trying to open client with configuration while one has already been opened with configuration");
     }
 
     this->async = conf == NULL || conf->api_mode == gv::Api_mode::Api_mode_async;
 
-    if (launcher == NULL)
-    {
-        launcher = new gv::GvsocLauncher(conf);
-    }
+    gv::Controller::get().init(conf);
 
-    launcher->engine_lock();
-    launcher->register_client(this);
-    launcher->engine_unlock();
+    gv::Controller::get().engine_lock();
+    gv::Controller::get().register_client(this);
+    gv::Controller::get().engine_unlock();
 }
 
-gv::GvsocLauncherClient::~GvsocLauncherClient()
+gv::ControllerClient::~ControllerClient()
 {
-    launcher->engine_lock();
-    launcher->unregister_client(this);
-    launcher->engine_unlock();
+    gv::Controller::get().engine_lock();
+    gv::Controller::get().unregister_client(this);
+    gv::Controller::get().engine_unlock();
 }
 
-void gv::GvsocLauncherClient::open()
+void gv::ControllerClient::open()
 {
     this->logger.info("Open\n");
-    launcher->open(this);
+    gv::Controller::get().open(this);
 }
 
-void gv::GvsocLauncherClient::bind(gv::Gvsoc_user *user)
+void gv::ControllerClient::bind(gv::Gvsoc_user *user)
 {
     this->logger.info("Bind (user: %p)\n", user);
     this->user = user;
-    launcher->bind(user, this);
+    gv::Controller::get().bind(user, this);
 }
 
-void gv::GvsocLauncherClient::close()
+void gv::ControllerClient::close()
 {
     this->logger.info("Close\n");
-    launcher->close(this);
+    gv::Controller::get().close(this);
 }
 
-void gv::GvsocLauncherClient::start()
+void gv::ControllerClient::start()
 {
     this->logger.info("Start\n");
-    launcher->start(this);
+    gv::Controller::get().start(this);
 }
 
-void gv::GvsocLauncherClient::run()
+void gv::ControllerClient::run()
 {
     this->logger.info("Run\n");
     if (this->async)
     {
-        launcher->lock();
-        launcher->run_async(this);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        gv::Controller::get().run_async(this);
+        gv::Controller::get().unlock();
     }
     else
     {
-        launcher->run_sync();
+        gv::Controller::get().run_sync();
     }
 }
 
-void gv::GvsocLauncherClient::flush()
+void gv::ControllerClient::flush()
 {
     this->logger.info("Flush\n");
-    launcher->engine_lock();
-    launcher->flush(this);
-    launcher->engine_unlock();
+    gv::Controller::get().engine_lock();
+    gv::Controller::get().flush(this);
+    gv::Controller::get().engine_unlock();
 }
 
-int64_t gv::GvsocLauncherClient::stop()
+int64_t gv::ControllerClient::stop()
 {
     this->logger.info("Stop\n");
-    launcher->engine_lock();
-    int64_t result = launcher->stop(this);
-    launcher->engine_unlock();
+    gv::Controller::get().engine_lock();
+    int64_t result = gv::Controller::get().stop(this);
+    gv::Controller::get().engine_unlock();
     return result;
 }
 
-void gv::GvsocLauncherClient::sim_finished(int status)
+void gv::ControllerClient::sim_finished(int status)
 {
     this->logger.info("Simulation finished\n");
-    launcher->stop(this);
+    gv::Controller::get().stop(this);
     if(this->user)
     {
         this->user->has_ended();
     }
 }
 
-double gv::GvsocLauncherClient::get_instant_power(double &dynamic_power, double &static_power)
+double gv::ControllerClient::get_instant_power(double &dynamic_power, double &static_power)
 {
-    return launcher->get_instant_power(dynamic_power, static_power, this);
+    return gv::Controller::get().get_instant_power(dynamic_power, static_power, this);
 }
 
-double gv::GvsocLauncherClient::get_average_power(double &dynamic_power, double &static_power)
+double gv::ControllerClient::get_average_power(double &dynamic_power, double &static_power)
 {
-    return launcher->get_average_power(dynamic_power, static_power, this);
+    return gv::Controller::get().get_average_power(dynamic_power, static_power, this);
 }
 
-void gv::GvsocLauncherClient::report_start()
+void gv::ControllerClient::report_start()
 {
-    launcher->report_start(this);
+    gv::Controller::get().report_start(this);
 }
 
-void gv::GvsocLauncherClient::report_stop()
+void gv::ControllerClient::report_stop()
 {
-    launcher->report_stop(this);
+    gv::Controller::get().report_stop(this);
 }
 
-gv::PowerReport *gv::GvsocLauncherClient::report_get()
+gv::PowerReport *gv::ControllerClient::report_get()
 {
-    return launcher->report_get(this);
+    return gv::Controller::get().report_get(this);
 }
 
-int64_t gv::GvsocLauncherClient::step(int64_t duration)
+int64_t gv::ControllerClient::step(int64_t duration)
 {
     this->logger.info("Step (duration: %lld)\n", duration);
     int64_t time;
     if (this->async)
     {
-        launcher->lock();
-        time = launcher->step_async(duration, this, NULL);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        time = gv::Controller::get().step_async(duration, this, NULL);
+        gv::Controller::get().unlock();
     }
     else
     {
-        time = launcher->step_sync(duration, this);
+        time = gv::Controller::get().step_sync(duration, this);
     }
     return time;
 }
 
-void gv::GvsocLauncherClient::step_request(int64_t duration, void *data)
+void gv::ControllerClient::step_request(int64_t duration, void *data)
 {
     this->logger.info("Step (duration: %lld)\n", duration);
     if (this->async)
     {
-        launcher->lock();
-        launcher->step_async(duration, this, data);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        gv::Controller::get().step_async(duration, this, data);
+        gv::Controller::get().unlock();
     }
     else
     {
-        launcher->step_sync(duration, this);
+        gv::Controller::get().step_sync(duration, this);
     }
 }
 
 
-int64_t gv::GvsocLauncherClient::step_until(int64_t timestamp)
+int64_t gv::ControllerClient::step_until(int64_t timestamp)
 {
     this->logger.info("Step until (timestamp: %lld)\n", timestamp);
     int64_t time;
     if (this->async)
     {
-        launcher->lock();
-        time = launcher->step_until_async(timestamp, this, NULL);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        time = gv::Controller::get().step_until_async(timestamp, this, NULL);
+        gv::Controller::get().unlock();
     }
     else
     {
-        time = launcher->step_until_sync(timestamp, this);
+        time = gv::Controller::get().step_until_sync(timestamp, this);
     }
     return time;
 }
 
-int64_t gv::GvsocLauncherClient::step_and_wait(int64_t duration)
+int64_t gv::ControllerClient::step_and_wait(int64_t duration)
 {
     this->logger.info("Step and wait (duration: %lld)\n", duration);
     int64_t time;
     if (this->async)
     {
-        launcher->lock();
-        time = launcher->step_and_wait_async(duration, this);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        time = gv::Controller::get().step_and_wait_async(duration, this);
+        gv::Controller::get().unlock();
     }
     else
     {
-        time = launcher->step_sync(duration, this);
+        time = gv::Controller::get().step_sync(duration, this);
     }
     return time;
 }
 
-int64_t gv::GvsocLauncherClient::step_until_and_wait(int64_t timestamp)
+int64_t gv::ControllerClient::step_until_and_wait(int64_t timestamp)
 {
     this->logger.info("Step until and wait (timestamp: %lld)\n", timestamp);
     int64_t time;
     if (this->async)
     {
-        launcher->lock();
-        time = launcher->step_until_and_wait_async(timestamp, this);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        time = gv::Controller::get().step_until_and_wait_async(timestamp, this);
+        gv::Controller::get().unlock();
     }
     else
     {
-        time = launcher->step_until_sync(timestamp, this);
+        time = gv::Controller::get().step_until_sync(timestamp, this);
     }
     return time;
 }
 
-int gv::GvsocLauncherClient::join()
+int gv::ControllerClient::join()
 {
     this->logger.info("Join\n");
     int status;
     if (this->async)
     {
-        launcher->lock();
-        status = launcher->join(this);
-        launcher->unlock();
+        gv::Controller::get().lock();
+        status = gv::Controller::get().join(this);
+        gv::Controller::get().unlock();
     }
     else
     {
-        status = launcher->join(this);
+        status = gv::Controller::get().join(this);
     }
     return status;
 }
 
-void gv::GvsocLauncherClient::retain()
+void gv::ControllerClient::retain()
 {
 }
 
-void gv::GvsocLauncherClient::wait_runnable()
+void gv::ControllerClient::wait_runnable()
 {
-    launcher->wait_runnable();
+    gv::Controller::get().wait_runnable();
 }
 
-void gv::GvsocLauncherClient::release()
+void gv::ControllerClient::release()
 {
 }
 
-void gv::GvsocLauncherClient::lock()
+void gv::ControllerClient::lock()
 {
     this->logger.info("Lock\n");
-    launcher->engine_lock();
+    gv::Controller::get().engine_lock();
 }
 
-void gv::GvsocLauncherClient::unlock()
+void gv::ControllerClient::unlock()
 {
     this->logger.info("Unlock\n");
-    launcher->engine_unlock();
+    gv::Controller::get().engine_unlock();
 }
 
-void gv::GvsocLauncherClient::update(int64_t timestamp)
+void gv::ControllerClient::update(int64_t timestamp)
 {
     this->logger.info("Update (timestamp: %lld)\n", timestamp);
-    launcher->update(timestamp, this);
+    gv::Controller::get().update(timestamp, this);
 }
 
-gv::Io_binding *gv::GvsocLauncherClient::io_bind(gv::Io_user *user,
+gv::Io_binding *gv::ControllerClient::io_bind(gv::Io_user *user,
     std::string comp_name, std::string itf_name)
 {
     this->logger.info("IO bind (user: %p, comp: %s, itf: %s)\n", user, comp_name.c_str(),
         itf_name.c_str());
-    return launcher->io_bind(user, comp_name, itf_name, this);
+    return gv::Controller::get().io_bind(user, comp_name, itf_name, this);
 }
 
-gv::Wire_binding *gv::GvsocLauncherClient::wire_bind(gv::Wire_user *user,
+gv::Wire_binding *gv::ControllerClient::wire_bind(gv::Wire_user *user,
     std::string comp_name, std::string itf_name)
 {
     this->logger.info("Wire bind (user: %p, comp: %s, itf: %s)\n", user, comp_name.c_str(),
             itf_name.c_str());
-    return launcher->wire_bind(user, comp_name, itf_name, this);
+    return gv::Controller::get().wire_bind(user, comp_name, itf_name, this);
 }
 
-void gv::GvsocLauncherClient::vcd_bind(gv::Vcd_user *user)
+void gv::ControllerClient::vcd_bind(gv::Vcd_user *user)
 {
     this->logger.info("VCD bind (user: %p)\n", user);
-    launcher->vcd_bind(user, this);
+    gv::Controller::get().vcd_bind(user, this);
 }
 
-void gv::GvsocLauncherClient::vcd_enable()
+void gv::ControllerClient::vcd_enable()
 {
     this->logger.info("VCD enable\n");
-    launcher->vcd_enable(this);
+    gv::Controller::get().vcd_enable(this);
 }
 
-void gv::GvsocLauncherClient::vcd_disable()
+void gv::ControllerClient::vcd_disable()
 {
     this->logger.info("VCD disable\n");
-    launcher->vcd_disable(this);
+    gv::Controller::get().vcd_disable(this);
 }
 
-void gv::GvsocLauncherClient::event_add(std::string path, bool is_regex)
+void gv::ControllerClient::event_add(std::string path, bool is_regex)
 {
     this->logger.info("Event add (path: %s, is_regex: %d)\n", path.c_str(), is_regex);
-    launcher->event_add(path, is_regex, this);
+    gv::Controller::get().event_add(path, is_regex, this);
 }
 
-void gv::GvsocLauncherClient::event_exclude(std::string path, bool is_regex)
+void gv::ControllerClient::event_exclude(std::string path, bool is_regex)
 {
     this->logger.info("Event Exclude (path: %s, is_regex: %d)\n", path.c_str(), is_regex);
-    launcher->event_exclude(path, is_regex, this);
+    gv::Controller::get().event_exclude(path, is_regex, this);
 }
 
-void *gv::GvsocLauncherClient::get_component(std::string path)
+void *gv::ControllerClient::get_component(std::string path)
 {
-    return launcher->get_component(path, this);
+    return gv::Controller::get().get_component(path, this);
 }
 
-void gv::GvsocLauncherClient::terminate()
+void gv::ControllerClient::terminate()
 {
     this->logger.info("Forcing simulation termination\n");
-    launcher->sim_finished(0);
+    gv::Controller::get().sim_finished(0);
 }
 
-void gv::GvsocLauncherClient::quit(int status)
+void gv::ControllerClient::quit(int status)
 {
     if (this->async)
     {
-        launcher->engine_lock();
+        gv::Controller::get().engine_lock();
         this->has_quit = true;
         this->status = status;
-        launcher->client_quit(this);
-        launcher->engine_unlock();
+        gv::Controller::get().client_quit(this);
+        gv::Controller::get().engine_unlock();
     }
     else
     {
         this->has_quit = true;
         this->status = status;
-        launcher->client_quit(this);
+        gv::Controller::get().client_quit(this);
     }
 }

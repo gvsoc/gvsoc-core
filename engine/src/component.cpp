@@ -39,7 +39,7 @@
 #include <vp/queue.hpp>
 #include <vp/signal.hpp>
 #include <vp/proxy_client.hpp>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 #include <sys/stat.h>
 #include <vp/trace/trace_engine.hpp>
 #include <vp/register.hpp>
@@ -338,7 +338,7 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
     throw std::invalid_argument("ERROR, couldn't find gv_new loaded module (module: " + module_name + ")");
 }
 
-gv::GvsocLauncher *vp::Component::get_launcher()
+gv::Controller *vp::Component::get_launcher()
 {
     if (this->parent)
     {
@@ -528,7 +528,7 @@ vp::Port *vp::Component::get_port(std::string name)
     }
 }
 
-void vp::Component::set_launcher(gv::GvsocLauncher *launcher)
+void vp::Component::set_launcher(gv::Controller *launcher)
 {
     this->launcher = launcher;
 }

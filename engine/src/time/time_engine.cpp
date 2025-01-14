@@ -21,7 +21,7 @@
 
 #include <vp/vp.hpp>
 #include "vp/time/time_engine.hpp"
-#include "vp/launcher.hpp"
+#include "vp/controller.hpp"
 #include <vp/time/time_event.hpp>
 
 

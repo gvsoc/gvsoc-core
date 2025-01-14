@@ -47,6 +47,7 @@ class Proxy(object):
             self.exit_callback = None
             self.sim_has_exited = False
             self.sim_exit_code = -1
+            self.syscall_stop = False
 
         def __quit(self, status):
             self.lock.acquire()
@@ -92,7 +93,9 @@ class Proxy(object):
                         self.__quit(int(value))
                     elif name == 'msg':
                         msg = value
-                        if msg.find('stopped') == 0:
+                        if msg.find('syscall_stop') == 0:
+                            self.syscall_stop = True
+                        elif msg.find('stopped') == 0:
                             is_stop = int(value.split('=')[1])
                         elif msg.find('running') == 0:
                             is_run = int(value.split('=')[1])
@@ -160,10 +163,11 @@ class Proxy(object):
 
             return reply
 
-        def wait_stopped(self, timestamp=None):
+        def wait_stopped(self):
             self.lock.acquire()
-            while self.running or (timestamp is not None and self.timestamp < timestamp):
+            while not self.syscall_stop:
                 self.condition.wait()
+            self.syscall_stop = False
             self.lock.release()
 
         def wait_running(self):

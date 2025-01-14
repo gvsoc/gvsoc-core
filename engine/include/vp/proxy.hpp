@@ -19,19 +19,20 @@
 #define __VP_PROXY_HPP__
 
 #include <mutex>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 
 namespace gv {
 
 class GvProxy;
 
-class GvProxySession : public gv::GvsocLauncherClient
+class GvProxySession : public gv::ControllerClient
 {
 public:
     GvProxySession(GvProxy *proxy, int req_fd, int reply_fd);
     void wait();
     void sim_finished(int status) override;
     void step_handle(void *request) override;
+    void syscall_stop_handle() override;
 
 private:
     void proxy_loop();
@@ -46,14 +47,14 @@ private:
 class GvProxy
 {
 public:
-    GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, int req_pipe=-1, int reply_pipe=-1);
+    GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::Controller *launcher, int req_pipe=-1, int reply_pipe=-1);
     int open(int port, int *out_port);
     void send_quit(int status);
     int join();
     bool send_payload(FILE *reply_file, std::string req, uint8_t *payload, int size);
     void wait_connected();
 
-    gv::GvsocLauncher *launcher;
+    gv::Controller *launcher;
     // Use to notify to loop thread to exit
     std::mutex mutex;
     // Set to true qhen proxy side has finished, which means engine can exit

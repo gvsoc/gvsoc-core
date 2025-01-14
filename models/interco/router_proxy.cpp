@@ -22,7 +22,7 @@
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <gv/gvsoc.hpp>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 
 
 class Router_proxy : public vp::Component, public gv::Io_binding

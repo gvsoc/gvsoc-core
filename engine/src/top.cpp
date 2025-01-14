@@ -23,7 +23,7 @@
 #include <vp/vp.hpp>
 #include "vp/top.hpp"
 
-vp::Top::Top(std::string config_path, bool is_async, gv::GvsocLauncher *launcher)
+vp::Top::Top(std::string config_path, bool is_async, gv::Controller *launcher)
 {
     js::Config *js_config = js::import_config_from_file(config_path);
     if (js_config == NULL)

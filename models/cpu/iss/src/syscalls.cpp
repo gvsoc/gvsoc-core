@@ -19,6 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include "vp/controller.hpp"
 #include <vp/vp.hpp>
 #include <cpu/iss/include/iss.hpp>
 #include <algorithm>
@@ -90,7 +91,7 @@ void Syscalls::handle_ebreak()
 
       break;
     }
-    
+
     case GV_SEMIHOSTING_TRACE_ENABLE: {
       int id = this->iss.regfile.regs[11];
       vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
@@ -103,7 +104,7 @@ void Syscalls::handle_ebreak()
         trace->set_active(this->iss.regfile.regs[12]);
       }
 
-      break; 
+      break;
     }
 #endif
 
@@ -661,6 +662,7 @@ void Syscalls::handle_riscv_ebreak()
 
     case 0x10D:
     {
+        gv::Controller::get().syscall_stop_handle();
         this->iss.top.time.get_engine()->pause();
 
         break;
@@ -904,7 +906,7 @@ void handle_syscall(Iss *iss, iss_insn_t *pc)
       {
         int fd = iss->regfile.get_reg(10);     // fd in a0
         int Status=0;
-      
+
         if (!(fd == STDIN_FILENO || fd == STDOUT_FILENO || fd == STDERR_FILENO))
           Status = close(fd); // To avoid closing stdin/out/err when shutting down the simulated program ....
         iss->regfile.set_reg(10, Status);      // Ret in a0

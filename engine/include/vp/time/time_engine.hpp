@@ -31,7 +31,7 @@ namespace vp
     class TimeEngine
     {
 
-        friend class gv::GvsocLauncher;
+        friend class gv::Controller;
         friend class vp::BlockTime;
         friend class vp::ClockEngine;
         friend class vp::Top;

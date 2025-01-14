@@ -38,7 +38,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <vp/proxy.hpp>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 #include "vp/top.hpp"
 
 
@@ -55,7 +55,7 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 
-gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::GvsocLauncher *launcher, int req_pipe, int reply_pipe)
+gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::Controller *launcher, int req_pipe, int reply_pipe)
   : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe), logger("PROXY")
 {
     this->logger.info("Instantiating proxy\n");
@@ -212,7 +212,7 @@ bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *paylo
 }
 
 gv::GvProxySession::GvProxySession(GvProxy *proxy, int req_fd, int reply_fd)
-: gv::GvsocLauncherClient(NULL, "PROXY_SESSION(" + std::to_string(req_fd) + ")"),
+: gv::ControllerClient(NULL, "PROXY_SESSION(" + std::to_string(req_fd) + ")"),
     logger("PROXY_SESSION(" + std::to_string(req_fd) + ")"), proxy(proxy),
     socket_fd(req_fd), reply_fd(reply_fd)
 {
@@ -239,7 +239,7 @@ void gv::GvProxySession::proxy_loop()
 {
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
-    gv::GvsocLauncher *launcher = this->proxy->launcher;
+    gv::Controller *launcher = this->proxy->launcher;
     vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
 
     while(1)
@@ -456,4 +456,12 @@ void gv::GvProxySession::proxy_loop()
 void gv::GvProxySession::sim_finished(int status)
 {
     this->proxy->send_quit(status);
+}
+
+void gv::GvProxySession::syscall_stop_handle()
+{
+    gv::Controller::get().stop(this);
+    std::unique_lock<std::mutex> lock(this->proxy->mutex);
+    dprintf(this->reply_fd, "req=-1;msg=syscall_stop\n");
+    lock.unlock();
 }

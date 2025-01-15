@@ -260,6 +260,15 @@ void gv::Controller::sim_finished(int status)
         this->is_sim_finished = true;
         this->retval = status;
 
+
+        // Cancel any pending step
+        while (this->step_block->time.first_event)
+        {
+            vp::TimeEvent *event = this->step_block->time.first_event;
+            event->exec();
+            event->cancel();
+        }
+
         for (gv::ControllerClient *client: this->clients)
         {
             client->sim_finished(status);
@@ -398,7 +407,7 @@ int64_t gv::Controller::step_until_and_wait_async(int64_t timestamp, ControllerC
     this->logger.info("Step until async (timestamp: %ld)\n", timestamp);
     int64_t end_time = this->step_until_async(timestamp, client, NULL);
 
-    while (this->handler->get_time_engine()->get_time() < timestamp)
+    while (this->handler->get_time_engine()->get_time() < timestamp && !this->is_sim_finished)
     {
         pthread_cond_wait(&this->cond, &this->mutex);
     }

@@ -24,6 +24,11 @@
 #include <cstdint>
 #include <stdint.h>
 
+namespace gv
+{
+    class Controller;
+};
+
 namespace vp
 {
     class TimeEvent;
@@ -41,6 +46,7 @@ namespace vp
         friend class vp::TimeEngine;
         friend class vp::ClockEngine;
         friend class vp::TimeEvent;
+        friend class gv::Controller;
 
     public:
         /**

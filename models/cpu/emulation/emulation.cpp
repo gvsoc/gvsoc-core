@@ -332,7 +332,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Running engine\n");
             lock.unlock();
-            this->get_launcher()->run_async(gv::Controller::get().default_client_get());
+            gv::Controller::get().default_client_get()->run();
             lock.lock();
         }
 
@@ -346,7 +346,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Stopping engine\n");
             lock.unlock();
-            this->get_launcher()->stop(gv::Controller::get().default_client_get());
+            gv::Controller::get().default_client_get()->stop();
             lock.lock();
         }
     }

@@ -43,7 +43,7 @@ class Dpi_launcher : public gv::Gvsoc_user
     public:
         Dpi_launcher(gv::Gvsoc &gvsoc) : gvsoc(gvsoc) {}
         void was_updated() override;
-        void has_ended() override;
+        void has_ended(int status) override;
 
         gv::Gvsoc &gvsoc;
         bool is_sim_finished = false;
@@ -82,7 +82,7 @@ void Dpi_launcher::was_updated()
     }
 }
 
-void Dpi_launcher::has_ended()
+void Dpi_launcher::has_ended(int status)
 {
     this->is_sim_finished = true;
 }
@@ -120,7 +120,8 @@ static void gvsoc_sync_task(void *arg)
     while(1)
     {
         int64_t time = dpi_time_ps();
-        int64_t next_timestamp = gvsoc->step_until(time);
+        gvsoc->step_until(time);
+        int64_t next_timestamp = gvsoc->get_next_event_time();
 
         // when we are not executing the engine, it is retained so that no one else
         // can execute it while we are leeting the systemv engine executes.

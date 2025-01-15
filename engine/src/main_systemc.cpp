@@ -80,7 +80,7 @@ public:
         sync_event.notify();
     }
 
-    void has_ended() override
+    void has_ended(int status) override
     {
         this->is_sim_finished = true;
         sync_event.notify();

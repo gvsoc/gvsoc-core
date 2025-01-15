@@ -49,11 +49,6 @@ public:
 
     void update(int64_t timestamp) override;
 
-    int64_t step(int64_t duration) override;
-    int64_t step_until(int64_t timestamp) override;
-    int64_t step_and_wait(int64_t duration) override;
-    int64_t step_until_and_wait(int64_t timestamp) override;
-
     int join() override;
 
     gv::Io_binding *io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name) override;

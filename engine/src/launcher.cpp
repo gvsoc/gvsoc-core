@@ -29,7 +29,7 @@
 #include <vp/proxy.hpp>
 #include <vp/controller.hpp>
 #include <vp/proxy_client.hpp>
-#include "vp/top.hpp"
+#include <vp/top.hpp>
 
 static pthread_t sigint_thread;
 
@@ -69,7 +69,10 @@ void gv::Controller::syscall_stop_handle()
 {
     for (gv::ControllerClient *client: this->clients)
     {
-        client->syscall_stop_handle();
+        if (client->user)
+        {
+            client->user->handle_syscall_stop();
+        }
     }
 }
 
@@ -98,7 +101,7 @@ void gv::Controller::init(gv::GvsocConf *conf)
             {
                 int in_port = gv_config->get_child_int("proxy/port");
                 int out_port;
-                this->proxy = new GvProxy(this->handler->get_time_engine(), instance, this);
+                this->proxy = new GvProxy(this->handler->get_time_engine(), instance);
 
                 if (this->proxy->open(in_port, &out_port))
                 {
@@ -329,9 +332,9 @@ int64_t gv::Controller::step_sync(int64_t duration, ControllerClient *client)
     return this->step_until_sync(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
-int64_t gv::Controller::step_async(int64_t duration, ControllerClient *client, void *request)
+int64_t gv::Controller::step_async(int64_t duration, ControllerClient *client, bool wait, void *request)
 {
-    return this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client, request);
+    return this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client, wait, request);
 }
 
 void gv::Controller::step_async_handler(vp::Block *__this, vp::TimeEvent *event)
@@ -340,7 +343,14 @@ void gv::Controller::step_async_handler(vp::Block *__this, vp::TimeEvent *event)
     ControllerClient *client = (ControllerClient *)event->get_args()[1];
     _this->logger.info("Step handler\n");
     _this->client_stop(client);
-    client->step_handle(event->get_args()[2]);
+
+    for (gv::ControllerClient *client: _this->clients)
+    {
+        if (client->user)
+        {
+            client->user->handle_step_end(event->get_args()[2]);
+        }
+    }
 
     delete event;
 }
@@ -382,7 +392,7 @@ int64_t gv::Controller::step_until_sync(int64_t end_time, ControllerClient *clie
     }
 }
 
-int64_t gv::Controller::step_until_async(int64_t end_time, ControllerClient *client, void *request)
+int64_t gv::Controller::step_until_async(int64_t end_time, ControllerClient *client, bool wait, void *request)
 {
     vp::TimeEvent *event = new vp::TimeEvent(this->step_block);
     event->set_callback(this->step_async_handler);
@@ -394,22 +404,12 @@ int64_t gv::Controller::step_until_async(int64_t end_time, ControllerClient *cli
 
     this->client_run(client);
 
-    return end_time;
-}
-
-int64_t gv::Controller::step_and_wait_async(int64_t duration, ControllerClient *client)
-{
-    return this->step_until_and_wait_async(this->handler->get_time_engine()->get_time() + duration, client);
-}
-
-int64_t gv::Controller::step_until_and_wait_async(int64_t timestamp, ControllerClient *client)
-{
-    this->logger.info("Step until async (timestamp: %ld)\n", timestamp);
-    int64_t end_time = this->step_until_async(timestamp, client, NULL);
-
-    while (this->handler->get_time_engine()->get_time() < timestamp && !this->is_sim_finished)
+    if (wait)
     {
-        pthread_cond_wait(&this->cond, &this->mutex);
+        while (this->handler->get_time_engine()->get_time() < end_time && !this->is_sim_finished)
+        {
+            pthread_cond_wait(&this->cond, &this->mutex);
+        }
     }
 
     return end_time;
@@ -608,7 +608,7 @@ gv::PowerReport *gv::Controller::report_get(ControllerClient *client)
 
 
 
-gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
+gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf, std::string name)
 {
     if (conf && conf->proxy_socket != -1)
     {
@@ -616,7 +616,7 @@ gv::Gvsoc *gv::gvsoc_new(gv::GvsocConf *conf)
     }
     else
     {
-        return new gv::ControllerClient(conf);
+        return new gv::ControllerClient(conf, name);
     }
 }
 

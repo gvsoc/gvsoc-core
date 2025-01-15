@@ -236,26 +236,6 @@ int64_t Gvsoc_proxy_client::stop()
     return 0;
 }
 
-int64_t Gvsoc_proxy_client::step(int64_t duration)
-{
-    return 0;
-}
-
-int64_t Gvsoc_proxy_client::step_until(int64_t duration)
-{
-    return 0;
-}
-
-int64_t Gvsoc_proxy_client::step_and_wait(int64_t duration)
-{
-    return 0;
-}
-
-int64_t Gvsoc_proxy_client::step_until_and_wait(int64_t duration)
-{
-    return 0;
-}
-
 gv::Io_binding *Gvsoc_proxy_client::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
 {
     return NULL;

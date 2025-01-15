@@ -92,19 +92,13 @@ namespace gv {
         // Run simulation for specified duration in synchronous mode
         int64_t step_sync(int64_t duration, ControllerClient *client);
         // Run simulation for specified duration in asynchronous mode
-        int64_t step_async(int64_t duration, ControllerClient *client, void *request);
+        int64_t step_async(int64_t duration, ControllerClient *client, bool wait, void *request);
         // Run simulation until specified timestamp is reached, in synchronous mode
         int64_t step_until_sync(int64_t timestamp, ControllerClient *client);
         // Run simulation until specified timestamp is reached, in asynchronous mode
-        int64_t step_until_async(int64_t timestamp, ControllerClient *client, void *request);
+        int64_t step_until_async(int64_t timestamp, ControllerClient *client, bool wait, void *request);
         // Run simulation for specified duration in asynchronous mode and blocks caller until
         // step is reached
-        int64_t step_and_wait_async(int64_t duration, ControllerClient *client);
-        // Run simulation until specified timestamp is reached, in asynchronous mode and blocks
-        // caller until step is reached
-        int64_t step_until_and_wait_async(int64_t timestamp, ControllerClient *client);
-        // Block caller until simulation can be run. Used in synchronous mode to make no other client
-        // is blocking simulation before continuing.
         void wait_runnable();
         // Must be called when client wants to quit. This will unblock other clients waiting for its
         // termination in the join method
@@ -225,14 +219,9 @@ namespace gv {
         void report_start() override;
         void report_stop() override;
         gv::PowerReport *report_get() override;
-        int64_t step(int64_t duration) override;
-        void step_request(int64_t duration, void *data) override;
-        int64_t step_until(int64_t timestamp) override;
-        int64_t step_and_wait(int64_t duration) override;
-        int64_t step_until_and_wait(int64_t timestamp) override;
+        void step(int64_t duration, bool wait=false, void *data=NULL) override;
+        int64_t step_until(int64_t timestamp, bool wait=false, void *data=NULL) override;
         int join() override;
-        void retain() override;
-        void release() override;
         void lock() override;
         void unlock() override;
         void update(int64_t timestamp) override;
@@ -247,11 +236,11 @@ namespace gv {
         void wait_runnable() override;
         void terminate() override;
         void quit(int status) override;
+        int64_t get_time() override;
+        int64_t get_next_event_time() override;
 
         // Called by launcher when simulation is over to notify each client
-        virtual void sim_finished(int status);
-        virtual void step_handle(void *request) {}
-        virtual void syscall_stop_handle() {}
+        void sim_finished(int status);
 
     private:
 

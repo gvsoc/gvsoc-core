@@ -322,10 +322,10 @@ class Proxy(object):
             self._send_cmd('run')
 
     def release(self):
-        self._send_cmd('release')
+        pass
 
     def retain(self):
-        self._send_cmd('retain')
+        pass
 
     def is_sim_finished(self):
         return self.reader.sim_has_exited

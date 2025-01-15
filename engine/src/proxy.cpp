@@ -55,8 +55,8 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 
-gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, gv::Controller *launcher, int req_pipe, int reply_pipe)
-  : top(top), launcher(launcher), req_pipe(req_pipe), reply_pipe(reply_pipe), logger("PROXY")
+gv::GvProxy::GvProxy(vp::TimeEngine *engine, vp::Component *top, int req_pipe, int reply_pipe)
+  : top(top), req_pipe(req_pipe), reply_pipe(reply_pipe), logger("PROXY")
 {
     this->logger.info("Instantiating proxy\n");
 }
@@ -212,23 +212,14 @@ bool gv::GvProxy::send_payload(FILE *reply_file, std::string req, uint8_t *paylo
 }
 
 gv::GvProxySession::GvProxySession(GvProxy *proxy, int req_fd, int reply_fd)
-: gv::ControllerClient(NULL, "PROXY_SESSION(" + std::to_string(req_fd) + ")"),
-    logger("PROXY_SESSION(" + std::to_string(req_fd) + ")"), proxy(proxy),
+: logger("PROXY_SESSION(" + std::to_string(req_fd) + ")"), proxy(proxy),
     socket_fd(req_fd), reply_fd(reply_fd)
 {
-    this->retain();
-
+    this->gvsoc = gvsoc_new(NULL, "PROXY_SESSION(" + std::to_string(req_fd) + ")");
+    this->gvsoc->bind(this);
     this->loop_thread = new std::thread(&gv::GvProxySession::proxy_loop, this);
 }
 
-
-void gv::GvProxySession::step_handle(void *request)
-{
-    std::unique_lock<std::mutex> lock(this->proxy->mutex);
-    dprintf(reply_fd, "req=%lld;msg=%ld\n", (long long)request,
-        this->proxy->launcher->top_get()->get_time_engine()->get_time());
-    lock.unlock();
-}
 
 void gv::GvProxySession::wait()
 {
@@ -239,8 +230,8 @@ void gv::GvProxySession::proxy_loop()
 {
     FILE *sock = fdopen(socket_fd, "r");
     FILE *reply_sock = fdopen(reply_fd, "w");
-    gv::Controller *launcher = this->proxy->launcher;
-    vp::TimeEngine *engine = launcher->top_get()->get_time_engine();
+    gv::Controller &controller = gv::Controller::get();
+    vp::TimeEngine *engine = controller.top_get()->get_time_engine();
 
     while(1)
     {
@@ -300,21 +291,9 @@ void gv::GvProxySession::proxy_loop()
 
         if (words.size() > 0)
         {
-            if (words[0] == "release")
+            if (words[0] == "run")
             {
-                std::unique_lock<std::mutex> lock(this->proxy->mutex);
-                dprintf(reply_fd, "req=%s\n", req.c_str());
-                lock.unlock();
-            }
-            else if (words[0] == "retain")
-            {
-                std::unique_lock<std::mutex> lock(this->proxy->mutex);
-                dprintf(reply_fd, "req=%s\n", req.c_str());
-                lock.unlock();
-            }
-            else if (words[0] == "run")
-            {
-                this->run();
+                this->gvsoc->run();
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -329,12 +308,12 @@ void gv::GvProxySession::proxy_loop()
                 {
                     int64_t duration = strtol(words[1].c_str(), NULL, 0);
                     int64_t timestamp = engine->get_time() + duration;
-                    this->step_request(duration, (void *)atoll(req.c_str()));
+                    this->gvsoc->step(duration, false, (void *)atoll(req.c_str()));
                 }
             }
             else if (words[0] == "stop")
             {
-                this->stop();
+                this->gvsoc->stop();
                 std::unique_lock<std::mutex> lock(this->proxy->mutex);
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
@@ -346,7 +325,7 @@ void gv::GvProxySession::proxy_loop()
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
 
-                this->terminate();
+                this->gvsoc->terminate();
             }
             else if (words[0] == "quit")
             {
@@ -359,13 +338,13 @@ void gv::GvProxySession::proxy_loop()
                 dprintf(reply_fd, "req=%s\n", req.c_str());
                 lock.unlock();
 
-                this->quit(this->proxy->exit_status);
+                this->gvsoc->quit(this->proxy->exit_status);
             }
             else
             {
                 // Before interacting with the engine, we must lock it since our requests will come
                 // from a different thread.
-                this->lock();
+                this->gvsoc->lock();
 
                 if (words[0] == "get_component")
                 {
@@ -447,21 +426,30 @@ void gv::GvProxySession::proxy_loop()
                     printf("Ignoring invalid command: %s\n", words[0].c_str());
                 }
 
-                this->unlock();
+                this->gvsoc->unlock();
             }
         }
     }
 }
 
-void gv::GvProxySession::sim_finished(int status)
+
+void gv::GvProxySession::handle_step_end(void *request)
 {
-    this->proxy->send_quit(status);
+    std::unique_lock<std::mutex> lock(this->proxy->mutex);
+    dprintf(reply_fd, "req=%lld;msg=%ld\n", (long long)request,
+        gv::Controller::get().top_get()->get_time_engine()->get_time());
+    lock.unlock();
 }
 
-void gv::GvProxySession::syscall_stop_handle()
+void gv::GvProxySession::handle_syscall_stop()
 {
-    gv::Controller::get().stop(this);
+    gv::Controller::get().stop((ControllerClient *)this->gvsoc);
     std::unique_lock<std::mutex> lock(this->proxy->mutex);
     dprintf(this->reply_fd, "req=-1;msg=syscall_stop\n");
     lock.unlock();
+}
+
+void gv::GvProxySession::has_ended(int status)
+{
+    this->proxy->send_quit(status);
 }

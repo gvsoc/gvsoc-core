@@ -23,6 +23,11 @@
 
 #include "vp/json.hpp"
 
+namespace gv
+{
+    class ControllerClient;
+};
+
 namespace vp
 {
     class BlockTime;
@@ -32,6 +37,7 @@ namespace vp
     {
 
         friend class gv::Controller;
+        friend class gv::ControllerClient;
         friend class vp::BlockTime;
         friend class vp::ClockEngine;
         friend class vp::Top;

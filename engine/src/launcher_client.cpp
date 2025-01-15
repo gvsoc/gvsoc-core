@@ -26,6 +26,7 @@
 #include <vp/proxy.hpp>
 #include <vp/controller.hpp>
 #include <vp/proxy_client.hpp>
+#include <vp/top.hpp>
 
 namespace gv
 {
@@ -129,7 +130,7 @@ void gv::ControllerClient::sim_finished(int status)
     gv::Controller::get().stop(this);
     if(this->user)
     {
-        this->user->has_ended();
+        this->user->has_ended(status);
     }
 }
 
@@ -158,30 +159,30 @@ gv::PowerReport *gv::ControllerClient::report_get()
     return gv::Controller::get().report_get(this);
 }
 
-int64_t gv::ControllerClient::step(int64_t duration)
-{
-    this->logger.info("Step (duration: %lld)\n", duration);
-    int64_t time;
-    if (this->async)
-    {
-        gv::Controller::get().lock();
-        time = gv::Controller::get().step_async(duration, this, NULL);
-        gv::Controller::get().unlock();
-    }
-    else
-    {
-        time = gv::Controller::get().step_sync(duration, this);
-    }
-    return time;
-}
+// int64_t gv::ControllerClient::step(int64_t duration)
+// {
+//     this->logger.info("Step (duration: %lld)\n", duration);
+//     int64_t time;
+//     if (this->async)
+//     {
+//         gv::Controller::get().lock();
+//         time = gv::Controller::get().step_async(duration, this, NULL);
+//         gv::Controller::get().unlock();
+//     }
+//     else
+//     {
+//         time = gv::Controller::get().step_sync(duration, this);
+//     }
+//     return time;
+// }
 
-void gv::ControllerClient::step_request(int64_t duration, void *data)
+void gv::ControllerClient::step(int64_t duration, bool wait, void *data)
 {
     this->logger.info("Step (duration: %lld)\n", duration);
     if (this->async)
     {
         gv::Controller::get().lock();
-        gv::Controller::get().step_async(duration, this, data);
+        gv::Controller::get().step_async(duration, this, wait, data);
         gv::Controller::get().unlock();
     }
     else
@@ -191,48 +192,14 @@ void gv::ControllerClient::step_request(int64_t duration, void *data)
 }
 
 
-int64_t gv::ControllerClient::step_until(int64_t timestamp)
+int64_t gv::ControllerClient::step_until(int64_t timestamp, bool wait, void *data)
 {
     this->logger.info("Step until (timestamp: %lld)\n", timestamp);
     int64_t time;
     if (this->async)
     {
         gv::Controller::get().lock();
-        time = gv::Controller::get().step_until_async(timestamp, this, NULL);
-        gv::Controller::get().unlock();
-    }
-    else
-    {
-        time = gv::Controller::get().step_until_sync(timestamp, this);
-    }
-    return time;
-}
-
-int64_t gv::ControllerClient::step_and_wait(int64_t duration)
-{
-    this->logger.info("Step and wait (duration: %lld)\n", duration);
-    int64_t time;
-    if (this->async)
-    {
-        gv::Controller::get().lock();
-        time = gv::Controller::get().step_and_wait_async(duration, this);
-        gv::Controller::get().unlock();
-    }
-    else
-    {
-        time = gv::Controller::get().step_sync(duration, this);
-    }
-    return time;
-}
-
-int64_t gv::ControllerClient::step_until_and_wait(int64_t timestamp)
-{
-    this->logger.info("Step until and wait (timestamp: %lld)\n", timestamp);
-    int64_t time;
-    if (this->async)
-    {
-        gv::Controller::get().lock();
-        time = gv::Controller::get().step_until_and_wait_async(timestamp, this);
+        time = gv::Controller::get().step_until_async(timestamp, this, wait, data);
         gv::Controller::get().unlock();
     }
     else
@@ -259,17 +226,9 @@ int gv::ControllerClient::join()
     return status;
 }
 
-void gv::ControllerClient::retain()
-{
-}
-
 void gv::ControllerClient::wait_runnable()
 {
     gv::Controller::get().wait_runnable();
-}
-
-void gv::ControllerClient::release()
-{
 }
 
 void gv::ControllerClient::lock()
@@ -363,4 +322,14 @@ void gv::ControllerClient::quit(int status)
         this->status = status;
         gv::Controller::get().client_quit(this);
     }
+}
+
+int64_t gv::ControllerClient::get_time()
+{
+    return gv::Controller::get().handler->get_time_engine()->get_time();
+}
+
+int64_t gv::ControllerClient::get_next_event_time()
+{
+    return gv::Controller::get().handler->get_time_engine()->get_next_event_time();
 }

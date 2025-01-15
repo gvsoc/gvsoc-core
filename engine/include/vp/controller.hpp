@@ -90,13 +90,13 @@ namespace gv {
         // Stop the client. This will prevent simulation from running until client is run again
         int64_t stop(ControllerClient *client);
         // Run simulation for specified duration in synchronous mode
-        int64_t step_sync(int64_t duration, ControllerClient *client);
+        void step_sync(int64_t duration, ControllerClient *client);
         // Run simulation for specified duration in asynchronous mode
-        int64_t step_async(int64_t duration, ControllerClient *client, bool wait, void *request);
+        void step_async(int64_t duration, ControllerClient *client, bool wait, void *request);
         // Run simulation until specified timestamp is reached, in synchronous mode
-        int64_t step_until_sync(int64_t timestamp, ControllerClient *client);
+        void step_until_sync(int64_t timestamp, ControllerClient *client);
         // Run simulation until specified timestamp is reached, in asynchronous mode
-        int64_t step_until_async(int64_t timestamp, ControllerClient *client, bool wait, void *request);
+        void step_until_async(int64_t timestamp, ControllerClient *client, bool wait, void *request);
         // Run simulation for specified duration in asynchronous mode and blocks caller until
         // step is reached
         void wait_runnable();
@@ -220,7 +220,7 @@ namespace gv {
         void report_stop() override;
         gv::PowerReport *report_get() override;
         void step(int64_t duration, bool wait=false, void *data=NULL) override;
-        int64_t step_until(int64_t timestamp, bool wait=false, void *data=NULL) override;
+        void step_until(int64_t timestamp, bool wait=false, void *data=NULL) override;
         int join() override;
         void lock() override;
         void unlock() override;

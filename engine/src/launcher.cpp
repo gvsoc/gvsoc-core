@@ -327,14 +327,14 @@ int64_t gv::Controller::stop(ControllerClient *client)
     return this->handler->get_time_engine()->get_time();
 }
 
-int64_t gv::Controller::step_sync(int64_t duration, ControllerClient *client)
+void gv::Controller::step_sync(int64_t duration, ControllerClient *client)
 {
-    return this->step_until_sync(this->handler->get_time_engine()->get_time() + duration, client);
+    this->step_until_sync(this->handler->get_time_engine()->get_time() + duration, client);
 }
 
-int64_t gv::Controller::step_async(int64_t duration, ControllerClient *client, bool wait, void *request)
+void gv::Controller::step_async(int64_t duration, ControllerClient *client, bool wait, void *request)
 {
-    return this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client, wait, request);
+    this->step_until_async(this->handler->get_time_engine()->get_time() + duration, client, wait, request);
 }
 
 void gv::Controller::step_async_handler(vp::Block *__this, vp::TimeEvent *event)
@@ -363,7 +363,7 @@ void gv::Controller::step_sync_handler(vp::Block *__this, vp::TimeEvent *event)
     _this->handler->get_time_engine()->pause();
 }
 
-int64_t gv::Controller::step_until_sync(int64_t end_time, ControllerClient *client)
+void gv::Controller::step_until_sync(int64_t end_time, ControllerClient *client)
 {
     // Only go a step if the end time is not the present time
     if (end_time > this->instance->time.get_engine()->get_time())
@@ -383,16 +383,10 @@ int64_t gv::Controller::step_until_sync(int64_t end_time, ControllerClient *clie
             time = this->run_sync();
 
         }
-
-        return time;
-    }
-    else
-    {
-        return this->handler->get_time_engine()->get_next_event_time();
     }
 }
 
-int64_t gv::Controller::step_until_async(int64_t end_time, ControllerClient *client, bool wait, void *request)
+void gv::Controller::step_until_async(int64_t end_time, ControllerClient *client, bool wait, void *request)
 {
     vp::TimeEvent *event = new vp::TimeEvent(this->step_block);
     event->set_callback(this->step_async_handler);
@@ -411,8 +405,6 @@ int64_t gv::Controller::step_until_async(int64_t end_time, ControllerClient *cli
             pthread_cond_wait(&this->cond, &this->mutex);
         }
     }
-
-    return end_time;
 }
 
 void gv::Controller::wait_runnable()

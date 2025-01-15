@@ -192,21 +192,20 @@ void gv::ControllerClient::step(int64_t duration, bool wait, void *data)
 }
 
 
-int64_t gv::ControllerClient::step_until(int64_t timestamp, bool wait, void *data)
+void gv::ControllerClient::step_until(int64_t timestamp, bool wait, void *data)
 {
     this->logger.info("Step until (timestamp: %lld)\n", timestamp);
     int64_t time;
     if (this->async)
     {
         gv::Controller::get().lock();
-        time = gv::Controller::get().step_until_async(timestamp, this, wait, data);
+        gv::Controller::get().step_until_async(timestamp, this, wait, data);
         gv::Controller::get().unlock();
     }
     else
     {
-        time = gv::Controller::get().step_until_sync(timestamp, this);
+        gv::Controller::get().step_until_sync(timestamp, this);
     }
-    return time;
 }
 
 int gv::ControllerClient::join()

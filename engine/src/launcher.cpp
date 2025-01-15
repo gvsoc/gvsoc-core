@@ -359,7 +359,7 @@ int64_t gv::Controller::step_until_sync(int64_t end_time, ControllerClient *clie
         // Now let the engine run until we reach the end of step.
         // We may stop several times if other clients ask to, so we need to iterate as long
         // as needed.
-        while (this->handler->get_time_engine()->get_time() < end_time)
+        while (this->handler->get_time_engine()->get_time() < end_time && !this->is_sim_finished)
         {
             time = this->run_sync();
 

@@ -47,23 +47,31 @@ public:
             int64_t time = (int64_t)sc_time_stamp().to_double();
             int64_t next_timestamp = gvsoc->step_until(time);
 
+            if (this->is_sim_finished)
+            {
+                gvsoc->quit(0);
+                int status = gvsoc->join();
+                sc_stop();
+                break;
+            }
+
             // when we are not executing the engine, it is retained so that no one else
             // can execute it while we are leeting the systemv engine executes.
             // On the contrary, if someone else is retaining it, we should not let systemv
             // update the time.
             // If so, just call again the step function so that we release the engine for
             // a while.
-            if (1) //gvsoc->retain_count() == 1)
+            gvsoc->wait_runnable();
+
+            if (next_timestamp == -1)
             {
-                if (next_timestamp == -1)
-                {
-                    wait(sync_event);
-                }
-                else
-                {
-                    wait(next_timestamp - time, SC_PS, sync_event);
-                }
+                wait(sync_event);
             }
+            else
+            {
+                wait(next_timestamp - time, SC_PS, sync_event);
+            }
+
         }
     }
 
@@ -74,11 +82,13 @@ public:
 
     void has_ended() override
     {
-        sc_stop();
+        this->is_sim_finished = true;
+        sync_event.notify();
     }
 
     gv::Gvsoc *gvsoc;
     sc_event sync_event;
+    bool is_sim_finished = false;
 };
 
 int sc_main(int argc, char *argv[])

@@ -45,7 +45,8 @@ public:
         while(1)
         {
             int64_t time = (int64_t)sc_time_stamp().to_double();
-            int64_t next_timestamp = gvsoc->step_until(time);
+            gvsoc->step_until(time);
+            int64_t next_timestamp = gvsoc->get_next_event_time();
 
             if (this->is_sim_finished)
             {

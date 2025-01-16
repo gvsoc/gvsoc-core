@@ -69,9 +69,6 @@ namespace vp
         virtual int register_core(Gdbserver_core *core) = 0;
         virtual void signal(Gdbserver_core *core, int signal, std::string reason="", int info=0) = 0;
 
-        // virtual void lock() = 0;
-        // virtual void unlock() = 0;
-
         virtual void exit(int status) = 0;
     };
 

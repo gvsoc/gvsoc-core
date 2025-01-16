@@ -56,9 +56,6 @@ public:
     void watchpoint_insert(bool is_write, uint64_t addr, int size);
     void watchpoint_remove(bool is_write, uint64_t addr, int size);
 
-    // void lock() override { this->time.get_engine()->lock(); }
-    // void unlock() override { this->time.get_engine()->unlock(); }
-
     void exit(int status) override;
 
     vp::Trace     trace;

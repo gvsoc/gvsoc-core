@@ -35,6 +35,7 @@
 #include <queue>
 #include <vp/itf/io.hpp>
 #include <thread>
+#include <vp/controller.hpp>
 
 #define UART_QUEUE_SIZE 64
 
@@ -430,15 +431,15 @@ void Ns16550::stdin_task(void)
         int rc = this->read(true);
         if (rc < 0) return;
 
-        this->time.get_engine()->lock();
+        gv::Controller::get().engine_lock();
 
         while (!(this->fcr & UART_FCR_ENABLE_FIFO) ||
             (this->mcr & UART_MCR_LOOP) ||
             (UART_QUEUE_SIZE <= this->rx_queue.size()))
         {
-            this->time.get_engine()->unlock();
+            gv::Controller::get().engine_unlock();
             usleep(1000);
-            this->time.get_engine()->lock();
+            gv::Controller::get().engine_lock();
         }
 
         this->rx_queue.push((uint8_t)rc);
@@ -446,7 +447,7 @@ void Ns16550::stdin_task(void)
 
         this->update_interrupt();
 
-        this->time.get_engine()->unlock();
+        gv::Controller::get().engine_unlock();
     }
 }
 

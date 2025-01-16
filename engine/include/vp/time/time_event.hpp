@@ -21,6 +21,11 @@
 
 #pragma once
 
+namespace gv
+{
+    class Controller;
+};
+
 namespace vp
 {
     class TimeEvent;
@@ -39,6 +44,7 @@ namespace vp
     {
         friend class BlockTime;
         friend class Block;
+        friend class gv::Controller;
 
     public:
 

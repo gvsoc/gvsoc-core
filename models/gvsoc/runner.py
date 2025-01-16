@@ -455,10 +455,20 @@ class Runner():
                     stub = ['valgrind'] + stub
 
                 if args.gui or args.gui2 or args.gui3:
-                    command = stub + ['gvsoc-gui3' if args.gui3 else 'gvsoc-gui2' if args.gui2 else 'gvsoc-gui',
-                        '--gv-config=' + self.gvsoc_config_path,
-                        '--gui-config=gvsoc_gui_config.json',
-                    ]
+
+                    if args.gui3:
+
+                        command = stub + ['gvsoc-gui3',
+                            '-v ' + self.gvsoc_config_path,
+                            '-g gvsoc_gui_config.json',
+                        ]
+
+                    else:
+
+                        command = stub + ['gvsoc-gui3' if args.gui3 else 'gvsoc-gui2' if args.gui2 else 'gvsoc-gui',
+                            '--gv-config=' + self.gvsoc_config_path,
+                            '--gui-config=gvsoc_gui_config.json',
+                        ]
 
                     path = os.path.join(self.gapy_target.get_working_dir(), 'gvsoc_gui_config.json')
 
@@ -514,6 +524,7 @@ class Runner():
                     else:
                         status = self.gvcontrol_module.target_control(proxy)
                     proxy.quit(status)
+                    status = proxy.join()
                     proxy.close()
                     # Once script is over, wait for gvsoc to finish and return its status
                     gv_thread.join()

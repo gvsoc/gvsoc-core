@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
 #pragma once
-
-#include <string.h>
 
 #ifdef VP_USE_SYSTEMC
 extern int systemc_launcher(const char *config_path);

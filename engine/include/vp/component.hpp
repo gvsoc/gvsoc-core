@@ -34,7 +34,7 @@
 
 namespace gv {
     class GvProxy;
-    class GvsocLauncher;
+    class Controller;
 };
 
 namespace vp
@@ -89,7 +89,7 @@ namespace vp
         friend class vp::MasterPort;
         friend class vp::Top;
         friend class vp::TimeEngine;
-        friend class gv::GvsocLauncher;
+        friend class gv::Controller;
 
     public:
         /**
@@ -161,7 +161,7 @@ namespace vp
          *
          * @return The launcher
          */
-        gv::GvsocLauncher *get_launcher();
+        gv::Controller *get_launcher();
 
 
         /**
@@ -204,7 +204,7 @@ namespace vp
             vp::PowerEngine *power_engine, vp::MemCheck *memcheck);
 
         // Used by the launcher to set himself as launcher. Could be moved to ComponentConfig
-        void set_launcher(gv::GvsocLauncher *launcher);
+        void set_launcher(gv::Controller *launcher);
 
         std::map<std::string, Component *> childs_dict;
 
@@ -279,7 +279,7 @@ namespace vp
         std::unordered_map<std::string, vp::Port *> ports;
 
         // Top launcher, this can sometimes be needed by components to interact with the launcher.
-        gv::GvsocLauncher *launcher;
+        gv::Controller *launcher;
 
         // Reset port to synchronize the component reset with a wire instead of the upper component
         vp::WireSlave<bool> reset_port;

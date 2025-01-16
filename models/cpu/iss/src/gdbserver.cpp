@@ -21,6 +21,7 @@
 
 #include <cpu/iss/include/iss.hpp>
 #include <algorithm>
+#include <vp/controller.hpp>
 
 
 
@@ -509,7 +510,7 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
 
     // Trigger the first access, with engine locked, since we come from an external thread
     this->handle_pending_io_access();
-    this->iss.top.time.get_engine()->unlock();
+    this->iss.top.get_launcher()->engine_unlock();
 
     // Then wait until the FSM is over
     std::unique_lock<std::mutex> lock(this->mutex);
@@ -519,7 +520,7 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
     }
     lock.unlock();
 
-    this->iss.top.time.get_engine()->lock();
+    this->iss.top.get_launcher()->engine_lock();
 
     return this->io_retval;
 }

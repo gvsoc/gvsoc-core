@@ -26,7 +26,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <gv/gvsoc.hpp>
-#include <vp/launcher.hpp>
+#include <vp/controller.hpp>
 
 static int nb_running = 0;
 
@@ -255,9 +255,9 @@ void emulation::access(gv::Io_request *req)
     // MEMINFO
     else if (req->type == 7)
     {
-        this->time.get_engine()->lock();
+        gv::Controller::get().engine_lock();
         this->meminfo[0].sync_back((void **)&req->data);
-        this->time.get_engine()->unlock();
+        gv::Controller::get().engine_unlock();
     }
     // CORE ID
     else if (req->type == 8)
@@ -283,9 +283,9 @@ void emulation::access(gv::Io_request *req)
         this->core_req.set_is_write(req->type == gv::Io_request_write);
         this->core_req.set_data(req->data);
 
-        this->time.get_engine()->lock();
+        gv::Controller::get().engine_lock();
         int err = this->data.req(&this->core_req);
-        this->time.get_engine()->unlock();
+        gv::Controller::get().engine_unlock();
 
         if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
         {
@@ -313,17 +313,15 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         this->pending_irq = -1;
 
         lock.unlock();
-        this->time.get_engine()->lock();
+        gv::Controller::get().engine_lock();
         this->irq_ack_itf.sync(irq);
-        this->time.get_engine()->unlock();
+        gv::Controller::get().engine_unlock();
 
         if (handler)
         {
             handler(this->irq_handler_arg[irq]);
         }
-
         lock.lock();
-
     }
 
 
@@ -334,7 +332,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Running engine\n");
             lock.unlock();
-            this->get_launcher()->run();
+            gv::Controller::get().default_client_get()->run();
             lock.lock();
         }
 
@@ -348,7 +346,7 @@ void emulation::sync_state(std::unique_lock<std::mutex> &lock)
         {
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "Stopping engine\n");
             lock.unlock();
-            this->get_launcher()->stop();
+            gv::Controller::get().default_client_get()->stop();
             lock.lock();
         }
     }

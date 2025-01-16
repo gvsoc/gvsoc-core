@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -236,30 +236,6 @@ int64_t Gvsoc_proxy_client::stop()
     return 0;
 }
 
-void Gvsoc_proxy_client::wait_stopped()
-{
-}
-
-int64_t Gvsoc_proxy_client::step(int64_t duration)
-{
-    return 0;
-}
-
-int64_t Gvsoc_proxy_client::step_until(int64_t duration)
-{
-    return 0;
-}
-
-int64_t Gvsoc_proxy_client::step_and_wait(int64_t duration)
-{
-    return 0;
-}
-
-int64_t Gvsoc_proxy_client::step_until_and_wait(int64_t duration)
-{
-    return 0;
-}
-
 gv::Io_binding *Gvsoc_proxy_client::io_bind(gv::Io_user *user, std::string comp_name, std::string itf_name)
 {
     return NULL;
@@ -393,7 +369,7 @@ void gv::TestbenchUart::close()
     command += " enabled=0";
 
     ((Gvsoc_proxy_client *)this->gvsoc)->send_command(command);
-    
+
 }
 
 void gv::TestbenchUart::tx(uint8_t *buffer, int size)

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -734,7 +734,7 @@ void vp::TraceEngine::dump_event_string_external(vp::TraceEngine *_this, vp::Tra
         *(int64_t *)buffer = string_size;
 
         buffer += sizeof(string_size);
-       
+
         memcpy(buffer, event, string_size);
         buffer += string_size;
     }

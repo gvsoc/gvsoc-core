@@ -12,6 +12,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/mapping_tree.cpp"
     "src/proxy.cpp"
     "src/launcher.cpp"
+    "src/launcher_client.cpp"
     "src/proxy_client.cpp"
     "src/memcheck.cpp"
     "src/jsmn.cpp"
@@ -89,7 +90,7 @@ if(${BUILD_OPTIMIZED_M32})
     target_include_directories(gvsoc_m32 PUBLIC ${GVSOC_ENGINE_INC_DIRS})
     target_link_libraries(gvsoc_m32 PUBLIC z pthread ${CMAKE_DL_LIBS})
     set_target_properties(gvsoc_m32 PROPERTIES OUTPUT_NAME "pulpvp-m32")
-    install(TARGETS gvsoc_m32   
+    install(TARGETS gvsoc_m32
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         INCLUDES DESTINATION include

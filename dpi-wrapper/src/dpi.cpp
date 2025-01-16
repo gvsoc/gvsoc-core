@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -43,10 +43,11 @@ class Dpi_launcher : public gv::Gvsoc_user
     public:
         Dpi_launcher(gv::Gvsoc &gvsoc) : gvsoc(gvsoc) {}
         void was_updated() override;
-        void has_ended() override;
+        void has_ended(int status) override;
 
-    private:
         gv::Gvsoc &gvsoc;
+        bool is_sim_finished = false;
+    private:
 };
 
 class Dpi_wire : public gv::Wire_user
@@ -81,10 +82,9 @@ void Dpi_launcher::was_updated()
     }
 }
 
-void Dpi_launcher::has_ended()
+void Dpi_launcher::has_ended(int status)
 {
-    int status = gvsoc.join();
-    dpi_set_status(status);
+    this->is_sim_finished = true;
 }
 
 void Dpi_wire::update(int value)
@@ -100,7 +100,8 @@ extern "C" void *dpi_open(char *config_path)
   gv::GvsocConf conf = { .config_path=config_path, .api_mode=gv::Api_mode::Api_mode_sync };
   gv::Gvsoc *gvsoc = gv::gvsoc_new(&conf);
   gvsoc->open();
-  gvsoc->bind(new Dpi_launcher(*gvsoc));
+  Dpi_launcher *launcher = new Dpi_launcher(*gvsoc);
+  gvsoc->bind(launcher);
 
 
     if (conf.proxy_socket != -1)
@@ -108,17 +109,19 @@ extern "C" void *dpi_open(char *config_path)
         fprintf(stderr, "Opened proxy on socket %d\n", conf.proxy_socket);
     }
 
-  return (void *)gvsoc;
+  return (void *)launcher;
 }
 
 static void gvsoc_sync_task(void *arg)
 {
-    gv::Gvsoc *gvsoc = (gv::Gvsoc *)arg;
+    Dpi_launcher *launcher = (Dpi_launcher *)arg;
+    gv::Gvsoc *gvsoc = &launcher->gvsoc;
 
     while(1)
     {
         int64_t time = dpi_time_ps();
-        int64_t next_timestamp = gvsoc->step_until(time);
+        gvsoc->step_until(time);
+        int64_t next_timestamp = gvsoc->get_next_event_time();
 
         // when we are not executing the engine, it is retained so that no one else
         // can execute it while we are leeting the systemv engine executes.
@@ -126,32 +129,38 @@ static void gvsoc_sync_task(void *arg)
         // update the time.
         // If so, just call again the step function so that we release the engine for
         // a while.
-        if (gvsoc->retain_count() == 1)
+        gvsoc->wait_runnable();
+
+        if (next_timestamp == -1)
         {
-            if (next_timestamp == -1)
-            {
-                gvsoc->unlock();
-                // Since raise event can not be called from external thread when using proxy mode,
-                // we have to poll instead of using an event, in case an external thread pushed
-                // something.
-                // dpi_wait_event();
-                dpi_wait_event_timeout_ps(100000);
-                gvsoc->lock();
-            }
-            else
-            {
-                dpi_wait_event_timeout_ps(next_timestamp - time);
-            }
+            // Since raise event can not be called from external thread when using proxy mode,
+            // we have to poll instead of using an event, in case an external thread pushed
+            // something.
+            // dpi_wait_event();
+            dpi_wait_event_timeout_ps(100000);
+        }
+        else
+        {
+            dpi_wait_event_timeout_ps(next_timestamp - time);
+        }
+
+        if (launcher->is_sim_finished)
+        {
+            gvsoc->quit(0);
+            int status = gvsoc->join();
+            dpi_set_status(status);
         }
     }
 }
 
 extern "C" int dpi_start(void *instance)
 {
-  gv::Gvsoc *gvsoc = (gv::Gvsoc *)instance;
+    Dpi_launcher *launcher = (Dpi_launcher *)instance;
+    gv::Gvsoc *gvsoc = &launcher->gvsoc;
+
   gvsoc->start();
 
-  dpi_create_task((void *)gvsoc_sync_task, gvsoc);
+  dpi_create_task((void *)gvsoc_sync_task, launcher);
 
 
   return 0;
@@ -165,7 +174,9 @@ extern "C" void dpi_start_task(void *arg0, void *arg1)
 
 extern "C" void *dpi_bind(void *handle, char *name, int sv_handle)
 {
-    gv::Gvsoc *gvsoc = (gv::Gvsoc *)handle;
+    Dpi_launcher *launcher = (Dpi_launcher *)handle;
+    gv::Gvsoc *gvsoc = &launcher->gvsoc;
+
     Dpi_wire *wire = new Dpi_wire(sv_handle);
     gv::Wire_binding *binding = gvsoc->wire_bind(wire, name, "");
     void *result = (void *)new Dpi_wire_binding(gvsoc, binding);

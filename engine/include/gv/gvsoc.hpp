@@ -100,7 +100,7 @@ namespace gv {
          *
          * @param req The IO request describing the memory-mapped access.
          */
-        virtual void access(Io_request *req) = 0;
+        virtual void access(Io_request *req) {}
 
         /**
          * Grant a memory-mapped access.
@@ -113,7 +113,7 @@ namespace gv {
          *
          * @param req The IO request describing the memory-mapped access.
          */
-        virtual void grant(Io_request *req) = 0;
+        virtual void grant(Io_request *req) {}
 
         /**
          * Reply to a memory-mapped access.
@@ -124,7 +124,7 @@ namespace gv {
          *
          * @param req The IO request describing the memory-mapped access.
          */
-        virtual void reply(Io_request *req) = 0;
+        virtual void reply(Io_request *req) {}
     };
 
 
@@ -140,13 +140,13 @@ namespace gv {
         /**
          * Called by GVSOC to inject a memory-mapped access.
          *
-         * This operation is asynchronous. This method must return immediately and the request must be granted and/or 
+         * This operation is asynchronous. This method must return immediately and the request must be granted and/or
          * replied afterwards.
          * No GVSOC API can be called from this callback.
          *
          * @param req The IO request describing the memory-mapped access.
          */
-        virtual void access(Io_request *req) = 0;
+        virtual void access(Io_request *req) {}
 
         /**
          * Called by GVSOC tp grant a memory-mapped access.
@@ -160,7 +160,7 @@ namespace gv {
          *
          * @param req The IO request describing the memory-mapped access.
          */
-        virtual void grant(Io_request *req) = 0;
+        virtual void grant(Io_request *req) {}
 
         /**
          * Called by GVSOC to reply to a memory-mapped access.
@@ -172,7 +172,7 @@ namespace gv {
          *
          * @param req The IO request describing the memory-mapped access.
          */
-        virtual void reply(Io_request *req) = 0;
+        virtual void reply(Io_request *req) {}
     };
 
     /**
@@ -193,7 +193,7 @@ namespace gv {
          *
          * @param value The value of the wire.
          */
-        virtual void update(int value) = 0;
+        virtual void update(int value) {}
     };
 
     /**
@@ -213,7 +213,7 @@ namespace gv {
          *
          * @param value The value of the wire.
          */
-        virtual void update(int value) = 0;
+        virtual void update(int value) {}
     };
 
 
@@ -255,7 +255,7 @@ namespace gv {
          * @param clock_path If any, path of the clock trace.
          */
         virtual void event_register(int id, std::string path, Vcd_event_type type, int width,
-            std::string clock_path="") = 0;
+            std::string clock_path="") {}
 
         /**
          * Called by GVSOC to update the value of a logical VCD event.
@@ -267,7 +267,8 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual bool event_update_logical(int64_t timestamp, int64_t cycles, int id, uint64_t value, int flags) = 0;
+        virtual bool event_update_logical(int64_t timestamp, int64_t cycles, int id, uint64_t value,
+            int flags) { return false; }
 
         /**
          * Called by GVSOC to update the value of a bitfield VCD event.
@@ -279,7 +280,8 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual bool event_update_bitfield(int64_t timestamp, int64_t cycles, int id, uint8_t *value, uint8_t *flags) = 0;
+        virtual bool event_update_bitfield(int64_t timestamp, int64_t cycles, int id,
+            uint8_t *value, uint8_t *flags) { return false; }
 
         /**
          * Called by GVSOC to update the value of a real VCD event.
@@ -291,7 +293,8 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual bool event_update_real(int64_t timestamp, int64_t cycles, int id, double value) = 0;
+        virtual bool event_update_real(int64_t timestamp, int64_t cycles, int id, double value)
+            { return false; }
 
         /**
          * Called by GVSOC to update the value of a string VCD event.
@@ -308,7 +311,7 @@ namespace gv {
          *      string from the caller can be kept.
          */
         virtual bool event_update_string(int64_t timestamp, int64_t cycles, int id,
-            const char *value, int flags, bool realloc) = 0;
+            const char *value, int flags, bool realloc) { return false; }
 
         /**
          * Called by GVSOC to lock the external controller.
@@ -317,7 +320,7 @@ namespace gv {
          * starts, in case something needs to be protected, and to avoid protecting it in each
          * call to the event update methods.
          */
-        virtual void lock() {};
+        virtual void lock() {}
 
         /**
          * Called by GVSOC to unlock the external controller.
@@ -325,7 +328,7 @@ namespace gv {
          * As vcd traces are updated in chunks, GVSOC will call this function after the chunk
          * has ended.
          */
-        virtual void unlock() {};
+        virtual void unlock() {}
     };
 
 
@@ -344,14 +347,14 @@ namespace gv {
          * @param user A pointer to the caller class instance which will be called for all VCD callbacks. This caller
          *             must implement all the methods defined in class Vcd_user
          */
-        virtual void vcd_bind(Vcd_user *user) = 0;
+        virtual void vcd_bind(Vcd_user *user) {}
 
         /**
          * Enable VCD tracing
          *
          * This allows VCD traces to be dumped. This is by default enabled.
          */
-        virtual void vcd_enable() = 0;
+        virtual void vcd_enable() {}
 
         /**
          * Disable VCD tracing
@@ -359,7 +362,7 @@ namespace gv {
          * After this call, no more VCD trace is dumped. They have to be reenabled again to
          * continue dumping.
          */
-        virtual void vcd_disable() = 0;
+        virtual void vcd_disable() {}
 
         /**
          * Enable VCD events
@@ -369,7 +372,7 @@ namespace gv {
          * @param path The path of the VCD events to enable.
          * @param is_regex True if the specified path is a regular expression.
          */
-        virtual void event_add(std::string path, bool is_regex=false) = 0;
+        virtual void event_add(std::string path, bool is_regex=false) {}
 
         /**
          * Disable VCD events
@@ -379,7 +382,7 @@ namespace gv {
          * @param path The path of the VCD events to disable.
          * @param is_regex True if the specified path is a regular expression.
          */
-        virtual void event_exclude(std::string path, bool is_regex=false) = 0;
+        virtual void event_exclude(std::string path, bool is_regex=false) {}
     };
 
 
@@ -406,7 +409,8 @@ namespace gv {
          *
          * @return A class instance which can be used to inject IO requests, or grant and reply to incoming requests.
          */
-        virtual Io_binding *io_bind(Io_user *user, std::string comp_name, std::string itf_name) = 0;
+        virtual Io_binding *io_bind(Io_user *user, std::string comp_name, std::string itf_name)
+            { return NULL; }
 
     };
 
@@ -436,7 +440,8 @@ namespace gv {
          *
          * @return A class instance which can be used to inject wire updates.
          */
-        virtual Wire_binding *wire_bind(Wire_user *user, std::string comp_name, std::string itf_name) = 0;
+        virtual Wire_binding *wire_bind(Wire_user *user, std::string comp_name, std::string itf_name)
+            { return NULL; }
     };
 
 
@@ -470,7 +475,7 @@ namespace gv {
          *
          * @return A vector of the power reports of the child blocks
          */
-        virtual std::vector<PowerReport *> get_childs() = 0;
+        virtual std::vector<PowerReport *> get_childs() { return std::vector<PowerReport *>(); }
     };
 
 
@@ -496,7 +501,7 @@ namespace gv {
          *
          * @return The total instant power consumption.
          */
-        virtual double get_instant_power(double &dynamic_power, double &static_power) = 0;
+        virtual double get_instant_power(double &dynamic_power, double &static_power) { return 0; }
 
         /**
          * Get the overall average power consumption.
@@ -509,21 +514,21 @@ namespace gv {
          *
          * @return The total average power consumption.
          */
-        virtual double get_average_power(double &dynamic_power, double &static_power) = 0;
+        virtual double get_average_power(double &dynamic_power, double &static_power) { return 0; }
 
         /**
          * Start point of the period where average power is computed.
          *
          * This allows setting the beginning of the period where the power is measured to get the average.
          */
-        virtual void report_start() = 0;
+        virtual void report_start() {}
 
         /**
          * Stop point of the period where average power is computed.
          *
          * This allows setting the end of the period where the power is measured to get the average.
          */
-        virtual void report_stop() = 0;
+        virtual void report_stop() {}
 
         /**
          * Get a detailed report of the average power consumption.
@@ -536,7 +541,7 @@ namespace gv {
          * @return A pointer to the power report. The report is reused everytime this method is called and thus must
          * not be kept or freed.
          */
-        virtual PowerReport *report_get() = 0;
+        virtual PowerReport *report_get() { return NULL; }
 
     };
 
@@ -556,8 +561,10 @@ namespace gv {
          *
          * This means the simulated software is over and probably exited and GVSOC cannnot further
          * simulate it.
+         *
+         * @param status The simulation termination status.
          */
-        virtual void has_ended() {};
+        virtual void has_ended(int status) {}
 
         /**
          * Called by GVSOC to notify the simulation has stopped.
@@ -565,7 +572,7 @@ namespace gv {
          * This means the an event occurs which stopped the simulation. Simulation can be still be
          * resumed.
          */
-        virtual void has_stopped() {};
+        virtual void has_stopped() {}
 
         /**
          * Called by GVSOC to notify the simulation engine was updated.
@@ -573,7 +580,26 @@ namespace gv {
          * This means a new event was posted to the engine and modified the timestamp of the next
          * event to be executed.
          */
-        virtual void was_updated() {};
+        virtual void was_updated() {}
+
+        /**
+         * Called by GVSOC to notify and end of step.
+         *
+         * This notifies the termination of an asynchronous step enqueued with step_request.
+         * The data provided during the request is given back to identify which step has finished.
+         *
+         * @param status The request data.
+         */
+        virtual void handle_step_end(void *data) {}
+
+        /**
+         * Called by GVSOC to notify a stop syscall.
+         *
+         * This is triggered when the simulation executes a semi-hosting stop call.
+         * This cam be used to implement synchronization between the simulated software and the
+         * client.
+         */
+        virtual void handle_syscall_stop() {}
     };
 
     /**
@@ -590,10 +616,11 @@ namespace gv {
          * This instantiates the system described in the specified configuration file.
          * Once this operation is done, some bindings can be created to interact with this system
          * and GVSOC execution can be started.
+         * Can only be called by the main controller.
          *
          * @param conf The configuration describing how to open GVSOC.
          */
-        virtual void open() = 0;
+        virtual void open() {}
 
         /**
          * Bind external C++ code to GVSOC
@@ -601,51 +628,77 @@ namespace gv {
          * @param user A pointer to the caller class instance which will be called for all GVSOC events. This caller
          *             must implement all the methods defined in class Gvsoc_user
          */
-        virtual void bind(Gvsoc_user *user) = 0;
+        virtual void bind(Gvsoc_user *user) {}
 
         /**
          * Close a GVSOC configuration
          *
          * This closes the currently opened configuration so that another one can be
          * opened.
+         * Can only be called by the main controller.
          *
          */
-        virtual void close() = 0;
+        virtual void close() {}
 
         /**
          * Start the simulated system
          *
          * This executes all the required steps so that the simulated system is ready to execute.
+         * Can only be called by the main controller.
          *
          */
-        virtual void start() = 0;
+        virtual void start() {}
 
         /**
          * Run execution
          *
-         * This starts execution in a separate thread and immediately returns so that
-         * the caller can do something else while GVSOC is running.
-         * This will execute until the end of simulation is reached or a stop request is received.
-         *
+         * Set the client as runnable.
+         * Simulation will be run only when other clients are runnable and no one locked
+         * the engine.
+         * When simulation is run, it runs until the end of simulation is reached or any client
+         * is not runnable anymore or locks the engine.
+         * In asynchronous mode, this call immediately returns, even if the simulation can not
+         * be run due to other clients, because the simulation execution is managed by a dedicated
+         * thread. The engine will just take into account that the client is runnable.
+         * In synchronous mode, this waits until the simulation can be run and returns only when the
+         * engine is stopped.
          */
-        virtual void run() = 0;
+        virtual void run() {}
 
         /**
          * Stop execution
          *
-         * This stops execution. Once it is called, nothing is executed in GVSOC
-         * until execution is resumed.
+         * Sets the client as stopped.
+         * If the simulation was running, this stops it when there is no more event to execute in
+         * the current timestamp.
+         * No event is then executed until all clients become runnable and no one locked the engine.
          *
          * @returns The timestamp where the execution stopped.
          */
-        virtual int64_t stop() = 0;
+        virtual int64_t stop() { return 0; }
 
         /**
-         * Wait until execution is stopped
+         * Force simulation termination
          *
-         * This blocks the caller until GVSOC has stopped execution.
+         * This can be called to force simulation termination in case it does not terminate by
+         * itself to avoid blocking on join call.
+         * By default, if not called, the join call will block until simulation terminates
+         * by itself.
          */
-        virtual void wait_stopped() = 0;
+        virtual void terminate() {}
+
+        /**
+         * Quit
+         *
+         * Make this client quit.
+         * The simulation can still continue if other clients are connected.
+         * After this call, this client can no longer prevent the simulation from running.
+         * The specified status will be taken into account to generate the final status gathered
+         * from simulation status and other client status.
+         *
+         * @param timestamp The current time to be set in the engine.
+         */
+        virtual void quit(int status) {}
 
         /**
          * Update the engine current time
@@ -657,49 +710,59 @@ namespace gv {
          * @param timestamp The current time to be set in the engine.
          *
          */
-        virtual void update(int64_t timestamp) = 0;
+        virtual void update(int64_t timestamp) {}
 
         /**
          * Step execution for specified duration
          *
-         * Start execution and run until the specified duration is reached. Then
-         * execution is stopped and nothing is executed until it is resumed.
+         * Make the client runnable and make it stopped when the specified duration has been
+         * simulated. This is equivalent to calling run and stop after the specified duration.
+         * Once the duration has been simulated, simulation stops as this client is not runnable
+         * anymore.
          * A stop request will not stop this call.
+         * The step can be shorter if the end of simulation is reached, which aborts the step.
+         * This calls immediately returns.
+         * In asynchronous mode, this call is asynchronous and will generate a call to
+         * handle_step_end once the step is done. A data can be given to get it back when
+         * handle_step_end is called.
+         * In synchronous mode, this call is blocking and returns once the step is done.
          *
          * @param duration The amount of time in picoseconds during which GVSOC should execute.
-         *
-         * @returns The timestamp of the next event to be executed.
+         * @param wait True if the call must be blocking. Only relevant in asynchronous mode.
+         * @param data The data to be given back when handle_step_end is called. Only relevant in
+         *             asynchronous mode.
          */
-        virtual int64_t step(int64_t duration) = 0;
+        virtual void step(int64_t duration, bool wait=false, void *data=NULL) {}
 
         /**
          * Step execution for specified timestamp
          *
-         * Start execution and run until the specified timestamp is reached. Then
-         * execution is stopped and nothing is executed until it is resumed.
-         * This will execute all events whose timestamp is at most the specified timestamp.
+         * Make the client runnable and make it stopped when the specified timestamp has been
+         * reached. This is equivalent to calling run and stop after the specified timestamp.
+         * Once the timestamp has been reached, simulation stops as this client is not runnable
+         * anymore.
+         * A stop request will not stop this call.
+         * The step can be shorter if the end of simulation is reached, which aborts the step.
+         * This calls immediately returns.
+         * In asynchronous mode, this call is asynchronous and will generate a call to
+         * handle_step_end once the step is done. A data can be given to get it back when
+         * handle_step_end is called.
+         * In synchronous mode, this call is blocking and returns once the step is done.
          *
          * @param timestamp The timestamp in picoseconds until which GVSOC should execute.
-         *
-         * @returns The timestamp of the next event to be executed.
          */
-        virtual int64_t step_until(int64_t timestamp) = 0;
-
-        // Temporary workaround, do not use
-        virtual int64_t step_and_wait(int64_t duration) = 0;
-
-        // Temporary workaround, do not use
-        virtual int64_t step_until_and_wait(int64_t timestamp) = 0;
+        virtual void step_until(int64_t timestamp, bool wait=false, void *data=NULL) {}
 
         /**
-         * Wait end of execution.
+         * Wait end of execution and end of clients.
          *
-         * This blocks the caller until the simulation has finished and returns
-         * the return value of the simulation
+         * This blocks the caller until the simulation has finished and all connected client has
+         * quit.
+         * It returns 0 if the simulation and all clients has returned 0, otherwise it returns 1.
          *
-         * @returns The return value of the simulation.
+         * @returns The return status of the simulation and the clients.
          */
-        virtual int join() = 0;
+        virtual int join() { return 0; }
 
         /**
          * Flush internal data.
@@ -709,7 +772,7 @@ namespace gv {
          * This can be used for example when the profiler is pausing the simulation
          * so that it gets all pending events.
          */
-        virtual void flush() = 0;
+        virtual void flush() {}
 
         /**
          * Get a component.
@@ -721,43 +784,50 @@ namespace gv {
          *
          * @returns The descriptor of the component if it was found or NULL otherwise.
          */
-        virtual void *get_component(std::string path) = 0;
+        virtual void *get_component(std::string path) { return NULL; }
 
         /**
-         * Retain the engine.
+         * Lock the engine
          *
-         * This will prevent the engine from simulating time, until it is asked to do it.
-         * This can be used if several threads want to control the time.
-         * In this case, the time will progress only if all threads which retained the engine
-         * ask for a time update.
+         * This stops the engine and make sure no client is accessing the engine or the models.
+         * This can be used when directly interacting with the models to avoid any race condition.
+         * Since the cost is quite high, this should be avoided as much as possible.
          */
-        virtual void retain() {}
-
-        /**
-         * Release the engine.
-         *
-         * This will let the engine freely simulates the time.
-         */
-        virtual void release() {}
-
-        /**
-         * Return the retain count.
-         *
-         * Since the engine can be retained severall times, for example once for each
-         * thread which can control time, this function can be used to get the current number of
-         * of retains.
-         * This information is usefull if there is also an external time engine, in which case
-         * the time should also be prevented from progressing, if someone has retained the engine.
-         *
-         * @returns The retain count.
-         */
-        virtual int retain_count() { return 0; }
-
-        // Temporary workaround, do not use
         virtual void lock() {}
 
-        // Temporary workaround, do not use
+        /**
+         * Unlock the engine
+         */
         virtual void unlock() {}
+
+        /**
+         * Wait until simulation can be run
+         *
+         * This blocks the caller until the simulation can be run. This means that no client
+         * has stopped or locked the engine.
+         * This must only be used in synchronous mode from the main controller.
+         */
+        virtual void wait_runnable() {}
+
+        /**
+         * Get current time
+         *
+         * This returns the time where the last event was executed.
+         *
+         * @returns The current time.
+         */
+        virtual int64_t get_time() { return -1; }
+
+        /**
+         * Get the next event timestamp
+         *
+         * This returns the timestamp of the first event which will get executed the next time
+         * the engine is run.
+         * This can be useful when synchronizing GVSOC engine with an external engine.
+         *
+         * @returns The timestamp of the next event to be executed or -1 if there is no event.
+         */
+        virtual int64_t get_next_event_time() { return -1; }
     };
 
 
@@ -802,13 +872,19 @@ namespace gv {
     };
 
     /**
-     * Instantiate GVSOC
+     * Instantiate GVSOC client
      *
      * This has to be called to instantiate an object representing GVSOC which can
      * then be used to control GVSOC execution and other features like bindings.
+     * Note that it instantiates a client which connects to GVSOC and interact with it.
+     * Several clients can be instantiated to control GVSOC from different actors.
+     * The first instantiated client is called the main controller while others are secondary
+     * controllers.
+     * Only the main controller can open/close GVSOC, the others can only interact with the
+     * simulation execution.
      *
      * @returns A pointer to the allocated GVSOC objet.
      */
-    Gvsoc *gvsoc_new(GvsocConf *conf);
+    Gvsoc *gvsoc_new(GvsocConf *conf, std::string name="main");
 
 }

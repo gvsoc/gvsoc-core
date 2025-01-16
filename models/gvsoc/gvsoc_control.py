@@ -45,16 +45,22 @@ class Proxy(object):
             self.running = False
             self.timestamp = 0
             self.exit_callback = None
+            self.sim_has_exited = False
+            self.sim_exit_code = -1
+            self.syscall_stop = False
 
         def __quit(self, status):
             self.lock.acquire()
+            self.sim_has_exited = True
+            self.sim_exit_code = status
+            self.condition.notify_all()
             if self.exit_callback is not None:
                 self.lock.release()
                 self.exit_callback[0](status, *self.exit_callback[1], **self.exit_callback[2])
             else:
                 self.lock.release()
-                os._exit(status)
-                exit(status)
+            # os._exit(status)
+            # exit(status)
 
         def run(self):
             while True:
@@ -87,7 +93,9 @@ class Proxy(object):
                         self.__quit(int(value))
                     elif name == 'msg':
                         msg = value
-                        if msg.find('stopped') == 0:
+                        if msg.find('syscall_stop') == 0:
+                            self.syscall_stop = True
+                        elif msg.find('stopped') == 0:
                             is_stop = int(value.split('=')[1])
                         elif msg.find('running') == 0:
                             is_run = int(value.split('=')[1])
@@ -155,16 +163,11 @@ class Proxy(object):
 
             return reply
 
-        def wait_stopped(self, timestamp=None):
+        def wait_stopped(self):
             self.lock.acquire()
-            while self.running or (timestamp is not None and self.timestamp < timestamp):
+            while not self.syscall_stop:
                 self.condition.wait()
-            self.lock.release()
-
-        def wait_timestamp(self, timestamp):
-            self.lock.acquire()
-            while self.timestamp < timestamp:
-                self.condition.wait()
+            self.syscall_stop = False
             self.lock.release()
 
         def wait_running(self):
@@ -314,18 +317,34 @@ class Proxy(object):
         """
 
         if duration is not None:
-            timestamp = self.reader.timestamp + duration
-            timestamp = self._send_cmd('step %d' % (duration))
-            self.reader.wait_timestamp(int(timestamp))
+            self._send_cmd('step %d' % (duration))
         else:
             self._send_cmd('run')
 
     def release(self):
-        self._send_cmd('release')
+        pass
 
     def retain(self):
-        self._send_cmd('retain')
+        pass
 
+    def is_sim_finished(self):
+        return self.reader.sim_has_exited
+
+    def join(self):
+        """Wait end of simulation.
+
+        Blocks until the simulation exit and return the simulation return value
+
+        :return The simulation return value
+        """
+        self.reader.lock.acquire()
+
+        while not self.reader.sim_has_exited:
+            self.reader.condition.wait()
+
+        self.reader.lock.release()
+
+        return self.reader.sim_exit_code
 
 
     def quit(self, status: int = 0):
@@ -336,6 +355,8 @@ class Proxy(object):
 
         self._send_cmd('quit %d' % status)
 
+    def terminate(self):
+        self._send_cmd('terminate')
 
 
     def _get_component(self, path):
@@ -535,7 +556,7 @@ class TransferFunction(object):
         self.proxy = proxy
         self.component = proxy._get_component(path)
 
-    
+
     def configure(self, filter: list, frequency : int = None, debug_files : bool = False):
         """Configure the transfert function.
 
@@ -574,7 +595,7 @@ class Pdm_microphone(object):
         self.proxy = proxy
         self.component = proxy._get_component(path)
 
-    
+
     def set_generated_sine(self, freq: int, amplitude: float):
         """Inject a memory write.
 
@@ -1152,7 +1173,7 @@ class Testbench_spi(object):
         self.proxy = proxy
         self.testbench = testbench
         self.rx_enabled = False
-        
+
         self.callback = None
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
@@ -1222,7 +1243,7 @@ class Testbench_spi(object):
         self.proxy._unlock_cmd()
 
         self.proxy.reader.wait_reply(req)
-        
+
     def receive(self, size):
         """Launch a receive command on SPI.
 
@@ -1358,5 +1379,3 @@ class Testbench_spi(object):
     #     self.lock.acquire()
     #     self.pending_rx_bytes = bytearray()
     #     self.lock.release()
-
-

@@ -22,6 +22,7 @@
 #pragma once
 
 #include "vp/component.hpp"
+#include "vp/controller.hpp"
 #include "vp/time/time_engine.hpp"
 #include "vp/memcheck.hpp"
 
@@ -30,7 +31,7 @@ namespace vp {
   class Top
   {
   public:
-      Top(std::string config_path, bool is_async);
+      Top(std::string config_path, bool is_async, gv::Controller *launcher);
       ~Top();
 
       Component *top_instance;

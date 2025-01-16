@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -47,13 +47,7 @@ public:
     void report_stop() override;
     gv::PowerReport *report_get() override;
 
-    void wait_stopped() override;
     void update(int64_t timestamp) override;
-
-    int64_t step(int64_t duration) override;
-    int64_t step_until(int64_t timestamp) override;
-    int64_t step_and_wait(int64_t duration) override;
-    int64_t step_until_and_wait(int64_t timestamp) override;
 
     int join() override;
 

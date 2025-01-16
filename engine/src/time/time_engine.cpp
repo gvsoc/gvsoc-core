@@ -21,37 +21,18 @@
 
 #include <vp/vp.hpp>
 #include "vp/time/time_engine.hpp"
+#include "vp/controller.hpp"
 #include <vp/time/time_event.hpp>
 
-
-namespace vp
-{
-    class Time_engine_stop_event : public vp::Block
-    {
-    public:
-        Time_engine_stop_event(Component *top);
-        int64_t step(int64_t duration);
-        vp::TimeEvent *step_nofree(int64_t duration);
-
-    private:
-        static void event_handler(vp::Block *__this, vp::TimeEvent *event);
-        static void event_handler_nofree(vp::Block *__this, vp::TimeEvent *event);
-        Component *top;
-    };
-}
 
 vp::TimeEngine::TimeEngine(js::Config *config)
     : first_client(NULL)
 {
-    pthread_mutex_init(&lock_mutex, NULL);
-    pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&cond, NULL);
 }
 
 void vp::TimeEngine::init(vp::Component *top)
 {
     this->top = top;
-    this->stop_event = new vp::Time_engine_stop_event(this->top);
 }
 
 int64_t vp::TimeEngine::exec()
@@ -87,6 +68,7 @@ int64_t vp::TimeEngine::exec()
                     }
                     else
                     {
+                        this->stop_req = false;
                         current->time.next = first_client;
                         first_client = current;
                         current->time.next_event_time = time;
@@ -125,6 +107,7 @@ int64_t vp::TimeEngine::exec()
             // stop event, is stepping until the end of the timestamp.
             if (!current || (this->stop_req && current->time.next_event_time > this->time))
             {
+                this->stop_req = false;
                 break;
             }
 
@@ -148,163 +131,9 @@ int64_t vp::TimeEngine::exec()
     return time;
 }
 
-bool vp::TimeEngine::handle_locks()
+int64_t vp::TimeEngine::run()
 {
-    __asm__ __volatile__ ("" : : : "memory");
-    bool result = this->lock_req > 0;
-
-    if (result > 0)
-    {
-        pthread_cond_wait(&cond, &mutex);
-
-        if (this->lock_req > 0)
-        {
-            this->stop_req = true;
-        }
-    }
-
-    __asm__ __volatile__ ("" : : : "memory");
-    return result;
-}
-
-void vp::TimeEngine::step_register(int64_t end_time)
-{
-    this->stop_event->step(end_time);
-}
-
-int64_t vp::TimeEngine::run_until(int64_t end_time, bool main_controller)
-{
-    int64_t time;
-    vp::TimeEvent *event = this->stop_event->step_nofree(end_time);
-    // In synchronous mode, since several threads can control the time, there is a retain
-    // mechanism which makes sure time is progressins only if all threads ask for it.
-    // Since wwe are now ready to make time progress, decrease our counter, it will be increased
-    // again when our stop event is executed, so that time does not progress any further until
-    // we return
-    this->retain--;
-
-    while (1)
-    {
-        // If anyone is retaining the engine, it means it did not ask for time progress, thus we
-        // need to wait.
-        // In this case someone else will make the time progress when engine is released.
-        while (this->retain)
-        {
-            pthread_cond_wait(&this->cond, &this->mutex);
-
-            // Someone made the time progress, check if we can leave.
-            // This is the case once our event is not enqueued anymore
-            if (!event->is_enqueued())
-            {
-                delete event;
-                this->retain++;
-                return this->get_next_event_time();
-            }
-        }
-
-        time = this->exec();
-
-        __asm__ __volatile__ ("" : : : "memory");
-
-        // Cancel now the requests that may have stopped us so that anyone can stop us again
-        // when locks are handled.
-        // fprintf(stderr, "Disable stop\n");
-        this->stop_req = false;
-
-        __asm__ __volatile__ ("" : : : "memory");
-
-        // We may has been stopped because the execution is stopped or finished
-        if (this->finished)
-        {
-            gv::Gvsoc_user *launcher = this->launcher_get();
-
-            if (launcher)
-            {
-                if (this->finished)
-                {
-                    launcher->has_ended();
-                }
-            }
-        }
-
-        // Checks locks since we may have been stopped by them
-        if (main_controller && this->handle_locks())
-        {
-            time = this->first_client == NULL ? -1 : this->first_client->time.next_event_time;
-        }
-
-        // Leave only once our event is over
-        if (!event->is_enqueued())
-        {
-            delete event;
-            break;
-        }
-    }
-
-    this->retain++;
-
-    return time;
-}
-
-int64_t vp::TimeEngine::run(bool main_controller)
-{
-    int64_t time;
-
-    this->retain--;
-
-    while (1)
-    {
-        // Cancel any pause request which was done before running
-        this->pause_req = false;
-
-        time = this->exec();
-
-        // The locking mechanism is lock-free so that the time engine can check at each timestamp if there is a lock
-        // request with small overhead
-        // Cancel now the requests that may have stopped us so that anyone can stop us again
-        // when locks are handled.
-        this->stop_req = false;
-
-        // Ensure memory ordering so that we handle locks while stop_req is false
-        __sync_synchronize();
-
-        // In case there is no more event, stall the engine until something happens.
-        if (time == -1)
-        {
-            pthread_cond_wait(&cond, &mutex);
-        }
-
-        // Checks locks since we may have been stopped by them
-        if (main_controller)
-        {
-            this->handle_locks();
-        }
-
-        // In case of a pause request or the simulation is finished, we leave the engine to let
-        // the launcher handles it, otherwise we just continue to run events
-        if (this->pause_req || this->finished)
-        {
-            gv::Gvsoc_user *launcher = this->launcher_get();
-
-            this->pause_req = false;
-            time = -1;
-            if (launcher)
-            {
-                if (this->finished)
-                {
-                    launcher->has_ended();
-                }
-                else
-                {
-                    launcher->has_stopped();
-                }
-            }
-            break;
-        }
-    }
-    this->retain++;
-
-    return time;
+    return this->exec();
 }
 
 void vp::TimeEngine::bind_to_launcher(gv::Gvsoc_user *launcher)
@@ -380,30 +209,17 @@ void vp::TimeEngine::quit(int status)
     this->pause();
     this->stop_status = status;
     this->finished = true;
-
-    // Notify the condition in case we are waiting for locks, to allow leaving the engine.
-    pthread_cond_broadcast(&cond);
-
-    if (this->launcher)
-    {
-        this->launcher->was_updated();
-    }
 }
 
 void vp::TimeEngine::pause()
 {
     this->stop_req = true;
-    this->pause_req = true;
-
-    // Notify the condition in case we are waiting for locks, to allow leaving the engine.
-    pthread_cond_broadcast(&cond);
 }
 
 // TODO shoud be moved to Top class
 void vp::TimeEngine::flush()
 {
     this->top->flush_all();
-    fflush(NULL);
 }
 
 void vp::TimeEngine::fatal(const char *fmt, ...)
@@ -416,44 +232,6 @@ void vp::TimeEngine::fatal(const char *fmt, ...)
     }
     va_end(ap);
     this->quit(-1);
-}
-
-vp::Time_engine_stop_event::Time_engine_stop_event(vp::Component *top)
-    : vp::Block(top, "stop_event"), top(top)
-{
-}
-
-int64_t vp::Time_engine_stop_event::step(int64_t time)
-{
-    vp::TimeEvent *event = new vp::TimeEvent(this);
-    event->set_callback(this->event_handler);
-    event->enqueue(time - top->time.get_engine()->get_time());
-    return 0;
-}
-
-vp::TimeEvent *vp::Time_engine_stop_event::step_nofree(int64_t time)
-{
-    vp::TimeEvent *event = new vp::TimeEvent(this);
-    event->set_callback(this->event_handler_nofree);
-    event->enqueue(time - top->time.get_engine()->get_time());
-    return event;
-}
-
-void vp::Time_engine_stop_event::event_handler(vp::Block *__this, vp::TimeEvent *event)
-{
-    Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    _this->top->time.get_engine()->pause();
-}
-
-void vp::Time_engine_stop_event::event_handler_nofree(vp::Block *__this, vp::TimeEvent *event)
-{
-    Time_engine_stop_event *_this = (Time_engine_stop_event *)__this;
-    _this->top->time.get_engine()->pause();
-}
-
-void vp::TimeEngine::retain_inc(int inc)
-{
-    this->retain += inc;
 }
 
 

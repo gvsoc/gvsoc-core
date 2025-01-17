@@ -423,10 +423,15 @@ bool gv::Controller::is_runnable()
 void gv::Controller::check_run()
 {
     pthread_mutex_lock(&this->lock_mutex);
-    bool should_run = this->run_count == this->clients.size() && this->lock_count == 0;
+    // Simulation can run if all clients are runnable and no one locked the engine, except once
+    // the simulation is finished, anyone can run it.
+    bool should_run = (this->run_count == this->clients.size() && this->lock_count == 0) ||
+        (this->is_sim_finished && this->run_count > 0);
 
-    this->logger.info("Checking engine (should_run: %d, running: %d, run_count: %d, nb_clients: %d, lock_count: %d)\n",
-        should_run, this->running, this->run_count, this->clients.size(), this->lock_count);
+    this->logger.info("Checking engine (should_run: %d, running: %d, run_count: %d, nb_clients: %d,"
+        " lock_count: %d, finished: %d)\n",
+        should_run, this->running, this->run_count, this->clients.size(), this->lock_count,
+        this->is_sim_finished);
 
     if (should_run != this->running)
     {

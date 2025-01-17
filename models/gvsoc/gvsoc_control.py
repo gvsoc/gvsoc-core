@@ -330,6 +330,14 @@ class Proxy(object):
     def is_sim_finished(self):
         return self.reader.sim_has_exited
 
+    def wait_sim_finished(self):
+        self.reader.lock.acquire()
+
+        while not self.reader.sim_has_exited:
+            self.reader.condition.wait()
+
+        self.reader.lock.release()
+
     def join(self):
         """Wait end of simulation.
 
@@ -337,12 +345,7 @@ class Proxy(object):
 
         :return The simulation return value
         """
-        self.reader.lock.acquire()
-
-        while not self.reader.sim_has_exited:
-            self.reader.condition.wait()
-
-        self.reader.lock.release()
+        self.wait_sim_finished()
 
         return self.reader.sim_exit_code
 

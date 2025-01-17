@@ -524,6 +524,7 @@ class Runner():
                     else:
                         status = self.gvcontrol_module.target_control(proxy)
                     proxy.quit(status)
+                    proxy.terminate()
                     status = proxy.join()
                     proxy.close()
                     # Once script is over, wait for gvsoc to finish and return its status

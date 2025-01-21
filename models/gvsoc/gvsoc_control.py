@@ -359,7 +359,9 @@ class Proxy(object):
         self._send_cmd('quit %d' % status)
 
     def terminate(self):
-        self._send_cmd('terminate')
+        # Don't wait for the reply since the platform may not catch this command if it exits
+        # right before
+        self._send_cmd('terminate', wait_reply=False)
 
 
     def _get_component(self, path):

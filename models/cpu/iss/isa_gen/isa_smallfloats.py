@@ -624,12 +624,14 @@ class Xfaux(IsaSubset):
             Instr('fmacex.s.h',    Format_RF4, '0101010 ----- ----- --- ----- 1010011', tags=['fmadd'], isa_tags=['f16aux']),
 
             # If Xfvec supported
-            Instr('vfdotp.h',      Format_RVF, '1001010 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotp.r.h',    Format_RVF, '1001010 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotpex.s.h',  Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotpex.s.r.h',Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfavg.h',       Format_RVF, '1010110 ----- ----- 010 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
-            Instr('vfavg.r.h',     Format_RVF, '1010110 ----- ----- 110 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotp.h',       Format_RVF, '1001010 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotp.r.h',     Format_RVF, '1001010 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotpex.s.h',   Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotpex.s.r.h', Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfndotpex.s.h',  Format_RVF, '1011101 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfndotpex.s.r.h',Format_RVF, '1011101 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfavg.h',        Format_RVF, '1010110 ----- ----- 010 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
+            Instr('vfavg.r.h',      Format_RVF, '1010110 ----- ----- 110 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
 
         #
         # For Xf16aux

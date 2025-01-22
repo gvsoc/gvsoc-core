@@ -262,9 +262,9 @@ class Xf8(IsaSubset):
 #
 
 class Xfvec(IsaSubset):
-    
-    def __init__(self):
-        super().__init__(name='fvec', instrs=[
+
+    def __init__(self, inc_vfsum=False):
+        instrs=[
         #
         # For F
         #
@@ -288,8 +288,6 @@ class Xfvec(IsaSubset):
             Instr('vfmac.r.s',  Format_RVF4,'1001000 ----- ----- 100 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
             Instr('vfmre.s',    Format_RVF4,'1001001 ----- ----- 000 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
             Instr('vfmre.r.s',  Format_RVF4,'1001001 ----- ----- 100 ----- 0110011', tags=['fmadd', 'fp_op'], isa_tags=['f32vec']),
-            
-            Instr('vfsum.s',   Format_RVF3,'1000111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
 
             # Instr('vfclass.s', Format_R2VF2,'1001100 00001 ----- 000 ----- 0110011', tags=['fother', 'fp_op'], isa_tags=['f32vec']),
 
@@ -537,8 +535,29 @@ class Xfvec(IsaSubset):
             # If Xf16alt extension also supported
             Instr('vfcvt.ah.b', Format_RVF2,'1001100 00111 ----- 001 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f8vecf16alt']),
             Instr('vfcvt.b.ah', Format_RVF2,'1001100 00101 ----- 011 ----- 0110011', tags=['fconv', 'fp_op'], isa_tags=['f8vecf16alt']),
+        ]
 
-        ])
+        if inc_vfsum:
+            instrs += [
+                Instr('vfsum.s',      Format_RVF2,'1000111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+                Instr('vfnsum.s',     Format_RVF2,'1010111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+                Instr('vfsum.h',      Format_RVF2,'1000111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfnsum.h',     Format_RVF2,'1010111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfsum.b',      Format_RVF2,'1000111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfnsum.b',     Format_RVF2,'1010111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfsumex.s.h',  Format_RVF2,'1000111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfnsumex.s.h', Format_RVF2,'1010111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+
+                Instr('vfsumex.h.b',     Format_RVF2,'1000111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfnsumex.h.b',    Format_RVF2,'1010111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfdotpex.h.b',    Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+                Instr('vfdotpex.h.r.b',  Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+                Instr('vfndotpex.h.b',   Format_RVF, '1011101 ----- ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+                Instr('vfndotpex.h.r.b', Format_RVF, '1011101 ----- ----- 110 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+
+            ]
+
+        super().__init__(name='fvec', instrs=instrs)
 
     def check_compatibilities(self, isa):
         if not isa.has_isa('rvf') or not isa.has_isa('rvd'):
@@ -583,6 +602,11 @@ class Xfvec(IsaSubset):
         if not isa.has_isa('f8') or not isa.has_isa('f16alt'):
             isa.disable_from_isa_tag('f8vecf16alt')
 
+class XfvecSnitch(Xfvec):
+
+    def __init__(self):
+        super().__init__(inc_vfsum=True)
+
 #
 # Auxiliary Float operations
 #
@@ -607,12 +631,14 @@ class Xfaux(IsaSubset):
             Instr('fmacex.s.h',    Format_RF4, '0101010 ----- ----- --- ----- 1010011', tags=['fmadd'], isa_tags=['f16aux']),
 
             # If Xfvec supported
-            Instr('vfdotp.h',      Format_RVF, '1001010 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotp.r.h',    Format_RVF, '1001010 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotpex.s.h',  Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotpex.s.r.h',Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfavg.h',       Format_RVF, '1010110 ----- ----- 010 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
-            Instr('vfavg.r.h',     Format_RVF, '1010110 ----- ----- 110 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotp.h',       Format_RVF, '1001010 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotp.r.h',     Format_RVF, '1001010 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotpex.s.h',   Format_RVF, '1001011 ----- ----- 000 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotpex.s.r.h', Format_RVF, '1001011 ----- ----- 100 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfndotpex.s.h',  Format_RVF, '1011101 ----- ----- 000 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfndotpex.s.r.h',Format_RVF, '1011101 ----- ----- 100 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfavg.h',        Format_RVF, '1010110 ----- ----- 010 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
+            Instr('vfavg.r.h',      Format_RVF, '1010110 ----- ----- 110 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
 
         #
         # For Xf16aux

@@ -245,34 +245,34 @@ class RiscvCommon(st.Component):
         if htif:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])
 
+            if binaries is not None:
+                for binary in binaries:
+                    binary_info = binaries_info.get(binary)
 
-            for binary in binaries:
-                binary_info = binaries_info.get(binary)
+                    if binary_info is None:
+                        tohost_addr = None
+                        fromhost_addr = None
+                        with open(binary, 'rb') as file:
+                            elffile = ELFFile(file)
+                            for section in elffile.iter_sections():
+                                if isinstance(section, SymbolTableSection):
+                                    for symbol in section.iter_symbols():
+                                        if symbol.name == 'tohost':
+                                            tohost_addr = symbol.entry['st_value']
+                                        if symbol.name == 'fromhost':
+                                            fromhost_addr = symbol.entry['st_value']
 
-                if binary_info is None:
-                    tohost_addr = None
-                    fromhost_addr = None
-                    with open(binary, 'rb') as file:
-                        elffile = ELFFile(file)
-                        for section in elffile.iter_sections():
-                            if isinstance(section, SymbolTableSection):
-                                for symbol in section.iter_symbols():
-                                    if symbol.name == 'tohost':
-                                        tohost_addr = symbol.entry['st_value']
-                                    if symbol.name == 'fromhost':
-                                        fromhost_addr = symbol.entry['st_value']
+                        binary_info = [tohost_addr, fromhost_addr]
+                        binaries_info[binary] = binary_info
 
-                    binary_info = [tohost_addr, fromhost_addr]
-                    binaries_info[binary] = binary_info
+                    else:
+                        tohost_addr, fromhost_addr = binary_info
 
-                else:
-                    tohost_addr, fromhost_addr = binary_info
+                    if fromhost_addr is not None:
+                        self.add_property('htif_tohost', f'0x{fromhost_addr:x}')
 
-                if fromhost_addr is not None:
-                    self.add_property('htif_tohost', f'0x{fromhost_addr:x}')
-
-                if tohost_addr is not None:
-                    self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+                    if tohost_addr is not None:
+                        self.add_property('htif_tohost', f'0x{tohost_addr:x}')
 
         if pmp:
             self.add_c_flags([

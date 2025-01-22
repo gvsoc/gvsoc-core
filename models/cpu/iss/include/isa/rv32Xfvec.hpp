@@ -354,8 +354,8 @@ static inline iss_reg_t vfsum_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*16);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -372,8 +372,8 @@ static inline iss_reg_t vfnsum_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*16);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -390,8 +390,8 @@ static inline iss_reg_t vfsumex_s_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*16), 5, 10, 8, 23, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*32);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) << (i*32);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) & 0xFFFFFFFF) << (i*32);
     }
 
     FREG_SET(0, result);
@@ -408,8 +408,8 @@ static inline iss_reg_t vfnsumex_s_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*16), 5, 10, 8, 23, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*32);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) << (i*32);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) & 0xFFFFFFFF) << (i*32);
     }
 
     FREG_SET(0, result);
@@ -521,8 +521,8 @@ static inline iss_reg_t vfsum_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*16);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -539,8 +539,8 @@ static inline iss_reg_t vfnsum_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*16);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -557,8 +557,8 @@ static inline iss_reg_t vfsumex_s_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*16), 8, 7, 8, 23, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*32);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) & 0xFFFFFFFF) << (i*32);
     }
 
     FREG_SET(0, result);
@@ -575,8 +575,8 @@ static inline iss_reg_t vfnsumex_s_ah_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*16), 8, 7, 8, 23, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*32);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 23, 7), 8, 23, 7) & 0xFFFFFFFF) << (i*32);
     }
 
     FREG_SET(0, result);
@@ -678,8 +678,8 @@ static inline iss_reg_t vfsum_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*8);
         iss_freg_t op3 = FREG_GET(1) >> (i*8);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 2, 7), 5, 2, 7) << (i*8);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 2, 7), 5, 2, 7) & 0xFF) << (i*8);
     }
 
     FREG_SET(0, result);
@@ -696,8 +696,8 @@ static inline iss_reg_t vfnsum_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*8);
         iss_freg_t op3 = FREG_GET(1) >> (i*8);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 2, 7), 5, 2, 7) << (i*8);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 2, 7), 5, 2, 7) & 0xFF) << (i*8);
     }
 
     FREG_SET(0, result);
@@ -714,8 +714,8 @@ static inline iss_reg_t vfsumex_h_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*8), 5, 2, 5, 10, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -732,8 +732,8 @@ static inline iss_reg_t vfsumex_ah_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*8), 5, 2, 8, 7, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -750,8 +750,8 @@ static inline iss_reg_t vfnsumex_h_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*8), 5, 2, 5, 10, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 5, 10, 7), 5, 10, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -768,8 +768,8 @@ static inline iss_reg_t vfnsumex_ah_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
         iss_freg_t op2 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0) >> ((i*2+1)*8), 5, 2, 8, 7, 0);
         iss_freg_t op3 = FREG_GET(1) >> (i*16);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) << (i*16);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 8, 7, 7), 8, 7, 7) & 0xFFFF) << (i*16);
     }
 
     FREG_SET(0, result);
@@ -821,8 +821,8 @@ static inline iss_reg_t vfsum_ab_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*8);
         iss_freg_t op3 = FREG_GET(1) >> (i*8);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_add_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 4, 3, 7), 4, 3, 7) << (i*8);
+        result |= (LIB_FF_CALL3(lib_flexfloat_add_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 4, 3, 7), 4, 3, 7) & 0xFF) << (i*8);
     }
 
     FREG_SET(0, result);
@@ -839,8 +839,8 @@ static inline iss_reg_t vfnsum_ab_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss_freg_t op2 = FREG_GET(0) >> ((i*2+1)*8);
         iss_freg_t op3 = FREG_GET(1) >> (i*8);
 
-        result |= LIB_FF_CALL3(lib_flexfloat_sub_round,
-            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 4, 3, 7), 4, 3, 7) << (i*8);
+        result |= (LIB_FF_CALL3(lib_flexfloat_sub_round,
+            op3, LIB_FF_CALL3(lib_flexfloat_add_round, op1, op2, 4, 3, 7), 4, 3, 7) & 0xFF) << (i*8);
     }
 
     FREG_SET(0, result);

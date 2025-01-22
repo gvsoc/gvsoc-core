@@ -548,6 +548,13 @@ class Xfvec(IsaSubset):
                 Instr('vfsumex.s.h',  Format_RVF3,'1000111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
                 Instr('vfnsumex.s.h', Format_RVF3,'1010111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
 
+                Instr('vfsumex.h.b',     Format_RVF3,'1000111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfnsumex.h.b',    Format_RVF3,'1010111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfdotpex.h.b',    Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+                Instr('vfdotpex.h.r.b',  Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+                Instr('vfndotpex.h.b',   Format_RVF, '1011101 ----- ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+                Instr('vfndotpex.h.r.b', Format_RVF, '1011101 ----- ----- 110 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
+
             ]
 
         super().__init__(name='fvec', instrs=instrs)
@@ -626,10 +633,10 @@ class Xfaux(IsaSubset):
             # If Xfvec supported
             Instr('vfdotp.h',       Format_RVF, '1001010 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
             Instr('vfdotp.r.h',     Format_RVF, '1001010 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotpex.s.h',   Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfdotpex.s.r.h', Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfndotpex.s.h',  Format_RVF, '1011101 ----- ----- 010 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
-            Instr('vfndotpex.s.r.h',Format_RVF, '1011101 ----- ----- 110 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotpex.s.h',   Format_RVF, '1001011 ----- ----- 000 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfdotpex.s.r.h', Format_RVF, '1001011 ----- ----- 100 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfndotpex.s.h',  Format_RVF, '1011101 ----- ----- 000 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
+            Instr('vfndotpex.s.r.h',Format_RVF, '1011101 ----- ----- 100 ----- 0110011', tags=['fmadd'], isa_tags=['f16auxvec']),
             Instr('vfavg.h',        Format_RVF, '1010110 ----- ----- 010 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
             Instr('vfavg.r.h',      Format_RVF, '1010110 ----- ----- 110 ----- 0110011', tags=['fadd'], isa_tags=['f16auxvec']),
 

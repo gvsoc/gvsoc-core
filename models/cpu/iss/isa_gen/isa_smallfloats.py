@@ -539,17 +539,17 @@ class Xfvec(IsaSubset):
 
         if inc_vfsum:
             instrs += [
-                Instr('vfsum.s',      Format_RVF3,'1000111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
-                Instr('vfnsum.s',     Format_RVF3,'1010111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
-                Instr('vfsum.h',      Format_RVF3,'1000111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
-                Instr('vfnsum.h',     Format_RVF3,'1010111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
-                Instr('vfsum.b',      Format_RVF3,'1000111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
-                Instr('vfnsum.b',     Format_RVF3,'1010111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
-                Instr('vfsumex.s.h',  Format_RVF3,'1000111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
-                Instr('vfnsumex.s.h', Format_RVF3,'1010111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfsum.s',      Format_RVF2,'1000111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+                Instr('vfnsum.s',     Format_RVF2,'1010111 11100 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f32vec']),
+                Instr('vfsum.h',      Format_RVF2,'1000111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfnsum.h',     Format_RVF2,'1010111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfsum.b',      Format_RVF2,'1000111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfnsum.b',     Format_RVF2,'1010111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfsumex.s.h',  Format_RVF2,'1000111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfnsumex.s.h', Format_RVF2,'1010111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
 
-                Instr('vfsumex.h.b',     Format_RVF3,'1000111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
-                Instr('vfnsumex.h.b',    Format_RVF3,'1010111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfsumex.h.b',     Format_RVF2,'1000111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
+                Instr('vfnsumex.h.b',    Format_RVF2,'1010111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
                 Instr('vfdotpex.h.b',    Format_RVF, '1001011 ----- ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
                 Instr('vfdotpex.h.r.b',  Format_RVF, '1001011 ----- ----- 110 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),
                 Instr('vfndotpex.h.b',   Format_RVF, '1011101 ----- ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec', 'noalt']),

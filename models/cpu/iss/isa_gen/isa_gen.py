@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# 
+#
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
@@ -248,6 +248,51 @@ class OutFReg(OutReg):
     def __init__(self, id, ranges, dumpName=True):
         super(OutFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
 
+class OutFRegS(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegS, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegH(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegH, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegAH(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegAH, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegB(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegB, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegAB(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegAB, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_8B', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegVecS(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegVecS, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegVecH(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegVecH, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegVecAH(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegVecAH, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegVecB(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegVecB, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class OutFRegVecAB(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutFRegVecAB, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_8B', 'ISS_DECODER_ARG_FLAG_FREG'])
+
 class OutVReg(OutReg):
     def __init__(self, id, ranges, dumpName=True):
         super(OutVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_VREG'])
@@ -306,10 +351,56 @@ class InFReg(InReg):
     def __init__(self, id, ranges, dumpName=True):
         super(InFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
 
+class InFRegS(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegS, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegH(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegH, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegAH(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegAH, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegB(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegB, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegAB(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegAB, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_ELEM_8A', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegVecS(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegVecS, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegVecH(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegVecH, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegVecAH(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegVecAH, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegVecB(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegVecB, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_FREG'])
+
+class InFRegVecAB(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InFRegVecAB, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_ELEM_8A', 'ISS_DECODER_ARG_FLAG_FREG'])
+
 
 class InVReg(InReg):
     def __init__(self, id, ranges, dumpName=True):
-        super(InVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_VREG'])
+        super(InVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_VREG'])
 
 
 
@@ -390,7 +481,7 @@ class DecodeTree(object):
             for bit in range(0, size):
                 if done or not instr.encoding[bit] in ['0', '1'] or (searchMask & (1<<bit)) == 0: #, '-']:
                     searchMask &= ~(1<<bit)
-                    if firstBit != None: 
+                    if firstBit != None:
                         done = True
                     continue
                 elif firstBit == None:
@@ -401,7 +492,7 @@ class DecodeTree(object):
         # In case we found no common mask, maybe we still have some discriminating
         # bits where some instructions don't care
         # Find a common mask where the opcode is either fully defined or don't care
-        if searchMask == 0 and len(instrs) > 1: 
+        if searchMask == 0 and len(instrs) > 1:
             # First find the biggest common discriminating bits
             searchMask = currentMask
             for instr in instrs:
@@ -414,11 +505,11 @@ class DecodeTree(object):
                     searchMask &= instrMask
 
             for bit in range(0, size):
-                if searchMask & (1<<bit): 
+                if searchMask & (1<<bit):
                     self.firstBit = bit
                     break
 
-        if searchMask == 0 and len(instrs) > 1: 
+        if searchMask == 0 and len(instrs) > 1:
             error = 'Error the following instructions have the same opcode:\n'
             for instr in instrs:
                 error += instr.get_str() + '\n'
@@ -471,7 +562,7 @@ class DecodeTree(object):
                 names.append(instr.label)
 
         for opcode, instrs in groups.items():
-            if len(instrs) == 1 and currentMask == 0 or opcode == 'OTHERS': 
+            if len(instrs) == 1 and currentMask == 0 or opcode == 'OTHERS':
                 self.subtrees[opcode] = DecodeLeaf(instrs[0], self.opcode, others=opcode == 'OTHERS')
             else: self.subtrees[opcode] = DecodeTree(self.isa, instrs, mask, opcode)
 

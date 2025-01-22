@@ -243,6 +243,7 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     this->active_warnings.resize(vp::Trace::WARNING_TYPE_UNCONNECTED_PADFUN + 1);
     this->active_warnings[vp::Trace::WARNING_TYPE_UNCONNECTED_PADFUN] = config->get_child_bool("wunconnected-padfun");
 
+    this->trace_float_hex = config->get_child_bool("traces/float_hex");
     string format = config->get_child_str("traces/format");
 
     if (format == "short")

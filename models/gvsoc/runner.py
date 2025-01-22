@@ -73,6 +73,8 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
     if args.trace_format is not None:
         gvsoc_config.set('traces/format', args.trace_format)
 
+    gvsoc_config.set('traces/float_hex', args.trace_float_hex)
+
     if args.vcd:
         gvsoc_config.set('events/enabled', True)
 
@@ -200,6 +202,7 @@ class Runner():
                     "traces": {
                         "level": "debug",
                         "format": "long",
+                        "float_hex": False,
                         "enabled": False,
                         "include_regex": [],
                         "exclude_regex": []
@@ -624,6 +627,8 @@ class Target(gapy.Target):
 
             parser.add_argument("--trace-format", dest="trace_format", default="long",
                 help="Specify trace format")
+
+            parser.add_argument("--trace-float-hex", dest="trace_float_hex", action="store_true", help="Dump float values in hexadecimal")
 
             parser.add_argument("--vcd", dest="vcd", action="store_true", help="Activate VCD traces")
 

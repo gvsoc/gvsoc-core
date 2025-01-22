@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -58,7 +58,7 @@ namespace vp {
         ~TraceEngine();
 
         int get_format() { return this->trace_format; }
-        
+
         void set_vcd_user(gv::Vcd_user *user);
 
         static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
@@ -114,6 +114,7 @@ namespace vp {
         }
 
         int get_trace_level() { return this->trace_level; }
+        bool get_trace_float_hex() { return this->trace_float_hex; }
 
         bool use_external_dumper;
 
@@ -126,6 +127,7 @@ namespace vp {
         std::vector<Trace *> traces_array;
         std::vector<bool> active_warnings;
         int trace_format;
+        bool trace_float_hex;
         bool werror;
 
     private:

@@ -165,14 +165,20 @@ typedef enum
 
 typedef enum
 {
-    ISS_DECODER_ARG_FLAG_NONE = 0,
-    ISS_DECODER_ARG_FLAG_POSTINC = 1,
-    ISS_DECODER_ARG_FLAG_PREINC = 2,
-    ISS_DECODER_ARG_FLAG_COMPRESSED = 4,
-    ISS_DECODER_ARG_FLAG_FREG = 8,
-    ISS_DECODER_ARG_FLAG_REG64 = 16,
-    ISS_DECODER_ARG_FLAG_DUMP_NAME = 32,
-    ISS_DECODER_ARG_FLAG_VREG = 64,
+    ISS_DECODER_ARG_FLAG_NONE       = (1 << 0),
+    ISS_DECODER_ARG_FLAG_POSTINC    = (1 << 1),
+    ISS_DECODER_ARG_FLAG_PREINC     = (1 << 2),
+    ISS_DECODER_ARG_FLAG_COMPRESSED = (1 << 3),
+    ISS_DECODER_ARG_FLAG_FREG       = (1 << 4),
+    ISS_DECODER_ARG_FLAG_REG64      = (1 << 5),
+    ISS_DECODER_ARG_FLAG_DUMP_NAME  = (1 << 6),
+    ISS_DECODER_ARG_FLAG_VREG       = (1 << 7),
+    ISS_DECODER_ARG_FLAG_ELEM_32    = (1 << 8),
+    ISS_DECODER_ARG_FLAG_ELEM_16    = (1 << 9),
+    ISS_DECODER_ARG_FLAG_ELEM_16A   = (1 << 10),
+    ISS_DECODER_ARG_FLAG_ELEM_8     = (1 << 11),
+    ISS_DECODER_ARG_FLAG_ELEM_8A    = (1 << 12),
+    ISS_DECODER_ARG_FLAG_VEC        = (1 << 13),
 } iss_decoder_arg_flag_e;
 
 typedef struct iss_insn_arg_s

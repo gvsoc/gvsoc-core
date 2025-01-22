@@ -243,6 +243,42 @@ static char *iss_trace_dump_reg_value_check(Iss *iss, char *buff, int size, uint
     return buff;
 }
 
+static char *dump_float_vector(Iss *iss, char *buff, int width, int exp, int mant, bool is_vec, iss_freg_t value)
+{
+    if (!is_vec || CONFIG_GVSOC_ISS_FP_WIDTH == width)
+    {
+        uint64_t value_64;
+        if (CONFIG_GVSOC_ISS_FP_WIDTH == width)
+        {
+            value_64 = value;
+        }
+        else
+        {
+            value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value, exp, mant, 11, 52, 0);
+        }
+
+        buff += sprintf(buff, "%f ", *(double *)&value_64);
+    }
+    else
+    {
+        buff += sprintf(buff, "[");
+
+        for (int i=CONFIG_GVSOC_ISS_FP_WIDTH / width - 1; i>=0; i--)
+        {
+            uint64_t value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value >> (i*width), exp, mant, 11, 52, 0);
+            buff += sprintf(buff, "%f", *(double *)&value_64);
+            if (i != 0)
+            {
+                buff += sprintf(buff, ", ");
+            }
+        }
+
+        buff += sprintf(buff, "] ");
+    }
+
+    return buff;
+}
+
 static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bool is_out, int reg, uint64_t saved_value, uint64_t check_saved_value, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
 {
     char regStr[16];
@@ -269,13 +305,37 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
     }
     else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
     {
-        if (iss->decode.has_double)
+        bool float_hex = iss->top.traces.get_trace_engine()->get_trace_float_hex();
+        if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_32)
         {
-            buff += sprintf(buff, "%16.16lx ", (uint64_t)saved_value);
+            buff = dump_float_vector(iss, buff, 32, 8, 23, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+        }
+        else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_16)
+        {
+            buff = dump_float_vector(iss, buff, 16, 5, 10, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+        }
+        else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_16A)
+        {
+            buff = dump_float_vector(iss, buff, 16, 8, 7, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+        }
+        else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_8)
+        {
+            buff = dump_float_vector(iss, buff, 8, 5, 2, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+        }
+        else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_8A)
+        {
+            buff = dump_float_vector(iss, buff, 8, 4, 3, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else
         {
-            buff += sprintf(buff, "%8.8x ", (uint32_t)saved_value);
+            if (iss->decode.has_double)
+            {
+                buff += sprintf(buff, "%16.16lx ", (uint64_t)saved_value);
+            }
+            else
+            {
+                buff += sprintf(buff, "%8.8x ", (uint32_t)saved_value);
+            }
         }
     }
     else

@@ -18,6 +18,13 @@
 from cpu.iss.isa_gen.isa_gen import *
 from cpu.iss.isa_gen.isa_riscv_gen import *
 
+Format_RF_H = [
+    OutFRegH(0, Range(7,  5)),
+    InFRegH (0, Range(15, 5)),
+    InFRegH (1, Range(20, 5)),
+    UnsignedImm(0, Range(12, 3)),
+]
+
 Format_RF4 = [ OutFReg(0, Range(7,  5)),
                     InFReg (2, Range(7,  5), dumpName=False),
                     InFReg (0, Range(15, 5)),
@@ -30,6 +37,9 @@ Format_RVF = [ OutFReg(0, Range(7,  5)),
 ]
 Format_RVF2 = [ OutFReg(0, Range(7,  5)),
                 InFReg (0, Range(15, 5)),
+]
+Format_RVF2_S_H = [ OutFRegVecS(0, Range(7,  5)),
+                    InFRegVecH (0, Range(15, 5)),
 ]
 Format_RVF3 = [ OutFReg(0, Range(7,  5)),
                 InFReg (0, Range(15, 5)),
@@ -48,6 +58,14 @@ Format_R2VF2 = [ OutReg(0, Range(7,  5)),
                  InFReg (0, Range(15, 5)),
 ]
 
+Format_R4U_H = [
+    OutFRegH(0, Range(7,  5)),
+    InFRegH (0, Range(15, 5)),
+    InFRegH (1, Range(20, 5)),
+    InFRegH (2, Range(27, 5)),
+    UnsignedImm(0, Range(12, 3)),
+]
+
 class Xf16(IsaSubset):
 
     def __init__(self):
@@ -56,23 +74,23 @@ class Xf16(IsaSubset):
             Instr('flh',       Format_FL, '------- ----- ----- 001 ----- 0000111', tags=["load", 'fp_op']),
             Instr('fsh',       Format_FS, '------- ----- ----- 001 ----- 0100111', tags=['fp_op']),
 
-            Instr('fmadd.h',   Format_R4U,'-----10 ----- ----- --- ----- 1000011', tags=['sfmadd', 'fp_op']),
-            Instr('fmsub.h',   Format_R4U,'-----10 ----- ----- --- ----- 1000111', tags=['sfmadd', 'fp_op']),
-            Instr('fnmsub.h',  Format_R4U,'-----10 ----- ----- --- ----- 1001011', tags=['sfmadd', 'fp_op']),
-            Instr('fnmadd.h',  Format_R4U,'-----10 ----- ----- --- ----- 1001111', tags=['sfmadd', 'fp_op']),
+            Instr('fmadd.h',   Format_R4U_H,'-----10 ----- ----- --- ----- 1000011', tags=['sfmadd', 'fp_op']),
+            Instr('fmsub.h',   Format_R4U_H,'-----10 ----- ----- --- ----- 1000111', tags=['sfmadd', 'fp_op']),
+            Instr('fnmsub.h',  Format_R4U_H,'-----10 ----- ----- --- ----- 1001011', tags=['sfmadd', 'fp_op']),
+            Instr('fnmadd.h',  Format_R4U_H,'-----10 ----- ----- --- ----- 1001111', tags=['sfmadd', 'fp_op']),
 
-            Instr('fadd.h',    Format_RF, '0000010 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
-            Instr('fsub.h',    Format_RF, '0000110 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
-            Instr('fmul.h',    Format_RF, '0001010 ----- ----- --- ----- 1010011', tags=['sfmul', 'fp_op']),
-            Instr('fdiv.h',    Format_RF, '0001110 ----- ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
-            Instr('fsqrt.h',  Format_R2F3,'0101110 00000 ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
+            Instr('fadd.h',    Format_RF_H, '0000010 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
+            Instr('fsub.h',    Format_RF_H, '0000110 ----- ----- --- ----- 1010011', tags=['sfadd', 'fp_op']),
+            Instr('fmul.h',    Format_RF_H, '0001010 ----- ----- --- ----- 1010011', tags=['sfmul', 'fp_op']),
+            Instr('fdiv.h',    Format_RF_H, '0001110 ----- ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
+            Instr('fsqrt.h',   Format_R2F3,'0101110 00000 ----- --- ----- 1010011', tags=['sfdiv', 'fp_op']),
 
-            Instr('fsgnj.h',   Format_RF, '0010010 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
-            Instr('fsgnjn.h',  Format_RF, '0010010 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
-            Instr('fsgnjx.h',  Format_RF, '0010010 ----- ----- 010 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnj.h',   Format_RF_H, '0010010 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnjn.h',  Format_RF_H, '0010010 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fsgnjx.h',  Format_RF_H, '0010010 ----- ----- 010 ----- 1010011', tags=['sfconv', 'fp_op']),
 
-            Instr('fmin.h',    Format_RF, '0010110 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
-            Instr('fmax.h',    Format_RF, '0010110 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fmin.h',    Format_RF_H, '0010110 ----- ----- 000 ----- 1010011', tags=['sfconv', 'fp_op']),
+            Instr('fmax.h',    Format_RF_H, '0010110 ----- ----- 001 ----- 1010011', tags=['sfconv', 'fp_op']),
 
             Instr('feq.h',    Format_RF2, '1010010 ----- ----- 010 ----- 1010011', tags=['sfother', 'fp_op']),
             Instr('flt.h',    Format_RF2, '1010010 ----- ----- 001 ----- 1010011', tags=['sfother', 'fp_op']),
@@ -545,7 +563,7 @@ class Xfvec(IsaSubset):
                 Instr('vfnsum.h',     Format_RVF2,'1010111 11100 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
                 Instr('vfsum.b',      Format_RVF2,'1000111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
                 Instr('vfnsum.b',     Format_RVF2,'1010111 00111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),
-                Instr('vfsumex.s.h',  Format_RVF2,'1000111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
+                Instr('vfsumex.s.h',  Format_RVF2_S_H,'1000111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
                 Instr('vfnsumex.s.h', Format_RVF2,'1010111 10110 ----- 000 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f16vec']),
 
                 Instr('vfsumex.h.b',     Format_RVF2,'1000111 10111 ----- 010 ----- 0110011', tags=['fadd', 'fp_op'], isa_tags=['f8vec']),

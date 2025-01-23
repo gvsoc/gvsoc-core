@@ -245,8 +245,21 @@ class OutReg(OpcodeField):
 
 
 class OutFReg(OutReg):
-    def __init__(self, id, ranges, dumpName=True):
-        super(OutFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
+    def __init__(self, id, ranges, f=None, dumpName=True):
+        flags = ['ISS_DECODER_ARG_FLAG_FREG']
+        if f == 'h': flags.append('ISS_DECODER_ARG_FLAG_ELEM_16')
+        elif f == 'ah': flags.append('ISS_DECODER_ARG_FLAG_ELEM_16A')
+        elif f == 'b': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8')
+        elif f == 'bh': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8A')
+        elif f == 's': flags.append('ISS_DECODER_ARG_FLAG_ELEM_32')
+        elif f == 'd': flags.append('ISS_DECODER_ARG_FLAG_ELEM_64')
+        elif f == 'H': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'AH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'B': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'BH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8A', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'S': flags += ['ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'D': flags += ['ISS_DECODER_ARG_FLAG_ELEM_64', 'ISS_DECODER_ARG_FLAG_VEC']
+        super(OutFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=flags)
 
 class OutFRegS(OutReg):
     def __init__(self, id, ranges, dumpName=True):
@@ -348,8 +361,19 @@ class InReg(OpcodeField):
 
 
 class InFReg(InReg):
-    def __init__(self, id, ranges, dumpName=True):
-        super(InFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_FREG'])
+    def __init__(self, id, ranges, f=None, dumpName=True):
+        flags = ['ISS_DECODER_ARG_FLAG_FREG']
+        if f == 'h': flags.append('ISS_DECODER_ARG_FLAG_ELEM_16')
+        elif f == 'ah': flags.append('ISS_DECODER_ARG_FLAG_ELEM_16A')
+        elif f == 'b': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8')
+        elif f == 'bh': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8A')
+        elif f == 's': flags.append('ISS_DECODER_ARG_FLAG_ELEM_32')
+        elif f == 'H': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'AH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'B': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'BH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8A', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'S': flags += ['ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_VEC']
+        super(InFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=flags)
 
 class InFRegS(InReg):
     def __init__(self, id, ranges, dumpName=True):
@@ -845,3 +869,9 @@ class Instr(object):
         dump(isaFile, f'  }}\n')
         dump(isaFile, f'}};\n')
         dump(isaFile, f'\n')
+
+class Insn(Instr):
+    def __init__(self, encoding, label, format, decode=None, L=None,
+                fast_handler=False, tags=[], isa_tags=[], is_macro_op=False):
+        super(Insn, self).__init__(label, format, encoding, decode=decode, L=L,
+            fast_handler=fast_handler, tags=tags, isa_tags=isa_tags, is_macro_op=is_macro_op)

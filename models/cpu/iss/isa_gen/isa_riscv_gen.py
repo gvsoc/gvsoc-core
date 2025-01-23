@@ -25,6 +25,195 @@ import filecmp
 import shutil
 
 
+def extract_format(f, index):
+    if f == '' or f is None: return None
+    return f[0] if index >= len(f) else f[index]
+
+ui12_3 = UnsignedImm(0, Range(12, 3))
+"""An unsigned immediate generated from [12:3].
+"""
+
+def F_F(f=None, i=[]):
+    """Format for 1 float output and 1 float input.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x' or 'x_x'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutFReg(0, Range(7,  5), f=extract_format(f, 0)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+    ] + i
+
+def R_F(f=None, i=[]):
+    """Format for 1 output and 1 float input.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutReg(0, Range(7,  5)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+    ] + i
+
+def F_R(f=None, i=[]):
+    """Format for 1 float output and 1 input.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutFReg(0, Range(7,  5), f=extract_format(f, 2)),
+        InReg (0, Range(15, 5)),
+    ] + i
+
+def F_FF(f=None, i=[]):
+    """Format for 1 float output and 2 float inputs.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x' or 'x_xx'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutFReg(0, Range(7,  5), f=extract_format(f, 0)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+        InFReg (1, Range(20, 5), f=extract_format(f, 3)),
+    ] + i
+
+def R_FF(f=None, i=[]):
+    """Format for 1 output and 2 float inputs.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x' or 'xx'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutReg(0, Range(7,  5)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+        InFReg (1, Range(20, 5), f=extract_format(f, 3)),
+    ] + i
+
+def F_FFF(f:str='', i=[]) -> list:
+    """Format for 1 float output and 3 float inputs.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x' or 'x_xxx'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutFReg(0, Range(7,  5), f=extract_format(f, 0)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+        InFReg (1, Range(20, 5), f=extract_format(f, 3)),
+        InFReg (2, Range(27,  5), f=extract_format(f, 4)),
+    ] + i
+
+def FA_FF(f=None, i=[]):
+    """Format for 1 float output and 2 float inputs. Last input is same as output.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x' or 'x_xxx'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutFReg(0, Range(7,  5), f=extract_format(f, 0)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+        InFReg (1, Range(7,  5), f=extract_format(f, 3), dumpName=False),
+    ] + i
+
+def FA_FFF(f=None, i=[]):
+    """Format for 1 float output and 3 float inputs. Last input is same as output.
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can be 'x' or 'x_xxx'. x can be d, s, h, ah, b or ab.
+    i : List
+        immediates to be extracted
+    """
+    if not isinstance(i, list):
+        i = [i]
+    return [
+        OutFReg(0, Range(7,  5), f=extract_format(f, 0)),
+        InFReg (0, Range(15, 5), f=extract_format(f, 2)),
+        InFReg (1, Range(20, 5), f=extract_format(f, 3)),
+        InFReg (2, Range(7,  5), f=extract_format(f, 4), dumpName=False),
+    ] + i
+
+def FL(f:str=''):
+    """Format for float loads with 1 float ouput, 1 indirect intput. Indirect offset generated
+    from [20:12].
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can only be 'x'. x can be d, s, h, ah, b or ab.
+    """
+    return [
+        OutFReg(0, Range(7,  5), f=f),
+        Indirect(InReg (0, Range(15, 5)),
+        SignedImm(0, Range(20, 12))),
+    ]
+
+def FS(f=None):
+    """Format for float stores with 1 indirect intput and 1 float input. Indirect offset generated
+    from [7:5], [25:5].
+
+    Parameters
+    ----------
+    f : str
+        Format string. Can only be 'x'. x can be d, s, h, ah, b or ab.
+    """
+    return [
+        InFReg(1, Range(20, 5), f=f),
+        Indirect(InReg(0, Range(15, 5)),
+        SignedImm(0, Ranges([[7, 5, 0], [25, 7, 5]]))),
+    ]
+
+
+
+
+
+
+
+
+
 
 # Encodings for non-compressed instruction sets
         #   3 3 2 2 2 2 2       2 2 2 2 2       1 1 1 1 1       1 1 1       1 1
@@ -80,56 +269,6 @@ Format_F = [
     InReg (0, Range(15, 5)),
 ]
 
-Format_RF = [
-    OutFReg(0, Range(7,  5)),
-    InFReg (0, Range(15, 5)),
-    InFReg (1, Range(20, 5)),
-    UnsignedImm(0, Range(12, 3)),
-]
-
-Format_RF2 = [
-    OutReg(0, Range(7,  5)),
-    InFReg (0, Range(15, 5)),
-    InFReg (1, Range(20, 5)),
-    UnsignedImm(0, Range(12, 3)),
-]
-
-Format_R2F1 = [
-    OutReg(0, Range(7,  5)),
-    InFReg (0, Range(15, 5)),
-    UnsignedImm(0, Range(12, 3)),
-]
-
-Format_R2F2 = [
-    OutFReg(0, Range(7,  5)),
-    InReg (0, Range(15, 5)),
-    UnsignedImm(0, Range(12, 3)),
-]
-
-Format_R2F3 = [
-    OutFReg(0, Range(7,  5)),
-    InFReg (0, Range(15, 5)),
-    UnsignedImm(0, Range(12, 3)),
-]
-
-Format_R3F = [
-    OutReg(0, Range(7,  5)),
-    InFReg (0, Range(15, 5)),
-]
-
-Format_R3F2 = [
-    OutFReg(0, Range(7,  5)),
-    InReg (0, Range(15, 5)),
-]
-
-Format_R4U = [
-    OutFReg(0, Range(7,  5)),
-    InFReg (0, Range(15, 5)),
-    InFReg (1, Range(20, 5)),
-    InFReg (2, Range(27, 5)),
-    UnsignedImm(0, Range(12, 3)),
-]
-
 Format_I = [
     OutReg(0, Range(7,  5)),
     InReg (0, Range(15, 5)),
@@ -149,12 +288,6 @@ Format_LRES = [
     InReg (0, Range(15, 5)),
     UnsignedImm(0, Range(25, 1)),
     UnsignedImm(1, Range(26, 1)),
-]
-
-Format_FL = [
-    OutFReg(0, Range(7,  5)),
-    Indirect(InReg (0, Range(15, 5)),
-    SignedImm(0, Range(20, 12))),
 ]
 
 Format_IU = [
@@ -197,12 +330,6 @@ Format_AMO = [
     InReg(0, Range(15, 5)),
     UnsignedImm(0, Range(25, 1)),
     UnsignedImm(1, Range(26, 1)),
-]
-
-Format_FS = [
-    InFReg(1, Range(20, 5)),
-    Indirect(InReg(0, Range(15, 5)),
-    SignedImm(0, Ranges([[7, 5, 0], [25, 7, 5]]))),
 ]
 
 Format_INRR = [
@@ -580,45 +707,38 @@ class Rv32f(IsaSubset):
 
     def __init__(self):
         super().__init__(name='rvf', instrs=[
-            Instr('flw',       Format_FL, '------- ----- ----- 010 ----- 0000111', fast_handler=True, tags=["fload", 'fp_op']),
-            Instr('fsw',       Format_FS, '------- ----- ----- 010 ----- 0100111', fast_handler=True, tags=['fp_op']),
-
-            Instr('fmadd.s',   Format_R4U,'-----00 ----- ----- --- ----- 1000011', tags=['fmadd', 'fp_op']),
-            Instr('fmsub.s',   Format_R4U,'-----00 ----- ----- --- ----- 1000111', tags=['fmadd', 'fp_op']),
-            Instr('fnmsub.s',  Format_R4U,'-----00 ----- ----- --- ----- 1001011', tags=['fmadd', 'fp_op']),
-            Instr('fnmadd.s',  Format_R4U,'-----00 ----- ----- --- ----- 1001111', tags=['fmadd', 'fp_op']),
-
-            Instr('fadd.s',    Format_RF, '0000000 ----- ----- --- ----- 1010011', tags=['fadd', 'fp_op']),
-            Instr('fsub.s',    Format_RF, '0000100 ----- ----- --- ----- 1010011', tags=['fadd', 'fp_op']),
-            Instr('fmul.s',    Format_RF, '0001000 ----- ----- --- ----- 1010011', tags=['fmul', 'fp_op']),
-            Instr('fdiv.s',    Format_RF, '0001100 ----- ----- --- ----- 1010011', tags=['fdiv', 'fp_op']),
-            Instr('fsqrt.s',  Format_R2F3,'0101100 00000 ----- --- ----- 1010011', tags=['fdiv', 'fp_op']),
-
-            Instr('fsgnj.s',   Format_RF, '0010000 ----- ----- 000 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-            Instr('fsgnjn.s',  Format_RF, '0010000 ----- ----- 001 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-            Instr('fsgnjx.s',  Format_RF, '0010000 ----- ----- 010 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-
-            Instr('fmin.s',    Format_RF, '0010100 ----- ----- 000 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-            Instr('fmax.s',    Format_RF, '0010100 ----- ----- 001 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-
-            Instr('feq.s',    Format_RF2, '1010000 ----- ----- 010 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-            Instr('flt.s',    Format_RF2, '1010000 ----- ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-            Instr('fle.s',    Format_RF2, '1010000 ----- ----- 000 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-
-            Instr('fcvt.w.s', Format_R2F1,'1100000 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.wu.s',Format_R2F1,'1100000 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.s.w', Format_R2F2,'1101000 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.s.wu',Format_R2F2,'1101000 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-
-            Instr('fmv.x.s',   Format_R3F,'1110000 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
-            Instr('fclass.s',  Format_R3F,'1110000 00000 ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-            Instr('fmv.s.x',  Format_R3F2,'1111000 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
+            Insn('------- ----- ----- 010 ----- 0000111', 'flw',       FL('s'),            fast_handler=True, tags=["fload", 'fp_op']),
+            Insn('------- ----- ----- 010 ----- 0100111', 'fsw',       FS('s'),            fast_handler=True, tags=['fp_op']),
+            Insn('-----00 ----- ----- --- ----- 1000011', 'fmadd.s',   F_FFF('s', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('-----00 ----- ----- --- ----- 1000111', 'fmsub.s',   F_FFF('s', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('-----00 ----- ----- --- ----- 1001011', 'fnmsub.s',  F_FFF('s', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('-----00 ----- ----- --- ----- 1001111', 'fnmadd.s',  F_FFF('s', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('0000000 ----- ----- --- ----- 1010011', 'fadd.s',    F_FF('s', ui12_3),  tags=['fadd', 'fp_op']),
+            Insn('0000100 ----- ----- --- ----- 1010011', 'fsub.s',    F_FF('s', ui12_3),  tags=['fadd', 'fp_op']),
+            Insn('0001000 ----- ----- --- ----- 1010011', 'fmul.s',    F_FF('s', ui12_3),  tags=['fmul', 'fp_op']),
+            Insn('0001100 ----- ----- --- ----- 1010011', 'fdiv.s',    F_FF('s', ui12_3),  tags=['fdiv', 'fp_op']),
+            Insn('0101100 00000 ----- --- ----- 1010011', 'fsqrt.s',   F_F('s', ui12_3),   tags=['fdiv', 'fp_op']),
+            Insn('0010000 ----- ----- 000 ----- 1010011', 'fsgnj.s',   F_FF('s'),          tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010000 ----- ----- 001 ----- 1010011', 'fsgnjn.s',  F_FF('s'),          tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010000 ----- ----- 010 ----- 1010011', 'fsgnjx.s',  F_FF('s'),          tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010100 ----- ----- 000 ----- 1010011', 'fmin.s',    F_FF('s'),          tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010100 ----- ----- 001 ----- 1010011', 'fmax.s',    F_FF('s'),          tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('1010000 ----- ----- 010 ----- 1010011', 'feq.s',     R_FF('s'),          tags=['fother', 'nseq', 'fp_op']),
+            Insn('1010000 ----- ----- 001 ----- 1010011', 'flt.s',     R_FF('s'),          tags=['fother', 'nseq', 'fp_op']),
+            Insn('1010000 ----- ----- 000 ----- 1010011', 'fle.s',     R_FF('s'),          tags=['fother', 'nseq', 'fp_op']),
+            Insn('1100000 00000 ----- --- ----- 1010011', 'fcvt.w.s',  R_F('s', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1100000 00001 ----- --- ----- 1010011', 'fcvt.wu.s', R_F('s', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1101000 00000 ----- --- ----- 1010011', 'fcvt.s.w',  F_R('s', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1101000 00001 ----- --- ----- 1010011', 'fcvt.s.wu', F_R('s', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1110000 00000 ----- 000 ----- 1010011', 'fmv.x.s',   R_F('s'),           tags=['fmv', 'nseq', 'fp_op']),
+            Insn('1110000 00000 ----- 001 ----- 1010011', 'fclass.s',  R_F('s'),           tags=['fother', 'nseq', 'fp_op']),
+            Insn('1111000 00000 ----- 000 ----- 1010011', 'fmv.s.x',   F_R('s'),           tags=['fmv', 'nseq', 'fp_op']),
 
             # If RV64F supported
-            Instr('fcvt.l.s', Format_R2F1,'1100000 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.lu.s',Format_R2F1,'1100000 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.s.l', Format_R2F2,'1101000 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.s.lu',Format_R2F2,'1101000 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1100000 00010 ----- --- ----- 1010011', 'fcvt.l.s',  R_F('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1100000 00011 ----- --- ----- 1010011', 'fcvt.lu.s', R_F('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1101000 00010 ----- --- ----- 1010011', 'fcvt.s.l',  F_R('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1101000 00011 ----- --- ----- 1010011', 'fcvt.s.lu', F_R('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
         ])
 
     def check_compatibilities(self, isa):
@@ -631,48 +751,40 @@ class Rv32d(IsaSubset):
 
     def __init__(self):
         super().__init__(name='rvd', instrs=[
-            Instr('fld',       Format_FL, '------- ----- ----- 011 ----- 0000111', fast_handler=True, tags=['load', "fload", 'fp_op']),
-            Instr('fsd',       Format_FS, '------- ----- ----- 011 ----- 0100111', fast_handler=True, tags=['fp_op']),
-
-            Instr('fmadd.d',   Format_R4U,'-----01 ----- ----- --- ----- 1000011', tags=['fmadd', 'fp_op']),
-            Instr('fmsub.d',   Format_R4U,'-----01 ----- ----- --- ----- 1000111', tags=['fmadd', 'fp_op']),
-            Instr('fnmsub.d',  Format_R4U,'-----01 ----- ----- --- ----- 1001011', tags=['fmadd', 'fp_op']),
-            Instr('fnmadd.d',  Format_R4U,'-----01 ----- ----- --- ----- 1001111', tags=['fmadd', 'fp_op']),
-
-            Instr('fadd.d',    Format_RF, '0000001 ----- ----- --- ----- 1010011', tags=['fadd', 'fp_op']),
-            Instr('fsub.d',    Format_RF, '0000101 ----- ----- --- ----- 1010011', tags=['fadd', 'fp_op']),
-            Instr('fmul.d',    Format_RF, '0001001 ----- ----- --- ----- 1010011', tags=['fmul', 'fp_op']),
-            Instr('fdiv.d',    Format_RF, '0001101 ----- ----- --- ----- 1010011', tags=['fdiv', 'fp_op']),
-            Instr('fsqrt.d',  Format_R2F3,'0101101 00000 ----- --- ----- 1010011', tags=['fdiv', 'fp_op']),
-
-            Instr('fsgnj.d',   Format_RF, '0010001 ----- ----- 000 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-            Instr('fsgnjn.d',  Format_RF, '0010001 ----- ----- 001 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-            Instr('fsgnjx.d',  Format_RF, '0010001 ----- ----- 010 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-
-            Instr('fmin.d',    Format_RF, '0010101 ----- ----- 000 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-            Instr('fmax.d',    Format_RF, '0010101 ----- ----- 001 ----- 1010011', tags=['fconv', 'fnoncomp', 'fp_op']),
-
-            Instr('fcvt.s.d', Format_R2F3,'0100000 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.d.s', Format_R2F3,'0100001 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-
-            Instr('feq.d',    Format_RF2, '1010001 ----- ----- 010 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-            Instr('flt.d',    Format_RF2, '1010001 ----- ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-            Instr('fle.d',    Format_RF2, '1010001 ----- ----- 000 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
-
-            Instr('fcvt.w.d', Format_R2F1,'1100001 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.wu.d',Format_R2F1,'1100001 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.d.w', Format_R2F2,'1101001 00000 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-            Instr('fcvt.d.wu',Format_R2F2,'1101001 00001 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op']),
-
-            Instr('fclass.d',  Format_R3F,'1110001 00000 ----- 001 ----- 1010011', tags=['fother', 'nseq', 'fp_op']),
+            Insn('------- ----- ----- 011 ----- 0000111', 'fld',       FL('d'),            fast_handler=True, tags=['load', "fload", 'fp_op']),
+            Insn('------- ----- ----- 011 ----- 0100111', 'fsd',       FS('d'),            fast_handler=True, tags=['fp_op']),
+            Insn('-----01 ----- ----- --- ----- 1000011', 'fmadd.d',   F_FFF('d', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('-----01 ----- ----- --- ----- 1000111', 'fmsub.d',   F_FFF('d', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('-----01 ----- ----- --- ----- 1001011', 'fnmsub.d',  F_FFF('d', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('-----01 ----- ----- --- ----- 1001111', 'fnmadd.d',  F_FFF('d', ui12_3), tags=['fmadd', 'fp_op']),
+            Insn('0000001 ----- ----- --- ----- 1010011', 'fadd.d',    F_FF('d', ui12_3),  tags=['fadd', 'fp_op']),
+            Insn('0000101 ----- ----- --- ----- 1010011', 'fsub.d',    F_FF('d', ui12_3),  tags=['fadd', 'fp_op']),
+            Insn('0001001 ----- ----- --- ----- 1010011', 'fmul.d',    F_FF('d', ui12_3),  tags=['fmul', 'fp_op']),
+            Insn('0001101 ----- ----- --- ----- 1010011', 'fdiv.d',    F_FF('d', ui12_3),  tags=['fdiv', 'fp_op']),
+            Insn('0101101 00000 ----- --- ----- 1010011', 'fsqrt.d',   F_F('d', ui12_3),   tags=['fdiv', 'fp_op']),
+            Insn('0010001 ----- ----- 000 ----- 1010011', 'fsgnj.d',   F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010001 ----- ----- 001 ----- 1010011', 'fsgnjn.d',  F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010001 ----- ----- 010 ----- 1010011', 'fsgnjx.d',  F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010101 ----- ----- 000 ----- 1010011', 'fmin.d',    F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0010101 ----- ----- 001 ----- 1010011', 'fmax.d',    F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
+            Insn('0100000 00001 ----- --- ----- 1010011', 'fcvt.s.d',  F_F('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('0100001 00000 ----- --- ----- 1010011', 'fcvt.d.s',  F_F('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1010001 ----- ----- 010 ----- 1010011', 'feq.d',     R_FF('d'),          tags=['fother', 'nseq', 'fp_op']),
+            Insn('1010001 ----- ----- 001 ----- 1010011', 'flt.d',     R_FF('d'),          tags=['fother', 'nseq', 'fp_op']),
+            Insn('1010001 ----- ----- 000 ----- 1010011', 'fle.d',     R_FF('d'),          tags=['fother', 'nseq', 'fp_op']),
+            Insn('1100001 00000 ----- --- ----- 1010011', 'fcvt.w.d',  R_F('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1100001 00001 ----- --- ----- 1010011', 'fcvt.wu.d', R_F('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1101001 00000 ----- --- ----- 1010011', 'fcvt.d.w',  F_R('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1101001 00001 ----- --- ----- 1010011', 'fcvt.d.wu', F_R('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('1110001 00000 ----- 001 ----- 1010011', 'fclass.d',  R_F('d'),           tags=['fother', 'nseq', 'fp_op']),
 
             # # If RV64F supported
-            Instr('fcvt.l.d', Format_R2F1,'1100001 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.lu.d',Format_R2F1,'1100001 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fmv.x.d',   Format_R3F,'1110001 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
-            Instr('fcvt.d.l', Format_R2F2,'1101001 00010 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fcvt.d.lu',Format_R2F2,'1101001 00011 ----- --- ----- 1010011', tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
-            Instr('fmv.d.x',  Format_R3F2,'1111001 00000 ----- 000 ----- 1010011', tags=['fmv', 'nseq', 'fp_op']),
+            Insn('1100001 00010 ----- --- ----- 1010011', 'fcvt.l.d',  R_F('d', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1100001 00011 ----- --- ----- 1010011', 'fcvt.lu.d', R_F('d', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1110001 00000 ----- 000 ----- 1010011', 'fmv.x.d',   R_F('d'),         tags=['fmv', 'nseq', 'fp_op']),
+            Insn('1101001 00010 ----- --- ----- 1010011', 'fcvt.d.l',  F_R('d', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1101001 00011 ----- --- ----- 1010011', 'fcvt.d.lu', F_R('d', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+            Insn('1111001 00000 ----- 000 ----- 1010011', 'fmv.d.x',   F_R('d'),         tags=['fmv', 'nseq', 'fp_op']),
         ])
 
     def check_compatibilities(self, isa):

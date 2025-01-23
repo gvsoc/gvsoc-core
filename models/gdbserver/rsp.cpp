@@ -595,7 +595,7 @@ bool Rsp::regs_send()
     if (reg_size == 4)
     {
         uint32_t regs[nb_regs];
-        char regs_str[nb_regs*4];
+        char regs_str[nb_regs*9];
 
         core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
 
@@ -610,7 +610,7 @@ bool Rsp::regs_send()
     if (reg_size == 8)
     {
         uint64_t regs[nb_regs];
-        char regs_str[nb_regs*8];
+        char regs_str[nb_regs*17];
 
         core->gdbserver_regs_get(NULL, NULL, (uint8_t *)regs);
 

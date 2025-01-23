@@ -872,25 +872,39 @@ VF_CMP(ge, s, 32, 8, 23)
 VF_CMP(le, s, 32, 8, 23)
 VF_CMP(gt, s, 32, 8, 23)
 
-
 static inline iss_reg_t vfsum_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if CONFIG_GVSOC_ISS_FP_WIDTH > 32
+        iss_freg_t oph = FREG_GET(0) >> 32;
+#else
+        iss_freg_t oph = 0;
+#endif
     FREG_SET(0, (LIB_FF_CALL3(lib_flexfloat_add_round, FREG_GET(1) & 0xffffffff,
-        (LIB_FF_CALL3(lib_flexfloat_add_round, FREG_GET(0) >> 32, FREG_GET(0), 8, 23, 7) & 0xffffffff), 8, 23, 7) & 0xffffffff));
+        (LIB_FF_CALL3(lib_flexfloat_add_round, oph, FREG_GET(0), 8, 23, 7) & 0xffffffff), 8, 23, 7) & 0xffffffff));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfnsum_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if CONFIG_GVSOC_ISS_FP_WIDTH > 32
+    iss_freg_t oph = FREG_GET(0) >> 32;
+#else
+    iss_freg_t oph = 0;
+#endif
     FREG_SET(0, (LIB_FF_CALL3(lib_flexfloat_sub_round, FREG_GET(1) & 0xffffffff,
-        (LIB_FF_CALL3(lib_flexfloat_add_round, FREG_GET(0) >> 32, FREG_GET(0), 8, 23, 7) & 0xffffffff), 8, 23, 7) & 0xffffffff));
+        (LIB_FF_CALL3(lib_flexfloat_add_round, oph, FREG_GET(0), 8, 23, 7) & 0xffffffff), 8, 23, 7) & 0xffffffff));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfcpka_s_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if CONFIG_GVSOC_ISS_FP_WIDTH > 32
+    iss_freg_t oph = (LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(1), 8, 23, 8, 23, 7) & 0xffffffff) << 32;
+#else
+    iss_freg_t oph = 0;
+#endif
     FREG_SET(0, (LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0), 8, 23, 8, 23, 7) & 0xffffffff) |
-                   ((LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(1), 8, 23, 8, 23, 7) & 0xffffffff) << 32));
+        oph);
     return iss_insn_next(iss, insn, pc);
 }
 

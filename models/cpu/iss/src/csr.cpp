@@ -70,6 +70,12 @@ Csr::Csr(Iss &iss)
     this->declare_csr(&this->tdata2,   "tdata2",       0x7A2);
     this->declare_csr(&this->tdata3,   "tdata3",       0x7A3);
 
+    // Machine Non-Maskable Interrupt Handling
+    this->declare_csr(&this->mnscratch,   "mnscratch",    0x740);
+    this->declare_csr(&this->mnepc,       "mnepc",        0x741);
+    this->declare_csr(&this->mncause,     "mncause",      0x742);
+    this->declare_csr(&this->mnstatus,    "mnstatus",     0x744);
+
     // Machine timers and counters
     this->declare_csr(&this->mcycle,   "mcycle",    0xB00);
     this->time.register_callback(std::bind(&Csr::mcycle_access, this, std::placeholders::_1, std::placeholders::_2));

@@ -201,6 +201,11 @@ public:
     CsrReg mvendorid;
     CsrReg marchid;
 
+    CsrReg mnscratch;
+    CsrReg mnepc;
+    CsrReg mncause;
+    CsrReg mnstatus;
+
     CsrReg mcycle;
     CsrReg mhpmcounter[29];
 #if ISS_REG_WIDTH == 32

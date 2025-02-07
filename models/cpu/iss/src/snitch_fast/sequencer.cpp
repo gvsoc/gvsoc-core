@@ -62,6 +62,7 @@ void Sequencer::reset(bool active)
         this->input_insn = NULL;
         this->stalled_insn = false;
         this->max_rpt = 0;
+        this->frep_enabled = false;
     }
 }
 
@@ -173,6 +174,7 @@ iss_reg_t Sequencer::frep_handle(iss_insn_t *insn, iss_reg_t pc, bool is_inner)
     this->stagger_mask = insn->uim[0];
     this->insn_count = 0;
     this->rpt_count = 0;
+    this->frep_enabled = true;
 
     this->fsm_event.enable();
 
@@ -197,26 +199,38 @@ void Sequencer::fsm_handler(vp::Block *block, vp::ClockEvent *event)
         insn->stub_handler(&_this->iss, insn, insn->addr);
         _this->iss.trace.force_trace_dump = force_trace_dump;
 
-        if (_this->is_inner)
+        if (!_this->frep_enabled)
         {
+            _this->buffer.pop_front();
         }
         else
         {
-            if (_this->insn_count == _this->max_inst)
+            if (_this->is_inner)
             {
-                if (_this->rpt_count == _this->max_rpt)
-                {
-                    _this->buffer.clear();
-                    _this->max_rpt = 0;
-                }
-                else
-                {
-                    _this->rpt_count++;
-                }
             }
             else
             {
-                _this->insn_count++;
+                if (_this->insn_count == _this->max_inst)
+                {
+                    _this->insn_count = 0;
+                    if (_this->rpt_count == _this->max_rpt)
+                    {
+                        for (int i=0; i<_this->max_inst + 1; i++)
+                        {
+                            _this->buffer.pop_front();
+                        }
+                        _this->max_rpt = 0;
+                        _this->frep_enabled = false;
+                    }
+                    else
+                    {
+                        _this->rpt_count++;
+                    }
+                }
+                else
+                {
+                    _this->insn_count++;
+                }
             }
         }
     }

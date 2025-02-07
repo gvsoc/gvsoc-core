@@ -368,6 +368,7 @@ class InFReg(InReg):
         elif f == 'b': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8')
         elif f == 'bh': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8A')
         elif f == 's': flags.append('ISS_DECODER_ARG_FLAG_ELEM_32')
+        elif f == 'd': flags.append('ISS_DECODER_ARG_FLAG_ELEM_64')
         elif f == 'H': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'AH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'B': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_VEC']

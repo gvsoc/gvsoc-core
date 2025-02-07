@@ -42,8 +42,8 @@ public:
     void push_data(uint64_t data);
 
 private:
-    void wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
-    void rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
+    void wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim);
+    void rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim);
     static constexpr int fifo_size = 4;
 
     Iss &iss;
@@ -72,6 +72,11 @@ private:
     vp_ssr_strides_0 *strides;
     vp_ssr_rptr_0 *rptr;
     vp_ssr_wptr_0 *wptr;
+
+    uint64_t current_bounds[4];
+
+    int read_dim;
+    int write_dim;
 
     bool done;
 };

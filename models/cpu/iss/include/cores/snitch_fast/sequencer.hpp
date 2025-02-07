@@ -60,4 +60,5 @@ private:
     int stall_reg;
     iss_insn_t *input_insn;
     bool stalled_insn;
+    bool frep_enabled;
 };

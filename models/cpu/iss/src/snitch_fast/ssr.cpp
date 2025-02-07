@@ -47,44 +47,22 @@ SsrStreamer::SsrStreamer(IssWrapper &top, Iss &iss, Block *parent, int id, std::
     this->out_io_req.set_data((uint8_t *)&this->out_io_req_data);
     this->out_io_req.set_is_write(true);
 
-    switch (id)
+    this->bounds = (vp_ssr_bounds_0 *)&this->regmap.bounds_0;
+    this->strides = (vp_ssr_strides_0 *)&this->regmap.strides_0;
+    this->rptr = (vp_ssr_rptr_0 *)&this->regmap.rptr_0;
+    this->wptr = (vp_ssr_wptr_0 *)&this->regmap.wptr_0;
+
+    for (int i=0; i<4; i++)
     {
-    case 0:
-        this->bounds = (vp_ssr_bounds_0 *)&this->regmap.bounds_0;
-        this->strides = (vp_ssr_strides_0 *)&this->regmap.strides_0;
-        this->rptr = (vp_ssr_rptr_0 *)&this->regmap.rptr_0;
-        this->wptr = (vp_ssr_wptr_0 *)&this->regmap.wptr_0;
-        break;
-
-    case 1:
-        this->bounds = (vp_ssr_bounds_0 *)&this->regmap.bounds_0;
-        this->strides = (vp_ssr_strides_0 *)&this->regmap.strides_0;
-        this->rptr = (vp_ssr_rptr_0 *)&this->regmap.rptr_0;
-        this->wptr = (vp_ssr_wptr_0 *)&this->regmap.wptr_0;
-        break;
-
-    case 2:
-        this->bounds = (vp_ssr_bounds_0 *)&this->regmap.bounds_0;
-        this->strides = (vp_ssr_strides_0 *)&this->regmap.strides_0;
-        this->rptr = (vp_ssr_rptr_0 *)&this->regmap.rptr_0;
-        this->wptr = (vp_ssr_wptr_0 *)&this->regmap.wptr_0;
-        break;
-
-    case 3:
-        this->bounds = (vp_ssr_bounds_0 *)&this->regmap.bounds_0;
-        this->strides = (vp_ssr_strides_0 *)&this->regmap.strides_0;
-        this->rptr = (vp_ssr_rptr_0 *)&this->regmap.rptr_0;
-        this->wptr = (vp_ssr_wptr_0 *)&this->regmap.wptr_0;
-        break;
+        this->wptr[i].register_callback(std::bind(&SsrStreamer::wptr_req, this, _1, _2, _3, _4, i));
+        this->rptr[i].register_callback(std::bind(&SsrStreamer::rptr_req, this, _1, _2, _3, _4, i));
     }
-
-    this->wptr->register_callback(std::bind(&SsrStreamer::wptr_req, this, _1, _2, _3, _4));
-    this->rptr->register_callback(std::bind(&SsrStreamer::rptr_req, this, _1, _2, _3, _4));
 }
 
-void SsrStreamer::wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write)
+void SsrStreamer::wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim)
 {
-    this->wptr->update(reg_offset, size, value, is_write);
+    this->write_dim = dim;
+    this->wptr[dim].update(reg_offset, size, value, is_write);
 
     if (is_write)
     {
@@ -92,9 +70,10 @@ void SsrStreamer::wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool i
     }
 }
 
-void SsrStreamer::rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write)
+void SsrStreamer::rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim)
 {
-    this->rptr->update(reg_offset, size, value, is_write);
+    this->read_dim = dim;
+    this->rptr[dim].update(reg_offset, size, value, is_write);
 
     if (is_write)
     {
@@ -109,6 +88,10 @@ void SsrStreamer::reset(bool active)
         this->in_fifo_head = 0;
         this->in_fifo_tail = 0;
         this->in_fifo_nb_elem = 0;
+        for (int i=0; i<4; i++)
+        {
+            this->current_bounds[i] = 0;
+        }
     }
 }
 
@@ -131,7 +114,7 @@ void SsrStreamer::push_data(uint64_t data)
 {
     if (this->out_fifo_nb_elem < SsrStreamer::fifo_size)
     {
-#ifndef VP_TRACE_ACTIVE
+#ifdef VP_TRACE_ACTIVE
         // Also set FPU register for tracing.
         this->iss.regfile.fregs[this->id] = data;
 #endif
@@ -161,7 +144,7 @@ uint64_t SsrStreamer::pop_data()
         }
         this->in_fifo_nb_elem--;
 
-#ifndef VP_TRACE_ACTIVE
+#ifdef VP_TRACE_ACTIVE
         // If another value is present in the value, setup now the FPU register since
         // the fetch was not able to set it for tracing
         if (this->in_fifo_nb_elem > 0)
@@ -186,7 +169,7 @@ void SsrStreamer::handle_data()
         if (this->out_fifo_nb_elem > 0)
         {
             vp::IoReq *req = &this->out_io_req;
-            uint64_t addr = this->wptr->get();
+            uint64_t addr = this->wptr[this->write_dim].get();
 
             req->prepare();
             req->set_addr(addr);
@@ -202,8 +185,20 @@ void SsrStreamer::handle_data()
             }
             this->out_fifo_nb_elem--;
 
-            this->bounds->set(this->bounds->get() - 1);
-            this->wptr->set(addr + this->strides->get());
+            for (int i=0; i<this->write_dim + 1; i++)
+            {
+                this->wptr[this->write_dim].set(addr + this->strides[i].get());
+
+                if (this->current_bounds[i] == this->bounds[i].get())
+                {
+                    this->current_bounds[i] = 0;
+                }
+                else
+                {
+                    this->current_bounds[i]++;
+                    break;
+                }
+            }
         }
     }
     else
@@ -211,7 +206,7 @@ void SsrStreamer::handle_data()
         if (this->in_fifo_nb_elem < SsrStreamer::fifo_size && !this->done)
         {
             vp::IoReq *req = &this->in_io_req;
-            uint64_t addr = this->rptr->get();
+            uint64_t addr = this->rptr[this->read_dim].get();
 
             req->prepare();
             req->set_addr(addr);
@@ -235,16 +230,25 @@ void SsrStreamer::handle_data()
             }
             this->in_fifo_nb_elem++;
 
-            if (this->bounds->get() == 0)
+            for (int i=0; i<this->read_dim + 1; i++)
             {
-                this->done = true;
-            }
-            else
-            {
-                this->bounds->set(this->bounds->get() - 1);
-            }
-            this->rptr->set(addr + this->strides->get());
+                this->rptr[this->read_dim].set(addr + this->strides[i].get());
 
+                if (this->current_bounds[i] == this->bounds[i].get())
+                {
+                    this->current_bounds[i] = 0;
+
+                    if (i == this->read_dim)
+                    {
+                        this->done = true;
+                    }
+                }
+                else
+                {
+                    this->current_bounds[i]++;
+                    break;
+                }
+            }
         }
     }
 }

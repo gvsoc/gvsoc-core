@@ -37,11 +37,18 @@ public:
     void reset(bool active);
 
     iss_reg_t frep_handle(iss_insn_t *insn, iss_reg_t pc, bool is_inner);
+    inline iss_reg_t lsu_pop_base()
+    {
+        iss_reg_t result = this->lsu_buffer.front();
+        this->lsu_buffer.pop_front();
+        return result;
+    }
 
 private:
     static iss_reg_t non_float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static iss_reg_t sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static iss_reg_t direct_branch_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+    static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static void fsm_handler(vp::Block *block, vp::ClockEvent *event);
 
     Iss &iss;
@@ -57,8 +64,10 @@ private:
     int insn_count;
     int rpt_count;
     std::deque<iss_insn_t *> buffer;
+    std::deque<iss_reg_t> lsu_buffer;
     int stall_reg;
     iss_insn_t *input_insn;
     bool stalled_insn;
     bool frep_enabled;
+    bool input_insn_is_sequence;
 };

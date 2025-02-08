@@ -62,6 +62,7 @@ SsrStreamer::SsrStreamer(IssWrapper &top, Iss &iss, Block *parent, int id, std::
 void SsrStreamer::wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim)
 {
     this->write_dim = dim;
+    this->active = true;
     this->wptr[dim].update(reg_offset, size, value, is_write);
 
     if (is_write)
@@ -73,6 +74,7 @@ void SsrStreamer::wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool i
 void SsrStreamer::rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim)
 {
     this->read_dim = dim;
+    this->active = true;
     this->rptr[dim].update(reg_offset, size, value, is_write);
 
     if (is_write)
@@ -88,6 +90,7 @@ void SsrStreamer::reset(bool active)
         this->in_fifo_head = 0;
         this->in_fifo_tail = 0;
         this->in_fifo_nb_elem = 0;
+        this->repeat_count = 0;
         for (int i=0; i<4; i++)
         {
             this->current_bounds[i] = 0;
@@ -102,12 +105,10 @@ bool SsrStreamer::cfg_access(uint64_t offset, uint8_t *value, bool is_write)
 
 void SsrStreamer::enable()
 {
-    this->done = false;
 }
 
 void SsrStreamer::disable()
 {
-
 }
 
 void SsrStreamer::push_data(uint64_t data)
@@ -137,21 +138,27 @@ uint64_t SsrStreamer::pop_data()
     if (this->in_fifo_nb_elem > 0)
     {
         uint64_t value = this->in_fifo[this->in_fifo_head];
-        this->in_fifo_head++;
-        if (this->in_fifo_head == SsrStreamer::fifo_size)
-        {
-            this->in_fifo_head = 0;
-        }
-        this->in_fifo_nb_elem--;
 
-#ifdef VP_TRACE_ACTIVE
-        // If another value is present in the value, setup now the FPU register since
-        // the fetch was not able to set it for tracing
-        if (this->in_fifo_nb_elem > 0)
+        this->repeat_count++;
+        if (this->repeat_count > this->regmap.repeat.get())
         {
-            this->iss.regfile.fregs[this->id] = this->in_fifo[this->in_fifo_head];
+            this->repeat_count = 0;
+            this->in_fifo_head++;
+            if (this->in_fifo_head == SsrStreamer::fifo_size)
+            {
+                this->in_fifo_head = 0;
+            }
+            this->in_fifo_nb_elem--;
+
+    #ifdef VP_TRACE_ACTIVE
+            // If another value is present in the value, setup now the FPU register since
+            // the fetch was not able to set it for tracing
+            if (this->in_fifo_nb_elem > 0)
+            {
+                this->iss.regfile.fregs[this->id] = this->in_fifo[this->in_fifo_head];
+            }
+    #endif
         }
-#endif
 
         return value;
     }
@@ -203,7 +210,7 @@ void SsrStreamer::handle_data()
     }
     else
     {
-        if (this->in_fifo_nb_elem < SsrStreamer::fifo_size && !this->done)
+        if (this->in_fifo_nb_elem < SsrStreamer::fifo_size && this->active)
         {
             vp::IoReq *req = &this->in_io_req;
             uint64_t addr = this->rptr[this->read_dim].get();
@@ -240,7 +247,7 @@ void SsrStreamer::handle_data()
 
                     if (i == this->read_dim)
                     {
-                        this->done = true;
+                        this->active = false;
                     }
                 }
                 else

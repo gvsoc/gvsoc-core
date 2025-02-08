@@ -163,3 +163,4 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>
 #include <cpu/iss/include/cores/snitch_fast/regfile_implem.hpp>
+#include <cpu/iss/include/cores/snitch_fast/isa.hpp>

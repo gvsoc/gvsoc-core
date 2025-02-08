@@ -27,16 +27,6 @@
 #include "cpu/iss/include/isa_lib/macros.h"
 #include "rv32Xfvec.hpp"
 
-static inline iss_reg_t flh_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    return flh_exec(iss, insn, pc);
-}
-
-static inline iss_reg_t fsh_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    return fsh_exec(iss, insn, pc);
-}
-
 static inline iss_reg_t fmadd_h_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (fmode_get(iss, insn) == 3)

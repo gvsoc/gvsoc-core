@@ -75,10 +75,12 @@ private:
 
     uint64_t current_bounds[4];
 
+    uint64_t repeat_count;
+
     int read_dim;
     int write_dim;
 
-    bool done;
+    bool active;
 };
 
 class Ssr : public vp::Block

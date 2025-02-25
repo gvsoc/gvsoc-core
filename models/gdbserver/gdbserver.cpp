@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Andreas Traber
  */
 
@@ -82,6 +82,10 @@ void Gdb_server::start()
     }
 }
 
+void Gdb_server::stop()
+{
+    this->rsp->stop();
+}
 
 void Gdb_server::exit(int status)
 {

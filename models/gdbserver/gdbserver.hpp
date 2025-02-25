@@ -37,6 +37,7 @@ public:
     Gdb_server(vp::ComponentConf &conf);
 
     void start() override;
+    void stop() override;
 
     int io_access(uint64_t addr, int size, uint8_t *data, bool is_write);
 

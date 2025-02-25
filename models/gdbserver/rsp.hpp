@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Andreas Traber
  */
 
@@ -37,6 +37,7 @@ public:
     bool signal(int signal=-1, bool from_active=false);
     bool signal_from_core(vp::Gdbserver_core *core, int signal, std::string reason="", int info=0);
     bool send_exit(int status);
+    void stop();
 
 private:
     void proxy_listener();
@@ -56,7 +57,6 @@ private:
     bool mem_read(char *data, size_t);
     bool bp_insert(char *data, size_t len);
     bool bp_remove(char *data, size_t len);
-    void stop();
     void stop_all_cores();
     void stop_all_cores_safe();
 

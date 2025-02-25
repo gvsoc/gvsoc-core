@@ -21,6 +21,7 @@
 
 #include <cpu/iss/include/iss.hpp>
 #include <algorithm>
+#include <pthread.h>
 #include <vp/controller.hpp>
 
 
@@ -37,6 +38,8 @@ void Gdbserver::build()
     this->event = this->iss.top.event_new((vp::Block *)this, &Gdbserver::handle_pending_io_access_stub);
     this->io_itf.set_resp_meth(&Gdbserver::data_response);
     this->iss.top.new_master_port("data_debug", &this->io_itf, (vp::Block *)this);
+    pthread_mutex_init(&this->mutex, NULL);
+    pthread_cond_init(&this->cond, NULL);
 }
 
 
@@ -53,7 +56,12 @@ void Gdbserver::start()
     this->halt_on_reset = this->gdbserver;
 }
 
-
+void Gdbserver::stop()
+{
+    // Keep lock to avoid any IO access from gdb thread
+    pthread_mutex_lock(&this->mutex);
+    pthread_cond_broadcast(&this->cond);
+}
 
 void Gdbserver::reset(bool active)
 {
@@ -470,11 +478,11 @@ void Gdbserver::handle_pending_io_access()
         {
             // Stop here if we got an error
             this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
-            std::unique_lock<std::mutex> lock(this->mutex);
+            pthread_mutex_lock(&this->mutex);
             this->waiting_io_response = false;
             this->io_retval = 1;
-            this->cond.notify_all();
-            lock.unlock();
+            pthread_cond_broadcast(&this->cond);
+            pthread_mutex_unlock(&this->mutex);
         }
         else
         {
@@ -486,11 +494,11 @@ void Gdbserver::handle_pending_io_access()
     {
         // We reached the end of the whole request, notify the waiting thread
         this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
-        std::unique_lock<std::mutex> lock(this->mutex);
+        pthread_mutex_lock(&this->mutex);
         this->waiting_io_response = false;
         this->io_retval = 0;
-        this->cond.notify_all();
-        lock.unlock();
+        pthread_cond_broadcast(&this->cond);
+        pthread_mutex_unlock(&this->mutex);
     }
 }
 
@@ -513,12 +521,12 @@ int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool 
     this->iss.top.get_launcher()->engine_unlock();
 
     // Then wait until the FSM is over
-    std::unique_lock<std::mutex> lock(this->mutex);
+    pthread_mutex_lock(&this->mutex);
     while (this->waiting_io_response)
     {
-        this->cond.wait(lock);
+        pthread_cond_wait(&this->cond, &this->mutex);
     }
-    lock.unlock();
+    pthread_mutex_unlock(&this->mutex);
 
     this->iss.top.get_launcher()->engine_lock();
 

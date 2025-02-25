@@ -24,6 +24,7 @@
 #include <cpu/iss/include/types.hpp>
 #include <mutex>
 #include <condition_variable>
+#include <pthread.h>
 
 class Watchpoint
 {
@@ -39,6 +40,7 @@ public:
     Gdbserver(Iss &iss);
     void build();
     void start();
+    void stop();
     void reset(bool active);
 
     bool is_enabled() { return this->gdbserver != NULL; }
@@ -82,8 +84,8 @@ public:
     vp::Gdbserver_engine *gdbserver;
     std::list<iss_addr_t> breakpoints;
     bool halt_on_reset;
-    std::mutex mutex;
-    std::condition_variable cond;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
     int io_retval;
     bool waiting_io_response;
     uint64_t io_pending_addr;

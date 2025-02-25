@@ -127,6 +127,7 @@ void Rsp::proxy_loop(int socket)
 void Rsp::stop()
 {
     this->proxy_loop_stop = true;
+    shutdown(this->client_socket, SHUT_RDWR);
     close(this->client_socket);
     this->loop_thread = NULL;
 }

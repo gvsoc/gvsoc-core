@@ -183,4 +183,6 @@ private:
 
     vp::WireMaster<IssOffloadInsn<iss_reg_t> *> offload_itf;
     vp::WireSlave<IssOffloadInsnGrant<iss_reg_t> *> offload_grant_itf;
+
+    vp::Trace asm_trace_event;
 };

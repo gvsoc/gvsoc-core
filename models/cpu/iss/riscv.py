@@ -470,6 +470,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.SignalGenFunctionFromBinary(self, active, from_signal='active_pc',
             to_signal='active_function', binaries=['binaries'])
 
+        gvsoc.gui.Signal(self, active, name='label', path='label', groups=['core'], display=gvsoc.gui.DisplayStringBox())
         gvsoc.gui.Signal(self, active, name='active', path='busy', groups=['core'],
             display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
         gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],

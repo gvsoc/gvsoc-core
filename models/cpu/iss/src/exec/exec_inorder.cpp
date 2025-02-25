@@ -81,6 +81,8 @@ void Exec::build()
     this->hwloop_end_insn[0] = 0;
     this->hwloop_end_insn[1] = 0;
 #endif
+
+    this->iss.top.traces.new_trace_event_string("label", &this->asm_trace_event);
 }
 
 
@@ -183,6 +185,8 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 
         // Execute the instruction and replace the current one with the new one
         iss->exec.current_insn = insn->fast_handler(iss, insn, pc);
+
+        iss->exec.asm_trace_event.event_string(insn->desc->label, true);
 
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
@@ -302,6 +306,8 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         if (insn == NULL) return;
 
         _this->current_insn = _this->insn_exec(insn, pc);
+
+        _this->asm_trace_event.event_string(insn->desc->label, true);
 
         _this->iss.timing.insn_account();
 

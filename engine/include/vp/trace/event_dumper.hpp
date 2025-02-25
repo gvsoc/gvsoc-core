@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -32,7 +32,7 @@ namespace vp {
 
   class Event_dumper;
 
-  class Event_file 
+  class Event_file
   {
   public:
     virtual void dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask) {}
@@ -60,6 +60,7 @@ namespace vp {
     int width;
     int bytes;
     int id;
+    void *user_trace;
     uint8_t *buffer;
     uint8_t flags;
     void set_vcd_user(gv::Vcd_user *user);

@@ -27,6 +27,11 @@ InsnCache::InsnCache(Iss &iss)
 {
 }
 
+void InsnCache::stop()
+{
+    this->flush();
+}
+
 void InsnCache::build()
 {
     this->current_insn_page_base = -1;

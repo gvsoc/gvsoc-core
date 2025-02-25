@@ -248,14 +248,15 @@ namespace gv {
          * about the associated signal.
          * No GVSOC API can be called from this callback.
          *
-         * @param id The identifier of the VCD event. This ID is used afterwards for identifying this event.
          * @param path The path of the VCD event in the simulated system.
          * @param type The type of the VCD event.
          * @param width The width of the VCD event.
          * @param clock_path If any, path of the clock trace.
+         *
+         * @return The trace identifier, to be used to refer to this trace when an event is pushed.
          */
-        virtual void event_register(int id, std::string path, Vcd_event_type type, int width,
-            std::string clock_path="") {}
+        virtual void *event_register(std::string path, Vcd_event_type type, int width,
+            std::string clock_path="") { return NULL; }
 
         /**
          * Called by GVSOC to update the value of a logical VCD event.
@@ -267,7 +268,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual bool event_update_logical(int64_t timestamp, int64_t cycles, int id, uint64_t value,
+        virtual bool event_update_logical(int64_t timestamp, int64_t cycles, void *id, uint64_t value,
             int flags) { return false; }
 
         /**
@@ -280,7 +281,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual bool event_update_bitfield(int64_t timestamp, int64_t cycles, int id,
+        virtual bool event_update_bitfield(int64_t timestamp, int64_t cycles, void *id,
             uint8_t *value, uint8_t *flags) { return false; }
 
         /**
@@ -293,7 +294,7 @@ namespace gv {
          * @param id ID of the VCD event.
          * @param value The new value.
          */
-        virtual bool event_update_real(int64_t timestamp, int64_t cycles, int id, double value)
+        virtual bool event_update_real(int64_t timestamp, int64_t cycles, void *id, double value)
             { return false; }
 
         /**
@@ -310,7 +311,7 @@ namespace gv {
          * @param realloc True if the string must be reallocated by the callee or false if it the
          *      string from the caller can be kept.
          */
-        virtual bool event_update_string(int64_t timestamp, int64_t cycles, int id,
+        virtual bool event_update_string(int64_t timestamp, int64_t cycles, void *id,
             const char *value, int flags, bool realloc) { return false; }
 
         /**
@@ -610,6 +611,9 @@ namespace gv {
     class Gvsoc : public Io, public Vcd, public Wire, public Power
     {
     public:
+
+        virtual ~Gvsoc() {}
+
         /**
          * Open a GVSOC configuration
          *

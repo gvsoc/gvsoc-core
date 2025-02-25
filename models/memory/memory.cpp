@@ -21,8 +21,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <optional>
-#include <algorithm>
 #include <vp/vp.hpp>
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
@@ -34,14 +32,16 @@ class Memory : public vp::Component
 public:
     Memory(vp::ComponentConf &config);
 
-    void reset(bool active);
-
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
     uint64_t memcheck_alloc(uint64_t ptr, uint64_t size);
     uint64_t memcheck_free(uint64_t ptr, uint64_t size);
 
 private:
+
+    void stop() override;
+    void reset(bool active) override;
+
     static void power_ctrl_sync(vp::Block *__this, bool value);
     static void meminfo_sync_back(vp::Block *__this, void **value);
     static void meminfo_sync(vp::Block *__this, void *value);
@@ -645,6 +645,14 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
 }
 
 
+void Memory::stop()
+{
+    free(this->mem_data);
+    if (this->check)
+    {
+        delete[] this->check_mem;
+    }
+}
 
 void Memory::reset(bool active)
 {

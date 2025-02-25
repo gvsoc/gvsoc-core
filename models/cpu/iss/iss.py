@@ -198,11 +198,11 @@ class Iss(st.Component):
         gvsoc.gui.Signal(self, active, name='function', path='function',
             display=gvsoc.gui.DisplayString())
 
-        gvsoc.gui.SignalGenFromSignals(self, active, from_signals=['static_power_trace', 'dyn_power_trace'],
-            to_signal='power')
-        power_signal = gvsoc.gui.Signal(self, active, name='power', path='power', groups='power')
-        gvsoc.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
-        gvsoc.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
+        # gvsoc.gui.SignalGenFromSignals(self, active, from_signals=['static_power_trace', 'dyn_power_trace'],
+        #     to_signal='power')
+        # power_signal = gvsoc.gui.Signal(self, active, name='power', path='power', groups='power')
+        # gvsoc.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
+        # gvsoc.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
 
         stalls = gvsoc.gui.Signal(self, active, name='stalls')
         gvsoc.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gvsoc.gui.DisplayPulse(), groups=['stall'])
@@ -244,4 +244,3 @@ class Rv64(Iss):
             riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
             fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
             supervisor=True, user=True)
-

@@ -480,9 +480,8 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, active, name='function', path='function',
             display=gvsoc.gui.DisplayString())
 
-        gvsoc.gui.SignalGenFromSignals(self, active, from_signals=['static_power_trace', 'dyn_power_trace'],
-            to_signal='power')
-        power_signal = gvsoc.gui.Signal(self, active, name='power', path='power', groups='power')
+        power_signal = gvsoc.gui.Signal(self, active, name='power', path='power', groups='power',
+            required_traces=['static_power_trace', 'dyn_power_trace'], display=gvsoc.gui.DisplayAnalog())
         gvsoc.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
         gvsoc.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
 

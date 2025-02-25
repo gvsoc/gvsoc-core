@@ -305,7 +305,7 @@ void vp::TraceEngine::start()
                 }
                 gv::Vcd_event_type trace_type = trace->is_real ? gv::Vcd_event_type_real : trace->is_string ? gv::Vcd_event_type_string : gv::Vcd_event_type_logical;
                 int width = trace->is_real ? 8 : trace->is_string ? 0 : trace->width;
-                this->vcd_user->event_register(trace->id, trace->get_full_path(), trace_type, width, clock_trace_name);
+                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace_type, width, clock_trace_name);
             }
         }
     }

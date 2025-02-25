@@ -28,6 +28,10 @@ class DisplayPulse(object):
     def get(self):
         return { 'type': 'pulse' }
 
+class DisplayAnalog(object):
+    def get(self):
+        return { 'type': 'analog' }
+
 class DisplayBox(object):
     def __init__(self, format="hex"):
         self.format = format
@@ -86,7 +90,7 @@ class SignalGenFromSignals(object):
 class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
-                 skip_if_no_child=False):
+                 skip_if_no_child=False, required_traces=None):
         if path is not None and comp is not None and path[0] != '/':
             path = comp.get_comp_path(inc_top=True) + '/' + path
         self.parent = parent
@@ -103,6 +107,7 @@ class Signal(object):
         self.skip_if_no_child = skip_if_no_child
         if parent is not None:
             parent.child_signals.append(self)
+        self.required_traces = required_traces
 
     def get_childs_config(self):
         config = []
@@ -134,6 +139,11 @@ class Signal(object):
             config['signals'] = childs_config
         if self.properties is not None:
             config['properties'] = self.properties
+        if self.required_traces is not None:
+            config['required'] = []
+            for trace in self.required_traces:
+                path = self.comp.get_comp_path(inc_top=True) + '/' + trace
+                config['required'].append(path)
 
         return config
 

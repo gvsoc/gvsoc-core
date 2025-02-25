@@ -24,7 +24,6 @@
  */
 
 #include <vp/vp.hpp>
-#include <stdio.h>
 #include <string.h>
 
 #include <sys/mman.h>
@@ -53,9 +52,10 @@ public:
     Aps(vp::ComponentConf &conf);
 
     // GVSOC reset function overloading
-    void reset(bool active);
+    void reset(bool active) override;
 
 private:
+    void stop() override;
     /**
      * @brief Handle octospi clock edges
      *
@@ -64,7 +64,7 @@ private:
      * in STR mode.
      * This method will enqueue the incoming data and handle any impact on the flash state, like
      * handling transmitted commands.
-     * 
+     *
      * @param data   Data transmitted through the octospi data line.
      */
     void sync_cycle(int data);
@@ -87,7 +87,7 @@ private:
      *
      * This is called everytime thechip select is updated on the octospi line.
      * It is active low.
-     * 
+     *
      * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
      */
     void cs_sync(int cs, int value);
@@ -109,7 +109,7 @@ private:
      * @brief Handle an access to the ram array
      *
      * This is called for both read and program operations.
-     * 
+     *
      * @param address Address of the access.
      * @param read    True if the access is a read, false if it is a write.
      * @param data    Data byte in case of a write
@@ -121,7 +121,7 @@ private:
      *
      * This is called once the command header has been received in order to parse it and
      * extract useful information for FSM.
-     * 
+     *
      * @param addr_bits  Number of expected address bits are returned here.
      */
     void parse_command();
@@ -139,7 +139,7 @@ private:
      *
      * This is called when command header and possibly address has already been received and a data
      * byte is received, in order to process it.
-     * 
+     *
      * @param byte The input data byte.
      */
     void handle_data_byte(uint8_t byte);
@@ -247,7 +247,7 @@ void Aps::handle_command_address()
 {
     if (this->current_command == 0x20 || this->current_command == 0xa0)
     {
-        this->trace.msg(vp::Trace::LEVEL_DEBUG, 
+        this->trace.msg(vp::Trace::LEVEL_DEBUG,
             "Received burst command (command: 0x%x, address: 0x%x, is_write: %d)\n",
             this->current_command, this->current_address, this->is_write);
     }
@@ -270,7 +270,7 @@ void Aps::handle_data_byte(uint8_t data)
         {
             value = this->write_latency_code << 4;
         }
-        
+
         this->trace.msg(vp::Trace::LEVEL_INFO,
             "Reading ram register (addr: %d, data: 0x%x)\n",
             this->current_address, value);
@@ -433,6 +433,10 @@ void Aps::cs_sync_stub(vp::Block *__this, int cs, int value)
 }
 
 
+void Aps::stop()
+{
+    delete[] this->data;
+}
 
 void Aps::reset(bool active)
 {

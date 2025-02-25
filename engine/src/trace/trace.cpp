@@ -236,8 +236,8 @@ void vp::Trace::set_event_active(bool active)
             }
             else if (this->is_real)
             {
-                this->parse_event_callback = &vp::TraceEngine::parse_event_64;
-                this->dump_event_callback_fixed = &vp::TraceEngine::dump_event_64_external;
+                this->parse_event_callback = &vp::TraceEngine::parse_event_real;
+                this->dump_event_callback_fixed = &vp::TraceEngine::dump_event_real_external;
             }
             else
             {
@@ -379,6 +379,17 @@ vp::TraceEngine::~TraceEngine()
     {
         fflush(file.second);
     }
+
+    while (!this->event_buffers.empty())
+    {
+        delete[] this->event_buffers.front();
+        this->event_buffers.pop();
+    }
+
+    if (this->current_buffer)
+    {
+        delete[] this->current_buffer;
+    }
 }
 
 void vp::TraceEngine::flush()
@@ -405,10 +416,22 @@ void vp::TraceEngine::flush()
     }
     else
     {
+        // First flush current buffer
         if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
         {
             this->get_new_buffer_external();
         }
+
+        // Then wait until all pending buffers has been handled by dumper
+        pthread_mutex_lock(&this->mutex);
+
+        // We should get max number of buffers minus 1 as one has been taken as current buffer
+        while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
+        {
+            pthread_cond_wait(&this->cond, &this->mutex);
+        }
+
+        pthread_mutex_unlock(&this->mutex);
     }
 }
 
@@ -472,6 +495,24 @@ void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, 
 void vp::TraceEngine::dump_event_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
     // TODO
+}
+
+typedef struct
+{
+    vp::Trace *trace;
+    int64_t timestamp;
+    int64_t cycles;
+    double value;
+} __attribute__((packed)) event_real_t;
+
+void vp::TraceEngine::dump_event_real_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
+{
+    event_real_t *buff_event = (event_real_t *)_this->get_event_buffer_external(sizeof(event_real_t));
+
+    buff_event->trace = trace;
+    buff_event->timestamp = timestamp;
+    buff_event->cycles = cycles;
+    buff_event->value = *(double *)event;
 }
 
 typedef struct
@@ -579,6 +620,26 @@ uint8_t *vp::TraceEngine::parse_event(vp::TraceEngine *_this, vp::Trace *trace, 
     return buffer;
 }
 
+uint8_t *vp::TraceEngine::parse_event_real(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
+{
+    int64_t timestamp;
+    int64_t cycles;
+    double value;
+
+    timestamp = *(int64_t *)buffer;
+    buffer += sizeof(timestamp);
+
+    cycles = *(int64_t *)buffer;
+    buffer += sizeof(cycles);
+
+    value = *(double *)buffer;
+    buffer += 8;
+
+    unlock = _this->vcd_user->event_update_real(timestamp, cycles, trace->user_trace, value);
+
+    return buffer;
+}
+
 uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trace, uint8_t *buffer, bool &unlock)
 {
     int64_t timestamp;
@@ -598,7 +659,7 @@ uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint64_t *)buffer;
     buffer += 8;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
 
     return buffer;
 }
@@ -620,7 +681,7 @@ uint8_t *vp::TraceEngine::parse_event_1(vp::TraceEngine *_this, vp::Trace *trace
     value = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, 0);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, 0);
 
     return buffer;
 }
@@ -645,7 +706,7 @@ uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace
     flags = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
 
     return buffer;
 }
@@ -669,7 +730,7 @@ uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint16_t *)buffer;
     buffer += 2;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
 
     return buffer;
 }
@@ -693,7 +754,7 @@ uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint32_t *)buffer;
     buffer += 4;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->id, value, flags);
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
 
     return buffer;
 }
@@ -766,7 +827,7 @@ uint8_t *vp::TraceEngine::parse_event_string(vp::TraceEngine *_this, vp::Trace *
 
     if (value != NULL)
     {
-        unlock = _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)value, flags, false);
+        unlock = _this->vcd_user->event_update_string(timestamp, cycles, trace->user_trace, (const char *)value, flags, false);
     }
     else
     {
@@ -774,7 +835,7 @@ uint8_t *vp::TraceEngine::parse_event_string(vp::TraceEngine *_this, vp::Trace *
 
         buffer += sizeof(string_size);
 
-        unlock = _this->vcd_user->event_update_string(timestamp, cycles, trace->id, (const char *)buffer, flags, true);
+        unlock = _this->vcd_user->event_update_string(timestamp, cycles, trace->user_trace, (const char *)buffer, flags, true);
         buffer += string_size;
     }
 
@@ -873,25 +934,25 @@ void vp::TraceEngine::flush_event_traces(int64_t timestamp)
         {
             if (current->is_real)
             {
-                this->vcd_user->event_update_real(timestamp, current->cycles, current->id, *(double *)current->buffer);
+                this->vcd_user->event_update_real(timestamp, current->cycles, current->user_trace, *(double *)current->buffer);
             }
             else if (current->is_string)
             {
-                this->vcd_user->event_update_string(timestamp, current->cycles, current->id, (const char *)current->buffer, current->flags, true);
+                this->vcd_user->event_update_string(timestamp, current->cycles, current->user_trace, (const char *)current->buffer, current->flags, true);
             }
             else if (current->width > 8)
             {
                 if (current->width <= 16)
                 {
-                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, *(uint16_t *)current->buffer, current->flags);
+                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, *(uint16_t *)current->buffer, current->flags);
                 }
                 else if (current->width <= 32)
                 {
-                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, *(uint32_t *)current->buffer, current->flags);
+                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, *(uint32_t *)current->buffer, current->flags);
                 }
                 else if (current->width <= 64)
                 {
-                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, *(uint64_t *)current->buffer, current->flags);
+                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, *(uint64_t *)current->buffer, current->flags);
                 }
                 else
                 {
@@ -903,7 +964,7 @@ void vp::TraceEngine::flush_event_traces(int64_t timestamp)
             {
                 uint64_t value = (uint64_t)*(current->buffer);
 
-                this->vcd_user->event_update_logical(timestamp, current->cycles, current->id, value, current->flags);
+                this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, value, current->flags);
             }
         }
         else

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -74,8 +74,8 @@ public:
 
     iss_pulp_nn_t pulp_nn;
     iss_rnnext_t rnnext;
-    
-    
+
+
 
 
     vp::Component &top;
@@ -89,6 +89,7 @@ public:
     IssWrapper(vp::ComponentConf &config);
 
     void start();
+    void stop();
     void reset(bool active);
 
     Iss iss;

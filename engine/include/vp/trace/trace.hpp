@@ -101,6 +101,7 @@ namespace vp {
     bool is_real = false;
     bool is_string = false;
     int id;
+    void *user_trace;
     FILE *trace_file = stdout;
     int is_event;
 

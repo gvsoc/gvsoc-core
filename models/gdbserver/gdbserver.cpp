@@ -84,7 +84,10 @@ void Gdb_server::start()
 
 void Gdb_server::stop()
 {
-    this->rsp->stop();
+    if (this->rsp)
+    {
+        this->rsp->stop();
+    }
 }
 
 void Gdb_server::exit(int status)

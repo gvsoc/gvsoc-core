@@ -95,11 +95,15 @@ int vp::Component::build_all()
 
 void vp::Component::unbuild_all()
 {
+    // Unbuilding is disabled on emulation mode, cpu wrapper would need to be improved to
+    // support it
+#ifndef __M32_MODE__
     for (vp::Component *child: this->child_components)
     {
         child->unbuild_all();
         delete child;
     }
+#endif
 }
 
 

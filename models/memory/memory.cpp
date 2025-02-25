@@ -96,6 +96,7 @@ private:
     uint64_t memcheck_base;
     uint64_t memcheck_virtual_base;
     uint64_t memcheck_expansion_factor;
+    bool free_mem = false;
 };
 
 
@@ -145,6 +146,7 @@ Memory::Memory(vp::ComponentConf &config)
         mem_data = (uint8_t *)calloc(size, 1);
         if (mem_data == NULL) throw std::bad_alloc();
     }
+    this->free_mem = true;
 
     // Special option to check for uninitialized accesses
     if (check)
@@ -647,7 +649,11 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
 
 void Memory::stop()
 {
-    free(this->mem_data);
+    if (this->free_mem)
+    {
+        free(this->mem_data);
+        this->free_mem = false;
+    }
     if (this->check)
     {
         delete[] this->check_mem;
@@ -685,6 +691,7 @@ void Memory::meminfo_sync(vp::Block *__this, void *value)
 {
     Memory *_this = (Memory *)__this;
     _this->mem_data = (uint8_t *)value;
+    _this->free_mem = false;
 }
 
 

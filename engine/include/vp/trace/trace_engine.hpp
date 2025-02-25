@@ -70,6 +70,7 @@ namespace vp {
         static void dump_event_16_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_32_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_64_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_real_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int flags, bool realloc);
 
         static uint8_t *parse_event(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
@@ -78,6 +79,7 @@ namespace vp {
         static uint8_t *parse_event_16(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
         static uint8_t *parse_event_32(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
         static uint8_t *parse_event_64(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_real(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
         static uint8_t *parse_event_string(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
 
         void set_global_enable(bool enable) { this->global_enable = enable; }

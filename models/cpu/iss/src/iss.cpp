@@ -39,7 +39,10 @@ void IssWrapper::start()
     this->iss.gdbserver.start();
 }
 
-
+void IssWrapper::stop()
+{
+    this->iss.insn_cache.stop();
+}
 
 void IssWrapper::reset(bool active)
 {

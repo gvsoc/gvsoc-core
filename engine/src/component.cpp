@@ -93,6 +93,14 @@ int vp::Component::build_all()
     return 0;
 }
 
+void vp::Component::unbuild_all()
+{
+    for (vp::Component *child: this->child_components)
+    {
+        child->unbuild_all();
+        delete child;
+    }
+}
 
 
 
@@ -253,7 +261,8 @@ void vp::Component::create_comps()
             if (vp_component == "")
                 vp_component = "utils.composite_impl";
 
-            this->new_component(comp_name, comp_config, vp_component);
+            vp::Component *child = this->new_component(comp_name, comp_config, vp_component);
+            this->child_components.push_back(child);
         }
     }
 }

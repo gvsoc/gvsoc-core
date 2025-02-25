@@ -36,6 +36,7 @@ class InsnCache
 {
 public:
     InsnCache(Iss &iss);
+    void stop();
     void build();
     void flush();
     bool insn_is_decoded(iss_insn_t *insn);

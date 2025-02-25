@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -136,7 +136,7 @@ vp::Event_trace *vp::Event_dumper::get_trace_string(string trace_name, string fi
 
 void vp::Event_trace::set_vcd_user(gv::Vcd_user *user)
 {
-  user->event_register(this->id, this->trace_name, this->is_real ? gv::Vcd_event_type_real : this->is_string ? gv::Vcd_event_type_string : gv::Vcd_event_type_logical, this->width);
+  user->event_register(this->trace_name, this->is_real ? gv::Vcd_event_type_real : this->is_string ? gv::Vcd_event_type_string : gv::Vcd_event_type_logical, this->width);
 }
 
 

@@ -62,9 +62,10 @@ gv::ControllerClient::ControllerClient(gv::GvsocConf *conf, std::string name)
 
 gv::ControllerClient::~ControllerClient()
 {
-    gv::Controller::get().engine_lock();
-    gv::Controller::get().unregister_client(this);
-    gv::Controller::get().engine_unlock();
+    // TODO controller should be unregister earlier as everything has already been shutdown
+    // gv::Controller::get().engine_lock();
+    // gv::Controller::get().unregister_client(this);
+    // gv::Controller::get().engine_unlock();
 }
 
 void gv::ControllerClient::open()

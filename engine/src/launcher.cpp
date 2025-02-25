@@ -180,7 +180,10 @@ void gv::Controller::start(ControllerClient *client)
 
 void gv::Controller::close(ControllerClient *client)
 {
+    ((vp::Top *)this->handler)->get_trace_engine()->flush();
+
     this->instance->stop_all();
+    this->instance->unbuild_all();
 
     vp::Top *top = (vp::Top *)this->handler;
 

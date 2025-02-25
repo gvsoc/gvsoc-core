@@ -85,7 +85,7 @@ namespace vp {
         Block(Block *parent, std::string name, vp::TimeEngine *time_engine=NULL,
             vp::TraceEngine *trace_engine=NULL, vp::PowerEngine *power_engine=NULL,
             vp::MemCheck *memcheck=NULL);
-        ~Block();
+        virtual ~Block();
 
         /**
          * @brief Get block name

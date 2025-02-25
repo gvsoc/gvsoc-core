@@ -101,6 +101,7 @@ namespace vp
          * @param config The component configuration.
          */
         Component(vp::ComponentConf &config);
+        virtual ~Component() {}
 
         /**
          * @brief Declare a master port
@@ -195,6 +196,9 @@ namespace vp
          */
         // Used by the launcher to build the whole system hierarchy (bind, start, etc)
         int build_all();
+
+        // Use by the launcher to free all components
+        void unbuild_all();
 
         // Load a component module from workstation. It is static so that the launcher can call it
         // for top component.
@@ -292,6 +296,9 @@ namespace vp
 
         // Power port to update frequency from wire instead of uppper component
         vp::ClkSlave            clock_port;
+
+        // Childs components
+        std::vector<vp::Component *>child_components;
     };
 
 };

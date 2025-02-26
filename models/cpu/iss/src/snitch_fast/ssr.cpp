@@ -52,6 +52,7 @@ SsrStreamer::SsrStreamer(IssWrapper &top, Iss &iss, Block *parent, int id, std::
     this->rptr = (vp_ssr_rptr_0 *)&this->regmap.rptr_0;
     this->wptr = (vp_ssr_wptr_0 *)&this->regmap.wptr_0;
 
+    this->regmap.status.register_callback(std::bind(&SsrStreamer::status_req, this, _1, _2, _3, _4));
     for (int i=0; i<4; i++)
     {
         this->wptr[i].register_callback(std::bind(&SsrStreamer::wptr_req, this, _1, _2, _3, _4, i));
@@ -59,26 +60,34 @@ SsrStreamer::SsrStreamer(IssWrapper &top, Iss &iss, Block *parent, int id, std::
     }
 }
 
+void SsrStreamer::status_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write)
+{
+    if (!is_write)
+    {
+        *(uint32_t *)value = this->active << 31;
+    }
+}
+
 void SsrStreamer::wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim)
 {
-    this->write_dim = dim;
-    this->active = true;
     this->wptr[dim].update(reg_offset, size, value, is_write);
 
     if (is_write)
     {
+        this->write_dim = dim;
+        this->active = true;
         this->is_write = true;
     }
 }
 
 void SsrStreamer::rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim)
 {
-    this->read_dim = dim;
-    this->active = true;
     this->rptr[dim].update(reg_offset, size, value, is_write);
 
     if (is_write)
     {
+        this->read_dim = dim;
+        this->active = true;
         this->is_write = false;
     }
 }

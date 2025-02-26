@@ -27,6 +27,16 @@
 
 class IssWrapper;
 
+struct SequencerFrepEntry
+{
+    bool is_inner;
+    iss_reg_t max_rpt;
+    iss_reg_t max_inst;
+    iss_reg_t stagger_max;
+    iss_reg_t stagger_mask;
+    int insn_count;
+};
+
 class Sequencer : public vp::Block
 {
 public:
@@ -47,25 +57,25 @@ private:
     static iss_reg_t sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static iss_reg_t direct_branch_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static void fsm_handler(vp::Block *block, vp::ClockEvent *event);
+    void frep_pop_check();
 
     Iss &iss;
     vp::Trace trace;
 
     vp::ClockEvent fsm_event;
 
-    bool is_inner;
-    int max_rpt;
-    int max_inst;
-    int stagger_max;
-    int stagger_mask;
+    int total_insn_count;
+    int total_insn_read_count;
     int insn_count;
     int rpt_count;
     std::deque<iss_insn_t *> buffer;
     std::deque<iss_reg_t> lsu_buffer;
+    std::deque<SequencerFrepEntry> frep_buffer;
     int stall_reg;
     iss_insn_t *input_insn;
     bool stalled_insn;
     bool frep_enabled;
+    SequencerFrepEntry frep_current;
     bool input_insn_is_sequence;
     iss_reg_t input_insn_reg;
 };

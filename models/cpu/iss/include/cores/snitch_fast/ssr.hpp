@@ -42,6 +42,7 @@ public:
     void push_data(uint64_t data);
 
 private:
+    void status_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
     void wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim);
     void rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim);
     static constexpr int fifo_size = 4;

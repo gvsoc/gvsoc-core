@@ -50,15 +50,6 @@ Sequencer::Sequencer(IssWrapper &top, Iss &iss)
         {
             insn->u.insn.stub_handler = &Sequencer::direct_branch_handler;
         }
-
-        iss.decode.get_insn("flb")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("fsb")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("flh")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("fsh")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("flw")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("fsw")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("fld")->u.insn.stub_handler = &Sequencer::load_store_handler;
-        iss.decode.get_insn("fsd")->u.insn.stub_handler = &Sequencer::load_store_handler;
     }
 }
 
@@ -99,6 +90,7 @@ iss_reg_t Sequencer::non_float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return insn->stub_handler(iss, insn, pc);
 }
 
+
 iss_reg_t Sequencer::sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     Sequencer *_this = &iss->sequencer;
@@ -121,12 +113,14 @@ iss_reg_t Sequencer::sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg
         if (_this->buffer.size() == 16)
         {
             _this->input_insn = insn;
+            _this->input_insn_reg = REG_GET(0);
             _this->input_insn_is_sequence = true;
             return iss_insn_next(iss, insn, pc);
         }
         else
         {
             iss->sequencer.buffer.push_back(insn);
+            iss->sequencer.lsu_buffer.push_back(REG_GET(0));
 
             if (iss->sequencer.buffer.size() == 1)
             {
@@ -137,12 +131,6 @@ iss_reg_t Sequencer::sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg
         }
     }
     return iss_insn_next(iss, insn, pc);
-}
-
-iss_reg_t Sequencer::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    iss->sequencer.lsu_buffer.push_back(REG_GET(0));
-    return Sequencer::sequence_buffer_handler(iss, insn, pc);
 }
 
 iss_reg_t Sequencer::direct_branch_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -180,6 +168,7 @@ iss_reg_t Sequencer::direct_branch_handler(Iss *iss, iss_insn_t *insn, iss_reg_t
             }
 
             _this->input_insn = insn;
+            _this->input_insn_reg = REG_GET(0);
             _this->input_insn_is_sequence = false;
             return iss_insn_next(iss, insn, pc);
         }
@@ -227,6 +216,7 @@ void Sequencer::fsm_handler(vp::Block *block, vp::ClockEvent *event)
             if (!_this->frep_enabled)
             {
                 _this->buffer.pop_front();
+                _this->lsu_buffer.pop_front();
             }
             else
             {
@@ -243,6 +233,7 @@ void Sequencer::fsm_handler(vp::Block *block, vp::ClockEvent *event)
                             for (int i=0; i<_this->max_inst + 1; i++)
                             {
                                 _this->buffer.pop_front();
+                                _this->lsu_buffer.pop_front();
                             }
                             _this->max_rpt = 0;
                             _this->frep_enabled = false;
@@ -263,6 +254,7 @@ void Sequencer::fsm_handler(vp::Block *block, vp::ClockEvent *event)
         if (_this->input_insn != NULL && _this->input_insn_is_sequence && _this->buffer.size() < 16)
         {
             _this->buffer.push_back(_this->input_insn);
+            _this->lsu_buffer.push_back(_this->input_insn_reg);
             _this->input_insn = NULL;
 
             if (_this->stalled_insn)

@@ -94,7 +94,7 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False,
-            float_lib='softfloat'):
+            float_lib='flexfloat'):
 
         super().__init__(parent, name)
 

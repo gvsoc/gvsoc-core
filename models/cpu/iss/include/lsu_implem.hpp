@@ -329,7 +329,11 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
     int64_t latency;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), NULL, size, false, latency)) == 0)
     {
+#ifdef CONFIG_GVSOC_ISS_SNITCH_FAST
+        this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg_untimed(reg), size * 8));
+#else
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg(reg), size * 8));
+#endif
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_freg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
 #endif

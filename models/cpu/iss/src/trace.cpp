@@ -307,7 +307,12 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
     else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
     {
         bool float_hex = iss->top.traces.get_trace_engine()->get_trace_float_hex();
-        if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_32)
+
+        if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_64)
+        {
+            buff = dump_float_vector(iss, buff, 64, 11, 52, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+        }
+        else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_32)
         {
             buff = dump_float_vector(iss, buff, 32, 8, 23, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }

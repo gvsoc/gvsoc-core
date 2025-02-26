@@ -396,3 +396,8 @@ std::vector<iss_decoder_item_t *> *Decode::get_insns_from_tag(std::string tag)
 {
     return __iss_isa_set.tag_insns[tag];
 }
+
+iss_decoder_item_t *Decode::get_insn(std::string name)
+{
+    return __iss_isa_set.insns[name];
+}

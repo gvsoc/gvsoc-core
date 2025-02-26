@@ -43,6 +43,7 @@ public:
     bool has_double;
 
     std::vector<iss_decoder_item_t *> *get_insns_from_tag(std::string tag);
+    iss_decoder_item_t *get_insn(std::string name);
 
 private:
     int decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode);
@@ -69,5 +70,6 @@ typedef struct iss_isa_set_s
 {
     iss_decoder_item_t *isa_set;
     std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> &tag_insns;
+    std::unordered_map<std::string, iss_decoder_item_t *> &insns;
     bool initialized;
 } iss_isa_set_t;

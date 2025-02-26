@@ -368,6 +368,7 @@ class InFReg(InReg):
         elif f == 'b': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8')
         elif f == 'bh': flags.append('ISS_DECODER_ARG_FLAG_ELEM_8A')
         elif f == 's': flags.append('ISS_DECODER_ARG_FLAG_ELEM_32')
+        elif f == 'd': flags.append('ISS_DECODER_ARG_FLAG_ELEM_64')
         elif f == 'H': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'AH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_16A', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'B': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_VEC']
@@ -652,8 +653,10 @@ class IsaSubset(object):
     def __init__(self, name, instrs):
         self.name = name
         self.instrs = instrs
+        self.instrs_dict = {}
         for instr in instrs:
             instr.set_isa(self)
+            self.instrs_dict[instr.name] = instr
 
     def check_compatibilities(self, isa):
         pass
@@ -661,6 +664,8 @@ class IsaSubset(object):
     def get_insns(self):
         return self.instrs
 
+    def get_insn(self, name):
+        return self.instrs_dict.get(name)
 
 
 class Resource(object):
@@ -679,6 +684,7 @@ class Isa(object):
         self.name = name
         self.isas = {}
         self.isa_tags_insns = {}
+        self.instrs_dict = {}
 
 
     def alloc_decoder_tree_id(self):
@@ -705,12 +711,15 @@ class Isa(object):
         self.isas[isa.name] = isa
 
         for insn in isa.get_insns():
+            self.instrs_dict[insn.name] = insn
             for tag in insn.tags:
                 if self.isa_tags_insns.get(tag) is None:
                     self.isa_tags_insns[tag] = []
 
                 self.isa_tags_insns[tag].append(f'&{insn.get_full_name()}')
 
+    def get_insn(self, name):
+        return self.instrs_dict.get(name)
 
     def get_insns(self):
         result = []
@@ -741,6 +750,7 @@ class Isa(object):
         dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
         dump(isaFile, f'  .isa_set=&{tree.get_name()},\n')
         dump(isaFile, '  .tag_insns=tag_insn,\n')
+        dump(isaFile, '  .insns=insns,\n')
         dump(isaFile, '  .initialized=false,\n')
         dump(isaFile, '};\n')
         dump(isaFile, '\n')
@@ -762,7 +772,10 @@ class Isa(object):
             dump(isaFile, f'    {{ "{tag_name}", {tag_struct_name} }},\n')
         dump(isaFile, f'}};\n\n')
 
-        self.isa_tags_insns = self.isa_tags_insns
+        dump(isaFile, f'static std::unordered_map<std::string, iss_decoder_item_t *> insns = {{\n')
+        for insn in self.get_insns():
+            dump(isaFile, f'    {{ "{insn.name}", &{insn.get_full_name()} }},\n')
+        dump(isaFile, f'}};\n\n')
 
 
 
@@ -788,14 +801,18 @@ class Instr(object):
         self.name = label.replace('.', '_')
         self.encoding = encoding
         self.decode = decode
-        self.exec_func = f'{self.name}_exec'
-        if not fast_handler:
-            self.exec_func_fast = self.exec_func
-        else:
-            self.exec_func_fast = self.exec_func + '_fast'
+        self.fast_handler = fast_handler
+        self.set_exec_label(self.name)
 
         self.decode_func = '%s_decode_gen' % (self.name)
         self.len = len(encoding.strip())
+
+    def set_exec_label(self, name):
+        self.exec_func = f'{name}_exec'
+        if not self.fast_handler:
+            self.exec_func_fast = self.exec_func
+        else:
+            self.exec_func_fast = self.exec_func + '_fast'
 
 
     def set_isa(self, isa):

@@ -26,16 +26,6 @@
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 
-static inline iss_reg_t flb_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    return flb_exec(iss, insn, pc);
-}
-
-static inline iss_reg_t fsb_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    return fsb_exec(iss, insn, pc);
-}
-
 static inline iss_reg_t fmadd_b_exec_switch(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (fmode_get(iss, insn) == 3)

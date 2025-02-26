@@ -38,12 +38,14 @@ public:
     void enable();
     void disable();
     void handle_data();
-    uint64_t pop_data();
+    void pop_data_check();
+    uint64_t get_data();
     void push_data(uint64_t data);
 
 private:
-    void wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
-    void rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
+    void status_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write);
+    void wptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim);
+    void rptr_req(uint64_t reg_offset, int size, uint8_t *value, bool is_write, int dim);
     static constexpr int fifo_size = 4;
 
     Iss &iss;
@@ -73,7 +75,16 @@ private:
     vp_ssr_rptr_0 *rptr;
     vp_ssr_wptr_0 *wptr;
 
-    bool done;
+    uint64_t current_bounds[4];
+
+    uint64_t repeat_count;
+
+    int read_dim;
+    int write_dim;
+
+    bool active;
+
+    int64_t get_data_timestamp;
 };
 
 class Ssr : public vp::Block
@@ -87,7 +98,7 @@ public:
     void cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value);
     iss_reg_t cfg_read(iss_insn_t *insn, int reg, int ssr);
     bool ssr_is_enabled() { return this->ssr_enabled; }
-    inline uint64_t pop_data(int ssr) { return this->streamers[ssr].pop_data(); }
+    inline uint64_t pop_data(int ssr) { return this->streamers[ssr].get_data(); }
     inline void push_data(int ssr, uint64_t data) { this->streamers[ssr].push_data(data); }
 
 private:

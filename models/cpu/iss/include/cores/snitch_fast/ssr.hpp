@@ -38,7 +38,8 @@ public:
     void enable();
     void disable();
     void handle_data();
-    uint64_t pop_data();
+    void pop_data_check();
+    uint64_t get_data();
     void push_data(uint64_t data);
 
 private:
@@ -82,6 +83,8 @@ private:
     int write_dim;
 
     bool active;
+
+    int64_t get_data_timestamp;
 };
 
 class Ssr : public vp::Block
@@ -95,7 +98,7 @@ public:
     void cfg_write(iss_insn_t *insn, int reg, int ssr, iss_reg_t value);
     iss_reg_t cfg_read(iss_insn_t *insn, int reg, int ssr);
     bool ssr_is_enabled() { return this->ssr_enabled; }
-    inline uint64_t pop_data(int ssr) { return this->streamers[ssr].pop_data(); }
+    inline uint64_t pop_data(int ssr) { return this->streamers[ssr].get_data(); }
     inline void push_data(int ssr, uint64_t data) { this->streamers[ssr].push_data(data); }
 
 private:

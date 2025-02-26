@@ -20,6 +20,7 @@
  *          Kexin Li, ETH Zurich (likexi@ethz.ch)
  */
 
+#include <cstdint>
 #include <functional>
 #include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
 #include "cpu/iss/include/iss.hpp"
@@ -104,6 +105,7 @@ void SsrStreamer::reset(bool active)
         {
             this->current_bounds[i] = 0;
         }
+        this->get_data_timestamp = INT64_MAX;
     }
 }
 
@@ -142,11 +144,12 @@ void SsrStreamer::push_data(uint64_t data)
     }
 }
 
-uint64_t SsrStreamer::pop_data()
+void SsrStreamer::pop_data_check()
 {
-    if (this->in_fifo_nb_elem > 0)
+    if (this->in_fifo_nb_elem > 0 && this->get_data_timestamp < this->iss.top.clock.get_cycles())
     {
-        uint64_t value = this->in_fifo[this->in_fifo_head];
+        // Put access timestamp at max so that it is not removed until next access is done
+        this->get_data_timestamp = INT64_MAX;
 
         this->repeat_count++;
         if (this->repeat_count > this->regmap.repeat.get())
@@ -159,6 +162,8 @@ uint64_t SsrStreamer::pop_data()
             }
             this->in_fifo_nb_elem--;
 
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Popping value from input fifo (nb_elem: %d)\n",
+                this->in_fifo_nb_elem);
     #ifdef VP_TRACE_ACTIVE
             // If another value is present in the value, setup now the FPU register since
             // the fetch was not able to set it for tracing
@@ -168,8 +173,20 @@ uint64_t SsrStreamer::pop_data()
             }
     #endif
         }
+    }
+}
 
-        return value;
+uint64_t SsrStreamer::get_data()
+{
+    this->pop_data_check();
+
+    if (this->in_fifo_nb_elem > 0)
+    {
+        // Register the access so that the fifo element is removed at next cycle
+        this->get_data_timestamp = this->iss.top.clock.get_cycles();
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Getting value from input fifo (value: %lx, nb_elem: %d)\n",
+            this->in_fifo[this->in_fifo_head], this->in_fifo_nb_elem);
+        return this->in_fifo[this->in_fifo_head];
     }
     else
     {
@@ -219,6 +236,8 @@ void SsrStreamer::handle_data()
     }
     else
     {
+        this->pop_data_check();
+
         if (this->in_fifo_nb_elem < SsrStreamer::fifo_size && this->active)
         {
             vp::IoReq *req = &this->in_io_req;
@@ -245,6 +264,9 @@ void SsrStreamer::handle_data()
                 this->in_fifo_tail = 0;
             }
             this->in_fifo_nb_elem++;
+
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Pushing value to input fifo (value: 0x%lx, nb_elem: %d)\n",
+                this->in_io_req_data, this->in_fifo_nb_elem);
 
             for (int i=0; i<this->read_dim + 1; i++)
             {

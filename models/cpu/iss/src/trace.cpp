@@ -249,7 +249,7 @@ static char *dump_float_vector(Iss *iss, char *buff, int width, int exp, int man
     if (!is_vec || CONFIG_GVSOC_ISS_FP_WIDTH == width)
     {
         uint64_t value_64;
-        if (CONFIG_GVSOC_ISS_FP_WIDTH == width)
+        if (width == 64)
         {
             value_64 = value;
         }

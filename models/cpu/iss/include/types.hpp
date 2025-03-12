@@ -33,6 +33,10 @@ class Iss;
 #include <vector>
 #include <string>
 
+#ifndef ISA_NB_TAGS
+#define ISA_NB_TAGS 0
+#endif
+
 #if defined(RISCY)
 #define ISS_HAS_PERF_COUNTERS 1
 #if defined(ISS_HAS_PERF_COUNTERS)

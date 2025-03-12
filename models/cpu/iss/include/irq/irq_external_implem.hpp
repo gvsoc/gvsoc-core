@@ -22,7 +22,7 @@
 #pragma once
 
 #include <cpu/iss/include/irq/irq_external.hpp>
-#include <cpu/iss/include/iss.hpp>
+#include ISS_CORE_INC(class.hpp)
 
 inline void Irq::global_enable(int enable)
 {

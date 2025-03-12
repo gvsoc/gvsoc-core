@@ -22,6 +22,7 @@
 #pragma once
 
 #include <cpu/iss/include/types.hpp>
+#include <cpu/iss/include/iss_core.hpp>
 #include ISS_CORE_INC(class.hpp)
 
 

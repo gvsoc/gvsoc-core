@@ -23,7 +23,7 @@
 #define __CPU_ISS_ISS_CORE_HPP
 
 #include "cpu/iss/include/types.hpp"
-#include <string>
+#include "cpu/iss/include/decode.hpp"
 
 void update_external_pccr(Iss *iss, int id, unsigned int pcer, unsigned int pcmr);
 

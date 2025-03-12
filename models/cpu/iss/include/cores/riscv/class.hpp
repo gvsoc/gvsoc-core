@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -97,18 +97,5 @@ inline Iss::Iss(IssWrapper &top)
 {
 }
 
-
-#include "cpu/iss/include/isa/rv64i.hpp"
-#include "cpu/iss/include/isa/rv32i.hpp"
-#include "cpu/iss/include/isa/rv32c.hpp"
-#include "cpu/iss/include/isa/zcmp.hpp"
-#include "cpu/iss/include/isa/rv32a.hpp"
-#include "cpu/iss/include/isa/rv64c.hpp"
-#include "cpu/iss/include/isa/rv32m.hpp"
-#include "cpu/iss/include/isa/rv64m.hpp"
-#include "cpu/iss/include/isa/rv64a.hpp"
-#include "cpu/iss/include/isa/rvf.hpp"
-#include "cpu/iss/include/isa/rvd.hpp"
-#include "cpu/iss/include/isa/priv.hpp"
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>

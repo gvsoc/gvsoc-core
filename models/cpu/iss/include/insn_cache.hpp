@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include "cpu/iss/include/decode.hpp"
+#include "cpu/iss/include/types.hpp"
+
 // The size of a page corresponds to the tlb page size with instructions of at least 2 bytes
 #define INSN_PAGE_BITS 9
 #define INSN_PAGE_SIZE (1 << (INSN_PAGE_BITS - 1))

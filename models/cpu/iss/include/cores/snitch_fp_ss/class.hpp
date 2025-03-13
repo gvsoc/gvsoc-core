@@ -45,7 +45,7 @@
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
-#include <cpu/iss/include/cores/snitch_fp_ss/exec_inorder.hpp>
+#include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
@@ -86,7 +86,7 @@ public:
     Exception exception;
     Memcheck memcheck;
 
-    vp::Component &top;
+    IssWrapper &top;
 
 #if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
     Spatz spatz;
@@ -165,11 +165,13 @@ public:
 
     void start();
     void reset(bool active);
+    void stop();
 
     Iss iss;
 
-private:
     vp::Trace trace;
+    int dummy;
+private:
 };
 
 static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)

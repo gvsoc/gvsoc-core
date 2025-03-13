@@ -57,6 +57,7 @@
 class IssWrapper;
 
 
+
 class Iss
 {
 public:
@@ -112,6 +113,7 @@ public:
 
     void start();
     void reset(bool active);
+    void stop();
 
     Iss iss;
 

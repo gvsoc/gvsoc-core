@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -98,6 +98,7 @@ private:
 };
 
 
+
 class IssWrapper : public vp::Component
 {
 
@@ -106,6 +107,7 @@ public:
 
     void start();
     void reset(bool active);
+    void stop();
 
     Iss iss;
 

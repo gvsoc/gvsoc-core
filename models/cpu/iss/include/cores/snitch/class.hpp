@@ -87,7 +87,7 @@ public:
     Exception exception;
     Memcheck memcheck;
 
-    vp::Component &top;
+    IssWrapper &top;
 
 #if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
     Spatz spatz;
@@ -158,6 +158,7 @@ public:
 
     void start();
     void reset(bool active);
+    void stop();
 
     Iss iss;
 

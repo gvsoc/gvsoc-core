@@ -13,3 +13,15 @@ Iss::Iss(IssWrapper &top)
     spatz(*this), memcheck(top, *this), top(top), vector(*this)
 {
 }
+
+Spatz::Spatz(Iss &iss)
+{
+}
+
+void Spatz::build()
+{
+}
+
+void Spatz::reset(bool active)
+{
+}

@@ -88,6 +88,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
 
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
     this->iss.spatz.build();
+    this->iss.vector.build();
 #endif
 
     traces.new_trace("wrapper", &this->trace, vp::DEBUG);

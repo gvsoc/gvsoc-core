@@ -28,7 +28,7 @@ Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
       regfile(top, *this), mmu(*this), pmp(*this), exception(*this), ssr(*this), memcheck(top, *this), top(top)
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+#if defined(CONFIG_GVSOC_ISS_SPATZ)
       , spatz(*this)
 #endif
 {
@@ -53,7 +53,7 @@ Iss::Iss(IssWrapper &top)
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
     this->event = this->top.event_new((vp::Block *)this, handle_event);
-    
+
     this->top.new_master_port("acc_req_ready", &this->acc_req_ready_itf);
 
     this->top.new_master_port("acc_req", &this->acc_req_itf, (vp::Block *)this);
@@ -114,7 +114,7 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 // Check whether the subsystem is busy or idle.
 bool Iss::check_state(iss_insn_t *insn)
 {
-    // Hierarchical instruction scoreboard, 
+    // Hierarchical instruction scoreboard,
     // only stall the current floating point instruction if the previous one is waiting for offloading.
     // 1. fp instruction: get successful handshaking and continue.
     // 2. int instruction: continue without check, except data dependency, some int operands depend on previous fp result.
@@ -123,7 +123,7 @@ bool Iss::check_state(iss_insn_t *insn)
     this->check_req.init();
 
     // Set the request is_write bit to differentiate whether it's a sequenceable instruction.
-    // This is important because the handshaking methods and instruction lanes in the sequencer are different. 
+    // This is important because the handshaking methods and instruction lanes in the sequencer are different.
     if (insn->desc->tags[ISA_TAG_NSEQ_ID])
     {
         // Instructions in bypass lane
@@ -156,7 +156,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
 {
     iss_opcode_t opcode = insn->opcode;
     this->trace_iss.msg("Send offload request (opcode: 0x%lx, pc: 0x%lx)\n", opcode, pc);
-    
+
     // Assign arguments to request.
     this->insn = *((iss_insn_t *)insn);
     this->pc = pc;
@@ -181,7 +181,7 @@ bool Iss::handle_req(iss_insn_t *insn, iss_reg_t pc, bool is_write)
     {
     #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         this->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], insn->latency, -1);
-    #endif   
+    #endif
     }
 
     return false;
@@ -220,7 +220,7 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
     {
         #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
         _this->regfile.scoreboard_reg_valid[result->insn.out_regs[0]] = true;
-        #endif   
+        #endif
     }
     // Reset memory address when the instruction finishes execution.
     bool lsu_label = strstr(result->insn.decoder_item->u.insn.label, "flw")
@@ -255,7 +255,7 @@ void Iss::handle_result(vp::Block *__this, OffloadRsp *result)
 
     // Output instruction trace for debugging.
     _this->trace_iss.msg("Get accelerator response (opcode: 0x%lx, pc: 0x%lx)\n", result->insn.opcode, result->pc);
-    
+
 }
 
 
@@ -275,7 +275,7 @@ bool Iss::ssr_access(bool is_write, iss_reg_t &value)
         this->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Integer side receives acceleration request handshaking signal: %d\n", acc_req_ready);
 
         // If not ready, stay at current PC and fetch the same instruction next cycle.
-        if (!acc_req_ready) 
+        if (!acc_req_ready)
         {
             this->exec.trace.msg("Stall at current instruction\n");
 

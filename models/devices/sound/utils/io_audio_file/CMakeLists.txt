@@ -3,7 +3,6 @@ set(SRCS "io_audio.cpp")
 
 vp_block(NAME io_audio
     PREFIX io_audio
-    FORCE_BUILD 1
     SOURCES ${SRCS})
 
 find_library(SNDFILE_LIB sndfile)
@@ -20,8 +19,8 @@ if(SAMPLERATE_LIB)
 endif()
 
 if(SNDFILE_LIB OR SAMPLERATE_LIB)
-    vp_model_compile_options(NAME io_audio FORCE_BUILD 1 OPTIONS ${COMPILE_OPTIONS})
+    vp_model_compile_options(NAME io_audio OPTIONS ${COMPILE_OPTIONS})
     vp_block_compile_options(NAME io_audio OPTIONS ${COMPILE_OPTIONS})
     vp_model_link_libraries(
-        NAME io_audio NO_M32 1 FORCE_BUILD 1 LIBRARY ${LIBS_TO_INCLUDE})
+        NAME io_audio NO_M32 1 LIBRARY ${LIBS_TO_INCLUDE})
 endif()

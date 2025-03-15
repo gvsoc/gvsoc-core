@@ -20,6 +20,7 @@
 #
 
 from cpu.iss.isa_gen.isa_gen import *
+from cpu.iss.isa_gen.isa_rvv import *
 import os.path
 import filecmp
 import shutil
@@ -1007,6 +1008,10 @@ class RiscvIsa(Isa):
             elif isa == 'd':
                 misa |= 1 << 3
                 self.add_isa(Rv32d())
+
+            elif isa == 'v':
+                misa |= 1 << 3
+                self.add_isa(Rv32v())
 
         if inc_priv:
             self.add_isa(Priv())

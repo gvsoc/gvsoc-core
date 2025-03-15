@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
- *                    University of Bologna
+ * Copyright (C) 2020 SAS, ETH Zurich and University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +15,7 @@
  */
 
 /*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ * Authors: Germain Haugou (germain.haugou@gmail.com)
  */
 
 #include "cpu/iss/include/iss.hpp"
@@ -61,7 +60,7 @@ void IssWrapper::reset(bool active)
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
     this->iss.syscalls.reset(active);
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+#if defined(CONFIG_GVSOC_ISS_SPATZ)
     this->iss.spatz.reset(active);
 #endif
 }
@@ -87,7 +86,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.prefetcher.build();
 
 
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+#if defined(CONFIG_GVSOC_ISS_SPATZ)
     this->iss.spatz.build();
 #endif
 

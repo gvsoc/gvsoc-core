@@ -49,7 +49,7 @@
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
 
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+#if defined(CONFIG_GVSOC_ISS_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
 #endif
 
@@ -89,7 +89,7 @@ public:
 
     IssWrapper &top;
 
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+#if defined(CONFIG_GVSOC_ISS_SPATZ)
     Spatz spatz;
 #endif
 
@@ -174,7 +174,7 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 
 #include "cpu/iss/include/isa/rv64i.hpp"
 #include "cpu/iss/include/isa/rv32i.hpp"
-#if defined(CONFIG_GVSOC_ISS_INC_SPATZ)
+#if defined(CONFIG_GVSOC_ISS_SPATZ)
 #include "cpu/iss/include/isa/rv32v.hpp"
 #endif
 #include "cpu/iss/include/isa/rv32c.hpp"

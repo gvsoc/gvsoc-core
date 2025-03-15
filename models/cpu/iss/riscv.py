@@ -179,14 +179,7 @@ class RiscvCommon(st.Component):
 
         self.add_c_flags([f"-DISS_WORD_{self.isa.word_size}"])
 
-        if core == 'ri5ky':
-            self.add_c_flags(['-DCONFIG_GVSOC_ISS_RI5KY=1'])
-
-        elif core == 'snitch':
-            self.add_c_flags(['-DCONFIG_GVSOC_ISS_SNITCH=1'])
-
-        elif core == 'spatz':
-            self.add_c_flags(['-DCONFIG_GVSOC_ISS_INC_SPATZ=1'])
+        self.add_c_flags([f'-DCONFIG_GVSOC_ISS_{core.upper()}=1'])
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])

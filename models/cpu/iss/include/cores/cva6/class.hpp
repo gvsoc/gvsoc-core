@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
- *                    University of Bologna
+ * Copyright (C) 2020 SAS, ETH Zurich and University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +15,7 @@
  */
 
 /*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ * Authors: Germain Haugou (germain.haugou@gmail.com)
  */
 
 
@@ -33,29 +32,20 @@
 #include <cpu/iss/include/exception.hpp>
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
-#include <cpu/iss/include/cores/snitch_fast/regfile.hpp>
-#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+#include <cpu/iss/include/regfile.hpp>
 #include <cpu/iss/include/irq/irq_riscv.hpp>
-#else
-#include <cpu/iss/include/irq/irq_external.hpp>
-#endif
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
+#include <cpu/iss/include/vector.hpp>
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
-
-#if defined(CONFIG_GVSOC_ISS_SPATZ)
-#include <cpu/iss/include/spatz.hpp>
-#endif
-#include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
-#include <cpu/iss/include/cores/snitch_fast/sequencer.hpp>
+#include <cpu/iss/include/cores/ara/ara.hpp>
 
 class IssWrapper;
-
 
 
 class Iss
@@ -63,11 +53,11 @@ class Iss
 public:
     Iss(IssWrapper &top);
 
+    Regfile regfile;
     Exec exec;
     InsnCache insn_cache;
     Timing timing;
     Core core;
-    SnitchRegfile regfile;
     Prefetcher prefetcher;
     Decode decode;
     Irq irq;
@@ -81,29 +71,11 @@ public:
     Pmp pmp;
     Exception exception;
     Memcheck memcheck;
+    Vector vector;
+    Ara ara;
 
     vp::Component &top;
-
-#if defined(CONFIG_GVSOC_ISS_SPATZ)
-    Spatz spatz;
-#endif
-
-    Ssr ssr;
-    Sequencer sequencer;
-
-    CsrReg csr_fmode;
-
-
-private:
-    bool barrier_update(bool is_write, iss_reg_t &value);
-    static void barrier_sync(vp::Block *__this, bool value);
-
-    vp::WireMaster<bool> barrier_req_itf;
-    vp::WireSlave<bool> barrier_ack_itf;
-    CsrReg barrier;
-    bool waiting_barrier;
 };
-
 
 class IssWrapper : public vp::Component
 {
@@ -112,8 +84,8 @@ public:
     IssWrapper(vp::ComponentConf &config);
 
     void start();
-    void reset(bool active);
     void stop();
+    void reset(bool active);
 
     Iss iss;
 
@@ -121,48 +93,26 @@ private:
     vp::Trace trace;
 };
 
-typedef struct
+inline Iss::Iss(IssWrapper &top)
+    : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this),
+    core(*this), irq(*this), gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this),
+    trace(*this), csr(*this), regfile(top, *this), mmu(*this), pmp(*this), exception(*this),
+    memcheck(top, *this), vector(*this), ara(*this), top(top)
 {
-} SnitchInsnData;
-
-static_assert(sizeof(SnitchInsnData) <= sizeof(iss_insn_t::data), "SnitchInsnData size exceeds iss_insn_t::data size");
-
-static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
-{
-    return iss->csr_fmode.value;
 }
-
 
 #include "cpu/iss/include/isa/rv64i.hpp"
 #include "cpu/iss/include/isa/rv32i.hpp"
-#if defined(CONFIG_GVSOC_ISS_SPATZ)
-#include "cpu/iss/include/isa/rv32v.hpp"
-#endif
 #include "cpu/iss/include/isa/rv32c.hpp"
 #include "cpu/iss/include/isa/zcmp.hpp"
 #include "cpu/iss/include/isa/rv32a.hpp"
-
-#if ISS_REG_WIDTH == 64
 #include "cpu/iss/include/isa/rv64c.hpp"
-#endif
 #include "cpu/iss/include/isa/rv32m.hpp"
 #include "cpu/iss/include/isa/rv64m.hpp"
 #include "cpu/iss/include/isa/rv64a.hpp"
-#include "cpu/iss/include/isa/rvd.hpp"
 #include "cpu/iss/include/isa/rvf.hpp"
-#include "cpu/iss/include/isa/rvXf16.hpp"
-#include "cpu/iss/include/isa/rvXf16alt.hpp"
-#include "cpu/iss/include/isa/rvXf16_switch.hpp"
-#include "cpu/iss/include/isa/rvXf8.hpp"
-#include "cpu/iss/include/isa/rvXf8alt.hpp"
-#include "cpu/iss/include/isa/rvXf8_switch.hpp"
-#include "cpu/iss/include/isa/rv32Xfvec.hpp"
-#include "cpu/iss/include/isa/rv32Xfaux.hpp"
+#include "cpu/iss/include/isa/rv32v.hpp"
+#include "cpu/iss/include/isa/rvd.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
-#include <cpu/iss/include/isa/xdma.hpp>
-#include "cpu/iss/include/isa/rv32frep.hpp"
-#include "cpu/iss/include/isa/rv32ssr.hpp"
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>
-#include <cpu/iss/include/cores/snitch_fast/regfile_implem.hpp>
-#include <cpu/iss/include/cores/snitch_fast/isa.hpp>

@@ -52,6 +52,10 @@ public:
     vp::Trace insn_trace;
     iss_insn_arg_t saved_args[ISS_MAX_DECODE_ARGS];
     iss_insn_arg_t check_args[ISS_MAX_DECODE_ARGS];
+#ifdef CONFIG_ISS_HAS_VECTOR
+    uint8_t saved_vargs[ISS_MAX_DECODE_ARGS][CONFIG_ISS_VLEN/8];
+    uint8_t check_vargs[ISS_MAX_DECODE_ARGS][CONFIG_ISS_VLEN/8];
+#endif
     int priv_mode;
     bool has_reg_dump = false;
     iss_reg_t reg_dump;

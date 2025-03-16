@@ -6897,6 +6897,8 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
         VSTART = 0;
         SEW = iss->vector.SEW_VALUES[sew];
         LMUL = iss->vector.LMUL_VALUES[lmul];
+        iss->vector.sewb = 1 << sew;
+        EMCase(iss->vector.sewb * 8, &iss->vector.mant, &iss->vector.exp);
 
         if(idxRs1){
             AVL = rs1;

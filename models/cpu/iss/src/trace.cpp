@@ -164,57 +164,64 @@ static inline int iss_trace_dump_reg(Iss *iss, iss_insn_t *insn, iss_decoder_arg
 {
     if (is_long)
     {
-#ifndef ISS_SINGLE_REGFILE
-        if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
+        if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
         {
-            return sprintf(buff, "f%d", reg);
+            return sprintf(buff, "v%d", reg);
         }
         else
-#endif
         {
-            if (reg == 0)
+#ifndef ISS_SINGLE_REGFILE
+            if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
             {
-                return sprintf(buff, "0");
+                return sprintf(buff, "f%d", reg);
             }
-            else if (reg == 1)
+            else
+#endif
             {
-                return sprintf(buff, "ra");
-            }
-            else if (reg == 2)
-            {
-                return sprintf(buff, "sp");
-            }
-            else if (reg >= 8 && reg <= 9)
-            {
-                return sprintf(buff, "s%d", reg - 8);
-            }
-            else if (reg >= 18 && reg <= 27)
-            {
-                return sprintf(buff, "s%d", reg - 16);
-            }
-            else if (reg == 4)
-            {
-                return sprintf(buff, "tp");
-            }
-            else if (reg >= 10 && reg <= 17)
-            {
-                return sprintf(buff, "a%d", reg - 10);
-            }
-            else if (reg >= 5 && reg <= 7)
-            {
-                return sprintf(buff, "t%d", reg - 5);
-            }
-            else if (reg >= 28 && reg <= 31)
-            {
-                return sprintf(buff, "t%d", reg - 25);
-            }
-            else if (reg == 3)
-            {
-                return sprintf(buff, "gp");
-            }
-            else if (reg >= ISS_NB_REGS)
-            {
-                return sprintf(buff, "f%d", reg - ISS_NB_REGS);
+                if (reg == 0)
+                {
+                    return sprintf(buff, "0");
+                }
+                else if (reg == 1)
+                {
+                    return sprintf(buff, "ra");
+                }
+                else if (reg == 2)
+                {
+                    return sprintf(buff, "sp");
+                }
+                else if (reg >= 8 && reg <= 9)
+                {
+                    return sprintf(buff, "s%d", reg - 8);
+                }
+                else if (reg >= 18 && reg <= 27)
+                {
+                    return sprintf(buff, "s%d", reg - 16);
+                }
+                else if (reg == 4)
+                {
+                    return sprintf(buff, "tp");
+                }
+                else if (reg >= 10 && reg <= 17)
+                {
+                    return sprintf(buff, "a%d", reg - 10);
+                }
+                else if (reg >= 5 && reg <= 7)
+                {
+                    return sprintf(buff, "t%d", reg - 5);
+                }
+                else if (reg >= 28 && reg <= 31)
+                {
+                    return sprintf(buff, "t%d", reg - 25);
+                }
+                else if (reg == 3)
+                {
+                    return sprintf(buff, "gp");
+                }
+                else if (reg >= ISS_NB_REGS)
+                {
+                    return sprintf(buff, "f%d", reg - ISS_NB_REGS);
+                }
             }
         }
     }
@@ -244,9 +251,35 @@ static char *iss_trace_dump_reg_value_check(Iss *iss, char *buff, int size, uint
     return buff;
 }
 
-static char *dump_float_vector(Iss *iss, char *buff, int width, int exp, int mant, bool is_vec, iss_freg_t value)
+static char *dump_vector(Iss *iss, char *buff, int reg)
 {
-    if (!is_vec || CONFIG_GVSOC_ISS_FP_WIDTH == width)
+#ifdef CONFIG_ISS_HAS_VECTOR
+    buff += sprintf(buff, "[");
+
+    int width = iss->vector.sewb;
+
+    for (int i=CONFIG_ISS_VLEN/8/width - 1; i>=0; i--)
+    {
+        uint8_t *vreg = &iss->vector.vregs[reg][i*iss->vector.sewb*8];
+        uint64_t value = *(uint64_t *)vreg;
+        uint64_t value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value,
+            iss->vector.exp, iss->vector.mant, 11, 52, 0);
+        buff += sprintf(buff, "%f", *(double *)&value_64);
+        if (i != 0)
+        {
+            buff += sprintf(buff, ", ");
+        }
+    }
+
+    buff += sprintf(buff, "] ");
+#endif
+
+    return buff;
+}
+
+static char *dump_float_vector(Iss *iss, char *buff, int full_width, int width, int exp, int mant, bool is_vec, iss_freg_t value)
+{
+    if (!is_vec || full_width == width)
     {
         uint64_t value_64;
         if (width == 64)
@@ -264,7 +297,7 @@ static char *dump_float_vector(Iss *iss, char *buff, int width, int exp, int man
     {
         buff += sprintf(buff, "[");
 
-        for (int i=CONFIG_GVSOC_ISS_FP_WIDTH / width - 1; i>=0; i--)
+        for (int i=full_width / width - 1; i>=0; i--)
         {
             uint64_t value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value >> (i*width), exp, mant, 11, 52, 0);
             buff += sprintf(buff, "%f", *(double *)&value_64);
@@ -304,33 +337,44 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
             buff += sprintf(buff, "%" PRIxFULLREG64 " ", saved_value);
         }
     }
+    else if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
+    {
+        if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
+        {
+            buff = dump_vector(iss, buff, reg);
+        }
+    }
     else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
     {
         bool float_hex = iss->top.traces.get_trace_engine()->get_trace_float_hex();
 
-        if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_64)
+        if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_SEW)
         {
-            buff = dump_float_vector(iss, buff, 64, 11, 52, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 64, 11, 52, false, saved_value);
+        }
+        else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_64)
+        {
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 64, 11, 52, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_32)
         {
-            buff = dump_float_vector(iss, buff, 32, 8, 23, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 32, 8, 23, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_16)
         {
-            buff = dump_float_vector(iss, buff, 16, 5, 10, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 16, 5, 10, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_16A)
         {
-            buff = dump_float_vector(iss, buff, 16, 8, 7, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 16, 8, 7, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_8)
         {
-            buff = dump_float_vector(iss, buff, 8, 5, 2, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 8, 5, 2, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else if (!float_hex && arg->flags & ISS_DECODER_ARG_FLAG_ELEM_8A)
         {
-            buff = dump_float_vector(iss, buff, 8, 4, 3, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
+            buff = dump_float_vector(iss, buff, CONFIG_GVSOC_ISS_FP_WIDTH, 8, 4, 3, arg->flags & ISS_DECODER_ARG_FLAG_VEC, saved_value);
         }
         else
         {
@@ -605,6 +649,13 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *
     }
 }
 
+static void iss_trace_save_varg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, uint8_t *saved_arg, bool save_out)
+{
+#ifdef CONFIG_ISS_HAS_VECTOR
+    memcpy(saved_arg, iss->vector.vregs[insn_arg->u.reg.index], CONFIG_ISS_VLEN/8);
+#endif
+}
+
 static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, bool save_out)
 {
     if (arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
@@ -654,12 +705,21 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
     //   }
 }
 
-void iss_trace_save_args(Iss *iss, iss_insn_t *insn, iss_insn_arg_t saved_args[], bool save_out)
+void iss_trace_save_args(Iss *iss, iss_insn_t *insn, bool save_out)
 {
     for (int i = 0; i < insn->decoder_item->u.insn.nb_args; i++)
     {
         iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
-        iss_trace_save_arg(iss, insn, &insn->args[i], arg, &saved_args[i], save_out);
+        if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
+        {
+#ifdef CONFIG_ISS_HAS_VECTOR
+            iss_trace_save_varg(iss, insn, &insn->args[i], arg, iss->trace.saved_vargs[i], save_out);
+#endif
+        }
+        else
+        {
+            iss_trace_save_arg(iss, insn, &insn->args[i], arg, &iss->trace.saved_args[i], save_out);
+        }
     }
 }
 
@@ -669,7 +729,7 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         char buffer[1024];
 
-        iss_trace_save_args(iss, insn, iss->trace.saved_args, true);
+        iss_trace_save_args(iss, insn, true);
 
         iss_trace_dump_insn(iss, insn, pc, buffer, 1024, iss->trace.saved_args,
             iss->top.traces.get_trace_engine()->get_format() == TRACE_FORMAT_LONG, iss->trace.priv_mode, 0);
@@ -709,7 +769,7 @@ iss_reg_t iss_exec_insn_with_trace(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         iss->trace.priv_mode = iss->core.mode_get();
 
-        iss_trace_save_args(iss, insn, iss->trace.saved_args, false);
+        iss_trace_save_args(iss, insn, false);
 
         next_insn = insn->saved_handler(iss, insn, pc);
 

@@ -25,7 +25,7 @@ from cpu.iss.isa_gen.isa_riscv_gen import *
 # Encodings for vector instruction set
 
         # 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-# OPV   #   func6    |m|   vs2   |   vs1   |func3|    vd   |     op      # 
+# OPV   #   func6    |m|   vs2   |   vs1   |func3|    vd   |     op      #
 # OPIVI #   func6    |m|   vs2   |   imm   |func3|    vd   |     op      #
 # OPVLS #  NF  |w|mop|m|  lumop  |   rs1   |width|    vd   |     op      #
 # OPVLI # 0|         zimm        |   rs1   |1 1 1|    rd   |     op      #
@@ -39,6 +39,12 @@ Format_OPV = [ OutVReg     (0, Range(7 , 5)),
 Format_OPVF = [ OutVReg     (0, Range(7 , 5)),
                 InFReg     (0, Range(15, 5)),#rs1/vs1
                 InVReg      (1, Range(20, 5)),#vs2
+                #UnsignedImm(0, Range(25, 0)),
+                UnsignedImm(0, Range(25, 1)),
+]
+Format_OPVF_F = [ OutVRegF     (0, Range(7 , 5)),
+                InFReg     (0, Range(15, 5), f='sew'),#rs1/vs1
+                InVRegF      (1, Range(20, 5)),#vs2
                 #UnsignedImm(0, Range(25, 0)),
                 UnsignedImm(0, Range(25, 1)),
 ]
@@ -216,7 +222,7 @@ class Rv32v(IsaSubset):
             Instr('vfmax.vf'      ,   Format_OPVF ,    '000110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfmul.vv'      ,   Format_OPV  ,    '100100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmul.vf'      ,   Format_OPVF ,    '100100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmul.vf'      ,   Format_OPVF_F ,    '100100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfmacc.vv'     ,   Format_OPV  ,    '101100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfmacc.vf'     ,   Format_OPVF ,    '101100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
@@ -378,10 +384,9 @@ class Rv32v(IsaSubset):
             #                           V 1.0
             Instr('vsetvli' ,   Format_OPVLI,    '- ----------- ----- 111 ----- 1010111'), # zimm = {3'b000,vma,vta,vsew[2:0],vlmul[2:0]}
 
-            #                           V 0.8    
+            #                           V 0.8
             # Instr('vsetvli' ,   'OPVLI',    '0 ----------- ----- 111 ----- 1010111'), # zimm = {7'b0000000,vsew[2:0],vlmul[1:0]}
             Instr('vsetvl'  ,   Format_OPVL ,    '1000000 ----- ----- 111 ----- 1010111'),
 
             #Instr('csrr', Format_IU,  '------- ----- 00000 010 ----- 1110011', decode='csr_decode'),
         ])
-

@@ -310,6 +310,10 @@ class OutVReg(OutReg):
     def __init__(self, id, ranges, dumpName=True):
         super(OutVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_VREG'])
 
+class OutVRegF(OutReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(OutVRegF, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=['ISS_DECODER_ARG_FLAG_VREG', 'ISS_DECODER_ARG_FLAG_FREG'])
+
 
 
 class OutReg64(OutReg):
@@ -374,6 +378,7 @@ class InFReg(InReg):
         elif f == 'B': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'BH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8A', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'S': flags += ['ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'sew': flags += ['ISS_DECODER_ARG_FLAG_ELEM_SEW']
         super(InFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=flags)
 
 class InFRegS(InReg):
@@ -426,6 +431,11 @@ class InVReg(InReg):
     def __init__(self, id, ranges, dumpName=True):
         super(InVReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
             flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_VREG'])
+
+class InVRegF(InReg):
+    def __init__(self, id, ranges, dumpName=True):
+        super(InVRegF, self).__init__(id=id, ranges=ranges, dumpName=dumpName,
+            flags=['ISS_DECODER_ARG_FLAG_VEC', 'ISS_DECODER_ARG_FLAG_VREG', 'ISS_DECODER_ARG_FLAG_FREG'])
 
 
 

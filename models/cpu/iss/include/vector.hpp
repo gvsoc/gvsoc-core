@@ -104,6 +104,9 @@ public:
     // uint8_t counter = 1;
     // iss_reg_t vtype;
     // iss_reg_t vl;
+    unsigned int sewb;
+    uint8_t exp;
+    uint8_t mant;
 
     uint8_t vregs[ISS_NB_VREGS][(int)NB_VEL];
 

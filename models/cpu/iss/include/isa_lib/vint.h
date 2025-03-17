@@ -95,6 +95,15 @@
 #define VSTART iss->csr.vstart.value
 
 
+static inline iss_reg_t vlmax_get(Iss *iss)
+{
+#ifdef CONFIG_GVSOC_ISS_CVA6
+    return iss->vector.VLEN / 8 * iss->vector.LMUL_t / iss->vector.sewb;
+#else
+    return (int)((2048*LMUL)/SEW);
+#endif
+}
+
 static inline void printBin(int size, bool *a,const char name[]){
     printf("%s = ",name);
     for(int i = size-1; i >= 0  ; i--){
@@ -3063,7 +3072,7 @@ static inline void lib_SLIDEDWVX(Iss *iss, int vs2, int64_t rs1, int vd, bool vm
     int s = MAX(VSTART,OFFSET);
 
     for (int i = VSTART; i < VL; i++){
-        if(i+OFFSET >= VLMAX){
+        if(i+OFFSET >= vlmax_get(iss)){
             for(int j = 0; j <  t ; j++){
                 iss->vector.vregs[vd][i*t+j] = 0;
             }
@@ -3088,7 +3097,7 @@ static inline void lib_SLIDEDWVI(Iss *iss, int vs2, int64_t sim, int vd, bool vm
     int s = MAX(VSTART,OFFSET);
 
     for (int i = VSTART; i < VL; i++){
-        if(i+OFFSET >= VLMAX){
+        if(i+OFFSET >= vlmax_get(iss)){
             for(int j = 0; j <  t ; j++){
                 iss->vector.vregs[vd][i*t+j] = 0;
             }
@@ -5844,6 +5853,8 @@ static inline void lib_VLE64V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
     // printf("RS1 = %lx\n",rs1);
     // printf("vd = %d\n",vd);
 
+    printf("VLE %d\n", vm);
+
     uint64_t start_add = rs1;
     uint8_t data[4];
 
@@ -6902,10 +6913,10 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
 
         if(idxRs1){
             AVL = rs1;
-            VL = MIN(AVL,VLMAX);
+            VL = MIN(AVL,vlmax_get(iss));
         }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
-            VL  = VLMAX;
+            VL  = vlmax_get(iss);
         }else{
             AVL = VL;
         }
@@ -6938,10 +6949,10 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
 
         if(idxRs1){
             AVL = rs1;
-            VL = MIN(AVL,VLMAX);
+            VL = MIN(AVL,vlmax_get(iss));
         }else if(!idxRs1 && idxRd){
             AVL = UINT32_MAX;
-            VL  = VLMAX;
+            VL  = vlmax_get(iss);
         }else{
             AVL = VL;
         }

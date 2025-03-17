@@ -251,20 +251,29 @@ static char *iss_trace_dump_reg_value_check(Iss *iss, char *buff, int size, uint
     return buff;
 }
 
-static char *dump_vector(Iss *iss, char *buff, int reg)
+static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float)
 {
 #ifdef CONFIG_ISS_HAS_VECTOR
     buff += sprintf(buff, "[");
 
     int width = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
 
     for (int i=CONFIG_ISS_VLEN/8/width - 1; i>=0; i--)
     {
-        uint8_t *vreg = &iss->vector.vregs[reg][i*iss->vector.sewb*8];
+        uint8_t *vreg = velem_get(iss, reg, i, width, lmul); //&iss->vector.vregs[reg][i*iss->vector.sewb*8];
         uint64_t value = *(uint64_t *)vreg;
-        uint64_t value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value,
-            iss->vector.exp, iss->vector.mant, 11, 52, 0);
-        buff += sprintf(buff, "%f", *(double *)&value_64);
+
+        if (is_float)
+        {
+            uint64_t value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value,
+                iss->vector.exp, iss->vector.mant, 11, 52, 0);
+            buff += sprintf(buff, "%f", *(double *)&value_64);
+        }
+        else
+        {
+            buff += sprintf(buff, "%lx", value);
+        }
         if (i != 0)
         {
             buff += sprintf(buff, ", ");
@@ -339,10 +348,7 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
     }
     else if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
     {
-        if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
-        {
-            buff = dump_vector(iss, buff, reg);
-        }
+        buff = dump_vector(iss, buff, reg, arg->flags & ISS_DECODER_ARG_FLAG_FREG);
     }
     else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
     {
@@ -404,7 +410,7 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
 
 static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, iss_decoder_arg_t **prev_arg, int dump_out, bool is_long)
 {
-    if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG))
+    if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG || arg->flags & ISS_DECODER_ARG_FLAG_VREG))
     {
         if ((dump_out && arg->type == ISS_DECODER_ARG_TYPE_OUT_REG) || (!dump_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG))
         {

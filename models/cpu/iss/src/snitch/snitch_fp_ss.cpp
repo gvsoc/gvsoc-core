@@ -174,7 +174,7 @@ void Iss::handle_notif(vp::Block *__this, OffloadReq *req)
     // Get input information for trace
     if (!_this->ssr.ssr_enable)
     {
-        iss_trace_save_args(_this, &insn, _this->trace.saved_args, false);
+        iss_trace_save_args(_this, &insn, false);
     }
 
     // Execute the instruction, and all the results(int/fp) are stored in subsystem regfile.
@@ -272,7 +272,7 @@ void Iss::handle_event(vp::Block *__this, vp::ClockEvent *event)
     // Also process the dm_write_full and write computation result again after stall to data lane.
     if (_this->ssr.ssr_enable)
     {
-        iss_trace_save_args(_this, &insn, _this->trace.saved_args, false);
+        iss_trace_save_args(_this, &insn, false);
 
         // Reset for SSR clock events and settings
         _this->ssr.dm_write_again();

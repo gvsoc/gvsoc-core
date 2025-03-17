@@ -443,7 +443,7 @@ Format_FCI3 = [
 Format_FCI3D = [
     OutFReg(0, Range(7, 5)),
     Indirect(InReg(0, Const(2)),
-    SignedImm(0, Ranges([[5, 2, 2], [12, 1, 5], [2, 3, 6]]), isSigned=False)),
+    SignedImm(0, Ranges([[5, 2, 3], [12, 1, 5], [2, 3, 6]]), isSigned=False)),
 ]
 
 Format_CI4 = [
@@ -768,8 +768,8 @@ class Rv32d(IsaSubset):
             Insn('0010001 ----- ----- 010 ----- 1010011', 'fsgnjx.d',  F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
             Insn('0010101 ----- ----- 000 ----- 1010011', 'fmin.d',    F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
             Insn('0010101 ----- ----- 001 ----- 1010011', 'fmax.d',    F_FF('d', ui12_3),  tags=['fconv', 'fnoncomp', 'fp_op']),
-            Insn('0100000 00001 ----- --- ----- 1010011', 'fcvt.s.d',  F_F('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
-            Insn('0100001 00000 ----- --- ----- 1010011', 'fcvt.d.s',  F_F('d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('0100000 00001 ----- --- ----- 1010011', 'fcvt.s.d',  F_F('s_d', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
+            Insn('0100001 00000 ----- --- ----- 1010011', 'fcvt.d.s',  F_F('d_s', ui12_3),   tags=['fconv', 'nseq', 'fp_op']),
             Insn('1010001 ----- ----- 010 ----- 1010011', 'feq.d',     R_FF('d'),          tags=['fother', 'nseq', 'fp_op']),
             Insn('1010001 ----- ----- 001 ----- 1010011', 'flt.d',     R_FF('d'),          tags=['fother', 'nseq', 'fp_op']),
             Insn('1010001 ----- ----- 000 ----- 1010011', 'fle.d',     R_FF('d'),          tags=['fother', 'nseq', 'fp_op']),

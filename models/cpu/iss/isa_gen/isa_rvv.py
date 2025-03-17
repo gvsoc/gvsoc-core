@@ -36,6 +36,12 @@ Format_OPV = [ OutVReg     (0, Range(7 , 5)),
                #UnsignedImm(0, Range(25, 0)),
                UnsignedImm(0, Range(25, 1)),
 ]
+
+Format_OPVI = [ OutVReg     (0, Range(7 , 5)),
+               InReg      (0, Range(15, 5)),
+               UnsignedImm(0, Range(25, 1)),
+]
+
 Format_OPVF = [ OutVReg     (0, Range(7 , 5)),
                 InFReg     (0, Range(15, 5)),#rs1/vs1
                 InVReg      (1, Range(20, 5)),#vs2
@@ -225,7 +231,7 @@ class Rv32v(IsaSubset):
             Instr('vfmul.vf'      ,   Format_OPVF_F ,    '100100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfmacc.vv'     ,   Format_OPV  ,    '101100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmacc.vf'     ,   Format_OPVF ,    '101100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmacc.vf'     ,   Format_OPVF_F ,    '101100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfnmacc.vv'    ,   Format_OPV  ,    '101101 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfnmacc.vf'    ,   Format_OPVF ,    '101101 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
@@ -314,16 +320,18 @@ class Rv32v(IsaSubset):
 
             Instr('vfncvt.rtz.x.f.w' ,   Format_OPV  ,    '010010 - ----- 10111 001 ----- 1010111', tags=['fp_op', 'nseq']),
 
+            Instr('vfslide1down.vf' , Format_OPVF_F, '001111 - ----- ----- 101 ----- 1010111', tags=['fp_op', 'nseq']),
+
 
 
             Instr('vfmv.v.f'         ,   Format_OPVF ,    '010111 - ----- ----- 101 ----- 1010111', tags=['fp_op', 'nseq']),
             Instr('vfmv.s.f'         ,   Format_OPVF ,    '010000 - 00000 ----- 101 ----- 1010111', tags=['fp_op', 'nseq']),
             Instr('vfmv.f.s'         ,   Format_OPVFF,    '010000 - ----- 00000 001 ----- 1010111', tags=['fp_op', 'nseq']),
 
-            Instr('vle8.v'           ,   Format_OPV  ,    '000 0 00 - 00000 ----- 000 ----- 0000111'),# vd, (rs1), vm
-            Instr('vle16.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 101 ----- 0000111'),
-            Instr('vle32.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 110 ----- 0000111'),
-            Instr('vle64.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 111 ----- 0000111'),
+            Instr('vle8.v'           ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 000 ----- 0000111'),# vd, (rs1), vm
+            Instr('vle16.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 101 ----- 0000111'),
+            Instr('vle32.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 110 ----- 0000111'),
+            Instr('vle64.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 111 ----- 0000111'),
 
             Instr('vse8.v'           ,   Format_OPV  ,    '000 0 00 - 00000 ----- 000 ----- 0100111'),
             Instr('vse16.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 101 ----- 0100111'),

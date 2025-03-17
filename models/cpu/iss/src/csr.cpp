@@ -26,6 +26,7 @@ Csr::Csr(Iss &iss)
 {
     // Unprivileged Counter/Timers
     this->declare_csr(&this->cycle,  "cycle",   0xC00); this->cycle.write_illegal = true;
+    this->cycle.register_callback(std::bind(&Csr::mcycle_access, this, std::placeholders::_1, std::placeholders::_2));
     this->declare_csr(&this->time,     "time",      0xC01);
     this->time.register_callback(std::bind(&Csr::time_access, this, std::placeholders::_1, std::placeholders::_2));
     this->declare_csr(&this->instret,  "instret",   0xC02);
@@ -78,7 +79,7 @@ Csr::Csr(Iss &iss)
 
     // Machine timers and counters
     this->declare_csr(&this->mcycle,   "mcycle",    0xB00);
-    this->time.register_callback(std::bind(&Csr::mcycle_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->mcycle.register_callback(std::bind(&Csr::mcycle_access, this, std::placeholders::_1, std::placeholders::_2));
     // Machine counter / timers
     for (int i=0; i<29; i++)
     {

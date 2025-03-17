@@ -26,7 +26,6 @@
 //#define NB_VEL 256/8
 #define NB_VEL 2048/8//???????????????????????
 //#define VLMAX NB_VEL*iss->spatz.LMUL
-#define VLMAX (int)((2048*LMUL)/SEW)
 
 #define XLEN = ISS_REG_WIDTH
 #define FLEN = ISS_REG_WIDTH

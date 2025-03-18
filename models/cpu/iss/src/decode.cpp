@@ -131,6 +131,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
                 insn->in_regs[darg->u.reg.id] = arg->u.reg.index;
 
+                insn->in_regs_fp[darg->u.reg.id] = (darg->flags & ISS_DECODER_ARG_FLAG_FREG) | (darg->flags & ISS_DECODER_ARG_FLAG_VREG);
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->in_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_ref(arg->u.reg.index);
@@ -158,7 +159,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 {
                     insn->out_regs[darg->u.reg.id] = arg->u.reg.index;
                 }
-                insn->out_regs_fp[darg->u.reg.id] = darg->flags & ISS_DECODER_ARG_FLAG_FREG;
+                insn->out_regs_fp[darg->u.reg.id] = (darg->flags & ISS_DECODER_ARG_FLAG_FREG) | (darg->flags & ISS_DECODER_ARG_FLAG_VREG);
                 if (darg->flags & ISS_DECODER_ARG_FLAG_FREG)
                 {
                     insn->out_regs_ref[darg->u.reg.id] = this->iss.regfile.freg_store_ref(arg->u.reg.index);
@@ -395,6 +396,11 @@ iss_reg_t iss_decode_pc_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 std::vector<iss_decoder_item_t *> *Decode::get_insns_from_tag(std::string tag)
 {
     return __iss_isa_set.tag_insns[tag];
+}
+
+std::vector<iss_decoder_item_t *> *Decode::get_insns_from_isa(std::string tag)
+{
+    return __iss_isa_set.isa_insns[tag];
 }
 
 iss_decoder_item_t *Decode::get_insn(std::string name)

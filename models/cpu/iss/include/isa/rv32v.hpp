@@ -514,7 +514,7 @@ static inline iss_reg_t vle32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 }
 static inline iss_reg_t vle64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 #ifdef CONFIG_GVSOC_ISS_CVA6
-    iss_addr_t addr = REG_GET(0);
+    iss_addr_t addr = iss->ara.base_addr_get();
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
@@ -759,7 +759,7 @@ static inline iss_reg_t vfslide1down_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
-    iss_reg_t last_elem = FREG_GET(0);
+    iss_reg_t last_elem = iss->ara.base_addr_get();
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -826,7 +826,7 @@ static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #if CONFIG_GVSOC_ISS_CVA6
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
-    uint64_t in0 = FREG_GET(0);
+    uint64_t in0 = iss->ara.base_addr_get();
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -849,7 +849,11 @@ static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
+#if CONFIG_GVSOC_ISS_CVA6
+    LIB_CALL4(lib_FMACCVF , REG_IN(1), iss->ara.base_addr_get(), REG_OUT(0), UIM_GET(0));
+#else
     LIB_CALL4(lib_FMACCVF , REG_IN(1), FREG_GET(0), REG_OUT(0), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

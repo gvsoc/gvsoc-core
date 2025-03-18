@@ -20,15 +20,38 @@
 
 #pragma once
 
+#include <queue>
 #include "cpu/iss/include/types.hpp"
+#include "vp/clock/clock_event.hpp"
+#include "vp/register.hpp"
 
 
-class Ara
+class Ara : public vp::Block
 {
 public:
-    Ara(Iss &iss);
+    Ara(IssWrapper &top, Iss &iss);
 
     void build();
     void reset(bool reset);
+
+    void insn_enqueue(iss_insn_t *insn, iss_reg_t pc);
+    bool queue_is_full() { return this->queue_full.get(); }
+    iss_reg_t base_addr_get() { return this->base_addr_queue.front(); }
+
+    int stall_reg;
+    std::queue<uint64_t> base_addr_queue;
+
+private:
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+
+    Iss &iss;
+
+    vp::ClockEvent fsm_event;
+    uint8_t queue_size;
+    vp::Register<uint8_t> nb_pending_insn;
+    std::queue<iss_insn_t *> pending_insns;
+    std::queue<int64_t> pending_insns_timestamp;
+    std::queue<iss_addr_t> pending_insns_pc;
+    vp::Register<bool> queue_full;
 
 };

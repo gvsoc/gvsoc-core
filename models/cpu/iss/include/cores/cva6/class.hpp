@@ -90,6 +90,10 @@ public:
     Iss iss;
 
 private:
+    static void stall_handler(vp::Block *__this, vp::ClockEvent *event);
+    static iss_reg_t insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+
     vp::Trace trace;
 };
 
@@ -97,7 +101,7 @@ inline Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this),
     core(*this), irq(*this), gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this),
     trace(*this), csr(*this), regfile(top, *this), mmu(*this), pmp(*this), exception(*this),
-    memcheck(top, *this), vector(*this), ara(*this), top(top)
+    memcheck(top, *this), vector(*this), ara(top, *this), top(top)
 {
 }
 

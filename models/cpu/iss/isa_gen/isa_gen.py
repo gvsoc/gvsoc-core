@@ -760,6 +760,7 @@ class Isa(object):
         dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
         dump(isaFile, f'  .isa_set=&{tree.get_name()},\n')
         dump(isaFile, '  .tag_insns=tag_insn,\n')
+        dump(isaFile, '  .isa_insns=isa_insn,\n')
         dump(isaFile, '  .insns=insns,\n')
         dump(isaFile, '  .initialized=false,\n')
         dump(isaFile, '};\n')
@@ -786,6 +787,20 @@ class Isa(object):
         for insn in self.get_insns():
             dump(isaFile, f'    {{ "{insn.name}", &{insn.get_full_name()} }},\n')
         dump(isaFile, f'}};\n\n')
+
+        for isa in self.isas.values():
+            struct_name = f'isa_insn_{isa.name}'
+            insn_list = []
+            for insn in isa.get_insns():
+                insn_list.append(f'&{insn.get_full_name()}')
+            dump(isaFile, f'static std::vector<iss_decoder_item_t *> {struct_name} = {{ {", ".join(insn_list)} }};\n\n')
+
+        dump(isaFile, f'static std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> isa_insn = {{\n')
+        for isa in self.isas.values():
+            struct_name = f'&isa_insn_{isa.name}'
+            dump(isaFile, f'    {{ "{isa.name}", {struct_name} }},\n')
+        dump(isaFile, f'}};\n\n')
+
 
 
 

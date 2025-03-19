@@ -110,6 +110,18 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     }
 }
 
+void IssWrapper::insn_commit(iss_insn_t *insn)
+{
+    for (int i=0; i<this->pending_insns.size(); i++)
+    {
+        if (this->pending_insns[i])
+        {
+            this->pending_insns_done[i] = true;
+            this->pending_insns_timestamp[i] = this->clock.get_cycles() + 1;
+        }
+    }
+}
+
 void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     IssWrapper *_this = (IssWrapper *)__this;
@@ -125,10 +137,10 @@ void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         iss_insn_t *insn = _this->pending_insns.front();
         iss_addr_t pc = _this->pending_insns_pc.front();
-        _this->pending_insns.pop();
-        _this->pending_insns_done.pop();
-        _this->pending_insns_timestamp.pop();
-        _this->pending_insns_pc.pop();
+        _this->pending_insns.pop_front();
+        _this->pending_insns_done.pop_front();
+        _this->pending_insns_timestamp.pop_front();
+        _this->pending_insns_pc.pop_front();
 
         if ((insn->flags & ISS_INSN_FLAGS_VECTOR) == 0)
         {
@@ -174,10 +186,10 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         }
     }
 
-    iss->top.pending_insns.push(insn);
-    iss->top.pending_insns_done.push(true);
-    iss->top.pending_insns_timestamp.push(iss->top.clock.get_cycles() + 1);
-    iss->top.pending_insns_pc.push(pc);
+    iss->top.pending_insns.push_back(insn);
+    iss->top.pending_insns_done.push_back(true);
+    iss->top.pending_insns_timestamp.push_back(iss->top.clock.get_cycles() + 1);
+    iss->top.pending_insns_pc.push_back(pc);
     iss->top.fsm_event.enable();
 
     if (insn->decoder_item->u.insn.tags[ISA_TAG_BRANCH_ID])
@@ -217,10 +229,10 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
         }
     }
 
-    iss->top.pending_insns.push(insn);
-    iss->top.pending_insns_done.push(true);
-    iss->top.pending_insns_timestamp.push(iss->top.clock.get_cycles() + 20);
-    iss->top.pending_insns_pc.push(pc);
+    iss->top.pending_insns.push_back(insn);
+    iss->top.pending_insns_done.push_back(false);
+    iss->top.pending_insns_timestamp.push_back(iss->top.clock.get_cycles() + 20);
+    iss->top.pending_insns_pc.push_back(pc);
     iss->top.fsm_event.enable();
 
     iss->ara.insn_enqueue(insn, pc);

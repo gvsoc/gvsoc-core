@@ -88,6 +88,7 @@ public:
     void start();
     void stop();
     void reset(bool active);
+    void insn_commit(iss_insn_t *insn);
 
     Iss iss;
 
@@ -99,10 +100,10 @@ private:
     vp::ClockEvent fsm_event;
     vp::Trace trace;
     bool do_flush;
-    std::queue<iss_insn_t *> pending_insns;
-    std::queue<bool> pending_insns_done;
-    std::queue<uint64_t> pending_insns_timestamp;
-    std::queue<iss_addr_t> pending_insns_pc;
+    std::deque<iss_insn_t *> pending_insns;
+    std::deque<bool> pending_insns_done;
+    std::deque<uint64_t> pending_insns_timestamp;
+    std::deque<iss_addr_t> pending_insns_pc;
 };
 
 inline Iss::Iss(IssWrapper &top)

@@ -87,6 +87,8 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
         insn->stub_handler(&_this->iss, insn, pc);
 
+        _this->iss.top.insn_commit(insn);
+
         for (int i=0; i<insn->nb_out_reg; i++)
         {
             _this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);

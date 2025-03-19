@@ -548,7 +548,7 @@ static inline iss_reg_t vse32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL3(lib_VSE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+    LIB_CALL3(lib_VSE64V , REG_GET(1), REG_IN(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -907,11 +907,11 @@ class Instr(object):
         dump(isaFile, f'      .args= {{\n')
         if len(self.args_format) > 0:
             for arg in self.args_format:
-                if arg.is_reg() and not arg.is_out():
+                if arg.is_reg() and arg.is_out():
                     arg.gen(isaFile, indent=8)
         if len(self.args_format) > 0:
             for arg in self.args_format:
-                if arg.is_reg() and arg.is_out():
+                if arg.is_reg() and not arg.is_out():
                     arg.gen(isaFile, indent=8)
         if len(self.args_format) > 0:
             for arg in self.args_format:

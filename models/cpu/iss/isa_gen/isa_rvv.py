@@ -42,6 +42,11 @@ Format_OPVI = [ OutVReg     (0, Range(7 , 5)),
                UnsignedImm(0, Range(25, 1)),
 ]
 
+Format_OPVS = [ InVReg     (0, Range(7 , 5)),
+               InReg      (1, Range(15, 5)),
+               UnsignedImm(0, Range(25, 1)),
+]
+
 Format_OPVF = [ OutVReg     (0, Range(7 , 5)),
                 InFReg     (0, Range(15, 5)),#rs1/vs1
                 InVReg      (1, Range(20, 5)),#vs2
@@ -333,10 +338,10 @@ class Rv32v(IsaSubset):
             Instr('vle32.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 110 ----- 0000111'),
             Instr('vle64.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 111 ----- 0000111'),
 
-            Instr('vse8.v'           ,   Format_OPV  ,    '000 0 00 - 00000 ----- 000 ----- 0100111'),
-            Instr('vse16.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 101 ----- 0100111'),
-            Instr('vse32.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 110 ----- 0100111'),
-            Instr('vse64.v'          ,   Format_OPV  ,    '000 0 00 - 00000 ----- 111 ----- 0100111'),
+            Instr('vse8.v'           ,   Format_OPVS  ,    '000 0 00 - 00000 ----- 000 ----- 0100111'),
+            Instr('vse16.v'          ,   Format_OPVS  ,    '000 0 00 - 00000 ----- 101 ----- 0100111'),
+            Instr('vse32.v'          ,   Format_OPVS  ,    '000 0 00 - 00000 ----- 110 ----- 0100111'),
+            Instr('vse64.v'          ,   Format_OPVS  ,    '000 0 00 - 00000 ----- 111 ----- 0100111'),
 
             Instr('vluxei8.v'        ,   Format_OPV  ,    '000 0 01 - ----- ----- 000 ----- 0000111'),# vd, (rs1), vm
             Instr('vluxei16.v'       ,   Format_OPV  ,    '000 0 01 - ----- ----- 101 ----- 0000111'),

@@ -164,7 +164,7 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
     for (int i=0; i<insn->nb_out_reg; i++)
     {
-        if ((insn->decoder_item->u.insn.args[insn->nb_in_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
         {
             iss->regfile.scoreboard_reg_invalidate(insn->out_regs[i]);
         }
@@ -198,9 +198,9 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
 
     for (int i=0; i<insn->nb_in_reg; i++)
     {
-        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
+        if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
         {
-            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
+            if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
             {
                 if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
                 {

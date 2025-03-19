@@ -95,6 +95,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     insn->resource_id = item->u.insn.resource_id;
     insn->resource_latency = item->u.insn.resource_latency;
     insn->resource_bandwidth = item->u.insn.resource_bandwidth;
+    insn->flags = item->u.insn.flags;
 
     insn->decoder_item = item;
     insn->size = item->u.insn.size;

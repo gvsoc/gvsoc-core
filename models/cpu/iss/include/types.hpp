@@ -343,6 +343,7 @@ typedef struct iss_decoder_insn_s
     int resource_bandwidth; // Time required to accept the next access when accessing the resource
     int power_group;
     int is_macro_op;
+    uint64_t flags;
     bool tags[ISA_NB_TAGS];
 } iss_decoder_insn_t;
 
@@ -411,6 +412,7 @@ typedef struct iss_insn_s
 
     iss_insn_t *expand_table;
     bool is_macro_op;
+    uint64_t flags;
 
     void *data[ISS_MAX_DATA];
 

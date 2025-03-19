@@ -62,10 +62,13 @@ void IssWrapper::reset(bool active)
     this->iss.syscalls.reset(active);
     this->iss.vector.reset(active);
     this->iss.ara.reset(active);
+
+    this->do_flush = false;
 }
 
 IssWrapper::IssWrapper(vp::ComponentConf &config)
-    : vp::Component(config), iss(*this)
+    : vp::Component(config), iss(*this),
+    fsm_event(this, &IssWrapper::fsm_handler)
 {
     this->iss.syscalls.build();
     this->iss.decode.build();
@@ -101,51 +104,124 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
         for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_isa("v"))
         {
             insn->u.insn.stub_handler = &IssWrapper::vector_insn_stub_handler;
+            insn->u.insn.flags |= ISS_INSN_FLAGS_VECTOR;
         }
 #endif
     }
 }
 
+void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    IssWrapper *_this = (IssWrapper *)__this;
+
+    if (_this->pending_insns.size() == 0)
+    {
+        _this->fsm_event.disable();
+        return;
+    }
+
+    if (_this->pending_insns_done.front() &&
+        _this->pending_insns_timestamp.front() <= _this->clock.get_cycles())
+    {
+        iss_insn_t *insn = _this->pending_insns.front();
+        iss_addr_t pc = _this->pending_insns_pc.front();
+        _this->pending_insns.pop();
+        _this->pending_insns_done.pop();
+        _this->pending_insns_timestamp.pop();
+        _this->pending_insns_pc.pop();
+
+        if ((insn->flags & ISS_INSN_FLAGS_VECTOR) == 0)
+        {
+            iss_addr_t next_pc = insn->stub_handler(&_this->iss, insn, pc);
+
+            for (int i=0; i<insn->nb_out_reg; i++)
+            {
+                if (!insn->out_regs_fp[i])
+                {
+                    _this->iss.regfile.scoreboard_reg_timestamp[insn->out_regs[i]] = _this->clock.get_cycles();
+                }
+                else
+                {
+                    _this->iss.regfile.scoreboard_freg_timestamp[insn->out_regs[i]] = _this->clock.get_cycles();
+                }
+            }
+
+            if (_this->do_flush && _this->pending_insns.size() == 0)
+            {
+                _this->do_flush = false;
+                _this->iss.exec.current_insn = next_pc;
+            }
+        }
+    }
+}
+
 iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    for (int i=0; i<insn->nb_in_reg; i++)
+    if (iss->top.do_flush)
     {
-        if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+        return pc;
+    }
+
+    for (int i=0; i<insn->nb_out_reg; i++)
+    {
+        if ((insn->decoder_item->u.insn.args[insn->nb_in_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
         {
-            // iss->ara.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
-            iss->ara.stall_reg = insn->in_regs[i];
-            iss->exec.insn_stall();
-            return pc;
+            iss->regfile.scoreboard_reg_invalidate(insn->out_regs[i]);
+        }
+        else
+        {
+            iss->regfile.scoreboard_freg_invalidate(insn->out_regs[i]);
         }
     }
 
-    return insn->stub_handler(iss, insn, pc);
-}
+    iss->top.pending_insns.push(insn);
+    iss->top.pending_insns_done.push(true);
+    iss->top.pending_insns_timestamp.push(iss->top.clock.get_cycles() + 1);
+    iss->top.pending_insns_pc.push(pc);
+    iss->top.fsm_event.enable();
 
-void IssWrapper::stall_handler(vp::Block *__this, vp::ClockEvent *event)
-{
-    Iss *_this = (Iss *)__this;
-    if (!_this->ara.queue_is_full())
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_BRANCH_ID])
     {
-        _this->exec.insn_resume();
+        iss->top.do_flush = true;
+        return pc;
     }
+
+    return iss_insn_next(iss, insn, pc);
 }
 
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    for (int i=0; i<insn->nb_out_reg; i++)
+    if (iss->ara.queue_is_full())
     {
-        if (!insn->out_regs_fp[i])
+        return pc;
+    }
+
+    for (int i=0; i<insn->nb_in_reg; i++)
+    {
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
         {
-            iss->regfile.scoreboard_reg_invalidate(insn->out_regs[i]);
+            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
+            {
+                if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+                {
+                    return pc;
+                }
+            }
+            else
+            {
+                if (iss->regfile.scoreboard_freg_timestamp[insn->in_regs[i]] == -1)
+                {
+                    return pc;
+                }
+            }
         }
     }
 
-    if (iss->ara.queue_is_full())
-    {
-        iss->exec.insn_hold(&IssWrapper::stall_handler);
-        return pc;
-    }
+    iss->top.pending_insns.push(insn);
+    iss->top.pending_insns_done.push(true);
+    iss->top.pending_insns_timestamp.push(iss->top.clock.get_cycles() + 20);
+    iss->top.pending_insns_pc.push(pc);
+    iss->top.fsm_event.enable();
 
     iss->ara.insn_enqueue(insn, pc);
 

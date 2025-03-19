@@ -52,7 +52,7 @@ void Ara::insn_enqueue(iss_insn_t *insn, iss_reg_t pc)
     }
 
     this->pending_insns.push(insn);
-    this->pending_insns_timestamp.push(this->iss.top.clock.get_cycles() + 20);
+    this->pending_insns_timestamp.push(this->iss.top.clock.get_cycles() + 1);
     this->pending_insns_pc.push(pc);
     int reg = insn->in_regs[0];
     uint64_t reg_value;

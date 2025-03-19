@@ -47,6 +47,8 @@
 
 class IssWrapper;
 
+#define ISS_INSN_FLAGS_VECTOR (1<< 0)
+
 
 class Iss
 {
@@ -74,7 +76,7 @@ public:
     Vector vector;
     Ara ara;
 
-    vp::Component &top;
+    IssWrapper &top;
 };
 
 class IssWrapper : public vp::Component
@@ -90,11 +92,17 @@ public:
     Iss iss;
 
 private:
-    static void stall_handler(vp::Block *__this, vp::ClockEvent *event);
     static iss_reg_t insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
+    vp::ClockEvent fsm_event;
     vp::Trace trace;
+    bool do_flush;
+    std::queue<iss_insn_t *> pending_insns;
+    std::queue<bool> pending_insns_done;
+    std::queue<uint64_t> pending_insns_timestamp;
+    std::queue<iss_addr_t> pending_insns_pc;
 };
 
 inline Iss::Iss(IssWrapper &top)

@@ -107,6 +107,12 @@ class Indirect(OpcodeField):
         self.preInc = preInc
         self.flags = ['ISS_DECODER_ARG_FLAG_NONE']
 
+    def is_reg(self):
+        return True
+
+    def is_out(self):
+        return False
+
     def genTrace(self, isaFile, level):
         if self.offset is not None and self.offset.isImm:
             funcName = 'traceSetIndirectImm'
@@ -901,7 +907,16 @@ class Instr(object):
         dump(isaFile, f'      .args= {{\n')
         if len(self.args_format) > 0:
             for arg in self.args_format:
-                arg.gen(isaFile, indent=8)
+                if arg.is_reg() and not arg.is_out():
+                    arg.gen(isaFile, indent=8)
+        if len(self.args_format) > 0:
+            for arg in self.args_format:
+                if arg.is_reg() and arg.is_out():
+                    arg.gen(isaFile, indent=8)
+        if len(self.args_format) > 0:
+            for arg in self.args_format:
+                if not arg.is_reg():
+                    arg.gen(isaFile, indent=8)
         dump(isaFile, f'      }},\n')
         dump(isaFile, f'      .resource_id=-1,\n')
         dump(isaFile, f'      .power_group={self.power_group},\n')

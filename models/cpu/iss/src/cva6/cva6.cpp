@@ -64,6 +64,9 @@ void IssWrapper::reset(bool active)
     this->iss.ara.reset(active);
 
     this->do_flush = false;
+    this->insn_first = 0;
+    this->insn_last = 0;
+    this->nb_pending_insn = 0;
 }
 
 IssWrapper::IssWrapper(vp::ComponentConf &config)
@@ -89,7 +92,13 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.vector.build();
     this->iss.ara.build();
 
-    traces.new_trace("wrapper", &this->trace, vp::DEBUG);
+    this->traces.new_trace("wrapper", &this->trace, vp::DEBUG);
+
+    this->pending_insns.resize(8);
+    for (int i=0; i<this->pending_insns.size(); i++)
+    {
+        this->pending_insns[i].id = i;
+    }
 
     if (!__iss_isa_set.initialized)
     {
@@ -101,50 +110,47 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
         }
 
 #ifdef CONFIG_ISS_HAS_VECTOR
-        for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_isa("v"))
-        {
-            insn->u.insn.stub_handler = &IssWrapper::vector_insn_stub_handler;
-            insn->u.insn.flags |= ISS_INSN_FLAGS_VECTOR;
-        }
+        this->iss.ara.isa_init();
 #endif
     }
 }
 
-void IssWrapper::insn_commit(iss_insn_t *insn)
+void IssWrapper::insn_commit(PendingInsn *pending_insn)
 {
-    for (int i=0; i<this->pending_insns.size(); i++)
-    {
-        if (this->pending_insns[i])
-        {
-            this->pending_insns_done[i] = true;
-            this->pending_insns_timestamp[i] = this->clock.get_cycles() + 1;
-        }
-    }
+    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", pending_insn->pc);
+
+    pending_insn->done = true;
+    pending_insn->timestamp = this->clock.get_cycles() + 1;
 }
 
 void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     IssWrapper *_this = (IssWrapper *)__this;
 
-    if (_this->pending_insns.size() == 0)
+    if (_this->nb_pending_insn == 0)
     {
         _this->fsm_event.disable();
         return;
     }
 
-    if (_this->pending_insns_done.front() &&
-        _this->pending_insns_timestamp.front() <= _this->clock.get_cycles())
+    PendingInsn &pending_insn = _this->pending_insns[_this->insn_first];
+
+    if (pending_insn.done &&
+        pending_insn.timestamp <= _this->clock.get_cycles())
     {
-        iss_insn_t *insn = _this->pending_insns.front();
-        iss_addr_t pc = _this->pending_insns_pc.front();
-        _this->pending_insns.pop_front();
-        _this->pending_insns_done.pop_front();
-        _this->pending_insns_timestamp.pop_front();
-        _this->pending_insns_pc.pop_front();
+        _this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Commit instruction (pc: 0x%lx)\n", pending_insn.pc);
+
+        iss_insn_t *insn = pending_insn.insn;
+        _this->insn_first++;
+        if (_this->insn_first == _this->max_pending_insn)
+        {
+            _this->insn_first = 0;
+        }
+        _this->nb_pending_insn--;
 
         if ((insn->flags & ISS_INSN_FLAGS_VECTOR) == 0)
         {
-            iss_addr_t next_pc = insn->stub_handler(&_this->iss, insn, pc);
+            iss_addr_t next_pc = insn->stub_handler(&_this->iss, insn, pending_insn.pc);
 
             for (int i=0; i<insn->nb_out_reg; i++)
             {
@@ -158,7 +164,7 @@ void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 }
             }
 
-            if (_this->do_flush && _this->pending_insns.size() == 0)
+            if (_this->do_flush && _this->nb_pending_insn == 0)
             {
                 _this->do_flush = false;
                 _this->iss.exec.current_insn = next_pc;
@@ -167,9 +173,37 @@ void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 }
 
+PendingInsn &IssWrapper::pending_insn_alloc()
+{
+    this->nb_pending_insn++;
+    int insn_id = this->insn_last;
+    this->insn_last++;
+    if (this->insn_last == this->max_pending_insn)
+    {
+        this->insn_last = 0;
+    }
+    return this->pending_insns[insn_id];
+}
+
+PendingInsn &IssWrapper::pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc)
+{
+    PendingInsn &pending_insn = this->pending_insn_alloc();
+
+    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pc);
+
+    pending_insn.insn = insn;
+    pending_insn.done = false;
+    pending_insn.timestamp = this->clock.get_cycles() + 1;
+    pending_insn.pc = pc;
+
+    this->fsm_event.enable();
+
+    return pending_insn;
+}
+
 iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (iss->top.do_flush)
+    if (iss->top.do_flush || iss->top.nb_pending_insn == iss->top.max_pending_insn)
     {
         return pc;
     }
@@ -186,11 +220,8 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         }
     }
 
-    iss->top.pending_insns.push_back(insn);
-    iss->top.pending_insns_done.push_back(true);
-    iss->top.pending_insns_timestamp.push_back(iss->top.clock.get_cycles() + 1);
-    iss->top.pending_insns_pc.push_back(pc);
-    iss->top.fsm_event.enable();
+    PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);
+    iss->top.insn_commit(&pending_insn);
 
     if (insn->decoder_item->u.insn.tags[ISA_TAG_BRANCH_ID])
     {
@@ -203,8 +234,10 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (iss->ara.queue_is_full())
+    if (iss->top.nb_pending_insn == iss->top.max_pending_insn || iss->ara.queue_is_full())
     {
+        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
+            iss->ara.queue_is_full() ? "Ara" : "Core", pc);
         return pc;
     }
 
@@ -216,6 +249,8 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
             {
                 if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
                 {
+                    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Blocked due to int reg dependency (pc: 0x%lx, reg: %d)\n",
+                        pc, insn->in_regs[i]);
                     return pc;
                 }
             }
@@ -223,19 +258,17 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
             {
                 if (iss->regfile.scoreboard_freg_timestamp[insn->in_regs[i]] == -1)
                 {
+                    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Blocked due to float reg dependency (pc: 0x%lx, reg: %d)\n",
+                        pc, insn->in_regs[i]);
                     return pc;
                 }
             }
         }
     }
 
-    iss->top.pending_insns.push_back(insn);
-    iss->top.pending_insns_done.push_back(false);
-    iss->top.pending_insns_timestamp.push_back(iss->top.clock.get_cycles() + 20);
-    iss->top.pending_insns_pc.push_back(pc);
-    iss->top.fsm_event.enable();
+    PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);
 
-    iss->ara.insn_enqueue(insn, pc);
+    iss->ara.insn_enqueue(&pending_insn);
 
     return iss_insn_next(iss, insn, pc);
 }

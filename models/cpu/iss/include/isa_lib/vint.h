@@ -6222,7 +6222,6 @@ static inline void lib_VSE64V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[2]  = iss->vector.vregs[vs3][i+2];
         data[3]  = iss->vector.vregs[vs3][i+3];
 
-
         // printf("STORE64 \n");
         // printf("data0  = %d\n",data[0]);
         // printf("data1  = %d\n",data[1]);

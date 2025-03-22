@@ -50,6 +50,7 @@ class IssWrapper;
 #define ISS_INSN_FLAGS_VECTOR (1<< 0)
 
 
+
 class Iss
 {
 public:
@@ -79,6 +80,17 @@ public:
     IssWrapper &top;
 };
 
+class PendingInsn
+{
+public:
+    iss_insn_t *insn;
+    uint64_t timestamp;
+    iss_reg_t pc;
+    iss_reg_t reg;
+    bool done;
+    int id;
+};
+
 class IssWrapper : public vp::Component
 {
 
@@ -88,22 +100,25 @@ public:
     void start();
     void stop();
     void reset(bool active);
-    void insn_commit(iss_insn_t *insn);
+    void insn_commit(PendingInsn *pending_insn);
+    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
     Iss iss;
 
 private:
     static iss_reg_t insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
-    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    PendingInsn &pending_insn_alloc();
+    PendingInsn &pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc);
 
+    int max_pending_insn = 8;
     vp::ClockEvent fsm_event;
     vp::Trace trace;
     bool do_flush;
-    std::deque<iss_insn_t *> pending_insns;
-    std::deque<bool> pending_insns_done;
-    std::deque<uint64_t> pending_insns_timestamp;
-    std::deque<iss_addr_t> pending_insns_pc;
+    std::vector<PendingInsn> pending_insns;
+    int insn_first;
+    int insn_last;
+    int nb_pending_insn;
 };
 
 inline Iss::Iss(IssWrapper &top)

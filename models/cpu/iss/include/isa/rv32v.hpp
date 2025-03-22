@@ -513,42 +513,33 @@ static inline iss_reg_t vle32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifdef CONFIG_GVSOC_ISS_CVA6
-    iss_addr_t addr = iss->ara.base_addr_get();
-    unsigned int reg_out = REG_OUT(0);
-    unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
-    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
-    {
-        vp::IoReq req;
-        req.init();
-        req.set_addr(addr);
-        req.set_size(8);
-        req.set_is_write(false);
-        req.set_data(velem_get(iss, reg_out, i, sewb, lmul));
-        int err = iss->lsu.data.req(&req);
-
-        addr += 8;
-    }
-#else
-    LIB_CALL3(lib_VLE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#ifndef CONFIG_GVSOC_ISS_CVA6
+    LIB_CALL3(lib_VLE64V , REG_GET(0), REG_IN(0), UIM_GET(0));
 #endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL3(lib_VSE8V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#ifndef CONFIG_GVSOC_ISS_CVA6
+    LIB_CALL3(lib_VSE8V , REG_GET(0), REG_IN(1), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL3(lib_VSE16V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#ifndef CONFIG_GVSOC_ISS_CVA6
+    LIB_CALL3(lib_VSE16V , REG_GET(0), REG_IN(1), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL3(lib_VSE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#ifndef CONFIG_GVSOC_ISS_CVA6
+    LIB_CALL3(lib_VSE32V , REG_GET(0), REG_IN(1), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL3(lib_VSE64V , REG_GET(1), REG_IN(0), UIM_GET(0));
+#ifndef CONFIG_GVSOC_ISS_CVA6
+    LIB_CALL3(lib_VSE64V , REG_GET(0), REG_IN(1), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -850,7 +841,7 @@ static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 }
 static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 #if CONFIG_GVSOC_ISS_CVA6
-    LIB_CALL4(lib_FMACCVF , REG_IN(1), iss->ara.base_addr_get(), REG_OUT(0), UIM_GET(0));
+    LIB_CALL4(lib_FMACCVF , REG_IN(1), iss->ara.pending_insn->reg, REG_OUT(0), UIM_GET(0));
 #else
     LIB_CALL4(lib_FMACCVF , REG_IN(1), FREG_GET(0), REG_OUT(0), UIM_GET(0));
 #endif

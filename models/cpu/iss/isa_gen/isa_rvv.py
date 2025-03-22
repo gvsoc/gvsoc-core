@@ -40,11 +40,13 @@ Format_OPV = [ OutVReg     (0, Range(7 , 5)),
 Format_OPVI = [ OutVReg     (0, Range(7 , 5)),
                InReg      (0, Range(15, 5)),
                UnsignedImm(0, Range(25, 1)),
+               UnsignedImm(1, Range(12, 3)),
 ]
 
-Format_OPVS = [ InVReg     (0, Range(7 , 5)),
-               InReg      (1, Range(15, 5)),
+Format_OPVS = [ InVReg     (1, Range(7 , 5)),
+               InReg      (0, Range(15, 5)),
                UnsignedImm(0, Range(25, 1)),
+               UnsignedImm(1, Range(12, 3)),
 ]
 
 Format_OPVF = [ OutVReg     (0, Range(7 , 5)),

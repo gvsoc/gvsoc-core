@@ -25,33 +25,86 @@
 #include "vp/clock/clock_event.hpp"
 #include "vp/register.hpp"
 
+class Ara;
+class IssWrapper;
+class PendingInsn;
 
-class Ara : public vp::Block
+class AraBlock : public vp::Block
 {
 public:
-    Ara(IssWrapper &top, Iss &iss);
+    AraBlock(Block *parent, std::string name) : vp::Block(parent, name) {}
+    virtual bool is_full() = 0;
+    virtual void enqueue_insn(PendingInsn *pending_insn) = 0;
+};
 
-    void build();
-    void reset(bool reset);
+class AraVlsu : public AraBlock
+{
+public:
 
-    void insn_enqueue(iss_insn_t *insn, iss_reg_t pc);
-    bool queue_is_full() { return this->queue_full.get(); }
-    iss_reg_t base_addr_get() { return this->base_addr_queue.front(); }
+    void reset(bool active) override;
+    AraVlsu(Ara &ara, int nb_lanes);
+    bool is_full() override { return this->insns.size() == 4; }
+    void enqueue_insn(PendingInsn *pending_insn) override;
 
-    int stall_reg;
-    std::queue<uint64_t> base_addr_queue;
+    static void handle_insn_load(AraVlsu *vlsu, iss_insn_t *insn);
+    static void handle_insn_store(AraVlsu *vlsu, iss_insn_t *insn);
 
 private:
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
+    Ara &ara;
+    vp::Trace trace;
+    vp::Trace trace_active_box;
+    vp::Trace trace_active;
+    vp::Trace trace_addr;
+    vp::Trace trace_size;
+    vp::Trace trace_is_write;
+    vp::ClockEvent fsm_event;
+    int nb_lanes;
+    std::queue<PendingInsn *> insns;
+    uint8_t *pending_velem;
+    iss_addr_t pending_addr;
+    bool pending_is_write;
+    iss_addr_t pending_elem_size;
+    iss_addr_t pending_size;
+};
+
+class Ara : public vp::Block
+{
+public:
+    typedef enum
+    {
+        vlsu_id,
+        nb_blocks
+    } blocks_e;
+
+    Ara(IssWrapper &top, Iss &iss);
+
+    void build();
+    void reset(bool reset);
+    void isa_init();
+
+    void insn_end(PendingInsn *insn);
+    void insn_enqueue(PendingInsn *insn);
+    bool queue_is_full() { return this->queue_full.get(); }
+    iss_reg_t base_addr_get() { return this->base_addr_queue.front(); }
+
     Iss &iss;
 
+    std::queue<uint64_t> base_addr_queue;
+    PendingInsn *pending_insn;
+
+private:
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+
+    vp::Trace trace;
+    vp::Trace trace_active;
+    vp::Trace trace_active_box;
+    int nb_lanes;
     vp::ClockEvent fsm_event;
     uint8_t queue_size;
     vp::Register<uint8_t> nb_pending_insn;
-    std::queue<iss_insn_t *> pending_insns;
-    std::queue<int64_t> pending_insns_timestamp;
-    std::queue<iss_addr_t> pending_insns_pc;
+    std::queue<PendingInsn *> pending_insns;
     vp::Register<bool> queue_full;
-
+    std::vector<AraBlock *> blocks;
 };

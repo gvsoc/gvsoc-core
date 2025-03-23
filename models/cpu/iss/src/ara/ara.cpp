@@ -200,7 +200,10 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             }
             else
             {
-                _this->on_going_insn_iter = CONFIG_ISS_VLEN / 64 / _this->nb_lanes;
+                unsigned int lmul = _this->iss.vector.LMUL_t;
+                unsigned int nb_elems = (_this->iss.csr.vl.value - _this->iss.csr.vstart.value) /
+                    _this->nb_lanes;
+                _this->on_going_insn_iter = std::max((unsigned int)1, nb_elems);
             }
         }
     }

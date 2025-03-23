@@ -32,22 +32,23 @@ Ara::Ara(IssWrapper &top, Iss &iss)
     this->traces.new_trace_event("active_box", &this->trace_active_box, 1);
     this->traces.new_trace_event("active", &this->trace_active, 1);
 
-    int nb_lanes = top.get_js_config()->get_int("ara/nb_lanes");
+    this->nb_lanes = top.get_js_config()->get_int("ara/nb_lanes");
     this->iss.vector.VLEN = CONFIG_ISS_VLEN;
     this->blocks.resize(Ara::nb_blocks);
-    this->blocks[Ara::vlsu_id] = new AraVlsu(*this, nb_lanes);
+    this->blocks[Ara::vlsu_id] = new AraVlsu(*this, this->nb_lanes);
 }
 
 void Ara::reset(bool active)
 {
-	if (active)
-	{
-		for (int i=0; i<ISS_NB_VREGS; i++)
-		{
-			this->scoreboard_valid_ts[i] = 0;
-			this->scoreboard_in_use[i] = false;
-		}
-	}
+    if (active)
+    {
+        for (int i=0; i<ISS_NB_VREGS; i++)
+        {
+            this->scoreboard_valid_ts[i] = 0;
+            this->scoreboard_in_use[i] = false;
+        }
+        this->on_going_insn_iter = 0;
+    }
 }
 
 void Ara::build()
@@ -105,22 +106,22 @@ void Ara::insn_end(PendingInsn *pending_insn)
 
     for (int i=0; i<insn->nb_out_reg; i++)
     {
-	    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
         {
-	        this->scoreboard_valid_ts[insn->out_regs[i]] = this->iss.top.clock.get_cycles() + 1;
+            this->scoreboard_valid_ts[insn->out_regs[i]] = this->iss.top.clock.get_cycles() + 1;
         }
         else
         {
-	       	this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);
+           	this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);
         }
     }
 
     for (int i=0; i<insn->nb_in_reg; i++)
     {
-	    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
-	    {
-		    this->scoreboard_in_use[insn->in_regs[i]] = false;
-	    }
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+        {
+            this->scoreboard_in_use[insn->in_regs[i]] = false;
+        }
     }
 
     this->base_addr_queue.pop();
@@ -130,7 +131,16 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Ara *_this = (Ara *)__this;
 
-    if (_this->pending_insns.size() > 0 &&
+    if (_this->on_going_insn_iter)
+    {
+        _this->on_going_insn_iter--;
+        if (_this->on_going_insn_iter == 0)
+      	{
+            _this->insn_end(_this->pending_insns.front());
+           	_this->pending_insns.pop();
+        }
+    }
+    else if (_this->pending_insns.size() > 0 &&
         _this->pending_insns.front()->timestamp <= _this->iss.top.clock.get_cycles())
     {
         PendingInsn *pending_insn = _this->pending_insns.front();
@@ -144,7 +154,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             {
                 if (_this->scoreboard_valid_ts[insn->in_regs[i]] > _this->iss.top.clock.get_cycles())
                 {
-	                stalled = true;
+                    stalled = true;
                 }
             }
         }
@@ -178,23 +188,20 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 }
             }
 
-	        int block_id = insn->decoder_item->u.insn.block_id;
-	        if (block_id != -1)
-	        {
-	            AraBlock *block = _this->blocks[block_id];
-	            if (!block->is_full())
-	            {
-	                _this->pending_insns.pop();
-
-	                block->enqueue_insn(pending_insn);
-	            }
-	        }
-	        else
-	        {
-	            _this->pending_insns.pop();
-
-	            _this->insn_end(pending_insn);
-	        }
+            int block_id = insn->decoder_item->u.insn.block_id;
+            if (block_id != -1)
+            {
+                AraBlock *block = _this->blocks[block_id];
+                if (!block->is_full())
+                {
+                    _this->pending_insns.pop();
+                    block->enqueue_insn(pending_insn);
+                }
+            }
+            else
+            {
+                _this->on_going_insn_iter = CONFIG_ISS_VLEN / 64 / _this->nb_lanes;
+            }
         }
     }
 

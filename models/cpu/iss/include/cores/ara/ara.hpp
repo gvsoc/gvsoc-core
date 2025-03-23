@@ -109,4 +109,5 @@ private:
     std::vector<AraBlock *> blocks;
     int64_t scoreboard_valid_ts[ISS_NB_VREGS];
     bool scoreboard_in_use[ISS_NB_VREGS];
+    int on_going_insn_iter;
 };

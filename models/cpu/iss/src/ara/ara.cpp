@@ -40,6 +40,14 @@ Ara::Ara(IssWrapper &top, Iss &iss)
 
 void Ara::reset(bool active)
 {
+	if (active)
+	{
+		for (int i=0; i<ISS_NB_VREGS; i++)
+		{
+			this->scoreboard_valid_ts[i] = 0;
+			this->scoreboard_in_use[i] = false;
+		}
+	}
 }
 
 void Ara::build()
@@ -47,9 +55,10 @@ void Ara::build()
     this->queue_size = 8;
 }
 
-void Ara::insn_enqueue(PendingInsn *insn)
+void Ara::insn_enqueue(PendingInsn *pending_insn)
 {
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", insn->pc);
+	iss_insn_t *insn = pending_insn->insn;
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pending_insn->pc);
     uint8_t one = 1;
     this->trace_active_box.event(&one);
     this->trace_active.event(&one);
@@ -59,11 +68,11 @@ void Ara::insn_enqueue(PendingInsn *insn)
         this->queue_full.set(true);
     }
 
-    this->pending_insns.push(insn);
-    insn->timestamp = this->iss.top.clock.get_cycles() + 1;
-    int reg = insn->insn->in_regs[0];
+    this->pending_insns.push(pending_insn);
+    pending_insn->timestamp = this->iss.top.clock.get_cycles() + 1;
+    int reg = insn->in_regs[0];
     uint64_t reg_value;
-    if (insn->insn->in_regs_fp[0])
+    if (insn->in_regs_fp[0])
     {
         reg_value = this->iss.regfile.get_freg_untimed(reg);
     }
@@ -71,7 +80,7 @@ void Ara::insn_enqueue(PendingInsn *insn)
     {
         reg_value = this->iss.regfile.get_reg_untimed(reg);
     }
-    insn->reg = reg_value;
+    pending_insn->reg = reg_value;
     this->base_addr_queue.push(reg_value);
 
     this->fsm_event.enable();
@@ -96,7 +105,22 @@ void Ara::insn_end(PendingInsn *pending_insn)
 
     for (int i=0; i<insn->nb_out_reg; i++)
     {
-        this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);
+	    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+        {
+	        this->scoreboard_valid_ts[insn->out_regs[i]] = this->iss.top.clock.get_cycles() + 1;
+        }
+        else
+        {
+	       	this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);
+        }
+    }
+
+    for (int i=0; i<insn->nb_in_reg; i++)
+    {
+	    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+	    {
+		    this->scoreboard_in_use[insn->in_regs[i]] = false;
+	    }
     }
 
     this->base_addr_queue.pop();
@@ -112,23 +136,65 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         PendingInsn *pending_insn = _this->pending_insns.front();
         iss_insn_t *insn = pending_insn->insn;
         iss_addr_t pc = pending_insn->pc;
+        bool stalled = false;
 
-        int block_id = insn->decoder_item->u.insn.block_id;
-        if (block_id != -1)
+        for (int i=0; i<insn->nb_in_reg; i++)
         {
-            AraBlock *block = _this->blocks[block_id];
-            if (!block->is_full())
+            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
             {
-                _this->pending_insns.pop();
-
-                block->enqueue_insn(pending_insn);
+                if (_this->scoreboard_valid_ts[insn->in_regs[i]] > _this->iss.top.clock.get_cycles())
+                {
+	                stalled = true;
+                }
             }
         }
-        else
-        {
-            _this->pending_insns.pop();
 
-            _this->insn_end(pending_insn);
+        for (int i=0; i<insn->nb_out_reg; i++)
+        {
+            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+            {
+                if (_this->scoreboard_in_use[insn->out_regs[i]])
+                {
+		            stalled = true;
+                }
+            }
+        }
+
+        if (!stalled)
+        {
+	        for (int i=0; i<insn->nb_out_reg; i++)
+            {
+                if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                {
+                    _this->scoreboard_valid_ts[insn->out_regs[i]] = INT64_MAX;
+                }
+            }
+
+            for (int i=0; i<insn->nb_in_reg; i++)
+            {
+                if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                {
+                    _this->scoreboard_in_use[insn->in_regs[i]] = true;
+                }
+            }
+
+	        int block_id = insn->decoder_item->u.insn.block_id;
+	        if (block_id != -1)
+	        {
+	            AraBlock *block = _this->blocks[block_id];
+	            if (!block->is_full())
+	            {
+	                _this->pending_insns.pop();
+
+	                block->enqueue_insn(pending_insn);
+	            }
+	        }
+	        else
+	        {
+	            _this->pending_insns.pop();
+
+	            _this->insn_end(pending_insn);
+	        }
         }
     }
 

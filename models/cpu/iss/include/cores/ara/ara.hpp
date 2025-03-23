@@ -107,4 +107,6 @@ private:
     std::queue<PendingInsn *> pending_insns;
     vp::Register<bool> queue_full;
     std::vector<AraBlock *> blocks;
+    int64_t scoreboard_valid_ts[ISS_NB_VREGS];
+    bool scoreboard_in_use[ISS_NB_VREGS];
 };

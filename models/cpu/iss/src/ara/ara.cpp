@@ -36,6 +36,7 @@ Ara::Ara(IssWrapper &top, Iss &iss)
     this->iss.vector.VLEN = CONFIG_ISS_VLEN;
     this->blocks.resize(Ara::nb_blocks);
     this->blocks[Ara::vlsu_id] = new AraVlsu(*this, this->nb_lanes);
+    this->blocks[Ara::valu_id] = new AraValu(*this);
 }
 
 void Ara::reset(bool active)
@@ -47,7 +48,6 @@ void Ara::reset(bool active)
             this->scoreboard_valid_ts[i] = 0;
             this->scoreboard_in_use[i] = false;
         }
-        this->on_going_insn_iter = 0;
     }
 }
 
@@ -131,16 +131,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Ara *_this = (Ara *)__this;
 
-    if (_this->on_going_insn_iter)
-    {
-        _this->on_going_insn_iter--;
-        if (_this->on_going_insn_iter == 0)
-      	{
-            _this->insn_end(_this->pending_insns.front());
-           	_this->pending_insns.pop();
-        }
-    }
-    else if (_this->pending_insns.size() > 0 &&
+    if (_this->pending_insns.size() > 0 &&
         _this->pending_insns.front()->timestamp <= _this->iss.top.clock.get_cycles())
     {
         PendingInsn *pending_insn = _this->pending_insns.front();
@@ -189,21 +180,11 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             }
 
             int block_id = insn->decoder_item->u.insn.block_id;
-            if (block_id != -1)
+            AraBlock *block = _this->blocks[block_id];
+            if (!block->is_full())
             {
-                AraBlock *block = _this->blocks[block_id];
-                if (!block->is_full())
-                {
-                    _this->pending_insns.pop();
-                    block->enqueue_insn(pending_insn);
-                }
-            }
-            else
-            {
-                unsigned int lmul = _this->iss.vector.LMUL_t;
-                unsigned int nb_elems = (_this->iss.csr.vl.value - _this->iss.csr.vstart.value) /
-                    _this->nb_lanes;
-                _this->on_going_insn_iter = std::max((unsigned int)1, nb_elems);
+                _this->pending_insns.pop();
+                block->enqueue_insn(pending_insn);
             }
         }
     }
@@ -230,5 +211,9 @@ void Ara::isa_init()
     {
         insn->u.insn.block_id = Ara::vlsu_id;
         insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store;
+    }
+    for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("valu"))
+    {
+        insn->u.insn.block_id = Ara::valu_id;
     }
 }

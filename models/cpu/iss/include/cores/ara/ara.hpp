@@ -37,6 +37,27 @@ public:
     virtual void enqueue_insn(PendingInsn *pending_insn) = 0;
 };
 
+class AraValu : public AraBlock
+{
+public:
+    AraValu(Ara &ara);
+    void reset(bool active) override;
+    bool is_full() override { return this->insns.size() == 4; }
+    void enqueue_insn(PendingInsn *pending_insn) override;
+
+private:
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+
+    Ara &ara;
+    vp::Trace trace;
+    vp::Trace trace_active_box;
+    vp::Trace trace_active;
+    vp::Trace trace_pc;
+    vp::ClockEvent fsm_event;
+    std::queue<PendingInsn *> insns;
+    PendingInsn *pending_insn;
+};
+
 class AraVlsu : public AraBlock
 {
 public:
@@ -59,6 +80,7 @@ private:
     vp::Trace trace_addr;
     vp::Trace trace_size;
     vp::Trace trace_is_write;
+    vp::Trace trace_pc;
     vp::ClockEvent fsm_event;
     int nb_lanes;
     std::queue<PendingInsn *> insns;
@@ -75,6 +97,7 @@ public:
     typedef enum
     {
         vlsu_id,
+        valu_id,
         nb_blocks
     } blocks_e;
 
@@ -93,6 +116,7 @@ public:
 
     std::queue<uint64_t> base_addr_queue;
     PendingInsn *pending_insn;
+    int nb_lanes;
 
 private:
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -100,7 +124,6 @@ private:
     vp::Trace trace;
     vp::Trace trace_active;
     vp::Trace trace_active_box;
-    int nb_lanes;
     vp::ClockEvent fsm_event;
     uint8_t queue_size;
     vp::Register<uint8_t> nb_pending_insn;
@@ -109,5 +132,4 @@ private:
     std::vector<AraBlock *> blocks;
     int64_t scoreboard_valid_ts[ISS_NB_VREGS];
     bool scoreboard_in_use[ISS_NB_VREGS];
-    int on_going_insn_iter;
 };

@@ -74,7 +74,7 @@ void AraValu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->trace_pc.event_highz();
     }
 
-    if (_this->insns.size() == 0)
+    if (_this->insns.size() == 0 && _this->pending_insn == NULL)
     {
         _this->trace_active_box.event_highz();
         uint8_t zero = 0;

@@ -46,7 +46,7 @@ void Ara::reset(bool active)
         for (int i=0; i<ISS_NB_VREGS; i++)
         {
             this->scoreboard_valid_ts[i] = 0;
-            this->scoreboard_in_use[i] = false;
+            this->scoreboard_in_use[i] = 0;
         }
     }
 }
@@ -104,6 +104,7 @@ void Ara::insn_end(PendingInsn *pending_insn)
 
     this->iss.top.insn_commit(pending_insn);
 
+    // Mark output registers as ready in next cycle
     for (int i=0; i<insn->nb_out_reg; i++)
     {
         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
@@ -116,11 +117,12 @@ void Ara::insn_end(PendingInsn *pending_insn)
         }
     }
 
+    // Mark intput registers as not in use anymore
     for (int i=0; i<insn->nb_in_reg; i++)
     {
         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
         {
-            this->scoreboard_in_use[insn->in_regs[i]] = false;
+            this->scoreboard_in_use[insn->in_regs[i]]--;
         }
     }
 
@@ -139,6 +141,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         iss_addr_t pc = pending_insn->pc;
         bool stalled = false;
 
+        // Don't start if an input register is being written
         for (int i=0; i<insn->nb_in_reg; i++)
         {
             if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
@@ -150,6 +153,19 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             }
         }
 
+        // Don't start if an output register is being written
+        for (int i=0; i<insn->nb_out_reg; i++)
+        {
+            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+            {
+                if (_this->scoreboard_valid_ts[insn->out_regs[i]] > _this->iss.top.clock.get_cycles())
+                {
+                    stalled = true;
+                }
+            }
+        }
+
+        // Don't start if an output register is being read
         for (int i=0; i<insn->nb_out_reg; i++)
         {
             if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
@@ -163,26 +179,28 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
         if (!stalled)
         {
-	        for (int i=0; i<insn->nb_out_reg; i++)
-            {
-                if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
-                {
-                    _this->scoreboard_valid_ts[insn->out_regs[i]] = INT64_MAX;
-                }
-            }
-
-            for (int i=0; i<insn->nb_in_reg; i++)
-            {
-                if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
-                {
-                    _this->scoreboard_in_use[insn->in_regs[i]] = true;
-                }
-            }
-
             int block_id = insn->decoder_item->u.insn.block_id;
             AraBlock *block = _this->blocks[block_id];
             if (!block->is_full())
             {
+                // Mark output registers as being written
+                for (int i=0; i<insn->nb_out_reg; i++)
+                {
+                    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                    {
+                        _this->scoreboard_valid_ts[insn->out_regs[i]] = INT64_MAX;
+                    }
+                }
+
+                // Mark input registers as being read
+                for (int i=0; i<insn->nb_in_reg; i++)
+                {
+                    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                    {
+                        _this->scoreboard_in_use[insn->in_regs[i]]++;
+                    }
+                }
+
                 _this->pending_insns.pop();
                 block->enqueue_insn(pending_insn);
             }

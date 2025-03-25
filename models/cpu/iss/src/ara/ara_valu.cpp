@@ -21,17 +21,17 @@
 #include "cpu/iss/include/iss.hpp"
 #include "cpu/iss/include/cores/ara/ara.hpp"
 
-AraValu::AraValu(Ara &ara)
-: AraBlock(&ara, "valu"), ara(ara),
-fsm_event(this, &AraValu::fsm_handler)
+AraVcompute::AraVcompute(Ara &ara, std::string name)
+: AraBlock(&ara, name), ara(ara),
+fsm_event(this, &AraVcompute::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
-    this->traces.new_trace_event("active_box", &this->trace_active_box, 1);
     this->traces.new_trace_event("active", &this->trace_active, 1);
     this->traces.new_trace_event("pc", &this->trace_pc, 64);
+    this->traces.new_trace_event_string("label", &this->trace_label);
 }
 
-void AraValu::reset(bool active)
+void AraVcompute::reset(bool active)
 {
     if (active)
     {
@@ -41,30 +41,19 @@ void AraValu::reset(bool active)
     }
 }
 
-void AraValu::enqueue_insn(PendingInsn *pending_insn)
+void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pending_insn->pc);
     uint8_t one = 1;
-    this->trace_active_box.event(&one);
+    pending_insn->timestamp = this->ara.iss.top.clock.get_cycles() + 1;
     this->trace_active.event(&one);
     this->insns.push(pending_insn);
     this->fsm_event.enable();
 }
 
-void AraValu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
-    AraValu *_this = (AraValu *)__this;
-
-    if (_this->pending_insn == NULL && _this->insns.size() != 0)
-    {
-        _this->pending_insn = _this->insns.front();
-       	_this->insns.pop();
-        unsigned int lmul = _this->ara.iss.vector.LMUL_t;
-        unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
-            _this->ara.nb_lanes;
-        _this->pending_insn->timestamp = _this->ara.iss.top.clock.get_cycles() + nb_elems + 1;
-        _this->trace_pc.event((uint8_t *)&_this->pending_insn->pc);
-    }
+    AraVcompute *_this = (AraVcompute *)__this;
 
     if (_this->pending_insn &&
         _this->pending_insn->timestamp <= _this->ara.iss.top.clock.get_cycles())
@@ -72,12 +61,26 @@ void AraValu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->ara.insn_end(_this->pending_insn);
         _this->pending_insn = NULL;
         _this->trace_pc.event_highz();
+        _this->trace_label.event_string((char *)1, false);
+    }
+
+    if (_this->pending_insn == NULL && _this->insns.size() != 0 &&
+        _this->insns.front()->timestamp <= _this->ara.iss.top.clock.get_cycles())
+    {
+        _this->pending_insn = _this->insns.front();
+       	_this->insns.pop();
+        unsigned int lmul = _this->ara.iss.vector.LMUL_t;
+        unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
+            _this->ara.nb_lanes;
+        _this->pending_insn->timestamp = _this->ara.iss.top.clock.get_cycles() + nb_elems;
+        _this->trace_pc.event((uint8_t *)&_this->pending_insn->pc);
+        _this->trace_label.event_string(_this->pending_insn->insn->desc->label, true);
     }
 
     if (_this->insns.size() == 0 && _this->pending_insn == NULL)
     {
-        _this->trace_active_box.event_highz();
         uint8_t zero = 0;
         _this->trace_active.event(&zero);
+        _this->fsm_event.disable();
     }
 }

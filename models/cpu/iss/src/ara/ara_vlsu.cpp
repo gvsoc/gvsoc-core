@@ -26,12 +26,12 @@ AraVlsu::AraVlsu(Ara &ara, int nb_lanes)
 fsm_event(this, &AraVlsu::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
-    this->traces.new_trace_event("active_box", &this->trace_active_box, 1);
     this->traces.new_trace_event("active", &this->trace_active, 1);
     this->traces.new_trace_event("addr", &this->trace_addr, 64);
     this->traces.new_trace_event("size", &this->trace_size, 64);
     this->traces.new_trace_event("is_write", &this->trace_is_write, 1);
     this->traces.new_trace_event("pc", &this->trace_pc, 64);
+    this->traces.new_trace_event_string("label", &this->trace_label);
 }
 
 void AraVlsu::reset(bool active)
@@ -51,7 +51,6 @@ void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
 {
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pending_insn->pc);
     uint8_t one = 1;
-    this->trace_active_box.event(&one);
     this->trace_active.event(&one);
     this->insns.push(pending_insn);
     pending_insn->timestamp = this->ara.iss.top.clock.get_cycles() + 1;
@@ -88,13 +87,13 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     if (_this->insns.size() == 0 && _this->pending_size == 0)
     {
-        _this->trace_active_box.event_highz();
         uint8_t zero = 0;
         _this->trace_pc.event(&zero);
         _this->trace_active.event(&zero);
         _this->trace_addr.event(&zero);
         _this->trace_size.event(&zero);
         _this->trace_is_write.event(&zero);
+        _this->trace_label.event_string((char *)1, false);
 
         _this->fsm_event.disable();
     }
@@ -105,6 +104,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->pending_size == 0)
         {
             PendingInsn *pending_insn = _this->insns.front();
+            _this->trace_label.event_string(pending_insn->insn->desc->label, true);
             _this->trace_pc.event((uint8_t *)&pending_insn->pc);
             iss_insn_t *insn = pending_insn->insn;
             ((void (*)(AraVlsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);

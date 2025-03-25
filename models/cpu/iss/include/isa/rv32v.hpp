@@ -750,7 +750,7 @@ static inline iss_reg_t vfslide1down_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
-    iss_reg_t last_elem = iss->ara.base_addr_get();
+    iss_reg_t last_elem = iss->ara.pending_insn->reg;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -817,7 +817,7 @@ static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #if CONFIG_GVSOC_ISS_CVA6
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
-    uint64_t in0 = iss->ara.base_addr_get();
+    uint64_t in0 = iss->ara.pending_insn->reg;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1136,8 +1136,12 @@ static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 
 //                             V 1.0
 static inline iss_reg_t vsetvli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
+#if CONFIG_GVSOC_ISS_CVA6
+    REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), iss->ara.pending_insn->reg, UIM_GET(0), UIM_GET(1), UIM_GET(2)));
+#else
     // REG_SET(0, LIB_CALL8(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2), UIM_GET(3), UIM_GET(4)));// VLMUL-VSEW-VTA-VMA
     REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -29,13 +29,13 @@ Ara::Ara(IssWrapper &top, Iss &iss)
     queue_full(*this, "queue_full", 1, true)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
-    this->traces.new_trace_event("active", &this->trace_active, 1);
-    this->traces.new_trace_event_string("label", &this->trace_label);
+    this->traces.new_trace_event("active", &this->event_active, 1);
+    this->traces.new_trace_event_string("label", &this->event_label);
 
     this->nb_lanes = top.get_js_config()->get_int("ara/nb_lanes");
     this->iss.vector.VLEN = CONFIG_ISS_VLEN;
     this->blocks.resize(Ara::nb_blocks);
-    this->blocks[Ara::vlsu_id] = new AraVlsu(*this, this->nb_lanes);
+    this->blocks[Ara::vlsu_id] = new AraVlsu(*this, top);
     this->blocks[Ara::vfpu_id] = new AraVcompute(*this, "vfpu");
     this->blocks[Ara::vslide_id] = new AraVcompute(*this, "vslide");
 }
@@ -50,8 +50,8 @@ void Ara::reset(bool active)
             this->scoreboard_in_use[i] = 0;
         }
     }
+    this->insn_first_waiting = 0;
     this->insn_first = 0;
-    this->insn_first_enqueued = 0;
     this->insn_last = 0;
     this->nb_waiting_insn = 0;
 }
@@ -91,8 +91,8 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
 
 	iss_insn_t *insn = pending_insn->insn;
     uint8_t one = 1;
-    this->trace_active.event(&one);
-    this->trace_label.event_string(cva6_pending_insn->insn->desc->label, true);
+    this->event_active.event(&one);
+    this->event_label.event_string(cva6_pending_insn->insn->desc->label, true);
 
     pending_insn->timestamp = this->iss.top.clock.get_cycles() + 1;
     int reg = insn->in_regs[0];
@@ -115,7 +115,7 @@ void Ara::insn_end(PendingInsn *pending_insn)
     iss_insn_t *insn = pending_insn->insn;
 
     pending_insn->done = true;
-    this->pending_insn = pending_insn;
+    this->current_insn_reg = pending_insn->reg;
     insn->stub_handler(&this->iss, insn, pending_insn->pc);
 
     // Mark output registers as ready in next cycle
@@ -147,29 +147,29 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     if (_this->nb_pending_insn.get() > 0)
     {
-        PendingInsn *pending_insn = &_this->pending_insns[_this->insn_first_enqueued];
+        PendingInsn *pending_insn = &_this->pending_insns[_this->insn_first];
         if (pending_insn->done)
         {
             _this->nb_pending_insn.dec(1);
             if (_this->nb_pending_insn.get() == 0)
             {
                 uint8_t zero = 0;
-                _this->trace_active.event(&zero);
-                _this->trace_label.event_string((char *)1, false);
+                _this->event_active.event(&zero);
+                _this->event_label.event_string((char *)1, false);
             }
             _this->queue_full.set(false);
 
-            _this->insn_first_enqueued++;
-            if (_this->insn_first_enqueued == _this->queue_size)
+            _this->insn_first++;
+            if (_this->insn_first == _this->queue_size)
             {
-                _this->insn_first_enqueued = 0;
+                _this->insn_first = 0;
             }
         }
     }
 
     if (_this->nb_waiting_insn > 0)
     {
-        PendingInsn *pending_insn = &_this->pending_insns[_this->insn_first];
+        PendingInsn *pending_insn = &_this->pending_insns[_this->insn_first_waiting];
 
         if (pending_insn->timestamp <= _this->iss.top.clock.get_cycles())
         {
@@ -241,10 +241,10 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                     block->enqueue_insn(pending_insn);
 
-                    _this->insn_first++;
-                    if (_this->insn_first == _this->queue_size)
+                    _this->insn_first_waiting++;
+                    if (_this->insn_first_waiting == _this->queue_size)
                     {
-                        _this->insn_first = 0;
+                        _this->insn_first_waiting = 0;
                     }
                     _this->nb_waiting_insn--;
                 }
@@ -268,12 +268,10 @@ void Ara::isa_init()
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vload"))
     {
         insn->u.insn.block_id = Ara::vlsu_id;
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load;
     }
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vstore"))
     {
         insn->u.insn.block_id = Ara::vlsu_id;
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store;
     }
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("valu"))
     {
@@ -282,5 +280,10 @@ void Ara::isa_init()
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vslide"))
     {
         insn->u.insn.block_id = Ara::vslide_id;
+    }
+
+    for (AraBlock *block: this->blocks)
+    {
+        block->isa_init();
     }
 }

@@ -38,6 +38,8 @@ public:
     virtual bool is_full() = 0;
     // Enqueue a new instruction to the block
     virtual void enqueue_insn(PendingInsn *pending_insn) = 0;
+    // Initialize ISA decoding tree. Used to attach special handlers to instructions
+    virtual void isa_init() {}
 };
 
 // Generic block for computation. Used for FPU and sliding to dispatch instructions in parallel
@@ -51,59 +53,104 @@ public:
     void enqueue_insn(PendingInsn *pending_insn) override;
 
 private:
-    // Handler for internal handler
+    // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
     Ara &ara;
     // Used for this block system traces
     vp::Trace trace;
-    // VCD trace for active state
-    vp::Trace trace_active;
-    // VCD trace for PC of instruction being processed
-    vp::Trace trace_pc;
-
-    vp::Trace trace_label;
+    // Event for active state
+    vp::Trace event_active;
+    // Event for PC of instruction being processed
+    vp::Trace event_pc;
+    // Event for label of instruction being processed
+    vp::Trace event_label;
+    // Clock event used for scheduling FSM handler when at least one instruction has to be processed
     vp::ClockEvent fsm_event;
+    // Queue of pending instructions to be processed by this block
+    // The block process them in-order
     std::queue<PendingInsn *> insns;
+    // Current instruction being processed
     PendingInsn *pending_insn;
 };
 
+// Block processing load/store vector instructions
 class AraVlsu : public AraBlock
 {
 public:
 
     void reset(bool active) override;
-    AraVlsu(Ara &ara, int nb_lanes);
+    AraVlsu(Ara &ara, IssWrapper &top);
     bool is_full() override { return this->insns.size() == 4; }
     void enqueue_insn(PendingInsn *pending_insn) override;
-
-    static void handle_insn_load(AraVlsu *vlsu, iss_insn_t *insn);
-    static void handle_insn_store(AraVlsu *vlsu, iss_insn_t *insn);
+    void isa_init() override;
 
 private:
+    // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    // Handler called when a load instruction starts to be processed, in order to initialize the FSM
+    // for a read burst
+    static void handle_insn_load(AraVlsu *vlsu, iss_insn_t *insn);
+    // Handler called when a write instruction starts to be processed, in order to initialize the FSM
+    // for a write burst
+    static void handle_insn_store(AraVlsu *vlsu, iss_insn_t *insn);
+    // Handler for asynchronous burst grants
+    static void data_grant(vp::Block *__this, vp::IoReq *req);
+    // Handler for asynchronous burst responses
+    static void data_response(vp::Block *__this, vp::IoReq *req);
+    // Check if current instruction must be terminated
+    void check_current_insn();
+
+    // Number of bursts which can be sent at the same time
+    static constexpr int nb_burst = 8;
 
     Ara &ara;
     vp::Trace trace;
-    vp::Trace trace_active;
-    vp::Trace trace_addr;
-    vp::Trace trace_size;
-    vp::Trace trace_is_write;
-    vp::Trace trace_pc;
-    vp::Trace trace_label;
+    // Event for active state
+    vp::Trace event_active;
+    // Event for address of current AXI burst
+    vp::Trace event_addr;
+    // Event for size of current AXI burst
+    vp::Trace event_size;
+    // Event for write or read opcode of current AXI burst
+    vp::Trace event_is_write;
+    // Event for PC of instruction being processed
+    vp::Trace event_pc;
+    // Event for label of instruction being processed
+    vp::Trace event_label;
+    // Clock event used for scheduling FSM handler when at least one instruction has to be processed
     vp::ClockEvent fsm_event;
-    int nb_lanes;
+    // Queue of pending instructions to be processed by this block
+    // The block process them in-order
     std::queue<PendingInsn *> insns;
-    uint8_t *pending_velem;
+    // Address of the next burst to be sent
     iss_addr_t pending_addr;
-    bool pending_is_write;
+    // Elem size of the current load/store operation
     iss_addr_t pending_elem_size;
+    // Remaining size of the current load/store operation
     iss_addr_t pending_size;
+    // Write or read of the current load/store operation
+    bool pending_is_write;
+    // Pointer to vector register file where next burst should read or written
+    uint8_t *pending_velem;
+    // Queue of available bursts for load/store
+    std::queue<vp::IoReq *> free_bursts;
+    // Memory interface for load/store bursts
+    vp::IoMaster io_itf;
+    // True if one burst was not granted. Once it is true, the block can not send any burst
+    // anymore until the last one is granted
+    bool stalled;
+    // Number of pending bursts. This is used to detect when the instruction is fully done.
+    int nb_pending_bursts;
+    // Current instruction being processed
+    PendingInsn *pending_insn;
 };
 
+// Ara top block
 class Ara : public vp::Block
 {
 public:
+    // List of sub-blocks processing instructions
     typedef enum
     {
         vlsu_id,
@@ -116,15 +163,25 @@ public:
 
     void build();
     void reset(bool reset);
+    // Called by ISS to initialize vector instructions in the ISA decoding tree to attach needed
+    // handlers
     void isa_init();
-
+    // Called by sub-blocks to notify the end of processing of an instruction. The instruction
+    // The instruction handler is called, the instruction is removed ffrom the sequencer, and the
+    // registers involved is updated
     void insn_end(PendingInsn *insn);
+    // Called by the ISS to offload an instruction to Ara. The instruction is pushed to the queue
+    // of pending instruction, analyzed, and push to a processing block for executing once
+    // dependencies are resolved. Can be called only when queue is not full.
     void insn_enqueue(PendingInsn *insn);
+    // Return true when queue if full and ara can not accept new instructions
     bool queue_is_full() { return this->queue_full.get(); }
+    // Return the CVA6 register value associated to the instruction being executed
+    inline iss_reg_t current_insn_reg_get() { return current_insn_reg; }
 
+    // Access to upper ISS
     Iss &iss;
-
-    PendingInsn *pending_insn;
+    // Number of 64 bits lanes in Ara.
     int nb_lanes;
 
 private:
@@ -132,19 +189,49 @@ private:
     PendingInsn *pending_insn_alloc(PendingInsn *cva6_pending_insn);
 
     vp::Trace trace;
-    vp::Trace trace_active;
-    vp::Trace trace_active_box;
-    vp::Trace trace_label;
+    // Event for active state
+    vp::Trace event_active;
+    // Event for label of instruction being processed
+    vp::Trace event_label;
+    // Clock event used for scheduling FSM handler when at least one instruction has to be processed
     vp::ClockEvent fsm_event;
+    // Size of the queue holding pending instructions. Once full, Ara can not accept instructions
+    // from CVA6 anymore
     uint8_t queue_size;
+    // Number of instructions currently being processed by Ara. This is increased when an
+    // instruction is enqueued, and decreased when it ends
     vp::Register<uint8_t> nb_pending_insn;
+    // Number of instructions currently being processed by Ara which have not yet been dispatched
+    // to their processing block, which means their dependencies have not been resolved yet
     unsigned int nb_waiting_insn;
+    // List of instructions currently being processed by Ara. This contains both the instructions
+    // waiting for the resolution of their dependencies, and the instructions already dispatched
+    // to the processing blocks.
     std::vector<PendingInsn> pending_insns;
-    int insn_first_enqueued;
+    // Index of the first pending instruction in the queue
     int insn_first;
+    // Index of the first pending instruction waiting for symbol resolution. They might be pending
+    // instructions before this one which has been resolved, forwarded to their processing block,
+    // and waiting for completion.
+    int insn_first_waiting;
+    // Index where the next pending instruction should be enqueued.
     int insn_last;
+    // True if the queue is full and ara can not accept any other instruction
     vp::Register<bool> queue_full;
+    // List of processing blocks
     std::vector<AraBlock *> blocks;
+    // Scoreboard describing which registers are ready to be used as inputs.
+    // This indicates the cyclestamp at which the register is ready. The register is available only
+    // if the cyclestamp is lower or equal than the current cycle.
+    // Any instruction which needs a non-available register as input is blocked until it becomes
+    // available.
     int64_t scoreboard_valid_ts[ISS_NB_VREGS];
+    // Scoreboard describing the number of instructions using each register.
+    // Any instruction which needs to write a register which is being used is blocked until the
+    // register is not used anymore
     unsigned int scoreboard_in_use[ISS_NB_VREGS];
+    // CVA6 register associated to the instruction being executed. This is used by instruction
+    // handlers when they are executed. This needs to be buffered because CVA6 might have executed
+    // following instructions overriding the register
+    iss_reg_t current_insn_reg;
 };

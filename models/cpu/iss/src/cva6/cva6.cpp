@@ -135,6 +135,7 @@ void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     PendingInsn &pending_insn = _this->pending_insns[_this->insn_first];
 
+    // Check if the instruction at the head is done
     if (pending_insn.done &&
         pending_insn.timestamp <= _this->clock.get_cycles())
     {
@@ -148,6 +149,8 @@ void IssWrapper::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
         _this->nb_pending_insn--;
 
+        // Only execute the handler if we haven't offloaded the instruction to ara since it will
+        // take care of executing the handler
         if ((insn->flags & ISS_INSN_FLAGS_VECTOR) == 0)
         {
             iss_addr_t next_pc = insn->stub_handler(&_this->iss, insn, pending_insn.pc);
@@ -203,11 +206,14 @@ PendingInsn &IssWrapper::pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc)
 
 iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // We stall the instruction if we hit a branch and we are flushing the queue or if the queue
+    // is full
     if (iss->top.do_flush || iss->top.nb_pending_insn == iss->top.max_pending_insn)
     {
         return pc;
     }
 
+    // Invalidate the output registers to block any instruction needing one of these instructions
     for (int i=0; i<insn->nb_out_reg; i++)
     {
         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) == 0)
@@ -220,9 +226,15 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
         }
     }
 
+    // Push the instruction to the queue
     PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);
+    // Mark it as done as we have no need to delay it. The handler will b eexecuted when the FSM
+    // decides to commit it
     iss->top.insn_commit(&pending_insn);
 
+    // In case the instruction is a branch, we can't know now what is the next instruction.
+    // Justr wait until the queue is empty.
+    // This will need proper branch prediction at some point.
     if (insn->decoder_item->u.insn.tags[ISA_TAG_BRANCH_ID])
     {
         iss->top.do_flush = true;
@@ -234,6 +246,7 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    // We stall the instruction if cva6 queue or ara queue is full
     if (iss->top.nb_pending_insn == iss->top.max_pending_insn || iss->ara.queue_is_full())
     {
         iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
@@ -241,6 +254,7 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
         return pc;
     }
 
+    // Only offload the instruction once all input registers are ready
     for (int i=0; i<insn->nb_in_reg; i++)
     {
         if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
@@ -266,6 +280,7 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
         }
     }
 
+    // Allocate a slot in cva6 queue and offload the instruction
     PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);
 
     iss->ara.insn_enqueue(&pending_insn);

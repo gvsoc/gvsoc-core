@@ -64,6 +64,7 @@ void Ara::build()
 
 PendingInsn *Ara::pending_insn_alloc(PendingInsn *cva6_pending_insn)
 {
+    // The new instruction is marked as pending and also waiting for dependecy resolution
     this->nb_pending_insn.inc(1);
     this->nb_waiting_insn++;
     if (this->nb_pending_insn.get() == this->queue_size)
@@ -77,7 +78,11 @@ PendingInsn *Ara::pending_insn_alloc(PendingInsn *cva6_pending_insn)
         this->insn_last = 0;
     }
 
+    // We commit now the instruction to CVA6 since there is nothing to commit in CVA6.
+    // Copy the pending instruction coming from CVA6 since the commit will free it.
     this->pending_insns[insn_id] = *cva6_pending_insn;
+
+    this->iss.top.insn_commit(cva6_pending_insn);
 
     return &this->pending_insns[insn_id];
 }
@@ -87,14 +92,16 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", cva6_pending_insn->pc);
     PendingInsn *pending_insn = this->pending_insn_alloc(cva6_pending_insn);
 
-    this->iss.top.insn_commit(cva6_pending_insn);
-
 	iss_insn_t *insn = pending_insn->insn;
     uint8_t one = 1;
     this->event_active.event(&one);
     this->event_label.event_string(cva6_pending_insn->insn->desc->label, true);
 
+    // Mark the instruction to be handled in the next cycle in case the FSM is already active
+    // to prevent it from handling it in the next cycle
     pending_insn->timestamp = this->iss.top.clock.get_cycles() + 1;
+
+    // Copy the CVA6 register since we will use it later and it will probably change before that
     int reg = insn->in_regs[0];
     uint64_t reg_value;
     if (insn->in_regs_fp[0])
@@ -107,6 +114,7 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
     }
     pending_insn->reg = reg_value;
 
+    // Enable the FSM to let it handle the pending instructions
     this->fsm_event.enable();
 }
 
@@ -114,7 +122,12 @@ void Ara::insn_end(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = pending_insn->insn;
 
+    // Mark the instruction as done. THe FSM will remove it when it is at the head of the queue
     pending_insn->done = true;
+
+    // Now that the instruction is over, execute the handler to functionally model it. This will
+    // write the output register.
+    // Store the instruction register as it will be used by the handler.
     this->current_insn_reg = pending_insn->reg;
     insn->stub_handler(&this->iss, insn, pending_insn->pc);
 
@@ -124,10 +137,6 @@ void Ara::insn_end(PendingInsn *pending_insn)
         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
         {
             this->scoreboard_valid_ts[insn->out_regs[i]] = this->iss.top.clock.get_cycles() + 1;
-        }
-        else
-        {
-           	this->iss.regfile.scoreboard_reg_set_timestamp(insn->out_regs[i], 0, 0);
         }
     }
 
@@ -145,6 +154,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Ara *_this = (Ara *)__this;
 
+    // Check if the pending instruction at the head must be terminated
     if (_this->nb_pending_insn.get() > 0)
     {
         PendingInsn *pending_insn = &_this->pending_insns[_this->insn_first];
@@ -167,6 +177,8 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
     }
 
+    // Check if the dependencies of the pending instruction at the head of the waiting instruction
+    // are resolved.
     if (_this->nb_waiting_insn > 0)
     {
         PendingInsn *pending_insn = &_this->pending_insns[_this->insn_first_waiting];
@@ -239,6 +251,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                         }
                     }
 
+                    // Enqueue the instruction to the processing block
                     block->enqueue_insn(pending_insn);
 
                     _this->insn_first_waiting++;
@@ -260,11 +273,15 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 void Ara::isa_init()
 {
+    // Make sure all vector instructions are handled with dedicated handler so that they can be
+    // offloaded to ara
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_isa("v"))
     {
         insn->u.insn.stub_handler = &IssWrapper::vector_insn_stub_handler;
+        // Vector instructions need to be handled differently in cva6
         insn->u.insn.flags |= ISS_INSN_FLAGS_VECTOR;
     }
+    // Associate instruction to processing blocks
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vload"))
     {
         insn->u.insn.block_id = Ara::vlsu_id;
@@ -273,7 +290,7 @@ void Ara::isa_init()
     {
         insn->u.insn.block_id = Ara::vlsu_id;
     }
-    for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("valu"))
+    for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vothers"))
     {
         insn->u.insn.block_id = Ara::vfpu_id;
     }

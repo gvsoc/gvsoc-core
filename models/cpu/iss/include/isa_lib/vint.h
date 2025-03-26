@@ -5853,8 +5853,6 @@ static inline void lib_VLE64V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
     // printf("RS1 = %lx\n",rs1);
     // printf("vd = %d\n",vd);
 
-    printf("VLE %d\n", vm);
-
     uint64_t start_add = rs1;
     uint8_t data[4];
 

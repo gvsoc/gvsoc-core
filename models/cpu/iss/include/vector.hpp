@@ -107,7 +107,11 @@ public:
     uint8_t exp;
     uint8_t mant;
 
+#ifdef CONFIG_GVSOC_ISS_CVA6
     uint8_t vregs[ISS_NB_VREGS][CONFIG_ISS_VLEN/8];
+#else
+    uint8_t vregs[ISS_NB_VREGS][(int)NB_VEL];
+#endif
 
     Vlsu vlsu;
 };

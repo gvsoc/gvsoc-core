@@ -509,15 +509,21 @@ static inline iss_reg_t vremu_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 //     return iss_insn_next(iss, insn, pc);
 // }
 static inline iss_reg_t vle8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
+#ifndef CONFIG_GVSOC_ISS_CVA6
     LIB_CALL3(lib_VLE8V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
+#ifndef CONFIG_GVSOC_ISS_CVA6
     LIB_CALL3(lib_VLE16V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
+#ifndef CONFIG_GVSOC_ISS_CVA6
     LIB_CALL3(lib_VLE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){

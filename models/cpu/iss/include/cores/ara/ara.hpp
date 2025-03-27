@@ -74,6 +74,14 @@ private:
     PendingInsn *pending_insn;
 };
 
+class AraVlsuPendingInsn
+{
+public:
+    PendingInsn *insn;
+    // Number of pending bursts. This is used to detect when the instruction is fully done.
+    int nb_pending_bursts;
+};
+
 // Block processing load/store vector instructions
 class AraVlsu : public AraBlock
 {
@@ -81,7 +89,7 @@ public:
 
     void reset(bool active) override;
     AraVlsu(Ara &ara, IssWrapper &top);
-    bool is_full() override { return this->insns.size() == 4; }
+    bool is_full() override { return this->nb_pending_insn.get() == AraVlsu::queue_size; }
     void enqueue_insn(PendingInsn *pending_insn) override;
     void isa_init() override;
 
@@ -98,11 +106,12 @@ private:
     static void data_grant(vp::Block *__this, vp::IoReq *req);
     // Handler for asynchronous burst responses
     static void data_response(vp::Block *__this, vp::IoReq *req);
-    // Check if current instruction must be terminated
-    void check_current_insn();
+    void handle_burst_end(vp::IoReq *req);
 
     // Number of bursts which can be sent at the same time
     static constexpr int nb_burst = 8;
+    // Number of instruction that can be enqueued at the same time
+    static constexpr int queue_size = 4;
 
     Ara &ara;
     vp::Trace trace;
@@ -114,6 +123,8 @@ private:
     vp::Trace event_size;
     // Event for write or read opcode of current AXI burst
     vp::Trace event_is_write;
+    // Event for PC of enqueued instructions
+    vp::Trace event_queue;
     // Event for PC of instruction being processed
     vp::Trace event_pc;
     // Event for label of instruction being processed
@@ -122,7 +133,7 @@ private:
     vp::ClockEvent fsm_event;
     // Queue of pending instructions to be processed by this block
     // The block process them in-order
-    std::queue<PendingInsn *> insns;
+    std::vector<AraVlsuPendingInsn> insns;
     // Address of the next burst to be sent
     iss_addr_t pending_addr;
     // Elem size of the current load/store operation
@@ -140,10 +151,21 @@ private:
     // True if one burst was not granted. Once it is true, the block can not send any burst
     // anymore until the last one is granted
     bool stalled;
-    // Number of pending bursts. This is used to detect when the instruction is fully done.
-    int nb_pending_bursts;
-    // Current instruction being processed
-    PendingInsn *pending_insn;
+    // Bursts which have been handled synchronously with a delay. There are hold here until their
+    // delay has elapsed
+    std::queue<vp::IoReq *> delayed_bursts;
+    // Timestamps where burst in delayed_bursts can be released
+    std::queue<int64_t> delayed_bursts_timestamps;
+    // First valid instruction in the queue.
+    int insn_first;
+    // First valid instruction in the queue waiting to be started
+    int insn_first_waiting;
+    // Index in the queue where the next instruction should be pushed.
+    int insn_last;
+    // Number of enqueued instructions
+    vp::Register<uint8_t> nb_pending_insn;
+    // Number of instructions waiting to be started
+    int nb_waiting_insn;
 };
 
 // Ara top block
@@ -185,25 +207,33 @@ public:
     int nb_lanes;
 
 private:
+    // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    // Allocate a slot for an instruction being enqueued. This is used to duplicate the cva6
+    // pending instruction to commit it early so that cva6 can use the slot for another instruction.
     PendingInsn *pending_insn_alloc(PendingInsn *cva6_pending_insn);
+
+    // Size of the queue holding pending instructions. Once full, Ara can not accept instructions
+    // from CVA6 anymore
+    static constexpr int queue_size = 8;
 
     vp::Trace trace;
     // Event for active state
     vp::Trace event_active;
-    // Event for label of instruction being processed
+    // Event for PC of instruction being enqueued
+    vp::Trace event_pc;
+    // Event for PC of enqueued instructions
+    vp::Trace event_queue;
+    // Event for label of instruction being enqueued
     vp::Trace event_label;
     // Clock event used for scheduling FSM handler when at least one instruction has to be processed
     vp::ClockEvent fsm_event;
-    // Size of the queue holding pending instructions. Once full, Ara can not accept instructions
-    // from CVA6 anymore
-    uint8_t queue_size;
     // Number of instructions currently being processed by Ara. This is increased when an
     // instruction is enqueued, and decreased when it ends
     vp::Register<uint8_t> nb_pending_insn;
     // Number of instructions currently being processed by Ara which have not yet been dispatched
     // to their processing block, which means their dependencies have not been resolved yet
-    unsigned int nb_waiting_insn;
+    vp::Register<uint8_t> nb_waiting_insn;
     // List of instructions currently being processed by Ara. This contains both the instructions
     // waiting for the resolution of their dependencies, and the instructions already dispatched
     // to the processing blocks.

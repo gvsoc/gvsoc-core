@@ -186,7 +186,7 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         // Execute the instruction and replace the current one with the new one
         iss->exec.current_insn = insn->fast_handler(iss, insn, pc);
 
-        iss->exec.asm_trace_event.event_string(insn->desc->label, true);
+        iss->exec.asm_trace_event.event_string(insn->desc->label, false);
 
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
@@ -307,7 +307,7 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
         _this->current_insn = _this->insn_exec(insn, pc);
 
-        _this->asm_trace_event.event_string(insn->desc->label, true);
+        _this->asm_trace_event.event_string(insn->desc->label, false);
 
         _this->iss.timing.insn_account();
 

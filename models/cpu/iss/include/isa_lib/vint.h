@@ -5853,8 +5853,6 @@ static inline void lib_VLE64V(Iss *iss, iss_reg_t rs1, int vd , bool vm){
     // printf("RS1 = %lx\n",rs1);
     // printf("vd = %d\n",vd);
 
-    printf("VLE %d\n", vm);
-
     uint64_t start_add = rs1;
     uint8_t data[4];
 
@@ -6221,7 +6219,6 @@ static inline void lib_VSE64V(Iss *iss, iss_reg_t rs1, int vs3, bool vm){
         data[1]  = iss->vector.vregs[vs3][i+1];
         data[2]  = iss->vector.vregs[vs3][i+2];
         data[3]  = iss->vector.vregs[vs3][i+3];
-
 
         // printf("STORE64 \n");
         // printf("data0  = %d\n",data[0]);

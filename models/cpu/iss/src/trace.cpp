@@ -259,9 +259,9 @@ static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float)
     int width = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
 
-    for (int i=CONFIG_ISS_VLEN/8/width - 1; i>=0; i--)
+    for (int i=CONFIG_ISS_VLEN/8/width*lmul - 1; i>=0; i--)
     {
-        uint8_t *vreg = velem_get(iss, reg, i, width, lmul); //&iss->vector.vregs[reg][i*iss->vector.sewb*8];
+        uint8_t *vreg = velem_get(iss, reg, i, width, lmul);
         uint64_t value = *(uint64_t *)vreg;
 
         if (is_float)
@@ -733,7 +733,7 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->is_macro_op || iss->top.traces.get_trace_engine()->get_format() == TRACE_FORMAT_LONG)
     {
-        char buffer[1024];
+        char buffer[16*1024];
 
         iss_trace_save_args(iss, insn, true);
 

@@ -438,8 +438,8 @@ class PulpV2(IsaSubset):
             Instr('pv.cmpleu.sc.b',  Format_R,   '010011- ----- ----- 101 ----- 1010111'),
             Instr('pv.cmpleu.sci.b', Format_RRU, '010011- ----- ----- 111 ----- 1010111'),
 
-            Instr('p.beqimm',        Format_SB2, '------- ----- ----- 010 ----- 1100011', fast_handler=True, decode='bxx_decode'),
-            Instr('p.bneimm',        Format_SB2, '------- ----- ----- 011 ----- 1100011', fast_handler=True, decode='bxx_decode'),
+            Instr('p.beqimm',        Format_SB2, '------- ----- ----- 010 ----- 1100011', tags=["branch"], fast_handler=True, decode='bxx_decode'),
+            Instr('p.bneimm',        Format_SB2, '------- ----- ----- 011 ----- 1100011', tags=["branch"], fast_handler=True, decode='bxx_decode'),
 
             Instr('p.mac',           Format_RRRR, '0100001 ----- ----- 000 ----- 0110011'),
             Instr('p.msu',           Format_RRRR, '0100001 ----- ----- 001 ----- 0110011'),

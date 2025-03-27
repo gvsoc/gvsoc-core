@@ -37,7 +37,7 @@ void Vector::reset(bool active)
     {
         for (int i = 0; i < ISS_NB_VREGS; i++){
             for (int j = 0; j < NB_VEL; j++){
-                this->vregs[i][j] = i == 0 ? 0 : 0x57575757;
+                this->vregs[i][j] = 0;
             }
         }
     }

@@ -47,6 +47,9 @@
 
 class IssWrapper;
 
+#define ISS_INSN_FLAGS_VECTOR (1<< 0)
+
+
 
 class Iss
 {
@@ -74,7 +77,18 @@ public:
     Vector vector;
     Ara ara;
 
-    vp::Component &top;
+    IssWrapper &top;
+};
+
+class PendingInsn
+{
+public:
+    iss_insn_t *insn;
+    uint64_t timestamp;
+    iss_reg_t pc;
+    iss_reg_t reg;
+    bool done;
+    int id;
 };
 
 class IssWrapper : public vp::Component
@@ -86,18 +100,32 @@ public:
     void start();
     void stop();
     void reset(bool active);
+    void insn_commit(PendingInsn *pending_insn);
+    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
     Iss iss;
 
 private:
+    static iss_reg_t insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    PendingInsn &pending_insn_alloc();
+    PendingInsn &pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc);
+
+    int max_pending_insn = 8;
+    vp::ClockEvent fsm_event;
     vp::Trace trace;
+    bool do_flush;
+    std::vector<PendingInsn> pending_insns;
+    int insn_first;
+    int insn_last;
+    int nb_pending_insn;
 };
 
 inline Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this),
     core(*this), irq(*this), gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this),
     trace(*this), csr(*this), regfile(top, *this), mmu(*this), pmp(*this), exception(*this),
-    memcheck(top, *this), vector(*this), ara(*this), top(top)
+    memcheck(top, *this), vector(*this), ara(top, *this), top(top)
 {
 }
 

@@ -47,10 +47,13 @@ void Mmu::build()
 
 void Mmu::reset(bool active)
 {
-    this->satp = 0;
+    if (active)
+    {
+        this->satp = 0;
+        this->mode = MMU_MODE_OFF;
 
-    this->flush(0, 0);
-
+        this->flush(0, 0);
+    }
 }
 
 bool Mmu::satp_update(bool is_write, iss_reg_t &value)

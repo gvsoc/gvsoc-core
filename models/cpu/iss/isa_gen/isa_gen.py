@@ -91,6 +91,9 @@ class OpcodeField(object):
         self.flags = ['ISS_DECODER_ARG_FLAG_NONE'] + flags
         self.latency = 0
 
+    def get_id(self):
+        return self.id
+
     def is_reg(self):
         return False
 
@@ -106,6 +109,15 @@ class Indirect(OpcodeField):
         self.postInc = postInc
         self.preInc = preInc
         self.flags = ['ISS_DECODER_ARG_FLAG_NONE']
+
+    def get_id(self):
+        return self.base.get_id()
+
+    def is_reg(self):
+        return True
+
+    def is_out(self):
+        return False
 
     def genTrace(self, isaFile, level):
         if self.offset is not None and self.offset.isImm:
@@ -664,9 +676,14 @@ class IsaSubset(object):
         self.name = name
         self.instrs = instrs
         self.instrs_dict = {}
+        self.top_isa = None
         for instr in instrs:
             instr.set_isa(self)
             self.instrs_dict[instr.name] = instr
+
+    def add_insn_tag(self, insn, tag):
+        if self.top_isa is not None:
+            self.top_isa.add_insn_tag(insn, tag)
 
     def check_compatibilities(self, isa):
         pass
@@ -717,8 +734,15 @@ class Isa(object):
             if tag in insn.isa_tags:
                 insn.set_active(False)
 
+    def add_insn_tag(self, insn, tag):
+        if self.isa_tags_insns.get(tag) is None:
+                self.isa_tags_insns[tag] = []
+
+        self.isa_tags_insns[tag].append(f'&{insn.get_full_name()}')
+
     def add_isa(self, isa):
         self.isas[isa.name] = isa
+        isa.top_isa = self
 
         for insn in isa.get_insns():
             self.instrs_dict[insn.name] = insn
@@ -760,6 +784,7 @@ class Isa(object):
         dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
         dump(isaFile, f'  .isa_set=&{tree.get_name()},\n')
         dump(isaFile, '  .tag_insns=tag_insn,\n')
+        dump(isaFile, '  .isa_insns=isa_insn,\n')
         dump(isaFile, '  .insns=insns,\n')
         dump(isaFile, '  .initialized=false,\n')
         dump(isaFile, '};\n')
@@ -787,6 +812,20 @@ class Isa(object):
             dump(isaFile, f'    {{ "{insn.name}", &{insn.get_full_name()} }},\n')
         dump(isaFile, f'}};\n\n')
 
+        for isa in self.isas.values():
+            struct_name = f'isa_insn_{isa.name}'
+            insn_list = []
+            for insn in isa.get_insns():
+                insn_list.append(f'&{insn.get_full_name()}')
+            dump(isaFile, f'static std::vector<iss_decoder_item_t *> {struct_name} = {{ {", ".join(insn_list)} }};\n\n')
+
+        dump(isaFile, f'static std::unordered_map<std::string, std::vector<iss_decoder_item_t *> *> isa_insn = {{\n')
+        for isa in self.isas.values():
+            struct_name = f'&isa_insn_{isa.name}'
+            dump(isaFile, f'    {{ "{isa.name}", {struct_name} }},\n')
+        dump(isaFile, f'}};\n\n')
+
+
 
 
 class Instr(object):
@@ -798,9 +837,14 @@ class Instr(object):
         self.latency = 0
         self.power_group = 0
         self.is_macro_op = is_macro_op
+
+        # Sort arguments as model will access arguments based on their ID
+        format.sort(key=lambda obj: obj.get_id())
+
         self.args_format = format
         self.label = label
         self.active = True
+        self.isa = None
 
         # Reverse the encoding string
         encoding = encoding[::-1].replace(' ', '')
@@ -816,6 +860,11 @@ class Instr(object):
 
         self.decode_func = '%s_decode_gen' % (self.name)
         self.len = len(encoding.strip())
+
+    def add_tag(self, tag):
+        self.tags.append(tag)
+        if self.isa is not None:
+            self.isa.add_insn_tag(self, tag)
 
     def set_exec_label(self, name):
         self.exec_func = f'{name}_exec'
@@ -886,9 +935,19 @@ class Instr(object):
         dump(isaFile, f'      .args= {{\n')
         if len(self.args_format) > 0:
             for arg in self.args_format:
-                arg.gen(isaFile, indent=8)
+                if arg.is_reg() and arg.is_out():
+                    arg.gen(isaFile, indent=8)
+        if len(self.args_format) > 0:
+            for arg in self.args_format:
+                if arg.is_reg() and not arg.is_out():
+                    arg.gen(isaFile, indent=8)
+        if len(self.args_format) > 0:
+            for arg in self.args_format:
+                if not arg.is_reg():
+                    arg.gen(isaFile, indent=8)
         dump(isaFile, f'      }},\n')
         dump(isaFile, f'      .resource_id=-1,\n')
+        dump(isaFile, f'      .block_id=-1,\n')
         dump(isaFile, f'      .power_group={self.power_group},\n')
         dump(isaFile, f'      .is_macro_op={1 if self.is_macro_op else 0},\n')
         dump(isaFile, f'      .tags={{{", ".join(insn_tags_value)}}}\n')

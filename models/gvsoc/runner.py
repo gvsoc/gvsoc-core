@@ -607,8 +607,8 @@ class Runner():
 
 class Target(gapy.Target):
 
-    def __init__(self, parser, options, model, rtl_cosim_runner=None, description=None):
-        super(Target, self).__init__(parser, options)
+    def __init__(self, parser, options, model, rtl_cosim_runner=None, description=None, name=None):
+        super(Target, self).__init__(parser, options, name=name)
 
         # To keep compatibility with old targets where description was described with the argument
         # we manually set the class attributes.

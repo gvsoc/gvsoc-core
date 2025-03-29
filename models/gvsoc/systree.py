@@ -149,7 +149,7 @@ class Interface:
         self.comp.parent.interfaces.append(self)
 
 
-class Component(object):
+class Component(gapylib.target.Component):
     """
     This class corresponds to a generic HW component from which any component should inherit.
 
@@ -163,11 +163,10 @@ class Component(object):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent, name, options=None):
-        self.name = name
+    def __init__(self, parent, name, options=None, target_name=None):
+        super().__init__(name, target_name=target_name)
         self.parent = parent
         self.json_config_files = []
-        self.components = {}
         self.properties = {}
         self.bindings = []
         self.ports = {}

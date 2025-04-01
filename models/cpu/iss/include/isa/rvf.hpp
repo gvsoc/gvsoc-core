@@ -49,11 +49,13 @@ static inline iss_reg_t flw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fsw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#ifndef CONFIG_GVSOC_ISS_NO_MSTATUS_FS
     if (iss->csr.mstatus.fs == 0)
     {
         iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
         return pc;
     }
+#endif
     if (iss->lsu.store_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
     {
         return pc;
@@ -63,11 +65,13 @@ static inline iss_reg_t fsw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fsw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#ifndef CONFIG_GVSOC_ISS_NO_MSTATUS_FS
     if (iss->csr.mstatus.fs == 0)
     {
         iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
         return pc;
     }
+#endif
     iss->lsu.stack_access_check(REG_OUT(0), REG_GET(0) + SIM_GET(0));
     if (iss->lsu.store_float_perf<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_IN(1)))
     {

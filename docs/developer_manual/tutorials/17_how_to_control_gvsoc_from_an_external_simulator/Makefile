@@ -1,13 +1,14 @@
 include ../utils/rt.mk
 
 BUILDDIR = $(CURDIR)/build
-INSTALLDIR = $(CURDIR)/install
 
 ifdef LOCAL_BUILD
+INSTALLDIR = $(CURDIR)/install
 OPTIONS=BUILDDIR=$(BUILDDIR) INSTALLDIR=$(INSTALLDIR)
 GVSOC=$(INSTALLDIR)/bin/gvsoc
 else
 GVSOC=../../../../../install/bin/gvsoc
+INSTALLDIR = ../../../../../install
 endif
 
 clean:
@@ -20,7 +21,7 @@ all:
 
 gvsoc:
 	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) build
-	g++ -o launcher launcher.cpp -I../../../../core/engine/include -L$(INSTALLDIR)/lib -lpulpvp
+	g++ -o launcher launcher.cpp -I../../../../../core/engine/include -L$(INSTALLDIR)/lib -lpulpvp
 
 prepare:
 	cp solution/* .

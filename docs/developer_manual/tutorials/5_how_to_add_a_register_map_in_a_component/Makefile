@@ -9,7 +9,7 @@ else
 GVSOC=../../../../../install/bin/gvsoc
 endif
 
-export PYTHONPATH:=$(CURDIR)/../../../../core/models:$(PYTHONPATH)
+export PYTHONPATH:=$(CURDIR)/../../../../../core/models:$(PYTHONPATH)
 
 clean:
 	rm -f *.o $(BUILDDIR)/test
@@ -29,4 +29,4 @@ prepare:
 	cp solution/* .
 
 regmap:
-	../../../../core/bin/regmap-gen --input-md regmap.md --header headers/mycomp
+	../../../../../core/bin/regmap-gen --input-md regmap.md --header headers/mycomp

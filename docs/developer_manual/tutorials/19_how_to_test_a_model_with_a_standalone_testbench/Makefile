@@ -11,12 +11,12 @@ GVSOC=../../../../../install/bin/gvsoc
 endif
 
 clean:
-	make -C ../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) clean
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) clean
 
 all:
 
 gvsoc:
-	make -C ../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) build
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) build
 
 prepare:
 	cp solution/* .

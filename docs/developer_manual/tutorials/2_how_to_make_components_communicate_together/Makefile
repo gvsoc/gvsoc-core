@@ -11,7 +11,7 @@ endif
 
 clean:
 	rm -f *.o $(BUILDDIR)/test
-	make -C ../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) clean
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) clean
 
 prepare:
 	cp solution/* .
@@ -21,7 +21,7 @@ all:
 	riscv64-unknown-elf-gcc -o $(BUILDDIR)/test main.c $(RT_SRCS) $(RT_FLAGS)
 
 gvsoc:
-	make -C ../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) build
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) build
 
 run:
 	$(GVSOC) --target-dir=$(CURDIR) --target=my_system --work-dir=$(BUILDDIR) --binary=$(BUILDDIR)/test run $(runner_args)

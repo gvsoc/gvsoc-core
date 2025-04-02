@@ -779,3 +779,6 @@ class Target(gapy.Target):
         tree = rich.tree.Tree('Properties')
         prop_tree.fill_tree(tree)
         rich.print (tree)
+
+    def get_property_from_root(self, name):
+        return self.model.get_build_property(name)

@@ -23,7 +23,7 @@ import json
 import sys
 import shutil
 from importlib import import_module
-import gapylib.target
+import gvrun.target
 import gvsoc.gui
 import hashlib
 
@@ -149,7 +149,7 @@ class Interface:
         self.comp.parent.interfaces.append(self)
 
 
-class Component(gapylib.target.Component):
+class Component(gvrun.target.Component):
     """
     This class corresponds to a generic HW component from which any component should inherit.
 
@@ -164,8 +164,9 @@ class Component(gapylib.target.Component):
     """
 
     def __init__(self, parent, name, options=None, target_name=None):
-        super().__init__(name, target_name=target_name)
+        super().__init__(name, parent=parent, target_name=target_name)
         self.parent = parent
+        self.components = {}
         self.json_config_files = []
         self.properties = {}
         self.bindings = []
@@ -198,6 +199,24 @@ class Component(gapylib.target.Component):
 
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
+
+    def generate(self, builddir):
+        pass
+
+    def generate_all(self, builddir):
+        for component in self.components.values():
+            component.generate_all(builddir)
+
+        self.generate(builddir)
+
+    def configure(self):
+        pass
+
+    def configure_all(self):
+        for component in self.components.values():
+            component.configure_all()
+
+        self.configure()
 
     def i_RESET(self) -> SlaveItf:
         return SlaveItf(self, 'reset', signature='wire<bool>')
@@ -974,23 +993,15 @@ class Component(gapylib.target.Component):
                 regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)
 
 
-    def declare_target_property(self, descriptor):
-        if self.parent is not None:
-            self.parent.declare_target_property(descriptor)
-
     def declare_user_property(self, name, value, description, cast=None, dump_format=None, allowed_values=None):
         self.declare_target_property(
-            gapylib.target.Property(
+            gvrun.target.Property(
                 name=name, path=self.get_comp_path(), value=value,
                 dump_format=dump_format, cast=cast, description=description, allowed_values=allowed_values
             )
         )
 
         return self.get_user_property(name)
-
-    def get_target_property(self, name, path=None):
-        if self.parent is not None:
-            return self.parent.get_target_property(name, path)
 
     def get_user_property(self, name):
         path = self.get_comp_path()

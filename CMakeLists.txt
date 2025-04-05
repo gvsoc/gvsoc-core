@@ -103,7 +103,7 @@ if(DEFINED GVSOC_TARGETS)
         message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
 
         # Gapy is used to extract the list of components out of the specified target
-        set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
+        set(GAPY_CMD gvrun --target=${target} ${GAPY_TARGETS_DIR_OPT}
             --platform=gvsoc
             --builddir=${CMAKE_CURRENT_BINARY_DIR}
             --installdir=${CMAKE_INSTALL_PREFIX}/models

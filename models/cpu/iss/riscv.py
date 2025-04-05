@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import os
 import gvsoc.systree
 import gvsoc.systree as st
 import os.path
@@ -23,6 +24,9 @@ from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
 
 binaries_info = {}
+
+binaries = {}
+
 
 class RiscvCommon(st.Component):
     """
@@ -303,6 +307,29 @@ class RiscvCommon(st.Component):
 
         if handle_misaligned:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
+
+    def handle_executable(self, executable):
+
+        global binaries
+
+        path = executable.binary
+        debug_info_path = os.path.join(os.path.dirname(path), f'debug_binary_{os.path.basename(path)}.debugInfo')
+
+        if binaries.get(path) is None:
+            binaries[path] = True
+
+            # Only generate debug symbols for small binaries, otherwise it is too slow
+            # To allow it, the ISS should itself read the symbols.
+            if os.path.getsize(path) < 5 * 1024*1024:
+                if os.system('gen-debug-info %s %s' % (path, debug_info_path)) != 0:
+                    print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+
+        if os.path.getsize(path) < 5 * 1024*1024:
+            self.get_property('debug_binaries').append(debug_info_path)
+
+    def generate(self, builddir):
+        for executable in self.get_executables():
+            self.handle_executable(executable)
 
     def gen_gtkw(self, tree, comp_traces):
 

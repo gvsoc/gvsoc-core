@@ -16,14 +16,50 @@
 #
 
 import gvsoc.systree as st
+import gvrun.flash
 
 
 class Flash(st.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, size=0, type='undefined'):
         super(Flash, self).__init__(parent, name)
+
+        self.size = size
+        self.type = type
 
         self.declare_flash()
 
+        self.declare_target_property(
+            gvrun.target.Property(
+                name='template', value=None,
+                description='Specify the template describing how to generate flash image'
+            )
+        )
+
+        self.declare_target_property(
+            gvrun.target.Property(
+                name='section_start_align', value=16, cast=int,
+                description='Specify flash section start alignment'
+            )
+        )
+
+        self.declare_target_property(
+            gvrun.target.Property(
+                name='section_size_align', value=16, cast=int,
+                description='Specify flash section size alignment'
+            )
+        )
+
+        # self.flash = gvrun.flash.Flash()
+
     def get_image_path(self):
         return self.get_path().replace('/', '.') + '.bin'
+
+    def generate(self, builddir):
+
+        template = self.get_property('template')
+        if template is not None:
+            print ('BUILDDIR')
+
+    def configure(self):
+        flash_gen = gvrun.flash.FlashGenerator(self)

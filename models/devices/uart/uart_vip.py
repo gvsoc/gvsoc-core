@@ -15,7 +15,7 @@
 #
 
 import gvsoc.systree as st
-import gapylib.target
+# import gapylib.target
 import utils.uart.uart_adapter
 
 

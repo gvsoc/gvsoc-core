@@ -19,14 +19,12 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
-import gapylib.target
 import gvsoc.systree as st
 import gvsoc.json_tools as js
 import os.path
 from gvsoc.gtkwave import Gtkwave_tree
 from gvsoc.gui import GuiConfig
 import gvsoc.gui
-import gapylib.target as gapy
 import sys
 import rich.tree
 import rich
@@ -39,6 +37,7 @@ import gvsoc.gvsoc_control
 import signal
 import traceback
 import shlex
+import gvrun
 
 
 def waitstatus_to_exitcode(status):
@@ -100,30 +99,30 @@ def gen_config(args, config, working_dir, runner, cosim_mode):
 
     gvsoc_config.set("debug-mode", debug_mode)
 
-    if debug_mode:
-        debug_binaries = []
+    # if debug_mode:
+    #     debug_binaries = []
 
-        if args.binary is not None:
-            debug_binaries.append(args.binary)
+    #     if args.binary is not None:
+    #         debug_binaries.append(args.binary)
 
-        if args.debug_binary is not None:
-            debug_binaries += args.debug_binary
+    #     if args.debug_binary is not None:
+    #         debug_binaries += args.debug_binary
 
-        rom_binary = full_config.get_str('**/soc/rom/config/binary')
+    #     rom_binary = full_config.get_str('**/soc/rom/config/binary')
 
-        if rom_binary is not None:
+    #     if rom_binary is not None:
 
-            if runner is not None:
-                rom_binary = runner.gapy_target.get_file_path(rom_binary)
+    #         if runner is not None:
+    #             rom_binary = runner.gapy_target.get_file_path(rom_bin, ary)
 
-            if os.path.exists(rom_binary):
-                debug_binaries.append(rom_binary)
+    #         if os.path.exists(rom_binary):
+    #             debug_binaries.append(rom_binary)
 
-        for index, binary in enumerate(debug_binaries):
-            debug_binary = os.path.join(working_dir,
-                f'debug_binary_{index}_{os.path.basename(binary)}.debugInfo')
-            full_config.set('**/debug_binaries', debug_binary)
-            full_config.set('**/binaries', binary)
+    #     for index, binary in enumerate(debug_binaries):
+    #         debug_binary = os.path.join(working_dir,
+    #             f'debug_binary_{index}_{os.path.basename(binary)}.debugInfo')
+    #         full_config.set('**/debug_binaries', debug_binary)
+    #         full_config.set('**/binaries', binary)
 
     gvsoc_config_path = 'gvsoc_config.json'
 
@@ -157,6 +156,9 @@ class Runner():
 
     def __init__(self, parser, args, options, gapy_target, target, rtl_cosim_runner=None):
 
+        [args, otherArgs] = parser.parse_known_args()
+
+        self.parser = parser
         self.target = target
         self.gapy_target = gapy_target
         self.rtl_cosim_runner = rtl_cosim_runner
@@ -245,14 +247,14 @@ class Runner():
             parser.add_argument("--gui3", dest="gui3", default=None, action="store_true",
                 help="Open GVSOC gui")
 
-        gapy_target.register_command_handler(self.gv_handle_command)
+        # gapy_target.register_command_handler(self.gv_handle_command)
 
 
 
         [args, _] = parser.parse_known_args()
 
         self.full_config, self.gvsoc_config_path = gen_config(
-            args, { 'target': self.target.get_config() }, gapy_target.get_working_dir(), self, cosim_mode)
+            args, { 'target': self.target.get_config() }, gapy_target.get_property('work_dir'), self, cosim_mode)
 
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
@@ -304,7 +306,7 @@ class Runner():
                 gvsoc_config_path=self.gvsoc_config_path, full_config=self.full_config)
 
 
-    def gv_handle_command(self, cmd):
+    def gv_handle_command(self, cmd, args):
 
         if cmd == 'run':
             self.run()
@@ -327,7 +329,7 @@ class Runner():
             return True
 
         elif cmd == 'image':
-            self.gapy_target.handle_command_image()
+            # self.gapy_target.handle_command_image()
 
             if self.rtl_runner is not None:
                 self.rtl_runner.image()
@@ -337,13 +339,13 @@ class Runner():
 
         elif cmd == 'components':
 
-            if self.gapy_target.get_args().builddir is None:
+            if args.builddir is None:
                 raise RuntimeError('Build diretory must be specified when components are being generated')
 
-            if self.gapy_target.get_args().installdir is None:
+            if args.installdir is None:
                 raise RuntimeError('Install diretory must be specified when components are being generated')
 
-            self.target.gen_all(self.gapy_target.get_args().builddir, self.gapy_target.get_args().installdir)
+            self.target.gen_all(args.builddir, args.installdir)
 
             generated_components = self.target.get_generated_components()
 
@@ -355,15 +357,15 @@ class Runner():
 
             c_flags = {}
 
-            if self.gapy_target.get_args().component_file_append:
-                with open(self.gapy_target.get_args().component_file, "r") as file:
+            if args.component_file_append:
+                with open(args.component_file, "r") as file:
                     for comp_desc in file.readlines():
                         comp = comp_desc.replace('CONFIG_', '').replace('=1\n', '')
                         component_list.append(comp)
 
             component_list += self.target.get_component_list(c_flags) + ['vp.power_domain_impl', 'utils.composite_impl']
 
-            with open(self.gapy_target.get_args().component_file, "w") as file:
+            with open(args.component_file, "w") as file:
                 file.write(f'CONFIG_COMPONENTS={" ".join(gen_comp_list)}\n')
                 for comp in component_list:
                     file.write(f'CONFIG_{comp}=1\n')
@@ -374,7 +376,7 @@ class Runner():
                     sources = []
                     for source in comp.sources:
                         found_source = None
-                        for dirpath in self.gapy_target.get_args().target_dirs:
+                        for dirpath in args.target_dirs:
                             path = os.path.join(dirpath, source)
                             if os.path.exists(path):
                                 found_source = path
@@ -409,14 +411,17 @@ class Runner():
                             print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
-    def run(self, norun=False):
+    def run(self, norun=False, args=None):
 
-        args = self.gapy_target.get_args()
+        [args, otherArgs] = self.parser.parse_known_args()
+
+        if args is None:
+            args = args
         gvsoc_config = self.full_config.get('target/gvsoc')
 
-        dump_config(self.full_config, self.gapy_target.get_abspath(self.gvsoc_config_path))
+        dump_config(self.full_config, gvrun.commands.get_abspath(args, self.gvsoc_config_path))
 
-        self.__gen_debug_info(self.full_config, self.full_config.get('target/gvsoc'))
+        # self.__gen_debug_info(self.full_config, self.full_config.get('target/gvsoc'))
 
         if norun:
             return
@@ -489,7 +494,7 @@ class Runner():
 
                     command += [launcher, '--config=' + self.gvsoc_config_path]
 
-            os.chdir(self.gapy_target.get_working_dir())
+            os.chdir(args.build_dir)
 
             if args.gvcontrol is not None:
 
@@ -501,7 +506,7 @@ class Runner():
 
                     self.full_config.set('target/gvsoc/proxy/port', port)
                     self.full_config.set('target/gvsoc/proxy/enabled', True)
-                    dump_config(self.full_config, self.gapy_target.get_abspath(self.gvsoc_config_path))
+                    dump_config(self.full_config, gvrun.commands.get_abspath(args, self.gvsoc_config_path))
 
                     run = pexpect.spawn(' '.join(command), encoding='utf-8', logfile=sys.stdout,
                         codec_errors='replace')
@@ -605,10 +610,10 @@ class Runner():
 
 
 
-class Target(gapy.Target):
+class Target(gvrun.target.Target):
 
     def __init__(self, parser, options, model, rtl_cosim_runner=None, description=None, name=None):
-        super(Target, self).__init__(parser, options, name=name)
+        super(Target, self).__init__(parser=parser, name=name)
 
         # To keep compatibility with old targets where description was described with the argument
         # we manually set the class attributes.
@@ -702,7 +707,12 @@ class Target(gapy.Target):
             [args, otherArgs] = parser.parse_known_args()
 
         self.model = model(parent=self, name=None, parser=parser, options=options)
-        self.runner = Runner(parser, args, options, self, self.model, rtl_cosim_runner=rtl_cosim_runner)
+
+        self.args = args
+        self.parser = parser
+        self.options = options
+        self.rtl_cosim_runner = rtl_cosim_runner
+        self.runner = None
 
     def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
         return child_path
@@ -713,72 +723,17 @@ class Target(gapy.Target):
     def get_target(self):
         return self
 
-
-    def dump_target_properties(self):
-
-        class PropTree:
-
-            def __init__(self, name=None):
-                self.name = name
-                self.prop_trees = {}
-                self.properties = {}
-
-            def add_property_recursive(self, name, value, name_array):
-                if len(name_array) == 1:
-                    self.properties[name] = value
-                else:
-                    if self.prop_trees.get(name_array[0]) is None:
-                        self.prop_trees[name_array[0]] = PropTree(name_array[0])
-
-                    self.prop_trees[name_array[0]].add_property_recursive(name, value, name_array[1:])
-
-            def add_property(self, name, value):
-                self.add_property_recursive(name, value, name.split('/'))
-
-            def fill_tree(self, tree):
-                if self.name is None:
-                    subtree = tree
-                else:
-                    subtree = tree.add(self.name)
-
-                if len(self.properties) > 0:
-                    table = rich.table.Table(title='Properties')
-                    table.add_column('Name')
-                    table.add_column('Value')
-                    table.add_column('Full name')
-                    table.add_column('Allowed values')
-                    table.add_column('Description')
-
-                    for prop_full_name, prop in self.properties.items():
-                        value_str = prop.value
-                        if prop.format is not None:
-                            value_str = prop.format % prop.value
-                        value_str = str(value_str)
-                        prop_name = prop_full_name.split('/')[-1]
-
-                        if prop.allowed_values is None:
-                            if prop.cast == int:
-                                allowed_values = 'any integer'
-                            else:
-                                allowed_values = 'any string'
-                        else:
-                            allowed_values = ', '.join(prop.allowed_values)
-
-                        table.add_row(prop_name, value_str, prop_full_name, allowed_values, prop.description)
-
-                    subtree.add(table)
-
-                for prop_tree in self.prop_trees.values():
-                    prop_tree.fill_tree(subtree)
-
-        prop_tree = PropTree()
-
-        for prop in self.target_properties.values():
-            prop_tree.add_property(prop.full_name, prop)
-
-        tree = rich.tree.Tree('Properties')
-        prop_tree.fill_tree(tree)
-        rich.print (tree)
+    def get_runner(self):
+        if self.runner is None:
+            self.runner = Runner(self.parser, self.args, self.options, self, self.model, rtl_cosim_runner=self.rtl_cosim_runner)
 
     def get_property_from_root(self, name):
         return self.model.get_build_property(name)
+
+    def run(self, args):
+        self.get_runner()
+        return self.runner.run(args=args)
+
+    def handle_command(self, command, args):
+        self.get_runner()
+        return self.runner.gv_handle_command(command, args)

@@ -37,6 +37,21 @@ Format_OPV = [ OutVReg     (0, Range(7 , 5)),
                UnsignedImm(0, Range(25, 1)),
 ]
 
+Format_OPVV_F = [ OutVRegF     (0, Range(7 , 5)),
+               InVRegF      (0, Range(15, 5)),#rs1/vs1
+               InVRegF      (1, Range(20, 5)),#vs2
+               #UnsignedImm(0, Range(25, 0)),
+               UnsignedImm(0, Range(25, 1)),
+]
+
+Format_OPVV2_F = [ OutVRegF     (0, Range(7 , 5)),
+               InVRegF      (2, Range(7, 5)),#rs1/vs1
+               InVRegF      (0, Range(15, 5)),#rs1/vs1
+               InVRegF      (1, Range(20, 5)),#vs2
+               #UnsignedImm(0, Range(25, 0)),
+               UnsignedImm(0, Range(25, 1)),
+]
+
 Format_OPV1 = [ OutVReg     (0, Range(7 , 5)),
                InVReg      (0, Range(15, 5)),#rs1/vs1
                #UnsignedImm(0, Range(25, 0)),
@@ -64,6 +79,13 @@ Format_OPVF = [ OutVReg     (0, Range(7 , 5)),
 Format_OPVF_F = [ OutVRegF     (0, Range(7 , 5)),
                 InFReg     (0, Range(15, 5), f='sew'),#rs1/vs1
                 InVRegF      (1, Range(20, 5)),#vs2
+                #UnsignedImm(0, Range(25, 0)),
+                UnsignedImm(0, Range(25, 1)),
+]
+Format_OPVF2_F = [ OutVRegF     (0, Range(7 , 5)),
+                InFReg     (0, Range(15, 5), f='sew'),#rs1/vs1
+                InVRegF      (1, Range(20, 5)),#vs2
+                InVRegF      (2, Range(7, 5)),#vs2
                 #UnsignedImm(0, Range(25, 0)),
                 UnsignedImm(0, Range(25, 1)),
 ]
@@ -226,46 +248,46 @@ class Rv32v(IsaSubset):
 
 
 
-            Instr('vfadd.vv'      ,   Format_OPV  ,    '000000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfadd.vf'      ,   Format_OPVF ,    '000000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfadd.vv'      ,   Format_OPVV_F  ,    '000000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfadd.vf'      ,   Format_OPVF_F ,    '000000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfsub.vv'      ,   Format_OPV  ,    '000010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfsub.vf'      ,   Format_OPVF ,    '000010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfsub.vv'      ,   Format_OPVV_F  ,    '000010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfsub.vf'      ,   Format_OPVF_F ,    '000010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfrsub.vf'     ,   Format_OPVF  ,    '100111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmin.vv'      ,   Format_OPV  ,    '000100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmin.vf'      ,   Format_OPVF ,    '000100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmin.vv'      ,   Format_OPVV_F  ,    '000100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmin.vf'      ,   Format_OPVF_F ,    '000100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmax.vv'      ,   Format_OPV  ,    '000110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmax.vf'      ,   Format_OPVF ,    '000110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmax.vv'      ,   Format_OPVV_F  ,    '000110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmax.vf'      ,   Format_OPVF_F ,    '000110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmul.vv'      ,   Format_OPV  ,    '100100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmul.vv'      ,   Format_OPVV_F  ,    '100100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfmul.vf'      ,   Format_OPVF_F ,    '100100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmacc.vv'     ,   Format_OPV  ,    '101100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmacc.vf'     ,   Format_OPVF_F ,    '101100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmacc.vv'     ,   Format_OPVV2_F  ,    '101100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmacc.vf'     ,   Format_OPVF2_F ,    '101100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfnmacc.vv'    ,   Format_OPV  ,    '101101 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfnmacc.vf'    ,   Format_OPVF ,    '101101 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmacc.vv'    ,   Format_OPVV2_F  ,    '101101 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmacc.vf'    ,   Format_OPVF2_F ,    '101101 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmsac.vv'     ,   Format_OPV  ,    '101110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmsac.vf'     ,   Format_OPVF ,    '101110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmsac.vv'     ,   Format_OPVV2_F  ,    '101110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmsac.vf'     ,   Format_OPVF2_F ,    '101110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfnmsac.vv'    ,   Format_OPV  ,    '101111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfnmsac.vf'    ,   Format_OPVF ,    '101111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmsac.vv'    ,   Format_OPVV2_F  ,    '101111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmsac.vf'    ,   Format_OPVF2_F ,    '101111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmadd.vv'     ,   Format_OPV  ,    '101000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmadd.vf'     ,   Format_OPVF ,    '101000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmadd.vv'     ,   Format_OPVV2_F  ,    '101000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmadd.vf'     ,   Format_OPVF2_F ,    '101000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfnmadd.vv'    ,   Format_OPV  ,    '101001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfnmadd.vf'    ,   Format_OPVF ,    '101001 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmadd.vv'    ,   Format_OPVV2_F  ,    '101001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmadd.vf'    ,   Format_OPVF2_F ,    '101001 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfmsub.vv'     ,   Format_OPV  ,    '101010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfmsub.vf'     ,   Format_OPVF ,    '101010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfmsub.vv'     ,   Format_OPVV2_F  ,    '101010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfmsub.vf'     ,   Format_OPVF2_F ,    '101010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfnmsub.vv'    ,   Format_OPV  ,    '101011 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfnmsub.vf'    ,   Format_OPVF ,    '101011 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmsub.vv'    ,   Format_OPVV2_F  ,    '101011 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfnmsub.vf'    ,   Format_OPVF2_F ,    '101011 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfredmax.vs'      ,   Format_OPV  ,    '000111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
 

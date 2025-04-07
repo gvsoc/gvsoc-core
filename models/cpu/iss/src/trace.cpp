@@ -251,7 +251,7 @@ static char *iss_trace_dump_reg_value_check(Iss *iss, char *buff, int size, uint
     return buff;
 }
 
-static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float)
+static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float, uint8_t *saved_arg)
 {
 #ifdef CONFIG_ISS_HAS_VECTOR
     buff += sprintf(buff, "[");
@@ -261,7 +261,7 @@ static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float)
 
     for (int i=CONFIG_ISS_VLEN/8/width*lmul - 1; i>=0; i--)
     {
-        uint8_t *vreg = velem_get(iss, reg, i, width, lmul);
+        uint8_t *vreg = &((uint8_t *)saved_arg)[i*width];
         uint64_t value = *(uint64_t *)vreg;
 
         if (is_float)
@@ -322,7 +322,9 @@ static char *dump_float_vector(Iss *iss, char *buff, int full_width, int width, 
     return buff;
 }
 
-static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bool is_out, int reg, uint64_t saved_value, uint64_t check_saved_value, iss_decoder_arg_t *arg, iss_decoder_arg_t **prev_arg, bool is_long)
+static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bool is_out, int reg,
+    uint64_t saved_value, uint64_t check_saved_value, iss_decoder_arg_t *arg,
+    iss_decoder_arg_t **prev_arg, bool is_long, uint8_t *saved_varg)
 {
     char regStr[16];
     iss_trace_dump_reg(iss, insn, arg, regStr, reg, is_long);
@@ -348,7 +350,7 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
     }
     else if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
     {
-        buff = dump_vector(iss, buff, reg, arg->flags & ISS_DECODER_ARG_FLAG_FREG);
+        buff = dump_vector(iss, buff, reg, arg->flags & ISS_DECODER_ARG_FLAG_FREG, saved_varg);
     }
     else if (arg->flags & ISS_DECODER_ARG_FLAG_FREG)
     {
@@ -408,7 +410,9 @@ static char *iss_trace_dump_reg_value(Iss *iss, iss_insn_t *insn, char *buff, bo
     return buff;
 }
 
-static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg, iss_decoder_arg_t **prev_arg, int dump_out, bool is_long)
+static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff,
+    iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, iss_insn_arg_t *saved_arg,
+    iss_decoder_arg_t **prev_arg, int dump_out, bool is_long, uint8_t *saved_varg)
 {
     if ((arg->type == ISS_DECODER_ARG_TYPE_OUT_REG || arg->type == ISS_DECODER_ARG_TYPE_IN_REG) && (insn_arg->u.reg.index != 0 || arg->flags & ISS_DECODER_ARG_FLAG_FREG || arg->flags & ISS_DECODER_ARG_FLAG_VREG))
     {
@@ -417,19 +421,21 @@ static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, is
             buff = iss_trace_dump_reg_value(iss, insn, buff, arg->type == ISS_DECODER_ARG_TYPE_OUT_REG, insn_arg->u.reg.index,
                 (arg->flags & ISS_DECODER_ARG_FLAG_REG64) || (arg->flags & ISS_DECODER_ARG_FLAG_FREG) ? saved_arg->u.reg.value_64 : saved_arg->u.reg.value,
                 (arg->flags & ISS_DECODER_ARG_FLAG_REG64) ? saved_arg->u.reg.memcheck_value_64 : saved_arg->u.reg.memcheck_value,
-                arg, prev_arg, is_long);
+                arg, prev_arg, is_long, saved_varg);
         }
     }
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_IMM)
     {
         if (!dump_out)
-            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_imm.reg_index, saved_arg->u.indirect_imm.reg_value, saved_arg->u.indirect_imm.memcheck_reg_value, arg, prev_arg, is_long);
+            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_imm.reg_index,
+                saved_arg->u.indirect_imm.reg_value, saved_arg->u.indirect_imm.memcheck_reg_value, arg, prev_arg, is_long, saved_varg);
         iss_addr_t addr;
         if (arg->flags & ISS_DECODER_ARG_FLAG_POSTINC)
         {
             addr = saved_arg->u.indirect_imm.reg_value;
             if (dump_out)
-                buff = iss_trace_dump_reg_value(iss, insn, buff, 1, insn_arg->u.indirect_imm.reg_index, addr + insn_arg->u.indirect_imm.imm, saved_arg->u.indirect_imm.memcheck_reg_value, arg, prev_arg, is_long);
+                buff = iss_trace_dump_reg_value(iss, insn, buff, 1,
+                    insn_arg->u.indirect_imm.reg_index, addr + insn_arg->u.indirect_imm.imm, saved_arg->u.indirect_imm.memcheck_reg_value, arg, prev_arg, is_long, saved_varg);
         }
         else
         {
@@ -441,15 +447,18 @@ static char *iss_trace_dump_arg_value(Iss *iss, iss_insn_t *insn, char *buff, is
     else if (arg->type == ISS_DECODER_ARG_TYPE_INDIRECT_REG)
     {
         if (!dump_out)
-            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.offset_reg_index, saved_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.memcheck_offset_reg_value, arg, prev_arg, is_long);
+            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.offset_reg_index,
+                saved_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.memcheck_offset_reg_value, arg, prev_arg, is_long, saved_varg);
         if (!dump_out)
-            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.base_reg_index, saved_arg->u.indirect_reg.base_reg_value, saved_arg->u.indirect_reg.memcheck_base_reg_value, arg, prev_arg, is_long);
+            buff = iss_trace_dump_reg_value(iss, insn, buff, 0, insn_arg->u.indirect_reg.base_reg_index,
+                saved_arg->u.indirect_reg.base_reg_value, saved_arg->u.indirect_reg.memcheck_base_reg_value, arg, prev_arg, is_long, saved_varg);
         iss_addr_t addr;
         if (arg->flags & ISS_DECODER_ARG_FLAG_POSTINC)
         {
             addr = saved_arg->u.indirect_reg.base_reg_value;
             if (dump_out)
-                buff = iss_trace_dump_reg_value(iss, insn, buff, 1, insn_arg->u.indirect_reg.base_reg_index, addr + insn_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.memcheck_offset_reg_value, arg, prev_arg, is_long);
+                buff = iss_trace_dump_reg_value(iss, insn, buff, 1,
+                    insn_arg->u.indirect_reg.base_reg_index, addr + insn_arg->u.indirect_reg.offset_reg_value, saved_arg->u.indirect_reg.memcheck_offset_reg_value, arg, prev_arg, is_long, saved_varg);
         }
         else
         {
@@ -566,7 +575,8 @@ static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *bu
     return buff + MAX_DEBUG_INFO_WIDTH + 1;
 }
 
-static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *buff, int buffer_size, iss_insn_arg_t *saved_args, bool is_long, int mode, bool is_event)
+static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *buff,
+    int buffer_size, iss_insn_arg_t *saved_args, bool is_long, int mode, bool is_event)
 {
     char *init_buff = buff;
     static int max_len = 20;
@@ -644,11 +654,11 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *
         prev_arg = NULL;
         for (int i = 0; i < nb_args; i++)
         {
-            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &saved_args[i], &prev_arg, 1, is_long);
+            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &saved_args[i], &prev_arg, 1, is_long, iss->trace.saved_vargs[i]);
         }
         for (int i = 0; i < nb_args; i++)
         {
-            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &saved_args[i], &prev_arg, 0, is_long);
+            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &saved_args[i], &prev_arg, 0, is_long, iss->trace.saved_vargs[i]);
         }
 
         buff += sprintf(buff, "\n");
@@ -658,7 +668,14 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *
 static void iss_trace_save_varg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_arg, iss_decoder_arg_t *arg, uint8_t *saved_arg, bool save_out)
 {
 #ifdef CONFIG_ISS_HAS_VECTOR
-    memcpy(saved_arg, iss->vector.vregs[insn_arg->u.reg.index], CONFIG_ISS_VLEN/8);
+    int width = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+
+    if (save_out && arg->type == ISS_DECODER_ARG_TYPE_OUT_REG ||
+            !save_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG)
+    {
+        memcpy(saved_arg, iss->vector.vregs[insn_arg->u.reg.index], CONFIG_ISS_VLEN/8*lmul);
+    }
 #endif
 }
 

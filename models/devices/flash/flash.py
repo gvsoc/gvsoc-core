@@ -17,15 +17,17 @@
 
 import gvsoc.systree as st
 import gvrun.flash
+import gvrun.target
 
 
-class Flash(st.Component):
+class Flash(st.Component, gvrun.target.BinaryLoader):
 
     def __init__(self, parent, name, size=0, type='undefined'):
         super(Flash, self).__init__(parent, name)
 
         self.size = size
         self.type = type
+        self.binaries = []
 
         self.declare_flash()
 
@@ -51,6 +53,9 @@ class Flash(st.Component):
         )
 
         self.generator = gvrun.flash.Flash(self)
+
+    def register_binary(self, binary):
+        self.binaries.append(binary)
 
     def get_image_path(self):
         return self.get_path().replace('/', '.') + '.bin'

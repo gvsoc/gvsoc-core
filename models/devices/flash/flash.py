@@ -50,16 +50,18 @@ class Flash(st.Component):
             )
         )
 
-        # self.flash = gvrun.flash.Flash()
+        self.generator = gvrun.flash.Flash(self)
 
     def get_image_path(self):
         return self.get_path().replace('/', '.') + '.bin'
 
     def generate(self, builddir):
+        self.generator.generate_image(builddir)
 
-        template = self.get_property('template')
-        if template is not None:
-            print ('BUILDDIR')
 
     def configure(self):
-        flash_gen = gvrun.flash.FlashGenerator(self)
+        self.generator.parse_content(self.get_target_property('template'))
+
+
+    def register_section_template(self, name, template):
+        self.generator.register_section_template(name, template)

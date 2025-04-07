@@ -532,6 +532,10 @@ class Component(gvrun.target.Component):
         Component
             The component
         """
+        if name.find('/') != -1:
+            local_name, child_name = name.split('/', 1)
+            return self.components[local_name].get_component(child_name)
+
         return self.components[name]
 
 

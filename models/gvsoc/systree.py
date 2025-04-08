@@ -23,6 +23,10 @@ import json
 import sys
 import shutil
 from importlib import import_module
+if os.environ.get('USE_GVRUN') is None:
+    from gapylib.target import Component as RunnerComponent
+else:
+    from gvrun.target import Component as RunnerComponent
 import gvrun.target
 import gvsoc.gui
 import hashlib
@@ -149,7 +153,7 @@ class Interface:
         self.comp.parent.interfaces.append(self)
 
 
-class Component(gvrun.target.Component):
+class Component(RunnerComponent):
     """
     This class corresponds to a generic HW component from which any component should inherit.
 

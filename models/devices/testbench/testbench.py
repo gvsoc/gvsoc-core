@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
+import os
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
-import gapylib.chips.gap.rtl_testbench as testbench
+if os.environ.get('USE_GVRUN') is None:
+    import gapylib.chips.gap.rtl_testbench as testbench
 from elftools.elf.elffile import ELFFile
 
 
@@ -61,7 +63,7 @@ class Testbench(st.Component):
 
             self.bind(uart_clock, 'out', testbench, 'uart%d_clock' % i)
             self.bind(testbench, 'uart%d_clock_cfg' % i, uart_clock, 'clock_in')
-            
+
             self.bind(uart_tx_clock, 'out', testbench, 'uart%d_tx_clock' % i)
             self.bind(testbench, 'uart%d_tx_clock_cfg' % i, uart_tx_clock, 'clock_in')
 
@@ -92,7 +94,7 @@ class Testbench(st.Component):
             spislave_binary = self.add_property('spislave_boot/binary', None)
 
             self.set_component('devices.testbench.testbench')
-            
+
             entry = None
             stim_file = None
             if spislave_binary is not None:

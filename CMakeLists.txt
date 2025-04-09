@@ -103,13 +103,24 @@ if(DEFINED GVSOC_TARGETS)
         message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
 
         # Gapy is used to extract the list of components out of the specified target
-        set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
-            --platform=gvsoc
-            --builddir=${CMAKE_CURRENT_BINARY_DIR}
-            --installdir=${CMAKE_INSTALL_PREFIX}/models
-            --component-file=${TARGET_CONFIG} components
-            --py-stack
-        )
+
+        if(DEFINED ENV{USE_GVRUN})
+            set(GAPY_CMD gvrun --target=${target} ${GAPY_TARGETS_DIR_OPT}
+                --platform=gvsoc
+                --builddir=${CMAKE_CURRENT_BINARY_DIR}
+                --installdir=${CMAKE_INSTALL_PREFIX}/models
+                --component-file=${TARGET_CONFIG} components
+                --py-stack
+            )
+        else()
+            set(GAPY_CMD gapy --target=${target} ${GAPY_TARGETS_DIR_OPT}
+                --platform=gvsoc
+                --builddir=${CMAKE_CURRENT_BINARY_DIR}
+                --installdir=${CMAKE_INSTALL_PREFIX}/models
+                --component-file=${TARGET_CONFIG} components
+                --py-stack
+            )
+        endif()
 
         string(REPLACE ";"  " " GAPY_CMD_STR "    ${GAPY_CMD}")
         message(STATUS ${GAPY_CMD_STR})
@@ -118,7 +129,7 @@ if(DEFINED GVSOC_TARGETS)
         execute_process (
             COMMAND ${GAPY_CMD} RESULT_VARIABLE ret
         )
-        if(ret EQUAL "1")
+        if(NOT ret EQUAL "0")
             message( FATAL_ERROR "Caught error while generating gvsoc config")
         endif()
 

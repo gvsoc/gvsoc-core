@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 
+import os
 import gvsoc.systree as st
-import gapylib.target
+if os.environ.get('USE_GVRUN') is None:
+    import gapylib.target
 import utils.uart.uart_adapter
 
 

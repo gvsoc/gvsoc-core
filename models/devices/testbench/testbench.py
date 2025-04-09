@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
+import os
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
-# import gapylib.chips.gap.rtl_testbench as testbench
+if os.environ.get('USE_GVRUN') is None:
+    import gapylib.chips.gap.rtl_testbench as testbench
 from elftools.elf.elffile import ELFFile
 
 

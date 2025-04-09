@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import os
 import gvsoc.systree as st
 if os.environ.get('USE_GVRUN') is None:
     import gapylib.target

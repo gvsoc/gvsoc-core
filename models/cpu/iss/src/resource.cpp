@@ -15,9 +15,10 @@
  */
 
 #include "cpu/iss/include/iss.hpp"
+#include <unordered_map>
 
 
-static std::vector<std::vector<iss_resource_instance_t>> resources;
+static std::unordered_map<std::string, std::vector<std::vector<iss_resource_instance_t>>> resources;
 
 
 // Called when an instruction with an associated resource is scheduled
@@ -76,18 +77,23 @@ void iss_resource_attach_from_tag(Iss *iss, std::string tag, int id, int latency
     }
 }
 
-void iss_resource_declare(Iss *iss, int id, int nb_instances)
+void iss_resource_declare(Iss *iss, std::string path, int id, int nb_instances)
 {
-    resources.resize(id + 1);
-    resources[id].resize(nb_instances);
+    if (resources.count(path) == 0)
+    {
+        resources[path] = {};
+    }
+
+    resources[path].resize(id + 1);
+    resources[path][id].resize(nb_instances);
     for (int i=0; i<nb_instances; i++)
     {
-        resources[id][i].cycles = 0;
+        resources[path][id][i].cycles = 0;
     }
 }
 
-void iss_resource_assign_instance(Iss *iss, int id, int instance_id)
+void iss_resource_assign_instance(Iss *iss, std::string path, int id, int instance_id)
 {
     iss->exec.resources.resize(id + 1);
-    iss->exec.resources[id] = &resources[id][instance_id];
+    iss->exec.resources[id] = &resources[path][id][instance_id];
 }

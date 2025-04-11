@@ -70,7 +70,10 @@ else:
                 )
             )
 
-            self.generator = gvrun.flash.Flash(self)
+            self.generator = gvrun.flash.Flash(self, self.name)
+
+        def dump_flash_layout(self, layout_level):
+            self.generator.dump_layout(layout_level)
 
         def register_binary(self, binary):
             self.binaries.append(binary)
@@ -81,6 +84,8 @@ else:
         def generate(self, builddir):
             self.generator.generate_image(builddir)
 
+        def configure_after_compile(self):
+            self.generator.configure_after_compile()
 
         def configure(self):
             self.generator.parse_content(self.get_target_property('template'))

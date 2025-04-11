@@ -292,6 +292,12 @@ namespace vp {
         vp::BlockClock clock;
 
         /**
+         * @brief Get the block containing this block
+         *
+         */
+        vp::Block *get_parent() { return this->parent; }
+
+        /**
          * @brief DEPRECATED
         */
         inline void event_enqueue(ClockEvent *event, int64_t cycles);
@@ -345,9 +351,6 @@ namespace vp {
 
         // Used by external controllers (launcher or proxy)
         vp::Block *get_block_from_path(std::vector<std::string> path_list);
-
-        // Get the block containing this block
-        vp::Block *get_parent() { return this->parent; }
 
         // Get all blocks contained by this block
         std::vector<vp::Block *> get_childs() { return this->childs; }

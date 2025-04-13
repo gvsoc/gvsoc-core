@@ -40,7 +40,7 @@ public:
 
     uint64_t paddr;
     uint8_t *data;
-    size_t size;    
+    size_t size;
 };
 
 
@@ -73,6 +73,7 @@ private:
     uint64_t entry;
     bool is_32 = true;
     Section *current_section = NULL;
+    uint64_t fetchen_value;
 };
 
 
@@ -124,6 +125,14 @@ void loader::reset(bool active)
         {
             uint64_t entry_addr = entry_addr_conf->get_int();
             this->section_copy(entry_addr, (uint8_t *)&this->entry, this->is_32 ? 4 : 8);
+        }
+
+        js::Config *fetchen_addr_conf = this->get_js_config()->get("fetchen_addr");
+        if (fetchen_addr_conf != NULL)
+        {
+            uint64_t fetchen_addr = fetchen_addr_conf->get_int();
+            this->fetchen_value = this->get_js_config()->get("fetchen_value")->get_int();
+            this->section_copy(fetchen_addr, (uint8_t *)&this->fetchen_value, this->is_32 ? 4 : 8);
         }
 
         if (this->sections.size() > 0)

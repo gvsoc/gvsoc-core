@@ -42,7 +42,8 @@ class ElfLoader(gvsoc.systree.Component):
         Address where the entry should be written.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None,
-            binaries: list=None, entry: int=None, entry_addr: int=None):
+            binaries: list=None, entry: int=None, entry_addr: int=None,
+            fetchen_addr: int=None, fetchen_value=None):
 
         super().__init__(parent, name)
 
@@ -67,6 +68,12 @@ class ElfLoader(gvsoc.systree.Component):
         if entry_addr is not None:
             self.add_properties({
                 'entry_addr': entry_addr
+            })
+
+        if fetchen_addr is not None:
+            self.add_properties({
+                'fetchen_addr': fetchen_addr,
+                'fetchen_value': fetchen_value
             })
 
     def o_OUT(self, itf: gvsoc.systree.SlaveItf):

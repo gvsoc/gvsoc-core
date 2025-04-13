@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import gvsoc.systree as st
+import gvsoc.systree
 
-class Converter(st.Component):
+class Converter(gvsoc.systree.Component):
 
     def __init__(self, parent, name, output_width=4, output_align=4):
         super(Converter, self).__init__(parent, name)
@@ -27,3 +27,9 @@ class Converter(st.Component):
             'output_width': output_width,
             'output_align': output_align,
         })
+
+    def i_INPUT(self) -> gvsoc.systree.SlaveItf:
+            return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+
+    def o_OUTPUT(self, itf: gvsoc.systree.SlaveItf):
+            self.itf_bind('out', itf, signature='io')

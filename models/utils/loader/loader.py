@@ -76,6 +76,12 @@ class ElfLoader(gvsoc.systree.Component):
                 'fetchen_value': fetchen_value
             })
 
+    def set_binary(self, binary):
+
+        self.add_properties({
+            'binary': [binary]
+        })
+
     def o_OUT(self, itf: gvsoc.systree.SlaveItf):
         """Binds the output port.
 

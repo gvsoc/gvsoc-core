@@ -452,6 +452,9 @@ class RiscvCommon(st.Component):
         """
         return gvsoc.systree.SlaveItf(self, itf_name='bootaddr', signature='wire<uint64_t>')
 
+    def i_IRQ_REQ(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, itf_name='irq_req', signature='wire<int>')
+
     def i_IRQ(self, irq) -> gvsoc.systree.SlaveItf:
 
         if irq == 3:

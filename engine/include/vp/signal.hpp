@@ -62,6 +62,7 @@ namespace vp {
         inline T get();
         inline void inc(T value);
         inline void dec(T value);
+        inline void release();
     protected:
         void reset(bool active) override;
     private:
@@ -98,6 +99,14 @@ vp::Signal<T>::Signal(vp::Block &parent, std::string name, int width, bool do_re
     this->reset_value = reset;
     this->value_bytes = (uint8_t *)&this->value;
     this->reset_value_bytes = (uint8_t *)&this->reset_value;
+}
+
+template<class T>
+inline void vp::Signal<T>::release()
+{
+    this->trace.msg("Release register\n");
+    if (this->reg_event.get_event_active())
+        this->reg_event.event_highz();
 }
 
 template<class T>

@@ -59,6 +59,8 @@ public:
     bool enabled_at_reset;
 
 private:
+    static void refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event);
+
     vp::Trace trace;
 
     std::vector<vp::IoSlave> input_itf;
@@ -86,7 +88,7 @@ private:
     uint32_t line_index_mask;
     uint32_t flush_line_addr;
 
-    vp::Trace refill_event;
+    vp::Signal<uint64_t> refill_event;
     std::vector<vp::Trace> io_event;
 
     vp::Queue refill_pending_reqs;
@@ -98,6 +100,7 @@ private:
     vp::Signal<bool> pending_refill;
 
     vp::ClockEvent *fsm_event;
+    vp::ClockEvent refill_event_clear_event;
 
     static void enable_sync(vp::Block *_this, bool active);
     static void flush_sync(vp::Block *_this, bool active);
@@ -133,6 +136,7 @@ void Cache::reset(bool active)
     {
         this->flush();
         this->enabled = this->enabled_at_reset;
+        this->refill_event.release();
     }
 }
 
@@ -151,6 +155,7 @@ void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
                      pending_req, is_write, data, size);
 
     _this->pending_refill.set(0);
+    _this->refill_event.release();
 
     if (data)
     {
@@ -259,6 +264,8 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
     refill_req->set_size(1 << this->line_size_bits);
     refill_req->set_data(line->data);
 
+    this->refill_event_clear_event.cancel();
+
     vp::IoReqStatus err = this->refill_itf.req(refill_req);
     if (err != vp::IO_REQ_OK)
     {
@@ -294,6 +301,7 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
         latency += refill_req->get_full_latency() + this->refill_latency;
 
         this->refill_timestamp = this->clock.get_cycles() + latency;
+        this->refill_event_clear_event.enqueue(latency);
 
         req->inc_latency(latency);
 
@@ -390,7 +398,7 @@ vp::IoReqStatus Cache::handle_req(vp::IoReq *req)
     if (hit_line == NULL)
     {
         this->trace.msg(vp::Trace::LEVEL_DEBUG, "Cache miss\n");
-        this->refill_event.event((uint8_t *)&offset);
+        this->refill_event.set(offset);
         bool pending = false;
         hit_line = this->refill(line_index, offset, tag, req, &pending);
         if (hit_line == NULL)
@@ -505,8 +513,16 @@ void Cache::flush_line_addr_sync(vp::Block *__this, uint32_t addr)
     _this->flush_line_addr = addr;
 }
 
+void Cache::refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    Cache *_this = (Cache *)__this;
+    _this->refill_event.release();
+}
+
 Cache::Cache(vp::ComponentConf &config)
-    : vp::Component(config), refill_pending_reqs(this, "refill_queue"), pending_refill(*this, "refill", 0)
+    : vp::Component(config), refill_pending_reqs(this, "refill_queue"),
+    pending_refill(*this, "refill", 0), refill_event(*this, "refill_addr", 32),
+    refill_event_clear_event(this, &Cache::refill_event_clear_handler)
 {
     this->enabled_at_reset = this->get_js_config()->get_child_bool("enabled");
     this->nb_ports = this->get_js_config()->get_child_int("nb_ports");
@@ -560,8 +576,6 @@ Cache::Cache(vp::ComponentConf &config)
     {
         traces.new_trace_event("port_" + std::to_string(i), &this->io_event[i], 32);
     }
-
-    traces.new_trace_event("refill", &this->refill_event, 32);
 
     lines = new cache_line_t[(1 << this->nb_sets_bits) * this->nb_ways];
     for (int i = 0; i < 1 << this->nb_sets_bits; i++)

@@ -15,6 +15,7 @@
 #
 
 import gvsoc.systree as st
+import gvsoc.gui
 
 class Cache(st.Component):
     """
@@ -70,3 +71,11 @@ class Cache(st.Component):
                     tree.add_trace(self, 'tag_%d' % line, 'set_%d.line_%d' % (way, line), '[31:0]', tag='icache')
 
                 tree.end_group('way_%d' % way)
+
+    def gen_gui(self, parent_signal):
+        cache = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='refill_addr', groups=['cache'])
+        tags = gvsoc.gui.Signal(self, cache, name='tags')
+        for way in range(0, 1<<self.get_property('nb_ways_bits')):
+            set_trace = gvsoc.gui.Signal(self, tags, name=f'set_{way}')
+            for line in range(0, 1<<self.get_property('nb_sets_bits')):
+                gvsoc.gui.Signal(self, set_trace, name=f'line_{line}', path=f'set_{way}/line_{line}', groups=['cache'])

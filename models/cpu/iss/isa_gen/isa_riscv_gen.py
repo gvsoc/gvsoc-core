@@ -20,7 +20,7 @@
 #
 
 from cpu.iss.isa_gen.isa_gen import *
-from cpu.iss.isa_gen.isa_rvv import *
+from cpu.iss.isa_gen.isa_rvv_timed import *
 import os.path
 import filecmp
 import shutil

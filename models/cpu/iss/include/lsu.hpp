@@ -28,7 +28,7 @@
 #endif
 
 // Snitch ISS_REG_WIDTH=32, and memory transfer BW is 64 bits.
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+#if defined(CONFIG_GVSOC_ISS_SNITCH) || defined(CONFIG_GVSOC_ISS_SNITCH_FAST)
 #define ADDR_MASK (~(ISS_REG_WIDTH / 4 - 1))
 #endif
 

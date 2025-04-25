@@ -20,61 +20,6 @@
 //#include "spatz.hpp"
 #include "cpu/iss/include/isa_lib/vint.h"
 
-#if CONFIG_GVSOC_ISS_CVA6
-#define RVV_FREG_GET(reg) (iss->ara.current_insn_reg_get())
-#define RVV_REG_GET(reg) (iss->ara.current_insn_reg_get())
-#else
-#define RVV_FREG_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))
-#define RVV_REG_GET(reg) (iss->regfile.get_reg(insn->in_regs[reg]))
-#endif
-
-static inline bool velem_is_active(Iss *iss, unsigned int elem, unsigned int vm)
-{
-    unsigned int reg = elem / 8;
-    unsigned int pos = elem % 8;
-    return vm | ((iss->vector.vregs[0][reg] >> pos) & 1);
-}
-
-static inline uint8_t *velem_get(Iss *iss, unsigned int reg, unsigned int elem, unsigned int sewb,
-    unsigned int lmul)
-{
-    return &iss->vector.vregs[reg][elem*sewb];
-}
-
-static inline uint64_t velem_get_value(Iss *iss, unsigned int reg, unsigned int elem, unsigned int sewb,
-    unsigned int lmul)
-{
-    uint8_t *ptr = &iss->vector.vregs[reg][elem*sewb];
-    switch (sewb)
-    {
-        case 1:
-            return *ptr;
-        case 2:
-            return *(uint16_t *)ptr;
-        case 4:
-            return *(uint32_t *)ptr;
-        default:
-            return *(uint64_t *)ptr;
-    }
-}
-
-static inline void velem_set_value(Iss *iss, unsigned int reg, unsigned int elem, unsigned int sewb,
-    unsigned int lmul, uint64_t value)
-{
-    uint8_t *ptr = &iss->vector.vregs[reg][elem*sewb];
-    switch (sewb)
-    {
-        case 1:
-            *ptr = value;
-        case 2:
-            *(uint16_t *)ptr = value;
-        case 4:
-            *(uint32_t *)ptr = value;
-        default:
-            *(uint64_t *)ptr = value;
-    }
-}
-
 static inline iss_reg_t vadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     LIB_CALL4(lib_ADDVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
@@ -509,51 +454,35 @@ static inline iss_reg_t vremu_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 //     return iss_insn_next(iss, insn, pc);
 // }
 static inline iss_reg_t vle8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
     LIB_CALL3(lib_VLE8V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
     LIB_CALL3(lib_VLE16V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
     LIB_CALL3(lib_VLE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
-#endif
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vle64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
-    LIB_CALL3(lib_VLE64V , REG_GET(0), REG_IN(0), UIM_GET(0));
-#endif
+    LIB_CALL3(lib_VLE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
-    LIB_CALL3(lib_VSE8V , REG_GET(0), REG_IN(1), UIM_GET(0));
-#endif
+    LIB_CALL3(lib_VSE8V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
-    LIB_CALL3(lib_VSE16V , REG_GET(0), REG_IN(1), UIM_GET(0));
-#endif
+    LIB_CALL3(lib_VSE16V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
-    LIB_CALL3(lib_VSE32V , REG_GET(0), REG_IN(1), UIM_GET(0));
-#endif
+    LIB_CALL3(lib_VSE32V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vse64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-#ifndef CONFIG_GVSOC_ISS_CVA6
-    LIB_CALL3(lib_VSE64V , REG_GET(0), REG_IN(1), UIM_GET(0));
-#endif
+    LIB_CALL3(lib_VSE64V , REG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -758,29 +687,6 @@ static inline iss_reg_t vsse64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 
 
 
-static inline iss_reg_t vfslide1down_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    unsigned int reg_in = REG_IN(1);
-    unsigned int reg_out = REG_OUT(0);
-    unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
-    iss_reg_t last_elem = RVV_FREG_GET(0);
-    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
-    {
-        if (velem_is_active(iss, i, UIM_GET(0)))
-        {
-            uint8_t *in = i == iss->csr.vl.value - 1 ?
-                (uint8_t *)&last_elem : velem_get(iss, reg_in, i + 1, sewb, lmul);
-
-            uint8_t *out = velem_get(iss, reg_out, i, sewb, lmul);
-
-            memcpy(out, in, sewb);
-        }
-    }
-
-    return iss_insn_next(iss, insn, pc);
-}
-
 static inline iss_reg_t vfadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     LIB_CALL4(lib_FADDVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
@@ -826,27 +732,9 @@ static inline iss_reg_t vfmul_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     LIB_CALL4(lib_FMULVV , REG_IN(0), REG_IN(1) , REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
-static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-#if CONFIG_GVSOC_ISS_CVA6
-    unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
-    uint64_t in0 = RVV_FREG_GET(0);
-    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
-    {
-        if (velem_is_active(iss, i, UIM_GET(0)))
-        {
-            uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            // uint8_t *out = velem_get(iss, FREG_OUT(0), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL3(lib_flexfloat_mul_round, in0, in1, 11, 52, 7);
-            velem_set_value(iss, REG_OUT(0), i, sewb, lmul, res);
-        }
-    }
-    return iss_insn_next(iss, insn, pc);
-#else
+static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     LIB_CALL4(lib_FMULVF , REG_IN(1), FREG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
-#endif
 }
 
 static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
@@ -854,7 +742,7 @@ static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
-    LIB_CALL4(lib_FMACCVF , REG_IN(1), RVV_FREG_GET(0), REG_OUT(0), UIM_GET(0));
+    LIB_CALL4(lib_FMACCVF , REG_IN(1), FREG_GET(0), REG_OUT(0), UIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1144,10 +1032,10 @@ static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
 
 
 
-//                             V 1.0
+//                             V 1.0 
 static inline iss_reg_t vsetvli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc){
     // REG_SET(0, LIB_CALL8(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2), UIM_GET(3), UIM_GET(4)));// VLMUL-VSEW-VTA-VMA
-    REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), RVV_REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
+    REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
     return iss_insn_next(iss, insn, pc);
 }
 

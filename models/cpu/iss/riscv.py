@@ -308,11 +308,11 @@ class RiscvCommon(st.Component):
         if handle_misaligned:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
 
-    def handle_executable(self, executable):
+    def handle_executable(self, binary):
 
         global binaries
 
-        path = executable.binary
+        path = binary
         debug_info_path = os.path.join(os.path.dirname(path), f'debug_binary_{os.path.basename(path)}.debugInfo')
 
         if binaries.get(path) is None:
@@ -329,7 +329,7 @@ class RiscvCommon(st.Component):
 
     def generate(self, builddir):
         for executable in self.get_executables():
-            self.handle_executable(executable)
+            self.handle_executable(executable.binary)
 
     def gen_gtkw(self, tree, comp_traces):
 

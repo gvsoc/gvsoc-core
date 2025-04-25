@@ -271,6 +271,7 @@ class OutFReg(OutReg):
         elif f == 'BH': flags += ['ISS_DECODER_ARG_FLAG_ELEM_8A', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'S': flags += ['ISS_DECODER_ARG_FLAG_ELEM_32', 'ISS_DECODER_ARG_FLAG_VEC']
         elif f == 'D': flags += ['ISS_DECODER_ARG_FLAG_ELEM_64', 'ISS_DECODER_ARG_FLAG_VEC']
+        elif f == 'sew': flags += ['ISS_DECODER_ARG_FLAG_ELEM_SEW']
         super(OutFReg, self).__init__(id=id, ranges=ranges, dumpName=dumpName, flags=flags)
 
 class OutFRegS(OutReg):

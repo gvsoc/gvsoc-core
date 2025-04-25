@@ -80,17 +80,6 @@ public:
     IssWrapper &top;
 };
 
-class PendingInsn
-{
-public:
-    iss_insn_t *insn;
-    uint64_t timestamp;
-    iss_reg_t pc;
-    iss_reg_t reg;
-    bool done;
-    int id;
-};
-
 class IssWrapper : public vp::Component
 {
 
@@ -139,7 +128,7 @@ inline Iss::Iss(IssWrapper &top)
 #include "cpu/iss/include/isa/rv64m.hpp"
 #include "cpu/iss/include/isa/rv64a.hpp"
 #include "cpu/iss/include/isa/rvf.hpp"
-#include "cpu/iss/include/isa/rv32v.hpp"
+#include "cpu/iss/include/isa/rv32v_timed.hpp"
 #include "cpu/iss/include/isa/rvd.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 

@@ -94,6 +94,14 @@ typedef uint32_t iss_opcode_t;
 class iss;
 class Lsu;
 
+#if CONFIG_GVSOC_ISS_FP_WIDTH == 64
+#define CONFIG_GVSOC_ISS_FP_EXP   11
+#define CONFIG_GVSOC_ISS_FP_MANT  52
+#else
+#define CONFIG_GVSOC_ISS_FP_EXP   8
+#define CONFIG_GVSOC_ISS_FP_MANT  23
+#endif
+
 #define ISS_NB_REGS 32
 #define ISS_NB_FREGS 32
 
@@ -484,6 +492,17 @@ typedef struct
 #define  __ISS_CORE_INC(x) #x
 #define  _ISS_CORE_INC(x, y) __ISS_CORE_INC(cpu/iss/include/cores/x/y)
 #define  ISS_CORE_INC(x) _ISS_CORE_INC(CONFIG_ISS_CORE, x)
+
+class PendingInsn
+{
+public:
+    iss_insn_t *insn;
+    uint64_t timestamp;
+    iss_reg_t pc;
+    iss_reg_t reg;
+    bool done;
+    int id;
+};
 
 
 #endif

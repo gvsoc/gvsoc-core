@@ -50,6 +50,10 @@ Sequencer::Sequencer(IssWrapper &top, Iss &iss)
         {
             insn->u.insn.stub_handler = &Sequencer::direct_branch_handler;
         }
+
+#ifdef CONFIG_GVSOC_ISS_USE_SPATZ
+        this->iss.ara.isa_init();
+#endif
     }
 }
 

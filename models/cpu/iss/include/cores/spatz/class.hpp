@@ -47,7 +47,6 @@
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
-#include <cpu/iss/include/vector.hpp>
 
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
@@ -79,7 +78,6 @@ public:
     Pmp pmp;
     Exception exception;
     Memcheck memcheck;
-    Vector vector;
 
     vp::Component &top;
 
@@ -117,6 +115,7 @@ public:
 private:
     vp::Trace trace;
 };
+
 
 #include "cpu/iss/include/isa/rv64i.hpp"
 #include "cpu/iss/include/isa/rv32i.hpp"

@@ -103,7 +103,7 @@ public:
     // uint8_t counter = 1;
     // iss_reg_t vtype;
     // iss_reg_t vl;
-    unsigned int sewb;
+    unsigned int sewb = 8;
     uint8_t exp;
     uint8_t mant;
 

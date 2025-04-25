@@ -33,6 +33,7 @@
 #include <cpu/iss/include/exception.hpp>
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
+#include <cpu/iss/include/vector.hpp>
 #include <cpu/iss/include/cores/snitch_fast/regfile.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
@@ -47,14 +48,18 @@
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
+#include <cpu/iss/include/cores/ara/ara.hpp>
 
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
 #endif
 #include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
 #include <cpu/iss/include/cores/snitch_fast/sequencer.hpp>
+#include <cpu/iss/include/cores/snitch_fast/fpu_lsu.hpp>
 
 class IssWrapper;
+
+#define ISS_INSN_FLAGS_VECTOR (1<< 0)
 
 
 
@@ -81,8 +86,12 @@ public:
     Pmp pmp;
     Exception exception;
     Memcheck memcheck;
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+    Vector vector;
+    Ara ara;
+#endif
 
-    vp::Component &top;
+    IssWrapper &top;
 
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
     Spatz spatz;
@@ -90,6 +99,7 @@ public:
 
     Ssr ssr;
     Sequencer sequencer;
+    FpuLsu fpu_lsu;
 
     CsrReg csr_fmode;
 
@@ -114,11 +124,23 @@ public:
     void start();
     void reset(bool active);
     void stop();
+    void insn_commit(PendingInsn *pending_insn);
+    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
     Iss iss;
 
 private:
+    PendingInsn &pending_insn_alloc();
+    PendingInsn &pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc);
+
     vp::Trace trace;
+
+    int max_pending_insn = 8;
+    bool do_flush;
+    std::vector<PendingInsn> pending_insns;
+    int insn_first;
+    int insn_last;
+    int nb_pending_insn;
 };
 
 typedef struct
@@ -136,6 +158,7 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include "cpu/iss/include/isa/rv64i.hpp"
 #include "cpu/iss/include/isa/rv32i.hpp"
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
+#error 1
 #include "cpu/iss/include/isa/rv32v.hpp"
 #endif
 #include "cpu/iss/include/isa/rv32c.hpp"
@@ -162,6 +185,10 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include <cpu/iss/include/isa/xdma.hpp>
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
+
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+#include "cpu/iss/include/isa/rv32v_timed.hpp"
+#endif
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>
 #include <cpu/iss/include/cores/snitch_fast/regfile_implem.hpp>

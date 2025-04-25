@@ -18,8 +18,9 @@
  * Authors: Germain Haugou (germain.haugou@gmail.com)
  */
 
+ #include <cstdint>
 #include "cpu/iss/include/iss.hpp"
-#include <cstdint>
+#include "cpu/iss/include/cores/ara/ara.hpp"
 
 
 Ara::Ara(IssWrapper &top, Iss &iss)

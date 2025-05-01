@@ -48,6 +48,7 @@ public:
     void register_callback(std::function<bool(bool, iss_reg_t &)> callback);
     bool access(bool is_write, iss_reg_t &value);
     virtual bool check_access(Iss *iss, bool write, bool read);
+    virtual iss_reg_t handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_reg_t reg_value);
 
     const char *name;
     iss_reg_t reset_val;

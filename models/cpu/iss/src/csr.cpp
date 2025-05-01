@@ -1717,6 +1717,32 @@ void CsrAbtractReg::reset(bool active)
     }
 }
 
+iss_reg_t CsrAbtractReg::handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_reg_t reg_value)
+{
+    iss_reg_t value;
+
+    CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
+    if (csr && !csr->check_access(iss, true, true))
+    {
+        return pc;
+    }
+
+    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    {
+        if (insn->out_regs[0] != 0)
+        {
+            // For now we don't have any mechanism to track validity of CSR, so set output
+            // register as valid
+            iss->regfile.memcheck_set_valid(REG_OUT(0), true);
+            REG_SET(0, value);
+        }
+    }
+
+    iss_csr_write(iss, UIM_GET(0), reg_value);
+
+    return iss_insn_next(iss, insn, pc);
+}
+
 bool CsrAbtractReg::access(bool is_write, iss_reg_t &value)
 {
     bool update = true;

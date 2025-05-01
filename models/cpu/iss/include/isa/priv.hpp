@@ -34,10 +34,16 @@ static inline void csr_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t csrrw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+
+    CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
+    if (csr)
+    {
+        return csr->handle(iss, insn, pc, REG_GET(0));
+    }
+
     iss_reg_t value;
     iss_reg_t reg_value = REG_GET(0);
 
-    CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
     if (csr && !csr->check_access(iss, true, true))
     {
         return pc;

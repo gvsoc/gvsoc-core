@@ -22,13 +22,11 @@
 
 
 Vector::Vector(Iss &iss)
-    : vlsu(iss)
 {
 }
 
 void Vector::build()
 {
-    this->vlsu.build();
 }
 
 void Vector::reset(bool active)
@@ -41,25 +39,4 @@ void Vector::reset(bool active)
             }
         }
     }
-}
-
-
-void Vlsu::data_response(vp::Block *__this, vp::IoReq *req)
-{
-}
-
-
-Vlsu::Vlsu(Iss &iss) : iss(iss)
-{
-}
-
-void Vlsu::build()
-{
-    for (int i=0; i<4; i++)
-    {
-        this->io_itf[i].set_resp_meth(&Vlsu::data_response);
-        this->iss.top.new_master_port("vlsu_" + std::to_string(i), &this->io_itf[i], (vp::Block *)this);
-    }
-
-
 }

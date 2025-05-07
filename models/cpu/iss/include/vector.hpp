@@ -49,33 +49,6 @@
 // define a new class named SPATZ like ISS in class.hpp
 
 
-
-class Vlsu {
-public:
-    inline int Vlsu_io_access(Iss *iss, uint64_t addr, int size, uint8_t *data, bool is_write);
-
-    inline void handle_pending_io_access(Iss *iss);
-    static void data_response(vp::Block *__this, vp::IoReq *req);
-
-
-    Vlsu(Iss &iss);
-    void build();
-
-    vp::IoMaster io_itf[4];
-    vp::IoReq io_req;
-    vp::ClockEvent *event;
-    int io_retval;
-    uint64_t io_pending_addr;
-    int io_pending_size;
-    uint8_t *io_pending_data;
-    bool io_pending_is_write;
-    bool waiting_io_response;
-
-private:
-    Iss &iss;
-
-};
-
 class Vector
 {
 public:
@@ -112,6 +85,4 @@ public:
 #else
     uint8_t vregs[ISS_NB_VREGS][(int)NB_VEL];
 #endif
-
-    Vlsu vlsu;
 };

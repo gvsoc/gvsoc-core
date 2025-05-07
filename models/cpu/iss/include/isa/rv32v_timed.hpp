@@ -68,12 +68,16 @@ static inline void velem_set_value(Iss *iss, unsigned int reg, unsigned int elem
     {
         case 1:
             *ptr = value;
+            break;
         case 2:
             *(uint16_t *)ptr = value;
+            break;
         case 4:
             *(uint32_t *)ptr = value;
+            break;
         default:
             *(uint64_t *)ptr = value;
+            break;
     }
 }
 
@@ -294,13 +298,29 @@ static inline iss_reg_t vmv_v_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t vmv_v_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    uint64_t in = convert_scalar_to_vector(REG_GET(0), sewb * 8);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            velem_set_value(iss, REG_OUT(0), i, sewb, in);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vmv_v_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    uint64_t in = convert_scalar_to_vector(SIM_GET(0), sewb * 8);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            velem_set_value(iss, REG_OUT(0), i, sewb, in);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -942,23 +962,6 @@ static inline iss_reg_t vfmax_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_reg_t vfmul_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
-    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
-    {
-        if (velem_is_active(iss, i, UIM_GET(0)))
-        {
-            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
-            uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL3(lib_flexfloat_mul_round, in0, in1, 11, 52, 7);
-            velem_set_value(iss, REG_OUT(0), i, sewb, res);
-        }
-    }
-    return iss_insn_next(iss, insn, pc);
-}
-
 static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
@@ -969,14 +972,15 @@ static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         if (velem_is_active(iss, i, UIM_GET(0)))
         {
             uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL3(lib_flexfloat_mul_round, in0, in1, 11, 52, 7);
+            uint64_t res = LIB_FF_CALL3(lib_flexfloat_mul_round, in0, in1, iss->vector.exp, iss->vector.mant, 7);
+
             velem_set_value(iss, REG_OUT(0), i, sewb, res);
         }
     }
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+static inline iss_reg_t vfmul_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
@@ -984,10 +988,9 @@ static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
         {
-            uint64_t in2 = velem_get_value(iss, REG_OUT(0), i, sewb, lmul);
             uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
             uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL4(lib_flexfloat_madd_round, in0, in1, in2, 11, 52, 7);
+            uint64_t res = LIB_FF_CALL3(lib_flexfloat_mul_round, in0, in1, iss->vector.exp, iss->vector.mant, 7);
             velem_set_value(iss, REG_OUT(0), i, sewb, res);
         }
     }
@@ -1005,7 +1008,26 @@ static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         {
             uint64_t in2 = velem_get_value(iss, REG_OUT(0), i, sewb, lmul);
             uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL4(lib_flexfloat_madd_round, in0, in1, in2, 11, 52, 7);
+            uint64_t res = LIB_FF_CALL4(lib_flexfloat_madd_round, in0, in1, in2, iss->vector.exp, iss->vector.mant, 7);
+
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in2 = velem_get_value(iss, REG_OUT(0), i, sewb, lmul);
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
+            uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
+            uint64_t res = LIB_FF_CALL4(lib_flexfloat_madd_round, in0, in1, in2, iss->vector.exp, iss->vector.mant, 7);
             velem_set_value(iss, REG_OUT(0), i, sewb, res);
         }
     }
@@ -1349,13 +1371,31 @@ static inline iss_reg_t vfncvt_rtz_x_f_w_exec(Iss *iss, iss_insn_t *insn, iss_re
 
 static inline iss_reg_t vfmv_v_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+
+    uint64_t value = FREG_GET(0);
+
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            velem_set_value(iss, REG_OUT(0), i, sewb, value);
+        }
+    }
+
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfmv_s_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+
+    uint64_t value = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0), CONFIG_GVSOC_ISS_FP_EXP, CONFIG_GVSOC_ISS_FP_MANT,
+        iss->vector.exp, iss->vector.mant, 7);
+
+    velem_set_value(iss, REG_IN(0), 0, sewb, value);
+
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1382,11 +1422,7 @@ static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t vlmax_get(Iss *iss)
 {
-#ifdef CONFIG_GVSOC_ISS_CVA6
     return iss->vector.VLEN / 8 * iss->vector.LMUL_t / iss->vector.sewb;
-#else
-    return (int)((2048*LMUL)/SEW);
-#endif
 }
 
 static inline void EMCase(int sew, uint8_t *m, uint8_t *e){
@@ -1449,6 +1485,7 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
         }else{
             AVL = VL;
         }
+
     return VL;
 }
 
@@ -1485,6 +1522,7 @@ static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int
         }else{
             AVL = VL;
         }
+
     return VL;
     }
 }

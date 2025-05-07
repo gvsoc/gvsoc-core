@@ -54,7 +54,11 @@
 #include <cpu/iss/include/spatz.hpp>
 #endif
 #include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+#include <cpu/iss/include/cores/spatz/fpu_sequencer.hpp>
+#else
 #include <cpu/iss/include/cores/snitch_fast/sequencer.hpp>
+#endif
 #include <cpu/iss/include/cores/snitch_fast/fpu_lsu.hpp>
 
 class IssWrapper;
@@ -183,8 +187,10 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 #include <cpu/iss/include/isa/xdma.hpp>
+#if !defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
+#endif
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include "cpu/iss/include/isa/rv32v_timed.hpp"
@@ -192,4 +198,6 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>
 #include <cpu/iss/include/cores/snitch_fast/regfile_implem.hpp>
+#if !defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include <cpu/iss/include/cores/snitch_fast/isa.hpp>
+#endif

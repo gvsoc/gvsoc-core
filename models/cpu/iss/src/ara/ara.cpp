@@ -53,10 +53,14 @@ void Ara::reset(bool active)
             this->scoreboard_valid_ts[i] = 0;
             this->scoreboard_in_use[i] = 0;
         }
+        this->insn_first_waiting = 0;
+        this->insn_first = 0;
+        this->insn_last = 0;
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+        this->nb_pending_vaccess = 0;
+        this->nb_pending_vstore = 0;
+#endif
     }
-    this->insn_first_waiting = 0;
-    this->insn_first = 0;
-    this->insn_last = 0;
 }
 
 void Ara::build()
@@ -120,6 +124,21 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
 void Ara::insn_end(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = pending_insn->insn;
+
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+    // If the ended instruction is a load or store, decrement associated counters used for
+    // for synchronizing snitch and spatz memory accesses
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID])
+    {
+        this->nb_pending_vaccess--;
+    }
+
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VSTORE_ID])
+    {
+        this->nb_pending_vaccess--;
+        this->nb_pending_vstore--;
+    }
+#endif
 
     // Mark the instruction as done. THe FSM will remove it when it is at the head of the queue
     pending_insn->done = true;

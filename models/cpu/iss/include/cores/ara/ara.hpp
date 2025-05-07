@@ -82,6 +82,82 @@ public:
     int nb_pending_bursts;
 };
 
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+
+// Block processing load/store vector instructions
+class AraVlsu : public AraBlock
+{
+public:
+
+    void reset(bool active) override;
+    void start() override;
+    AraVlsu(Ara &ara, IssWrapper &top);
+    bool is_full() override { return this->nb_pending_insn.get() == AraVlsu::queue_size; }
+    void enqueue_insn(PendingInsn *pending_insn) override;
+    void isa_init() override;
+
+private:
+    // Handler for internal FSM
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    // Handler called when a load instruction starts to be processed, in order to initialize the FSM
+    // for a read burst
+    static void handle_insn_load(AraVlsu *vlsu, iss_insn_t *insn);
+    // Handler called when a write instruction starts to be processed, in order to initialize the FSM
+    // for a write burst
+    static void handle_insn_store(AraVlsu *vlsu, iss_insn_t *insn);
+
+    // Number of instruction that can be enqueued at the same time
+    static constexpr int queue_size = 4;
+
+    Ara &ara;
+    vp::Trace trace;
+    // Event for active state
+    vp::Trace event_active;
+    // Event for address of current AXI burst
+    vp::Trace event_addr;
+    // Event for size of current AXI burst
+    vp::Trace event_size;
+    // Event for write or read opcode of current AXI burst
+    vp::Trace event_is_write;
+    // Event for PC of enqueued instructions
+    vp::Trace event_queue;
+    // Event for PC of instruction being processed
+    vp::Trace event_pc;
+    // Event for label of instruction being processed
+    vp::Trace event_label;
+    // Clock event used for scheduling FSM handler when at least one instruction has to be processed
+    vp::ClockEvent fsm_event;
+    // Queue of pending instructions to be processed by this block
+    // The block process them in-order
+    std::vector<AraVlsuPendingInsn> insns;
+    // Address of the next burst to be sent
+    iss_addr_t pending_addr;
+    // Remaining size of the current load/store operation
+    iss_addr_t pending_size;
+    // Write or read of the current load/store operation
+    bool pending_is_write;
+    // Pointer to vector register file where next burst should read or written
+    uint8_t *pending_velem;
+    // First valid instruction in the queue.
+    int insn_first;
+    // First valid instruction in the queue waiting to be started
+    int insn_first_waiting;
+    // Index in the queue where the next instruction should be pushed.
+    int insn_last;
+    // Number of enqueued instructions
+    vp::Register<uint8_t> nb_pending_insn;
+    // Number of instructions waiting to be started
+    int nb_waiting_insn;
+    // Ports to the TCDM, used by VLSU for vector load and store operations
+    std::vector<vp::IoMaster> ports;
+    // Queues of requests. Each port has its own queue to model limited oustanding requests
+    std::vector<vp::Queue *> req_queues;
+    // Whole list of requests for all ports
+    std::vector<vp::IoReq> requests;
+};
+
+#else
+
 // Block processing load/store vector instructions
 class AraVlsu : public AraBlock
 {
@@ -136,8 +212,6 @@ private:
     std::vector<AraVlsuPendingInsn> insns;
     // Address of the next burst to be sent
     iss_addr_t pending_addr;
-    // Elem size of the current load/store operation
-    iss_addr_t pending_elem_size;
     // Remaining size of the current load/store operation
     iss_addr_t pending_size;
     // Write or read of the current load/store operation
@@ -167,6 +241,8 @@ private:
     // Number of instructions waiting to be started
     int nb_waiting_insn;
 };
+
+#endif
 
 // Ara top block
 class Ara : public vp::Block
@@ -199,12 +275,19 @@ public:
     // Return true when queue if full and ara can not accept new instructions
     bool queue_is_full() { return this->queue_full.get(); }
     // Return the CVA6 register value associated to the instruction being executed
-    inline iss_reg_t current_insn_reg_get() { return current_insn_reg; }
+    inline uint64_t current_insn_reg_get() { return current_insn_reg; }
 
     // Access to upper ISS
     Iss &iss;
     // Number of 64 bits lanes in Ara.
     int nb_lanes;
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+    // Number of pending vector loads and stores in spatz. Use to synchronize with snitch memory
+    // accesses
+    int nb_pending_vaccess;
+    // Number of pending vector stores in spatz. Use to synchronize with snitch memory accesses
+    int nb_pending_vstore;
+#endif
 
 private:
     // Handler for internal FSM
@@ -263,5 +346,5 @@ private:
     // CVA6 register associated to the instruction being executed. This is used by instruction
     // handlers when they are executed. This needs to be buffered because CVA6 might have executed
     // following instructions overriding the register
-    iss_reg_t current_insn_reg;
+    uint64_t current_insn_reg;
 };

@@ -37,44 +37,54 @@ fsm_event(this, &AraVlsu::fsm_handler)
 
     this->insns.resize(AraVlsu::queue_size);
 
-    for (int i=0; i<AraVlsu::nb_burst; i++)
+    int nb_ports = top.get_js_config()->get_child_int("ara/nb_ports");
+
+    this->ports.resize(nb_ports);
+    for (int i=0; i<nb_ports; i++)
     {
-        this->free_bursts.push(new vp::IoReq());
+        top.new_master_port("vlsu_" + std::to_string(i), &this->ports[i], this);
     }
 
-    this->io_itf.set_resp_meth(&AraVlsu::data_response);
-    this->io_itf.set_grant_meth(&AraVlsu::data_grant);
-    top.new_master_port("vlsu", &this->io_itf, (vp::Block *)this);
+    int nb_outstanding_reqs = top.get_js_config()->get_child_int("ara/nb_outstanding_reqs");
+    this->req_queues.resize(nb_ports);
+    for (int i=0; i<nb_ports; i++)
+    {
+        this->req_queues[i] = new vp::Queue(this, "port_" + std::to_string(i) + "_reqs");
+    }
+
+    this->requests.resize(nb_ports * nb_outstanding_reqs);
+}
+
+void AraVlsu::start()
+{
 }
 
 void AraVlsu::reset(bool active)
 {
     if (active)
     {
-        this->pending_size = 0;
         uint8_t zero = 0;
         this->event_active.event(&zero);
         this->event_addr.event(&zero);
         this->event_size.event(&zero);
         this->event_is_write.event(&zero);
-        this->stalled = false;
         this->insn_first = 0;
         this->insn_first_waiting = 0;
         this->insn_last = 0;
         this->nb_waiting_insn = 0;
-    }
-}
 
-void AraVlsu::isa_init()
-{
-    // Attach handlers to instructions so that we can quickly handle load and stores differently
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vload"))
-    {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load;
-    }
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vstore"))
-    {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store;
+        // Since the request queues are cleared with the reset, we need to put back requests
+        // in each queue
+        int nb_ports = this->ara.iss.top.get_js_config()->get_child_int("ara/nb_ports");
+        int nb_outstanding_reqs = this->ara.iss.top.get_js_config()->get_child_int("ara/nb_outstanding_reqs");
+        int req_id = 0;
+        for (int i=0; i<nb_ports; i++)
+        {
+            for (int j=0; j<nb_outstanding_reqs; j++)
+            {
+                this->req_queues[i]->push_back(&this->requests[req_id++]);
+            }
+        }
     }
 }
 
@@ -98,6 +108,18 @@ void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
     this->fsm_event.enable();
 }
 
+void AraVlsu::isa_init()
+{
+    // Attach handlers to instructions so that we can quickly handle load and stores differently
+    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vload"))
+    {
+        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load;
+    }
+    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vstore"))
+    {
+        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store;
+    }
+}
 
 void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
 {
@@ -125,47 +147,9 @@ void AraVlsu::handle_insn_store(AraVlsu *_this, iss_insn_t *insn)
     _this->pending_size = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) * elem_size;
 }
 
-void AraVlsu::data_grant(vp::Block *__this, vp::IoReq *req)
-{
-    AraVlsu *_this = (AraVlsu *)__this;
-    // The last burst which stalled the block has just been granted. Resume the bursts.
-    _this->stalled = false;
-}
-
-void AraVlsu::handle_burst_end(vp::IoReq *req)
-{
-    // The slot is stored in the req stack
-    AraVlsuPendingInsn *slot = (AraVlsuPendingInsn *)req->arg_pop();
-    slot->nb_pending_bursts--;
-    this->free_bursts.push(req);
-    if (slot->nb_pending_bursts == 0)
-    {
-        // Trigger the instruction end with some delay to reproduce RTL behavior
-        slot->insn->timestamp = this->ara.iss.top.clock.get_cycles() + 4;
-    }
-}
-
-void AraVlsu::data_response(vp::Block *__this, vp::IoReq *req)
-{
-    AraVlsu *_this = (AraVlsu *)__this;
-    // We just received the response to one of the burst. Account it to allow terminating the
-    // instruction.
-    _this->handle_burst_end(req);
-}
-
 void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     AraVlsu *_this = (AraVlsu *)__this;
-
-    // Check if any synchronous delayed burst need to be terminated
-    if (_this->delayed_bursts.size() != 0 &&
-        _this->delayed_bursts_timestamps.front() <= _this->ara.iss.top.clock.get_cycles())
-    {
-        vp::IoReq *req = _this->delayed_bursts.front();
-        _this->handle_burst_end(req);
-        _this->delayed_bursts.pop();
-        _this->delayed_bursts_timestamps.pop();
-    }
 
     // In case nothing is on-going, disable the FSM
     if (_this->nb_pending_insn.get() == 0)
@@ -199,78 +183,74 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
     }
 
-    // Check if a new burst must be sent
-    if (_this->pending_size && _this->free_bursts.size() != 0 && !_this->stalled)
+    if (_this->pending_size)
     {
-        AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
-        uint64_t size = std::min((iss_addr_t)_this->ara.nb_lanes / 2 * 8, _this->pending_size);
-        _this->trace.msg(vp::Trace::LEVEL_TRACE,
-            "Sending request (addr: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
-            _this->pending_addr, _this->pending_size, _this->pending_is_write);
-
-        _this->event_addr.event((uint8_t *)&_this->pending_addr);
-        _this->event_size.event((uint8_t *)&_this->pending_size);
-        _this->event_is_write.event((uint8_t *)&_this->pending_is_write);
-
-        vp::IoReq *req = _this->free_bursts.front();
-        _this->free_bursts.pop();
-        req->init();
-        req->set_addr(_this->pending_addr);
-        req->set_size(size);
-        req->set_is_write(_this->pending_is_write);
-        req->set_data(_this->pending_velem);
-        req->arg_push((void *)&slot);
-        slot.nb_pending_bursts++;
-
-        int err = _this->ara.iss.lsu.data.req(req);
-        if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
+        // If a pending request is ready, try to send requests to available ports
+        for (int i=0; i<_this->ports.size(); i++)
         {
-            int64_t latency = req->get_full_latency();
-            if (latency == 0)
+            if (_this->pending_size == 0) break;
+
+            // Only use this port if it has requests available otherwise it means too many
+            // are pending
+            if (!_this->req_queues[i]->empty())
             {
-                _this->handle_burst_end(req);
+                uint64_t size = std::min((iss_addr_t)8, _this->pending_size);
+
+                _this->trace.msg(vp::Trace::LEVEL_TRACE,
+                    "Sending request (port: %d, addr: 0x%lx, size: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
+                    i, _this->pending_addr, size, _this->pending_size, _this->pending_is_write);
+
+                /// Pop a request from this port queue to limit number of outstanding requests
+                vp::IoReq *req = (vp::IoReq *)_this->req_queues[i]->pop();
+
+                req->prepare();
+
+                req->set_addr(_this->pending_addr);
+                req->set_is_write(_this->pending_is_write);
+                req->set_size(size);
+
+                req->set_data(_this->pending_velem);
+
+                vp::IoReqStatus err = _this->ports[i].req(req);
+
+                // For now only synchronous requests are supported, so for snitch cluster
+                // Asynchronous will be needed when having more complex interconnects behind.
+                // Then the requests should be handled properly to model the number of on-going
+                // transactions.
+                if (err != vp::IO_REQ_OK)
+                {
+                    _this->trace.fatal("Unimplemented async response");
+                }
+
+                // Put it back now until asynchronous responses are supported
+                _this->req_queues[i]->push_back(req);
+
+                // Prepare the next burst
+                _this->pending_addr += size;
+                _this->pending_size -= size;
+                _this->pending_velem += size;
+
+                // Switch to next instruction once all burst have been sent
+                if (_this->pending_size == 0)
+                {
+                    _this->nb_waiting_insn--;
+                    _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
+                }
             }
-            else
+        }
+
+        // Check if the first enqueued instruction must be removed
+        if (_this->nb_pending_insn.get() > 0)
+        {
+            AraVlsuPendingInsn &slot = _this->insns[_this->insn_first];
+            PendingInsn *pending_insn = slot.insn;
+            if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
+                pending_insn->timestamp <= _this->ara.iss.top.clock.get_cycles())
             {
-                _this->delayed_bursts.push(req);
-                _this->delayed_bursts_timestamps.push(_this->ara.iss.top.clock.get_cycles() + latency);
+                _this->insn_first = (_this->insn_first + 1) % AraVlsu::queue_size;
+                _this->nb_pending_insn.dec(1);
+                _this->ara.insn_end(pending_insn);
             }
-        }
-        else if (err == vp::IO_REQ_DENIED)
-        {
-            // Any denied burst must prevent this block from sending any other burst.
-            // It will resume only once the burst is granted
-            _this->stalled = true;
-        }
-        else
-        {
-            // Nothing to for asynchronous requests, they are handled in the callback
-        }
-
-        // Prepare the next burst
-        _this->pending_addr += size;
-        _this->pending_size -= size;
-        _this->pending_velem += size;
-
-        // Switch to next instruction once all burst have been sent
-        if (_this->pending_size == 0)
-        {
-            _this->nb_waiting_insn--;
-            _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
-        }
-    }
-
-    // Check if the first enqueued instruction must be removed
-    if (_this->nb_pending_insn.get() > 0)
-    {
-        AraVlsuPendingInsn &slot = _this->insns[_this->insn_first];
-        PendingInsn *pending_insn = slot.insn;
-        if (slot.nb_pending_bursts == 0 &&
-            pending_insn->timestamp <= _this->ara.iss.top.clock.get_cycles())
-        {
-            _this->insn_first = (_this->insn_first + 1) % AraVlsu::queue_size;
-            _this->nb_pending_insn.dec(1);
-            _this->ara.insn_end(pending_insn);
         }
     }
 }

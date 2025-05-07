@@ -141,8 +141,7 @@ void IssWrapper::reset(bool active)
 }
 
 IssWrapper::IssWrapper(vp::ComponentConf &config)
-    : vp::Component(config), iss(*this) //,
-    // fsm_event(this, &IssWrapper::fsm_handler)
+    : vp::Component(config), iss(*this)
 {
     this->iss.syscalls.build();
     this->iss.decode.build();
@@ -221,6 +220,18 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
         return pc;
     }
 
+    // Account vector loads and stores to synchronize with snitch
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID])
+    {
+        iss->ara.nb_pending_vaccess++;
+    }
+
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VSTORE_ID])
+    {
+        iss->ara.nb_pending_vaccess++;
+        iss->ara.nb_pending_vstore++;
+    }
+
     // Only offload the instruction once all input registers are ready
     for (int i=0; i<insn->nb_in_reg; i++)
     {
@@ -246,6 +257,18 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
             }
         }
     }
+
+    // TODO track here dependencies between scalar and vector floats
+    // for (int i=0; i<insn->nb_out_reg; i++)
+    // {
+    //     if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
+    //     {
+    //         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) != 0)
+    //         {
+    //             printf("OUT FREG\n");
+    //         }
+    //     }
+    // }
 
     // Allocate a slot in cva6 queue and offload the instruction
     PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);

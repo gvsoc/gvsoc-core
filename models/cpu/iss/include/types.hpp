@@ -499,7 +499,7 @@ public:
     iss_insn_t *insn;
     uint64_t timestamp;
     iss_reg_t pc;
-    iss_reg_t reg;
+    uint64_t reg;
     bool done;
     int id;
 };

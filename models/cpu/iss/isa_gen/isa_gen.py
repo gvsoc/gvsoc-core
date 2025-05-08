@@ -838,11 +838,14 @@ class Instr(object):
         self.latency = 0
         self.power_group = 0
         self.is_macro_op = is_macro_op
+        self.format = format
+
+        args_format = format.copy()
 
         # Sort arguments as model will access arguments based on their ID
-        format.sort(key=lambda obj: obj.get_id())
+        args_format.sort(key=lambda obj: obj.get_id())
 
-        self.args_format = format
+        self.args_format = args_format
         self.label = label
         self.active = True
         self.isa = None
@@ -934,24 +937,38 @@ class Instr(object):
         dump(isaFile, f'      .nb_args={len(self.args_format)},\n')
         dump(isaFile, f'      .latency={self.latency},\n')
         dump(isaFile, f'      .args= {{\n')
+        args_order = [ -1 ] * len(self.args_format)
+        nb_args = 0
         if len(self.args_format) > 0:
             for arg in self.args_format:
                 if arg.is_reg() and arg.is_out():
+                    index = self.format.index(arg)
                     arg.gen(isaFile, indent=8)
+                    args_order[index] = str(nb_args)
+                    nb_args += 1
+
         if len(self.args_format) > 0:
             for arg in self.args_format:
                 if arg.is_reg() and not arg.is_out():
+                    index = self.format.index(arg)
                     arg.gen(isaFile, indent=8)
+                    args_order[index] = str(nb_args)
+                    nb_args += 1
         if len(self.args_format) > 0:
             for arg in self.args_format:
                 if not arg.is_reg():
+                    index = self.format.index(arg)
                     arg.gen(isaFile, indent=8)
+                    args_order[index] = str(nb_args)
+                    nb_args += 1
+
         dump(isaFile, f'      }},\n')
         dump(isaFile, f'      .resource_id=-1,\n')
         dump(isaFile, f'      .block_id=-1,\n')
         dump(isaFile, f'      .power_group={self.power_group},\n')
         dump(isaFile, f'      .is_macro_op={1 if self.is_macro_op else 0},\n')
-        dump(isaFile, f'      .tags={{{", ".join(insn_tags_value)}}}\n')
+        dump(isaFile, f'      .tags={{{", ".join(insn_tags_value)}}},\n')
+        dump(isaFile, f'      .args_order={{{", ".join(args_order)}}}\n')
         dump(isaFile, f'    }}\n')
         dump(isaFile, f'  }}\n')
         dump(isaFile, f'}};\n')

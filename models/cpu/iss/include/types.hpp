@@ -355,6 +355,7 @@ typedef struct iss_decoder_insn_s
     int is_macro_op;
     uint64_t flags;
     bool tags[ISA_NB_TAGS];
+    uint8_t args_order[ISS_MAX_DECODE_ARGS];
 } iss_decoder_insn_t;
 
 typedef struct iss_decoder_item_s

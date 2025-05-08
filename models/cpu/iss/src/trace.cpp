@@ -631,7 +631,8 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *
     int nb_args = insn->decoder_item->u.insn.nb_args;
     for (int i = 0; i < nb_args; i++)
     {
-        buff = iss_trace_dump_arg(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &prev_arg, is_long);
+        int arg_id = insn->decoder_item->u.insn.args_order[i];
+        buff = iss_trace_dump_arg(iss, insn, buff, &insn->args[arg_id], &insn->decoder_item->u.insn.args[arg_id], &prev_arg, is_long);
     }
     if (nb_args != 0)
         buff += sprintf(buff, " ");
@@ -654,21 +655,23 @@ static void iss_trace_dump_insn(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *
         prev_arg = NULL;
         for (int i = 0; i < nb_args; i++)
         {
+            int arg_id = insn->decoder_item->u.insn.args_order[i];
 #ifdef CONFIG_ISS_HAS_VECTOR
-            uint8_t *saved_vargs = iss->trace.saved_vargs[i];
+            uint8_t *saved_vargs = iss->trace.saved_vargs[arg_id];
 #else
             uint8_t *saved_vargs = NULL;
 #endif
-            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &saved_args[i], &prev_arg, 1, is_long, saved_vargs);
+            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[arg_id], &insn->decoder_item->u.insn.args[arg_id], &saved_args[arg_id], &prev_arg, 1, is_long, saved_vargs);
         }
         for (int i = 0; i < nb_args; i++)
         {
+            int arg_id = insn->decoder_item->u.insn.args_order[i];
 #ifdef CONFIG_ISS_HAS_VECTOR
-            uint8_t *saved_vargs = iss->trace.saved_vargs[i];
+            uint8_t *saved_vargs = iss->trace.saved_vargs[arg_id];
 #else
             uint8_t *saved_vargs = NULL;
 #endif
-            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[i], &insn->decoder_item->u.insn.args[i], &saved_args[i], &prev_arg, 0, is_long, saved_vargs);
+            buff = iss_trace_dump_arg_value(iss, insn, buff, &insn->args[arg_id], &insn->decoder_item->u.insn.args[arg_id], &saved_args[arg_id], &prev_arg, 0, is_long, saved_vargs);
         }
 
         buff += sprintf(buff, "\n");
@@ -760,7 +763,7 @@ void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (!insn->is_macro_op || iss->top.traces.get_trace_engine()->get_format() == TRACE_FORMAT_LONG)
     {
-        char buffer[16*1024];
+        char buffer[32*1024];
 
         iss_trace_save_args(iss, insn, true);
 

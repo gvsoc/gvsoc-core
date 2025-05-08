@@ -700,7 +700,7 @@ INLINE void ff_fnma(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *
     }
     #endif
 
-    dest->value = -(a->value*b->value) - c->value;
+    dest->value = -fma(a->value, b->value, c->value);
 
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = fma(a->exact_value, b->exact_value, c->exact_value);

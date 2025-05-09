@@ -501,6 +501,7 @@ public:
     uint64_t timestamp;
     iss_reg_t pc;
     uint64_t reg;
+    uint64_t reg_2;
     bool done;
     int id;
 };

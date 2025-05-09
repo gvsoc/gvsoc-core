@@ -20,6 +20,49 @@
 #define RVV_FREG_GET(reg) (iss->ara.current_insn_reg_get())
 #define RVV_REG_GET(reg) (iss->ara.current_insn_reg_get())
 
+#if ISS_REG_WIDTH == 64
+#define VTYPE_VALUE 0x8000000000000000
+#else
+#define VTYPE_VALUE 0x80000000
+#endif
+
+#define SEW iss->vector.SEW_t
+#define LMUL iss->vector.LMUL_t
+#define VL iss->csr.vl.value
+#define VSTART iss->csr.vstart.value
+
+static inline iss_reg_t vlmax_get(Iss *iss)
+{
+    return iss->vector.VLEN / 8 * iss->vector.LMUL_t / iss->vector.sewb;
+}
+
+static inline void EMCase(int sew, uint8_t *m, uint8_t *e){
+    switch (sew){
+    case 8:{
+        printf("8 bit is not supported for FLOAT\n");
+        return;
+        break;
+    }
+    case 16:{
+        *e = 5;
+        *m = 10;
+        break;
+    }
+    case 32:{
+        *e = 8;
+        *m = 23;
+        break;
+    }
+    case 64:{
+        *e = 11;
+        *m = 52;
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static inline uint64_t convert_scalar_to_vector(uint64_t val, unsigned int sew)
 {
     if (ISS_REG_WIDTH < sew)
@@ -1662,49 +1705,134 @@ static inline iss_reg_t vfcvt_rtz_x_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t vfncvt_xu_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    uint8_t mant, exp;
+    EMCase(sewb * 2 * 8, &mant, &exp);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, 2 * sewb, lmul);
+            uint64_t res = LIB_FF_CALL2(lib_flexfloat_cvt_lu_ff_round, in0, exp, mant, 7);
+            res = std::min((uint64_t)((1ULL << (sewb * 8)) - 1), res);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_x_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    abort();
+{    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    uint8_t mant, exp;
+    EMCase(sewb * 2 * 8, &mant, &exp);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, 2 * sewb, lmul);
+            int64_t res = LIB_FF_CALL2(lib_flexfloat_cvt_l_ff_round, in0, exp, mant, 7);
+            res = std::min((int64_t)(1LL << ((sewb * 8 - 1) - 1)), res);
+            res = std::max((int64_t)(-1LL << (sewb * 8 - 1)), res);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_f_xu_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = (velem_get_value(iss, REG_IN(0), i, 2*sewb, lmul)) << (64 - 2*sewb*8) >> (64 - 2*sewb*8);
+            uint64_t res = LIB_FF_CALL2(lib_flexfloat_cvt_ff_lu_round, in0, iss->vector.exp, iss->vector.mant, 7);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_f_x_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = ((int64_t)velem_get_value(iss, REG_IN(0), i, 2*sewb, lmul)) << (64 - 2*sewb*8) >> (64 - 2*sewb*8);
+            uint64_t res = LIB_FF_CALL2(lib_flexfloat_cvt_ff_l_round, in0, iss->vector.exp, iss->vector.mant, 7);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_f_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    uint8_t mant, exp;
+    EMCase(sewb * 2 * 8, &mant, &exp);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, 2*sewb, lmul);
+            uint64_t res = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, in0, exp, mant,
+                iss->vector.exp, iss->vector.mant, 7);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_rod_f_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_rtz_xu_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    uint8_t mant, exp;
+    EMCase(sewb * 2 * 8, &mant, &exp);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, 2 * sewb, lmul);
+            uint64_t res = LIB_FF_CALL2(lib_flexfloat_cvt_lu_ff_round, in0, exp, mant, 1);
+            res = std::min((uint64_t)((1ULL << (sewb * 8)) - 1), res);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfncvt_rtz_x_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.LMUL_t;
+    uint8_t mant, exp;
+    EMCase(sewb * 2 * 8, &mant, &exp);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, 2 * sewb, lmul);
+            int64_t res = LIB_FF_CALL2(lib_flexfloat_cvt_l_ff_round, in0, exp, mant, 1);
+            res = std::min((int64_t)(1LL << ((sewb * 8 - 1) - 1)), res);
+            res = std::max((int64_t)(-1LL << (sewb * 8 - 1)), res);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1746,49 +1874,6 @@ static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, in, iss->vector.exp, iss->vector.mant,
         CONFIG_GVSOC_ISS_FP_EXP, CONFIG_GVSOC_ISS_FP_MANT, 7));
     return iss_insn_next(iss, insn, pc);
-}
-
-#if ISS_REG_WIDTH == 64
-#define VTYPE_VALUE 0x8000000000000000
-#else
-#define VTYPE_VALUE 0x80000000
-#endif
-
-#define SEW iss->vector.SEW_t
-#define LMUL iss->vector.LMUL_t
-#define VL iss->csr.vl.value
-#define VSTART iss->csr.vstart.value
-
-static inline iss_reg_t vlmax_get(Iss *iss)
-{
-    return iss->vector.VLEN / 8 * iss->vector.LMUL_t / iss->vector.sewb;
-}
-
-static inline void EMCase(int sew, uint8_t *m, uint8_t *e){
-    switch (sew){
-    case 8:{
-        printf("8 bit is not supported for FLOAT\n");
-        return;
-        break;
-    }
-    case 16:{
-        *e = 5;
-        *m = 10;
-        break;
-    }
-    case 32:{
-        *e = 8;
-        *m = 23;
-        break;
-    }
-    case 64:{
-        *e = 11;
-        *m = 52;
-        break;
-    }
-    default:
-        break;
-    }
 }
 
 static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, iss_uim_t lmul, iss_uim_t sew, iss_uim_t vtype){

@@ -276,6 +276,7 @@ public:
     bool queue_is_full() { return this->queue_full.get(); }
     // Return the CVA6 register value associated to the instruction being executed
     inline uint64_t current_insn_reg_get() { return current_insn_reg; }
+    inline uint64_t current_insn_reg_2_get() { return current_insn_reg_2; }
 
     // Access to upper ISS
     Iss &iss;
@@ -347,4 +348,5 @@ private:
     // handlers when they are executed. This needs to be buffered because CVA6 might have executed
     // following instructions overriding the register
     uint64_t current_insn_reg;
+    uint64_t current_insn_reg_2;
 };

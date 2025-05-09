@@ -106,7 +106,8 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
 
     // Copy the CVA6 register since we will use it later and it will probably change before that
     int reg = insn->in_regs[0];
-    uint64_t reg_value;
+    int reg_2 = insn->in_regs[1];
+    uint64_t reg_value, reg_value_2;
     if (insn->in_regs_fp[0])
     {
         reg_value = this->iss.regfile.get_freg_untimed(reg);
@@ -116,6 +117,16 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
         reg_value = this->iss.regfile.get_reg_untimed(reg);
     }
     pending_insn->reg = reg_value;
+
+    if (insn->in_regs_fp[1])
+    {
+        reg_value_2 = this->iss.regfile.get_freg_untimed(reg_2);
+    }
+    else
+    {
+        reg_value_2 = this->iss.regfile.get_reg_untimed(reg_2);
+    }
+    pending_insn->reg_2 = reg_value_2;
 
     // Enable the FSM to let it handle the pending instructions
     this->fsm_event.enable();
@@ -147,6 +158,7 @@ void Ara::insn_end(PendingInsn *pending_insn)
     // write the output register.
     // Store the instruction register as it will be used by the handler.
     this->current_insn_reg = pending_insn->reg;
+    this->current_insn_reg_2 = pending_insn->reg_2;
     insn->stub_handler(&this->iss, insn, pending_insn->pc);
 
     // Mark output registers as ready in next cycle

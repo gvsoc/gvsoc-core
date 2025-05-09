@@ -89,6 +89,18 @@ Format_OPV_8 = [
     UnsignedImm  (0, Range(25, 1)),
 ]
 
+Format_OPV_9 = [
+    OutVRegF     (0, Range(7 , 5)),
+    InVReg       (0, Range(20, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
+Format_OPV_10 = [
+    OutVReg      (0, Range(7 , 5)),
+    InVRegF      (0, Range(20, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
 Format_OPV = [ OutVReg     (0, Range(7 , 5)),
                InVReg      (0, Range(15, 5)),#rs1/vs1
                InVReg      (1, Range(20, 5)),#vs2
@@ -388,17 +400,12 @@ class Rv32v(IsaSubset):
             Instr('vfsgnjx.vv'       ,   Format_OPV  ,    '001010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfsgnjx.vf'       ,   Format_OPVF ,    '001010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfcvt.xu.f.v'     ,   Format_OPV  ,    '010010 - ----- 00000 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.x.f.v'      ,   Format_OPV  ,    '010010 - ----- 00001 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.f.xu.v'     ,   Format_OPV  ,    '010010 - ----- 00010 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.f.x.v'      ,   Format_OPV  ,    '010010 - ----- 00011 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.rtz.xu.f.v' ,   Format_OPV  ,    '010010 - ----- 00110 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.rtz.x.f.v'  ,   Format_OPV  ,    '010010 - ----- 00111 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.xu.f.v'     ,   Format_OPV_10  ,    '010010 - ----- 00000 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.x.f.v'      ,   Format_OPV_10  ,    '010010 - ----- 00001 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.f.xu.v'     ,   Format_OPV_9  ,    '010010 - ----- 00010 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.f.x.v'      ,   Format_OPV_9  ,    '010010 - ----- 00011 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.rtz.xu.f.v' ,   Format_OPV_9  ,    '010010 - ----- 00110 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.rtz.x.f.v'  ,   Format_OPV_9  ,    '010010 - ----- 00111 001 ----- 1010111', tags=['fp_op', 'nseq']),
 
             Instr('vfncvt.xu.f.w'    ,   Format_OPV  ,    '010010 - ----- 10000 001 ----- 1010111', tags=['fp_op', 'nseq']),
 

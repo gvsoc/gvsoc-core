@@ -471,5 +471,5 @@ void Htif::htif_handler(vp::Block *__this, vp::ClockEvent *event)
         iss->syscalls.htif.handle_syscall(cmd);
     }
 
-    iss->syscalls.htif.htif_event.enqueue(100);
+    iss->syscalls.htif.htif_event.enqueue(1000);
 }

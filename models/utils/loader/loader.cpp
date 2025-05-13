@@ -267,14 +267,20 @@ bool loader::load_elf(const char* file, uint64_t *entry)
 
 void loader::section_copy(uint64_t paddr, uint8_t *data, size_t size)
 {
-    this->sections.push_back(new Section(paddr, data, size));
+    if (size > 0)
+    {
+        this->sections.push_back(new Section(paddr, data, size));
+    }
 }
 
 
 
 void loader::section_clear(uint64_t paddr, size_t size)
 {
-    this->sections.push_back(new Section(paddr, NULL, size));
+    if (size > 0)
+    {
+        this->sections.push_back(new Section(paddr, NULL, size));
+    }
 }
 
 

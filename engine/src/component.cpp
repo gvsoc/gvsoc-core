@@ -462,10 +462,10 @@ void vp::Component::create_bindings()
         {
             std::string master_binding = x->get_elem(0)->get_str();
             std::string slave_binding = x->get_elem(1)->get_str();
-            int pos = master_binding.find_first_of("->");
+            int pos = master_binding.find("->");
             std::string master_comp_name = master_binding.substr(0, pos);
             std::string master_port_name = master_binding.substr(pos + 2);
-            pos = slave_binding.find_first_of("->");
+            pos = slave_binding.find("->");
             std::string slave_comp_name = slave_binding.substr(0, pos);
             std::string slave_port_name = slave_binding.substr(pos + 2);
 

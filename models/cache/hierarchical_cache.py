@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import gvsoc.systree
 import gvsoc.systree as st
 from cache.cache import Cache
 from interco.interleaver import Interleaver
@@ -21,7 +22,7 @@ import math
 
 class Hierarchical_cache(st.Component):
 
-    def __init__(self, parent, name, config):
+    def __init__(self, parent, name, config, enabled=False):
 
         super(Hierarchical_cache, self).__init__(parent, name)
 
@@ -47,15 +48,15 @@ class Hierarchical_cache(st.Component):
         # L0 caches
         l0_caches = []
         for i in range(0, nb_pes):
-            l0_caches.append(Cache(self, 'l0_bank%d' % i, **self.get_property('l0')))
+            l0_caches.append(Cache(self, 'l0_bank%d' % i, **self.get_property('l0'), enabled=enabled))
 
         if has_cc:
-            l0_caches.append(Cache(self, 'l0_bank%d' % (nb_cores-1), **self.get_property('l0_cc')))
-        
+            l0_caches.append(Cache(self, 'l0_bank%d' % (nb_cores-1), **self.get_property('l0_cc'), enabled=enabled))
+
         # L1 caches
         l1_caches = []
         for i in range(0, nb_l1_banks):
-            l1_caches.append(Cache(self, 'l1_bank%d' % i, **self.get_property('l1'), refill_shift=nb_l1_banks_log2, add_offset=i*l1_cache_line_size))
+            l1_caches.append(Cache(self, 'l1_bank%d' % i, **self.get_property('l1'), refill_shift=nb_l1_banks_log2, add_offset=i*l1_cache_line_size, enabled=enabled))
 
         # L1 interleaver
         interleaver = Interleaver(self, 'interleaver', nb_slaves=nb_l1_banks, interleaving_bits=l1_line_size_bits)
@@ -82,3 +83,6 @@ class Hierarchical_cache(st.Component):
         for i in range(0, nb_l1_banks):
             self.bind(interleaver, 'out_%d' % i, l1_caches[i], 'input')
 
+
+    def i_INPUT(self, id) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='io')

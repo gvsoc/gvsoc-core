@@ -59,7 +59,31 @@ namespace vp {
     public:
         Signal(Block &parent, std::string name, int width, bool do_reset=false, T reset=0);
         inline void set(T value);
-        inline T get();
+        inline T get() const;
+
+        Signal& operator=(T v)
+        {
+            set(v);
+            return *this;
+        }
+
+        operator T() const
+        {
+            return get();
+        }
+
+        Signal& operator|=(T v)
+        {
+            this->set(this->get() | v);
+            return *this;
+        }
+
+        Signal& operator&=(T v)
+        {
+            this->set(this->get() & v);
+            return *this;
+        }
+
         inline void inc(T value);
         inline void dec(T value);
         inline void release();
@@ -87,7 +111,7 @@ inline void vp::Signal<T>::set(T value)
 }
 
 template<class T>
-inline T vp::Signal<T>::get()
+inline T vp::Signal<T>::get() const
 {
     return this->value;
 }
@@ -118,6 +142,7 @@ void vp::Signal<T>::reset(bool active)
         // value << std::hex << this->value;
         // this->trace.msg(vp::Trace::LEVEL_TRACE, "Resetting signal (value: %s)\n", value.str().c_str());
         this->value = this->reset_value;
+        this->release();
     }
 }
 

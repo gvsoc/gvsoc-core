@@ -328,3 +328,53 @@ void vp::Block::pre_start_all()
 
     this->pre_start();
 }
+
+void vp::Block::new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
+        name.c_str(), 1, reset_val, reset
+    );
+
+    reg->init(this, name, reset ? (uint8_t *)&reset_val : NULL);
+    this->regs.push_back(reg);
+}
+
+void vp::Block::new_reg(std::string name, vp::reg_8 *reg, uint8_t reset_val, bool reset)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
+        name.c_str(), 8, reset_val, reset
+    );
+
+    reg->init(this, name, reset ? (uint8_t *)&reset_val : NULL);
+    this->regs.push_back(reg);
+}
+
+void vp::Block::new_reg(std::string name, vp::reg_16 *reg, uint16_t reset_val, bool reset)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
+        name.c_str(), 16, reset_val, reset
+    );
+
+    reg->init(this, name, reset ? (uint8_t *)&reset_val : NULL);
+    this->regs.push_back(reg);
+}
+
+void vp::Block::new_reg(std::string name, vp::reg_32 *reg, uint32_t reset_val, bool reset)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
+        name.c_str(), 32, reset_val, reset
+    );
+
+    reg->init(this, name, reset ? (uint8_t *)&reset_val : NULL);
+    this->regs.push_back(reg);
+}
+
+void vp::Block::new_reg(std::string name, vp::reg_64 *reg, uint64_t reset_val, bool reset)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New register (name: %s, width: %d, reset_val: 0x%x, reset: %d)\n",
+        name.c_str(), 64, reset_val, reset
+    );
+
+    reg->init(this, name, reset ? (uint8_t *)&reset_val : NULL);
+    this->regs.push_back(reg);
+}

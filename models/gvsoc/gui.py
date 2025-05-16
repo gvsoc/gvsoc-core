@@ -99,6 +99,10 @@ class Signal(object):
         self.child_signals = []
         self.parent = parent
         self.groups = groups if groups is not None else []
+
+        if not isinstance(self.groups, list):
+            self.groups = [self.groups]
+
         self.gen_signals = []
         self.display = display
         self.properties = properties
@@ -185,7 +189,8 @@ class GuiConfig(Signal):
                     }
 
                 if signal.is_group:
-                    groups[group]['signals'].append(signal.comp.get_comp_path(inc_top=True))
+                    # groups[group]['signals'].append(signal.comp.get_comp_path(inc_top=True))
+                    groups[group]['signals'].append(signal.path)
                 else:
                     groups[group]['signals'].append(signal.path)
 

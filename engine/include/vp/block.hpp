@@ -41,6 +41,11 @@ namespace vp {
     class TraceEngine;
     class reg;
     class MemCheck;
+    class reg_1;
+    class reg_8;
+    class reg_16;
+    class reg_32;
+    class reg_64;
 
     class BlockObject
     {
@@ -336,6 +341,31 @@ namespace vp {
          * @brief DEPRECATED
         */
         void event_del(ClockEvent *event);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_1 *reg, uint8_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_8 *reg, uint8_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_16 *reg, uint16_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_32 *reg, uint32_t reset_val, bool reset = true);
+
+        /**
+         * @brief DEPRECATED
+        */
+        void new_reg(std::string name, vp::reg_64 *reg, uint64_t reset_val, bool reset = true);
 
     private:
 

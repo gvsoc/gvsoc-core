@@ -27,6 +27,8 @@
 
 namespace vp
 {
+    class Block;
+
     class regfield
     {
         public:
@@ -100,7 +102,7 @@ namespace vp
             this->reset_value_bytes = (uint8_t *)&this->reset_val;
         }
 
-        inline T get() { return this->value; }
+        inline T get() const { return this->value; }
         inline void set(T value)
         {
 #ifdef VP_TRACE_ACTIVE
@@ -121,6 +123,30 @@ namespace vp
         {
             this->set(this->get() - value);
         }
+
+        Register& operator=(T v)
+        {
+            set(v);
+            return *this;
+        }
+
+        operator T() const
+        {
+            return get();
+        }
+
+        Register& operator|=(T v)
+        {
+            this->set(this->get() | v);
+            return *this;
+        }
+
+        Register& operator&=(T v)
+        {
+            this->set(this->get() & v);
+            return *this;
+        }
+
         inline void write(T *value)
         {
             memcpy((void *)this->value_bytes, (void *)value, this->nb_bytes);
@@ -149,6 +175,11 @@ namespace vp
             {
                 this->update(reg_offset, size, value, is_write);
             }
+
+            if (this->reg_event.get_event_active())
+            {
+                this->reg_event.event((uint8_t *)this->value_bytes);
+            }
         }
 
         inline void set_field(T value, int offset, int width)
@@ -176,7 +207,7 @@ namespace vp
         virtual void access(uint64_t reg_offset, int size, uint8_t *value, bool is_write) {}
         virtual void update(uint64_t reg_offset, int size, uint8_t *value, bool is_write) {}
 
-        virtual void build(vp::Component *comp, std::string name) {}
+        virtual void build(vp::Block *comp, std::string name) {}
 
         inline uint8_t *get_bytes() { return this->value_bytes; }
         inline void set_1(uint8_t value) { *(uint8_t *)this->value_bytes = value; }
@@ -210,7 +241,7 @@ namespace vp
         uint8_t *value_bytes;
         std::string name = "";
         std::string hw_name;
-        Component *top;
+        Block *top;
         vp::Trace trace;
         vp::Trace reg_event;
         std::vector<regfield *> regfields;
@@ -222,14 +253,14 @@ namespace vp
         bool exec_callback_on_reset = false;
 
     protected:
-        void init(vp::Component *top, std::string name, int bits, uint8_t *value, uint8_t *reset_val);
+        void init(vp::Block *top, std::string name, int bits, uint8_t *value, uint8_t *reset_val);
     };
 
     class reg_1 : public reg
     {
     public:
-        void init(vp::Component *top, std::string name, uint8_t *reset_val);
-        void build(vp::Component *comp, std::string name);
+        void init(vp::Block *top, std::string name, uint8_t *reset_val);
+        void build(vp::Block *comp, std::string name);
 
         inline uint8_t get() { return this->value; }
         inline void set(uint8_t value)
@@ -288,8 +319,8 @@ namespace vp
     class reg_8 : public reg
     {
     public:
-        void init(vp::Component *top, std::string name, uint8_t *reset_val);
-        void build(vp::Component *comp, std::string name);
+        void init(vp::Block *top, std::string name, uint8_t *reset_val);
+        void build(vp::Block *comp, std::string name);
 
         inline uint8_t get() { return this->value; }
         inline void set(uint8_t value)
@@ -355,8 +386,8 @@ namespace vp
     class reg_16 : public reg
     {
     public:
-        void init(vp::Component *top, std::string name, uint8_t *reset_val);
-        void build(vp::Component *comp, std::string name);
+        void init(vp::Block *top, std::string name, uint8_t *reset_val);
+        void build(vp::Block *comp, std::string name);
 
         inline uint16_t get() { return this->value; }
         inline void set(uint16_t value)
@@ -422,8 +453,8 @@ namespace vp
     class reg_32 : public reg
     {
     public:
-        void init(vp::Component *top, std::string name, uint8_t *reset_val);
-        void build(vp::Component *comp, std::string name);
+        void init(vp::Block *top, std::string name, uint8_t *reset_val);
+        void build(vp::Block *comp, std::string name);
 
         inline uint32_t get() { return this->value; }
         inline void set(uint32_t value)
@@ -478,8 +509,8 @@ namespace vp
     class reg_64 : public reg
     {
     public:
-        void init(vp::Component *top, std::string name, uint8_t *reset_val);
-        void build(vp::Component *comp, std::string name);
+        void init(vp::Block *top, std::string name, uint8_t *reset_val);
+        void build(vp::Block *comp, std::string name);
 
         inline uint64_t get() { return this->value; }
         inline void set(uint64_t value)
@@ -543,14 +574,14 @@ namespace vp
         std::vector<reg *> get_registers() { return this->registers; }
         std::vector<RegisterCommon *> get_registers_new() { return this->registers_new; }
         reg *get_register_from_offset(uint64_t offset);
-        void build(vp::Component *comp, vp::Trace *trace, std::string name="");
+        void build(vp::Block *comp, vp::Trace *trace, std::string name="");
         bool access(uint64_t offset, int size, uint8_t *value, bool is_write);
         void reset(bool active);
 
         vp::Trace *trace;
 
     protected:
-        vp::Component *comp;
+        vp::Block *comp;
         std::vector<reg *> registers;
         std::vector<RegisterCommon *> registers_new;
     };

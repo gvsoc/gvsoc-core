@@ -163,7 +163,7 @@ vp::reg *vp::regmap::get_register_from_offset(uint64_t offset)
 }
 
 
-void vp::regmap::build(vp::Component *comp, vp::Trace *trace, std::string name)
+void vp::regmap::build(vp::Block *comp, vp::Trace *trace, std::string name)
 {
     this->comp = comp;
     this->trace = trace;
@@ -189,7 +189,7 @@ bool vp::reg::access_callback(uint64_t reg_offset, int size, uint8_t *value, boo
     return this->callback != NULL;
 }
 
-void vp::reg::init(vp::Component *top, std::string name, int bits, uint8_t *value, uint8_t *reset_value)
+void vp::reg::init(vp::Block *top, std::string name, int bits, uint8_t *value, uint8_t *reset_value)
 {
     this->top = top;
     this->nb_bytes = (bits + 7) / 8;
@@ -228,47 +228,47 @@ void vp::reg::reset(bool active)
     }
 }
 
-void vp::reg_1::init(vp::Component *top, std::string name, uint8_t *reset_val)
+void vp::reg_1::init(vp::Block *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 1, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_8::init(vp::Component *top, std::string name, uint8_t *reset_val)
+void vp::reg_8::init(vp::Block *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 8, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_16::init(vp::Component *top, std::string name, uint8_t *reset_val)
+void vp::reg_16::init(vp::Block *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 16, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_32::init(vp::Component *top, std::string name, uint8_t *reset_val)
+void vp::reg_32::init(vp::Block *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 32, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_64::init(vp::Component *top, std::string name, uint8_t *reset_val)
+void vp::reg_64::init(vp::Block *top, std::string name, uint8_t *reset_val)
 {
     reg::init(top, name, 64, (uint8_t *)&this->value, reset_val);
 }
 
-void vp::reg_1::build(vp::Component *top, std::string name)
+void vp::reg_1::build(vp::Block *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
 
-void vp::reg_8::build(vp::Component *top, std::string name)
+void vp::reg_8::build(vp::Block *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
 
-void vp::reg_16::build(vp::Component *top, std::string name)
+void vp::reg_16::build(vp::Block *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
 
-void vp::reg_32::build(vp::Component *top, std::string name)
+void vp::reg_32::build(vp::Block *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }
@@ -291,7 +291,7 @@ void vp::reg_32::write(int reg_offset, int size, uint8_t *value)
     }
 }
 
-void vp::reg_64::build(vp::Component *top, std::string name)
+void vp::reg_64::build(vp::Block *top, std::string name)
 {
     top->new_reg(name, this, this->reset_val, this->do_reset);
 }

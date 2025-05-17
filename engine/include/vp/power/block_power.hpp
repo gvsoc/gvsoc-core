@@ -112,7 +112,7 @@ namespace vp
          *
          * @return vp::PowerTrace* The default power trace
          */
-        vp::PowerTrace *get_power_trace() { return &this->power_trace; }
+        vp::PowerTrace *get_power_trace();
 
         /**
          * @brief Set power supply state
@@ -186,7 +186,7 @@ namespace vp
         double get_power_from_self_and_childs();
 
         Block &top;                                // Component containing the power component object
-        vp::PowerTrace power_trace;            // Default power trace of this component
+        vp::PowerTrace *power_trace = NULL;            // Default power trace of this component
         std::vector<vp::PowerTrace *> traces;  // Vector of power traces of this component
         std::vector<vp::PowerSource *> sources;  // Vector of power sources of this component
         CompPowerReport report;

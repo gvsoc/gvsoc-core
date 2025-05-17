@@ -53,11 +53,22 @@ int vp::BlockPower::new_power_trace(std::string name, vp::PowerTrace *trace, vp:
     return 0;
 }
 
+vp::PowerTrace *vp::BlockPower::get_power_trace()
+{
+    if (this->power_trace == NULL)
+    {
+        this->power_trace = new vp::PowerTrace();
+        this->new_power_trace("power_trace", this->power_trace);
+    }
+
+    return this->power_trace;
+}
+
 int vp::BlockPower::new_power_source(std::string name, PowerSource *source, js::Config *config, vp::PowerTrace *trace)
 {
     if (trace == NULL)
     {
-        trace = &this->power_trace;
+        trace = this->get_power_trace();
     }
 
     if (source->init(&top, name, config, trace))

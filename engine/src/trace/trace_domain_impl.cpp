@@ -428,11 +428,8 @@ void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
     {
         traces.push_back(trace);
     }
-    else
-    {
-        this->top->get_trace_from_path(traces, path_str);
-    }
 
+    this->top->get_trace_from_path(traces, path_str);
 
     for (vp::Trace *trace: traces)
     {

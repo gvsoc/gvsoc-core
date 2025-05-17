@@ -34,7 +34,11 @@
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
 #include <cpu/iss/include/regfile.hpp>
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
+#else
+#include <cpu/iss/include/irq/irq_external.hpp>
+#endif
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
 #include <cpu/iss/include/pmp.hpp>

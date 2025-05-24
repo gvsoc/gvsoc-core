@@ -394,45 +394,22 @@ vp::TraceEngine::~TraceEngine()
 
 void vp::TraceEngine::flush()
 {
-    if (!this->use_external_dumper)
+    // First flush current buffer
+    if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
     {
-        // Flush only the events until the current timestamp as we may resume
-        // the execution right after
-        this->check_pending_events(this->top->time.get_engine()->get_time());
-
-        if (current_buffer_size)
-        {
-            pthread_mutex_lock(&mutex);
-
-            if (current_buffer)
-            {
-                *(vp::Trace **)(current_buffer + current_buffer_size) = NULL;
-                ready_event_buffers.push(current_buffer);
-                current_buffer = NULL;
-            }
-            pthread_cond_broadcast(&cond);
-            pthread_mutex_unlock(&mutex);
-        }
+        this->get_new_buffer_external();
     }
-    else
+
+    // Then wait until all pending buffers has been handled by dumper
+    pthread_mutex_lock(&this->mutex);
+
+    // We should get max number of buffers minus 1 as one has been taken as current buffer
+    while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
     {
-        // First flush current buffer
-        if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
-        {
-            this->get_new_buffer_external();
-        }
-
-        // Then wait until all pending buffers has been handled by dumper
-        pthread_mutex_lock(&this->mutex);
-
-        // We should get max number of buffers minus 1 as one has been taken as current buffer
-        while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
-        {
-            pthread_cond_wait(&this->cond, &this->mutex);
-        }
-
-        pthread_mutex_unlock(&this->mutex);
+        pthread_cond_wait(&this->cond, &this->mutex);
     }
+
+    pthread_mutex_unlock(&this->mutex);
 }
 
 void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size)

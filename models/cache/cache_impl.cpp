@@ -98,6 +98,7 @@ private:
     cache_line_t *refill_line;
     uint32_t refill_tag;
     vp::Signal<bool> pending_refill;
+    unsigned int pending_line_offset;
 
     vp::ClockEvent *fsm_event;
     vp::ClockEvent refill_event_clear_event;
@@ -121,7 +122,7 @@ private:
 
     cache_line_t *refill(int line_index, unsigned int addr, unsigned int tag, vp::IoReq *req, bool *pending);
     static void refill_response(vp::Block *__this, vp::IoReq *req);
-    cache_line_t *get_line(vp::IoReq *req, unsigned int *line_index, unsigned int *tag);
+    cache_line_t *get_line(vp::IoReq *req, unsigned int *line_index, unsigned int *tag, unsigned int *line_offset);
 
     unsigned int stepLru();
     bool ioReq(vp::IoReq *req, int i);
@@ -167,12 +168,12 @@ void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
 
         if (!is_write)
         {
-            memcpy(data, (void *)line->data, size);
+            memcpy(data, (void *)&line->data[_this->pending_line_offset], size);
         }
         else
         {
             // hitLine->setDirty();
-            memcpy((void *)line->data, data, size);
+            memcpy((void *)&line->data[_this->pending_line_offset], data, size);
         }
     }
 
@@ -350,7 +351,7 @@ void Cache::enable(bool enable)
         this->trace.msg(vp::Trace::LEVEL_INFO, "Disabling cache\n");
 }
 
-cache_line_t *Cache::get_line(vp::IoReq *req, unsigned int *line_index, unsigned int *tag)
+cache_line_t *Cache::get_line(vp::IoReq *req, unsigned int *line_index, unsigned int *tag, unsigned int *line_offset)
 {
     uint64_t offset = req->get_addr();
     uint8_t *data = req->get_data();
@@ -363,11 +364,11 @@ cache_line_t *Cache::get_line(vp::IoReq *req, unsigned int *line_index, unsigned
 
     *tag = offset >> this->line_size_bits;
     *line_index = *tag & (nb_sets - 1);
-    unsigned int line_offset = offset & (line_size - 1);
+    *line_offset = offset & (line_size - 1);
 
     cache_line_t *hit_line = NULL;
 
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Cache access (is_write: %d, offset: 0x%x, size: 0x%x, tag: 0x%x, line_index: %d, line_offset: 0x%x)\n", is_write, offset, size, offset, *line_index, line_offset);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Cache access (is_write: %d, offset: 0x%x, size: 0x%x, tag: 0x%x, line_index: %d, line_offset: 0x%x)\n", is_write, offset, size, offset, *line_index, *line_offset);
 
     cache_line_t *line = &this->lines[*line_index * nb_ways];
 
@@ -393,7 +394,8 @@ vp::IoReqStatus Cache::handle_req(vp::IoReq *req)
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();
     bool is_write = req->get_is_write();
-    cache_line_t *hit_line = this->get_line(req, &line_index, &tag);
+    unsigned int line_offset;
+    cache_line_t *hit_line = this->get_line(req, &line_index, &tag, &line_offset);
 
     if (hit_line == NULL)
     {
@@ -404,7 +406,10 @@ vp::IoReqStatus Cache::handle_req(vp::IoReq *req)
         if (hit_line == NULL)
         {
             if (pending)
+            {
+                this->pending_line_offset = line_offset;
                 return vp::IO_REQ_PENDING;
+            }
             else
                 return vp::IO_REQ_INVALID;
         }
@@ -426,12 +431,12 @@ vp::IoReqStatus Cache::handle_req(vp::IoReq *req)
     {
         if (!is_write)
         {
-            memcpy(data, (void *)hit_line->data, size);
+            memcpy(data, (void *)&hit_line->data[line_offset], size);
         }
         else
         {
             // hitLine->setDirty();
-            memcpy((void *)hit_line->data, data, size);
+            memcpy((void *)&hit_line->data[line_offset], data, size);
         }
     }
 

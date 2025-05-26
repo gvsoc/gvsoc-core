@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -46,7 +46,7 @@ $timescale 1ps $end\n\
 string vp::Vcd_file::parse_path(string path, bool begin)
 {
   std::string delim = "/";
-  
+
   auto start = 0U;
   auto end = path.find(delim);
   while (end != std::string::npos)
@@ -68,7 +68,7 @@ string vp::Vcd_file::parse_path(string path, bool begin)
 void vp::Vcd_file::add_trace(string path, int id, int width, bool is_real, bool is_string)
 {
   string name = parse_path(path, true);
-  
+
   if (is_real)
     fprintf(file, "$var real 64 %d %s $end\n", id, name.c_str());
   else
@@ -84,7 +84,7 @@ void vp::Vcd_file::dump(int64_t timestamp, int id, uint8_t *event, int width, bo
     header_dumped = true;
     fprintf(file, "%s", "\n\
 $enddefinitions $end\n\
-$dumpvars\n");    
+$dumpvars\n");
     fprintf(file, "$end\n");
   }
 

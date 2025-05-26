@@ -91,10 +91,10 @@ void Timing::reset(bool active)
         {
             if (this->iss.top.get_js_config()->get("**/binaries") != NULL)
             {
-                std::string binaries = "static enable";
+                std::string binaries = "static_enable";
                 for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
                 {
-                    binaries += " " + x->get_str();
+                    binaries += "_" + x->get_str();
                 }
 
                 this->binaries_trace_event.event_string(binaries.c_str(), true);

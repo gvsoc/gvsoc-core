@@ -344,7 +344,7 @@ class RiscvCommon(st.Component):
             tree.add_trace(self, 'irq_enter', 'irq_enter', tag='overview')
             tree.add_trace(self, 'irq_exit', 'irq_exit', tag='overview')
             tree.add_trace(self, 'pc', 'pc', '[31:0]', tag='pc')
-            tree.add_trace(self, 'asm', 'asm', tag='asm')
+            tree.add_trace(self, 'label', 'label', tag='label')
             tree.add_trace(self, 'func', 'func', tag='debug')
             tree.add_trace(self, 'inline_func', 'inline_func', tag='debug')
             tree.add_trace(self, 'file', 'file', tag='debug')

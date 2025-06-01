@@ -33,7 +33,7 @@ static inline unsigned long int DoExtend(unsigned long int R, unsigned long int 
 #ifdef OLD
     return R;
 #else
-    if ((m + e) == 31)
+    if ((m + e) >= 31)
         return R;
     else
     {

@@ -272,7 +272,17 @@ static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float, uint8_t *
         }
         else
         {
-            buff += sprintf(buff, "%lx", value);
+            uint64_t mask;
+            if (width >= 8)
+            {
+                mask = ~0ULL;
+            }
+            else
+            {
+                mask = (1ULL << (width * 8)) - 1;
+            }
+
+            buff += sprintf(buff, "%0*llx", width*2, value & mask);
         }
         if (i != 0)
         {

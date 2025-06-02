@@ -48,6 +48,9 @@ public:
 
     iss_reg_t frep_handle(iss_insn_t *insn, iss_reg_t pc, bool is_inner);
 
+    // Tells at which cycle each float register is available.
+    int64_t scoreboard_freg_timestamp[ISS_NB_FREGS];
+
 private:
     // Insn stub handler for loads and stores to synchronize snitch with spatz VLSU
     static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);

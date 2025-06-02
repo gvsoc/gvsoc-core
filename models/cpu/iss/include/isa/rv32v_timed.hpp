@@ -1034,7 +1034,7 @@ static inline iss_reg_t vfslide1down_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
-    iss_reg_t last_elem = RVV_FREG_GET(0);
+    uint64_t last_elem = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1057,7 +1057,7 @@ static inline iss_reg_t vfslide1up_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
-    iss_reg_t last_elem = RVV_FREG_GET(0);
+    uint64_t last_elem = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))

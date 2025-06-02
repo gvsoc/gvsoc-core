@@ -21,6 +21,7 @@
  */
 
  #include <cpu/iss/include/cores/spatz/fpu_sequencer.hpp>
+#include <cstdint>
  #include "cpu/iss/include/iss.hpp"
  #include ISS_CORE_INC(class.hpp)
 
@@ -62,6 +63,10 @@ void Sequencer::reset(bool active)
 {
     if (active)
     {
+        for (int i=0; i<ISS_NB_FREGS; i++)
+        {
+            this->scoreboard_freg_timestamp[i] = 0;
+        }
     }
 }
 
@@ -91,18 +96,17 @@ iss_reg_t Sequencer::float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Checking float instructions register dependencies\n");
 
-    // TODO track here dependencies between scalar and vector floats
-    // int64_t cycles = iss->top.clock.get_cycles();
-    // for (int i=0; i<insn->nb_in_reg; i++)
-    // {
-    //     if (insn->in_regs_fp[i] && iss->sequencer.scoreboard_reg_timestamp[insn->in_regs[i]] > cycles)
-    //     {
-    //         iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
-    //         // iss->sequencer.stall_reg = insn->in_regs[i];
-    //         // iss->exec.insn_stall();
-    //         return pc;
-    //     }
-    // }
+    int64_t cycles = iss->top.clock.get_cycles();
+    // Block the instruction until all float input registers are available, since some vector
+    // instructions having them as output may still be pending
+    for (int i=0; i<insn->nb_in_reg; i++)
+    {
+        if (insn->in_regs_fp[i] && iss->sequencer.scoreboard_freg_timestamp[insn->in_regs[i]] > cycles)
+        {
+            iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+            return pc;
+        }
+    }
 
     return insn->stub_handler(iss, insn, pc);
 }

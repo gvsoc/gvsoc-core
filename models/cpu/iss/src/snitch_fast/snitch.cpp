@@ -204,10 +204,25 @@ PendingInsn &IssWrapper::pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc)
 
 void IssWrapper::insn_commit(PendingInsn *pending_insn)
 {
+    iss_insn_t *insn = pending_insn->insn;
+
     this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", pending_insn->pc);
 
     pending_insn->done = true;
     pending_insn->timestamp = this->clock.get_cycles() + 1;
+
+    // Make output float registers available to unblock any scalar instructions stalled on them
+    for (int i=0; i<insn->nb_out_reg; i++)
+    {
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
+        {
+            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) != 0)
+            {
+                this->iss.sequencer.scoreboard_freg_timestamp[insn->out_regs[i]] = 0;
+            }
+        }
+    }
+
 }
 
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -258,17 +273,18 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
         }
     }
 
-    // TODO track here dependencies between scalar and vector floats
-    // for (int i=0; i<insn->nb_out_reg; i++)
-    // {
-    //     if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
-    //     {
-    //         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) != 0)
-    //         {
-    //             printf("OUT FREG\n");
-    //         }
-    //     }
-    // }
+    // Mark all output float registers as unavailable to prevent scalar instructions using them
+    // as inputs to execute
+    for (int i=0; i<insn->nb_out_reg; i++)
+    {
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) == 0)
+        {
+            if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) != 0)
+            {
+                iss->sequencer.scoreboard_freg_timestamp[insn->out_regs[i]] = INT64_MAX;
+            }
+        }
+    }
 
     // Allocate a slot in cva6 queue and offload the instruction
     PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);

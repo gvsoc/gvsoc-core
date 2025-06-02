@@ -114,11 +114,11 @@ private:
     // Event for active state
     vp::Trace event_active;
     // Event for address of current AXI burst
-    vp::Trace event_addr;
+    std::vector<vp::Trace> event_addr;
     // Event for size of current AXI burst
-    vp::Trace event_size;
+    std::vector<vp::Trace> event_size;
     // Event for write or read opcode of current AXI burst
-    vp::Trace event_is_write;
+    std::vector<vp::Trace> event_is_write;
     // Event for PC of enqueued instructions
     vp::Trace event_queue;
     // Event for PC of instruction being processed
@@ -154,6 +154,8 @@ private:
     std::vector<vp::Queue *> req_queues;
     // Whole list of requests for all ports
     std::vector<vp::IoReq> requests;
+    // Number of TCDM ports
+    int nb_ports;
 };
 
 #else

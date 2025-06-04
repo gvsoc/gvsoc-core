@@ -129,6 +129,7 @@ class Signal(object):
         config = {}
 
         config['name'] = self.name
+        config['groups'] = self.groups
         if self.is_group:
             if self.path is not None:
                 config['group'] = self.path
@@ -167,8 +168,10 @@ class Signal(object):
 
 class GuiConfig(Signal):
 
-    def __init__(self):
+    def __init__(self, args):
         super().__init__(comp=None, parent=None, name=None, path=None, groups=None)
+
+        self.args = args
 
     def gen(self, fd):
         config = {}
@@ -184,7 +187,7 @@ class GuiConfig(Signal):
                 if groups.get(group) is None:
                     groups[group] = {
                         "name": group,
-                        "enabled": True,
+                        "enabled": group != 'power' or self.args.power,
                         "signals": []
                     }
 

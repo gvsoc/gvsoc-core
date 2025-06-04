@@ -307,6 +307,7 @@ if os.environ.get('USE_GVRUN') is None:
                 self.rtl_runner.parse_args(args, gvsoc_cosim=args.gvsoc_path,
                     gvsoc_config_path=self.gvsoc_config_path, full_config=self.full_config)
 
+            self.args = args
 
         def gv_handle_command(self, cmd):
 
@@ -564,7 +565,7 @@ if os.environ.get('USE_GVRUN') is None:
 
         def gen_gui_config(self, work_dir, path):
             with open(path, 'w') as fd:
-                config = GuiConfig()
+                config = GuiConfig(self.args)
                 self.target.gen_gui_stub(config)
                 config.gen(fd)
 
@@ -1072,6 +1073,7 @@ else:
                 self.rtl_runner.parse_args(args, gvsoc_cosim=args.gvsoc_path,
                     gvsoc_config_path=self.gvsoc_config_path, full_config=self.full_config)
 
+            self.args = args
 
         def gv_handle_command(self, cmd, args):
 
@@ -1332,7 +1334,7 @@ else:
 
         def gen_gui_config(self, work_dir, path):
             with open(path, 'w') as fd:
-                config = GuiConfig()
+                config = GuiConfig(self.args)
                 self.target.gen_gui_stub(config)
                 config.gen(fd)
 

@@ -1,3 +1,4 @@
+cmake_policy(SET CMP0177 NEW)
 set(VP_TARGET_TYPES "" CACHE INTERNAL "contains the types of target")
 
 function(vp_set_target_types)
@@ -59,7 +60,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${subdir})
         endforeach()
-        
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_OPTIM_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -89,7 +90,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${subdir})
         endforeach()
-        
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_OPTIM_M32_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -122,7 +123,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE ${subdir})
         endforeach()
-    
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_DEBUG_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -153,7 +154,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${subdir})
         endforeach()
-    
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_DEBUG_M32_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -257,7 +258,7 @@ function(vp_model)
             foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
                 target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${subdir})
             endforeach()
-        
+
             if(VP_MODEL_OUTPUT_NAME)
                 set(RENAME_OPTIM_M32_NAME ${VP_MODEL_OUTPUT_NAME})
             else()
@@ -322,7 +323,7 @@ function(vp_model)
             foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
                 target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${subdir})
             endforeach()
-        
+
             if(VP_MODEL_OUTPUT_NAME)
                 set(RENAME_DEBUG_M32_NAME ${VP_MODEL_OUTPUT_NAME})
             else()
@@ -379,7 +380,7 @@ function(vp_model_link_libraries)
         else()
             set(TARGET_TYPES ${VP_TARGET_TYPES})
         endif()
-    
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             if (VP_MODEL_NO_M32 AND (TARGET_TYPE STREQUAL _debug_m32 OR TARGET_TYPE STREQUAL _optim_m32))
@@ -433,7 +434,7 @@ function(vp_model_link_options)
         "OPTIONS"
         ${ARGN}
         )
-        
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
@@ -450,7 +451,7 @@ function(vp_model_compile_definitions)
         "DEFINITIONS"
         ${ARGN}
         )
-        
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
@@ -467,7 +468,7 @@ function(vp_model_include_directories)
         "DIRECTORY"
         ${ARGN}
         )
-       
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
@@ -484,7 +485,7 @@ function(vp_model_sources)
         "SOURCES"
         ${ARGN}
         )
-        
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")

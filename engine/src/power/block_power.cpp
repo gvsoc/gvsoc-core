@@ -33,14 +33,6 @@ vp::BlockPower::BlockPower(vp::Block *parent, vp::Block &top, vp::PowerEngine *e
 
 void vp::BlockPower::build()
 {
-    // TODO should be instantiated only when childs has traces to gather them all
-    // this->new_power_trace("power_trace", &this->power_trace);
-
-    for (auto trace : this->traces)
-    {
-        this->get_engine()->reg_trace(trace);
-    }
-
 }
 
 int vp::BlockPower::new_power_trace(std::string name, vp::PowerTrace *trace, vp::PowerTrace *parent)
@@ -49,6 +41,8 @@ int vp::BlockPower::new_power_trace(std::string name, vp::PowerTrace *trace, vp:
         return -1;
 
     this->traces.push_back(trace);
+
+    this->get_engine()->reg_trace(trace);
 
     return 0;
 }

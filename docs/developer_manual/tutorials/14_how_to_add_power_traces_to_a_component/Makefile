@@ -24,4 +24,4 @@ prepare:
 	cp solution/* .
 
 run:
-	$(GVSOC) --target-dir=$(CURDIR) --target=my_system --work-dir=$(BUILDDIR) --binary=$(BUILDDIR)/test run $(runner_args)
+	$(GVSOC) --target-dir=$(CURDIR) --target=my_system --power --work-dir=$(BUILDDIR) --binary=$(BUILDDIR)/test run $(runner_args)

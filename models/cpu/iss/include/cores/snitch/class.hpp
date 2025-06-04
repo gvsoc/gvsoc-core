@@ -98,6 +98,12 @@ public:
     bool snitch;
     bool fp_ss;
 
+    // -----------USE IO PORT TO HANDLE REDMULE------------------
+    vp::IoMaster redmule_itf;
+    vp::IoReq*   redmule_req;
+    uint16_t     redmule_mnk_reg [4];
+    uint32_t     redmule_xwy_reg [4];
+
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
 
@@ -199,6 +205,7 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 #include <cpu/iss/include/isa/xdma.hpp>
+#include <cpu/iss/include/isa/redmule.hpp>
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
 

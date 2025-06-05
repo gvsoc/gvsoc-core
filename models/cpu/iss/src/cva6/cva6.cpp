@@ -60,8 +60,10 @@ void IssWrapper::reset(bool active)
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
     this->iss.syscalls.reset(active);
+#if defined(CONFIG_ISS_HAS_VECTOR)
     this->iss.vector.reset(active);
     this->iss.ara.reset(active);
+#endif
 
     this->do_flush = false;
     this->insn_first = 0;
@@ -89,8 +91,10 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
+#if defined(CONFIG_ISS_HAS_VECTOR)
     this->iss.vector.build();
     this->iss.ara.build();
+#endif
 
     this->traces.new_trace("wrapper", &this->trace, vp::DEBUG);
 
@@ -244,6 +248,7 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     return iss_insn_next(iss, insn, pc);
 }
 
+#if defined(CONFIG_ISS_HAS_VECTOR)
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // We stall the instruction if cva6 queue or ara queue is full
@@ -287,3 +292,4 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
 
     return iss_insn_next(iss, insn, pc);
 }
+#endif

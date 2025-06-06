@@ -1,4 +1,7 @@
-cmake_policy(SET CMP0177 NEW)
+if(POLICY CMP0177)
+    cmake_policy(SET CMP0177 NEW)
+endif()
+
 set(VP_TARGET_TYPES "" CACHE INTERNAL "contains the types of target")
 
 function(vp_set_target_types)

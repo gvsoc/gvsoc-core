@@ -101,7 +101,8 @@ iss_reg_t Sequencer::float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     // instructions having them as output may still be pending
     for (int i=0; i<insn->nb_in_reg; i++)
     {
-        if (insn->in_regs_fp[i] && iss->sequencer.scoreboard_freg_timestamp[insn->in_regs[i]] > cycles)
+        if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) != 0 &&
+            iss->sequencer.scoreboard_freg_timestamp[insn->in_regs[i]] > cycles)
         {
             iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
             return pc;

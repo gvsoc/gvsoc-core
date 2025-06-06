@@ -64,6 +64,18 @@ if(${BUILD_OPTIMIZED})
         INCLUDES DESTINATION include
         )
 
+    add_library(gvsoc_static STATIC ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
+    target_compile_options(gvsoc_static PRIVATE -fno-stack-protector)
+    target_include_directories(gvsoc_static PUBLIC ${GVSOC_ENGINE_INC_DIRS})
+    target_link_libraries(gvsoc_static PUBLIC z pthread ${CMAKE_DL_LIBS})
+    set_target_properties(gvsoc_static PROPERTIES OUTPUT_NAME "gvsoc_static")
+    install(TARGETS gvsoc_static
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include
+        )
+
     add_executable(gvsoc_launcher "src/main.cpp")
 
     if(DEFINED ENV{SYSTEMC_HOME})
@@ -115,6 +127,18 @@ if(${BUILD_DEBUG})
         INCLUDES DESTINATION include
         )
     target_compile_definitions(gvsoc_debug PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
+
+    add_library(gvsoc_debug_static STATIC ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
+    target_include_directories(gvsoc_debug_static PUBLIC ${GVSOC_ENGINE_INC_DIRS})
+    target_link_libraries(gvsoc_debug_static PUBLIC z pthread ${CMAKE_DL_LIBS})
+    set_target_properties(gvsoc_debug_static PROPERTIES OUTPUT_NAME "gvsoc-debug_static")
+    install(TARGETS gvsoc_debug_static
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include
+        )
+    target_compile_definitions(gvsoc_debug_static PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
 
     add_executable(gvsoc_launcher_debug "src/main.cpp")
 

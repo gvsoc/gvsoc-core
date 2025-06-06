@@ -87,6 +87,7 @@ void AraVlsu::reset(bool active)
         this->insn_first_waiting = 0;
         this->insn_last = 0;
         this->nb_waiting_insn = 0;
+        this->pending_size = 0;
 
         // Since the request queues are cleared with the reset, we need to put back requests
         // in each queue

@@ -55,6 +55,7 @@ void Syscalls::build()
 void Syscalls::reset(bool active)
 {
   this->htif.reset(active);
+  this->latency = 0;
 }
 
 

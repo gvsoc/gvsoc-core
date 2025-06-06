@@ -112,25 +112,32 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
     int reg = insn->in_regs[0];
     int reg_2 = insn->in_regs[1];
     uint64_t reg_value, reg_value_2;
-    if (insn->in_regs_fp[0])
-    {
-        reg_value = this->iss.regfile.get_freg_untimed(reg);
-    }
-    else
-    {
-        reg_value = this->iss.regfile.get_reg_untimed(reg);
-    }
-    pending_insn->reg = reg_value;
 
-    if (insn->in_regs_fp[1])
+    if (insn->nb_in_reg > 0)
     {
-        reg_value_2 = this->iss.regfile.get_freg_untimed(reg_2);
+        if (insn->in_regs_fp[0])
+        {
+            reg_value = this->iss.regfile.get_freg_untimed(reg);
+        }
+        else
+        {
+            reg_value = this->iss.regfile.get_reg_untimed(reg);
+        }
+        pending_insn->reg = reg_value;
     }
-    else
+
+    if (insn->nb_in_reg > 1)
     {
-        reg_value_2 = this->iss.regfile.get_reg_untimed(reg_2);
+        if (insn->in_regs_fp[1])
+        {
+            reg_value_2 = this->iss.regfile.get_freg_untimed(reg_2);
+        }
+        else
+        {
+            reg_value_2 = this->iss.regfile.get_reg_untimed(reg_2);
+        }
+        pending_insn->reg_2 = reg_value_2;
     }
-    pending_insn->reg_2 = reg_value_2;
 
     // Enable the FSM to let it handle the pending instructions
     this->fsm_event.enable();

@@ -376,7 +376,9 @@ else:
 
         def get_comp_path(self, inc_top=False):
             path = self.get_path(gv_path=True)
-            if inc_top:
+            if path is None:
+                return None
+            elif inc_top:
                 return '/' + path
             else:
                 return path

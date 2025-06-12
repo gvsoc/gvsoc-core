@@ -49,11 +49,15 @@ class DisplayLogicBox(object):
 class SignalGenFunctionFromBinary(object):
     def __init__(self, comp, parent, from_signal, to_signal, binaries):
         comp_path = comp.get_comp_path(inc_top=True)
-        self.from_signal = comp_path + '/' + from_signal
-        self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
+        if comp_path is None:
+            self.from_signal = '/' + from_signal
+            self.to_signal = '/' + to_signal
+        else:
+            self.from_signal = comp_path + '/' + from_signal
+            self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
         self.binaries = []
         for binary in binaries:
-            self.binaries.append(comp_path + '/' + binary)
+            self.binaries.append(self.from_signal)
 
         parent.gen_signals.append(self.get())
 
@@ -92,7 +96,11 @@ class Signal(object):
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
                  skip_if_no_child=False, required_traces=None):
         if path is not None and comp is not None and path[0] != '/':
-            path = comp.get_comp_path(inc_top=True) + '/' + path
+            comp_path = comp.get_comp_path(inc_top=True)
+            if comp_path is not None:
+                path = comp_path + '/' + path
+            else:
+                path = '/' + path
         self.parent = parent
         self.name = name
         self.path = path

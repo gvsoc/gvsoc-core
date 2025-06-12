@@ -163,9 +163,6 @@ option(BUILD_OPTIMIZED_M32 "build GVSOC with optimizations in 32bits mode"     O
 option(BUILD_DEBUG_M32     "build GVSOC with debug information in 32bits mode" OFF)
 
 SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -std=c++17")
-set(CMAKE_CC_FLAGS_RELWITHDEBINFO "-O3")
-
 
 # set target types
 vp_set_target_types(

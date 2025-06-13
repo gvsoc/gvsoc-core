@@ -560,6 +560,10 @@ void Syscalls::handle_riscv_ebreak()
         }
         else
         {
+            if (path[0] != '/')
+            {
+                path = this->iss.top.get_path() + '/' + path;
+            }
             vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
             if (trace == NULL)
             {
@@ -582,14 +586,7 @@ void Syscalls::handle_riscv_ebreak()
 
     case 0x10A:
     {
-        iss_reg_t args[2];
-        if (this->user_access(this->iss.regfile.regs[11], (uint8_t *)args, sizeof(args), false))
-        {
-            this->iss.regfile.regs[10] = -1;
-            return;
-        }
-
-        int id = args[0];
+        int id = this->iss.regfile.regs[11];
         vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
@@ -606,7 +603,7 @@ void Syscalls::handle_riscv_ebreak()
                 if (0)
                     trace->event_highz();
                 else
-                    trace->event((uint8_t *)&args[1]);
+                    trace->event((uint8_t *)&this->iss.regfile.regs[12]);
             }
         }
 

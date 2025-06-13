@@ -374,8 +374,8 @@ else:
                 component.gen_stimuli()
 
 
-        def get_comp_path(self, inc_top=False):
-            path = self.get_path(gv_path=True)
+        def get_comp_path(self, inc_top=False, child_path=None):
+            path = self.get_path(gv_path=True, child_path=child_path)
             if path is None:
                 return None
             elif inc_top:

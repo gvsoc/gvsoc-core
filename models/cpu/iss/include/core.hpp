@@ -59,5 +59,7 @@ private:
     iss_reg_t sstatus_write_mask;
     iss_reg_t load_reserve_addr;
     bool reset_stall = false;
-};
 
+    vp::Trace event_thread_lifecycle;
+    vp::Trace event_thread_current;
+};

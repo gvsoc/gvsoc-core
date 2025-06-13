@@ -70,6 +70,25 @@ class SignalGenFunctionFromBinary(object):
             "binaries": self.binaries
         }
 
+class SignalGenThreads(object):
+    def __init__(self, comp, parent, name, pc_signal, function_gen):
+        thread = Signal(comp, parent, name='threads')
+        Signal(comp, thread, name='thread_lifecycle', path='thread_lifecycle', groups=['regmap'])
+        Signal(comp, thread, name='thread_current', path='thread_current', groups=['regmap'])
+
+        self.config = {
+            "type": "threads",
+            "pc_trace": comp.get_comp_path(True, pc_signal),
+            "thread_lifecyle": comp.get_comp_path(True, 'thread_lifecycle'),
+            "thread_current": comp.get_comp_path(True, 'thread_current'),
+            "function_gen": comp.get_comp_path(True, function_gen),
+        }
+
+        parent.gen_signals.append(self.get())
+
+    def get(self):
+        return self.config
+
 class SignalGenFromSignals(object):
     def __init__(self, comp, parent, from_signals, to_signal):
         comp_path = comp.get_comp_path(inc_top=True)

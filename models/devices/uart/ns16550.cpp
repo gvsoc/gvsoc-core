@@ -490,6 +490,8 @@ Ns16550::Ns16550(vp::ComponentConf &config)
 
     reg_io_width = 1;
 
+    this->reg_shift = this->get_js_config()->get_child_int("offset_shift");
+
     this->input_itf.set_req_meth(&Ns16550::req);
     new_slave_port("input", &this->input_itf);
 

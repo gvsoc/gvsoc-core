@@ -18,11 +18,13 @@ import gvsoc.systree
 
 class Ns16550(gvsoc.systree.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, offset_shift=0):
 
         super(Ns16550, self).__init__(parent, name)
 
         self.set_component('devices.uart.ns16550')
+        
+        self.add_property('offset_shift', offset_shift)
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'input', signature='io')

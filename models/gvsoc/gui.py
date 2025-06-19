@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import gvsoc
 import json
 
 class DisplayStringBox(object):
@@ -57,10 +58,13 @@ class SignalGenFunctionFromBinary(object):
             self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
         self.binaries = []
         for binary in binaries:
-            self.binaries.append(self.from_signal)
+            if comp_path is None:
+                binary = '/' + binary
+            else:
+                binary = comp_path + '/' + binary
+            self.binaries.append(binary)
 
         parent.gen_signals.append(self.get())
-
 
     def get(self):
         return {
@@ -72,12 +76,13 @@ class SignalGenFunctionFromBinary(object):
 
 class SignalGenThreads(object):
     def __init__(self, comp, parent, name, pc_signal, function_gen):
-        thread = Signal(comp, parent, name='threads')
+        thread = Signal(comp, parent, name='threads', path='threads', display=gvsoc.gui.DisplayStringBox())
         Signal(comp, thread, name='thread_lifecycle', path='thread_lifecycle', groups=['regmap'])
         Signal(comp, thread, name='thread_current', path='thread_current', groups=['regmap'])
 
         self.config = {
             "type": "threads",
+            "path": comp.get_comp_path(True, "threads"),
             "pc_trace": comp.get_comp_path(True, pc_signal),
             "thread_lifecyle": comp.get_comp_path(True, 'thread_lifecycle'),
             "thread_current": comp.get_comp_path(True, 'thread_current'),

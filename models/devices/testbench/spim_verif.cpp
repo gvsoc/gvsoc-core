@@ -1195,6 +1195,7 @@ void Spim_verif::handle_next_cmd()
 
 void Spim_verif::handle_next_master_cmd()
 {
+    this->trace.msg(vp::Trace::LEVEL_INFO, "Handling next master command\n");
     if(this->slave_state == SPIS_STATE_IDLE && !this->master_cmd_queue.empty() && this->is_enqueued == false)
     {
         pi_testbench_req_spim_verif_transfer_t* next_cmd = this->master_cmd_queue.front();

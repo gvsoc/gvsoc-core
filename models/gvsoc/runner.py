@@ -1,4 +1,4 @@
-8#
+#
 # Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
 #                    University of Bologna
 #

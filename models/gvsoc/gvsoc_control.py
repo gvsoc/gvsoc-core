@@ -313,6 +313,14 @@ class Proxy(object):
     def run(self, duration: int = None):
         """Starts execution.
 
+        If no duration is specified, the call is asynchronous and is immediately returning. This
+        means the engine is running in parallel of the python script. The script can still interact
+        with it while running, for example to stop it.
+
+        If a duration is specified, the call is synchronous and returns only when the specified
+        duration has elapsed. Note that other clients may asked the engine to stop and run during
+        this duration. If so, the caller is still blocked on the call.
+
         :param duration: Specify the duration of the execution in picoseconds (will execute forever by default)
         """
 
@@ -351,7 +359,11 @@ class Proxy(object):
 
 
     def quit(self, status: int = 0):
-        """Exit simulation.
+        """Exit the client.
+
+        This makes the calling client to exit with the specified status.
+        Note that the platform will exit only if all clients have exited and the simulation is
+        over.
 
         :param status: Specify the status value.
         """
@@ -359,6 +371,12 @@ class Proxy(object):
         self._send_cmd('quit %d' % status)
 
     def terminate(self):
+        """Force simulation to exit.
+
+        Since the platform waits until simulation is over before exiting, this can be usefull
+        to force it to exit in case simulation is looping forever.
+        """
+
         # Don't wait for the reply since the platform may not catch this command if it exits
         # right before
         self._send_cmd('terminate', wait_reply=False)

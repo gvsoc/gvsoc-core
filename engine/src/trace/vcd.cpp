@@ -69,10 +69,13 @@ void vp::Vcd_file::add_trace(string path, int id, int width, bool is_real, bool 
 {
   string name = parse_path(path, true);
 
-  if (is_real)
-    fprintf(file, "$var real 64 %d %s $end\n", id, name.c_str());
-  else
-    fprintf(file, "$var wire %d %d %s $end\n", width, id, name.c_str());
+  if (name != "")
+  {
+    if (is_real)
+        fprintf(file, "$var real 64 %d %s $end\n", id, name.c_str());
+    else
+        fprintf(file, "$var wire %d %d %s $end\n", width, id, name.c_str());
+  }
 
   parse_path(string(path), false);
 }

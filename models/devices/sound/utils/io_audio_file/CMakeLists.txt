@@ -19,8 +19,7 @@ if(SAMPLERATE_LIB)
 endif()
 
 if(SNDFILE_LIB OR SAMPLERATE_LIB)
-    vp_model_compile_options(NAME io_audio OPTIONS ${COMPILE_OPTIONS})
     vp_block_compile_options(NAME io_audio OPTIONS ${COMPILE_OPTIONS})
-    vp_model_link_libraries(
+    vp_block_link_libraries(
         NAME io_audio NO_M32 1 LIBRARY ${LIBS_TO_INCLUDE})
 endif()

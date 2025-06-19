@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+
 #include <vp/vp.hpp>
 #include <vp/itf/i2c.hpp>
 #include <vp/itf/i2s.hpp>
@@ -345,7 +346,10 @@ Ssm6515::Ssm6515(vp::ComponentConf &config)
 
 void Ssm6515::start()
 {
-    this->i2c_itf.sync(1, 1);
+    if (this->i2c_itf.is_bound())
+    {
+        this->i2c_itf.sync(1, 1);
+    }
 }
 
 void Ssm6515::set_rate(vp::Block *__this, int rate)

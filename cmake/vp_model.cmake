@@ -49,7 +49,7 @@ function(vp_block)
     # Optimized models
     # ==================
     if(${BUILD_OPTIMIZED})
-        add_library(${VP_MODEL_NAME_OPTIM} STATIC ${VP_MODEL_SOURCES})
+        add_library(${VP_MODEL_NAME_OPTIM} SHARED ${VP_MODEL_SOURCES})
         target_link_libraries(${VP_MODEL_NAME_OPTIM} PRIVATE gvsoc)
         set_target_properties(${VP_MODEL_NAME_OPTIM} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_OPTIM} PRIVATE -fno-stack-protector -D__GVSOC__)
@@ -78,7 +78,7 @@ function(vp_block)
     endif()
 
     if(${BUILD_OPTIMIZED_M32})
-        add_library(${VP_MODEL_NAME_OPTIM_M32} STATIC ${VP_MODEL_SOURCES})
+        add_library(${VP_MODEL_NAME_OPTIM_M32} SHARED ${VP_MODEL_SOURCES})
         target_link_libraries(${VP_MODEL_NAME_OPTIM_M32} PRIVATE gvsoc_m32)
         set_target_properties(${VP_MODEL_NAME_OPTIM_M32} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE "-D__GVSOC__")
@@ -111,7 +111,7 @@ function(vp_block)
     # Debug models
     # ==================
     if(${BUILD_DEBUG})
-        add_library(${VP_MODEL_NAME_DEBUG} STATIC ${VP_MODEL_SOURCES})
+        add_library(${VP_MODEL_NAME_DEBUG} SHARED ${VP_MODEL_SOURCES})
         target_link_libraries(${VP_MODEL_NAME_DEBUG} PRIVATE gvsoc_debug)
         set_target_properties(${VP_MODEL_NAME_DEBUG} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_DEBUG} PRIVATE "-D__GVSOC__")
@@ -184,7 +184,8 @@ function(vp_block_compile_options)
 
     foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
         set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
-        target_compile_options(${VP_MODEL_NAME_TYPE} INTERFACE ${VP_MODEL_OPTIONS})
+        message("SET ${VP_MODEL_NAME_TYPE} to ${VP_MODEL_OPTIONS}")
+        target_compile_options(${VP_MODEL_NAME_TYPE} PUBLIC ${VP_MODEL_OPTIONS})
     endforeach()
 endfunction()
 
@@ -368,6 +369,28 @@ function(vp_model_link_gvsoc)
             target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE gvsoc${TARGET_TYPE})
         endforeach()
     endif()
+endfunction()
+
+function(vp_block_link_libraries)
+    cmake_parse_arguments(
+        VP_MODEL
+        ""
+        "NAME;NO_M32;"
+        "LIBRARY"
+        ${ARGN}
+    )
+
+    if(TARGET_TYPES)
+    else()
+        set(TARGET_TYPES ${VP_TARGET_TYPES})
+    endif()
+    foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
+        if (VP_MODEL_NO_M32 AND (TARGET_TYPE STREQUAL _debug_m32 OR TARGET_TYPE STREQUAL _optim_m32))
+        else()
+            set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
+            target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE ${VP_MODEL_LIBRARY})
+        endif()
+    endforeach()
 endfunction()
 
 function(vp_model_link_libraries)

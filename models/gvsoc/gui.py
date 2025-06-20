@@ -83,6 +83,7 @@ class SignalGenThreads(object):
         self.config = {
             "type": "threads",
             "path": comp.get_comp_path(True, "threads"),
+            "signal_path": '/' + thread.get_path(),
             "pc_trace": comp.get_comp_path(True, pc_signal),
             "thread_lifecyle": comp.get_comp_path(True, 'thread_lifecycle'),
             "thread_current": comp.get_comp_path(True, 'thread_current'),
@@ -144,6 +145,16 @@ class Signal(object):
         if parent is not None:
             parent.child_signals.append(self)
         self.required_traces = required_traces
+
+    def get_path(self):
+        if self.parent is None:
+            return self.name
+        else:
+            parent_path = self.parent.get_path()
+            if parent_path is None:
+                return self.name
+            else:
+                return parent_path + '/' + self.name
 
     def get_childs_config(self):
         config = []

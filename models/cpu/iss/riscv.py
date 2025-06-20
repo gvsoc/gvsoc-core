@@ -528,7 +528,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
 
-        thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'function')
+        thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
 
         return active
 

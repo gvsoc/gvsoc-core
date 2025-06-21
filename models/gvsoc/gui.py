@@ -76,9 +76,10 @@ class SignalGenFunctionFromBinary(object):
 
 class SignalGenThreads(object):
     def __init__(self, comp, parent, name, pc_signal, function_gen):
-        thread = Signal(comp, parent, name='threads', path='threads', display=gvsoc.gui.DisplayStringBox())
-        Signal(comp, thread, name='thread_lifecycle', path='thread_lifecycle', groups=['regmap'])
-        Signal(comp, thread, name='thread_current', path='thread_current', groups=['regmap'])
+        thread = Signal(comp, parent, name='threads', path='threads',
+            include_traces=['thread_lifecycle', 'thread_current'], display=gvsoc.gui.DisplayStringBox())
+        # Signal(comp, thread, name='thread_lifecycle', path='thread_lifecycle', groups=['regmap'])
+        # Signal(comp, thread, name='thread_current', path='thread_current', groups=['regmap'])
 
         self.config = {
             "type": "threads",
@@ -119,7 +120,7 @@ class SignalGenFromSignals(object):
 class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
-                 skip_if_no_child=False, required_traces=None):
+                 skip_if_no_child=False, required_traces=None, include_traces=None):
         if path is not None and comp is not None and path[0] != '/':
             comp_path = comp.get_comp_path(inc_top=True)
             if comp_path is not None:
@@ -145,6 +146,7 @@ class Signal(object):
         if parent is not None:
             parent.child_signals.append(self)
         self.required_traces = required_traces
+        self.include_traces = include_traces
 
     def get_path(self):
         if self.parent is None:
@@ -192,6 +194,11 @@ class Signal(object):
             for trace in self.required_traces:
                 path = self.comp.get_comp_path(inc_top=True) + '/' + trace
                 config['required'].append(path)
+        if self.include_traces is not None:
+            config['include_traces'] = []
+            for trace in self.include_traces:
+                path = self.comp.get_comp_path(inc_top=True) + '/' + trace
+                config['include_traces'].append(path)
 
         return config
 

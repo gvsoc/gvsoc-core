@@ -231,6 +231,10 @@ class GuiConfig(Signal):
     def gen(self, fd):
         config = {}
 
+        config['config'] = {
+            'verbose': self.args.gui_verbose
+        }
+
         config['views'] = {}
         config['views']['timeline'] = {}
         config['views']['timeline']['type'] = 'timeline'

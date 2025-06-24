@@ -244,6 +244,9 @@ if os.environ.get('USE_GVRUN') is None:
             if not cosim_mode:
                 parser.add_argument("--gui", dest="gui", default=None, action="store_true",
                     help="Open GVSOC gui")
+                parser.add_argument('--gui-verbose', dest='gui_verbose', type=str, default='warning', choices=[
+                    'trace', 'debug', 'info', 'warning', 'error', 'critical', 'none'],
+                    help='Specifies verbose level.')
                 parser.add_argument("--gui2", dest="gui2", default=None, action="store_true",
                     help="Open GVSOC gui")
                 parser.add_argument("--gui3", dest="gui3", default=None, action="store_true",
@@ -1010,6 +1013,9 @@ else:
             if not cosim_mode:
                 parser.add_argument("--gui", dest="gui", default=None, action="store_true",
                     help="Open GVSOC gui")
+                parser.add_argument('--gui-verbose', dest='gui_verbose', type=str, default='warning', choices=[
+                    'trace', 'debug', 'info', 'warning', 'error', 'critical', 'none'],
+                    help='Specifies verbose level.')
                 parser.add_argument("--gui2", dest="gui2", default=None, action="store_true",
                     help="Open GVSOC gui")
                 parser.add_argument("--gui3", dest="gui3", default=None, action="store_true",

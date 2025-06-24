@@ -78,8 +78,6 @@ class SignalGenThreads(object):
     def __init__(self, comp, parent, name, pc_signal, function_gen):
         thread = Signal(comp, parent, name='threads', path='threads',
             include_traces=['thread_lifecycle', 'thread_current'], display=gvsoc.gui.DisplayStringBox())
-        # Signal(comp, thread, name='thread_lifecycle', path='thread_lifecycle', groups=['regmap'])
-        # Signal(comp, thread, name='thread_current', path='thread_current', groups=['regmap'])
 
         self.config = {
             "type": "threads",
@@ -146,7 +144,11 @@ class Signal(object):
         if parent is not None:
             parent.child_signals.append(self)
         self.required_traces = required_traces
-        self.include_traces = include_traces
+        self.include_traces = []
+        if path is not None:
+            self.include_traces.append(path)
+        if include_traces is not None:
+            self.include_traces += include_traces
 
     def get_path(self):
         if self.parent is None:
@@ -197,7 +199,10 @@ class Signal(object):
         if self.include_traces is not None:
             config['include_traces'] = []
             for trace in self.include_traces:
-                path = self.comp.get_comp_path(inc_top=True) + '/' + trace
+                if trace[0] == '/':
+                    path = trace
+                else:
+                    path = self.comp.get_comp_path(inc_top=True) + '/' + trace
                 config['include_traces'].append(path)
 
         return config

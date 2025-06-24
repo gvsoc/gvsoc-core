@@ -555,6 +555,27 @@ class Ssm6515(object):
 
         req = self.proxy._send_cmd(cmd)
 
+    def tdm_mode_configure(self, pcm_rate : int = None, slot_width : int = None, filepath : str = None, slots_per_frame: int = None):
+        """Set the dac tdm configuration.
+
+        :param filepath: The path to the produced output file.
+        :param slot_width: Slot width in i2s configuration.
+        :param pcm_rate: Desired output pcm samplerate.
+
+        :raises: RuntimeError, if the access generates an error in the architecture.
+        """
+        option = ''
+        if(filepath):
+            option += ' file_path %s' % (filepath)
+        if(slot_width):
+            option += ' width %d' % (slot_width)
+        if(pcm_rate):
+            option += ' pcm_freq %d' % (pcm_rate)
+        if(slots_per_frame):
+            option += ' slots_per_frame %d' % (slots_per_frame)
+        cmd = 'component %s mode tdm %s' % (self.component, option)
+
+        req = self.proxy._send_cmd(cmd)
 
     def debug_enabled(self, debug: bool = True):
         """Enable debug mode of the ssm
@@ -1202,6 +1223,7 @@ class Testbench_spi(object):
         self.condition = threading.Condition(self.lock)
         self.pending_rx_bytes = bytearray()
         self.req = None
+        self.is_master = None
 
     def open(self, is_master: int = 0, polarity: int = 0, phase: int = 0,
             mem_size_log2: int = 16, dummy_cycles: int = 0, frequency : int = 10000000):

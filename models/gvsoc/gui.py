@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import gvsoc
 import json
 
 class DisplayStringBox(object):
@@ -57,10 +58,13 @@ class SignalGenFunctionFromBinary(object):
             self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
         self.binaries = []
         for binary in binaries:
-            self.binaries.append(self.from_signal)
+            if comp_path is None:
+                binary = '/' + binary
+            else:
+                binary = comp_path + '/' + binary
+            self.binaries.append(binary)
 
         parent.gen_signals.append(self.get())
-
 
     def get(self):
         return {
@@ -69,6 +73,26 @@ class SignalGenFunctionFromBinary(object):
             "from_signal": self.from_signal,
             "binaries": self.binaries
         }
+
+class SignalGenThreads(object):
+    def __init__(self, comp, parent, name, pc_signal, function_gen):
+        thread = Signal(comp, parent, name='threads', path='threads',
+            include_traces=['thread_lifecycle', 'thread_current'], display=gvsoc.gui.DisplayStringBox())
+
+        self.config = {
+            "type": "threads",
+            "path": comp.get_comp_path(True, "threads"),
+            "signal_path": '/' + thread.get_path(),
+            "pc_trace": comp.get_comp_path(True, pc_signal),
+            "thread_lifecyle": comp.get_comp_path(True, 'thread_lifecycle'),
+            "thread_current": comp.get_comp_path(True, 'thread_current'),
+            "function_gen": comp.get_comp_path(True, function_gen),
+        }
+
+        parent.gen_signals.append(self.get())
+
+    def get(self):
+        return self.config
 
 class SignalGenFromSignals(object):
     def __init__(self, comp, parent, from_signals, to_signal):
@@ -94,7 +118,7 @@ class SignalGenFromSignals(object):
 class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
-                 skip_if_no_child=False, required_traces=None):
+                 skip_if_no_child=False, required_traces=None, include_traces=None):
         if path is not None and comp is not None and path[0] != '/':
             comp_path = comp.get_comp_path(inc_top=True)
             if comp_path is not None:
@@ -120,6 +144,21 @@ class Signal(object):
         if parent is not None:
             parent.child_signals.append(self)
         self.required_traces = required_traces
+        self.include_traces = []
+        if path is not None:
+            self.include_traces.append(path)
+        if include_traces is not None:
+            self.include_traces += include_traces
+
+    def get_path(self):
+        if self.parent is None:
+            return self.name
+        else:
+            parent_path = self.parent.get_path()
+            if parent_path is None:
+                return self.name
+            else:
+                return parent_path + '/' + self.name
 
     def get_childs_config(self):
         config = []
@@ -157,6 +196,14 @@ class Signal(object):
             for trace in self.required_traces:
                 path = self.comp.get_comp_path(inc_top=True) + '/' + trace
                 config['required'].append(path)
+        if self.include_traces is not None:
+            config['include_traces'] = []
+            for trace in self.include_traces:
+                if trace[0] == '/':
+                    path = trace
+                else:
+                    path = self.comp.get_comp_path(inc_top=True) + '/' + trace
+                config['include_traces'].append(path)
 
         return config
 
@@ -183,6 +230,10 @@ class GuiConfig(Signal):
 
     def gen(self, fd):
         config = {}
+
+        config['config'] = {
+            'verbose': self.args.gui_verbose
+        }
 
         config['views'] = {}
         config['views']['timeline'] = {}

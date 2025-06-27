@@ -59,5 +59,9 @@ private:
     iss_reg_t sstatus_write_mask;
     iss_reg_t load_reserve_addr;
     bool reset_stall = false;
-};
 
+    // Used by simulated SW to reports thread creation/deletion
+    vp::Trace event_thread_lifecycle;
+    // Used by simulated SW to report current thread
+    vp::Trace event_thread_current;
+};

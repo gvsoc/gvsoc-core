@@ -51,7 +51,7 @@ extern "C" {
 
 
 
-/* riscv semihosting standard: 
+/* riscv semihosting standard:
  * IN: a0 holds syscall number
  * IN: a1 holds pointer to arg struct
  * OUT: a0 holds return value (if exists)
@@ -70,7 +70,7 @@ gvsoc_semihost(long n, long _a1)
 		  "ebreak\t\n"
 		  "srai    zero,zero,0x7\t\n"
           ".option rvc;\t\n"
-		: "+r"(a0) 
+		: "+r"(a0)
 		: "r"(a1)
 		);
 
@@ -88,6 +88,28 @@ gvsoc_semihost(long n, long _a1)
 }
 
 
+static inline long gvsoc_semihost_3args(long n, long _a1, long _a2)
+{
+#ifdef __PLATFORM_GVSOC__
+    register long a0 asm("a0") = n;
+    register long a1 asm("a1") = _a1;
+    register long a2 asm("a2") = _a2;
+
+    // riscv magic values for semihosting
+    asm volatile (
+        ".option norvc;\t\n"
+        "slli    zero,zero,0x1f\t\n"
+        "ebreak\t\n"
+        "srai    zero,zero,0x7\t\n"
+        ".option rvc;\t\n"
+        : "+r"(a0)
+        : "r"(a1), "r"(a2)
+    );
+
+    return a0;
+#endif
+}
+
 static inline long gvsoc_semihost_4args(long n, long _a1, long _a2, long _a3)
 {
 #ifdef __PLATFORM_GVSOC__
@@ -103,7 +125,7 @@ static inline long gvsoc_semihost_4args(long n, long _a1, long _a2, long _a3)
         "ebreak\t\n"
         "srai    zero,zero,0x7\t\n"
         ".option rvc;\t\n"
-        : "+r"(a0) 
+        : "+r"(a0)
         : "r"(a1), "r"(a2), "r"(a3)
     );
 
@@ -127,7 +149,7 @@ static inline long gvsoc_semihost_5args(long n, long _a1, long _a2, long _a3, lo
         "ebreak\t\n"
         "srai    zero,zero,0x7\t\n"
         ".option rvc;\t\n"
-        : "+r"(a0) 
+        : "+r"(a0)
         : "r"(a1), "r"(a2), "r"(a3), "r"(a4)
     );
 
@@ -148,7 +170,7 @@ static inline long gvsoc_semihost_2args(long n, long _a1)
         "ebreak\t\n"
         "srai    zero,zero,0x7\t\n"
         ".option rvc;\t\n"
-        : "+r"(a0) 
+        : "+r"(a0)
         : "r"(a1)
     );
 
@@ -161,7 +183,7 @@ static inline long gvsoc_semihost_2args(long n, long _a1)
 
 
 
-/**        
+/**
  * @ingroup groupPlatform
  */
 
@@ -176,7 +198,7 @@ static inline long gvsoc_semihost_2args(long n, long _a1)
  * @{
  */
 
-/**        
+/**
  * @defgroup ENGINE Engine control
  *
  */
@@ -210,7 +232,7 @@ static inline void gv_stop()
  * @{
  */
 
-/**        
+/**
  * @defgroup TRACES Trace control
  *
  */
@@ -219,9 +241,9 @@ static inline void gv_stop()
  * @}
  */
 
-/**        
+/**
  * @addtogroup TRACES
- * @{        
+ * @{
  */
 
 /**@{*/
@@ -301,9 +323,9 @@ static inline void gv_trace_disable(char *path)
 
 //!@}
 
-/**        
+/**
  * @addtogroup PERF
- * @{        
+ * @{
  */
 
 /**@{*/
@@ -312,7 +334,7 @@ static inline void gv_trace_disable(char *path)
  *
  * This function can be called to dynamically enable or disable performance counters.
  * Note that this is done through semi-hosting, and can also be done through a CSR instruction.
- * 
+ *
  *
  * \param events A bitfields specifiying which counter should be enabled. There is one bit
  *               per counter, bit 0 is for counter 0.
@@ -329,7 +351,7 @@ static inline void gv_pcer_conf(unsigned int events)
  *
  * This function can be called to dynamically set all performance counters to 0.
  * Note that this is done through semi-hosting, and can also be done through a CSR instruction.
- * 
+ *
  */
 static inline void gv_pcer_reset()
 {
@@ -343,7 +365,7 @@ static inline void gv_pcer_reset()
  * This function can be called to dynamically enabled performance counting, which means
  * all enabled performance counters, will register the events they are monitoring.
  * Note that this is done through semi-hosting, and can also be done through a CSR instruction.
- * 
+ *
  */
 static inline void gv_pcer_start()
 {
@@ -357,7 +379,7 @@ static inline void gv_pcer_start()
  * This function can be called to dynamically enabled performance counting, which means
  * all enabled performance counters, will register the events they are monitoring.
  * Note that this is done through semi-hosting, and can also be done through a CSR instruction.
- * 
+ *
  */
 static inline void gv_pcer_stop()
 {
@@ -370,7 +392,7 @@ static inline void gv_pcer_stop()
  *
  * This function can be called to get the current value of a performance counter.
  * Note that this is done through semi-hosting, and can also be done through a CSR instruction.
- * 
+ *
  * \param pcer The performance counter index to be read.
  * \return The performance counter value.
  */
@@ -385,7 +407,7 @@ static inline unsigned int gv_pcer_read(uint32_t pcer)
 /** \brief Dump performance counters to a file.
  *
  * This function can be called to the current value of all performance counters to a file.
- * 
+ *
  * \param path The path of the file where the performance counters should be dumped.
  * \param mode The string specifying the mode used to open the file (directly passed to fopen)
  * \return 0 if the operation was successful, otherwise the error code.
@@ -430,9 +452,9 @@ static inline void gv_pcer_dump_end()
  */
 
 
-/**        
+/**
  * @addtogroup VCD
- * @{        
+ * @{
  */
 
 /**@{*/
@@ -444,7 +466,7 @@ typedef struct {
 /** \brief Configure VCD traces.
  *
  * This function can be called to modify global VCD configuration.
- * 
+ *
  * \param pcer 1 if VCD tracing must be enabled, 0 if it must be disabled.
  * \param conf VCD configuration, should be NULL for now.
  */
@@ -460,7 +482,7 @@ static inline void gv_vcd_configure(int active, gv_vcd_conf_t *conf) {
  * This function can be called to open a VCD trace from its full path and get a
  * descriptor which can be used for other API functions.
  * The trace must have been created either by a model or by user traces.
- * 
+ *
  * \param path The full path of the trace.
  * \return The trace descriptor which can be used to change the value of the trace.
  */
@@ -490,21 +512,19 @@ static inline void gv_vcd_debug_info_gen() {
 /** \brief Change VCD trace value.
  *
  * This function can be called to give the new value of the specified trace.
- * 
+ *
  * \param trace The trace descriptor returned when the trace was opened.
  * \param value The new trace value.
  */
 static inline void gv_vcd_dump_trace(int trace, unsigned int value) {
-    volatile uint32_t args[2] = {(uint32_t)trace, (uint32_t)value};
-    __asm__ __volatile__ ("" : : : "memory");
-    gvsoc_semihost(SEMIHOSTING_GV_DUMP_TRACE, (long)args);
+    gvsoc_semihost_3args(SEMIHOSTING_GV_DUMP_TRACE, (uint32_t)trace, (uint32_t)value);
 }
 
 
 /** \brief Release a VCD trace.
  *
  * This function can be called to give the special z value (high impedance).
- * 
+ *
  * \param trace The trace descriptor returned when the trace was opened.
  */
 static inline void gv_vcd_release_trace(int trace) {
@@ -517,7 +537,7 @@ static inline void gv_vcd_release_trace(int trace) {
 /** \brief Change VCD trace value for a string trace.
  *
  * This function can be called to give the new string value of the specified trace.
- * 
+ *
  * \param trace The trace descriptor returned when the trace was opened.
  * \param str The new trace string.
  */
@@ -534,9 +554,9 @@ static inline void gv_vcd_dump_trace_string(int trace, char *str) {
  * @}
  */
 
-/**        
+/**
  * @addtogroup Memcheck
- * @{        
+ * @{
  */
 
 /**@{*/

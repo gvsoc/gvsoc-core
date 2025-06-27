@@ -486,7 +486,7 @@ class RiscvCommon(st.Component):
 
     def gen_gui(self, parent_signal):
         active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='active_function',
-            display=gvsoc.gui.DisplayStringBox())
+            display=gvsoc.gui.DisplayStringBox(), include_traces=['active_pc', 'binaries'])
 
         gvsoc.gui.Signal(self, active, path='active_pc', groups=['pc'])
         gvsoc.gui.Signal(self, active, path='binaries', groups=['pc'])
@@ -496,7 +496,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, active, name='label', path='label', groups=['core'], display=gvsoc.gui.DisplayStringBox())
         gvsoc.gui.Signal(self, active, name='active', path='busy', groups=['core'],
             display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
-        gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
+        pc_signal = gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
             properties={'is_hotspot': True})
 
         gvsoc.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
@@ -527,6 +527,8 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+
+        thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
 
         return active
 

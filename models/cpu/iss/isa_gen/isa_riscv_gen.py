@@ -1053,6 +1053,8 @@ class RiscvIsa(Isa):
 
             full_name = os.path.join(builddir, self.full_name)
 
+            os.makedirs(os.path.dirname(full_name), mode=0o750, exist_ok=True)
+
             with open(f'{full_name}.cpp.new', 'w') as isaFile:
                 with open(f'{full_name}.hpp.new', 'w') as isaFileHeader:
                     Isa.gen(self, isaFile, isaFileHeader)

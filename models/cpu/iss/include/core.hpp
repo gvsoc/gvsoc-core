@@ -46,6 +46,8 @@ public:
     void load_reserve_addr_clear() { this->load_reserve_addr = -1; }
 
     int float_mode;
+    // Used to report jumps or branches
+    vp::Trace event_jump;
 
 private:
     bool mstatus_update(bool is_write, iss_reg_t &value);

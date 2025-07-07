@@ -99,6 +99,7 @@ int64_t vp::TimeEngine::exec()
 
             current->time.running = false;
 
+
             current = first_client;
 
             // Leave the loop either if there is no more client to schedule or if there is a stop request.

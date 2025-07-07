@@ -147,6 +147,7 @@ inline void Timing::event_taken_branch_account(int incr)
 
 inline void Timing::event_jump_account(int incr)
 {
+    this->iss.core.event_jump.event((uint8_t *)&this->iss.exec.current_insn);
     this->event_account(CSR_PCER_JUMP, incr);
 }
 

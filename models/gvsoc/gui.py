@@ -82,9 +82,9 @@ class SignalGenFunctionFromBinary(object):
         }
 
 class SignalGenThreads(object):
-    def __init__(self, comp, parent, name, pc_signal, function_gen):
+    def __init__(self, comp, parent, name, pc_signal, function_gen, binary_info):
         thread = Signal(comp, parent, name='threads', path='threads',
-            include_traces=['thread_lifecycle', 'thread_current'], display=gvsoc.gui.DisplayStringBox())
+            include_traces=['thread_lifecycle', 'thread_current', 'insn_is_jal_reg', 'insn_is_jal_noreg', 'irq_enter', 'irq_exit'], display=gvsoc.gui.DisplayStringBox())
 
         self.config = {
             "type": "threads",
@@ -94,6 +94,11 @@ class SignalGenThreads(object):
             "thread_lifecyle": get_comp_path(comp, True, 'thread_lifecycle'),
             "thread_current": get_comp_path(comp, True, 'thread_current'),
             "function_gen": get_comp_path(comp, True, function_gen),
+            "insn_is_jal_noreg": get_comp_path(comp, True, 'insn_is_jal_noreg'),
+            "insn_is_jal_reg": get_comp_path(comp, True, 'insn_is_jal_reg'),
+            "binary_info": get_comp_path(comp, True, binary_info),
+            "irq_enter": get_comp_path(comp, True, 'irq_enter'),
+            "irq_exit": get_comp_path(comp, True, 'irq_exit'),
         }
 
         parent.gen_signals.append(self.get())

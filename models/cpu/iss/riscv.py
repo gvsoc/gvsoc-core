@@ -558,7 +558,8 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, lsu, "stalled", path="lsu/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
         gvsoc.gui.Signal(self, lsu, "req_denied", path="lsu/req_denied", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
 
-        thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
+        # TODO this should be enabled by the build process when the runtime is using multi-threading
+        # thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
 
         return active
 

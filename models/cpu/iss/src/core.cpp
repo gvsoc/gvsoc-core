@@ -69,6 +69,8 @@ void Core::build()
         sizeof(iss_reg_t) * 8);
     this->iss.top.traces.new_trace_event("thread_current", &this->event_thread_current,
         sizeof(iss_reg_t) * 8);
+    this->iss.top.traces.new_trace_event("insn_is_jal_noreg", &this->event_jal, 1);
+    this->iss.top.traces.new_trace_event("insn_is_jal_reg", &this->event_jalr, 1);
 }
 
 void Core::reset(bool active)

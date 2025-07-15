@@ -222,12 +222,18 @@ void Ns16550::update_interrupt(void)
     if (!interrupts)
     {
         iir = UART_IIR_NO_INT;
-        this->irq_itf.sync(false);
+        if (this->irq_itf.is_bound())
+        {
+            this->irq_itf.sync(false);
+        }
     }
     else
     {
         iir = interrupts;
-        this->irq_itf.sync(true);
+        if (this->irq_itf.is_bound())
+        {
+            this->irq_itf.sync(true);
+        }
     }
 
     /*

@@ -141,7 +141,7 @@ namespace vp {
     {                                                 \
       fprintf(stdout, "ASSERT FAILED: ");             \
       fprintf(stdout, msg);                           \
-      exit(1);                                        \
+      abort();                                        \
     }                                                 \
   }
 
@@ -152,7 +152,7 @@ namespace vp {
     {                                              \
       fprintf(stdout, "WARNING: ");                \
       fprintf(stdout, msg);                        \
-      exit(1);                                     \
+      abort();                                     \
     }
 
 #ifndef VP_TRACE_ACTIVE

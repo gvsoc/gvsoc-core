@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -103,7 +103,7 @@ namespace vp {
     va_list ap;
     va_start(ap, fmt);
     if (vfprintf(trace_file, format, ap) < 0) {}
-    va_end(ap);  
+    va_end(ap);
     #endif
   }
 
@@ -114,7 +114,7 @@ namespace vp {
     va_start(ap, fmt);
     if (vfprintf(this->trace_file, fmt, ap) < 0) {}
     va_end(ap);
-    exit(1);
+    abort();
   }
 
   inline void vp::Trace::warning(const char *fmt, ...) {
@@ -157,7 +157,7 @@ namespace vp {
   #endif
   }
 
-  inline void vp::Trace::msg(const char *fmt, ...) 
+  inline void vp::Trace::msg(const char *fmt, ...)
   {
   #ifdef VP_TRACE_ACTIVE
   	if (is_active && comp->traces.get_trace_engine()->get_trace_level() >= this->level)
@@ -166,12 +166,12 @@ namespace vp {
       va_list ap;
       va_start(ap, fmt);
       if (vfprintf(this->trace_file, fmt, ap) < 0) {}
-      va_end(ap);  
+      va_end(ap);
     }
   #endif
   }
 
-  inline void vp::Trace::msg(int level, const char *fmt, ...) 
+  inline void vp::Trace::msg(int level, const char *fmt, ...)
   {
   #ifdef VP_TRACE_ACTIVE
     if (is_active && comp->traces.get_trace_engine()->get_trace_level() >= level)
@@ -188,7 +188,7 @@ namespace vp {
       va_list ap;
       va_start(ap, fmt);
       if (vfprintf(this->trace_file, fmt, ap) < 0) {}
-      va_end(ap);  
+      va_end(ap);
       if (level == vp::Trace::LEVEL_ERROR || level == vp::Trace::LEVEL_WARNING)
       {
         fprintf(this->trace_file, "\033[0m");

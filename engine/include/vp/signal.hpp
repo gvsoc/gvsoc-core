@@ -72,6 +72,18 @@ namespace vp {
             return get();
         }
 
+        Signal& operator-=(T v)
+        {
+            this->set(this->get() - v);
+            return *this;
+        }
+
+        Signal& operator+=(T v)
+        {
+            this->set(this->get() + v);
+            return *this;
+        }
+
         Signal& operator|=(T v)
         {
             this->set(this->get() | v);

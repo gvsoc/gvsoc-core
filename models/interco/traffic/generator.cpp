@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include "interco/traffic/generator.hpp"
 
@@ -42,16 +43,23 @@ private:
     vp::WireSlave<TrafficGeneratorConfig *> control_itf;
     vp::ClockEvent fsm_event;
     uint64_t address;
-    size_t size;
+    vp::Signal<uint64_t> size;
     size_t packet_size;
-    size_t pending_size;
+    vp::Signal<uint64_t> pending_size;
     vp::ClockEvent *end_trigger;
-    bool stalled;
-    bool busy = false;
+    vp::Signal<bool> stalled;
+    vp::Signal<bool> busy;
+    vp::Signal<uint64_t> signal_req_addr;
+    vp::Signal<uint64_t> signal_req_size;
+    vp::Signal<bool> signal_req_is_write;
 };
 
 Generator::Generator(vp::ComponentConf &config)
-    : vp::Component(config), fsm_event(this, Generator::fsm_handler)
+    : vp::Component(config), fsm_event(this, Generator::fsm_handler),
+    size(*this, "send_size", 64), pending_size(*this, "pending_size", 64),
+    signal_req_addr(*this, "req_addr", 64), signal_req_size(*this, "req_size", 64),
+    signal_req_is_write(*this, "req_is_write", 1), busy(*this, "busy", 1, true, false),
+    stalled(*this, "stalled", 1)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -111,6 +119,12 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request (req: %p, address: 0x%llx, size: 0x%llx, packet_size: 0x%llx)\n",
             req, _this->address, _this->packet_size, _this->packet_size);
 
+        _this->signal_req_addr = req->get_addr();
+        _this->signal_req_size = req->get_size();
+        _this->signal_req_is_write = req->get_is_write();
+
+        _this->address += _this->packet_size;
+
         vp::IoReqStatus status = _this->output_itf.req(req);
         _this->size -= _this->packet_size;
 
@@ -135,6 +149,8 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 void Generator::handle_req_end(vp::IoReq *req)
 {
     this->pending_size -= req->get_size();
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Handling req end (req: %p, size: 0x%x, pending_size: 0x%x)\n",
+        req, req->get_size(), this->pending_size);
 
     if (this->pending_size == 0)
     {

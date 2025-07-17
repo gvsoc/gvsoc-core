@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include "interco/traffic/receiver.hpp"
 
@@ -47,6 +48,8 @@ private:
     int bandwidth;
     int max_pending_reqs = 4;
     vp::IoReq *stalled_req = NULL;
+    vp::Signal<bool> stalled;
+    vp::Signal<uint64_t> signal_req_addr;
 };
 
 Receiver::Receiver(vp::ComponentConf &config)
@@ -54,7 +57,9 @@ Receiver::Receiver(vp::ComponentConf &config)
     pending_fsm_event(this, Receiver::pending_fsm_handler),
     ready_fsm_event(this, Receiver::ready_fsm_handler),
     pending_reqs(this, "pending_reqs", &this->pending_fsm_event),
-    ready_reqs(this, "ready_reqs", &this->ready_fsm_event)
+    ready_reqs(this, "ready_reqs", &this->ready_fsm_event),
+    signal_req_addr(*this, "req_addr", 64),
+    stalled(*this, "stalled", 1)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -69,16 +74,16 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 {
     Receiver *_this = (Receiver *)__this;
 
+    _this->signal_req_addr = req->get_addr();
+
+    vp_assert_always(_this->stalled == false, &_this->trace, "Enqueueing request while being stalled\n");
+
     if (_this->pending_reqs.size() == _this->max_pending_reqs)
     {
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received req, stalling (req: %p)\n", req);
 
-        if (_this->stalled_req)
-        {
-            abort();
-        }
-
         _this->stalled_req = req;
+        _this->stalled = true;
         return vp::IO_REQ_DENIED;
     }
     else
@@ -121,19 +126,20 @@ void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     if (!_this->ready_reqs.empty())
     {
-        vp::IoReq *req = (vp::IoReq *)_this->ready_reqs.pop();
-
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popping ready req (req: %p)\n", req);
 
-        if (_this->stalled_req)
-        {
-            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Unstalling (req: %p)\n", req);
-            _this->pending_reqs.push_back(_this->stalled_req);
-            _this->stalled_req->get_resp_port()->grant(_this->stalled_req);
-            _this->stalled_req = NULL;
-        }
-
+        vp::IoReq *req = (vp::IoReq *)_this->ready_reqs.pop();
         req->get_resp_port()->resp(req);
+    }
+
+    vp::IoReq *stalled_req = _this->stalled_req;
+    if (stalled_req && _this->pending_reqs.size() < _this->max_pending_reqs)
+    {
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Unstalling (req: %p)\n", req);
+        _this->pending_reqs.push_back(stalled_req);
+        _this->stalled = false;
+        _this->stalled_req = NULL;
+        stalled_req->get_resp_port()->grant(stalled_req);
     }
 
     _this->pending_reqs.trigger_next();

@@ -1,3 +1,4 @@
+from inspect import stack
 #
 # Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and University of Bologna
 #
@@ -98,7 +99,9 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False,
-            float_lib='flexfloat'):
+            float_lib='flexfloat',
+            stack_checker=False
+        ):
 
         super().__init__(parent, name)
 
@@ -187,6 +190,9 @@ class RiscvCommon(st.Component):
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
+
+        if stack_checker:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_STACK_CHECKER=1'])
 
         if external_pccr:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_EXTERNAL_PCCR=1'])

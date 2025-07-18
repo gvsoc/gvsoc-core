@@ -292,6 +292,7 @@ inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg
 
 inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
 {
+#if defined(CONFIG_GVSOC_ISS_STACK_CHECKER)
     // Could be optimized when decoding instruction by pointing to different instruction
     // handlers when register 2 is seen but the gain is small compared to the cost of the full
     // load.
@@ -303,6 +304,7 @@ inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
                               addr, this->iss.csr.stack_start, this->iss.csr.stack_end);
         }
     }
+#endif
 }
 
 template<typename T>

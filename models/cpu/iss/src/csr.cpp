@@ -128,7 +128,9 @@ void Csr::reset(bool active)
         this->pcmr = 0;
         this->pcer = 3;
     #endif
+    #if defined(CONFIG_GVSOC_ISS_STACK_CHECKER)
         this->stack_conf = 0;
+    #endif
         this->dcsr = 4 << 28;
         this->fcsr.raw = 0;
 
@@ -550,6 +552,8 @@ static bool mhpmevent_write(Iss *iss, unsigned int value, int id)
  *   PULP CSRS
  */
 
+#ifdef CONFIG_GVSOC_ISS_STACK_CHECKER
+
 static bool stack_conf_write(Iss *iss, iss_reg_t value)
 {
     iss->csr.stack_conf = value;
@@ -591,6 +595,8 @@ static bool stack_end_read(Iss *iss, iss_reg_t *value)
     *value = iss->csr.stack_end;
     return false;
 }
+
+#endif
 
 static bool umode_read(Iss *iss, iss_reg_t *value)
 {
@@ -1210,7 +1216,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         break;
 #endif
 
-#ifdef CSR_STACK_CONF
+#ifdef CONFIG_GVSOC_ISS_STACK_CHECKER
     case CSR_STACK_CONF:
         status = stack_conf_read(iss, value);
         break;
@@ -1340,7 +1346,7 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     case 0xF13:
     case 0xF14:
         return false;
-#ifdef CSR_STACK_CONF
+#ifdef CONFIG_GVSOC_ISS_STACK_CHECKER
     case CSR_STACK_CONF:
         return stack_conf_write(iss, value);
         break;
@@ -1631,7 +1637,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     case 0x7b3:
         return "scratch1";
 
-#ifdef CSR_STACK_CONF
+#ifdef CONFIG_GVSOC_ISS_STACK_CHECKER
     case CSR_STACK_CONF:
         return "stack_conf";
     case CSR_STACK_START:

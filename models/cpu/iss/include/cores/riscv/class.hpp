@@ -114,7 +114,7 @@ inline Iss::Iss(IssWrapper &top)
 #include "cpu/iss/include/isa/rvd.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 
-#include <cpu/iss/include/isa/xdma.hpp> //ZL-MOD 15062025 add ifdef plz!!! kind of #ifdef MAGIA_CORE
+#include <cpu/iss/include/isa/magia_idma.hpp> //ZL-MOD 15062025 add ifdef plz!!! kind of #ifdef MAGIA_CORE
 #include <cpu/iss/include/isa/redmule.hpp> //ZL-MOD 15062025 add ifdef plz!!! kind of #ifdef MAGIA_CORE
 #include <cpu/iss/include/isa/fractal_sync.hpp> //ZL-MOD 27062025 add ifdef plz!!! kind of #ifdef MAGIA_CORE
 

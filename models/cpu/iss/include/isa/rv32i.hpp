@@ -64,6 +64,7 @@ static inline iss_reg_t jal_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     if (D != 0)
         REG_SET(0, pc + insn->size);
     iss->timing.stall_jump_account();
+    iss->core.event_jal.event((uint8_t *)&iss->exec.current_insn);
     return pc + insn->sim[0];
 }
 
@@ -94,6 +95,7 @@ static inline iss_reg_t jalr_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t p
     if (D != 0)
         REG_SET(0, pc + insn->size);
     iss->timing.stall_jump_account();
+    iss->core.event_jalr.event((uint8_t *)&iss->exec.current_insn);
 
     return next_pc;
 }

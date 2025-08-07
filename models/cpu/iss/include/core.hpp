@@ -47,7 +47,8 @@ public:
 
     int float_mode;
     // Used to report jumps or branches
-    vp::Trace event_jump;
+    vp::Trace event_jal;
+    vp::Trace event_jalr;
 
 private:
     bool mstatus_update(bool is_write, iss_reg_t &value);

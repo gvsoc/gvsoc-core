@@ -60,6 +60,7 @@ namespace vp
         ClockEngine(vp::ComponentConf &config);
 
         void start();
+        void reset(bool active);
 
         /**
          * @brief Get current cycles

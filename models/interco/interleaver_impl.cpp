@@ -106,6 +106,8 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
   uint8_t *init_data = data;
   uint64_t init_size = size;
   uint64_t init_offset = offset;
+  int64_t init_latency = latency;
+  int64_t max_latency = 0;
 
   _this->trace.msg("Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n", offset, size, is_write);
  
@@ -134,7 +136,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     req->set_addr(new_offset);
     req->set_size(loop_size);
     req->set_data(data);
-    req->set_latency(0);
+    req->set_latency(init_latency);
 
     vp::IoReqStatus err = _this->out[output_id]->req_forward(req);
     if (err != vp::IO_REQ_OK)
@@ -152,9 +154,9 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     }
     
     int64_t iter_latency = req->get_latency();
-    if (iter_latency > latency)
+    if (iter_latency > max_latency)
     {
-      latency = iter_latency;
+      max_latency = iter_latency;
     }
     
     size -= loop_size;
@@ -166,7 +168,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
   req->set_addr(init_offset);
   req->set_size(init_size);
   req->set_data(init_data);
-  req->set_latency(latency);
+  req->set_latency(max_latency);
 
 
   return vp::IO_REQ_OK;

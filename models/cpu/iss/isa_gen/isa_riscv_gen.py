@@ -955,7 +955,7 @@ class Rv64c(IsaSubset):
 
 class RiscvIsa(Isa):
 
-    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, no_hash=True, extensions=None):
+    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, no_hash=False, extensions=None):
         super().__init__(name, isa)
 
         misa = 0

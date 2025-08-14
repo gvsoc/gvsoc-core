@@ -955,7 +955,7 @@ class Rv64c(IsaSubset):
 
 class RiscvIsa(Isa):
 
-    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, extensions=None):
+    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, no_hash=True, extensions=None):
         super().__init__(name, isa)
 
         misa = 0
@@ -1031,10 +1031,13 @@ class RiscvIsa(Isa):
 
         self.misa = misa
 
-        name = ''.join(self.isas.keys())
-        name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
+        if no_hash:
+            self.full_name = f'isa_{self.name}'
+        else:
+            name = ''.join(self.isas.keys())
+            name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
 
-        self.full_name = f'isa_{self.name}_{name_hash}'
+            self.full_name = f'isa_{self.name}_{name_hash}'
 
     def get_source(self):
         return f'{self.full_name}.cpp'

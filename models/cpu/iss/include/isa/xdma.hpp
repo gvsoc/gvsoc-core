@@ -109,7 +109,7 @@ static inline iss_reg_t dmcpyi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_reg_t dmstat_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+static inline iss_reg_t dmmask_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     IssOffloadInsn<iss_reg_t> offload_insn = {
         .opcode=insn->opcode,

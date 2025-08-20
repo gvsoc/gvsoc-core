@@ -1226,6 +1226,12 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     case CSR_STACK_END:
         status = stack_end_read(iss, value);
         break;
+#else
+    case 0x7d0:
+    case 0x7d1:
+    case 0x7d2:
+        status = false;
+        break;
 #endif
 
     default:
@@ -1355,6 +1361,12 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         break;
     case CSR_STACK_END:
         return stack_end_write(iss, value);
+        break;
+#else
+    case 0x7d0:
+    case 0x7d1:
+    case 0x7d2:
+        return false;
         break;
 #endif
     }

@@ -198,9 +198,10 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
-#include <cpu/iss/include/isa/xdma.hpp>
-#include "cpu/iss/include/isa/rv32frep.hpp"
-#include "cpu/iss/include/isa/rv32ssr.hpp"
+// #include <cpu/iss/include/isa/xdma.hpp>
+// #include "cpu/iss/include/isa/rv32frep.hpp"
+// #include "cpu/iss/include/isa/rv32ssr.hpp"
+#include "cpu/iss/include/isa/pulp_v2.hpp"
 
 #include <cpu/iss/include/cores/snitch/regfile_implem.hpp>
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>

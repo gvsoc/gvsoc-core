@@ -40,7 +40,7 @@ class Interleaver(st.Component):
     
     """
 
-    def __init__(self, parent, name, nb_slaves: int, interleaving_bits: int, nb_masters: int=0, stage_bits: int=0, remove_offset: int=0):
+    def __init__(self, parent, name, nb_slaves: int, interleaving_bits: int, nb_masters: int=0, stage_bits: int=0, remove_offset: int=0, enable_shift: int=0):
 
         super(Interleaver, self).__init__(parent, name)
 
@@ -52,4 +52,5 @@ class Interleaver(st.Component):
             'interleaving_bits': interleaving_bits,
             'stage_bits': stage_bits,
             'remove_offset': remove_offset,
+            'enable_shift': enable_shift,
         })

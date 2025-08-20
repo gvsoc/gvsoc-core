@@ -179,12 +179,12 @@ class PulpV2(IsaSubset):
             Instr('p.extbz',Format_R1, '0001000 00000 ----- 111 ----- 0110011'),
 
             # HW loops
-            Instr('lp.starti',Format_HL0,'------- ----- ----- 000 0000- 1111011'),
-            Instr('lp.endi',  Format_HL0,'------- ----- ----- 001 0000- 1111011'),
-            Instr('lp.count', Format_HL0,'------- ----- ----- 010 0000- 1111011'),
-            Instr('lp.counti',Format_HL0,'------- ----- ----- 011 0000- 1111011'),
-            Instr('lp.setup', Format_HL0,'------- ----- ----- 100 0000- 1111011'),
-            Instr('lp.setupi',Format_HL1,'------- ----- ----- 101 0000- 1111011'),
+            # Instr('lp.starti',Format_HL0,'------- ----- ----- 000 0000- 1111011'),
+            # Instr('lp.endi',  Format_HL0,'------- ----- ----- 001 0000- 1111011'),
+            # Instr('lp.count', Format_HL0,'------- ----- ----- 010 0000- 1111011'),
+            # Instr('lp.counti',Format_HL0,'------- ----- ----- 011 0000- 1111011'),
+            # Instr('lp.setup', Format_HL0,'------- ----- ----- 100 0000- 1111011'),
+            # Instr('lp.setupi',Format_HL1,'------- ----- ----- 101 0000- 1111011'),
 
             Instr('p.abs',  Format_R1, '0000010 00000 ----- 000 ----- 0110011'),
 
@@ -192,7 +192,7 @@ class PulpV2(IsaSubset):
             Instr('SH_RR',    Format_SR, '0000000 ----- ----- 101 ----- 0100011', L='p.sh', fast_handler=True),
             Instr('SW_RR',    Format_SR, '0000000 ----- ----- 110 ----- 0100011', L='p.sw', fast_handler=True),
 
-            Instr('p.elw',           Format_L,   '------- ----- ----- 110 ----- 0000011', tags=["load"]),
+            # Instr('p.elw',           Format_L,   '------- ----- ----- 110 ----- 0000011', tags=["load"]),
 
             Instr('pv.add.h',        Format_R,   '000000- ----- ----- 000 ----- 1010111'),
             Instr('pv.add.sc.h',     Format_R,   '000000- ----- ----- 100 ----- 1010111'),

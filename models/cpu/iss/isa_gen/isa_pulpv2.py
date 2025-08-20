@@ -131,8 +131,8 @@ Format_HL1 = [ UnsignedImm(0, Range(7, 1)),
 
 class PulpV2(IsaSubset):
 
-    def __init__(self):
-        super().__init__(name='pulpv2', instrs=[
+    def __init__(self, hwloop=True, elw=True):
+        instrs=[
             # Reg-reg LD/ST
             Instr('LB_RR',    Format_LR, '0000000 ----- ----- 111 ----- 0000011', L='p.lb' , fast_handler=True, tags=["load"]),
             Instr('LH_RR',    Format_LR, '0001000 ----- ----- 111 ----- 0000011', L='p.lh' , fast_handler=True, tags=["load"]),
@@ -178,21 +178,11 @@ class PulpV2(IsaSubset):
             Instr('p.extbs',Format_R1, '0001000 00000 ----- 110 ----- 0110011'),
             Instr('p.extbz',Format_R1, '0001000 00000 ----- 111 ----- 0110011'),
 
-            # HW loops
-            # Instr('lp.starti',Format_HL0,'------- ----- ----- 000 0000- 1111011'),
-            # Instr('lp.endi',  Format_HL0,'------- ----- ----- 001 0000- 1111011'),
-            # Instr('lp.count', Format_HL0,'------- ----- ----- 010 0000- 1111011'),
-            # Instr('lp.counti',Format_HL0,'------- ----- ----- 011 0000- 1111011'),
-            # Instr('lp.setup', Format_HL0,'------- ----- ----- 100 0000- 1111011'),
-            # Instr('lp.setupi',Format_HL1,'------- ----- ----- 101 0000- 1111011'),
-
             Instr('p.abs',  Format_R1, '0000010 00000 ----- 000 ----- 0110011'),
 
             Instr('SB_RR',    Format_SR, '0000000 ----- ----- 100 ----- 0100011', L='p.sb', fast_handler=True),
             Instr('SH_RR',    Format_SR, '0000000 ----- ----- 101 ----- 0100011', L='p.sh', fast_handler=True),
             Instr('SW_RR',    Format_SR, '0000000 ----- ----- 110 ----- 0100011', L='p.sw', fast_handler=True),
-
-            # Instr('p.elw',           Format_L,   '------- ----- ----- 110 ----- 0000011', tags=["load"]),
 
             Instr('pv.add.h',        Format_R,   '000000- ----- ----- 000 ----- 1010111'),
             Instr('pv.add.sc.h',     Format_R,   '000000- ----- ----- 100 ----- 1010111'),
@@ -508,4 +498,22 @@ class PulpV2(IsaSubset):
             Instr('p.bset',          Format_R,    '1000000 ----- ----- 100 ----- 0110011'),
             Instr('p.bclr',          Format_R,    '1000000 ----- ----- 011 ----- 0110011'),
 
-        ])
+        ]
+
+        # HW loops
+        if hwloop:
+            instrs += [
+                Instr('lp.starti',Format_HL0,'------- ----- ----- 000 0000- 1111011'),
+                Instr('lp.endi',  Format_HL0,'------- ----- ----- 001 0000- 1111011'),
+                Instr('lp.count', Format_HL0,'------- ----- ----- 010 0000- 1111011'),
+                Instr('lp.counti',Format_HL0,'------- ----- ----- 011 0000- 1111011'),
+                Instr('lp.setup', Format_HL0,'------- ----- ----- 100 0000- 1111011'),
+                Instr('lp.setupi',Format_HL1,'------- ----- ----- 101 0000- 1111011'),
+            ]
+
+        if elw:
+            instrs += [
+                Instr('p.elw',           Format_L,   '------- ----- ----- 110 ----- 0000011', tags=["load"]),
+            ]
+
+        super().__init__(name='pulpv2', instrs=instrs)

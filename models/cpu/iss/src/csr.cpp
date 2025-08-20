@@ -1226,7 +1226,9 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     case CSR_STACK_END:
         status = stack_end_read(iss, value);
         break;
-#else
+#endif
+
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
     case 0x7d0:
     case 0x7d1:
     case 0x7d2:

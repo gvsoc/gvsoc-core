@@ -186,10 +186,15 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include "cpu/iss/include/isa/rv32Xfvec.hpp"
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH_PULP_V2
+#include "cpu/iss/include/isa/pulp_v2.hpp"
+#else
 #include <cpu/iss/include/isa/xdma.hpp>
 #if !defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include "cpu/iss/include/isa/rv32frep.hpp"
 #include "cpu/iss/include/isa/rv32ssr.hpp"
+#endif
 #endif
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)

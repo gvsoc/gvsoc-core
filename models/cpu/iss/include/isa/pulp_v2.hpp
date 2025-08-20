@@ -695,143 +695,145 @@ static inline iss_reg_t p_extbz_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
-// static inline iss_reg_t hwloop_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     // Check now is the instruction has been replayed to know if it is the first
-//     // time it is executed
-//     bool elw_interrupted = iss->exec.elw_interrupted;
+#ifndef CONFIG_GVSOC_ISS_SNITCH_PULP_V2
+static inline iss_reg_t hwloop_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // Check now is the instruction has been replayed to know if it is the first
+    // time it is executed
+    bool elw_interrupted = iss->exec.elw_interrupted;
 
-//     // First execute the instructions as it is the last one of the loop body.
-//     // The real handler has been saved when the loop was started.
-//     iss_reg_t insn_next = insn->hwloop_handler(iss, insn, pc);
+    // First execute the instructions as it is the last one of the loop body.
+    // The real handler has been saved when the loop was started.
+    iss_reg_t insn_next = insn->hwloop_handler(iss, insn, pc);
 
-//     if (iss->exec.halted.get())
-//     {
-//         return insn_next;
-//     }
+    if (iss->exec.halted.get())
+    {
+        return insn_next;
+    }
 
-//     if (elw_interrupted)
-//     {
-//         // This flag is 1 when the instruction has been previously interrupted and is now
-//         // being replayed. In this case, return the instruction which has been computed
-//         // during the first execution of the instruction, to avoid accounting several
-//         // times the end of HW loop.
-//         return iss->exec.hwloop_next_insn;
-//     }
+    if (elw_interrupted)
+    {
+        // This flag is 1 when the instruction has been previously interrupted and is now
+        // being replayed. In this case, return the instruction which has been computed
+        // during the first execution of the instruction, to avoid accounting several
+        // times the end of HW loop.
+        return iss->exec.hwloop_next_insn;
+    }
 
-//     // First check HW loop 0 as it has higher priority compared to HW loop 1
-//     if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0] && iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND0] == pc)
-//     {
-//         iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0]--;
-//         iss->decode.trace.msg("Reached end of HW loop (index: 0, loop count: %d)\n", iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0]);
+    // First check HW loop 0 as it has higher priority compared to HW loop 1
+    if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0] && iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND0] == pc)
+    {
+        iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0]--;
+        iss->decode.trace.msg("Reached end of HW loop (index: 0, loop count: %d)\n", iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0]);
 
-//         // If counter is not zero, we must jump back to beginning of the loop.
-//         if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0])
-//         {
-//             // Remember next instruction in case the current instruction is replayed
-//             iss->exec.hwloop_next_insn = iss->exec.hwloop_start_insn[0];
-//             return iss->exec.hwloop_start_insn[0];
-//         }
-//     }
+        // If counter is not zero, we must jump back to beginning of the loop.
+        if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT0])
+        {
+            // Remember next instruction in case the current instruction is replayed
+            iss->exec.hwloop_next_insn = iss->exec.hwloop_start_insn[0];
+            return iss->exec.hwloop_start_insn[0];
+        }
+    }
 
-//     // We get here either if HW loop 0 was not active or if the counter reached 0.
-//     // In both cases, HW loop 1 can jump back to the beginning of the loop.
-//     if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1] && iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND1] == pc)
-//     {
-//         iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1]--;
-//         // If counter is not zero, we must jump back to beginning of the loop.
-//         iss->decode.trace.msg("Reached end of HW loop (index: 1, loop count: %d)\n", iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1]);
-//         if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1])
-//         {
-//             // Remember next instruction in case the current instruction is replayed
-//             iss->exec.hwloop_next_insn = iss->exec.hwloop_start_insn[1];
-//             return iss->exec.hwloop_start_insn[1];
-//         }
-//     }
+    // We get here either if HW loop 0 was not active or if the counter reached 0.
+    // In both cases, HW loop 1 can jump back to the beginning of the loop.
+    if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1] && iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND1] == pc)
+    {
+        iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1]--;
+        // If counter is not zero, we must jump back to beginning of the loop.
+        iss->decode.trace.msg("Reached end of HW loop (index: 1, loop count: %d)\n", iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1]);
+        if (iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT1])
+        {
+            // Remember next instruction in case the current instruction is replayed
+            iss->exec.hwloop_next_insn = iss->exec.hwloop_start_insn[1];
+            return iss->exec.hwloop_start_insn[1];
+        }
+    }
 
-//     // In case no HW loop jumped back, just continue with the next instruction.
-//     iss->exec.hwloop_next_insn = insn_next;
+    // In case no HW loop jumped back, just continue with the next instruction.
+    iss->exec.hwloop_next_insn = insn_next;
 
-//     return insn_next;
-// }
+    return insn_next;
+}
 
-// static inline void hwloop_set_start(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start)
-// {
-//     iss->csr.hwloop_regs[PULPV2_HWLOOP_LPSTART(index)] = start;
-//     iss->exec.hwloop_set_start(index, start);
-// }
+static inline void hwloop_set_start(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start)
+{
+    iss->csr.hwloop_regs[PULPV2_HWLOOP_LPSTART(index)] = start;
+    iss->exec.hwloop_set_start(index, start);
+}
 
 
-// static inline void hwloop_set_end(Iss *iss, iss_insn_t *insn, int index, iss_reg_t end)
-// {
-//     iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND(index)] = end;
-//     iss->exec.hwloop_set_end(index, end);
+static inline void hwloop_set_end(Iss *iss, iss_insn_t *insn, int index, iss_reg_t end)
+{
+    iss->csr.hwloop_regs[PULPV2_HWLOOP_LPEND(index)] = end;
+    iss->exec.hwloop_set_end(index, end);
 
-// }
+}
 
-// static inline void hwloop_set_count(Iss *iss, iss_insn_t *insn, int index, iss_reg_t count)
-// {
-//     iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT(index)] = count;
-// }
+static inline void hwloop_set_count(Iss *iss, iss_insn_t *insn, int index, iss_reg_t count)
+{
+    iss->csr.hwloop_regs[PULPV2_HWLOOP_LPCOUNT(index)] = count;
+}
 
-// static inline void hwloop_set_all(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start, iss_reg_t end, iss_reg_t count)
-// {
-//     hwloop_set_end(iss, insn, index, end);
-//     hwloop_set_start(iss, insn, index, start);
-//     hwloop_set_count(iss, insn, index, count);
-// }
+static inline void hwloop_set_all(Iss *iss, iss_insn_t *insn, int index, iss_reg_t start, iss_reg_t end, iss_reg_t count)
+{
+    hwloop_set_end(iss, insn, index, end);
+    hwloop_set_start(iss, insn, index, start);
+    hwloop_set_count(iss, insn, index, count);
+}
 
-// static inline iss_reg_t lp_starti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     hwloop_set_start(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
-//     return iss_insn_next(iss, insn, pc);
-// }
+static inline iss_reg_t lp_starti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    hwloop_set_start(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
+    return iss_insn_next(iss, insn, pc);
+}
 
-// static inline iss_reg_t lp_endi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     hwloop_set_end(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
-//     return iss_insn_next(iss, insn, pc);
-// }
+static inline iss_reg_t lp_endi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    hwloop_set_end(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
+    return iss_insn_next(iss, insn, pc);
+}
 
-// static inline iss_reg_t lp_count_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     iss->regfile.memcheck_branch_reg(REG_IN(0));
+static inline iss_reg_t lp_count_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
 
-//     hwloop_set_count(iss, insn, UIM_GET(0), REG_GET(0));
-//     return iss_insn_next(iss, insn, pc);
-// }
+    hwloop_set_count(iss, insn, UIM_GET(0), REG_GET(0));
+    return iss_insn_next(iss, insn, pc);
+}
 
-// static inline iss_reg_t lp_counti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     hwloop_set_count(iss, insn, UIM_GET(0), UIM_GET(1));
-//     return iss_insn_next(iss, insn, pc);
-// }
+static inline iss_reg_t lp_counti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    hwloop_set_count(iss, insn, UIM_GET(0), UIM_GET(1));
+    return iss_insn_next(iss, insn, pc);
+}
 
-// static inline iss_reg_t lp_setup_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     iss->regfile.memcheck_branch_reg(REG_IN(0));
+static inline iss_reg_t lp_setup_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
 
-//     int index = UIM_GET(0);
-//     iss_reg_t count = REG_GET(0);
-//     iss_reg_t start = pc + insn->size;
-//     iss_reg_t end = pc + (UIM_GET(1) << 1);
+    int index = UIM_GET(0);
+    iss_reg_t count = REG_GET(0);
+    iss_reg_t start = pc + insn->size;
+    iss_reg_t end = pc + (UIM_GET(1) << 1);
 
-//     hwloop_set_all(iss, insn, index, start, end, count);
+    hwloop_set_all(iss, insn, index, start, end, count);
 
-//     return iss_insn_next(iss, insn, pc);
-// }
+    return iss_insn_next(iss, insn, pc);
+}
 
-// static inline iss_reg_t lp_setupi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-// {
-//     int index = UIM_GET(0);
-//     iss_reg_t count = UIM_GET(1);
-//     iss_reg_t start = pc + insn->size;
-//     iss_reg_t end = pc + (UIM_GET(2) << 1);
+static inline iss_reg_t lp_setupi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    int index = UIM_GET(0);
+    iss_reg_t count = UIM_GET(1);
+    iss_reg_t start = pc + insn->size;
+    iss_reg_t end = pc + (UIM_GET(2) << 1);
 
-//     hwloop_set_all(iss, insn, index, start, end, count);
+    hwloop_set_all(iss, insn, index, start, end, count);
 
-//     return iss_insn_next(iss, insn, pc);
-// }
+    return iss_insn_next(iss, insn, pc);
+}
+#endif
 
 static inline iss_reg_t p_abs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

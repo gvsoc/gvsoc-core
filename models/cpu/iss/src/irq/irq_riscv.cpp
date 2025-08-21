@@ -23,7 +23,6 @@
 #include <cpu/iss/include/irq/irq_riscv_implem.hpp>
 #include <cpu/iss/include/iss.hpp>
 
-#define TILE2CHECK 0xFFFFFFFF
 
 Irq::Irq(Iss &iss)
     : iss(iss)
@@ -82,8 +81,6 @@ void Irq::external_irq_sync(vp::Block *__this, bool value, int id)
 {
     Irq *_this = (Irq *)__this;
     _this->iss.csr.mip.value =  (_this->iss.csr.mip.value & ~(1<<id)) | (value << id);
-    if (_this->iss.csr.mhartid==TILE2CHECK)
-        printf("[%ld] set IRQ with mip=0x%08x\n",_this->iss.top.clock.get_cycles(),_this->iss.csr.mip.value);
     _this->check_interrupts();
 }
 
@@ -224,7 +221,6 @@ void Irq::cache_flush()
 {
 }
 
-/*
 void Irq::wfi_handle()
 {
     // The instruction loop is checking for IRQs only if interrupts are globally enable
@@ -252,46 +248,6 @@ void Irq::check_interrupts()
             this->iss.exec.busy_enter();
             this->iss.exec.stalled_dec();
             this->iss.exec.insn_terminate();
-        }
-    }
-}
-*/
-
-void Irq::wfi_handle()
-{
-    // The instruction loop is checking for IRQs only if interrupts are globally enable
-    // while wfi ends as soon as one interrupt is active even if interrupts are globally disabled,
-    // so we have to check now if we can really go to sleep.
-    if (this->iss.csr.mhartid==TILE2CHECK)
-        printf("[%ld] received wfi with mip=0x%08x\n",this->iss.top.clock.get_cycles(),this->iss.csr.mip.value);
-
-    this->iss.exec.wfi.set(true);
-    this->iss.exec.busy_exit();
-    this->iss.exec.insn_stall();
-
-    iss_reg_t pending_interrupts = this->iss.csr.mie.value & this->iss.csr.mip.value;
-    if (pending_interrupts) {
-        this->check_interrupts();
-    }
-}
-
-void Irq::check_interrupts()
-{
-    iss_reg_t pending_interrupts = this->iss.csr.mie.value & this->iss.csr.mip.value;
-
-    if (pending_interrupts && !this->iss.exec.irq_locked)
-    {
-        this->iss.exec.switch_to_full_mode();
-
-        if (this->iss.exec.wfi.get())
-        {
-            if (this->iss.csr.mhartid==TILE2CHECK)
-                printf("[%ld] cleared wfi with mip=0x%08x\n",this->iss.top.clock.get_cycles(),this->iss.csr.mip.value);
-            this->iss.exec.wfi.set(false);
-            this->iss.exec.busy_enter();
-            this->iss.exec.stalled_dec();
-            this->iss.exec.insn_terminate();
-            this->iss.csr.mip.value=0x0; //mip clear
         }
     }
 }

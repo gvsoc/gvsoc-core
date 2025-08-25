@@ -17,7 +17,11 @@
 
 import os
 
-if os.environ.get('USE_GVRUN') is not None:
+if os.environ.get('USE_GVRUN2') is not None:
+
+    from gvsoc.systree_gvrun2 import *
+
+elif os.environ.get('USE_GVRUN') is not None:
 
     from gvsoc.systree_gvrun import *
 

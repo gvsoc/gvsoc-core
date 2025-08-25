@@ -220,10 +220,12 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
 
         if (_this->entry_itf.is_bound())
         {
+            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending entry (addr: 0x%x)\n", _this->entry);
             _this->entry_itf.sync(_this->entry);
         }
         if (_this->start_itf.is_bound())
         {
+            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending start\n");
             _this->start_itf.sync(true);
         }
     }

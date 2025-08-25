@@ -48,7 +48,7 @@ def get_paths(path=None, paths=None):
 
     if paths is not None:
         all_paths += paths
-    
+
     add_paths(all_paths, os.environ.get('GAPY_CONFIGS'))
     add_paths(all_paths, os.environ.get('BUILDER_CONFIGS_PATH'))
     add_paths(all_paths, os.environ.get('SDK_CONFIGS_PATH'))
@@ -88,7 +88,7 @@ def import_config(config, interpret=False, path=None, paths=None, gen=False, ind
       paths = parser.read(ini_config)
       if len(paths) == 0:
           raise Exception("Didn't manage to open file: %s" % (ini_config))
-          
+
       for section in parser.sections():
         for item in parser.items(section):
           path = ('%s.%s' % (section, item[0])).split('.')

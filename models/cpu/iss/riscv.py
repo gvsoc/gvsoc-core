@@ -16,6 +16,7 @@ from inspect import stack
 #
 
 import os
+import subprocess
 import gvsoc.systree
 import gvsoc.systree as st
 import os.path
@@ -331,7 +332,14 @@ class RiscvCommon(st.Component):
             # Only generate debug symbols for small binaries, otherwise it is too slow
             # To allow it, the ISS should itself read the symbols.
             if os.path.getsize(path) < 5 * 1024*1024:
-                if os.system('gen-debug-info %s %s' % (path, debug_info_path)) != 0:
+
+                result = subprocess.run(
+                    ["gen-debug-info", path, debug_info_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+                if result.returncode != 0:
                     print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
         if os.path.getsize(path) < 5 * 1024*1024:
@@ -339,7 +347,7 @@ class RiscvCommon(st.Component):
 
     def generate(self, builddir):
         for executable in self.get_executables():
-            self.handle_executable(executable.binary)
+            self.handle_executable(executable.get_binary())
 
     def gen_gtkw(self, tree, comp_traces):
 

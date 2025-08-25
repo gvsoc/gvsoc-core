@@ -17,7 +17,11 @@
 
 import os
 
-if os.environ.get('USE_GVRUN') is not None:
+if os.environ.get('USE_GVRUN2') is not None:
+
+    from gvsoc.systree_gvrun2 import *
+
+elif os.environ.get('USE_GVRUN') is not None:
 
     from gvsoc.systree_gvrun import *
 
@@ -207,6 +211,8 @@ else:
             if parent is not None and isinstance(parent, Component):
                 parent.__add_component(name, self)
 
+        def set_target_name(self, name): pass
+
         def i_RESET(self) -> SlaveItf:
             return SlaveItf(self, 'reset', signature='wire<bool>')
 
@@ -249,6 +255,15 @@ else:
                 The slave interface
             """
             return SlaveItf(self, 'voltage', signature='wire<int>')
+
+        def set_attributes(self, attributes):
+            return attributes
+
+        def add_binary_loader(self, loader):
+            pass
+
+        def register_binary_handler(self, handler):
+            pass
 
         def add_property(self, name: str, property: str, format: type=None):
             """Add a property.
@@ -523,6 +538,10 @@ else:
             Component
                 The component
             """
+            if name.find('/') != -1:
+                local_name, child_name = name.split('/', 1)
+                return self.components[local_name].get_component(child_name)
+
             return self.components[name]
 
 
@@ -982,6 +1001,13 @@ else:
                     regmap = rmap.Regmap(name)
                     regmap_md.import_md(regmap, spec)
                     regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)
+
+
+        def _declare_property(self, descriptor):
+            return self.declare_target_property(descriptor)
+
+        def _declare_parameter(self, descriptor):
+            return self.declare_target_property(descriptor)
 
 
         def declare_target_property(self, descriptor):

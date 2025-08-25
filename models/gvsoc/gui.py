@@ -16,6 +16,7 @@
 
 import gvsoc
 import json
+import os
 
 class DisplayStringBox(object):
     def get(self):
@@ -47,15 +48,21 @@ class DisplayLogicBox(object):
     def get(self):
         return { 'type': 'logic_box', 'message': self.message }
 
+def get_comp_path(comp, inc_top=False, child_path=None):
+    if os.environ.get('USE_GVRUN2') is not None:
+        return '/' + comp.get_path(child_path=child_path)
+    else:
+        return comp.get_comp_path(inc_top, child_path)
+
 class SignalGenFunctionFromBinary(object):
     def __init__(self, comp, parent, from_signal, to_signal, binaries):
-        comp_path = comp.get_comp_path(inc_top=True)
+        comp_path = get_comp_path(comp, inc_top=True)
         if comp_path is None:
             self.from_signal = '/' + from_signal
             self.to_signal = '/' + to_signal
         else:
             self.from_signal = comp_path + '/' + from_signal
-            self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
+            self.to_signal = get_comp_path(comp, inc_top=True) + '/' + to_signal
         self.binaries = []
         for binary in binaries:
             if comp_path is None:
@@ -81,12 +88,12 @@ class SignalGenThreads(object):
 
         self.config = {
             "type": "threads",
-            "path": comp.get_comp_path(True, "threads"),
+            "path": get_comp_path(comp, True, "threads"),
             "signal_path": '/' + thread.get_path(),
-            "pc_trace": comp.get_comp_path(True, pc_signal),
-            "thread_lifecyle": comp.get_comp_path(True, 'thread_lifecycle'),
-            "thread_current": comp.get_comp_path(True, 'thread_current'),
-            "function_gen": comp.get_comp_path(True, function_gen),
+            "pc_trace": get_comp_path(comp, True, pc_signal),
+            "thread_lifecyle": get_comp_path(comp, True, 'thread_lifecycle'),
+            "thread_current": get_comp_path(comp, True, 'thread_current'),
+            "function_gen": get_comp_path(comp, True, function_gen),
         }
 
         parent.gen_signals.append(self.get())
@@ -96,13 +103,13 @@ class SignalGenThreads(object):
 
 class SignalGenFromSignals(object):
     def __init__(self, comp, parent, from_signals, to_signal):
-        comp_path = comp.get_comp_path(inc_top=True)
+        comp_path = get_comp_path(comp, inc_top=True)
         self.from_signals = []
 
         for signal in from_signals:
             self.from_signals.append(comp_path + '/' + signal)
 
-        self.to_signal = comp.get_comp_path(inc_top=True) + '/' + to_signal
+        self.to_signal = get_comp_path(comp, inc_top=True) + '/' + to_signal
 
         parent.gen_signals.append(self.get())
 
@@ -120,7 +127,7 @@ class Signal(object):
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
                  skip_if_no_child=False, required_traces=None, include_traces=None):
         if path is not None and comp is not None and path[0] != '/':
-            comp_path = comp.get_comp_path(inc_top=True)
+            comp_path = get_comp_path(comp, inc_top=True)
             if comp_path is not None:
                 path = comp_path + '/' + path
             else:
@@ -181,7 +188,7 @@ class Signal(object):
             if self.path is not None:
                 config['group'] = self.path
             else:
-                config['group'] = self.comp.get_comp_path(inc_top=True)
+                config['group'] = get_comp_path(self.comp, inc_top=True)
         if self.path is not None:
             config['path'] = self.path
         if self.display is not None:
@@ -194,7 +201,7 @@ class Signal(object):
         if self.required_traces is not None:
             config['required'] = []
             for trace in self.required_traces:
-                path = self.comp.get_comp_path(inc_top=True) + '/' + trace
+                path = get_comp_path(self.comp, inc_top=True) + '/' + trace
                 config['required'].append(path)
         if self.include_traces is not None:
             config['include_traces'] = []
@@ -202,7 +209,7 @@ class Signal(object):
                 if trace[0] == '/':
                     path = trace
                 else:
-                    path = self.comp.get_comp_path(inc_top=True) + '/' + trace
+                    path = get_comp_path(self.comp, inc_top=True) + '/' + trace
                 config['include_traces'].append(path)
 
         return config
@@ -251,7 +258,7 @@ class GuiConfig(Signal):
                     }
 
                 if signal.is_group:
-                    # groups[group]['signals'].append(signal.comp.get_comp_path(inc_top=True))
+                    # groups[group]['signals'].append(signal.get_comp_path(comp, inc_top=True))
                     groups[group]['signals'].append(signal.path)
                 else:
                     groups[group]['signals'].append(signal.path)

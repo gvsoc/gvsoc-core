@@ -997,27 +997,6 @@ class Component(gvrun.target.Component):
                 regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)
 
 
-    def declare_user_property(self, name, value, description, cast=None, dump_format=None, allowed_values=None):
-        self.declare_target_property(
-            gvrun.target.Property(
-                name=name, path=self.get_comp_path(), value=value,
-                dump_format=dump_format, cast=cast, description=description, allowed_values=allowed_values
-            )
-        )
-
-        return self.get_user_property(name)
-
-    def get_user_property(self, name):
-        path = self.get_comp_path()
-        if path is not None:
-            name = path + '/' + name
-
-        print ('Get user property')
-        print (name)
-        print (self.parent)
-
-        return self.parent.get_target_property(name)
-
     def gen_all(self, builddir, installdir):
         self.gen(builddir, installdir)
         for child in self.components.values():

@@ -257,6 +257,9 @@ else:
         def add_binary_loader(self, loader):
             pass
 
+        def register_binary_handler(self, handler):
+            pass
+
         def add_property(self, name: str, property: str, format: type=None):
             """Add a property.
 
@@ -993,6 +996,10 @@ else:
                     regmap = rmap.Regmap(name)
                     regmap_md.import_md(regmap, spec)
                     regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)
+
+
+        def _declare_property(self, descriptor):
+            return self.declare_target_property(descriptor)
 
 
         def declare_target_property(self, descriptor):

@@ -254,6 +254,9 @@ else:
             """
             return SlaveItf(self, 'voltage', signature='wire<int>')
 
+        def add_binary_loader(self, loader):
+            pass
+
         def add_property(self, name: str, property: str, format: type=None):
             """Add a property.
 
@@ -527,6 +530,10 @@ else:
             Component
                 The component
             """
+            if name.find('/') != -1:
+                local_name, child_name = name.split('/', 1)
+                return self.components[local_name].get_component(child_name)
+
             return self.components[name]
 
 

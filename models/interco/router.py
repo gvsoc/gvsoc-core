@@ -69,15 +69,17 @@ class Router(gvsoc.systree.Component):
         end time of the burst.
     synchronous: True if the router should use synchronous mode where all incoming requests are
         handled as far as possible in synchronous IO mode.
+    shared_rw_bandwidth: True if the read and write requests should share the bandwidth.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
-            synchronous: bool=True):
+            synchronous: bool=True, shared_rw_bandwidth: bool=False):
         super(Router, self).__init__(parent, name)
 
         # This will store the whole set of mappings and passed to model as a dictionary
         self.add_property('mappings', {})
         self.add_property('latency', latency)
         self.add_property('bandwidth', bandwidth)
+        self.add_property('shared_rw_bandwidth', shared_rw_bandwidth)
         # The number of input port is automatically increased each time i_INPUT is called if needed.
         # Set number of input ports to 1 by default because some models do not use i_INPUT yet.
         self.add_property('nb_input_port', 1)

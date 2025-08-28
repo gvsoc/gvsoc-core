@@ -254,6 +254,9 @@ else:
             """
             return SlaveItf(self, 'voltage', signature='wire<int>')
 
+        def set_attributes(self, attributes):
+            return attributes
+
         def add_binary_loader(self, loader):
             pass
 

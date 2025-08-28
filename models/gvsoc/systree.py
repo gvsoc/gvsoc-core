@@ -1004,6 +1004,9 @@ else:
         def _declare_property(self, descriptor):
             return self.declare_target_property(descriptor)
 
+        def _declare_parameter(self, descriptor):
+            return self.declare_target_property(descriptor)
+
 
         def declare_target_property(self, descriptor):
             if self.parent is not None:

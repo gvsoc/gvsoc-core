@@ -26,6 +26,7 @@ from importlib import import_module
 import gvrun.target
 import gvsoc.gui
 import hashlib
+import rich.table
 
 
 generated_components = {}
@@ -1005,3 +1006,17 @@ class Component(gvrun.target.Component):
 
     def gen(self, builddir, installdir):
         pass
+
+    def dump_tree_properties(self, tree):
+        if len(self.properties) > 0:
+            table = rich.table.Table(title=f'[yellow]Properties[/]', title_justify="left")
+            table.add_column('Name')
+            table.add_column('Value')
+
+            for name, prop in self.properties.items():
+                table.add_row(name, str(prop))
+
+            tree.add(table)
+
+    def _process_has_tree_property(self):
+        return len(self.properties) > 0

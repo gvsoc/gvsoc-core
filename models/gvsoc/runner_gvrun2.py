@@ -214,17 +214,6 @@ class Runner():
         else:
             self.cosim = False
 
-        if not cosim_mode:
-            parser.add_argument("--gui", dest="gui", default=None, action="store_true",
-                help="Open GVSOC gui")
-            parser.add_argument('--gui-verbose', dest='gui_verbose', type=str, default='warning', choices=[
-                'trace', 'debug', 'info', 'warning', 'error', 'critical', 'none'],
-                help='Specifies verbose level.')
-            parser.add_argument("--gui2", dest="gui2", default=None, action="store_true",
-                help="Open GVSOC gui")
-            parser.add_argument("--gui3", dest="gui3", default=None, action="store_true",
-                help="Open GVSOC gui")
-
         # gapy_target.register_command_handler(self.gv_handle_command)
 
 
@@ -441,26 +430,17 @@ class Runner():
                 if args.valgrind:
                     stub = ['valgrind'] + stub
 
-                if args.gui or args.gui2 or args.gui3:
+                if args.gui:
 
-                    if args.gui3:
+                    command = stub + ['gvsoc-gui3',
+                        '-v ' + self.gvsoc_config_path,
+                        '-g gvsoc_gui_config.json',
+                    ]
 
-                        command = stub + ['gvsoc-gui3',
-                            '-v ' + self.gvsoc_config_path,
-                            '-g gvsoc_gui_config.json',
-                        ]
-
-                    else:
-
-                        command = stub + ['gvsoc-gui3' if args.gui3 else 'gvsoc-gui2' if args.gui2 else 'gvsoc-gui',
-                            '--gv-config=' + self.gvsoc_config_path,
-                            '--gui-config=gvsoc_gui_config.json',
-                        ]
-
-                    path = os.path.join(self.gapy_target.get_working_dir(), 'gvsoc_gui_config.json')
+                    path = gvrun.commands.get_abspath(args, 'gvsoc_gui_config.json')
 
                     gui_config = self.gen_gui_config(
-                        work_dir=self.gapy_target.get_working_dir(),
+                        work_dir=args.build_dir,
                         path=path
                     )
                 else:
@@ -686,6 +666,12 @@ class Target(gvrun.target.Target):
 
             parser.add_argument("--gtkw", dest="gtkw", action="store_true",
                                 help="Generate GTKwave script")
+
+            parser.add_argument("--gui", dest="gui", default=None, action="store_true",
+                help="Open GVSOC gui")
+            parser.add_argument('--gui-verbose', dest='gui_verbose', type=str, default='warning', choices=[
+                'trace', 'debug', 'info', 'warning', 'error', 'critical', 'none'],
+                help='Specifies verbose level.')
 
             [args, otherArgs] = parser.parse_known_args()
 

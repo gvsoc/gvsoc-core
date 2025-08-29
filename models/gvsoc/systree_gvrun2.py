@@ -164,18 +164,15 @@ class Component(gvrun.target.Component):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent, name, options=None, target_name=None):
+    def __init__(self, parent, name, target_name=None):
         super().__init__(name, parent=parent, target_name=target_name)
         self.parent = parent
         self.components = {}
-        self.json_config_files = []
         self.properties = {}
         self.bindings = []
         self.ports = {}
         self.build_done = False
         self.finalize_done = False
-        self.options = []
-        self.comp_options = {}
         self.is_top = False
         self.vcd_group_create = True
         self.vcd_group_closed = True
@@ -183,20 +180,6 @@ class Component(gvrun.target.Component):
         self.interfaces = []
         self.c_flags = []
         self.sources = []
-        self.variants = {}
-        self.variant = None
-
-        if options is not None and len(options) > 0:
-            options_list = []
-
-            for option in options:
-                name, value = option.split('=', 1)
-                name_list = name.split('/')
-                name_list.append(value)
-
-                options_list.append(name_list)
-
-            self.__set_options(options_list)
 
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
@@ -299,7 +282,7 @@ class Component(gvrun.target.Component):
         properties : dict
             Dictionary containing the properties to be added.
         """
-        self.properties = self.__merge_properties(self.properties, properties)
+        self.properties.update(properties)
 
 
     def add_sources(self, sources: list):
@@ -332,12 +315,6 @@ class Component(gvrun.target.Component):
             List of C flags to be added.
         """
         self.c_flags += flags
-
-    def add_c_flags_variant(self, name, flags):
-        self.variants[name] = flags
-
-    def set_c_flags_variant(self, name):
-        self.variant = name
 
     def itf_bind(self, master_itf_name: str, slave_itf: SlaveItf, signature: str=None,
             composite_bind: bool=False):
@@ -386,8 +363,8 @@ class Component(gvrun.target.Component):
             component.gen_stimuli()
 
 
-    def get_comp_path(self, inc_top=False):
-        path = self.get_path(gv_path=True)
+    def get_comp_path(self, inc_top=False, child_path=None):
+        path = self.get_path(gv_path=True, child_path=child_path)
         if inc_top:
             return '/' + path
         else:
@@ -428,52 +405,6 @@ class Component(gvrun.target.Component):
         return path
 
 
-    def register_flash(self, flash):
-        if self.parent is not None:
-            self.parent.register_flash(flash)
-
-    def declare_flash(self, path=None):
-        """Declare a flash.
-
-        This declaration is propagated towards the parents so that the runner taking care of
-        the flash image generation knows where the flash are.
-
-        Parameters
-        ----------
-        path : str, optional
-            This should be None when the flash is triggering the declaration and is then used
-            to construct the path of the flash when going through the parents.
-        """
-        if self.parent is not None:
-            if path is None:
-                self.parent.declare_flash(self.name)
-            else:
-                if self.name is not None:
-                    self.parent.declare_flash(self.name + '/' + path)
-                else:
-                    self.parent.declare_flash(path)
-
-
-    def declare_runner_target(self, path=None):
-        """Declare a runner target.
-
-        A runner target is a stand-alone system like a board for which the runner should generate stimuli like
-        a flash image. This declaration is propagated towards the parents so that the runner taking care of
-        the system knows where are the targets, and where it should generates stimulis.
-
-        Parameters
-        ----------
-        path : str, optional
-            This should be None when the runner target is triggering the declaration and is then used
-            to construct the path of the runner when going through the parents.
-        """
-        if self.parent is not None:
-            if path is None:
-                self.parent.declare_runner_target(self.name)
-            else:
-                self.parent.declare_runner_target(self.name + '/' + path)
-
-
     def __add_component(self, name, component):
         """Add a new component.
 
@@ -493,29 +424,6 @@ class Component(gvrun.target.Component):
         """
         self.components[name] = component
         component.name = name
-
-        # Determine the set of options which should be propagated to the sub-component
-        # based on the path
-        comp_options = []
-        for option in self.options:
-            option_name = None
-            name_pos = 0
-            for item in option:
-                if item != "*" and item != "**":
-                    option_name = item
-                    break
-                name_pos += 1
-
-            if option_name == name:
-                comp_options.append(option[name_pos + 1:])
-            elif option[0] == "*":
-                comp_options.append(option[1:])
-            elif option[0] == "**":
-                comp_options.append(option)
-
-        if len(comp_options) != 0:
-
-            component.__set_options(comp_options)
 
         return component
 
@@ -558,37 +466,12 @@ class Component(gvrun.target.Component):
         """
         option_property = None
 
-        comp_options = self.comp_options
-
-        for item in name.split('/'):
-            if comp_options.get(item) is None:
-                option_property = None
-                break
-            else:
-                option_property = comp_options.get(item)
-            comp_options = comp_options.get(item)
-
         property = None
         for item in name.split('/'):
             if property is None:
                 property = self.properties.get(item)
             else:
                 property = property.get(item)
-
-        if option_property is not None:
-            if property is not None and type(property) == list:
-                if type(property) == list:
-                    property = property.copy()
-                    if type(option_property) == list:
-                        property += option_property
-                    else:
-                        property.append(option_property)
-            else:
-                if not isinstance(property, type(option_property)):
-                    property = self.__convert(option_property, property)
-                else:
-                    property = option_property
-
 
         if format is not None:
             if format == int:
@@ -680,16 +563,10 @@ class Component(gvrun.target.Component):
 
         config = {}
 
-        for json_config_file in self.json_config_files:
-            config = self.__merge_properties(config, js.import_config_from_file(json_config_file, find=True, interpret=True, gen=True).get_dict())
-
         for component_name, component in self.components.items():
-            component_config = { component_name: component.get_config() }
-            config = self.__merge_properties(config, component_config)
+            config[component_name] = component.get_config()
 
-        #config = self.merge_options(config, self.comp_options, self.properties)
-
-        config = self.__merge_properties(config, self.properties, self.comp_options)
+        config.update(self.properties)
 
         if len(self.bindings) != 0:
             if config.get('bindings') is None:
@@ -700,10 +577,10 @@ class Component(gvrun.target.Component):
                 config['bindings'].append([ '%s->%s' % (master_name, binding[1]), '%s->%s' % (slave_name, binding[3])])
 
         if len(self.components.values()) != 0:
-            config = self.__merge_properties(config, { 'components' : list(self.components.keys()) })
+            config['components'] = list(self.components.keys())
 
         if len(self.ports) != 0:
-            config = self.__merge_properties(config, { 'ports' : list(self.ports.keys()) })
+            config['ports'] = list(self.ports.keys())
 
         return config
 
@@ -800,44 +677,6 @@ class Component(gvrun.target.Component):
     def gen_gtkw(self, tree, traces):
         pass
 
-    def __set_options(self, options):
-        for option in options:
-
-            if True:
-                comp_options = self.comp_options
-
-                for item in option[:-2]:
-
-                    if item in ['*', '**']:
-                        continue
-
-                    if comp_options.get(item) is None:
-                        comp_options[item] = {}
-
-                    comp_options = comp_options.get(item)
-
-                name = option[-2]
-                value = option[-1]
-
-                if type(value) == dict or type(value) == collections.OrderedDict():
-                    value = value.copy()
-
-                if comp_options.get(name) is None:
-                    comp_options[name] = value
-                elif type(comp_options.get(name)) == list:
-                    comp_options[name].append(value)
-                else:
-                    comp_options[name] = [ comp_options[name], value ]
-
-            else:
-
-                if len(option) == 1:
-                    name = option[-2]
-                    value = option[-1]
-                    self.comp_options[name] = value
-
-        self.options = options
-
     def __add_port(self, name):
         port = self.ports.get(name)
         if  port is None:
@@ -869,17 +708,8 @@ class Component(gvrun.target.Component):
         self.build_done = True
 
         if self.component is None and len(self.sources) != 0:
-            if len(self.variants) == 0:
-                self.generated_component = get_generated_component(self.sources, self.c_flags)
-                self.add_property('vp_component', self.generated_component.name)
-
-            else:
-                variants = {}
-                for variant_name, variant_flags in self.variants.items():
-                    variants[variant_name] = get_generated_component(self.sources, self.c_flags + variant_flags)
-
-                if self.variant is not None:
-                    self.add_property('vp_component', variants[self.variant].name)
+            self.generated_component = get_generated_component(self.sources, self.c_flags)
+            self.add_property('vp_component', self.generated_component.name)
 
     def finalize(self):
         pass
@@ -891,67 +721,6 @@ class Component(gvrun.target.Component):
         self.finalize()
 
         self.finalize_done = True
-
-    def __merge_properties(self, dst, src, options=None, is_root=True):
-
-        if type(src) == dict or type(src) == collections.OrderedDict:
-
-            # Copy the source dictionary so that we can append the options
-            # which do not appears in src
-            src_merged = src.copy()
-
-            # Copy all the options which do not appear in src
-            if options is not None:
-                for name, value in options.items():
-                    if src_merged.get(name) is None and not is_root:
-                        src_merged[name] = value
-
-            # And merge dst, src and options
-            for name, value in src_merged.items():
-                if dst.get(name) is None:
-                    new_dst = {}
-                else:
-                    new_dst = dst.get(name)
-
-                if options is not None:
-                    new_options = options.get(name)
-                else:
-                    new_options = None
-
-                dst[name] = self.__merge_properties(new_dst, value, new_options, is_root=False)
-
-            return dst
-
-        elif type(src) == list:
-            result = src.copy()
-            if options is not None:
-                if type(options) == list:
-                    result += options
-                else:
-                    result.append(options)
-
-            return result
-
-        else:
-            if options is not None:
-                return self.__convert(options, src)
-            else:
-                return src
-
-    def __convert(self, value, dest):
-        if isinstance(dest, bool):
-            if isinstance(value, str):
-                return value == 'true' or value == 'True'
-            else:
-                return bool(value)
-        elif isinstance(dest, int):
-            if isinstance(value, str):
-                return int(value, 0)
-            else:
-                return int(value)
-        else:
-            return value
-
 
     def get_target(self):
 
@@ -965,47 +734,6 @@ class Component(gvrun.target.Component):
             return self.parent.get_abspath(relpath)
 
         return None
-
-    def regmap(self, copy=False, gen=False):
-
-        for component in self.components.values():
-            component.regmap(copy, gen)
-
-        spec = self.get_property('regmap/spec')
-
-        if copy:
-            spec_src = self.get_property('regmap/spec_src')
-
-            if spec_src is not None and spec is not None:
-                print (f'Copying {spec_src} to {spec}')
-                shutil.copy(spec_src, spec)
-
-        if gen:
-
-            rmap = import_module('regmap.regmap')
-            regmap_md = import_module('regmap.regmap_md')
-            regmap_c_header = import_module('regmap.regmap_c_header')
-
-            header_dir = self.get_property('regmap/header_prefix')
-            name = self.get_property('regmap/name')
-            headers = self.get_property('regmap/headers')
-
-            if spec is not None and header_dir is not None and name is not None:
-                print(f'Generating archi files {headers} to {header_dir}')
-
-                regmap = rmap.Regmap(name)
-                regmap_md.import_md(regmap, spec)
-                regmap_c_header.dump_to_header(regmap=regmap, name=name, header_path=header_dir, headers=headers)
-
-
-    def gen_all(self, builddir, installdir):
-        self.gen(builddir, installdir)
-        for child in self.components.values():
-            child.gen_all(builddir, installdir)
-
-
-    def gen(self, builddir, installdir):
-        pass
 
     def dump_tree_properties(self, tree):
         if len(self.properties) > 0:

@@ -228,9 +228,7 @@ namespace gv {
         // Real signals
         Vcd_event_type_real,
         // Strings
-        Vcd_event_type_string,
-        // Flame chart
-        Vcd_event_type_flame_chart
+        Vcd_event_type_string
     };
 
 

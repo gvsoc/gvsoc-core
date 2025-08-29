@@ -248,16 +248,16 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
 
 /* Sign 0 if unsigned, 1 if signed */
 #define PV_OP_RRRU3_EXEC_NN(insn_name, lib_name, signOpA)                                                         \
-    static inline void pv_##insn_name##_h_resume(Lsu *lsu)                                                        \
+    static inline void pv_##insn_name##_h_resume(Lsu *lsu, vp::IoReq *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline void pv_##insn_name##_b_resume(Lsu *lsu)                                                        \
+    static inline void pv_##insn_name##_b_resume(Lsu *lsu, vp::IoReq *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline void pv_##insn_name##_n_resume(Lsu *lsu)                                                        \
+    static inline void pv_##insn_name##_n_resume(Lsu *lsu, vp::IoReq *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline void pv_##insn_name##_c_resume(Lsu *lsu)                                                        \
+    static inline void pv_##insn_name##_c_resume(Lsu *lsu, vp::IoReq *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
     static inline iss_reg_t pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
@@ -282,7 +282,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr)); \
             }                                                                                                     \
@@ -299,7 +300,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
             }                                                                                                     \
@@ -340,7 +342,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr)); \
             }                                                                                                     \
@@ -357,7 +360,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
             }                                                                                                     \
@@ -398,7 +402,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr)); \
             }                                                                                                     \
@@ -415,7 +420,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
             }                                                                                                     \
@@ -456,7 +462,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[ac_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", ac_addr, SPR_GET(ac_addr)); \
             }                                                                                                     \
@@ -473,7 +480,8 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
         {                                                                                                         \
             iss_reg_t addr = REG_GET(1);                                                                          \
             int64_t latency;                                                                                      \
-            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency))            \
+            int req_id;                                                                                           \
+            if (!iss->lsu.data_req(addr, (uint8_t *)&iss->pulp_nn.spr_ml[wt_addr], NULL, 4, false, latency, req_id))            \
             {                                                                                                     \
                 iss->lsu.trace.msg("Loaded new value (spr_loc: 0x%x, value: 0x%x)\n", wt_addr, SPR_GET(wt_addr)); \
             }                                                                                                     \
@@ -498,7 +506,7 @@ PV_OP_RRRU3_EXEC_NN(mlsdotusp, SDOTUSP, 0)
 PV_OP_RRRU3_EXEC_NN(mlsdotsup, SDOTUSP, 1)
 PV_OP_RRRU3_EXEC_NN(mlsdotsp, SDOTSP, 1)
 
-static inline void qnt_step_resume(Lsu *lsu)
+static inline void qnt_step_resume(Lsu *lsu, vp::IoReq *req)
 {
 }
 
@@ -518,7 +526,8 @@ static inline iss_reg_t qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_r
         // printf("here1\n" );
         // iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false);
         int64_t latency;
-        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency))
+        int req_id;
+        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency, req_id))
         {
             // printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
             // printf("data: %d\n", *((int16_t*)data) );
@@ -553,7 +562,8 @@ static inline iss_reg_t qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_r
     {
         // printf("qnt2,here1\n");
         int64_t latency;
-        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency))
+        int req_id;
+        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency, req_id))
         {
             // printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
             // printf("data: %d\n", *((int16_t*)data) );
@@ -587,7 +597,8 @@ static inline iss_reg_t qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_r
     {
         // printf("qnt3,here1\n");
         int64_t latency;
-        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency))
+        int req_id;
+        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency, req_id))
         // iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false);
         {
             // printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );
@@ -622,7 +633,8 @@ static inline iss_reg_t qnt_step(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_r
     {
         // printf("qnt4,here1\n");
         int64_t latency;
-        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency))
+        int req_id;
+        if (!iss->lsu.data_req(iss->pulp_nn.addr_reg, data, NULL, 2, false, latency, req_id))
         // iss->lsu.data_req(iss->pulp_nn.addr_reg, data, 2, false);
         {
             // printf("qnt_add: %X\n",iss->pulp_nn.addr_reg );

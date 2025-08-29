@@ -23,6 +23,58 @@
 
 #include "cpu/iss/include/iss_core.hpp"
 
+inline vp::IoReq *Lsu::get_req()
+{
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+
+    int64_t cycles = this->iss.top.clock.get_cycles();
+
+    // Block the access if the last access has not been granted yet or there is no free request.
+    // Some requests may be in the free queue but not yet available to support synchronous
+    // responses with latency. The requests are sorted out, first one is the next one to be free.
+    if (this->io_req_denied || this->io_req_first == NULL || *((int64_t *)this->io_req_first->arg_get(1)) > cycles)
+    {
+        return nullptr;
+    }
+
+    // Allocate first one, it will be put back in the queue when the access is fully done.
+    vp::IoReq *req = this->io_req_first;
+    this->io_req_first = req->get_next();
+    return req;
+#else
+    // TODO we could detect a request is already pending and return NULL to allow only 1 request at
+    // a time on snitch. With sync requests, Snitch currently allows unlimited number of outstanding
+    // requests
+    return &this->io_req;
+#endif
+}
+
+inline void Lsu::free_req(vp::IoReq *req, int64_t cyclestamp)
+{
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    // Insert the request into the queue with increasing cyclestamp to let the core get
+    // the next available one from the head.
+    vp::IoReq *prev = NULL, *next = this->io_req_first;
+    while (next && *((int64_t *)next->arg_get(1)) < cyclestamp)
+    {
+        prev = next;
+        next = next->get_next();
+    }
+
+    req->set_next(next);
+    if (prev)
+    {
+        prev->set_next(req);
+    }
+    else
+    {
+        this->io_req_first = req;
+    }
+
+    *((int64_t *)req->arg_get(1)) = cyclestamp;
+#endif
+}
+
 template<typename T>
 inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
@@ -51,8 +103,9 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     int err;
     int64_t latency;
+    int req_id;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg),
-        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency)) == 0)
+        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency, req_id)) == 0)
     {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
@@ -72,8 +125,13 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     {
         if (err != vp::IO_REQ_INVALID)
         {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &Lsu::load_resume;
+            this->stall_reg[req_id] = reg;
+#else
             this->stall_callback = &Lsu::load_resume;
             this->stall_reg = reg;
+#endif
         }
         else
         {
@@ -93,8 +151,9 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     this->iss.regfile.set_reg(reg, 0);
     int64_t latency;
+    int req_id;
     if (!this->data_req(addr, (uint8_t *)this->iss.regfile.reg_ref(reg),
-        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency))
+        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency, req_id))
     {
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         this->iss.regfile.scoreboard_reg_set_timestamp(reg, latency + 1, CSR_PCER_LD_STALL);
@@ -112,8 +171,13 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     }
     else
     {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        this->stall_callback[req_id] = &Lsu::elw_resume;
+        this->stall_reg[req_id] = reg;
+#else
         this->stall_callback = &Lsu::elw_resume;
         this->stall_reg = reg;
+#endif
     }
 }
 
@@ -139,8 +203,9 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
 
     int err;
     int64_t latency;
+    int req_id;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_ref(reg),
-        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency)) == 0)
+        (uint8_t *)this->iss.regfile.reg_check_ref(reg), size, false, latency, req_id)) == 0)
     {
         this->iss.regfile.set_reg(reg, iss_get_signed_value(this->iss.regfile.get_reg_untimed(reg), size * 8));
 
@@ -168,11 +233,21 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     }
     else
     {
-        if (err != vp::IO_REQ_INVALID)
+        if (err == vp::IO_REQ_DENIED)
         {
+            return true;
+        }
+        else if (err != vp::IO_REQ_INVALID)
+        {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &Lsu::load_signed_resume;
+            this->stall_reg[req_id] = reg;
+            this->stall_size[req_id] = size;
+#else
             this->stall_callback = &Lsu::load_signed_resume;
             this->stall_reg = reg;
             this->stall_size = size;
+#endif
         }
         else
         {
@@ -216,8 +291,9 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     int err;
     int64_t latency;
+    int req_id;
     if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.reg_store_ref(reg),
-        (uint8_t *)this->iss.regfile.reg_check_store_ref(reg), size, true, latency)) == 0)
+        (uint8_t *)this->iss.regfile.reg_check_store_ref(reg), size, true, latency, req_id)) == 0)
     {
 
 #if defined(PIPELINE_STALL_THRESHOLD)
@@ -234,8 +310,13 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     {
         if (err != vp::IO_REQ_INVALID)
         {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &Lsu::store_resume;
+            this->stall_reg[req_id] = reg;
+#else
             this->stall_callback = &Lsu::store_resume;
             this->stall_reg = reg;
+#endif
         }
         else
         {
@@ -329,7 +410,8 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), NULL, size, false, latency)) == 0)
+    int req_id;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), NULL, size, false, latency, req_id)) == 0)
     {
 #ifdef CONFIG_GVSOC_ISS_SNITCH_FAST
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg_untimed(reg), size * 8));
@@ -352,9 +434,15 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
     {
         if (err != vp::IO_REQ_INVALID)
         {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &Lsu::load_float_resume;
+            this->stall_reg[req_id] = reg;
+            this->stall_size[req_id] = size;
+#else
             this->stall_callback = &Lsu::load_float_resume;
             this->stall_reg = reg;
             this->stall_size = size;
+#endif
         }
         else
         {
@@ -398,7 +486,8 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), NULL, size, true, latency)) == 0)
+    int req_id;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), NULL, size, true, latency, req_id)) == 0)
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
@@ -415,8 +504,13 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         if (err != vp::IO_REQ_INVALID)
         {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &Lsu::store_resume;
+            this->stall_reg[req_id] = reg;
+#else
             this->stall_callback = &Lsu::store_resume;
             this->stall_reg = reg;
+#endif
         }
         else
         {

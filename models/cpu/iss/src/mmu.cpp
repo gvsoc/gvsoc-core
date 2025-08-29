@@ -266,7 +266,7 @@ bool Mmu::handle_pte()
     }
 }
 
-void Mmu::handle_pte_response(Lsu *lsu)
+void Mmu::handle_pte_response(Lsu *lsu, vp::IoReq *req)
 {
     lsu->iss.mmu.handle_pte();
 }
@@ -276,7 +276,8 @@ void Mmu::read_pte(iss_addr_t pte_addr)
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Read pte (addr: 0x%lx)\n", pte_addr);
 
     int64_t latency;
-    int err = this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, NULL, this->pte_size, false, latency);
+    int req_id;
+    int err = this->iss.lsu.data_req(pte_addr, (uint8_t *)&this->pte_value.raw, NULL, this->pte_size, false, latency, req_id);
     if (err == vp::IO_REQ_OK)
     {
         // The should have already accounted the request latency.
@@ -291,7 +292,11 @@ void Mmu::read_pte(iss_addr_t pte_addr)
     else
     {
         // Just register the stall calbback to be notified by the response
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        this->iss.lsu.stall_callback[req_id] = &Mmu::handle_pte_response;
+#else
         this->iss.lsu.stall_callback = &Mmu::handle_pte_response;
+#endif
     }
 }
 

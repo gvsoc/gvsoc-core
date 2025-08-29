@@ -117,7 +117,7 @@ void Syscalls::handle_ebreak()
 
 bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bool is_write)
 {
-    vp::IoReq *req = &this->iss.lsu.io_req;
+    vp::IoReq *req = &this->iss.lsu.debug_req;
     std::string str = "";
     while (size != 0)
     {
@@ -160,7 +160,7 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
 
 std::string Syscalls::read_user_string(iss_addr_t addr, int size)
 {
-    vp::IoReq *req = &this->iss.lsu.io_req;
+    vp::IoReq *req = &this->iss.lsu.debug_req;
     std::string str = "";
     while (size != 0)
     {

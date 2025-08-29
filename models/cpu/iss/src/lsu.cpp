@@ -28,6 +28,7 @@ void Lsu::reset(bool active)
     {
         this->elw_stalled.set(false);
         this->misaligned_size = 0;
+        this->io_req_denied = false;
     }
 }
 
@@ -48,12 +49,17 @@ void Lsu::exec_misaligned(vp::Block *__this, vp::ClockEvent *event)
     iss->timing.cycle_account();
 
     int64_t latency;
+    int req_id;
     if (_this->data_req_aligned(_this->misaligned_addr, _this->misaligned_data, _this->misaligned_memcheck_data,
-                                _this->misaligned_size, _this->misaligned_is_write, latency) == vp::IO_REQ_OK)
+                                _this->misaligned_size, _this->misaligned_is_write, latency, req_id) == vp::IO_REQ_OK)
     {
         iss->trace.dump_trace_enabled = true;
         _this->pending_latency = latency;
-        _this->stall_callback(_this);
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        _this->stall_callback[req_id](_this, &_this->io_req[req_id]);
+#else
+        _this->stall_callback(_this, &_this->io_req);
+#endif
         iss->exec.insn_resume();
     }
     else
@@ -88,7 +94,8 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memche
     this->misaligned_is_write = is_write;
 
     // And do the first one now
-    int err = data_req_aligned(addr, data_ptr, memcheck_data, size0, is_write, latency);
+    int req_id;
+    int err = data_req_aligned(addr, data_ptr, memcheck_data, size0, is_write, latency, req_id);
     if (err == vp::IO_REQ_OK)
     {
 #if defined(PIPELINE_STALL_THRESHOLD)
@@ -111,6 +118,11 @@ int Lsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memche
 
 void Lsu::data_grant(vp::Block *__this, vp::IoReq *req)
 {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    // The denied request is granted, we can now allow the core to do other accesses
+    Lsu *_this = (Lsu *)__this;
+    _this->io_req_denied = false;
+#endif
 }
 
 void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
@@ -125,18 +137,35 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
     // First call the ISS to finish the instruction
     _this->pending_latency = req->get_latency() + 1;
 
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    int req_id = *((int *)req->arg_get(0));
     // Call the access termination callback only we the access is not misaligned since
     // in this case, the second access with handle it.
     if (_this->misaligned_size == 0)
     {
-        _this->stall_callback(_this);
+        _this->stall_callback[req_id](_this, req);
     }
+    _this->free_req(req, _this->iss.top.clock.get_cycles() + _this->pending_latency);
+#else
+    // Call the access termination callback only we the access is not misaligned since
+    // in this case, the second access with handle it.
+    if (_this->misaligned_size == 0)
+    {
+        _this->stall_callback(_this, req);
+    }
+#endif
 }
 
-int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency)
+int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id)
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
-    vp::IoReq *req = &this->io_req;
+    vp::IoReq *req = this->get_req();
+    if (req == NULL)
+    {
+        // If there is no more request, returns DENIED, as this will have the same effect of
+        // stalling the core
+        return vp::IO_REQ_DENIED;
+    }
     req->init();
     req->set_addr(addr);
     req->set_size(size);
@@ -169,11 +198,19 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
             latency = req->get_latency() + 1;
         }
         #endif
+
+    #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        // For synchronous requests, free the request now with the proper latency, so that
+        // it becomes available only after the latency has ellapsed
+        this->free_req(req, this->iss.top.clock.get_cycles() + latency);
+    #endif
+
+
         return 0;
     }
     else if (err == vp::IO_REQ_INVALID)
     {
-        latency = this->io_req.get_latency() + 1;
+        latency = req->get_latency() + 1;
 
 #ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
         if (this->iss.gdbserver.gdbserver)
@@ -197,16 +234,31 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
         return err;
     }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    req_id = *((int *)req->arg_get(0));
+    if (err == vp::IO_REQ_DENIED)
+    {
+        // In case the request is denied, make sure we don't allow any other access
+        // until this request is granted
+        this->io_req_denied = true;
+    }
+    else if (err == vp::IO_REQ_PENDING)
+    {
+        // In case the request is pending, don't do anything, we will free
+        // the request and update the scoreboard when the response is received
+    }
+#else
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
     this->iss.exec.insn_stall();
+#endif
     return err;
 }
 
-int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency)
+int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id)
 {
 #if !defined(CONFIG_GVSOC_ISS_HANDLE_MISALIGNED)
 
-    return this->data_req_aligned(addr, data_ptr, memcheck_data, size, is_write, latency);
+    return this->data_req_aligned(addr, data_ptr, memcheck_data, size, is_write, latency, req_id);
 
 #else
 
@@ -217,12 +269,12 @@ int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, in
 
     // Todo: solve misaligned data request issue of fp subsystem by enqueue acceleration request
     if (likely(addr0 == addr1) || this->iss.fp_ss)
-        return this->data_req_aligned(addr, data_ptr, size, is_write, latency);
+        return this->data_req_aligned(addr, data_ptr, size, is_write, latency, req_id);
     else
         return this->data_misaligned_req(addr, data_ptr, size, is_write, latency);
 #else
     if (likely(addr0 == addr1))
-        return this->data_req_aligned(addr, data_ptr, memcheck_data, size, is_write, latency);
+        return this->data_req_aligned(addr, data_ptr, memcheck_data, size, is_write, latency, req_id);
     else
         return this->data_misaligned_req(addr, data_ptr, memcheck_data, size, is_write, latency);
 
@@ -254,6 +306,23 @@ void Lsu::build()
         this->memory_end = this->memory_start +
             this->iss.top.get_js_config()->get("memory_size")->get_int();
     }
+
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    this->io_req_first = NULL;
+    for (int i=0; i<CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING; i++)
+    {
+        vp::IoReq *req = &this->io_req[i];
+        req->arg_alloc(2);
+        // The queue of free requests is organized from lowest cyclestamp to highest. Set to 0
+        // at build time.
+        *((int64_t *)req->arg_get(1)) = 0;
+        // ID of the request, used to handle responses
+        *((int *)req->arg_get(0)) = i;
+
+        req->set_next(this->io_req_first);
+        this->io_req_first = req;
+    }
+#endif
 }
 
 void Lsu::start()
@@ -263,18 +332,23 @@ void Lsu::start()
 #endif
 }
 
-void Lsu::store_resume(Lsu *lsu)
+void Lsu::store_resume(Lsu *lsu, vp::IoReq *req)
 {
     // For now we don't have to do anything as the register was written directly
     // by the request but we cold support sign-extended loads here;
     lsu->iss.exec.insn_terminate();
 }
 
-void Lsu::load_resume(Lsu *lsu)
+void Lsu::load_resume(Lsu *lsu, vp::IoReq *req)
 {
     // Nothing to do, the zero-extension was done by initializing the register to 0
 
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    int req_id = *((int *)req->arg_get(0));
+    int reg = lsu->stall_reg[req_id];
+#else
     int reg = lsu->stall_reg;
+#endif
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_reg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
 #endif
@@ -288,7 +362,7 @@ void Lsu::load_resume(Lsu *lsu)
     lsu->iss.exec.insn_terminate();
 }
 
-void Lsu::elw_resume(Lsu *lsu)
+void Lsu::elw_resume(Lsu *lsu, vp::IoReq *req)
 {
     // Clear pending elw to not replay it when the next interrupt occurs
     lsu->iss.exec.insn_terminate();
@@ -297,14 +371,21 @@ void Lsu::elw_resume(Lsu *lsu)
     lsu->iss.exec.busy_enter();
 }
 
-void Lsu::load_signed_resume(Lsu *lsu)
+void Lsu::load_signed_resume(Lsu *lsu, vp::IoReq *req)
 {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    int req_id = *((int *)req->arg_get(0));
+    int reg = lsu->stall_reg[req_id];
+    int stall_size = lsu->stall_size[req_id];
+#else
     int reg = lsu->stall_reg;
+    int stall_size = lsu->stall_size;
+#endif
     lsu->iss.regfile.set_reg(reg, iss_get_signed_value(lsu->iss.regfile.get_reg(reg),
-        lsu->stall_size * 8));
+        stall_size * 8));
 
     // Due to sign extension, whole register is valid only if sign is valid
-    lsu->iss.regfile.memcheck_set_valid(reg, (lsu->iss.regfile.memcheck_get(reg) >> (lsu->stall_size *8)) & 1);
+    lsu->iss.regfile.memcheck_set_valid(reg, (lsu->iss.regfile.memcheck_get(reg) >> (stall_size *8)) & 1);
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_reg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
@@ -318,11 +399,18 @@ void Lsu::load_signed_resume(Lsu *lsu)
     lsu->iss.exec.insn_terminate();
 }
 
-void Lsu::load_float_resume(Lsu *lsu)
+void Lsu::load_float_resume(Lsu *lsu, vp::IoReq *req)
 {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    int req_id = *((int *)req->arg_get(0));
+    int reg = lsu->stall_reg[req_id];
+    int stall_size = lsu->stall_size[req_id];
+#else
     int reg = lsu->stall_reg;
+    int stall_size = lsu->stall_size;
+#endif
     lsu->iss.regfile.set_freg(reg, iss_get_float_value(lsu->iss.regfile.get_freg(reg),
-        lsu->stall_size * 8));
+        stall_size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_freg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
 #endif
@@ -341,7 +429,7 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
         iss_addr_t phys_addr;
 
     this->trace.msg("Atomic request (addr: 0x%lx, size: 0x%x, opcode: %d)\n", addr, size, opcode);
-    vp::IoReq *req = &this->io_req;
+    vp::IoReq *req = this->get_req();
 
     if (opcode == vp::IoReqOpcode::LR)
     {
@@ -382,7 +470,7 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
             this->iss.regfile.set_reg(reg_out, iss_get_signed_value(this->iss.regfile.get_reg(reg_out), size * 8));
         }
 
-        if (this->io_req.get_latency() > 0)
+        if (req->get_latency() > 0)
         {
             this->iss.timing.stall_load_account(req->get_latency());
         }
@@ -401,12 +489,24 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 
     if (size != ISS_REG_WIDTH/8)
     {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        int req_id = *((int *)req->arg_get(0));
+        this->stall_callback[req_id] = &Lsu::load_signed_resume;
+        this->stall_reg[req_id] = reg_out;
+        this->stall_size[req_id] = size;
+#else
         this->stall_callback = &Lsu::load_signed_resume;
         this->stall_reg = reg_out;
         this->stall_size = size;
+#endif
     }
     else
     {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        int req_id = *((int *)req->arg_get(0));
+        this->stall_callback[req_id] = &Lsu::store_resume;
+#else
         this->stall_callback = &Lsu::store_resume;
+#endif
     }
 }

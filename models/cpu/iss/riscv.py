@@ -100,7 +100,8 @@ class RiscvCommon(st.Component):
             htif=False,
             custom_sources=False,
             float_lib='flexfloat',
-            stack_checker=False
+            stack_checker=False,
+            nb_outstanding=1
         ):
 
         super().__init__(parent, name)
@@ -187,6 +188,9 @@ class RiscvCommon(st.Component):
         self.add_c_flags([f"-DISS_WORD_{self.isa.word_size}"])
 
         self.add_c_flags([f'-DCONFIG_GVSOC_ISS_{core.upper()}=1'])
+
+        if nb_outstanding > 1:
+            self.add_c_flags([f'-DCONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING={nb_outstanding}'])
 
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])

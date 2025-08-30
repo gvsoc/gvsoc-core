@@ -347,63 +347,6 @@ class Component(gvrun.target.Component):
         else:
             self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
-    def gen_stimuli(self):
-        """Generate stimuli.
-
-        This method can be called to make the system described by this component hierarchy
-        generates all the needed stimuli to launch execution.
-        ANy sub-component can overload this method to get called and generates stimuli.
-
-        Parameters
-        ----------
-        work_dir : str
-            Working directory where the stimuli should be generated
-        """
-        for component in self.components.values():
-            component.gen_stimuli()
-
-
-    def get_comp_path(self, inc_top=False, child_path=None):
-        path = self.get_path(gv_path=True, child_path=child_path)
-        if inc_top:
-            return '/' + path
-        else:
-            return path
-
-    def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
-        """Get component path.
-
-        This returns the full path of the component, taking into account all the parents.
-
-        Parameters
-        ----------
-        child_path : str, optional
-            The path of the childs which can should appended to this path.
-        *kargs, **kwargs
-            Additional arguments which can be passed to the parents.
-
-        Returns
-        -------
-        str
-            The path.
-        """
-
-        if not gv_path or not self.is_top:
-            path = self.name
-            if child_path is not None:
-                if self.name is not None:
-                    path = self.name + '/' + child_path
-                else:
-                    path = child_path
-
-            if self.parent is not None:
-                path = self.parent.get_path(child_path=path, gv_path=gv_path, *kargs, **kwargs)
-
-        else:
-            path = child_path
-
-        return path
-
 
     def __add_component(self, name, component):
         """Add a new component.

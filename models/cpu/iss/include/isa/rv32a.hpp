@@ -22,66 +22,110 @@
 
 static inline iss_reg_t lr_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, 0, REG_OUT(0), vp::IoReqOpcode::LR);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, 0, REG_OUT(0), vp::IoReqOpcode::LR))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t sc_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::SC);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::SC))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoswap_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::SWAP);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::SWAP))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoadd_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::ADD);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::ADD))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoxor_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::XOR);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::XOR))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoand_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::AND);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::AND))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amoor_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::OR);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::OR))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amomin_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MIN);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MIN))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amomax_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MAX);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MAX))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amominu_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MINU);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MINU))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t amomaxu_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MAXU);
+    if (iss->lsu.atomic(insn, REG_GET(0), 4, REG_IN(1), REG_OUT(0), vp::IoReqOpcode::MAXU))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }

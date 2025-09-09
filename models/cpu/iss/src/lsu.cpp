@@ -423,20 +423,25 @@ void Lsu::load_float_resume(Lsu *lsu, vp::IoReq *req)
     lsu->iss.exec.insn_terminate();
 }
 
-void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
+bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
     vp::IoReqOpcode opcode)
 {
         iss_addr_t phys_addr;
 
     this->trace.msg("Atomic request (addr: 0x%lx, size: 0x%x, opcode: %d)\n", addr, size, opcode);
     vp::IoReq *req = this->get_req();
+    if (req == NULL)
+    {
+        // If there is no more request, returns true to stall the core stall the core
+        return true;
+    }
 
     if (opcode == vp::IoReqOpcode::LR)
     {
         bool use_mem_array;
         if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
         {
-            return;
+            return false;
         }
     }
     else
@@ -444,7 +449,7 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
         bool use_mem_array;
         if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
         {
-            return;
+            return false;
         }
     }
 
@@ -474,14 +479,21 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
         {
             this->iss.timing.stall_load_account(req->get_latency());
         }
-        return;
+
+        #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // For synchronous requests, free the request now with the proper latency, so that
+            // it becomes available only after the latency has ellapsed
+            this->free_req(req, this->iss.top.clock.get_cycles() + req->get_latency());
+        #endif
+
+        return false;
     }
     else if (err == vp::IO_REQ_INVALID)
     {
         vp_warning_always(&this->iss.trace,
                           "Invalid atomic access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, opcode: %d)\n",
                           this->iss.exec.current_insn, phys_addr, size, opcode);
-        return;
+        return false;
     }
 
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
@@ -509,4 +521,6 @@ void Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
         this->stall_callback = &Lsu::store_resume;
 #endif
     }
+
+    return false;
 }

@@ -227,10 +227,19 @@ void Irq::wfi_handle()
     // so we have to check now if we can really go to sleep.
     if ((this->iss.csr.mie.value & this->iss.csr.mip.value) == 0)
     {
-        this->iss.exec.wfi.set(true);
-        this->iss.exec.wfi_start = this->iss.top.clock.get_cycles();
-        this->iss.exec.busy_exit();
-        this->iss.exec.insn_stall();
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+        if (this->iss.exec.wakeup.get())
+        {
+            this->iss.exec.wakeup.dec(1);
+        }
+        else
+#endif
+        {
+            this->iss.exec.wfi.set(true);
+            this->iss.exec.wfi_start = this->iss.top.clock.get_cycles();
+            this->iss.exec.busy_exit();
+            this->iss.exec.insn_stall();
+        }
     }
 }
 

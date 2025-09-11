@@ -228,6 +228,7 @@ void Irq::wfi_handle()
     if ((this->iss.csr.mie.value & this->iss.csr.mip.value) == 0)
     {
         this->iss.exec.wfi.set(true);
+        this->iss.exec.wfi_start = this->iss.top.clock.get_cycles();
         this->iss.exec.busy_exit();
         this->iss.exec.insn_stall();
     }
@@ -244,6 +245,14 @@ void Irq::check_interrupts()
         if (this->iss.exec.wfi.get())
         {
             this->iss.exec.wfi.set(false);
+            if (this->iss.exec.stall_cycles > (this->iss.top.clock.get_cycles() - this->iss.exec.wfi_start))
+            {
+                this->iss.exec.stall_cycles -= (this->iss.top.clock.get_cycles() - this->iss.exec.wfi_start);
+            }
+            else
+            {
+                this->iss.exec.stall_cycles = 0;
+            }
             this->iss.exec.busy_enter();
             this->iss.exec.stalled_dec();
             this->iss.exec.insn_terminate();

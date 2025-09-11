@@ -111,6 +111,7 @@ public:
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
     vp::reg_1 wfi;
+    int64_t wfi_start;
     vp::reg_1 busy;
     int bootaddr_offset;
 

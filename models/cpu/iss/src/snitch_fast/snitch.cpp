@@ -97,6 +97,12 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
         _this->exec.stalled_dec();
         _this->exec.insn_terminate();
     }
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+    else
+    {
+        _this->exec.wakeup.inc(1);
+    }
+#endif
 }
 
 void IssWrapper::start()

@@ -111,6 +111,9 @@ public:
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
     vp::reg_1 wfi;
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+    vp::reg_8 wakeup;
+#endif
     int64_t wfi_start;
     vp::reg_1 busy;
     int bootaddr_offset;

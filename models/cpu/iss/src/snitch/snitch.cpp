@@ -50,6 +50,9 @@ Iss::Iss(IssWrapper &top)
     this->fp_ss = false;
     this->top.traces.new_trace("offload", &this->trace_iss, vp::DEBUG);
 
+    // -----------USE IO PORT TO HANDLE REDMULE------------------
+    this->top.new_master_port("redmule_itf", &this->redmule_itf);
+    this->redmule_req = this->redmule_itf.req_new(0, 0, 0, 0);
 
     // -----------USE MASTER AND SLAVE PORT TO HANDLE OFFLOAD REQUEST------------------
     this->event = this->top.event_new((vp::Block *)this, handle_event);

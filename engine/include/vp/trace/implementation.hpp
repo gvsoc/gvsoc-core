@@ -50,7 +50,7 @@ namespace vp {
   #endif
   }
 
-  inline void vp::Trace::event(uint8_t *value)
+  inline void vp::Trace::event(uint8_t *value, int64_t delay)
   {
   #ifdef VP_TRACE_ACTIVE
 
@@ -60,7 +60,7 @@ namespace vp {
     if (callback)
     {
       uint64_t zero = (uint64_t)0;
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(),
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time() + delay,
         comp->clock.get_engine() ? comp->clock.get_cycles() : -1, value, (uint8_t *)&zero);
     }
   #endif

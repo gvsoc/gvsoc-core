@@ -105,11 +105,27 @@ static inline iss_reg_t div_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         cycles = 1;
     }
 #ifdef CONFIG_GVSOC_ISS_SNITCH
-    else if (dividend == 0)
+    else
     {
-        cycles = 5;
+        iss_sim_t lcz_dividend_input = dividend < 0 ? (~dividend << 1) : dividend;
+        iss_sim_t lcz_divider_input = divider < 0 ? ~divider : divider;
+        int lcz_dividend = lcz_dividend_input == 0 ? ISS_REG_WIDTH : __builtin_clz(lcz_dividend_input);
+        int divider_shift = lcz_divider_input == 0 ? ISS_REG_WIDTH : (__builtin_clz(lcz_divider_input) - lcz_dividend);
+        if (divider_shift < 0)
+        {
+            cycles = 4;
+        }
+        else
+        {
+            cycles = divider_shift + 5;
+        }
     }
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    iss->regfile.scoreboard_reg_set_timestamp(REG_OUT(0), cycles, -1);
+#else
+    iss->timing.stall_insn_dependency_account(cycles);
 #endif
+#else
     else if (divider > 0)
     {
         cycles = __builtin_clz(divider) + 3;
@@ -120,6 +136,7 @@ static inline iss_reg_t div_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     }
 
     iss->timing.stall_insn_dependency_account(cycles);
+#endif
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -140,7 +157,26 @@ static inline iss_reg_t divu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         result = dividend / divider;
     REG_SET(0, result);
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    int cycles;
+    int lcz_dividend = dividend == 0 ? ISS_REG_WIDTH : __builtin_clz(dividend);
+    int divider_shift = divider == 0 ? ISS_REG_WIDTH : (__builtin_clz(divider) - lcz_dividend);
+    if (divider_shift < 0)
+    {
+        cycles = 4;
+    }
+    else
+    {
+        cycles = divider_shift + 5;
+    }
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    iss->regfile.scoreboard_reg_set_timestamp(REG_OUT(0), cycles, -1);
+#else
+    iss->timing.stall_insn_dependency_account(cycles);
+#endif
+#else
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
+#endif
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -171,22 +207,39 @@ static inline iss_reg_t rem_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         cycles = 1;
     }
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    else
+    {
+        iss_sim_t lcz_dividend_input = dividend < 0 ? (~dividend << 1) : dividend;
+        iss_sim_t lcz_divider_input = divider < 0 ? ~divider : divider;
+        int lcz_dividend = lcz_dividend_input == 0 ? ISS_REG_WIDTH : __builtin_clz(lcz_dividend_input);
+        int divider_shift = lcz_divider_input == 0 ? ISS_REG_WIDTH : (__builtin_clz(lcz_divider_input) - lcz_dividend);
+        if (divider_shift < 0)
+        {
+            cycles = 4;
+        }
+        else
+        {
+            cycles = divider_shift + 5;
+        }
+    }
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    iss->regfile.scoreboard_reg_set_timestamp(REG_OUT(0), cycles, -1);
+#else
+    iss->timing.stall_insn_dependency_account(cycles);
+#endif
+#else
     else if (divider > 0)
     {
         cycles = __builtin_clz(divider) + 3;
     }
-#ifdef CONFIG_GVSOC_ISS_SNITCH
-    else if (dividend == 0)
-    {
-        cycles = 5;
-    }
-#endif
     else
     {
         cycles = __builtin_clz((~divider) + 1) + 2;
     }
 
     iss->timing.stall_insn_dependency_account(cycles);
+#endif
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -208,7 +261,26 @@ static inline iss_reg_t remu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
     REG_SET(0, result);
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    int cycles;
+    int lcz_dividend = dividend == 0 ? ISS_REG_WIDTH : __builtin_clz(dividend);
+    int divider_shift = divider == 0 ? ISS_REG_WIDTH : (__builtin_clz(divider) - lcz_dividend);
+    if (divider_shift < 0)
+    {
+        cycles = 4;
+    }
+    else
+    {
+        cycles = divider_shift + 5;
+    }
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+    iss->regfile.scoreboard_reg_set_timestamp(REG_OUT(0), cycles, -1);
+#else
+    iss->timing.stall_insn_dependency_account(cycles);
+#endif
+#else
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
+#endif
 
     return iss_insn_next(iss, insn, pc);
 }

@@ -45,9 +45,9 @@ public:
     // Name of the port, used for logging accesses in the profiler
     std::string name;
     // Address used for logging accesses in the profiler
-    vp::Signal<uint64_t> current_addr;
+    vp::Signal<uint64_t> log_addr;
     // Size used for logging accesses in the profiler
-    vp::Signal<uint64_t> current_size;
+    vp::Signal<uint64_t> log_size;
     // Last cycle where an access was logged. Used to delay a bit in the trace the requests
     // which arrives in the same cycle
     int64_t last_logged_access = -1;
@@ -92,7 +92,7 @@ public:
 class InputPort : public Port
 {
 public:
-    InputPort(int id, Router *top, int64_t bandwidth, int64_t latency);
+    InputPort(int id, std::string name, Router *top, int64_t bandwidth, int64_t latency);
     int id;
     // Queue of pending requests. Any incoming request is first pushed here. An arbitration event
     // is then executed to route these requests to output ports
@@ -102,7 +102,7 @@ public:
     std::queue<vp::IoReq *> denied_reqs;
     // Input FIFO size. Incoming requests are denied as soon as this becomes equal or greater than
     // the FIFO size
-    int pending_size;
+    int pending_size = 0;
     // If not NULL, this indicates the mapping tree information about the currently elected
     // request.
     vp::MappingTreeEntry *pending_mapping = NULL;
@@ -539,7 +539,7 @@ Channel::Channel(Router *top, std::string name)
     this->inputs.resize(this->top->nb_input_port);
     for (int i=0; i<this->top->nb_input_port; i++)
     {
-        InputPort *input_port = new InputPort(i, this->top, this->top->bandwidth, this->top->latency);
+        InputPort *input_port = new InputPort(i, name + "/input_" + std::to_string(i), this->top, this->top->bandwidth, this->top->latency);
         this->inputs[i] = input_port;
     }
 
@@ -629,8 +629,8 @@ void Channel::handle_req_end(vp::IoReq *req, vp::IoReqStatus status)
 }
 
 Port::Port(Router *top, std::string name)
-: top(top), name(name), current_addr(*top, name + "/addr", 64),
-    current_size(*top, name + "/size", 64)
+: top(top), name(name), log_addr(*top, name + "/addr", 64),
+    log_size(*top, name + "/size", 64)
 {
 
 }
@@ -648,13 +648,13 @@ void Port::log_access(uint64_t addr, uint64_t size)
     {
         int64_t period = this->top->clock.get_period();
         int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
-        this->current_addr.set(addr, delay);
-        this->current_size.set(size, delay);
+        this->log_addr.set(addr, delay);
+        this->log_size.set(size, delay);
     }
     else
     {
-        this->current_addr = addr;
-        this->current_size = size;
+        this->log_addr = addr;
+        this->log_size = size;
     }
     this->nb_logged_access_in_same_cycle++;
     this->last_logged_access = cycles;
@@ -665,8 +665,8 @@ OutputPort::OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t
 {
 }
 
-InputPort::InputPort(int id, Router *top, int64_t bandwidth, int64_t latency)
-: Port(top, "input_" + std::to_string(id)), id(id)
+InputPort::InputPort(int id, std::string name, Router *top, int64_t bandwidth, int64_t latency)
+: Port(top, name), id(id)
 {
 }
 

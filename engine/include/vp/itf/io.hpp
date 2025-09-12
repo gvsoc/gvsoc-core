@@ -104,7 +104,9 @@ namespace vp {
     void set_actual_size(uint64_t actual_size) { this->actual_size = actual_size; }
     uint64_t get_actual_size() { return actual_size; }
 
-    inline void set_latency(uint64_t latency) { this->latency = latency; }
+    // Set the latency of the request. The latency is relative to the current cycle.
+    // It is only set if it is higher than the current latency.
+    inline void set_latency(uint64_t latency) { this->latency = std::max(this->latency, latency); }
     inline uint64_t get_latency() { return this->latency; }
     inline void inc_latency(uint64_t incr) { this->latency += incr; }
 
@@ -184,8 +186,8 @@ namespace vp {
 
   private:
     IoReq *next;
-    int64_t latency;
-    int64_t duration;
+    uint64_t latency;
+    uint64_t duration;
     uint8_t payload[IO_REQ_PAYLOAD_SIZE];
     void *args[IO_REQ_NB_ARGS];
     int current_arg = 0;

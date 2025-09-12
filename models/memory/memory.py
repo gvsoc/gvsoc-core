@@ -57,7 +57,7 @@ class Memory(gvsoc.systree.Component):
     memcheck_expansion_factor: int
         Extra size used to track buffer overflow.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=2,
+    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5):

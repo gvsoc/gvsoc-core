@@ -19,6 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <queue>
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
@@ -47,7 +48,7 @@ private:
     int64_t ready_timestamp = -1;
     int bandwidth;
     int max_pending_reqs = 4;
-    vp::IoReq *stalled_req = NULL;
+    std::queue<vp::IoReq *>stalled_reqs;
     vp::Signal<bool> stalled;
     vp::Signal<uint64_t> signal_req_addr;
 };
@@ -76,13 +77,11 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 
     _this->signal_req_addr = req->get_addr();
 
-    vp_assert_always(_this->stalled == false, &_this->trace, "Enqueueing request while being stalled\n");
-
-    if (_this->pending_reqs.size() == _this->max_pending_reqs)
+    if (_this->stalled || _this->pending_reqs.size() == _this->max_pending_reqs)
     {
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received req, stalling (req: %p)\n", req);
 
-        _this->stalled_req = req;
+        _this->stalled_reqs.push(req);
         _this->stalled = true;
         return vp::IO_REQ_DENIED;
     }
@@ -132,13 +131,14 @@ void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         req->get_resp_port()->resp(req);
     }
 
-    vp::IoReq *stalled_req = _this->stalled_req;
-    if (stalled_req && _this->pending_reqs.size() < _this->max_pending_reqs)
+    if (_this->stalled && _this->pending_reqs.size() < _this->max_pending_reqs)
     {
-        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Unstalling (req: %p)\n", req);
+        vp::IoReq *stalled_req = _this->stalled_reqs.front();
+        _this->stalled_reqs.pop();
+
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Unstalling (req: %p)\n", stalled_req);
         _this->pending_reqs.push_back(stalled_req);
         _this->stalled = false;
-        _this->stalled_req = NULL;
         stalled_req->get_resp_port()->grant(stalled_req);
     }
 

@@ -477,7 +477,11 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 
         if (req->get_latency() > 0)
         {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            this->iss.regfile.scoreboard_reg_set_timestamp(reg_out, req->get_latency() + 1, CSR_PCER_LD_STALL);
+#else
             this->iss.timing.stall_load_account(req->get_latency());
+#endif
         }
 
         #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING

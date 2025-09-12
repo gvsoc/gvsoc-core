@@ -241,7 +241,9 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             if (diff > 0)
             {
                 _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
-                req->inc_latency(diff);
+                // Set the latency, this will only set if it is higher than current latency, which
+                // is what we want, as the already existing latency already meets our cyclestamp
+                req->set_latency(diff);
             }
             _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
         }

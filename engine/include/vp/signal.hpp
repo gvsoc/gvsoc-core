@@ -58,7 +58,7 @@ namespace vp {
     {
     public:
         Signal(Block &parent, std::string name, int width, bool do_reset=false, T reset=0);
-        inline void set(T value);
+        inline void set(T value, int64_t delay=0);
         inline T get() const;
 
         Signal& operator=(T v)
@@ -109,7 +109,7 @@ namespace vp {
 
 
 template<class T>
-inline void vp::Signal<T>::set(T value)
+inline void vp::Signal<T>::set(T value, int64_t delay)
 {
 #ifdef VP_TRACE_ACTIVE
     if (this->trace.get_active())
@@ -119,7 +119,7 @@ inline void vp::Signal<T>::set(T value)
 #endif
 
     this->value = value;
-    this->reg_event.event((uint8_t *)&this->value);
+    this->reg_event.event((uint8_t *)&this->value, delay);
 }
 
 template<class T>

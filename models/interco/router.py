@@ -229,15 +229,18 @@ class Router(gvsoc.systree.Component):
                 gvsoc.gui.Signal(self, mapping_trace, "size", path=name + "/size", groups=['regmap'])
         else:
 
-            for port in range(0, self.get_property("nb_input_port")):
-                name = f"input_{port}"
-                addr_trace = gvsoc.gui.Signal(self, top, name, path=name + "/addr", groups=['regmap'])
-                gvsoc.gui.Signal(self, addr_trace, "size", path=name + "/size", groups=['regmap'])
-
             if self.shared_rw_bandwidth:
                 channels = ['rwchannel']
             else:
                 channels = ['rchannel', 'wchannel']
+
+            for port in range(0, self.get_property("nb_input_port")):
+                name = f"input_{port}"
+                input_trace = gvsoc.gui.Signal(self, top, name)
+                for channel in channels:
+                    path = channel + '/' + name
+                    addr_trace = gvsoc.gui.Signal(self, input_trace, channel, path=path + "/addr", groups=['regmap'])
+                    gvsoc.gui.Signal(self, addr_trace, "size", path=path + "/size", groups=['regmap'])
 
             for name, mapping in self.get_property('mappings').items():
                 mapping_trace = gvsoc.gui.Signal(self, top, name)

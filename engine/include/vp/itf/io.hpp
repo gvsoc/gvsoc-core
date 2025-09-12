@@ -104,9 +104,9 @@ namespace vp {
     void set_actual_size(uint64_t actual_size) { this->actual_size = actual_size; }
     uint64_t get_actual_size() { return actual_size; }
 
-    inline void set_latency(int64_t latency) { this->latency = std::max(this->latency, latency); }
-    inline int64_t get_latency() { return this->latency; }
-    inline void inc_latency(int64_t incr) { this->latency += incr; }
+    inline void set_latency(uint64_t latency) { this->latency = latency; }
+    inline uint64_t get_latency() { return this->latency; }
+    inline void inc_latency(uint64_t incr) { this->latency += incr; }
 
     inline void set_duration(uint64_t duration) { if (duration > this->duration) this->duration = duration; }
     inline uint64_t get_duration() { return this->duration; }

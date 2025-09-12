@@ -558,8 +558,9 @@ class Component(gvrun.target.SystemTreeNode):
             component.gen_gui_stub(parent_signal)
 
     def gen_gui(self, parent_signal):
-        if self.name is not None:
-            signal = gvsoc.gui.Signal(self, parent_signal, name=self.name, skip_if_no_child=True)
+        name = self.get_name()
+        if name is not None:
+            signal = gvsoc.gui.Signal(self, parent_signal, name=name, skip_if_no_child=True)
             return signal
         else:
             return parent_signal

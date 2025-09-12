@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -62,7 +62,9 @@ namespace vp {
   typedef IoReqStatus (IoReqMethMuxed)(vp::Block *, IoReq *, int id);
 
   typedef void (IoRespMeth)(vp::Block *, vp::IoReq *);
+  typedef void (IoRespMethMuxed)(vp::Block *, vp::IoReq *, int id);
   typedef void (IoGrantMeth)(vp::Block *, vp::IoReq *);
+  typedef void (IoGrantMethMuxed)(vp::Block *, vp::IoReq *, int id);
 
   class IoReq : public vp::QueueElem
   {
@@ -102,9 +104,9 @@ namespace vp {
     void set_actual_size(uint64_t actual_size) { this->actual_size = actual_size; }
     uint64_t get_actual_size() { return actual_size; }
 
-    inline void set_latency(uint64_t latency) { this->latency = latency; }
-    inline uint64_t get_latency() { return this->latency; }
-    inline void inc_latency(uint64_t incr) { this->latency += incr; }
+    inline void set_latency(int64_t latency) { this->latency = std::max(this->latency, latency); }
+    inline int64_t get_latency() { return this->latency; }
+    inline void inc_latency(int64_t incr) { this->latency += incr; }
 
     inline void set_duration(uint64_t duration) { if (duration > this->duration) this->duration = duration; }
     inline uint64_t get_duration() { return this->duration; }
@@ -212,7 +214,7 @@ namespace vp {
     // Return if this master port is bound.
     bool is_bound();
 
-    // Can be called by master component to send an IO request.  
+    // Can be called by master component to send an IO request.
     inline IoReqStatus req(IoReq *req);
 
     // Can be called by master component to forward an IO request.
@@ -236,9 +238,13 @@ namespace vp {
     // an IO request grant. Before being set, a default empty callback is active.
     inline void set_grant_meth(IoGrantMeth *meth);
 
+    inline void set_grant_meth_muxed(IoGrantMethMuxed *meth, int id);
+
     // Set the callback on master side called when the slave is sending back
     // an IO request response. Before being set, a default empty callback is active.
     inline void set_resp_meth(IoRespMeth *meth);
+
+    inline void set_resp_meth_muxed(IoRespMethMuxed *meth, int id);
 
 
 
@@ -268,6 +274,7 @@ namespace vp {
     // This gets called anytime the slave is granting an IO request.
     // This is set to an empty callback by default.
     void (*grant_meth)(vp::Block *context, IoReq *req);
+    void (*grant_meth_mux)(vp::Block *context, IoReq *req, int id);
 
     // Default grant callback, just do nothing.
     static inline void grant_default(vp::Block *, vp::IoReq *);
@@ -276,6 +283,7 @@ namespace vp {
     // This gets called anytime the slave is sending back a response.
     // This is set to an empty callback by default.
     void (*resp_meth)(vp::Block *context, IoReq *req);
+    void (*resp_meth_mux)(vp::Block *context, IoReq *req, int id);
 
     // Default response callback, just do nothing.
     static inline void resp_default(vp::Block *, vp::IoReq *);
@@ -291,7 +299,7 @@ namespace vp {
     // req_meth saved when the slave port is multiplexed as a stub is setup instead
     IoReqStatus (*req_meth_mux)(vp::Block *, IoReq *, int mux);
 
-    // req_meth when the binding is crossing frequency domains as a stub is 
+    // req_meth when the binding is crossing frequency domains as a stub is
     // setup instead
     IoReqStatus (*req_meth_freq_cross)(vp::Block *, vp::IoReq *);
 
@@ -338,6 +346,13 @@ namespace vp {
     // For that, a slave port is associated to each master port and can
     // be used by the real slave port to reply to a specific master port.
     IoSlave *SlavePort = NULL;
+
+    // Multiplexed ID set by the slave when port is multiplxed
+    int grant_mux_id;
+
+    // Multiplexed ID set by the slave when port is multiplxed
+    int resp_mux_id;
+
   };
 
 
@@ -358,9 +373,9 @@ namespace vp {
 
     // Can be called to grant an IO request.
     // Granting a request means that the request is accepted and owned by the slave
-    // and that the master can consider the request gone and then proceeed with 
+    // and that the master can consider the request gone and then proceeed with
     // the rest.
-    inline void grant(IoReq *req) { 
+    inline void grant(IoReq *req) {
 
       this->master_grant_meth((vp::Block *)this->get_remote_context(), req); }
 
@@ -408,7 +423,7 @@ namespace vp {
 
     // Request callback set by the user.
     // This gets called anytime the master is sending a request.
-    // This is set to an empty callback by default.    
+    // This is set to an empty callback by default.
     IoReqStatus (*req_meth)(vp::Block *context, IoReq *);
 
     // Default request callback, just do nothing.
@@ -428,14 +443,20 @@ namespace vp {
     // Response callback set by the user on master port and retrived during binding
     void (*master_resp_meth)(vp::Block *, vp::IoReq *);
 
+    // resp_meth saved when the slave port is multiplexed as a stub is setup instead
+    void (*master_resp_meth_mux)(vp::Block *, vp::IoReq *, int);
+
     // Grant callback set by the user on master port and retrived during binding
     void (*master_grant_meth)(vp::Block *, vp::IoReq *);
 
-    // master_resp_meth when the binding is crossing frequency domains as a stub is 
+    // grant_meth saved when the slave port is multiplexed as a stub is setup instead
+    void (*master_grant_meth_mux)(vp::Block *, vp::IoReq *, int);
+
+    // master_resp_meth when the binding is crossing frequency domains as a stub is
     // setup instead
     void (*master_resp_meth_freq_cross)(vp::Block *, vp::IoReq *);
 
-    // master_grant_meth when the binding is crossing frequency domains as a stub is 
+    // master_grant_meth when the binding is crossing frequency domains as a stub is
     // setup instead
     void (*master_grant_meth_freq_cross)(vp::Block *, vp::IoReq *);
 
@@ -457,6 +478,19 @@ namespace vp {
     // Setup stubs for cross frequency domain crossing
     inline void set_freq_stub();
 
+    /*
+     * Stubs
+     */
+
+    // This is a stub setup when the slave is multiplexing the port so that we
+    // can capture the master call and transform it into the slave call with the
+    // right mux ID.
+    static inline void grant_muxed_stub(IoSlave *_this, IoReq *req);
+
+    // This is a stub setup when the slave is multiplexing the port so that we
+    // can capture the master call and transform it into the slave call with the
+    // right mux ID.
+    static inline void resp_muxed_stub(IoSlave *_this, IoReq *req);
 
     /*
      * Internal data
@@ -472,11 +506,27 @@ namespace vp {
     // so that the stub is working well.
     vp::Block *master_context_for_freq_cross;
 
+    // This data is the multiplex ID that we need to send to the slave when the slave port
+    // is multiplexed.
+    int slave_grant_mux_id = -1;
+
+    // This data is the multiplex ID that we need to send to the slave when the slave port
+    // is multiplexed.
+    int slave_resp_mux_id = -1;
+
+    // Slave context when slave port is multiplexed.
+    // We keep here a copy of the slave context when the slave port is multiplexed
+    // as the normal variable for this context is used to store ourself so that
+    // the stub is working well.
+    vp::Block *master_context_for_mux = NULL;
+
   };
 
 
 
-  inline IoMaster::IoMaster() {
+  inline IoMaster::IoMaster()
+  : resp_meth(NULL), resp_meth_mux(NULL), grant_meth(NULL), grant_meth_mux(NULL)
+  {
     // Set default callbacks in case the user does not set them
     this->resp_meth = &IoMaster::resp_default;
     this->grant_meth = &IoMaster::grant_default;
@@ -536,11 +586,26 @@ namespace vp {
     resp_meth = meth;
   }
 
+  inline void IoMaster::set_resp_meth_muxed(IoRespMethMuxed *meth, int id)
+  {
+      resp_meth_mux = meth;
+      resp_meth = NULL;
+      resp_mux_id = id;
+  }
+
 
 
   inline void IoMaster::set_grant_meth(IoGrantMeth *meth)
   {
     grant_meth = meth;
+    grant_meth_mux = NULL;
+  }
+
+  inline void IoMaster::set_grant_meth_muxed(IoGrantMethMuxed *meth, int id)
+  {
+    grant_meth_mux = meth;
+    grant_meth = NULL;
+    grant_mux_id = id;
   }
 
 
@@ -604,7 +669,7 @@ namespace vp {
   inline IoReqStatus IoMaster::req_freq_cross_stub(IoMaster *_this, IoReq *req)
   {
     // The normal callback was tweaked in order to get there when the master is sending a
-    // request. 
+    // request.
     // First synchronize the target engine in case it was left behind,
     // and then generate the normal call with the mux ID using the saved handler
     _this->remote_port->get_owner()->clock.get_engine()->sync();
@@ -647,6 +712,21 @@ namespace vp {
     req_meth = (IoReqMeth *)&IoSlave::req_default;
   }
 
+  inline void IoSlave::grant_muxed_stub(IoSlave *_this, IoReq *req)
+  {
+    // The normal callback was tweaked in order to get there when the master is sending a
+    // request. Now generate the normal call with the mux ID using the saved handler
+    return _this->master_grant_meth_mux((Component *)_this->master_context_for_mux, req,
+        _this->slave_grant_mux_id);
+  }
+
+  inline void IoSlave::resp_muxed_stub(IoSlave *_this, IoReq *req)
+  {
+    // The normal callback was tweaked in order to get there when the master is sending a
+    // request. Now generate the normal call with the mux ID using the saved handler
+    return _this->master_resp_meth_mux((Component *)_this->master_context_for_mux, req,
+        _this->slave_resp_mux_id);
+  }
 
   inline void IoSlave::bind_to(vp::Port *_port, js::Config *config)
   {
@@ -657,9 +737,26 @@ namespace vp {
     port->SlavePort = new IoSlave();
     port->SlavePort->remote_port = port;
     port->SlavePort->set_owner(this->get_owner());
-    port->SlavePort->master_resp_meth = port->resp_meth;
-    port->SlavePort->master_grant_meth = port->grant_meth;
-    port->SlavePort->set_remote_context(port->get_context());
+
+    if (port->resp_meth_mux == NULL && port->resp_meth_mux == NULL)
+    {
+        port->SlavePort->master_resp_meth = port->resp_meth;
+        port->SlavePort->master_grant_meth = port->grant_meth;
+        port->SlavePort->set_remote_context(port->get_context());
+    }
+    else
+    {
+        this->master_grant_meth_mux = port->grant_meth_mux;
+        this->master_grant_meth = (IoGrantMeth *)&IoSlave::grant_muxed_stub;
+        this->slave_grant_mux_id = port->grant_mux_id;
+
+        this->master_resp_meth_mux = port->resp_meth_mux;
+        this->master_resp_meth = (IoRespMeth *)&IoSlave::resp_muxed_stub;
+        this->slave_resp_mux_id = port->resp_mux_id;
+
+        this->master_context_for_mux = (vp::Block *)port->get_context();
+        this->set_remote_context(this);
+    }
   }
 
 
@@ -690,7 +787,7 @@ namespace vp {
   inline void IoSlave::grant_freq_cross_stub(IoSlave *_this, IoReq *req)
   {
     // The normal callback was tweaked in order to get there when the master is sending a
-    // request. 
+    // request.
     // First synchronize the target engine in case it was left behind,
     // and then generate the normal call with the mux ID using the saved handler
     _this->remote_port->get_owner()->clock.get_engine()->sync();
@@ -702,7 +799,7 @@ namespace vp {
   inline void IoSlave::resp_freq_cross_stub(IoSlave *_this, IoReq *req)
   {
     // The normal callback was tweaked in order to get there when the master is sending a
-    // request. 
+    // request.
     // First synchronize the target engine in case it was left behind,
     // and then generate the normal call with the mux ID using the saved handler
     _this->remote_port->get_owner()->clock.get_engine()->sync();
@@ -720,7 +817,7 @@ namespace vp {
 
       this->master_resp_meth_freq_cross = this->master_resp_meth;
       this->master_resp_meth = (void (*)(vp::Block *, vp::IoReq *))&IoSlave::resp_freq_cross_stub;
-      
+
       this->master_context_for_freq_cross = (vp::Block *)this->get_remote_context();
       this->set_remote_context(this);
   }

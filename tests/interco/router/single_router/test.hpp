@@ -19,6 +19,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include "interco/traffic/generator.hpp"
+#include "interco/traffic/receiver.hpp"
 
 class TestCommon : public vp::Block
 {
@@ -36,9 +37,12 @@ public:
     void reset(bool active);
 
     TrafficGeneratorConfigMaster *get_generator(int x, int y, bool is_write);
+    TrafficReceiverConfigMaster *get_receiver(int x);
     void test_end(int status);
-    int check_cycles(int64_t result, int64_t expected);
+    int check_cycles(int64_t result, int64_t expected, float expected_error);
     bool is_finished();
+    int64_t get_expected(int size, int nb_inputs, int nb_gens_per_input, int nb_targets);
+    void start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_targets, vp::ClockEvent *event);
 
     int nb_router_in;
     int nb_router_out;
@@ -48,6 +52,8 @@ public:
     int bandwidth;
     int packet_size;
     int input_fifo_size;
+    bool use_memory;
+    int target_bw;
 
 private:
     void exec_next_test();
@@ -57,6 +63,7 @@ private:
     int current_test;
     int current_test_step;
     std::vector<TrafficGeneratorConfigMaster> generator_control_itf;
+    std::vector<TrafficReceiverConfigMaster> receiver_control_itf;
 };
 
 class Test0 : public TestCommon
@@ -71,80 +78,6 @@ private:
     Testbench *top;
     vp::ClockEvent fsm_event;
     int step;
-    int64_t clockstamp;
-};
-
-class Test1 : public TestCommon
-{
-public:
-    Test1(Testbench *top);
-    void exec_test();
-
-private:
-    static void entry(vp::Block *__this, vp::ClockEvent *event);
-
-    Testbench *top;
-    vp::ClockEvent fsm_event;
-    int step;
-    int64_t clockstamp;
-};
-
-class Test2 : public TestCommon
-{
-public:
-    Test2(Testbench *top);
-    void exec_test();
-
-private:
-    static void entry(vp::Block *__this, vp::ClockEvent *event);
-
-    Testbench *top;
-    vp::ClockEvent fsm_event;
-    int step;
-    int64_t clockstamp;
-};
-
-class Test3 : public TestCommon
-{
-public:
-    Test3(Testbench *top);
-    void exec_test();
-
-private:
-    static void entry(vp::Block *__this, vp::ClockEvent *event);
-
-    Testbench *top;
-    vp::ClockEvent fsm_event;
-    int step;
-    int64_t clockstamp;
-};
-
-class Test4 : public TestCommon
-{
-public:
-    Test4(Testbench *top);
-    void exec_test();
-
-private:
-    static void entry(vp::Block *__this, vp::ClockEvent *event);
-
-    Testbench *top;
-    vp::ClockEvent fsm_event;
-    int step;
-    int64_t clockstamp;
-};
-
-class Test5 : public TestCommon
-{
-public:
-    Test5(Testbench *top);
-    void exec_test();
-
-private:
-    static void entry(vp::Block *__this, vp::ClockEvent *event);
-
-    Testbench *top;
-    vp::ClockEvent fsm_event;
-    int step;
+    int test_case;
     int64_t clockstamp;
 };

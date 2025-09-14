@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
+#include <climits>
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include "test.hpp"
 #include "vp/clock/clock_event.hpp"
-
-#define CYCLES_ERROR 0.05f
 
 Testbench::Testbench(vp::ComponentConf &config)
     : vp::Component(config)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
+    this->target_bw = this->get_js_config()->get_int("target_bw");
+    this->use_memory = this->get_js_config()->get_child_bool("use_memory");
     this->nb_router_in = this->get_js_config()->get_int("nb_router_in");
     this->nb_router_out = this->get_js_config()->get_int("nb_router_out");
     this->nb_gen_per_router_in = this->get_js_config()->get_int("nb_gen_per_router_in");
@@ -47,7 +48,7 @@ Testbench::Testbench(vp::ComponentConf &config)
     {
         for (int y=0; y<this->nb_gen_per_router_in; y++)
         {
-            for (int z=0; z<this->nb_gen_per_router_in; z++)
+            for (int z=0; z<2; z++)
             {
                 this->new_master_port(
                     "generator_control_" + std::to_string(x) + "_" + std::to_string(y) + "_" + std::to_string(z),
@@ -56,12 +57,18 @@ Testbench::Testbench(vp::ComponentConf &config)
         }
     }
 
+    if (!this->use_memory)
+    {
+        this->receiver_control_itf.resize(this->nb_router_out);
+        for (int x=0; x<this->nb_router_out; x++)
+        {
+            this->new_master_port(
+                "receiver_control_" + std::to_string(x),
+                &this->receiver_control_itf[x]);
+        }
+    }
+
     this->tests.push_back(new Test0(this));
-    this->tests.push_back(new Test1(this));
-    this->tests.push_back(new Test2(this));
-    this->tests.push_back(new Test3(this));
-    this->tests.push_back(new Test4(this));
-    this->tests.push_back(new Test5(this));
 }
 
 bool Testbench::is_finished()
@@ -122,16 +129,102 @@ TrafficGeneratorConfigMaster *Testbench::get_generator(int x, int y, bool is_wri
     return &this->generator_control_itf[(x*this->nb_gen_per_router_in + y) * 2 + is_write];
 }
 
-int Testbench::check_cycles(int64_t result, int64_t expected)
+TrafficReceiverConfigMaster *Testbench::get_receiver(int x)
+{
+    return &this->receiver_control_itf[x];
+}
+
+int Testbench::check_cycles(int64_t result, int64_t expected, float expected_error)
 {
     float error = ((float)std::abs(result - expected)) / expected;
 
-    if (error > CYCLES_ERROR)
+    if (error > expected_error)
     {
-        printf("Too high error rate (error: %f, expected: %f)\n", error, CYCLES_ERROR);
+        printf("Too high error rate (error: %f, expected: %f)\n", error, expected_error);
     }
 
-    return error > CYCLES_ERROR;
+    return error > expected_error;
+}
+
+void Testbench::start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_targets, vp::ClockEvent *event)
+{
+    bool do_read = this->access_type == "r" || this->access_type == "rw";
+    bool do_write = this->access_type == "w" || this->access_type == "rw";
+    size_t bw0 = this->packet_size;
+
+    uint64_t target_id = 0;
+
+    for (int i=0; i<nb_inputs; i++)
+    {
+        for (int j=0; j<nb_gens_per_input; j++)
+        {
+            uint64_t offset = 0x10000000 + 0x10000 * (i * nb_gens_per_input + j) * 2 +
+                0x100000 * target_id;
+            target_id++;
+            if (target_id == nb_targets)
+            {
+                target_id = 0;
+            }
+
+            if (do_read)
+            {
+                this->get_generator(i, j, 0)->start(offset, size, bw0, event, false);
+            }
+            if (do_write)
+            {
+                this->get_generator(i, j, 1)->start(offset + 0x10000, size, bw0, event, true);
+            }
+        }
+    }
+
+    if (!this->use_memory)
+    {
+        for (int i=0; i<this->nb_router_out; i++)
+        {
+            this->get_receiver(i)->start(this->target_bw);
+        }
+    }
+}
+
+int64_t Testbench::get_expected(int size, int nb_inputs, int nb_gens_per_input, int nb_targets)
+{
+    bool do_read = this->access_type == "r" || this->access_type == "rw";
+    bool do_write = this->access_type == "w" || this->access_type == "rw";
+    size_t target_bw = INT_MAX;
+    if (this->target_bw != 0)
+    {
+        target_bw = std::min(this->target_bw, this->packet_size);
+        target_bw = target_bw * std::min(nb_inputs*nb_gens_per_input, nb_targets);
+    }
+    else if (!this->use_memory)
+    {
+        // Receiver only accept one packet per cycle, even when bandwidth is 0
+        target_bw = this->packet_size;
+        target_bw = target_bw * std::min(nb_inputs*nb_gens_per_input, nb_targets);
+    }
+
+    size_t router_bw = std::min(this->bandwidth, this->packet_size) * std::min(nb_inputs, nb_targets);
+    if (do_read && do_write && !this->shared_rw)
+    {
+        router_bw *= 2;
+    }
+
+    size_t input_bw = std::min(this->bandwidth, this->packet_size) * nb_inputs;
+    if (do_read && do_write && !this->shared_rw)
+    {
+        input_bw *= 2;
+    }
+
+    size_t bw = std::min(input_bw, std::min(router_bw, target_bw));
+
+    size_t total_size = size * nb_inputs * nb_gens_per_input;
+    if (do_read && do_write)
+    {
+        total_size *= 2;
+    }
+
+    int64_t expected = total_size / bw;
+    return expected;
 }
 
 TestCommon::TestCommon(Block *parent, std::string name)

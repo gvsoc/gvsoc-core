@@ -14,8 +14,12 @@ ifdef ASYNC
 OPTIONS += synchronous=false
 endif
 
-ifdef BW
-OPTIONS += bandwidth=${BW}
+ifdef BW_0
+OPTIONS += bandwidth_0=${BW_0}
+endif
+
+ifdef BW_1
+OPTIONS += bandwidth_1=${BW_1}
 endif
 
 ifdef PACKET_SIZE
@@ -24,6 +28,14 @@ endif
 
 ifdef INPUT_FIFO_SIZE
 OPTIONS += input_fifo_size=${INPUT_FIFO_SIZE}
+endif
+
+ifdef RCV
+OPTIONS += use_memory=false
+endif
+
+ifdef TARGET_BW
+OPTIONS += target_bw=${TARGET_BW}
 endif
 
 space := $(subst ,, )

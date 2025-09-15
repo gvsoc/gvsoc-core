@@ -748,16 +748,16 @@ namespace vp {
     }
     else
     {
-        this->master_grant_meth_mux = port->grant_meth_mux;
-        this->master_grant_meth = (IoGrantMeth *)&IoSlave::grant_muxed_stub;
-        this->slave_grant_mux_id = port->grant_mux_id;
+        port->SlavePort->master_grant_meth_mux = port->grant_meth_mux;
+        port->SlavePort->master_grant_meth = (IoGrantMeth *)&IoSlave::grant_muxed_stub;
+        port->SlavePort->slave_grant_mux_id = port->grant_mux_id;
 
-        this->master_resp_meth_mux = port->resp_meth_mux;
-        this->master_resp_meth = (IoRespMeth *)&IoSlave::resp_muxed_stub;
-        this->slave_resp_mux_id = port->resp_mux_id;
+        port->SlavePort->master_resp_meth_mux = port->resp_meth_mux;
+        port->SlavePort->master_resp_meth = (IoRespMeth *)&IoSlave::resp_muxed_stub;
+        port->SlavePort->slave_resp_mux_id = port->resp_mux_id;
 
-        this->master_context_for_mux = (vp::Block *)port->get_context();
-        this->set_remote_context(this);
+        port->SlavePort->master_context_for_mux = (vp::Block *)port->get_context();
+        port->SlavePort->set_remote_context(port->SlavePort);
     }
   }
 

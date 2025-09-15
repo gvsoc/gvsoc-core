@@ -18,9 +18,11 @@ import gvsoc.systree
 
 class Generator(gvsoc.systree.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, nb_pending_reqs=64):
 
         super(Generator, self).__init__(parent, name)
+
+        self.add_property('nb_pending_reqs', nb_pending_reqs)
 
         self.add_sources(['interco/traffic/generator.cpp'])
 

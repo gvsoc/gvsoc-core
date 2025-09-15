@@ -56,7 +56,7 @@ private:
     int64_t last_req_cyclestamp = 0;
     bool do_write;
 
-    int nb_pending_reqs = 64;
+    int nb_pending_reqs;
     vp::Queue free_reqs;
 };
 
@@ -75,6 +75,8 @@ Generator::Generator(vp::ComponentConf &config)
 
     this->control_itf.set_sync_meth(&Generator::control_sync);
     this->new_slave_port("control", &this->control_itf);
+
+    this->nb_pending_reqs = this->get_js_config()->get_int("nb_pending_reqs");
 }
 
 void Generator::grant(vp::Block *__this, vp::IoReq *req)

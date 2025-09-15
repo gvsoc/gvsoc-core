@@ -142,8 +142,8 @@ class Runner():
             self.target.add_properties({
                 "gvsoc": {
                     "proxy": {
-                        "enabled": False,
-                        "port": 42951
+                        "enabled": args.proxy,
+                        "port": args.proxy_port
                     },
                     "events": {
                         "enabled": False,
@@ -245,10 +245,10 @@ class Runner():
                 module.parse_args(parser, args)
 
         if gvsoc_config.get_bool('events/gen_gtkw'):
-            path = os.path.join(gapy_target.get_working_dir(), 'view.gtkw')
+            path = os.path.join(args.build_dir, 'view.gtkw')
 
             traces = self.gen_gtkw_script(
-                work_dir=self.gapy_target.get_working_dir(),
+                work_dir=args.build_dir,
                 path=path,
                 tags=gvsoc_config.get('events/tags').get_dict(),
                 level=gvsoc_config.get_child_int('events/level'),
@@ -276,6 +276,12 @@ class Runner():
 
     def gv_handle_command(self, cmd, args):
 
+        if cmd == 'prepare':
+            self.run(norun=True)
+            return True
+
+        return False
+
         if cmd == 'run':
             self.run()
             return True
@@ -290,10 +296,6 @@ class Runner():
 
         elif cmd == 'traces' and self.rtl_runner is not None:
             self.rtl_runner.traces()
-            return True
-
-        elif cmd == 'prepare':
-            self.run(norun=True)
             return True
 
         elif cmd == 'image':
@@ -383,6 +385,8 @@ class Runner():
 
         [args, otherArgs] = self.parser.parse_known_args()
 
+        os.makedirs(args.build_dir, exist_ok=True)
+
         if args is None:
             args = args
         gvsoc_config = self.full_config.get('target/gvsoc')
@@ -414,7 +418,7 @@ class Runner():
                 print ('Launching GVSOC with command: ')
                 print (' '.join(command))
 
-            os.chdir(self.gapy_target.get_working_dir())
+            os.chdir(args.build_dir)
 
             return os.execvp(command[0], command)
 
@@ -422,7 +426,7 @@ class Runner():
 
 
             if self.rtl_runner is not None:
-                os.chdir(self.gapy_target.get_working_dir())
+                os.chdir(args.build_dir)
                 command = self.rtl_runner.get_command()
 
             else:
@@ -611,6 +615,12 @@ class Target(gvrun.target.Target):
 
             parser.add_argument("--emulation", dest="emulation", action="store_true",
                 help="Launch in emulation mode")
+
+            parser.add_argument("--proxy", dest="proxy", action="store_true",
+                help="Enable proxy mode")
+
+            parser.add_argument("--proxy-port", dest="proxy_port", default=42951, type=int,
+                help="Specify proxy port")
 
             parser.add_argument("--component-file", dest="component_file", default=None,
                 help="Component file")

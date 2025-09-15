@@ -168,6 +168,7 @@ private:
     vp::ClockEvent fsm_event;
     // Input where election will start in the next election phase. Used to implement round robin
     int current_input = 0;
+    vp::Queue ended_reqs;
 };
 
 
@@ -340,8 +341,8 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
         // Check if the bandwidth allows the request to go through the input
         if (cycles >= in->next_burst_cycle)
         {
-            // Check if this port has any pending request
-            if (!in->pending_reqs.empty())
+            // Check if this port is not stalled and has any pending request
+            if (!in->stalled && !in->pending_reqs.empty())
             {
                 vp::IoReq *req = in->pending_reqs.front();
                 // Since a request can be checked multiple times before it is routed, we only
@@ -429,6 +430,14 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     Channel *_this = (Channel *)__this;
     int64_t cycles = _this->clock.get_cycles();
 
+    // Some requests for which responses came back synchronously need to be handled once the
+    // latency has ellapsed
+    while(!_this->ended_reqs.empty())
+    {
+        vp::IoReq *ended_req = (vp::IoReq *)_this->ended_reqs.pop();
+        _this->handle_req_end(ended_req, vp::IO_REQ_OK);
+    }
+
     // Go through each output to see if we can send requests
     for (int i=0; i<_this->entries.size(); i++)
     {
@@ -495,12 +504,13 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                 out->log_access(addr, req->get_size());
 
+
                 vp::IoReqStatus status = itf->req(req);
 
                 if (status == vp::IO_REQ_DENIED)
                 {
-                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Denied req, stalling input and output (in: %d, out: %d)\n",
-                        in->id, i);
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Denied req, stalling input and output (req: %p, in: %d, out: %d)\n",
+                        req, in->id, i);
 
                     out->stalled = true;
                     out->stalled_port = in;
@@ -513,7 +523,17 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                 if (status == vp::IO_REQ_OK)
                 {
-                    _this->handle_req_end(req, vp::IO_REQ_OK);
+                    // When the request is handle synchronously, the target uses the latency to
+                    // apply timing. We need to take it into account before reusing the request
+                    int64_t latency = req->get_full_latency();
+                    if (latency == 0)
+                    {
+                        _this->handle_req_end(req, vp::IO_REQ_OK);
+                    }
+                    else
+                    {
+                        _this->ended_reqs.push_back(req, latency);
+                    }
                 }
             }
         }
@@ -525,7 +545,7 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         resched |= _this->inputs[i]->pending_reqs.size() > 0;
     }
 
-    if (resched)
+    if (resched || _this->ended_reqs.has_reqs())
     {
         _this->arbiter_event.enqueue(0);
     }
@@ -533,8 +553,11 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 Channel::Channel(Router *top, std::string name)
 : vp::Block(top, name), top(top), fsm_event(this, Channel::fsm_handler),
-    arbiter_event(this, Channel::arbiter_handler)
+    arbiter_event(this, Channel::arbiter_handler),
+    ended_reqs(this, "ended_reqs")
 {
+    this->traces.new_trace("trace", &trace, vp::DEBUG);
+
     // Instantiates input ports
     this->inputs.resize(this->top->nb_input_port);
     for (int i=0; i<this->top->nb_input_port; i++)

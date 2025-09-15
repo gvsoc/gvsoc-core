@@ -60,6 +60,16 @@ bool vp::Queue::empty()
     return this->first == NULL || this->first->timestamp > this->clock.get_cycles();
 }
 
+bool vp::Queue::has_reqs()
+{
+    return this->first != NULL;
+}
+
+int vp::Queue::nb_reqs()
+{
+    return this->nb_elem;
+}
+
 void vp::Queue::reset(bool active)
 {
     if (active)

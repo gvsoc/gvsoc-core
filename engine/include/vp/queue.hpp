@@ -39,6 +39,8 @@ namespace vp {
         void reset(bool active);
         int size();
         void trigger_next();
+        bool has_reqs();
+        int nb_reqs();
 
     private:
         static void cancel_callback(void *__this, vp::QueueElem *elem);

@@ -7,21 +7,15 @@ import vp.clock_domain
 import interco.router
 import utils.loader.loader
 import gdbserver.gdbserver
+from gvrun.target import TargetParameter
 
 import my_comp
 
 
-GAPY_TARGET = True
-
 class Soc(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, parser):
+    def __init__(self, parent, name, binary):
         super().__init__(parent, name)
-
-        # Parse the arguments to get the path to the binary to be loaded
-        [args, __] = parser.parse_known_args()
-
-        binary = args.binary
 
         # Main interconnect
         ico = interco.router.Router(self, 'ico', bandwidth=1)
@@ -37,7 +31,7 @@ class Soc(gvsoc.systree.Component):
         ico.o_MAP(mem.i_INPUT(), 'mem', base=0x00000000, size=0x00100000, rm_base=True, latency=100)
 
         # Instantiates the main core and connect fetch and data to the interconnect
-        host = cpu.iss.riscv.Riscv(self, 'host', isa='rv64imafdc')
+        host = cpu.iss.riscv.Riscv(self, 'host', isa='rv64imafdc', binaries=[binary])
         host.o_FETCH     ( ico.i_INPUT     ())
         host.o_DATA      ( ico.i_INPUT     ())
 
@@ -54,21 +48,24 @@ class Soc(gvsoc.systree.Component):
 # so that it automatically propagate to other components
 class Rv64(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, parser, options):
+    def __init__(self, parent, name=None):
 
-        super().__init__(parent, name, options=options)
+        super().__init__(parent, name)
+
+        binary = TargetParameter(
+            self, name='binary', value=None, description='Binary to be simulated'
+        ).get_value()
 
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100000000)
-        soc = Soc(self, 'soc', parser)
+        soc = Soc(self, 'soc', binary)
         clock.o_CLOCK    ( soc.i_CLOCK     ())
 
 
 
 
-# This is the top target that gapy will instantiate
+# This is the top target that gvrun will instantiate
 class Target(gvsoc.runner.Target):
 
-    def __init__(self, parser, options):
-        super(Target, self).__init__(parser, options,
-            model=Rv64, description="RV64 virtual board")
-
+    description = "Custom system"
+    model = Rv64
+    name = "test"

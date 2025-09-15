@@ -20,13 +20,12 @@ import gvsoc.runner
 import vp.clock_domain
 from model import Model
 from testbench import Testbench
+from gvrun.target import TargetParameter
 
-
-GAPY_TARGET = True
 
 class Test(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, parser):
+    def __init__(self, parent, name):
         super().__init__(parent, name)
 
         dut = Model(self, 'dut')
@@ -41,21 +40,20 @@ class Test(gvsoc.systree.Component):
 # so that it automatically propagate to other components
 class Chip(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, parser, options):
+    def __init__(self, parent, name=None):
 
-        super().__init__(parent, name, options=options)
+        super().__init__(parent, name)
 
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100000000)
-        soc = Test(self, 'soc', parser)
+        soc = Test(self, 'soc')
         clock.o_CLOCK    (soc.i_CLOCK    ())
 
 
 
 
-# This is the top target that gapy will instantiate
+# This is the top target that gvrun will instantiate
 class Target(gvsoc.runner.Target):
 
-    def __init__(self, parser, options):
-        super(Target, self).__init__(parser, options,
-            model=Chip, description="RV64 virtual board")
-
+    description = "Custom system"
+    model = Chip
+    name = "test"

@@ -9,20 +9,18 @@ import utils.loader.loader
 import gdbserver.gdbserver
 
 import my_comp
+from gvrun.target import TargetParameter
 
-
-GAPY_TARGET = True
 
 class Rv64(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, parser, options):
+    def __init__(self, parent, name=None):
 
-        super().__init__(parent, name, options=options)
+        super().__init__(parent, name)
 
-        # Parse the arguments to get the path to the binary to be loaded
-        [args, __] = parser.parse_known_args()
-
-        binary = args.binary
+        binary = TargetParameter(
+            self, name='binary', value=None, description='Binary to be simulated'
+        ).get_value()
 
         clock1 = vp.clock_domain.Clock_domain(self, 'clock1', frequency=100000000)
         clock2 = vp.clock_domain.Clock_domain(self, 'clock2', frequency=100000000)
@@ -41,7 +39,7 @@ class Rv64(gvsoc.systree.Component):
         ico.o_MAP(mem.i_INPUT(), 'mem', base=0x00000000, size=0x00100000, rm_base=True)
 
         # Instantiates the main core and connect fetch and data to the interconnect
-        host = cpu.iss.riscv.Riscv(self, 'host', isa='rv64imafdc')
+        host = cpu.iss.riscv.Riscv(self, 'host', isa='rv64imafdc', binaries=[binary])
         host.o_FETCH     ( ico.i_INPUT     ())
         host.o_DATA      ( ico.i_INPUT     ())
 
@@ -61,10 +59,9 @@ class Rv64(gvsoc.systree.Component):
         comp.o_CLK_CTRL   (clock1.i_CTRL())
 
 
-# This is the top target that gapy will instantiate
+# This is the top target that gvrun will instantiate
 class Target(gvsoc.runner.Target):
 
-    def __init__(self, parser, options):
-        super(Target, self).__init__(parser, options,
-            model=Rv64, description="RV64 virtual board")
-
+    description = "Custom system"
+    model = Rv64
+    name = "test"

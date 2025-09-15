@@ -32,9 +32,6 @@ class Receiver(gvsoc.systree.Component):
 
     def gen_gui(self, parent_signal):
         top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr", groups=['regmap'])
-        # gvsoc.gui.Signal(self, top, "req_size", path="req_size", groups=['regmap'])
-        # gvsoc.gui.Signal(self, top, "req_is_write", path="req_is_write", groups=['regmap'])
-        # gvsoc.gui.Signal(self, top, "send_size", path="send_size", groups=['regmap'])
-        # gvsoc.gui.Signal(self, top, "pending_size", path="pending_size", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "req_size", path="req_size", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "req_is_write", path="req_is_write", groups=['regmap'])
         gvsoc.gui.Signal(self, top, "stalled", path="stalled", display=gvsoc.gui.DisplayPulse(), groups=['regmap'])
-        # gvsoc.gui.Signal(self, top, "busy", path="busy", display=gvsoc.gui.DisplayPulse(), groups=['regmap'])

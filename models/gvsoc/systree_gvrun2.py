@@ -571,7 +571,7 @@ class Component(gvrun.target.SystemTreeNode):
             subcomps_traces = []
 
             for trace in traces:
-                if trace[0][0] == self.name:
+                if trace[0][0] == self.get_name():
                     if len(trace[0][1:]) == 0:
                         comp_traces.append([trace[0][1:], trace[1], trace[2]])
                     subcomps_traces.append([trace[0][1:], trace[1], trace[2]])
@@ -582,7 +582,7 @@ class Component(gvrun.target.SystemTreeNode):
         self.gen_gtkw_conf(tree, comp_traces)
 
         if self.vcd_group_create or tree.gen_full_tree:
-            tree.begin_group(self.name, closed=self.vcd_group_closed)
+            tree.begin_group(self.get_name(), closed=self.vcd_group_closed)
 
         self.__gen_gtkw_wrapper(tree, comp_traces)
 
@@ -591,7 +591,7 @@ class Component(gvrun.target.SystemTreeNode):
             component.gen_gtkw_tree(tree, traces=subcomps_traces, filter_traces=self.is_top or filter_traces)
 
         if self.vcd_group_create or tree.gen_full_tree:
-            tree.end_group(self.name, closed=self.vcd_group_closed)
+            tree.end_group(self.get_name(), closed=self.vcd_group_closed)
 
     def __gen_traces(self, tree, traces):
         groups = {}

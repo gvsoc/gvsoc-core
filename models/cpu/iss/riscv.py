@@ -319,6 +319,10 @@ class RiscvCommon(st.Component):
         if handle_misaligned:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
 
+        for binary in binaries:
+            if binary is not None:
+                self.handle_executable(binary)
+
     def handle_executable(self, binary):
 
         global binaries

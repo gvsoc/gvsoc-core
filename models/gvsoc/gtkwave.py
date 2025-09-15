@@ -136,7 +136,10 @@ class Gtkwave_tree(object):
         return self.work_dir
 
     def get_full_vcd_name(self, comp, vcd_name):
-        return (comp.get_path(gv_path=True) + '/' + vcd_name).replace('/', '.')
+        if os.environ.get('USE_GVRUN2') is not None:
+            return (comp.get_path() + '/' + vcd_name).replace('/', '.')
+        else:
+            return (comp.get_path(gv_path=True) + '/' + vcd_name).replace('/', '.')
 
     def add_trace(self, comp, name, vcd_signal=None, ext='', map_file=None, map_file_path=None, tag=None, full_vcd_signal=None):
         if full_vcd_signal is None:
@@ -196,6 +199,6 @@ class Gtkwave_tree(object):
                 full_vcd_signal = self.get_full_vcd_name(comp, trace[1])
                 self.activate_traces.append('/' + full_vcd_signal.replace('.', '/'))
 
-        
+
     def gen(self):
         self.current_groups[0].gen(self.gtkw)

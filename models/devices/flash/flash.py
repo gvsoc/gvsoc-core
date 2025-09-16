@@ -31,7 +31,7 @@ if os.environ.get('USE_GVRUN') is None:
         def get_image_path(self):
             return self.get_path().replace('/', '.') + '.bin'
 
-else:
+elif os.environ.get('USE_GVRUN2') is None:
 
     import gvsoc.systree as st
     import gvrun.flash
@@ -93,3 +93,15 @@ else:
 
         def register_section_template(self, name, template):
             self.generator.register_section_template(name, template)
+
+else:
+
+    import gvsoc.systree as st
+
+    class Flash(st.Component):
+
+        def __init__(self, parent, name):
+            super(Flash, self).__init__(parent, name)
+
+        def get_image_path(self):
+            return self.get_path().replace('/', '.') + '.bin'

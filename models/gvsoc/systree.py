@@ -682,6 +682,7 @@ else:
 
             if not self.finalize_done:
                 self.__finalize()
+                self.configure_all()
 
             config = {}
 
@@ -897,6 +898,15 @@ else:
 
             self.finalize_done = True
 
+        def configure(self):
+            pass
+
+        def configure_all(self):
+            for component in self.components.values():
+                component.configure_all()
+
+            self.configure()
+
         def __merge_properties(self, dst, src, options=None, is_root=True):
 
             if type(src) == dict or type(src) == collections.OrderedDict:
@@ -1009,6 +1019,8 @@ else:
         def _declare_parameter(self, descriptor):
             return self.declare_target_property(descriptor)
 
+        def get_parameter(self, name: str) -> str | None:
+            return self.get_user_property(name)
 
         def declare_target_property(self, descriptor):
             if self.parent is not None:

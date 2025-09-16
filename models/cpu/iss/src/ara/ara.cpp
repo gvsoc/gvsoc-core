@@ -80,11 +80,15 @@ PendingInsn *Ara::pending_insn_alloc(PendingInsn *cva6_pending_insn)
     int insn_id = this->insn_last;
     this->insn_last = (this->insn_last + 1) % this->queue_size;
 
-    // We commit now the instruction to CVA6 since there is nothing to commit in CVA6.
     // Copy the pending instruction coming from CVA6 since the commit will free it.
     this->pending_insns[insn_id] = *cva6_pending_insn;
 
+#if !defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+    // We commit now the instruction to CVA6 since there is nothing to commit in CVA6.
+    // FIXME probably there is something wrong with fpu registers dependency management.
+    // Align it on Spatz to fix it
     this->iss.top.insn_commit(cva6_pending_insn);
+#endif
 
     return &this->pending_insns[insn_id];
 }
@@ -106,16 +110,34 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
 
     // Copy the CVA6 register since we will use it later and it will probably change before that
     int reg = insn->in_regs[0];
-    uint64_t reg_value;
-    if (insn->in_regs_fp[0])
+    int reg_2 = insn->in_regs[1];
+    uint64_t reg_value, reg_value_2;
+
+    if (insn->nb_in_reg > 0)
     {
-        reg_value = this->iss.regfile.get_freg_untimed(reg);
+        if (insn->in_regs_fp[0])
+        {
+            reg_value = this->iss.regfile.get_freg_untimed(reg);
+        }
+        else
+        {
+            reg_value = this->iss.regfile.get_reg_untimed(reg);
+        }
+        pending_insn->reg = reg_value;
     }
-    else
+
+    if (insn->nb_in_reg > 1)
     {
-        reg_value = this->iss.regfile.get_reg_untimed(reg);
+        if (insn->in_regs_fp[1])
+        {
+            reg_value_2 = this->iss.regfile.get_freg_untimed(reg_2);
+        }
+        else
+        {
+            reg_value_2 = this->iss.regfile.get_reg_untimed(reg_2);
+        }
+        pending_insn->reg_2 = reg_value_2;
     }
-    pending_insn->reg = reg_value;
 
     // Enable the FSM to let it handle the pending instructions
     this->fsm_event.enable();
@@ -147,7 +169,11 @@ void Ara::insn_end(PendingInsn *pending_insn)
     // write the output register.
     // Store the instruction register as it will be used by the handler.
     this->current_insn_reg = pending_insn->reg;
+    this->current_insn_reg_2 = pending_insn->reg_2;
+    // Force trace dump since the core may be stalled which would skip trace
+    this->iss.trace.force_trace_dump = true;
     insn->stub_handler(&this->iss, insn, pending_insn->pc);
+    this->iss.trace.force_trace_dump = false;
 
     // Mark output registers as ready in next cycle
     for (int i=0; i<insn->nb_out_reg; i++)
@@ -166,6 +192,11 @@ void Ara::insn_end(PendingInsn *pending_insn)
             this->scoreboard_in_use[insn->in_regs[i]]--;
         }
     }
+
+#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
+    // Commit the instruction. This may unblock other instructions waiting for float registers
+    this->iss.top.insn_commit(pending_insn);
+#endif
 }
 
 void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)

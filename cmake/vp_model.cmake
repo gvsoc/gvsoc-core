@@ -1,3 +1,7 @@
+if(POLICY CMP0177)
+    cmake_policy(SET CMP0177 NEW)
+endif()
+
 set(VP_TARGET_TYPES "" CACHE INTERNAL "contains the types of target")
 
 function(vp_set_target_types)
@@ -59,7 +63,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE ${subdir})
         endforeach()
-        
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_OPTIM_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -79,7 +83,7 @@ function(vp_block)
         set_target_properties(${VP_MODEL_NAME_OPTIM_M32} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE "-D__GVSOC__")
         target_compile_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32 -D__M32_MODE__=1)
-
+        target_link_options(${VP_MODEL_NAME_OPTIM_M32} PRIVATE -m32)
         target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
         foreach(X IN LISTS GVSOC_MODULES)
@@ -89,7 +93,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${subdir})
         endforeach()
-        
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_OPTIM_M32_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -122,7 +126,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE ${subdir})
         endforeach()
-    
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_DEBUG_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -142,6 +146,7 @@ function(vp_block)
         set_target_properties(${VP_MODEL_NAME_DEBUG_M32} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE "-D__GVSOC__")
         target_compile_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32 -D__M32_MODE__=1)
+        target_link_options(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -m32)
         target_compile_definitions(${VP_MODEL_NAME_DEBUG_M32} PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
 
         target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -153,7 +158,7 @@ function(vp_block)
         foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
             target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${subdir})
         endforeach()
-    
+
         if(VP_MODEL_OUTPUT_NAME)
             set(RENAME_DEBUG_M32_NAME ${VP_MODEL_OUTPUT_NAME})
         else()
@@ -180,7 +185,7 @@ function(vp_block_compile_options)
 
     foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
         set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
-        target_compile_options(${VP_MODEL_NAME_TYPE} INTERFACE ${VP_MODEL_OPTIONS})
+        target_compile_options(${VP_MODEL_NAME_TYPE} PUBLIC ${VP_MODEL_OPTIONS})
     endforeach()
 endfunction()
 
@@ -257,7 +262,7 @@ function(vp_model)
             foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
                 target_include_directories(${VP_MODEL_NAME_OPTIM_M32} PRIVATE ${subdir})
             endforeach()
-        
+
             if(VP_MODEL_OUTPUT_NAME)
                 set(RENAME_OPTIM_M32_NAME ${VP_MODEL_OUTPUT_NAME})
             else()
@@ -322,7 +327,7 @@ function(vp_model)
             foreach(subdir ${VP_MODEL_INCLUDE_DIRS})
                 target_include_directories(${VP_MODEL_NAME_DEBUG_M32} PRIVATE ${subdir})
             endforeach()
-        
+
             if(VP_MODEL_OUTPUT_NAME)
                 set(RENAME_DEBUG_M32_NAME ${VP_MODEL_OUTPUT_NAME})
             else()
@@ -366,6 +371,28 @@ function(vp_model_link_gvsoc)
     endif()
 endfunction()
 
+function(vp_block_link_libraries)
+    cmake_parse_arguments(
+        VP_MODEL
+        ""
+        "NAME;NO_M32;"
+        "LIBRARY"
+        ${ARGN}
+    )
+
+    if(TARGET_TYPES)
+    else()
+        set(TARGET_TYPES ${VP_TARGET_TYPES})
+    endif()
+    foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
+        if (VP_MODEL_NO_M32 AND (TARGET_TYPE STREQUAL _debug_m32 OR TARGET_TYPE STREQUAL _optim_m32))
+        else()
+            set(VP_MODEL_NAME_TARGET "${VP_MODEL_NAME}${TARGET_TYPE}")
+            target_link_libraries(${VP_MODEL_NAME_TARGET} PRIVATE ${VP_MODEL_LIBRARY})
+        endif()
+    endforeach()
+endfunction()
+
 function(vp_model_link_libraries)
     cmake_parse_arguments(
         VP_MODEL
@@ -379,7 +406,7 @@ function(vp_model_link_libraries)
         else()
             set(TARGET_TYPES ${VP_TARGET_TYPES})
         endif()
-    
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             if (VP_MODEL_NO_M32 AND (TARGET_TYPE STREQUAL _debug_m32 OR TARGET_TYPE STREQUAL _optim_m32))
@@ -433,7 +460,7 @@ function(vp_model_link_options)
         "OPTIONS"
         ${ARGN}
         )
-        
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
@@ -450,7 +477,7 @@ function(vp_model_compile_definitions)
         "DEFINITIONS"
         ${ARGN}
         )
-        
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
@@ -467,7 +494,7 @@ function(vp_model_include_directories)
         "DIRECTORY"
         ${ARGN}
         )
-       
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")
@@ -484,7 +511,7 @@ function(vp_model_sources)
         "SOURCES"
         ${ARGN}
         )
-        
+
     if ("${CONFIG_${VP_MODEL_NAME}}" EQUAL "1" OR DEFINED CONFIG_BUILD_ALL OR DEFINED VP_MODEL_FORCE_BUILD)
         foreach (TARGET_TYPE IN LISTS VP_TARGET_TYPES)
             set(VP_MODEL_NAME_TYPE "${VP_MODEL_NAME}${TARGET_TYPE}")

@@ -222,12 +222,18 @@ void Ns16550::update_interrupt(void)
     if (!interrupts)
     {
         iir = UART_IIR_NO_INT;
-        this->irq_itf.sync(false);
+        if (this->irq_itf.is_bound())
+        {
+            this->irq_itf.sync(false);
+        }
     }
     else
     {
         iir = interrupts;
-        this->irq_itf.sync(true);
+        if (this->irq_itf.is_bound())
+        {
+            this->irq_itf.sync(true);
+        }
     }
 
     /*
@@ -489,6 +495,8 @@ Ns16550::Ns16550(vp::ComponentConf &config)
     scr = 0;
 
     reg_io_width = 1;
+
+    this->reg_shift = this->get_js_config()->get_child_int("offset_shift");
 
     this->input_itf.set_req_meth(&Ns16550::req);
     new_slave_port("input", &this->input_itf);

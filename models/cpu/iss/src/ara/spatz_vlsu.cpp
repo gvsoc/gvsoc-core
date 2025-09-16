@@ -28,9 +28,6 @@ fsm_event(this, &AraVlsu::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->traces.new_trace_event("active", &this->event_active, 1);
-    this->traces.new_trace_event("addr", &this->event_addr, 64);
-    this->traces.new_trace_event("size", &this->event_size, 64);
-    this->traces.new_trace_event("is_write", &this->event_is_write, 1);
     this->traces.new_trace_event("pc", &this->event_pc, 64);
     this->traces.new_trace_event("queue", &this->event_queue, 64);
     this->traces.new_trace_event_string("label", &this->event_label);
@@ -38,6 +35,21 @@ fsm_event(this, &AraVlsu::fsm_handler)
     this->insns.resize(AraVlsu::queue_size);
 
     int nb_ports = top.get_js_config()->get_child_int("ara/nb_ports");
+    this->nb_ports = nb_ports;
+
+    this->event_addr.resize(nb_ports);
+    this->event_size.resize(nb_ports);
+    this->event_is_write.resize(nb_ports);
+
+    for (int i=0; i<nb_ports; i++)
+    {
+        this->traces.new_trace_event("port_" + std::to_string(i) + "/addr",
+            &this->event_addr[i], 64);
+        this->traces.new_trace_event("port_" + std::to_string(i) + "/size",
+            &this->event_size[i], 64);
+        this->traces.new_trace_event("port_" + std::to_string(i) + "/is_write",
+            &this->event_is_write[i], 1);
+    }
 
     this->ports.resize(nb_ports);
     for (int i=0; i<nb_ports; i++)
@@ -65,13 +77,17 @@ void AraVlsu::reset(bool active)
     {
         uint8_t zero = 0;
         this->event_active.event(&zero);
-        this->event_addr.event(&zero);
-        this->event_size.event(&zero);
-        this->event_is_write.event(&zero);
+        for (int i=0; i<nb_ports; i++)
+        {
+            this->event_addr[i].event(&zero);
+            this->event_size[i].event(&zero);
+            this->event_is_write[i].event(&zero);
+        }
         this->insn_first = 0;
         this->insn_first_waiting = 0;
         this->insn_last = 0;
         this->nb_waiting_insn = 0;
+        this->pending_size = 0;
 
         // Since the request queues are cleared with the reset, we need to put back requests
         // in each queue
@@ -158,9 +174,12 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->event_queue.event_highz();
         _this->event_pc.event_highz();
         _this->event_active.event(&zero);
-        _this->event_addr.event_highz();
-        _this->event_size.event_highz();
-        _this->event_is_write.event(&zero);
+        for (int i=0; i<_this->nb_ports; i++)
+        {
+            _this->event_addr[i].event_highz();
+            _this->event_size[i].event_highz();
+            _this->event_is_write[i].event(&zero);
+        }
         _this->event_label.event_string((char *)1, false);
 
         _this->fsm_event.disable();
@@ -199,6 +218,10 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 _this->trace.msg(vp::Trace::LEVEL_TRACE,
                     "Sending request (port: %d, addr: 0x%lx, size: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
                     i, _this->pending_addr, size, _this->pending_size, _this->pending_is_write);
+
+                _this->event_addr[i].event((uint8_t *)&_this->pending_addr);
+                _this->event_size[i].event((uint8_t *)&size);
+                _this->event_is_write[i].event((uint8_t *)&_this->pending_is_write);
 
                 /// Pop a request from this port queue to limit number of outstanding requests
                 vp::IoReq *req = (vp::IoReq *)_this->req_queues[i]->pop();

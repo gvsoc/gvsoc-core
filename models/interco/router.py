@@ -56,6 +56,20 @@ class Router(gvsoc.systree.Component):
     output port. When this happens, the next slave can handle a big amount of data in the same cycle,
     which means it can block activity for some time, creating some artificial holes in the execution.
 
+    The asynchronous mode can be used for more accurate simulation.
+    In this case, the router always enqueue incoming requests into queues and use events to arbiter
+    the requests to be forwarded to the outputs. This router always add one cycle of latency as it
+    forwards the requests the cycle after at best.
+    The arbitration happens in 2 steps. First it executes an event at the end of the cycles to elect
+    which input requests go to which output. Requests arrived in the same cycle are taken into
+    account. Then it executes another event the cycle after to send the elected requests.
+    The router maintain a bandwidth limitation at both the input and the output sides.
+    If specified, it can also model a FIFO on each input to limit the number of pending bytes. In
+    this case, as soon as the limit is reached, any other incoming request on the port where the
+    FIFO is full is denied. This can only be used for cycle-base requests, where the size of the
+    requests are smaller or equal to the router bandwidth.
+    The router latency is not yet implemented in this mode.
+
     Attributes
     ----------
     parent: gvsoc.systree.Component
@@ -69,24 +83,32 @@ class Router(gvsoc.systree.Component):
         end time of the burst.
     synchronous: True if the router should use synchronous mode where all incoming requests are
         handled as far as possible in synchronous IO mode.
+    shared_rw_bandwidth: True if the read and write requests should share the bandwidth.
+    max_input_pending_size: Size of the FIFO for each input. Only valid for asynchronous mode and
+        only when input packet size is smaller or equal to the bandwidth.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
-            synchronous: bool=True):
+            synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0):
         super(Router, self).__init__(parent, name)
 
         # This will store the whole set of mappings and passed to model as a dictionary
         self.add_property('mappings', {})
         self.add_property('latency', latency)
         self.add_property('bandwidth', bandwidth)
+        self.add_property('shared_rw_bandwidth', shared_rw_bandwidth)
+        self.add_property('max_input_pending_size', max_input_pending_size)
         # The number of input port is automatically increased each time i_INPUT is called if needed.
         # Set number of input ports to 1 by default because some models do not use i_INPUT yet.
         self.add_property('nb_input_port', 1)
 
-        self.add_sources(['interco/router_common.cpp'])
+        self.add_sources(['interco/router/router_common.cpp'])
         if synchronous:
-            self.add_sources(['interco/router.cpp'])
+            self.add_sources(['interco/router/router.cpp'])
         else:
-            self.add_sources(['interco/router_async.cpp'])
+            self.add_sources(['interco/router/router_async.cpp'])
+
+        self.synchronous = synchronous
+        self.shared_rw_bandwidth = shared_rw_bandwidth
 
 
     def add_mapping(self, name: str, base: int=0, size: int=0, remove_offset: int=0,
@@ -197,3 +219,32 @@ class Router(gvsoc.systree.Component):
             name = itf.component.name
         self.add_mapping(name, base=base, remove_offset=remove_offset, size=size, latency=latency)
         self.itf_bind(name, itf, signature='io')
+
+    def gen_gui(self, parent_signal):
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name, groups=['regmap'])
+
+        if self.synchronous:
+            for name, mapping in self.get_property('mappings').items():
+                mapping_trace = gvsoc.gui.Signal(self, top, name, path=name + "/addr", groups=['regmap'])
+                gvsoc.gui.Signal(self, mapping_trace, "size", path=name + "/size", groups=['regmap'])
+        else:
+
+            if self.shared_rw_bandwidth:
+                channels = ['rwchannel']
+            else:
+                channels = ['rchannel', 'wchannel']
+
+            for port in range(0, self.get_property("nb_input_port")):
+                name = f"input_{port}"
+                input_trace = gvsoc.gui.Signal(self, top, name)
+                for channel in channels:
+                    path = channel + '/' + name
+                    addr_trace = gvsoc.gui.Signal(self, input_trace, channel, path=path + "/addr", groups=['regmap'])
+                    gvsoc.gui.Signal(self, addr_trace, "size", path=path + "/size", groups=['regmap'])
+
+            for name, mapping in self.get_property('mappings').items():
+                mapping_trace = gvsoc.gui.Signal(self, top, name)
+                for channel in channels:
+                    path = channel + '/' + name
+                    channel_trace = gvsoc.gui.Signal(self, mapping_trace, channel, path=path + "/addr", groups=['regmap'])
+                    gvsoc.gui.Signal(self, channel_trace, "size", path=path + "/size", groups=['regmap'])

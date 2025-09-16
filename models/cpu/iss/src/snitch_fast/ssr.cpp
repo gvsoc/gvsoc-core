@@ -315,6 +315,7 @@ void Ssr::reset(bool active)
     {
         this->streamers[i].reset(active);
     }
+    this->ssr_enabled = false;
 }
 
 void Ssr::fsm_event_handler(vp::Block *__this, vp::ClockEvent *event)

@@ -131,6 +131,12 @@ void vp::PowerTrace::dump(FILE *file)
 
 void vp::PowerTrace::dump_vcd_trace()
 {
+    // Don't dump VCD if power is not enabled
+    if (!this->top->power.is_enabled())
+    {
+        return;
+    }
+
     // To dump the VCD trace, we need to compute the instant power, since this is what is reported.
     // This is easy for background and leakage power. For enery quantum, we get the amount of energy for the current
     // cycle and compute the instant power using the clock engine period.
@@ -148,7 +154,7 @@ void vp::PowerTrace::dump_vcd_trace()
     this->dyn_trace.event_real(this->instant_dynamic_power);
     this->static_trace.event_real(this->instant_static_power);
 
-    // If there was a contribution from energy quantum, schedule an event in the next cycle so that we dump again 
+    // If there was a contribution from energy quantum, schedule an event in the next cycle so that we dump again
     // the trace since teh quantum implicitely disappears and overal power is modified
     if (!this->trace_event->is_enqueued() && quantum_power > 0)
     {

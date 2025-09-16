@@ -30,8 +30,8 @@ public:
 
     FpuLsu(IssWrapper &top, Iss &iss);
 
-    int data_req(iss_addr_t addr, uint8_t *data, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
-    int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
+    int data_req(iss_addr_t addr, uint8_t *data, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id);
+    int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id);
     int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
 
     template<typename T>
@@ -51,9 +51,15 @@ public:
     vp::Trace trace;
 
     vp::IoReq io_req;
-    void (*stall_callback)(FpuLsu *lsu);
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    void (*stall_callback[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING])(FpuLsu *lsu, vp::IoReq *req);
+    int stall_reg[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
+    int stall_size[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
+#else
+    void (*stall_callback)(FpuLsu *lsu, vp::IoReq *req);
     int stall_reg;
     int stall_size;
+#endif
     int misaligned_size;
     uint8_t *misaligned_data;
     uint8_t *misaligned_memcheck_data;
@@ -61,8 +67,8 @@ public:
     bool misaligned_is_write;
 
 private:
-    static void load_float_resume(FpuLsu *lsu);
-    static void store_resume(FpuLsu *lsu);
+    static void load_float_resume(FpuLsu *lsu, vp::IoReq *req);
+    static void store_resume(FpuLsu *lsu, vp::IoReq *req);
 
     int64_t pending_latency;
 };

@@ -66,7 +66,7 @@ namespace vp {
     inline void fatal(const char *fmt, ...);
 
     inline void event_highz();
-    inline void event(uint8_t *value);
+    inline void event(uint8_t *value, int64_t delay=0);
     inline void event_string(const char *value, bool realloc);
     inline void event_real(double value);
 
@@ -141,7 +141,7 @@ namespace vp {
     {                                                 \
       fprintf(stdout, "ASSERT FAILED: ");             \
       fprintf(stdout, msg);                           \
-      exit(1);                                        \
+      abort();                                        \
     }                                                 \
   }
 
@@ -152,7 +152,7 @@ namespace vp {
     {                                              \
       fprintf(stdout, "WARNING: ");                \
       fprintf(stdout, msg);                        \
-      exit(1);                                     \
+      abort();                                     \
     }
 
 #ifndef VP_TRACE_ACTIVE

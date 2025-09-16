@@ -1713,7 +1713,7 @@ we exercise the various states and voltages:
         printf("\n\n");
     }
 
-The simulation must be launcher with option *--power* to enable power modeling:
+The simulation must be launched with option *--power* to enable power modeling:
 
     make all run runner_args="--power"
 

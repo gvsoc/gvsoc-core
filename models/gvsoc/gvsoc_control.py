@@ -313,6 +313,14 @@ class Proxy(object):
     def run(self, duration: int = None):
         """Starts execution.
 
+        If no duration is specified, the call is asynchronous and is immediately returning. This
+        means the engine is running in parallel of the python script. The script can still interact
+        with it while running, for example to stop it.
+
+        If a duration is specified, the call is synchronous and returns only when the specified
+        duration has elapsed. Note that other clients may asked the engine to stop and run during
+        this duration. If so, the caller is still blocked on the call.
+
         :param duration: Specify the duration of the execution in picoseconds (will execute forever by default)
         """
 
@@ -351,7 +359,11 @@ class Proxy(object):
 
 
     def quit(self, status: int = 0):
-        """Exit simulation.
+        """Exit the client.
+
+        This makes the calling client to exit with the specified status.
+        Note that the platform will exit only if all clients have exited and the simulation is
+        over.
 
         :param status: Specify the status value.
         """
@@ -359,6 +371,12 @@ class Proxy(object):
         self._send_cmd('quit %d' % status)
 
     def terminate(self):
+        """Force simulation to exit.
+
+        Since the platform waits until simulation is over before exiting, this can be usefull
+        to force it to exit in case simulation is looping forever.
+        """
+
         # Don't wait for the reply since the platform may not catch this command if it exits
         # right before
         self._send_cmd('terminate', wait_reply=False)
@@ -537,6 +555,27 @@ class Ssm6515(object):
 
         req = self.proxy._send_cmd(cmd)
 
+    def tdm_mode_configure(self, pcm_rate : int = None, slot_width : int = None, filepath : str = None, slots_per_frame: int = None):
+        """Set the dac tdm configuration.
+
+        :param filepath: The path to the produced output file.
+        :param slot_width: Slot width in i2s configuration.
+        :param pcm_rate: Desired output pcm samplerate.
+
+        :raises: RuntimeError, if the access generates an error in the architecture.
+        """
+        option = ''
+        if(filepath):
+            option += ' file_path %s' % (filepath)
+        if(slot_width):
+            option += ' width %d' % (slot_width)
+        if(pcm_rate):
+            option += ' pcm_freq %d' % (pcm_rate)
+        if(slots_per_frame):
+            option += ' slots_per_frame %d' % (slots_per_frame)
+        cmd = 'component %s mode tdm %s' % (self.component, option)
+
+        req = self.proxy._send_cmd(cmd)
 
     def debug_enabled(self, debug: bool = True):
         """Enable debug mode of the ssm
@@ -1184,6 +1223,7 @@ class Testbench_spi(object):
         self.condition = threading.Condition(self.lock)
         self.pending_rx_bytes = bytearray()
         self.req = None
+        self.is_master = None
 
     def open(self, is_master: int = 0, polarity: int = 0, phase: int = 0,
             mem_size_log2: int = 16, dummy_cycles: int = 0, frequency : int = 10000000):

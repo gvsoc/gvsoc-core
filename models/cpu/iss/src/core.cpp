@@ -64,6 +64,11 @@ void Core::build()
 
     this->iss.csr.mstatus.register_callback(std::bind(&Core::mstatus_update, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.sstatus.register_callback(std::bind(&Core::sstatus_update, this, std::placeholders::_1, std::placeholders::_2));
+
+    this->iss.top.traces.new_trace_event("thread_lifecycle", &this->event_thread_lifecycle,
+        sizeof(iss_reg_t) * 8);
+    this->iss.top.traces.new_trace_event("thread_current", &this->event_thread_current,
+        sizeof(iss_reg_t) * 8);
 }
 
 void Core::reset(bool active)

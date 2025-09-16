@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -49,8 +49,10 @@ private:
   int nb_masters;
   int interleaving_bits;
   int stage_bits;
+  int enable_shift;
   uint64_t offset_mask;
   uint64_t remove_offset;
+  bool offset_translation;
 };
 
 interleaver::interleaver(vp::ComponentConf &config)
@@ -66,6 +68,8 @@ interleaver::interleaver(vp::ComponentConf &config)
   stage_bits = get_js_config()->get_child_int("stage_bits");
   interleaving_bits = get_js_config()->get_child_int("interleaving_bits");
   remove_offset = get_js_config()->get_child_int("remove_offset");
+  enable_shift = get_js_config()->get_child_int("enable_shift");
+  offset_translation = get_js_config()->get_child_bool("offset_translation");
 
   if (stage_bits == 0)
   {
@@ -106,9 +110,11 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
   uint8_t *init_data = data;
   uint64_t init_size = size;
   uint64_t init_offset = offset;
+  int64_t init_latency = latency;
+  int64_t max_latency = 0;
 
-  _this->trace.msg("Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n", offset, size, is_write);
- 
+  _this->trace.msg("Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d, latency: %ld)\n", offset, size, is_write, latency);
+
   int port_size = 1<<_this->interleaving_bits;
   int align_size = offset & (port_size - 1);
   if (align_size) align_size = port_size - align_size;
@@ -116,7 +122,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
   offset -= _this->remove_offset;
 
   while(size) {
-    
+
     int loop_size = port_size;
     if (align_size) {
       loop_size = align_size;
@@ -125,7 +131,20 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     if (loop_size > size) loop_size = size;
 
     int output_id = (offset >> _this->interleaving_bits) & ((1 << _this->stage_bits) - 1);
-    uint64_t new_offset = ((offset & _this->offset_mask) >> _this->stage_bits) + (offset & ((1<<_this->interleaving_bits)-1));
+    uint64_t new_offset;
+    if (_this->offset_translation)
+    {
+        new_offset = ((offset & _this->offset_mask) >> _this->stage_bits) + (offset & ((1<<_this->interleaving_bits)-1));
+    }
+    else if (_this->enable_shift)
+    {
+      output_id = (offset >> (_this->interleaving_bits + _this->enable_shift)) & ((1 << _this->stage_bits) - 1);
+      new_offset = ((offset >> _this->enable_shift) & (-1ULL << _this->interleaving_bits)) | (offset & ((1ULL << _this->interleaving_bits) - 1));
+    }
+    else
+    {
+      new_offset = offset;
+    }
 
     _this->trace.msg("Forwarding interleaved packet (port: %d, offset: 0x%x, size: 0x%x)\n", output_id, new_offset, loop_size);
 
@@ -134,7 +153,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     req->set_addr(new_offset);
     req->set_size(loop_size);
     req->set_data(data);
-    req->set_latency(0);
+    req->set_latency(init_latency);
 
     vp::IoReqStatus err = _this->out[output_id]->req_forward(req);
     if (err != vp::IO_REQ_OK)
@@ -150,13 +169,13 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
         return vp::IO_REQ_INVALID;
       }
     }
-    
+
     int64_t iter_latency = req->get_latency();
-    if (iter_latency > latency)
+    if (iter_latency > max_latency)
     {
-      latency = iter_latency;
+      max_latency = iter_latency;
     }
-    
+
     size -= loop_size;
     offset += loop_size;
     if (data)
@@ -166,7 +185,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
   req->set_addr(init_offset);
   req->set_size(init_size);
   req->set_data(init_data);
-  req->set_latency(latency);
+  req->set_latency(max_latency);
 
 
   return vp::IO_REQ_OK;
@@ -185,5 +204,3 @@ extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new interleaver(config);
 }
-
-

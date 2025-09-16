@@ -36,9 +36,11 @@
 #define CSR_PCER	0xCC0
 #define CSR_PCMR	0xCC1
 
+#ifdef CONFIG_GVSOC_ISS_STACK_CHECKER
 #define CSR_STACK_CONF   0x7D0
 #define CSR_STACK_START  0x7D1
 #define CSR_STACK_END    0x7D2
+#endif
 
 #define CSR_MESTATUS_INTEN_BIT 0
 #define CSR_MESTATUS_PRV_BIT   1

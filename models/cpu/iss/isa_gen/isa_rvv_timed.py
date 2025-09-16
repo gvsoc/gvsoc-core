@@ -34,8 +34,9 @@ Format_OPV_0 = [ OutVReg     (0, Range(7 , 5)),
                InReg      (0, Range(15, 5))
 ]
 
-Format_OPV_1 = [ OutFReg    (0, Range(7 , 5), f='sew'),
-                 InVRegF      (0, Range(20, 5)),
+Format_OPV_1 = [
+    OutFReg    (0, Range(7 , 5), f='sew'),
+    InVRegF    (0, Range(20, 5)),
 ]
 
 Format_OPV_2 = [ OutVRegF     (0, Range(7 , 5)),
@@ -87,6 +88,64 @@ Format_OPV_8 = [
     InVRegF      (1, Range(20, 5)),
     InFReg       (0, Range(15, 5), f='sew'),
     UnsignedImm  (0, Range(25, 1)),
+]
+
+V_VXU = [
+    OutVReg      (0, Range(7 , 5)),
+    InVReg       (1, Range(20, 5)),
+    InReg        (0, Range(15, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
+VF_VFFU = [
+    OutVRegF     (0, Range(7 , 5)),
+    InVRegF      (1, Range(20, 5)),
+    InFReg       (0, Range(15, 5), f='sew'),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
+V_VUU = [
+    OutVReg     (0, Range(7 , 5)),
+    InVReg      (0, Range(20, 5)),
+    UnsignedImm (1, Range(15, 5)),
+    UnsignedImm (0, Range(25, 1)),
+]
+
+V_VVU = [
+    OutVReg     (0, Range(7 , 5)),
+    InVReg      (1, Range(20, 5)),
+    InVReg      (0, Range(15, 5)),
+    UnsignedImm (0, Range(25, 1)),
+]
+
+Format_OPV_9 = [
+    OutVRegF     (0, Range(7 , 5)),
+    InVReg       (0, Range(20, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
+Format_OPV_10 = [
+    OutVReg      (0, Range(7 , 5)),
+    InVRegF      (0, Range(20, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
+Format_OPV_11 = [
+    OutVRegF     (0, Range(7 , 5)),
+    InVRegF      (0, Range(20, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+]
+
+Format_OPV_12 = [
+    OutVRegF     (0, Range(7 , 5)),
+    InVRegF      (1, Range(20, 5)),
+    InVRegF      (0, Range(15, 5)),
+]
+
+Format_OPV_13 = [
+    OutVRegF     (0, Range(7 , 5)),
+    InVRegF      (1, Range(20, 5)),
+    InFReg       (0, Range(15, 5), f='sew'),
 ]
 
 Format_OPV = [ OutVReg     (0, Range(7 , 5)),
@@ -284,14 +343,14 @@ class Rv32v(IsaSubset):
             Instr('vredmax.vs'    ,   Format_OPV  ,    '000111 - ----- ----- 010 ----- 1010111'),
 
 
-            Instr('vslideup.vi'   ,   Format_OPIVI,    '001110 - ----- ----- 011 ----- 1010111'),
-            Instr('vslideup.vx'   ,   Format_OPV  ,    '001110 - ----- ----- 100 ----- 1010111'),
+            Instr('vslideup.vi'   ,   V_VUU,    '001110 - ----- ----- 011 ----- 1010111'),
+            Instr('vslideup.vx'   ,   V_VXU  ,    '001110 - ----- ----- 100 ----- 1010111'),
 
-            Instr('vslidedown.vi' ,   Format_OPIVI,    '001111 - ----- ----- 011 ----- 1010111'),
-            Instr('vslidedown.vx' ,   Format_OPV  ,    '001111 - ----- ----- 100 ----- 1010111'),
+            Instr('vslidedown.vi' ,   V_VUU,    '001111 - ----- ----- 011 ----- 1010111'),
+            Instr('vslidedown.vx' ,   V_VXU  ,    '001111 - ----- ----- 100 ----- 1010111'),
 
-            Instr('vslide1up.vx'  ,   Format_OPV  ,    '001110 - ----- ----- 110 ----- 1010111'),
-            Instr('vslide1down.vx',   Format_OPV  ,    '001111 - ----- ----- 110 ----- 1010111'),
+            Instr('vslide1up.vx'  ,   V_VXU  ,    '001110 - ----- ----- 110 ----- 1010111'),
+            Instr('vslide1down.vx',   V_VXU  ,    '001111 - ----- ----- 110 ----- 1010111'),
 
             Instr('vdiv.vv'       ,   Format_OPV  ,    '100001 - ----- ----- 010 ----- 1010111'),
             Instr('vdiv.vx'       ,   Format_OPV  ,    '100001 - ----- ----- 110 ----- 1010111'),
@@ -350,12 +409,12 @@ class Rv32v(IsaSubset):
             Instr('vfnmsub.vv'    ,   Format_OPV_3  ,    '101011 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfnmsub.vf'    ,   Format_OPV_4 ,    '101011 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfredmax.vs'      ,   Format_OPV  ,    '000111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfredmax.vs'      ,   Format_OPV_7  ,    '000111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfredmin.vs'      ,   Format_OPV  ,    '000101 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfredmin.vs'      ,   Format_OPV_7  ,    '000101 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfredsum.vs'      ,   Format_OPVV_F  ,    '000001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfredosum.vs'     ,   Format_OPV  ,    '000011 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfredusum.vs'     ,   Format_OPV_7  ,    '000001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfredosum.vs'     ,   Format_OPV_7  ,    '000011 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
 
             Instr('vfwadd.vv'        ,   Format_OPV  ,    '110000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfwadd.vf'        ,   Format_OPVF ,    '110000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
@@ -379,44 +438,33 @@ class Rv32v(IsaSubset):
             Instr('vfwnmsac.vv'      ,   Format_OPV  ,    '111111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfwnmsac.vf'      ,   Format_OPVF ,    '111111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfsgnj.vv'        ,   Format_OPV  ,    '001000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfsgnj.vf'        ,   Format_OPVF ,    '001000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfsgnj.vv'        ,   Format_OPV_12  ,    '001000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfsgnj.vf'        ,   Format_OPV_13 ,    '001000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfsgnjn.vv'       ,   Format_OPV  ,    '001001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfsgnjn.vf'       ,   Format_OPVF ,    '001001 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfsgnjn.vv'       ,   Format_OPV_12  ,    '001001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfsgnjn.vf'       ,   Format_OPV_13 ,    '001001 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfsgnjx.vv'       ,   Format_OPV  ,    '001010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfsgnjx.vf'       ,   Format_OPVF ,    '001010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfsgnjx.vv'       ,   Format_OPV_12  ,    '001010 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfsgnjx.vf'       ,   Format_OPV_13 ,    '001010 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfcvt.xu.f.v'     ,   Format_OPV  ,    '010010 - ----- 00000 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.xu.f.v'     ,   Format_OPV_10  ,    '010010 - ----- 00000 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.x.f.v'      ,   Format_OPV_10  ,    '010010 - ----- 00001 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.f.xu.v'     ,   Format_OPV_9  ,    '010010 - ----- 00010 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.f.x.v'      ,   Format_OPV_9  ,    '010010 - ----- 00011 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.rtz.xu.f.v' ,   Format_OPV_10  ,    '010010 - ----- 00110 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfcvt.rtz.x.f.v'  ,   Format_OPV_10  ,    '010010 - ----- 00111 001 ----- 1010111', tags=['fp_op', 'nseq']),
 
-            Instr('vfcvt.x.f.v'      ,   Format_OPV  ,    '010010 - ----- 00001 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.xu.f.w'    ,   Format_OPV_10  ,    '010010 - ----- 10000 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.x.f.w'     ,   Format_OPV_10  ,    '010010 - ----- 10001 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.f.xu.w'    ,   Format_OPV_9  ,    '010010 - ----- 10010 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.f.x.w'     ,   Format_OPV_9  ,    '010010 - ----- 10011 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.f.f.w'     ,   Format_OPV_11 ,    '010010 - ----- 10100 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.rod.f.f.w' ,   Format_OPV_11 ,    '010010 - ----- 10101 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.rtz.xu.f.w',   Format_OPV_10  ,    '010010 - ----- 10110 001 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfncvt.rtz.x.f.w' ,   Format_OPV_10  ,    '010010 - ----- 10111 001 ----- 1010111', tags=['fp_op', 'nseq']),
 
-            Instr('vfcvt.f.xu.v'     ,   Format_OPV  ,    '010010 - ----- 00010 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.f.x.v'      ,   Format_OPV  ,    '010010 - ----- 00011 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.rtz.xu.f.v' ,   Format_OPV  ,    '010010 - ----- 00110 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfcvt.rtz.x.f.v'  ,   Format_OPV  ,    '010010 - ----- 00111 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.xu.f.w'    ,   Format_OPV  ,    '010010 - ----- 10000 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.x.f.w'     ,   Format_OPV  ,    '010010 - ----- 10001 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.f.xu.w'    ,   Format_OPV  ,    '010010 - ----- 10010 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.f.x.w'     ,   Format_OPV  ,    '010010 - ----- 10011 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.f.f.w'     ,   Format_OPV  ,    '010010 - ----- 10100 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.rod.f.f.w' ,   Format_OPV  ,    '010010 - ----- 10101 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.rtz.xu.f.w',   Format_OPV  ,    '010010 - ----- 10110 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfncvt.rtz.x.f.w' ,   Format_OPV  ,    '010010 - ----- 10111 001 ----- 1010111', tags=['fp_op', 'nseq']),
-
-            Instr('vfslide1down.vf' , Format_OPVF_F, '001111 - ----- ----- 101 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfslide1down.vf' , VF_VFFU, '001111 - ----- ----- 101 ----- 1010111', tags=['fp_op', 'nseq']),
+            Instr('vfslide1up.vf'   , VF_VFFU, '001110 - ----- ----- 101 ----- 1010111', tags=['fp_op', 'nseq']),
 
 
 

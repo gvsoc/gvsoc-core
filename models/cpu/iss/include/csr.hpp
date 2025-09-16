@@ -226,9 +226,13 @@ public:
     iss_reg_t pcer;
     iss_reg_t pcmr;
 #endif
+
+#if defined(CONFIG_GVSOC_ISS_STACK_CHECKER)
     iss_reg_t stack_conf;
     iss_reg_t stack_start;
     iss_reg_t stack_end;
+#endif
+
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_fcsr_t fcsr;

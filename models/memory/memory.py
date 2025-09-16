@@ -57,7 +57,7 @@ class Memory(gvsoc.systree.Component):
     memcheck_expansion_factor: int
         Extra size used to track buffer overflow.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=2,
+    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5):
@@ -97,3 +97,8 @@ class Memory(gvsoc.systree.Component):
             The slave interface
         """
         return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+
+    def gen_gui(self, parent_signal):
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "req_size", path="req_size", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "req_is_write", path="req_is_write", groups=['regmap'])

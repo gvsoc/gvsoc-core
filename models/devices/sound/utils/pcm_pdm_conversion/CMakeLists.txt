@@ -8,5 +8,4 @@ set(SRCS "sigma_delta.cpp"
 
 vp_block(NAME pcm_pdm_conversion
 PREFIX pcm_pdm_conversion
-FORCE_BUILD 1
 SOURCES ${SRCS})

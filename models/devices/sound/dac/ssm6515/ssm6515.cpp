@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+
 #include <vp/vp.hpp>
 #include <vp/itf/i2c.hpp>
 #include <vp/itf/i2s.hpp>
@@ -30,6 +31,7 @@ typedef enum
 {
     I2S,
     PDM,
+    TDM,
     UNKNOWN
 } dac_mode_e;
 
@@ -181,6 +183,7 @@ protected:
     uint8_t is_i2s_mode();
     uint8_t clk_pol();
     uint8_t ws_pol();
+    uint8_t spt_slot_sel();
     uint32_t get_input_pdm_freq();
     uint32_t get_output_pcm_freq();
     void compute_internal_pcm_freq();
@@ -210,6 +213,7 @@ protected:
     uint8_t reg_address;
     bool waiting_reg_address;
     bool dac_started = FALSE;
+    bool master_sw_power_down = true;
 
     // output and converter
     void reset_output_file();
@@ -246,6 +250,7 @@ protected:
     int pcm_freq_from_gap = -1;
     int manual_slot_width = -1;
     int manual_i2s_delay = -1;
+    int manual_slots_per_frame = -1;
 
     // i2s
     void pdm_sync(int sd);
@@ -254,7 +259,9 @@ protected:
     void push_sample(uint32_t data);
 
     bool is_active = false;
+    bool ws_seen = false;
     uint8_t ws_delay = 1;
+    uint8_t current_channel = 0;
     uint8_t current_ws_delay = 0;
     int32_t internal_pcm_freq = 0;
 
@@ -280,6 +287,7 @@ protected:
     bool is_full_duplex = false;
 
     int pending_bits = 32;
+    int current_slot_delay = 0;
     int width = 32;
 
     // estimate i2s clock frequency
@@ -327,10 +335,12 @@ Ssm6515::Ssm6515(vp::ComponentConf &config)
     if (this->get_js_config()->get_child_str("sd") == "sdi")
     {
         this->i2s_wire = SDI;
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Init sd=sdi gain %f i2c addr %u\n", this->global_gain, this->device_address);
     }
     else
     {
         this->i2s_wire = SDO;
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Init sd=sdo gain %f i2c addr %u\n", this->global_gain, this->device_address);
     }
     this->waiting_reg_address = true;
 
@@ -345,7 +355,10 @@ Ssm6515::Ssm6515(vp::ComponentConf &config)
 
 void Ssm6515::start()
 {
-    this->i2c_itf.sync(1, 1);
+    if (this->i2c_itf.is_bound())
+    {
+        this->i2c_itf.sync(1, 1);
+    }
 }
 
 void Ssm6515::set_rate(vp::Block *__this, int rate)
@@ -551,7 +564,7 @@ void Ssm6515::i2c_send_byte(uint8_t byte)
 
 void Ssm6515::handle_reg_write(uint8_t address, uint8_t value)
 {
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Register write (address: 0x%x, value: 0x%x)\n", address, value);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Register write (address: 0x%x, value: 0x%x)\n", address, value);
 
     // write rgister value
     this->regmap.access(address, 1, &value, true);
@@ -596,6 +609,9 @@ void Ssm6515::handle_pwr_ctrl_access(uint64_t reg_offset, int size, uint8_t *val
         // start dac
         // 26 ms according to documentation
         this->starting_event.enqueue(26000000000);
+        this->master_sw_power_down = false;
+    } else {
+        this->master_sw_power_down = true;
     }
 }
 
@@ -626,6 +642,7 @@ void Ssm6515::handle_spt_ctrl1_access(uint64_t reg_offset, int size, uint8_t *va
 void Ssm6515::reset(bool active)
 {
     this->regmap.reset(active);
+    this->ws_seen = false;
 }
 
 // callback called when accessing status_clr register
@@ -680,9 +697,18 @@ uint8_t Ssm6515::ws_pol()
     return regmap.spt_ctrl1.spt_lrclk_pol_get();
 }
 
+uint8_t Ssm6515::spt_slot_sel()
+{
+    // if(no_external_config)
+    return regmap.spt_ctrl2.spt_slot_sel_get();
+}
+
 void Ssm6515::i2s_sync(vp::Block *__this, int sck, int ws, int sdio, bool is_full_duplex)
 {
     Ssm6515 *_this = (Ssm6515 *)__this;
+
+    if (_this->master_sw_power_down)
+        return;
 
     if (_this->sync_ongoing)
         return;
@@ -761,7 +787,52 @@ void Ssm6515::i2s_sync(vp::Block *__this, int sck, int ws, int sdio, bool is_ful
         }
         else
         {
-            _this->trace.msg(vp::Trace::LEVEL_WARNING, "TDM mode not supported by model\n");
+            if (sck)
+            {
+                _this->compute_i2s_clk_freq(_this->time.get_time());
+                if (_this->prev_ws != ws)
+                {
+                    if (ws)
+                    {
+                        // ws active indicating start of frame
+                        _this->prev_ws = ws;
+                        _this->ws_seen = true;
+                        _this->current_ws_delay = _this->ws_delay + 1;
+                        // Bits after ws delay to see before active
+                        _this->current_slot_delay = _this->width * _this->spt_slot_sel() + 1;
+                        _this->trace.msg(vp::Trace::LEVEL_TRACE, "I2S WS active ws_delay %d slot delay %d\n", _this->current_ws_delay, _this->current_slot_delay);
+                    }
+                    else if (!_this->is_active && !_this->current_ws_delay && !_this->current_slot_delay)
+                    {
+                        // Doing nothing. Wait for next ws
+                        _this->prev_ws = ws;
+                        _this->ws_seen = false;
+                    }
+                }
+                // Only start doing this if we have seen a ws
+                if (_this->ws_seen)
+                {
+                    if (_this->current_ws_delay)
+                    {
+                        // Start delay
+                        _this->current_ws_delay--;
+                    }
+                    if (!_this->current_ws_delay && _this->current_slot_delay)
+                    {
+                        _this->current_slot_delay--;
+                        if (!_this->current_slot_delay)
+                        {
+                            _this->trace.msg(vp::Trace::LEVEL_TRACE, "I2S WS start sample slot %d\n", _this->spt_slot_sel());
+                            _this->is_active = true;
+                            _this->start_sample();
+                        }
+                    }
+                    if (_this->is_active)
+                    {
+                        _this->push_data(sd);
+                    }
+                }
+            }
         }
     }
     _this->sync_ongoing = false;
@@ -818,7 +889,7 @@ void Ssm6515::reset_output_file()
     if (this->i2s_clk_freq > 0)
     {
         get_slot_width();
-        this->trace.msg(vp::Trace::LEVEL_INFO, "Reset output file\n");
+        this->trace.msg(vp::Trace::LEVEL_INFO, "Reset output file %s bits %d ext freq %d int freq %d\n", this->output_filepath.c_str(), this->out_nb_bits, get_output_pcm_freq(), internal_pcm_freq);
         delete out_stream;
         try
         {
@@ -991,12 +1062,19 @@ void Ssm6515::compute_internal_pcm_freq()
         }
         else
         {
-            this->internal_pcm_freq = (int32_t)i2s_clk_freq / this->width / 2;
-            if (pcm_freq_from_audio > 0)
+            if (this->manual_slots_per_frame > 0)
             {
-                if(this->internal_pcm_freq != pcm_freq_from_audio)
+                this->internal_pcm_freq = (int32_t)i2s_clk_freq / this->width / this->manual_slots_per_frame;
+            }
+            else
+            {
+                this->internal_pcm_freq = (int32_t)i2s_clk_freq / this->width / 2;
+                if (pcm_freq_from_audio > 0)
                 {
-                    this->trace.fatal("Sai frequency and asked PCM frequency from audio world are uncompatible\n");
+                    if(this->internal_pcm_freq != pcm_freq_from_audio)
+                    {
+                        this->trace.fatal("Sai frequency and asked PCM frequency from audio world are uncompatible\n");
+                    }
                 }
             }
         }
@@ -1083,7 +1161,7 @@ void Ssm6515::push_data(int data)
 void Ssm6515::start_sample()
 {
     this->pending_bits = this->width;
-    this->trace.msg(vp::Trace::LEVEL_INFO, "Starting sample, %i bits pending\n", this->pending_bits);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Starting sample, %i bits pending\n", this->pending_bits);
     this->current_value = 0;
 }
 
@@ -1280,6 +1358,11 @@ std::string Ssm6515::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
                 manual_mode_set = I2S;
                 manual_i2s_delay = 1;
             }
+            else if (args[i + 1] == "tdm" || args[i + 1] == "TDM")
+            {
+                manual_mode_set = TDM;
+                manual_i2s_delay = 1;
+            }
             else
             {
                 this->trace.msg(vp::Trace::LEVEL_ERROR, "Unknown mode %s for dac, please use i2s or pdm mode\n", args[i + 1]);
@@ -1299,9 +1382,15 @@ std::string Ssm6515::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *re
             debug_files_enabled = atoi(args[i + 1].c_str());
         }
 
+        if (args[i] == "slots_per_frame")
+        {
+            manual_slots_per_frame = atoi(args[i + 1].c_str());
+        }
+
         if (args[i] == "file_path")
         {
             this->output_filepath = args[i + 1];
+            this->trace.msg(vp::Trace::LEVEL_INFO, "Output file of %s set to %s\n", this->get_name().c_str(), this->output_filepath.c_str());
         }
     }
 

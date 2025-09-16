@@ -36,14 +36,18 @@
 #include <cpu/iss/include/irq/irq_riscv.hpp>
 #include <cpu/iss/include/core.hpp>
 #include <cpu/iss/include/mmu.hpp>
+#if defined(CONFIG_ISS_HAS_VECTOR)
 #include <cpu/iss/include/vector.hpp>
+#endif
 #include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
+#if defined(CONFIG_ISS_HAS_VECTOR)
 #include <cpu/iss/include/cores/ara/ara.hpp>
+#endif
 
 class IssWrapper;
 
@@ -74,8 +78,10 @@ public:
     Pmp pmp;
     Exception exception;
     Memcheck memcheck;
+#if defined(CONFIG_ISS_HAS_VECTOR)
     Vector vector;
     Ara ara;
+#endif
 
     IssWrapper &top;
 };
@@ -114,7 +120,10 @@ inline Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this),
     core(*this), irq(*this), gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this),
     trace(*this), csr(*this), regfile(top, *this), mmu(*this), pmp(*this), exception(*this),
-    memcheck(top, *this), vector(*this), ara(top, *this), top(top)
+    memcheck(top, *this), top(top)
+#if defined(CONFIG_ISS_HAS_VECTOR)
+    ,vector(*this), ara(top, *this)
+#endif
 {
 }
 
@@ -128,7 +137,9 @@ inline Iss::Iss(IssWrapper &top)
 #include "cpu/iss/include/isa/rv64m.hpp"
 #include "cpu/iss/include/isa/rv64a.hpp"
 #include "cpu/iss/include/isa/rvf.hpp"
+#if defined(CONFIG_ISS_HAS_VECTOR)
 #include "cpu/iss/include/isa/rv32v_timed.hpp"
+#endif
 #include "cpu/iss/include/isa/rvd.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 

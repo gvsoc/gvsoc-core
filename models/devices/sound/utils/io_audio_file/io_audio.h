@@ -83,10 +83,10 @@ public:
 protected:
 #ifdef USE_SAMPLERATE
     SRC_DATA srcData;
-    SRC_STATE *srcState;
+    SRC_STATE *srcState = nullptr;
 #endif
     float input_buffer; // one sample buffer as input
-    float *output_buffer;
+    float *output_buffer = nullptr;
     uint32_t cnt_in_resampler = 0;
 
     int interpolate = 0;

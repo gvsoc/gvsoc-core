@@ -19,7 +19,9 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <queue>
 #include <vp/vp.hpp>
+#include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include "interco/traffic/receiver.hpp"
 
@@ -34,6 +36,7 @@ private:
     static void control_sync(vp::Block *__this, TrafficReceiverConfig config);
     static void pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     static void ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    void log_access(uint64_t addr, uint64_t size, bool is_write);
 
     vp::Trace trace;
 
@@ -46,7 +49,17 @@ private:
     int64_t ready_timestamp = -1;
     int bandwidth;
     int max_pending_reqs = 4;
-    vp::IoReq *stalled_req = NULL;
+    std::queue<vp::IoReq *>stalled_reqs;
+    vp::Signal<bool> stalled;
+    vp::Signal<uint64_t> log_addr;
+    vp::Signal<uint64_t> log_size;
+    vp::Signal<bool> log_is_write;
+    // Last cycle where an access was logged. Used to delay a bit in the trace the requests
+    // which arrives in the same cycle
+    int64_t last_logged_access = -1;
+    // Number of requests logged in the same cycle. Used to delay a bit in the trace the requests
+    // which arrives in the same cycle
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 Receiver::Receiver(vp::ComponentConf &config)
@@ -54,7 +67,11 @@ Receiver::Receiver(vp::ComponentConf &config)
     pending_fsm_event(this, Receiver::pending_fsm_handler),
     ready_fsm_event(this, Receiver::ready_fsm_handler),
     pending_reqs(this, "pending_reqs", &this->pending_fsm_event),
-    ready_reqs(this, "ready_reqs", &this->ready_fsm_event)
+    ready_reqs(this, "ready_reqs", &this->ready_fsm_event),
+    log_addr(*this, "req_addr", 64),
+    log_size(*this, "req_size", 64),
+    log_is_write(*this, "req_is_write", 1),
+    stalled(*this, "stalled", 1)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -69,16 +86,14 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 {
     Receiver *_this = (Receiver *)__this;
 
-    if (_this->pending_reqs.size() == _this->max_pending_reqs)
+    _this->log_access(req->get_addr(), req->get_size(), req->get_is_write());
+
+    if (_this->stalled || _this->pending_reqs.size() == _this->max_pending_reqs)
     {
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received req, stalling (req: %p)\n", req);
 
-        if (_this->stalled_req)
-        {
-            abort();
-        }
-
-        _this->stalled_req = req;
+        _this->stalled_reqs.push(req);
+        _this->stalled = true;
         return vp::IO_REQ_DENIED;
     }
     else
@@ -88,6 +103,33 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
         _this->pending_reqs.push_back(req);
         return vp::IO_REQ_PENDING;
     }
+}
+
+void Receiver::log_access(uint64_t addr, uint64_t size, bool is_write)
+{
+    int64_t cycles = this->clock.get_cycles();
+
+    if (cycles > this->last_logged_access)
+    {
+        this->nb_logged_access_in_same_cycle = 0;
+    }
+
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->clock.get_period();
+        int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
+        this->log_addr.set(addr, delay);
+        this->log_size.set(size, delay);
+        this->log_is_write.set(is_write, delay);
+    }
+    else
+    {
+        this->log_addr = addr;
+        this->log_size = size;
+        this->log_is_write = is_write;
+    }
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
 }
 
 void Receiver::control_sync(vp::Block *__this, TrafficReceiverConfig config)
@@ -104,12 +146,19 @@ void Receiver::pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         vp::IoReq *req = (vp::IoReq *)_this->pending_reqs.pop();
 
-        int64_t cycles = (req->get_size() + _this->bandwidth - 1) / _this->bandwidth;
-        _this->ready_timestamp = _this->clock.get_cycles() + cycles;
+        if (_this->bandwidth > 0)
+        {
+            int64_t cycles = (req->get_size() + _this->bandwidth - 1) / _this->bandwidth;
+            _this->ready_timestamp = _this->clock.get_cycles() + cycles;
 
-        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popping pending req (req: %p, ready cycle: %lld)\n", req, _this->ready_timestamp);
+            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popping pending req (req: %p, ready cycle: %lld)\n", req, _this->ready_timestamp);
 
-        _this->ready_reqs.push_back(req, cycles - 1);
+            _this->ready_reqs.push_back(req, cycles - 1);
+        }
+        else
+        {
+            _this->ready_reqs.push_back(req, 0);
+        }
     }
 
     _this->ready_reqs.trigger_next();
@@ -121,19 +170,21 @@ void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     if (!_this->ready_reqs.empty())
     {
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popping ready req (req: %p, nb_reqs: %d)\n", req, _this->ready_reqs.nb_reqs());
+
         vp::IoReq *req = (vp::IoReq *)_this->ready_reqs.pop();
-
-        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popping ready req (req: %p)\n", req);
-
-        if (_this->stalled_req)
-        {
-            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Unstalling (req: %p)\n", req);
-            _this->pending_reqs.push_back(_this->stalled_req);
-            _this->stalled_req->get_resp_port()->grant(_this->stalled_req);
-            _this->stalled_req = NULL;
-        }
-
         req->get_resp_port()->resp(req);
+    }
+
+    if (_this->stalled && _this->pending_reqs.size() < _this->max_pending_reqs)
+    {
+        vp::IoReq *stalled_req = _this->stalled_reqs.front();
+        _this->stalled_reqs.pop();
+
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Unstalling (req: %p)\n", stalled_req);
+        _this->pending_reqs.push_back(stalled_req);
+        _this->stalled = !_this->stalled_reqs.empty();
+        stalled_req->get_resp_port()->grant(stalled_req);
     }
 
     _this->pending_reqs.trigger_next();

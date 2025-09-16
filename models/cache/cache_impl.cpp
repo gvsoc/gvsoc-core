@@ -145,6 +145,9 @@ void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
 {
     Cache *_this = (Cache *)__this;
 
+    vp_assert(_this->refill_pending_reqs.size() != 0, &_this->trace,
+        "Received asynchronous response while no response is expected\n");
+
     vp::IoReq *pending_req = (vp::IoReq *)_this->refill_pending_reqs.pop();
 
     pending_req->restore();

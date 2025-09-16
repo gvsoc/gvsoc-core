@@ -73,7 +73,8 @@ bool FpuLsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), NULL, size, false, latency)) == 0)
+    int req_id;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_ref(reg), NULL, size, false, latency, req_id)) == 0)
     {
 #ifdef CONFIG_GVSOC_ISS_SNITCH_FAST
         this->iss.regfile.set_freg(reg, iss_get_float_value(this->iss.regfile.get_freg_untimed(reg), size * 8));
@@ -96,9 +97,15 @@ bool FpuLsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     {
         if (err != vp::IO_REQ_INVALID)
         {
+    #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &FpuLsu::load_float_resume;
+            this->stall_reg[req_id] = reg;
+            this->stall_size[req_id] = size;
+    #else
             this->stall_callback = &FpuLsu::load_float_resume;
             this->stall_reg = reg;
             this->stall_size = size;
+    #endif
         }
         else
         {
@@ -142,7 +149,8 @@ bool FpuLsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 
     int err;
     int64_t latency;
-    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), NULL, size, true, latency)) == 0)
+    int req_id;
+    if ((err = this->data_req(phys_addr, (uint8_t *)this->iss.regfile.freg_store_ref(reg), NULL, size, true, latency, req_id)) == 0)
     {
         // For now we don't have to do anything as the register was written directly
         // by the request but we cold support sign-extended loads here;
@@ -159,8 +167,13 @@ bool FpuLsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
     {
         if (err != vp::IO_REQ_INVALID)
         {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            this->stall_callback[req_id] = &FpuLsu::store_resume;
+            this->stall_reg[req_id] = reg;
+#else
             this->stall_callback = &FpuLsu::store_resume;
             this->stall_reg = reg;
+#endif
         }
         else
         {
@@ -216,18 +229,25 @@ template bool FpuLsu::store_float<uint64_t>(iss_insn_t *insn, iss_addr_t addr, i
 template bool FpuLsu::store_float_perf<uint64_t>(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
 
-void FpuLsu::store_resume(FpuLsu *lsu)
+void FpuLsu::store_resume(FpuLsu *lsu, vp::IoReq *req)
 {
     // For now we don't have to do anything as the register was written directly
     // by the request but we cold support sign-extended loads here;
     lsu->iss.exec.insn_terminate();
 }
 
-void FpuLsu::load_float_resume(FpuLsu *lsu)
+void FpuLsu::load_float_resume(FpuLsu *lsu, vp::IoReq *req)
 {
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    int req_id = *((int *)req->arg_get(0));
+    int reg = lsu->stall_reg[req_id];
+    int stall_size = lsu->stall_size[req_id];
+#else
     int reg = lsu->stall_reg;
+    int stall_size = lsu->stall_size;
+#endif
     lsu->iss.regfile.set_freg(reg, iss_get_float_value(lsu->iss.regfile.get_freg(reg),
-        lsu->stall_size * 8));
+        stall_size * 8));
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
     lsu->iss.regfile.scoreboard_freg_set_timestamp(reg, lsu->pending_latency + 1, CSR_PCER_LD_STALL);
 #endif
@@ -241,10 +261,11 @@ void FpuLsu::load_float_resume(FpuLsu *lsu)
 }
 
 
-int FpuLsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency)
+int FpuLsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id)
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
     vp::IoReq *req = &this->io_req;
+    req_id = 0;
     req->init();
     req->set_addr(addr);
     req->set_size(size);
@@ -333,7 +354,8 @@ int FpuLsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *mem
     this->misaligned_is_write = is_write;
 
     // And do the first one now
-    int err = data_req_aligned(addr, data_ptr, memcheck_data, size0, is_write, latency);
+    int req_id;
+    int err = data_req_aligned(addr, data_ptr, memcheck_data, size0, is_write, latency, req_id);
     if (err == vp::IO_REQ_OK)
     {
         // As the transaction is split into 2 parts, we must tell the ISS
@@ -348,7 +370,7 @@ int FpuLsu::data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *mem
     }
 }
 
-int FpuLsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency)
+int FpuLsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id)
 {
 #if !defined(CONFIG_GVSOC_ISS_HANDLE_MISALIGNED)
 
@@ -360,7 +382,7 @@ int FpuLsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data,
     iss_addr_t addr1 = (addr + size - 1) & ADDR_MASK;
 
     if (likely(addr0 == addr1))
-        return this->data_req_aligned(addr, data_ptr, memcheck_data, size, is_write, latency);
+        return this->data_req_aligned(addr, data_ptr, memcheck_data, size, is_write, latency, req_id);
     else
         return this->data_misaligned_req(addr, data_ptr, memcheck_data, size, is_write, latency);
 

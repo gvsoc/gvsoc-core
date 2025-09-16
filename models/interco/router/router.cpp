@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <math.h>
@@ -40,7 +41,7 @@ class BandwidthLimiter
 {
 public:
     // Overall bandwidth to be respected, and global latency to be applied to each request
-    BandwidthLimiter(Router *top, int64_t bandwidth, int64_t latency);
+    BandwidthLimiter(Router *top, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth);
     // Can be called on any request going through the limiter to add the fixed latency and impact
     // the latency and duration with the current utilization of the limiter with respect to the
     // bandwidth
@@ -58,6 +59,8 @@ private:
     // Cyclestamp at which the write read burst can go through the limiter. Used to delay a request
     // which arrives before this cyclestamp.
     int64_t next_write_burst_cycle = 0;
+    // Indicates whether the read and write share the bandwidth
+    bool shared_rw_bandwidth = false;
 };
 
 
@@ -72,7 +75,9 @@ private:
 class OutputPort
 {
 public:
-    OutputPort(Router *top, int64_t bandwidth, int64_t latency);
+    OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth);
+    void log_access(uint64_t addr, uint64_t size);
+    Router *top;
     // OutputPort output IO interface where requests matching the mapping should be forwarded
     vp::IoMaster itf;
     // Bandwidth limiter to impact request timing
@@ -81,13 +86,17 @@ public:
     uint64_t remove_offset = 0;
     // Offset to be added when request is forwarded
     uint64_t add_offset = 0;
+    vp::Signal<uint64_t> current_addr;
+    vp::Signal<uint64_t> current_size;
+    int64_t last_logged_access = -1;
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 
 class InputPort
 {
 public:
-    InputPort(Router *top, int64_t bandwidth, int64_t latency);
+    InputPort(Router *top, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth);
     vp::IoSlave itf;
     BandwidthLimiter bw_limiter;
 };
@@ -148,12 +157,13 @@ Router::Router(vp::ComponentConf &config)
     int bandwidth = this->get_js_config()->get_int("bandwidth");
     int latency = this->get_js_config()->get_int("latency");
     int nb_input_port = this->get_js_config()->get_int("nb_input_port");
+    bool shared_rw_bandwidth = this->get_js_config()->get_child_bool("shared_rw_bandwidth");
 
     // Instantiates input ports
     this->inputs.resize(nb_input_port);
     for (int i=0; i<nb_input_port; i++)
     {
-        InputPort *input_port = new InputPort(this, bandwidth, latency);
+        InputPort *input_port = new InputPort(this, bandwidth, latency, shared_rw_bandwidth);
         this->inputs[i] = input_port;
 
         vp::IoSlave *input = &input_port->itf;
@@ -174,7 +184,7 @@ Router::Router(vp::ComponentConf &config)
 
             this->mapping_tree.insert(mapping_id, name, config);
 
-            OutputPort *entry = new OutputPort(this, bandwidth, config->get_int("latency"));
+            OutputPort *entry = new OutputPort(this, name, bandwidth, config->get_int("latency"), shared_rw_bandwidth);
 
             entry->itf.set_resp_meth(&Router::response);
             this->new_master_port(name, &entry->itf);
@@ -247,6 +257,8 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
         // Translate the offset of the output request based on entry information
         req->set_addr(offset - entry->remove_offset + entry->add_offset);
 
+        entry->log_access(offset, size);
+
         // And forward to the next target. Note than whatever the kind of response, synchronous
         // or asynchronous, this router is not involved anymore in the request since it is
         // forwarded.
@@ -306,6 +318,8 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
             // This is important to update the router bandwidth information and also to impact
             // child request so that we can then impact the parent request
             entry->bw_limiter.apply_bandwidth(this->clock.get_cycles(), entry_req);
+
+            entry->log_access(offset, iter_size);
 
             // Now send the request. We cannot forward it since we need to know when the parent
             // request can be replied.
@@ -406,21 +420,48 @@ void Router::handle_entry_req_end(vp::IoReq *entry_req)
     *(int64_t *)req->arg_get(arg_index + Router::REQ_REM_SIZE) -= entry_req->get_size();
 }
 
-OutputPort::OutputPort(Router *top, int64_t bandwidth, int64_t latency)
-    : bw_limiter(top, bandwidth, latency)
+OutputPort::OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth)
+    : top(top), bw_limiter(top, bandwidth, latency, shared_rw_bandwidth), current_addr(*top, name + "/addr", 64),
+    current_size(*top, name + "/size", 64)
 {
 }
 
-InputPort::InputPort(Router *top, int64_t bandwidth, int64_t latency)
-    : bw_limiter(top, bandwidth, latency)
+void OutputPort::log_access(uint64_t addr, uint64_t size)
+{
+    int64_t cycles = this->top->clock.get_cycles();
+
+    if (cycles > this->last_logged_access)
+    {
+        this->nb_logged_access_in_same_cycle = 0;
+    }
+
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->top->clock.get_period();
+        int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
+        this->current_addr.set(addr, delay);
+        this->current_size.set(size, delay);
+    }
+    else
+    {
+        this->current_addr = addr;
+        this->current_size = size;
+    }
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
+}
+
+InputPort::InputPort(Router *top, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth)
+    : bw_limiter(top, bandwidth, latency, shared_rw_bandwidth)
 {
 }
 
-BandwidthLimiter::BandwidthLimiter(Router *top, int64_t bandwidth, int64_t latency)
+BandwidthLimiter::BandwidthLimiter(Router *top, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth)
 {
     this->top = top;
     this->latency = latency;
     this->bandwidth = bandwidth;
+    this->shared_rw_bandwidth = shared_rw_bandwidth;
 }
 
 void BandwidthLimiter::apply_bandwidth(int64_t cycles, vp::IoReq *req)
@@ -441,7 +482,7 @@ void BandwidthLimiter::apply_bandwidth(int64_t cycles, vp::IoReq *req)
 
         // Now we need to compute the start cycle of the burst, which is its latency.
         // First get the cyclestamp where the router becomes available, due to previous requests
-        int64_t *next_burst_cycle = req->get_is_write() ?
+        int64_t *next_burst_cycle = (req->get_is_write() || this->shared_rw_bandwidth) ?
             &this->next_write_burst_cycle : &this->next_read_burst_cycle;
         int64_t router_latency = *next_burst_cycle - cycles;
 

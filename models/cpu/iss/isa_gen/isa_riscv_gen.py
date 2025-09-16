@@ -24,6 +24,7 @@ from cpu.iss.isa_gen.isa_rvv_timed import *
 import os.path
 import filecmp
 import shutil
+import hashlib
 
 
 def extract_format(f, index):
@@ -954,7 +955,7 @@ class Rv64c(IsaSubset):
 
 class RiscvIsa(Isa):
 
-    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, extensions=None):
+    def __init__(self, name, isa, inc_priv=True, inc_supervisor=True, inc_user=False, no_hash=False, extensions=None):
         super().__init__(name, isa)
 
         misa = 0
@@ -962,8 +963,6 @@ class RiscvIsa(Isa):
         if extensions is not None:
             for extension in extensions:
                 self.add_isa(extension)
-
-        self.full_name = f'isa_{self.name}'
 
         self.generated = False
 
@@ -1031,6 +1030,14 @@ class RiscvIsa(Isa):
             misa |= 1 << 20
 
         self.misa = misa
+
+        if no_hash:
+            self.full_name = f'isa_{self.name}'
+        else:
+            name = ''.join(self.isas.keys())
+            name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
+
+            self.full_name = f'isa_{self.name}_{name_hash}'
 
     def get_source(self):
         return f'{self.full_name}.cpp'

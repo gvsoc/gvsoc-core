@@ -76,7 +76,7 @@ private:
     void walk_pgtab(iss_addr_t virt_addr);
     bool handle_pte();
     static void handle_pte_stub(vp::Block *__this, vp::ClockEvent *event);
-    static void handle_pte_response(Lsu *lsu);
+    static void handle_pte_response(Lsu *lsu, vp::IoReq *req);
     void raise_exception();
 
     Iss &iss;

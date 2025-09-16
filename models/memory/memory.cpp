@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <vp/vp.hpp>
+#include <vp/signal.hpp>
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
@@ -56,6 +57,7 @@ private:
     void memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance, uint64_t &buffer_offset, uint64_t &buffer_size);
     void memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable);
     bool check_buffer_access(uint64_t offset, uint64_t size, bool is_write);
+    void log_access(uint64_t addr, uint64_t size, bool is_write);
 
     vp::Trace trace;
     vp::IoSlave in;
@@ -97,12 +99,24 @@ private:
     uint64_t memcheck_virtual_base;
     uint64_t memcheck_expansion_factor;
     bool free_mem = false;
+    vp::Signal<uint64_t> log_addr;
+    vp::Signal<uint64_t> log_size;
+    vp::Signal<bool> log_is_write;
+    // Last cycle where an access was logged. Used to delay a bit in the trace the requests
+    // which arrives in the same cycle
+    int64_t last_logged_access = -1;
+    // Number of requests logged in the same cycle. Used to delay a bit in the trace the requests
+    // which arrives in the same cycle
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 
 
 Memory::Memory(vp::ComponentConf &config)
-    : vp::Component(config)
+: vp::Component(config),
+log_addr(*this, "req_addr", 64),
+log_size(*this, "req_size", 64),
+log_is_write(*this, "req_is_write", 1)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
     in.set_req_meth(&Memory::req);
@@ -215,6 +229,33 @@ Memory::Memory(vp::ComponentConf &config)
 }
 
 
+void Memory::log_access(uint64_t addr, uint64_t size, bool is_write)
+{
+    int64_t cycles = this->clock.get_cycles();
+
+    if (cycles > this->last_logged_access)
+    {
+        this->nb_logged_access_in_same_cycle = 0;
+    }
+
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->clock.get_period();
+        int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
+        this->log_addr.set(addr, delay);
+        this->log_size.set(size, delay);
+        this->log_is_write.set(is_write, delay);
+    }
+    else
+    {
+        this->log_addr = addr;
+        this->log_size = size;
+        this->log_is_write = is_write;
+    }
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
+}
+
 
 vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 {
@@ -225,6 +266,8 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     uint64_t size = req->get_size();
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d, op: %d)\n", offset, size, req->get_is_write(), req->get_opcode());
+
+    _this->log_access(offset, size, req->get_is_write());
 
     req->inc_latency(_this->latency);
 
@@ -241,7 +284,9 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             if (diff > 0)
             {
                 _this->trace.msg("Delayed packet (latency: %ld)\n", diff);
-                req->inc_latency(diff);
+                // Set the latency, this will only set if it is higher than current latency, which
+                // is what we want, as the already existing latency already meets our cyclestamp
+                req->set_latency(diff);
             }
             _this->next_packet_start = MAX(_this->next_packet_start, cycles) + duration;
         }

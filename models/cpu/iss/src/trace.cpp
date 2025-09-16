@@ -264,7 +264,9 @@ static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float, uint8_t *
         uint8_t *vreg = &((uint8_t *)saved_arg)[i*width];
         uint64_t value = *(uint64_t *)vreg;
 
-        if (is_float)
+        bool float_hex = iss->top.traces.get_trace_engine()->get_trace_float_hex();
+
+        if (is_float && !float_hex)
         {
             uint64_t value_64 = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, value,
                 iss->vector.exp, iss->vector.mant, 11, 52, 0);
@@ -272,7 +274,17 @@ static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float, uint8_t *
         }
         else
         {
-            buff += sprintf(buff, "%lx", value);
+            uint64_t mask;
+            if (width >= 8)
+            {
+                mask = ~0ULL;
+            }
+            else
+            {
+                mask = (1ULL << (width * 8)) - 1;
+            }
+
+            buff += sprintf(buff, "%0*llx", width*2, value & mask);
         }
         if (i != 0)
         {

@@ -246,7 +246,10 @@ Rx_stream::~Rx_stream()
 Tx_stream::~Tx_stream()
 {
 #ifdef USE_SAMPLERATE
-    delete[] output_buffer; // Deallocate memory allocated for interpolation_context array
+    if(output_buffer)
+    {
+        delete[] output_buffer; // Deallocate memory allocated for interpolation_context array
+    }
     if (srcState)
     {
         src_delete(srcState);

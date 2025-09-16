@@ -55,6 +55,7 @@ void Syscalls::build()
 void Syscalls::reset(bool active)
 {
   this->htif.reset(active);
+  this->latency = 0;
 }
 
 
@@ -116,7 +117,7 @@ void Syscalls::handle_ebreak()
 
 bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bool is_write)
 {
-    vp::IoReq *req = &this->iss.lsu.io_req;
+    vp::IoReq *req = &this->iss.lsu.debug_req;
     std::string str = "";
     while (size != 0)
     {
@@ -159,7 +160,7 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
 
 std::string Syscalls::read_user_string(iss_addr_t addr, int size)
 {
-    vp::IoReq *req = &this->iss.lsu.io_req;
+    vp::IoReq *req = &this->iss.lsu.debug_req;
     std::string str = "";
     while (size != 0)
     {
@@ -559,6 +560,10 @@ void Syscalls::handle_riscv_ebreak()
         }
         else
         {
+            if (path[0] != '/')
+            {
+                path = this->iss.top.get_path() + '/' + path;
+            }
             vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
             if (trace == NULL)
             {
@@ -581,14 +586,7 @@ void Syscalls::handle_riscv_ebreak()
 
     case 0x10A:
     {
-        iss_reg_t args[2];
-        if (this->user_access(this->iss.regfile.regs[11], (uint8_t *)args, sizeof(args), false))
-        {
-            this->iss.regfile.regs[10] = -1;
-            return;
-        }
-
-        int id = args[0];
+        int id = this->iss.regfile.regs[11];
         vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
         if (trace == NULL)
         {
@@ -605,7 +603,7 @@ void Syscalls::handle_riscv_ebreak()
                 if (0)
                     trace->event_highz();
                 else
-                    trace->event((uint8_t *)&args[1]);
+                    trace->event((uint8_t *)&this->iss.regfile.regs[12]);
             }
         }
 

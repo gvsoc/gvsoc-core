@@ -1,3 +1,4 @@
+from inspect import stack
 #
 # Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and University of Bologna
 #
@@ -15,6 +16,7 @@
 #
 
 import os
+import subprocess
 import gvsoc.systree
 import gvsoc.systree as st
 import os.path
@@ -98,7 +100,10 @@ class RiscvCommon(st.Component):
             external_pccr=False,
             htif=False,
             custom_sources=False,
-            float_lib='flexfloat'):
+            float_lib='flexfloat',
+            stack_checker=False,
+            nb_outstanding=1
+        ):
 
         super().__init__(parent, name)
 
@@ -185,8 +190,14 @@ class RiscvCommon(st.Component):
 
         self.add_c_flags([f'-DCONFIG_GVSOC_ISS_{core.upper()}=1'])
 
+        if nb_outstanding > 1:
+            self.add_c_flags([f'-DCONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING={nb_outstanding}'])
+
         if supervisor:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SUPERVISOR_MODE=1'])
+
+        if stack_checker:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_STACK_CHECKER=1'])
 
         if external_pccr:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_EXTERNAL_PCCR=1'])
@@ -308,6 +319,10 @@ class RiscvCommon(st.Component):
         if handle_misaligned:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
 
+        for binary in binaries:
+            if binary is not None:
+                self.handle_executable(binary)
+
     def handle_executable(self, binary):
 
         global binaries
@@ -321,7 +336,14 @@ class RiscvCommon(st.Component):
             # Only generate debug symbols for small binaries, otherwise it is too slow
             # To allow it, the ISS should itself read the symbols.
             if os.path.getsize(path) < 5 * 1024*1024:
-                if os.system('gen-debug-info %s %s' % (path, debug_info_path)) != 0:
+
+                result = subprocess.run(
+                    ["gen-debug-info", path, debug_info_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+                if result.returncode != 0:
                     print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
         if os.path.getsize(path) < 5 * 1024*1024:
@@ -329,7 +351,7 @@ class RiscvCommon(st.Component):
 
     def generate(self, builddir):
         for executable in self.get_executables():
-            self.handle_executable(executable.binary)
+            self.handle_executable(executable.get_binary())
 
     def gen_gtkw(self, tree, comp_traces):
 
@@ -486,7 +508,7 @@ class RiscvCommon(st.Component):
 
     def gen_gui(self, parent_signal):
         active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='active_function',
-            display=gvsoc.gui.DisplayStringBox())
+            display=gvsoc.gui.DisplayStringBox(), include_traces=['active_pc', 'binaries'])
 
         gvsoc.gui.Signal(self, active, path='active_pc', groups=['pc'])
         gvsoc.gui.Signal(self, active, path='binaries', groups=['pc'])
@@ -496,7 +518,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, active, name='label', path='label', groups=['core'], display=gvsoc.gui.DisplayStringBox())
         gvsoc.gui.Signal(self, active, name='active', path='busy', groups=['core'],
             display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
-        gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
+        pc_signal = gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
             properties={'is_hotspot': True})
 
         gvsoc.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
@@ -527,6 +549,8 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+
+        thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
 
         return active
 

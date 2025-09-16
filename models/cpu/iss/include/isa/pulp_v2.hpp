@@ -36,7 +36,11 @@
 
 static inline iss_reg_t LB_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0));
+    if (iss->lsu.load_signed<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -58,7 +62,11 @@ static inline iss_reg_t LB_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LH_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0));
+    if (iss->lsu.load_signed<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -80,7 +88,11 @@ static inline iss_reg_t LH_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LW_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<int32_t>(insn, REG_GET(0) + REG_GET(1), 4, REG_OUT(0));
+    if (iss->lsu.load<int32_t>(insn, REG_GET(0) + REG_GET(1), 4, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -102,7 +114,11 @@ static inline iss_reg_t LW_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LBU_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0));
+    if (iss->lsu.load<int8_t>(insn, REG_GET(0) + REG_GET(1), 1, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -124,7 +140,11 @@ static inline iss_reg_t LBU_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LHU_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0));
+    if (iss->lsu.load<int16_t>(insn, REG_GET(0) + REG_GET(1), 2, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -146,7 +166,11 @@ static inline iss_reg_t LHU_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t LB_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int8_t>(insn, REG_GET(0), 1, REG_OUT(0));
+    if (iss->lsu.load_signed<int8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -169,7 +193,11 @@ static inline iss_reg_t LB_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t LH_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int16_t>(insn, REG_GET(0), 2, REG_OUT(0));
+    if (iss->lsu.load_signed<int16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -192,7 +220,11 @@ static inline iss_reg_t LH_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t LW_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load_signed<int32_t>(insn, REG_GET(0), 4, REG_OUT(0));
+    if (iss->lsu.load_signed<int32_t>(insn, REG_GET(0), 4, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -215,7 +247,11 @@ static inline iss_reg_t LW_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t LBU_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<int8_t>(insn, REG_GET(0), 1, REG_OUT(0));
+    if (iss->lsu.load<int8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -239,7 +275,11 @@ static inline iss_reg_t LBU_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
 static inline iss_reg_t LHU_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.load<int16_t>(insn, REG_GET(0), 2, REG_OUT(0));
+    if (iss->lsu.load<int16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -263,7 +303,11 @@ static inline iss_reg_t LHU_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
 static inline iss_reg_t SB_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint8_t>(insn, REG_GET(0), 1, REG_IN(1));
+    if (iss->lsu.store<uint8_t>(insn, REG_GET(0), 1, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -287,7 +331,11 @@ static inline iss_reg_t SB_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t SH_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint16_t>(insn, REG_GET(0), 2, REG_IN(1));
+    if (iss->lsu.store<uint16_t>(insn, REG_GET(0), 2, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -311,7 +359,11 @@ static inline iss_reg_t SH_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t SW_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint32_t>(insn, REG_GET(0), 4, REG_IN(1));
+    if (iss->lsu.store<uint32_t>(insn, REG_GET(0), 4, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, REG_GET(0) + SIM_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
@@ -336,7 +388,11 @@ static inline iss_reg_t SW_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t LB_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load_signed<int8_t>(insn, REG_GET(0), 1, REG_OUT(0));
+    if (iss->lsu.load_signed<int8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -362,7 +418,11 @@ static inline iss_reg_t LB_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t LH_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load_signed<int16_t>(insn, REG_GET(0), 2, REG_OUT(0));
+    if (iss->lsu.load_signed<int16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -388,7 +448,11 @@ static inline iss_reg_t LH_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t LW_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load_signed<int32_t>(insn, REG_GET(0), 4, REG_OUT(0));
+    if (iss->lsu.load_signed<int32_t>(insn, REG_GET(0), 4, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -414,7 +478,11 @@ static inline iss_reg_t LW_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t LBU_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load<uint8_t>(insn, REG_GET(0), 1, REG_OUT(0));
+    if (iss->lsu.load<uint8_t>(insn, REG_GET(0), 1, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -441,7 +509,11 @@ static inline iss_reg_t LBU_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_
 static inline iss_reg_t LHU_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(1);
-    iss->lsu.load<uint16_t>(insn, REG_GET(0), 2, REG_OUT(0));
+    if (iss->lsu.load<uint16_t>(insn, REG_GET(0), 2, REG_OUT(0)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -468,7 +540,11 @@ static inline iss_reg_t LHU_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_
 static inline iss_reg_t SB_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
-    iss->lsu.store<uint8_t>(insn, REG_GET(0), 1, REG_IN(1));
+    if (iss->lsu.store<uint8_t>(insn, REG_GET(0), 1, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -495,7 +571,11 @@ static inline iss_reg_t SB_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t SH_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
-    iss->lsu.store<uint16_t>(insn, REG_GET(0), 2, REG_IN(1));
+    if (iss->lsu.store<uint16_t>(insn, REG_GET(0), 2, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -522,7 +602,11 @@ static inline iss_reg_t SH_RR_POSTINC_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t SW_RR_POSTINC_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss_reg_t new_val = REG_GET(0) + REG_GET(2);
-    iss->lsu.store<uint32_t>(insn, REG_GET(0), 4, REG_IN(1));
+    if (iss->lsu.store<uint32_t>(insn, REG_GET(0), 4, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     IN_REG_SET(0, new_val);
     return iss_insn_next(iss, insn, pc);
 }
@@ -695,6 +779,7 @@ static inline iss_reg_t p_extbz_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
+#ifndef CONFIG_GVSOC_ISS_SNITCH_PULP_V2
 static inline iss_reg_t hwloop_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // Check now is the instruction has been replayed to know if it is the first
@@ -832,6 +917,7 @@ static inline iss_reg_t lp_setupi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
     return iss_insn_next(iss, insn, pc);
 }
+#endif
 
 static inline iss_reg_t p_abs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -843,7 +929,11 @@ static inline iss_reg_t p_abs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t SB_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint8_t>(insn, REG_GET(0) + REG_GET(2), 1, REG_IN(1));
+    if (iss->lsu.store<uint8_t>(insn, REG_GET(0) + REG_GET(2), 1, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -865,7 +955,11 @@ static inline iss_reg_t SB_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t SH_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint16_t>(insn, REG_GET(0) + REG_GET(2), 2, REG_IN(1));
+    if (iss->lsu.store<uint16_t>(insn, REG_GET(0) + REG_GET(2), 2, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -887,7 +981,11 @@ static inline iss_reg_t SH_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t SW_RR_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->lsu.store<uint32_t>(insn, REG_GET(0) + REG_GET(2), 4, REG_IN(1));
+    if (iss->lsu.store<uint32_t>(insn, REG_GET(0) + REG_GET(2), 4, REG_IN(1)))
+    {
+        // This returns true if the core didn't manage to do the access and is stalled.
+        return pc;
+    }
     return iss_insn_next(iss, insn, pc);
 }
 

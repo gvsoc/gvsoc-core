@@ -114,9 +114,9 @@ private:
 
 Memory::Memory(vp::ComponentConf &config)
 : vp::Component(config),
-log_addr(*this, "req_addr", 64),
-log_size(*this, "req_size", 64),
-log_is_write(*this, "req_is_write", 1)
+log_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
+log_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
+log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
     in.set_req_meth(&Memory::req);
@@ -238,20 +238,15 @@ void Memory::log_access(uint64_t addr, uint64_t size, bool is_write)
         this->nb_logged_access_in_same_cycle = 0;
     }
 
+    int64_t delay = 0;
     if (this->nb_logged_access_in_same_cycle > 0)
     {
         int64_t period = this->clock.get_period();
-        int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
-        this->log_addr.set(addr, delay);
-        this->log_size.set(size, delay);
-        this->log_is_write.set(is_write, delay);
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
     }
-    else
-    {
-        this->log_addr = addr;
-        this->log_size = size;
-        this->log_is_write = is_write;
-    }
+    this->log_addr.set_and_release(addr, 0, delay);
+    this->log_size.set_and_release(size, 0, delay);
+    this->log_is_write.set_and_release(is_write, 0, delay);
     this->nb_logged_access_in_same_cycle++;
     this->last_logged_access = cycles;
 }

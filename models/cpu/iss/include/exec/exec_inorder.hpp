@@ -66,7 +66,7 @@ public:
 
 
     // Terminate a previously stalled instruction, by dumping the instruction trace
-    inline void insn_terminate();
+    inline void insn_terminate(bool use_stall_insn=true, iss_reg_t insn=0);
 
     inline bool is_stalled();
 

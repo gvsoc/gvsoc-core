@@ -22,6 +22,7 @@
 #pragma once
 
 #include <cpu/iss/include/types.hpp>
+#include <vp/signal.hpp>
 
 #ifndef CONFIG_GVSOC_ISS_SNITCH
 #define ADDR_MASK (~(ISS_REG_WIDTH / 8 - 1))
@@ -32,10 +33,12 @@
 #define ADDR_MASK (~(ISS_REG_WIDTH / 4 - 1))
 #endif
 
+class IssWrapper;
+
 class Lsu
 {
 public:
-    Lsu(Iss &iss);
+    Lsu(IssWrapper &top, Iss &iss);
 
     void build();
     void start();
@@ -110,6 +113,8 @@ public:
     vp::IoReq *io_req_first;
     // List of requests which can be sent at the same time.
     vp::IoReq io_req[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
+    iss_reg_t stall_insn[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
+    iss_reg_t req_data[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
 #else
     vp::IoReq io_req;
 #endif
@@ -149,5 +154,10 @@ private:
     int64_t pending_latency;
     // True if the last request has been denied. The core must not send another request until
     // the last request has been granted
-    bool io_req_denied;
+    vp::Signal<bool> io_req_denied;
+
+    vp::Signal<bool> stalled;
+    vp::Signal<iss_reg_t> log_addr;
+    vp::Signal<iss_reg_t> log_size;
+    vp::Signal<bool> log_is_write;
 };

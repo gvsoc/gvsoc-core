@@ -550,6 +550,13 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
 
+        lsu = gvsoc.gui.Signal(self, active, name='lsu')
+        gvsoc.gui.Signal(self, lsu, "addr", path="lsu/addr", groups=['regmap'])
+        gvsoc.gui.Signal(self, lsu, "size", path="lsu/size", groups=['regmap'])
+        gvsoc.gui.Signal(self, lsu, "is_write", path="lsu/is_write", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
+        gvsoc.gui.Signal(self, lsu, "stalled", path="lsu/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
+        gvsoc.gui.Signal(self, lsu, "req_denied", path="lsu/req_denied", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
+
         thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
 
         return active

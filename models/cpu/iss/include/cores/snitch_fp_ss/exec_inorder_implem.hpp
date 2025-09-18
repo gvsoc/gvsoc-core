@@ -117,7 +117,7 @@ inline void Exec::insn_resume()
     this->instr_event.set_callback(&Exec::exec_instr_check_all);
 }
 
-inline void Exec::insn_terminate()
+inline void Exec::insn_terminate(bool use_stall_insn, iss_reg_t stall_insn)
 {
     if (this->iss.trace.insn_trace.get_active())
     {

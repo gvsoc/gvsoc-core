@@ -34,8 +34,11 @@ inline vp::IoReq *Lsu::get_req()
     // responses with latency. The requests are sorted out, first one is the next one to be free.
     if (this->io_req_denied || this->io_req_first == NULL || *((int64_t *)this->io_req_first->arg_get(1)) > cycles)
     {
+        this->stalled.set(true);
         return nullptr;
     }
+
+    this->stalled.set(false);
 
     // Allocate first one, it will be put back in the queue when the access is fully done.
     vp::IoReq *req = this->io_req_first;
@@ -126,8 +129,16 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // We repeat the instruction only when no request was available.
+            // If the request was allocated but denied, the core is stalled and unstalled
+            // when the grant is received
+            if (req_id == -1)
+            {
+                return true;
+            }
             this->stall_callback[req_id] = &Lsu::load_resume;
             this->stall_reg[req_id] = reg;
+            this->stall_insn[req_id] = insn->addr;
 #else
             this->stall_callback = &Lsu::load_resume;
             this->stall_reg = reg;
@@ -174,6 +185,7 @@ inline void Lsu::elw(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
         this->stall_callback[req_id] = &Lsu::elw_resume;
         this->stall_reg[req_id] = reg;
+        this->stall_insn[req_id] = insn->addr;
 #else
         this->stall_callback = &Lsu::elw_resume;
         this->stall_reg = reg;
@@ -233,16 +245,20 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
     }
     else
     {
-        if (err == vp::IO_REQ_DENIED)
-        {
-            return true;
-        }
-        else if (err != vp::IO_REQ_INVALID)
+        if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // We repeat the instruction only when no request was available.
+            // If the request was allocated but denied, the core is stalled and unstalled
+            // when the grant is received
+            if (req_id == -1)
+            {
+                return true;
+            }
             this->stall_callback[req_id] = &Lsu::load_signed_resume;
             this->stall_reg[req_id] = reg;
             this->stall_size[req_id] = size;
+            this->stall_insn[req_id] = insn->addr;
 #else
             this->stall_callback = &Lsu::load_signed_resume;
             this->stall_reg = reg;
@@ -311,8 +327,16 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // We repeat the instruction only when no request was available.
+            // If the request was allocated but denied, the core is stalled and unstalled
+            // when the grant is received
+            if (req_id == -1)
+            {
+                return true;
+            }
             this->stall_callback[req_id] = &Lsu::store_resume;
             this->stall_reg[req_id] = reg;
+            this->stall_insn[req_id] = insn->addr;
 #else
             this->stall_callback = &Lsu::store_resume;
             this->stall_reg = reg;
@@ -435,9 +459,17 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // We repeat the instruction only when no request was available.
+            // If the request was allocated but denied, the core is stalled and unstalled
+            // when the grant is received
+            if (req_id == -1)
+            {
+                return true;
+            }
             this->stall_callback[req_id] = &Lsu::load_float_resume;
             this->stall_reg[req_id] = reg;
             this->stall_size[req_id] = size;
+            this->stall_insn[req_id] = insn->addr;
 #else
             this->stall_callback = &Lsu::load_float_resume;
             this->stall_reg = reg;
@@ -505,8 +537,16 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // We repeat the instruction only when no request was available.
+            // If the request was allocated but denied, the core is stalled and unstalled
+            // when the grant is received
+            if (req_id == -1)
+            {
+                return true;
+            }
             this->stall_callback[req_id] = &Lsu::store_resume;
             this->stall_reg[req_id] = reg;
+            this->stall_insn[req_id] = insn->addr;
 #else
             this->stall_callback = &Lsu::store_resume;
             this->stall_reg = reg;

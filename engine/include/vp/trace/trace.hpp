@@ -65,8 +65,8 @@ namespace vp {
     void force_warning_no_error(warning_type_e type, const char *fmt, ...);
     inline void fatal(const char *fmt, ...);
 
-    inline void event_highz();
-    inline void event(uint8_t *value, int64_t delay=0);
+    inline void event_highz(int64_t cycle_delay=0, int64_t time_delay=0);
+    inline void event(uint8_t *value, int64_t cycle_delay=0, int64_t time_delay=0);
     inline void event_string(const char *value, bool realloc);
     inline void event_real(double value);
 

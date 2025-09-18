@@ -33,7 +33,7 @@ namespace vp {
     return this->engine;
   }
 
-  inline void vp::Trace::event_highz()
+  inline void vp::Trace::event_highz(int64_t cycle_delay, int64_t time_delay)
   {
   #ifdef VP_TRACE_ACTIVE
 
@@ -44,13 +44,14 @@ namespace vp {
     {
       uint64_t value = 0;
       uint64_t highz = (uint64_t)-1;
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time(),
-        comp->clock.get_engine() ? comp->clock.get_cycles() : -1, (uint8_t *)&value, (uint8_t *)&highz);
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time() + time_delay,
+        comp->clock.get_engine() ? comp->clock.get_cycles() + cycle_delay : -1, (uint8_t *)&value,
+        (uint8_t *)&highz);
     }
   #endif
   }
 
-  inline void vp::Trace::event(uint8_t *value, int64_t delay)
+  inline void vp::Trace::event(uint8_t *value, int64_t cycle_delay, int64_t time_delay)
   {
   #ifdef VP_TRACE_ACTIVE
 
@@ -60,8 +61,8 @@ namespace vp {
     if (callback)
     {
       uint64_t zero = (uint64_t)0;
-      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time() + delay,
-        comp->clock.get_engine() ? comp->clock.get_cycles() : -1, value, (uint8_t *)&zero);
+      callback(this->comp->traces.get_trace_engine(), this, comp->time.get_time() + time_delay,
+        comp->clock.get_engine() ? comp->clock.get_cycles() + cycle_delay: -1, value, (uint8_t *)&zero);
     }
   #endif
   }

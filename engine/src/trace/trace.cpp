@@ -394,22 +394,50 @@ vp::TraceEngine::~TraceEngine()
 
 void vp::TraceEngine::flush()
 {
-    // First flush current buffer
-    if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
+    if (!this->use_external_dumper)
     {
-        this->get_new_buffer_external();
+        // Flush only the events until the current timestamp as we may resume
+        // the execution right after
+        this->check_pending_events(this->top->time.get_engine()->get_time());
+
+        if (current_buffer_size)
+        {
+            pthread_mutex_lock(&mutex);
+
+            if (current_buffer)
+            {
+                *(vp::Trace **)(current_buffer + current_buffer_size) = NULL;
+                ready_event_buffers.push(current_buffer);
+                current_buffer = NULL;
+            }
+            pthread_cond_broadcast(&cond);
+            while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER)
+            {
+                pthread_cond_wait(&this->cond, &this->mutex);
+            }
+
+            pthread_mutex_unlock(&mutex);
+        }
     }
-
-    // Then wait until all pending buffers has been handled by dumper
-    pthread_mutex_lock(&this->mutex);
-
-    // We should get max number of buffers minus 1 as one has been taken as current buffer
-    while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
+    else
     {
-        pthread_cond_wait(&this->cond, &this->mutex);
-    }
+        // First flush current buffer
+        if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
+        {
+            this->get_new_buffer_external();
+        }
 
-    pthread_mutex_unlock(&this->mutex);
+        // Then wait until all pending buffers has been handled by dumper
+        pthread_mutex_lock(&this->mutex);
+
+        // We should get max number of buffers minus 1 as one has been taken as current buffer
+        while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
+        {
+            pthread_cond_wait(&this->cond, &this->mutex);
+        }
+
+        pthread_mutex_unlock(&this->mutex);
+    }
 }
 
 void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size)
@@ -1059,17 +1087,12 @@ void vp::TraceEngine::vcd_routine()
                 event_buffer += 4;
             }
 
-            uint8_t event[bytes];
-
-            memcpy((void *)&event, (void *)event_buffer, bytes);
-            event_buffer += bytes;
-
             // Check if the event trace is already registered, otherwise register it
             // to dump it when the next timestamp is detected.
             if (trace->event_trace)
             {
                 trace->event_trace->cycles = cycles;
-                trace->event_trace->reg(timestamp, event, trace->width, flags, flags_mask);
+                trace->event_trace->reg(timestamp, (uint8_t *)event_buffer, trace->width, flags, flags_mask);
                 if (!trace->event_trace->is_enqueued)
                 {
                     trace->event_trace->is_enqueued = true;
@@ -1077,6 +1100,7 @@ void vp::TraceEngine::vcd_routine()
                     this->first_trace_to_dump = trace->event_trace;
                 }
             }
+            event_buffer += bytes;
         }
 
         // Now push back the buffer of events into the list of free buffers

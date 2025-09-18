@@ -239,8 +239,16 @@ class Router(gvsoc.systree.Component):
                 input_trace = gvsoc.gui.Signal(self, top, name)
                 for channel in channels:
                     path = channel + '/' + name
-                    addr_trace = gvsoc.gui.Signal(self, input_trace, channel, path=path + "/addr", groups=['regmap'])
-                    gvsoc.gui.Signal(self, addr_trace, "size", path=path + "/size", groups=['regmap'])
+                    addr_trace = gvsoc.gui.Signal(self, input_trace, channel, path=path + "/addr",
+                        groups=['regmap'])
+                    gvsoc.gui.Signal(self, addr_trace, "size", path=path + "/size",
+                        groups=['regmap'])
+                    gvsoc.gui.Signal(self, addr_trace, "stalled", path=path + "/stalled",
+                        groups=['regmap'], display=gvsoc.gui.DisplayPulse())
+                    if self.get_property('max_input_pending_size') != 0:
+                        gvsoc.gui.Signal(self, addr_trace, "pending_size", path=path + "/pending_size",
+                            groups=['regmap'])
+
 
             for name, mapping in self.get_property('mappings').items():
                 mapping_trace = gvsoc.gui.Signal(self, top, name)
@@ -248,3 +256,4 @@ class Router(gvsoc.systree.Component):
                     path = channel + '/' + name
                     channel_trace = gvsoc.gui.Signal(self, mapping_trace, channel, path=path + "/addr", groups=['regmap'])
                     gvsoc.gui.Signal(self, channel_trace, "size", path=path + "/size", groups=['regmap'])
+                    gvsoc.gui.Signal(self, channel_trace, "stalled", path=path + "/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())

@@ -54,6 +54,8 @@ public:
     // Number of requests logged in the same cycle. Used to delay a bit in the trace the requests
     // which arrives in the same cycle
     int nb_logged_access_in_same_cycle = 0;
+    // Used for profiling
+    vp::Signal<bool> stalled_signal;
 };
 
 /**
@@ -102,7 +104,7 @@ public:
     std::queue<vp::IoReq *> denied_reqs;
     // Input FIFO size. Incoming requests are denied as soon as this becomes equal or greater than
     // the FIFO size
-    int pending_size = 0;
+    vp::Signal<int> pending_size;
     // If not NULL, this indicates the mapping tree information about the currently elected
     // request.
     vp::MappingTreeEntry *pending_mapping = NULL;
@@ -382,8 +384,11 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
 
                     // Update now the bandwidth since the next request will anyway be processed
                     // only when this one has been sent
-                    in->next_burst_cycle = cycles +
-                        (req->get_size() + _this->top->bandwidth - 1) / _this->top->bandwidth;
+                    if (_this->top->bandwidth > 0)
+                    {
+                        in->next_burst_cycle = cycles +
+                            (req->get_size() + _this->top->bandwidth - 1) / _this->top->bandwidth;
+                    }
                 }
             }
         }
@@ -414,6 +419,8 @@ void Channel::grant(vp::IoReq *req, int id)
     InputPort *in = out->stalled_port;
     out->stalled = false;
     out->stalled_port->stalled = false;
+    out->stalled_signal = false;
+    out->stalled_port->stalled_signal = !out->stalled_port->denied_reqs.empty();
     // Handle request grant, this will remove it from the queue and allow a new election for
     // this input port.
     this->handle_req_grant(in);
@@ -458,6 +465,7 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 {
                     vp::IoReq *denied_req = in->denied_reqs.front();
                     in->denied_reqs.pop();
+                    in->stalled_signal = !in->denied_reqs.empty();
                     in->pending_reqs.push(denied_req);
                     in->pending_size += denied_req->get_size();
                     denied_req->get_resp_port()->grant(denied_req);
@@ -496,8 +504,11 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     req->arg_push((void *)req->resp_port);
                 }
 
-                out->next_burst_cycle = cycles +
-                    (req->get_size() + _this->top->bandwidth - 1) / _this->top->bandwidth;
+                if (_this->top->bandwidth > 0)
+                {
+                    out->next_burst_cycle = cycles +
+                        (req->get_size() + _this->top->bandwidth - 1) / _this->top->bandwidth;
+                }
 
                 _this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending req (req: %p, in: %d, out: %d)\n",
                     req, in->id, i);
@@ -515,6 +526,8 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     out->stalled = true;
                     out->stalled_port = in;
                     in->stalled = true;
+                    out->stalled_signal = true;
+                    in->stalled_signal = true;
                 }
                 else
                 {
@@ -594,6 +607,7 @@ vp::IoReqStatus Channel::handle_req(vp::IoReq *req, int port)
     if (in->denied_reqs.size() > 0 || in->pending_size >= this->top->max_input_pending_size)
     {
         in->denied_reqs.push(req);
+        in->stalled_signal = true;
         return vp::IO_REQ_DENIED;
     }
     else
@@ -652,8 +666,10 @@ void Channel::handle_req_end(vp::IoReq *req, vp::IoReqStatus status)
 }
 
 Port::Port(Router *top, std::string name)
-: top(top), name(name), log_addr(*top, name + "/addr", 64),
-    log_size(*top, name + "/size", 64)
+: top(top), name(name),
+log_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+log_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ),
+stalled_signal(*top, name + "/stalled", 1)
 {
 
 }
@@ -667,18 +683,14 @@ void Port::log_access(uint64_t addr, uint64_t size)
         this->nb_logged_access_in_same_cycle = 0;
     }
 
+    int64_t delay = 0;
     if (this->nb_logged_access_in_same_cycle > 0)
     {
         int64_t period = this->top->clock.get_period();
-        int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
-        this->log_addr.set(addr, delay);
-        this->log_size.set(size, delay);
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
     }
-    else
-    {
-        this->log_addr = addr;
-        this->log_size = size;
-    }
+    this->log_addr.set_and_release(addr, 0, delay);
+    this->log_size.set_and_release(size, 0, delay);
     this->nb_logged_access_in_same_cycle++;
     this->last_logged_access = cycles;
 }
@@ -689,7 +701,7 @@ OutputPort::OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t
 }
 
 InputPort::InputPort(int id, std::string name, Router *top, int64_t bandwidth, int64_t latency)
-: Port(top, name), id(id)
+: Port(top, name), id(id), pending_size(*top, name + "/pending_size", 32, vp::SignalCommon::ResetKind::Value, 0)
 {
 }
 

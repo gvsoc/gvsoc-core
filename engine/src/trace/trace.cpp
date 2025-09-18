@@ -518,6 +518,7 @@ typedef struct
     int64_t timestamp;
     int64_t cycles;
     uint8_t value;
+    uint8_t flags;
 } __attribute__((packed)) event_1_t;
 
 void vp::TraceEngine::dump_event_1_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
@@ -528,6 +529,7 @@ void vp::TraceEngine::dump_event_1_external(vp::TraceEngine *_this, vp::Trace *t
     buff_event->timestamp = timestamp;
     buff_event->cycles = cycles;
     buff_event->value = *(uint8_t *)event | (((*(uint8_t *)flags) & 1) << 1);
+    buff_event->flags = *(uint64_t *)flags;
 }
 
 typedef struct
@@ -658,7 +660,10 @@ uint8_t *vp::TraceEngine::parse_event_1(vp::TraceEngine *_this, vp::Trace *trace
     value = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, 0);
+    flags = *(uint8_t *)buffer;
+    buffer += 1;
+
+    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
 
     return buffer;
 }

@@ -24,13 +24,19 @@
 #include <vp/block.hpp>
 
 
-vp::SignalCommon::SignalCommon(vp::Block &parent, std::string name, int width, bool do_reset)
+vp::SignalCommon::SignalCommon(Block &parent, std::string name, int width, ResetKind reset_kind)
+: parent(parent)
 {
     parent.traces.new_trace(name + "/trace", &this->trace, vp::TRACE);
     parent.traces.new_trace_event(name, &this->reg_event, width);
     parent.add_signal(this);
     this->width = width;
-    this->do_reset = do_reset;
+    this->reset_kind = reset_kind;
     this->name = name;
     this->nb_bytes = (width + 7) / 8;
+}
+
+vp::SignalCommon::SignalCommon(vp::Block &parent, std::string name, int width, bool do_reset)
+: SignalCommon(parent, name, width, do_reset ? ResetKind::Value : ResetKind::None)
+{
 }

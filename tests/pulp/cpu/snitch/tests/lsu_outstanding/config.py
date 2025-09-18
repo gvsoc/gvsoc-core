@@ -26,6 +26,6 @@ def declare(target):
 
     hello = pulpos.new_executable('test', target)
 
-    hello.add_cflags('-Os -g')
-    hello.add_ldflags('-Os -g')
+    hello.add_cflags('-O3 -g')
+    hello.add_ldflags('-O3 -g')
     hello.add_sources('test.c')

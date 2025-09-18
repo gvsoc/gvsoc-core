@@ -164,6 +164,10 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
       {
         return vp::IO_REQ_PENDING;
       }
+      else if(err == vp::IO_REQ_DENIED && size == loop_size)
+      {
+        return vp::IO_REQ_DENIED;
+      }
       else
       {
         return vp::IO_REQ_INVALID;

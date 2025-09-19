@@ -82,9 +82,16 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 
     // In case the barrier is reached as soon as we notify it, we are not yet stalled
     // and should not to anything
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
     if (_this->exec.wfi.get())
+#else
+    if (_this->exec.is_stalled())
+#endif
     {
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
         _this->exec.wfi.set(false);
+        _this->exec.busy_enter();
+#endif
         if (_this->exec.stall_cycles > (_this->top.clock.get_cycles() - _this->exec.wfi_start))
         {
             _this->exec.stall_cycles -= (_this->top.clock.get_cycles() - _this->exec.wfi_start);
@@ -93,7 +100,6 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
         {
             _this->exec.stall_cycles = 0;
         }
-        _this->exec.busy_enter();
         _this->exec.stalled_dec();
         _this->exec.insn_terminate();
     }

@@ -539,13 +539,13 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     // When the request is handle synchronously, the target uses the latency to
                     // apply timing. We need to take it into account before reusing the request
                     int64_t latency = req->get_full_latency();
-                    if (latency == 0)
+                    if (latency <= 1)
                     {
                         _this->handle_req_end(req, vp::IO_REQ_OK);
                     }
                     else
                     {
-                        _this->ended_reqs.push_back(req, latency);
+                        _this->ended_reqs.push_back(req, latency - 2);
                     }
                 }
             }

@@ -179,6 +179,8 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
     if (is_write)
     {
+        // Since accesses are not blocking and the store may use input data later, we need
+        // to save it to the request
         uint8_t *req_data = (uint8_t *)&this->req_data[*((int *)req->arg_get(0))];
         *(iss_reg_t *)req_data = *(iss_reg_t *)data_ptr;
         data_ptr = req_data;
@@ -502,8 +504,17 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
     req->set_addr(phys_addr);
     req->set_size(size);
     req->set_opcode(opcode);
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    // Since accesses are not blocking and the store may use input data later, we need
+    // to save it to the request
+    uint8_t *req_data = (uint8_t *)&this->req_data[*((int *)req->arg_get(0))];
+    *(iss_reg_t *)req_data = *(iss_reg_t *)this->iss.regfile.reg_store_ref(reg_in);
+    req->set_data(req_data);
+#else
     req->set_data((uint8_t *)this->iss.regfile.reg_store_ref(reg_in));
+#endif
     req->set_second_data((uint8_t *)this->iss.regfile.reg_ref(reg_out));
+
 // #ifdef VP_MEMCHECK_ACTIVE
 //     uint8_t *memcheck_data = (uint8_t *)this->iss.regfile.reg_store_ref(reg_in);
 //     memset(memcheck_data, 0xFF, size);
@@ -528,7 +539,9 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 #ifndef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
         if (req->get_latency() > 0)
         {
+#ifndef CONFIG_GVSOC_ISS_SCOREBOARD
             this->iss.timing.stall_load_account(req->get_latency());
+#endif
         }
 #else
         // For synchronous requests, free the request now with the proper latency, so that
@@ -551,6 +564,9 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
     if (err == vp::IO_REQ_DENIED || err == vp::IO_REQ_PENDING)
     {
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+        this->iss.regfile.scoreboard_reg_invalidate(reg_out);
+#endif
         if (err == vp::IO_REQ_DENIED)
         {
             // In case the request is denied, make sure we don't allow any other access
@@ -558,7 +574,8 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
             this->io_req_denied = true;
             this->iss.exec.insn_stall();
         }
-        if (size != ISS_REG_WIDTH/8)
+        // What was the purpose of this check ?
+        if (1) //size != ISS_REG_WIDTH/8)
         {
             int req_id = *((int *)req->arg_get(0));
             this->stall_callback[req_id] = &Lsu::load_signed_resume;

@@ -129,6 +129,9 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            this->iss.regfile.scoreboard_reg_invalidate(reg);
+#endif
             // We repeat the instruction only when no request was available.
             // If the request was allocated but denied, the core is stalled and unstalled
             // when the grant is received
@@ -248,6 +251,9 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            this->iss.regfile.scoreboard_reg_invalidate(reg);
+#endif
             // We repeat the instruction only when no request was available.
             // If the request was allocated but denied, the core is stalled and unstalled
             // when the grant is received
@@ -459,6 +465,9 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
         if (err != vp::IO_REQ_INVALID)
         {
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+#ifdef CONFIG_GVSOC_ISS_SCOREBOARD
+            this->iss.regfile.scoreboard_reg_invalidate(reg);
+#endif
             // We repeat the instruction only when no request was available.
             // If the request was allocated but denied, the core is stalled and unstalled
             // when the grant is received

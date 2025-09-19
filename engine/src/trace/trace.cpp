@@ -642,7 +642,11 @@ uint8_t *vp::TraceEngine::parse_event_real(vp::TraceEngine *_this, vp::Trace *tr
     value = *(double *)buffer;
     buffer += 8;
 
-    unlock = _this->vcd_user->event_update_real(timestamp, cycles, trace->user_trace, value);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_real(timestamp, cycles, trace->user_trace, value);
+    }
 
     return buffer;
 }
@@ -666,7 +670,11 @@ uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint64_t *)buffer;
     buffer += 8;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -691,7 +699,11 @@ uint8_t *vp::TraceEngine::parse_event_1(vp::TraceEngine *_this, vp::Trace *trace
     flags = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -716,7 +728,11 @@ uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace
     flags = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -740,7 +756,11 @@ uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint16_t *)buffer;
     buffer += 2;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -764,7 +784,11 @@ uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint32_t *)buffer;
     buffer += 4;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -1148,6 +1172,7 @@ void vp::TraceEngine::vcd_routine_external()
         while (event_buffer - event_buffer_start < (size_t)(TRACE_EVENT_BUFFER_SIZE - sizeof(vp::Trace *)))
         {
             vp::Trace *trace = *(vp::Trace **)event_buffer;
+
             if (trace == NULL)
                 break;
 

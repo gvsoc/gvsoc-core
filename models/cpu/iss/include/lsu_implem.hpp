@@ -83,10 +83,14 @@ inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
+#else
+    phys_addr = addr;
+#endif
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
@@ -201,10 +205,14 @@ inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int re
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
+#else
+    phys_addr = addr;
+#endif
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
@@ -290,10 +298,14 @@ inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
     if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
+#else
+    phys_addr = addr;
+#endif
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
@@ -423,10 +435,14 @@ inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
     if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
+#else
+    phys_addr = addr;
+#endif
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
@@ -504,10 +520,14 @@ inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int re
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
     if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
     {
         return false;
     }
+#else
+    phys_addr = addr;
+#endif
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 

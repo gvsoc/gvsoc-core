@@ -26,7 +26,7 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(top, *this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), ssr(top, *this), sequencer(top, *this),
+      regfile(top, *this), exception(*this), ssr(top, *this), sequencer(top, *this),
       memcheck(top, *this), top(top), fpu_lsu(top, *this)
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
       , vector(*this), ara(top, *this)
@@ -139,8 +139,6 @@ void IssWrapper::reset(bool active)
     this->iss.csr.reset(active);
     this->iss.exec.reset(active);
     this->iss.core.reset(active);
-    this->iss.mmu.reset(active);
-    this->iss.pmp.reset(active);
     this->iss.irq.reset(active);
     this->iss.lsu.reset(active);
     this->iss.timing.reset(active);
@@ -176,8 +174,6 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.timing.build();
     this->iss.gdbserver.build();
     this->iss.core.build();
-    this->iss.mmu.build();
-    this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
 

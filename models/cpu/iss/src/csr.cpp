@@ -121,7 +121,7 @@ void Csr::reset(bool active)
 {
     if (active)
     {
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
         memset(this->hwloop_regs, 0, sizeof(this->hwloop_regs));
 #endif
     #if defined(ISS_HAS_PERF_COUNTERS)
@@ -208,7 +208,7 @@ void Csr::build()
 
     this->tselect.register_callback(std::bind(&Csr::tselect_access, this, std::placeholders::_1, std::placeholders::_2));
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     this->hwloop_regs[PULPV2_HWLOOP_LPCOUNT(0)] = 0;
     this->hwloop_regs[PULPV2_HWLOOP_LPCOUNT(1)] = 0;
 #endif
@@ -681,7 +681,7 @@ static bool pcmr_write(Iss *iss, unsigned int prev_val, unsigned int value)
     return false;
 }
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
 static bool hwloop_read(Iss *iss, int reg, iss_reg_t *value)
 {
     *value = iss->csr.hwloop_regs[reg];
@@ -1245,7 +1245,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
         }
 #endif
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
         if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
         {
             status = hwloop_read(iss, reg - CSR_HWLOOP0_START, value);
@@ -1378,8 +1378,8 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
         return perfCounters_write(iss, reg, value);
 #endif
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
-    if (reg >= CONFIG_GVSOC_ISS_RI5KY && reg <= CSR_HWLOOP1_COUNTER)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
+    if (reg >= CSR_HWLOOP0_START && reg <= CSR_HWLOOP1_COUNTER)
         return hwloop_write(iss, reg - CSR_HWLOOP0_START, value);
 #endif
 
@@ -1676,7 +1676,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     }
 #endif
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     if (reg == CSR_HWLOOP0_START)
     {
       return "hwloop0_start";

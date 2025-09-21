@@ -36,8 +36,6 @@
 #include <cpu/iss/include/regfile.hpp>
 #include <cpu/iss/include/irq/irq_external.hpp>
 #include <cpu/iss/include/core.hpp>
-#include <cpu/iss/include/mmu.hpp>
-#include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
@@ -67,8 +65,6 @@ public:
     Syscalls syscalls;
     Trace trace;
     Csr csr;
-    Mmu mmu;
-    Pmp pmp;
     Exception exception;
     Memcheck memcheck;
 
@@ -101,7 +97,7 @@ private:
 inline Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(top, *this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), memcheck(top, *this), top(top)
+      regfile(top, *this), exception(*this), memcheck(top, *this), top(top)
 {
 }
 

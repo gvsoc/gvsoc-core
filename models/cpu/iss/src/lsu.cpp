@@ -473,7 +473,7 @@ void Lsu::load_float_resume(Lsu *lsu, vp::IoReq *req)
 bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
     vp::IoReqOpcode opcode)
 {
-        iss_addr_t phys_addr;
+    iss_addr_t phys_addr;
 
     this->trace.msg("Atomic request (addr: 0x%lx, size: 0x%x, opcode: %d)\n", addr, size, opcode);
     vp::IoReq *req = this->get_req();
@@ -486,18 +486,26 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
     if (opcode == vp::IoReqOpcode::LR)
     {
         bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
         if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
         {
             return false;
         }
+#else
+        phys_addr = addr;
+#endif
     }
     else
     {
         bool use_mem_array;
+#ifdef CONFIG_GVSOC_ISS_MMU
         if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
         {
             return false;
         }
+#else
+        phys_addr = addr;
+#endif
     }
 
     req->prepare();

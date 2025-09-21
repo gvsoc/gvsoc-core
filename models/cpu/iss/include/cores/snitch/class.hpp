@@ -41,8 +41,6 @@
 #include <cpu/iss/include/irq/irq_external.hpp>
 #endif
 #include <cpu/iss/include/core.hpp>
-#include <cpu/iss/include/mmu.hpp>
-#include <cpu/iss/include/pmp.hpp>
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
@@ -82,8 +80,6 @@ public:
     Syscalls syscalls;
     Trace trace;
     Csr csr;
-    Mmu mmu;
-    Pmp pmp;
     Exception exception;
     Memcheck memcheck;
 

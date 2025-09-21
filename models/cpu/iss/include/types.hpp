@@ -397,7 +397,7 @@ typedef struct iss_insn_s
     iss_reg_t opcode;
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*resource_handler)(Iss *, iss_insn_t *, iss_reg_t); // Handler called when an instruction with an associated resource is executed. The handler will take care of simulating the timing of the resource.
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t);
 #endif
     iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);

@@ -139,8 +139,6 @@ class RiscvCommon(st.Component):
                 "cpu/iss/src/syscalls.cpp",
                 "cpu/iss/src/htif.cpp",
                 "cpu/iss/src/memcheck.cpp",
-                "cpu/iss/src/mmu.cpp",
-                "cpu/iss/src/pmp.cpp",
                 "cpu/iss/src/gdbserver.cpp",
                 "cpu/iss/src/dbg_unit.cpp",
                 "cpu/iss/flexfloat/flexfloat.c",
@@ -210,6 +208,7 @@ class RiscvCommon(st.Component):
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])
+            self.add_sources(["cpu/iss/src/mmu.cpp"])
 
         if prefetcher_size is not None:
             self.add_c_flags([f'-DCONFIG_GVSOC_ISS_PREFETCHER_SIZE={prefetcher_size}'])
@@ -309,6 +308,7 @@ class RiscvCommon(st.Component):
             self.add_c_flags([
                 '-DCONFIG_GVSOC_ISS_PMP=1',
                 '-DCONFIG_GVSOC_ISS_PMP_NB_ENTRIES=16'])
+            self.add_sources(["cpu/iss/src/pmp.cpp"])
 
         if riscv_exceptions:
             self.add_sources(["cpu/iss/src/irq/irq_riscv.cpp"])
@@ -319,9 +319,10 @@ class RiscvCommon(st.Component):
         if handle_misaligned:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
 
-        for binary in binaries:
-            if binary is not None:
-                self.handle_executable(binary)
+        if binaries is not None:
+            for binary in binaries:
+                if binary is not None:
+                    self.handle_executable(binary)
 
     def handle_executable(self, binary):
 

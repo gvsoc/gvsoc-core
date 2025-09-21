@@ -414,9 +414,10 @@ if os.environ.get('USE_GVRUN') is None:
                     for index, binary in enumerate(debug_binaries_config.get_dict()):
                         # Only generate debug symbols for small binaries, otherwise it is too slow
                         # To allow it, the ISS should itself read the symbols.
-                        if os.path.getsize(binaries[index]) < 5 * 1024*1024:
-                            if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
-                                print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+                        if index < len(binaries):
+                            if os.path.getsize(binaries[index]) < 5 * 1024*1024:
+                                if os.system('gen-debug-info %s %s' % (binaries[index], binary)) != 0:
+                                    print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
 
 
         def run(self, norun=False):

@@ -426,7 +426,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     insn->fast_handler = item->u.insn.fast_handler;
     insn->handler = item->u.insn.handler;
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     if (insn->hwloop_handler != NULL)
     {
         iss_reg_t (*hwloop_handler)(Iss *, iss_insn_t *, iss_reg_t pc) = insn->hwloop_handler;

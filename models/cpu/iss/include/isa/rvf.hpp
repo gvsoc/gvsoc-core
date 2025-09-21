@@ -27,6 +27,7 @@
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/float.h"
 #include "cpu/iss/include/isa_lib/macros.h"
+#include "cpu/iss/include/isa/rvd.hpp"
 
 static inline iss_reg_t flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

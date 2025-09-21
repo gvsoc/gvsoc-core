@@ -77,7 +77,7 @@ void Exec::build()
 
     this->current_insn = 0;
     this->stall_insn = 0;
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     this->hwloop_end_insn[0] = 0;
     this->hwloop_end_insn[1] = 0;
 #endif
@@ -111,7 +111,7 @@ void Exec::reset(bool active)
     else
     {
         this->elw_insn = 0;
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
         this->hwloop_end_insn[0] = 0;
         this->hwloop_end_insn[1] = 0;
 #endif
@@ -198,7 +198,7 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
 
 // TODO HW loop methods could be moved to ri5cy specific code by using inheritance
 void Exec::hwloop_set_start(int index, iss_reg_t pc)
@@ -214,7 +214,7 @@ void Exec::hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc)
     {
         insn->hwloop_handler = insn->handler;
 
-#ifdef CONFIG_GVSOC_ISS_RI5KY
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
         insn->handler = hwloop_check_exec;
         insn->fast_handler = hwloop_check_exec;
 #endif
@@ -242,7 +242,7 @@ void Exec::hwloop_set_end(int index, iss_reg_t pc)
 
 void Exec::decode_insn(iss_insn_t *insn, iss_addr_t pc)
 {
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     for (int i=0; i<CONFIG_GVSOC_ISS_NB_HWLOOP; i++)
     {
         if (this->hwloop_end_insn[i] == pc)

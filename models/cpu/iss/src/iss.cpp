@@ -50,8 +50,12 @@ void IssWrapper::reset(bool active)
     this->iss.csr.reset(active);
     this->iss.exec.reset(active);
     this->iss.core.reset(active);
+#ifdef CONFIG_GVSOC_ISS_MMU
     this->iss.mmu.reset(active);
+#endif
+#ifdef CONFIG_GVSOC_ISS_PMP
     this->iss.pmp.reset(active);
+#endif
     this->iss.irq.reset(active);
     this->iss.lsu.reset(active);
     this->iss.timing.reset(active);
@@ -80,8 +84,12 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.timing.build();
     this->iss.gdbserver.build();
     this->iss.core.build();
+#ifdef CONFIG_GVSOC_ISS_MMU
     this->iss.mmu.build();
+#endif
+#ifdef CONFIG_GVSOC_ISS_PMP
     this->iss.pmp.build();
+#endif
     this->iss.exception.build();
     this->iss.prefetcher.build();
 

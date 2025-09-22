@@ -97,6 +97,7 @@ void SsrStreamer::reset(bool active)
 {
     if (active)
     {
+        this->active = false;
         this->in_fifo_head = 0;
         this->in_fifo_tail = 0;
         this->in_fifo_nb_elem = 0;
@@ -197,6 +198,11 @@ uint64_t SsrStreamer::get_data()
 
 void SsrStreamer::handle_data()
 {
+    if (!this->active)
+    {
+        return;
+    }
+
     if (this->is_write)
     {
         if (this->out_fifo_nb_elem > 0)
@@ -330,10 +336,10 @@ void Ssr::fsm_event_handler(vp::Block *__this, vp::ClockEvent *event)
 
 bool Ssr::ssr_access(bool is_write, iss_reg_t &value)
 {
-    this->ssr_enabled = value & 1;
-
     if (is_write)
     {
+        this->ssr_enabled = value & 1;
+
         if (this->ssr_enabled)
         {
             this->enable();
@@ -342,6 +348,10 @@ bool Ssr::ssr_access(bool is_write, iss_reg_t &value)
         {
             this->disable();
         }
+    }
+    else
+    {
+        value = this->ssr_enabled;
     }
     return true;
 }

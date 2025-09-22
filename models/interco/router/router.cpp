@@ -421,8 +421,9 @@ void Router::handle_entry_req_end(vp::IoReq *entry_req)
 }
 
 OutputPort::OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth)
-    : top(top), bw_limiter(top, bandwidth, latency, shared_rw_bandwidth), current_addr(*top, name + "/addr", 64),
-    current_size(*top, name + "/size", 64)
+    : top(top), bw_limiter(top, bandwidth, latency, shared_rw_bandwidth),
+    current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+    current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
 }
 
@@ -435,18 +436,14 @@ void OutputPort::log_access(uint64_t addr, uint64_t size)
         this->nb_logged_access_in_same_cycle = 0;
     }
 
+    int64_t delay = 0;
     if (this->nb_logged_access_in_same_cycle > 0)
     {
         int64_t period = this->top->clock.get_period();
-        int64_t delay = period - (period >> this->nb_logged_access_in_same_cycle);
-        this->current_addr.set(addr, delay);
-        this->current_size.set(size, delay);
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
     }
-    else
-    {
-        this->current_addr = addr;
-        this->current_size = size;
-    }
+    this->current_addr.set_and_release(addr, 0, delay);
+    this->current_size.set_and_release(size, 0, delay);
     this->nb_logged_access_in_same_cycle++;
     this->last_logged_access = cycles;
 }

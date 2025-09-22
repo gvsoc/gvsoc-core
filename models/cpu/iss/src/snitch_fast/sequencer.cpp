@@ -87,8 +87,11 @@ iss_reg_t Sequencer::non_float_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
         {
             iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+#ifndef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // When outstanding support is active, instructions are retried at every cycle
             iss->sequencer.stall_reg = insn->in_regs[i];
             iss->exec.insn_stall();
+#endif
             return pc;
         }
     }

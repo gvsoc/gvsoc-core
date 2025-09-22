@@ -66,7 +66,7 @@ public:
 
 
     // Terminate a previously stalled instruction, by dumping the instruction trace
-    inline void insn_terminate();
+    inline void insn_terminate(bool use_stall_insn=true, iss_reg_t insn=0);
 
     inline bool is_stalled();
 
@@ -101,7 +101,7 @@ public:
 
     int64_t get_cycles();
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     void hwloop_set_start(int index, iss_reg_t pc);
     void hwloop_set_end(int index, iss_reg_t pc);
     void hwloop_stub_insert(iss_insn_t *insn, iss_reg_t pc);
@@ -111,6 +111,10 @@ public:
     vp::reg_32 bootaddr_reg;
     vp::reg_1 fetch_enable_reg;
     vp::reg_1 wfi;
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+    vp::reg_8 wakeup;
+#endif
+    int64_t wfi_start;
     vp::reg_1 busy;
     int bootaddr_offset;
 
@@ -127,7 +131,7 @@ public:
     vp::reg_1 irq_enter;
     vp::reg_1 irq_exit;
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) | defined(CONFIG_GVSOC_ISS_HWLOOP)
     iss_reg_t hwloop_start_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_end_insn[CONFIG_GVSOC_ISS_NB_HWLOOP];
     iss_reg_t hwloop_next_insn;

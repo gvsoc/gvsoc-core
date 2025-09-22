@@ -139,8 +139,6 @@ class RiscvCommon(st.Component):
                 "cpu/iss/src/syscalls.cpp",
                 "cpu/iss/src/htif.cpp",
                 "cpu/iss/src/memcheck.cpp",
-                "cpu/iss/src/mmu.cpp",
-                "cpu/iss/src/pmp.cpp",
                 "cpu/iss/src/gdbserver.cpp",
                 "cpu/iss/src/dbg_unit.cpp",
                 "cpu/iss/flexfloat/flexfloat.c",
@@ -210,6 +208,7 @@ class RiscvCommon(st.Component):
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])
+            self.add_sources(["cpu/iss/src/mmu.cpp"])
 
         if prefetcher_size is not None:
             self.add_c_flags([f'-DCONFIG_GVSOC_ISS_PREFETCHER_SIZE={prefetcher_size}'])
@@ -309,6 +308,7 @@ class RiscvCommon(st.Component):
             self.add_c_flags([
                 '-DCONFIG_GVSOC_ISS_PMP=1',
                 '-DCONFIG_GVSOC_ISS_PMP_NB_ENTRIES=16'])
+            self.add_sources(["cpu/iss/src/pmp.cpp"])
 
         if riscv_exceptions:
             self.add_sources(["cpu/iss/src/irq/irq_riscv.cpp"])
@@ -319,9 +319,10 @@ class RiscvCommon(st.Component):
         if handle_misaligned:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HANDLE_MISALIGNED=1'])
 
-        for binary in binaries:
-            if binary is not None:
-                self.handle_executable(binary)
+        if binaries is not None:
+            for binary in binaries:
+                if binary is not None:
+                    self.handle_executable(binary)
 
     def handle_executable(self, binary):
 
@@ -549,6 +550,13 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, stalls, name="st_ext_cycles", path="pcer_st_ext_cycles", display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
+
+        lsu = gvsoc.gui.Signal(self, active, name='lsu')
+        gvsoc.gui.Signal(self, lsu, "addr", path="lsu/addr", groups=['regmap'])
+        gvsoc.gui.Signal(self, lsu, "size", path="lsu/size", groups=['regmap'])
+        gvsoc.gui.Signal(self, lsu, "is_write", path="lsu/is_write", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
+        gvsoc.gui.Signal(self, lsu, "stalled", path="lsu/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
+        gvsoc.gui.Signal(self, lsu, "req_denied", path="lsu/req_denied", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
 
         thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
 

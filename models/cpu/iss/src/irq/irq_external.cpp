@@ -125,6 +125,7 @@ void Irq::wfi_handle()
     if (this->req_irq == -1)
     {
         this->iss.exec.wfi.set(true);
+        this->iss.exec.wfi_start = this->iss.top.clock.get_cycles();
         this->iss.exec.busy_exit();
         this->iss.exec.insn_stall();
     }
@@ -152,6 +153,14 @@ void Irq::irq_req_sync(vp::Block *__this, int irq)
     if (irq != -1 && _this->iss.exec.wfi.get())
     {
         _this->iss.exec.wfi.set(false);
+        if (_this->iss.exec.stall_cycles > (_this->iss.top.clock.get_cycles() - _this->iss.exec.wfi_start))
+        {
+            _this->iss.exec.stall_cycles -= (_this->iss.top.clock.get_cycles() - _this->iss.exec.wfi_start);
+        }
+        else
+        {
+            _this->iss.exec.stall_cycles = 0;
+        }
         _this->iss.exec.busy_enter();
         _this->iss.exec.stalled_dec();
         _this->iss.exec.insn_terminate();

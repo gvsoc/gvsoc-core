@@ -719,5 +719,9 @@ class Target(gvrun.target.Target):
         return self.runner.run(args=args)
 
     def handle_command(self, command, args):
-        self.get_runner()
-        return self.runner.gv_handle_command(command, args)
+        if command == 'prepare':
+            self.get_runner()
+            self.runner.run(norun=True)
+            return True
+
+        return False

@@ -394,22 +394,50 @@ vp::TraceEngine::~TraceEngine()
 
 void vp::TraceEngine::flush()
 {
-    // First flush current buffer
-    if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
+    if (!this->use_external_dumper)
     {
-        this->get_new_buffer_external();
+        // Flush only the events until the current timestamp as we may resume
+        // the execution right after
+        this->check_pending_events(this->top->time.get_engine()->get_time());
+
+        if (current_buffer_size)
+        {
+            pthread_mutex_lock(&mutex);
+
+            if (current_buffer)
+            {
+                *(vp::Trace **)(current_buffer + current_buffer_size) = NULL;
+                ready_event_buffers.push(current_buffer);
+                current_buffer = NULL;
+            }
+            pthread_cond_broadcast(&cond);
+            while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER)
+            {
+                pthread_cond_wait(&this->cond, &this->mutex);
+            }
+
+            pthread_mutex_unlock(&mutex);
+        }
     }
-
-    // Then wait until all pending buffers has been handled by dumper
-    pthread_mutex_lock(&this->mutex);
-
-    // We should get max number of buffers minus 1 as one has been taken as current buffer
-    while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
+    else
     {
-        pthread_cond_wait(&this->cond, &this->mutex);
-    }
+        // First flush current buffer
+        if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
+        {
+            this->get_new_buffer_external();
+        }
 
-    pthread_mutex_unlock(&this->mutex);
+        // Then wait until all pending buffers has been handled by dumper
+        pthread_mutex_lock(&this->mutex);
+
+        // We should get max number of buffers minus 1 as one has been taken as current buffer
+        while(this->event_buffers.size() != TRACE_EVENT_NB_BUFFER - 1)
+        {
+            pthread_cond_wait(&this->cond, &this->mutex);
+        }
+
+        pthread_mutex_unlock(&this->mutex);
+    }
 }
 
 void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size)
@@ -518,6 +546,7 @@ typedef struct
     int64_t timestamp;
     int64_t cycles;
     uint8_t value;
+    uint8_t flags;
 } __attribute__((packed)) event_1_t;
 
 void vp::TraceEngine::dump_event_1_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
@@ -528,6 +557,7 @@ void vp::TraceEngine::dump_event_1_external(vp::TraceEngine *_this, vp::Trace *t
     buff_event->timestamp = timestamp;
     buff_event->cycles = cycles;
     buff_event->value = *(uint8_t *)event | (((*(uint8_t *)flags) & 1) << 1);
+    buff_event->flags = *(uint64_t *)flags;
 }
 
 typedef struct
@@ -612,7 +642,11 @@ uint8_t *vp::TraceEngine::parse_event_real(vp::TraceEngine *_this, vp::Trace *tr
     value = *(double *)buffer;
     buffer += 8;
 
-    unlock = _this->vcd_user->event_update_real(timestamp, cycles, trace->user_trace, value);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_real(timestamp, cycles, trace->user_trace, value);
+    }
 
     return buffer;
 }
@@ -636,7 +670,11 @@ uint8_t *vp::TraceEngine::parse_event_64(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint64_t *)buffer;
     buffer += 8;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -658,7 +696,14 @@ uint8_t *vp::TraceEngine::parse_event_1(vp::TraceEngine *_this, vp::Trace *trace
     value = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, 0);
+    flags = *(uint8_t *)buffer;
+    buffer += 1;
+
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -683,7 +728,11 @@ uint8_t *vp::TraceEngine::parse_event_8(vp::TraceEngine *_this, vp::Trace *trace
     flags = *(uint8_t *)buffer;
     buffer += 1;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -707,7 +756,11 @@ uint8_t *vp::TraceEngine::parse_event_16(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint16_t *)buffer;
     buffer += 2;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -731,7 +784,11 @@ uint8_t *vp::TraceEngine::parse_event_32(vp::TraceEngine *_this, vp::Trace *trac
     flags = *(uint32_t *)buffer;
     buffer += 4;
 
-    unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    // User trace can be NULL if some components are dumping traces during construction
+    if (trace->user_trace)
+    {
+        unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
+    }
 
     return buffer;
 }
@@ -1054,17 +1111,12 @@ void vp::TraceEngine::vcd_routine()
                 event_buffer += 4;
             }
 
-            uint8_t event[bytes];
-
-            memcpy((void *)&event, (void *)event_buffer, bytes);
-            event_buffer += bytes;
-
             // Check if the event trace is already registered, otherwise register it
             // to dump it when the next timestamp is detected.
             if (trace->event_trace)
             {
                 trace->event_trace->cycles = cycles;
-                trace->event_trace->reg(timestamp, event, trace->width, flags, flags_mask);
+                trace->event_trace->reg(timestamp, (uint8_t *)event_buffer, trace->width, flags, flags_mask);
                 if (!trace->event_trace->is_enqueued)
                 {
                     trace->event_trace->is_enqueued = true;
@@ -1072,6 +1124,7 @@ void vp::TraceEngine::vcd_routine()
                     this->first_trace_to_dump = trace->event_trace;
                 }
             }
+            event_buffer += bytes;
         }
 
         // Now push back the buffer of events into the list of free buffers
@@ -1119,6 +1172,7 @@ void vp::TraceEngine::vcd_routine_external()
         while (event_buffer - event_buffer_start < (size_t)(TRACE_EVENT_BUFFER_SIZE - sizeof(vp::Trace *)))
         {
             vp::Trace *trace = *(vp::Trace **)event_buffer;
+
             if (trace == NULL)
                 break;
 

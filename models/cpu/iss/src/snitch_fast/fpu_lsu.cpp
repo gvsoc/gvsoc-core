@@ -54,12 +54,8 @@ FpuLsu::FpuLsu(IssWrapper &top, Iss &iss)
 template<typename T>
 bool FpuLsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    iss_addr_t phys_addr;
+    iss_addr_t phys_addr = addr;
     bool use_mem_array;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
-    {
-        return false;
-    }
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 
@@ -124,12 +120,8 @@ bool FpuLsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 template<typename T>
 bool FpuLsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    iss_addr_t phys_addr;
+    iss_addr_t phys_addr = addr;
     bool use_mem_array;
-    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
-    {
-        return false;
-    }
 
 #ifdef CONFIG_GVSOC_ISS_MEMORY
 

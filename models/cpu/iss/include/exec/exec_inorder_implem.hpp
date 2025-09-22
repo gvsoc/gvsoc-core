@@ -55,7 +55,8 @@ static inline iss_reg_t iss_exec_stalled_insn_fast(Iss *iss, iss_insn_t *insn, i
     iss_reg_t next_insn =  insn->stall_fast_handler(iss, insn, pc);
 
 #if defined(CONFIG_GVSOC_ISS_SCOREBOARD)
-    if (latency > 0)
+    // Only update if the register has not been invalidated
+    if (latency > 0 && iss->regfile.scoreboard_reg_timestamp[insn->out_regs[0]] != -1)
     {
         iss->regfile.scoreboard_reg_set_timestamp(insn->out_regs[0], latency + 1, -1);
     }
@@ -122,18 +123,22 @@ inline void Exec::insn_resume()
     this->instr_event.set_callback(&Exec::exec_instr_check_all);
 }
 
-inline void Exec::insn_terminate()
+inline void Exec::insn_terminate(bool use_stall_insn, iss_reg_t stall_insn)
 {
     if (this->iss.trace.insn_trace.get_active())
     {
+        if (use_stall_insn)
+        {
+            stall_insn = this->stall_insn;
+        }
         // TODO this is not possible to correctly handle it for now, a better system should be implemented
         // for staling execution.
         // For now if the cache returns NULL due to mmu or prefetcher, we drop the instruction.
         iss_reg_t index;
-        iss_insn_t *insn = this->iss.insn_cache.get_insn(this->stall_insn, index);
+        iss_insn_t *insn = this->iss.insn_cache.get_insn(stall_insn, index);
         if (insn != NULL)
         {
-            iss_trace_dump(&this->iss, insn, this->stall_insn);
+            iss_trace_dump(&this->iss, insn, stall_insn);
         }
     }
 
@@ -182,8 +187,7 @@ inline void Exec::stalled_dec()
 {
     if (this->stalled.get() == 0)
     {
-        this->trace.warning("Trying to decrease zero stalled counter\n");
-        exit(1);
+        this->trace.fatal("Trying to decrease zero stalled counter\n");
         return;
     }
 

@@ -25,8 +25,8 @@
 
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), ssr(top, *this), sequencer(top, *this),
+      gdbserver(*this), lsu(top, *this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
+      regfile(top, *this), exception(*this), ssr(top, *this), sequencer(top, *this),
       memcheck(top, *this), top(top), fpu_lsu(top, *this)
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
       , vector(*this), ara(top, *this)
@@ -82,12 +82,33 @@ void Iss::barrier_sync(vp::Block *__this, bool value)
 
     // In case the barrier is reached as soon as we notify it, we are not yet stalled
     // and should not to anything
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+    if (_this->exec.wfi.get())
+#else
     if (_this->exec.is_stalled())
+#endif
     {
-        // Otherwise unstall the core
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+        _this->exec.wfi.set(false);
+        _this->exec.busy_enter();
+#endif
+        if (_this->exec.stall_cycles > (_this->top.clock.get_cycles() - _this->exec.wfi_start))
+        {
+            _this->exec.stall_cycles -= (_this->top.clock.get_cycles() - _this->exec.wfi_start);
+        }
+        else
+        {
+            _this->exec.stall_cycles = 0;
+        }
         _this->exec.stalled_dec();
         _this->exec.insn_terminate();
     }
+#ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
+    else
+    {
+        _this->exec.wakeup.inc(1);
+    }
+#endif
 }
 
 void IssWrapper::start()
@@ -118,8 +139,6 @@ void IssWrapper::reset(bool active)
     this->iss.csr.reset(active);
     this->iss.exec.reset(active);
     this->iss.core.reset(active);
-    this->iss.mmu.reset(active);
-    this->iss.pmp.reset(active);
     this->iss.irq.reset(active);
     this->iss.lsu.reset(active);
     this->iss.timing.reset(active);
@@ -155,8 +174,6 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.timing.build();
     this->iss.gdbserver.build();
     this->iss.core.build();
-    this->iss.mmu.build();
-    this->iss.pmp.build();
     this->iss.exception.build();
     this->iss.prefetcher.build();
 

@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include <sstream>
+#include <vp/block.hpp>
 
 namespace vp {
 
@@ -31,7 +32,14 @@ namespace vp {
     {
         friend class Block;
     public:
+        enum class ResetKind {
+            None,
+            Value,
+            HighZ
+        };
+
         SignalCommon(Block &parent, std::string name, int width, bool do_reset);
+        SignalCommon(Block &parent, std::string name, int width, ResetKind reset_kind=ResetKind::Value);
 
         inline void release()
         {
@@ -43,11 +51,12 @@ namespace vp {
     protected:
         virtual void reset(bool active) {};
 
+        Block &parent;
         std::string name = "";
         vp::Trace trace;
         vp::Trace reg_event;
         int width;
-        bool do_reset;
+        ResetKind reset_kind;
         int nb_bytes;
         uint8_t *value_bytes;
         uint8_t *reset_value_bytes;
@@ -57,8 +66,10 @@ namespace vp {
     class Signal : public SignalCommon
     {
     public:
-        Signal(Block &parent, std::string name, int width, bool do_reset=false, T reset=0);
-        inline void set(T value, int64_t delay=0);
+        Signal(Block &parent, std::string name, int width, bool do_reset=true, T reset=0);
+        Signal(Block &parent, std::string name, int width, ResetKind reset_kind, T reset_value=0);
+        inline void set(T value, int64_t cycle_delay=0, int64_t time_delay=0);
+        inline void set_and_release(T value, int64_t cycle_delay=0, int64_t time_delay=0);
         inline T get() const;
 
         Signal& operator=(T v)
@@ -98,7 +109,7 @@ namespace vp {
 
         inline void inc(T value);
         inline void dec(T value);
-        inline void release();
+        inline void release(int64_t cycle_delay=0, int64_t time_delay=0);
     protected:
         void reset(bool active) override;
     private:
@@ -109,7 +120,14 @@ namespace vp {
 
 
 template<class T>
-inline void vp::Signal<T>::set(T value, int64_t delay)
+inline void vp::Signal<T>::set_and_release(T value, int64_t cycle_delay, int64_t time_delay)
+{
+    this->set(value, cycle_delay, time_delay);
+    this->release(1, this->parent.clock.get_period());
+}
+
+template<class T>
+inline void vp::Signal<T>::set(T value, int64_t cycle_delay, int64_t time_delay)
 {
 #ifdef VP_TRACE_ACTIVE
     if (this->trace.get_active())
@@ -119,7 +137,7 @@ inline void vp::Signal<T>::set(T value, int64_t delay)
 #endif
 
     this->value = value;
-    this->reg_event.event((uint8_t *)&this->value, delay);
+    this->reg_event.event((uint8_t *)&this->value, cycle_delay, time_delay);
 }
 
 template<class T>
@@ -138,11 +156,21 @@ vp::Signal<T>::Signal(vp::Block &parent, std::string name, int width, bool do_re
 }
 
 template<class T>
-inline void vp::Signal<T>::release()
+vp::Signal<T>::Signal(Block &parent, std::string name, int width, ResetKind reset_kind,
+    T reset_value)
+: SignalCommon(parent, name, width, reset_kind)
+{
+    this->reset_value = reset_value;
+    this->value_bytes = (uint8_t *)&this->value;
+    this->reset_value_bytes = (uint8_t *)&this->reset_value;
+}
+
+template<class T>
+inline void vp::Signal<T>::release(int64_t cycle_delay, int64_t time_delay)
 {
     this->trace.msg("Release register\n");
     if (this->reg_event.get_event_active())
-        this->reg_event.event_highz();
+        this->reg_event.event_highz(cycle_delay, time_delay);
 }
 
 template<class T>
@@ -153,8 +181,16 @@ void vp::Signal<T>::reset(bool active)
         std::ostringstream value;
         // value << std::hex << this->value;
         // this->trace.msg(vp::Trace::LEVEL_TRACE, "Resetting signal (value: %s)\n", value.str().c_str());
-        this->value = this->reset_value;
-        this->release();
+        switch (this->reset_kind)
+        {
+            case ResetKind::Value:
+                this->value = this->reset_value;
+                break;
+
+            case ResetKind::HighZ:
+                this->release();
+                break;
+        }
     }
 }
 

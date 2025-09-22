@@ -40,8 +40,12 @@
 #include <cpu/iss/include/irq/irq_external.hpp>
 #endif
 #include <cpu/iss/include/core.hpp>
+#if defined(CONFIG_GVSOC_ISS_MMU)
 #include <cpu/iss/include/mmu.hpp>
+#endif
+#if defined(CONFIG_GVSOC_ISS_PMP)
 #include <cpu/iss/include/pmp.hpp>
+#endif
 #include <cpu/iss/include/memcheck.hpp>
 #include <cpu/iss/include/insn_cache.hpp>
 #include <cpu/iss/include/exec/exec_inorder.hpp>
@@ -70,8 +74,12 @@ public:
     Syscalls syscalls;
     Trace trace;
     Csr csr;
+#if defined(CONFIG_GVSOC_ISS_MMU)
     Mmu mmu;
+#endif
+#if defined(CONFIG_GVSOC_ISS_PMP)
     Pmp pmp;
+#endif
     Exception exception;
     Memcheck memcheck;
 
@@ -96,8 +104,14 @@ private:
 
 inline Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
-      gdbserver(*this), lsu(*this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), mmu(*this), pmp(*this), exception(*this), memcheck(top, *this), top(top)
+      gdbserver(*this), lsu(top, *this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
+      regfile(top, *this), exception(*this), memcheck(top, *this), top(top)
+#if defined(CONFIG_GVSOC_ISS_MMU)
+    , mmu(*this)
+#endif
+#if defined(CONFIG_GVSOC_ISS_PMP)
+    , pmp(*this)
+#endif
 {
 }
 

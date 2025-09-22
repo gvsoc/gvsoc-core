@@ -166,7 +166,7 @@ void Ssr::enable()
     if (!this->ssr_enable)
     {
         this->trace.msg("Enable SSR\n");
-        this->ssr_enable = true; 
+        this->ssr_enable = true;
         this->dm0.ssr_done = 0;
         this->dm1.ssr_done = 0;
         this->dm2.ssr_done = 0;
@@ -380,12 +380,12 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         {
             if (this->dm0.is_write)
             {
-                value = ((this->dm0.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm0.config.DIM&0x3) << 28) + 
+                value = ((this->dm0.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm0.config.DIM&0x3) << 28) +
                     (this->dm0.config.REG_WPTR[this->dm0.config.DIM] & 0x07ffffff);
             }
             else
             {
-                value = ((this->dm0.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm0.config.DIM&0x3) << 28) + 
+                value = ((this->dm0.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm0.config.DIM&0x3) << 28) +
                     (this->dm0.config.REG_RPTR[this->dm0.config.DIM] & 0x07ffffff);
             }
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Get REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
@@ -429,12 +429,12 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         {
             if (this->dm1.is_write)
             {
-                value = ((this->dm1.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm1.config.DIM&0x3) << 28) + 
+                value = ((this->dm1.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm1.config.DIM&0x3) << 28) +
                     (this->dm1.config.REG_WPTR[this->dm1.config.DIM] & 0x07ffffff);
             }
             else
             {
-                value = ((this->dm1.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm1.config.DIM&0x3) << 28) + 
+                value = ((this->dm1.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm1.config.DIM&0x3) << 28) +
                     (this->dm1.config.REG_RPTR[this->dm1.config.DIM] & 0x07ffffff);
             }
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Get REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
@@ -478,12 +478,12 @@ iss_reg_t Ssr::cfg_read(iss_insn_t *insn, int reg, int ssr)
         {
             if (this->dm2.is_write)
             {
-                value = ((this->dm2.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm2.config.DIM&0x3) << 28) + 
+                value = ((this->dm2.ssr_done&0x1) << 31) + (0x1 << 30) + ((this->dm2.config.DIM&0x3) << 28) +
                     (this->dm2.config.REG_WPTR[this->dm2.config.DIM] & 0x07ffffff);
             }
             else
             {
-                value = ((this->dm2.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm2.config.DIM&0x3) << 28) + 
+                value = ((this->dm2.ssr_done&0x1) << 31) + (0x0 << 30) + ((this->dm2.config.DIM&0x3) << 28) +
                     (this->dm2.config.REG_RPTR[this->dm2.config.DIM] & 0x07ffffff);
             }
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Get REG_STATUS with index %d in data mover %d to 0x%llx\n", reg, ssr, value);
@@ -567,21 +567,21 @@ int Ssr::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
         // and latency resulting from ports contention/conflicts.
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Number of SSR stall cycles in data mover %d: %d\n", dm, latency);
 
-        // Latency model of each data lane 
+        // Latency model of each data lane
         // The number of stall cycles of each FIFO event is determined by the latency of memory ports.
         // Increment latency on each data mover private clock event
         if (dm == 0)
         {
             this->event_0->stall_cycle_set(latency);
-        } 
+        }
         else if (dm == 1)
         {
             this->event_1->stall_cycle_set(latency);
-        } 
+        }
         else if (dm == 2)
         {
             this->event_2->stall_cycle_set(latency);
-        } 
+        }
 
         return 0;
     }
@@ -621,12 +621,8 @@ int Ssr::data_req(iss_addr_t addr, uint8_t *data_ptr, int size, bool is_write, i
 // Get called when the fifo reads data from memory.
 inline bool Ssr::load_float(iss_addr_t addr, uint8_t *data_ptr, int size, int dm)
 {
-    iss_addr_t phys_addr = 0x0;
+    iss_addr_t phys_addr = addr;
     bool use_mem_array = false;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array))
-    {
-        return false;
-    }
 
     int err = 0;
     int64_t latency = 0;
@@ -655,12 +651,8 @@ inline bool Ssr::load_float(iss_addr_t addr, uint8_t *data_ptr, int size, int dm
 // Get called when fifo writes data to memory.
 inline bool Ssr::store_float(iss_addr_t addr, uint8_t *data_ptr, int size, int dm)
 {
-    iss_addr_t phys_addr = 0x0;
+    iss_addr_t phys_addr = addr;
     bool use_mem_array = false;
-    if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array))
-    {
-        return false;
-    }
 
     int err = 0;
     int64_t latency = 0;
@@ -726,7 +718,7 @@ iss_freg_t Ssr::dm_read(int dm)
     else if (dm == 1)
     {
         this->dm1.dm_read = true;
-       
+
         if (this->dm1.fifo.isEmpty())
         {
             this->dm1.dm_not_preload = true;
@@ -749,13 +741,13 @@ iss_freg_t Ssr::dm_read(int dm)
 
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Update loop counter in data mover 1\n");
         this->dm1.update_cnt();
-        
+
         return ssr_fregs[1];
     }
     else if (dm == 2)
     {
         this->dm2.dm_read = true;
-    
+
         if (this->dm2.fifo.isEmpty())
         {
             this->dm2.dm_not_preload = true;
@@ -807,7 +799,7 @@ bool Ssr::dm_write(iss_freg_t value, int dm)
             // Write to fifo if the lane has empty space
             this->dm0.dm_write_full = false;
             this->dm0.fifo.push(this->dm0.temp);
-            this->ssr_fregs[0] = this->dm0.temp; 
+            this->ssr_fregs[0] = this->dm0.temp;
             return true;
         }
         else
@@ -884,7 +876,7 @@ bool Ssr::dm_write_again()
         {
             this->dm0.dm_write_full = false;
             this->dm0.fifo.push(this->dm0.temp);
-            this->ssr_fregs[0] = this->dm0.temp; 
+            this->ssr_fregs[0] = this->dm0.temp;
             return true;
         }
     }

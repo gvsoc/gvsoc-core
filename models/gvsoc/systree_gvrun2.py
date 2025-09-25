@@ -27,6 +27,9 @@ import gvrun.target
 import gvsoc.gui
 import hashlib
 import rich.table
+import regmap.regmap
+import regmap.regmap_md
+import regmap.regmap_c_header
 
 
 generated_components = {}
@@ -347,6 +350,11 @@ class Component(gvrun.target.SystemTreeNode):
         else:
             self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
+    def regmap_gen(self, template, outdir, name, block=None, headers=['regfields', 'gvsoc']):
+        regmap_instance = regmap.regmap.Regmap(name)
+        regmap.regmap_md.import_md(regmap_instance, template, block=block)
+        regmap.regmap_c_header.dump_to_header(regmap=regmap_instance, name=name,
+            header_path=f'{outdir}/{name}', headers=headers)
 
     def __add_component(self, name, component):
         """Add a new component.

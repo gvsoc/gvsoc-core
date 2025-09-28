@@ -20,7 +20,7 @@ from interco.router import Router
 from interco.traffic.generator import Generator
 from interco.traffic.receiver import Receiver
 from memory.memory import Memory
-from gvrun.target import TargetParameter
+from gvrun.parameter import TargetParameter
 
 import vp.clock_domain
 import math

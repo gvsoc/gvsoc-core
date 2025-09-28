@@ -30,6 +30,7 @@ import rich.table
 import regmap.regmap
 import regmap.regmap_md
 import regmap.regmap_c_header
+from gvrun.parameter import TargetParameter
 
 
 generated_components = {}
@@ -702,7 +703,7 @@ class Component(gvrun.target.SystemTreeNode):
         return len(self.properties) > 0
 
     def declare_user_property(self, name, value, description, cast=None, dump_format=None, allowed_values=None):
-        return gvrun.target.TargetParameter(
+        return TargetParameter(
             self, name=name, value=value,
             dump_format=dump_format, cast=cast, description=description, allowed_values=allowed_values
         ).get_value()

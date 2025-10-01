@@ -27,9 +27,18 @@ public:
 
 private:
     static void entry(vp::Block *__this, vp::ClockEvent *event);
+    bool check_single_path(bool do_write, bool wide, bool narrow, int initiator_bw, int target_bw,
+        int size, int expected_cycles, int x0, int y0, int x1, int y1, uint64_t offset,
+        int x2, int y2);
+    bool check_2_paths_through_same_node();
+    bool check_2_paths_to_same_target();
+    bool check_prefered_path();
 
     Testbench *top;
     vp::ClockEvent fsm_event;
     int step;
+    int testcase;
     int64_t clockstamp;
+    bool status;
+    std::vector<std::function<bool()>> testcases;
 };

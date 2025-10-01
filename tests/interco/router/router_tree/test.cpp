@@ -72,25 +72,6 @@ Testbench::Testbench(vp::ComponentConf &config)
     this->tests.push_back(new Test0(this));
 }
 
-bool Testbench::is_finished()
-{
-    for (int i=0; i<this->nb_router_in; i++)
-    {
-        for (int j=0; j<this->nb_gen_per_router_in; j++)
-        {
-            for (int k=0; k<2; k++)
-            {
-                if (!this->get_generator(i, j, k)->is_finished())
-                {
-                    return false;
-                }
-            }
-        }
-    }
-
-    return true;
-}
-
 void Testbench::reset(bool active)
 {
     if (!active)
@@ -152,8 +133,11 @@ void Testbench::start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_
     bool do_read = this->access_type == "r" || this->access_type == "rw";
     bool do_write = this->access_type == "w" || this->access_type == "rw";
     size_t bw0 = this->packet_size;
+    this->sync.event = event;
 
     uint64_t target_id = 0;
+
+    this->sync.init();
 
     for (int i=0; i<nb_inputs; i++)
     {
@@ -161,7 +145,6 @@ void Testbench::start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_
         {
             uint64_t offset = 0x10000000 + 0x10000 * (i * nb_gens_per_input + j) * 2 +
                 0x100000 * target_id * this->nb_router_out / nb_targets;
-            printf("%lx\n", offset);
             target_id++;
             if (target_id == nb_targets)
             {
@@ -170,11 +153,11 @@ void Testbench::start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_
 
             if (do_read)
             {
-                this->get_generator(i, j, 0)->start(offset, size, bw0, event, false);
+                this->get_generator(i, j, 0)->start(offset, size, bw0, &this->sync, false);
             }
             if (do_write)
             {
-                this->get_generator(i, j, 1)->start(offset + 0x10000, size, bw0, event, true);
+                this->get_generator(i, j, 1)->start(offset + 0x10000, size, bw0, &this->sync, true);
             }
         }
     }
@@ -186,6 +169,8 @@ void Testbench::start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_
             this->get_receiver(i)->start(this->target_bw);
         }
     }
+
+    this->sync.start();
 }
 
 int64_t Testbench::get_expected(int size, int nb_inputs, int nb_gens_per_input, int nb_targets)

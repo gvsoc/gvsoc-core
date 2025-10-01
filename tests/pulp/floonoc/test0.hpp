@@ -32,4 +32,5 @@ private:
     vp::ClockEvent fsm_event;
     int step;
     int64_t clockstamp;
+    bool status;
 };

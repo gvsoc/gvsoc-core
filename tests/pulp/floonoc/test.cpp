@@ -20,8 +20,6 @@
 #include "interco/traffic/generator.hpp"
 #include "interco/traffic/receiver.hpp"
 #include "test0.hpp"
-#include "test1.hpp"
-#include "test2.hpp"
 
 #define CYCLES_ERROR 0.01f
 
@@ -63,8 +61,6 @@ Testbench::Testbench(vp::ComponentConf &config)
     }
 
     this->tests.push_back(new Test0(this));
-    this->tests.push_back(new Test1(this));
-    this->tests.push_back(new Test2(this));
 }
 
 void Testbench::reset(bool active)

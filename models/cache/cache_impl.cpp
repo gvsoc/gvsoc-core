@@ -120,7 +120,7 @@ private:
     inline unsigned int get_line_offset(unsigned int addr) { return addr & ((1 << line_size_bits) - 1); }
     inline unsigned int getAddr(unsigned int index, unsigned int tag) { return (tag << (line_size_bits + nb_sets_bits)) | (index << line_size_bits); }
 
-    cache_line_t *refill(int line_index, unsigned int addr, unsigned int tag, vp::IoReq *req, bool *pending);
+    cache_line_t *refill(int line_index, unsigned int line_offset, unsigned int addr, unsigned int tag, vp::IoReq *req, bool *pending);
     static void refill_response(vp::Block *__this, vp::IoReq *req);
     cache_line_t *get_line(vp::IoReq *req, unsigned int *line_index, unsigned int *tag, unsigned int *line_offset);
 
@@ -214,7 +214,7 @@ void Cache::check_state()
     }
 }
 
-cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag, vp::IoReq *req, bool *pending)
+cache_line_t *Cache::refill(int line_index, unsigned int line_offset, unsigned int addr, unsigned int tag, vp::IoReq *req, bool *pending)
 {
     // The cache supports only 1 refill at the same time.
     // If a refill occurs while another one is already pending, just enqueue the request and return.
@@ -280,6 +280,7 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
             this->refill_pending_reqs.push_front(req);
             this->refill_line = line;
             this->refill_tag = tag;
+            this->pending_line_offset = line_offset;
             this->pending_refill.set(1);
             *pending = true;
             return NULL;
@@ -412,12 +413,11 @@ vp::IoReqStatus Cache::handle_req(vp::IoReq *req)
         this->trace.msg(vp::Trace::LEVEL_DEBUG, "Cache miss\n");
         this->refill_event.set(offset);
         bool pending = false;
-        hit_line = this->refill(line_index, offset, tag, req, &pending);
+        hit_line = this->refill(line_index, line_offset, offset, tag, req, &pending);
         if (hit_line == NULL)
         {
             if (pending)
             {
-                this->pending_line_offset = line_offset;
                 return vp::IO_REQ_PENDING;
             }
             else

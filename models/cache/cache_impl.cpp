@@ -274,7 +274,7 @@ cache_line_t *Cache::refill(int line_index, unsigned int line_offset, unsigned i
     vp::IoReqStatus err = this->refill_itf.req(refill_req);
     if (err != vp::IO_REQ_OK)
     {
-        if (err == vp::IO_REQ_PENDING)
+        if (err == vp::IO_REQ_PENDING || err == vp::IO_REQ_DENIED)
         {
             req->save();
             this->refill_pending_reqs.push_front(req);

@@ -148,6 +148,12 @@ void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
     vp_assert(_this->refill_pending_reqs.size() != 0, &_this->trace,
         "Received asynchronous response while no response is expected\n");
 
+    cache_line_t *line = _this->refill_line;
+    uint8_t *refill_data = req->get_data();
+    memcpy(line->data, refill_data, 1 << _this->line_size_bits);
+    delete[] refill_data;
+    line->tag = _this->refill_tag;
+
     vp::IoReq *pending_req = (vp::IoReq *)_this->refill_pending_reqs.pop();
 
     pending_req->restore();
@@ -163,12 +169,6 @@ void Cache::refill_response(vp::Block *__this, vp::IoReq *req)
 
     if (data)
     {
-        unsigned int line_index;
-        unsigned int tag;
-        cache_line_t *line = _this->refill_line;
-
-        line->tag = _this->refill_tag;
-
         if (!is_write)
         {
             memcpy(data, (void *)&line->data[_this->pending_line_offset], size);
@@ -266,7 +266,8 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
     refill_req->set_addr(full_addr);
     refill_req->set_is_write(false);
     refill_req->set_size(1 << this->line_size_bits);
-    refill_req->set_data(line->data);
+    uint8_t *refill_data = new uint8_t[1 << this->line_size_bits];
+    refill_req->set_data(refill_data);
 
     this->refill_event_clear_event.cancel();
 
@@ -285,8 +286,14 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
         }
         else
         {
+            delete[] refill_data;
             return NULL;
         }
+    }
+    else
+    {
+        memcpy(line->data, refill_data, 1 << this->line_size_bits);
+        delete[] refill_data;
     }
 
     line->tag = tag;

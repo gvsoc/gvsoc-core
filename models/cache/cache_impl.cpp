@@ -205,7 +205,7 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 void Cache::check_state()
 {
-    if (!this->pending_refill.get() && !this->refill_pending_reqs.empty())
+    if (!this->pending_refill.get() && this->refill_pending_reqs.size())
     {
         if (!this->fsm_event->is_enqueued())
         {

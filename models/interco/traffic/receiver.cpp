@@ -30,6 +30,7 @@ class Receiver : public vp::Component
 
 public:
     Receiver(vp::ComponentConf &conf);
+    ~Receiver();
 
 private:
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
@@ -47,7 +48,7 @@ private:
     vp::Queue pending_reqs;
     vp::Queue ready_reqs;
     int64_t ready_timestamp = -1;
-    int bandwidth;
+    int bandwidth = 0;
     int max_pending_reqs = 4;
     std::queue<vp::IoReq *>stalled_reqs;
     vp::Signal<bool> stalled;
@@ -60,6 +61,8 @@ private:
     // Number of requests logged in the same cycle. Used to delay a bit in the trace the requests
     // which arrives in the same cycle
     int nb_logged_access_in_same_cycle = 0;
+    int size;
+    uint8_t *mem_data;
 };
 
 Receiver::Receiver(vp::ComponentConf &config)
@@ -80,11 +83,44 @@ Receiver::Receiver(vp::ComponentConf &config)
 
     this->control_itf.set_sync_meth(&Receiver::control_sync);
     this->new_slave_port("control", &this->control_itf);
+
+    this->size = this->get_js_config()->get("mem_size")->get_int();
+    if (this->size > 0)
+    {
+        this->mem_data = (uint8_t *)calloc(this->size, 1);
+        if (this->mem_data == NULL) throw std::bad_alloc();
+    }
+}
+
+Receiver::~Receiver()
+{
+    if (this->size > 0)
+    {
+        free(this->mem_data);
+    }
 }
 
 vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 {
     Receiver *_this = (Receiver *)__this;
+
+    if (_this->size != 0)
+    {
+        if (req->get_addr() + req->get_size() > _this->size)
+        {
+            _this->trace.fatal("Invalid access (addr: 0x%x, size: 0x%x, mem_size: 0x%x)\n",
+                req->get_addr(), req->get_size(), _this->size);
+        }
+
+        if (req->get_is_write())
+        {
+            memcpy(&_this->mem_data[req->get_addr()], req->get_data(), req->get_size());
+        }
+        else
+        {
+            memcpy(req->get_data(), &_this->mem_data[req->get_addr()], req->get_size());
+        }
+    }
 
     _this->log_access(req->get_addr(), req->get_size(), req->get_is_write());
 
@@ -130,12 +166,16 @@ void Receiver::log_access(uint64_t addr, uint64_t size, bool is_write)
 void Receiver::control_sync(vp::Block *__this, TrafficReceiverConfig config)
 {
     Receiver *_this = (Receiver *)__this;
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Start (bw: %d)\n", config.bandwidth);
     _this->bandwidth = config.bandwidth;
 }
 
 void Receiver::pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Receiver *_this = (Receiver *)__this;
+
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "CHECK PENDING %d %ld\n", _this->pending_reqs.empty(),
+        _this->ready_timestamp, _this->clock.get_cycles());
 
     if (!_this->pending_reqs.empty() && _this->ready_timestamp <= _this->clock.get_cycles())
     {
@@ -156,12 +196,15 @@ void Receiver::pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
     }
 
+    _this->pending_reqs.trigger_next();
     _this->ready_reqs.trigger_next();
 }
 
 void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Receiver *_this = (Receiver *)__this;
+
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "CHECK READY %d\n", _this->ready_reqs.empty());
 
     if (!_this->ready_reqs.empty())
     {
@@ -183,6 +226,7 @@ void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 
     _this->pending_reqs.trigger_next();
+    _this->ready_reqs.trigger_next();
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

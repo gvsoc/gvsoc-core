@@ -34,6 +34,9 @@ public:
     vp::ClockEvent *end_trigger;
     bool do_write;
     uint64_t result;
+    bool check;
+    bool check_status;
+    int64_t duration;
 };
 
 
@@ -43,22 +46,32 @@ public:
     // Start sending bursts.
     // Send one burst of size <packet_size> at each cycle for a total of <size> bytes.
     inline void start(uint64_t address, size_t size, size_t packet_size,
-        vp::ClockEvent *end_trigger, bool do_write=false);
-    inline bool is_finished();
+        vp::ClockEvent *end_trigger, bool do_write=false, bool check=false);
+    inline bool is_finished(bool *check_status=NULL, int64_t *duration=NULL);
 };
 
 
 inline void TrafficGeneratorConfigMaster::start(uint64_t address, size_t size, size_t packet_size,
-    vp::ClockEvent *end_trigger, bool do_write)
+    vp::ClockEvent *end_trigger, bool do_write, bool check)
 {
     TrafficGeneratorConfig config = { .is_start=true, .address=address, .size=size,
-        .packet_size=packet_size, .end_trigger=end_trigger, .do_write=do_write};
+        .packet_size=packet_size, .end_trigger=end_trigger, .do_write=do_write,
+        .check=check
+    };
     this->sync(&config);
 }
 
-inline bool TrafficGeneratorConfigMaster::is_finished()
+inline bool TrafficGeneratorConfigMaster::is_finished(bool *check_status, int64_t *duration)
 {
     TrafficGeneratorConfig config = { .is_start=false };
     this->sync(&config);
+    if (check_status)
+    {
+        *check_status |= config.check_status;
+    }
+    if (duration)
+    {
+        *duration = std::max(*duration, config.duration);
+    }
     return config.result;
 }

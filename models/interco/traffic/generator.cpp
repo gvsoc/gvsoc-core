@@ -19,17 +19,29 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <cstring>
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/queue.hpp>
 #include "interco/traffic/generator.hpp"
 
+class Transfer
+{
+public:
+    uint64_t address;
+    uint64_t size;
+    bool do_write;
+    size_t packet_size;
+    uint8_t *data;
+};
+
 class Generator : public vp::Component
 {
 
 public:
     Generator(vp::ComponentConf &conf);
+    ~Generator();
 
 private:
     static void grant(vp::Block *__this, vp::IoReq *req);
@@ -43,9 +55,11 @@ private:
     vp::IoMaster output_itf;
     vp::WireSlave<TrafficGeneratorConfig *> control_itf;
     vp::ClockEvent fsm_event;
+    bool check;
+    bool check_write;
     uint64_t address;
+    uint8_t *data;
     vp::Signal<uint64_t> size;
-    size_t packet_size;
     vp::Signal<uint64_t> pending_size;
     vp::ClockEvent *end_trigger;
     vp::Signal<bool> stalled;
@@ -54,17 +68,24 @@ private:
     vp::Signal<uint64_t> signal_req_size;
     vp::Signal<bool> signal_req_is_write;
     int64_t last_req_cyclestamp = 0;
-    bool do_write;
 
     int nb_pending_reqs;
     vp::Queue free_reqs;
+    std::queue<Transfer *> transfers;
+    Transfer *current_transfer = NULL;
+    uint8_t *ref_data;
+    bool check_status;
+    int64_t start_cycles;
+    int64_t duration;
 };
 
 Generator::Generator(vp::ComponentConf &config)
     : vp::Component(config), fsm_event(this, Generator::fsm_handler),
     size(*this, "send_size", 64), pending_size(*this, "pending_size", 64),
-    signal_req_addr(*this, "req_addr", 64), signal_req_size(*this, "req_size", 64),
-    signal_req_is_write(*this, "req_is_write", 1), busy(*this, "busy", 1, true, false),
+    signal_req_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
+    signal_req_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
+    signal_req_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ),
+    busy(*this, "busy", 1, true, false),
     stalled(*this, "stalled", 1), free_reqs(this, "free_reqs")
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
@@ -77,6 +98,10 @@ Generator::Generator(vp::ComponentConf &config)
     this->new_slave_port("control", &this->control_itf);
 
     this->nb_pending_reqs = this->get_js_config()->get_int("nb_pending_reqs");
+}
+
+Generator::~Generator()
+{
 }
 
 void Generator::grant(vp::Block *__this, vp::IoReq *req)
@@ -100,22 +125,57 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
 
     if (config->is_start)
     {
+        _this->check_status = false;
         _this->busy = true;
-        _this->packet_size = config->packet_size;
-        _this->size = config->size;
-        _this->pending_size = config->size;
-        _this->address = config->address;
         _this->end_trigger = config->end_trigger;
-        _this->do_write = config->do_write;
         _this->stalled = false;
+        _this->check = config->check;
+        _this->check_write = config->do_write;
+
+        if (!config->check)
+        {
+            _this->start_cycles = _this->clock.get_cycles();
+        }
 
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
-            uint8_t *data = new uint8_t[_this->packet_size];
             vp::IoReq *req = new vp::IoReq();
-            req->set_data(data);
-
             _this->free_reqs.push_back(req);
+        }
+
+        if (config->check)
+        {
+            _this->ref_data = new uint8_t[config->size];
+
+            for (int i=0; i<config->size; i++)
+            {
+                _this->ref_data[i] = std::rand() % 256;
+            }
+        }
+
+        if (config->check && !config->do_write)
+        {
+            uint8_t *data = new uint8_t[config->size];
+            memcpy(data, _this->ref_data, config->size);
+            _this->transfers.push(new Transfer(
+                {config->address, config->size, !config->do_write, config->packet_size, data}));
+        }
+
+        uint8_t *data = new uint8_t[config->size];
+
+        if (config->check && config->do_write)
+        {
+            memcpy(data, _this->ref_data, config->size);
+        }
+
+        _this->transfers.push(new Transfer(
+            {config->address, config->size, config->do_write, config->packet_size, data}));
+
+        if (config->check && config->do_write)
+        {
+            uint8_t *data = new uint8_t[config->size];
+            _this->transfers.push(new Transfer(
+                {config->address, config->size, !config->do_write, config->packet_size, data}));
         }
 
         _this->fsm_event.enqueue();
@@ -123,6 +183,8 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
     else
     {
         config->result = !_this->busy;
+        config->check_status = _this->check_status;
+        config->duration = _this->duration;
     }
 }
 
@@ -130,27 +192,52 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Generator *_this = (Generator *)__this;
 
+    if (!_this->current_transfer && _this->transfers.size() > 0)
+    {
+        _this->current_transfer = _this->transfers.front();
+        _this->transfers.pop();
+        _this->size = _this->current_transfer->size;
+        _this->pending_size = _this->current_transfer->size;
+        _this->address = _this->current_transfer->address;
+        _this->data = _this->current_transfer->data;
+
+        if (_this->check && _this->transfers.size() == 0)
+        {
+            if (_this->check_write)
+            {
+                _this->duration = _this->clock.get_cycles() - _this->start_cycles;
+            }
+            else
+            {
+                _this->start_cycles = _this->clock.get_cycles();
+            }
+        }
+
+    }
+
     if (!_this->stalled && _this->size > 0 && !_this->free_reqs.empty())
     {
         vp::IoReq *req = (vp::IoReq *)_this->free_reqs.pop();
 
         req->prepare();
 
-        req->set_size(_this->packet_size);
+        req->set_size(_this->current_transfer->packet_size);
         req->set_addr(_this->address);
-        req->set_is_write(_this->do_write);
+        req->set_data(_this->data);
+        req->set_is_write(_this->current_transfer->do_write);
 
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request (req: %p, address: 0x%llx, size: 0x%llx, packet_size: 0x%llx)\n",
-            req, _this->address, _this->packet_size, _this->packet_size);
+            req, _this->address, _this->current_transfer->packet_size, _this->current_transfer->packet_size);
 
-        _this->signal_req_addr = req->get_addr();
-        _this->signal_req_size = req->get_size();
-        _this->signal_req_is_write = req->get_is_write();
+        _this->signal_req_addr.set_and_release(req->get_addr());
+        _this->signal_req_size.set_and_release(req->get_size());
+        _this->signal_req_is_write.set_and_release(req->get_is_write());
 
-        _this->address += _this->packet_size;
+        _this->address += _this->current_transfer->packet_size;
+        _this->data += _this->current_transfer->packet_size;
 
         vp::IoReqStatus status = _this->output_itf.req(req);
-        _this->size -= _this->packet_size;
+        _this->size -= _this->current_transfer->packet_size;
 
         if (status == vp::IO_REQ_DENIED)
         {
@@ -172,14 +259,39 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     if (_this->pending_size == 0 && _this->free_reqs.size() == _this->nb_pending_reqs &&
             _this->last_req_cyclestamp <= _this->clock.get_cycles())
     {
-        _this->busy = false;
+        if (_this->transfers.size() == 0)
+        {
 
+            if (!_this->check || !_this->check_write)
+            {
+                _this->duration = _this->clock.get_cycles() - _this->start_cycles;
+            }
+
+            if (_this->check)
+            {
+                _this->check_status = std::memcmp(_this->ref_data, _this->current_transfer->data,
+                    _this->current_transfer->size) != 0;
+                // for (int i=0; i<_this->current_transfer->size; i++)
+                // {
+                //     printf("%d: %d %d\n", i, _this->ref_data[i], _this->current_transfer->data[i]);
+                // }
+            }
+        }
+
+        delete[] _this->current_transfer->data;
+        delete _this->current_transfer;
+        _this->current_transfer = NULL;
+    }
+
+    if (!_this->current_transfer && _this->transfers.size() == 0)
+    {
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
             vp::IoReq *req = (vp::IoReq *)_this->free_reqs.pop();
-            delete[] req->get_data();
             delete req;
         }
+
+        _this->busy = false;
 
         _this->end_trigger->enqueue();
     }

@@ -25,6 +25,7 @@
 //#define NB_VEL VLEN/SEW
 //#define NB_VEL 256/8
 #define NB_VEL 2048/8//???????????????????????
+
 //#define VLMAX NB_VEL*iss->spatz.LMUL
 
 #define XLEN = ISS_REG_WIDTH
@@ -34,6 +35,7 @@
 // const float LMUL_VALUES[] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
 
 // const int SEW_VALUES[] = {8,16,32,64,128,256,512,1024};
+
 
 
 // int   VLEN = 256;
@@ -53,12 +55,12 @@ class Vector
 {
 public:
     Vector(Iss &iss);
-
+	
     void build();
     void reset(bool reset);
-
+	
     //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
-
+	
     //                          V 1.0
     const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
 
@@ -66,6 +68,9 @@ public:
     // const float LMUL_VALUES[4] = {1.0f, 2.0f, 4.0f, 8.0f};
     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
 
+	static constexpr int N_BANK = 4;
+
+	bool Bank_status [N_BANK];
 
     int   VLEN   = 256;
     int   SEW_t    = SEW_VALUES[2];
@@ -81,8 +86,8 @@ public:
     uint8_t mant;
 
 #ifdef CONFIG_GVSOC_ISS_CVA6
-    uint8_t vregs[ISS_NB_VREGS][CONFIG_ISS_VLEN/8];
+    uint8_t vregs[N_BANK][ISS_NB_VREGS][CONFIG_ISS_VLEN/8];
 #else
-    uint8_t vregs[ISS_NB_VREGS][(int)NB_VEL];
+    uint8_t vregs[N_BANK][ISS_NB_VREGS][(int)NB_VEL];
 #endif
 };

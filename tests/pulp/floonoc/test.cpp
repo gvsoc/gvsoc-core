@@ -37,7 +37,7 @@ Testbench::Testbench(vp::ComponentConf &config)
     int nb_cluster = this->nb_cluster_x*this->nb_cluster_y;
 
     this->noc_ni_itf.resize(nb_cluster);
-    this->generator_control_itf.resize(nb_cluster);
+    this->generator_control_itf.resize(nb_cluster*2);
     this->receiver_control_itf.resize(nb_cluster);
 
     for (int x=0; x<this->nb_cluster_x; x++)
@@ -47,8 +47,12 @@ Testbench::Testbench(vp::ComponentConf &config)
             int cid = y*this->nb_cluster_x + x;
 
             this->new_master_port(
-                "generator_control_" + std::to_string(x) + "_" + std::to_string(y),
-                &this->generator_control_itf[cid]);
+                "generator_control_" + std::to_string(x) + "_" + std::to_string(y) + "_w",
+                &this->generator_control_itf[2*cid]);
+
+            this->new_master_port(
+                "generator_control_" + std::to_string(x) + "_" + std::to_string(y) + "_n",
+                &this->generator_control_itf[2*cid + 1]);
 
             this->new_master_port(
                 "receiver_control_" + std::to_string(x) + "_" + std::to_string(y),
@@ -100,9 +104,9 @@ vp::IoMaster *Testbench::get_noc_ni_itf(int x, int y)
     return &this->noc_ni_itf[this->get_cluster_id(x, y)];
 }
 
-TrafficGeneratorConfigMaster *Testbench::get_generator(int x, int y)
+TrafficGeneratorConfigMaster *Testbench::get_generator(int x, int y, bool narrow)
 {
-    return &this->generator_control_itf[this->get_cluster_id(x, y)];
+    return &this->generator_control_itf[2*this->get_cluster_id(x, y) + narrow];
 }
 
 TrafficReceiverConfigMaster *Testbench::get_receiver(int x, int y)

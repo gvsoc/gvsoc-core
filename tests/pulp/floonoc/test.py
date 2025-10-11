@@ -44,8 +44,9 @@ class FloonocTest(gvsoc.systree.Component):
     def o_NOC_NI(self, x, y, itf: gvsoc.systree.SlaveItf):
         self.itf_bind(f'noc_ni_{x}_{y}', itf, signature='io')
 
-    def o_GENERATOR_CONTROL(self, x, y, itf: gvsoc.systree.SlaveItf):
-        self.itf_bind(f'generator_control_{x}_{y}', itf, signature='wire<TrafficGeneratorConfig>')
+    def o_GENERATOR_CONTROL(self, x, y, is_wide, itf: gvsoc.systree.SlaveItf):
+        is_wide_str = 'w' if is_wide else 'n'
+        self.itf_bind(f'generator_control_{x}_{y}_{is_wide_str}', itf, signature='wire<TrafficGeneratorConfig>')
 
     def o_RECEIVER_CONTROL(self, x, y, itf: gvsoc.systree.SlaveItf):
         self.itf_bind(f'receiver_control_{x}_{y}', itf, signature='wire<TrafficReceiverConfig>')
@@ -72,13 +73,16 @@ class Testbench(gvsoc.systree.Component):
 
         for x in range(0, nb_cluster_x):
             for y in range(0, nb_cluster_y):
-                generator = interco.traffic.generator.Generator(self, f'generator_{x}_{y}')
-                generator.o_OUTPUT(noc.i_CLUSTER_WIDE_INPUT(x, y))
+                generator_w = interco.traffic.generator.Generator(self, f'generator_{x}_{y}_w')
+                generator_w.o_OUTPUT(noc.i_CLUSTER_WIDE_INPUT(x, y))
+                generator_n = interco.traffic.generator.Generator(self, f'generator_{x}_{y}_n')
+                generator_n.o_OUTPUT(noc.i_CLUSTER_NARROW_INPUT(x, y))
 
                 receiver = Receiver(self, f'receiver_{x}_{y}', mem_size=1<<20)
 
                 test.o_NOC_NI(x, y, noc.i_CLUSTER_WIDE_INPUT(x, y))
-                test.o_GENERATOR_CONTROL(x, y, generator.i_CONTROL())
+                test.o_GENERATOR_CONTROL(x, y, True, generator_w.i_CONTROL())
+                test.o_GENERATOR_CONTROL(x, y, False, generator_n.i_CONTROL())
                 test.o_RECEIVER_CONTROL(x, y, receiver.i_CONTROL())
 
                 noc.o_WIDE_MAP(
@@ -112,7 +116,6 @@ class Testbench(gvsoc.systree.Component):
                 target_mem_base += mem_size
 
             if bound_name == 'up':
-                print ('%x' % mem_group_base)
                 noc.o_WIDE_MAP_DIR(mem_group_base, mem_group_size, FlooNocDirection.UP,
                     name=f'mem_up', rm_base=True)
             mem_group_base += mem_group_size

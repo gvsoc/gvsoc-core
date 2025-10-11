@@ -27,7 +27,8 @@ public:
 
 private:
     static void entry(vp::Block *__this, vp::ClockEvent *event);
-    bool check_single_path(bool do_write, int initiator_bw, int target_bw);
+    bool check_single_path(bool do_write, bool wide, bool narrow, int initiator_bw, int target_bw,
+        int size, int expected_cycles);
     bool check_2_paths_through_same_node();
     bool check_2_paths_to_same_target();
     bool check_prefered_path();

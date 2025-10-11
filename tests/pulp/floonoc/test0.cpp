@@ -24,41 +24,57 @@ Test0::Test0(Testbench *top)
     this->top = top;
 }
 
-bool Test0::check_single_path(bool do_write, int initiator_bw, int target_bw)
+bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiator_bw,
+    int target_bw, int size, int expected)
 {
-    size_t size = 1024*256;
     int x0=0, y0=0, x1=this->top->nb_cluster_x-1, y1=this->top->nb_cluster_y-1;
 
     if (this->step == 0)
     {
-        printf("Checking single path (write: %d, initiator_bw: %d, target_bw: %d)\n",
-            do_write, initiator_bw, target_bw);
+        printf("Single path (write: %d, wide: %d, narrow: %d, initiator_bw: %d, target_bw: %d)\n",
+            do_write, wide, narrow, initiator_bw, target_bw);
 
         // Check communications from top/left cluster to bottom/right. Target cluster has half
         // the bandwidth of the initiator cluster
 
         uint64_t base1 = this->top->get_cluster_base(x1, y1);
 
-        this->top->get_generator(x0, y0)->start(base1, size, initiator_bw, &this->fsm_event, do_write, true);
-        this->top->get_receiver(x1, y1)->start(target_bw);
+        if (wide)
+        {
+            this->top->get_generator(x0, y0, false)->start(base1, size, initiator_bw, &this->fsm_event, do_write, true);
+            this->top->get_receiver(x1, y1, false)->start(target_bw);
+        }
+
+        if (narrow)
+        {
+            this->top->get_generator(x0, y0, true)->start(base1 + 0x10000, size, initiator_bw, &this->fsm_event, do_write, true);
+            this->top->get_receiver(x1, y1, true)->start(target_bw);
+        }
 
         this->step++;
     }
     else
     {
         int64_t cycles = 0;
-        int64_t expected = size / target_bw;
 
         bool is_finished = true;
         bool check_status = false;
 
-        is_finished &= this->top->get_generator(x0, y0)->is_finished(&check_status, &cycles);
+        if (wide)
+        {
+            is_finished &= this->top->get_generator(x0, y0, false)->is_finished(&check_status, &cycles);
+        }
+
+        if (narrow)
+        {
+            is_finished &= this->top->get_generator(x0, y0, true)->is_finished(&check_status, &cycles);
+        }
 
         bool status = check_status;
         status |= this->top->check_cycles(cycles, expected) != 0;
 
-        printf("    %s (check: %d, size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
-            status ? "Failed" : "Done", check_status, size, target_bw, cycles, expected);
+        printf("    %s (check: %d, size: %lld, cycles: %lld, expected: %lld)\n",
+            status ? "Failed" : "Done", check_status, size, cycles, expected);
 
         this->status |= status;
         return true;
@@ -212,9 +228,16 @@ void Test0::entry(vp::Block *__this, vp::ClockEvent *event)
     bool done;
 
     std::vector<std::function<bool()>> testcases = {
-        // write, initiator bw, target bw
-        [&] { return _this->check_single_path(true, 8, 4); },
-        [&] { return _this->check_single_path(false, 8, 4); },
+        //                                    write | wide | narrow | initiator bw | target bw | size    | expected cycles
+        [&] { return _this->check_single_path(true  , true , false  , 8            , 4         , 1024*256, 65536); },
+        [&] { return _this->check_single_path(true  , true , true   , 8            , 4         , 1024*256, 65536); },
+        [&] { return _this->check_single_path(false , true , false  , 8            , 4         , 1024*256, 65536); },
+        [&] { return _this->check_single_path(false , true , true   , 8            , 4         , 1024*256, 65536); },
+        [&] { return _this->check_single_path(true  , true , false  , 8            , 8         , 1024*256, 65536); }, // writes put address on same channel before data, this reduces bw for small bursts
+        [&] { return _this->check_single_path(true  , true , true   , 8            , 8         , 1024*256, 65536); }, // writes put address on same channel before data, this reduces bw for small bursts
+        [&] { return _this->check_single_path(false , true , false  , 8            , 8         , 1024*256, 32768); },
+        [&] { return _this->check_single_path(false , true , true   , 8            , 8         , 1024*256, 65536); }, // writes put address on narrow channel which conflicts with narrow generator as full bandwidth is already taken
+        [&] { return _this->check_single_path(true  , true , false  , 64           , 8         , 1024*256, 36864); }, // Big burst size amortizes header cost
         [&] { return _this->check_2_paths_through_same_node(); },
         [&] { return _this->check_2_paths_to_same_target(); },
         [&] { return _this->check_prefered_path(); },

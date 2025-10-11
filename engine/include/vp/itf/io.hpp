@@ -290,6 +290,8 @@ namespace vp {
     // Default response callback, just do nothing.
     static inline void resp_default(vp::Block *, vp::IoReq *);
 
+    // Default callback for master, called when master is not connected
+    static inline IoReqStatus req_default(vp::Block *context, IoReq *);
 
     /*
      * Slave callbacks
@@ -532,9 +534,15 @@ namespace vp {
     // Set default callbacks in case the user does not set them
     this->resp_meth = &IoMaster::resp_default;
     this->grant_meth = &IoMaster::grant_default;
+
+    this->req_meth = &IoMaster::req_default;
   }
 
-
+  inline IoReqStatus IoMaster::req_default(vp::Block *, IoReq *)
+  {
+      vp_assert_always(false, NULL, "an unbound interface was called\n");
+      return IoReqStatus::IO_REQ_INVALID;
+  }
 
   inline IoReqStatus IoMaster::req(IoReq *req)
   {

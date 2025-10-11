@@ -77,6 +77,8 @@ private:
     bool check_status;
     int64_t start_cycles;
     int64_t duration;
+    int step;
+    int duration_step;
 };
 
 Generator::Generator(vp::ComponentConf &config)
@@ -131,11 +133,8 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
         _this->stalled = false;
         _this->check = config->check;
         _this->check_write = config->do_write;
-
-        if (!config->check)
-        {
-            _this->start_cycles = _this->clock.get_cycles();
-        }
+        _this->step = 0;
+        _this->duration_step = !_this->check || _this->check_write ? 0 : 1;
 
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
@@ -201,18 +200,10 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->address = _this->current_transfer->address;
         _this->data = _this->current_transfer->data;
 
-        if (_this->check && _this->transfers.size() == 0)
+        if (_this->duration_step == _this->step)
         {
-            if (_this->check_write)
-            {
-                _this->duration = _this->clock.get_cycles() - _this->start_cycles;
-            }
-            else
-            {
-                _this->start_cycles = _this->clock.get_cycles();
-            }
+            _this->start_cycles = _this->clock.get_cycles();
         }
-
     }
 
     if (!_this->stalled && _this->size > 0 && !_this->free_reqs.empty())
@@ -259,14 +250,14 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     if (_this->pending_size == 0 && _this->free_reqs.size() == _this->nb_pending_reqs &&
             _this->last_req_cyclestamp <= _this->clock.get_cycles())
     {
+        if (_this->duration_step == _this->step)
+        {
+            _this->duration = _this->clock.get_cycles() - _this->start_cycles;
+        }
+        _this->step++;
+
         if (_this->transfers.size() == 0)
         {
-
-            if (!_this->check || !_this->check_write)
-            {
-                _this->duration = _this->clock.get_cycles() - _this->start_cycles;
-            }
-
             if (_this->check)
             {
                 _this->check_status = std::memcmp(_this->ref_data, _this->current_transfer->data,

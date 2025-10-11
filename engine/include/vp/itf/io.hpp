@@ -182,6 +182,7 @@ namespace vp {
     int id;
     int initiator = -1;
     bool debug=false;
+    uint64_t initiator_addr;
 
 
   private:

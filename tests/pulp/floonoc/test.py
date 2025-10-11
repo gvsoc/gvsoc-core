@@ -44,12 +44,13 @@ class FloonocTest(gvsoc.systree.Component):
     def o_NOC_NI(self, x, y, itf: gvsoc.systree.SlaveItf):
         self.itf_bind(f'noc_ni_{x}_{y}', itf, signature='io')
 
-    def o_GENERATOR_CONTROL(self, x, y, is_wide, itf: gvsoc.systree.SlaveItf):
+    def o_GENERATOR_CONTROL(self, x, y, is_wide: bool, itf: gvsoc.systree.SlaveItf):
         is_wide_str = 'w' if is_wide else 'n'
         self.itf_bind(f'generator_control_{x}_{y}_{is_wide_str}', itf, signature='wire<TrafficGeneratorConfig>')
 
-    def o_RECEIVER_CONTROL(self, x, y, itf: gvsoc.systree.SlaveItf):
-        self.itf_bind(f'receiver_control_{x}_{y}', itf, signature='wire<TrafficReceiverConfig>')
+    def o_RECEIVER_CONTROL(self, x, y, is_wide: bool, itf: gvsoc.systree.SlaveItf):
+        is_wide_str = 'w' if is_wide else 'n'
+        self.itf_bind(f'receiver_control_{x}_{y}_{is_wide_str}', itf, signature='wire<TrafficReceiverConfig>')
 
     def i_CLUSTER(self, x, y) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, f'cluster_{x}_{y}', signature='io')
@@ -78,17 +79,19 @@ class Testbench(gvsoc.systree.Component):
                 generator_n = interco.traffic.generator.Generator(self, f'generator_{x}_{y}_n')
                 generator_n.o_OUTPUT(noc.i_CLUSTER_NARROW_INPUT(x, y))
 
-                receiver = Receiver(self, f'receiver_{x}_{y}', mem_size=1<<20)
+                receiver_w = Receiver(self, f'receiver_{x}_{y}_w', mem_size=1<<20)
+                receiver_n = Receiver(self, f'receiver_{x}_{y}_n', mem_size=1<<20)
 
                 test.o_NOC_NI(x, y, noc.i_CLUSTER_WIDE_INPUT(x, y))
                 test.o_GENERATOR_CONTROL(x, y, True, generator_w.i_CONTROL())
                 test.o_GENERATOR_CONTROL(x, y, False, generator_n.i_CONTROL())
-                test.o_RECEIVER_CONTROL(x, y, receiver.i_CONTROL())
+                test.o_RECEIVER_CONTROL(x, y, True, receiver_w.i_CONTROL())
+                test.o_RECEIVER_CONTROL(x, y, False, receiver_n.i_CONTROL())
 
-                noc.o_WIDE_MAP(
-                    receiver.i_INPUT(),
-                    cluster_base + cluster_size * (y * nb_cluster_x + x),
+                noc.o_MAP(cluster_base + cluster_size * (y * nb_cluster_x + x),
                     cluster_size, x+1, y+1, rm_base=True)
+                noc.o_WIDE_BIND(receiver_w.i_INPUT(), x+1, y+1)
+                noc.o_NARROW_BIND(receiver_n.i_INPUT(), x+1, y+1)
 
         mem_group_base = mem_base
         # Add targets on the borders
@@ -108,15 +111,14 @@ class Testbench(gvsoc.systree.Component):
                 else:
                     mem = Receiver(self, f'rcv_{bound_name}_{x}')
                     # test.o_RECEIVER_CONTROL(i, mem.i_CONTROL())
-                if bound_name == 'up':
-                    noc.o_BIND(mem.i_INPUT(), coord[0], coord[1])
-                else:
-                    noc.o_WIDE_MAP(mem.i_INPUT(), target_mem_base, mem_size, coord[0], coord[1],
+                if bound_name != 'up':
+                    noc.o_MAP(target_mem_base, mem_size, coord[0], coord[1],
                         rm_base=True)
+                noc.o_WIDE_BIND(mem.i_INPUT(), coord[0], coord[1])
                 target_mem_base += mem_size
 
             if bound_name == 'up':
-                noc.o_WIDE_MAP_DIR(mem_group_base, mem_group_size, FlooNocDirection.UP,
+                noc.o_MAP_DIR(mem_group_base, mem_group_size, FlooNocDirection.UP,
                     name=f'mem_up', rm_base=True)
             mem_group_base += mem_group_size
 

@@ -40,7 +40,7 @@ public:
     vp::IoMaster *get_noc_ni_itf(int x, int y);
     uint64_t get_cluster_base(int x, int y);
     TrafficGeneratorConfigMaster *get_generator(int x, int y, bool narrow=false);
-    TrafficReceiverConfigMaster *get_receiver(int x, int y);
+    TrafficReceiverConfigMaster *get_receiver(int x, int y, bool narrow=false);
     void test_end(int status);
     int check_cycles(int64_t result, int64_t expected);
 

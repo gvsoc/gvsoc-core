@@ -68,7 +68,7 @@ class Testbench(gvsoc.systree.Component):
         mem_size = 0x10_0000
         mem_group_size = 0x1000_0000
 
-        noc = pulp.floonoc.floonoc.FlooNocClusterGridNarrowWide(self, 'noc', 8, 8, nb_cluster_x, nb_cluster_y)
+        noc = pulp.floonoc.floonoc.FlooNocClusterGridNarrowWide(self, 'noc', 64, 8, nb_cluster_x, nb_cluster_y)
 
         test = FloonocTest(self, 'test', nb_cluster_x, nb_cluster_y, cluster_base, cluster_size)
 

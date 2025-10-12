@@ -228,23 +228,30 @@ void Test0::entry(vp::Block *__this, vp::ClockEvent *event)
     bool done;
 
     std::vector<std::function<bool()>> testcases = {
+        // Wide channel is 64 bytes and narrow is 8 bytes
+
         //                                    write | wide | narrow | initiator bw | target bw | size    | expected cycles
-        // [&] { return _this->check_single_path(true  , true , false  , 8            , 4         , 1024*256, 65536); },
-        // [&] { return _this->check_single_path(true  , true , true   , 8            , 4         , 1024*256, 65536); },
-        // [&] { return _this->check_single_path(false , true , false  , 8            , 4         , 1024*256, 65536); },
-        // [&] { return _this->check_single_path(false , true , true   , 8            , 4         , 1024*256, 65536); },
-        // [&] { return _this->check_single_path(true  , true , false  , 8            , 8         , 1024*256, 65536); }, // writes put address on same channel before data, this reduces bw for small bursts
-        // [&] { return _this->check_single_path(true  , true , true   , 8            , 8         , 1024*256, 65536); }, // writes put address on same channel before data, this reduces bw for small bursts
-        // [&] { return _this->check_single_path(false , true , false  , 8            , 8         , 1024*256, 32768); },
-        // [&] { return _this->check_single_path(false , true , true   , 8            , 8         , 1024*256, 65536); }, // writes put address on narrow channel which conflicts with narrow generator as full bandwidth is already taken
-        [&] { return _this->check_single_path(true  , true , false  , 64           , 8         , 64, 36864); }, // Big burst size amortizes header cost
+        [&] { return _this->check_single_path(true  , true , false  , 8            , 4         , 1024*256, 65536); }, // Target limited bandwidth is the bottleneck
+        [&] { return _this->check_single_path(true  , true , true   , 8            , 4         , 1024*256, 65536); }, // Target limited bandwidth is the bottleneck
+        [&] { return _this->check_single_path(false , true , false  , 8            , 4         , 1024*256, 65536); }, // Target limited bandwidth is the bottleneck
+        [&] { return _this->check_single_path(false , true , true   , 8            , 4         , 1024*256, 65536); }, // Target limited bandwidth is the bottleneck
+        [&] { return _this->check_single_path(true  , true , false  , 8            , 64         , 1024*256, 65536); }, // writes put address on same channel before data, this reduces bw for small bursts
+        [&] { return _this->check_single_path(true  , true , true   , 8            , 64         , 1024*256, 65536); }, // writes put address on same channel before data, this reduces bw for small bursts
+        [&] { return _this->check_single_path(false , true , false  , 8            , 64         , 1024*256, 32768); },
+        [&] { return _this->check_single_path(false , true , true   , 8            , 64         , 1024*256, 65536); }, // writes put address on narrow channel which conflicts with narrow generator as full bandwidth is already taken
+        // Check wide channel with write channel-width bursts to target reduced bandwidth
+        [&] { return _this->check_single_path(true  , true , false  , 64           , 8         , 1024*256, 32768); }, // Target limited bandwidth is the bottleneck
+        // Check wide and narrow channels with write wide-channel-width bursts to target reduced bandwidth
         // [&] { return _this->check_single_path(true  , true , true   , 64           , 8         , 1024*256, 36864); }, // Big burst size amortizes header cost
         // [&] { return _this->check_single_path(false , true , false  , 64           , 8         , 1024*256, 32768); }, // No header cost, done in parallel
         // [&] { return _this->check_single_path(false , true , true   , 64           , 8         , 1024*256, 32768); }, // No header cost, done in parallel
-        // [&] { return _this->check_single_path(true  , true , false  , 64           , 64        , 1024*256, 36864); }, // Big burst size amortizes header cost
-        // [&] { return _this->check_2_paths_through_same_node(); },
-        // [&] { return _this->check_2_paths_to_same_target(); },
-        // [&] { return _this->check_prefered_path(); },
+        // Check wide channel with write channel-width bursts
+        [&] { return _this->check_single_path(true  , true , false  , 64           , 64        , 1024*256, 8192); }, // Bandwidth divided by 2 due to header cost
+        // Check wide channel with write big bursts
+        [&] { return _this->check_single_path(true  , true , false  , 256          , 64        , 1024*256, 5120); }, // Big burst size amortizes header cost
+        [&] { return _this->check_2_paths_through_same_node(); },
+        [&] { return _this->check_2_paths_to_same_target(); },
+        [&] { return _this->check_prefered_path(); },
     };
 
     if (testcases[_this->testcase]())

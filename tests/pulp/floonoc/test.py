@@ -63,7 +63,7 @@ class Testbench(gvsoc.systree.Component):
         nb_cluster_x = 3
         nb_cluster_y = 3
         cluster_base = 0x80000000
-        cluster_size = 0x01000000
+        cluster_size = 0x010_0000
         mem_base = 0x9000_0000
         mem_size = 0x10_0000
         mem_group_size = 0x1000_0000

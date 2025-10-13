@@ -104,7 +104,7 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 {
     Receiver *_this = (Receiver *)__this;
 
-    if (req->get_addr() + req->get_size() >= _this->size)
+    if (req->get_addr() + req->get_size() > _this->size)
     {
         _this->trace.fatal("Invalid access (addr: 0x%x, size: 0x%x, mem_size: 0x%x)\n",
             req->get_addr(), req->get_size(), _this->size);

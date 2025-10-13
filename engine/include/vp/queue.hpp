@@ -33,6 +33,7 @@ namespace vp {
         Queue(Block *parent, std::string name, vp::ClockEvent *ready_event=NULL);
         void push_back(QueueElem *elem, int64_t delay=0);
         void push_front(QueueElem *elem);
+        void push_delayed(QueueElem *elem, int64_t delay);
         QueueElem *head();
         QueueElem *pop();
         bool empty();

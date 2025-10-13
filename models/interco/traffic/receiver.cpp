@@ -48,7 +48,7 @@ private:
     vp::Queue pending_reqs;
     vp::Queue ready_reqs;
     int64_t ready_timestamp = -1;
-    int bandwidth;
+    int bandwidth = 0;
     int max_pending_reqs = 4;
     std::queue<vp::IoReq *>stalled_reqs;
     vp::Signal<bool> stalled;
@@ -104,6 +104,12 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 {
     Receiver *_this = (Receiver *)__this;
 
+    if (req->get_addr() + req->get_size() >= _this->size)
+    {
+        _this->trace.fatal("Invalid access (addr: 0x%x, size: 0x%x, mem_size: 0x%x)\n",
+            req->get_addr(), req->get_size(), _this->size);
+    }
+
     if (req->get_is_write())
     {
         memcpy(&_this->mem_data[req->get_addr()], req->get_data(), req->get_size());
@@ -157,6 +163,7 @@ void Receiver::log_access(uint64_t addr, uint64_t size, bool is_write)
 void Receiver::control_sync(vp::Block *__this, TrafficReceiverConfig config)
 {
     Receiver *_this = (Receiver *)__this;
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Start (bw: %d)\n", config.bandwidth);
     _this->bandwidth = config.bandwidth;
 }
 

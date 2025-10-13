@@ -34,6 +34,8 @@ bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiat
         printf("Single path (write: %d, wide: %d, narrow: %d, initiator_bw: %d, target_bw: %d)\n",
             do_write, wide, narrow, initiator_bw, target_bw);
 
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
+
         // Check communications from top/left cluster to bottom/right. Target cluster has half
         // the bandwidth of the initiator cluster
 
@@ -41,15 +43,17 @@ bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiat
 
         if (wide)
         {
-            this->top->get_generator(x0, y0, false)->start(base1, size, initiator_bw, &this->fsm_event, do_write, true);
+            this->top->get_generator(x0, y0, false)->start(base1, size, initiator_bw, sync, do_write, true);
             this->top->get_receiver(x1, y1, false)->start(target_bw);
         }
 
         if (narrow)
         {
-            this->top->get_generator(x0, y0, true)->start(base1 + 0x10000, size, initiator_bw, &this->fsm_event, do_write, true);
+            this->top->get_generator(x0, y0, true)->start(base1 + 0x10000, size, initiator_bw, sync, do_write, true);
             this->top->get_receiver(x1, y1, true)->start(target_bw);
         }
+
+        sync->start();
 
         this->step++;
     }
@@ -57,17 +61,16 @@ bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiat
     {
         int64_t cycles = 0;
 
-        bool is_finished = true;
         bool check_status = false;
 
         if (wide)
         {
-            is_finished &= this->top->get_generator(x0, y0, false)->is_finished(&check_status, &cycles);
+            this->top->get_generator(x0, y0, false)->get_result(&check_status, &cycles);
         }
 
         if (narrow)
         {
-            is_finished &= this->top->get_generator(x0, y0, true)->is_finished(&check_status, &cycles);
+            this->top->get_generator(x0, y0, true)->get_result(&check_status, &cycles);
         }
 
         bool status = check_status;
@@ -97,37 +100,37 @@ bool Test0::check_2_paths_through_same_node()
     {
         printf("Test 1, checking 2 data streams going through same router but using different paths\n");
 
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
+
         uint64_t base1 = this->top->get_cluster_base(x1, y1);
         uint64_t base3 = this->top->get_cluster_base(x3, y3);
 
-        this->top->get_generator(x0, y0)->start(base1, size, bw, &this->fsm_event, false, true);
+        this->top->get_generator(x0, y0)->start(base1, size, bw, sync, false, true);
         this->top->get_receiver(x1, y1)->start(bw);
-        this->top->get_generator(x2, y2)->start(base3, size, bw, &this->fsm_event, false, true);
+        this->top->get_generator(x2, y2)->start(base3, size, bw, sync, false, true);
         this->top->get_receiver(x3, y3)->start(bw);
+
+        sync->start();
 
         this->step++;
     }
     else
     {
         int64_t cycles = 0;
-        bool is_finished = true;
         bool check_status = false;
 
-        is_finished &= this->top->get_generator(x0, y0)->is_finished(&check_status, &cycles);
-        is_finished &= this->top->get_generator(x2, y2)->is_finished(&check_status, &cycles);
+        this->top->get_generator(x0, y0)->get_result(&check_status, &cycles);
+        this->top->get_generator(x2, y2)->get_result(&check_status, &cycles);
 
-        if (is_finished)
-        {
-            int64_t expected = size / bw;
+        int64_t expected = size / bw;
 
-            bool status = this->top->check_cycles(cycles, expected) != 0;
+        bool status = this->top->check_cycles(cycles, expected) != 0;
 
-            printf("    %s (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
-                status ? "Failed" : "Done", size, bw, cycles, expected);
+        printf("    %s (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
+            status ? "Failed" : "Done", size, bw, cycles, expected);
 
-            this->status |= status;
-            return true;
-        }
+        this->status |= status;
+        return true;
     }
     return false;
 }
@@ -146,11 +149,15 @@ bool Test0::check_2_paths_to_same_target()
     {
         printf("Test 2, checking 2 generators going to same receiver\n");
 
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
+
         uint64_t base = this->top->get_cluster_base(x2, y2);
 
-        this->top->get_generator(x0, y0)->start(base, size, bw1, &this->fsm_event, false, true);
-        this->top->get_generator(x1, y1)->start(base + 0x10000, size, bw1, &this->fsm_event, false, true);
+        this->top->get_generator(x0, y0)->start(base, size, bw1, sync, false, true);
+        this->top->get_generator(x1, y1)->start(base + 0x10000, size, bw1, sync, false, true);
         this->top->get_receiver(x2, y2)->start(bw2);
+
+        sync->start();
 
         this->clockstamp = this->clock.get_cycles();
         this->step++;
@@ -158,25 +165,21 @@ bool Test0::check_2_paths_to_same_target()
     else
     {
         int64_t cycles = 0;
-        bool is_finished = true;
         bool check_status = false;
 
-        is_finished &= this->top->get_generator(x0, y0)->is_finished(&check_status, &cycles);
-        is_finished &= this->top->get_generator(x1, y1)->is_finished(&check_status, &cycles);
+        this->top->get_generator(x0, y0)->get_result(&check_status, &cycles);
+        this->top->get_generator(x1, y1)->get_result(&check_status, &cycles);
 
-        if (is_finished)
-        {
-            // Since we have 2 generators going to same target, bandwidth is divided by 2
-            int64_t expected = size / (bw1 / 2);
+        // Since we have 2 generators going to same target, bandwidth is divided by 2
+        int64_t expected = size / (bw1 / 2);
 
-            bool status = this->top->check_cycles(cycles, expected) != 0;
+        bool status = this->top->check_cycles(cycles, expected) != 0;
 
-            printf("    %s (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
-                status ? "Failed" : "Done", size, bw1, cycles, expected);
+        printf("    %s (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
+            status ? "Failed" : "Done", size, bw1, cycles, expected);
 
-            this->status |= status;
-            return true;
-        }
+        this->status |= status;
+        return true;
     }
     return false;
 }
@@ -191,33 +194,28 @@ bool Test0::check_prefered_path()
     {
         printf("Test 4, checking 3 generators to 1 border with prefered direction\n");
 
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
 
-
-        this->top->get_generator(x0, y0)->start(0x90000000, size, bw0, &this->fsm_event, false, true);
-        this->top->get_generator(x1, y1)->start(0x90010000, size, bw0, &this->fsm_event, false, true);
-        this->top->get_generator(x2, y2)->start(0x90020000, size, bw0, &this->fsm_event, false, true);
-
-
+        this->top->get_generator(x0, y0)->start(0x90000000, size, bw0, sync, false, true);
+        this->top->get_generator(x1, y1)->start(0x90010000, size, bw0, sync, false, true);
+        this->top->get_generator(x2, y2)->start(0x90020000, size, bw0, sync, false, true);
 
         this->clockstamp = this->clock.get_cycles();
+        sync->start();
         this->step++;
     }
     else
     {
         int64_t cycles = 0;
-        bool is_finished = true;
         bool check_status = false;
 
-        is_finished &= this->top->get_generator(x0, y0)->is_finished(&check_status, &cycles);
-        is_finished &= this->top->get_generator(x1, y1)->is_finished(&check_status, &cycles);
-        is_finished &= this->top->get_generator(x2, y2)->is_finished(&check_status, &cycles);
+        this->top->get_generator(x0, y0)->get_result(&check_status, &cycles);
+        this->top->get_generator(x1, y1)->get_result(&check_status, &cycles);
+        this->top->get_generator(x2, y2)->get_result(&check_status, &cycles);
 
-        if (is_finished)
-        {
-            printf("    Done\n");
+        printf("    Done\n");
 
-            return true;
-        }
+        return true;
     }
     return false;
 }

@@ -38,7 +38,7 @@ Testbench::Testbench(vp::ComponentConf &config)
 
     this->noc_ni_itf.resize(nb_cluster);
     this->generator_control_itf.resize(nb_cluster*2);
-    this->receiver_control_itf.resize(nb_cluster*2);
+    this->receiver_control_itf.resize((this->nb_cluster_x + 2) * (this->nb_cluster_y + 2) * 2);
 
     for (int x=0; x<this->nb_cluster_x; x++)
     {
@@ -55,16 +55,22 @@ Testbench::Testbench(vp::ComponentConf &config)
                 &this->generator_control_itf[2*cid + 1]);
 
             this->new_master_port(
+                "noc_ni_" + std::to_string(x) + "_" + std::to_string(y),
+                &this->noc_ni_itf[cid]);
+        }
+    }
+
+    for (int x=0; x<this->nb_cluster_x + 2; x++)
+    {
+        for (int y=0; y<this->nb_cluster_y + 2; y++)
+        {
+            this->new_master_port(
                 "receiver_control_" + std::to_string(x) + "_" + std::to_string(y) + "_w",
-                &this->receiver_control_itf[2*cid]);
+                &this->receiver_control_itf[2* (y * (this->nb_cluster_x + 2) + x)]);
 
             this->new_master_port(
                 "receiver_control_" + std::to_string(x) + "_" + std::to_string(y) + "_n",
-                &this->receiver_control_itf[2*cid] + 1);
-
-            this->new_master_port(
-                "noc_ni_" + std::to_string(x) + "_" + std::to_string(y),
-                &this->noc_ni_itf[cid]);
+                &this->receiver_control_itf[2 * (y * (this->nb_cluster_x + 2) + x) + 1]);
         }
     }
 
@@ -103,6 +109,21 @@ uint64_t Testbench::get_cluster_base(int x, int y)
     return this->cluster_base + this->cluster_size * this->get_cluster_id(x, y);
 }
 
+uint64_t Testbench::get_target_base(int x, int y)
+{
+    if (x == 0 || y == 0 | x >= this->nb_cluster_x + 1|| y >= this->nb_cluster_y + 1)
+    {
+        if (y == this->nb_cluster_y + 1) return 0x90000000;
+        else if (y == 0) return 0xA0000000 + 0x100000 * (x-1);
+        else if (x == 0) return 0xB0000000 + 0x100000 * (y-1);
+        else if (x == this->nb_cluster_x + 1) return 0xC0000000 + 0x100000 * (y-1);
+    }
+    else
+    {
+        return this->cluster_base + this->cluster_size * this->get_cluster_id(x-1, y-1);
+    }
+}
+
 vp::IoMaster *Testbench::get_noc_ni_itf(int x, int y)
 {
     return &this->noc_ni_itf[this->get_cluster_id(x, y)];
@@ -115,7 +136,7 @@ TrafficGeneratorConfigMaster *Testbench::get_generator(int x, int y, bool narrow
 
 TrafficReceiverConfigMaster *Testbench::get_receiver(int x, int y, bool narrow)
 {
-    return &this->receiver_control_itf[2*this->get_cluster_id(x, y) + narrow];
+    return &this->receiver_control_itf[2* (y * (this->nb_cluster_x + 2) + x) + narrow];
 }
 
 void Testbench::test_end(int status)

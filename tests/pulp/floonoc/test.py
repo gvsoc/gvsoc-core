@@ -57,7 +57,7 @@ class FloonocTest(gvsoc.systree.Component):
 
 class Testbench(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, use_memory=True, target_bw=0):
+    def __init__(self, parent, name, use_memory=False, target_bw=0):
         super().__init__(parent, name)
 
         nb_cluster_x = 3
@@ -85,8 +85,8 @@ class Testbench(gvsoc.systree.Component):
                 test.o_NOC_NI(x, y, noc.i_CLUSTER_WIDE_INPUT(x, y))
                 test.o_GENERATOR_CONTROL(x, y, True, generator_w.i_CONTROL())
                 test.o_GENERATOR_CONTROL(x, y, False, generator_n.i_CONTROL())
-                test.o_RECEIVER_CONTROL(x, y, True, receiver_w.i_CONTROL())
-                test.o_RECEIVER_CONTROL(x, y, False, receiver_n.i_CONTROL())
+                test.o_RECEIVER_CONTROL(x+1, y+1, True, receiver_w.i_CONTROL())
+                test.o_RECEIVER_CONTROL(x+1, y+1, False, receiver_n.i_CONTROL())
 
                 noc.o_MAP(cluster_base + cluster_size * (y * nb_cluster_x + x),
                     cluster_size, x+1, y+1, rm_base=True)
@@ -102,24 +102,48 @@ class Testbench(gvsoc.systree.Component):
 
             bound_name = ['up', 'down', 'left', 'right'][i]
 
-            for x in range(0, nb_targets):
-                coord = [(x+1, 0), (x+1, nb_cluster_y+1), (0, x+1), (nb_cluster_x+1, x+1)][i]
+            if bound_name != 'up':
+                for x in range(0, nb_targets):
+                    coord = [(x+1, nb_cluster_y+1), (x+1, 0), (0, x+1), (nb_cluster_x+1, x+1)][i]
 
-                if use_memory:
-                    mem = Memory(self, f'mem_{bound_name}_{x}', size=mem_size,
-                        width_log2=-1 if target_bw == 0 else math.log2(target_bw))
-                else:
-                    mem = Receiver(self, f'rcv_{bound_name}_{x}')
-                    # test.o_RECEIVER_CONTROL(i, mem.i_CONTROL())
-                if bound_name != 'up':
+                    if use_memory:
+                        mem_w = Memory(self, f'mem_{bound_name}_{x}_w', size=mem_size,
+                            width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                        mem_n = Memory(self, f'mem_{bound_name}_{x}_n', size=mem_size,
+                            width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                    else:
+                        mem_w = Receiver(self, f'rcv_{bound_name}_{x}_w', mem_size=1<<20)
+                        mem_n = Receiver(self, f'rcv_{bound_name}_{x}_n', mem_size=1<<20)
+                        test.o_RECEIVER_CONTROL(coord[0], coord[1], True, mem_w.i_CONTROL())
+                        test.o_RECEIVER_CONTROL(coord[0], coord[1], False, mem_n.i_CONTROL())
                     noc.o_MAP(target_mem_base, mem_size, coord[0], coord[1],
                         rm_base=True)
-                noc.o_WIDE_BIND(mem.i_INPUT(), coord[0], coord[1])
-                target_mem_base += mem_size
+                    noc.o_WIDE_BIND(mem_w.i_INPUT(), coord[0], coord[1])
+                    noc.o_NARROW_BIND(mem_n.i_INPUT(), coord[0], coord[1])
+                    target_mem_base += mem_size
 
-            if bound_name == 'up':
+            else:
+                if use_memory:
+                    mem_w = Memory(self, f'mem_{bound_name}_w', size=mem_size,
+                        width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                    mem_n = Memory(self, f'mem_{bound_name}__n', size=mem_size,
+                        width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                else:
+                    mem_w = Receiver(self, f'rcv_{bound_name}_w', mem_size=1<<20)
+                    mem_n = Receiver(self, f'rcv_{bound_name}_n', mem_size=1<<20)
+                    for x in range(0, nb_targets):
+                        coord = [(x+1, nb_cluster_y+1), (x+1, 0), (0, x+1), (nb_cluster_x+1, x+1)][i]
+                        test.o_RECEIVER_CONTROL(coord[0], coord[1], True, mem_w.i_CONTROL())
+                        test.o_RECEIVER_CONTROL(coord[0], coord[1], False, mem_n.i_CONTROL())
+
+                for x in range(0, nb_targets):
+                    coord = [(x+1, nb_cluster_y+1), (x+1, 0), (0, x+1), (nb_cluster_x+1, x+1)][i]
+                    noc.o_WIDE_BIND(mem_w.i_INPUT(), coord[0], coord[1])
+                    noc.o_NARROW_BIND(mem_n.i_INPUT(), coord[0], coord[1])
+
                 noc.o_MAP_DIR(mem_group_base, mem_group_size, FlooNocDirection.UP,
                     name=f'mem_up', rm_base=True)
+
             mem_group_base += mem_group_size
 
 # This is a wrapping component of the real one in order to connect a clock generator to it
@@ -131,7 +155,7 @@ class Chip(gvsoc.systree.Component):
         super().__init__(parent, name)
 
         use_memory = TargetParameter(
-            self, name='use_memory', value=True, description='Use memory as targets on the corner. Otherwise it will use traffic receiver',
+            self, name='use_memory', value=False, description='Use memory as targets on the corner. Otherwise it will use traffic receiver',
             cast=bool
         ).get_value()
 

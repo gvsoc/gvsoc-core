@@ -82,8 +82,8 @@ class Testbench(gvsoc.systree.Component):
                 generator_n.o_OUTPUT(noc.i_CLUSTER_NARROW_INPUT(x, y))
 
                 if use_memory:
-                    receiver_w = Memory(self, f'mem_{x}_{y}_w', size=mem_size, width_log2=math.log2(mem_bw))
-                    receiver_n = Memory(self, f'mem_{x}_{y}_n', size=mem_size, width_log2=math.log2(mem_bw))
+                    receiver_w = Memory(self, f'mem_{x}_{y}_w', size=mem_size, width_log2=-1 if mem_bw == 0 else math.log2(mem_bw))
+                    receiver_n = Memory(self, f'mem_{x}_{y}_n', size=mem_size, width_log2=-1 if mem_bw == 0 else math.log2(mem_bw))
                 else:
                     receiver_w = Receiver(self, f'receiver_{x}_{y}_w', mem_size=1<<20)
                     receiver_n = Receiver(self, f'receiver_{x}_{y}_n', mem_size=1<<20)
@@ -114,9 +114,9 @@ class Testbench(gvsoc.systree.Component):
 
                     if use_memory:
                         mem_w = Memory(self, f'mem_{bound_name}_{x}_w', size=mem_size,
-                            width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
+                            width_log2=-1 if mem_bw == 0 else math.log2(mem_bw))
                         mem_n = Memory(self, f'mem_{bound_name}_{x}_n', size=mem_size,
-                            width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
+                            width_log2=-1 if mem_bw == 0 else math.log2(mem_bw))
                     else:
                         mem_w = Receiver(self, f'rcv_{bound_name}_{x}_w', mem_size=1<<20)
                         mem_n = Receiver(self, f'rcv_{bound_name}_{x}_n', mem_size=1<<20)
@@ -131,9 +131,9 @@ class Testbench(gvsoc.systree.Component):
             else:
                 if use_memory:
                     mem_w = Memory(self, f'mem_{bound_name}_w', size=mem_size,
-                        width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
+                        width_log2=-1 if mem_bw == 0 else math.log2(mem_bw))
                     mem_n = Memory(self, f'mem_{bound_name}__n', size=mem_size,
-                        width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
+                        width_log2=-1 if mem_bw == 0 else math.log2(mem_bw))
                 else:
                     mem_w = Receiver(self, f'rcv_{bound_name}_w', mem_size=1<<20)
                     mem_n = Receiver(self, f'rcv_{bound_name}_n', mem_size=1<<20)

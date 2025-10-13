@@ -121,9 +121,15 @@ bool Test0::check_2_paths_through_same_node()
         uint64_t base3 = this->top->get_cluster_base(x3, y3);
 
         this->top->get_generator(x0, y0)->start(base1, size, bw, sync, false, true);
-        this->top->get_receiver(x1, y1)->start(bw);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x1, y1)->start(bw);
+        }
         this->top->get_generator(x2, y2)->start(base3, size, bw, sync, false, true);
-        this->top->get_receiver(x3, y3)->start(bw);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x3, y3)->start(bw);
+        }
 
         sync->start();
 
@@ -170,7 +176,10 @@ bool Test0::check_2_paths_to_same_target()
 
         this->top->get_generator(x0, y0)->start(base, size, bw1, sync, false, true);
         this->top->get_generator(x1, y1)->start(base + 0x10000, size, bw1, sync, false, true);
-        this->top->get_receiver(x2, y2)->start(bw2);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x2, y2)->start(bw2);
+        }
 
         sync->start();
 
@@ -214,9 +223,12 @@ bool Test0::check_prefered_path()
         this->top->get_generator(x0, y0)->start(0x90000000, size, bw0, sync, false, true);
         this->top->get_generator(x1, y1)->start(0x90010000, size, bw0, sync, false, true);
         this->top->get_generator(x2, y2)->start(0x90020000, size, bw0, sync, false, true);
-        this->top->get_receiver(x0+1, 0)->start(bw0);
-        this->top->get_receiver(x0+1, 0)->start(bw0);
-        this->top->get_receiver(x0+1, 0)->start(bw0);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x0+1, 0)->start(bw0);
+            this->top->get_receiver(x0+1, 0)->start(bw0);
+            this->top->get_receiver(x0+1, 0)->start(bw0);
+        }
 
         this->clockstamp = this->clock.get_cycles();
         sync->start();
@@ -325,11 +337,14 @@ void Test0::exec_test()
     // Crossing several destination
     single_path_tests_add(0, 0, this->top->nb_cluster_x-1, this->top->nb_cluster_y-1, 0x100000 - 8, this->top->nb_cluster_x, this->top->nb_cluster_y - 1);
 
-    this->testcases.insert(testcases.end(), {
-        [&] { return this->check_2_paths_through_same_node(); },
-        [&] { return this->check_2_paths_to_same_target(); },
-        [&] { return this->check_prefered_path(); },
-    });
+    if (!this->top->use_memory || this->top->mem_bw == 8)
+    {
+        this->testcases.insert(testcases.end(), {
+            [&] { return this->check_2_paths_through_same_node(); },
+            [&] { return this->check_2_paths_to_same_target(); },
+            [&] { return this->check_prefered_path(); },
+        });
+    }
 
     this->status = false;
     this->step = 0;

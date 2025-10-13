@@ -47,6 +47,8 @@ public:
 
     int nb_cluster_x;
     int nb_cluster_y;
+    bool use_memory;
+    int mem_bw;
 
 private:
     int get_cluster_id(int x, int y);

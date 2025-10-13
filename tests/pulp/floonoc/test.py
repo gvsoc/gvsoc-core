@@ -30,13 +30,15 @@ from gvrun.parameter import TargetParameter
 
 class FloonocTest(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, nb_cluster_x, nb_cluster_y, cluster_base, cluster_size):
+    def __init__(self, parent, name, nb_cluster_x, nb_cluster_y, cluster_base, cluster_size, use_memory, mem_bw):
         super().__init__(parent, name)
 
         self.add_property('nb_cluster_x', nb_cluster_x)
         self.add_property('nb_cluster_y', nb_cluster_y)
         self.add_property('cluster_base', cluster_base)
         self.add_property('cluster_size', cluster_size)
+        self.add_property('use_memory', use_memory)
+        self.add_property('mem_bw', mem_bw)
 
         self.add_sources(['test.cpp'])
         self.add_sources(['test0.cpp'])
@@ -57,7 +59,7 @@ class FloonocTest(gvsoc.systree.Component):
 
 class Testbench(gvsoc.systree.Component):
 
-    def __init__(self, parent, name, use_memory=False, target_bw=0):
+    def __init__(self, parent, name, use_memory=False, target_bw=0, mem_bw=0):
         super().__init__(parent, name)
 
         nb_cluster_x = 3
@@ -68,9 +70,9 @@ class Testbench(gvsoc.systree.Component):
         mem_size = 0x10_0000
         mem_group_size = 0x1000_0000
 
-        noc = pulp.floonoc.floonoc.FlooNocClusterGridNarrowWide(self, 'noc', 64, 8, nb_cluster_x, nb_cluster_y)
+        noc = pulp.floonoc.floonoc.FlooNocClusterGridNarrowWide(self, 'noc', 64, 8, nb_cluster_x, nb_cluster_y, ni_outstanding_reqs=32)
 
-        test = FloonocTest(self, 'test', nb_cluster_x, nb_cluster_y, cluster_base, cluster_size)
+        test = FloonocTest(self, 'test', nb_cluster_x, nb_cluster_y, cluster_base, cluster_size, use_memory, mem_bw)
 
         for x in range(0, nb_cluster_x):
             for y in range(0, nb_cluster_y):
@@ -79,14 +81,18 @@ class Testbench(gvsoc.systree.Component):
                 generator_n = interco.traffic.generator.Generator(self, f'generator_{x}_{y}_n')
                 generator_n.o_OUTPUT(noc.i_CLUSTER_NARROW_INPUT(x, y))
 
-                receiver_w = Receiver(self, f'receiver_{x}_{y}_w', mem_size=1<<20)
-                receiver_n = Receiver(self, f'receiver_{x}_{y}_n', mem_size=1<<20)
+                if use_memory:
+                    receiver_w = Memory(self, f'mem_{x}_{y}_w', size=mem_size, width_log2=math.log2(mem_bw))
+                    receiver_n = Memory(self, f'mem_{x}_{y}_n', size=mem_size, width_log2=math.log2(mem_bw))
+                else:
+                    receiver_w = Receiver(self, f'receiver_{x}_{y}_w', mem_size=1<<20)
+                    receiver_n = Receiver(self, f'receiver_{x}_{y}_n', mem_size=1<<20)
+                    test.o_RECEIVER_CONTROL(x+1, y+1, True, receiver_w.i_CONTROL())
+                    test.o_RECEIVER_CONTROL(x+1, y+1, False, receiver_n.i_CONTROL())
 
                 test.o_NOC_NI(x, y, noc.i_CLUSTER_WIDE_INPUT(x, y))
                 test.o_GENERATOR_CONTROL(x, y, True, generator_w.i_CONTROL())
                 test.o_GENERATOR_CONTROL(x, y, False, generator_n.i_CONTROL())
-                test.o_RECEIVER_CONTROL(x+1, y+1, True, receiver_w.i_CONTROL())
-                test.o_RECEIVER_CONTROL(x+1, y+1, False, receiver_n.i_CONTROL())
 
                 noc.o_MAP(cluster_base + cluster_size * (y * nb_cluster_x + x),
                     cluster_size, x+1, y+1, rm_base=True)
@@ -108,9 +114,9 @@ class Testbench(gvsoc.systree.Component):
 
                     if use_memory:
                         mem_w = Memory(self, f'mem_{bound_name}_{x}_w', size=mem_size,
-                            width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                            width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
                         mem_n = Memory(self, f'mem_{bound_name}_{x}_n', size=mem_size,
-                            width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                            width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
                     else:
                         mem_w = Receiver(self, f'rcv_{bound_name}_{x}_w', mem_size=1<<20)
                         mem_n = Receiver(self, f'rcv_{bound_name}_{x}_n', mem_size=1<<20)
@@ -125,9 +131,9 @@ class Testbench(gvsoc.systree.Component):
             else:
                 if use_memory:
                     mem_w = Memory(self, f'mem_{bound_name}_w', size=mem_size,
-                        width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                        width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
                     mem_n = Memory(self, f'mem_{bound_name}__n', size=mem_size,
-                        width_log2=-1 if target_bw == 0 else math.log2(target_bw))
+                        width_log2=-1 if target_bw == 0 else math.log2(mem_bw))
                 else:
                     mem_w = Receiver(self, f'rcv_{bound_name}_w', mem_size=1<<20)
                     mem_n = Receiver(self, f'rcv_{bound_name}_n', mem_size=1<<20)
@@ -155,12 +161,17 @@ class Chip(gvsoc.systree.Component):
         super().__init__(parent, name)
 
         use_memory = TargetParameter(
-            self, name='use_memory', value=False, description='Use memory as targets on the corner. Otherwise it will use traffic receiver',
+            self, name='use_memory', value=False, description='Use memory as targets',
             cast=bool
         ).get_value()
 
+        mem_bw = TargetParameter(
+            self, name='mem_bw', value=64, description='When using memory as targets, specify their bandwidth',
+            cast=int
+        ).get_value()
+
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100000000)
-        soc = Testbench(self, 'soc', use_memory=use_memory)
+        soc = Testbench(self, 'soc', use_memory=use_memory, mem_bw=mem_bw)
         clock.o_CLOCK    (soc.i_CLOCK    ())
 
 

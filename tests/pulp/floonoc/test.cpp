@@ -34,6 +34,9 @@ Testbench::Testbench(vp::ComponentConf &config)
     this->cluster_base = this->get_js_config()->get_uint("cluster_base");
     this->cluster_size = this->get_js_config()->get_uint("cluster_size");
 
+    this->use_memory = this->get_js_config()->get_child_bool("use_memory");
+    this->mem_bw = this->get_js_config()->get_int("mem_bw");
+
     int nb_cluster = this->nb_cluster_x*this->nb_cluster_y;
 
     this->noc_ni_itf.resize(nb_cluster);
@@ -117,6 +120,7 @@ uint64_t Testbench::get_target_base(int x, int y)
         else if (y == 0) return 0xA0000000 + 0x100000 * (x-1);
         else if (x == 0) return 0xB0000000 + 0x100000 * (y-1);
         else if (x == this->nb_cluster_x + 1) return 0xC0000000 + 0x100000 * (y-1);
+        return 0;
     }
     else
     {

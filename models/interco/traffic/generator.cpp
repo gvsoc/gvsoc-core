@@ -36,7 +36,7 @@ public:
     uint8_t *data;
 };
 
-class Generator : public vp::Component
+class Generator : public vp::Component, TrafficGenerator
 {
 
 public:
@@ -44,11 +44,17 @@ public:
     ~Generator();
 
 private:
+    void start_transfer() override;
     static void grant(vp::Block *__this, vp::IoReq *req);
     static void response(vp::Block *__this, vp::IoReq *req);
     static void control_sync(vp::Block *__this, TrafficGeneratorConfig *config);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     void handle_req_end(vp::IoReq *req, int64_t latenty=0);
+    void handle_step();
+    void handle_transfer();
+    void handle_post_transfer();
+    void handle_end();
+    void close_transfer();
 
     vp::Trace trace;
 
@@ -61,7 +67,7 @@ private:
     uint8_t *data;
     vp::Signal<uint64_t> size;
     vp::Signal<uint64_t> pending_size;
-    vp::ClockEvent *end_trigger;
+    TrafficGeneratorSync *sync;
     vp::Signal<bool> stalled;
     vp::Signal<bool> busy;
     vp::Signal<uint64_t> signal_req_addr;
@@ -78,7 +84,9 @@ private:
     int64_t start_cycles;
     int64_t duration;
     int step;
-    int duration_step;
+    uint64_t config_size;
+    uint64_t config_address;
+    size_t packet_size;
 };
 
 Generator::Generator(vp::ComponentConf &config)
@@ -106,6 +114,13 @@ Generator::~Generator()
 {
 }
 
+void Generator::start_transfer()
+{
+    this->handle_step();
+
+    this->fsm_event.enqueue();
+}
+
 void Generator::grant(vp::Block *__this, vp::IoReq *req)
 {
     Generator *_this = (Generator *)__this;
@@ -127,14 +142,18 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
 
     if (config->is_start)
     {
+        config->sync->add_generator(_this);
+
         _this->check_status = false;
         _this->busy = true;
-        _this->end_trigger = config->end_trigger;
+        _this->sync = config->sync;
         _this->stalled = false;
         _this->check = config->check;
         _this->check_write = config->do_write;
         _this->step = 0;
-        _this->duration_step = !_this->check || _this->check_write ? 0 : 1;
+        _this->config_size = config->size;
+        _this->config_address = config->address;
+        _this->packet_size = config->packet_size;
 
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
@@ -151,39 +170,151 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
                 _this->ref_data[i] = std::rand() % 256;
             }
         }
-
-        if (config->check && !config->do_write)
-        {
-            uint8_t *data = new uint8_t[config->size];
-            memcpy(data, _this->ref_data, config->size);
-            _this->transfers.push(new Transfer(
-                {config->address, config->size, !config->do_write, config->packet_size, data}));
-        }
-
-        uint8_t *data = new uint8_t[config->size];
-
-        if (config->check && config->do_write)
-        {
-            memcpy(data, _this->ref_data, config->size);
-        }
-
-        _this->transfers.push(new Transfer(
-            {config->address, config->size, config->do_write, config->packet_size, data}));
-
-        if (config->check && config->do_write)
-        {
-            uint8_t *data = new uint8_t[config->size];
-            _this->transfers.push(new Transfer(
-                {config->address, config->size, !config->do_write, config->packet_size, data}));
-        }
-
-        _this->fsm_event.enqueue();
     }
     else
     {
         config->result = !_this->busy;
         config->check_status = _this->check_status;
         config->duration = _this->duration;
+    }
+}
+
+void Generator::handle_step()
+{
+    switch (this->step)
+    {
+        case 0:
+        {
+            if (this->check && !this->check_write)
+            {
+                uint8_t *data = new uint8_t[this->config_size];
+                memcpy(data, this->ref_data, this->config_size);
+                this->transfers.push(new Transfer(
+                    {this->config_address, this->config_size, !this->check_write, this->packet_size,
+                       data}));
+                this->fsm_event.enqueue();
+                this->step++;
+            }
+            else
+            {
+                this->step++;
+                this->handle_step();
+            }
+
+            break;
+        }
+
+        case 1:
+        {
+            this->sync->nb_pre_check_done++;
+            if (this->sync->nb_pre_check_done == this->sync->generators.size())
+            {
+                for (TrafficGenerator *generator: this->sync->generators)
+                {
+                    ((Generator *)generator)->handle_transfer();
+                }
+            }
+            this->step++;
+            break;
+        }
+
+        case 2:
+        {
+            this->sync->nb_transfers_done++;
+            if (this->sync->nb_transfers_done == this->sync->generators.size())
+            {
+                for (TrafficGenerator *generator: this->sync->generators)
+                {
+                    ((Generator *)generator)->handle_post_transfer();
+                }
+            }
+            this->step++;
+            break;
+        }
+
+        case 3:
+        {
+            this->sync->nb_post_check_done++;
+            if (this->sync->nb_post_check_done == this->sync->generators.size())
+            {
+                for (TrafficGenerator *generator: this->sync->generators)
+                {
+                    ((Generator *)generator)->handle_end();
+                }
+
+                this->sync->event->enqueue();
+            }
+
+            this->step++;
+            break;
+        }
+    }
+}
+
+void Generator::handle_transfer()
+{
+    this->start_cycles = this->clock.get_cycles();
+
+    uint8_t *data = new uint8_t[this->config_size];
+
+    if (this->check && this->check_write)
+    {
+        memcpy(data, this->ref_data, this->config_size);
+    }
+
+    this->close_transfer();
+
+    this->transfers.push(new Transfer(
+        {this->config_address, this->config_size, this->check_write, this->packet_size, data}));
+    this->fsm_event.enqueue();
+
+}
+
+void Generator::handle_post_transfer()
+{
+    this->duration = this->clock.get_cycles() - this->start_cycles;
+
+    if (this->check && this->check_write)
+    {
+        this->close_transfer();
+
+        uint8_t *data = new uint8_t[this->config_size];
+        this->transfers.push(new Transfer(
+            {this->config_address, this->config_size, !this->check_write, this->packet_size, data}));
+        this->fsm_event.enqueue();
+    }
+
+}
+
+void Generator::handle_end()
+{
+    if (this->check)
+    {
+        this->check_status = std::memcmp(this->ref_data, this->current_transfer->data,
+            this->current_transfer->size) != 0;
+        // for (int i=0; i<_this->current_transfer->size; i++)
+        // {
+        //     printf("%d: %d %d\n", i, _this->ref_data[i], _this->current_transfer->data[i]);
+        // }
+    }
+
+    for (int i=0; i<this->nb_pending_reqs; i++)
+    {
+        vp::IoReq *req = (vp::IoReq *)this->free_reqs.pop();
+        delete req;
+    }
+
+    this->close_transfer();
+    this->busy = false;
+}
+
+void Generator::close_transfer()
+{
+    if (this->current_transfer)
+    {
+        delete[] this->current_transfer->data;
+        delete this->current_transfer;
+        this->current_transfer = NULL;
     }
 }
 
@@ -199,11 +330,6 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->pending_size = _this->current_transfer->size;
         _this->address = _this->current_transfer->address;
         _this->data = _this->current_transfer->data;
-
-        if (_this->duration_step == _this->step)
-        {
-            _this->start_cycles = _this->clock.get_cycles();
-        }
     }
 
     if (!_this->stalled && _this->size > 0 && !_this->free_reqs.empty())
@@ -250,41 +376,7 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     if (_this->pending_size == 0 && _this->free_reqs.size() == _this->nb_pending_reqs &&
             _this->last_req_cyclestamp <= _this->clock.get_cycles())
     {
-        if (_this->duration_step == _this->step)
-        {
-            _this->duration = _this->clock.get_cycles() - _this->start_cycles;
-        }
-        _this->step++;
-
-        if (_this->transfers.size() == 0)
-        {
-            if (_this->check)
-            {
-                _this->check_status = std::memcmp(_this->ref_data, _this->current_transfer->data,
-                    _this->current_transfer->size) != 0;
-                // for (int i=0; i<_this->current_transfer->size; i++)
-                // {
-                //     printf("%d: %d %d\n", i, _this->ref_data[i], _this->current_transfer->data[i]);
-                // }
-            }
-        }
-
-        delete[] _this->current_transfer->data;
-        delete _this->current_transfer;
-        _this->current_transfer = NULL;
-    }
-
-    if (!_this->current_transfer && _this->transfers.size() == 0)
-    {
-        for (int i=0; i<_this->nb_pending_reqs; i++)
-        {
-            vp::IoReq *req = (vp::IoReq *)_this->free_reqs.pop();
-            delete req;
-        }
-
-        _this->busy = false;
-
-        _this->end_trigger->enqueue();
+        _this->handle_step();
     }
 
     if (_this->busy)

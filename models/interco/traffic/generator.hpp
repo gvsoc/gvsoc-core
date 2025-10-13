@@ -22,16 +22,21 @@
 #pragma once
 
 #include <stdint.h>
+#include "vp/clock/clock_event.hpp"
 #include "vp/itf/wire.hpp"
+
+class TrafficGeneratorConfigMaster;
+class TrafficGeneratorSync;
+class Generator;
 
 class TrafficGeneratorConfig
 {
 public:
-    bool is_start = false;
+    bool is_start;
     uint64_t address;
     size_t size;
     size_t packet_size;
-    vp::ClockEvent *end_trigger;
+    TrafficGeneratorSync *sync;
     bool do_write;
     uint64_t result;
     bool check;
@@ -39,6 +44,30 @@ public:
     int64_t duration;
 };
 
+class TrafficGenerator
+{
+public:
+    virtual void start_transfer() = 0;
+};
+
+
+class TrafficGeneratorSync
+{
+    friend class Generator;
+public:
+    TrafficGeneratorSync(vp::ClockEvent *event) : event(event) { this->init(); }
+    void init() { this->nb_pre_check_done = 0; this->nb_transfers_done=0; this->nb_post_check_done = 0; this->generators.clear(); }
+    void add_generator(TrafficGenerator *generator) { this->generators.push_back(generator); }
+    void start() { for (auto gen: generators) { gen->start_transfer(); }}
+
+    vp::ClockEvent *event;
+
+private:
+    std::vector<TrafficGenerator *> generators;
+    int nb_pre_check_done;
+    int nb_transfers_done;
+    int nb_post_check_done;
+};
 
 class TrafficGeneratorConfigMaster : public vp::WireMaster<TrafficGeneratorConfig *>
 {
@@ -46,22 +75,22 @@ public:
     // Start sending bursts.
     // Send one burst of size <packet_size> at each cycle for a total of <size> bytes.
     inline void start(uint64_t address, size_t size, size_t packet_size,
-        vp::ClockEvent *end_trigger, bool do_write=false, bool check=false);
-    inline bool is_finished(bool *check_status=NULL, int64_t *duration=NULL);
+        TrafficGeneratorSync *sync, bool do_write=false, bool check=false);
+    inline void get_result(bool *check_status=NULL, int64_t *duration=NULL);
 };
 
 
 inline void TrafficGeneratorConfigMaster::start(uint64_t address, size_t size, size_t packet_size,
-    vp::ClockEvent *end_trigger, bool do_write, bool check)
+    TrafficGeneratorSync *sync, bool do_write, bool check)
 {
     TrafficGeneratorConfig config = { .is_start=true, .address=address, .size=size,
-        .packet_size=packet_size, .end_trigger=end_trigger, .do_write=do_write,
+        .packet_size=packet_size, .sync=sync, .do_write=do_write,
         .check=check
     };
     this->sync(&config);
 }
 
-inline bool TrafficGeneratorConfigMaster::is_finished(bool *check_status, int64_t *duration)
+inline void TrafficGeneratorConfigMaster::get_result(bool *check_status, int64_t *duration)
 {
     TrafficGeneratorConfig config = { .is_start=false };
     this->sync(&config);
@@ -73,5 +102,4 @@ inline bool TrafficGeneratorConfigMaster::is_finished(bool *check_status, int64_
     {
         *duration = std::max(*duration, config.duration);
     }
-    return config.result;
 }

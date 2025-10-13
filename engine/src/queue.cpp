@@ -79,6 +79,44 @@ void vp::Queue::reset(bool active)
     }
 }
 
+void vp::Queue::push_delayed(QueueElem *elem, int64_t delay)
+{
+    int64_t timestamp = this->clock.get_cycles() + delay;
+    QueueElem *current = this->first, *prev = NULL;
+
+    while (current && current->timestamp < timestamp)
+    {
+        prev = current;
+        current = current->next;
+    }
+
+    if (prev)
+    {
+        prev->next = elem;
+    }
+    else
+    {
+        this->first = elem;
+    }
+
+    if (!current)
+    {
+        this->last = elem;
+    }
+
+    elem->next = current;
+
+    this->nb_elem++;
+    elem->timestamp = timestamp;
+    elem->cancel_callback = &vp::Queue::cancel_callback;
+    elem->cancel_this = this;
+
+    if (this->nb_elem == 1)
+    {
+        this->trigger_next();
+    }
+}
+
 void vp::Queue::push_back(QueueElem *elem, int64_t delay)
 {
     if (this->first)

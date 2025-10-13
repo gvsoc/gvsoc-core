@@ -132,6 +132,10 @@ vp::QueueElem *vp::Queue::pop()
         this->first = result->next;
     }
     this->nb_elem--;
+    if (this->nb_elem > 0)
+    {
+        this->trigger_next();
+    }
     return result;
 }
 

@@ -25,7 +25,7 @@ Test0::Test0(Testbench *top)
 }
 
 bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiator_bw,
-    int target_bw, int size, int expected, int x0, int y0, int x1, int y1)
+    int target_bw, int size, int expected, int x0, int y0, int x1, int y1, uint64_t offset)
 {
     if (this->step == 0)
     {
@@ -38,7 +38,7 @@ bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiat
         // Check communications from top/left cluster to bottom/right. Target cluster has half
         // the bandwidth of the initiator cluster
 
-        uint64_t base1 = this->top->get_target_base(x1, y1);
+        uint64_t base1 = this->top->get_target_base(x1, y1) + offset;
 
         if (wide)
         {
@@ -244,47 +244,52 @@ void Test0::entry(vp::Block *__this, vp::ClockEvent *event)
 
 void Test0::exec_test()
 {
-    auto single_path_tests_add = [this](int x0, int y0, int x1, int y1)
+    auto single_path_tests_add = [this](int x0, int y0, int x1, int y1, uint64_t offset)
     {
         this->testcases.insert(testcases.end(), {
         // Wide channel is 64 bytes and narrow is 8 bytes
 
-            //                                    write | wide | narrow | initiator bw | target bw | size    | expected cycles
+            //                                    write | wide | narrow | srcbw | dstbw | size    | expected cycles
+            [=] { return this->check_single_path(true  , true , false  , 4      , 64    , 1024*256, 131072, x0, y0, x1, y1, offset); }, // Bandwidth divided by 2 due to header cost
+            [=] { return this->check_single_path(true  , true , true   , 4      , 64    , 1024*256, 131072, x0, y0, x1, y1, offset); }, // Bandwidth divided by 2 due to header cost
+            [=] { return this->check_single_path(false , true , false  , 4      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // Full bandwidth since req and resp go in parallel
+            [=] { return this->check_single_path(false , true , true   , 4      , 64    , 1024*256, 131072, x0, y0, x1, y1, offset); }, // Bandwidth divided by 2 due to header cost on req channel
             // Check wide and narrow channels with narrow-width bursts to target reduced bandwidth
-            //     with write on wide
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , false  , 8            , 4         , 1024*256, 65536, x0, y0, x1, y1); }, // Target limited bandwidth is the bottleneck
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , true   , 8            , 4         , 1024*256, 65536, x0, y0, x1, y1); }, // Target limited bandwidth is the bottleneck
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , false  , 8            , 4         , 1024*256, 65536, x0, y0, x1, y1); }, // Target limited bandwidth is the bottleneck
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , true   , 8            , 4         , 1024*256, 65536, x0, y0, x1, y1); }, // Target limited bandwidth is the bottleneck
+            [=] { return this->check_single_path(true  , true , false  , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // Target limited bandwidth is the bottleneck
+            [=] { return this->check_single_path(true  , true , true   , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // Target limited bandwidth is the bottleneck
+            [=] { return this->check_single_path(false , true , false  , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // Target limited bandwidth is the bottleneck
+            [=] { return this->check_single_path(false , true , true   , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // Target limited bandwidth is the bottleneck
             // Check wide and narrow channels with narrow-width bursts with no target bandwidth reduction
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , false  , 8            , 64        , 1024*256, 65536, x0, y0, x1, y1); }, // writes put address on same channel before data, this reduces bw for small bursts
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , true   , 8            , 64        , 1024*256, 65536, x0, y0, x1, y1); }, // writes put address on same channel before data, this reduces bw for small bursts
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , false  , 8            , 64        , 1024*256, 32768, x0, y0, x1, y1); },
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , true   , 8            , 64        , 1024*256, 65536, x0, y0, x1, y1); }, // writes put address on narrow channel which conflicts with narrow generator as full bandwidth is already taken
+            [=] { return this->check_single_path(true  , true , false  , 8      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // writes put address on same channel before data, this reduces bw for small bursts
+            [=] { return this->check_single_path(true  , true , true   , 8      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // writes put address on same channel before data, this reduces bw for small bursts
+            [=] { return this->check_single_path(false , true , false  , 8      , 64    , 1024*256, 32768 , x0, y0, x1, y1, offset); },
+            [=] { return this->check_single_path(false , true , true   , 8      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset); }, // writes put address on narrow channel which conflicts with narrow generator as full bandwidth is already taken
             // Check wide and narrow channels with wide-width bursts to target reduced bandwidth
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , false  , 64           , 8         , 1024*256, 32768, x0, y0, x1, y1); }, // Target limited bandwidth is the bottleneck
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , true   , 64           , 8         , 1024*256, 36864, x0, y0, x1, y1); }, // Big burst size amortizes header cost, but still 1 header every 8 flist on narrow channel
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , false  , 64           , 8         , 1024*256, 32768, x0, y0, x1, y1); }, // No header cost, done in parallel
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , true   , 64           , 8         , 1024*256, 32768, x0, y0, x1, y1); }, // No header cost, done in parallel. Narrow and wide compete on req channel but only for headers, which are nto frequent thanks to bursts
+            [=] { return this->check_single_path(true  , true , false  , 64     , 8     , 1024*256, 32768 , x0, y0, x1, y1, offset); }, // Target limited bandwidth is the bottleneck
+            [=] { return this->check_single_path(true  , true , true   , 64     , 8     , 1024*256, 36864 , x0, y0, x1, y1, offset); }, // Big burst size amortizes header cost, but still 1 header every 8 flist on narrow channel
+            [=] { return this->check_single_path(false , true , false  , 64     , 8     , 1024*256, 32768 , x0, y0, x1, y1, offset); }, // No header cost, done in parallel
+            [=] { return this->check_single_path(false , true , true   , 64     , 8     , 1024*256, 32768 , x0, y0, x1, y1, offset); }, // No header cost, done in parallel. Narrow and wide compete on req channel but only for headers, which are nto frequent thanks to bursts
             // Check wide channel with wide-width bursts
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , false  , 64           , 64        , 1024*256, 8192, x0, y0, x1, y1); }, // Bandwidth divided by 2 due to header cost
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , false  , 64           , 64        , 1024*256, 4096, x0, y0, x1, y1); }, // Full bandwidth since req and resp go in parallel
+            [=] { return this->check_single_path(true  , true , false  , 64     , 64    , 1024*256, 8192 , x0, y0, x1, y1, offset); }, // Bandwidth divided by 2 due to header cost
+            [=] { return this->check_single_path(false , true , false  , 64     , 64    , 1024*256, 4096 , x0, y0, x1, y1, offset); }, // Full bandwidth since req and resp go in parallel
             // Check wide channel with big bursts
-            [x0, y0, x1, y1, this] { return this->check_single_path(true  , true , false  , 256          , 64        , 1024*256, 5120, x0, y0, x1, y1); }, // Big burst size amortizes header cost
-            [x0, y0, x1, y1, this] { return this->check_single_path(false , true , false  , 256          , 64        , 1024*256, 4096, x0, y0, x1, y1); }, // Full bandwidth since req and resp go in parallel
+            [=] { return this->check_single_path(true  , true , false  , 256    , 64    , 1024*256, 5120 , x0, y0, x1, y1, offset); }, // Big burst size amortizes header cost
+            [=] { return this->check_single_path(false , true , false  , 256    , 64    , 1024*256, 4096 , x0, y0, x1, y1, offset); }, // Full bandwidth since req and resp go in parallel
         });
     };
 
     // Test within router grid from bottom left to top right
-    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y);
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y, 0);
     // Test from bootom left to top right on the border
-    single_path_tests_add(0, 0, this->top->nb_cluster_x + 1, this->top->nb_cluster_y);
+    single_path_tests_add(0, 0, this->top->nb_cluster_x + 1, this->top->nb_cluster_y, 0);
     // Test from bottom left to bottom right on the border
-    single_path_tests_add(0, 0, this->top->nb_cluster_x, 0);
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, 0, 0);
     // Test from bottom left to top right on the border
-    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y + 1);
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y + 1, 0);
     // Test from bottom left to top left on the border
-    single_path_tests_add(0, 0, 0, this->top->nb_cluster_y);
+    single_path_tests_add(0, 0, 0, this->top->nb_cluster_y, 0);
+    // Misaligned accesses
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y, 1);
 
     this->testcases.insert(testcases.end(), {
         [&] { return this->check_2_paths_through_same_node(); },

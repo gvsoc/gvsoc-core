@@ -226,7 +226,7 @@ void Irq::wfi_handle()
     // The instruction loop is checking for IRQs only if interrupts are globally enable
     // while wfi ends as soon as one interrupt is active even if interrupts are globally disabled,
     // so we have to check now if we can really go to sleep.
-    if ((this->iss.csr.mie.value & this->iss.csr.mip.value) == 0)
+    //if ((this->iss.csr.mie.value & this->iss.csr.mip.value) == 0)
     {
 #ifdef CONFIG_GVSOC_ISS_EXEC_WAKEUP_COUNTER
         if (this->iss.exec.wakeup.get())

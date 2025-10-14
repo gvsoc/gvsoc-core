@@ -24,45 +24,330 @@ Test0::Test0(Testbench *top)
     this->top = top;
 }
 
-void Test0::entry(vp::Block *__this, vp::ClockEvent *event)
+bool Test0::check_single_path(bool do_write, bool wide, bool narrow, int initiator_bw,
+    int target_bw, int size, int expected, int x0, int y0, int x1, int y1, uint64_t offset, int x2, int y2)
 {
-    Test0 *_this = (Test0 *)__this;
-
-    size_t size = 1024*256;
-    size_t bw0 = 8, bw1 = 4;
-
-    if (_this->step == 0)
+    if (this->step == 0)
     {
-        printf("Test 0, checking stalls, high bandwidth source going to low bandwidth target\n");
+        printf("Single path (write: %d, wide: %d, narrow: %d, initiator_bw: %d, target_bw: %d, "
+            "x0: %d, y0: %d, x1: %d, y1: %d)\n",
+            do_write, wide, narrow, initiator_bw, target_bw, x0, y0, x1, y1);
+
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
 
         // Check communications from top/left cluster to bottom/right. Target cluster has half
         // the bandwidth of the initiator cluster
 
-        int x0=0, y0=0, x1=_this->top->nb_cluster_x-1, y1=_this->top->nb_cluster_y-1;
-        uint64_t base1 = _this->top->get_cluster_base(x1, y1);
+        uint64_t base1 = this->top->get_target_base(x1, y1) + offset;
+        uint64_t base2 = this->top->get_target_base(x2, y2) + offset;
 
-        _this->top->get_generator(x0, y0)->start(base1, size, bw0, &_this->fsm_event);
-        _this->top->get_receiver(x1, y1)->start(bw1);
+        if (wide)
+        {
+            this->top->get_generator(x0, y0, false)->start(base1, size, initiator_bw, sync, do_write, true);
 
-        _this->clockstamp = _this->clock.get_cycles();
-        _this->step = 1;
+            if (!this->top->use_memory)
+            {
+                this->top->get_receiver(x1, y1, false)->start(target_bw);
+                if (x2 != -1)
+                {
+                    this->top->get_receiver(x2, y2, false)->start(target_bw);
+                }
+            }
+        }
+
+        if (narrow)
+        {
+            this->top->get_generator(x0, y0, true)->start(base1 + 0x10000, size, initiator_bw, sync, do_write, true);
+            if (!this->top->use_memory)
+            {
+                this->top->get_receiver(x1, y1, true)->start(target_bw);
+                if (x2 != -1)
+                {
+                    this->top->get_receiver(x2, y2, false)->start(target_bw);
+                }
+            }
+        }
+
+        sync->start();
+
+        this->step++;
     }
     else
     {
-        int64_t cycles = _this->clock.get_cycles() - _this->clockstamp;
-        int64_t expected = size / bw1;
+        int64_t cycles = 0;
 
-        printf("    Done (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
-            size, bw1, cycles, expected);
+        bool check_status = false;
 
-        int status = _this->top->check_cycles(cycles, expected);
+        if (wide)
+        {
+            this->top->get_generator(x0, y0, false)->get_result(&check_status, &cycles);
+        }
 
-        _this->top->test_end(status);
+        if (narrow)
+        {
+            this->top->get_generator(x0, y0, true)->get_result(&check_status, &cycles);
+        }
+
+        bool status = check_status;
+        status |= this->top->check_cycles(cycles, expected) != 0;
+
+        printf("    %s (check: %d, size: %lld, cycles: %lld, expected: %lld)\n",
+            status ? "Failed" : "Done", check_status, size, cycles, expected);
+
+        this->status |= status;
+        return true;
+    }
+    return false;
+}
+
+bool Test0::check_2_paths_through_same_node()
+{
+    // One horizontal and one vertical paths, both in the middle, so that they cross in the center
+    // of the grid
+    int x0=(this->top->nb_cluster_x-1)/2, y0=0;
+    int x1=(this->top->nb_cluster_x-1)/2, y1=this->top->nb_cluster_y-1;
+    int x2=0, y2=(this->top->nb_cluster_y-1)/2;
+    int x3=this->top->nb_cluster_x-1, y3=(this->top->nb_cluster_y-1)/2;
+    size_t size = 1024*256;
+    size_t bw = 8;
+
+    if (this->step == 0)
+    {
+        printf("Test 1, checking 2 data streams going through same router but using different paths\n");
+
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
+
+        uint64_t base1 = this->top->get_cluster_base(x1, y1);
+        uint64_t base3 = this->top->get_cluster_base(x3, y3);
+
+        this->top->get_generator(x0, y0)->start(base1, size, bw, sync, false, true);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x1, y1)->start(bw);
+        }
+        this->top->get_generator(x2, y2)->start(base3, size, bw, sync, false, true);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x3, y3)->start(bw);
+        }
+
+        sync->start();
+
+        this->step++;
+    }
+    else
+    {
+        int64_t cycles = 0;
+        bool check_status = false;
+
+        this->top->get_generator(x0, y0)->get_result(&check_status, &cycles);
+        this->top->get_generator(x2, y2)->get_result(&check_status, &cycles);
+
+        int64_t expected = size / bw;
+
+        bool status = this->top->check_cycles(cycles, expected) != 0;
+
+        printf("    %s (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
+            status ? "Failed" : "Done", size, bw, cycles, expected);
+
+        this->status |= status;
+        return true;
+    }
+    return false;
+}
+
+bool Test0::check_2_paths_to_same_target()
+{
+    // One generator on top/right, another one on bottom/left and the receiver on bottom/right
+    int x0=this->top->nb_cluster_x-1, y0=0;
+    int x1=0, y1=this->top->nb_cluster_y-1;
+    int x2=this->top->nb_cluster_x-1, y2=this->top->nb_cluster_y-1;
+    size_t size = 1024*256;
+    size_t bw1 = 4;
+    size_t bw2 = 8;
+
+    if (this->step == 0)
+    {
+        printf("Test 2, checking 2 generators going to same receiver\n");
+
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
+
+        uint64_t base = this->top->get_cluster_base(x2, y2);
+
+        this->top->get_generator(x0, y0)->start(base, size, bw1, sync, false, true);
+        this->top->get_generator(x1, y1)->start(base + 0x10000, size, bw1, sync, false, true);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x2, y2)->start(bw2);
+        }
+
+        sync->start();
+
+        this->clockstamp = this->clock.get_cycles();
+        this->step++;
+    }
+    else
+    {
+        int64_t cycles = 0;
+        bool check_status = false;
+
+        this->top->get_generator(x0, y0)->get_result(&check_status, &cycles);
+        this->top->get_generator(x1, y1)->get_result(&check_status, &cycles);
+
+        // Since we have 2 generators going to same target, bandwidth is divided by 2
+        int64_t expected = size / (bw1 / 2);
+
+        bool status = this->top->check_cycles(cycles, expected) != 0;
+
+        printf("    %s (size: %lld, bw: %lld, cycles: %lld, expected: %lld)\n",
+            status ? "Failed" : "Done", size, bw1, cycles, expected);
+
+        this->status |= status;
+        return true;
+    }
+    return false;
+}
+
+bool Test0::check_prefered_path()
+{
+    size_t size = 1024*256;
+    size_t bw0 = 8;
+    int x0=0, y0=0, x1=1, y1=0, x2=2, y2=0;
+
+    if (this->step == 0)
+    {
+        printf("Test 4, checking 3 generators to 1 border with prefered direction\n");
+
+        TrafficGeneratorSync *sync = new TrafficGeneratorSync(&this->fsm_event);
+
+        this->top->get_generator(x0, y0)->start(0x90000000, size, bw0, sync, false, true);
+        this->top->get_generator(x1, y1)->start(0x90010000, size, bw0, sync, false, true);
+        this->top->get_generator(x2, y2)->start(0x90020000, size, bw0, sync, false, true);
+        if (!this->top->use_memory)
+        {
+            this->top->get_receiver(x0+1, 0)->start(bw0);
+            this->top->get_receiver(x0+1, 0)->start(bw0);
+            this->top->get_receiver(x0+1, 0)->start(bw0);
+        }
+
+        this->clockstamp = this->clock.get_cycles();
+        sync->start();
+        this->step++;
+    }
+    else
+    {
+        int64_t cycles = 0;
+        bool check_status = false;
+
+        this->top->get_generator(x0, y0)->get_result(&check_status, &cycles);
+        this->top->get_generator(x1, y1)->get_result(&check_status, &cycles);
+        this->top->get_generator(x2, y2)->get_result(&check_status, &cycles);
+
+        printf("    Done\n");
+
+        return true;
+    }
+    return false;
+}
+
+void Test0::entry(vp::Block *__this, vp::ClockEvent *event)
+{
+    Test0 *_this = (Test0 *)__this;
+    bool done;
+
+    if (_this->testcases[_this->testcase]())
+    {
+        _this->testcase++;
+        if (_this->testcase >= _this->testcases.size())
+        {
+            _this->top->test_end(_this->status);
+        }
+        else
+        {
+            _this->step = 0;
+            _this->fsm_event.enqueue();
+        }
     }
 }
 
 void Test0::exec_test()
 {
+    auto single_path_tests_add = [this](int x0, int y0, int x1, int y1, uint64_t offset, int x2=-1, int y2=-1)
+    {
+        // Wide channel is 64 bytes and narrow is 8 bytes
+        //                                    write | wide | narrow | srcbw | dstbw | size    | expected cycles
+
+        if (!this->top->use_memory || this->top->mem_bw == 4)
+        {
+            this->testcases.insert(testcases.end(), {
+                // Check wide and narrow channels with narrow-width bursts to target reduced bandwidth
+                [=] { return this->check_single_path(true  , true , false  , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // Target limited bandwidth is the bottleneck
+                [=] { return this->check_single_path(true  , true , true   , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // Target limited bandwidth is the bottleneck
+                [=] { return this->check_single_path(false , true , false  , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // Target limited bandwidth is the bottleneck
+                [=] { return this->check_single_path(false , true , true   , 8      , 4     , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // Target limited bandwidth is the bottleneck
+            });
+        }
+
+        if (!this->top->use_memory || this->top->mem_bw == 8)
+        {
+            this->testcases.insert(testcases.end(), {
+                // Check wide and narrow channels with wide-width bursts to target reduced bandwidth
+                [=] { return this->check_single_path(true  , true , false  , 64     , 8     , 1024*256, 32768 , x0, y0, x1, y1, offset, x2, y2); }, // Target limited bandwidth is the bottleneck
+                [=] { return this->check_single_path(true  , true , true   , 64     , 8     , 1024*256, 36864 , x0, y0, x1, y1, offset, x2, y2); }, // Big burst size amortizes header cost, but still 1 header every 8 flist on narrow channel
+                [=] { return this->check_single_path(false , true , false  , 64     , 8     , 1024*256, 32768 , x0, y0, x1, y1, offset, x2, y2); }, // No header cost, done in parallel
+                [=] { return this->check_single_path(false , true , true   , 64     , 8     , 1024*256, 32768 , x0, y0, x1, y1, offset, x2, y2); }, // No header cost, done in parallel. Narrow and wide compete on req channel but only for headers, which are nto frequent thanks to bursts
+            });
+        }
+
+        if (!this->top->use_memory || this->top->mem_bw == 64)
+        {
+            this->testcases.insert(testcases.end(), {
+                // Check wide and narrow channels with small bursts
+                [=] { return this->check_single_path(true  , true , false  , 4      , 64    , 1024*256, 131072, x0, y0, x1, y1, offset, x2, y2); }, // Bandwidth divided by 2 due to header cost
+                [=] { return this->check_single_path(true  , true , true   , 4      , 64    , 1024*256, 131072, x0, y0, x1, y1, offset, x2, y2); }, // Bandwidth divided by 2 due to header cost
+                [=] { return this->check_single_path(false , true , false  , 4      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // Full bandwidth since req and resp go in parallel
+                [=] { return this->check_single_path(false , true , true   , 4      , 64    , 1024*256, 131072, x0, y0, x1, y1, offset, x2, y2); }, // Bandwidth divided by 2 due to header cost on req channel
+                // Check wide and narrow channels with narrow-width bursts with no target bandwidth reduction
+                [=] { return this->check_single_path(true  , true , false  , 8      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // writes put address on same channel before data, this reduces bw for small bursts
+                [=] { return this->check_single_path(true  , true , true   , 8      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // writes put address on same channel before data, this reduces bw for small bursts
+                [=] { return this->check_single_path(false , true , false  , 8      , 64    , 1024*256, 32768 , x0, y0, x1, y1, offset, x2, y2); },
+                [=] { return this->check_single_path(false , true , true   , 8      , 64    , 1024*256, 65536 , x0, y0, x1, y1, offset, x2, y2); }, // writes put address on narrow channel which conflicts with narrow generator as full bandwidth is already taken
+                // Check wide channel with wide-width bursts
+                [=] { return this->check_single_path(true  , true , false  , 64     , 64    , 1024*256, 8192 , x0, y0, x1, y1, offset, x2, y2); }, // Bandwidth divided by 2 due to header cost
+                [=] { return this->check_single_path(false , true , false  , 64     , 64    , 1024*256, 4096 , x0, y0, x1, y1, offset, x2, y2); }, // Full bandwidth since req and resp go in parallel
+                // Check wide channel with big bursts
+                [=] { return this->check_single_path(true  , true , false  , 256    , 64    , 1024*256, 5120 , x0, y0, x1, y1, offset, x2, y2); }, // Big burst size amortizes header cost
+                [=] { return this->check_single_path(false , true , false  , 256    , 64    , 1024*256, 4096 , x0, y0, x1, y1, offset, x2, y2); }, // Full bandwidth since req and resp go in parallel
+            });
+        }
+    };
+
+    // Test within router grid from bottom left to top right
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y, 0);
+    // Test from bootom left to top right on the border
+    single_path_tests_add(0, 0, this->top->nb_cluster_x + 1, this->top->nb_cluster_y, 0);
+    // Test from bottom left to bottom right on the border
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, 0, 0);
+    // Test from bottom left to top right on the border
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y + 1, 0);
+    // Test from bottom left to top left on the border
+    single_path_tests_add(0, 0, 0, this->top->nb_cluster_y, 0);
+    // Misaligned accesses
+    single_path_tests_add(0, 0, this->top->nb_cluster_x, this->top->nb_cluster_y, 1);
+    // Crossing several destination
+    single_path_tests_add(0, 0, this->top->nb_cluster_x-1, this->top->nb_cluster_y-1, 0x100000 - 8, this->top->nb_cluster_x, this->top->nb_cluster_y - 1);
+
+    if (!this->top->use_memory || this->top->mem_bw == 8)
+    {
+        this->testcases.insert(testcases.end(), {
+            [&] { return this->check_2_paths_through_same_node(); },
+            [&] { return this->check_2_paths_to_same_target(); },
+            [&] { return this->check_prefered_path(); },
+        });
+    }
+
+    this->status = false;
     this->step = 0;
+    this->testcase = 0;
     this->fsm_event.enqueue();
 }

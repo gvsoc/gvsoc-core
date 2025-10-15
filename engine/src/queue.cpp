@@ -186,6 +186,6 @@ void vp::Queue::trigger_next()
 {
     if (this->first && this->ready_event)
     {
-        this->ready_event->enqueue(this->first->timestamp - this->clock.get_cycles());
+        this->ready_event->enqueue(std::max(this->first->timestamp - this->clock.get_cycles(), (int64_t)1));
     }
 }

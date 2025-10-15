@@ -133,7 +133,7 @@ void Generator::response(vp::Block *__this, vp::IoReq *req)
 {
     Generator *_this = (Generator *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received response (req: %p)\n", req);
-    _this->handle_req_end(req);
+    _this->handle_req_end(req, req->get_latency());
 }
 
 void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)

@@ -104,19 +104,22 @@ vp::IoReqStatus Receiver::req(vp::Block *__this, vp::IoReq *req)
 {
     Receiver *_this = (Receiver *)__this;
 
-    if (req->get_addr() + req->get_size() > _this->size)
+    if (_this->size != 0)
     {
-        _this->trace.fatal("Invalid access (addr: 0x%x, size: 0x%x, mem_size: 0x%x)\n",
-            req->get_addr(), req->get_size(), _this->size);
-    }
+        if (req->get_addr() + req->get_size() > _this->size)
+        {
+            _this->trace.fatal("Invalid access (addr: 0x%x, size: 0x%x, mem_size: 0x%x)\n",
+                req->get_addr(), req->get_size(), _this->size);
+        }
 
-    if (req->get_is_write())
-    {
-        memcpy(&_this->mem_data[req->get_addr()], req->get_data(), req->get_size());
-    }
-    else
-    {
-        memcpy(req->get_data(), &_this->mem_data[req->get_addr()], req->get_size());
+        if (req->get_is_write())
+        {
+            memcpy(&_this->mem_data[req->get_addr()], req->get_data(), req->get_size());
+        }
+        else
+        {
+            memcpy(req->get_data(), &_this->mem_data[req->get_addr()], req->get_size());
+        }
     }
 
     _this->log_access(req->get_addr(), req->get_size(), req->get_is_write());
@@ -171,6 +174,9 @@ void Receiver::pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Receiver *_this = (Receiver *)__this;
 
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "CHECK PENDING %d %ld\n", _this->pending_reqs.empty(),
+        _this->ready_timestamp, _this->clock.get_cycles());
+
     if (!_this->pending_reqs.empty() && _this->ready_timestamp <= _this->clock.get_cycles())
     {
         vp::IoReq *req = (vp::IoReq *)_this->pending_reqs.pop();
@@ -190,12 +196,15 @@ void Receiver::pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
     }
 
+    _this->pending_reqs.trigger_next();
     _this->ready_reqs.trigger_next();
 }
 
 void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Receiver *_this = (Receiver *)__this;
+
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "CHECK READY %d\n", _this->ready_reqs.empty());
 
     if (!_this->ready_reqs.empty())
     {
@@ -217,6 +226,7 @@ void Receiver::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 
     _this->pending_reqs.trigger_next();
+    _this->ready_reqs.trigger_next();
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

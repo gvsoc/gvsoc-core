@@ -58,18 +58,10 @@ class Rv64(gvsoc.systree.Component):
 
 
 
-class MultiChip(gvsoc.systree.Component):
-    def __init__(self, parent, name=None):
-        super().__init__(parent, name)
-
-        chip0 = Rv64(self, 'chip0')
-
-        chip1 = Rv64(self, 'chip1')
-
 
 # This is the top target that gvrun will instantiate
 class Target(gvsoc.runner.Target):
 
     description = "Custom system"
-    model = MultiChip
+    model = Rv64
     name = "test"

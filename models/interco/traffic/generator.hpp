@@ -55,7 +55,7 @@ class TrafficGeneratorSync
 {
     friend class Generator;
 public:
-    TrafficGeneratorSync(vp::ClockEvent *event=NULL) : event(event) { this->init(); }
+    TrafficGeneratorSync(vp::ClockEvent *event) : event(event) { this->init(); }
     void init() { this->nb_pre_check_done = 0; this->nb_transfers_done=0; this->nb_post_check_done = 0; this->generators.clear(); }
     void add_generator(TrafficGenerator *generator) { this->generators.push_back(generator); }
     void start() { for (auto gen: generators) { gen->start_transfer(); }}
@@ -77,7 +77,6 @@ public:
     inline void start(uint64_t address, size_t size, size_t packet_size,
         TrafficGeneratorSync *sync, bool do_write=false, bool check=false);
     inline void get_result(bool *check_status=NULL, int64_t *duration=NULL);
-    inline bool is_finished();
 };
 
 
@@ -103,11 +102,4 @@ inline void TrafficGeneratorConfigMaster::get_result(bool *check_status, int64_t
     {
         *duration = std::max(*duration, config.duration);
     }
-}
-
-inline bool TrafficGeneratorConfigMaster::is_finished()
-{
-    TrafficGeneratorConfig config = { .is_start=false };
-    this->sync(&config);
-    return config.result;
 }

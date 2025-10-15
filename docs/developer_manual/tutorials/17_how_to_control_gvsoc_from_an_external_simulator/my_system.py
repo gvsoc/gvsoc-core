@@ -5,7 +5,6 @@ import interco.router
 import utils.loader.loader
 import gvsoc.systree
 import gvsoc.runner
-import interco.router_proxy
 from gvrun.parameter import TargetParameter
 
 
@@ -34,10 +33,6 @@ class Soc(gvsoc.systree.Component):
         loader.o_OUT     ( ico.i_INPUT     ())
         loader.o_START   ( host.i_FETCHEN  ())
         loader.o_ENTRY   ( host.i_ENTRY    ())
-
-        # AXI proxy
-        axi_proxy = interco.router_proxy.Router_proxy(self, 'axi_proxy')
-        self.bind(axi_proxy, 'out', ico, 'input')
 
 
 

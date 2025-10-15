@@ -40,7 +40,6 @@ public:
     TrafficReceiverConfigMaster *get_receiver(int x);
     void test_end(int status);
     int check_cycles(int64_t result, int64_t expected, float expected_error);
-    bool is_finished();
     int64_t get_expected(int size, int nb_inputs, int nb_gens_per_input, int nb_targets);
     void start(size_t size, int nb_inputs, int nb_gens_per_input, int nb_targets, vp::ClockEvent *event);
 
@@ -65,6 +64,7 @@ private:
     int current_test_step;
     std::vector<TrafficGeneratorConfigMaster> generator_control_itf;
     std::vector<TrafficReceiverConfigMaster> receiver_control_itf;
+    TrafficGeneratorSync sync;
 };
 
 class Test0 : public TestCommon

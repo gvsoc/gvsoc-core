@@ -69,8 +69,6 @@ void Test0::entry(vp::Block *__this, vp::ClockEvent *event)
     }
     else
     {
-        if (!_this->top->is_finished()) return;
-
         int64_t cycles = _this->clock.get_cycles() - _this->clockstamp;
         int64_t expected = _this->top->get_expected(testcase->size, testcase->nb_inputs,
             testcase->nb_gens_per_input, testcase->nb_targets);

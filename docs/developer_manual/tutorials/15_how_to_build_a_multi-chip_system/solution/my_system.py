@@ -7,7 +7,7 @@ import vp.clock_domain
 import interco.router
 import utils.loader.loader
 import gdbserver.gdbserver
-from gvrun.target import TargetParameter
+from gvrun.parameter import TargetParameter
 
 
 class Soc(gvsoc.systree.Component):

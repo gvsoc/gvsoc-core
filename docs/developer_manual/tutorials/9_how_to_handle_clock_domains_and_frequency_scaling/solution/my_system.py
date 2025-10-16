@@ -9,7 +9,7 @@ import utils.loader.loader
 import gdbserver.gdbserver
 
 import my_comp
-from gvrun.target import TargetParameter
+from gvrun.parameter import TargetParameter
 
 
 class Rv64(gvsoc.systree.Component):

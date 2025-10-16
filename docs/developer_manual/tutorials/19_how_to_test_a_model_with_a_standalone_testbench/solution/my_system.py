@@ -20,7 +20,7 @@ import gvsoc.runner
 import vp.clock_domain
 from model import Model
 from testbench import Testbench
-from gvrun.target import TargetParameter
+from gvrun.parameter import TargetParameter
 
 
 class Test(gvsoc.systree.Component):

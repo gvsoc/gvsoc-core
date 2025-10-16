@@ -51,7 +51,7 @@ class Node(object):
     def get(self, name):
         if self.is_header() and self.title == name:
             return self
-        
+
         for child in self.children:
             ast = child.get(name)
             if ast is not None:
@@ -141,7 +141,7 @@ class Table(Node):
         if elem is not None:
             return int(elem, 0)
         return None
-    
+
     def get_size(self):
         return len(self.table) - 1
 
@@ -164,10 +164,13 @@ def parse_md(md):
 
 
 
-def import_md(regmap, path, registers=[]):
-    
+def import_md(regmap, path, block=None, registers=[]):
+
     with open(path, "rt") as fh:
         ast = parse_md(gfm.parse(fh.read()))
+
+        if block is not None:
+            ast = ast.get(block)
 
         registers_ast = ast.get('Registers')
         if registers_ast is None:
@@ -237,7 +240,7 @@ def import_md(regmap, path, registers=[]):
                     access_index = table.get_index(names=['Host Access Type', 'Access Type'])
                     reset_index = table.get_index(names=['Default', 'Reset Value'])
                     description_index = table.get_index(names=['Description', 'Short description'])
-                    
+
                     for index in range(0, table.get_size()):
                         regfield = register.add_regfield(rmap.Regfield(
                             name=table.get_elem(index, name_index),
@@ -260,7 +263,7 @@ def import_md(regmap, path, registers=[]):
             for command_ast in commands_ast.children:
                 cmdmap = rmap.Cmdmap(name=command_ast.title)
                 regmap.add_cmdmap(cmdmap)
-                
+
                 table = command_ast.get_table();
                 if table is None:
                     raise RuntimeError("Didn't find table in section 'Commands'")

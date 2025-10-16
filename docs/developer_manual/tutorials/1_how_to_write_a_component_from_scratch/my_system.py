@@ -5,7 +5,7 @@ import interco.router
 import utils.loader.loader
 import gvsoc.systree
 import gvsoc.runner
-from gvrun.target import TargetParameter
+from gvrun.parameter import TargetParameter
 
 
 class Soc(gvsoc.systree.Component):

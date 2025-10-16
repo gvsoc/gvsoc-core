@@ -39,13 +39,16 @@ public:
 
     vp::IoMaster *get_noc_ni_itf(int x, int y);
     uint64_t get_cluster_base(int x, int y);
-    TrafficGeneratorConfigMaster *get_generator(int x, int y);
-    TrafficReceiverConfigMaster *get_receiver(int x, int y);
+    uint64_t get_target_base(int x, int y);
+    TrafficGeneratorConfigMaster *get_generator(int x, int y, bool narrow=false);
+    TrafficReceiverConfigMaster *get_receiver(int x, int y, bool narrow=false);
     void test_end(int status);
     int check_cycles(int64_t result, int64_t expected);
 
     int nb_cluster_x;
     int nb_cluster_y;
+    bool use_memory;
+    int mem_bw;
 
 private:
     int get_cluster_id(int x, int y);

@@ -7,7 +7,7 @@ import gvsoc.systree
 import gvsoc.runner
 import gdbserver.gdbserver
 import my_comp
-from gvrun.target import TargetParameter
+from gvrun.parameter import TargetParameter
 
 
 class Soc(gvsoc.systree.Component):

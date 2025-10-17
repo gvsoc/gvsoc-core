@@ -35,11 +35,7 @@ static inline iss_reg_t dmcnf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     };
     iss->exec.offload_insn(&offload_insn);
 
-    if (offload_insn.granted)
-    {
-        REG_SET(0, offload_insn.result);
-    }
-    else
+    if (!offload_insn.granted)
     {
         iss->exec.stall_reg = REG_OUT(0);
         iss->exec.insn_stall();
@@ -58,11 +54,7 @@ static inline iss_reg_t dm1d2d3d_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     };
     iss->exec.offload_insn(&offload_insn);
 
-    if (offload_insn.granted)
-    {
-        REG_SET(0, offload_insn.result);
-    }
-    else
+    if (!offload_insn.granted)
     {
         iss->exec.stall_reg = REG_OUT(0);
         iss->exec.insn_stall();
@@ -78,11 +70,7 @@ static inline iss_reg_t dmstr_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     };
     iss->exec.offload_insn(&offload_insn);
 
-    if (offload_insn.granted)
-    {
-        REG_SET(0, offload_insn.result);
-    }
-    else
+    if (!offload_insn.granted)
     {
         iss->exec.stall_reg = REG_OUT(0);
         iss->exec.insn_stall();

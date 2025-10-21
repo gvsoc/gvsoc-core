@@ -33,7 +33,7 @@ class Cache(st.Component):
         super(Cache, self).__init__(parent, name)
 
         if cache_v2:
-            self.set_component('cache.cache_v2_impl')
+            self.set_component('cache.cache_impl_v2')
         else:
             self.set_component('cache.cache_impl')
 

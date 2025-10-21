@@ -695,6 +695,13 @@ static inline iss_reg_t fence_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t fence_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    if (!iss->lsu.lsu_is_empty())
+    {
+        // Return current pc if the lsu has outstanding requests
+        return pc;
+    }
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

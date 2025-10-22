@@ -143,6 +143,7 @@ void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
     // the FSM handle all the bursts.
     unsigned int sewb = _this->ara.iss.vector.sewb;
     unsigned int lmul = _this->ara.iss.vector.LMUL_t;
+    _this->pending_vreg = insn->out_regs[0];
     _this->pending_velem = velem_get(&_this->ara.iss, insn->out_regs[0], 0, sewb, lmul);
     _this->pending_addr = _this->insns[_this->insn_first_waiting].insn->reg;
     _this->pending_is_write = false;
@@ -156,6 +157,7 @@ void AraVlsu::handle_insn_store(AraVlsu *_this, iss_insn_t *insn)
     // the FSM handle all the bursts.
     unsigned int sewb = _this->ara.iss.vector.sewb;
     unsigned int lmul = _this->ara.iss.vector.LMUL_t;
+    _this->pending_vreg = insn->in_regs[1];
     _this->pending_velem = velem_get(&_this->ara.iss, insn->in_regs[1], 0, sewb, lmul);
     _this->pending_addr = _this->insns[_this->insn_first_waiting].insn->reg;
     _this->pending_is_write = true;
@@ -259,6 +261,12 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     _this->nb_waiting_insn--;
                     _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
                 }
+
+#ifdef CONFIG_GVSOC_ISS_VECTOR_CHAINING
+                // In case chaining is enabled, notify that some elements has been handled as it
+                // might start an instruction
+                _this->ara.insn_commit(_this->pending_vreg, req->get_size());
+#endif
             }
         }
 

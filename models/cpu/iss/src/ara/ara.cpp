@@ -303,6 +303,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                             if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                             {
                                 _this->scoreboard_valid_ts[insn->out_regs[i]] = INT64_MAX;
+                                _this->scoreboard_committed[insn->out_regs[i]] = INT64_MAX;
                             }
                         }
 

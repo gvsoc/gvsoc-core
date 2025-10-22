@@ -346,6 +346,7 @@ private:
     // Any instruction which needs to write a register which is being used is blocked until the
     // register is not used anymore
     unsigned int scoreboard_in_use[ISS_NB_VREGS];
+    unsigned int scoreboard_committed[ISS_NB_VREGS];
     // CVA6 register associated to the instruction being executed. This is used by instruction
     // handlers when they are executed. This needs to be buffered because CVA6 might have executed
     // following instructions overriding the register

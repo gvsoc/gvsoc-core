@@ -1,6 +1,7 @@
-build ?= $(CURDIR)
 TARGET = test
 ROOT_DIR=../../../..
+
+build ?= $(CURDIR)/build
 
 clean:
 	make -C $(ROOT_DIR) TARGETS=test MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install clean

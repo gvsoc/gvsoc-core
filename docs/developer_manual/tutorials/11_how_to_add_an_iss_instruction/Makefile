@@ -1,25 +1,22 @@
 include ../utils/rt.mk
 
-BUILDDIR = $(CURDIR)/build
-INSTALLDIR = $(CURDIR)/install
-
-ifdef LOCAL_BUILD
-OPTIONS=BUILDDIR=$(BUILDDIR) INSTALLDIR=$(INSTALLDIR)
-GVSOC=$(INSTALLDIR)/bin/gvsoc
+GVSOC_WORKDIR ?= $(CURDIR)/build
+ifdef BUILDDIR
+FULL_BUILDDIR := $(GVSOC_WORKDIR)/$(BUILDDIR)
 else
-GVSOC=../../../../../install/bin/gvsoc
+FULL_BUILDDIR := $(GVSOC_WORKDIR)
 endif
 
 clean:
-	rm -f *.o $(BUILDDIR)/test
-	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) clean
+	rm -rf $(FULL_BUILDDIR)/test
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) clean
 
 all:
-	mkdir -p $(BUILDDIR)
-	riscv64-unknown-elf-gcc -o $(BUILDDIR)/test main.c  asm_instr.S $(RT_SRCS) $(RT_FLAGS)
+	mkdir -p $(FULL_BUILDDIR)/test
+	riscv64-unknown-elf-gcc -o $(FULL_BUILDDIR)/test/test main.c  asm_instr.S $(RT_SRCS) $(RT_FLAGS)
 
 gvsoc:
-	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) $(OPTIONS) build
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) build
 
 run:
-	$(GVSOC) --target-dir=$(CURDIR) --target=my_system --work-dir=$(BUILDDIR) --binary=$(BUILDDIR)/test run $(runner_args)
+	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system ---build-dir=$(FULL_BUILDDIR)/work --binary=$(FULL_BUILDDIR)/test/test run $(runner_args)

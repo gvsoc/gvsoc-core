@@ -1,21 +1,25 @@
 include ../utils/rt.mk
 
-build ?= $(CURDIR)
-BUILDDIR = $(CURDIR)/build
+GVSOC_WORKDIR ?= $(CURDIR)/build
+ifdef BUILDDIR
+FULL_BUILDDIR := $(GVSOC_WORKDIR)/$(BUILDDIR)
+else
+FULL_BUILDDIR := $(GVSOC_WORKDIR)
+endif
 
 clean:
-	rm -f *.o $(BUILDDIR)/test
-	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install $(OPTIONS) clean
+	rm -rf $(FULL_BUILDDIR)/test
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) clean
 
 all:
-	mkdir -p $(BUILDDIR)
-	riscv64-unknown-elf-gcc -g -o $(BUILDDIR)/test main.c $(RT_SRCS) $(RT_FLAGS)
+	mkdir -p $(FULL_BUILDDIR)/test
+	riscv64-unknown-elf-gcc -o $(FULL_BUILDDIR)/test/test main.c $(RT_SRCS) $(RT_FLAGS)
 
 gvsoc:
-	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install $(OPTIONS) build
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) build
 
 prepare:
 	cp solution/* .
 
 run:
-	$(build)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --build-dir=$(build)/work --parameter chip0/binary=$(BUILDDIR)/test --parameter chip1/binary=$(BUILDDIR)/test run $(runner_args)
+	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --build-dir=$(FULL_BUILDDIR)/work --parameter chip0/binary=$(FULL_BUILDDIR)/test/test --parameter chip1/binary=$(FULL_BUILDDIR)/test/test run $(runner_args)

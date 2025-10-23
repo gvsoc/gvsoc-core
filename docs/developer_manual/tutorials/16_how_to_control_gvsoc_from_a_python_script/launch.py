@@ -4,7 +4,13 @@ import pexpect
 import random
 import os
 import sys
+import argparse
 
+parser = argparse.ArgumentParser(description='Launch test')
+
+parser.add_argument("--builddir", dest="builddir", default=None)
+
+args = parser.parse_args()
 
 while True:
 
@@ -13,7 +19,7 @@ while True:
     os.environ['GV_PROXY_PORT'] = str(port)
 
     try:
-        run = pexpect.spawn(f'make run runner_args="--proxy --proxy-port={port}"', encoding='utf-8', logfile=sys.stdout, env=os.environ)
+        run = pexpect.spawn(f'make run FULL_BUILDDIR={args.builddir} runner_args="--proxy --proxy-port={port}"', encoding='utf-8', logfile=sys.stdout, env=os.environ)
         match = run.expect(['Opened proxy on socket '], timeout=None)
         if match == 0:
             break

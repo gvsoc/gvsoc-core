@@ -1,25 +1,29 @@
 include ../utils/rt.mk
 
-build ?= $(CURDIR)
-BUILDDIR = $(CURDIR)/build
+GVSOC_WORKDIR ?= $(CURDIR)/build
+ifdef BUILDDIR
+FULL_BUILDDIR := $(GVSOC_WORKDIR)/$(BUILDDIR)
+else
+FULL_BUILDDIR := $(GVSOC_WORKDIR)
+endif
 
 clean:
-	rm -f *.o $(BUILDDIR)/test
-	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install $(OPTIONS) clean
+	rm -rf $(FULL_BUILDDIR)/test
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) clean
 
 all:
-	mkdir -p $(BUILDDIR)
-	riscv64-unknown-elf-gcc -g -o $(BUILDDIR)/test main.c $(RT_SRCS) $(RT_FLAGS)
+	mkdir -p $(FULL_BUILDDIR)/test
+	riscv64-unknown-elf-gcc -g -o $(FULL_BUILDDIR)/test/test main.c $(RT_SRCS) $(RT_FLAGS)
 
 gvsoc:
-	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install $(OPTIONS) build
-	g++ -o launcher launcher.cpp -I../../../../../core/engine/include -L$(build)/install/lib -lpulpvp
+	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) build
+	g++ -o launcher launcher.cpp -I../../../../../core/engine/include -L$(FULL_BUILDDIR)/install/lib -lpulpvp
 
 prepare:
 	cp solution/* .
 
 config:
-	$(build)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --build-dir=$(build)/work --parameter binary=$(BUILDDIR)/test prepare $(runner_args)
+	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --build-dir=$(FULL_BUILDDIR)/work --parameter binary=$(FULL_BUILDDIR)/test/test prepare $(runner_args)
 
 run_launcher:
-	LD_LIBRARY_PATH=$(build)/install/lib:$(LD_LIBRARY_PATH) ./launcher --config=$(build)/work/gvsoc_config.json
+	LD_LIBRARY_PATH=$(FULL_BUILDDIR)/install/lib:$(LD_LIBRARY_PATH) ./launcher --config=$(FULL_BUILDDIR)/work/gvsoc_config.json

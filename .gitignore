@@ -4,4 +4,3 @@ __pycache__/
 cscope*
 /docs/_build/
 /.vscode/
-build/

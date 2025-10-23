@@ -1,4 +1,4 @@
-build ?= $(CURDIR)
+build ?= $(CURDIR)/build
 TARGET = test
 OPTIONS :=
 

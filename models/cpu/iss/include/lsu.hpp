@@ -44,6 +44,9 @@ public:
     void start();
     void reset(bool active);
 
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+    bool lsu_is_empty();
+#endif
     int data_req(iss_addr_t addr, uint8_t *data, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id);
     int data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id);
     int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);

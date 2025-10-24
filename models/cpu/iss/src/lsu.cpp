@@ -277,6 +277,21 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
     return err;
 }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+bool Lsu::lsu_is_empty()
+{
+    vp::IoReq *req = this->io_req_first;
+    int64_t cycles = this->iss.top.clock.get_cycles();
+    for (int i = 0; i < CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING; i++)
+    {
+        if (req == NULL || *((int64_t *)req->arg_get(1)) > cycles)
+            return false;
+        req = req->get_next();
+    }
+    return true;
+}
+#endif
+
 int Lsu::data_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency, int &req_id)
 {
 #if !defined(CONFIG_GVSOC_ISS_HANDLE_MISALIGNED)

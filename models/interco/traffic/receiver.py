@@ -18,11 +18,15 @@ import gvsoc.systree
 
 class Receiver(gvsoc.systree.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, mem_size: int=0):
 
         super(Receiver, self).__init__(parent, name)
 
         self.add_sources(['interco/traffic/receiver.cpp'])
+
+        self.add_properties({
+            "mem_size": mem_size
+        });
 
     def i_CONTROL(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'control', signature='wire<TrafficReceiverConfig>')

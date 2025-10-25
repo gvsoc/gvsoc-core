@@ -138,6 +138,7 @@ private:
     bool pending_is_write;
     // Pointer to vector register file where next burst should read or written
     uint8_t *pending_velem;
+    int pending_vreg;
     // First valid instruction in the queue.
     int insn_first;
     // First valid instruction in the queue waiting to be started
@@ -274,6 +275,7 @@ public:
     // of pending instruction, analyzed, and push to a processing block for executing once
     // dependencies are resolved. Can be called only when queue is not full.
     void insn_enqueue(PendingInsn *insn);
+    void insn_commit(int reg, int size);
     // Return true when queue if full and ara can not accept new instructions
     bool queue_is_full() { return this->queue_full.get(); }
     // Return the CVA6 register value associated to the instruction being executed
@@ -284,6 +286,7 @@ public:
     Iss &iss;
     // Number of 64 bits lanes in Ara.
     int nb_lanes;
+
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // Number of pending vector loads and stores in spatz. Use to synchronize with snitch memory
     // accesses

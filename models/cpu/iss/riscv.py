@@ -272,37 +272,13 @@ class RiscvCommon(st.Component):
             ])
             self.add_c_flags(['-DSOFTFLOAT_FAST_INT64=1'])
 
+        self.htif = htif
         if htif:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])
 
             if binaries is not None:
                 for binary in binaries:
-                    binary_info = binaries_info.get(binary)
-
-                    if binary_info is None:
-                        tohost_addr = None
-                        fromhost_addr = None
-                        with open(binary, 'rb') as file:
-                            elffile = ELFFile(file)
-                            for section in elffile.iter_sections():
-                                if isinstance(section, SymbolTableSection):
-                                    for symbol in section.iter_symbols():
-                                        if symbol.name == 'tohost':
-                                            tohost_addr = symbol.entry['st_value']
-                                        if symbol.name == 'fromhost':
-                                            fromhost_addr = symbol.entry['st_value']
-
-                        binary_info = [tohost_addr, fromhost_addr]
-                        binaries_info[binary] = binary_info
-
-                    else:
-                        tohost_addr, fromhost_addr = binary_info
-
-                    if fromhost_addr is not None:
-                        self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
-
-                    if tohost_addr is not None:
-                        self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+                    self.handle_htif(binary)
 
         if pmp:
             self.add_c_flags([
@@ -349,6 +325,38 @@ class RiscvCommon(st.Component):
 
         if os.path.getsize(path) < 5 * 1024*1024:
             self.get_property('debug_binaries').append(debug_info_path)
+
+        if self.htif:
+            self.handle_htif(binary)
+
+    def handle_htif(self, binary):
+
+        binary_info = binaries_info.get(binary)
+
+        if binary_info is None:
+            tohost_addr = None
+            fromhost_addr = None
+            with open(binary, 'rb') as file:
+                elffile = ELFFile(file)
+                for section in elffile.iter_sections():
+                    if isinstance(section, SymbolTableSection):
+                        for symbol in section.iter_symbols():
+                            if symbol.name == 'tohost':
+                                tohost_addr = symbol.entry['st_value']
+                            if symbol.name == 'fromhost':
+                                fromhost_addr = symbol.entry['st_value']
+
+            binary_info = [tohost_addr, fromhost_addr]
+            binaries_info[binary] = binary_info
+
+        else:
+            tohost_addr, fromhost_addr = binary_info
+
+        if fromhost_addr is not None:
+            self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
+
+        if tohost_addr is not None:
+            self.add_property('htif_tohost', f'0x{tohost_addr:x}')
 
     def generate(self, builddir):
         for executable in self.get_executables():

@@ -55,21 +55,62 @@ void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
     this->fsm_event.enable();
 }
 
+void AraVcompute::handle_pending(PendingInsn *pending_insn)
+{
+    if (this->pending_insn->timestamp == INT64_MAX)
+    {
+        bool partial = false;
+        #ifdef CONFIG_GVSOC_ISS_VECTOR_CHAINING
+        if (this->pending_insn->chained)
+        {
+            iss_insn_t *insn = this->pending_insn->insn;
+            for (int i=0; i<insn->nb_in_reg; i++)
+            {
+                if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                {
+                    if (this->ara.scoreboard_valid_ts[insn->in_regs[i]] > this->ara.iss.top.clock.get_cycles())
+                    {
+                        partial = true;
+                        break;
+                    }
+                }
+            }
+            this->pending_insn->chained = partial;
+        }
+        #endif
+
+        printf("Partial %d\n", partial);
+        if (!partial)
+        {
+            // Computes the duration of the instruction. The compute unit will process in each cycle
+            // a number of elements equal to the numbe of lanes.
+            // Note that the number of elements already take into account lmul
+            unsigned int nb_elems = (this->ara.iss.csr.vl.value - this->ara.iss.csr.vstart.value) /
+                this->ara.nb_lanes;
+            this->pending_insn->timestamp = this->ara.iss.top.clock.get_cycles() + nb_elems;
+        }
+    }
+}
+
 void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     AraVcompute *_this = (AraVcompute *)__this;
 
     // Check if the pending instruction has finished. Its timestamp was set when instruction
     // started annd indicates when it must be terminated
-    if (_this->pending_insn &&
-        _this->pending_insn->timestamp <= _this->ara.iss.top.clock.get_cycles())
+    if (_this->pending_insn)
     {
-        // Notify ara so that it removes it from the pending instruction and update scoreboard
-        _this->ara.insn_end(_this->pending_insn);
-        // Clear it to take a new one
-        _this->pending_insn = NULL;
-        _this->event_pc.event_highz();
-        _this->event_label.event_string((char *)1, false);
+        _this->handle_pending(_this->pending_insn);
+
+        if (_this->pending_insn->timestamp <= _this->ara.iss.top.clock.get_cycles())
+        {
+            // Notify ara so that it removes it from the pending instruction and update scoreboard
+            // _this->ara.insn_end(_this->pending_insn);
+            // Clear it to take a new one
+            _this->pending_insn = NULL;
+            _this->event_pc.event_highz();
+            _this->event_label.event_string((char *)1, false);
+        }
     }
 
     // Check if a new instruction can starts.
@@ -80,13 +121,9 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         _this->pending_insn = _this->insns.front();
        	_this->insns.pop();
-        // Computes the duration of the instruction. The compute unit will process in each cycle
-        // a number of elements equal to the numbe of lanes.
-        // Note that the number of elements already take into account lmul
-        unsigned int lmul = _this->ara.iss.vector.LMUL_t;
-        unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
-            _this->ara.nb_lanes;
-        _this->pending_insn->timestamp = _this->ara.iss.top.clock.get_cycles() + nb_elems;
+
+        _this->pending_insn->timestamp = INT64_MAX;
+        _this->handle_pending(_this->pending_insn);
 
         _this->event_pc.event((uint8_t *)&_this->pending_insn->pc);
         _this->event_label.event_string(_this->pending_insn->insn->desc->label, false);

@@ -360,6 +360,8 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                             }
                         }
 
+                        pending_insn->chained = chained;
+
                         // Enqueue the instruction to the processing block
                         block->enqueue_insn(pending_insn);
 

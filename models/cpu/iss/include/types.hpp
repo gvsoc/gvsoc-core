@@ -503,6 +503,7 @@ public:
     uint64_t reg;
     uint64_t reg_2;
     bool done;
+    bool chained;
     int id;
 };
 

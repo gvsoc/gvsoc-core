@@ -55,6 +55,7 @@ public:
 private:
     // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    void handle_pending(PendingInsn *pending_insn);
 
     Ara &ara;
     // Used for this block system traces
@@ -250,6 +251,8 @@ private:
 // Ara top block
 class Ara : public vp::Block
 {
+    friend class AraVcompute;
+
 public:
     // List of sub-blocks processing instructions
     typedef enum

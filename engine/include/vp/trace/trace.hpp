@@ -23,35 +23,32 @@
 #define __VP_TRACE_TRACE_HPP__
 
 #include "vp/trace/event_dumper.hpp"
-#include <stdarg.h>
 #include <functional>
+#include <stdarg.h>
 #include <vector>
 
 namespace vp {
 
-  #define BUFFER_SIZE (1<<16)
+#define BUFFER_SIZE (1 << 16)
 
-  class TraceEngine;
-  class Component;
+class TraceEngine;
+class Component;
 
-  class Trace
-  {
+class Trace {
 
     friend class BlockTrace;
     friend class TraceEngine;
 
   public:
-
-    static const int LEVEL_ERROR   = 0;
+    static const int LEVEL_ERROR = 0;
     static const int LEVEL_WARNING = 1;
-    static const int LEVEL_INFO    = 2;
-    static const int LEVEL_DEBUG   = 3;
-    static const int LEVEL_TRACE   = 4;
+    static const int LEVEL_INFO = 2;
+    static const int LEVEL_DEBUG = 3;
+    static const int LEVEL_TRACE = 4;
 
-    typedef enum
-    {
-      WARNING_TYPE_UNCONNECTED_DEVICE,
-      WARNING_TYPE_UNCONNECTED_PADFUN
+    typedef enum {
+        WARNING_TYPE_UNCONNECTED_DEVICE,
+        WARNING_TYPE_UNCONNECTED_PADFUN
     } warning_type_e;
 
     inline void msg(int level, const char *fmt, ...);
@@ -65,8 +62,8 @@ namespace vp {
     void force_warning_no_error(warning_type_e type, const char *fmt, ...);
     inline void fatal(const char *fmt, ...);
 
-    inline void event_highz(int64_t cycle_delay=0, int64_t time_delay=0);
-    inline void event(uint8_t *value, int64_t cycle_delay=0, int64_t time_delay=0);
+    inline void event_highz(int64_t cycle_delay = 0, int64_t time_delay = 0);
+    inline void event(uint8_t *value, int64_t cycle_delay = 0, int64_t time_delay = 0);
     inline void event_string(const char *value, bool realloc);
     inline void event_real(double value);
 
@@ -84,15 +81,15 @@ namespace vp {
     void set_active(bool active);
     void set_event_active(bool active);
 
-  #ifndef VP_TRACE_ACTIVE
+#ifndef VP_TRACE_ACTIVE
     inline bool get_active() { return false; }
     inline bool get_active(int level) { return false; }
     inline bool get_event_active() { return false; }
-  #else
+#else
     inline bool get_active() { return is_active; }
     bool get_active(int level);
     inline bool get_event_active() { return this->dump_event_callback_fixed != NULL; }
-  #endif
+#endif
     bool is_active = false;
 
     int width;
@@ -108,9 +105,13 @@ namespace vp {
   protected:
     int level;
     Component *comp;
-    void (*dump_event_callback_fixed)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, uint8_t *flags) = NULL;
-    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time, int64_t cycles, uint8_t *value, int flags, bool realloc) = NULL;
-    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
+    void (*dump_event_callback_fixed)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time,
+                                      int64_t cycles, uint8_t *value, uint8_t *flags) = NULL;
+    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time,
+                                         int64_t cycles, uint8_t *value, int flags,
+                                         bool realloc) = NULL;
+    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer,
+                                     bool &unlock);
     bool is_event_active = false;
     std::string name;
     std::string path;
@@ -123,36 +124,31 @@ namespace vp {
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
     vp::Trace *clock_trace = NULL;
-  };
-
+};
 
 // the static_cast<vp_trace&> is here to fix a weird issue with the -Wnonnull
 // warning on GCC11. GCC says that trace_ptr is null, but we verified in the if
 // condition that it is not null.
 // The static_cast is used to avoid disabling the warning completely.
-#define vp_assert_always(cond, trace_ptr, msg...)     \
-  if (!(cond)) {                                      \
-    if (trace_ptr)                                    \
-    {                                                 \
-      vp::Trace* trace_p = trace_ptr;                 \
-      (static_cast<vp::Trace&>(*trace_p)).fatal(msg); \
-    }                                                 \
-    else                                              \
-    {                                                 \
-      fprintf(stdout, "ASSERT FAILED: ");             \
-      fprintf(stdout, msg);                           \
-      abort();                                        \
-    }                                                 \
-  }
+#define vp_assert_always(cond, trace_ptr, msg...)                                                  \
+    if (!(cond)) {                                                                                 \
+        if (trace_ptr) {                                                                           \
+            vp::Trace *trace_p = trace_ptr;                                                        \
+            (static_cast<vp::Trace &>(*trace_p)).fatal(msg);                                       \
+        } else {                                                                                   \
+            fprintf(stdout, "ASSERT FAILED: ");                                                    \
+            fprintf(stdout, msg);                                                                  \
+            abort();                                                                               \
+        }                                                                                          \
+    }
 
-#define vp_warning_always(trace_ptr, msg...)       \
-    if (trace_ptr)                                 \
-      ((vp::Trace *)(trace_ptr))->force_warning(msg);      \
-    else                                           \
-    {                                              \
-      fprintf(stdout, "WARNING: ");                \
-      fprintf(stdout, msg);                        \
-      abort();                                     \
+#define vp_warning_always(trace_ptr, msg...)                                                       \
+    if (trace_ptr)                                                                                 \
+        ((vp::Trace *)(trace_ptr))->force_warning(msg);                                            \
+    else {                                                                                         \
+        fprintf(stdout, "WARNING: ");                                                              \
+        fprintf(stdout, msg);                                                                      \
+        abort();                                                                                   \
     }
 
 #ifndef VP_TRACE_ACTIVE
@@ -161,12 +157,8 @@ namespace vp {
 #define vp_assert(cond, trace_ptr, msg...) vp_assert_always(cond, trace_ptr, msg)
 #endif
 
+void fatal(const char *fmt, ...);
 
-
-
-  void fatal(const char *fmt, ...) ;
-
-
-};
+}; // namespace vp
 
 #endif

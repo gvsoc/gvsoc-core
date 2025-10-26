@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16.3)
 
+set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(CMAKE_INSTALL_MESSAGE LAZY)
 
 if (NOT CMAKE_SKIP_INSTALL_RPATH)
@@ -144,6 +147,7 @@ endif()
 # install sub folder
 set(GVSOC_MODELS_INSTALL_FOLDER       "models")
 set(GVSOC_MODELS_OPTIM_INSTALL_FOLDER "")
+set(GVSOC_MODELS_PROFILE_INSTALL_FOLDER "profile")
 set(GVSOC_MODELS_DEBUG_INSTALL_FOLDER "debug")
 set(GVSOC_MODELS_SV_INSTALL_FOLDER    "sv")
 set(GVSOC_MODELS_OPTIM_M32_INSTALL_FOLDER "m32")
@@ -158,6 +162,7 @@ include(cmake/vp_model.cmake)
 # Options
 # =======
 option(BUILD_OPTIMIZED     "build GVSOC with optimizations"                    ON)
+option(BUILD_PROFILE       "build GVSOC with profile information"              ON)
 option(BUILD_DEBUG         "build GVSOC with debug information"                ON)
 option(BUILD_OPTIMIZED_M32 "build GVSOC with optimizations in 32bits mode"     OFF)
 option(BUILD_DEBUG_M32     "build GVSOC with debug information in 32bits mode" OFF)
@@ -167,6 +172,7 @@ SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 # set target types
 vp_set_target_types(
     BUILD_DEBUG ${BUILD_DEBUG}
+    BUILD_PROFILE ${BUILD_PROFILE}
     BUILD_OPTIMIZED ${BUILD_OPTIMIZED}
     BUILD_OPTIMIZED_M32 ${BUILD_OPTIMIZED_M32}
     BUILD_DEBUG_M32 ${BUILD_DEBUG_M32}

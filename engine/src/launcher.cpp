@@ -143,6 +143,8 @@ void gv::Controller::open(ControllerClient *client)
         // only when the external loop is running it.
         this->client_run(client);
     }
+
+    this->instance->build_all();
 }
 
 void gv::Controller::bind(gv::Gvsoc_user *user, ControllerClient *client)
@@ -153,7 +155,6 @@ void gv::Controller::bind(gv::Gvsoc_user *user, ControllerClient *client)
 
 void gv::Controller::start(ControllerClient *client)
 {
-    this->instance->build_all();
     this->handler->start();
     this->instance->reset_all(true);
     this->instance->reset_all(false);

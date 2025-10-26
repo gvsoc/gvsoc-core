@@ -19,6 +19,7 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include "gv/gvsoc.hpp"
 #include "vp/vp.hpp"
 #include "vp/trace/event_dumper.hpp"
 #include <string.h>
@@ -29,7 +30,7 @@ static unsigned int get_bit(uint8_t *value, int i) {
   return (value[i/8] >> (i%8)) & 1;
 }
 
-vp::Vcd_file::Vcd_file(vp::Event_dumper *dumper, string path)
+vp::Vcd_file::Vcd_file(string path)
 {
   file = fopen(path.c_str(), "w");
   if (file == NULL)
@@ -65,13 +66,13 @@ string vp::Vcd_file::parse_path(string path, bool begin)
   return path.substr(start, end);
 }
 
-void vp::Vcd_file::add_trace(string path, int id, int width, bool is_real, bool is_string)
+void vp::Vcd_file::add_trace(string path, int id, int width, gv::Vcd_event_type type)
 {
   string name = parse_path(path, true);
 
   if (name != "")
   {
-    if (is_real)
+    if (type == gv::Vcd_event_type_real)
         fprintf(file, "$var real 64 %d %s $end\n", id, name.c_str());
     else
         fprintf(file, "$var wire %d %d %s $end\n", width, id, name.c_str());
@@ -80,7 +81,8 @@ void vp::Vcd_file::add_trace(string path, int id, int width, bool is_real, bool 
   parse_path(string(path), false);
 }
 
-void vp::Vcd_file::dump(int64_t timestamp, int id, uint8_t *event, int width, bool is_real, bool is_string, uint8_t flags, uint8_t *flag_mask)
+void vp::Vcd_file::dump(int64_t timestamp, int id, uint8_t *event, int width,
+    gv::Vcd_event_type type, uint8_t flags, uint8_t *flag_mask)
 {
   if (!header_dumped)
   {
@@ -96,15 +98,22 @@ $dumpvars\n");
     fprintf(file, "#%" PRId64 "\n", timestamp);
   }
 
-  if (is_real)
+  if (type == gv::Vcd_event_type_real)
   {
     fprintf(file, "r%f %d\n", *(double *)event, id);
   }
-  else if (is_string)
+  else if (type == gv::Vcd_event_type_string)
   {
-    fprintf(file, "s");
-    fwrite(event, 1, width/8-1, file);
-    fprintf(file, " %d\n", id);
+      if (flags == 0)
+      {
+        fprintf(file, "s");
+        fwrite(event, 1, width/8-1, file);
+        fprintf(file, " %d\n", id);
+      }
+      else
+      {
+          fprintf(file, "z%d\n", id);
+      }
   }
   else if (width > 1) {
     int i;
@@ -112,7 +121,7 @@ $dumpvars\n");
     char *str_ptr = str;
     *str_ptr++ = 'b';
 
-    if (event) {
+    if (event && flags == 0) {
       for (int i=width-1; i>=0; i--)
       {
         *str_ptr++ = get_bit(event, i) + '0';
@@ -122,17 +131,18 @@ $dumpvars\n");
     else
     {
       for (i=0; i<width; i++)
-        str[i+1] = 'x';
+        str[i+1] = 'z';
+      str[width + 1] = 0;
     }
 
     fprintf(file, "%s %d\n", str, id);
   }
   else
   {
-    if (event) {
+    if (event && flags == 0) {
       fprintf(file, "%u%d\n", get_bit(event, 0), id);
     } else {
-      fprintf(file, "x%d\n", id);
+      fprintf(file, "z%d\n", id);
     }
   }
 }

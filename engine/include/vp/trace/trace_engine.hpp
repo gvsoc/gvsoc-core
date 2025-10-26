@@ -29,9 +29,9 @@
 #include <thread>
 #include <regex.h>
 #include <queue>
+#include <unordered_map>
 
 namespace vp {
-
 
     #define TRACE_EVENT_BUFFER_SIZE (1024*1024)
     #define TRACE_EVENT_NB_BUFFER   256
@@ -53,6 +53,8 @@ namespace vp {
     class TraceEngine
     {
 
+        friend class Event;
+
     public:
         TraceEngine(js::Config *config);
         ~TraceEngine();
@@ -60,31 +62,33 @@ namespace vp {
         int get_format() { return this->trace_format; }
 
         void set_vcd_user(gv::Vcd_user *user);
+        // This can be used to allocate common room for strings.
+        // This is useful when the strings are not owned by the backend and cannot be kept since the called may
+        // free them.
+        // This will allocate the string if has not yet been seen, or return the existing one.
+        const char *get_string(const char *str);
 
         static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int flags, bool realloc);
+        static void dump_event_1(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_8(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_16(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_32(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_64(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_real(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
+        static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
 
-        static void dump_event_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_1_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_8_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_16_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_32_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_64_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_real_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int flags, bool realloc);
+        static uint8_t *parse_event(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_1(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_8(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_16(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_32(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_64(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_real(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_string(uint8_t *buffer, bool &unlock);
 
-        static uint8_t *parse_event(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_1(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_8(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_16(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_32(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_64(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_real(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_string(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer, bool &unlock);
+        bool event_active_get(std::string path, std::string &file_path);
 
         void set_global_enable(bool enable) { this->global_enable = enable; }
-
-        Event_dumper event_dumper;
 
         vp::Trace *get_trace_from_path(std::string path);
 
@@ -123,6 +127,8 @@ namespace vp {
         void flush();
 
         bool is_memcheck_enabled() { return this->memcheck_enabled; }
+        int64_t event_declare(Event *event);
+        vp::Event_file *get_event_file(std::string file);
 
     protected:
         std::map<std::string, Trace *> traces_map;
@@ -133,7 +139,11 @@ namespace vp {
         bool werror;
 
     private:
+        std::unordered_map<std::string, Event *> events;
+        int64_t nb_event = 0;
+
         void check_trace_active(vp::Trace *trace, int event = 0);
+        void check_event_active(vp::Event *event);
 
         std::unordered_map<std::string, trace_regex *> trace_regexs;
         std::unordered_map<std::string, trace_regex *> trace_exclude_regexs;
@@ -149,20 +159,9 @@ namespace vp {
         vp::Component *top;
         js::Config *config;
 
-        void enqueue_pending(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event);
-        char *get_event_buffer(int bytes);
-        inline char *get_event_buffer_external(int size);
-        void get_new_buffer_external();
+        inline char *get_event_buffer(int size);
+        void get_new_buffer();
         void vcd_routine();
-        void vcd_routine_external();
-        void check_pending_events(int64_t timestamp);
-        void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size=false);
-
-        // This can be called to flush all the pending traces which have been registered for the
-        // specified timestamp.
-        // This mechanism is used to merged different values of the same trace dumped during
-        // the same timestamp.
-        void flush_event_traces(int64_t timestamp);
 
         std::queue<char *> event_buffers;
         std::queue<char *> ready_event_buffers;
@@ -174,20 +173,20 @@ namespace vp {
         pthread_cond_t cond;
         int end = 0;
         std::thread *thread;
-        Trace *first_pending_event;
 
-        Event_trace *first_trace_to_dump;
         bool global_enable = true;
         gv::Vcd_user *vcd_user;
         bool memcheck_enabled;
+        std::unordered_map<const char *, const char *> strings;
+        std::map<std::string, Event_file *> event_files;
     };
 };
 
-char *vp::TraceEngine::get_event_buffer_external(int size)
+char *vp::TraceEngine::get_event_buffer(int size)
 {
     if (size > this->current_buffer_remaining_size)
     {
-        this->get_new_buffer_external();
+        this->get_new_buffer();
     }
 
     char *result = this->current_buffer_event;

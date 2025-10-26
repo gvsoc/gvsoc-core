@@ -26,13 +26,88 @@
 #include <functional>
 #include <stdarg.h>
 #include <vector>
+#include <string_view>
 
 namespace vp {
+
+	class TraceEngine;
+	class Trace;
+	class Event;
+
+	using TraceParseCallback = uint8_t *(*)(uint8_t *buffer, bool &unlock);
+    using TraceDumpCallback = void (*)(vp::TraceEngine*, vp::Trace*, int64_t, int64_t, uint8_t*, uint8_t*);
+
+    using EventParseCallback = uint8_t *(*)(uint8_t *buffer, bool &unlock);
+    using EventDumpCallback = void (*)(vp::Event*, uint8_t*, int64_t, uint8_t*);
 
 #define BUFFER_SIZE (1 << 16)
 
 class TraceEngine;
 class Component;
+class Trace;
+class Block;
+
+#ifdef CONFIG_GVSOC_EVENT_ACTIVE
+class Event
+{
+public:
+    Event(vp::Block &parent, const char *name, int width=64,
+        gv::Vcd_event_type type=gv::Vcd_event_type_logical);
+    inline void dump_value(uint8_t *value, int64_t time_delay);
+    inline void dump_highz(int64_t time_delay=0);
+    void dump_highz_next();
+    std::string path_get();
+    void enable_set(bool enabled, vp::Event_file *file=NULL);
+    inline bool active_get() { return this->dump_callback != NULL; }
+    void dump_next();
+    void next_set(vp::Event *next) { this->next = next; }
+    vp::Event *next_get() { return this->next; }
+private:
+    static void dump_1(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void dump_8(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void dump_16(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void dump_32(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void next_value_fill_1(vp::Event *event, uint8_t *value, uint8_t *flags);
+    static void next_value_fill_8(vp::Event *event, uint8_t *value, uint8_t *flags);
+    static void next_value_fill_32(vp::Event *event, uint8_t *value, uint8_t *flags);
+    static void next_value_fill_16(vp::Event *event, uint8_t *value, uint8_t *flags);
+    static void next_value_fill_64(vp::Event *event, uint8_t *value, uint8_t *flags);
+    static uint8_t *parse_1(uint8_t *buffer, bool &unlock);
+    static uint8_t *parse_8(uint8_t *buffer, bool &unlock);
+    static uint8_t *parse_16(uint8_t *buffer, bool &unlock);
+    static uint8_t *parse_32(uint8_t *buffer, bool &unlock);
+    static uint8_t *parse_64(uint8_t *buffer, bool &unlock);
+
+    vp::Block &parent;
+    const char *name;
+    vp::Event_file *file = NULL;
+    EventDumpCallback dump_callback = NULL;
+    EventParseCallback parse_callback;
+    void (*next_value_fill_callback)(vp::Event *event, uint8_t *value, uint8_t *flags) = NULL;
+    int64_t id;
+    void *external_trace;
+    gv::Vcd_event_type type;
+    int width;
+    gv::Vcd_user *vcd_user;
+    uint8_t *next_value;
+    uint8_t *next_flags;
+    vp::Event *next;
+    bool has_next_value = false;
+};
+#else
+class Event {
+public:
+    Event(vp::Block &parent, std::string_view name, int width=64,
+        gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
+    void dump_value(uint8_t *value, int64_t time_delay) {}
+    void dump_highz(int64_t time_delay=0) {}
+    void dump_highz_next() {}
+    std::string path_get() {return "";}
+    void enable_set(bool enabled, vp::Event_file *file=NULL) {}
+    inline bool active_get() { return false; }
+};
+#endif
 
 class Trace {
 
@@ -79,7 +154,8 @@ class Trace {
     void dump_fatal_header();
 
     void set_active(bool active);
-    void set_event_active(bool active);
+    void set_event_active(bool active, Event_file *file=NULL);
+    vp::Trace *next_get() { return this->next; }
 
 #ifndef VP_TRACE_ACTIVE
     inline bool get_active() { return false; }
@@ -88,42 +164,30 @@ class Trace {
 #else
     inline bool get_active() { return is_active; }
     bool get_active(int level);
-    inline bool get_event_active() { return this->dump_event_callback_fixed != NULL; }
+    inline bool get_event_active() { return this->dump_callback != NULL; }
 #endif
     bool is_active = false;
 
     int width;
-    int bytes;
-    Event_trace *event_trace = NULL;
-    bool is_real = false;
-    bool is_string = false;
     int id;
-    void *user_trace;
+    void *user_trace = NULL;
     FILE *trace_file = stdout;
     int is_event;
+    gv::Vcd_event_type type;
 
   protected:
     int level;
-    Component *comp;
-    void (*dump_event_callback_fixed)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time,
-                                      int64_t cycles, uint8_t *value, uint8_t *flags) = NULL;
-    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time,
-                                         int64_t cycles, uint8_t *value, int flags,
-                                         bool realloc) = NULL;
-    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer,
-                                     bool &unlock);
+    Component *comp = NULL;
+    TraceDumpCallback dump_callback = NULL;
+    TraceParseCallback parse_callback;
     bool is_event_active = false;
     std::string name;
     std::string path;
-    uint8_t *buffer = NULL;
-    uint8_t *buffer2 = NULL;
     Trace *next;
-    Trace *prev;
-    int64_t pending_timestamp;
-    int64_t pending_cycles;
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
     vp::Trace *clock_trace = NULL;
+    Event_file *file;
 };
 
 // the static_cast<vp_trace&> is here to fix a weird issue with the -Wnonnull

@@ -21,143 +21,376 @@
 
 #include "vp/vp.hpp"
 #include "vp/trace/event_dumper.hpp"
+#include "vp/trace/trace_engine.hpp"
 #include <string.h>
 #include <stdexcept>
 
 static int vcd_id = 0;
 
+#ifdef CONFIG_GVSOC_EVENT_ACTIVE
 
-
-vp::Event_trace::Event_trace(string trace_name, Event_file *file, int width, bool is_real, bool(is_string)) : trace_name(trace_name), is_real(is_real), is_string(is_string), is_enqueued(false), file(file)
+vp::Event::Event(vp::Block &parent, const char *name, int width, gv::Vcd_event_type type)
+: parent(parent), type(type), width(width)
 {
-  id = vcd_id++;
-  if (file)
-  {
-    file->add_trace(trace_name, id, width, is_real, is_string);
-  }
-  this->width = width;
-  this->bytes = (width+7)/8;
-  if (width)
-  {
-    this->buffer = new uint8_t[width];
-    this->flags_mask = new uint8_t[width];
-  }
-  else
-  {
-    this->buffer = NULL;
-    this->flags_mask = NULL;
-  }
+    this->name = parent.traces.get_trace_engine()->get_string(name);
+    this->id = parent.traces.get_trace_engine()->event_declare(this);
+    this->parent.traces.get_trace_engine()->check_event_active(this);
 }
 
-
-void vp::Event_trace::reg(int64_t timestamp, uint8_t *event, int width, uint8_t flags, uint8_t *flags_mask)
+typedef struct
 {
-  int bytes = (width+7)/8;
-  if (bytes > this->bytes)
-  {
-    this->bytes = bytes;
-    //if (this->buffer)
-    //  delete this->buffer;
-    this->buffer = new uint8_t[width];
-    //if (this->flags_mask)
-    //  delete this->flags_mask;
-    this->flags_mask = new uint8_t[width];
-  }
+    vp::EventParseCallback callback;
+    vp::Event *event;
+    int64_t timestamp;
+    int64_t cycles;
+    uint8_t value;
+    uint8_t flags;
+} __attribute__((packed)) event_1_t;
 
-  memcpy(this->buffer, event, bytes);
-  this->flags = flags;
-  if (flags == 1)
-  {
-    memcpy(this->flags_mask, flags_mask, bytes);
-  }
-}
-
-
-
-vp::Event_trace *vp::Event_dumper::get_trace(string trace_name, string file_name, int width, bool is_real, bool is_string)
+typedef struct
 {
-  vp::Event_trace *trace = event_traces[trace_name];
+    vp::EventParseCallback callback;
+    vp::Event *event;
+    int64_t timestamp;
+    int64_t cycles;
+    uint8_t value;
+    uint8_t flags;
+} __attribute__((packed)) event_8_t;
 
-  if (trace == NULL)
-  {
-    vp::Event_file *event_file = NULL;
+typedef struct
+{
+    vp::EventParseCallback callback;
+    vp::Event *event;
+    int64_t timestamp;
+    int64_t cycles;
+    uint16_t value;
+    uint16_t flags;
+} __attribute__((packed)) event_16_t;
 
-    if (!this->user_vcd)
+typedef struct
+{
+    vp::EventParseCallback callback;
+    vp::Event *event;
+    int64_t timestamp;
+    int64_t cycles;
+    uint32_t value;
+    uint32_t flags;
+} __attribute__((packed)) event_32_t;
+
+typedef struct
+{
+    vp::EventParseCallback callback;
+    vp::Event *event;
+    int64_t timestamp;
+    int64_t cycles;
+    uint64_t value;
+    uint64_t flags;
+} __attribute__((packed)) event_64_t;
+
+void vp::Event::dump_next()
+{
+    this->has_next_value = false;
+    EventDumpCallback callback = (EventDumpCallback)this->dump_callback;
+
+    if (callback)
     {
-      event_file = event_files[file_name];
-
-      if (event_file == NULL)
-      {
-        std::string format = this->config->get_child_str("**/events/format");
-
-        if (format == "vcd")
-        {
-          event_file = new Vcd_file(this, file_name);
-        }
-        else if (format == "fst")
-        {
-          event_file = new Fst_file(this, file_name);
-        }
-        else if (format == "raw")
-        {
-          event_file = new Raw_file(this, file_name);
-        }
-        else
-        {
-          throw std::invalid_argument("Unknown trace format (name: " + format + ")\n");
-        }
-        event_files[file_name] = event_file;
-      }
-    }
-
-    trace = new Event_trace(trace_name, event_file, width, is_real, is_string);
-    event_traces[trace_name] = trace;
-
-    if (!this->is_external_dumper && this->user_vcd)
-    {
-      trace->set_vcd_user(this->user_vcd);
-    }
-  }
-
-  return trace;
-}
-
-vp::Event_trace *vp::Event_dumper::get_trace_real(string trace_name, string file_name)
-{
-  vp::Event_trace *trace = this->get_trace(trace_name, file_name, 8, true);
-  return trace;
-}
-
-vp::Event_trace *vp::Event_dumper::get_trace_string(string trace_name, string file_name)
-{
-  vp::Event_trace *trace = this->get_trace(trace_name, file_name, 0, false, true);
-  return trace;
-}
-
-void vp::Event_trace::set_vcd_user(gv::Vcd_user *user)
-{
-  user->event_register(this->trace_name, this->is_real ? gv::Vcd_event_type_real : this->is_string ? gv::Vcd_event_type_string : gv::Vcd_event_type_logical, this->width);
-}
-
-
-void vp::Event_dumper::close()
-{
-  for (auto &x: event_files)
-  {
-    x.second->close();
-  }
-}
-
-void vp::Event_dumper::set_vcd_user(gv::Vcd_user *user, bool is_external_dumper)
-{
-    this->user_vcd = user;
-    this->is_external_dumper = is_external_dumper;
-
-    if (!is_external_dumper)
-    {
-        for (auto const& x : event_traces)
-        {
-            x.second->set_vcd_user(user);
-        }
+        callback(this, this->next_value, 0, this->next_flags);
     }
 }
+
+void vp::Event::dump_1(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
+{
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_1_t *buff_event = (event_1_t *)trace_engine->
+        get_event_buffer(sizeof(event_1_t));
+
+    buff_event->callback = event->parse_callback;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    buff_event->value = *(uint8_t *)value;
+    buff_event->flags = flags != NULL ? *(uint8_t *)flags : 0;
+}
+
+void vp::Event::dump_8(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
+{
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_8_t *buff_event = (event_8_t *)trace_engine->
+        get_event_buffer(sizeof(event_8_t));
+
+    buff_event->callback = event->parse_callback;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    buff_event->value = *(uint8_t *)value;
+    buff_event->flags = flags != NULL ? *(uint8_t *)flags : 0;
+}
+
+void vp::Event::dump_16(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
+{
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_16_t *buff_event = (event_16_t *)trace_engine->
+        get_event_buffer(sizeof(event_16_t));
+
+    buff_event->callback = event->parse_callback;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    buff_event->value = *(uint16_t *)value;
+    buff_event->flags = flags != NULL ? *(uint16_t *)flags : 0;
+}
+
+void vp::Event::dump_32(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
+{
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_32_t *buff_event = (event_32_t *)trace_engine->
+        get_event_buffer(sizeof(event_32_t));
+
+    buff_event->callback = event->parse_callback;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    buff_event->value = *(uint32_t *)value;
+    buff_event->flags = flags != NULL ? *(uint32_t *)flags : 0;
+}
+
+void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
+{
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_64_t *buff_event = (event_64_t *)trace_engine->
+        get_event_buffer(sizeof(event_64_t));
+
+    buff_event->callback = event->parse_callback;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    buff_event->value = *(uint64_t *)value;
+    buff_event->flags = flags != NULL ? *(uint64_t *)flags : 0;
+}
+
+void vp::Event::next_value_fill_1(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(uint8_t *)event->next_value = *(uint8_t *)value;
+    *(uint8_t *)event->next_flags = *(uint8_t *)flags;
+}
+
+void vp::Event::next_value_fill_8(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(uint8_t *)event->next_value = *(uint8_t *)value;
+    *(uint8_t *)event->next_flags = *(uint8_t *)flags;
+}
+
+void vp::Event::next_value_fill_16(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(uint16_t *)event->next_value = *(uint16_t *)value;
+    *(uint16_t *)event->next_flags = *(uint16_t *)flags;
+}
+
+void vp::Event::next_value_fill_32(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(uint32_t *)event->next_value = *(uint32_t *)value;
+    *(uint32_t *)event->next_flags = *(uint32_t *)flags;
+}
+
+void vp::Event::next_value_fill_64(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(uint64_t *)event->next_value = *(uint64_t *)value;
+    *(uint64_t *)event->next_flags = *(uint64_t *)flags;
+}
+
+uint8_t *vp::Event::parse_1(uint8_t *buffer, bool &unlock)
+{
+    event_1_t *elem = (event_1_t *)buffer;
+    vp::Event *event = elem->event;
+
+    gv::Vcd_user *vcd_user = event->vcd_user;
+    if (vcd_user)
+    {
+        unlock = vcd_user->event_update_logical(
+            elem->timestamp, elem->cycles, event->external_trace, elem->value, elem->flags);
+    }
+    else
+    {
+        event->file->dump(elem->timestamp, event->id, (uint8_t *)&elem->value, event->width,
+            event->type, elem->flags, NULL);
+    }
+
+    return buffer + sizeof(event_1_t);
+}
+
+uint8_t *vp::Event::parse_8(uint8_t *buffer, bool &unlock)
+{
+    event_8_t *elem = (event_8_t *)buffer;
+    vp::Event *event = elem->event;
+
+    gv::Vcd_user *vcd_user = event->vcd_user;
+    if (vcd_user)
+    {
+        unlock = vcd_user->event_update_logical(
+            elem->timestamp, elem->cycles, event->external_trace, elem->value, elem->flags);
+    }
+    else
+    {
+        event->file->dump(elem->timestamp, event->id, (uint8_t *)&elem->value, event->width,
+            event->type, elem->flags, NULL);
+    }
+
+    return buffer + sizeof(event_8_t);
+}
+
+uint8_t *vp::Event::parse_16(uint8_t *buffer, bool &unlock)
+{
+    event_16_t *elem = (event_16_t *)buffer;
+    vp::Event *event = elem->event;
+
+    gv::Vcd_user *vcd_user = event->vcd_user;
+    if (vcd_user)
+    {
+        unlock = vcd_user->event_update_logical(
+            elem->timestamp, elem->cycles, event->external_trace, elem->value, elem->flags);
+    }
+    else
+    {
+        event->file->dump(elem->timestamp, event->id, (uint8_t *)&elem->value, event->width,
+            event->type, elem->flags, NULL);
+    }
+
+    return buffer + sizeof(event_16_t);
+}
+
+uint8_t *vp::Event::parse_32(uint8_t *buffer, bool &unlock)
+{
+    event_32_t *elem = (event_32_t *)buffer;
+    vp::Event *event = elem->event;
+
+    gv::Vcd_user *vcd_user = event->vcd_user;
+    if (vcd_user)
+    {
+        unlock = vcd_user->event_update_logical(
+            elem->timestamp, elem->cycles, event->external_trace, elem->value, elem->flags);
+    }
+    else
+    {
+        event->file->dump(elem->timestamp, event->id, (uint8_t *)&elem->value, event->width,
+            event->type, elem->flags, NULL);
+    }
+
+    return buffer + sizeof(event_32_t);
+}
+
+uint8_t *vp::Event::parse_64(uint8_t *buffer, bool &unlock)
+{
+    event_64_t *elem = (event_64_t *)buffer;
+    vp::Event *event = elem->event;
+
+    gv::Vcd_user *vcd_user = event->vcd_user;
+    if (vcd_user)
+    {
+        unlock = vcd_user->event_update_logical(
+            elem->timestamp, elem->cycles, event->external_trace, elem->value, elem->flags);
+    }
+    else
+    {
+        event->file->dump(elem->timestamp, event->id, (uint8_t *)&elem->value, event->width,
+            event->type, elem->flags, NULL);
+    }
+
+    return buffer + sizeof(event_64_t);
+}
+
+std::string vp::Event::path_get()
+{
+    return this->parent.get_path() + "/" + std::string(this->name);
+}
+
+void vp::Event::enable_set(bool enabled, vp::Event_file *file)
+{
+    if (enabled)
+    {
+    	bool is_external = this->parent.traces.get_trace_engine()->use_external_dumper;
+        this->vcd_user = parent.traces.get_trace_engine()->vcd_user;
+        std::string clock_trace_name = "";
+        if (this->parent.clock.get_engine())
+        {
+            clock_trace_name = this->parent.clock.get_engine()->clock_trace.get_full_path();
+        }
+
+        gv::Vcd_user *vcd_user = this->parent.traces.get_trace_engine()->vcd_user;
+        if (vcd_user)
+        {
+            this->external_trace = vcd_user->event_register(this->path_get(), this->type, this->width, clock_trace_name);
+        }
+        else if (file)
+        {
+            file->add_trace(this->path_get(), this->id, this->width, this->type);
+        }
+
+        this->file = file;
+
+        if (width <= 1)
+        {
+            this->dump_callback = &vp::Event::dump_1;
+            this->parse_callback = &vp::Event::parse_1;
+            this->next_value_fill_callback = &vp::Event::next_value_fill_1;
+            this->next_value = new uint8_t[1];
+            this->next_flags = new uint8_t[1];
+        }
+        else if (width <= 8)
+        {
+            this->dump_callback = &vp::Event::dump_8;
+            this->parse_callback = &vp::Event::parse_8;
+            this->next_value_fill_callback = &vp::Event::next_value_fill_8;
+            this->next_value = new uint8_t[1];
+            this->next_flags = new uint8_t[1];
+        }
+        else if (width <= 16)
+        {
+            this->dump_callback = &vp::Event::dump_16;
+            this->parse_callback = &vp::Event::parse_16;
+            this->next_value_fill_callback = &vp::Event::next_value_fill_16;
+            this->next_value = new uint8_t[2];
+            this->next_flags = new uint8_t[2];
+        }
+        else if (width <= 32)
+        {
+            this->dump_callback = &vp::Event::dump_32;
+            this->parse_callback = &vp::Event::parse_32;
+            this->next_value_fill_callback = &vp::Event::next_value_fill_32;
+            this->next_value = new uint8_t[4];
+            this->next_flags = new uint8_t[4];
+        }
+        else if (width <= 64)
+        {
+            this->dump_callback = &vp::Event::dump_64;
+            this->parse_callback = &vp::Event::parse_64;
+            this->next_value_fill_callback = &vp::Event::next_value_fill_64;
+            this->next_value = new uint8_t[8];
+            this->next_flags = new uint8_t[8];
+        }
+    }
+    else
+    {
+        this->dump_callback = NULL;
+    }
+}
+
+void vp::Event::dump_highz_next()
+{
+    if (this->next_value_fill_callback)
+    {
+        uint64_t value = 0;
+        uint64_t highz = (uint64_t)-1;
+        this->next_value_fill_callback(this, (uint8_t *)&value, (uint8_t *)&highz);
+        if (!this->has_next_value)
+        {
+            this->has_next_value = true;
+            this->parent.clock.get_engine()->enqueue_trace_event(this);
+        }
+    }
+}
+#endif

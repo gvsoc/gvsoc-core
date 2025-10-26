@@ -74,7 +74,7 @@ def gen_config(args, config, cosim_mode):
 
     gvsoc_config.set('traces/float_hex', args.trace_float_hex)
 
-    if args.vcd:
+    if args.vcd or args.gui:
         gvsoc_config.set('events/enabled', True)
 
     if args.vcd or args.gtkw:
@@ -94,7 +94,6 @@ def gen_config(args, config, cosim_mode):
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('traces/include_regex')) != 0 or \
         len(gvsoc_config.get('events/include_regex')) != 0 or \
-        args.gui and not cosim_mode or \
         args.memcheck or args.power
 
     profile_mode = args.profile_mode or \
@@ -156,7 +155,7 @@ class Runner():
                         "include_raw": [],
                         "include_regex": [],
                         "exclude_regex": [],
-                        "format": "fst",
+                        "format": "vcd",
                         "active": False,
                         "all": True,
                         "gtkw": False,

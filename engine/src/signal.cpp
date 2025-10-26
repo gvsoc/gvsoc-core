@@ -25,10 +25,9 @@
 
 
 vp::SignalCommon::SignalCommon(Block &parent, std::string name, int width, ResetKind reset_kind)
-: parent(parent)
+: parent(parent), event(parent, name.c_str(), width)
 {
     parent.traces.new_trace(name + "/trace", &this->trace, vp::TRACE);
-    parent.traces.new_trace_event(name, &this->reg_event, width);
     parent.add_signal(this);
     this->width = width;
     this->reset_kind = reset_kind;

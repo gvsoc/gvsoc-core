@@ -164,6 +164,9 @@ void Csr::build()
 {
     iss.top.traces.new_trace("csr", &this->trace, vp::DEBUG);
 
+    // This has been remove to avoid duplication with CSR declared by pulp-open ISS wrapper
+    // If other cores are using it, they should be moved to a dediacted wrapper.
+    #if 0
     this->declare_pcer(CSR_PCER_CYCLES, "Cycles", "Count the number of cycles the core was running");
     this->declare_pcer(CSR_PCER_INSTR, "instr", "Count the number of instructions executed");
     this->declare_pcer(CSR_PCER_LD_STALL, "ld_stall", "Number of load use hazards");
@@ -200,6 +203,7 @@ void Csr::build()
     this->iss.top.traces.new_trace_event("pcer_ld_ext_cycles", &this->iss.timing.pcer_trace_event[13], 1);
     this->iss.top.traces.new_trace_event("pcer_st_ext_cycles", &this->iss.timing.pcer_trace_event[14], 1);
     this->iss.top.traces.new_trace_event("pcer_tcdm_cont", &this->iss.timing.pcer_trace_event[15], 1);
+#endif
 #endif
 
     this->iss.top.new_master_port("time", &this->time_itf, (vp::Block *)this);

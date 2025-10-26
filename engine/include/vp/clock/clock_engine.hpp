@@ -46,6 +46,7 @@ namespace vp
         friend class vp::ClockEvent;
         friend class vp::BlockTrace;
         friend class vp::TraceEngine;
+        friend class vp::Event;
 
     public:
         /**
@@ -171,6 +172,10 @@ namespace vp
 
         void change_frequency(int64_t frequency);
 
+        #ifdef CONFIG_GVSOC_EVENT_ACTIVE
+        inline void enqueue_trace_event(vp::Event *event);
+        #endif
+
         vp::ClkMaster out;
 
         vp::ClockSlave clock_in;
@@ -211,6 +216,12 @@ namespace vp
 
         vp::ClockEvent apply_frequency_event;
         int64_t frequency_to_be_applied;
+
+        #ifdef CONFIG_GVSOC_EVENT_ACTIVE
+        // List of traces to be flushed when next cycle starts. This is mostly used to allow models
+        // to enqueue next trace value for automatic release.
+        vp::Event *trace_flush_head = NULL;
+        #endif
     };
 
 };

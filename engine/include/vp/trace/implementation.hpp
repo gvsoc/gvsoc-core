@@ -32,6 +32,19 @@ namespace vp {
   {
     return this->engine;
   }
+  #ifdef CONFIG_GVSOC_EVENT_ACTIVE
+  inline void vp::Event::dump_value(uint8_t *value, int64_t time_delay)
+  {
+    void (*callback)(vp::Event *trace, uint8_t *value, int64_t time_delay, uint8_t *flags) =
+        (void (*)(vp::Event *trace, uint8_t *value, int64_t time_delay, uint8_t *flags))
+            this->dump_callback;
+
+    if (callback)
+    {
+      callback(this, value, time_delay, NULL);
+    }
+  }
+  #endif
 
   inline void vp::Trace::event_highz(int64_t cycle_delay, int64_t time_delay)
   {

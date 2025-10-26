@@ -26,7 +26,11 @@
 
 static int vcd_id = 0;
 
-
+#ifdef CONFIG_GVSOC_EVENT_ACTIVE
+vp::Event::Event(vp::Block &parent, std::string_view name)
+{
+}
+#endif
 
 vp::Event_trace::Event_trace(string trace_name, Event_file *file, int width, bool is_real, bool(is_string)) : trace_name(trace_name), is_real(is_real), is_string(is_string), is_enqueued(false), file(file)
 {

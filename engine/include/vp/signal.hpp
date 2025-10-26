@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <sstream>
 #include <vp/block.hpp>
+#include <vp/trace/trace.hpp>
 
 namespace vp {
 
@@ -53,6 +54,7 @@ namespace vp {
 
         Block &parent;
         std::string name = "";
+        vp::Event event;
         vp::Trace trace;
         vp::Trace reg_event;
         int width;
@@ -138,6 +140,7 @@ inline void vp::Signal<T>::set(T value, int64_t cycle_delay, int64_t time_delay)
 
     this->value = value;
     this->reg_event.event((uint8_t *)&this->value, cycle_delay, time_delay);
+    this->event.dump_value((uint8_t *)&this->value, time_delay);
 }
 
 template<class T>

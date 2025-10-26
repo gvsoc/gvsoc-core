@@ -26,6 +26,7 @@
 #include <functional>
 #include <stdarg.h>
 #include <vector>
+#include <string_view>
 
 namespace vp {
 
@@ -33,6 +34,24 @@ namespace vp {
 
 class TraceEngine;
 class Component;
+class Trace;
+class Block;
+
+#ifdef CONFIG_GVSOC_EVENT_ACTIVE
+class Event {
+public:
+    Event(vp::Block &parent, std::string_view name);
+    inline void dump_value(uint8_t *value, int64_t time_delay);
+private:
+    void *dump_callback = NULL;
+};
+#else
+class Event {
+public:
+    Event(vp::Block &parent, std::string_view name) {}
+    void dump_value(uint8_t *value, int64_t time_delay) {}
+};
+#endif
 
 class Trace {
 

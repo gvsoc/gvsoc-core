@@ -650,7 +650,7 @@ void Syscalls::handle_riscv_ebreak()
         }
         else
         {
-            if (!trace->is_string)
+            if (trace->type != gv::Vcd_event_type_string)
             {
                 this->trace.force_warning("Trying to write string to VCD trace which is not a string (id: %d)\n", id);
             }

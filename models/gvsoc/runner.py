@@ -79,7 +79,7 @@ if os.environ.get('USE_GVRUN') is None:
 
         gvsoc_config.set('traces/float_hex', args.trace_float_hex)
 
-        if args.vcd:
+        if args.vcd or args.gui:
             gvsoc_config.set('events/enabled', True)
 
         if args.vcd or args.gtkw:
@@ -99,7 +99,6 @@ if os.environ.get('USE_GVRUN') is None:
             gvsoc_config.get_bool('events/enabled') or \
             len(gvsoc_config.get('traces/include_regex')) != 0 or \
             len(gvsoc_config.get('events/include_regex')) != 0 or \
-            args.gui and not cosim_mode or \
             args.memcheck or args.power
 
         profile_mode = args.profile_mode or \
@@ -873,7 +872,7 @@ else:
 
             gvsoc_config.set('traces/float_hex', args.trace_float_hex)
 
-            if args.vcd:
+            if args.vcd or args.gui:
                 gvsoc_config.set('events/enabled', True)
 
             if args.vcd or args.gtkw:
@@ -893,7 +892,6 @@ else:
                 gvsoc_config.get_bool('events/enabled') or \
                 len(gvsoc_config.get('traces/include_regex')) != 0 or \
                 len(gvsoc_config.get('events/include_regex')) != 0 or \
-                args.gui and not cosim_mode or \
                 args.memcheck or args.power
 
             profile_mode = args.profile_mode or \
@@ -980,7 +978,7 @@ else:
                                 "include_raw": [],
                                 "include_regex": [],
                                 "exclude_regex": [],
-                                "format": "fst",
+                                "format": "vcd",
                                 "active": False,
                                 "all": True,
                                 "gtkw": False,

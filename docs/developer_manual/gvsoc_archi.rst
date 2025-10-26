@@ -172,6 +172,6 @@ Code organization
 |         │   └── trace_dumper_utils.h
 |         ├── raw.cpp
 |         ├── trace.cpp
-|         ├── trace_domain_impl.cpp
+|         ├── trace_engine.cpp
 |         ├── vcd.cpp
 |         └── wavealloca.h

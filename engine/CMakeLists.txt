@@ -17,14 +17,10 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/memcheck.cpp"
     "src/jsmn.cpp"
     "src/json.cpp"
-    "src/trace/lxt2.cpp"
     "src/trace/event.cpp"
     "src/trace/trace.cpp"
-    "src/trace/raw/trace_dumper.cpp"
-    "src/trace/raw.cpp"
-    "src/trace/fst.cpp"
     "src/trace/vcd.cpp"
-    "src/trace/trace_domain_impl.cpp"
+    "src/trace/trace_engine.cpp"
     "src/clock/clock_engine.cpp"
     "src/clock/clock_event.cpp"
     "src/clock/block_clock.cpp"
@@ -36,13 +32,6 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/power/block_power.cpp"
     "src/power/power_trace.cpp"
     "src/power/power_source.cpp"
-    )
-
-set(GVSOC_ENGINE_C_SRCS
-    "src/trace/fst/lz4.c"
-    "src/trace/fst/fastlz.c"
-    "src/trace/fst/fstapi.c"
-    "src/trace/lxt2_write.c"
     )
 
 set(GVSOC_ENGINE_INC_DIRS "include")
@@ -115,7 +104,9 @@ if(${BUILD_PROFILE})
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1)
+
+    # TODO VP_TRACE_ACTIVE should be removed as soon as traces have been switch to events
+    target_compile_definitions(gvsoc_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1)
 
     add_executable(gvsoc_launcher_profile "src/main.cpp")
 
@@ -134,7 +125,8 @@ if(${BUILD_PROFILE})
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_launcher_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1)
+    # TODO VP_TRACE_ACTIVE should be removed as soon as traces have been switch to events
+    target_compile_definitions(gvsoc_launcher_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1)
 endif()
 
 # ==============

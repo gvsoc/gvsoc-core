@@ -27,56 +27,103 @@
 #include <set>
 #include <string.h>
 
+int64_t vp::TraceEngine::event_declare(Event *event)
+{
+    this->events[event->path_get()] = event;
+    return this->nb_event++;
+}
+
+vp::Event_file *vp::TraceEngine::get_event_file(std::string path)
+{
+    auto it = event_files.find(path);
+    if (it != event_files.end())
+    {
+        return it->second;
+    }
+
+    std::string format = this->config->get_child_str("**/events/format");
+
+    if (format == "vcd")
+    {
+        Event_file *event_file = new Vcd_file(path);
+        this->event_files[path] = event_file;
+        return event_file;
+    }
+    else
+    {
+      throw std::invalid_argument("Unknown trace format (name: " + format + ")\n");
+    }
+
+    return NULL;
+}
+
+bool vp::TraceEngine::event_active_get(std::string full_path, std::string &file_path)
+{
+    bool enabled = false;
+    file_path = this->active_events[full_path];
+    if (file_path != "")
+    {
+    	enabled = true;
+    }
+    else
+    {
+        for (auto &x : events_path_regex)
+        {
+            if ((x.second->is_path && x.second->path == full_path) || regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
+            {
+                file_path = x.second->file_path;
+               	enabled = true;
+            }
+        }
+    }
+
+    if (!enabled)
+    {
+        return false;
+    }
+
+    for (auto &x : this->events_exclude_path_regex)
+    {
+        if (regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void vp::TraceEngine::check_event_active(vp::Event *event)
+{
+    std::string path = event->path_get();
+   	std::string file_path;
+    if (this->event_active_get(path, file_path))
+	{
+	    event->enable_set(true, this->get_event_file(file_path));
+	}
+	else
+	{
+	    event->enable_set(false);
+	}
+}
 
 void vp::TraceEngine::check_trace_active(vp::Trace *trace, int event)
 {
     std::string full_path = trace->get_full_path();
 
-    trace->set_event_active(false);
     trace->set_active(false);
 
     if (event)
     {
-        std::string file_path = this->active_events[full_path];
-        if (file_path != "")
-        {
-            vp::Event_trace *event_trace;
-            if (trace->is_real)
-                event_trace = event_dumper.get_trace_real(full_path, file_path);
-            else if (trace->is_string)
-                event_trace = event_dumper.get_trace_string(full_path, file_path);
-            else
-                event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
-            trace->set_event_active(true);
-            trace->event_trace = event_trace;
-        }
-        else
-        {
-            for (auto &x : events_path_regex)
-            {
-                if ((x.second->is_path && x.second->path == full_path) || regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
-                {
-                    std::string file_path = x.second->file_path;
-                    vp::Event_trace *event_trace;
-                    if (trace->is_real)
-                        event_trace = event_dumper.get_trace_real(full_path, file_path);
-                    else if (trace->is_string)
-                        event_trace = event_dumper.get_trace_string(full_path, file_path);
-                    else
-                        event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
-                    trace->set_event_active(true);
-                    trace->event_trace = event_trace;
-                }
-            }
-        }
-
-        for (auto &x : this->events_exclude_path_regex)
-        {
-            if (regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
-            {
-                trace->set_event_active(false);
-            }
-        }
+    	std::string file_path;
+	    if (this->event_active_get(full_path, file_path))
+		{
+		    trace->set_event_active(true, this->get_event_file(file_path));
+		}
+		else
+		{
+		    trace->set_event_active(false);
+		}
     }
     else
     {
@@ -117,6 +164,18 @@ void vp::TraceEngine::check_trace_active(vp::Trace *trace, int event)
     }
 }
 
+const char *vp::TraceEngine::get_string(const char *str)
+{
+    const char *result = this->strings[str];
+    if (result == NULL)
+    {
+        // If the string is not yet known, allocate it
+        result = strdup(str);
+        this->strings[result] = result;
+    }
+    return result;
+}
+
 void vp::TraceEngine::check_traces()
 {
     for (auto x : this->traces_array)
@@ -128,7 +187,14 @@ void vp::TraceEngine::check_traces()
 void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string name)
 {
     this->traces_array.push_back(trace);
-    trace->id = this->traces_array.size() - 1;
+    if (event)
+    {
+        trace->id = this->nb_event++;
+    }
+    else
+    {
+        trace->id = this->traces_array.size() - 1;
+    }
 
     int len = path.size() + name.size() + 1;
 
@@ -153,7 +219,7 @@ void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string
     if (trace->get_event_active())
     {
         fprintf(this->trace_file, "%s %s ", path.c_str(), name.c_str());
-        if (trace->is_real || trace->width <= 1)
+        if (trace->type == gv::Vcd_event_type_real || trace->width <= 1)
         {
             fprintf(this->trace_file, "%s\n", name.c_str());
         }
@@ -165,7 +231,7 @@ void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string
 }
 
 vp::TraceEngine::TraceEngine(js::Config *config)
-    : config(config), event_dumper(config), first_trace_to_dump(NULL), vcd_user(NULL)
+    : config(config), vcd_user(NULL)
 {
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
@@ -179,19 +245,12 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     event_buffers.pop();
     current_buffer_size = 0;
     current_buffer_remaining_size = TRACE_EVENT_BUFFER_SIZE;
-    this->first_pending_event = NULL;
     this->use_external_dumper = config->get_child_bool("events/use-external-dumper");
 
     this->global_enable = config->get_child_bool("events/enabled");
 
-    if (this->use_external_dumper)
-    {
-        thread = new std::thread(&TraceEngine::vcd_routine_external, this);
-    }
-    else
-    {
-        thread = new std::thread(&TraceEngine::vcd_routine, this);
-    }
+    thread = new std::thread(&TraceEngine::vcd_routine, this);
+
 #ifndef __APPLE__
     pthread_setname_np(thread->native_handle(), "event_parser");
 #endif
@@ -303,9 +362,8 @@ void vp::TraceEngine::start()
                 {
                     clock_trace_name = trace->clock_trace->path;
                 }
-                gv::Vcd_event_type trace_type = trace->is_real ? gv::Vcd_event_type_real : trace->is_string ? gv::Vcd_event_type_string : gv::Vcd_event_type_logical;
-                int width = trace->is_real ? 8 : trace->is_string ? 0 : trace->width;
-                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace_type, width, clock_trace_name);
+                int width = trace->type == gv::Vcd_event_type_real ? 8 : trace->type == gv::Vcd_event_type_string ? 0 : trace->width;
+                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace->type, width, clock_trace_name);
             }
         }
     }
@@ -410,47 +468,44 @@ void vp::TraceEngine::add_path(int events, const char *path, bool is_path)
 
 void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
 {
-    const char *file_path = "all.vcd";
-    const char *path = path_str.c_str();
-    char *delim = (char *)::index(path, '@');
-
-    if (delim)
+    auto it = this->events.find(path_str.c_str());
+    if (it != this->events.end())
     {
-        *delim = 0;
-        file_path = delim + 1;
+        it->second->enable_set(enabled);
     }
-
-    std::vector<vp::Trace *> traces;
-
-    vp::Trace *trace = this->get_trace_from_path(path);
-
-    if (trace != NULL)
+    else
     {
-        traces.push_back(trace);
-    }
+        const char *file_path = "all.vcd";
+        const char *path = path_str.c_str();
+        char *delim = (char *)::index(path, '@');
 
-    this->top->get_trace_from_path(traces, path_str);
-
-    for (vp::Trace *trace: traces)
-    {
-        if (event && trace->is_event)
+        if (delim)
         {
-            if (enabled)
-            {
-                vp::Event_trace *event_trace;
-                if (trace->is_real)
-                    event_trace = event_dumper.get_trace_real(trace->get_full_path(), file_path);
-                else if (trace->is_string)
-                    event_trace = event_dumper.get_trace_string(trace->get_full_path(), file_path);
-                else
-                    event_trace = event_dumper.get_trace(trace->get_full_path(), file_path, trace->width);
-                trace->event_trace = event_trace;
-            }
-            trace->set_event_active(enabled);
+            *delim = 0;
+            file_path = delim + 1;
         }
-        else if (!event && !trace->is_event)
+
+        std::vector<vp::Trace *> traces;
+
+        vp::Trace *trace = this->get_trace_from_path(path);
+
+        if (trace != NULL)
         {
-            trace->set_active(enabled);
+            traces.push_back(trace);
+        }
+
+        this->top->get_trace_from_path(traces, path_str);
+
+        for (vp::Trace *trace: traces)
+        {
+            if (event && trace->is_event)
+            {
+                trace->set_event_active(enabled, this->get_event_file(file_path));
+            }
+            else if (!event && !trace->is_event)
+            {
+                trace->set_active(enabled);
+            }
         }
     }
 }

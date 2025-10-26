@@ -123,6 +123,7 @@ class Trace {
 
     void set_active(bool active);
     void set_event_active(bool active);
+    vp::Trace *next_get() { return this->next; }
 
 #ifndef VP_TRACE_ACTIVE
     inline bool get_active() { return false; }

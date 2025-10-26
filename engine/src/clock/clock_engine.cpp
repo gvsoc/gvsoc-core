@@ -383,7 +383,7 @@ int64_t vp::ClockEngine::exec()
     this->trace_flush_head = NULL;
     while (trace)
     {
-        trace = trace->next;
+        trace = trace->next_get();
     }
     #endif
 

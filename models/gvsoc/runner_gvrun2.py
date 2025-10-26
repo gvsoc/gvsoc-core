@@ -97,7 +97,13 @@ def gen_config(args, config, cosim_mode):
         args.gui and not cosim_mode or \
         args.memcheck or args.power
 
+    profile_mode = args.profile_mode or \
+        gvsoc_config.get_bool('events/enabled') or \
+        len(gvsoc_config.get('events/include_regex')) != 0 or \
+        args.gui or args.power
+
     gvsoc_config.set("debug-mode", debug_mode)
+    gvsoc_config.set("profile-mode", profile_mode)
 
     gvsoc_config_path = 'gvsoc_config.json'
 
@@ -170,6 +176,7 @@ class Runner():
                     "werror": True,
                     "verbose": True,
                     "debug-mode": False,
+                    "profile-mode": False,
 
                     "launchers": {
                         "default": "gvsoc_launcher",
@@ -676,6 +683,9 @@ class Target(gvrun.target.Target):
 
             parser.add_argument("--debug-mode", dest="debug_mode", action="store_true",
                     help="Launch in debug-mode (for traces and VCD)")
+
+            parser.add_argument("--profile-mode", dest="profile_mode", action="store_true",
+                    help="Launch in profile-mode (for events)")
 
             parser.add_argument("--gtkw", dest="gtkw", action="store_true",
                                 help="Generate GTKwave script")

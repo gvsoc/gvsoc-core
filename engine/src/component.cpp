@@ -271,6 +271,10 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
     {
         module_name = "debug." + module_name;
     }
+    else if (gv_config->get_child_bool("profile-mode"))
+    {
+        module_name = "profile." + module_name;
+    }
 #endif
 
 

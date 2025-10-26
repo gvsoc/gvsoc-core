@@ -100,6 +100,44 @@ if(${BUILD_OPTIMIZED_M32})
 endif()
 
 # ==============
+# Profile launcher
+# ==============
+
+if(${BUILD_PROFILE})
+    add_library(gvsoc_profile SHARED ${GVSOC_ENGINE_CXX_SRCS} ${GVSOC_ENGINE_C_SRCS})
+    target_compile_options(gvsoc_profile PRIVATE -fno-stack-protector)
+    target_include_directories(gvsoc_profile PUBLIC ${GVSOC_ENGINE_INC_DIRS})
+    target_link_libraries(gvsoc_profile PUBLIC z pthread ${CMAKE_DL_LIBS})
+    set_target_properties(gvsoc_profile PROPERTIES OUTPUT_NAME "pulpvp-profile")
+    install(TARGETS gvsoc_profile
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include
+        )
+    target_compile_definitions(gvsoc_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1)
+
+    add_executable(gvsoc_launcher_profile "src/main.cpp")
+
+    if(DEFINED ENV{SYSTEMC_HOME})
+        target_compile_options(gvsoc_launcher_profile PRIVATE -DVP_USE_SYSTEMC=1)
+        target_include_directories(gvsoc_launcher_profile PRIVATE $ENV{SYSTEMC_HOME}/include)
+        target_link_directories(gvsoc_launcher_profile PRIVATE $ENV{SYSTEMC_HOME}/lib64/)
+        target_link_libraries(gvsoc_launcher_profile PRIVATE systemc)
+        target_sources(gvsoc_launcher_profile PRIVATE "src/main_systemc.cpp")
+    endif()
+
+    target_link_libraries(gvsoc_launcher_profile PRIVATE gvsoc_profile z pthread ${CMAKE_DL_LIBS})
+    install(TARGETS gvsoc_launcher_profile
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include
+        )
+    target_compile_definitions(gvsoc_launcher_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1)
+endif()
+
+# ==============
 # Debug launcher
 # ==============
 
@@ -114,7 +152,7 @@ if(${BUILD_DEBUG})
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_debug PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
+    target_compile_definitions(gvsoc_debug PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
 
     add_executable(gvsoc_launcher_debug "src/main.cpp")
 
@@ -133,7 +171,7 @@ if(${BUILD_DEBUG})
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_launcher_debug PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
+    target_compile_definitions(gvsoc_launcher_debug PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
 endif()
 
 if(${BUILD_DEBUG_M32})
@@ -146,7 +184,7 @@ if(${BUILD_DEBUG_M32})
         ARCHIVE DESTINATION lib
         INCLUDES DESTINATION include
         )
-    target_compile_definitions(gvsoc_debug_m32 PRIVATE -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
+    target_compile_definitions(gvsoc_debug_m32 PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DVP_MEMCHECK_ACTIVE=1)
     target_compile_options(gvsoc_debug_m32 PRIVATE -m32 -D__M32_MODE__)
     target_link_options(gvsoc_debug_m32 PRIVATE "-m32")
 endif()

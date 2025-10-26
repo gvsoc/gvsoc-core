@@ -376,6 +376,17 @@ int64_t vp::ClockEngine::exec()
     // in case we enqueue and event from another engine.
     this->stop_time = this->time.get_time();
 
+    #ifndef VP_TRACE_ACTIVE
+    // Go through the list of traces to be automatically flushed at beginning of next cycle,
+    // flush them and clear the list
+    vp::Trace *trace = this->trace_flush_head;
+    this->trace_flush_head = NULL;
+    while (trace)
+    {
+        trace = trace->next;
+    }
+    #endif
+
     if (likely(current != NULL))
     {
         while(1)

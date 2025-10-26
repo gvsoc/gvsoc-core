@@ -211,6 +211,12 @@ namespace vp
 
         vp::ClockEvent apply_frequency_event;
         int64_t frequency_to_be_applied;
+
+        #ifndef VP_TRACE_ACTIVE
+        // List of traces to be flushed when next cycle starts. This is mostly used to allow models
+        // to enqueue next trace value for automatic release.
+        vp::Trace *trace_flush_head = NULL;
+        #endif
     };
 
 };

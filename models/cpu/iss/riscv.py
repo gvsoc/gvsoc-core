@@ -63,6 +63,8 @@ class RiscvCommon(st.Component):
         starts it (default: False).
     boot_addr : int, optional
         Address of the first instruction (default: 0)
+    vector_chaining: bool, optional
+        True if vector unit should use vector chaining
 
     """
 
@@ -102,7 +104,8 @@ class RiscvCommon(st.Component):
             custom_sources=False,
             float_lib='flexfloat',
             stack_checker=False,
-            nb_outstanding=1
+            nb_outstanding=1,
+            vector_chaining: bool=False
         ):
 
         super().__init__(parent, name)
@@ -203,6 +206,9 @@ class RiscvCommon(st.Component):
         if scoreboard:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])
 
+        if vector_chaining:
+            self.add_c_flags([f'-DCONFIG_GVSOC_ISS_VECTOR_CHAINING=1'])
+
         if user:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_USER_MODE=1'])
 
@@ -272,37 +278,13 @@ class RiscvCommon(st.Component):
             ])
             self.add_c_flags(['-DSOFTFLOAT_FAST_INT64=1'])
 
+        self.htif = htif
         if htif:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])
 
             if binaries is not None:
                 for binary in binaries:
-                    binary_info = binaries_info.get(binary)
-
-                    if binary_info is None:
-                        tohost_addr = None
-                        fromhost_addr = None
-                        with open(binary, 'rb') as file:
-                            elffile = ELFFile(file)
-                            for section in elffile.iter_sections():
-                                if isinstance(section, SymbolTableSection):
-                                    for symbol in section.iter_symbols():
-                                        if symbol.name == 'tohost':
-                                            tohost_addr = symbol.entry['st_value']
-                                        if symbol.name == 'fromhost':
-                                            fromhost_addr = symbol.entry['st_value']
-
-                        binary_info = [tohost_addr, fromhost_addr]
-                        binaries_info[binary] = binary_info
-
-                    else:
-                        tohost_addr, fromhost_addr = binary_info
-
-                    if fromhost_addr is not None:
-                        self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
-
-                    if tohost_addr is not None:
-                        self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+                    self.handle_htif(binary)
 
         if pmp:
             self.add_c_flags([
@@ -349,6 +331,38 @@ class RiscvCommon(st.Component):
 
         if os.path.getsize(path) < 5 * 1024*1024:
             self.get_property('debug_binaries').append(debug_info_path)
+
+        if self.htif:
+            self.handle_htif(binary)
+
+    def handle_htif(self, binary):
+
+        binary_info = binaries_info.get(binary)
+
+        if binary_info is None:
+            tohost_addr = None
+            fromhost_addr = None
+            with open(binary, 'rb') as file:
+                elffile = ELFFile(file)
+                for section in elffile.iter_sections():
+                    if isinstance(section, SymbolTableSection):
+                        for symbol in section.iter_symbols():
+                            if symbol.name == 'tohost':
+                                tohost_addr = symbol.entry['st_value']
+                            if symbol.name == 'fromhost':
+                                fromhost_addr = symbol.entry['st_value']
+
+            binary_info = [tohost_addr, fromhost_addr]
+            binaries_info[binary] = binary_info
+
+        else:
+            tohost_addr, fromhost_addr = binary_info
+
+        if fromhost_addr is not None:
+            self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
+
+        if tohost_addr is not None:
+            self.add_property('htif_tohost', f'0x{tohost_addr:x}')
 
     def generate(self, builddir):
         for executable in self.get_executables():
@@ -558,7 +572,8 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, lsu, "stalled", path="lsu/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
         gvsoc.gui.Signal(self, lsu, "req_denied", path="lsu/req_denied", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
 
-        thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function')
+        # TODO this should be enabled by the build process when the runtime is using multi-threading
+        # thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
 
         return active
 

@@ -503,6 +503,8 @@ public:
     uint64_t reg;
     uint64_t reg_2;
     bool done;
+    // True if the instruction is currently being chained.
+    bool chained;
     int id;
 };
 

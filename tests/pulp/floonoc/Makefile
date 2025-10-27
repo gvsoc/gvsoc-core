@@ -1,6 +1,7 @@
-build ?= $(CURDIR)
 TARGET = test
 ROOT_DIR=../../../..
+
+build ?= $(CURDIR)/build
 
 ifdef USE_MEMORY
 OPTIONS += use_memory=true

@@ -52,6 +52,8 @@ void Ara::reset(bool active)
         {
             this->scoreboard_valid_ts[i] = 0;
             this->scoreboard_in_use[i] = 0;
+            this->scoreboard_out_use[i] = 0;
+            this->scoreboard_chained[i] = NULL;
         }
         this->insn_first_waiting = 0;
         this->insn_first = 0;
@@ -82,6 +84,8 @@ PendingInsn *Ara::pending_insn_alloc(PendingInsn *cva6_pending_insn)
 
     // Copy the pending instruction coming from CVA6 since the commit will free it.
     this->pending_insns[insn_id] = *cva6_pending_insn;
+
+    this->pending_insns[insn_id].chained = false;
 
 #if !defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // We commit now the instruction to CVA6 since there is nothing to commit in CVA6.
@@ -180,7 +184,17 @@ void Ara::insn_end(PendingInsn *pending_insn)
     {
         if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
         {
-            this->scoreboard_valid_ts[insn->out_regs[i]] = this->iss.top.clock.get_cycles() + 1;
+            // Since the instruction is done, we can disable chaining, this will trigger end
+            // of chained instructions
+            this->scoreboard_committed[insn->out_regs[i]] = 0;
+
+            // Be careful to make the output register valid only if no instruction is already
+            // writing it, this can happen when instructions are chained
+            this->scoreboard_out_use[insn->out_regs[i]]--;
+            if (this->scoreboard_out_use[insn->out_regs[i]] == 0)
+            {
+                this->scoreboard_valid_ts[insn->out_regs[i]] = this->iss.top.clock.get_cycles() + 1;
+            }
         }
     }
 
@@ -190,6 +204,12 @@ void Ara::insn_end(PendingInsn *pending_insn)
         if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
         {
             this->scoreboard_in_use[insn->in_regs[i]]--;
+            // Cancel the register chaining if it was involved in this instruction, this will
+            // allow other instructions to use this register for chaining
+            if (this->scoreboard_chained[insn->in_regs[i]] == pending_insn)
+            {
+                this->scoreboard_chained[insn->in_regs[i]] = NULL;
+            }
         }
     }
 
@@ -197,6 +217,16 @@ void Ara::insn_end(PendingInsn *pending_insn)
     // Commit the instruction. This may unblock other instructions waiting for float registers
     this->iss.top.insn_commit(pending_insn);
 #endif
+}
+
+void Ara::insn_commit(int reg, int size)
+{
+    // If it is the first time an element is committed, we may need to start an instruction.
+    if (this->scoreboard_committed[reg] == 0)
+    {
+        this->fsm_event.enqueue();
+    }
+    this->scoreboard_committed[reg] += size;
 }
 
 void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
@@ -234,38 +264,75 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             iss_addr_t pc = pending_insn->pc;
             bool stalled = false;
 
-            // Don't start if an input register is being written
+            #ifdef CONFIG_GVSOC_ISS_VECTOR_CHAINING
+            // First check if the instruction can be chained
             for (int i=0; i<insn->nb_in_reg; i++)
             {
                 if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                 {
-                    if (_this->scoreboard_valid_ts[insn->in_regs[i]] > _this->iss.top.clock.get_cycles())
+                    // The instruction can be chained if the register has already elements and is
+                    // not already chained with another instructions
+                    if (_this->scoreboard_committed[insn->in_regs[i]] != 0 && !_this->scoreboard_chained[insn->in_regs[i]])
                     {
-                        stalled = true;
+                        pending_insn->chained = true;
+                        _this->scoreboard_chained[insn->in_regs[i]] = pending_insn;
+                    }
+                }
+            }
+            #endif
+
+            // Don't start if an input register is being written unless vector chaining is enabled
+            // and some elements have alreay been committed
+            for (int i=0; i<insn->nb_in_reg; i++)
+            {
+                if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                {
+                    // This register can stall the instruction only if it not chained to it
+                    if (_this->scoreboard_chained[insn->in_regs[i]] != pending_insn)
+                    {
+                        if (_this->scoreboard_valid_ts[insn->in_regs[i]] > _this->iss.top.clock.get_cycles())
+                        {
+                            stalled = true;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Don't start if an output register is being written
-            for (int i=0; i<insn->nb_out_reg; i++)
+            // Don't start if an output register is being written unless vector chaining is enabled
+            // and some elements have alreay been committed. In the HW, the instruction will write
+            // after the previous instruction only the part which is already committed
+            if (!stalled)
             {
-                if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                for (int i=0; i<insn->nb_out_reg; i++)
                 {
-                    if (_this->scoreboard_valid_ts[insn->out_regs[i]] > _this->iss.top.clock.get_cycles())
+                    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                     {
-                        stalled = true;
+                        // This register can stall the instruction only if it not chained to it
+                        if (_this->scoreboard_chained[insn->in_regs[i]] != pending_insn)
+                        {
+                            if (_this->scoreboard_valid_ts[insn->out_regs[i]] > _this->iss.top.clock.get_cycles())
+                            {
+                                stalled = true;
+                                break;
+                            }
+                        }
                     }
                 }
             }
 
             // Don't start if an output register is being read
-            for (int i=0; i<insn->nb_out_reg; i++)
+            if (!stalled)
             {
-                if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
+                for (int i=0; i<insn->nb_out_reg; i++)
                 {
-                    if (_this->scoreboard_in_use[insn->out_regs[i]])
+                    if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                     {
-    		            stalled = true;
+                        if (_this->scoreboard_in_use[insn->out_regs[i]])
+                        {
+          		            stalled = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -303,6 +370,8 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                             if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                             {
                                 _this->scoreboard_valid_ts[insn->out_regs[i]] = INT64_MAX;
+                                _this->scoreboard_committed[insn->out_regs[i]] = 0;
+                                _this->scoreboard_out_use[insn->out_regs[i]]++;
                             }
                         }
 

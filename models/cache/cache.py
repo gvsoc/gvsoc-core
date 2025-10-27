@@ -28,11 +28,14 @@ class Cache(st.Component):
 
     """
 
-    def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False):
+    def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False, cache_v2=False):
 
         super(Cache, self).__init__(parent, name)
 
-        self.set_component('cache.cache_impl')
+        if cache_v2:
+            self.set_component('cache.cache_impl_v2')
+        else:
+            self.set_component('cache.cache_impl')
 
         self.add_properties({
             'nb_sets_bits': nb_sets_bits,

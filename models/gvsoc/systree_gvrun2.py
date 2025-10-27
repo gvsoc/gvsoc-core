@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-
+import logging
 import gvsoc.json_tools as js
 import collections
 import os
@@ -352,10 +352,12 @@ class Component(gvrun.target.SystemTreeNode):
             self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
     def regmap_gen(self, template, outdir, name, block=None, headers=['regfields', 'gvsoc']):
+        outfile = f'{outdir}/{name}'
+        logging.debug(f'Generating regmap (template: {template}, file: {outfile}*)')
         regmap_instance = regmap.regmap.Regmap(name)
         regmap.regmap_md.import_md(regmap_instance, template, block=block)
         regmap.regmap_c_header.dump_to_header(regmap=regmap_instance, name=name,
-            header_path=f'{outdir}/{name}', headers=headers)
+            header_path=outfile, headers=headers)
 
     def __add_component(self, name, component):
         """Add a new component.

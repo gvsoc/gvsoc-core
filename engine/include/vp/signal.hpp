@@ -45,8 +45,8 @@ namespace vp {
         inline void release()
         {
             this->trace.msg("Release register\n");
-            if (this->reg_event.get_event_active())
-                this->reg_event.event_highz();
+            // if (this->reg_event.get_event_active())
+            //     this->reg_event.event_highz();
         }
 
     protected:
@@ -56,7 +56,6 @@ namespace vp {
         std::string name = "";
         vp::Event event;
         vp::Trace trace;
-        vp::Trace reg_event;
         int width;
         ResetKind reset_kind;
         int nb_bytes;
@@ -139,7 +138,6 @@ inline void vp::Signal<T>::set(T value, int64_t cycle_delay, int64_t time_delay)
 #endif
 
     this->value = value;
-    this->reg_event.event((uint8_t *)&this->value, cycle_delay, time_delay);
     this->event.dump_value((uint8_t *)&this->value, time_delay);
 }
 
@@ -172,8 +170,8 @@ template<class T>
 inline void vp::Signal<T>::release(int64_t cycle_delay, int64_t time_delay)
 {
     this->trace.msg("Release register\n");
-    if (this->reg_event.get_event_active())
-        this->reg_event.event_highz(cycle_delay, time_delay);
+    // if (this->reg_event.get_event_active())
+    //     this->reg_event.event_highz(cycle_delay, time_delay);
 }
 
 template<class T>

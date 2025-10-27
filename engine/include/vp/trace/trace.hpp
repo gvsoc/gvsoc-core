@@ -38,18 +38,24 @@ class Trace;
 class Block;
 
 #ifdef CONFIG_GVSOC_EVENT_ACTIVE
-class Event {
+class Event
+{
 public:
-    Event(vp::Block &parent, std::string_view name);
+    Event(vp::Block &parent, const char *name);
     inline void dump_value(uint8_t *value, int64_t time_delay);
+    std::string path_get();
 private:
+    vp::Block &parent;
+    const char *name;
     void *dump_callback = NULL;
+    int64_t id;
 };
 #else
 class Event {
 public:
     Event(vp::Block &parent, std::string_view name) {}
     void dump_value(uint8_t *value, int64_t time_delay) {}
+    std::string path_get() {return "";}
 };
 #endif
 

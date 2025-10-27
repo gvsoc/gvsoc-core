@@ -29,6 +29,7 @@
 #include <thread>
 #include <regex.h>
 #include <queue>
+#include <unordered_map>
 
 namespace vp {
 
@@ -60,6 +61,11 @@ namespace vp {
         int get_format() { return this->trace_format; }
 
         void set_vcd_user(gv::Vcd_user *user);
+        // This can be used to allocate common room for strings.
+        // This is useful when the strings are not owned by the backend and cannot be kept since the called may
+        // free them.
+        // This will allocate the string if has not yet been seen, or return the existing one.
+        const char *get_string(const char *str);
 
         static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int flags, bool realloc);
@@ -123,6 +129,7 @@ namespace vp {
         void flush();
 
         bool is_memcheck_enabled() { return this->memcheck_enabled; }
+        int64_t event_declare(Event *event);
 
     protected:
         std::map<std::string, Trace *> traces_map;
@@ -133,6 +140,9 @@ namespace vp {
         bool werror;
 
     private:
+        std::unordered_map<std::string, Event *> events;
+        int64_t nb_event = 0;
+
         void check_trace_active(vp::Trace *trace, int event = 0);
 
         std::unordered_map<std::string, trace_regex *> trace_regexs;
@@ -180,6 +190,7 @@ namespace vp {
         bool global_enable = true;
         gv::Vcd_user *vcd_user;
         bool memcheck_enabled;
+        std::unordered_map<const char *, const char *> strings;
     };
 };
 

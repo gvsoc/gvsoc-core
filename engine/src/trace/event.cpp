@@ -27,8 +27,16 @@
 static int vcd_id = 0;
 
 #ifdef CONFIG_GVSOC_EVENT_ACTIVE
-vp::Event::Event(vp::Block &parent, std::string_view name)
+vp::Event::Event(vp::Block &parent, const char *name)
+: parent(parent)
 {
+    this->name = parent.traces.get_trace_engine()->get_string(name);
+    this->id = parent.traces.get_trace_engine()->event_declare(this);
+}
+
+std::string vp::Event::path_get()
+{
+    return this->parent.get_path() + "/" + std::string(this->name);
 }
 #endif
 

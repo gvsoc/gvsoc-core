@@ -376,14 +376,15 @@ int64_t vp::ClockEngine::exec()
     // in case we enqueue and event from another engine.
     this->stop_time = this->time.get_time();
 
-    #ifndef VP_TRACE_ACTIVE
+    #ifdef CONFIG_GVSOC_EVENT_ACTIVE
     // Go through the list of traces to be automatically flushed at beginning of next cycle,
     // flush them and clear the list
-    vp::Trace *trace = this->trace_flush_head;
+    vp::Event *event = this->trace_flush_head;
     this->trace_flush_head = NULL;
-    while (trace)
+    while (event)
     {
-        trace = trace->next_get();
+        event->dump_next();
+        event = event->next_get();
     }
     #endif
 

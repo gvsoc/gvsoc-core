@@ -182,7 +182,7 @@ void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string
 }
 
 vp::TraceEngine::TraceEngine(js::Config *config)
-    : config(config), event_dumper(config), first_trace_to_dump(NULL), vcd_user(NULL)
+    : config(config), event_dumper(config), vcd_user(NULL)
 {
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
@@ -196,7 +196,6 @@ vp::TraceEngine::TraceEngine(js::Config *config)
     event_buffers.pop();
     current_buffer_size = 0;
     current_buffer_remaining_size = TRACE_EVENT_BUFFER_SIZE;
-    this->first_pending_event = NULL;
     this->use_external_dumper = config->get_child_bool("events/use-external-dumper");
 
     this->global_enable = config->get_child_bool("events/enabled");

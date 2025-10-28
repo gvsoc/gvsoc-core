@@ -352,10 +352,6 @@ void vp::TraceEngine::get_new_buffer_external()
 
 vp::TraceEngine::~TraceEngine()
 {
-    if (!this->use_external_dumper)
-    {
-        this->check_pending_events(-1);
-    }
     this->flush();
     pthread_mutex_lock(&mutex);
     this->end = 1;
@@ -384,9 +380,6 @@ void vp::TraceEngine::flush()
 {
     if (!this->use_external_dumper)
     {
-        // Flush only the events until the current timestamp as we may resume
-        // the execution right after
-        this->check_pending_events(this->top->time.get_engine()->get_time());
 
         if (current_buffer_size)
         {
@@ -759,15 +752,11 @@ uint8_t *vp::TraceEngine::parse_event_string(uint8_t *buffer, bool &unlock)
 
 void vp::TraceEngine::dump_event(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    _this->check_pending_events(timestamp);
-
     _this->dump_event_to_buffer(trace, timestamp, cycles, event, trace->bytes);
 }
 
 void vp::TraceEngine::dump_event_string(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    // _this->check_pending_events(timestamp);
-
     // // String events can be called from classic dump event function to release them in which case the size is 0
     // int bytes = strlen((char *)event) + 1;
     // if (bytes != 0)
@@ -780,21 +769,6 @@ void vp::TraceEngine::dump_event_string(vp::TraceEngine *_this, vp::Trace *trace
     // }
 }
 
-void vp::TraceEngine::check_pending_events(int64_t timestamp)
-{
-    vp::Trace *trace = this->first_pending_event;
-
-    while (trace && (timestamp == -1 || trace->pending_timestamp <= timestamp))
-    {
-        this->dump_event_to_buffer(trace, trace->pending_timestamp, trace->pending_cycles, trace->buffer, trace->bytes);
-        trace->pending_timestamp = -1;
-        trace = trace->next;
-    }
-    this->first_pending_event = trace;
-    if (trace)
-        trace->prev = NULL;
-}
-
 vp::Trace *vp::TraceEngine::get_trace_from_path(std::string path)
 {
     return this->traces_map[path];
@@ -805,90 +779,6 @@ vp::Trace *vp::TraceEngine::get_trace_from_id(int id)
     if (id >= (int)this->traces_array.size())
         return NULL;
     return this->traces_array[id];
-}
-
-void vp::TraceEngine::enqueue_pending(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event)
-{
-    // Eenqueue the trace to the pending queue
-    vp::Trace *current = this->first_pending_event, *prev = NULL;
-
-    while (current && current->pending_timestamp < timestamp)
-    {
-        prev = current;
-        current = current->next;
-    }
-
-    if (prev)
-    {
-        prev->next = trace;
-    }
-    else
-    {
-        this->first_pending_event = trace;
-    }
-
-    trace->prev = prev;
-    trace->next = current;
-    if (current)
-        current->prev = trace;
-
-    trace->pending_timestamp = timestamp;
-    trace->pending_cycles = cycles;
-
-    // And dump the value to the trace
-    memcpy(trace->buffer, event, trace->bytes);
-}
-
-void vp::TraceEngine::flush_event_traces(int64_t timestamp)
-{
-    Event_trace *current = first_trace_to_dump;
-    while (current)
-    {
-        if (this->vcd_user)
-        {
-            if (current->is_real)
-            {
-                this->vcd_user->event_update_real(timestamp, current->cycles, current->user_trace, *(double *)current->buffer);
-            }
-            else if (current->is_string)
-            {
-                this->vcd_user->event_update_string(timestamp, current->cycles, current->user_trace, (const char *)current->buffer, current->flags, true);
-            }
-            else if (current->width > 8)
-            {
-                if (current->width <= 16)
-                {
-                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, *(uint16_t *)current->buffer, current->flags);
-                }
-                else if (current->width <= 32)
-                {
-                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, *(uint32_t *)current->buffer, current->flags);
-                }
-                else if (current->width <= 64)
-                {
-                    this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, *(uint64_t *)current->buffer, current->flags);
-                }
-                else
-                {
-                    // Use bitfield
-                }
-
-            }
-            else
-            {
-                uint64_t value = (uint64_t)*(current->buffer);
-
-                this->vcd_user->event_update_logical(timestamp, current->cycles, current->user_trace, value, current->flags);
-            }
-        }
-        else
-        {
-            current->dump(timestamp);
-        }
-        current->is_enqueued = false;
-        current = current->next;
-    }
-    first_trace_to_dump = NULL;
 }
 
 void vp::TraceEngine::set_vcd_user(gv::Vcd_user *user)
@@ -972,7 +862,6 @@ void vp::TraceEngine::vcd_routine()
             // of values for the current timestamp
             if (last_timestamp < timestamp)
             {
-                this->flush_event_traces(last_timestamp);
                 last_timestamp = timestamp;
             }
 
@@ -991,19 +880,6 @@ void vp::TraceEngine::vcd_routine()
                 event_buffer += 4;
             }
 
-            // Check if the event trace is already registered, otherwise register it
-            // to dump it when the next timestamp is detected.
-            if (trace->event_trace)
-            {
-                trace->event_trace->cycles = cycles;
-                trace->event_trace->reg(timestamp, (uint8_t *)event_buffer, trace->width, flags, flags_mask);
-                if (!trace->event_trace->is_enqueued)
-                {
-                    trace->event_trace->is_enqueued = true;
-                    trace->event_trace->next = this->first_trace_to_dump;
-                    this->first_trace_to_dump = trace->event_trace;
-                }
-            }
             event_buffer += bytes;
         }
 
@@ -1014,7 +890,6 @@ void vp::TraceEngine::vcd_routine()
         pthread_mutex_unlock(&this->mutex);
     }
 
-    this->flush_event_traces(last_timestamp);
     event_dumper.close();
 }
 

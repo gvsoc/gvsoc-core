@@ -49,6 +49,9 @@ public:
     std::string path_get();
     void enable_set(bool enabled);
     inline bool active_get() { return this->dump_callback != NULL; }
+    void dump_next();
+    void next_set(vp::Event *next) { this->next = next; }
+    vp::Event *next_get() { return this->next; }
 private:
     static void dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static uint8_t *parse_64(uint8_t *buffer, bool &unlock);
@@ -62,6 +65,8 @@ private:
     int width;
     gv::Vcd_user *vcd_user;
     uint8_t *next_value;
+    vp::Event *next;
+    bool has_next_value = false;
 };
 #else
 class Event {

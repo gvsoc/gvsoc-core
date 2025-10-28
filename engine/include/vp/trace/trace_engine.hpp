@@ -166,20 +166,12 @@ namespace vp {
         vp::Component *top;
         js::Config *config;
 
-        void enqueue_pending(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event);
         char *get_event_buffer(int bytes);
         inline char *get_event_buffer_external(int size);
         void get_new_buffer_external();
         void vcd_routine();
         void vcd_routine_external();
-        void check_pending_events(int64_t timestamp);
         void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size=false);
-
-        // This can be called to flush all the pending traces which have been registered for the
-        // specified timestamp.
-        // This mechanism is used to merged different values of the same trace dumped during
-        // the same timestamp.
-        void flush_event_traces(int64_t timestamp);
 
         std::queue<char *> event_buffers;
         std::queue<char *> ready_event_buffers;
@@ -191,9 +183,7 @@ namespace vp {
         pthread_cond_t cond;
         int end = 0;
         std::thread *thread;
-        Trace *first_pending_event;
 
-        Event_trace *first_trace_to_dump;
         bool global_enable = true;
         gv::Vcd_user *vcd_user;
         bool memcheck_enabled;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -95,6 +95,14 @@ inline void vp::ClockEngine::sync()
     this->update();
   }
 }
+
+#ifdef CONFIG_GVSOC_EVENT_ACTIVE
+inline void vp::ClockEngine::enqueue_trace_event(vp::Event *event)
+{
+    event->next_set(this->trace_flush_head);
+    this->trace_flush_head = event;
+}
+#endif
 
 inline int64_t vp::ClockEvent::get_cycle()
 {

@@ -46,6 +46,11 @@ typedef struct
     uint64_t flags;
 } __attribute__((packed)) event_64_t;
 
+void vp::Event::dump_next()
+{
+    this->has_next_value = false;
+}
+
 void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
 {
     vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();

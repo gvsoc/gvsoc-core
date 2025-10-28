@@ -45,6 +45,7 @@ public:
         gv::Vcd_event_type type=gv::Vcd_event_type_logical);
     inline void dump_value(uint8_t *value, int64_t time_delay);
     inline void dump_highz(int64_t time_delay=0);
+    inline void dump_highz_next();
     std::string path_get();
     void enable_set(bool enabled);
     inline bool active_get() { return this->dump_callback != NULL; }
@@ -60,6 +61,7 @@ private:
     gv::Vcd_event_type type;
     int width;
     gv::Vcd_user *vcd_user;
+    uint8_t *next_value;
 };
 #else
 class Event {
@@ -68,6 +70,7 @@ public:
         gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
     void dump_value(uint8_t *value, int64_t time_delay) {}
     void dump_highz(int64_t time_delay=0) {}
+    void dump_highz_next() {}
     std::string path_get() {return "";}
     void enable_set(bool enabled) {}
     inline bool active_get() { return false; }

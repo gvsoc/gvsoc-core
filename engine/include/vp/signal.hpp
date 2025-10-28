@@ -110,6 +110,7 @@ namespace vp {
         inline void inc(T value);
         inline void dec(T value);
         inline void release(int64_t cycle_delay=0, int64_t time_delay=0);
+        inline void release_next();
     protected:
         void reset(bool active) override;
     private:
@@ -122,8 +123,8 @@ namespace vp {
 template<class T>
 inline void vp::Signal<T>::set_and_release(T value, int64_t cycle_delay, int64_t time_delay)
 {
-    this->set(value, cycle_delay, time_delay);
-    this->release(1, this->parent.clock.get_period());
+    this->set(value, 0, time_delay);
+    this->release_next();
 }
 
 template<class T>
@@ -170,6 +171,12 @@ inline void vp::Signal<T>::release(int64_t cycle_delay, int64_t time_delay)
 {
     this->trace.msg("Release register\n");
     this->event.dump_highz(time_delay);
+}
+
+template<class T>
+inline void vp::Signal<T>::release_next()
+{
+    this->event.dump_highz_next();
 }
 
 template<class T>

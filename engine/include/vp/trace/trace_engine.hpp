@@ -33,6 +33,11 @@
 
 namespace vp {
 
+    using TraceParseCallback = uint8_t *(*)(uint8_t *buffer, bool &unlock);
+    using TraceDumpCallback = void (*)(vp::TraceEngine*, vp::Trace*, int64_t, int64_t, uint8_t*, uint8_t*);
+
+    using EventParseCallback = uint8_t *(*)(uint8_t *buffer, bool &unlock);
+    using EventDumpCallback = void (*)(vp::Event*, uint8_t*, int64_t, uint8_t*);
 
     #define TRACE_EVENT_BUFFER_SIZE (1024*1024)
     #define TRACE_EVENT_NB_BUFFER   256
@@ -70,7 +75,7 @@ namespace vp {
         const char *get_string(const char *str);
 
         static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int flags, bool realloc);
+        static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
 
         static void dump_event_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_1_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
@@ -79,7 +84,7 @@ namespace vp {
         static void dump_event_32_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_64_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_real_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
-        static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int flags, bool realloc);
+        static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
 
         static uint8_t *parse_event(uint8_t *buffer, bool &unlock);
         static uint8_t *parse_event_1(uint8_t *buffer, bool &unlock);

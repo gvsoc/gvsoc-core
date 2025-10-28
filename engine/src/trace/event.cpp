@@ -34,21 +34,12 @@ vp::Event::Event(vp::Block &parent, const char *name, int width, gv::Vcd_event_t
 {
     this->name = parent.traces.get_trace_engine()->get_string(name);
     this->id = parent.traces.get_trace_engine()->event_declare(this);
-
-    if (width <= 32)
-    {
-
-    }
-    else if (width <= 64)
-    {
-        // this->parse_event_callback = &vp::TraceEngine::parse_event_64;
-        this->dump_callback = (void *)&vp::Event::dump_64;
-    }
 }
 
 typedef struct
 {
-    vp::Event *trace;
+    vp::EventParseCallback callback;
+    vp::Event *event;
     int64_t timestamp;
     int64_t cycles;
     uint64_t value;
@@ -57,42 +48,28 @@ typedef struct
 
 void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
 {
-    vp::TraceEngine *engine = event->parent.traces.get_trace_engine();
-    event_64_t *buff_event = (event_64_t *)engine->get_event_buffer_external(sizeof(event_64_t));
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_64_t *buff_event = (event_64_t *)trace_engine->
+        get_event_buffer_external(sizeof(event_64_t));
 
-    // buff_event->trace = trace;
-    // buff_event->timestamp = timestamp;
-    // buff_event->cycles = cycles;
-    // buff_event->value = *(uint64_t *)event;
-    // buff_event->flags = *(uint64_t *)flags;
+    buff_event->callback = &vp::Event::parse_64;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    buff_event->value = *(uint64_t *)value;
+    buff_event->flags = flags != NULL ? *(uint64_t *)flags : 0;
 }
 
 uint8_t *vp::Event::parse_64(uint8_t *buffer, bool &unlock)
 {
-//     int64_t timestamp;
-//     int64_t cycles;
-//     uint64_t value;
-//     uint64_t flags;
+    event_64_t *elem = (event_64_t *)buffer;
+    vp::Event *event = elem->event;
 
-//     timestamp = *(int64_t *)buffer;
-//     buffer += sizeof(timestamp);
+    unlock = event->vcd_user->event_update_logical(
+        elem->timestamp, elem->cycles, event->external_trace, elem->value, elem->flags);
 
-//     cycles = *(int64_t *)buffer;
-//     buffer += sizeof(cycles);
-
-//     value = *(uint64_t *)buffer;
-//     buffer += 8;
-
-//     flags = *(uint64_t *)buffer;
-//     buffer += 8;
-
-//     // User trace can be NULL if some components are dumping traces during construction
-//     if (trace->user_trace)
-//     {
-//         unlock = _this->vcd_user->event_update_logical(timestamp, cycles, trace->user_trace, value, flags);
-//     }
-
-//     return buffer;
+    return buffer + sizeof(event_64_t);
 }
 
 std::string vp::Event::path_get()
@@ -102,16 +79,25 @@ std::string vp::Event::path_get()
 
 void vp::Event::enable_set(bool enabled)
 {
+    this->vcd_user = parent.traces.get_trace_engine()->vcd_user;
     std::string clock_trace_name = "";
     if (this->parent.clock.get_engine())
     {
         clock_trace_name = this->parent.clock.get_engine()->clock_trace.get_full_path();
     }
 
-    //trace_type, width
     this->external_trace = this->parent.traces.get_trace_engine()->vcd_user->event_register(
         this->path_get(), this->type, this->width, clock_trace_name
     );
+
+    if (width <= 32)
+    {
+
+    }
+    else if (width <= 64)
+    {
+        this->dump_callback = (void *)&vp::Event::dump_64;
+    }
 }
 #endif
 

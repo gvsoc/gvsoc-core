@@ -45,8 +45,7 @@ namespace vp {
         inline void release()
         {
             this->trace.msg("Release register\n");
-            // if (this->reg_event.get_event_active())
-            //     this->reg_event.event_highz();
+            this->event.dump_highz();
         }
 
     protected:
@@ -170,8 +169,7 @@ template<class T>
 inline void vp::Signal<T>::release(int64_t cycle_delay, int64_t time_delay)
 {
     this->trace.msg("Release register\n");
-    // if (this->reg_event.get_event_active())
-    //     this->reg_event.event_highz(cycle_delay, time_delay);
+    this->event.dump_highz(time_delay);
 }
 
 template<class T>

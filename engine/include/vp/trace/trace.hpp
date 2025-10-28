@@ -44,11 +44,13 @@ public:
     Event(vp::Block &parent, const char *name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical);
     inline void dump_value(uint8_t *value, int64_t time_delay);
+    inline void dump_highz(int64_t time_delay=0);
     std::string path_get();
     void enable_set(bool enabled);
+    inline bool active_get() { return this->dump_callback != NULL; }
 private:
     static void dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
-    static uint8_t *vp::parse_64(uint8_t *buffer, bool &unlock);
+    static uint8_t *parse_64(uint8_t *buffer, bool &unlock);
 
     vp::Block &parent;
     const char *name;
@@ -57,6 +59,7 @@ private:
     void *external_trace;
     gv::Vcd_event_type type;
     int width;
+    gv::Vcd_user *vcd_user;
 };
 #else
 class Event {
@@ -64,8 +67,10 @@ public:
     Event(vp::Block &parent, std::string_view name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
     void dump_value(uint8_t *value, int64_t time_delay) {}
+    void dump_highz(int64_t time_delay=0) {}
     std::string path_get() {return "";}
     void enable_set(bool enabled) {}
+    inline bool active_get() { return false; }
 };
 #endif
 
@@ -123,7 +128,7 @@ class Trace {
 #else
     inline bool get_active() { return is_active; }
     bool get_active(int level);
-    inline bool get_event_active() { return this->dump_event_callback_fixed != NULL; }
+    inline bool get_event_active() { return this->dump_callback != NULL; }
 #endif
     bool is_active = false;
 
@@ -139,14 +144,8 @@ class Trace {
 
   protected:
     int level;
-    Component *comp;
-    void (*dump_event_callback_fixed)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time,
-                                      int64_t cycles, uint8_t *value, uint8_t *flags) = NULL;
-    void (*dump_event_callback_variable)(vp::TraceEngine *engine, vp::Trace *trace, int64_t time,
-                                         int64_t cycles, uint8_t *value, int flags,
-                                         bool realloc) = NULL;
-    uint8_t *(*parse_event_callback)(vp::TraceEngine *__this, vp::Trace *trace, uint8_t *buffer,
-                                     bool &unlock);
+    Component *comp = NULL;
+    void *dump_callback;
     bool is_event_active = false;
     std::string name;
     std::string path;

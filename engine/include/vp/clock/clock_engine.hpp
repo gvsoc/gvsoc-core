@@ -46,6 +46,7 @@ namespace vp
         friend class vp::ClockEvent;
         friend class vp::BlockTrace;
         friend class vp::TraceEngine;
+        friend class vp::Event;
 
     public:
         /**

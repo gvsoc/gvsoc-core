@@ -1171,15 +1171,16 @@ void vp::TraceEngine::vcd_routine_external()
         // And go through the events to unpack them
         while (event_buffer - event_buffer_start < (size_t)(TRACE_EVENT_BUFFER_SIZE - sizeof(vp::Trace *)))
         {
-            vp::Trace *trace = *(vp::Trace **)event_buffer;
+            using ParseCallback = uint8_t *(*)(uint8_t *buffer, bool &unlock);
+            ParseCallback callback = *reinterpret_cast<ParseCallback *>(event_buffer);
 
-            if (trace == NULL)
+            if (callback == NULL)
                 break;
 
-            event_buffer += sizeof(trace);
+            event_buffer += sizeof(callback);
 
             bool unlock;
-            event_buffer = trace->parse_event_callback(this, trace, event_buffer, unlock);
+            event_buffer = callback(event_buffer, unlock);
 
             if (unlock)
             {

@@ -41,21 +41,31 @@ class Block;
 class Event
 {
 public:
-    Event(vp::Block &parent, const char *name);
+    Event(vp::Block &parent, const char *name, int width=64,
+        gv::Vcd_event_type type=gv::Vcd_event_type_logical);
     inline void dump_value(uint8_t *value, int64_t time_delay);
     std::string path_get();
+    void enable_set(bool enabled);
 private:
+    static void dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static uint8_t *vp::parse_64(uint8_t *buffer, bool &unlock);
+
     vp::Block &parent;
     const char *name;
     void *dump_callback = NULL;
     int64_t id;
+    void *external_trace;
+    gv::Vcd_event_type type;
+    int width;
 };
 #else
 class Event {
 public:
-    Event(vp::Block &parent, std::string_view name) {}
+    Event(vp::Block &parent, std::string_view name, int width=64,
+        gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
     void dump_value(uint8_t *value, int64_t time_delay) {}
     std::string path_get() {return "";}
+    void enable_set(bool enabled) {}
 };
 #endif
 

@@ -54,6 +54,8 @@ namespace vp {
     class TraceEngine
     {
 
+        friend class Event;
+
     public:
         TraceEngine(js::Config *config);
         ~TraceEngine();

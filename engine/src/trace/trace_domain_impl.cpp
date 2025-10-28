@@ -430,7 +430,7 @@ void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
     auto it = this->events.find(path_str.c_str());
     if (it != this->events.end())
     {
-        printf("Found %s\n", path_str.c_str());
+        it->second->enable_set(enabled);
     }
     else
     {

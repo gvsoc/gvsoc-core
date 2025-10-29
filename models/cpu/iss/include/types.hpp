@@ -489,10 +489,14 @@ typedef struct
     std::string help;
 } Iss_pcer_info_t;
 
-
 #define  __ISS_CORE_INC(x) #x
+#if defined(CONFIG_ISS_CORE_DIR)
+#define  _ISS_CORE_INC(x, y) __ISS_CORE_INC(x/y)
+#define  ISS_CORE_INC(x) _ISS_CORE_INC(CONFIG_ISS_CORE_DIR, x)
+#else
 #define  _ISS_CORE_INC(x, y) __ISS_CORE_INC(cpu/iss/include/cores/x/y)
 #define  ISS_CORE_INC(x) _ISS_CORE_INC(CONFIG_ISS_CORE, x)
+#endif
 
 class PendingInsn
 {

@@ -33,6 +33,7 @@ public:
     T arg_a;
     T arg_b;
     T arg_c;
+    T arg_d;
     T result;
 };
 

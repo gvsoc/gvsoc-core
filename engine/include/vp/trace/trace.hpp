@@ -54,17 +54,20 @@ public:
     vp::Event *next_get() { return this->next; }
 private:
     static void dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void next_value_fill_64(vp::Event *event, uint8_t *value, uint8_t *flags);
     static uint8_t *parse_64(uint8_t *buffer, bool &unlock);
 
     vp::Block &parent;
     const char *name;
     void *dump_callback = NULL;
+    void (*next_value_fill_callback)(vp::Event *event, uint8_t *value, uint8_t *flags) = NULL;
     int64_t id;
     void *external_trace;
     gv::Vcd_event_type type;
     int width;
     gv::Vcd_user *vcd_user;
     uint8_t *next_value;
+    uint8_t *next_flags;
     vp::Event *next;
     bool has_next_value = false;
 };

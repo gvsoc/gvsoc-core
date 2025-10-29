@@ -55,10 +55,16 @@ namespace vp {
     }
     inline void vp::Event::dump_highz_next()
     {
-        if (!this->has_next_value)
+        if (this->next_value_fill_callback)
         {
-            this->has_next_value = true;
-            this->parent.clock.get_engine()->enqueue_trace_event(this);
+            uint64_t value = 0;
+            uint64_t highz = (uint64_t)-1;
+            this->next_value_fill_callback(this, (uint8_t *)&value, (uint8_t *)&highz);
+            if (!this->has_next_value)
+            {
+                this->has_next_value = true;
+                this->parent.clock.get_engine()->enqueue_trace_event(this);
+            }
         }
     }
     #endif

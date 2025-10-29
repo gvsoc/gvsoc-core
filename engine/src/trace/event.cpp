@@ -49,6 +49,12 @@ typedef struct
 void vp::Event::dump_next()
 {
     this->has_next_value = false;
+    EventDumpCallback callback = (EventDumpCallback)this->dump_callback;
+
+    if (callback)
+    {
+        callback(this, this->next_value, 0, this->next_flags);
+    }
 }
 
 void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
@@ -64,6 +70,12 @@ void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, ui
     buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
     buff_event->value = *(uint64_t *)value;
     buff_event->flags = flags != NULL ? *(uint64_t *)flags : 0;
+}
+
+void vp::Event::next_value_fill_64(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(uint64_t *)event->next_value = *(uint64_t *)value;
+    *(uint64_t *)event->next_flags = *(uint64_t *)flags;
 }
 
 uint8_t *vp::Event::parse_64(uint8_t *buffer, bool &unlock)
@@ -102,6 +114,9 @@ void vp::Event::enable_set(bool enabled)
     else if (width <= 64)
     {
         this->dump_callback = (void *)&vp::Event::dump_64;
+        this->next_value_fill_callback = &vp::Event::next_value_fill_64;
+        this->next_value = new uint8_t[8];
+        this->next_flags = new uint8_t[8];
     }
 }
 #endif

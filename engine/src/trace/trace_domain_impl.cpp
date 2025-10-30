@@ -33,6 +33,30 @@ int64_t vp::TraceEngine::event_declare(Event *event)
     return this->nb_event++;
 }
 
+vp::Event_file *vp::TraceEngine::get_event_file(std::string path)
+{
+    auto it = event_files.find(path);
+    if (it != event_files.end())
+    {
+        return it->second;
+    }
+
+    std::string format = this->config->get_child_str("**/events/format");
+
+    if (format == "vcd")
+    {
+        Event_file *event_file = new Vcd_file(path);
+        this->event_files[path] = event_file;
+        return event_file;
+    }
+    else
+    {
+      throw std::invalid_argument("Unknown trace format (name: " + format + ")\n");
+    }
+
+    return NULL;
+}
+
 void vp::TraceEngine::check_trace_active(vp::Trace *trace, int event)
 {
     std::string full_path = trace->get_full_path();
@@ -45,15 +69,7 @@ void vp::TraceEngine::check_trace_active(vp::Trace *trace, int event)
         std::string file_path = this->active_events[full_path];
         if (file_path != "")
         {
-            vp::Event_trace *event_trace;
-            if (trace->is_real)
-                event_trace = event_dumper.get_trace_real(full_path, file_path);
-            else if (trace->is_string)
-                event_trace = event_dumper.get_trace_string(full_path, file_path);
-            else
-                event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
-            trace->set_event_active(true);
-            trace->event_trace = event_trace;
+            trace->set_event_active(true, this->get_event_file(file_path));
         }
         else
         {
@@ -62,15 +78,7 @@ void vp::TraceEngine::check_trace_active(vp::Trace *trace, int event)
                 if ((x.second->is_path && x.second->path == full_path) || regexec(x.second->regex, full_path.c_str(), 0, NULL, 0) == 0)
                 {
                     std::string file_path = x.second->file_path;
-                    vp::Event_trace *event_trace;
-                    if (trace->is_real)
-                        event_trace = event_dumper.get_trace_real(full_path, file_path);
-                    else if (trace->is_string)
-                        event_trace = event_dumper.get_trace_string(full_path, file_path);
-                    else
-                        event_trace = event_dumper.get_trace(full_path, file_path, trace->width);
-                    trace->set_event_active(true);
-                    trace->event_trace = event_trace;
+                    trace->set_event_active(true, this->get_event_file(file_path));
                 }
             }
         }
@@ -182,7 +190,7 @@ void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string
 }
 
 vp::TraceEngine::TraceEngine(js::Config *config)
-    : config(config), event_dumper(config), vcd_user(NULL)
+    : config(config), vcd_user(NULL)
 {
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
@@ -200,14 +208,8 @@ vp::TraceEngine::TraceEngine(js::Config *config)
 
     this->global_enable = config->get_child_bool("events/enabled");
 
-    if (this->use_external_dumper)
-    {
-        thread = new std::thread(&TraceEngine::vcd_routine_external, this);
-    }
-    else
-    {
-        thread = new std::thread(&TraceEngine::vcd_routine, this);
-    }
+    thread = new std::thread(&TraceEngine::vcd_routine, this);
+
 #ifndef __APPLE__
     pthread_setname_np(thread->native_handle(), "event_parser");
 #endif
@@ -458,18 +460,7 @@ void vp::TraceEngine::conf_trace(int event, std::string path_str, bool enabled)
         {
             if (event && trace->is_event)
             {
-                if (enabled)
-                {
-                    vp::Event_trace *event_trace;
-                    if (trace->is_real)
-                        event_trace = event_dumper.get_trace_real(trace->get_full_path(), file_path);
-                    else if (trace->is_string)
-                        event_trace = event_dumper.get_trace_string(trace->get_full_path(), file_path);
-                    else
-                        event_trace = event_dumper.get_trace(trace->get_full_path(), file_path, trace->width);
-                    trace->event_trace = event_trace;
-                }
-                trace->set_event_active(enabled);
+                trace->set_event_active(enabled, this->get_event_file(file_path));
             }
             else if (!event && !trace->is_event)
             {

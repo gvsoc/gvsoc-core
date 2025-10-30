@@ -29,7 +29,7 @@ static unsigned int get_bit(uint8_t *value, int i) {
   return (value[i/8] >> (i%8)) & 1;
 }
 
-vp::Vcd_file::Vcd_file(vp::Event_dumper *dumper, string path)
+vp::Vcd_file::Vcd_file(string path)
 {
   file = fopen(path.c_str(), "w");
   if (file == NULL)

@@ -130,7 +130,7 @@ class Trace {
     void dump_fatal_header();
 
     void set_active(bool active);
-    void set_event_active(bool active);
+    void set_event_active(bool active, Event_file *file=NULL);
     vp::Trace *next_get() { return this->next; }
 
 #ifndef VP_TRACE_ACTIVE
@@ -146,7 +146,6 @@ class Trace {
 
     int width;
     int bytes;
-    Event_trace *event_trace = NULL;
     bool is_real = false;
     bool is_string = false;
     int id;
@@ -170,6 +169,7 @@ class Trace {
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
     vp::Trace *clock_trace = NULL;
+    Event_file *file;
 };
 
 // the static_cast<vp_trace&> is here to fix a weird issue with the -Wnonnull

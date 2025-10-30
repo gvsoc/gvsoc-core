@@ -77,6 +77,9 @@ namespace vp {
         static void dump_event(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_string(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
 
+        static uint8_t *parse_event(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_string(uint8_t *buffer, bool &unlock);
+
         static void dump_event_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_1_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_8_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
@@ -86,18 +89,16 @@ namespace vp {
         static void dump_event_real_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
         static void dump_event_string_external(vp::TraceEngine *__this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags);
 
-        static uint8_t *parse_event(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_1(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_8(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_16(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_32(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_64(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_real(uint8_t *buffer, bool &unlock);
-        static uint8_t *parse_event_string(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_1_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_8_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_16_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_32_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_64_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_real_external(uint8_t *buffer, bool &unlock);
+        static uint8_t *parse_event_string_external(uint8_t *buffer, bool &unlock);
 
         void set_global_enable(bool enable) { this->global_enable = enable; }
-
-        Event_dumper event_dumper;
 
         vp::Trace *get_trace_from_path(std::string path);
 
@@ -137,6 +138,7 @@ namespace vp {
 
         bool is_memcheck_enabled() { return this->memcheck_enabled; }
         int64_t event_declare(Event *event);
+        vp::Event_file *get_event_file(std::string file);
 
     protected:
         std::map<std::string, Trace *> traces_map;
@@ -170,7 +172,6 @@ namespace vp {
         inline char *get_event_buffer_external(int size);
         void get_new_buffer_external();
         void vcd_routine();
-        void vcd_routine_external();
         void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size=false);
 
         std::queue<char *> event_buffers;
@@ -188,6 +189,7 @@ namespace vp {
         gv::Vcd_user *vcd_user;
         bool memcheck_enabled;
         std::unordered_map<const char *, const char *> strings;
+        std::map<std::string, Event_file *> event_files;
     };
 };
 

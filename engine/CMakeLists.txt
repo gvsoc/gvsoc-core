@@ -17,12 +17,8 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/memcheck.cpp"
     "src/jsmn.cpp"
     "src/json.cpp"
-    "src/trace/lxt2.cpp"
     "src/trace/event.cpp"
     "src/trace/trace.cpp"
-    "src/trace/raw/trace_dumper.cpp"
-    "src/trace/raw.cpp"
-    "src/trace/fst.cpp"
     "src/trace/vcd.cpp"
     "src/trace/trace_domain_impl.cpp"
     "src/clock/clock_engine.cpp"
@@ -36,13 +32,6 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/power/block_power.cpp"
     "src/power/power_trace.cpp"
     "src/power/power_source.cpp"
-    )
-
-set(GVSOC_ENGINE_C_SRCS
-    "src/trace/fst/lz4.c"
-    "src/trace/fst/fastlz.c"
-    "src/trace/fst/fstapi.c"
-    "src/trace/lxt2_write.c"
     )
 
 set(GVSOC_ENGINE_INC_DIRS "include")

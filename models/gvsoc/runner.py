@@ -980,7 +980,7 @@ else:
                                 "include_raw": [],
                                 "include_regex": [],
                                 "exclude_regex": [],
-                                "format": "fst",
+                                "format": "vcd",
                                 "active": False,
                                 "all": True,
                                 "gtkw": False,

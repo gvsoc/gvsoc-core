@@ -57,13 +57,9 @@ void vp::BlockTrace::new_trace_event(std::string name, Trace *trace, int width)
 {
     trace_events[name] = trace;
     trace->width = width;
-    trace->bytes = (width + 7) / 8;
     trace->comp = static_cast<vp::Component *>(&top);
     trace->name = name;
     trace->path = top.get_path() + "/" + name;
-    trace->pending_timestamp = -1;
-    trace->buffer = new uint8_t[trace->bytes];
-    trace->buffer2 = new uint8_t[trace->bytes];
 
     this->reg_trace(trace, 1);
 }
@@ -72,14 +68,10 @@ void vp::BlockTrace::new_trace_event_real(std::string name, Trace *trace)
 {
     trace_events[name] = trace;
     trace->width = 64;
-    trace->bytes = 8;
     trace->is_real = true;
     trace->comp = static_cast<vp::Component *>(&top);
     trace->name = name;
     trace->path = top.get_path() + "/" + name;
-    trace->pending_timestamp = -1;
-    trace->buffer = new uint8_t[trace->bytes];
-    trace->buffer2 = new uint8_t[trace->bytes];
 
     this->reg_trace(trace, 1);
 }
@@ -94,10 +86,6 @@ void vp::BlockTrace::new_trace_event_string(std::string name, Trace *trace)
     trace->width = 0;
     trace->is_real = false;
     trace->is_string = true;
-    trace->pending_timestamp = -1;
-    trace->bytes = 0;
-    trace->buffer = NULL;
-    trace->buffer2 = NULL;
 
     this->reg_trace(trace, 1);
 }
@@ -291,41 +279,7 @@ void vp::Trace::set_event_active(bool active, Event_file *file)
     }
 }
 
-char *vp::TraceEngine::get_event_buffer(int bytes)
-{
-    if (current_buffer == NULL || bytes > TRACE_EVENT_BUFFER_SIZE - current_buffer_size)
-    {
-        pthread_mutex_lock(&mutex);
-
-        if (current_buffer && bytes > TRACE_EVENT_BUFFER_SIZE - current_buffer_size)
-        {
-            if ((unsigned int)(TRACE_EVENT_BUFFER_SIZE - current_buffer_size) > sizeof(vp::Trace *))
-                *(vp::Trace **)(current_buffer + current_buffer_size) = NULL;
-
-            ready_event_buffers.push(current_buffer);
-            current_buffer = NULL;
-
-            pthread_cond_broadcast(&cond);
-        }
-
-        while (event_buffers.empty())
-        {
-            pthread_cond_wait(&cond, &mutex);
-        }
-        current_buffer = event_buffers.front();
-        event_buffers.pop();
-        current_buffer_size = 0;
-        pthread_mutex_unlock(&mutex);
-    }
-
-    char *result = current_buffer + current_buffer_size;
-
-    current_buffer_size += bytes;
-
-    return result;
-}
-
-void vp::TraceEngine::get_new_buffer_external()
+void vp::TraceEngine::get_new_buffer()
 {
     pthread_mutex_lock(&this->mutex);
 
@@ -384,7 +338,7 @@ void vp::TraceEngine::flush()
     // First flush current buffer
     if (this->current_buffer_remaining_size != TRACE_EVENT_BUFFER_SIZE)
     {
-        this->get_new_buffer_external();
+        this->get_new_buffer();
     }
 
     // Then wait until all pending buffers has been handled by dumper
@@ -397,63 +351,6 @@ void vp::TraceEngine::flush()
     }
 
     pthread_mutex_unlock(&this->mutex);
-}
-
-void vp::TraceEngine::dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size)
-{
-    if (!this->global_enable)
-        return;
-
-    uint8_t flags = 0;
-    int size = bytes + sizeof(trace) + sizeof(timestamp) + sizeof(cycles) + 1;
-    if (include_size)
-        size += 4;
-
-    if (event == NULL)
-    {
-        flags = 1;
-        size += bytes;
-    }
-
-    char *event_buffer = this->get_event_buffer(size);
-
-    *(vp::Trace **)event_buffer = trace;
-    event_buffer += sizeof(trace);
-
-    *(uint8_t *)event_buffer = flags;
-    event_buffer++;
-
-    // In case the special value 'Z' is inside, give the mask where it applies
-    if (flags == 1)
-    {
-        // For now we just support 'Z' everywhere
-        memset((void *)event_buffer, 0xff, bytes);
-        event_buffer += bytes;
-    }
-
-    *(int64_t *)event_buffer = timestamp;
-    event_buffer += sizeof(timestamp);
-
-    *(int64_t *)event_buffer = cycles;
-    event_buffer += sizeof(cycles);
-
-    if (include_size)
-    {
-        *(int32_t *)event_buffer = bytes;
-        event_buffer += 4;
-    }
-
-    if (event)
-    {
-        if (bytes == 4)
-            *(uint32_t *)event_buffer = *(uint32_t *)event;
-        else
-            memcpy((void *)event_buffer, (void *)event, bytes);
-    }
-    else
-    {
-        memset((void *)event_buffer, 0, bytes);
-    }
 }
 
 void vp::TraceEngine::dump_event_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
@@ -474,7 +371,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_real_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_real_t *buff_event = (event_real_t *)_this->get_event_buffer_external(sizeof(event_real_t));
+    event_real_t *buff_event = (event_real_t *)_this->get_event_buffer(sizeof(event_real_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_real_external;
     buff_event->trace = trace;
@@ -495,7 +392,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_64_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_64_t *buff_event = (event_64_t *)_this->get_event_buffer_external(sizeof(event_64_t));
+    event_64_t *buff_event = (event_64_t *)_this->get_event_buffer(sizeof(event_64_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_64_external;
     buff_event->trace = trace;
@@ -517,7 +414,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_1_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_1_t *buff_event = (event_1_t *)_this->get_event_buffer_external(sizeof(event_1_t));
+    event_1_t *buff_event = (event_1_t *)_this->get_event_buffer(sizeof(event_1_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_1_external;
     buff_event->trace = trace;
@@ -539,7 +436,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_8_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_8_t *buff_event = (event_8_t *)_this->get_event_buffer_external(sizeof(event_8_t));
+    event_8_t *buff_event = (event_8_t *)_this->get_event_buffer(sizeof(event_8_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_8_external;
     buff_event->trace = trace;
@@ -561,7 +458,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_16_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_16_t *buff_event = (event_16_t *)_this->get_event_buffer_external(sizeof(event_16_t));
+    event_16_t *buff_event = (event_16_t *)_this->get_event_buffer(sizeof(event_16_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_16_external;
     buff_event->trace = trace;
@@ -583,7 +480,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_32_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_32_t *buff_event = (event_32_t *)_this->get_event_buffer_external(sizeof(event_32_t));
+    event_32_t *buff_event = (event_32_t *)_this->get_event_buffer(sizeof(event_32_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_32_external;
     buff_event->trace = trace;
@@ -702,7 +599,7 @@ typedef struct
 
 void vp::TraceEngine::dump_event_string_external(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
 {
-    event_string_t *buff_event = (event_string_t *)_this->get_event_buffer_external(sizeof(event_string_t));
+    event_string_t *buff_event = (event_string_t *)_this->get_event_buffer(sizeof(event_string_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event_string_external;
     buff_event->trace = trace;
@@ -733,7 +630,7 @@ void vp::TraceEngine::dump_event(vp::TraceEngine *_this, vp::Trace *trace, int64
     if (!_this->global_enable)
         return;
 
-    event_64_t *buff_event = (event_64_t *)_this->get_event_buffer_external(sizeof(event_64_t));
+    event_64_t *buff_event = (event_64_t *)_this->get_event_buffer(sizeof(event_64_t));
 
     buff_event->callback = &vp::TraceEngine::parse_event;
     buff_event->trace = trace;

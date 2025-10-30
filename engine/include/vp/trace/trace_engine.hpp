@@ -168,11 +168,9 @@ namespace vp {
         vp::Component *top;
         js::Config *config;
 
-        char *get_event_buffer(int bytes);
-        inline char *get_event_buffer_external(int size);
-        void get_new_buffer_external();
+        inline char *get_event_buffer(int size);
+        void get_new_buffer();
         void vcd_routine();
-        void dump_event_to_buffer(vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, int bytes, bool include_size=false);
 
         std::queue<char *> event_buffers;
         std::queue<char *> ready_event_buffers;
@@ -193,11 +191,11 @@ namespace vp {
     };
 };
 
-char *vp::TraceEngine::get_event_buffer_external(int size)
+char *vp::TraceEngine::get_event_buffer(int size)
 {
     if (size > this->current_buffer_remaining_size)
     {
-        this->get_new_buffer_external();
+        this->get_new_buffer();
     }
 
     char *result = this->current_buffer_event;

@@ -62,7 +62,7 @@ void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, ui
     vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
     vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
     event_64_t *buff_event = (event_64_t *)trace_engine->
-        get_event_buffer_external(sizeof(event_64_t));
+        get_event_buffer(sizeof(event_64_t));
 
     buff_event->callback = &vp::Event::parse_64;
     buff_event->event = event;

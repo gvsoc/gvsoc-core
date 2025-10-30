@@ -19,13 +19,10 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-#ifndef __VP_TRACE_EVENT_DUMPER_HPP__
-#define __VP_TRACE_EVENT_DUMPER_HPP__
+#pragma once
 
 #include <stdio.h>
-#include <unordered_map>
 #include <gv/gvsoc.hpp>
-#include "vp/json.hpp"
 #include <string>
 
 namespace vp {
@@ -38,10 +35,6 @@ namespace vp {
     virtual void add_trace(std::string name, int id, int width, bool is_real, bool is_string) {}
 
   protected:
-
-    int64_t last_timestamp = -1;
-    FILE *file;
-    bool header_dumped = false;
   };
 
   class Vcd_file : public Event_file
@@ -54,7 +47,8 @@ namespace vp {
 
   private:
     std::string parse_path(std::string path, bool begin);
+    FILE *file;
+    bool header_dumped = false;
+    int64_t last_timestamp = -1;
   };
 };
-
-#endif

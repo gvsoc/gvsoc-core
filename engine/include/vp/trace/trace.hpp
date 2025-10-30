@@ -145,7 +145,6 @@ class Trace {
     bool is_active = false;
 
     int width;
-    int bytes;
     bool is_real = false;
     bool is_string = false;
     int id;
@@ -160,12 +159,7 @@ class Trace {
     bool is_event_active = false;
     std::string name;
     std::string path;
-    uint8_t *buffer = NULL;
-    uint8_t *buffer2 = NULL;
     Trace *next;
-    Trace *prev;
-    int64_t pending_timestamp;
-    int64_t pending_cycles;
     std::string full_path;
     std::vector<std::function<void()>> callbacks;
     vp::Trace *clock_trace = NULL;

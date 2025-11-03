@@ -10,7 +10,7 @@ build:
 all: build
 
 run: $(WORK_DIR)
-	gvsoc --target-dir=$(CURDIR) --target=test --build-dir=$(WORK_DIR) build run $(runner_args)
+	gvsoc --target-dir=$(CURDIR) --target=test --work-dir=$(WORK_DIR) build run $(runner_args)
 
 $(WORK_DIR):
 	mkdir -p $(WORK_DIR)

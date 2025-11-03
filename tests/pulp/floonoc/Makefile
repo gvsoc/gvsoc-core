@@ -27,7 +27,7 @@ build:
 all: build
 
 run: $(build)/work
-	$(build)/install/bin/gvrun --target-dir=$(CURDIR) --target=$(TARGET) --build-dir=$(build)/work run $(runner_args)
+	$(build)/install/bin/gvrun --target-dir=$(CURDIR) --target=$(TARGET) --work-dir=$(build)/work run $(runner_args)
 
 $(build)/work:
 	mkdir -p $(build)/work

@@ -223,6 +223,9 @@ class Runner():
         self.full_config, self.gvsoc_config_path = gen_config(
             args, { 'target': self.target.get_config() }, cosim_mode)
 
+        print (os.getcwd())
+        print (self.gvsoc_config_path)
+
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
             self.full_config.set('**/gdbserver/port', args.gdbserver_port)
@@ -245,10 +248,10 @@ class Runner():
                 module.parse_args(parser, args)
 
         if gvsoc_config.get_bool('events/gen_gtkw'):
-            path = os.path.join(args.build_dir, 'view.gtkw')
+            path = os.path.join(args.work_dir, 'view.gtkw')
 
             traces = self.gen_gtkw_script(
-                work_dir=args.build_dir,
+                work_dir=args.work_dir,
                 path=path,
                 tags=gvsoc_config.get('events/tags').get_dict(),
                 level=gvsoc_config.get_child_int('events/level'),
@@ -385,7 +388,7 @@ class Runner():
 
         [args, otherArgs] = self.parser.parse_known_args()
 
-        os.makedirs(args.build_dir, exist_ok=True)
+        os.makedirs(args.work_dir, exist_ok=True)
 
         if args is None:
             args = args
@@ -418,7 +421,7 @@ class Runner():
                 print ('Launching GVSOC with command: ')
                 print (' '.join(command))
 
-            os.chdir(args.build_dir)
+            os.chdir(args.work_dir)
 
             return os.execvp(command[0], command)
 
@@ -426,7 +429,7 @@ class Runner():
 
 
             if self.rtl_runner is not None:
-                os.chdir(args.build_dir)
+                os.chdir(args.work_dir)
                 command = self.rtl_runner.get_command()
 
             else:
@@ -444,7 +447,7 @@ class Runner():
                     path = gvrun.commands.get_abspath(args, 'gvsoc_gui_config.json')
 
                     gui_config = self.gen_gui_config(
-                        work_dir=args.build_dir,
+                        work_dir=args.work_dir,
                         path=path
                     )
                 else:
@@ -457,7 +460,7 @@ class Runner():
 
                     command += [launcher, '--config=' + self.gvsoc_config_path]
 
-            os.chdir(args.build_dir)
+            os.chdir(args.work_dir)
 
             if args.gvcontrol is not None:
 

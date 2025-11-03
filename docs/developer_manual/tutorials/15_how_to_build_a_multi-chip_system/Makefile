@@ -22,4 +22,4 @@ prepare:
 	cp solution/* .
 
 run:
-	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --build-dir=$(FULL_BUILDDIR)/work --parameter chip0/binary=$(FULL_BUILDDIR)/test/test --parameter chip1/binary=$(FULL_BUILDDIR)/test/test run $(runner_args)
+	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --work-dir=$(FULL_BUILDDIR)/work --parameter chip0/binary=$(FULL_BUILDDIR)/test/test --parameter chip1/binary=$(FULL_BUILDDIR)/test/test run $(runner_args)

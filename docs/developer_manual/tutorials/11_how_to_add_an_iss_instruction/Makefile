@@ -19,4 +19,4 @@ gvsoc:
 	make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) BUILDDIR=$(FULL_BUILDDIR)/build INSTALLDIR=$(FULL_BUILDDIR)/install $(OPTIONS) build
 
 run:
-	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system ---build-dir=$(FULL_BUILDDIR)/work --binary=$(FULL_BUILDDIR)/test/test run $(runner_args)
+	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system ---work-dir=$(FULL_BUILDDIR)/work --binary=$(FULL_BUILDDIR)/test/test run $(runner_args)

@@ -23,7 +23,7 @@ prepare:
 	cp solution/* .
 
 config:
-	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --build-dir=$(FULL_BUILDDIR)/work --parameter binary=$(FULL_BUILDDIR)/test/test prepare $(runner_args)
+	$(FULL_BUILDDIR)/install/bin/gvrun --target-dir=$(CURDIR) --target=my_system --work-dir=$(FULL_BUILDDIR)/work --parameter binary=$(FULL_BUILDDIR)/test/test prepare $(runner_args)
 
 run_launcher:
 	LD_LIBRARY_PATH=$(FULL_BUILDDIR)/install/lib:$(LD_LIBRARY_PATH) ./launcher --config=$(FULL_BUILDDIR)/work/gvsoc_config.json

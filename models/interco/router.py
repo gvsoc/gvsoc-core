@@ -221,11 +221,15 @@ class Router(gvsoc.systree.Component):
         self.itf_bind(name, itf, signature='io')
 
     def gen_gui(self, parent_signal):
-        top = gvsoc.gui.Signal(self, parent_signal, name=self.name, groups=['regmap'])
+
+
+        top = gvsoc.gui.SignalGenFromSignals(self, parent_signal, to_signal=self.name,
+            mode="combined", from_groups=["active"], groups=["regmap", "active"],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'), skip_if_no_child=True)
 
         if self.synchronous:
             for name, mapping in self.get_property('mappings').items():
-                mapping_trace = gvsoc.gui.Signal(self, top, name, path=name + "/addr", groups=['regmap'])
+                mapping_trace = gvsoc.gui.Signal(self, top, name, path=name + "/addr", groups=['regmap', "active"])
                 gvsoc.gui.Signal(self, mapping_trace, "size", path=name + "/size", groups=['regmap'])
         else:
 
@@ -240,7 +244,7 @@ class Router(gvsoc.systree.Component):
                 for channel in channels:
                     path = channel + '/' + name
                     addr_trace = gvsoc.gui.Signal(self, input_trace, channel, path=path + "/addr",
-                        groups=['regmap'])
+                        groups=['regmap', "active"])
                     gvsoc.gui.Signal(self, addr_trace, "size", path=path + "/size",
                         groups=['regmap'])
                     gvsoc.gui.Signal(self, addr_trace, "stalled", path=path + "/stalled",
@@ -254,6 +258,6 @@ class Router(gvsoc.systree.Component):
                 mapping_trace = gvsoc.gui.Signal(self, top, name)
                 for channel in channels:
                     path = channel + '/' + name
-                    channel_trace = gvsoc.gui.Signal(self, mapping_trace, channel, path=path + "/addr", groups=['regmap'])
+                    channel_trace = gvsoc.gui.Signal(self, mapping_trace, channel, path=path + "/addr", groups=['regmap', "active"])
                     gvsoc.gui.Signal(self, channel_trace, "size", path=path + "/size", groups=['regmap'])
                     gvsoc.gui.Signal(self, channel_trace, "stalled", path=path + "/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())

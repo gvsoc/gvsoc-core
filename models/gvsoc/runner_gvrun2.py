@@ -229,9 +229,6 @@ class Runner():
         self.full_config, self.gvsoc_config_path = gen_config(
             args, { 'target': self.target.get_config() }, cosim_mode)
 
-        print (os.getcwd())
-        print (self.gvsoc_config_path)
-
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
             self.full_config.set('**/gdbserver/port', args.gdbserver_port)

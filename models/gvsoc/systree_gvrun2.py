@@ -571,8 +571,13 @@ class Component(gvrun.target.SystemTreeNode):
     def gen_gui(self, parent_signal):
         name = self.get_name()
         if name is not None:
-            signal = gvsoc.gui.Signal(self, parent_signal, name=name, skip_if_no_child=True)
-            return signal
+            # By default, we always generate a combiner but we could do it only if a dedicated
+            # option is there
+            # signal = gvsoc.gui.Signal(self, parent_signal, name=name, skip_if_no_child=True)
+            # return signal
+            return gvsoc.gui.SignalGenFromSignals(self, parent_signal, to_signal=self.name,
+                mode="combined", from_groups=["active"], groups=["regmap", "active"],
+                display=gvsoc.gui.DisplayLogicBox('ACTIVE'), skip_if_no_child=True,)
         else:
             return parent_signal
 

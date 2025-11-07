@@ -642,7 +642,8 @@ typedef struct
     uint64_t flags;
 } __attribute__((packed)) event_string_t;
 
-void vp::TraceEngine::dump_event_string(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp, int64_t cycles, uint8_t *event, uint8_t *flags)
+void vp::TraceEngine::dump_event_string(vp::TraceEngine *_this, vp::Trace *trace, int64_t timestamp,
+    int64_t cycles, uint8_t *event, uint8_t *flags)
 {
     event_string_t *buff_event = (event_string_t *)_this->get_event_buffer(sizeof(event_string_t));
 
@@ -650,8 +651,15 @@ void vp::TraceEngine::dump_event_string(vp::TraceEngine *_this, vp::Trace *trace
     buff_event->trace = trace;
     buff_event->timestamp = timestamp;
     buff_event->cycles = cycles;
-    buff_event->value = _this->get_string((const char *)event);
-    buff_event->flags = flags != NULL ? *(uint64_t *)flags : 0;
+    buff_event->flags = flags != NULL ? *(uint64_t *)flags : event == (uint8_t *)1 ? -1 : 0;
+    if (buff_event->flags == 0)
+    {
+        buff_event->value = _this->get_string((const char *)event);
+    }
+    else
+    {
+        buff_event->value = NULL;
+    }
 }
 
 uint8_t *vp::TraceEngine::parse_event_string(uint8_t *buffer, bool &unlock)
@@ -668,7 +676,7 @@ uint8_t *vp::TraceEngine::parse_event_string(uint8_t *buffer, bool &unlock)
     else
     {
         trace->file->dump(event->timestamp, trace->id, (uint8_t *)event->value,
-            (strlen((char *)event->value) + 1) * 8, trace->type, event->flags, NULL);
+            event->value ? (strlen((char *)event->value) + 1) * 8 : 0, trace->type, event->flags, NULL);
     }
 
     return buffer + sizeof(event_64_t);

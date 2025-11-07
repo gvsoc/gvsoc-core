@@ -99,6 +99,8 @@ class Memory(gvsoc.systree.Component):
         return gvsoc.systree.SlaveItf(self, 'input', signature='io')
 
     def gen_gui(self, parent_signal):
-        top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr", groups=['regmap'])
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr",
+            groups=['regmap', 'memory', 'active'])
+
         gvsoc.gui.Signal(self, top, "req_size", path="req_size", groups=['regmap'])
         gvsoc.gui.Signal(self, top, "req_is_write", path="req_is_write", groups=['regmap'])

@@ -533,7 +533,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, active, name='label', path='label', groups=['core'], display=gvsoc.gui.DisplayStringBox())
         gvsoc.gui.Signal(self, active, name='active', path='busy', groups=['core'],
             display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
-        pc_signal = gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc'],
+        pc_signal = gvsoc.gui.Signal(self, active, name='PC', path='pc', groups=['pc', 'active'],
             properties={'is_hotspot': True})
 
         gvsoc.gui.SignalGenFunctionFromBinary(self, active, from_signal='pc',
@@ -546,7 +546,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, power_signal, name='dynamic', path='dyn_power_trace', groups='power')
         gvsoc.gui.Signal(self, power_signal, name='static', path='static_power_trace', groups='power')
 
-        stalls = gvsoc.gui.Signal(self, active, name='stalls')
+        stalls = gvsoc.gui.Signal(self, active, name='stalls', path="pcer_instr",         display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="cycles",        path="pcer_cycles",        display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="instr",         path="pcer_instr",         display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="ld_stall",      path="pcer_ld_stall",      display=gvsoc.gui.DisplayPulse(), groups=['stall'])
@@ -565,8 +565,7 @@ class RiscvCommon(st.Component):
         gvsoc.gui.Signal(self, stalls, name="tcdm_cont",     path="pcer_tcdm_cont",     display=gvsoc.gui.DisplayPulse(), groups=['stall'])
         gvsoc.gui.Signal(self, stalls, name="misaligned",    path="pcer_misaligned",    display=gvsoc.gui.DisplayPulse(), groups=['stall'])
 
-        lsu = gvsoc.gui.Signal(self, active, name='lsu')
-        gvsoc.gui.Signal(self, lsu, "addr", path="lsu/addr", groups=['regmap'])
+        lsu = gvsoc.gui.Signal(self, active, name='lsu', path="lsu/addr", groups=['regmap'])
         gvsoc.gui.Signal(self, lsu, "size", path="lsu/size", groups=['regmap'])
         gvsoc.gui.Signal(self, lsu, "is_write", path="lsu/is_write", groups=['regmap'], display=gvsoc.gui.DisplayPulse())
         gvsoc.gui.Signal(self, lsu, "stalled", path="lsu/stalled", groups=['regmap'], display=gvsoc.gui.DisplayPulse())

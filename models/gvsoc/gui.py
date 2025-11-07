@@ -17,6 +17,7 @@
 import gvsoc
 import json
 import os
+from collections import deque
 
 class DisplayStringBox(object):
     def get(self):
@@ -71,7 +72,7 @@ class SignalGenFunctionFromBinary(object):
                 binary = comp_path + '/' + binary
             self.binaries.append(binary)
 
-        parent.gen_signals.append(self.get())
+        parent.gen_signals.append(self)
 
     def get(self):
         return {
@@ -101,31 +102,10 @@ class SignalGenThreads(object):
             "irq_exit": get_comp_path(comp, True, 'irq_exit'),
         }
 
-        parent.gen_signals.append(self.get())
+        parent.gen_signals.append(self)
 
     def get(self):
         return self.config
-
-class SignalGenFromSignals(object):
-    def __init__(self, comp, parent, from_signals, to_signal):
-        comp_path = get_comp_path(comp, inc_top=True)
-        self.from_signals = []
-
-        for signal in from_signals:
-            self.from_signals.append(comp_path + '/' + signal)
-
-        self.to_signal = get_comp_path(comp, inc_top=True) + '/' + to_signal
-
-        parent.gen_signals.append(self.get())
-
-
-    def get(self):
-        return {
-            "path": self.to_signal,
-            "type": "from_signals",
-            "subtype": "analog_stacked",
-            "from_signals": self.from_signals
-        }
 
 class Signal(object):
 
@@ -143,6 +123,7 @@ class Signal(object):
         self.child_signals = []
         self.parent = parent
         self.groups = groups if groups is not None else []
+        self.type = type
 
         if not isinstance(self.groups, list):
             self.groups = [self.groups]
@@ -161,6 +142,22 @@ class Signal(object):
             self.include_traces.append(path)
         if include_traces is not None:
             self.include_traces += include_traces
+
+    def resolve(self):
+        pass
+
+    def resolve_all(self):
+        for signal in self.child_signals:
+            signal.resolve_all()
+
+        self.resolve()
+
+
+    def is_combiner(self):
+        return False
+
+    def combine(self):
+        return True
 
     def get_path(self):
         if self.parent is None:
@@ -227,10 +224,78 @@ class Signal(object):
         return signals
 
     def get_childs_gen_signals(self):
-        gen_signals = self.gen_signals
+        result = []
+        for gen_signal in self.gen_signals:
+            config = gen_signal.get()
+            if config is not None:
+                result.append(config)
         for child_signal in self.child_signals:
-            gen_signals += child_signal.get_childs_gen_signals()
-        return gen_signals
+            result += child_signal.get_childs_gen_signals()
+        return result
+
+
+class SignalGenFromSignals(Signal):
+    def __init__(self, comp, parent, to_signal, from_signals=None, mode="analog_stacked",
+        from_groups=None, groups=None, display=None, skip_if_no_child=False):
+        super().__init__(comp, parent, to_signal, path=to_signal, groups=groups, display=display,
+            skip_if_no_child=skip_if_no_child)
+
+        comp_path = get_comp_path(comp, inc_top=True)
+        self.from_signals = []
+        self.mode = mode
+        self.from_groups = from_groups
+
+        if from_signals is not None:
+            for signal in from_signals:
+                self.from_signals.append(comp_path + '/' + signal)
+
+        self.to_signal = get_comp_path(comp, inc_top=True) + '/' + to_signal
+
+        parent.gen_signals.append(self)
+
+    def is_combiner(self):
+        return True
+
+    def combine(self):
+        return len(self.collected_signals) != 0
+
+    def resolve(self):
+        from_signals = self.from_signals
+        if self.from_groups is not None:
+
+            # We need to collect all the child signals which contain the group fro which
+            # we are collecting signals
+            signals = deque(self.child_signals)
+            while signals:
+                signal = signals.popleft()
+
+                if not signal.combine():
+                    continue
+
+                # We want to collect all child signals but not within combiners since they are
+                # already combine child signals
+                if not signal.is_combiner():
+                    signals.extend(signal.child_signals)
+
+                # Add the signal if one its group matches one of our group
+                for group in self.from_groups:
+                    if group in signal.groups:
+                        from_signals.append(signal.path)
+
+        self.collected_signals = from_signals
+
+
+    def get(self):
+
+        if self.name is None or self.skip_if_no_child and len(self.collected_signals) == 0:
+            return None
+
+        return {
+            "path": self.to_signal,
+            "type": "from_signals",
+            "subtype": self.mode,
+            "from_signals": self.collected_signals
+        }
 
 
 class GuiConfig(Signal):
@@ -241,6 +306,9 @@ class GuiConfig(Signal):
         self.args = args
 
     def gen(self, fd):
+
+        self.resolve_all()
+
         config = {}
 
         config['config'] = {

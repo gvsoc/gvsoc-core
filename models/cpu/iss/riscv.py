@@ -75,8 +75,8 @@ class RiscvCommon(st.Component):
             misa: int=0,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
-            debug_binaries: list=[],
-            binaries: list=[],
+            debug_binaries: list | None=None,
+            binaries: list | None=None,
             debug_handler: int=0,
             power_models: dict={},
             power_models_file: str=None,
@@ -109,6 +109,9 @@ class RiscvCommon(st.Component):
         ):
 
         super().__init__(parent, name)
+
+        debug_binaries = debug_binaries if debug_binaries is not None else []
+        binaries = binaries if binaries is not None else []
 
         self.isa = isa
 
@@ -307,6 +310,8 @@ class RiscvCommon(st.Component):
                     self.handle_executable(binary)
 
     def handle_executable(self, binary):
+
+        self.get_property('binaries').append(binary)
 
         global binaries
 

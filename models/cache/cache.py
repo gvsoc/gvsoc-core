@@ -76,7 +76,8 @@ class Cache(st.Component):
                 tree.end_group('way_%d' % way)
 
     def gen_gui(self, parent_signal):
-        cache = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='refill_addr', groups=['cache'])
+        cache = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='req_addr', groups=['cache', 'active'])
+        refill = gvsoc.gui.Signal(self, cache, name='refill', path='refill_addr', groups=['cache'])
         tags = gvsoc.gui.Signal(self, cache, name='tags')
         for way in range(0, 1<<self.get_property('nb_ways_bits')):
             set_trace = gvsoc.gui.Signal(self, tags, name=f'set_{way}')

@@ -74,6 +74,8 @@ void vp::Vcd_file::add_trace(string path, int id, int width, gv::Vcd_event_type 
   {
     if (type == gv::Vcd_event_type_real)
         fprintf(file, "$var real 64 %d %s $end\n", id, name.c_str());
+    else if (type == gv::Vcd_event_type_string)
+        fprintf(file, "$var string %d %d %s $end\n", width, id, name.c_str());
     else
         fprintf(file, "$var wire %d %d %s $end\n", width, id, name.c_str());
   }
@@ -104,7 +106,7 @@ $dumpvars\n");
   }
   else if (type == gv::Vcd_event_type_string)
   {
-      if (flags == 0)
+      if (flags == 0 && (char *)event != (char *)1)
       {
         fprintf(file, "s");
         fwrite(event, 1, width/8-1, file);
@@ -112,7 +114,7 @@ $dumpvars\n");
       }
       else
       {
-          fprintf(file, "z%d\n", id);
+          fprintf(file, "s %d\n", id);
       }
   }
   else if (width > 1) {

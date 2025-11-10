@@ -88,6 +88,7 @@ private:
     uint32_t line_index_mask;
     uint32_t flush_line_addr;
 
+    vp::Signal<uint64_t> req_event;
     vp::Signal<uint64_t> refill_event;
     std::vector<vp::Trace> io_event;
 
@@ -457,6 +458,8 @@ vp::IoReqStatus Cache::req(vp::Block *__this, vp::IoReq *req, int port)
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received req (req: %p, port: %d, is_write: %d, offset: 0x%x, size: 0x%x)\n", req, port, is_write, offset, size);
 
+    _this->req_event.set_and_release(offset);
+
     if (!_this->enabled)
     {
         req->set_addr((req->get_addr() << _this->refill_shift) + _this->add_offset);
@@ -530,7 +533,8 @@ void Cache::refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event)
 Cache::Cache(vp::ComponentConf &config)
     : vp::Component(config), refill_pending_reqs(this, "refill_queue"),
     pending_refill(*this, "refill", 0), refill_event(*this, "refill_addr", 32),
-    refill_event_clear_event(this, &Cache::refill_event_clear_handler)
+    refill_event_clear_event(this, &Cache::refill_event_clear_handler),
+    req_event(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ)
 {
     this->enabled_at_reset = this->get_js_config()->get_child_bool("enabled");
     this->nb_ports = this->get_js_config()->get_child_int("nb_ports");

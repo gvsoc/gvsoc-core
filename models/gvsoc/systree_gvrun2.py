@@ -27,9 +27,6 @@ import gvrun.target
 import gvsoc.gui
 import hashlib
 import rich.table
-import regmap.regmap
-import regmap.regmap_md
-import regmap.regmap_c_header
 from gvrun.parameter import TargetParameter
 
 
@@ -352,6 +349,9 @@ class Component(gvrun.target.SystemTreeNode):
             self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
     def regmap_gen(self, template, outdir, name, block=None, headers=['regfields', 'gvsoc']):
+        import regmap.regmap
+        import regmap.regmap_md
+        import regmap.regmap_c_header
         outfile = f'{outdir}/{name}'
         logging.debug(f'Generating regmap (template: {template}, file: {outfile}*)')
         regmap_instance = regmap.regmap.Regmap(name)

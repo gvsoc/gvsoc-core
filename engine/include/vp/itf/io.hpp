@@ -150,7 +150,7 @@ namespace vp {
 
     inline void **arg_get() { return &args[current_arg-1]; }
     inline void **arg_get(int index) { return &args[index]; }
-    inline void **arg_get_last() { return &args[current_arg]; }
+    inline void **arg_get_last(int index=0) { return &args[current_arg+index]; }
 
     inline int arg_current_index() { return this->current_arg; }
 

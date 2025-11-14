@@ -20,6 +20,7 @@
  */
 
 #include <cstring>
+#include <stdexcept>
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
@@ -290,7 +291,7 @@ void Generator::handle_end()
 {
     if (this->check)
     {
-        this->check_status = std::memcmp(this->ref_data, this->current_transfer->data,
+        this->check_status |= std::memcmp(this->ref_data, this->current_transfer->data,
             this->current_transfer->size) != 0;
         // for (int i=0; i<_this->current_transfer->size; i++)
         // {
@@ -337,6 +338,11 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         vp::IoReq *req = (vp::IoReq *)_this->free_reqs.pop();
 
         req->prepare();
+
+        for (int i=0; i<4; i++)
+        {
+            req->arg_push((void *)(0x0123456789ABCDEF + i));
+        }
 
         req->set_size(_this->current_transfer->packet_size);
         req->set_addr(_this->address);
@@ -390,6 +396,13 @@ void Generator::handle_req_end(vp::IoReq *req, int64_t latency)
     this->pending_size -= req->get_size();
     this->trace.msg(vp::Trace::LEVEL_DEBUG, "Handling req end (req: %p, size: 0x%x, pending_size: 0x%x, latency: %ld)\n",
         req, req->get_size(), this->pending_size.get(), latency);
+
+    for (int i=3; i>=0; i--)
+    {
+        uint64_t value = (uint64_t)req->arg_pop();
+        this->check_status |= value != 0x0123456789ABCDEF + i;
+
+    }
 
     this->free_reqs.push_back(req, latency);
     this->last_req_cyclestamp = this->clock.get_cycles() + latency;

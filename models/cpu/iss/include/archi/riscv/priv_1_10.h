@@ -42,6 +42,11 @@
 #define CSR_STACK_END    0x7D2
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+#define CSR_TRACE        0x7D0
+#define CSR_STACK_LIMIT  0x7D1
+#endif
+
 #define CSR_MESTATUS_INTEN_BIT 0
 #define CSR_MESTATUS_PRV_BIT   1
 

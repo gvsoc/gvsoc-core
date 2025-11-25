@@ -104,6 +104,24 @@ iss_reg_t Sequencer::sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg
 {
     Sequencer *_this = &iss->sequencer;
 
+    iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Checking non-float instructions register dependencies\n");
+
+#ifdef ISS_SINGLE_REGFILE
+    for (int i=0; i<insn->nb_in_reg; i++)
+    {
+        if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+        {
+            iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+#ifndef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+            // When outstanding support is active, instructions are retried at every cycle
+            iss->sequencer.stall_reg = insn->in_regs[i];
+            iss->exec.insn_stall();
+#endif
+            return pc;
+        }
+    }
+#endif
+
     iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Received sequencable instruction (pc: 0x%lx)\n", pc);
 
     if (_this->input_insn)

@@ -73,56 +73,93 @@ static inline uint64_t convert_scalar_to_vector(uint64_t val, unsigned int sew)
     return val;
 }
 
-static inline bool velem_is_active(Iss *iss, unsigned int elem, unsigned int vm)
+static inline bool velem_is_active(Iss *iss, unsigned int elem, unsigned int vm, unsigned int bank = 0)
 {
     unsigned int reg = elem / 8;
     unsigned int pos = elem % 8;
-    return vm | ((iss->vector.vregs[0][reg] >> pos) & 1);
+    return vm | ((iss->vector.vregs[bank][0][reg] >> pos) & 1);
 }
 
 static inline uint8_t *velem_get(Iss *iss, unsigned int reg, unsigned int elem, unsigned int sewb,
-    unsigned int lmul)
+    unsigned int lmul, unsigned int bank = 0)
 {
-    return &iss->vector.vregs[reg][elem*sewb];
+    return &iss->vector.vregs[bank][reg][elem*sewb];
 }
 
-static inline uint64_t velem_get_value(Iss *iss, unsigned int reg, unsigned int elem, unsigned int sewb,
-    unsigned int lmul)
+static inline uint64_t velem_get_value(Iss *iss, unsigned int reg, unsigned int elem,
+                                       unsigned int sewb, unsigned int lmul, unsigned int bank = 0)
 {
-    uint8_t *ptr = &iss->vector.vregs[reg][elem*sewb];
+    uint8_t *ptr = &iss->vector.vregs[bank][reg][elem * sewb];
+    uint64_t value = 0;  // Declare it once before switch
+
+    switch (sewb)
+    {
+        case 1:  value = *ptr; break;
+        case 2:  value = *(uint16_t *)ptr; break;
+        case 4:  value = *(uint32_t *)ptr; break;
+        default: value = *(uint64_t *)ptr; break;
+    }
+
+    printf("[VRF TRACE] v%d[%d] = 0x%lx (SEW=%d, LMUL=%d)\n", reg, elem, value, sewb * 8, lmul);
+
+	
+    return value;
+}
+/////////   bank control fucntions starts ////////////////////////////////
+static inline void relese_bank(Iss *iss, unsigned int bank)
+{
+	iss->vector.Bank_status[bank]= true;
+}
+static inline void busy_bank(Iss *iss, unsigned int bank)
+{
+	iss->vector.Bank_status[bank]= false;
+}
+static inline uint8_t provide_active_bank(Iss *iss)
+{
+    const uint8_t T_BANK = iss->vector.N_BANK;      
+    bool *ptr = iss->vector.Bank_status;     
+
+    for (uint8_t i = 0; i < T_BANK; i++) {
+        printf("Bank[%d] status = %d\n", i, ptr[i]);  
+        if (ptr[i]) {                     // free bank found
+        	busy_bank(iss,i);
+            return i;
+        }
+    }
+
+    return T_BANK;
+}
+
+
+/////////   bank control fucntions ends ////////////////////////////////
+
+static inline void velem_set_value(Iss *iss, unsigned int reg, unsigned int elem,
+                                   unsigned int sewb, uint64_t value, unsigned int bank = 0)
+{
+    uint8_t *ptr = &iss->vector.vregs[bank][reg][elem * sewb];
+
+    
     switch (sewb)
     {
         case 1:
-            return *ptr;
+            *ptr = (uint8_t)value;
+            break;
         case 2:
-            return *(uint16_t *)ptr;
+            *(uint16_t *)ptr = (uint16_t)value;
+            break;
         case 4:
-            return *(uint32_t *)ptr;
+            *(uint32_t *)ptr = (uint32_t)value;
+            break;
         default:
-            return *(uint64_t *)ptr;
+            *(uint64_t *)ptr = (uint64_t)value;
+            break;
     }
+
+    printf("[VRF TRACE] WRITE v%d[%d] = 0x%lx (SEW=%d bytes)\n", reg, elem, value, sewb);
+	//provide_active_bank(iss, bank);
+
 }
 
-static inline void velem_set_value(Iss *iss, unsigned int reg, unsigned int elem, unsigned int sewb,
-    uint64_t value)
-{
-    uint8_t *ptr = &iss->vector.vregs[reg][elem*sewb];
-    switch (sewb)
-    {
-        case 1:
-            *ptr = value;
-            break;
-        case 2:
-            *(uint16_t *)ptr = value;
-            break;
-        case 4:
-            *(uint32_t *)ptr = value;
-            break;
-        default:
-            *(uint64_t *)ptr = value;
-            break;
-    }
-}
 
 static inline iss_reg_t vadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -1076,10 +1113,13 @@ static inline iss_reg_t vfslide1up_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t vfadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+	printf("VFADD inline function vfadd_vf_exec is been called \n");
+    unsigned int sewb = iss->vector.sewb; // size of data (how many bytes)
+    unsigned int lmul = iss->vector.LMUL_t;  // how many datas are grouped
     uint64_t in0 = RVV_FREG_GET(0);
-    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    unsigned bank =provide_active_bank(iss);
+    busy_bank(iss,bank);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++) // goes through all element in a VRF from vstart till vl-1
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
         {
@@ -1089,11 +1129,13 @@ static inline iss_reg_t vfadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
             velem_set_value(iss, REG_OUT(0), i, sewb, res);
         }
     }
+    relese_bank(iss,bank);
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vfadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+	printf("VFADD inline function vfadd_vv_exec is been called \n");
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)

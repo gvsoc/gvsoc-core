@@ -9,6 +9,7 @@ else
 fi
 
 export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=$INSTALL_DIR/python:$PYTHONPATH
 export PATH=$INSTALL_DIR/bin:$PATH
 
 exec gapy --platform=gvsoc --target-dir=$INSTALL_DIR/generators --model-dir=$INSTALL_DIR/models "$@"

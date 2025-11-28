@@ -321,15 +321,19 @@ class RiscvCommon(st.Component):
             # Only generate debug symbols for small binaries, otherwise it is too slow
             # To allow it, the ISS should itself read the symbols.
             if os.path.getsize(path) < 5 * 1024*1024:
-
-                result = subprocess.run(
-                    ["gen-debug-info", path, debug_info_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
+                try:
+                    result = subprocess.run(
+                        ["gen-debug-info", path, debug_info_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                except Exception as e:
+                    print(f'{e}')
+                    result = subprocess.CompletedProcess(args=[], returncode=1)
 
                 if result.returncode != 0:
-                    print('Error while generating debug symbols information, make sure the toolchain and the binaries are accessible ')
+                    print(f'Error while generating debug symbols information for binary: {path}')
+                    print('Make sure the toolchain and the binaries are accessible')
 
         if os.path.getsize(path) < 5 * 1024*1024:
             self.get_property('debug_binaries').append(debug_info_path)

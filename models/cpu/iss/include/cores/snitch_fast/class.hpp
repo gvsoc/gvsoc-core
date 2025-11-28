@@ -51,7 +51,9 @@
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
 #include <cpu/iss/include/spatz.hpp>
 #endif
+#if defined(CONFIG_GVSOC_ISS_SSR)
 #include <cpu/iss/include/cores/snitch_fast/ssr.hpp>
+#endif
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include <cpu/iss/include/cores/spatz/fpu_sequencer.hpp>
 #else
@@ -97,7 +99,9 @@ public:
     Spatz spatz;
 #endif
 
+#if defined(CONFIG_GVSOC_ISS_SSR)
     Ssr ssr;
+#endif
     Sequencer sequencer;
     FpuLsu fpu_lsu;
 
@@ -189,7 +193,9 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 #include <cpu/iss/include/isa/xdma.hpp>
 #if !defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include "cpu/iss/include/isa/rv32frep.hpp"
+#if defined(CONFIG_GVSOC_ISS_SSR)
 #include "cpu/iss/include/isa/rv32ssr.hpp"
+#endif
 #endif
 #endif
 

@@ -22,6 +22,7 @@
 
 inline iss_freg_t SnitchRegfile::get_freg(int reg)
 {
+#if defined(CONFIG_GVSOC_ISS_SSR)
     // Conditionally choose operands from regfile or external streams.
     if (!this->iss.ssr.ssr_is_enabled() || reg > 2)
     {
@@ -32,10 +33,14 @@ inline iss_freg_t SnitchRegfile::get_freg(int reg)
         iss_freg_t value = this->iss.ssr.pop_data(reg);
         return value;
     }
+#else
+    return this->get_freg_untimed(reg);
+#endif
 }
 
 inline void SnitchRegfile::set_freg(int reg, iss_freg_t value)
 {
+#if defined(CONFIG_GVSOC_ISS_SSR)
     if (!this->iss.ssr.ssr_is_enabled() || reg > 2)
     {
         Regfile::set_freg(reg, value);
@@ -44,4 +49,7 @@ inline void SnitchRegfile::set_freg(int reg, iss_freg_t value)
     {
         this->iss.ssr.push_data(reg, value);
     }
+#else
+    Regfile::set_freg(reg, value);
+#endif
 }

@@ -105,7 +105,8 @@ class RiscvCommon(st.Component):
             float_lib='flexfloat',
             stack_checker=False,
             nb_outstanding=1,
-            vector_chaining: bool=False
+            vector_chaining: bool=False,
+            single_regfile: bool=False
         ):
 
         super().__init__(parent, name)
@@ -205,6 +206,9 @@ class RiscvCommon(st.Component):
 
         if scoreboard:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])
+
+        if single_regfile:
+            self.add_c_flags(['-DISS_SINGLE_REGFILE=1'])
 
         if vector_chaining:
             self.add_c_flags([f'-DCONFIG_GVSOC_ISS_VECTOR_CHAINING=1'])

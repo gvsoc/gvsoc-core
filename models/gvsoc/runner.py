@@ -440,13 +440,17 @@ if os.environ.get('USE_GVRUN') is None:
 
             stub = args.stub
 
-            if args.gdb:
+            if args.gdb and not args.valgrind:
                 stub = ['gdb', '--args'] + stub
 
             if args.emulation:
 
                 if args.valgrind:
-                    stub = ['valgrind'] + stub
+                    if args.gdb:
+                        stub = ['valgrind', '--vgdb=yes', '--vgdb-error=0'] + stub
+                    else:
+                        stub = ['valgrind'] + stub
+
 
                 launcher = args.binary
 
@@ -472,7 +476,10 @@ if os.environ.get('USE_GVRUN') is None:
                 else:
 
                     if args.valgrind:
-                        stub = ['valgrind'] + stub
+                        if args.gdb:
+                            stub = ['valgrind', '--vgdb=yes', '--vgdb-error=0'] + stub
+                        else:
+                            stub = ['valgrind'] + stub
 
                     if args.gui or args.gui2 or args.gui3:
 
@@ -1220,7 +1227,6 @@ else:
 
 
             def run(self, norun=False, args=None):
-
                 [args, otherArgs] = self.parser.parse_known_args()
 
                 if args is None:
@@ -1236,13 +1242,16 @@ else:
 
                 stub = args.stub
 
-                if args.gdb:
+                if args.gdb and not args.valgrind:
                     stub = ['gdb', '--args'] + stub
 
                 if args.emulation:
 
                     if args.valgrind:
-                        stub = ['valgrind'] + stub
+                        if args.gdb:
+                            stub = ['valgrind', '--vgdb=yes', '--vgdb-error=0'] + stub
+                        else:
+                            stub = ['valgrind'] + stub
 
                     launcher = args.binary
 
@@ -1268,7 +1277,10 @@ else:
                     else:
 
                         if args.valgrind:
-                            stub = ['valgrind'] + stub
+                            if args.gdb:
+                                stub = ['valgrind', '--vgdb=yes', '--vgdb-error=0'] + stub
+                            else:
+                                stub = ['valgrind'] + stub
 
                         if args.gui or args.gui2 or args.gui3:
 

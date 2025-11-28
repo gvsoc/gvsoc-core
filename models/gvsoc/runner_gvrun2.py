@@ -388,7 +388,7 @@ class Runner():
 
 
     def run(self, norun=False, args=None):
-
+ 
         [args, otherArgs] = self.parser.parse_known_args()
 
         os.makedirs(args.work_dir, exist_ok=True)
@@ -406,13 +406,16 @@ class Runner():
 
         stub = args.stub
 
-        if args.gdb:
+        if args.gdb and not args.valgrind:
             stub = ['gdb', '--args'] + stub
 
         if args.emulation:
 
             if args.valgrind:
-                stub = ['valgrind'] + stub
+                if args.gdb:
+                    stub = ['valgrind', '--vgdb=yes', '--vgdb-error=0'] + stub
+                else:
+                    stub = ['valgrind'] + stub
 
             launcher = args.binary
 

@@ -461,14 +461,18 @@ void Htif::reset(bool active)
 void Htif::htif_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
-    iss_reg_t cmd;
-    iss->syscalls.htif.target_access(iss->syscalls.htif.tohost_addr, sizeof(cmd), false, (uint8_t *)&cmd);
 
-    if (cmd != 0)
+    if (iss->exec.fetch_enable_reg.get())
     {
-        iss_reg_t value = 0;
-        iss->syscalls.user_access(iss->syscalls.htif.tohost_addr, (uint8_t *)&value, sizeof(value), true);
-        iss->syscalls.htif.handle_syscall(cmd);
+        iss_reg_t cmd;
+        iss->syscalls.htif.target_access(iss->syscalls.htif.tohost_addr, sizeof(cmd), false, (uint8_t *)&cmd);
+
+        if (cmd != 0)
+        {
+            iss_reg_t value = 0;
+            iss->syscalls.user_access(iss->syscalls.htif.tohost_addr, (uint8_t *)&value, sizeof(value), true);
+            iss->syscalls.htif.handle_syscall(cmd);
+        }
     }
 
     iss->syscalls.htif.htif_event.enqueue(1000);

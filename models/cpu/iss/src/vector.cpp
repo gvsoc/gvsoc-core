@@ -23,20 +23,26 @@
 
 Vector::Vector(Iss &iss)
 {
+printf("building Vector in vector.cpp \n");
+
 }
 
 void Vector::build()
 {
+
 }
 
 void Vector::reset(bool active)
 {
     if (active)
     {
-        for (int i = 0; i < ISS_NB_VREGS; i++){
-            for (int j = 0; j < NB_VEL; j++){
-                this->vregs[i][j] = 0;
-            }
-        }
+    	for (int k = 0; k < Vector::N_BANK; k++){
+		    for (int i = 0; i < ISS_NB_VREGS; i++){
+		        for (int j = 0; j < NB_VEL; j++){
+		            this->vregs[k][i][j] = 0;
+		        }
+		    }
+		    this->Bank_status[k]= true;
+		}
     }
 }

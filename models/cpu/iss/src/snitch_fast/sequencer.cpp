@@ -69,6 +69,8 @@ void Sequencer::reset(bool active)
         this->frep_enabled = false;
         this->total_insn_count = 0;
         this->total_insn_read_count = 0;
+        this->insn_count = 0;
+        this->rpt_count = 0;
     }
 }
 

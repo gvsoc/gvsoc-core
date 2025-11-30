@@ -207,6 +207,9 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
         #ifndef CONFIG_GVSOC_ISS_SNITCH
         latency = req->get_latency() + 1;
         #else
+        #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
+        latency = req->get_latency();
+        #else
         // In case of a write, don't signal a valid transaction. Stores are always
         // without ans answer to the core.
         if (is_write)
@@ -219,6 +222,7 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
             // Load needs one more cycle to write result back from tcdm/mem response.
             latency = req->get_latency() + 1;
         }
+        #endif
         #endif
 
     #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING

@@ -309,7 +309,10 @@ class RiscvCommon(st.Component):
         if binaries is not None:
             for binary in binaries:
                 if binary is not None:
-                    self.add_executable(ExecutableContainer(binary))
+                    if os.environ.get('USE_GVRUN2') is not None:
+                        self.add_executable(ExecutableContainer(binary))
+                    else:
+                        self.handle_executable(binary)
 
     def handle_executable(self, binary):
 

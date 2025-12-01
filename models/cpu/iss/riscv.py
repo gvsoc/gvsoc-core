@@ -24,6 +24,7 @@ import gvsoc.gui
 import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
+from gvrun.systree import ExecutableContainer
 
 binaries_info = {}
 
@@ -308,7 +309,7 @@ class RiscvCommon(st.Component):
         if binaries is not None:
             for binary in binaries:
                 if binary is not None:
-                    self.handle_executable(binary)
+                    self.add_executable(ExecutableContainer(binary))
 
     def handle_executable(self, binary):
 

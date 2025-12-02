@@ -180,6 +180,22 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
         if (insn == NULL) return;
 
+        #if defined(CONFIG_GVSOC_ISS_EXEC_SCOREBOARD)
+        if (!iss->insn_cache.insn_is_decoded(insn))
+        {
+            iss->decode.decode_pc(insn, insn->addr);
+        }
+
+        for (int i=0; i<insn->nb_in_reg; i++)
+        {
+            if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+            {
+                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+                return;
+            }
+        }
+        #endif
+
         // Takes care first of all optional features (traces, VCD and so on)
         iss->exec.insn_exec_profiling();
 
@@ -304,6 +320,22 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         iss_reg_t index;
         iss_insn_t *insn = iss->insn_cache.get_insn(pc, index);
         if (insn == NULL) return;
+
+        #if defined(CONFIG_GVSOC_ISS_EXEC_SCOREBOARD)
+        if (!iss->insn_cache.insn_is_decoded(insn))
+        {
+            iss->decode.decode_pc(insn, insn->addr);
+        }
+
+        for (int i=0; i<insn->nb_in_reg; i++)
+        {
+            if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+            {
+                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+                return;
+            }
+        }
+        #endif
 
         _this->current_insn = _this->insn_exec(insn, pc);
 

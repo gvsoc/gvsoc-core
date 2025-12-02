@@ -30,6 +30,19 @@ binaries_info = {}
 binaries = {}
 
 
+class IssModule:
+
+    def gen(self, iss):
+        pass
+
+class ExecInOrder(IssModule):
+    def __init__(self, scoreboard: bool=False):
+        self.scoreboard = scoreboard
+
+    def gen(self, iss):
+        if self.scoreboard:
+            iss.add_c_flags([f'-DCONFIG_GVSOC_ISS_EXEC_SCOREBOARD=1'])
+
 class RiscvCommon(st.Component):
     """
     Riscv instruction set simulator
@@ -106,12 +119,20 @@ class RiscvCommon(st.Component):
             stack_checker=False,
             nb_outstanding=1,
             vector_chaining: bool=False,
-            single_regfile: bool=False
+            single_regfile: bool=False,
+            modules: list[IssModule] = []
         ):
 
         super().__init__(parent, name)
 
         self.isa = isa
+        self.modules = modules
+
+        if len(modules) == 0:
+            self.modules = [ ExecInOrder() ]
+
+        for module in self.modules:
+            module.gen(self)
 
         self.add_sources([
             isa.get_source()

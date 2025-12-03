@@ -428,6 +428,13 @@ inline void Lsu::stack_access_check(int reg, iss_addr_t addr)
         }
     }
 #endif
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
+    if (reg == 2 && addr < this->iss.csr.stack_limit)
+    {
+        this->trace.fatal("SP-based access outside stack (addr: 0x%x, stack_limit: 0x%x)\n",
+                            addr, this->iss.csr.stack_limit);
+    }
+#endif
 }
 
 template<typename T>

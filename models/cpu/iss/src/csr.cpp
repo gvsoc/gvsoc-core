@@ -131,6 +131,10 @@ void Csr::reset(bool active)
     #if defined(CONFIG_GVSOC_ISS_STACK_CHECKER)
         this->stack_conf = 0;
     #endif
+    #if defined(CONFIG_GVSOC_ISS_SNITCH)
+        this->csr_trace = 0;
+        this->stack_limit = 0;
+    #endif
         this->dcsr = 4 << 28;
         this->fcsr.raw = 0;
 
@@ -597,6 +601,34 @@ static bool stack_end_write(Iss *iss, iss_reg_t value)
 static bool stack_end_read(Iss *iss, iss_reg_t *value)
 {
     *value = iss->csr.stack_end;
+    return false;
+}
+
+#endif
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+
+static bool trace_write(Iss *iss, iss_reg_t value)
+{
+    iss->csr.csr_trace = value;
+    return false;
+}
+
+static bool trace_read(Iss *iss, iss_reg_t *value)
+{
+    *value = iss->csr.csr_trace;
+    return false;
+}
+
+static bool stack_limit_write(Iss *iss, iss_reg_t value)
+{
+    iss->csr.stack_limit = value;
+    return false;
+}
+
+static bool stack_limit_read(Iss *iss, iss_reg_t *value)
+{
+    *value = iss->csr.stack_limit;
     return false;
 }
 
@@ -1233,10 +1265,11 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
 #endif
 
 #if defined(CONFIG_GVSOC_ISS_SNITCH)
-    case 0x7d0:
-    case 0x7d1:
-    case 0x7d2:
-        status = false;
+    case CSR_TRACE:
+        status = trace_read(iss, value);
+        break;
+    case CSR_STACK_LIMIT:
+        status = stack_limit_read(iss, value);
         break;
 #endif
 
@@ -1368,13 +1401,15 @@ bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
     case CSR_STACK_END:
         return stack_end_write(iss, value);
         break;
-#else
-    case 0x7d0:
-    case 0x7d1:
-    case 0x7d2:
-        return false;
-        break;
 #endif
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    case CSR_TRACE:
+        return trace_write(iss, value);
+    case CSR_STACK_LIMIT:
+        return stack_limit_write(iss, value);
+#endif
+
     }
 
 #if defined(ISS_HAS_PERF_COUNTERS)
@@ -1662,6 +1697,13 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
         return "stack_start";
     case CSR_STACK_END:
         return "stack_end";
+#endif
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH
+    case CSR_TRACE:
+        return "csr_trace";
+    case CSR_STACK_LIMIT:
+        return "stack_limit";
 #endif
     }
 

@@ -233,6 +233,11 @@ public:
     iss_reg_t stack_end;
 #endif
 
+#if defined(CONFIG_GVSOC_ISS_SNITCH)
+    iss_reg_t csr_trace;
+    iss_reg_t stack_limit;
+#endif
+
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_fcsr_t fcsr;

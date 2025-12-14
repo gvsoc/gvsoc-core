@@ -966,6 +966,11 @@ static inline unsigned int lib_VEC_PACK_SC_16(Iss *s, unsigned int a, unsigned i
     return ((a & 0xffff) << 16) | (b & 0xffff);
 }
 
+static inline unsigned int lib_VEC_PACK1_SC_16(Iss *s, unsigned int a, unsigned int b)
+{
+    return (a & 0xffff0000) | (b >> 16);
+}
+
 static inline unsigned int lib_VEC_PACKHI_SC_8(Iss *s, unsigned int a, unsigned int b, unsigned c)
 {
     return ((a & 0xff) << 24) | ((b & 0xff) << 16) | (c & 0xffff);

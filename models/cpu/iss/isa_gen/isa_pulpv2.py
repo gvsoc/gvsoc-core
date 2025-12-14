@@ -354,6 +354,7 @@ class PulpV2(IsaSubset):
             Instr('pv.shuffle2.h',   Format_RRRR,'110010- ----- ----- 000 ----- 1010111'),
             Instr('pv.shuffle2.b',   Format_RRRR,'110010- ----- ----- 001 ----- 1010111'),
 
+            Instr('pv.pack',         Format_RRRR,'1101001 ----- ----- 000 ----- 1010111'),
             Instr('pv.pack.h',       Format_RRRR,'1101000 ----- ----- 000 ----- 1010111'),
             Instr('pv.packhi.b',     Format_RRRR,'110110- ----- ----- 001 ----- 1010111'),
             Instr('pv.packlo.b',     Format_RRRR,'111000- ----- ----- 001 ----- 1010111'),

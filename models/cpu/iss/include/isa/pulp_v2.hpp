@@ -1507,6 +1507,14 @@ static inline iss_reg_t pv_shuffle2_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     return iss_insn_next(iss, insn, pc);
 }
 
+static inline iss_reg_t pv_pack_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));
+    iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(1));
+    REG_SET(0, LIB_CALL2(lib_VEC_PACK1_SC_16, REG_GET(0), REG_GET(1)));
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t pv_pack_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->regfile.memcheck_merge(REG_OUT(0), REG_IN(0));

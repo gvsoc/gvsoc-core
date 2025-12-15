@@ -138,7 +138,6 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     }
     else if (_this->enable_shift)
     {
-      output_id = (offset >> (_this->interleaving_bits + _this->enable_shift)) & ((1 << _this->stage_bits) - 1);
       new_offset = ((offset >> _this->enable_shift) & (-1ULL << _this->interleaving_bits)) | (offset & ((1ULL << _this->interleaving_bits) - 1));
     }
     else

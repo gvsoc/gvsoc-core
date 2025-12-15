@@ -153,7 +153,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     req->set_addr(new_offset);
     req->set_size(loop_size);
     req->set_data(data);
-    req->set_latency(init_latency);
+    req->set_exact_latency(init_latency);
 
     vp::IoReqStatus err = _this->out[output_id]->req_forward(req);
     if (err != vp::IO_REQ_OK)

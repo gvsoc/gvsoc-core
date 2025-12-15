@@ -586,6 +586,10 @@ class Xfaux(IsaSubset):
             Insn('1001011 ----- ----- 111 ----- 0110011', 'vfdotpex.s.r.b', FA_FFF('S_BBS'), tags=['fmadd'], isa_tags=['f8auxvec']),
             Insn('1010110 ----- ----- 011 ----- 0110011', 'vfavg.b',        F_FF('B'),       tags=['fadd'], isa_tags=['f8auxvec']),
             Insn('1010110 ----- ----- 111 ----- 0110011', 'vfavg.r.b',      F_FF('B'),       tags=['fadd'], isa_tags=['f8auxvec']),
+            Insn('1011100 ----- ----- 000 ----- 0110011', 'vfdotpexa.s.b',   FA_FFF('S_BBS'), tags=['fmadd'], isa_tags=['f8auxvec']),
+            Insn('1011100 ----- ----- 100 ----- 0110011', 'vfdotpexa.s.r.b', FA_FFF('S_BBS'), tags=['fmadd'], isa_tags=['f8auxvec']),
+            Insn('1011110 ----- ----- 000 ----- 0110011', 'vfdotpexb.s.b',   FA_FFF('S_BBS'), tags=['fmadd'], isa_tags=['f8auxvec']),
+            Insn('1011110 ----- ----- 100 ----- 0110011', 'vfdotpexb.s.r.b', FA_FFF('S_BBS'), tags=['fmadd'], isa_tags=['f8auxvec']),
 
         ])
 

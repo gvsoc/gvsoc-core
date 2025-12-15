@@ -390,6 +390,70 @@ static inline iss_reg_t vfdotpex_s_r_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_
     return iss_insn_next(iss, insn, pc);
 }
 
+static inline iss_reg_t vfdotpexa_s_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round,
+                            REG_GET(2),
+                            LIB_FF_CALL4(lib_flexfloat_madd_round,
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) >> 16, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) >> 16, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL3(lib_flexfloat_mul_round,
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) >> 24, 5, 2, 8, 23, 0),
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) >> 24, 5, 2, 8, 23, 0),
+                                                    8, 23, 0),
+                                        8, 23, 0),
+                            8, 23, 0));
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfdotpexa_s_r_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round,
+                            REG_GET(2),
+                            LIB_FF_CALL4(lib_flexfloat_madd_round,
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) >> 16, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) & 0xff, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL3(lib_flexfloat_mul_round,
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) >> 24, 5, 2, 8, 23, 0),
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) & 0xff, 5, 2, 8, 23, 0),
+                                                    8, 23, 0),
+                                        8, 23, 0),
+                            8, 23, 0));
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfdotpexb_s_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round,
+                            REG_GET(2),
+                            LIB_FF_CALL4(lib_flexfloat_madd_round,
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) & 0xff, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) & 0xff, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL3(lib_flexfloat_mul_round,
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) >> 8, 5, 2, 8, 23, 0),
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) >> 8, 5, 2, 8, 23, 0),
+                                                    8, 23, 0),
+                                        8, 23, 0),
+                            8, 23, 0));
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfdotpexb_s_r_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    REG_SET(0, LIB_FF_CALL3(lib_flexfloat_add_round,
+                            REG_GET(2),
+                            LIB_FF_CALL4(lib_flexfloat_madd_round,
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) & 0xff, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) & 0xff, 5, 2, 8, 23, 0),
+                                        LIB_FF_CALL3(lib_flexfloat_mul_round,
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(0) >> 8, 5, 2, 8, 23, 0),
+                                                    LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, REG_GET(1) & 0xff, 5, 2, 8, 23, 0),
+                                                    8, 23, 0),
+                                        8, 23, 0),
+                            8, 23, 0));
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t vfavg_b_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, (LIB_FF_CALL3(lib_flexfloat_avg_round, REG_GET(0) & 0xff, REG_GET(1) & 0xff, 5, 2, 0) & 0xff) |

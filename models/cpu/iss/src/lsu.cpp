@@ -172,7 +172,12 @@ int Lsu::data_req_aligned(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_
         req_id = -1;
         return vp::IO_REQ_DENIED;
     }
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
     req->prepare();
+#else
+    // It seems some models do not correctly pop arguments. They should be fixed before switching to prepare
+    req->init();
+#endif
     req->set_addr(addr);
     req->set_size(size);
     req->set_is_write(is_write);
@@ -523,7 +528,12 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 #endif
     }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
     req->prepare();
+#else
+    // It seems some models do not correctly pop arguments. They should be fixed before switching to prepare
+    req->init();
+#endif
     req->set_addr(phys_addr);
     req->set_size(size);
     req->set_opcode(opcode);

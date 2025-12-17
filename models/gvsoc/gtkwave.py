@@ -179,7 +179,7 @@ class Gtkwave_tree(object):
         vector_filer = os.path.join(self.work_dir, comp.get_path().replace('/', '.') + '.%s_vector.txt' % name)
 
         with open(vector_filer, 'w') as file:
-            for i in range(0, len(traces)+1):
+            for i in range(1, len(traces)+1):
                 file.write('%2x ?CadetBlue?ACTIVE\n' % i)
 
         vector = Gtkwave_vector(self, comp, name, traces, map_file, vector_filer)

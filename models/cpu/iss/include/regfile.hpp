@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <vp/signal.hpp>
 #include "cpu/iss/include/types.hpp"
 
 class IssWrapper;
@@ -40,6 +41,10 @@ public:
 #endif
 
     iss_reg_t regs_memcheck[ISS_NB_REGS+1];
+
+    #if defined(CONFIG_GVSOC_EVENT_ACTIVE)
+    std::vector<vp::Signal<iss_reg_t>> reg_signals;
+    #endif
 
     inline iss_reg_t *reg_ref(int reg);
     inline iss_reg_t *reg_check_ref(int reg);

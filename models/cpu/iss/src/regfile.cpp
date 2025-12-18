@@ -28,6 +28,19 @@ Regfile::Regfile(IssWrapper &top, Iss &iss)
 : iss(iss)
 {
     top.traces.new_trace("regfile", &this->trace, vp::DEBUG);
+
+    #if defined(CONFIG_GVSOC_EVENT_ACTIVE)
+    this->reg_signals.reserve(ISS_NB_REGS);
+    for (int i = 0; i < ISS_NB_REGS; i++)
+    {
+        this->reg_signals.emplace_back(
+            top,
+            "regfile/x" + std::to_string(i),
+            sizeof(iss_reg_t) * 8,
+            vp::SignalCommon::ResetKind::HighZ
+        );
+    }
+    #endif
 }
 
 

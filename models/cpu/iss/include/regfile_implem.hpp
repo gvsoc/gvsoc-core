@@ -55,6 +55,12 @@ inline iss_reg_t *Regfile::reg_check_store_ref(int reg)
 inline void Regfile::set_reg(int reg, iss_reg_t value)
 {
     this->regs[reg] = value;
+    #if defined(CONFIG_GVSOC_EVENT_ACTIVE)
+    if (reg < ISS_NB_REGS)
+    {
+        this->reg_signals[reg] = value;
+    }
+    #endif
 }
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD

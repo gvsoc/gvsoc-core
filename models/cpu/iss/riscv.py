@@ -121,6 +121,9 @@ class RiscvCommon(st.Component):
             nb_outstanding=1,
             vector_chaining: bool=False,
             single_regfile: bool=False,
+            zfinx: bool=False,
+            zdinx: bool=False,
+            fp_width: int | None = None,
             modules: list[IssModule] = []
         ):
 
@@ -189,7 +192,7 @@ class RiscvCommon(st.Component):
             'has_double': isa.has_isa('rvd'),
         })
 
-        fp_size = 64 if isa.has_isa('rvd') else 32
+        fp_size = fp_width if fp_width is not None else  64 if isa.has_isa('rvd') else 32
         self.add_c_flags([f'-DCONFIG_GVSOC_ISS_FP_WIDTH={fp_size}'])
 
         if memory_start is not None and memory_size is not None:
@@ -229,8 +232,14 @@ class RiscvCommon(st.Component):
         if scoreboard:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_SCOREBOARD=1'])
 
-        if single_regfile:
+        if single_regfile or zfinx or zdinx:
             self.add_c_flags(['-DISS_SINGLE_REGFILE=1'])
+
+        if zdinx:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_ZDINX=1'])
+
+        if zfinx:
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_ZFINX=1'])
 
         if vector_chaining:
             self.add_c_flags([f'-DCONFIG_GVSOC_ISS_VECTOR_CHAINING=1'])

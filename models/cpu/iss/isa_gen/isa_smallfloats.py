@@ -213,7 +213,10 @@ class Xf8(IsaSubset):
 
 class Xfvec(IsaSubset):
 
-    def __init__(self, inc_vfsum=False):
+    def __init__(self, inc_vfsum=False, force_f32vec=False):
+
+        self.force_f32vec = force_f32vec
+
         instrs=[
         #
         # For F
@@ -479,7 +482,7 @@ class Xfvec(IsaSubset):
         super().__init__(name='fvec', instrs=instrs)
 
     def check_compatibilities(self, isa):
-        if not isa.has_isa('rvf') or not isa.has_isa('rvd'):
+        if not self.force_f32vec and (not isa.has_isa('rvf') or not isa.has_isa('rvd')):
             isa.disable_from_isa_tag('f32vec')
 
         if not isa.has_isa('f16'):

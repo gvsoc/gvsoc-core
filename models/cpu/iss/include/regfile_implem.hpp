@@ -163,7 +163,11 @@ inline void Regfile::set_freg(int reg, iss_freg_t value)
 inline iss_freg_t Regfile::get_freg_untimed(int reg)
 {
 #ifdef ISS_SINGLE_REGFILE
+#if defined(CONFIG_GVSOC_ISS_ZDINX)
+    return (((uint64_t)this->regs[reg + 1]) << 32) + this->regs[reg];
+#else
     return this->regs[reg];
+#endif
 #else
     return this->fregs[reg];
 #endif

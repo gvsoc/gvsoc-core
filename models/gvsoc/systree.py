@@ -174,7 +174,7 @@ else:
             List of options of forms key=value which should overwrite component properties.
         """
 
-        def __init__(self, parent, name, options=None, target_name=None):
+        def __init__(self, parent: Component, name: str, tree=None, options=None, target_name=None):
             self.name = name
             self.parent = parent
             self.json_config_files = []
@@ -211,7 +211,7 @@ else:
             if parent is not None and isinstance(parent, Component):
                 parent.__add_component(name, self)
 
-        def set_target_name(self, name): pass
+        def set_target_name(self, name: str) -> None: pass
 
         def i_RESET(self) -> SlaveItf:
             return SlaveItf(self, 'reset', signature='wire<bool>')

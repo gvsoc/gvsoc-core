@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -51,13 +51,25 @@
 #define SIM_GET(index) insn->sim[index]
 #define UIM_GET(index) insn->uim[index]
 
-#ifdef ISS_SINGLE_REGFILE
-#define FREG_GET(reg) REG_GET(reg)
-#define FREG_OUT_GET(reg) (iss->regfile.get_reg(insn->out_regs[reg]))
-#define FREG_SET(reg,val) REG_SET(reg, val)
+#if defined(ISS_SINGLE_REGFILE) || defined(CONFIG_GVSOC_ISS_ZDINX) || defined(CONFIG_GVSOC_ISS_FDINX)
+#if defined(CONFIG_GVSOC_ISS_ZDINX)
+#define FREG_GET(reg) REG64_GET(reg)
 #else
+#define FREG_GET(reg) REG_GET(reg)
+#endif
+#define FREG_OUT_GET(reg) (iss->regfile.get_reg(insn->out_regs[reg]))
+#if defined(CONFIG_GVSOC_ISS_ZDINX)
+#define FREG_SET(reg,val) REG64_SET(reg, val)
+#else
+#define FREG_SET(reg,val) REG_SET(reg, val)
+#endif
+#define FREG32_GET(reg) REG_GET(reg)
+#define FREG32_SET(reg,val) REG_SET(reg, val)
+#else
+#define FREG32_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))
 #define FREG_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))
 #define FREG_OUT_GET(reg) (iss->regfile.get_freg(insn->out_regs[reg]))
+#define FREG32_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
 #define FREG_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
 #endif
 

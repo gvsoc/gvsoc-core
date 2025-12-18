@@ -133,6 +133,11 @@ static inline iss_reg_t csrrwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     iss_reg_t value;
 
     CsrAbtractReg *csr = iss->csr.get_csr(UIM_GET(0));
+    if (csr)
+    {
+        return csr->handle(iss, insn, pc, UIM_GET(1));
+    }
+
     if (csr && !csr->check_access(iss, true, true))
     {
         return pc;

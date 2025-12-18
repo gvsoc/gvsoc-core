@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+from dataclasses import fields
 import logging
 import gvsoc.json_tools as js
 import collections
@@ -165,8 +166,8 @@ class Component(gvrun.target.SystemTreeNode):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent, name, options=None):
-        super().__init__(name, parent=parent)
+    def __init__(self, parent: Component, name: str, tree=None, options=None):
+        super().__init__(name, parent=parent, tree=tree)
         self.parent = parent
         self.components = {}
         self.properties = {}
@@ -184,6 +185,13 @@ class Component(gvrun.target.SystemTreeNode):
 
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
+
+        if tree is not None:
+            for f in fields(tree):
+                value = getattr(tree, f.name)
+                if isinstance(value, (int, bool, str)):
+                    self.add_property(f.name, value)
+
 
     def generate(self, builddir):
         pass

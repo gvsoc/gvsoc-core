@@ -167,7 +167,7 @@ class Component(RunnerComponent):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent, name, options=None, target_name=None):
+    def __init__(self, parent: Component, name: str, options=None, target_name=None):
         super().__init__(name, parent=parent, target_name=target_name)
         self.parent = parent
         self.components = {}

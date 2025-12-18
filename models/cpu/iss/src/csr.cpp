@@ -1680,7 +1680,7 @@ const char *iss_csr_name(Iss *iss, iss_reg_t reg)
     }
 #endif
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP_REGS)
     if (reg == CSR_HWLOOP0_START)
     {
       return "hwloop0_start";

@@ -77,6 +77,7 @@ static inline iss_reg_t iss_exec_stalled_insn(Iss *iss, iss_insn_t *insn, iss_re
 
 inline int64_t Exec::get_cycles()
 {
+    // printf("stall cycles:%d\n", this->stall_cycles);
     return this->iss.top.clock.get_cycles() + this->stall_cycles;
 }
 
@@ -117,6 +118,7 @@ inline void Exec::insn_hold(vp::ClockEventMeth *meth)
 inline void Exec::insn_resume()
 {
     // Instruction execution can go on
+    // this->trace.msg("[include/exec/exec_inorder_implem.hpp] (addr: 0x%x) insn_resume\n", this->iss.exec.current_insn);
     this->insn_on_hold = false;
     this->instr_event.set_callback(&Exec::exec_instr_check_all);
 }
@@ -196,7 +198,7 @@ inline void Exec::stalled_dec()
 
 inline void Exec::insn_exec_profiling()
 {
-    this->trace.msg("Executing instruction (addr: 0x%x)\n", this->iss.exec.current_insn);
+    this->trace.msg("[include/exec/exec_inorder_implem.hpp] Executing instruction (addr: 0x%x)\n", this->iss.exec.current_insn);
     if (this->iss.timing.pc_trace_event.get_event_active())
     {
         this->iss.timing.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn);

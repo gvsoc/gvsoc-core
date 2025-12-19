@@ -255,9 +255,11 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     Iss *iss = (Iss *)__this;
     Exec *_this = &iss->exec;
 
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "[src/exec/exec_inorder.cpp - PRE STALL] (pc: 0x%lx) stall: %d\n", iss->exec.current_insn, iss->exec.stall_cycles);
+
     if (iss->exec.handle_stall_cycles()) return;
 
-    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
+    _this->trace.msg(vp::Trace::LEVEL_TRACE, "[src/exec/exec_inorder.cpp] Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
     if(_this->pending_flush)
     {

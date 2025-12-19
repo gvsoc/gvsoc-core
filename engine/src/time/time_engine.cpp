@@ -302,6 +302,7 @@ bool vp::TimeEngine::enqueue(vp::Block *client, int64_t full_time)
 {
     bool update = false;
 
+    full_time = (full_time < get_time())? get_time(): full_time;
     vp_assert(full_time >= get_time(), NULL, "Time must be higher than current time\n");
 
     if (client->time.is_running())

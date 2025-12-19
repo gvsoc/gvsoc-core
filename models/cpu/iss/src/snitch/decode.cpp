@@ -530,7 +530,7 @@ int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
 
 static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss->decode.trace.msg("Executing illegal instruction\n");
+    iss->decode.trace.fatal("Executing illegal instruction (pc: 0x%lx, opcode: 0x%lx)\n", pc, insn->opcode);
     iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
     return pc;
 }

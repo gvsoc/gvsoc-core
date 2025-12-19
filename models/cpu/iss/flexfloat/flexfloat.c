@@ -537,6 +537,22 @@ INLINE void ff_add(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     #endif
 }
 
+#include <math.h>
+
+INLINE void ff_exp(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b) {
+    assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
+           (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
+    dest->value = (fp_t)exp((double)a->value);
+    #ifdef FLEXFLOAT_TRACKING
+    dest->exact_value = (fp_t)exp((double)a->exact_value);
+    if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);
+    #endif
+    flexfloat_sanitize(dest);
+    #ifdef FLEXFLOAT_STATS
+    if(StatsEnabled) getOpStats(dest->desc)->add += 1;
+    #endif
+}
+
 INLINE void ff_sub(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b) {
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
@@ -555,6 +571,7 @@ INLINE void ff_mul(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits));
     dest->value = a->value * b->value;
+    // printf("dest: %lf, a: %lf, b: %lf\n", dest->value, a->value, b->value);
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = a->exact_value * b->exact_value;
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);

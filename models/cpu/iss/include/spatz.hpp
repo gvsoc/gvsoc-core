@@ -29,9 +29,9 @@ typedef uint8_t iss_Vel_t;
 #define ISS_NB_VREGS 32
 //#define NB_VEL VLEN/SEW
 //#define NB_VEL 256/8
-#define NB_VEL 2048/8//???????????????????????
+#define NB_VEL 16384/8//???????????????????????
 //#define VLMAX NB_VEL*iss->spatz.LMUL
-#define VLMAX (int)((2048*LMUL)/SEW)
+#define VLMAX (int)((16384*LMUL)/SEW)
 
 #define XLEN = ISS_REG_WIDTH
 #define FLEN = ISS_REG_WIDTH
@@ -86,7 +86,7 @@ public:
     Vlsu(Iss &iss);
     void build();
 
-    vp::IoMaster io_itf[4];
+    vp::IoMaster io_itf[CONFIG_GVSOC_ISS_SPATZ_VLSU];
     vp::IoReq io_req;
     vp::ClockEvent *event;
     int io_retval;
@@ -95,6 +95,7 @@ public:
     uint8_t *io_pending_data;
     bool io_pending_is_write;
     bool waiting_io_response;
+    uint64_t next_io;
 
 private:
     Iss &iss;
@@ -133,6 +134,23 @@ public:
 
     VRegfile vregfile;
     Vlsu vlsu;
+    vp::Trace trace;
+    uint64_t last_stamp;
+    uint64_t runtime;
+
+    // Additional scoreboard for WAR
+    uint64_t reg_war_score_board [ISS_NB_VREGS];
+    //Scoreboard
+    uint64_t reg_score_board [ISS_NB_VREGS];
+    uint64_t unit_score_board [3]; //fpu, slide, vlsu
+    uint64_t max_vlsu_latency;
+    uint64_t timing_insn(iss_insn_t *insn, int uint_id, int vd, int vs1, int vs2, uint64_t latency, uint64_t timestamp);
+
+    // N:M format configuration e.g, {1:2, 1:4, 2:4, 1:8, 2:8, 4:8, 1:16}
+    uint8_t nm_config_n;  
+    uint8_t nm_config_m;
+    uint8_t nm_config_idx_bits;
+    float vreg_gather_eff;
 
 };
 

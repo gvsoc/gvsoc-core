@@ -174,7 +174,7 @@ else:
             List of options of forms key=value which should overwrite component properties.
         """
 
-        def __init__(self, parent: Component, name: str, tree=None, options=None, target_name=None):
+        def __init__(self, parent: 'Component', name: str, tree=None, options=None, target_name=None):
             self.name = name
             self.parent = parent
             self.json_config_files = []

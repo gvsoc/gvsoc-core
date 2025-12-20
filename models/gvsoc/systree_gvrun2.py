@@ -166,7 +166,7 @@ class Component(gvrun.target.SystemTreeNode):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent: Component, name: str, tree=None, options=None):
+    def __init__(self, parent: 'Component', name: str, tree=None, options=None):
         super().__init__(name, parent=parent, tree=tree)
         self.parent = parent
         self.components = {}

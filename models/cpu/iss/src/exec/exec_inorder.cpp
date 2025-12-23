@@ -181,16 +181,30 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         if (insn == NULL) return;
 
         #if defined(CONFIG_GVSOC_ISS_EXEC_SCOREBOARD)
+        // Since the instruction may be not decoded yet and will be once the handler is executed,
+        // we need to make sure it is decoded before checking arguments
         if (!iss->insn_cache.insn_is_decoded(insn))
         {
             iss->decode.decode_pc(insn, insn->addr);
         }
 
+        // Note that for now only LSU instructions are invalidating registers since the others
+        // are immediately executed. This would need to be extended if other instructions are
+        // asynchronous.
         for (int i=0; i<insn->nb_in_reg; i++)
         {
             if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
             {
-                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to input register dependency (reg: %d)\n", insn->in_regs[i]);
+                return;
+            }
+        }
+        // Also stall on output registers so that they are written in same order
+        for (int i=0; i<insn->nb_out_reg; i++)
+        {
+            if (iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] == -1)
+            {
+                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to output register dependency (reg: %d)\n", insn->out_regs[i]);
                 return;
             }
         }
@@ -322,16 +336,30 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         if (insn == NULL) return;
 
         #if defined(CONFIG_GVSOC_ISS_EXEC_SCOREBOARD)
+        // Since the instruction may be not decoded yet and will be once the handler is executed,
+        // we need to make sure it is decoded before checking arguments
         if (!iss->insn_cache.insn_is_decoded(insn))
         {
             iss->decode.decode_pc(insn, insn->addr);
         }
 
+        // Note that for now only LSU instructions are invalidating registers since the others
+        // are immediately executed. This would need to be extended if other instructions are
+        // asynchronous.
         for (int i=0; i<insn->nb_in_reg; i++)
         {
             if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
             {
                 _this->trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+                return;
+            }
+        }
+        // Also stall on output registers so that they are written in same order
+        for (int i=0; i<insn->nb_out_reg; i++)
+        {
+            if (iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] == -1)
+            {
+                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to output register dependency (reg: %d)\n", insn->out_regs[i]);
                 return;
             }
         }

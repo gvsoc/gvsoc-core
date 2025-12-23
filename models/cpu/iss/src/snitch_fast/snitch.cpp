@@ -26,8 +26,11 @@
 Iss::Iss(IssWrapper &top)
     : prefetcher(*this), exec(top, *this), insn_cache(*this), decode(*this), timing(*this), core(*this), irq(*this),
       gdbserver(*this), lsu(top, *this), dbgunit(*this), syscalls(top, *this), trace(*this), csr(*this),
-      regfile(top, *this), exception(*this), sequencer(top, *this),
+      regfile(top, *this), exception(*this),
       memcheck(top, *this), top(top), fpu_lsu(top, *this)
+#if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+      , sequencer(top, *this)
+#endif
 
 #if defined(CONFIG_GVSOC_ISS_SSR)
       , ssr(top, *this)

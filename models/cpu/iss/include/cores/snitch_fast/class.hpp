@@ -57,7 +57,9 @@
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include <cpu/iss/include/cores/spatz/fpu_sequencer.hpp>
 #else
+#if defined(CONFIG_GVSOC_ISS_SEQUENCER)
 #include <cpu/iss/include/cores/snitch_fast/sequencer.hpp>
+#endif
 #endif
 #include <cpu/iss/include/cores/snitch_fast/fpu_lsu.hpp>
 
@@ -102,7 +104,9 @@ public:
 #if defined(CONFIG_GVSOC_ISS_SSR)
     Ssr ssr;
 #endif
+#if defined(CONFIG_GVSOC_ISS_SEQUENCER)
     Sequencer sequencer;
+#endif
     FpuLsu fpu_lsu;
 
     CsrReg csr_fmode;

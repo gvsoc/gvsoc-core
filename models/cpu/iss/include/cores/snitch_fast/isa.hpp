@@ -28,7 +28,11 @@
 
 static inline iss_reg_t flb_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_IN(0), base + SIM_GET(0));
     iss->fpu_lsu.load_float<uint8_t>(insn, base + SIM_GET(0), 1, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
@@ -36,7 +40,11 @@ static inline iss_reg_t flb_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t fsb_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_OUT(0), base + SIM_GET(0));
     iss->fpu_lsu.store_float<uint8_t>(insn, base + SIM_GET(0), 1, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
@@ -44,7 +52,11 @@ static inline iss_reg_t fsb_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t flh_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_IN(0), base + SIM_GET(0));
     iss->fpu_lsu.load_float<uint16_t>(insn, base + SIM_GET(0), 2, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
@@ -52,7 +64,11 @@ static inline iss_reg_t flh_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t fsh_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_OUT(0), base + SIM_GET(0));
     iss->fpu_lsu.store_float<uint16_t>(insn, base + SIM_GET(0), 2, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
@@ -60,7 +76,11 @@ static inline iss_reg_t fsh_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t flw_snitch_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     if (iss->fpu_lsu.load_float<uint32_t>(insn, base + SIM_GET(0), 4, REG_OUT(0)))
     {
         return pc;
@@ -70,7 +90,11 @@ static inline iss_reg_t flw_snitch_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t flw_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_IN(0), base + SIM_GET(0));
     if (iss->fpu_lsu.load_float_perf<uint32_t>(insn, base + SIM_GET(0), 4, REG_OUT(0)))
     {
@@ -81,7 +105,11 @@ static inline iss_reg_t flw_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t fsw_snitch_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     if (iss->csr.mstatus.fs == 0)
     {
         iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
@@ -96,7 +124,11 @@ static inline iss_reg_t fsw_snitch_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg
 
 static inline iss_reg_t fsw_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     if (iss->csr.mstatus.fs == 0)
     {
         iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
@@ -112,14 +144,22 @@ static inline iss_reg_t fsw_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t fld_snitch_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->fpu_lsu.load_float<uint64_t>(insn, base + SIM_GET(0), 8, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fld_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_IN(0), base + SIM_GET(0));
     iss->fpu_lsu.load_float_perf<uint64_t>(insn, base + SIM_GET(0), 8, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
@@ -127,14 +167,22 @@ static inline iss_reg_t fld_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t fsd_snitch_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->fpu_lsu.store_float<uint64_t>(insn, base + SIM_GET(0), 8, REG_IN(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fsd_snitch_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #if defined(CONFIG_GVSOC_ISS_SEQUENCER)
+        iss_reg_t base = iss->sequencer.lsu_pop_base();
+    #else
+        iss_reg_t base = REG_GET(0);
+    #endif
     iss->lsu.stack_access_check(REG_OUT(0), base + SIM_GET(0));
     iss->fpu_lsu.store_float_perf<uint64_t>(insn, base + SIM_GET(0), 8, REG_IN(1));
     return iss_insn_next(iss, insn, pc);

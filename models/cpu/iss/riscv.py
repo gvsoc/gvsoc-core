@@ -77,8 +77,6 @@ class RiscvCommon(st.Component):
         starts it (default: False).
     boot_addr : int, optional
         Address of the first instruction (default: 0)
-    vector_chaining: bool, optional
-        True if vector unit should use vector chaining
 
     """
 
@@ -119,7 +117,6 @@ class RiscvCommon(st.Component):
             float_lib='flexfloat',
             stack_checker=False,
             nb_outstanding=1,
-            vector_chaining: bool=False,
             single_regfile: bool=False,
             zfinx: bool=False,
             zdinx: bool=False,
@@ -240,9 +237,6 @@ class RiscvCommon(st.Component):
 
         if zfinx:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_ZFINX=1'])
-
-        if vector_chaining:
-            self.add_c_flags([f'-DCONFIG_GVSOC_ISS_VECTOR_CHAINING=1'])
 
         if user:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_USER_MODE=1'])

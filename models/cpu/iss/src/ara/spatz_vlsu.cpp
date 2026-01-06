@@ -262,11 +262,9 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
                 }
 
-#ifdef CONFIG_GVSOC_ISS_VECTOR_CHAINING
                 // In case chaining is enabled, notify that some elements has been handled as it
                 // might start an instruction
                 _this->ara.insn_commit(_this->pending_vreg, req->get_size());
-#endif
             }
         }
 

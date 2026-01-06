@@ -2062,10 +2062,7 @@ static inline iss_reg_t vfmv_s_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
 
-    uint64_t value = LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, FREG_GET(0), CONFIG_GVSOC_ISS_FP_EXP, CONFIG_GVSOC_ISS_FP_MANT,
-        iss->vector.exp, iss->vector.mant, 7);
-
-    velem_set_value(iss, REG_IN(0), 0, sewb, value);
+    velem_set_value(iss, REG_OUT(0), 0, sewb, FREG_GET(0));
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -2075,8 +2072,9 @@ static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.LMUL_t;
     uint64_t in = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
-    FREG_SET(0, LIB_FF_CALL4(lib_flexfloat_cvt_ff_ff_round, in, iss->vector.exp, iss->vector.mant,
-        CONFIG_GVSOC_ISS_FP_EXP, CONFIG_GVSOC_ISS_FP_MANT, 7));
+
+    FREG_SET(0, in);
+
     return iss_insn_next(iss, insn, pc);
 }
 

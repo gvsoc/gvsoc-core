@@ -264,7 +264,6 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             iss_addr_t pc = pending_insn->pc;
             bool stalled = false;
 
-            #ifdef CONFIG_GVSOC_ISS_VECTOR_CHAINING
             // First check if the instruction can be chained
             for (int i=0; i<insn->nb_in_reg; i++)
             {
@@ -279,7 +278,6 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     }
                 }
             }
-            #endif
 
             // Don't start if an input register is being written unless vector chaining is enabled
             // and some elements have alreay been committed

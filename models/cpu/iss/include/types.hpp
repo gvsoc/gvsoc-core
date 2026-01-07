@@ -506,6 +506,7 @@ public:
     iss_reg_t pc;
     uint64_t reg;
     uint64_t reg_2;
+    uint64_t reg_3;
     bool done;
     // True if the instruction is currently being chained.
     bool chained;

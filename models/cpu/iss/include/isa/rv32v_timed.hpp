@@ -26,40 +26,30 @@
 #define VTYPE_VALUE 0x80000000
 #endif
 
-#define SEW iss->vector.SEW_t
-#define LMUL iss->vector.LMUL_t
-#define VL iss->csr.vl.value
-#define VSTART iss->csr.vstart.value
-
 static inline iss_reg_t vlmax_get(Iss *iss)
 {
-    return iss->vector.VLEN / 8 * iss->vector.LMUL_t / iss->vector.sewb;
+    return iss->vector.VLEN / 8 * iss->vector.lmul / iss->vector.sewb;
 }
 
-static inline void EMCase(int sew, uint8_t *m, uint8_t *e){
-    switch (sew){
-    case 8:{
-        *e = 5;
-        *m = 2;
-        break;
-    }
-    case 16:{
-        *e = 5;
-        *m = 10;
-        break;
-    }
-    case 32:{
-        *e = 8;
-        *m = 23;
-        break;
-    }
-    case 64:{
-        *e = 11;
-        *m = 52;
-        break;
-    }
-    default:
-        break;
+static inline void extract_format(int sew, uint8_t *m, uint8_t *e){
+    switch (sew)
+    {
+        case 8:
+            *e = 5;
+            *m = 2;
+            break;
+        case 16:
+            *e = 5;
+            *m = 10;
+            break;
+        case 32:
+            *e = 8;
+            *m = 23;
+            break;
+        case 64:
+            *e = 11;
+            *m = 52;
+            break;
     }
 }
 
@@ -315,7 +305,7 @@ static inline iss_reg_t vmulhsu_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vmerge_vvm_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -329,7 +319,7 @@ static inline iss_reg_t vmerge_vvm_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vmv_v_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -561,7 +551,7 @@ static inline iss_reg_t vslideup_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
     unsigned int reg_in = REG_IN(1);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     iss_reg_t offset = RVV_REG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -584,7 +574,7 @@ static inline iss_reg_t vslideup_vi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
     unsigned int reg_in = REG_IN(0);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     iss_reg_t offset = UIM_GET(1);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -607,7 +597,7 @@ static inline iss_reg_t vslidedown_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     unsigned int reg_in = REG_IN(1);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     iss_reg_t offset = RVV_REG_GET(0);
     uint64_t zero = 0;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
@@ -629,7 +619,7 @@ static inline iss_reg_t vslidedown_vi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     unsigned int reg_in = REG_IN(0);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     iss_reg_t offset = UIM_GET(1);
     uint64_t zero = 0;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
@@ -651,7 +641,7 @@ static inline iss_reg_t vslide1up_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
     unsigned int reg_in = REG_IN(1);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t last_elem = convert_scalar_to_vector(RVV_REG_GET(0), sewb * 8);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -674,7 +664,7 @@ static inline iss_reg_t vslide1down_vx_exec(Iss *iss, iss_insn_t *insn, iss_reg_
     unsigned int reg_in = REG_IN(1);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t last_elem = convert_scalar_to_vector(RVV_REG_GET(0), sewb * 8);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -982,49 +972,49 @@ static inline iss_reg_t vsuxei64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
 static inline iss_reg_t vlse8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vlse16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vlse32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vlse64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsse8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsse16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsse32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsse64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1033,7 +1023,7 @@ static inline iss_reg_t vfslide1down_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg
     unsigned int reg_in = REG_IN(1);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t last_elem = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1056,7 +1046,7 @@ static inline iss_reg_t vfslide1up_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     unsigned int reg_in = REG_IN(1);
     unsigned int reg_out = REG_OUT(0);
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t last_elem = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1077,7 +1067,7 @@ static inline iss_reg_t vfslide1up_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t vfadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1095,7 +1085,7 @@ static inline iss_reg_t vfadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1112,7 +1102,7 @@ static inline iss_reg_t vfadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1130,7 +1120,7 @@ static inline iss_reg_t vfsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1147,7 +1137,7 @@ static inline iss_reg_t vfsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfrsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1165,7 +1155,7 @@ static inline iss_reg_t vfrsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmin_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1183,7 +1173,7 @@ static inline iss_reg_t vfmin_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmin_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1200,7 +1190,7 @@ static inline iss_reg_t vfmin_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmax_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1218,7 +1208,7 @@ static inline iss_reg_t vfmax_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmax_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1235,7 +1225,7 @@ static inline iss_reg_t vfmax_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1253,7 +1243,7 @@ static inline iss_reg_t vfmul_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmul_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1270,7 +1260,7 @@ static inline iss_reg_t vfmul_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1289,7 +1279,7 @@ static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1307,7 +1297,7 @@ static inline iss_reg_t vfmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfnmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1326,7 +1316,7 @@ static inline iss_reg_t vfnmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfnmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1344,7 +1334,7 @@ static inline iss_reg_t vfnmacc_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfmsac_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1363,7 +1353,7 @@ static inline iss_reg_t vfmsac_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmsac_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1381,7 +1371,7 @@ static inline iss_reg_t vfmsac_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfnmsac_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1400,7 +1390,7 @@ static inline iss_reg_t vfnmsac_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfnmsac_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1418,7 +1408,7 @@ static inline iss_reg_t vfnmsac_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfmadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1437,7 +1427,7 @@ static inline iss_reg_t vfmadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1455,7 +1445,7 @@ static inline iss_reg_t vfmadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfnmadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1474,7 +1464,7 @@ static inline iss_reg_t vfnmadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfnmadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1492,7 +1482,7 @@ static inline iss_reg_t vfnmadd_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfmsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1511,7 +1501,7 @@ static inline iss_reg_t vfmsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1529,7 +1519,7 @@ static inline iss_reg_t vfmsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfnmsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1548,7 +1538,7 @@ static inline iss_reg_t vfnmsub_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfnmsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1566,7 +1556,7 @@ static inline iss_reg_t vfnmsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfredmax_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1583,7 +1573,7 @@ static inline iss_reg_t vfredmax_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 static inline iss_reg_t vfredmin_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1600,7 +1590,7 @@ static inline iss_reg_t vfredmin_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 static inline iss_reg_t vfredusum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1617,7 +1607,7 @@ static inline iss_reg_t vfredusum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 static inline iss_reg_t vfredosum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1730,7 +1720,7 @@ static inline iss_reg_t vfwnmsac_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 static inline iss_reg_t vfsgnj_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
@@ -1744,7 +1734,7 @@ static inline iss_reg_t vfsgnj_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfsgnj_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1758,7 +1748,7 @@ static inline iss_reg_t vfsgnj_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfsgnjn_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
@@ -1772,7 +1762,7 @@ static inline iss_reg_t vfsgnjn_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfsgnjn_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1786,7 +1776,7 @@ static inline iss_reg_t vfsgnjn_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfsgnjx_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
@@ -1800,7 +1790,7 @@ static inline iss_reg_t vfsgnjx_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfsgnjx_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
@@ -1814,7 +1804,7 @@ static inline iss_reg_t vfsgnjx_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 static inline iss_reg_t vfcvt_xu_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1830,7 +1820,7 @@ static inline iss_reg_t vfcvt_xu_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 static inline iss_reg_t vfcvt_x_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1846,7 +1836,7 @@ static inline iss_reg_t vfcvt_x_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 static inline iss_reg_t vfcvt_f_xu_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1862,7 +1852,7 @@ static inline iss_reg_t vfcvt_f_xu_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 static inline iss_reg_t vfcvt_f_x_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1878,7 +1868,7 @@ static inline iss_reg_t vfcvt_f_x_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 static inline iss_reg_t vfcvt_rtz_xu_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1894,7 +1884,7 @@ static inline iss_reg_t vfcvt_rtz_xu_f_v_exec(Iss *iss, iss_insn_t *insn, iss_re
 static inline iss_reg_t vfcvt_rtz_x_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1910,9 +1900,9 @@ static inline iss_reg_t vfcvt_rtz_x_f_v_exec(Iss *iss, iss_insn_t *insn, iss_reg
 static inline iss_reg_t vfncvt_xu_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint8_t mant, exp;
-    EMCase(sewb * 2 * 8, &mant, &exp);
+    extract_format(sewb * 2 * 8, &mant, &exp);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1928,9 +1918,9 @@ static inline iss_reg_t vfncvt_xu_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 
 static inline iss_reg_t vfncvt_x_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {    unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint8_t mant, exp;
-    EMCase(sewb * 2 * 8, &mant, &exp);
+    extract_format(sewb * 2 * 8, &mant, &exp);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1948,7 +1938,7 @@ static inline iss_reg_t vfncvt_x_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 static inline iss_reg_t vfncvt_f_xu_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1964,7 +1954,7 @@ static inline iss_reg_t vfncvt_f_xu_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
 static inline iss_reg_t vfncvt_f_x_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1980,9 +1970,9 @@ static inline iss_reg_t vfncvt_f_x_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 static inline iss_reg_t vfncvt_f_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint8_t mant, exp;
-    EMCase(sewb * 2 * 8, &mant, &exp);
+    extract_format(sewb * 2 * 8, &mant, &exp);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -2004,9 +1994,9 @@ static inline iss_reg_t vfncvt_rod_f_f_w_exec(Iss *iss, iss_insn_t *insn, iss_re
 static inline iss_reg_t vfncvt_rtz_xu_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint8_t mant, exp;
-    EMCase(sewb * 2 * 8, &mant, &exp);
+    extract_format(sewb * 2 * 8, &mant, &exp);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -2023,9 +2013,9 @@ static inline iss_reg_t vfncvt_rtz_xu_f_w_exec(Iss *iss, iss_insn_t *insn, iss_r
 static inline iss_reg_t vfncvt_rtz_x_f_w_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint8_t mant, exp;
-    EMCase(sewb * 2 * 8, &mant, &exp);
+    extract_format(sewb * 2 * 8, &mant, &exp);
     for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -2060,7 +2050,7 @@ static inline iss_reg_t vfmv_v_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmv_s_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
 
     velem_set_value(iss, REG_OUT(0), 0, sewb, FREG_GET(0));
 
@@ -2070,7 +2060,7 @@ static inline iss_reg_t vfmv_s_f_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
     uint64_t in = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
 
     FREG_SET(0, in);
@@ -2078,17 +2068,17 @@ static inline iss_reg_t vfmv_f_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, iss_uim_t lmul, iss_uim_t sew, iss_uim_t vtype){
+static inline iss_reg_t vsetvl_handle(Iss *iss, int idxRs1, int idxRd, iss_reg_t avl, iss_uim_t lmul, iss_uim_t sew, iss_uim_t vtype){
     uint32_t AVL;
 
     if((int)(vtype/pow(2,31))){
         iss->csr.vtype.value = VTYPE_VALUE;
-        VL = 0;
+        iss->csr.vl.value = 0;
         AVL = 0;
         return 0;
     }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
         iss->csr.vtype.value = VTYPE_VALUE;
-        VL = 0;
+        iss->csr.vl.value = 0;
         AVL = 0;
         return 0;
     }else{
@@ -2096,71 +2086,56 @@ static inline iss_reg_t lib_VSETVLI(Iss *iss, int idxRs1, int idxRd, int rs1, is
     }
 
 
-        VSTART = 0;
-        SEW = iss->vector.SEW_VALUES[sew];
-        LMUL = iss->vector.LMUL_VALUES[lmul];
-        iss->vector.sewb = 1 << sew;
-        EMCase(iss->vector.sewb * 8, &iss->vector.mant, &iss->vector.exp);
+    iss->csr.vstart.value = 0;
+    iss->vector.sew = iss->vector.SEW_VALUES[sew];
+    iss->vector.lmul = iss->vector.LMUL_VALUES[lmul];
+    iss->vector.sewb = 1 << sew;
+    extract_format(iss->vector.sewb * 8, &iss->vector.mant, &iss->vector.exp);
 
-        if(idxRs1){
-            AVL = rs1;
-            VL = MIN(AVL,vlmax_get(iss));
-        }else if(!idxRs1 && idxRd){
-            AVL = UINT32_MAX;
-            VL  = vlmax_get(iss);
-        }else{
-            AVL = VL;
+    // Only update VL if an output register is specified (required by specs)
+    if (idxRd)
+    {
+        int vlmax = vlmax_get(iss);
+
+        if (idxRs1)
+        {
+            if (avl > vlmax)
+            {
+                if (avl < vlmax / 2)
+                {
+                    // The specs says to take ceil(avl/2) in this case
+                    avl = (avl + 1) >> 1;
+                }
+                else
+                {
+                    // Otherwise just take the max
+                    avl = vlmax_get(iss);
+                }
+            }
+        }
+        else
+        {
+            // If no avl was specified, take the max
+            avl = vlmax_get(iss);
         }
 
-    return VL;
-}
-
-static inline iss_reg_t lib_VSETVL(Iss *iss, int idxRs1, int idxRd, int rs1, int rs2){
-
-    uint32_t AVL;
-
-
-    iss->csr.vtype.value = rs2;
-    int sew = (rs2/8)%8;
-    int lmul = rs2%8;
-    if((int)(rs2/pow(2,31))){
-        iss->csr.vtype.value = VTYPE_VALUE;
-        VL = 0;
-        AVL = 0;
-        return 0;
-    }else if((lmul==5 && (sew == 1 || sew == 2 || sew ==3)) || (lmul==6 && (sew == 2 || sew ==3)) || (lmul==7 && sew==3)){
-        iss->csr.vtype.value = VTYPE_VALUE;
-        VL = 0;
-        AVL = 0;
-        return 0;
-    }else{
-        iss->csr.vtype.value = rs2;
-        VSTART = 0;
-        SEW = iss->vector.SEW_VALUES[sew];
-        LMUL = iss->vector.LMUL_VALUES[lmul];
-
-        if(idxRs1){
-            AVL = rs1;
-            VL = MIN(AVL,vlmax_get(iss));
-        }else if(!idxRs1 && idxRd){
-            AVL = UINT32_MAX;
-            VL  = vlmax_get(iss);
-        }else{
-            AVL = VL;
-        }
-
-    return VL;
+        iss->csr.vl.value = avl;
     }
+
+    return iss->csr.vl.value;
 }
 
 static inline iss_reg_t vsetvli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_CALL6(lib_VSETVLI, REG_IN(0), REG_OUT(0), RVV_REG_GET(0), UIM_GET(0), UIM_GET(1), UIM_GET(2)));// VLMUL-VSEW
+    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->ara.current_insn_reg_get(), UIM_GET(0), UIM_GET(1), UIM_GET(2)));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsetvl_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    REG_SET(0, LIB_CALL4(lib_VSETVL, REG_IN(0), REG_OUT(0), REG_GET(0), iss->ara.current_insn_reg_2_get()));
+    iss_reg_t vtype = iss->ara.current_insn_reg_2_get();
+    int lmul = (vtype >> 0) & 0x7;
+    int sew = (vtype >> 3) & 0x7;
+    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->ara.current_insn_reg_get(), lmul, sew, vtype));
     return iss_insn_next(iss, insn, pc);
 }

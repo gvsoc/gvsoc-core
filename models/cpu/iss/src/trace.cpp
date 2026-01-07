@@ -257,7 +257,7 @@ static char *dump_vector(Iss *iss, char *buff, int reg, bool is_float, uint8_t *
     buff += sprintf(buff, "[");
 
     int width = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
 
     for (int i=CONFIG_ISS_VLEN/8/width*lmul - 1; i>=0; i--)
     {
@@ -694,7 +694,7 @@ static void iss_trace_save_varg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn
 {
 #ifdef CONFIG_ISS_HAS_VECTOR
     int width = iss->vector.sewb;
-    unsigned int lmul = iss->vector.LMUL_t;
+    unsigned int lmul = iss->vector.lmul;
 
     if (save_out && arg->type == ISS_DECODER_ARG_TYPE_OUT_REG ||
             !save_out && arg->type == ISS_DECODER_ARG_TYPE_IN_REG)

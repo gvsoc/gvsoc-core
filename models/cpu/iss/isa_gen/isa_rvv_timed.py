@@ -90,6 +90,22 @@ Format_OPV_8 = [
     UnsignedImm  (0, Range(25, 1)),
 ]
 
+V_XXUU = [
+    OutVReg      (0, Range(7 , 5)),
+    InReg        (0, Range(15, 5)),
+    InReg        (1, Range(20, 5)),
+    UnsignedImm  (0, Range(25, 1)),
+    UnsignedImm  (1, Range(12, 3)),
+]
+
+M_XXUU = [
+    InVReg     (1, Range(7 , 5)),
+    InReg      (0, Range(15, 5)),
+    InReg      (2, Range(20, 5)),
+    UnsignedImm(0, Range(25, 1)),
+    UnsignedImm(1, Range(12, 3)),
+]
+
 V_VXU = [
     OutVReg      (0, Range(7 , 5)),
     InVReg       (1, Range(20, 5)),
@@ -492,15 +508,15 @@ class Rv32v(IsaSubset):
             Instr('vsuxei32.v'       ,   Format_OPV  ,    '000 0 01 - ----- ----- 110 ----- 0100111', tags=['vstore']),
             Instr('vsuxei64.v'       ,   Format_OPV  ,    '000 0 01 - ----- ----- 111 ----- 0100111', tags=['vstore']),
 
-            Instr('vlse8.v'          ,   Format_OPV  ,    '000 0 10 - ----- ----- 000 ----- 0000111', tags=['vload']),# vd, (rs1), vm
-            Instr('vlse16.v'         ,   Format_OPV  ,    '000 0 10 - ----- ----- 101 ----- 0000111', tags=['vload']),
-            Instr('vlse32.v'         ,   Format_OPV  ,    '000 0 10 - ----- ----- 110 ----- 0000111', tags=['vload']),
-            Instr('vlse64.v'         ,   Format_OPV  ,    '000 0 10 - ----- ----- 111 ----- 0000111', tags=['vload']),
+            Instr('vlse8.v'          ,   V_XXUU ,    '000 0 10 - ----- ----- 000 ----- 0000111', tags=['vload']),# vd, (rs1), vm
+            Instr('vlse16.v'         ,   V_XXUU ,    '000 0 10 - ----- ----- 101 ----- 0000111', tags=['vload']),
+            Instr('vlse32.v'         ,   V_XXUU ,    '000 0 10 - ----- ----- 110 ----- 0000111', tags=['vload']),
+            Instr('vlse64.v'         ,   V_XXUU ,    '000 0 10 - ----- ----- 111 ----- 0000111', tags=['vload']),
 
-            Instr('vsse8.v'          ,   Format_OPV  ,    '000 0 10 - ----- ----- 000 ----- 0100111', tags=['vstore']),# vd, (rs1), vm
-            Instr('vsse16.v'         ,   Format_OPV  ,    '000 0 10 - ----- ----- 101 ----- 0100111', tags=['vstore']),
-            Instr('vsse32.v'         ,   Format_OPV  ,    '000 0 10 - ----- ----- 110 ----- 0100111', tags=['vstore']),
-            Instr('vsse64.v'         ,   Format_OPV  ,    '000 0 10 - ----- ----- 111 ----- 0100111', tags=['vstore']),
+            Instr('vsse8.v'          ,   M_XXUU  ,    '000 0 10 - ----- ----- 000 ----- 0100111', tags=['vstore']),# vd, (rs1), vm
+            Instr('vsse16.v'         ,   M_XXUU  ,    '000 0 10 - ----- ----- 101 ----- 0100111', tags=['vstore']),
+            Instr('vsse32.v'         ,   M_XXUU  ,    '000 0 10 - ----- ----- 110 ----- 0100111', tags=['vstore']),
+            Instr('vsse64.v'         ,   M_XXUU  ,    '000 0 10 - ----- ----- 111 ----- 0100111', tags=['vstore']),
 
 
             Instr('vl1r.v'       ,   Format_OPV  ,    '000 0 001 01000 ----- 000 ----- 0000111', tags=['vload']),# vd, (rs1), vm

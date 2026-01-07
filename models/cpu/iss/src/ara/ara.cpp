@@ -115,7 +115,8 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
     // Copy the CVA6 register since we will use it later and it will probably change before that
     int reg = insn->in_regs[0];
     int reg_2 = insn->in_regs[1];
-    uint64_t reg_value, reg_value_2;
+    int reg_3 = insn->in_regs[2];
+    uint64_t reg_value, reg_value_2, reg_value_3;
 
     if (insn->nb_in_reg > 0)
     {
@@ -141,6 +142,19 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
             reg_value_2 = this->iss.regfile.get_reg_untimed(reg_2);
         }
         pending_insn->reg_2 = reg_value_2;
+    }
+
+    if (insn->nb_in_reg > 2)
+    {
+        if (insn->in_regs_fp[2])
+        {
+            reg_value_3 = this->iss.regfile.get_freg_untimed(reg_3);
+        }
+        else
+        {
+            reg_value_3 = this->iss.regfile.get_reg_untimed(reg_3);
+        }
+        pending_insn->reg_3 = reg_value_3;
     }
 
     // Enable the FSM to let it handle the pending instructions

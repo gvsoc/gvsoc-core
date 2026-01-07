@@ -68,8 +68,8 @@ public:
 
 
     int   VLEN   = 256;
-    int   SEW_t    = SEW_VALUES[2];
-    float LMUL_t   = LMUL_VALUES[0];
+    int   sew    = SEW_VALUES[2];
+    float lmul   = LMUL_VALUES[0];
     bool  VMA    = 0;
     bool  VTA    = 0;
     // int   vstart = 0;

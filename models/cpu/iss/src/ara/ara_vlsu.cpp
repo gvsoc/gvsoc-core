@@ -104,7 +104,7 @@ void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
     // A load instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
     unsigned int sewb = _this->ara.iss.vector.sewb;
-    unsigned int lmul = _this->ara.iss.vector.LMUL_t;
+    unsigned int lmul = _this->ara.iss.vector.lmul;
     _this->pending_velem = velem_get(&_this->ara.iss, insn->out_regs[0], 0, sewb, lmul);
     _this->pending_addr = _this->insns[_this->insn_first_waiting].insn->reg;
     _this->pending_is_write = false;
@@ -117,7 +117,7 @@ void AraVlsu::handle_insn_store(AraVlsu *_this, iss_insn_t *insn)
     // A store instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
     unsigned int sewb = _this->ara.iss.vector.sewb;
-    unsigned int lmul = _this->ara.iss.vector.LMUL_t;
+    unsigned int lmul = _this->ara.iss.vector.lmul;
     _this->pending_velem = velem_get(&_this->ara.iss, insn->in_regs[1], 0, sewb, lmul);
     _this->pending_addr = _this->insns[_this->insn_first_waiting].insn->reg;
     _this->pending_is_write = true;

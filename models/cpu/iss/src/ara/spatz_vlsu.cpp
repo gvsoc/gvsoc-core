@@ -143,6 +143,14 @@ void AraVlsu::isa_init()
     {
         insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store_strided;
     }
+    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vload_indexed"))
+    {
+        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load_indexed;
+    }
+    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vstore_indexed"))
+    {
+        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store_indexed;
+    }
 }
 
 void AraVlsu::handle_insn_load_strided(AraVlsu *_this, iss_insn_t *insn)
@@ -155,7 +163,17 @@ void AraVlsu::handle_insn_store_strided(AraVlsu *_this, iss_insn_t *insn)
     _this->handle_access(insn, true, insn->in_regs[1], true, _this->insns[_this->insn_first_waiting].insn->reg_3);
 }
 
-void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride, iss_reg_t stride)
+void AraVlsu::handle_insn_load_indexed(AraVlsu *_this, iss_insn_t *insn)
+{
+    _this->handle_access(insn, false, insn->out_regs[0], false, 0, insn->in_regs[1]);
+}
+
+void AraVlsu::handle_insn_store_indexed(AraVlsu *_this, iss_insn_t *insn)
+{
+    _this->handle_access(insn, true, insn->in_regs[1], false, 0, insn->in_regs[2]);
+}
+
+void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride, iss_reg_t stride, int reg_indexed)
 {
     // A load or store instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
@@ -165,11 +183,15 @@ void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_st
     this->pending_velem = velem_get(&this->ara.iss, reg, 0, sewb, lmul);
     this->pending_addr = this->insns[this->insn_first_waiting].insn->reg;
     this->pending_is_write = is_write;
-    int elem_size = insn->uim[1] >= 5 ? 1 << (insn->uim[1] - 4) : 1 << 0;
+    int inst_elem_size = insn->uim[1] >= 5 ? 1 << (insn->uim[1] - 4) : 1 << 0;
+    int elem_size = reg_indexed != -1 ? sewb : inst_elem_size;
     this->pending_size = (this->ara.iss.csr.vl.value - this->ara.iss.csr.vstart.value) * elem_size;
     this->stride = stride;
     this->strided = do_stride;
     this->elem_size = elem_size;
+    this->inst_elem_size = inst_elem_size;
+    this->reg_indexed = reg_indexed;
+    this->pending_elem = 0;
 }
 
 void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
@@ -234,7 +256,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             {
                 uint64_t size;
 
-                if (_this->strided)
+                if (_this->strided ||  _this->reg_indexed != -1)
                 {
                     size = _this->elem_size;
                 }
@@ -256,7 +278,17 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                 req->prepare();
 
-                req->set_addr(_this->pending_addr);
+                iss_reg_t addr = _this->pending_addr;
+
+                if (_this->reg_indexed != -1)
+                {
+                    uint64_t offset = velem_get_value(&_this->ara.iss, _this->reg_indexed, _this->pending_elem,
+                        _this->inst_elem_size, _this->ara.iss.vector.lmul);
+                    addr += offset;
+                    _this->pending_elem++;
+                }
+
+                req->set_addr(addr);
                 req->set_is_write(_this->pending_is_write);
                 req->set_size(size);
 
@@ -277,7 +309,10 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 _this->req_queues[i]->push_back(req);
 
                 // Prepare the next burst
-                _this->pending_addr += _this->strided ? _this->stride : size;
+                if (_this->reg_indexed == -1)
+                {
+                    _this->pending_addr += _this->strided ? _this->stride : size;
+                }
                 _this->pending_size -= size;
                 _this->pending_velem += size;
 

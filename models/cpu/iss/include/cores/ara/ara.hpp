@@ -114,8 +114,14 @@ private:
     // Handler called when a strided write instruction starts to be processed, in order to
     // initialize the FSM for a write burst
     static void handle_insn_store_strided(AraVlsu *vlsu, iss_insn_t *insn);
+    // Handler called when an indexed load instruction starts to be processed, in order to initialize
+    // the FSM for a read burst
+    static void handle_insn_load_indexed(AraVlsu *vlsu, iss_insn_t *insn);
+    // Handler called when an indexed write instruction starts to be processed, in order to
+    // initialize the FSM for a write burst
+    static void handle_insn_store_indexed(AraVlsu *vlsu, iss_insn_t *insn);
 
-    void handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride=false, iss_reg_t stride=0);
+    void handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride=false, iss_reg_t stride=0, int reg_indexed=-1);
 
     // Number of instruction that can be enqueued at the same time
     static constexpr int queue_size = 4;
@@ -173,6 +179,9 @@ private:
     iss_reg_t stride;
     bool strided;
     int elem_size;
+    int reg_indexed;
+    int pending_elem;
+    int inst_elem_size;
 };
 
 #else

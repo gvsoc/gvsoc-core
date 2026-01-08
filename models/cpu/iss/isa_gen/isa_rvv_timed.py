@@ -150,6 +150,12 @@ V_VVU = [
     UnsignedImm (0, Range(25, 1)),
 ]
 
+V_VU = [
+    OutVReg     (0, Range(7 , 5)),
+    InVReg      (1, Range(20, 5)),
+    UnsignedImm (0, Range(25, 1)),
+]
+
 Format_OPV_9 = [
     OutVRegF     (0, Range(7 , 5)),
     InVReg       (0, Range(20, 5)),
@@ -399,6 +405,11 @@ class Rv32v(IsaSubset):
 
 
 
+
+            Instr('vfsqrt.v'      ,   V_VU         ,   '010011 - ----- 00000 001 ----- 1010111', tags=['fp_op']),
+
+            Instr('vfdiv.vv'      ,   Format_OPV_7  ,   '100000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfdiv.vf'      ,   Format_OPV_8 ,    '100000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfadd.vv'      ,   Format_OPV_7  ,    '000000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfadd.vf'      ,   Format_OPV_8 ,    '000000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),

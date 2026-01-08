@@ -1112,6 +1112,57 @@ static inline iss_reg_t vfslide1up_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     return iss_insn_next(iss, insn, pc);
 }
 
+static inline iss_reg_t vfdiv_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.lmul;
+    uint64_t in0 = RVV_FREG_GET(0);
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
+            uint64_t res = LIB_FF_CALL3(lib_flexfloat_div_round, in0, in1, iss->vector.exp, iss->vector.mant, 7);
+
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfdiv_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.lmul;
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
+            uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
+            uint64_t res = LIB_FF_CALL3(lib_flexfloat_div_round, in0, in1, iss->vector.exp, iss->vector.mant, 7);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vfsqrt_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    unsigned int sewb = iss->vector.sewb;
+    unsigned int lmul = iss->vector.lmul;
+    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    {
+        if (velem_is_active(iss, i, UIM_GET(0)))
+        {
+            uint64_t in = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
+            uint64_t res = LIB_FF_CALL2(lib_flexfloat_sqrt_round, in, iss->vector.exp, iss->vector.mant, 7);
+            velem_set_value(iss, REG_OUT(0), i, sewb, res);
+        }
+    }
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t vfadd_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;

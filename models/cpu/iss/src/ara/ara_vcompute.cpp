@@ -114,11 +114,12 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
        	_this->insns.pop();
 
         // Computes the duration of the instruction. The compute unit will process in each cycle
-        // a number of elements equal to the numbe of lanes.
+        // a number of elements equal to the numbe of lanes multiplied by the number of elements each FPU can
+        // handle.
         // Note that the number of elements already take into account lmul
         unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
             _this->ara.nb_lanes;
-        int64_t end_cyclestamp = _this->ara.iss.top.clock.get_cycles() + nb_elems;
+        int64_t end_cyclestamp = _this->ara.iss.top.clock.get_cycles() + nb_elems * _this->ara.iss.vector.sewb / 8;
 
         // Only assign the end timestamp if the instruction is not chained
         if (!_this->pending_insn->chained)

@@ -924,49 +924,97 @@ static inline iss_reg_t vs8r_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t vluxei8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vluxei16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vluxei32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vluxei64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsuxei8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsuxei16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsuxei32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t vsuxei64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    abort();
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vloxei8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vloxei16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vloxei32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vloxei64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vsoxei8_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vsoxei16_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vsoxei32_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
+    return iss_insn_next(iss, insn, pc);
+}
+
+static inline iss_reg_t vsoxei64_v_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // The instruction handler is empty as the VLSU block is taking care of the memory access
     return iss_insn_next(iss, insn, pc);
 }
 

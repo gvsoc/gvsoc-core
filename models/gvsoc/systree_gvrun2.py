@@ -32,6 +32,7 @@ from gvrun.parameter import TargetParameter
 
 
 generated_components = {}
+generated_target_files = {}
 
 
 class GeneratedComponent(object):
@@ -357,15 +358,20 @@ class Component(gvrun.target.SystemTreeNode):
             self.parent.bind(self, master_itf_name, slave_itf.component, slave_itf.itf_name)
 
     def regmap_gen(self, template, outdir, name, block=None, headers=['regfields', 'gvsoc']):
-        import regmap.regmap
-        import regmap.regmap_md
-        import regmap.regmap_c_header
-        outfile = f'{outdir}/{name}'
-        logging.debug(f'Generating regmap (template: {template}, file: {outfile}*)')
-        regmap_instance = regmap.regmap.Regmap(name)
-        regmap.regmap_md.import_md(regmap_instance, template, block=block)
-        regmap.regmap_c_header.dump_to_header(regmap=regmap_instance, name=name,
-            header_path=outfile, headers=headers)
+        # Only generate the archi file once for all instances
+        global generated_target_files
+        full_name = name + '_'.join(headers)
+        if generated_target_files.get(full_name) is None:
+            import regmap.regmap
+            import regmap.regmap_md
+            import regmap.regmap_c_header
+            generated_target_files[full_name] = True
+            outfile = f'{outdir}/{name}'
+            logging.debug(f'Generating regmap (template: {template}, file: {outfile}*)')
+            regmap_instance = regmap.regmap.Regmap(name)
+            regmap.regmap_md.import_md(regmap_instance, template, block=block)
+            regmap.regmap_c_header.dump_to_header(regmap=regmap_instance, name=name,
+                header_path=outfile, headers=headers)
 
     def __add_component(self, name, component):
         """Add a new component.

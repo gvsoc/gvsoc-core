@@ -1,7 +1,19 @@
 #
-# Copyright (C) 2019 GreenWaves Technologies
+# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
+#                    University of Bologna
 #
-
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 import regmap.regmap_c_header as regmap_c_header
 import regmap.regmap_table as regmap_table
 import regmap.regmap_rst as regmap_rst
@@ -113,7 +125,7 @@ class Regfield(regmap_c_header.Regfield, regmap_table.Regfield, regmap_rst.Regfi
         return self.access == 'R'
 
     def get_write_mask(self):
-        
+
         if self.is_read_only():
             return 0
         else:

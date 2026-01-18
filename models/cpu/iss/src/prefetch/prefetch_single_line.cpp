@@ -23,14 +23,20 @@
 #include <cpu/iss/include/iss.hpp>
 
 Prefetcher::Prefetcher(Iss &iss)
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+    : iss(iss), fetch_itf(&Prefetcher::fetch_retry, &Prefetcher::fetch_response)
+#else
     : iss(iss)
+#endif
 {
 }
 
 void Prefetcher::build()
 {
     this->iss.top.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
     this->fetch_itf.set_resp_meth(&Prefetcher::fetch_response);
+#endif
     this->iss.top.new_master_port("fetch", &fetch_itf, (vp::Block *)this);
 }
 
@@ -150,15 +156,17 @@ void Prefetcher::fetch_resume_after_high_refill(Prefetcher *_this)
 
 int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
 {
-    vp::IoReq *req = &this->fetch_req;
+    IO_REQ *req = &this->fetch_req;
 
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Fetch request (addr: 0x%lx, size: 0x%lx)\n", addr, size);
 
-    req->init();
     req->set_addr(addr);
     req->set_size(size);
     req->set_is_write(is_write);
     req->set_data(data);
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+#else
+    req->init();
     vp::IoReqStatus err = this->fetch_itf.req(req);
     if (err != vp::IO_REQ_OK)
     {
@@ -176,8 +184,9 @@ int Prefetcher::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool
             return -1;
         }
     }
-
     this->iss.timing.stall_fetch_account(req->get_latency());
+
+#endif
 
     return 0;
 }
@@ -189,8 +198,9 @@ int Prefetcher::fill(iss_addr_t addr)
     return this->send_fetch_req(aligned_addr, this->data, ISS_PREFETCHER_SIZE, false);
 }
 
-void Prefetcher::fetch_response(vp::Block *__this, vp::IoReq *req)
+void Prefetcher::fetch_response(vp::Block *__this, IO_REQ *req)
 {
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
     Prefetcher *_this = (Prefetcher *)__this;
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received fetch response\n");
@@ -206,5 +216,11 @@ void Prefetcher::fetch_response(vp::Block *__this, vp::IoReq *req)
     {
         _this->fetch_stall_callback(_this);
     }
+#endif
 }
 
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+void Prefetcher::fetch_retry(vp::Block *__this)
+{
+}
+#endif

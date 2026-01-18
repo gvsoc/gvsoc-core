@@ -68,7 +68,10 @@ public:
 
     void handle_pending_io_access();
     static void handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event);
-    static void data_response(vp::Block *__this, vp::IoReq *req);
+    static void data_response(vp::Block *__this, IO_REQ *req);
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+    static void data_retry(vp::Block *__this);
+#endif
 
     void breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc);
     void breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc);
@@ -77,8 +80,8 @@ public:
     void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     Iss &iss;
-    vp::IoMaster io_itf;
-    vp::IoReq io_req;
+    IO_MASTER io_itf;
+    IO_REQ io_req;
     vp::Trace trace;
     vp::ClockEvent *event;
     vp::Gdbserver_engine *gdbserver;

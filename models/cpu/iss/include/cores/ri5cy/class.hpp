@@ -25,7 +25,11 @@
 
 #include <vp/vp.hpp>
 #include <vp/register.hpp>
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+#include <cpu/iss/include/lsu_acc.hpp>
+#else
 #include <cpu/iss/include/lsu.hpp>
+#endif
 #include <cpu/iss/include/decode.hpp>
 #include <cpu/iss/include/trace.hpp>
 #include <cpu/iss/include/csr.hpp>

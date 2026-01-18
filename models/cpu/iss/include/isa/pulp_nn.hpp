@@ -248,16 +248,16 @@ PV_OP_RRU_EXEC_NN_2(sdotup, SDOTUP)
 
 /* Sign 0 if unsigned, 1 if signed */
 #define PV_OP_RRRU3_EXEC_NN(insn_name, lib_name, signOpA)                                                         \
-    static inline void pv_##insn_name##_h_resume(Lsu *lsu, vp::IoReq *req)                                                        \
+    static inline void pv_##insn_name##_h_resume(Lsu *lsu, IO_REQ *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline void pv_##insn_name##_b_resume(Lsu *lsu, vp::IoReq *req)                                                        \
+    static inline void pv_##insn_name##_b_resume(Lsu *lsu, IO_REQ *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline void pv_##insn_name##_n_resume(Lsu *lsu, vp::IoReq *req)                                                        \
+    static inline void pv_##insn_name##_n_resume(Lsu *lsu, IO_REQ *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
-    static inline void pv_##insn_name##_c_resume(Lsu *lsu, vp::IoReq *req)                                                        \
+    static inline void pv_##insn_name##_c_resume(Lsu *lsu, IO_REQ *req)                                                        \
     {                                                                                                             \
     }                                                                                                             \
     static inline iss_reg_t pv_##insn_name##_h_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)                                 \
@@ -506,7 +506,7 @@ PV_OP_RRRU3_EXEC_NN(mlsdotusp, SDOTUSP, 0)
 PV_OP_RRRU3_EXEC_NN(mlsdotsup, SDOTUSP, 1)
 PV_OP_RRRU3_EXEC_NN(mlsdotsp, SDOTSP, 1)
 
-static inline void qnt_step_resume(Lsu *lsu, vp::IoReq *req)
+static inline void qnt_step_resume(Lsu *lsu, IO_REQ *req)
 {
 }
 

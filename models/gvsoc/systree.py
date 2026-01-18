@@ -27,6 +27,7 @@ elif os.environ.get('USE_GVRUN') is not None:
 
 else:
 
+    from enum import Enum
     import gvsoc.json_tools as js
     import collections
     import os
@@ -40,6 +41,11 @@ else:
 
 
     generated_components = {}
+
+    class IoAccuracy(Enum):
+        LEGACY = 0
+        APPROX = 1
+        ACCURATE = 2
 
 
     class GeneratedComponent(object):
@@ -174,7 +180,7 @@ else:
             List of options of forms key=value which should overwrite component properties.
         """
 
-        def __init__(self, parent: 'Component', name: str, tree=None, options=None, target_name=None):
+        def __init__(self, parent: 'Component', name: str, tree=None, io_accuracy=None, options=None, target_name=None):
             self.name = name
             self.parent = parent
             self.json_config_files = []
@@ -195,6 +201,13 @@ else:
             self.sources = []
             self.variants = {}
             self.variant = None
+            if io_accuracy is not None:
+                self.io_accuracy = io_accuracy
+            else:
+                if parent is not None and isinstance(parent, Component):
+                    self.io_accuracy = parent.io_accuracy
+                else:
+                    self.io_accuracy = IoAccuracy.LEGACY
 
             if options is not None and len(options) > 0:
                 options_list = []
@@ -210,6 +223,12 @@ else:
 
             if parent is not None and isinstance(parent, Component):
                 parent.__add_component(name, self)
+
+        def set_io_accuracy(self, accuracy: IoAccuracy):
+            self.io_accuracy = accuracy
+
+        def get_io_accuracy(self) -> IoAccuracy:
+            return self.io_accuracy
 
         def set_target_name(self, name: str) -> None: pass
 

@@ -473,7 +473,6 @@ typedef struct iss_rnnext_s
 } iss_rnnext_t;
 
 #include <vp/vp.hpp>
-#include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
 #include "vp/gdbserver/gdbserver_engine.hpp"
 

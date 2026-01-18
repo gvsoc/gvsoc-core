@@ -20,7 +20,11 @@
  */
 
 #include <vp/vp.hpp>
+#if defined(CONFIG_GVSOC_LOADER_IO_ACC)
+#include <vp/itf/io_acc.hpp>
+#else
 #include <vp/itf/io.hpp>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -52,8 +56,12 @@ public:
 
     void reset(bool active);
 
-    static void grant(vp::Block *__this, vp::IoReq *req);
-    static void response(vp::Block *__this, vp::IoReq *req);
+#if defined(CONFIG_GVSOC_LOADER_IO_ACC)
+    static void retry(vp::Block *__this);
+#else
+    static void grant(vp::Block *__this, IO_REQ *req);
+#endif
+    static void response(vp::Block *__this, IO_REQ *req);
 
 private:
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -66,10 +74,10 @@ private:
     vp::Trace trace;
     std::list<Section *> sections;
     vp::ClockEvent *event;
-    vp::IoMaster out_itf;
+    IO_MASTER out_itf;
     vp::WireMaster<bool> start_itf;
     vp::WireMaster<uint64_t> entry_itf;
-    vp::IoReq req;
+    IO_REQ req;
     uint64_t entry;
     bool is_32 = true;
     Section *current_section = NULL;
@@ -79,12 +87,18 @@ private:
 
 
 loader::loader(vp::ComponentConf &config)
-    : vp::Component(config)
+#if defined(CONFIG_GVSOC_LOADER_IO_ACC)
+: vp::Component(config), out_itf(&loader::retry, &loader::response)
+#else
+: vp::Component(config)
+#endif
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
+#if !defined(CONFIG_GVSOC_LOADER_IO_ACC)
     this->out_itf.set_resp_meth(&loader::response);
     this->out_itf.set_grant_meth(&loader::grant);
+#endif
     new_master_port("out", &this->out_itf);
 
     new_master_port("start", &this->start_itf);
@@ -97,16 +111,27 @@ loader::loader(vp::ComponentConf &config)
 
 
 
-void loader::grant(vp::Block *__this, vp::IoReq *req)
+#if defined(CONFIG_GVSOC_LOADER_IO_ACC)
+void loader::retry(vp::Block *__this)
+{
+    printf("RETRY\n");
+}
+#else
+void loader::grant(vp::Block *__this, IO_REQ *req)
 {
 }
+#endif
 
 
 
-void loader::response(vp::Block *__this, vp::IoReq *req)
+void loader::response(vp::Block *__this, IO_REQ *req)
 {
+    printf("RESPONSE\n");
+#if defined(CONFIG_GVSOC_LOADER_IO_ACC)
+#else
     loader *_this = (loader *)__this;
     _this->event_enqueue(_this->event, _this->req.get_full_latency());
+#endif
 }
 
 
@@ -165,7 +190,9 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
 
         uint8_t buffer[itersize];
 
+#if !defined(CONFIG_GVSOC_LOADER_IO_ACC)
         _this->req.init();
+#endif
         _this->req.set_addr(paddr);
         _this->req.set_size(itersize);
         _this->req.set_is_write(true);
@@ -195,6 +222,9 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->current_section = NULL;
         }
 
+#if defined(CONFIG_GVSOC_LOADER_IO_ACC)
+        _this->out_itf.req(&_this->req);
+#else
         vp::IoReqStatus err = _this->out_itf.req(&_this->req);
         if (err == vp::IO_REQ_OK)
         {
@@ -209,6 +239,7 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
                     paddr, data, itersize);
             }
         }
+#endif
     }
     else
     {

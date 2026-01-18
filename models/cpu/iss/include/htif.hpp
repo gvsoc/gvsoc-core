@@ -27,7 +27,11 @@
 
 #include <vp/vp.hpp>
 #include <cpu/iss/include/types.hpp>
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+#include <vp/itf/io_acc.hpp>
+#else
 #include <vp/itf/io.hpp>
+#endif
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
@@ -114,7 +118,11 @@ private:
     void dispatch(uint64_t cmd);
     void target_access(iss_reg_t addr, int size, bool is_write, uint8_t *data);
     bool target_access_async(iss_reg_t addr, int size, bool is_write, uint8_t *data);
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+    static void data_response(vp::Block *__this, vp::IoAccReq *req);
+#else
     static void data_response(vp::Block *__this, vp::IoReq *req);
+#endif
     void exec_syscall();
     uint8_t read_uint8(iss_reg_t addr);
     static void htif_handler(vp::Block *__this, vp::ClockEvent *event);

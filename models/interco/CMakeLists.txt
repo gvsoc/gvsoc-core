@@ -4,6 +4,10 @@ vp_model(NAME interco.interleaver_impl
     SOURCES "interleaver_impl.cpp"
     )
 
+vp_model(NAME interco.interleaver_acc
+    SOURCES "interleaver_acc.cpp"
+    )
+
 vp_model(NAME interco.testandset
     SOURCES "testandset.cpp"
     )

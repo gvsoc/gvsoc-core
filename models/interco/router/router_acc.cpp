@@ -25,6 +25,7 @@
 #include <vp/signal.hpp>
 #include <vp/mapping_tree.hpp>
 #include "router_common.hpp"
+#include "vp/itf/io_acc.hpp"
 
 class Router;
 class InputPort;
@@ -97,13 +98,7 @@ public:
     int id;
     // Queue of pending requests. Any incoming request is first pushed here. An arbitration event
     // is then executed to route these requests to output ports
-    std::queue<vp::IoReq *> pending_reqs;
-    // Queue of requests which have been denied because the input FIFO size was full. As soon as
-    // the FIFO becomes ready, requests are popped from this queue and pushed to the pending queue
-    std::queue<vp::IoReq *> denied_reqs;
-    // Input FIFO size. Incoming requests are denied as soon as this becomes equal or greater than
-    // the FIFO size
-    vp::Signal<int> pending_size;
+    std::queue<vp::IoAccReq *> pending_reqs;
     // If not NULL, this indicates the mapping tree information about the currently elected
     // request.
     vp::MappingTreeEntry *pending_mapping = NULL;
@@ -136,13 +131,14 @@ class Channel : public vp::Block
 public:
     Channel(Router *top, std::string name);
     // Handle an incoming request
-    vp::IoReqStatus handle_req(vp::IoReq *req, int port);
+    vp::IoAccReqStatus handle_req(vp::IoAccReq *req, int port);
     // Handle the response of a request which was sent to an output port
-    void response(vp::IoReq *req, int id);
+    void response(vp::IoAccReq *req, int id);
     // Handle the grant of a request which was sent to an output port and denied
-    void grant(vp::IoReq *req, int id);
+    void retry(int id);
 
 private:
+    void reset(bool active);
     // Arbiter event handler. See arbiter event doc for details
     static void arbiter_handler(vp::Block *__this, vp::ClockEvent *event);
     // FSM event handler. See FSM event doc for details
@@ -150,7 +146,7 @@ private:
     // Handle a request which has been granted
     void handle_req_grant(InputPort *in);
     // Handle a request which has received its response
-    void handle_req_end(vp::IoReq *req, vp::IoReqStatus status);
+    void handle_req_end(vp::IoAccReq *req);
 
     Router *top;
     // This component trace
@@ -169,7 +165,12 @@ private:
     vp::ClockEvent fsm_event;
     // Input where election will start in the next election phase. Used to implement round robin
     int current_input = 0;
-    vp::Queue ended_reqs;
+    // True if an incoming request has been denied and a retry call must be generated when the
+    // FIFO becomes ready
+    bool denied;
+    // Input FIFO size. Incoming requests are denied as soon as this becomes equal or greater than
+    // the FIFO size
+    vp::Signal<int> pending_size;
 };
 
 
@@ -188,13 +189,13 @@ public:
 
 private:
     // Incoming requests are received here. The port indicates from which input port it is received.
-    vp::IoReqStatus handle_req(vp::IoReq *req, int port) override;
+    vp::IoAccReqStatus handle_req(vp::IoAccReq *req, int port) override;
     // Interface callback where incoming requests are received. Just a wrapper for handle_req
-    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req, int port);
+    static vp::IoAccReqStatus req(vp::Block *__this, vp::IoAccReq *req, int port);
     // Asynchronous responses are received here.
-    static void response(vp::Block *__this, vp::IoReq *req, int id);
+    static void response(vp::Block *__this, vp::IoAccReq *req, int id);
     // Asynchronous grants are received here.
-    static void grant(vp::Block *__this, vp::IoReq *req, int id);
+    static void retry(vp::Block *__this, int id);
 
     // This component trace
     vp::Trace trace;
@@ -217,9 +218,9 @@ private:
     // this mapping
     int error_id = -1;
     // COmponent input interfaces
-    std::vector<vp::IoSlave> input_itfs;
+    std::vector<vp::IoAccSlave *> input_itfs;
     // COmponent output interfaces
-    std::vector<vp::IoMaster *> output_itfs;
+    std::vector<vp::IoAccMaster *> output_itfs;
     // Offset to be removed when request is forwarded
     std::vector<uint64_t> remove_offset;
     // Offset to be added when request is forwarded
@@ -249,12 +250,11 @@ Router::Router(vp::ComponentConf &config)
     }
 
     // Instantiates input ports
-    this->input_itfs.resize(nb_input_port);
     for (int i=0; i<this->nb_input_port; i++)
     {
-        vp::IoSlave *input = &this->input_itfs[i];
+        vp::IoAccSlave *input = new vp::IoAccSlave(i, &Router::req);
+        this->input_itfs.push_back(input);
         std::string name = i == 0 ? "input" : "input_" + std::to_string(i);
-        input->set_req_meth_muxed(&Router::req, i);
         this->new_slave_port(name, input, this);
     }
 
@@ -270,10 +270,8 @@ Router::Router(vp::ComponentConf &config)
 
             this->mapping_tree.insert(mapping_id, name, config);
 
-            vp::IoMaster *itf = new vp::IoMaster();
+            vp::IoAccMaster *itf = new vp::IoAccMaster(mapping_id, &Router::retry, &Router::response);
             this->output_itfs.push_back(itf);
-            itf->set_resp_meth_muxed(&Router::response, mapping_id);
-            itf->set_grant_meth_muxed(&Router::grant, mapping_id);
             this->new_master_port(name, itf);
 
             this->remove_offset.push_back(config->get_uint("remove_offset"));
@@ -303,30 +301,42 @@ Router::Router(vp::ComponentConf &config)
     }
 }
 
-vp::IoReqStatus Router::req(vp::Block *__this, vp::IoReq *req, int port)
+vp::IoAccReqStatus Router::req(vp::Block *__this, vp::IoAccReq *req, int port)
 {
     Router *_this = (Router *)__this;
     return _this->handle_req(req, port);
 }
 
-vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
+vp::IoAccReqStatus Router::handle_req(vp::IoAccReq *req, int port)
 {
     int channel = this->shared_rw_bandwidth ? 0 : req->get_is_write();
     return this->channels[channel]->handle_req(req, port);
 }
 
-void Router::grant(vp::Block *__this, vp::IoReq *req, int id)
+void Router::retry(vp::Block *__this, int id)
 {
     Router *_this = (Router *)__this;
-    int channel = _this->shared_rw_bandwidth ? 0 : req->get_is_write();
-    _this->channels[channel]->grant(req, id);
+    _this->channels[0]->retry(id);
+    if (!_this->shared_rw_bandwidth)
+    {
+        _this->channels[1]->retry(id);
+    }
 }
 
-void Router::response(vp::Block *__this, vp::IoReq *req, int id)
+void Router::response(vp::Block *__this, vp::IoAccReq *req, int id)
 {
     Router *_this = (Router *)__this;
+    printf("%s response\n", _this->get_path().c_str());
     int channel = _this->shared_rw_bandwidth ? 0 : req->get_is_write();
     _this->channels[channel]->response(req, id);
+}
+
+void Channel::reset(bool active)
+{
+    if (active)
+    {
+        this->denied = false;
+    }
 }
 
 void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
@@ -345,7 +355,7 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
             // Check if this port is not stalled and has any pending request
             if (!in->stalled && !in->pending_reqs.empty())
             {
-                vp::IoReq *req = in->pending_reqs.front();
+                vp::IoAccReq *req = in->pending_reqs.front();
                 // Since a request can be checked multiple times before it is routed, we only
                 // get its mapping the first time when it is not yet initialized
                 if (!in->pending_mapping)
@@ -361,8 +371,8 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
                         in->remaining_size = req->get_size();
                         in->current_data = req->get_data();
                         in->current_addr = req->get_addr();
-                        req->arg_push((void *)req->get_size());
-                        req->arg_push((void *)vp::IO_REQ_OK);
+                        req->remaining_size = req->get_size();
+                        req->status = vp::IoAccRespStatus::IO_ACC_RESP_OK;
                     }
                 }
 
@@ -379,7 +389,7 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
 
                     // Update now the input FIFO to let another request be accepted in the next
                     // cycle. This only works for requests smaller than bandwidth
-                    in->pending_size -= req->get_size();
+                    _this->pending_size -= req->get_size();
 
                     // Update now the bandwidth since the next request will anyway be processed
                     // only when this one has been sent
@@ -387,6 +397,13 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
                     {
                         in->next_burst_cycle = cycles +
                             (req->get_size() + _this->top->bandwidth - 1) / _this->top->bandwidth;
+                    }
+
+                    if (_this->denied)
+                    {
+                        _this->denied = false;
+                        in->stalled_signal = false;
+                        _this->top->input_itfs[in->id]->retry();
                     }
                 }
             }
@@ -410,7 +427,7 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
     _this->fsm_event.enqueue();
 }
 
-void Channel::grant(vp::IoReq *req, int id)
+void Channel::retry(int id)
 {
     // When an output request is denied, it stalls both the input and the output ports, we need
     // to unstall both
@@ -419,30 +436,22 @@ void Channel::grant(vp::IoReq *req, int id)
     out->stalled = false;
     out->stalled_port->stalled = false;
     out->stalled_signal = false;
-    out->stalled_port->stalled_signal = !out->stalled_port->denied_reqs.empty();
+    out->stalled_port->stalled_signal = false;
     // Handle request grant, this will remove it from the queue and allow a new election for
     // this input port.
     this->handle_req_grant(in);
 }
 
-void Channel::response(vp::IoReq *req, int id)
+void Channel::response(vp::IoAccReq *req, int id)
 {
     // Handle request response, this will reply to the initiator component
-    this->handle_req_end(req, req->status);
+    this->handle_req_end(req);
 }
 
 void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Channel *_this = (Channel *)__this;
     int64_t cycles = _this->clock.get_cycles();
-
-    // Some requests for which responses came back synchronously need to be handled once the
-    // latency has ellapsed
-    while(!_this->ended_reqs.empty())
-    {
-        vp::IoReq *ended_req = (vp::IoReq *)_this->ended_reqs.pop();
-        _this->handle_req_end(ended_req, vp::IO_REQ_OK);
-    }
 
     // Go through each output to see if we can send requests
     for (int i=0; i<_this->entries.size(); i++)
@@ -458,31 +467,19 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             // Only send if a request was elected to be sent to this port
             if (in)
             {
-                // We grant now the requests which were denied due to input FIFO so that
-                // the initiator can send new requests in this cycle
-                while (in->denied_reqs.size() > 0 && in->pending_size < _this->top->max_input_pending_size)
-                {
-                    vp::IoReq *denied_req = in->denied_reqs.front();
-                    in->denied_reqs.pop();
-                    in->stalled_signal = !in->denied_reqs.empty();
-                    in->pending_reqs.push(denied_req);
-                    in->pending_size += denied_req->get_size();
-                    denied_req->get_resp_port()->grant(denied_req);
-                }
-
-                vp::IoMaster *itf =_this->top->output_itfs[i];
+                vp::IoAccMaster *itf =_this->top->output_itfs[i];
                 vp::MappingTreeEntry *mapping = in->pending_mapping;
                 out->elected_input = NULL;
 
-                vp::IoReq *req;
+                vp::IoAccReq *req;
                 uint64_t addr;
                 if (in->remaining_size > 0)
                 {
-                    vp::IoReq *parent_req = in->pending_reqs.front();
+                    vp::IoAccReq *parent_req = in->pending_reqs.front();
                     int iter_size = std::min(
                         mapping->size - (in->current_addr - mapping->base), in->remaining_size);
                     addr = in->current_addr;
-                    req = itf->req_new(
+                    req = new vp::IoAccReq(
                         in->current_addr - _this->top->remove_offset[mapping->id] +
                         _this->top->add_offset[mapping->id], in->current_data, iter_size,
                         parent_req->get_is_write()
@@ -491,8 +488,8 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     in->current_addr += iter_size;
                     in->current_data += iter_size;
                     in->remaining_size -= iter_size;
-                    req->arg_push((void *)parent_req);
-                    req->arg_push(NULL);
+                    req->parent = parent_req;
+                    req->initiator = NULL;
                 }
                 else
                 {
@@ -500,7 +497,7 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     addr = req->get_addr();
                     req->set_addr(req->get_addr() - _this->top->remove_offset[mapping->id] +
                         _this->top->add_offset[mapping->id]);
-                    req->arg_push((void *)req->resp_port);
+                    req->initiator = in;
                 }
 
                 if (_this->top->bandwidth > 0)
@@ -514,10 +511,12 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                 out->log_access(addr, req->get_size());
 
+                printf("%s %d\n", __FILE__, __LINE__);
+                printf("SEND %p %p\n", req, in);
+                vp::IoAccReqStatus status = itf->req(req);
+                printf("%s %d\n", __FILE__, __LINE__);
 
-                vp::IoReqStatus status = itf->req(req);
-
-                if (status == vp::IO_REQ_DENIED)
+                if (status == vp::IO_ACC_REQ_DENIED)
                 {
                     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Denied req, stalling input and output (req: %p, in: %d, out: %d)\n",
                         req, in->id, i);
@@ -531,20 +530,10 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 else
                 {
                     _this->handle_req_grant(in);
-                }
 
-                if (status == vp::IO_REQ_OK)
-                {
-                    // When the request is handle synchronously, the target uses the latency to
-                    // apply timing. We need to take it into account before reusing the request
-                    int64_t latency = req->get_full_latency();
-                    if (latency <= 1)
+                    if (status == vp::IO_ACC_REQ_DONE)
                     {
-                        _this->handle_req_end(req, vp::IO_REQ_OK);
-                    }
-                    else
-                    {
-                        _this->ended_reqs.push_back(req, latency - 2);
+                        _this->handle_req_end(req);
                     }
                 }
             }
@@ -557,7 +546,7 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         resched |= _this->inputs[i]->pending_reqs.size() > 0;
     }
 
-    if (resched || _this->ended_reqs.has_reqs())
+    if (resched)
     {
         _this->arbiter_event.enqueue(0);
     }
@@ -566,7 +555,7 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 Channel::Channel(Router *top, std::string name)
 : vp::Block(top, name), top(top), fsm_event(this, Channel::fsm_handler),
     arbiter_event(this, Channel::arbiter_handler),
-    ended_reqs(this, "ended_reqs")
+    pending_size(*top, name + "/pending_size", 32, vp::SignalCommon::ResetKind::Value, 0)
 {
     this->traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -589,7 +578,7 @@ Channel::Channel(Router *top, std::string name)
     }
 }
 
-vp::IoReqStatus Channel::handle_req(vp::IoReq *req, int port)
+vp::IoAccReqStatus Channel::handle_req(vp::IoAccReq *req, int port)
 {
     uint64_t offset = req->get_addr();
     uint64_t size = req->get_size();
@@ -603,64 +592,70 @@ vp::IoReqStatus Channel::handle_req(vp::IoReq *req, int port)
 
     in->log_access(offset, size);
 
-    if (in->denied_reqs.size() > 0 || in->pending_size >= this->top->max_input_pending_size)
+    if (this->pending_size >= this->top->max_input_pending_size)
     {
-        in->denied_reqs.push(req);
+        this->denied = true;
         in->stalled_signal = true;
-        return vp::IO_REQ_DENIED;
+        return vp::IO_ACC_REQ_DENIED;
     }
     else
     {
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Pushing req to pending (req: %p, in: %d)\n",
             req, port);
         in->pending_reqs.push(req);
-        in->pending_size += req->get_size();
+        this->pending_size += req->get_size();
         this->arbiter_event.enqueue(0);
-        return vp::IO_REQ_PENDING;
+        return vp::IO_ACC_REQ_GRANTED;
     }
+
+    return vp::IO_ACC_REQ_GRANTED;
 }
 
 void Channel::handle_req_grant(InputPort *in)
 {
     if (in->remaining_size == 0)
     {
-        vp::IoReq *req = in->pending_reqs.front();
+        vp::IoAccReq *req = in->pending_reqs.front();
         in->pending_reqs.pop();
         in->pending_mapping = NULL;
     }
 }
 
-void Channel::handle_req_end(vp::IoReq *req, vp::IoReqStatus status)
+void Channel::handle_req_end(vp::IoAccReq *req)
 {
-    vp::IoSlave *resp_port = (vp::IoSlave *)req->arg_pop();
-    if (resp_port)
+    InputPort *in = (InputPort *)req->initiator;
+    if (in)
     {
-        resp_port->resp(req);
+        printf("%s call resp id %d\n", this->get_path().c_str(), in->id);
+        this->top->input_itfs[in->id]->resp(req);
+        printf("%s %d\n", __FILE__, __LINE__);
     }
     else
     {
-        vp::IoReq *parent_req = (vp::IoReq *)req->arg_pop();
-        vp::IoReqStatus praent_status = (vp::IoReqStatus)(long)parent_req->arg_pop();
-        uint64_t remaining_size = (int64_t)parent_req->arg_pop();
+        printf("%s %d\n", __FILE__, __LINE__);
+        vp::IoAccReq *parent_req = req->parent;
+        vp::IoAccRespStatus parent_status = parent_req->status;
+        uint64_t remaining_size = parent_req->remaining_size;
         remaining_size -= req->get_size();
-        if (status == vp::IO_REQ_INVALID)
+        if (req->status == vp::IoAccRespStatus::IO_ACC_RESP_INVALID)
         {
-            praent_status = vp::IO_REQ_INVALID;
+            parent_status = vp::IO_ACC_RESP_INVALID;
         }
 
-        this->top->output_itfs[0]->req_del(req);
+        delete req;
 
         if (remaining_size > 0)
         {
-            parent_req->arg_push((void *)remaining_size);
-            parent_req->arg_push((void *)praent_status);
+            parent_req->remaining_size = remaining_size;
+            parent_req->status = parent_status;
         }
         else
         {
-            vp::IoSlave *resp_port = (vp::IoSlave *)parent_req->arg_pop();
-            parent_req->status = praent_status;
-            resp_port->resp(parent_req);
+            InputPort *in = (InputPort *)parent_req->initiator;
+            parent_req->status = parent_status;
+            this->top->input_itfs[in->id]->resp(req);
         }
+        printf("%s %d\n", __FILE__, __LINE__);
     }
 }
 
@@ -700,7 +695,7 @@ OutputPort::OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t
 }
 
 InputPort::InputPort(int id, std::string name, Router *top, int64_t bandwidth, int64_t latency)
-: Port(top, name), id(id), pending_size(*top, name + "/pending_size", 32, vp::SignalCommon::ResetKind::Value, 0)
+: Port(top, name), id(id)
 {
 }
 

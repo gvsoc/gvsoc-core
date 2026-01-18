@@ -18,6 +18,7 @@ import gvsoc.systree
 import gvsoc.systree as st
 from cache.cache import Cache
 from interco.interleaver import Interleaver
+from gvsoc.systree import IoAccuracy
 import math
 
 class Hierarchical_cache(st.Component):

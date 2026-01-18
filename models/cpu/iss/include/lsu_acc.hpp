@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include <vp/itf/io.hpp>
+#include <vp/itf/io_acc.hpp>
 #include <cpu/iss/include/types.hpp>
 #include <vp/signal.hpp>
 
@@ -53,8 +53,8 @@ public:
     int data_misaligned_req(iss_addr_t addr, uint8_t *data_ptr, uint8_t *memcheck_data, int size, bool is_write, int64_t &latency);
 
     static void exec_misaligned(vp::Block *__this, vp::ClockEvent *event);
-    static void data_grant(vp::Block *__this, vp::IoReq *req);
-    static void data_response(vp::Block *__this, vp::IoReq *req);
+    static void data_retry(vp::Block *__this);
+    static void data_response(vp::Block *__this, vp::IoAccReq *req);
 
     template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
@@ -95,11 +95,11 @@ public:
 
     // Allocate a request. This can returns NULL if the core can not send more requests (last one
     // was denied or all requests are already allocated). In this case the core should stall.
-    inline vp::IoReq *get_req();
+    inline vp::IoAccReq *get_req();
     // Free a request so that it can be used for another access.
     // The cyclestamp indicates when the request becomes free. This allows easily freeing requests
     // during synchronous responses.
-    inline void free_req(vp::IoReq *req, int64_t cyclestamp);
+    inline void free_req(vp::IoAccReq *req, int64_t cyclestamp);
 
     Iss &iss;
 
@@ -107,22 +107,22 @@ public:
 
 
     // lsu
-    vp::IoMaster data;
+    vp::IoAccMaster data;
     vp::WireMaster<void *> meminfo;
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
     // First availabel request. They are sorted out by increasing cyclestamp. The cyclestamp
     // indicates when the request becomes available. First request is the next one to be free,
     // its cyclestamp must be compared against engine cycle to know if it is free in the current
     // cycle.
-    vp::IoReq *io_req_first;
+    vp::IoAccReq *io_req_first;
     // List of requests which can be sent at the same time.
-    vp::IoReq io_req[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
+    vp::IoAccReq io_req[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
     iss_reg_t stall_insn[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
     iss_reg_t req_data[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
 #else
-    vp::IoReq io_req;
+    vp::IoAccReq io_req;
 #endif
-    vp::IoReq debug_req;
+    vp::IoAccReq debug_req;
     int misaligned_size;
     uint8_t *misaligned_data;
     uint8_t *misaligned_memcheck_data;
@@ -135,11 +135,11 @@ public:
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING
     // When using multiple outstanding request, each on-going request can have its callback
     // used when the response arrives.
-    void (*stall_callback[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING])(Lsu *lsu, vp::IoReq *req);
+    void (*stall_callback[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING])(Lsu *lsu, vp::IoAccReq *req);
     int stall_reg[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
     int stall_size[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
 #else
-    void (*stall_callback)(Lsu *lsu, vp::IoReq *req);
+    void (*stall_callback)(Lsu *lsu, vp::IoAccReq *req);
     int stall_reg;
     int stall_size;
 #endif
@@ -148,12 +148,12 @@ public:
     iss_addr_t memory_end;
 
 private:
-    static void store_resume(void *_this, vp::IoReq *req);
-    static void store_resume(Lsu *lsu, vp::IoReq *req);
-    static void load_resume(Lsu *lsu, vp::IoReq *req);
-    static void elw_resume(Lsu *lsu, vp::IoReq *req);
-    static void load_signed_resume(Lsu *lsu, vp::IoReq *req);
-    static void load_float_resume(Lsu *lsu, vp::IoReq *req);
+    static void store_resume(void *_this, vp::IoAccReq *req);
+    static void store_resume(Lsu *lsu, vp::IoAccReq *req);
+    static void load_resume(Lsu *lsu, vp::IoAccReq *req);
+    static void elw_resume(Lsu *lsu, vp::IoAccReq *req);
+    static void load_signed_resume(Lsu *lsu, vp::IoAccReq *req);
+    static void load_float_resume(Lsu *lsu, vp::IoAccReq *req);
 
     int64_t pending_latency;
     // True if the last request has been denied. The core must not send another request until

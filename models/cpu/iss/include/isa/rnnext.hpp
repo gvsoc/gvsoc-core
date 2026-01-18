@@ -22,7 +22,7 @@
 #ifndef __CPU_ISS_RNNEXT_HPP
 #define __CPU_ISS_RNNEXT_HPP
 
-static inline void pl_sdotsp_h_0_load_resume(Lsu *lsu, vp::IoReq *req)
+static inline void pl_sdotsp_h_0_load_resume(Lsu *lsu, IO_REQ *req)
 {
     iss_insn_t *insn = lsu->iss.rnnext.sdot_insn;
     lsu->iss.csr.trace.msg("Loaded new sdot_prefetch_0 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_0);
@@ -51,7 +51,7 @@ static inline iss_reg_t pl_sdotsp_h_0_exec(Iss *iss, iss_insn_t *insn, iss_reg_t
     return iss_insn_next(iss, insn, pc);
 }
 
-static inline void pl_sdotsp_h_1_load_resume(Lsu *lsu, vp::IoReq *req)
+static inline void pl_sdotsp_h_1_load_resume(Lsu *lsu, IO_REQ *req)
 {
     iss_insn_t *insn = lsu->iss.rnnext.sdot_insn;
     lsu->iss.csr.trace.msg("Loaded new sdot_prefetch_1 value (value: 0x%x)\n", lsu->iss.rnnext.sdot_prefetch_1);

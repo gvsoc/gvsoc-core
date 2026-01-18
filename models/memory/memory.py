@@ -15,6 +15,7 @@
 #
 
 import gvsoc.systree
+from gvsoc.systree import IoAccuracy
 
 class Memory(gvsoc.systree.Component):
     """Memory array
@@ -66,6 +67,10 @@ class Memory(gvsoc.systree.Component):
 
         self.add_sources(['memory/memory.cpp'])
 
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_c_flags([f'-DCONFIG_GVSOC_MEMORY_IO_ACC=1'])
+
         # Since atomics are slowing down the model, this is better to compile the support only
         # if needed. Note that the framework will take care of compiling this model twice
         # if both memories with and without atomics are instantiated.
@@ -96,7 +101,7 @@ class Memory(gvsoc.systree.Component):
         gvsoc.systree.SlaveItf
             The slave interface
         """
-        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+        return gvsoc.systree.SlaveItf(self, 'input', signature=self.io_signature)
 
     def gen_gui(self, parent_signal):
         top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr",

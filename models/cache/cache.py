@@ -16,6 +16,7 @@
 
 import gvsoc.systree as st
 import gvsoc.gui
+from gvsoc.systree import IoAccuracy
 
 class Cache(st.Component):
     """
@@ -32,7 +33,11 @@ class Cache(st.Component):
 
         super(Cache, self).__init__(parent, name)
 
-        if cache_v2:
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_c_flags([f'-DCONFIG_GVSOC_CACHE_IO_ACC=1'])
+            self.set_component('cache.cache_acc')
+        elif cache_v2:
             self.set_component('cache.cache_impl_v2')
         else:
             self.set_component('cache.cache_impl')
@@ -49,7 +54,7 @@ class Cache(st.Component):
         })
 
     def i_INPUT(self) -> st.SlaveItf:
-        return st.SlaveItf(self, 'input', signature='io')
+        return st.SlaveItf(self, 'input', signature=self.io_signature)
 
     def i_FLUSH(self) -> st.SlaveItf:
             return st.SlaveItf(self, 'flush', signature='wire<bool>')
@@ -58,7 +63,7 @@ class Cache(st.Component):
             self.itf_bind('flush_ack', itf, signature='wire<bool>')
 
     def o_REFILL(self, itf: st.SlaveItf):
-        self.itf_bind('refill', itf, signature='io')
+        self.itf_bind('refill', itf, signature=self.io_signature)
 
     def gen_gtkw2(self, tree, comp_traces):
 

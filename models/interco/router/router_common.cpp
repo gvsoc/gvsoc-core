@@ -20,7 +20,6 @@
  */
 
 #include "router_common.hpp"
-#include <vp/itf/io.hpp>
 #include <vp/proxy.hpp>
 
 RouterCommon::RouterCommon(vp::ComponentConf &config)
@@ -51,16 +50,23 @@ std::string RouterCommon::handle_command(gv::GvProxy *proxy, FILE *req_file,
             }
         }
 
-        vp::IoReq *req = &this->proxy_req;
+        IO_REQ *req = &this->proxy_req;
+#if !defined(CONFIG_GVSOC_ROUTER_IO_ACC)
         req->init();
+#endif
         req->set_data((uint8_t *)buffer);
         req->set_is_write(is_write);
         req->set_size(size);
         req->set_addr(addr);
+#if !defined(CONFIG_GVSOC_ROUTER_IO_ACC)
         req->set_debug(true);
+#endif
 
-        vp::IoReqStatus result = this->handle_req(req, 0);
+        IO_REQ_STATUS result = this->handle_req(req, 0);
+        // TODO should be ported to IO acc
+#if !defined(CONFIG_GVSOC_ROUTER_IO_ACC)
         error |= result != vp::IO_REQ_OK;
+#endif
 
         if (!is_write)
         {

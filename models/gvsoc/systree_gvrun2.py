@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+from enum import Enum
 from dataclasses import fields
 import logging
 import gvsoc.json_tools as js
@@ -34,6 +35,12 @@ from gvrun.parameter import TargetParameter
 generated_components = {}
 generated_target_files = {}
 
+
+
+class IoAccuracy(Enum):
+    LEGACY = 0
+    APPROX = 1
+    ACCURATE = 2
 
 class GeneratedComponent(object):
 
@@ -167,7 +174,7 @@ class Component(gvrun.target.SystemTreeNode):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent: 'Component', name: str, tree=None, options=None):
+    def __init__(self, parent: 'Component', name: str, tree=None, io_accuracy=None, options=None):
         super().__init__(name, parent=parent, tree=tree)
         self.parent = parent
         self.components = {}
@@ -183,6 +190,13 @@ class Component(gvrun.target.SystemTreeNode):
         self.interfaces = []
         self.c_flags = []
         self.sources = []
+        if io_accuracy is not None:
+            self.io_accuracy = io_accuracy
+        else:
+            if parent is not None:
+                self.io_accuracy = parent.io_accuracy
+            else:
+                self.io_accuracy = IoAccuracy.LEGACY
 
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
@@ -193,6 +207,11 @@ class Component(gvrun.target.SystemTreeNode):
                 if isinstance(value, (int, bool, str)):
                     self.add_property(f.name, value)
 
+    def set_io_accuracy(self, accuracy: IoAccuracy):
+        self.io_accuracy = accuracy
+
+    def get_io_accuracy(self) -> IoAccuracy:
+        return self.io_accuracy
 
     def generate(self, builddir):
         pass

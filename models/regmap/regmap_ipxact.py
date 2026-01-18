@@ -1,5 +1,18 @@
 #
-# Copyright (C) 2019 GreenWaves Technologies
+# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
+#                    University of Bologna
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 import xml.etree.ElementTree as ET
@@ -70,17 +83,17 @@ def addSubEl2givenElbyname(parentEl, childname, grdchildname, grdchildtext):
 
 ########################################
 class Regfield(object):
-    
+
     # IPXACT hierarchy for field section (list not exhaustive)
     ipxact__names_text = OrderedDict()
     ipxact__names_text["name"] = ""
     ipxact__names_text["bitOffset"] = ""
     ipxact__names_text["bitWidth"] = ""
     ipxact__names_text["access"] = ""
-    
+
     def printFieldInfo(self):
         print("field: name="+self.name+" width="+str(self.width)+"\n")
-    
+
     def genXmlSection(self):
         # Create field section
         fieldEl = ET.Element(spirit("field"))
@@ -109,18 +122,18 @@ class Regfield(object):
 
 
 class Register(object):
-    
+
     # IPXACT hierarchy for register section (list not exhaustive)
     ipxact__names_text = OrderedDict()
     ipxact__names_text["name"] = ""
     ipxact__names_text["addressOffset"] = ""
     ipxact__names_text["size"] = ""
     ipxact__names_text["reset"] = ""
-    
+
     def printFieldInfo(self):
         for name, field in self.fields.items():
             field.printFieldInfo()
-    
+
     def genXmlSection(self):
         # Create register section
         regEl = ET.Element(spirit("register"))
@@ -145,7 +158,7 @@ class Register(object):
 
 
 class Regmap(object):
-    
+
     # IPXACT hierarchy for addressBlock section (hook-up to regmap, list not exhaustive)
     ipxact__names_text = OrderedDict()
     ipxact__names_text["name"] = ""
@@ -153,13 +166,13 @@ class Regmap(object):
     ipxact__names_text["typeIdentifier"] = "register"
     ipxact__names_text["range"] = ""
     ipxact__names_text["width"] = "32"
-    
+
     def browse_regmap(self):
         for name, register in self.registers.items():
             print("reg_name="+name+"\n")
             for name, field in register.fields.items():
                 print("field: name="+field.name+" width="+str(field.width)+"\n")
-    
+
     def genXmlSection(self):
         # Create addressBlock section
         regmapEl = ET.Element(spirit("addressBlock"))
@@ -191,37 +204,34 @@ class Regmap(object):
 
 ########################################
 def dump_to_ipxact(regmap, filename):
-    
+
     ipxact__component_names_text = OrderedDict()
     ipxact__component_names_text["vendor"] = "spiritconsortium.org"
     ipxact__component_names_text["library"] = "GWT"
     ipxact__component_names_text["name"] = "regmap.name"
     ipxact__component_names_text["version"] = "1.4"
-    
+
     ipxact__memorymap_names_text = OrderedDict()
     ipxact__memorymap_names_text["name"] = regmap.name+"_mmap0"
-    
+
     filename = open(filename, 'w')
     filename.write("<?xml version=\"1.0\"?>\n")
-    
+
     # Create root element & component hier
     rootEl = ET.Element(spirit("component"))
 
     for name, text in ipxact__component_names_text.items():
         addSubEl(rootEl, name, text)
-    
+
     # Create mmap hier
     mmapEl = ET.Element(spirit("memoryMaps"))
     addSubEl(mmapEl, "memoryMap", "")
     for name, text in ipxact__memorymap_names_text.items():
         addSubEl2givenElbyname(mmapEl, "memoryMap", name, text)
-    
+
     # Add regmap section
     addSubEl2givenEl(rootEl, "component", mmapEl)
     addSubEl2givenEl(rootEl, "memoryMap", regmap.genXmlSection())
 
     filename.write(to_s(rootEl))
     filename.close()
-
-
-

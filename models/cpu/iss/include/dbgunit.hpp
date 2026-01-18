@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -38,7 +38,6 @@ public:
     void debug_req();
     void set_halt_mode(bool halted, int cause);
 
-    vp::IoSlave dbg_unit;
     vp::WireSlave<bool> halt_itf;
     vp::WireMaster<bool> halt_status_itf;
     bool riscv_dbg_unit;

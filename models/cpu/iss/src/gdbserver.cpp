@@ -25,9 +25,12 @@
 #include <vp/controller.hpp>
 
 
-
 Gdbserver::Gdbserver(Iss &iss)
-    : iss(iss)
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+: iss(iss), io_itf(&Gdbserver::data_retry, &Gdbserver::data_response)
+#else
+: iss(iss)
+#endif
 {
 }
 
@@ -36,7 +39,9 @@ void Gdbserver::build()
 {
     this->iss.top.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
     this->event = this->iss.top.event_new((vp::Block *)this, &Gdbserver::handle_pending_io_access_stub);
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
     this->io_itf.set_resp_meth(&Gdbserver::data_response);
+#endif
     this->iss.top.new_master_port("data_debug", &this->io_itf, (vp::Block *)this);
     pthread_mutex_init(&this->mutex, NULL);
     pthread_cond_init(&this->cond, NULL);
@@ -425,7 +430,7 @@ void Gdbserver::handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent 
 
 
 
-void Gdbserver::data_response(vp::Block *__this, vp::IoReq *req)
+void Gdbserver::data_response(vp::Block *__this, IO_REQ *req)
 {
     // Just forward to the common handle so that it either continue the full request or notify
     // the end
@@ -433,13 +438,18 @@ void Gdbserver::data_response(vp::Block *__this, vp::IoReq *req)
     _this->handle_pending_io_access();
 }
 
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+void Gdbserver::data_retry(vp::Block *__this)
+{
+}
+#endif
 
 
 void Gdbserver::handle_pending_io_access()
 {
     if (this->io_pending_size > 0)
     {
-        vp::IoReq *req = &this->io_req;
+        IO_REQ *req = &this->io_req;
 
         // Compute the size of the request since the core can only do aligned accesses of its
         // register width.
@@ -455,7 +465,9 @@ void Gdbserver::handle_pending_io_access()
             addr, size, this->io_pending_is_write);
 
         // Initialize the request
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
         req->init();
+#endif
         req->set_addr(addr);
         req->set_size(size);
         req->set_is_write(this->io_pending_is_write);
@@ -467,6 +479,8 @@ void Gdbserver::handle_pending_io_access()
         this->io_pending_addr += size;
 
         // Send the request to the interface
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
+        // TODO not supported with io acc
         int err = this->io_itf.req(req);
         if (err == vp::IO_REQ_OK)
         {
@@ -489,6 +503,7 @@ void Gdbserver::handle_pending_io_access()
             // Nothing today for asynchronous reply since the callback will take care of continuing
             // the whole access
         }
+#endif
     }
     else
     {

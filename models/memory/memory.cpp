@@ -24,7 +24,11 @@
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/memcheck.hpp>
+#if defined(CONFIG_GVSOC_MEMORY_IO_ACC)
+#include <vp/itf/io_acc.hpp>
+#else
 #include <vp/itf/io.hpp>
+#endif
 #include <vp/itf/wire.hpp>
 
 class Memory : public vp::Component
@@ -33,7 +37,7 @@ class Memory : public vp::Component
 public:
     Memory(vp::ComponentConf &config);
 
-    static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
+    static IO_REQ_STATUS req(vp::Block *__this, IO_REQ *req);
 
     uint64_t memcheck_alloc(uint64_t ptr, uint64_t size);
     uint64_t memcheck_free(uint64_t ptr, uint64_t size);
@@ -47,9 +51,9 @@ private:
     static void meminfo_sync_back(vp::Block *__this, void **value);
     static void meminfo_sync(vp::Block *__this, void *value);
     static void memcheck_sync(vp::Block *__this, vp::MemCheckRequest *info);
-    vp::IoReqStatus handle_write(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
-    vp::IoReqStatus handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
-    vp::IoReqStatus handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
+    bool handle_write(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
+    bool handle_read(uint64_t addr, uint64_t size, uint8_t *data, uint8_t *memcheck_data);
+    bool handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data, uint8_t *out_data,
         vp::IoReqOpcode opcode, int initiator, uint8_t *in_memcheck_data, uint8_t *out_memcheck_data);
     // Check if an access to the specified offset falls into a valid buffer
     bool memcheck_is_valid_address(uint64_t offset);
@@ -60,7 +64,7 @@ private:
     void log_access(uint64_t addr, uint64_t size, bool is_write);
 
     vp::Trace trace;
-    vp::IoSlave in;
+    IO_SLAVE in;
 
     uint64_t size = 0;
     bool check = false;
@@ -116,10 +120,15 @@ Memory::Memory(vp::ComponentConf &config)
 : vp::Component(config),
 log_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
 log_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
-log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
+log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ),
+#if defined(CONFIG_GVSOC_MEMORY_IO_ACC)
+in(&Memory::req)
+#endif
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
+#if !defined(CONFIG_GVSOC_MEMORY_IO_ACC)
     in.set_req_meth(&Memory::req);
+#endif
     new_slave_port("input", &in);
 
     this->power_ctrl_itf.set_sync_meth(&Memory::power_ctrl_sync);
@@ -252,7 +261,7 @@ void Memory::log_access(uint64_t addr, uint64_t size, bool is_write)
 }
 
 
-vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
+IO_REQ_STATUS Memory::req(vp::Block *__this, IO_REQ *req)
 {
     Memory *_this = (Memory *)__this;
 
@@ -264,8 +273,11 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     _this->log_access(offset, size, req->get_is_write());
 
+#if !defined(CONFIG_GVSOC_MEMORY_IO_ACC)
     req->inc_latency(_this->latency);
+#endif
 
+#if !defined(CONFIG_GVSOC_MEMORY_IO_ACC)
     if (!req->is_debug())
     {
         // Impact the Memory bandwith on the packet
@@ -310,6 +322,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
             }
         }
     }
+#endif
 
 #ifdef VP_TRACE_ACTIVE
     if (_this->power_trigger)
@@ -331,59 +344,69 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     }
 #endif
 
+    bool error = false;
     if (offset + size > _this->size)
     {
         _this->trace.force_warning_no_error("Received out-of-bound request (reqAddr: 0x%x, reqSize: 0x%x, memSize: 0x%x)\n", offset, size, _this->size);
-        return vp::IO_REQ_INVALID;
-    }
-
-    if (req->get_opcode() == vp::IoReqOpcode::READ)
-    {
-#ifdef VP_MEMCHECK_ACTIVE
-        return _this->handle_read(offset, size, data, req->get_memcheck_data());
-#else
-        return _this->handle_read(offset, size, data, NULL);
-#endif
-    }
-    else if (req->get_opcode() == vp::IoReqOpcode::WRITE)
-    {
-#ifdef VP_MEMCHECK_ACTIVE
-        return _this->handle_write(offset, size, data, req->get_memcheck_data());
-#else
-        return _this->handle_write(offset, size, data, NULL);
-#endif
+        error = true;
     }
     else
     {
-#ifdef CONFIG_ATOMICS
-#ifdef VP_MEMCHECK_ACTIVE
-        return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
-            req->get_initiator(), req->get_memcheck_data(), req->get_second_memcheck_data());
-#else
-        return _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
-            req->get_initiator(), NULL, NULL);
-#endif
-#else
-        _this->trace.force_warning("Received unsupported atomic operation\n");
-        return vp::IO_REQ_INVALID;
-#endif
+        if (req->get_opcode() == vp::IoReqOpcode::READ)
+        {
+    #if defined(VP_MEMCHECK_ACTIVE) && !defined(CONFIG_GVSOC_MEMORY_IO_ACC)
+            error = _this->handle_read(offset, size, data, req->get_memcheck_data());
+    #else
+            error = _this->handle_read(offset, size, data, NULL);
+    #endif
+        }
+        else if (req->get_opcode() == vp::IoReqOpcode::WRITE)
+        {
+    #if defined(VP_MEMCHECK_ACTIVE) && !defined(CONFIG_GVSOC_MEMORY_IO_ACC)
+            error = _this->handle_write(offset, size, data, req->get_memcheck_data());
+    #else
+            error = _this->handle_write(offset, size, data, NULL);
+    #endif
+        }
+        else
+        {
+    #ifdef CONFIG_ATOMICS
+    #ifdef VP_MEMCHECK_ACTIVE
+            error = _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
+                req->get_initiator(), req->get_memcheck_data(), req->get_second_memcheck_data());
+    #else
+            error = _this->handle_atomic(offset, size, data, req->get_second_data(), req->get_opcode(),
+                req->get_initiator(), NULL, NULL);
+    #endif
+    #else
+            _this->trace.force_warning("Received unsupported atomic operation\n");
+            error = true;
+    #endif
+        }
     }
+
+#if defined(CONFIG_GVSOC_MEMORY_IO_ACC)
+    req->status = error ? vp::IoAccRespStatus::IO_ACC_RESP_INVALID : vp::IoAccRespStatus::IO_ACC_RESP_OK;
+    return vp::IoAccReqStatus::IO_ACC_REQ_DONE;
+#else
+    return error ? vp::IoReqStatus::IO_REQ_INVALID : vp::IoReqStatus::IO_REQ_OK;
+#endif
 }
 
 
 
-vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
+bool Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
 {
     // Writes on powered-down memory are silently ignored
     if (!this->powered_up)
     {
-        return vp::IO_REQ_OK;
+        return false;
     }
 
 #ifdef VP_MEMCHECK_ACTIVE
     if (this->check_buffer_access(offset, size, true))
     {
-        return vp::IO_REQ_INVALID;
+        return true;
     }
 
     if (this->memcheck_data != NULL)
@@ -406,7 +429,7 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
         memcpy((void *)&this->mem_data[offset], (void *)data, size);
     }
 
-    return vp::IO_REQ_OK;
+    return false;
 }
 
 
@@ -559,20 +582,20 @@ bool Memory::check_buffer_access(uint64_t offset, uint64_t size, bool is_write)
     return false;
 }
 
-vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
+bool Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *data, uint8_t *req_memcheck_data)
 {
     // Reads on powered-down memory return 0
     if (!this->powered_up)
     {
         memset((void *)data, 0, size);
-        return vp::IO_REQ_OK;
+        return false;
     }
 
 #ifdef VP_MEMCHECK_ACTIVE
 
     if (this->check_buffer_access(offset, size, false))
     {
-        return vp::IO_REQ_INVALID;
+        return true;
     }
 
     if (this->memcheck_data != NULL)
@@ -589,7 +612,7 @@ vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *dat
         memcpy((void *)data, (void *)&this->mem_data[offset], size);
     }
 
-    return vp::IO_REQ_OK;
+    return false;
 }
 
 
@@ -599,7 +622,7 @@ static inline int64_t get_signed_value(int64_t val, int bits)
 }
 
 
-vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data,
+bool Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_data,
     uint8_t *out_data, vp::IoReqOpcode opcode, int initiator, uint8_t *in_memcheck_data,
     uint8_t *out_memcheck_data)
 {
@@ -674,7 +697,7 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
             result = (uint64_t) prev_val > (uint64_t) operand ? prev_val : operand;
             break;
         default:
-            return vp::IO_REQ_INVALID;
+            return true;
     }
 
     memcpy(out_data, (uint8_t *)&prev_val, size);
@@ -683,7 +706,7 @@ vp::IoReqStatus Memory::handle_atomic(uint64_t addr, uint64_t size, uint8_t *in_
         this->handle_write(addr, size, (uint8_t *)&result, in_memcheck_data);
     }
 
-    return vp::IO_REQ_OK;
+    return false;
 }
 
 

@@ -22,7 +22,11 @@
 #pragma once
 
 #include <vp/vp.hpp>
+#if defined(CONFIG_GVSOC_ROUTER_IO_ACC)
+#include <vp/itf/io_acc.hpp>
+#else
 #include <vp/itf/io.hpp>
+#endif
 
 class RouterCommon : public vp::Component
 {
@@ -33,7 +37,7 @@ public:
         FILE *reply_file, std::vector<std::string> args, std::string cmd_req) override;
 
 private:
-    virtual vp::IoReqStatus handle_req(vp::IoReq *req, int port) = 0;
+    virtual IO_REQ_STATUS handle_req(IO_REQ *req, int port) = 0;
 
-    vp::IoReq proxy_req;
+    IO_REQ proxy_req;
 };

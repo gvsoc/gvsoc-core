@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -26,7 +26,11 @@
 #include ISS_CORE_INC(class.hpp)
 #include "cpu/iss/include/iss_core.hpp"
 
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+#include <cpu/iss/include/lsu_acc_implem.hpp>
+#else
 #include <cpu/iss/include/lsu_implem.hpp>
+#endif
 
 #include "cpu/iss/include/perf_event.hpp"
 #include <cpu/iss/include/csr.hpp>

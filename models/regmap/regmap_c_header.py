@@ -1,7 +1,19 @@
 #
-# Copyright (C) 2019 GreenWaves Technologies
+# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
+#                    University of Bologna
 #
-
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import os.path
 
@@ -10,7 +22,8 @@ c_head_pattern = """
  */
 
 /*
- * Copyright (C) 2020 GreenWaves Technologies
+ * Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
+ *                    University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,8 +75,17 @@ class Header(object):
         self.file.write('\n')
         if inc_stdint:
             self.file.write('#include <stdint.h>\n')
-        if inc_utils:
-            self.file.write('#include "archi/utils.h"\n')
+        # if inc_utils:
+        #     self.file.write('#include "archi/utils.h"\n')
+
+        self.file.write('#ifndef ARCHI_READ\n')
+        self.file.write('#define ARCHI_READ(base, offset) (*(volatile unsigned int *)(long)((base) + (offset)))\n')
+        self.file.write('#endif\n')
+
+        self.file.write('#ifndef ARCHI_WRITE\n')
+        self.file.write('#define ARCHI_WRITE(base, offset, val_) (*(volatile unsigned int *)(long)((base) + (offset)) = val_)\n')
+        self.file.write('#endif\n')
+
         self.file.write('\n')
         self.file.write('#endif\n')
         self.file.write('\n')
@@ -113,9 +135,9 @@ class Regfield(object):
             self.__dump_file(header.file, '#define %-50s (value)\n' % (field_name + '_GETS(value)'), rst)
             self.__dump_file(header.file, '#define %-50s (field)\n' % (field_name + '_SET(value,field)'), rst)
         else:
-            self.__dump_file(header.file, '#define %-50s (GAP_BEXTRACTU((value),%d,%d))\n' % (field_name + '_GET(value)', self.width, self.bit), rst)
-            self.__dump_file(header.file, '#define %-50s (GAP_BEXTRACT((value),%d,%d))\n' % (field_name + '_GETS(value)', self.width, self.bit), rst)
-            self.__dump_file(header.file, '#define %-50s (GAP_BINSERT((value),(field),%d,%d))\n' % (field_name + '_SET(value,field)', self.width, self.bit), rst)
+            self.__dump_file(header.file, '#define %-50s (__BEXTRACTU((value),%d,%d))\n' % (field_name + '_GET(value)', self.width, self.bit), rst)
+            self.__dump_file(header.file, '#define %-50s (__BEXTRACT((value),%d,%d))\n' % (field_name + '_GETS(value)', self.width, self.bit), rst)
+            self.__dump_file(header.file, '#define %-50s (__BINSERT((value),(field),%d,%d))\n' % (field_name + '_SET(value,field)', self.width, self.bit), rst)
         self.__dump_file(header.file, '#define %-50s ((val) << %d)\n' % (field_name + '(val)', self.bit), rst)
 
     def dump_access_functions(self, reg, header=None, rst=False):
@@ -127,13 +149,13 @@ class Regfield(object):
         header.file.write("\n")
 
         if self.width == 32:
-            set_implem = '\n{\n    GAP_WRITE(base, %s_OFFSET, value);\n}\n' % (reg_c_name) if not rst else ';'
-            getu_implem = '\n{\n    return GAP_READ(base, %s_OFFSET);\n}\n' % (reg_c_name) if not rst else ';'
-            get_implem = '\n{\n    return GAP_READ(base, %s_OFFSET);\n}\n' % (reg_c_name) if not rst else ';'
+            set_implem = '\n{\n    ARCHI_WRITE(base, %s_OFFSET, value);\n}\n' % (reg_c_name) if not rst else ';'
+            getu_implem = '\n{\n    return ARCHI_READ(base, %s_OFFSET);\n}\n' % (reg_c_name) if not rst else ';'
+            get_implem = '\n{\n    return ARCHI_READ(base, %s_OFFSET);\n}\n' % (reg_c_name) if not rst else ';'
         else:
-            set_implem = '\n{\n    GAP_WRITE(base, %s_OFFSET, GAP_BINSERT(GAP_READ(base, %s_OFFSET), value, %d, %d));\n}\n' % (reg_c_name, reg_c_name, self.width, self.bit) if not rst else ';'
-            getu_implem = '\n{\n    return GAP_BEXTRACTU(GAP_READ(base, %s_OFFSET), %d, %d);\n}\n' % (reg_c_name, self.width, self.bit) if not rst else ';'
-            get_implem = '\n{\n    return GAP_BEXTRACT(GAP_READ(base, %s_OFFSET), %d, %d);\n}\n' % (reg_c_name, self.width, self.bit) if not rst else ';'
+            set_implem = '\n{\n    ARCHI_WRITE(base, %s_OFFSET, __BINSERT(ARCHI_READ(base, %s_OFFSET), value, %d, %d));\n}\n' % (reg_c_name, reg_c_name, self.width, self.bit) if not rst else ';'
+            getu_implem = '\n{\n    return __BEXTRACTU(ARCHI_READ(base, %s_OFFSET), %d, %d);\n}\n' % (reg_c_name, self.width, self.bit) if not rst else ';'
+            get_implem = '\n{\n    return __BEXTRACT(ARCHI_READ(base, %s_OFFSET), %d, %d);\n}\n' % (reg_c_name, self.width, self.bit) if not rst else ';'
 
         header.file.write("%sstatic inline __attribute__((always_inline)) void %s_%s_set(uint32_t base, uint32_t value)%s\n" % (indent, reg_name.lower(), field_c_name.lower(), set_implem))
         header.file.write("%sstatic inline __attribute__((always_inline)) uint32_t %s_%s_get(uint32_t base)%s\n" % (indent, reg_name.lower(), field_c_name.lower(), getu_implem))
@@ -288,8 +310,8 @@ class Register(object):
             indent = '' if not rst else '        '
             header.file.write("\n")
 
-            get_implem = '\n{\n    return GAP_READ(base, %s_OFFSET);\n}\n' % (get_c_name(reg_name).upper()) if not rst else ';'
-            set_implem = '\n{\n    GAP_WRITE(base, %s_OFFSET, value);\n}\n' % (get_c_name(reg_name).upper()) if not rst else ';'
+            get_implem = '\n{\n    return ARCHI_READ(base, %s_OFFSET);\n}\n' % (get_c_name(reg_name).upper()) if not rst else ';'
+            set_implem = '\n{\n    ARCHI_WRITE(base, %s_OFFSET, value);\n}\n' % (get_c_name(reg_name).upper()) if not rst else ';'
 
             header.file.write("%sstatic inline __attribute__((always_inline)) uint32_t %s_get(uint32_t base)%s\n" % (indent, reg_name.lower(), get_implem));
             header.file.write("%sstatic inline __attribute__((always_inline)) void %s_set(uint32_t base, uint32_t value)%s\n" % (indent, reg_name.lower(), set_implem));

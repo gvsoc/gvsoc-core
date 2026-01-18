@@ -24,7 +24,6 @@
 // MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 #include <vp/vp.hpp>
-#include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
@@ -91,7 +90,7 @@ void Htif::build()
 #endif
 }
 
-void Htif::data_response(vp::Block *__this, vp::IoReq *req)
+void Htif::data_response(vp::Block *__this, IO_REQ *req)
 {
 
 }

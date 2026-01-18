@@ -22,6 +22,7 @@
 #ifndef __VP_ITF_IO_HPP__
 #define __VP_ITF_IO_HPP__
 
+#include "io_common.hpp"
 #include "vp/vp.hpp"
 #include "vp/queue.hpp"
 
@@ -38,23 +39,6 @@ namespace vp {
     IO_REQ_PENDING
   } IoReqStatus;
 
-  typedef enum
-  {
-    READ=0,
-    WRITE=1,
-    LR=2,
-    SC=3,
-    SWAP=4,
-    ADD=5,
-    XOR=6,
-    AND=7,
-    OR=8,
-    MIN=9,
-    MAX=10,
-    MINU=11,
-    MAXU=12,
-  } IoReqOpcode;
-
   #define IO_REQ_PAYLOAD_SIZE 64
   #define IO_REQ_NB_ARGS 16
 
@@ -65,6 +49,11 @@ namespace vp {
   typedef void (IoRespMethMuxed)(vp::Block *, vp::IoReq *, int id);
   typedef void (IoGrantMeth)(vp::Block *, vp::IoReq *);
   typedef void (IoGrantMethMuxed)(vp::Block *, vp::IoReq *, int id);
+
+  #define IO_REQ vp::IoReq
+  #define IO_MASTER vp::IoMaster
+  #define IO_SLAVE vp::IoSlave
+  #define IO_REQ_STATUS vp::IoReqStatus
 
   class IoReq : public vp::QueueElem
   {

@@ -15,6 +15,7 @@
 #
 
 import gvsoc.systree
+from gvsoc.systree import IoAccuracy
 
 class ElfLoader(gvsoc.systree.Component):
     """ELF loader
@@ -54,7 +55,12 @@ class ElfLoader(gvsoc.systree.Component):
         if binaries is not None:
             whole_binaries += binaries
 
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+
         self.set_component('utils.loader.loader')
+
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_c_flags([f'-DCONFIG_GVSOC_LOADER_IO_ACC=1'])
 
         self.add_properties({
             'binary': whole_binaries

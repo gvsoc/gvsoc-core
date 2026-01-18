@@ -17,6 +17,7 @@
 from dataclasses import dataclass, field
 import gvsoc.systree
 from gvrun.systree import Attr
+from gvsoc.systree import IoAccuracy
 
 @dataclass(frozen=True, repr=False)
 class RouterMapping(Attr):
@@ -118,8 +119,13 @@ class Router(gvsoc.systree.Component):
         # Set number of input ports to 1 by default because some models do not use i_INPUT yet.
         self.add_property('nb_input_port', 1)
 
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+
         self.add_sources(['interco/router/router_common.cpp'])
-        if synchronous:
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_c_flags([f'-DCONFIG_GVSOC_ROUTER_IO_ACC=1'])
+            self.add_sources(['interco/router/router_acc.cpp'])
+        elif synchronous:
             self.add_sources(['interco/router/router.cpp'])
         else:
             self.add_sources(['interco/router/router_async.cpp'])
@@ -192,9 +198,9 @@ class Router(gvsoc.systree.Component):
         """
         self.__alloc_input_port(id)
         if id == 0:
-            return gvsoc.systree.SlaveItf(self, f'input', signature='io')
+            return gvsoc.systree.SlaveItf(self, f'input', signature=self.io_signature)
         else:
-            return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='io')
+            return gvsoc.systree.SlaveItf(self, f'input_{id}', signature=self.io_signature)
 
     def o_MAP(self, itf: gvsoc.systree.SlaveItf, name: str=None, base: int=0, size: int=0,
             rm_base: bool=True, remove_offset: int=0, latency: int=0, mapping: RouterMapping=None):
@@ -241,7 +247,7 @@ class Router(gvsoc.systree.Component):
         if name is None:
             name = itf.component.name
         self.add_mapping(name, base=base, remove_offset=remove_offset, size=size, latency=latency)
-        self.itf_bind(name, itf, signature='io')
+        self.itf_bind(name, itf, signature=self.io_signature)
 
     def gen_gui(self, parent_signal):
 

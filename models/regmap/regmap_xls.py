@@ -1,5 +1,18 @@
 #
-# Copyright (C) 2019 GreenWaves Technologies
+# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
+#                    University of Bologna
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 import pandas as pd
@@ -104,9 +117,9 @@ def import_xls(regmap, path):
     # if ipfsmfmtmap is not None:
         # for index, row in ipfsmfmtmap.iterrows():
             # reg_name = '%s_%s' % (row['Register name'], row['Format Name'])
-# 
+#
             # reg = regmap.get_register(reg_name)
-# 
+#
             # if reg is None:
                 # reg = regmap.add_register(
                     # rmap.Register(
@@ -115,10 +128,10 @@ def import_xls(regmap, path):
                     #   width=row['Size'],
                     #   desc=get_description(row['Description'])
                     # ))
-# 
+#
             # if row['Bit field'] == '-':
                 # continue
-# 
+#
             # reg.add_regfield(
                 # rmap.Regfield(
                     # name=get_name(row['Bit field']),

@@ -62,7 +62,6 @@ static inline iss_reg_t iss_insn_next(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #include "cpu/iss/include/utils.hpp"
 #include "cpu/iss/include/regfile_implem.hpp"
 #include "cpu/iss/include/perf.hpp"
-#include "cpu/iss/include/lsu.hpp"
 #include <cpu/iss/include/decode.hpp>
 #include "cpu/iss/include/insn_cache.hpp"
 #include "cpu/iss/include/resource.hpp"

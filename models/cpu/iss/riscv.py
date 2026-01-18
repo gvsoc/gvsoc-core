@@ -17,6 +17,7 @@ from inspect import stack
 
 import os
 import subprocess
+from gvsoc.systree import IoAccuracy
 import gvsoc.systree
 import gvsoc.systree as st
 import os.path
@@ -147,13 +148,14 @@ class RiscvCommon(st.Component):
             wrapper
         ])
 
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+
         if not custom_sources:
             self.add_sources([
                 "cpu/iss/src/prefetch/prefetch_single_line.cpp",
                 "cpu/iss/src/csr.cpp",
                 "cpu/iss/src/exec/exec_inorder.cpp",
                 "cpu/iss/src/decode.cpp",
-                "cpu/iss/src/lsu.cpp",
                 "cpu/iss/src/timing.cpp",
                 "cpu/iss/src/insn_cache.cpp",
                 "cpu/iss/src/iss.cpp",
@@ -169,6 +171,16 @@ class RiscvCommon(st.Component):
                 "cpu/iss/src/dbg_unit.cpp",
                 "cpu/iss/flexfloat/flexfloat.c",
             ])
+
+            if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+                self.add_c_flags([f'-DCONFIG_GVSOC_ISS_LSU_ACC=1'])
+                self.add_sources([
+                    "cpu/iss/src/lsu_acc.cpp",
+                ])
+            else:
+                self.add_sources([
+                    "cpu/iss/src/lsu.cpp",
+                ])
 
         if power_models_file is not None:
             power_models = self.load_property_file(power_models_file)
@@ -458,7 +470,7 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
-        self.itf_bind('fetch', itf, signature='io')
+        self.itf_bind('fetch', itf, signature=self.io_signature)
 
     def o_DATA(self, itf: gvsoc.systree.SlaveItf):
         """Binds the data port.
@@ -472,10 +484,10 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
-        self.itf_bind('data', itf, signature='io')
+        self.itf_bind('data', itf, signature=self.io_signature)
 
     def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
-        self.itf_bind('meminfo', itf, signature='io')
+        self.itf_bind('meminfo', itf, signature=self.io_signature)
 
     def o_TIME(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('time', itf, signature='wire<uint64_t>')
@@ -492,7 +504,7 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
-        self.itf_bind('data_debug', itf, signature='io')
+        self.itf_bind('data_debug', itf, signature=self.io_signature)
 
     def o_FLUSH_CACHE(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('flush_cache_req', itf, signature='wire<bool>')

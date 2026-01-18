@@ -15,6 +15,7 @@
 #
 
 import gvsoc.systree as st
+from gvsoc.systree import IoAccuracy
 
 class Interleaver(st.Component):
     """
@@ -44,7 +45,13 @@ class Interleaver(st.Component):
 
         super(Interleaver, self).__init__(parent, name)
 
-        self.set_component('interco.interleaver_impl')
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_c_flags([f'-DCONFIG_GVSOC_INTERLEAVER_IO_ACC=1'])
+            self.set_component('interco.interleaver_acc')
+        else:
+            self.set_component('interco.interleaver_impl')
+
 
         self.add_properties({
             'nb_slaves': nb_slaves,

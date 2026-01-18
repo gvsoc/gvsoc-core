@@ -27,7 +27,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#if defined(CONFIG_GVSOC_ISS_LSU_ACC)
+#include <vp/itf/io_acc.hpp>
+#else
 #include <vp/itf/io.hpp>
+#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -117,6 +121,7 @@ void Syscalls::handle_ebreak()
 
 bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bool is_write)
 {
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
     vp::IoReq *req = &this->iss.lsu.debug_req;
     std::string str = "";
     while (size != 0)
@@ -154,12 +159,14 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
         size--;
         buffer++;
     }
+#endif
 
     return false;
 }
 
 std::string Syscalls::read_user_string(iss_addr_t addr, int size)
 {
+#if !defined(CONFIG_GVSOC_ISS_LSU_ACC)
     vp::IoReq *req = &this->iss.lsu.debug_req;
     std::string str = "";
     while (size != 0)
@@ -191,6 +198,9 @@ std::string Syscalls::read_user_string(iss_addr_t addr, int size)
     }
 
     return str;
+#else
+    return "";
+#endif
 }
 
 static const int open_modeflags[12] = {

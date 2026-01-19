@@ -4,3 +4,4 @@ __pycache__/
 cscope*
 /docs/_build/
 /.vscode/
+models/memory/dramsys_configs

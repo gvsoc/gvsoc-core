@@ -195,7 +195,7 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     // Initialize the Memory with a special value to detect uninitialized
     // variables.
     // Only do it for small memories to not slow down too much simulation init.
-    if (size < (2<<24))
+    if (this->get_js_config()->get_child_bool("init") && size < (2<<24))
     {
         memset(mem_data, 0x57, size);
     }

@@ -60,7 +60,7 @@ class Memory(gvsoc.systree.Component):
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
-            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5):
+            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True):
 
         super().__init__(parent, name)
 
@@ -73,6 +73,7 @@ class Memory(gvsoc.systree.Component):
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
         self.add_properties({
+            'init': init,
             'size': size,
             'stim_file': stim_file,
             'power_trigger': power_trigger,

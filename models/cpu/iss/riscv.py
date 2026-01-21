@@ -530,6 +530,9 @@ class RiscvCommon(st.Component):
     def i_IRQ_REQ(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, itf_name='irq_req', signature='wire<int>')
 
+    def o_IRQ_ACK(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('irq_ack', itf, signature=f'wire<int>')
+
     def i_IRQ(self, irq) -> gvsoc.systree.SlaveItf:
 
         if irq == 3:

@@ -91,8 +91,11 @@ namespace vp {
         void set_global_enable(bool enable) { this->global_enable = enable; }
 
         vp::Trace *get_trace_from_path(std::string path);
+        vp::Event *get_event_from_path(std::string path);
 
         vp::Trace *get_trace_from_id(int id);
+        vp::Trace *get_trace_event_from_id(int id);
+        vp::Event *get_event_from_id(int id);
 
         inline bool get_werror() { return this->werror; }
         inline bool is_warning_active(vp::Trace::warning_type_e type) { return this->active_warnings[type]; }
@@ -133,6 +136,8 @@ namespace vp {
     protected:
         std::map<std::string, Trace *> traces_map;
         std::vector<Trace *> traces_array;
+        std::vector<Trace *> events_array;
+        std::vector<bool> is_event;
         std::vector<bool> active_warnings;
         int trace_format;
         bool trace_float_hex;

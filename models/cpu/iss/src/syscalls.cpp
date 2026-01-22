@@ -95,7 +95,7 @@ void Syscalls::handle_ebreak()
 
     case GV_SEMIHOSTING_TRACE_ENABLE: {
       int id = this->iss.regfile.regs[11];
-      vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
+      vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
       if (trace == NULL)
       {
         this->trace.force_warning("Unknown trace ID while dumping trace (id: %d)\n", id);
@@ -587,10 +587,28 @@ void Syscalls::handle_riscv_ebreak()
     case 0x10A:
     {
         int id = this->iss.regfile.regs[11];
-        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
         if (trace == NULL)
         {
-            this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            vp::Event *event = this->iss.top.traces.get_trace_engine()->get_event_from_id(id);
+            if (event == NULL)
+            {
+                this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            }
+            else
+            {
+                if (event->width > 32)
+                {
+                    this->trace.force_warning("Trying to write to VCD trace whose width is bigger than 32 (id: %d)\n", id);
+                }
+                else
+                {
+                    if (0)
+                        event->dump_highz();
+                    else
+                        event->dump_value((uint8_t *)&this->iss.regfile.regs[12]);
+                }
+            }
         }
         else
         {
@@ -620,10 +638,18 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
         if (trace == NULL)
         {
-            this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            vp::Event *event = this->iss.top.traces.get_trace_engine()->get_event_from_id(id);
+            if (event == NULL)
+            {
+                this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            }
+            else
+            {
+                event->dump_highz();
+            }
         }
         else
         {
@@ -643,10 +669,29 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
-        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_id(id);
+        vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
         if (trace == NULL)
         {
-            this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            vp::Event *event = this->iss.top.traces.get_trace_engine()->get_event_from_id(id);
+            if (event == NULL)
+            {
+                this->trace.force_warning("Unknown trace ID while dumping VCD trace (id: %d)\n", id);
+            }
+            else
+            {
+                if (event->type != gv::Vcd_event_type_string)
+                {
+                    this->trace.force_warning("Trying to write string to VCD trace which is not a string (id: %d)\n", id);
+                }
+                else
+                {
+                    std::string path = this->read_user_string(args[1]);
+
+                    // TODO this needs to be implemented in Event class before VCD support in syscalls is switched to it
+                    this->trace.fatal("Unimplemented string events in new Event class");
+                    // trace->event_string(path.c_str(), true);
+                }
+            }
         }
         else
         {

@@ -30,7 +30,9 @@
 int64_t vp::TraceEngine::event_declare(Event *event)
 {
     this->events[event->path_get()] = event;
-    return this->nb_event++;
+    this->events_array.push_back((vp::Trace *)event);
+    this->is_event.push_back(true);
+    return this->events_array.size() - 1;
 }
 
 vp::Event_file *vp::TraceEngine::get_event_file(std::string path)
@@ -182,17 +184,26 @@ void vp::TraceEngine::check_traces()
     {
         this->check_trace_active(x, x->is_event);
     }
+    for (auto x : this->events_array)
+    {
+        if (x != NULL)
+        {
+            this->check_trace_active(x, x->is_event);
+        }
+    }
 }
 
 void vp::TraceEngine::reg_trace(vp::Trace *trace, int event, string path, string name)
 {
-    this->traces_array.push_back(trace);
     if (event)
     {
-        trace->id = this->nb_event++;
+        this->events_array.push_back(trace);
+        this->is_event.push_back(false);
+        trace->id = this->events_array.size() - 1;
     }
     else
     {
+        this->traces_array.push_back(trace);
         trace->id = this->traces_array.size() - 1;
     }
 
@@ -351,6 +362,25 @@ void vp::TraceEngine::start()
         for (Trace *trace: this->traces_array)
         {
             if (trace->is_event)
+            {
+                if (trace->comp->clock.get_engine())
+                {
+                    trace->clock_trace = &trace->comp->clock.get_engine()->clock_trace;
+                }
+
+                std::string clock_trace_name = "";
+                if (trace->clock_trace != NULL)
+                {
+                    clock_trace_name = trace->clock_trace->path;
+                }
+                int width = trace->type == gv::Vcd_event_type_real ? 8 : trace->type == gv::Vcd_event_type_string ? 0 : trace->width;
+                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace->type, width, clock_trace_name);
+            }
+        }
+
+        for (Trace *trace: this->events_array)
+        {
+            if (trace && trace->is_event)
             {
                 if (trace->comp->clock.get_engine())
                 {

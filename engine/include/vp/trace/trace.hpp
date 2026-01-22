@@ -53,7 +53,7 @@ class Event
 public:
     Event(vp::Block &parent, const char *name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical);
-    inline void dump_value(uint8_t *value, int64_t time_delay);
+    inline void dump_value(uint8_t *value, int64_t time_delay=0);
     inline void dump_highz(int64_t time_delay=0);
     void dump_highz_next();
     std::string path_get();
@@ -62,6 +62,9 @@ public:
     void dump_next();
     void next_set(vp::Event *next) { this->next = next; }
     vp::Event *next_get() { return this->next; }
+
+    gv::Vcd_event_type type;
+    int width;
 private:
     static void dump_1(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_8(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
@@ -87,8 +90,6 @@ private:
     void (*next_value_fill_callback)(vp::Event *event, uint8_t *value, uint8_t *flags) = NULL;
     int64_t id;
     void *external_trace;
-    gv::Vcd_event_type type;
-    int width;
     gv::Vcd_user *vcd_user;
     uint8_t *next_value;
     uint8_t *next_flags;
@@ -100,12 +101,15 @@ class Event {
 public:
     Event(vp::Block &parent, std::string_view name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
-    void dump_value(uint8_t *value, int64_t time_delay) {}
+    void dump_value(uint8_t *value, int64_t time_delay=0) {}
     void dump_highz(int64_t time_delay=0) {}
     void dump_highz_next() {}
     std::string path_get() {return "";}
     void enable_set(bool enabled, vp::Event_file *file=NULL) {}
     inline bool active_get() { return false; }
+
+    gv::Vcd_event_type type=gv::Vcd_event_type_logical;
+    int width=0;
 };
 #endif
 

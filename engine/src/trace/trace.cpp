@@ -688,11 +688,47 @@ vp::Trace *vp::TraceEngine::get_trace_from_path(std::string path)
     return this->traces_map[path];
 }
 
+vp::Event *vp::TraceEngine::get_event_from_path(std::string path)
+{
+    return this->events[path];
+}
+
 vp::Trace *vp::TraceEngine::get_trace_from_id(int id)
 {
     if (id >= (int)this->traces_array.size())
         return NULL;
+
     return this->traces_array[id];
+}
+
+vp::Trace *vp::TraceEngine::get_trace_event_from_id(int id)
+{
+    if (id >= (int)this->events_array.size())
+        return NULL;
+
+    if (this->is_event[id])
+    {
+        return NULL;
+    }
+    else
+    {
+        return this->events_array[id];
+    }
+}
+
+vp::Event *vp::TraceEngine::get_event_from_id(int id)
+{
+    if (id >= (int)this->events_array.size())
+        return NULL;
+
+    if (this->is_event[id])
+    {
+        return (vp::Event *)this->events_array[id];
+    }
+    else
+    {
+        return NULL;
+    }
 }
 
 void vp::TraceEngine::set_vcd_user(gv::Vcd_user *user)

@@ -174,7 +174,8 @@ else:
             List of options of forms key=value which should overwrite component properties.
         """
 
-        def __init__(self, parent: 'Component', name: str, tree=None, options=None, target_name=None):
+        def __init__(self, parent: 'Component', name: str, tree: object=None,
+                options: list[str] | None=None, target_name: str | None=None):
             self.name = name
             self.parent = parent
             self.json_config_files = []
@@ -305,7 +306,7 @@ else:
             self.properties = self.__merge_properties(self.properties, properties)
 
 
-        def add_sources(self, sources: list):
+        def add_sources(self, sources: list[str]):
             """Add sources.
 
             The specified sources are added to the component.\n

@@ -184,11 +184,12 @@ void vp::TraceEngine::check_traces()
     {
         this->check_trace_active(x, x->is_event);
     }
-    for (auto x : this->events_array)
+    for (size_t i = 0; i < this->events_array.size(); i++)
     {
-        if (x != NULL)
+        Trace *trace = this->events_array[i];
+        if (trace && !this->is_event[i])
         {
-            this->check_trace_active(x, x->is_event);
+            this->check_trace_active(trace, trace->is_event);
         }
     }
 }
@@ -378,9 +379,10 @@ void vp::TraceEngine::start()
             }
         }
 
-        for (Trace *trace: this->events_array)
+        for (size_t i = 0; i < this->events_array.size(); i++)
         {
-            if (trace && trace->is_event)
+            Trace *trace = this->events_array[i];
+            if (trace && !this->is_event[i])
             {
                 if (trace->comp->clock.get_engine())
                 {

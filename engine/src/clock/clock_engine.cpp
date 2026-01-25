@@ -361,6 +361,21 @@ end:
         this->dequeue_from_engine();
 }
 
+void vp::ClockEngine::dump_traces()
+{
+#ifdef CONFIG_GVSOC_EVENT_ACTIVE
+    // Go through the list of traces to be automatically flushed at beginning of next cycle,
+    // flush them and clear the list
+    vp::Event *event = this->trace_flush_head;
+    this->trace_flush_head = NULL;
+    while (event)
+    {
+        event->dump_next();
+        event = event->next_get();
+    }
+#endif
+}
+
 int64_t vp::ClockEngine::exec()
 {
     this->cycles_trace.event_real(this->cycles);
@@ -371,23 +386,15 @@ int64_t vp::ClockEngine::exec()
     // in case we enqueue and event from another engine.
     this->stop_time = this->time.get_time();
 
-    #ifdef CONFIG_GVSOC_EVENT_ACTIVE
-    // Go through the list of traces to be automatically flushed at beginning of next cycle,
-    // flush them and clear the list
-    vp::Event *event = this->trace_flush_head;
-    this->trace_flush_head = NULL;
-    while (event)
-    {
-        event->dump_next();
-        event = event->next_get();
-    }
-    #endif
-
     if (likely(current != NULL))
     {
         while(1)
         {
             this->cycles++;
+
+            #ifdef CONFIG_GVSOC_EVENT_ACTIVE
+            this->dump_traces();
+            #endif
 
             do
             {
@@ -423,6 +430,10 @@ int64_t vp::ClockEngine::exec()
         vp_assert(this->cycles <= delayed_queue->cycle, NULL, "Executing event in the past\n");
 
         this->cycles = delayed_queue->cycle;
+
+        #ifdef CONFIG_GVSOC_EVENT_ACTIVE
+        this->dump_traces();
+        #endif
     }
 
     while (delayed_queue)

@@ -54,6 +54,7 @@ public:
     Event(vp::Block &parent, const char *name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical);
     inline void dump_value(uint8_t *value, int64_t time_delay=0);
+    inline void dump(const char *value, int64_t time_delay=0);
     inline void dump_highz(int64_t time_delay=0);
     void dump_highz_next();
     std::string path_get();
@@ -66,16 +67,19 @@ public:
     gv::Vcd_event_type type;
     int width;
 private:
+    static void dump_string(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_1(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_8(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_16(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_32(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
+    static void next_value_fill_string(vp::Event *event, uint8_t *value, uint8_t *flags);
     static void next_value_fill_1(vp::Event *event, uint8_t *value, uint8_t *flags);
     static void next_value_fill_8(vp::Event *event, uint8_t *value, uint8_t *flags);
     static void next_value_fill_32(vp::Event *event, uint8_t *value, uint8_t *flags);
     static void next_value_fill_16(vp::Event *event, uint8_t *value, uint8_t *flags);
     static void next_value_fill_64(vp::Event *event, uint8_t *value, uint8_t *flags);
+    static uint8_t *parse_string(uint8_t *buffer, bool &unlock);
     static uint8_t *parse_1(uint8_t *buffer, bool &unlock);
     static uint8_t *parse_8(uint8_t *buffer, bool &unlock);
     static uint8_t *parse_16(uint8_t *buffer, bool &unlock);
@@ -102,6 +106,7 @@ public:
     Event(vp::Block &parent, std::string_view name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
     void dump_value(uint8_t *value, int64_t time_delay=0) {}
+    void dump(const char *value, int64_t time_delay=0) {}
     void dump_highz(int64_t time_delay=0) {}
     void dump_highz_next() {}
     std::string path_get() {return "";}

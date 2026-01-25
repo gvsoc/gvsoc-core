@@ -53,6 +53,17 @@ namespace vp {
             callback(this, (uint8_t *)&value, time_delay, (uint8_t *)&highz);
         }
     }
+
+    inline void vp::Event::dump(const char *value, int64_t time_delay)
+    {
+        EventDumpCallback callback = (EventDumpCallback)this->dump_callback;
+
+        if (callback)
+        {
+            callback(this, (uint8_t *)value, time_delay, NULL);
+        }
+    }
+
     #endif
 
   inline void vp::Trace::event_highz(int64_t cycle_delay, int64_t time_delay)

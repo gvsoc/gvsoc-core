@@ -148,6 +148,8 @@ namespace vp
             delete event;
         }
 
+        void dump_traces();
+
         void disable(ClockEvent *event);
 
         void apply_frequency(int64_t frequency);

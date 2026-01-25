@@ -87,6 +87,16 @@ typedef struct
     uint64_t flags;
 } __attribute__((packed)) event_64_t;
 
+typedef struct
+{
+    vp::EventParseCallback callback;
+    vp::Event *event;
+    int64_t timestamp;
+    int64_t cycles;
+    const char *value;
+    uint64_t flags;
+} __attribute__((packed)) event_string_t;
+
 void vp::Event::dump_next()
 {
     this->has_next_value = false;
@@ -173,6 +183,29 @@ void vp::Event::dump_64(vp::Event *event, uint8_t *value, int64_t time_delay, ui
     buff_event->flags = flags != NULL ? *(uint64_t *)flags : 0;
 }
 
+void vp::Event::dump_string(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
+{
+    vp::TraceEngine *trace_engine = event->parent.traces.get_trace_engine();
+    vp::ClockEngine *clock_engine = event->parent.clock.get_engine();
+    event_string_t *buff_event = (event_string_t *)trace_engine->
+        get_event_buffer(sizeof(event_string_t));
+
+    buff_event->callback = event->parse_callback;
+    buff_event->event = event;
+    buff_event->timestamp = event->parent.time.get_time() + time_delay;
+
+    buff_event->cycles = clock_engine ? event->parent.clock.get_cycles() : -1;
+    if ((flags != NULL && *flags) || !value)
+    {
+        buff_event->value = NULL;
+    }
+    else
+    {
+        buff_event->value = trace_engine->get_string((const char *)value);
+    }
+    buff_event->flags = flags != NULL ? *(uint8_t *)flags : 0;
+}
+
 void vp::Event::next_value_fill_1(vp::Event *event, uint8_t *value, uint8_t *flags)
 {
     *(uint8_t *)event->next_value = *(uint8_t *)value;
@@ -201,6 +234,12 @@ void vp::Event::next_value_fill_64(vp::Event *event, uint8_t *value, uint8_t *fl
 {
     *(uint64_t *)event->next_value = *(uint64_t *)value;
     *(uint64_t *)event->next_flags = *(uint64_t *)flags;
+}
+
+void vp::Event::next_value_fill_string(vp::Event *event, uint8_t *value, uint8_t *flags)
+{
+    *(const char **)event->next_value = *(const char **)value;
+    *(uint8_t *)event->next_flags = *(uint8_t *)flags;
 }
 
 uint8_t *vp::Event::parse_1(uint8_t *buffer, bool &unlock)
@@ -303,6 +342,28 @@ uint8_t *vp::Event::parse_64(uint8_t *buffer, bool &unlock)
     return buffer + sizeof(event_64_t);
 }
 
+uint8_t *vp::Event::parse_string(uint8_t *buffer, bool &unlock)
+{
+    event_string_t *elem = (event_string_t *)buffer;
+    vp::Event *event = elem->event;
+
+    gv::Vcd_user *vcd_user = event->vcd_user;
+    if (vcd_user)
+    {
+        unlock = vcd_user->event_update_string(
+            elem->timestamp, elem->cycles, event->external_trace, (const char *)elem->value,
+            elem->flags, false);
+    }
+    else
+    {
+        event->file->dump(elem->timestamp, event->id, (uint8_t *)elem->value,
+            elem->value ? (strlen((char *)elem->value) + 1) * 8 : 0,
+            event->type, elem->flags, NULL);
+    }
+
+    return buffer + sizeof(event_string_t);
+}
+
 std::string vp::Event::path_get()
 {
     return this->parent.get_path() + "/" + std::string(this->name);
@@ -332,45 +393,56 @@ void vp::Event::enable_set(bool enabled, vp::Event_file *file)
 
         this->file = file;
 
-        if (width <= 1)
+        if (this->type == gv::Vcd_event_type::Vcd_event_type_string)
         {
-            this->dump_callback = &vp::Event::dump_1;
-            this->parse_callback = &vp::Event::parse_1;
-            this->next_value_fill_callback = &vp::Event::next_value_fill_1;
-            this->next_value = new uint8_t[1];
+            this->dump_callback = &vp::Event::dump_string;
+            this->parse_callback = &vp::Event::parse_string;
+            this->next_value_fill_callback = &vp::Event::next_value_fill_string;
+            this->next_value = new uint8_t[sizeof(char *)];
             this->next_flags = new uint8_t[1];
         }
-        else if (width <= 8)
+        else
         {
-            this->dump_callback = &vp::Event::dump_8;
-            this->parse_callback = &vp::Event::parse_8;
-            this->next_value_fill_callback = &vp::Event::next_value_fill_8;
-            this->next_value = new uint8_t[1];
-            this->next_flags = new uint8_t[1];
-        }
-        else if (width <= 16)
-        {
-            this->dump_callback = &vp::Event::dump_16;
-            this->parse_callback = &vp::Event::parse_16;
-            this->next_value_fill_callback = &vp::Event::next_value_fill_16;
-            this->next_value = new uint8_t[2];
-            this->next_flags = new uint8_t[2];
-        }
-        else if (width <= 32)
-        {
-            this->dump_callback = &vp::Event::dump_32;
-            this->parse_callback = &vp::Event::parse_32;
-            this->next_value_fill_callback = &vp::Event::next_value_fill_32;
-            this->next_value = new uint8_t[4];
-            this->next_flags = new uint8_t[4];
-        }
-        else if (width <= 64)
-        {
-            this->dump_callback = &vp::Event::dump_64;
-            this->parse_callback = &vp::Event::parse_64;
-            this->next_value_fill_callback = &vp::Event::next_value_fill_64;
-            this->next_value = new uint8_t[8];
-            this->next_flags = new uint8_t[8];
+            if (width <= 1)
+            {
+                this->dump_callback = &vp::Event::dump_1;
+                this->parse_callback = &vp::Event::parse_1;
+                this->next_value_fill_callback = &vp::Event::next_value_fill_1;
+                this->next_value = new uint8_t[1];
+                this->next_flags = new uint8_t[1];
+            }
+            else if (width <= 8)
+            {
+                this->dump_callback = &vp::Event::dump_8;
+                this->parse_callback = &vp::Event::parse_8;
+                this->next_value_fill_callback = &vp::Event::next_value_fill_8;
+                this->next_value = new uint8_t[1];
+                this->next_flags = new uint8_t[1];
+            }
+            else if (width <= 16)
+            {
+                this->dump_callback = &vp::Event::dump_16;
+                this->parse_callback = &vp::Event::parse_16;
+                this->next_value_fill_callback = &vp::Event::next_value_fill_16;
+                this->next_value = new uint8_t[2];
+                this->next_flags = new uint8_t[2];
+            }
+            else if (width <= 32)
+            {
+                this->dump_callback = &vp::Event::dump_32;
+                this->parse_callback = &vp::Event::parse_32;
+                this->next_value_fill_callback = &vp::Event::next_value_fill_32;
+                this->next_value = new uint8_t[4];
+                this->next_flags = new uint8_t[4];
+            }
+            else if (width <= 64)
+            {
+                this->dump_callback = &vp::Event::dump_64;
+                this->parse_callback = &vp::Event::parse_64;
+                this->next_value_fill_callback = &vp::Event::next_value_fill_64;
+                this->next_value = new uint8_t[8];
+                this->next_flags = new uint8_t[8];
+            }
         }
     }
     else

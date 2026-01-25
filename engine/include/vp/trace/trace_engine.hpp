@@ -63,7 +63,7 @@ namespace vp {
 
         void set_vcd_user(gv::Vcd_user *user);
         // This can be used to allocate common room for strings.
-        // This is useful when the strings are not owned by the backend and cannot be kept since the called may
+        // This is useful when the strings are not owned by the backend and cannot be kept since the caller may
         // free them.
         // This will allocate the string if has not yet been seen, or return the existing one.
         const char *get_string(const char *str);

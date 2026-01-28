@@ -387,8 +387,10 @@ typedef struct iss_insn_s
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
     bool out_regs_fp[ISS_MAX_NB_OUT_REGS];
+    bool out_regs_vec[ISS_MAX_NB_OUT_REGS];
     unsigned char in_regs[ISS_MAX_NB_IN_REGS];
     bool in_regs_fp[ISS_MAX_NB_IN_REGS];
+    bool in_regs_vec[ISS_MAX_NB_IN_REGS];
     void *out_regs_ref[ISS_MAX_NB_OUT_REGS];
     void *in_regs_ref[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];

@@ -244,6 +244,10 @@ void IssWrapper::insn_commit(PendingInsn *pending_insn)
             {
                 this->iss.sequencer.scoreboard_freg_timestamp[insn->out_regs[i]] = 0;
             }
+            else
+            {
+                this->iss.regfile.scoreboard_reg_timestamp[insn->out_regs[i]] = 0;
+            }
         }
     }
 
@@ -287,7 +291,8 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
             }
             else
             {
-                if (iss->regfile.scoreboard_freg_timestamp[insn->in_regs[i]] == -1)
+                int64_t cycles = iss->top.clock.get_cycles();
+                if (iss->sequencer.scoreboard_freg_timestamp[insn->in_regs[i]] > cycles)
                 {
                     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Blocked due to float reg dependency (pc: 0x%lx, reg: %d)\n",
                         pc, insn->in_regs[i]);
@@ -306,6 +311,10 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
             if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_FREG) != 0)
             {
                 iss->sequencer.scoreboard_freg_timestamp[insn->out_regs[i]] = INT64_MAX;
+            }
+            else
+            {
+                iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] = -1;
             }
         }
     }

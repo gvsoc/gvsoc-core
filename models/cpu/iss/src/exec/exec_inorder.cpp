@@ -193,21 +193,28 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         // asynchronous.
         for (int i=0; i<insn->nb_in_reg; i++)
         {
-            if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+            if (!insn->in_regs_vec[i])
             {
-                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to input register dependency (reg: %d)\n", insn->in_regs[i]);
-                return;
+                if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+                {
+                    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to input register dependency (reg: %d)\n", insn->in_regs[i]);
+                    return;
+                }
             }
         }
         // Also stall on output registers so that they are written in same order
         for (int i=0; i<insn->nb_out_reg; i++)
         {
-            if (iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] == -1)
+            if (!insn->out_regs_vec[i])
             {
-                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to output register dependency (reg: %d)\n", insn->out_regs[i]);
-                return;
+                if (iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] == -1)
+                {
+                    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to output register dependency (reg: %d)\n", insn->out_regs[i]);
+                    return;
+                }
             }
         }
+
         #endif
 
         // Takes care first of all optional features (traces, VCD and so on)
@@ -348,21 +355,28 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         // asynchronous.
         for (int i=0; i<insn->nb_in_reg; i++)
         {
-            if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+            if (!insn->in_regs_vec[i])
             {
-                _this->trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
-                return;
+                if (iss->regfile.scoreboard_reg_timestamp[insn->in_regs[i]] == -1)
+                {
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to register dependency (reg: %d)\n", insn->in_regs[i]);
+                    return;
+                }
             }
         }
         // Also stall on output registers so that they are written in same order
         for (int i=0; i<insn->nb_out_reg; i++)
         {
-            if (iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] == -1)
+            if (!insn->out_regs_vec[i])
             {
-                iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to output register dependency (reg: %d)\n", insn->out_regs[i]);
-                return;
+                if (iss->regfile.scoreboard_reg_timestamp[insn->out_regs[i]] == -1)
+                {
+                    iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to output register dependency (reg: %d)\n", insn->out_regs[i]);
+                    return;
+                }
             }
         }
+
         #endif
 
         _this->current_insn = _this->insn_exec(insn, pc);

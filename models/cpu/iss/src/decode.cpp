@@ -282,7 +282,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         item->u.insn.decode(&this->iss, insn, pc);
     }
 
-#if defined(CONFIG_GVSOC_ISS_TIMED)
+#if defined(CONFIG_GVSOC_ISS_TIMED) && !defined(CONFIG_ISS_HAS_VECTOR)
     if (insn->latency)
     {
         insn->stall_handler = insn->handler;

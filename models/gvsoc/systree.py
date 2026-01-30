@@ -39,8 +39,8 @@ else:
     import gapylib.target
     import gvsoc.gui
     import hashlib
-    from typing import Callable
-
+    from typing import Callable, Any
+    from gvrun.parameter import SystemTreeNodeParameter
 
     generated_components = {}
 
@@ -163,7 +163,7 @@ else:
             self.comp.parent.interfaces.append(self)
 
 
-    class Component(object):
+    class Component(SystemTreeNodeParameter):
         """
         This class corresponds to a generic HW component from which any component should inherit.
 
@@ -294,7 +294,7 @@ else:
 
             return self.get_property(name, format=format)
 
-        def add_properties(self, properties: dict):
+        def add_properties(self, properties: dict[str, Any]):
             """Add properties.
 
             Properties are made available to the C++ model.\n
@@ -550,7 +550,7 @@ else:
 
 
 
-        def get_property(self, name, format=None):
+        def get_property(self, name: str, format: Any|None=None) -> Any:
             """Get a property.
 
             The value of the property returned here can be overwritten by an option.

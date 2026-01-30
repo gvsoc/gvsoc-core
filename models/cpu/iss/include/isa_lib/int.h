@@ -24,6 +24,9 @@
 #include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef CONFIG_GVSOC_ISS_V2
+#include <cpu/iss_v2/include/utils.hpp>
+#endif
 #define MAX(a, b) ((a) >= (b) ? (a) : (b))
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 

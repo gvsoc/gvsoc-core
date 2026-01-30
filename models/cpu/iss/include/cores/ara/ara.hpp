@@ -325,6 +325,7 @@ public:
     // Number of pending vector stores in spatz. Use to synchronize with snitch memory accesses
     int nb_pending_vstore;
 #endif
+    vp::Trace trace;
 
 private:
     // Handler for internal FSM
@@ -337,7 +338,6 @@ private:
     // from CVA6 anymore
     static constexpr int queue_size = 8;
 
-    vp::Trace trace;
     // Event for active state
     vp::Trace event_active;
     // Event for PC of instruction being enqueued

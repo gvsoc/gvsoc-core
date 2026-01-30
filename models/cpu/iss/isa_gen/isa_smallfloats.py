@@ -63,6 +63,8 @@ class Xf16(IsaSubset):
             # # If D also supported
             # Instr('fcvt.d.h', Format_R2F3,'0100001 00010 ----- 000 ----- 1010011', tags=['sfconv'], isa_tags=['f16d']),
             # Instr('fcvt.h.d', Format_R2F3,'0100010 00001 ----- --- ----- 1010011', tags=['sfconv'], isa_tags=['f16d']),
+        ], includes=[
+            '<cpu/iss/include/isa/rvXf16.hpp>',
         ])
 
     def check_compatibilities(self, isa):
@@ -123,6 +125,8 @@ class Xf16alt(IsaSubset):
             # If Xf16 also supported
             Insn('0100010 00110 ----- --- ----- 1010011', 'fcvt.h.ah',  F_F('h_ah', ui12_3), tags=['sfconv', 'nseq'], isa_tags=['f16altf16']),
             Insn('0100010 00010 ----- 101 ----- 1010011', 'fcvt.ah.h',  F_F('ah_h'),         tags=['sfconv', 'nseq'], isa_tags=['f16altf16']),
+        ], includes=[
+            '<cpu/iss/include/isa/rvXf16alt.hpp>',
         ])
 
     def check_compatibilities(self, isa):
@@ -192,6 +196,8 @@ class Xf8(IsaSubset):
             # If Xf16alt also supported
             Insn('0100010 00011 ----- 101 ----- 1010011', 'fcvt.ah.b', F_F('ah_b'),         tags=['sfconv', 'nseq', 'fp_op'], isa_tags=['f8f16alt']),
             Insn('0100011 00110 ----- --- ----- 1010011', 'fcvt.b.ah', F_F('b_ah', ui12_3), tags=['sfconv', 'nseq', 'fp_op'], isa_tags=['f8f16alt']),
+        ], includes=[
+            '<cpu/iss/include/isa/rvXf8.hpp>',
         ])
 
     def check_compatibilities(self, isa):
@@ -479,7 +485,10 @@ class Xfvec(IsaSubset):
 
             ]
 
-        super().__init__(name='fvec', instrs=instrs)
+        super().__init__(name='fvec', instrs=instrs, includes=[
+            '<cpu/iss/include/isa/rv32Xfvec.hpp>',
+            '<cpu/iss/include/isa/rv32Xfaux.hpp>',
+        ])
 
     def check_compatibilities(self, isa):
         if not self.force_f32vec and (not isa.has_isa('rvf') or not isa.has_isa('rvd')):
@@ -590,6 +599,8 @@ class Xfaux(IsaSubset):
             Insn('1010110 ----- ----- 011 ----- 0110011', 'vfavg.b',        F_FF('B'),       tags=['fadd'], isa_tags=['f8auxvec']),
             Insn('1010110 ----- ----- 111 ----- 0110011', 'vfavg.r.b',      F_FF('B'),       tags=['fadd'], isa_tags=['f8auxvec']),
 
+        ], includes=[
+            '<cpu/iss/include/isa/rv32Xfaux.hpp>',
         ])
 
 

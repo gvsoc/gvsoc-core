@@ -221,6 +221,7 @@ class Router(gvsoc.systree.Component):
             rm_base = mapping.remove_base
             base = mapping.base
             size = mapping.size
+            name = mapping.name
 
         # We remove the base if specified, but only if remove_offset is not already specified as
         # they are redundant

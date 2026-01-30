@@ -516,4 +516,6 @@ class PulpV2(IsaSubset):
                 Instr('p.elw',           Format_L,   '------- ----- ----- 110 ----- 0000011', tags=["load"]),
             ]
 
-        super().__init__(name='pulpv2', instrs=instrs)
+        super().__init__(name='pulpv2', instrs=instrs, includes=[
+            '<cpu/iss/include/isa/pulp_v2.hpp>',
+        ])

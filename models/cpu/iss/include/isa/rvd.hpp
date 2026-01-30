@@ -21,11 +21,17 @@
 
 #pragma once
 
+#ifdef CONFIG_GVSOC_ISS_V2
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss_v2/include/isa_lib/macros.h"
+#else
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
-#include "cpu/iss/include/isa_lib/float.h"
 #include "cpu/iss/include/isa_lib/macros.h"
 #include ISS_CORE_INC(class.hpp)
+#endif
+
+#include "cpu/iss/include/isa_lib/float.h"
 
 static inline iss_reg_t fld_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

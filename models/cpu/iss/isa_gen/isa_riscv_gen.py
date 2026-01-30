@@ -583,6 +583,8 @@ class Rv64i(IsaSubset):
             Instr('sllw',  Format_R,    '0000000 ----- ----- 001 ----- 0111011'),
             Instr('srlw',  Format_R,    '0000000 ----- ----- 101 ----- 0111011'),
             Instr('sraw',  Format_R,    '0100000 ----- ----- 101 ----- 0111011'),
+        ], includes=[
+            '<cpu/iss/include/isa/rv64i.hpp>',
         ])
 
 
@@ -633,6 +635,8 @@ class Rv32i(IsaSubset):
             Instr('fence.i',Format_I,    '0000000 00000 00000 001 00000 0001111'),
             Instr('ecall',  Format_I,    '0000000 00000 00000 000 00000 1110011'),
             Instr('ebreak', Format_I,    '0000000 00001 00000 000 00000 1110011')
+        ], includes=[
+            '<cpu/iss/include/isa/rv32i.hpp>',
         ])
 
 
@@ -650,6 +654,8 @@ class Rv32m(IsaSubset):
             Instr('rem',   Format_R, '0000001 ----- ----- 110 ----- 0110011', tags=['div']),
             Instr('remu',  Format_R, '0000001 ----- ----- 111 ----- 0110011', tags=['div']),
 
+        ], includes=[
+            '<cpu/iss/include/isa/rv32m.hpp>',
         ])
 
 
@@ -663,6 +669,8 @@ class Rv64m(IsaSubset):
             Instr('divuw', Format_R, '0000001 ----- ----- 101 ----- 0111011', tags=['div']),
             Instr('remw',  Format_R, '0000001 ----- ----- 110 ----- 0111011', tags=['div']),
             Instr('remuw', Format_R, '0000001 ----- ----- 111 ----- 0111011', tags=['div']),
+        ], includes=[
+            '<cpu/iss/include/isa/rv64m.hpp>',
         ])
 
 
@@ -682,6 +690,8 @@ class Rv32a(IsaSubset):
             Instr('amomax.w' ,  Format_AMO,   '10100 -- ----- ----- 010 ----- 0101111'),
             Instr('amominu.w',  Format_AMO,   '11000 -- ----- ----- 010 ----- 0101111'),
             Instr('amomaxu.w',  Format_AMO,   '11100 -- ----- ----- 010 ----- 0101111')
+        ], includes=[
+            '<cpu/iss/include/isa/rv32a.hpp>',
         ])
 
 
@@ -701,6 +711,8 @@ class Rv64a(IsaSubset):
             Instr('amomax.d' ,  Format_AMO,   '10100 -- ----- ----- 011 ----- 0101111'),
             Instr('amominu.d',  Format_AMO,   '11000 -- ----- ----- 011 ----- 0101111'),
             Instr('amomaxu.d',  Format_AMO,   '11100 -- ----- ----- 011 ----- 0101111')
+        ], includes=[
+            '<cpu/iss/include/isa/rv64a.hpp>',
         ])
 
 
@@ -741,6 +753,8 @@ class Rv32f(IsaSubset):
             Insn('1100000 00011 ----- --- ----- 1010011', 'fcvt.lu.s', R_F('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
             Insn('1101000 00010 ----- --- ----- 1010011', 'fcvt.s.l',  F_R('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
             Insn('1101000 00011 ----- --- ----- 1010011', 'fcvt.s.lu', F_R('s', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
+        ], includes=[
+            '<cpu/iss/include/isa/rvf.hpp>',
         ])
 
     def check_compatibilities(self, isa):
@@ -787,6 +801,8 @@ class Rv32d(IsaSubset):
             Insn('1101001 00010 ----- --- ----- 1010011', 'fcvt.d.l',  F_R('d', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
             Insn('1101001 00011 ----- --- ----- 1010011', 'fcvt.d.lu', F_R('d', ui12_3), tags=['fconv', 'nseq', 'fp_op'], isa_tags=['rv64f']),
             Insn('1111001 00000 ----- 000 ----- 1010011', 'fmv.d.x',   F_R('d'),         tags=['fmv', 'nseq', 'fp_op']),
+        ], includes=[
+            '<cpu/iss/include/isa/rvd.hpp>',
         ])
 
     def check_compatibilities(self, isa):
@@ -805,6 +821,8 @@ class Priv(IsaSubset):
             Instr('csrrsi',Format_IUR, '------- ----- ----- 110 ----- 1110011', decode='csr_decode', tags=['nseq']),
             Instr('csrrci',Format_IUR, '------- ----- ----- 111 ----- 1110011', decode='csr_decode', tags=['nseq']),
 
+        ], includes=[
+            '<cpu/iss/include/isa/priv.hpp>',
         ])
 
 
@@ -884,6 +902,8 @@ class Rv32c(IsaSubset):
             Instr('c.fswsp',    Format_FCSS, '111 --- --- -- --- 10', fast_handler=True, isa_tags=['cf']),
             Instr('c.fsw',      Format_FCS,  '111 --- --- -- --- 00', fast_handler=True, isa_tags=['cf']),
             Instr('c.flw',      Format_FCL,  '011 --- --- -- --- 00', fast_handler=True, tags=['load', "fload"], isa_tags=['cf']),
+        ], includes=[
+            '<cpu/iss/include/isa/rv32c.hpp>',
         ])
 
 
@@ -945,6 +965,8 @@ class Rv64c(IsaSubset):
             Instr('c.sbreak',   Format_CI1, '100 000 000 00 000 10'),
             Instr('c.fsdsp',    Format_FCSSD, '101 --- --- -- --- 10', isa_tags=['cf']),
             Instr('c.fldsp',    Format_FCI3D, '001 --- --- -- --- 10', tags=['load', "fload"], isa_tags=['cf']),
+        ], includes=[
+            '<cpu/iss_v2/include/isa/rv64c.hpp>',
         ])
 
     def check_compatibilities(self, isa):

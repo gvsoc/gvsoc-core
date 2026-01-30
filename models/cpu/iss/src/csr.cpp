@@ -869,7 +869,7 @@ static bool checkCsrAccess(Iss *iss, int reg, bool isWrite)
     return false;
 }
 
-bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
+bool iss_csr_read(Iss *iss, iss_insn_t *insn, iss_reg_t reg, iss_reg_t *value)
 {
     bool status = true;
 
@@ -1271,7 +1271,7 @@ bool iss_csr_read(Iss *iss, iss_reg_t reg, iss_reg_t *value)
     return status;
 }
 
-bool iss_csr_write(Iss *iss, iss_reg_t reg, iss_reg_t value)
+bool iss_csr_write(Iss *iss, iss_insn_t *insn, iss_reg_t reg, iss_reg_t value)
 {
     iss->csr.trace.msg("Writing CSR (reg: 0x%x, name: %s, value: 0x%x)\n",
         reg, iss_csr_name(iss, reg), value);
@@ -1751,7 +1751,7 @@ iss_reg_t CsrAbtractReg::handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_re
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, NULL, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -1762,7 +1762,7 @@ iss_reg_t CsrAbtractReg::handle(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_re
         }
     }
 
-    iss_csr_write(iss, UIM_GET(0), reg_value);
+    iss_csr_write(iss, NULL, UIM_GET(0), reg_value);
 
     return iss_insn_next(iss, insn, pc);
 }

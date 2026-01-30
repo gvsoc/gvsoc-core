@@ -22,9 +22,14 @@
 #ifndef __CPU_ISS_RV32C_HPP
 #define __CPU_ISS_RV32C_HPP
 
+#ifdef CONFIG_GVSOC_ISS_V2
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss_v2/include/isa_lib/macros.h"
+#else
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
+#endif
 
 static inline iss_reg_t c_unimp_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -324,7 +329,7 @@ static inline iss_reg_t c_ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
     if ((iss->csr.dcsr >> 15) & 1)
     {
-        iss->dbgunit.set_halt_mode(true, 1);
+        // iss->dbgunit.set_halt_mode(true, 1);
     }
     else
     {
@@ -336,7 +341,7 @@ static inline iss_reg_t c_ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t c_sbreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.event_rvc_account(1);
-    iss->dbgunit.set_halt_mode(true, 3);
+    // iss->dbgunit.set_halt_mode(true, 3);
     return iss_insn_next(iss, insn, pc);
 }
 

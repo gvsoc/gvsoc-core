@@ -594,4 +594,6 @@ class Rv32v(IsaSubset):
             Instr('vsetvl'  ,   Format_OPVL ,    '1000000 ----- ----- 111 ----- 1010111'),
 
             #Instr('csrr', Format_IU,  '------- ----- 00000 010 ----- 1110011', decode='csr_decode'),
+        ], includes=[
+            '<cpu/iss/include/isa/rv32v_timed.hpp>',
         ])

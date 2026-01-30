@@ -419,17 +419,17 @@ void Syscalls::handle_riscv_ebreak()
             return;
         }
 
-        iss_csr_write(&this->iss, CSR_PCER, args[0]);
+        iss_csr_write(&this->iss, NULL, CSR_PCER, args[0]);
 
         break;
     }
 
     case 0x102:
     {
-        iss_csr_write(&this->iss, CSR_PCCR(31), 0);
+        iss_csr_write(&this->iss, NULL, CSR_PCCR(31), 0);
         this->cycle_count = 0;
         iss_reg_t value;
-        iss_csr_read(&this->iss, CSR_PCMR, &value);
+        iss_csr_read(&this->iss, NULL, CSR_PCMR, &value);
         if ((value & 1) == 1)
         {
             this->cycle_count_start = this->iss.top.clock.get_cycles();
@@ -440,13 +440,13 @@ void Syscalls::handle_riscv_ebreak()
     case 0x103:
     {
         iss_reg_t value;
-        iss_csr_read(&this->iss, CSR_PCMR, &value);
+        iss_csr_read(&this->iss, NULL, CSR_PCMR, &value);
         if ((value & 1) == 0)
         {
             this->cycle_count_start = this->iss.top.clock.get_cycles();
         }
 
-        iss_csr_write(&this->iss, CSR_PCMR, 1);
+        iss_csr_write(&this->iss, NULL, CSR_PCMR, 1);
         break;
     }
 
@@ -454,13 +454,13 @@ void Syscalls::handle_riscv_ebreak()
     {
 
         iss_reg_t value;
-        iss_csr_read(&this->iss, CSR_PCMR, &value);
+        iss_csr_read(&this->iss, NULL, CSR_PCMR, &value);
         if ((value & 1) == 1)
         {
             this->cycle_count += this->iss.top.clock.get_cycles() - this->cycle_count_start;
         }
 
-        iss_csr_write(&this->iss, CSR_PCMR, 0);
+        iss_csr_write(&this->iss, NULL, CSR_PCMR, 0);
         break;
     }
 
@@ -471,7 +471,7 @@ void Syscalls::handle_riscv_ebreak()
         {
             return;
         }
-        iss_csr_read(&this->iss, CSR_PCCR(args[0]), &this->iss.regfile.regs[10]);
+        iss_csr_read(&this->iss, NULL, CSR_PCCR(args[0]), &this->iss.regfile.regs[10]);
         break;
     }
 
@@ -506,7 +506,7 @@ void Syscalls::handle_riscv_ebreak()
                 }
 
                 iss_reg_t value;
-                iss_csr_read(&this->iss, CSR_PCMR, &value);
+                iss_csr_read(&this->iss, NULL, CSR_PCMR, &value);
                 if ((value & 1) == 1)
                 {
                     this->cycle_count += this->iss.top.clock.get_cycles() - this->cycle_count_start;
@@ -520,7 +520,7 @@ void Syscalls::handle_riscv_ebreak()
                     if (this->pcer_info[i].name != "")
                     {
                         iss_reg_t value;
-                        iss_csr_read(&this->iss, CSR_PCCR(i), &value);
+                        iss_csr_read(&this->iss, NULL, CSR_PCCR(i), &value);
                         fprintf(file, "%d; %s; %s; %" PRIdREG "\n", i, this->pcer_info[i].name.c_str(), this->pcer_info[i].help.c_str(), value);
                     }
                 }

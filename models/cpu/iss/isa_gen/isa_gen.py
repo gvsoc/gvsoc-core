@@ -673,11 +673,12 @@ class DecodeTree(object):
 
 
 class IsaSubset(object):
-    def __init__(self, name, instrs):
+    def __init__(self, name, instrs, includes=None):
         self.name = name
         self.instrs = instrs
         self.instrs_dict = {}
         self.top_isa = None
+        self.includes = includes if includes is not None else []
         for instr in instrs:
             instr.set_isa(self)
             self.instrs_dict[instr.name] = instr
@@ -694,6 +695,9 @@ class IsaSubset(object):
 
     def get_insn(self, name):
         return self.instrs_dict.get(name)
+
+    def get_includes(self):
+        return self.includes
 
 
 class Resource(object):
@@ -713,7 +717,27 @@ class Isa(object):
         self.isas = {}
         self.isa_tags_insns = {}
         self.instrs_dict = {}
+        self.includes = []
+        self.implem_includes = []
+        self.defines = {}
 
+    def get_isa_subsets_includes(self):
+        includes = []
+        for isa in self.isas.values():
+            includes += isa.get_includes()
+
+        return includes
+
+    def add_include(self, include):
+        if not include in self.includes:
+            self.includes.append(include)
+
+    def add_implem_include(self, include):
+        if not include in self.implem_includes:
+            self.implem_includes.append(include)
+
+    def add_define(self, name, value):
+        self.defines[name] = value
 
     def alloc_decoder_tree_id(self):
         result = self.nb_decoder_tree
@@ -775,12 +799,35 @@ class Isa(object):
 
         isaFileHeader.write('#pragma once\n')
 
+        dump(isaFile, '#ifdef CONFIG_GVSOC_ISS_V2\n')
+        dump(isaFile, '#include <cpu/iss_v2/include/iss.hpp>\n')
+        dump(isaFile, '#else\n')
         dump(isaFile, '#include <cpu/iss/include/iss.hpp>\n')
+        dump(isaFile, '#endif\n')
         dump(isaFile, '\n')
 
         tree.gen(isaFile, self)
 
         self.dump_tag_insns(isaFile, isaFileHeader)
+
+        for key, value in self.defines.items():
+            if value is None:
+                dump(isaFileHeader, f'#define {value}\n')
+            else:
+                dump(isaFileHeader, f'#define {key} {value}\n')
+        dump(isaFileHeader, '#ifdef __cplusplus\n')
+        for include in self.includes:
+            dump(isaFileHeader, f'#include {include}\n')
+        dump(isaFileHeader, '#ifdef CONFIG_GVSOC_ISS_V2\n')
+        dump(isaFileHeader, '#include <cpu/iss_v2/include/iss.hpp>\n')
+        for include in self.implem_includes:
+            dump(isaFileHeader, f'#include {include}\n')
+        for include in self.get_isa_subsets_includes():
+            dump(isaFileHeader, f'#include {include}\n')
+        dump(isaFileHeader, '#else\n')
+        dump(isaFileHeader, '#include <cpu/iss/include/iss.hpp>\n')
+        dump(isaFileHeader, '#endif\n')
+        dump(isaFileHeader, '#endif\n')
 
         dump(isaFile, 'iss_isa_set_t __iss_isa_set = {\n')
         dump(isaFile, f'  .isa_set=&{tree.get_name()},\n')
@@ -797,7 +844,7 @@ class Isa(object):
         for tag_name, insns in self.isa_tags_insns.items():
             dump(isa_file_header, f'#define ISA_TAG_{tag_name.upper()}_ID {tag_id}\n')
             tag_id += 1
-        dump(isa_file_header, f'#define ISA_NB_TAGS {len(self.isa_tags_insns)}')
+        dump(isa_file_header, f'#define ISA_NB_TAGS {len(self.isa_tags_insns)}\n')
         for tag_name, insns in self.isa_tags_insns.items():
             tag_struct_name = f'tag_insn_{tag_name}'
             dump(isaFile, f'static std::vector<iss_decoder_item_t *> {tag_struct_name} = {{ {", ".join(insns)} }};\n\n')

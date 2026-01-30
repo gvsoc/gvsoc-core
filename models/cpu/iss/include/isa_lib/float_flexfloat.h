@@ -21,9 +21,14 @@
 
 #pragma once
 
+#ifdef CONFIG_GVSOC_ISS_V2
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss_v2/include/isa_lib/macros.h"
+#else
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
+#endif
 
 static inline uint32_t float_add_32(Iss *iss, uint32_t a, uint32_t b, uint32_t mode)
 {

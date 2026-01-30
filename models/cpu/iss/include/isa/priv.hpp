@@ -21,7 +21,9 @@
 
 #pragma once
 
+#ifndef CONFIG_GVSOC_ISS_V2
 #include <cpu/iss/include/iss_core.hpp>
+#endif
 
 static inline void csr_decode(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -49,7 +51,7 @@ static inline iss_reg_t csrrw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, insn, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -60,7 +62,7 @@ static inline iss_reg_t csrrw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         }
     }
 
-    iss_csr_write(iss, UIM_GET(0), reg_value);
+    iss_csr_write(iss, insn, UIM_GET(0), reg_value);
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -76,7 +78,7 @@ static inline iss_reg_t csrrc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, insn, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -87,7 +89,7 @@ static inline iss_reg_t csrrc_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         }
     }
 
-    iss_csr_write(iss, UIM_GET(0), value & ~reg_value);
+    iss_csr_write(iss, insn, UIM_GET(0), value & ~reg_value);
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -111,7 +113,7 @@ static inline iss_reg_t csrrs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, insn, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -123,7 +125,7 @@ static inline iss_reg_t csrrs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     }
     if (REG_IN(0) != 0)
     {
-        iss_csr_write(iss, UIM_GET(0), value | reg_value);
+        iss_csr_write(iss, insn, UIM_GET(0), value | reg_value);
     }
     return iss_insn_next(iss, insn, pc);
 }
@@ -143,7 +145,7 @@ static inline iss_reg_t csrrwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, insn, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -153,7 +155,7 @@ static inline iss_reg_t csrrwi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
             REG_SET(0, value);
         }
     }
-    iss_csr_write(iss, UIM_GET(0), UIM_GET(1));
+    iss_csr_write(iss, insn, UIM_GET(0), UIM_GET(1));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -167,7 +169,7 @@ static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, insn, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -177,7 +179,7 @@ static inline iss_reg_t csrrci_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
             REG_SET(0, value);
         }
     }
-    iss_csr_write(iss, UIM_GET(0), value & ~UIM_GET(1));
+    iss_csr_write(iss, insn, UIM_GET(0), value & ~UIM_GET(1));
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -191,7 +193,7 @@ static inline iss_reg_t csrrsi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return pc;
     }
 
-    if (iss_csr_read(iss, UIM_GET(0), &value) == 0)
+    if (iss_csr_read(iss, insn, UIM_GET(0), &value) == 0)
     {
         if (insn->out_regs[0] != 0)
         {
@@ -201,13 +203,17 @@ static inline iss_reg_t csrrsi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
             REG_SET(0, value);
         }
     }
-    iss_csr_write(iss, UIM_GET(0), value | UIM_GET(1));
+    iss_csr_write(iss, insn, UIM_GET(0), value | UIM_GET(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t wfi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->irq.wfi_handle(insn);
+#else
     iss->irq.wfi_handle();
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

@@ -1,0 +1,84 @@
+/*
+ * Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
+ *                    University of Bologna
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ */
+
+#ifndef __CPU_ISS_UTILS_HPP
+#define __CPU_ISS_UTILS_HPP
+
+#include "cpu/iss_v2/include/types.hpp"
+
+static inline iss_uim_t iss_get_field(iss_uim_t val, int shift, int bits)
+{
+    return (val >> shift) & ((1 << bits) - 1);
+}
+
+static inline iss_uim_t iss_get_signed_value(iss_uim_t val, int bits)
+{
+    return ((iss_sim_t)val) << (ISS_REG_WIDTH - bits) >> (ISS_REG_WIDTH - bits);
+}
+
+static inline iss_freg_t iss_get_float_value(iss_freg_t val, int bits)
+{
+    if (sizeof(iss_freg_t) * 8 <= bits)
+    {
+        return val;
+    }
+    else
+    {
+        return ((iss_freg_t)-1 << bits) | val;
+    }
+}
+
+static inline iss_uim_t iss_get_unboxed_value(iss_uim_t val, int bits)
+{
+#if ISS_REG_WIDTH == 64
+    int64_t lsb = ((uint64_t)val) >> 32;
+    return lsb == -1 || lsb == 0 ? val : 0xffffffff7fc00000;
+#else
+    return val;
+#endif
+}
+
+static inline iss_uim_t iss_get_zext_value(iss_uim_t val, int bits)
+{
+    return val << (ISS_REG_WIDTH - bits) >> (ISS_REG_WIDTH - bits);
+}
+
+static inline uint64_t iss_get_field64(iss_uim_t val, int shift, int bits)
+{
+    return (val >> shift) & ((1 << bits) - 1);
+}
+
+static inline int64_t iss_get_signed_value64(iss_uim_t val, int bits)
+{
+    return ((int64_t)val) << (64 - bits) >> (64 - bits);
+}
+
+static inline uint64_t iss_get_zext_value64(iss_uim_t val, int bits)
+{
+    return ((uint64_t)val) << (64 - bits) >> (64 - bits);
+}
+
+static inline iss_reg_t iss_insn_next(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    return pc + insn->size;
+}
+
+#endif

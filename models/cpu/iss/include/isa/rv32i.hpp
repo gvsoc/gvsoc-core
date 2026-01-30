@@ -22,9 +22,14 @@
 #ifndef __CPU_ISS_RV32I_HPP
 #define __CPU_ISS_RV32I_HPP
 
+#ifdef CONFIG_GVSOC_ISS_V2
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss_v2/include/isa_lib/macros.h"
+#else
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
+#endif
 
 static inline iss_reg_t lui_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
@@ -711,8 +716,12 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     // just before this instruction.
     // The good solution would be to issue load requests and be able to stall the instruction
     // until we got the previous opcode
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss_insn_t *prev = iss->insn_cache.get_insn(pc - 4);
+#else
     iss_reg_t index;
     iss_insn_t *prev = iss->insn_cache.get_insn(pc - 4, index);
+#endif
     if (prev == NULL)
     {
         return pc;

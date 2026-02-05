@@ -89,3 +89,26 @@ void Exception::raise(iss_reg_t pc, int id)
 //     this->iss.exec.has_exception = true;
 //     this->iss.exec.exception_pc = pc;
 }
+
+void Exception::invalid_access(iss_reg_t pc, uint64_t addr, uint64_t size, bool is_write)
+{
+    if (this->iss.gdbserver.gdbserver)
+    {
+        this->trace.msg(vp::Trace::LEVEL_WARNING,"Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
+                        this->iss.exec.current_insn, addr, size, is_write);
+        this->iss.exec.retain_inc();
+        this->iss.exec.halted.set(true);
+        this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver, vp::Gdbserver_engine::SIGNAL_BUS);
+    }
+    else
+    {
+        vp_warning_always(&this->trace,
+                        "Invalid access (pc: 0x%" PRIxFULLREG ", offset: 0x%" PRIxFULLREG ", size: 0x%x, is_write: %d)\n",
+                        this->iss.exec.current_insn, addr, size, is_write);
+    }
+
+#ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+    int trap = is_write ? ISS_EXCEPT_STORE_FAULT : ISS_EXCEPT_LOAD_FAULT;
+    this->iss.exception.raise(this->iss.exec.current_insn, trap);
+#endif
+}

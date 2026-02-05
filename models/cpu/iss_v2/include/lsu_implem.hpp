@@ -108,7 +108,7 @@ inline bool Lsu::store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, i
     return this->data_req_virtual(insn, addr, size, true, false, reg);
 }
 
-inline void Lsu::free_req_entry(LsuReqEntry *entry, int64_t cyclestamp)
+inline void Lsu::free_req_entry(LsuReqEntry *entry)
 {
     entry->next = this->req_entry_first;
     this->req_entry_first = entry;

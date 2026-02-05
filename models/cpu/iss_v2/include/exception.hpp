@@ -37,6 +37,8 @@ public:
 
     iss_addr_t debug_handler_addr;
 
+    void invalid_access(iss_reg_t pc, uint64_t addr, uint64_t size, bool is_write);
+
 private:
     Iss &iss;
     vp::Trace trace;

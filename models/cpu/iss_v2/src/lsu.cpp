@@ -41,6 +41,7 @@ Lsu::Lsu(Iss &iss)
         LsuReqEntry *req = &this->req_entry[i];
         req->next = this->req_entry_first;
         req->req.set_data((uint8_t *)&req->data);
+        req->req.set_second_data((uint8_t *)&req->data2);
         this->req_entry_first = req;
         req->task.callback = &Lsu::task_handle;
     }
@@ -56,11 +57,11 @@ void Lsu::reset(bool active)
     }
 }
 
-bool Lsu::data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg)
+bool Lsu::data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2)
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
-    if (is_write)
+    if (opcode != 0)
     {
         if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array)) return false;
     }
@@ -69,7 +70,7 @@ bool Lsu::data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
         if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array)) return false;
     }
 
-    if (this->io_req_denied || this->data_req(insn, addr, size, is_write, is_signed, reg))
+    if (this->io_req_denied || this->data_req(insn, addr, size, opcode, is_signed, reg, reg2))
     {
         this->iss.exec.insn_stall();
         return true;
@@ -137,12 +138,13 @@ void Lsu::handle_req_end(LsuReqEntry *entry)
 
     if (req->status == vp::IO_REQ_INVALID)
     {
-        this->iss.exception.invalid_access(entry->pc, req->get_addr(), req->get_size(), req->get_is_write());
+        this->iss.exception.invalid_access(entry->pc, req->get_addr(), req->get_size(), req->get_opcode());
     }
     else
     {
-        if (!req->get_is_write())
+        if (req->get_opcode() == vp::IoReqOpcode::READ)
         {
+            // Handle classic read
             uint64_t data = entry->data;
 
             if (entry->is_signed)
@@ -152,27 +154,41 @@ void Lsu::handle_req_end(LsuReqEntry *entry)
 
             this->iss.regfile.set_reg(entry->reg, data);
         }
+        else if (req->get_opcode() != vp::IoReqOpcode::WRITE)
+        {
+            // Handle atomic operations which need to write result to register
+            uint64_t data = entry->data2;
+
+            if (entry->is_signed)
+            {
+                data = iss_get_signed_value(data, req->get_size() * 8);
+            }
+
+            this->iss.regfile.set_reg(entry->reg2, data);
+        }
     }
 
     this->free_req_entry(entry);
 }
 
-bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg)
+bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2)
 {
-    this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+    this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, opcode: %d)\n", addr, size, opcode);
     LsuReqEntry *entry = this->get_req_entry();
     if (entry == NULL) return true;
 
-    if (!is_write)
+    if (opcode == vp::IoReqOpcode::READ)
     {
         // Init to zero in case we need zero-extension
         entry->data = 0;
     }
     else
     {
+        // Only read operation will not send data, writes and atomic operations will
         entry->data = this->iss.regfile.get_reg(reg);
     }
     entry->reg = reg;
+    entry->reg2 = reg2;
     entry->is_signed = is_signed;
     entry->pc = insn->addr;
 
@@ -180,11 +196,11 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
     req->prepare();
     req->set_addr(addr);
     req->set_size(size);
-    req->set_is_write(is_write);
+    req->set_opcode(opcode);
 
     this->log_addr.set_and_release(addr);
     this->log_size.set_and_release(size);
-    this->log_is_write.set_and_release(is_write);
+    this->log_is_write.set_and_release(opcode != 0);
 
     vp::IoReqStatus err = this->data.req(req);
 
@@ -215,9 +231,9 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
     }
 }
 
-bool Lsu::data_req(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg)
+bool Lsu::data_req(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2)
 {
-    return this->data_req_aligned(insn, addr, size, is_write, is_signed, reg);
+    return this->data_req_aligned(insn, addr, size, opcode, is_signed, reg, reg2);
 }
 
 void Lsu::task_handle(Iss *iss, Task *task)
@@ -238,6 +254,5 @@ void Lsu::task_handle(Iss *iss, Task *task)
 bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
     vp::IoReqOpcode opcode)
 {
-    // TODO
-    return true;
+    return this->data_req_virtual(insn, addr, size, opcode, true, reg_in, reg_out);
 }

@@ -31,8 +31,10 @@ struct LsuReqEntry
     vp::IoReq req;
     Task task;
     uint64_t data;
+    uint64_t data2;
     bool is_signed;
     int reg;
+    int reg2;
     uint64_t pc;
     LsuReqEntry *next;
     InsnEntry *insn_entry;
@@ -51,9 +53,9 @@ public:
     // Not implemented yet, just defined to keep compatibility with ISA files
     inline void stack_access_check(int reg, iss_addr_t addr) {}
 
-    bool data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg);
-    bool data_req(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg);
-    bool data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg);
+    bool data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2=0);
+    bool data_req(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
+    bool data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
 
     template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);

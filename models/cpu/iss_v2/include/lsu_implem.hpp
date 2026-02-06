@@ -24,52 +24,52 @@
 template<typename T>
 inline bool Lsu::load(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, false, false, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, false, reg);
 }
 
 template<typename T>
 inline bool Lsu::load_signed(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, false, true, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, true, reg);
 }
 
 template<typename T>
 inline bool Lsu::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, true, false, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::WRITE, false, reg);
 }
 
 template<typename T>
 inline bool Lsu::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    // if (this->iss.gdbserver.watchpoint_check(false, addr, size))
-    // {
-    //     return true;
-    // }
-    // this->iss.timing.event_load_account(1);
-    return this->data_req_virtual(insn, addr, size, false, false, reg);
+    if (this->iss.gdbserver.watchpoint_check(false, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_load_account(1);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, false, reg);
 }
 
 template<typename T>
 inline bool Lsu::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    // if (this->iss.gdbserver.watchpoint_check(false, addr, size))
-    // {
-    //     return true;
-    // }
-    // this->iss.timing.event_load_account(1);
-    return this->data_req_virtual(insn, addr, size, false, true, reg);
+    if (this->iss.gdbserver.watchpoint_check(false, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_load_account(1);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, true, reg);
 }
 
 template<typename T>
 inline bool Lsu::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    // if (this->iss.gdbserver.watchpoint_check(true, addr, size))
-    // {
-    //     return true;
-    // }
-    // this->iss.timing.event_store_account(1);
-    return this->data_req_virtual(insn, addr, size, true, false, reg);
+    if (this->iss.gdbserver.watchpoint_check(true, addr, size))
+    {
+        return true;
+    }
+    this->iss.timing.event_store_account(1);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::WRITE, false, reg);
 }
 
 inline LsuReqEntry *Lsu::get_req_entry()
@@ -88,25 +88,25 @@ inline LsuReqEntry *Lsu::get_req_entry()
 template<typename T>
 inline bool Lsu::load_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, false, false, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, false, reg);
 }
 
 template<typename T>
 inline bool Lsu::store_float(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, true, false, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::WRITE, false, reg);
 }
 
 template<typename T>
 inline bool Lsu::load_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, false, false, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, false, reg);
 }
 
 template<typename T>
 inline bool Lsu::store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
-    return this->data_req_virtual(insn, addr, size, true, false, reg);
+    return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::WRITE, false, reg);
 }
 
 inline void Lsu::free_req_entry(LsuReqEntry *entry)

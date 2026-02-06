@@ -42,7 +42,7 @@ Lsu::Lsu(Iss &iss)
         req->next = this->req_entry_first;
         req->req.set_data((uint8_t *)&req->data);
         this->req_entry_first = req;
-        req->task.callback = &Lsu::handle_io_req_end;
+        req->task.callback = &Lsu::task_handle;
     }
 }
 
@@ -51,6 +51,8 @@ void Lsu::reset(bool active)
     if (active)
     {
         this->io_req_denied = false;
+        this->pending_fence = false;
+        this->nb_pending_accesses = 0;
     }
 }
 
@@ -58,7 +60,14 @@ bool Lsu::data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
 {
     iss_addr_t phys_addr;
     bool use_mem_array;
-    if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array)) return false;
+    if (is_write)
+    {
+        if (this->iss.mmu.store_virt_to_phys(addr, phys_addr, use_mem_array)) return false;
+    }
+    else
+    {
+        if (this->iss.mmu.load_virt_to_phys(addr, phys_addr, use_mem_array)) return false;
+    }
 
     if (this->io_req_denied || this->data_req(insn, addr, size, is_write, is_signed, reg))
     {
@@ -69,10 +78,19 @@ bool Lsu::data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
     return false;
 }
 
-bool Lsu::lsu_is_empty()
+bool Lsu::fence()
 {
-    // TO BE IMPLEMENTED
-    return false;
+    if (this->nb_pending_accesses == 0)
+    {
+        this->pending_fence = false;
+        return false;
+    }
+
+    if (this->pending_fence) return true;
+
+    this->pending_fence = true;
+    this->iss.exec.insn_stall();
+    return true;
 }
 
 void Lsu::data_grant(vp::Block *__this, vp::IoReq *req)
@@ -92,7 +110,51 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
 
     _this->iss.exec.insn_terminate(entry->insn_entry);
 
-    _this->free_req_entry(entry);
+    _this->handle_req_end(entry);
+}
+
+bool Lsu::handle_req_response(LsuReqEntry *entry)
+{
+    vp::IoReq *req = &entry->req;
+    int64_t latency = req->get_latency();
+
+    if (latency > 0)
+    {
+        entry->timestamp = this->iss.clock.get_cycles() + latency;
+        this->iss.exec.enqueue_task(&entry->task);
+        return true;
+    }
+    else
+    {
+        this->handle_req_end(entry);
+        return false;
+    }
+}
+
+void Lsu::handle_req_end(LsuReqEntry *entry)
+{
+    vp::IoReq *req = &entry->req;
+
+    if (req->status == vp::IO_REQ_INVALID)
+    {
+        this->iss.exception.invalid_access(entry->pc, req->get_addr(), req->get_size(), req->get_is_write());
+    }
+    else
+    {
+        if (!req->get_is_write())
+        {
+            uint64_t data = entry->data;
+
+            if (entry->is_signed)
+            {
+                data = iss_get_signed_value(data, req->get_size() * 8);
+            }
+
+            this->iss.regfile.set_reg(entry->reg, data);
+        }
+    }
+
+    this->free_req_entry(entry);
 }
 
 bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, bool is_signed, int reg)
@@ -103,12 +165,16 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
 
     if (!is_write)
     {
+        // Init to zero in case we need zero-extension
         entry->data = 0;
     }
     else
     {
         entry->data = this->iss.regfile.get_reg(reg);
     }
+    entry->reg = reg;
+    entry->is_signed = is_signed;
+    entry->pc = insn->addr;
 
     vp::IoReq *req = &entry->req;
     req->prepare();
@@ -120,38 +186,15 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, bool is_
     this->log_size.set_and_release(size);
     this->log_is_write.set_and_release(is_write);
 
-    int err = this->data.req(req);
+    vp::IoReqStatus err = this->data.req(req);
 
     if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
     {
-        if (!is_write)
+        req->status = err;
+
+        if (this->handle_req_response(entry))
         {
-            uint64_t data = entry->data;
-
-            if (is_signed)
-            {
-                data = iss_get_signed_value(data, size * 8);
-            }
-
-            this->iss.regfile.set_reg(reg, data);
-        }
-
-        int64_t latency = req->get_latency();
-
-        if (latency > 0)
-        {
-            entry->timestamp = this->iss.clock.get_cycles() + latency;
-            this->iss.exec.enqueue_task(&entry->task);
             entry->insn_entry = this->iss.exec.insn_hold(insn);
-        }
-        else
-        {
-            this->free_req_entry(entry);
-        }
-
-        if (err == vp::IO_REQ_INVALID)
-        {
-            this->iss.exception.invalid_access(insn->addr, addr, size, is_write);
         }
 
         return false;
@@ -177,14 +220,14 @@ bool Lsu::data_req(iss_insn_t *insn, iss_addr_t addr, int size, bool is_write, b
     return this->data_req_aligned(insn, addr, size, is_write, is_signed, reg);
 }
 
-void Lsu::handle_io_req_end(Iss *iss, Task *task)
+void Lsu::task_handle(Iss *iss, Task *task)
 {
     LsuReqEntry *entry = (LsuReqEntry *)((char *)task - ((char *)&((LsuReqEntry *)0)->task - (char *)0));
 
     if (iss->clock.get_cycles() >= entry->timestamp)
     {
+        iss->lsu.handle_req_end(entry);
         iss->exec.insn_terminate(entry->insn_entry);
-        iss->lsu.free_req_entry(entry);
     }
     else
     {
@@ -195,5 +238,6 @@ void Lsu::handle_io_req_end(Iss *iss, Task *task)
 bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out,
     vp::IoReqOpcode opcode)
 {
+    // TODO
     return true;
 }

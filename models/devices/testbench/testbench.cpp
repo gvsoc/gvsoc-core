@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -210,7 +210,7 @@ void Uart_flow_control_checker::handle_received_byte(uint8_t byte)
             }
             this->check_end_of_command();
         }
-    
+
     }
 }
 
@@ -244,14 +244,14 @@ Testbench::Testbench(vp::ComponentConf &config)
     }
 
     this->gpios.resize(this->nb_gpio);
-    
+
     for (int i=0; i<this->nb_gpio; i++)
     {
         this->gpios[i] = new Gpio(this);
         this->gpios[i]->itf.set_sync_meth_muxed(&Testbench::gpio_sync, i);
         this->new_slave_port("gpio" + std::to_string(i), &this->gpios[i]->itf);
     }
-    
+
     for (int i=0; i<this->nb_spi; i++)
     {
         for (int j=0; j<4; j++)
@@ -268,7 +268,7 @@ Testbench::Testbench(vp::ComponentConf &config)
     }
 
     this->i2cs.resize(this->nb_i2c);
-    
+
     for (int i=0; i<this->nb_i2c; i++)
     {
         this->i2cs[i].conf(this, i);
@@ -507,7 +507,10 @@ void Uart::clk_reg(vp::Component *__this, vp::Component *clock)
 void Uart::init_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Uart *_this = (Uart *)__this;
-    _this->itf.sync_full(1, 2, 2, 0xf);
+    if (_this->itf.is_bound)
+    {
+        _this->itf.sync_full(1, 2, 2, 0xf);
+    }
 }
 
 
@@ -1046,7 +1049,7 @@ void I2C::sync(int scl, int sda)
                     }
                     break;
                 }
-                
+
                 case I2C_STATE_ACK:
                 {
                     this->top->trace.msg(vp::Trace::LEVEL_TRACE, "Generate I2C ack (id: %d)\n", id);
@@ -1157,7 +1160,7 @@ void Testbench::handle_gpio_pulse_gen()
     int64_t duration_ps = req->gpio_pulse_gen.duration_ps;
     int64_t period_ps = req->gpio_pulse_gen.period_ps;
     Gpio *gpio = this->gpios[gpio_id];
-    
+
     this->trace.msg(vp::Trace::LEVEL_INFO, "Handling GPIO pulse generator (gpio: %d, enabled: %d, duration_ps: %ld, period_ps: %ld)\n",
         gpio_id, enabled, duration_ps, period_ps);
 
@@ -1325,7 +1328,7 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                     }
                     else if (name == "sampling_freq")
                     {
-                        config->sampling_freq = value;   
+                        config->sampling_freq = value;
                     }
                     else if (name == "word_size")
                     {
@@ -1418,7 +1421,7 @@ std::string Testbench::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *
                     }
                     else if (name == "is_rx")
                     {
-                        config->is_rx = value;   
+                        config->is_rx = value;
                     }
                     else if (name == "enabled")
                     {
@@ -1977,7 +1980,7 @@ void Gpio::pulse_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         _this->top->event_enqueue(_this->pulse_event, _this->pulse_period_ps - _this->pulse_duration_ps);
     }
-    
+
     _this->pulse_gen_rising_edge ^= 1;
 }
 
@@ -1995,7 +1998,7 @@ Spi::Spi(Testbench *top, int itf, int cs) : top(top)
     this->top->new_slave_port("spi" + std::to_string(itf) + "_cs" + std::to_string(cs) + "_data", &this->itf, (vp::Block *)this);
     this->cs_itf.set_sync_meth(&Spi::cs_sync);
     this->top->new_slave_port("spi" + std::to_string(itf) + "_cs" + std::to_string(cs), &this->cs_itf, (vp::Block *)this);
-    
+
     this->spim_verif = NULL;
     this->itf_id = itf;
     this->cs = cs;

@@ -31,6 +31,9 @@ struct LsuReqEntry
     vp::IoReq req;
     Task task;
     uint64_t data;
+    bool is_signed;
+    int reg;
+    uint64_t pc;
     LsuReqEntry *next;
     InsnEntry *insn_entry;
     int64_t timestamp;
@@ -84,7 +87,7 @@ public:
 
     bool atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int reg_out, vp::IoReqOpcode opcode);
 
-    bool lsu_is_empty();
+    bool fence();
 
     // TODO used by syscalls, find a better to handle such accesses
     vp::IoReq debug_req;
@@ -99,9 +102,11 @@ private:
     // during synchronous responses.
     inline void free_req_entry(LsuReqEntry *entry);
     bool load_req(iss_insn_t *insn, iss_addr_t addr, int size, int reg, bool is_signed);
-    static void handle_io_req_end(Iss *iss, Task *task);
+    static void task_handle(Iss *iss, Task *task);
     static void data_grant(vp::Block *__this, vp::IoReq *req);
     static void data_response(vp::Block *__this, vp::IoReq *req);
+    bool handle_req_response(LsuReqEntry *entry);
+    void handle_req_end(LsuReqEntry *entry);
 
 
     Iss &iss;
@@ -114,9 +119,12 @@ private:
     // True if the last request has been denied. The core must not send another request until
     // the last request has been granted
     vp::Signal<bool> io_req_denied;
+    bool pending_fence;
 
     vp::Signal<bool> stalled;
     vp::Signal<iss_reg_t> log_addr;
     vp::Signal<iss_reg_t> log_size;
     vp::Signal<bool> log_is_write;
+
+    int nb_pending_accesses;
 };

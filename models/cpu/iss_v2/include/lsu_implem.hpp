@@ -79,6 +79,7 @@ inline LsuReqEntry *Lsu::get_req_entry()
         return NULL;
     }
 
+    this->nb_pending_accesses++;
     LsuReqEntry *req = this->req_entry_first;
     this->req_entry_first = req->next;
     return req;
@@ -110,6 +111,7 @@ inline bool Lsu::store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size, i
 
 inline void Lsu::free_req_entry(LsuReqEntry *entry)
 {
+    this->nb_pending_accesses--;
     entry->next = this->req_entry_first;
     this->req_entry_first = entry;
 }

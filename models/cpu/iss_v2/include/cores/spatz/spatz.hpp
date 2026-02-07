@@ -43,17 +43,6 @@ public:
     static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
 private:
-    PendingInsn &pending_insn_alloc();
-    PendingInsn &pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc);
-
 
     Iss &iss;
-
-    int max_pending_insn = 8;
-    bool do_flush;
-    std::vector<PendingInsn> pending_insns;
-    int insn_first;
-    int insn_last;
-    int nb_pending_insn;
-    InsnEntry *insn_entry;
 };

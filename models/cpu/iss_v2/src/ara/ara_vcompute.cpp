@@ -43,7 +43,8 @@ void AraVcompute::reset(bool active)
 
 void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
 {
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pending_insn->pc);
+    iss_insn_t *insn = this->ara.iss.exec.get_insn(pending_insn->entry);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", insn->addr);
     uint8_t one = 1;
     this->event_active.event(&one);
 
@@ -68,7 +69,7 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             // If the instruction is chained, we can finish it once each vector chaining is done
             // which can be detected once the number of committed elements become 0
             bool done = true;
-            iss_insn_t *insn = _this->pending_insn->insn;
+            iss_insn_t *insn = _this->ara.iss.exec.get_insn(_this->pending_insn->entry);
             for (int i=0; i<insn->nb_in_reg; i++)
             {
                 if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
@@ -111,6 +112,7 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->insns.front()->timestamp <= _this->ara.iss.clock.get_cycles())
     {
         _this->pending_insn = _this->insns.front();
+        iss_insn_t *insn = _this->ara.iss.exec.get_insn(_this->pending_insn->entry);
        	_this->insns.pop();
 
         // Computes the duration of the instruction. The compute unit will process in each cycle
@@ -120,7 +122,7 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
             _this->ara.nb_lanes;
         int64_t end_cyclestamp = _this->ara.iss.clock.get_cycles() +
-            nb_elems * _this->ara.iss.vector.sewb / 8 + _this->pending_insn->insn->latency;
+            nb_elems * _this->ara.iss.vector.sewb / 8 + insn->latency;
 
         // Only assign the end timestamp if the instruction is not chained
         if (!_this->pending_insn->chained)
@@ -133,8 +135,8 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->end_cyclestamp = end_cyclestamp;
         }
 
-        _this->event_pc.event((uint8_t *)&_this->pending_insn->pc);
-        _this->event_label.event_string(_this->pending_insn->insn->desc->label, false);
+        _this->event_pc.event((uint8_t *)&insn->addr);
+        _this->event_label.event_string(insn->desc->label, false);
     }
 
     // In case nothing is on-going, disable the FSM

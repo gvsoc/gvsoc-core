@@ -31,6 +31,22 @@ class PendingInsn;
 
 #define ISS_INSN_FLAGS_VECTOR (1<< 0)
 
+class PendingInsn
+{
+public:
+    InsnEntry *entry;
+    uint64_t timestamp;
+    uint64_t reg;
+    uint64_t reg_2;
+    uint64_t reg_3;
+    bool done;
+    // True if the instruction is currently being chained.
+    bool valid;
+    bool chained;
+    bool waiting;
+    int id;
+};
+
 // This represents a generic HW block where vector instructions can be forwarded
 class AraBlock : public vp::Block
 {
@@ -302,7 +318,7 @@ public:
     // Called by the ISS to offload an instruction to Ara. The instruction is pushed to the queue
     // of pending instruction, analyzed, and push to a processing block for executing once
     // dependencies are resolved. Can be called only when queue is not full.
-    void insn_enqueue(PendingInsn *insn);
+    void insn_enqueue(InsnEntry *insn);
     // Called by a unit to notify that part of the vector result has been produced.
     // Used for vector chaining to start another operation before the result is fully produced.
     void insn_commit(int reg, int size);
@@ -331,7 +347,9 @@ private:
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     // Allocate a slot for an instruction being enqueued. This is used to duplicate the cva6
     // pending instruction to commit it early so that cva6 can use the slot for another instruction.
-    PendingInsn *pending_insn_alloc(PendingInsn *cva6_pending_insn);
+    PendingInsn *pending_insn_alloc(InsnEntry *entry);
+    inline int alloc_id();
+    inline void free_id(int id);
 
     // Size of the queue holding pending instructions. Once full, Ara can not accept instructions
     // from CVA6 anymore
@@ -358,14 +376,6 @@ private:
     // waiting for the resolution of their dependencies, and the instructions already dispatched
     // to the processing blocks.
     std::vector<PendingInsn> pending_insns;
-    // Index of the first pending instruction in the queue
-    int insn_first;
-    // Index of the first pending instruction waiting for symbol resolution. They might be pending
-    // instructions before this one which has been resolved, forwarded to their processing block,
-    // and waiting for completion.
-    int insn_first_waiting;
-    // Index where the next pending instruction should be enqueued.
-    int insn_last;
     // True if the queue is full and ara can not accept any other instruction
     vp::Register<bool> queue_full;
     // List of processing blocks
@@ -392,4 +402,17 @@ private:
     // following instructions overriding the register
     uint64_t current_insn_reg;
     uint64_t current_insn_reg_2;
+    uint64_t insn_id_table;
 };
+
+inline int Ara::alloc_id()
+{
+    int id = __builtin_ctzll(this->insn_id_table);
+    this->insn_id_table &= ~(1ULL << id);
+    return id;
+}
+
+inline void Ara::free_id(int id)
+{
+    this->insn_id_table |= (1ULL << id);
+}

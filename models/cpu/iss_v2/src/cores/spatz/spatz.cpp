@@ -23,60 +23,19 @@
 Spatz::Spatz(Iss &iss)
 : iss(iss), ara(iss)
 {
-    this->pending_insns.resize(8);
-    for (int i=0; i<this->pending_insns.size(); i++)
-    {
-        this->pending_insns[i].id = i;
-    }
 }
 
 void Spatz::reset(bool active)
 {
-    if (active)
-    {
-        this->do_flush = false;
-        this->insn_first = 0;
-        this->insn_last = 0;
-        this->nb_pending_insn = 0;
-    }
-
     this->ara.reset(active);
 }
 
 
-PendingInsn &Spatz::pending_insn_alloc()
-{
-    this->nb_pending_insn++;
-    int insn_id = this->insn_last;
-    this->insn_last++;
-    if (this->insn_last == this->max_pending_insn)
-    {
-        this->insn_last = 0;
-    }
-    return this->pending_insns[insn_id];
-}
-
-PendingInsn &Spatz::pending_insn_enqueue(iss_insn_t *insn, iss_reg_t pc)
-{
-    PendingInsn &pending_insn = this->pending_insn_alloc();
-
-    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pc);
-
-    pending_insn.insn = insn;
-    pending_insn.done = false;
-    pending_insn.timestamp = this->iss.clock.get_cycles() + 1;
-    pending_insn.pc = pc;
-
-    // this->fsm_event.enable();
-
-    return pending_insn;
-}
-
 void Spatz::insn_commit(PendingInsn *pending_insn)
 {
-    iss_insn_t *insn = pending_insn->insn;
+    iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
 
-    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", pending_insn->pc);
+    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", insn->addr);
 
     pending_insn->done = true;
     pending_insn->timestamp = this->iss.clock.get_cycles() + 1;
@@ -110,12 +69,7 @@ iss_reg_t Spatz::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t 
         iss->arch.ara.nb_pending_vstore++;
     }
 
-    // Allocate a slot in cva6 queue and offload the instruction
-    PendingInsn &pending_insn = iss->arch.pending_insn_enqueue(insn, pc);
-
-    pending_insn.entry = entry;
-
-    iss->arch.ara.insn_enqueue(&pending_insn);
+    iss->arch.ara.insn_enqueue(entry);
 
     return iss_insn_next(iss, insn, pc);
 }

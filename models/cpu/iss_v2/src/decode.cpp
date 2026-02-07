@@ -59,7 +59,7 @@ void Decode::insn_set_in_reg(iss_insn_t *insn, iss_decoder_arg_t *darg, int reg)
     insn->in_regs[darg->u.reg.id] = reg;
     if (darg->flags & ISS_DECODER_ARG_FLAG_VREG)
     {
-        insn->sb_vreg_mask |= 1 << reg;
+        insn->sb_in_vreg_mask |= 1 << reg;
     }
     else
     {
@@ -72,7 +72,6 @@ void Decode::insn_set_out_reg(iss_insn_t *insn, iss_decoder_arg_t *darg, int reg
     insn->out_regs[darg->u.reg.id] = reg;
     if (darg->flags & ISS_DECODER_ARG_FLAG_VREG)
     {
-        insn->sb_vreg_mask |= 1 << reg;
         insn->sb_out_vreg_mask |= 1 << reg;
     }
     else
@@ -120,7 +119,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     insn->latency = item->u.insn.latency;
     insn->sb_reg_mask = 0;
     insn->sb_out_reg_mask = 0;
-    insn->sb_vreg_mask = 0;
+    insn->sb_in_vreg_mask = 0;
     insn->sb_out_vreg_mask = 0;
 
     for (int i = 0; i < item->u.insn.nb_args; i++)

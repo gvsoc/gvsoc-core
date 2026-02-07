@@ -387,7 +387,7 @@ typedef struct iss_insn_s
     iss_sim_t sim[ISS_MAX_IMMEDIATES];
     uint64_t sb_reg_mask;
     uint64_t sb_out_reg_mask;
-    uint32_t sb_vreg_mask;
+    uint32_t sb_in_vreg_mask;
     uint32_t sb_out_vreg_mask;
     iss_addr_t addr;
     iss_reg_t opcode;

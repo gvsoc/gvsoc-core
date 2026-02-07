@@ -105,10 +105,11 @@ void AraVlsu::reset(bool active)
 
 void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
 {
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", pending_insn->pc);
+    iss_insn_t *insn = this->ara.iss.exec.get_insn(pending_insn->entry);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", insn->addr);
     uint8_t one = 1;
     this->event_active.event(&one);
-    this->event_queue.event((uint8_t *)&pending_insn->pc);
+    this->event_queue.event((uint8_t *)&insn->addr);
 
     // Just push the instruction and let the FSM handle it if needed.
     // A delay is added to take into account the time needed on RTL to start the instruction
@@ -230,14 +231,14 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
         PendingInsn *pending_insn = slot.insn;
+        iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
 
         if (pending_insn->timestamp <=_this->ara.iss.clock.get_cycles() &&
             _this->pending_size == 0)
         {
-            _this->event_label.event_string(pending_insn->insn->desc->label, false);
-            _this->event_pc.event((uint8_t *)&pending_insn->pc);
+            _this->event_label.event_string(insn->desc->label, false);
+            _this->event_pc.event((uint8_t *)&insn->addr);
 
-            iss_insn_t *insn = pending_insn->insn;
             ((void (*)(AraVlsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
         }
     }

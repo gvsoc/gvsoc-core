@@ -507,7 +507,10 @@ InsnEntry *ExecInOrder::insn_hold(iss_insn_t *insn)
 iss_insn_t *ExecInOrder::get_insn(InsnEntry *entry)
 {
     iss_insn_t *insn = this->iss.insn_cache.get_insn(entry->addr);
-    insn->opcode = entry->opcode;
-    this->iss.decode.decode_pc(insn, entry->addr);
+    if (!this->iss.decode.is_decoded(insn))
+    {
+        insn->opcode = entry->opcode;
+        this->iss.decode.decode_pc(insn, entry->addr);
+    }
     return insn;
 }

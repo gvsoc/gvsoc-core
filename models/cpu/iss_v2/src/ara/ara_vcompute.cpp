@@ -51,7 +51,7 @@ void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
     // Just push the instruction and let the FSM handle it if needed.
     // It is marked for execution in the next cycle so that the FSM does not handle it in this
     // cycle in case the FSM is already active
-    pending_insn->timestamp = this->ara.iss.clock.get_cycles() + 1;
+    pending_insn->timestamp++;
     this->insns.push(pending_insn);
     this->fsm_event.enable();
 }
@@ -64,44 +64,14 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     // started annd indicates when it must be terminated
     if (_this->pending_insn)
     {
-        if (_this->pending_insn->chained)
+        if (_this->pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
         {
-            // If the instruction is chained, we can finish it once each vector chaining is done
-            // which can be detected once the number of committed elements become 0
-            bool done = true;
-            iss_insn_t *insn = _this->ara.iss.exec.get_insn(_this->pending_insn->entry);
-            for (int i=0; i<insn->nb_in_reg; i++)
-            {
-                if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
-                {
-                    if (_this->ara.scoreboard_committed[insn->in_regs[i]] != 0)
-                    {
-                        done = false;
-                        break;
-                    }
-                }
-            }
-
-            // If done, unchain it and assign end timestamp, this make it finish at the indidcated timestamp
-            if (done)
-            {
-                _this->pending_insn->chained = false;
-                // the instruction ends the cycle after chaining stopped unless it is earlier than
-                // that start plus the stimation duration.
-                _this->pending_insn->timestamp = std::max(_this->end_cyclestamp, _this->ara.iss.clock.get_cycles() + 1);
-            }
-        }
-        else
-        {
-            if (_this->pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
-            {
-                // Notify ara so that it removes it from the pending instruction and update scoreboard
-                _this->ara.insn_end(_this->pending_insn);
-                // Clear it to take a new one
-                _this->pending_insn = NULL;
-                _this->event_pc.event_highz();
-                _this->event_label.event_string((char *)1, false);
-            }
+            // Notify ara so that it removes it from the pending instruction and update scoreboard
+            _this->ara.insn_end(_this->pending_insn);
+            // Clear it to take a new one
+            _this->pending_insn = NULL;
+            _this->event_pc.event_highz();
+            _this->event_label.event_string((char *)1, false);
         }
     }
 
@@ -111,32 +81,45 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     if (_this->pending_insn == NULL && _this->insns.size() != 0 &&
         _this->insns.front()->timestamp <= _this->ara.iss.clock.get_cycles())
     {
-        _this->pending_insn = _this->insns.front();
-        iss_insn_t *insn = _this->ara.iss.exec.get_insn(_this->pending_insn->entry);
-       	_this->insns.pop();
+        PendingInsn *pending_insn = _this->insns.front();
+        iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
 
-        // Computes the duration of the instruction. The compute unit will process in each cycle
-        // a number of elements equal to the numbe of lanes multiplied by the number of elements each FPU can
-        // handle.
-        // Note that the number of elements already take into account lmul
-        unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
-            _this->ara.nb_lanes;
-        int64_t end_cyclestamp = _this->ara.iss.clock.get_cycles() +
-            nb_elems * _this->ara.iss.vector.sewb / 8 + insn->latency;
-
-        // Only assign the end timestamp if the instruction is not chained
-        if (!_this->pending_insn->chained)
+        if (_this->ara.insn_ready(pending_insn))
         {
-            _this->pending_insn->timestamp = end_cyclestamp;
-        }
-        else
-        {
-            // Otherwise just remember it to make sure it lasts at east the operation duration
-            _this->end_cyclestamp = end_cyclestamp;
-        }
+            if (pending_insn->nb_bytes_done == 0)
+            {
+                _this->event_pc.event((uint8_t *)&insn->addr);
+                _this->event_label.event_string(insn->desc->label, false);
 
-        _this->event_pc.event((uint8_t *)&insn->addr);
-        _this->event_label.event_string(insn->desc->label, false);
+                unsigned int nb_elems = _this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value;
+                _this->total_size = nb_elems * _this->ara.iss.vector.sewb;
+                _this->ara.vstart = _this->ara.iss.csr.vstart.value;
+                _this->ara.vend = std::min((int)_this->ara.iss.csr.vl.value,
+                    _this->ara.vstart + _this->ara.nb_lanes);
+            }
+
+            // Now that the instruction is over, execute the handler to functionally model it. This will
+            // write the output register.
+            // Store the instruction register as it will be used by the handler.
+            _this->ara.current_insn_reg = pending_insn->reg;
+            _this->ara.current_insn_reg_2 = pending_insn->reg_2;
+            // Force trace dump since the core may be stalled which would skip trace
+            insn->stub_handler(&_this->ara.iss, insn, insn->addr);
+
+            _this->ara.vstart += _this->ara.nb_lanes;
+            _this->ara.vend = std::min((int)_this->ara.iss.csr.vl.value,
+                _this->ara.vstart + _this->ara.nb_lanes);
+
+            _this->ara.insn_commit(pending_insn, _this->ara.nb_lanes * _this->ara.iss.vector.sewb);
+
+            if (pending_insn->nb_bytes_done == _this->total_size)
+            {
+                _this->pending_insn = pending_insn;
+               	_this->insns.pop();
+                _this->pending_insn->timestamp = _this->ara.iss.clock.get_cycles() + insn->latency + 1;
+            }
+
+        }
     }
 
     // In case nothing is on-going, disable the FSM

@@ -39,12 +39,14 @@ public:
     uint64_t reg;
     uint64_t reg_2;
     uint64_t reg_3;
-    bool done;
-    // True if the instruction is currently being chained.
     bool valid;
-    bool chained;
-    bool waiting;
+    bool done;
     int id;
+    bool can_be_chained;
+    int nb_bytes_done;
+    int8_t inreg0_index;
+    int8_t inreg1_index;
+    int8_t inreg2_index;
 };
 
 // This represents a generic HW block where vector instructions can be forwarded
@@ -93,6 +95,7 @@ private:
     // When the instruction is chained, this indicates the minimum cyclestamp where the instruction
     // can finished, based on operation duration.
     int64_t end_cyclestamp;
+    int total_size;
 };
 
 class AraVlsuPendingInsn
@@ -294,6 +297,7 @@ private:
 class Ara : public vp::Block
 {
     friend class AraVcompute;
+    friend class AraVlsu;
 
 public:
     // List of sub-blocks processing instructions
@@ -315,15 +319,15 @@ public:
     // The instruction handler is called, the instruction is removed ffrom the sequencer, and the
     // registers involved is updated
     void insn_end(PendingInsn *insn);
+    void insn_commit(PendingInsn *pending_insn, int nb_elems);
+    bool insn_ready(PendingInsn *insn);
     // Called by the ISS to offload an instruction to Ara. The instruction is pushed to the queue
     // of pending instruction, analyzed, and push to a processing block for executing once
     // dependencies are resolved. Can be called only when queue is not full.
     void insn_enqueue(InsnEntry *insn);
-    // Called by a unit to notify that part of the vector result has been produced.
-    // Used for vector chaining to start another operation before the result is fully produced.
-    void insn_commit(int reg, int size);
     // Return true when queue if full and ara can not accept new instructions
     bool queue_is_full() { return this->queue_full.get(); }
+    bool queue_is_empty() { return this->nb_pending_insn == 0; }
     // Return the CVA6 register value associated to the instruction being executed
     inline uint64_t current_insn_reg_get() { return current_insn_reg; }
     inline uint64_t current_insn_reg_2_get() { return current_insn_reg_2; }
@@ -340,6 +344,9 @@ public:
     // Number of pending vector stores in spatz. Use to synchronize with snitch memory accesses
     int nb_pending_vstore;
 #endif
+
+    int vstart;
+    int vend;
 
 private:
     static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
@@ -369,9 +376,6 @@ private:
     // Number of instructions currently being processed by Ara. This is increased when an
     // instruction is enqueued, and decreased when it ends
     vp::Register<uint8_t> nb_pending_insn;
-    // Number of instructions currently being processed by Ara which have not yet been dispatched
-    // to their processing block, which means their dependencies have not been resolved yet
-    vp::Register<uint8_t> nb_waiting_insn;
     // List of instructions currently being processed by Ara. This contains both the instructions
     // waiting for the resolution of their dependencies, and the instructions already dispatched
     // to the processing blocks.
@@ -380,29 +384,18 @@ private:
     vp::Register<bool> queue_full;
     // List of processing blocks
     std::vector<AraBlock *> blocks;
-    // Scoreboard describing which registers are ready to be used as inputs.
-    // This indicates the cyclestamp at which the register is ready. The register is available only
-    // if the cyclestamp is lower or equal than the current cycle.
-    // Any instruction which needs a non-available register as input is blocked until it becomes
-    // available.
-    int64_t scoreboard_valid_ts[ISS_NB_VREGS];
-    // Scoreboard describing the number of instructions using each register.
-    // Any instruction which needs to write a register which is being used is blocked until the
-    // register is not used anymore
-    unsigned int scoreboard_in_use[ISS_NB_VREGS];
-    // Scoreboard describing the number of instructions using each register as output.
-    unsigned int scoreboard_out_use[ISS_NB_VREGS];
-    // Scoreboard describing which registers are currently used in vector chaining
-    PendingInsn *scoreboard_chained[ISS_NB_VREGS];
-    // Scoreboard describing for each vector how many elements are committed. Used for vector
-    // chaining.
-    unsigned int scoreboard_committed[ISS_NB_VREGS];
     // CVA6 register associated to the instruction being executed. This is used by instruction
     // handlers when they are executed. This needs to be buffered because CVA6 might have executed
     // following instructions overriding the register
     uint64_t current_insn_reg;
     uint64_t current_insn_reg_2;
     uint64_t insn_id_table;
+
+    std::queue<PendingInsn *> stalled_insns;
+    std::vector<uint64_t> insns_in_deps;
+    std::vector<uint64_t> insns_out_deps;
+    uint64_t writing_insns[32];
+    uint64_t reading_insns[32];
 };
 
 inline int Ara::alloc_id()

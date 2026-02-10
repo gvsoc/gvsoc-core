@@ -37,16 +37,15 @@ void Spatz::insn_commit(PendingInsn *pending_insn)
 
     this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", insn->addr);
 
-    pending_insn->done = true;
-    pending_insn->timestamp = this->iss.clock.get_cycles() + 1;
-
     this->iss.exec.insn_terminate(pending_insn->entry);
 }
 
 iss_reg_t Spatz::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    // We stall the instruction if ara queue is full
-    if (iss->arch.ara.queue_is_full())
+    // We stall the instruction if ara queue is full or if the instruction is vsetvli and
+    // the queue is nto empty to avoid issues with different vreg config
+    if (iss->arch.ara.queue_is_full() ||
+        insn->decoder_item->u.insn.block_id == -1 && !iss->arch.ara.queue_is_empty())
     {
         iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
             iss->arch.ara.queue_is_full() ? "Ara" : "Core", pc);

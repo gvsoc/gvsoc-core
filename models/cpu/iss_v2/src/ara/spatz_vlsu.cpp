@@ -231,11 +231,11 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
         PendingInsn *pending_insn = slot.insn;
-        iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
 
         if (pending_insn->timestamp <=_this->ara.iss.clock.get_cycles() &&
             _this->pending_size == 0)
         {
+            iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
             _this->event_label.event_string(insn->desc->label, false);
             _this->event_pc.event((uint8_t *)&insn->addr);
 
@@ -245,101 +245,109 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     if (_this->pending_size)
     {
-        // If a pending request is ready, try to send requests to available ports
-        for (int i=0; i<_this->ports.size(); i++)
+        AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
+        PendingInsn *pending_insn = slot.insn;
+
+        if (_this->ara.insn_ready(pending_insn))
         {
-            if (_this->pending_size == 0) break;
+            uint64_t iter_size = 0;
 
-            // Only use this port if it has requests available otherwise it means too many
-            // are pending
-            if (!_this->req_queues[i]->empty())
+            // If a pending request is ready, try to send requests to available ports
+            for (int i=0; i<_this->ports.size(); i++)
             {
-                uint64_t size;
+                if (_this->pending_size == 0) break;
 
-                if (_this->strided ||  _this->reg_indexed != -1)
+                // Only use this port if it has requests available otherwise it means too many
+                // are pending
+                if (!_this->req_queues[i]->empty())
                 {
-                    size = _this->elem_size;
+                    uint64_t size;
+
+                    if (_this->strided ||  _this->reg_indexed != -1)
+                    {
+                        size = _this->elem_size;
+                    }
+                    else
+                    {
+                        size = std::min((iss_addr_t)8, _this->pending_size);
+                    }
+
+                    _this->trace.msg(vp::Trace::LEVEL_TRACE,
+                        "Sending request (port: %d, addr: 0x%lx, size: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
+                        i, _this->pending_addr, size, _this->pending_size, _this->pending_is_write);
+
+                    _this->event_addr[i].event((uint8_t *)&_this->pending_addr);
+                    _this->event_size[i].event((uint8_t *)&size);
+                    _this->event_is_write[i].event((uint8_t *)&_this->pending_is_write);
+
+                    /// Pop a request from this port queue to limit number of outstanding requests
+                    vp::IoReq *req = (vp::IoReq *)_this->req_queues[i]->pop();
+
+                    req->prepare();
+
+                    iss_reg_t addr = _this->pending_addr;
+
+                    if (_this->reg_indexed != -1)
+                    {
+                        uint64_t offset = velem_get_value(&_this->ara.iss, _this->reg_indexed, _this->pending_elem,
+                            _this->inst_elem_size, _this->ara.iss.vector.lmul);
+                        addr += offset;
+                        _this->pending_elem++;
+                    }
+
+                    iter_size += size;
+                    req->set_addr(addr);
+                    req->set_is_write(_this->pending_is_write);
+                    req->set_size(size);
+
+                    req->set_data(_this->pending_velem);
+
+                    vp::IoReqStatus err = _this->ports[i].req(req);
+
+                    // For now only synchronous requests are supported, so for snitch cluster
+                    // Asynchronous will be needed when having more complex interconnects behind.
+                    // Then the requests should be handled properly to model the number of on-going
+                    // transactions.
+                    if (err != vp::IO_REQ_OK)
+                    {
+                        _this->trace.fatal("Unimplemented async response");
+                    }
+
+                    // Put it back now until asynchronous responses are supported
+                    _this->req_queues[i]->push_back(req);
+
+                    // Prepare the next burst
+                    if (_this->reg_indexed == -1)
+                    {
+                        _this->pending_addr += _this->strided ? _this->stride : size;
+                    }
+                    _this->pending_size -= size;
+                    _this->pending_velem += size;
+
+                    // Switch to next instruction once all burst have been sent
+                    if (_this->pending_size == 0)
+                    {
+                        _this->nb_waiting_insn--;
+                        _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
+                    }
                 }
-                else
-                {
-                    size = std::min((iss_addr_t)8, _this->pending_size);
-                }
-
-                _this->trace.msg(vp::Trace::LEVEL_TRACE,
-                    "Sending request (port: %d, addr: 0x%lx, size: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
-                    i, _this->pending_addr, size, _this->pending_size, _this->pending_is_write);
-
-                _this->event_addr[i].event((uint8_t *)&_this->pending_addr);
-                _this->event_size[i].event((uint8_t *)&size);
-                _this->event_is_write[i].event((uint8_t *)&_this->pending_is_write);
-
-                /// Pop a request from this port queue to limit number of outstanding requests
-                vp::IoReq *req = (vp::IoReq *)_this->req_queues[i]->pop();
-
-                req->prepare();
-
-                iss_reg_t addr = _this->pending_addr;
-
-                if (_this->reg_indexed != -1)
-                {
-                    uint64_t offset = velem_get_value(&_this->ara.iss, _this->reg_indexed, _this->pending_elem,
-                        _this->inst_elem_size, _this->ara.iss.vector.lmul);
-                    addr += offset;
-                    _this->pending_elem++;
-                }
-
-                req->set_addr(addr);
-                req->set_is_write(_this->pending_is_write);
-                req->set_size(size);
-
-                req->set_data(_this->pending_velem);
-
-                vp::IoReqStatus err = _this->ports[i].req(req);
-
-                // For now only synchronous requests are supported, so for snitch cluster
-                // Asynchronous will be needed when having more complex interconnects behind.
-                // Then the requests should be handled properly to model the number of on-going
-                // transactions.
-                if (err != vp::IO_REQ_OK)
-                {
-                    _this->trace.fatal("Unimplemented async response");
-                }
-
-                // Put it back now until asynchronous responses are supported
-                _this->req_queues[i]->push_back(req);
-
-                // Prepare the next burst
-                if (_this->reg_indexed == -1)
-                {
-                    _this->pending_addr += _this->strided ? _this->stride : size;
-                }
-                _this->pending_size -= size;
-                _this->pending_velem += size;
-
-                // Switch to next instruction once all burst have been sent
-                if (_this->pending_size == 0)
-                {
-                    _this->nb_waiting_insn--;
-                    _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
-                }
-
-                // In case chaining is enabled, notify that some elements has been handled as it
-                // might start an instruction
-                _this->ara.insn_commit(_this->pending_vreg, req->get_size());
             }
-        }
 
-        // Check if the first enqueued instruction must be removed
-        if (_this->nb_pending_insn.get() > 0)
-        {
-            AraVlsuPendingInsn &slot = _this->insns[_this->insn_first];
-            PendingInsn *pending_insn = slot.insn;
-            if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
-                pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
+            _this->ara.insn_commit(pending_insn, iter_size);
+
+            // Check if the first enqueued instruction must be removed
+            if (_this->nb_pending_insn.get() > 0)
             {
-                _this->insn_first = (_this->insn_first + 1) % AraVlsu::queue_size;
-                _this->nb_pending_insn.dec(1);
-                _this->ara.insn_end(pending_insn);
+                AraVlsuPendingInsn &slot = _this->insns[_this->insn_first];
+                PendingInsn *pending_insn = slot.insn;
+                if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
+                    pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
+                {
+                    _this->insn_first = (_this->insn_first + 1) % AraVlsu::queue_size;
+                    _this->nb_pending_insn.dec(1);
+                    pending_insn->timestamp = _this->ara.iss.clock.get_cycles() + 1;
+                    _this->ara.insn_end(pending_insn);
+                }
             }
         }
     }

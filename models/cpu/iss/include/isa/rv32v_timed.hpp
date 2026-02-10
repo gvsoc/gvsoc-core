@@ -18,6 +18,14 @@
 #pragma once
 
 #ifdef CONFIG_GVSOC_ISS_V2
+#define VSTART iss->arch.ara.vstart
+#define VEND iss->arch.ara.vend
+#else
+#define VSTART iss->csr.vstart.value
+#define VEND iss->csr.vl.value
+#endif
+
+#ifdef CONFIG_GVSOC_ISS_V2
 #define RVV_FREG_GET(reg) (iss->arch.ara.current_insn_reg_get())
 #define RVV_REG_GET(reg) (iss->arch.ara.current_insn_reg_get())
 #else
@@ -1366,7 +1374,7 @@ static inline iss_reg_t vfmacc_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.lmul;
     uint64_t in0 = RVV_FREG_GET(0);
-    for (unsigned int i=iss->csr.vstart.value; i<iss->csr.vl.value; i++)
+    for (unsigned int i=VSTART; i<VEND; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
         {

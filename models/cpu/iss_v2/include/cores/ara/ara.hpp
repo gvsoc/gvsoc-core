@@ -21,9 +21,9 @@
 #pragma once
 
 #include <queue>
-#include "cpu/iss_v2/include/types.hpp"
-#include "vp/clock/clock_event.hpp"
-#include "vp/register.hpp"
+#include <cpu/iss_v2/include/types.hpp>
+#include <vp/clock/clock_event.hpp>
+#include <vp/register.hpp>
 
 class Ara;
 class IssWrapper;
@@ -162,7 +162,7 @@ private:
     // Event for PC of instruction being processed
     vp::Trace event_pc;
     // Event for label of instruction being processed
-    vp::Trace event_label;
+    vp::Event event_label;
     // Clock event used for scheduling FSM handler when at least one instruction has to be processed
     vp::ClockEvent fsm_event;
     // Queue of pending instructions to be processed by this block
@@ -203,6 +203,9 @@ private:
     int reg_indexed;
     int pending_elem;
     int inst_elem_size;
+    int64_t op_timestamp;
+    bool prev_is_write;
+    bool started;
 };
 
 #else

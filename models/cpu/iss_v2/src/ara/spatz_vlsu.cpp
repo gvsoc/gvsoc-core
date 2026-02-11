@@ -23,13 +23,13 @@
 AraVlsu::AraVlsu(Ara &ara, Iss &iss)
 : AraBlock(&ara, "vlsu"), ara(ara),
 nb_pending_insn(*this, "nb_pending_insn", 8, true),
-fsm_event(this, &AraVlsu::fsm_handler)
+fsm_event(this, &AraVlsu::fsm_handler),
+event_label(*this, "label", 0, gv::Vcd_event_type_string)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->traces.new_trace_event("active", &this->event_active, 1);
     this->traces.new_trace_event("pc", &this->event_pc, 64);
     this->traces.new_trace_event("queue", &this->event_queue, 64);
-    this->traces.new_trace_event_string("label", &this->event_label);
 
     this->insns.resize(AraVlsu::queue_size);
 
@@ -100,6 +100,7 @@ void AraVlsu::reset(bool active)
                 this->req_queues[i]->push_back(&this->requests[req_id++]);
             }
         }
+        this->op_timestamp = -1;
     }
 }
 
@@ -113,7 +114,7 @@ void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
 
     // Just push the instruction and let the FSM handle it if needed.
     // A delay is added to take into account the time needed on RTL to start the instruction
-    pending_insn->timestamp = this->ara.iss.clock.get_cycles() + 5;
+    pending_insn->timestamp = this->ara.iss.clock.get_cycles() + 1;
     AraVlsuPendingInsn &slot = this->insns[this->insn_last];
     this->insn_last = (this->insn_last + 1) % AraVlsu::queue_size;
     slot.insn = pending_insn;
@@ -192,6 +193,16 @@ void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_st
     this->inst_elem_size = inst_elem_size;
     this->reg_indexed = reg_indexed;
     this->pending_elem = 0;
+
+    // ON RTL, it takes some time to switch from one instruction to another, and more if it is from
+    // load to store, probably due to latency to write to regfile.
+    if (this->op_timestamp != -1)
+    {
+        this->op_timestamp += this->prev_is_write != is_write ? (is_write ? 7 : 3) : 2;
+    }
+
+    this->prev_is_write = is_write;
+    this->started = false;
 }
 
 void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
@@ -221,7 +232,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->event_size[i].event_highz();
             _this->event_is_write[i].event(&zero);
         }
-        _this->event_label.event_string((char *)1, false);
+        _this->event_label.dump_highz();
 
         _this->fsm_event.disable();
     }
@@ -236,14 +247,11 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->pending_size == 0)
         {
             iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
-            _this->event_label.event_string(insn->desc->label, false);
-            _this->event_pc.event((uint8_t *)&insn->addr);
-
             ((void (*)(AraVlsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
         }
     }
 
-    if (_this->pending_size)
+    if (_this->pending_size && _this->op_timestamp <= _this->ara.iss.clock.get_cycles())
     {
         AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
         PendingInsn *pending_insn = slot.insn;
@@ -251,6 +259,14 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (_this->ara.insn_ready(pending_insn))
         {
             uint64_t iter_size = 0;
+
+            if (!_this->started)
+            {
+                iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
+                _this->started = true;
+                _this->event_label.dump(insn->desc->label);
+                _this->event_pc.event((uint8_t *)&insn->addr);
+            }
 
             // If a pending request is ready, try to send requests to available ports
             for (int i=0; i<_this->ports.size(); i++)
@@ -343,6 +359,9 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
                     pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
                 {
+                    _this->event_label.dump_highz_next();
+                    // Remember the timestamp of last operation to impact timing of next one
+                    _this->op_timestamp = _this->ara.iss.clock.get_cycles();
                     _this->insn_first = (_this->insn_first + 1) % AraVlsu::queue_size;
                     _this->nb_pending_insn.dec(1);
                     pending_insn->timestamp = _this->ara.iss.clock.get_cycles() + 1;

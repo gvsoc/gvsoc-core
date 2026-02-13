@@ -16,6 +16,8 @@
 
 import gvsoc.systree
 
+from memory.memory_config import MemoryConfig
+
 class Memory(gvsoc.systree.Component):
     """Memory array
 
@@ -57,29 +59,30 @@ class Memory(gvsoc.systree.Component):
     memcheck_expansion_factor: int
         Extra size used to track buffer overflow.
     """
-    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int, width_log2: int=-1,
+    def __init__(self, parent: gvsoc.systree.Component, name: str, size: int=0, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
-            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True):
+            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
+            attributes: MemoryConfig | None=None):
 
-        super().__init__(parent, name)
+        super().__init__(parent, name, attributes)
 
         self.add_sources(['memory/memory.cpp'])
 
         # Since atomics are slowing down the model, this is better to compile the support only
         # if needed. Note that the framework will take care of compiling this model twice
         # if both memories with and without atomics are instantiated.
-        if atomics:
+        if atomics or attributes is not None and attributes.atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
         self.add_properties({
             'init': init,
-            'size': size,
+            'size': size if attributes is None else attributes.size,
             'stim_file': stim_file,
             'power_trigger': power_trigger,
             'width_bits': width_log2,
             'align': align,
-            'latency': latency,
+            'latency': latency if attributes is None else attributes.latency,
             'memcheck_id': memcheck_id,
             'memcheck_base': memcheck_base,
             'memcheck_virtual_base': memcheck_virtual_base,

@@ -176,7 +176,7 @@ def parse_md(md):
 
 
 
-def import_md(regmap, path, block=None, registers=[]):
+def import_md(regmap: rmap.Regmap, path: str, block: str|None=None, registers: list[str]=[]):
 
     with open(path, "rt") as fh:
         ast = parse_md(gfm.parse(fh.read()))

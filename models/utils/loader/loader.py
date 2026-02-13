@@ -76,7 +76,7 @@ class ElfLoader(gvsoc.systree.Component):
                 'fetchen_value': fetchen_value
             })
 
-    def set_binary(self, binary):
+    def set_binary(self, binary: str):
 
         self.add_properties({
             'binary': [binary]

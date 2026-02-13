@@ -674,7 +674,7 @@ class Cmdmap(object):
 
 
 
-def dump_to_header(regmap, name, header_path, headers=None):
+def dump_to_header(regmap: Regmap, name: str, header_path: str, headers: list[str] | None = None) -> None:
 
     if headers is None or 'top' in headers:
         header_file = Header(name, name, header_path + '.h')

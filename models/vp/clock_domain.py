@@ -89,3 +89,6 @@ class Clock_domain(gvsoc.systree.Component):
         active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='period', groups='regmap', display=gvsoc.gui.DisplayBox())
 
         return active
+
+class ClockDomain(Clock_domain):
+    pass

@@ -633,6 +633,9 @@ if os.environ.get('USE_GVRUN') is None:
 
         gapy_description = "Unknown"
         model = None
+        name: str = "generic target"
+        config: object = None
+
 
         def __init__(self, parser, options, model=None, rtl_cosim_runner=None, description=None, name=None):
             super(Target, self).__init__(parser, options)
@@ -733,7 +736,10 @@ if os.environ.get('USE_GVRUN') is None:
 
             if model is None:
                 # New way of instantiating the model through gvrun
-                self.model = self.model(parent=self, name=None)
+                if hasattr(self, "config") and self.config is not None:
+                    self.model = self.model(parent=self, name=None, config=self.config)
+                else:
+                    self.model = self.model(parent=self, name=None)
             else:
                 # Old way through gapy
                 self.model = model(parent=self, name=None, parser=parser, options=options)

@@ -19,6 +19,8 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
+# For python 3.12
+from __future__ import annotations
 import gvsoc.systree as st
 import gvsoc.json_tools as js
 import os.path
@@ -388,7 +390,7 @@ class Runner():
 
 
     def run(self, norun=False, args=None):
- 
+
         [args, otherArgs] = self.parser.parse_known_args()
 
         os.makedirs(args.work_dir, exist_ok=True)
@@ -584,6 +586,11 @@ class Runner():
 
 class Target(gvrun.target.Target):
 
+    gapy_description: str = "Generic Target"
+    model: type[Component] = None
+    name: str = ""
+    config: object = None
+
     def __init__(self, parser, options=None, model=None, rtl_cosim_runner=None, description=None, name=None):
 
         if name is None:
@@ -699,10 +706,15 @@ class Target(gvrun.target.Target):
 
         if model is None:
             # New way of instantiating the model through gvrun
-            self.model = self.model(parent=self)
+            try:
+                # First try with new config tree
+                self.model = self.model(parent=self, name=name, config=self.config)
+            except:
+                # Otherwise call without to kepp compatibility
+                self.model = self.model(parent=self, name=name)
         else:
             # Old way through gapy
-            self.model = model(parent=self, name=None, parser=parser, options=options)
+            self.model = model(parent=self, name=name, parser=parser, options=options)
 
         self.args = args
         self.parser = parser
@@ -710,8 +722,11 @@ class Target(gvrun.target.Target):
         self.rtl_cosim_runner = rtl_cosim_runner
         self.runner = None
 
-    def get_path(self, child_path=None, gv_path=False, *kargs, **kwargs):
-        return child_path
+    def get_systree(self) -> SystemTreeNode | None:
+        return self.model
+
+    def generate_all(self, path: str):
+        self.model.generate_all(path)
 
     def declare_flash(self, path=None):
         pass

@@ -121,10 +121,11 @@ class RiscvCommon(st.Component):
             zfinx: bool=False,
             zdinx: bool=False,
             fp_width: int | None = None,
-            modules: list[IssModule] = []
+            modules: list[IssModule] = [],
+            config=None
         ):
 
-        super().__init__(parent, name)
+        super().__init__(parent, name, config)
 
         self.isa = isa
         self.modules = modules

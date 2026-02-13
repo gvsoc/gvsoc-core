@@ -14,24 +14,8 @@
 # limitations under the License.
 #
 
-from dataclasses import dataclass, field
 import gvsoc.systree
-from gvrun.systree import Attr
-
-@dataclass(frozen=True, repr=False)
-class RouterMapping(Attr):
-    base: int = field(
-        default=0,
-        metadata={"description": "Base address of the mapping", "format": "hex"}
-    )
-    size: int = field(
-        default=0,
-        metadata={"description": "Size of the mapping", "format": "hex"}
-    )
-    remove_base: bool = field(
-        default=True,
-        metadata={"description": "Remove the base address when a request is propagated using this mapping"}
-    )
+from interco.router_config import RouterMapping, RouterConfig
 
 class Router(gvsoc.systree.Component):
     """Interconnect router
@@ -105,8 +89,13 @@ class Router(gvsoc.systree.Component):
         only when input packet size is smaller or equal to the bandwidth.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
-            synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0):
+            synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0, attributes: RouterConfig | None=None):
         super(Router, self).__init__(parent, name)
+
+        if attributes is not None:
+            bandwidth = attributes.bandwidth
+            max_input_pending_size = attributes.max_input_pending_size
+            synchronous = attributes.synchronous
 
         # This will store the whole set of mappings and passed to model as a dictionary
         self.add_property('mappings', {})

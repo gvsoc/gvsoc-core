@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+# For python 3.12
+from __future__ import annotations
 import os
 
 if os.environ.get('USE_GVRUN2') is not None:
@@ -37,6 +39,7 @@ else:
     import gapylib.target
     import gvsoc.gui
     import hashlib
+    from typing import Callable
 
 
     generated_components = {}
@@ -174,7 +177,7 @@ else:
             List of options of forms key=value which should overwrite component properties.
         """
 
-        def __init__(self, parent: 'Component', name: str, tree: object=None,
+        def __init__(self, parent: 'Component', name: str | None, tree: object=None,
                 options: list[str] | None=None, target_name: str | None=None):
             self.name = name
             self.parent = parent
@@ -263,7 +266,7 @@ else:
         def add_binary_loader(self, loader):
             pass
 
-        def register_binary_handler(self, handler):
+        def register_binary_handler(self, handler: Callable[[str], None]):
             pass
 
         def add_property(self, name: str, property: str, format: type=None):
@@ -606,7 +609,7 @@ else:
             return property
 
 
-        def bind(self, master, master_itf, slave, slave_itf, master_properties=None, slave_properties=None):
+        def bind(self, master: Component, master_itf: str, slave: Component, slave_itf: str, master_properties=None, slave_properties=None):
             """Binds 2 components together.
 
             The binding can actually also involve 1 or 2 ports of the component to model bindings with something
@@ -641,6 +644,9 @@ else:
 
             with open(self.get_file_path(path), 'r') as fd:
                 return json.load(fd)
+
+        def set_parameter(self, name: str, value: str | int | bool | float) -> None:
+            pass
 
         def set_component(self, name):
             self.component = name
@@ -1018,7 +1024,7 @@ else:
         def _declare_property(self, descriptor):
             return self.declare_target_property(descriptor)
 
-        def _declare_parameter(self, descriptor):
+        def declare_parameter(self, descriptor):
             return self.declare_target_property(descriptor)
 
         def get_parameter(self, name: str) -> str | None:

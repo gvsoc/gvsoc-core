@@ -166,8 +166,8 @@ class Component(gvrun.target.SystemTreeNode):
         List of options of forms key=value which should overwrite component properties.
     """
 
-    def __init__(self, parent: 'Component', name: str, tree=None, options=None):
-        super().__init__(name, parent=parent, tree=tree)
+    def __init__(self, parent: 'Component', name: str, config=None, options=None):
+        super().__init__(name, parent=parent, config=config)
         self.parent = parent
         self.components = {}
         self.properties = {}
@@ -186,11 +186,13 @@ class Component(gvrun.target.SystemTreeNode):
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
 
-        if tree is not None:
-            for f in fields(tree):
-                value = getattr(tree, f.name)
-                if isinstance(value, (int, bool, str)):
-                    self.add_property(f.name, value)
+        if config is not None:
+            for f in fields(config):
+                # Only process the fields which has been assigned
+                if hasattr(config, f.name):
+                    value = getattr(config, f.name)
+                    if isinstance(value, (int, bool, str)):
+                        self.add_property(f.name, value)
 
 
     def generate(self, builddir):

@@ -193,7 +193,7 @@ class Component(gvrun.target.SystemTreeNode):
         if io_accuracy is not None:
             self.io_accuracy = io_accuracy
         else:
-            if parent is not None:
+            if parent is not None and isinstance(parent, Component):
                 self.io_accuracy = parent.io_accuracy
             else:
                 self.io_accuracy = IoAccuracy.LEGACY

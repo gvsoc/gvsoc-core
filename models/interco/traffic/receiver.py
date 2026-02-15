@@ -15,6 +15,7 @@
 #
 
 import gvsoc.systree
+from gvsoc.systree import IoAccuracy
 
 class Receiver(gvsoc.systree.Component):
 
@@ -22,7 +23,14 @@ class Receiver(gvsoc.systree.Component):
 
         super(Receiver, self).__init__(parent, name)
 
-        self.add_sources(['interco/traffic/receiver.cpp'])
+        self.io_signature = "io_acc" if self.get_io_accuracy() == IoAccuracy.ACCURATE else "io"
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_c_flags([f'-DCONFIG_GVSOC_RECEIVER_IO_ACC=1'])
+
+        if self.get_io_accuracy() == IoAccuracy.ACCURATE:
+            self.add_sources(['interco/traffic/receiver_acc.cpp'])
+        else:
+            self.add_sources(['interco/traffic/receiver.cpp'])
 
         self.add_properties({
             "mem_size": mem_size
@@ -32,7 +40,7 @@ class Receiver(gvsoc.systree.Component):
         return gvsoc.systree.SlaveItf(self, 'control', signature='wire<TrafficReceiverConfig>')
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
-        return gvsoc.systree.SlaveItf(self, 'input', signature='io')
+        return gvsoc.systree.SlaveItf(self, 'input', signature=self.io_signature)
 
     def gen_gui(self, parent_signal):
         top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr", groups=['regmap'])

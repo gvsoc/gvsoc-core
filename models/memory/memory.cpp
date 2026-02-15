@@ -120,9 +120,9 @@ Memory::Memory(vp::ComponentConf &config)
 : vp::Component(config),
 log_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
 log_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
-log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ),
+log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 #if defined(CONFIG_GVSOC_MEMORY_IO_ACC)
-in(&Memory::req)
+, in(&Memory::req)
 #endif
 {
     traces.new_trace("trace", &trace, vp::DEBUG);

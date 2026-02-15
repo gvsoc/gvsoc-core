@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
-#include <vp/itf/io.hpp>
+#include <vp/itf/io_acc.hpp>
 #include <vp/queue.hpp>
 #include "interco/traffic/generator.hpp"
 
@@ -46,11 +46,11 @@ public:
 
 private:
     void start_transfer() override;
-    static void grant(vp::Block *__this, vp::IoReq *req);
-    static void response(vp::Block *__this, vp::IoReq *req);
+    static void retry(vp::Block *__this);
+    static void response(vp::Block *__this, vp::IoAccReq *req);
     static void control_sync(vp::Block *__this, TrafficGeneratorConfig *config);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
-    void handle_req_end(vp::IoReq *req, int64_t latenty=0);
+    void handle_req_end(vp::IoAccReq *req);
     void handle_step();
     void handle_transfer();
     void handle_post_transfer();
@@ -59,7 +59,7 @@ private:
 
     vp::Trace trace;
 
-    vp::IoMaster output_itf;
+    vp::IoAccMaster output_itf;
     vp::WireSlave<TrafficGeneratorConfig *> control_itf;
     vp::ClockEvent fsm_event;
     bool check;
@@ -97,12 +97,11 @@ Generator::Generator(vp::ComponentConf &config)
     signal_req_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
     signal_req_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ),
     busy(*this, "busy", 1, true, false),
-    stalled(*this, "stalled", 1), free_reqs(this, "free_reqs")
+    stalled(*this, "stalled", 1), free_reqs(this, "free_reqs"),
+    output_itf(&Generator::retry, &Generator::response)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    this->output_itf.set_grant_meth(&Generator::grant);
-    this->output_itf.set_resp_meth(&Generator::response);
     this->new_master_port("output", &this->output_itf);
 
     this->control_itf.set_sync_meth(&Generator::control_sync);
@@ -122,19 +121,19 @@ void Generator::start_transfer()
     this->fsm_event.enqueue();
 }
 
-void Generator::grant(vp::Block *__this, vp::IoReq *req)
+void Generator::retry(vp::Block *__this)
 {
     Generator *_this = (Generator *)__this;
-    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received grant (req: %p)\n", req);
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received retry\n");
     _this->stalled = false;
     _this->fsm_event.enqueue();
 }
 
-void Generator::response(vp::Block *__this, vp::IoReq *req)
+void Generator::response(vp::Block *__this, vp::IoAccReq *req)
 {
     Generator *_this = (Generator *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received response (req: %p)\n", req);
-    _this->handle_req_end(req, req->get_latency());
+    _this->handle_req_end(req);
 }
 
 void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
@@ -158,7 +157,7 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
 
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
-            vp::IoReq *req = new vp::IoReq();
+            vp::IoAccReq *req = new vp::IoAccReq();
             _this->free_reqs.push_back(req);
         }
 
@@ -301,7 +300,7 @@ void Generator::handle_end()
 
     for (int i=0; i<this->nb_pending_reqs; i++)
     {
-        vp::IoReq *req = (vp::IoReq *)this->free_reqs.pop();
+        vp::IoAccReq *req = (vp::IoAccReq *)this->free_reqs.pop();
         delete req;
     }
 
@@ -335,14 +334,7 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     if (!_this->stalled && _this->size > 0 && !_this->free_reqs.empty())
     {
-        vp::IoReq *req = (vp::IoReq *)_this->free_reqs.pop();
-
-        req->prepare();
-
-        for (int i=0; i<4; i++)
-        {
-            req->arg_push((void *)(0x0123456789ABCDEF + i));
-        }
+        vp::IoAccReq *req = (vp::IoAccReq *)_this->free_reqs.pop();
 
         req->set_size(_this->current_transfer->packet_size);
         req->set_addr(_this->address);
@@ -359,23 +351,20 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->address += _this->current_transfer->packet_size;
         _this->data += _this->current_transfer->packet_size;
 
-        vp::IoReqStatus status = _this->output_itf.req(req);
+        vp::IoAccReqStatus status = _this->output_itf.req(req);
         _this->size -= _this->current_transfer->packet_size;
 
-        if (status == vp::IO_REQ_DENIED)
+        switch (status)
         {
-            _this->stalled = true;
-        }
-        else
-        {
-            if (status == vp::IO_REQ_PENDING)
-            {
+            case vp::IO_ACC_REQ_DENIED:
+                _this->stalled = true;
+                break;
+            case vp::IO_ACC_REQ_GRANTED:
                 _this->fsm_event.enqueue();
-            }
-            else
-            {
-                _this->handle_req_end(req, req->get_latency()-1);
-            }
+                break;
+            case vp::IO_ACC_REQ_DONE:
+                _this->handle_req_end(req);
+                break;
         }
     }
 
@@ -391,22 +380,19 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 }
 
-void Generator::handle_req_end(vp::IoReq *req, int64_t latency)
+void Generator::handle_req_end(vp::IoAccReq *req)
 {
-    this->pending_size -= req->get_size();
-
-    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Handling req end (req: %p, size: 0x%x, pending_size: 0x%x, latency: %ld)\n",
-        req, req->get_size(), this->pending_size.get(), latency);
-
-    for (int i=3; i>=0; i--)
+    if (req->get_size() > this->pending_size)
     {
-        uint64_t value = (uint64_t)req->arg_pop();
-        this->check_status |= value != 0x0123456789ABCDEF + i;
-
+        this->trace.fatal("Received spurious response\n");
     }
 
-    this->free_reqs.push_back(req, latency);
-    this->last_req_cyclestamp = this->clock.get_cycles() + latency;
+    this->pending_size -= req->get_size();
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Handling req end (req: %p, size: 0x%x, pending_size: 0x%x)\n",
+        req, req->get_size(), this->pending_size.get());
+
+    this->free_reqs.push_back(req);
+    this->last_req_cyclestamp = this->clock.get_cycles() + 1;
 
     this->fsm_event.enqueue();
 }

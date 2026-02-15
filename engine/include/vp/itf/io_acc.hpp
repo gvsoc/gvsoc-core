@@ -46,7 +46,7 @@ typedef void(IoAccMasterRetryMethMuxed)(vp::Block *, int id);
 #define IO_SLAVE vp::IoAccSlave
 #define IO_REQ_STATUS vp::IoAccReqStatus
 
-class IoAccReq {
+class IoAccReq : public vp::QueueElem {
     friend class IoAccMaster;
     friend class IoAccSlave;
 
@@ -87,8 +87,9 @@ class IoAccReq {
     uint64_t size;
     IoReqOpcode opcode;
     IoAccRespStatus status;
-    bool is_first;
-    bool is_last;
+    bool is_first = true;
+    bool is_last = true;
+    int64_t burst_id = -1;
 
     IoAccReq *next;
     IoAccReq *parent;
@@ -214,7 +215,6 @@ class IoAccSlave : public vp::SlavePort {
     inline void resp(IoAccReq *req)
     {
         IoAccMasterRespMeth *meth = (IoAccMasterRespMeth *)this->master_resp_meth;
-        printf("CALL RESP %p %p\n", this, meth);
         meth((vp::Block *)this->get_remote_context(), req);
     }
 
@@ -363,7 +363,6 @@ inline void IoAccSlave::resp_muxed_stub(IoAccSlave *_this, IoAccReq *req) {
     // The normal callback was tweaked in order to get there when the master is sending a
     // request. Now generate the normal call with the mux ID using the saved handler
     IoAccMasterRespMethMuxed *meth = (IoAccMasterRespMethMuxed *)_this->master_resp_meth_for_mux;
-    printf("MUX CALL RESP %p %p\n", _this, meth);
     meth((vp::Block *)_this->master_context_for_mux, req, _this->master_mux_id);
 }
 
@@ -375,7 +374,6 @@ inline void IoAccSlave::bind_to(vp::Port *_port, js::Config *config) {
 
     if (port->mux_id == -1)
     {
-        printf("BIND %p to %p %p\n", this, port, port->resp_meth);
         this->master_resp_meth = port->resp_meth;
         this->master_retry_meth = port->retry_meth;
         this->set_remote_context(port->get_context());

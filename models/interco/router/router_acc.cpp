@@ -326,7 +326,6 @@ void Router::retry(vp::Block *__this, int id)
 void Router::response(vp::Block *__this, vp::IoAccReq *req, int id)
 {
     Router *_this = (Router *)__this;
-    printf("%s response\n", _this->get_path().c_str());
     int channel = _this->shared_rw_bandwidth ? 0 : req->get_is_write();
     _this->channels[channel]->response(req, id);
 }
@@ -511,10 +510,7 @@ void Channel::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                 out->log_access(addr, req->get_size());
 
-                printf("%s %d\n", __FILE__, __LINE__);
-                printf("SEND %p %p\n", req, in);
                 vp::IoAccReqStatus status = itf->req(req);
-                printf("%s %d\n", __FILE__, __LINE__);
 
                 if (status == vp::IO_ACC_REQ_DENIED)
                 {
@@ -626,13 +622,10 @@ void Channel::handle_req_end(vp::IoAccReq *req)
     InputPort *in = (InputPort *)req->initiator;
     if (in)
     {
-        printf("%s call resp id %d\n", this->get_path().c_str(), in->id);
         this->top->input_itfs[in->id]->resp(req);
-        printf("%s %d\n", __FILE__, __LINE__);
     }
     else
     {
-        printf("%s %d\n", __FILE__, __LINE__);
         vp::IoAccReq *parent_req = req->parent;
         vp::IoAccRespStatus parent_status = parent_req->status;
         uint64_t remaining_size = parent_req->remaining_size;
@@ -655,7 +648,6 @@ void Channel::handle_req_end(vp::IoAccReq *req)
             parent_req->status = parent_status;
             this->top->input_itfs[in->id]->resp(req);
         }
-        printf("%s %d\n", __FILE__, __LINE__);
     }
 }
 

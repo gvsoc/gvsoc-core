@@ -234,22 +234,20 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     Iss *iss = (Iss *)__this;
     ExecInOrder *_this = &iss->exec;
 
-//     if (iss->exec.handle_stall_cycles()) return;
-
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
-//     if(_this->pending_flush)
-//     {
-//         iss->prefetcher.flush();
-//         iss->insn_cache.flush();
-//         _this->pending_flush = false;
-//     }
+    if(_this->pending_flush)
+    {
+        iss->prefetch.flush();
+        iss->insn_cache.flush();
+        _this->pending_flush = false;
+    }
 
-//     if (_this->has_exception)
-//     {
-//         _this->current_insn = _this->exception_pc;
-//         _this->has_exception = false;
-//     }
+    if (_this->has_exception)
+    {
+        _this->current_insn = _this->exception_pc;
+        _this->has_exception = false;
+    }
 
 //     // Switch back to optimize instruction handler only
 //     // if HW counters are disabled as they are checked with the slow handler
@@ -258,16 +256,16 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 //         _this->instr_event.set_callback(&ExecInOrder::exec_instr);
 //     }
 
-//     _this->insn_exec_profiling();
+    // _this->insn_exec_profiling();
 
-//     if (!_this->skip_irq_check)
-//     {
-//         _this->iss.irq.check();
-//     }
-//     else
-//     {
-//         _this->skip_irq_check = false;
-//     }
+    if (!_this->skip_irq_check)
+    {
+        _this->iss.irq.check();
+    }
+    else
+    {
+        _this->skip_irq_check = false;
+    }
 
     Task *task = _this->first_task;
     if (task)
@@ -332,13 +330,13 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         _this->is_insn_hold = false;
 
 
-//         _this->asm_trace_event.event_string(insn->desc->label, false);
+        _this->asm_trace_event.event_string(insn->desc->label, false);
 
-//         _this->iss.timing.insn_account();
+        _this->iss.timing.insn_account();
 
-//         _this->insn_exec_power(insn);
+        // _this->insn_exec_power(insn);
 
-//         _this->dbg_unit_step_check();
+        // _this->dbg_unit_step_check();
     }
 
 //     // Check now register file access faults so that instruction is finished and properly displayed

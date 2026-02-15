@@ -45,12 +45,6 @@ Ara::Ara(Iss &iss)
     this->insns_in_deps.resize(this->queue_size);
     this->insns_out_deps.resize(this->queue_size);
 
-    for (int i=0; i<this->queue_size; i++)
-    {
-        this->insns_in_deps[i] = 0;
-        this->insns_out_deps[i] = 0;
-    }
-
     for (int i=0; i<32; i++)
     {
         this->reading_insns[i] = 0;
@@ -86,7 +80,7 @@ iss_reg_t Ara::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         iss->arch.ara.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to on-going vector access (is_store: %d, pending_vaccess: %d, pending_vstore: %d\n",
             insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID], iss->arch.ara.nb_pending_vaccess, iss->arch.ara.nb_pending_vstore);
-
+        iss->exec.insn_stall();
         return pc;
     }
     return insn->stub_handler(iss, insn, pc);
@@ -130,15 +124,17 @@ PendingInsn *Ara::pending_insn_alloc(InsnEntry *entry)
     pending_insn->nb_bytes_done = 0;
 
     // TODO excludes vslide, vlse, vlxe, vsse and vsxe
-    pending_insn->can_be_chained = true;
+    iss_insn_t *insn = this->iss.exec.get_insn(entry);
+    pending_insn->can_be_chained = insn->decoder_item->u.insn.block_id != Ara::vslide_id;
 
     return pending_insn;
 }
 
 void Ara::insn_enqueue(InsnEntry *entry)
 {
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", entry->addr);
     PendingInsn *pending_insn = this->pending_insn_alloc(entry);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
+        entry->addr, pending_insn->id);
 
 	iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
 
@@ -166,6 +162,7 @@ void Ara::insn_enqueue(InsnEntry *entry)
     if (insn->nb_in_reg > 1)
     {
         reg_value_2 = this->iss.regfile.get_reg_untimed(reg_2);
+        pending_insn->reg_2 = reg_value_2;
     }
 
     if (insn->nb_in_reg > 2)
@@ -180,17 +177,12 @@ void Ara::insn_enqueue(InsnEntry *entry)
 
     int block_id = insn->decoder_item->u.insn.block_id;
 
-    if (!this->stalled_insns.empty())
-    {
-        this->stalled_insns.push(pending_insn);
-        return;
-    }
-
     // Some instructions like vsetvli have no associated block and must be execute by
     // the core
     if (block_id == -1)
     {
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction (pc: 0x%lx)\n", insn->addr);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction (pc: 0x%lx, id: %d)\n",
+            insn->addr, pending_insn->id);
 
         this->event_pc.event((uint8_t *)&insn->addr);
 
@@ -206,11 +198,13 @@ void Ara::insn_enqueue(InsnEntry *entry)
     }
     else
     {
-        this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction (pc: 0x%lx)\n", insn->addr);
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction (pc: 0x%lx, id: %d)\n",
+           insn->addr, pending_insn->id);
 
         this->event_pc.event((uint8_t *)&insn->addr);
 
         uint32_t mask = insn->sb_in_vreg_mask;
+        this->insns_in_deps[pending_insn->id] = 0;
         while (mask)
         {
             int id = __builtin_ctz(mask);
@@ -222,13 +216,15 @@ void Ara::insn_enqueue(InsnEntry *entry)
                 this->insns_in_deps[pending_insn->id] |= 1 << insn_id;
                 insn_mask &= ~(1 << insn_id);
             }
-
             this->reading_insns[id] |= 1 << pending_insn->id;
 
             mask &= ~(1 << id);
         }
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Init instruction input deps (pc: 0x%lx, id: %d, deps: 0x%x)\n",
+           insn->addr, pending_insn->id, this->insns_in_deps[pending_insn->id]);
 
         mask = insn->sb_out_vreg_mask;
+        this->insns_out_deps[pending_insn->id] = 0;
         while (mask)
         {
             int id = __builtin_ctz(mask);
@@ -237,7 +233,7 @@ void Ara::insn_enqueue(InsnEntry *entry)
             while (insn_mask)
             {
                 int insn_id = __builtin_ctzll(insn_mask);
-                this->insns_out_deps[id] |= 1 << insn_id;
+                this->insns_out_deps[pending_insn->id] |= 1 << insn_id;
                 insn_mask &= ~(1 << insn_id);
             }
 
@@ -245,7 +241,10 @@ void Ara::insn_enqueue(InsnEntry *entry)
             while (insn_mask)
             {
                 int insn_id = __builtin_ctzll(insn_mask);
-                this->insns_out_deps[id] |= 1 << insn_id;
+                if (insn_id != pending_insn->id)
+                {
+                    this->insns_out_deps[pending_insn->id] |= 1 << insn_id;
+                }
                 insn_mask &= ~(1 << insn_id);
             }
 
@@ -253,9 +252,11 @@ void Ara::insn_enqueue(InsnEntry *entry)
 
             mask &= ~(1 << id);
         }
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Init instruction output deps (pc: 0x%lx, id: %d, deps: 0x%x)\n",
+           insn->addr, pending_insn->id, this->insns_out_deps[pending_insn->id]);
 
         AraBlock *block = this->blocks[block_id];
-        if (!block->is_full())
+        if (this->stalled_insns.empty() && !block->is_full())
         {
             // Enqueue the instruction to the processing block
             block->enqueue_insn(pending_insn);
@@ -276,8 +277,8 @@ void Ara::insn_end(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
 
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n",
-        insn->addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx, id: %d)\n",
+        insn->addr, pending_insn->id);
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // If the ended instruction is a load or store, decrement associated counters used for
@@ -297,14 +298,7 @@ void Ara::insn_end(PendingInsn *pending_insn)
     // Mark the instruction as done. THe FSM will remove it when it is at the head of the queue
     pending_insn->done = true;
 
-    // Now that the instruction is over, execute the handler to functionally model it. This will
-    // write the output register.
-    // Store the instruction register as it will be used by the handler.
-    // this->current_insn_reg = pending_insn->reg;
-    // this->current_insn_reg_2 = pending_insn->reg_2;
-    // Force trace dump since the core may be stalled which would skip trace
-    // insn->stub_handler(&this->iss, insn, insn->addr);
-
+    // Unmark this instruction in the reading instructions
     uint32_t mask = insn->sb_in_vreg_mask;
     while (mask)
     {
@@ -313,6 +307,7 @@ void Ara::insn_end(PendingInsn *pending_insn)
         mask &= ~(1 << id);
     }
 
+    // Unmark this instruction in the writing instructions
     mask = insn->sb_out_vreg_mask;
     while (mask)
     {
@@ -321,34 +316,12 @@ void Ara::insn_end(PendingInsn *pending_insn)
         mask &= ~(1 << id);
     }
 
-
-
-//     // Mark output registers as ready in next cycle
-//     this->reg_write_mask &= ~insn->sb_out_vreg_mask;
-//     for (PendingInsn &current_insn: this->pending_insns)
-//     {
-//         if (current_insn.valid && !current_insn.waiting && !current_insn.done)
-//         {
-//             iss_insn_t *insn = this->iss.exec.get_insn(current_insn.entry);
-//             this->reg_write_mask |= insn->sb_out_vreg_mask;
-
-//             if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
-//             {
-//                 printf("Updated out after end %lx\n", this->reg_write_mask);
-//             }
-//         }
-//     }
-
-//     // Mark intput registers as not in use anymore
-//     this->reg_read_mask = 0;
-//     for (PendingInsn &current_insn: this->pending_insns)
-//     {
-//         if (current_insn.valid && !current_insn.done)
-//         {
-//             iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
-//             this->reg_read_mask |= insn->sb_in_vreg_mask;
-//         }
-//     }
+    // Clear this instruction in other instructions dependencies
+    for (int i=0; i<this->queue_size; i++)
+    {
+        this->insns_in_deps[i] &= ~(1 << pending_insn->id);
+        this->insns_out_deps[i] &= ~(1 << pending_insn->id);
+    }
 
     // Commit the instruction. This may unblock other instructions waiting for float registers
     this->iss.arch.insn_commit(pending_insn);
@@ -384,98 +357,18 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
     }
 
-//     // Check if the dependencies of the pending instruction at the head of the waiting instruction
-//     // are resolved.
-//     if (_this->nb_waiting_insn.get() > 0)
-//     {
-//         _this->trace.msg(vp::Trace::LEVEL_TRACE,
-//             "Checking waiting instructions (in_reg_mask: 0x%x, out_reg_mask: 0x%x)\n",
-//             _this->reg_read_mask, _this->reg_write_mask);
-
-//         for (int i=0; i<_this->pending_insns.size(); i++)
-//         {
-//             PendingInsn *pending_insn = &_this->pending_insns[i];
-
-//             if (!pending_insn->valid) continue;
-
-//             if (pending_insn->start_timestamp > _this->iss.clock.get_cycles()) continue;
-
-//             if (pending_insn->waiting)
-//             {
-//                 iss_insn_t *insn = _this->iss.exec.get_insn(pending_insn->entry);
-
-//                 _this->trace.msg(vp::Trace::LEVEL_TRACE,
-//                     "Checking instruction (index: %d, pc: 0x%lx, in mask: 0x%x, out mask: 0x%x)\n",
-//                     i, insn->addr, insn->sb_in_vreg_mask, insn->sb_out_vreg_mask);
-// 6
-//                 // Don't start if an input register is being written
-//                 uint32_t mask = insn->sb_in_vreg_mask & _this->reg_write_mask;
-//                 if (mask != 0)
-//                 {
-//                     if (!pending_insn->can_be_chained ||
-//                         (mask & ~pending_insn->chained_mask) != 0
-//                             || pending_insn->chained_count) continue;
-
-//                     pending_insn->chained = true;
-//                 }
-
-//                 // Don't start if an output register is being written
-//                 mask = insn->sb_out_vreg_mask & _this->reg_write_mask;
-//                 if (mask != 0)
-//                 {
-//                     if (!pending_insn->can_be_chained ||
-//                         (mask & ~pending_insn->chained_mask) != 0
-//                             || pending_insn->chained_count) continue;
-
-//                     pending_insn->chained = true;
-//                 }
-
-//                 // Don't start if an output register is being read
-//                 if ((insn->sb_out_vreg_mask & _this->reg_read_mask) != 0) continue;
-
-//                 int block_id = insn->decoder_item->u.insn.block_id;
-
-//                 // Some instructions like vsetvli have no associated block and must be execute by
-//                 // the core
-//                 if (block_id == -1)
-//                 {
-//                     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction (pc: 0x%lx)\n", insn->addr);
-
-//                     _this->event_pc.event((uint8_t *)&insn->addr);
-
-//                     pending_insn->waiting = false;
-//                     _this->nb_waiting_insn.dec(1);
-//                     _this->insn_end(pending_insn);
-//                 }
-//                 else
-//                 {
-//                     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction (pc: 0x%lx)\n", insn->addr);
-
-//                     _this->event_pc.event((uint8_t *)&insn->addr);
-
-//                     AraBlock *block = _this->blocks[block_id];
-//                     if (!block->is_full())
-//                     {
-//                         // Mark output registers as being written
-//                         _this->reg_write_mask |= insn->sb_out_vreg_mask;
-
-//                         // Mark input registers as being read
-//                         _this->reg_read_mask |= insn->sb_in_vreg_mask;
-
-//                         pending_insn->waiting = false;
-
-//                         // Enqueue the instruction to the processing block
-//                         block->enqueue_insn(pending_insn);
-
-//                         _this->nb_waiting_insn.dec(1);
-//                     }
-//                 }
-
-//                 // Only enqueue one instruction per cycle
-//                 break;
-//             }
-//         }
-//     }
+    if (!_this->stalled_insns.empty())
+    {
+        PendingInsn *pending_insn = _this->stalled_insns.front();
+        iss_insn_t *insn = _this->iss.exec.get_insn(pending_insn->entry);
+        int block_id = insn->decoder_item->u.insn.block_id;
+        AraBlock *block = _this->blocks[block_id];
+        if (!block->is_full())
+        {
+            _this->stalled_insns.pop();
+            block->enqueue_insn(pending_insn);
+        }
+    }
 
     if (_this->nb_pending_insn.get() == 0)
     {
@@ -525,7 +418,12 @@ bool Ara::insn_ready(PendingInsn *insn)
     // printf("[%d] OUT DEPS %lx\n", insn->id, this->insns_out_deps[insn->id]);
 
     // WAW and WAR deps cannot be chained and are blocking
-    if (this->insns_out_deps[insn->id] != 0) return false;
+    if (this->insns_out_deps[insn->id] != 0)
+    {
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Instruction output dependency (id: %d, deps: 0x%x)\n",
+            insn->id, this->insns_out_deps[insn->id]);
+        return false;
+    }
 
     // if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
     // printf("[%d] IN DEPS %lx\n", insn->id, this->insns_in_deps[insn->id]);
@@ -541,8 +439,8 @@ bool Ara::insn_ready(PendingInsn *insn)
             int dep_insn_id = __builtin_ctzll(deps_mask);
             PendingInsn *dep_insn = &this->pending_insns[dep_insn_id];
 
-            // if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
-            // printf("[%d] CHAINED DEPS %ld %ld\n", insn->id, dep_insn->nb_bytes_done, insn->nb_bytes_done);
+        //     if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
+        // printf("[%d] CHAINED DEPS %ld %ld\n", insn->id, dep_insn->nb_bytes_done, insn->nb_bytes_done);
 
             if (!dep_insn->can_be_chained || dep_insn->nb_bytes_done <= insn->nb_bytes_done)
                 return false;
@@ -552,6 +450,8 @@ bool Ara::insn_ready(PendingInsn *insn)
         return true;
     }
 
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Instruction input dependency (id: %d, deps: 0x%x)\n",
+        insn->id, this->insns_in_deps[insn->id]);
 
     return false;
 }

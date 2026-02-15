@@ -44,7 +44,8 @@ void AraVcompute::reset(bool active)
 void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = this->ara.iss.exec.get_insn(pending_insn->entry);
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", insn->addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
+        insn->addr, pending_insn->id);
     uint8_t one = 1;
     this->event_active.event(&one);
 
@@ -83,9 +84,15 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         PendingInsn *pending_insn = _this->insns.front();
         iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
+        bool ready= _this->ara.insn_ready(pending_insn);
 
-        if (_this->ara.insn_ready(pending_insn))
+        _this->trace.msg(vp::Trace::LEVEL_TRACE, "Check ready (pc: 0x%lx, id: %d, ready: %d)\n",
+            insn->addr, pending_insn->id, ready);
+
+        if (ready)
         {
+            int nb_elem_per_cycle = _this->ara.nb_lanes * 8 / _this->ara.iss.vector.sewb;
+
             if (pending_insn->nb_bytes_done == 0)
             {
                 _this->event_pc.event((uint8_t *)&insn->addr);
@@ -93,10 +100,13 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                 unsigned int nb_elems = _this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value;
                 _this->total_size = nb_elems * _this->ara.iss.vector.sewb;
-                _this->ara.vstart = _this->ara.iss.csr.vstart.value;
-                _this->ara.vend = std::min((int)_this->ara.iss.csr.vl.value,
-                    _this->ara.vstart + _this->ara.nb_lanes);
+                _this->vstart = _this->ara.iss.csr.vstart.value;
+                _this->vend = std::min((int)_this->ara.iss.csr.vl.value,
+                    _this->vstart + nb_elem_per_cycle);
             }
+
+            _this->trace.msg(vp::Trace::LEVEL_TRACE, "Exec chunk (pc: 0x%lx, id: %d, start: %d, end: %d)\n",
+                insn->addr, pending_insn->id, _this->vstart, _this->vend);
 
             // Now that the instruction is over, execute the handler to functionally model it. This will
             // write the output register.
@@ -104,15 +114,17 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->ara.current_insn_reg = pending_insn->reg;
             _this->ara.current_insn_reg_2 = pending_insn->reg_2;
             // Force trace dump since the core may be stalled which would skip trace
+            _this->ara.vstart = _this->vstart;
+            _this->ara.vend = _this->vend;
             insn->stub_handler(&_this->ara.iss, insn, insn->addr);
 
-            _this->ara.vstart += _this->ara.nb_lanes;
-            _this->ara.vend = std::min((int)_this->ara.iss.csr.vl.value,
-                _this->ara.vstart + _this->ara.nb_lanes);
+            _this->vstart += nb_elem_per_cycle;
+            _this->vend = std::min((int)_this->ara.iss.csr.vl.value,
+                _this->vstart + nb_elem_per_cycle);
 
-            _this->ara.insn_commit(pending_insn, _this->ara.nb_lanes * _this->ara.iss.vector.sewb);
+            _this->ara.insn_commit(pending_insn, nb_elem_per_cycle * _this->ara.iss.vector.sewb);
 
-            if (pending_insn->nb_bytes_done == _this->total_size)
+            if (pending_insn->nb_bytes_done >= _this->total_size)
             {
                 _this->pending_insn = pending_insn;
                	_this->insns.pop();

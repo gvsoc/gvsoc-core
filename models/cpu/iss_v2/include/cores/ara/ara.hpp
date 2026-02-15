@@ -96,6 +96,8 @@ private:
     // can finished, based on operation duration.
     int64_t end_cyclestamp;
     int total_size;
+    int vstart;
+    int vend;
 };
 
 class AraVlsuPendingInsn
@@ -350,6 +352,7 @@ public:
 
     int vstart;
     int vend;
+    vp::Trace trace;
 
 private:
     static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
@@ -365,7 +368,6 @@ private:
     // from CVA6 anymore
     static constexpr int queue_size = 8;
 
-    vp::Trace trace;
     // Event for active state
     vp::Trace event_active;
     // Event for PC of instruction being enqueued

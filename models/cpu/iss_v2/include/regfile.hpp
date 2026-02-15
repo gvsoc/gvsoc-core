@@ -188,9 +188,6 @@ inline void Regfile::sb_reg_invalid_clear(int reg)
 inline bool Regfile::scoreboard_insn_check(iss_insn_t *insn)
 {
     bool stalled = (insn->sb_reg_mask & this->sb_reg_invalid) != 0;
-    this->trace.msg(vp::Trace::LEVEL_TRACE,
-        "0x%lx 0x%lx\n",
-        insn->sb_reg_mask, this->sb_reg_invalid);
     if (stalled)
     {
         this->trace.msg(vp::Trace::LEVEL_TRACE,

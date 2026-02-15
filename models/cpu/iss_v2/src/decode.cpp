@@ -105,8 +105,6 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         return -1;
 
     insn->desc = &item->u.insn;
-    insn->expand_table = NULL;
-    insn->latency = 0;
     insn->resource_id = item->u.insn.resource_id;
     insn->resource_latency = item->u.insn.resource_latency;
     insn->resource_bandwidth = item->u.insn.resource_bandwidth;
@@ -114,13 +112,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
     insn->decoder_item = item;
     insn->size = item->u.insn.size;
-    insn->nb_out_reg = 0;
-    insn->nb_in_reg = 0;
     insn->latency = item->u.insn.latency;
-    insn->sb_reg_mask = 0;
-    insn->sb_out_reg_mask = 0;
-    insn->sb_in_vreg_mask = 0;
-    insn->sb_out_vreg_mask = 0;
 
     for (int i = 0; i < item->u.insn.nb_args; i++)
     {
@@ -289,6 +281,15 @@ int Decode::decode_item(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 
 int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
 {
+    insn->expand_table = NULL;
+    insn->latency = 0;
+    insn->nb_out_reg = 0;
+    insn->nb_in_reg = 0;
+    insn->sb_reg_mask = 0;
+    insn->sb_out_reg_mask = 0;
+    insn->sb_in_vreg_mask = 0;
+    insn->sb_out_vreg_mask = 0;
+
     return this->decode_item(insn, pc, opcode, __iss_isa_set.isa_set);
 }
 
@@ -298,6 +299,7 @@ static iss_reg_t iss_exec_insn_illegal(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->decode.trace.msg("Executing illegal instruction\n");
     iss->exception.raise(pc, ISS_EXCEPT_ILLEGAL);
+    iss->exec.insn_stall();
     return pc;
 }
 
@@ -316,10 +318,7 @@ void Decode::decode_pc(iss_insn_t *insn, iss_reg_t pc)
         this->trace.msg("Unknown instruction\n");
         insn->handler = iss_exec_insn_illegal;
         insn->fast_handler = iss_exec_insn_illegal;
-        return;
     }
-
-    insn->opcode = opcode;
 }
 
 

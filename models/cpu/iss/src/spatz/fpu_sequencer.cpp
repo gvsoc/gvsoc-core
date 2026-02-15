@@ -86,7 +86,6 @@ iss_reg_t Sequencer::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     {
         iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to on-going vector access (is_store: %d, pending_vaccess: %d, pending_vstore: %d\n",
             insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID], iss->ara.nb_pending_vaccess, iss->ara.nb_pending_vstore);
-
         return pc;
     }
     return insn->stub_handler(iss, insn, pc);

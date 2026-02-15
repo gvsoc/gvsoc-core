@@ -107,7 +107,8 @@ void AraVlsu::reset(bool active)
 void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = this->ara.iss.exec.get_insn(pending_insn->entry);
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx)\n", insn->addr);
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
+        insn->addr, pending_insn->id);
     uint8_t one = 1;
     this->event_active.event(&one);
     this->event_queue.event((uint8_t *)&insn->addr);
@@ -289,8 +290,8 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     }
 
                     _this->trace.msg(vp::Trace::LEVEL_TRACE,
-                        "Sending request (port: %d, addr: 0x%lx, size: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
-                        i, _this->pending_addr, size, _this->pending_size, _this->pending_is_write);
+                        "Sending request (id: %d, port: %d, addr: 0x%lx, size: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
+                        pending_insn->id, i, _this->pending_addr, size, _this->pending_size, _this->pending_is_write);
 
                     _this->event_addr[i].event((uint8_t *)&_this->pending_addr);
                     _this->event_size[i].event((uint8_t *)&size);

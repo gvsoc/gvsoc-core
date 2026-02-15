@@ -777,18 +777,21 @@ static void iss_trace_save_arg(Iss *iss, iss_insn_t *insn, iss_insn_arg_t *insn_
 
 void iss_trace_save_args(Iss *iss, iss_insn_t *insn, bool save_out, TraceEntry *entry)
 {
-    for (int i = 0; i < insn->decoder_item->u.insn.nb_args; i++)
+    if (insn->decoder_item)
     {
-        iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
-        if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
+        for (int i = 0; i < insn->decoder_item->u.insn.nb_args; i++)
         {
-#ifdef CONFIG_ISS_HAS_VECTOR
-            iss_trace_save_varg(iss, insn, &insn->args[i], arg, entry->saved_vargs[i], save_out);
-#endif
-        }
-        else
-        {
-            iss_trace_save_arg(iss, insn, &insn->args[i], arg, &entry->saved_args[i], save_out);
+            iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
+            if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
+            {
+    #ifdef CONFIG_ISS_HAS_VECTOR
+                iss_trace_save_varg(iss, insn, &insn->args[i], arg, entry->saved_vargs[i], save_out);
+    #endif
+            }
+            else
+            {
+                iss_trace_save_arg(iss, insn, &insn->args[i], arg, &entry->saved_args[i], save_out);
+            }
         }
     }
 }

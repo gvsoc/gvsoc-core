@@ -57,6 +57,8 @@ fsm_event(this, &AraVlsu::fsm_handler)
         top.new_master_port("vlsu_" + std::to_string(i), &this->ports[i], this);
     }
 
+    this->width = top.get_js_config()->get_child_int("ara/lsu_width");
+
     int nb_outstanding_reqs = top.get_js_config()->get_child_int("ara/nb_outstanding_reqs");
     this->req_queues.resize(nb_ports);
     for (int i=0; i<nb_ports; i++)
@@ -262,7 +264,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 }
                 else
                 {
-                    size = std::min((iss_addr_t)8, _this->pending_size);
+                    size = std::min((iss_addr_t)_this->width, _this->pending_size);
                 }
 
                 _this->trace.msg(vp::Trace::LEVEL_TRACE,

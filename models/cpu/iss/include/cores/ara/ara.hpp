@@ -75,6 +75,7 @@ private:
     // When the instruction is chained, this indicates the minimum cyclestamp where the instruction
     // can finished, based on operation duration.
     int64_t end_cyclestamp;
+    int width;
 };
 
 class AraVlsuPendingInsn
@@ -182,6 +183,7 @@ private:
     int reg_indexed;
     int pending_elem;
     int inst_elem_size;
+    int width;
 };
 
 #else

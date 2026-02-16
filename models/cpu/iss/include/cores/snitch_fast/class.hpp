@@ -33,7 +33,9 @@
 #include <cpu/iss/include/exception.hpp>
 #include <cpu/iss/include/syscalls.hpp>
 #include <cpu/iss/include/timing.hpp>
+#ifdef CONFIG_ISS_VLEN
 #include <cpu/iss/include/vector.hpp>
+#endif
 #include <cpu/iss/include/cores/snitch_fast/regfile.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
@@ -46,7 +48,9 @@
 #include <cpu/iss/include/exec/exec_inorder.hpp>
 #include <cpu/iss/include/prefetch/prefetch_single_line.hpp>
 #include <cpu/iss/include/gdbserver.hpp>
+#ifdef CONFIG_ISS_VLEN
 #include <cpu/iss/include/cores/ara/ara.hpp>
+#endif
 
 #if defined(CONFIG_GVSOC_ISS_SPATZ)
 #include <cpu/iss/include/spatz.hpp>

@@ -38,6 +38,7 @@ void AraVcompute::reset(bool active)
         uint8_t zero = 0;
         this->pending_insn = NULL;
         this->event_active.event(&zero);
+        this->width = this->ara.iss.top.get_js_config()->get_child_int("ara/compute_width");
     }
 }
 
@@ -120,7 +121,7 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         unsigned int nb_elems = (_this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value) /
             _this->ara.nb_lanes;
         int64_t end_cyclestamp = _this->ara.iss.top.clock.get_cycles() +
-            nb_elems * _this->ara.iss.vector.sewb / 8 + _this->pending_insn->insn->latency;
+            nb_elems * _this->ara.iss.vector.sewb / _this->width + _this->pending_insn->insn->latency;
 
         // Only assign the end timestamp if the instruction is not chained
         if (!_this->pending_insn->chained)

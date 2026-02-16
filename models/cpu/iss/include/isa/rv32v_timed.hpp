@@ -28,7 +28,7 @@
 
 static inline iss_reg_t vlmax_get(Iss *iss)
 {
-    return iss->vector.VLEN / 8 * iss->vector.lmul / iss->vector.sewb;
+    return CONFIG_ISS_VLEN / 8 * iss->vector.lmul / iss->vector.sewb;
 }
 
 static inline void extract_format(int sew, uint8_t *m, uint8_t *e){

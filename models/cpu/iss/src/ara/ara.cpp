@@ -37,7 +37,6 @@ Ara::Ara(IssWrapper &top, Iss &iss)
     this->traces.new_trace_event("queue", &this->event_queue, 64);
 
     this->nb_lanes = top.get_js_config()->get_int("ara/nb_lanes");
-    this->iss.vector.VLEN = CONFIG_ISS_VLEN;
     this->blocks.resize(Ara::nb_blocks);
     this->blocks[Ara::vlsu_id] = new AraVlsu(*this, top);
     this->blocks[Ara::vfpu_id] = new AraVcompute(*this, "vfpu");

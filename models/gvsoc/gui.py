@@ -111,7 +111,7 @@ class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
                  skip_if_no_child=False, required_traces=None, include_traces=None):
-        if path is not None and comp is not None and path[0] != '/':
+        if path is not None and comp is not None and len(path) != 0 and path[0] != '/':
             comp_path = get_comp_path(comp, inc_top=True)
             if comp_path is not None:
                 path = comp_path + '/' + path
@@ -208,7 +208,7 @@ class Signal(object):
         if self.include_traces is not None:
             config['include_traces'] = []
             for trace in self.include_traces:
-                if trace[0] == '/':
+                if len(trace) == 0 or trace[0] == '/':
                     path = trace
                 else:
                     path = get_comp_path(self.comp, inc_top=True) + '/' + trace

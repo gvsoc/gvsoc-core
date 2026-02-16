@@ -585,7 +585,7 @@ class Component(gvrun.target.SystemTreeNode):
             # option is there
             # signal = gvsoc.gui.Signal(self, parent_signal, name=name, skip_if_no_child=True)
             # return signal
-            return gvsoc.gui.SignalGenFromSignals(self, parent_signal, to_signal=self.name,
+            return gvsoc.gui.SignalGenFromSignals(self, parent_signal, to_signal=name,
                 mode="combined", from_groups=["active"], groups=["regmap", "active"],
                 display=gvsoc.gui.DisplayLogicBox('ACTIVE'), skip_if_no_child=True,)
         else:

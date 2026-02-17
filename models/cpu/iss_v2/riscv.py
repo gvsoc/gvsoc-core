@@ -17,14 +17,19 @@ from inspect import stack
 
 import os
 import subprocess
+from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
+from gvsoc.systree import Component
 import os.path
 import gvsoc.gui
+from gvsoc.gui import Signal
 import cpu.iss.isa_gen.isa_riscv_gen
+from cpu.iss.isa_gen.isa_gen import Isa
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
 from gvrun.systree import ExecutableContainer
+from cpu.iss_v2.riscv_config import RiscvConfig
 
 binaries_info = {}
 
@@ -83,6 +88,12 @@ class Irq(IssModule):
         iss.isa.add_define('CONFIG_GVSOC_ISS_IRQ', 'IrqRiscv')
         iss.isa.add_include('<cpu/iss_v2/include/irq/irq_riscv.hpp>')
         iss.add_sources(['cpu/iss_v2/src/irq/irq_riscv.cpp'])
+
+class IrqExternal(IssModule):
+    def gen(self, iss):
+        iss.isa.add_define('CONFIG_GVSOC_ISS_IRQ', 'IrqExternal')
+        iss.isa.add_include('<cpu/iss_v2/include/irq/irq_external.hpp>')
+        iss.add_sources(['cpu/iss_v2/src/irq/irq_external.cpp'])
 
 class PrefetchSingleLine(IssModule):
     def __init__(self, scoreboard: bool=False, size=16):
@@ -162,16 +173,17 @@ class RiscvCommon(st.Component):
     """
 
     def __init__(self,
-            parent,
-            name,
-            isa,
+            parent: Component,
+            name: str,
+            config: RiscvConfig,
+            isa: Isa|None,
             misa: int=0,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
-            debug_binaries: list=[],
-            binaries: list=[],
+            debug_binaries: list[str]=[],
+            binaries: list[str]=[],
             debug_handler: int=0,
-            power_models: dict={},
+            power_models: dict[str,Any]={},
             power_models_file: str=None,
             cluster_id: int=0,
             core_id: int=0,
@@ -180,24 +192,23 @@ class RiscvCommon(st.Component):
             mmu: bool=False,
             pmp: bool=False,
             riscv_exceptions: bool=False,
-            core='riscv',
-            supervisor=False,
-            user=False,
-            internal_atomics=False,
-            timed=True,
-            scoreboard=False,
-            cflags=None,
-            prefetcher_size=None,
-            wrapper="pulp/cpu/iss/default_iss_wrapper.cpp",
-            memory_start=None,
-            memory_size=None,
-            handle_misaligned=False,
-            external_pccr=False,
-            htif=False,
-            custom_sources=False,
-            float_lib='flexfloat',
-            stack_checker=False,
-            nb_outstanding=1,
+            core: str='riscv',
+            supervisor: bool=False,
+            user: bool=False,
+            internal_atomics: bool=False,
+            timed: bool=True,
+            scoreboard: bool=False,
+            prefetcher_size: int|None=None,
+            wrapper: str="pulp/cpu/iss/default_iss_wrapper.cpp",
+            memory_star: int|None=None,
+            memory_size: int|None=None,
+            handle_misaligned: bool=False,
+            external_pccr: bool=False,
+            htif: bool=False,
+            custom_sources: bool=False,
+            float_lib: str='flexfloat',
+            stack_checker: bool=False,
+            nb_outstanding: int=1,
             single_regfile: bool=False,
             zfinx: bool=False,
             zdinx: bool=False,
@@ -207,7 +218,7 @@ class RiscvCommon(st.Component):
 
         super().__init__(parent, name)
 
-        self.isa = isa
+        self.isa: str = isa
 
         self.add_c_flags([
             f'--include {isa.get_header()}'
@@ -604,7 +615,8 @@ class RiscvCommon(st.Component):
             self.vcd_group(skip=False)
 
 
-    def gen_gui(self, parent_signal):
+    @override
+    def gen_gui(self, parent_signal: Signal) -> Signal:
         active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='active_function',
             display=gvsoc.gui.DisplayStringBox(), include_traces=['active_pc', 'binaries'])
 

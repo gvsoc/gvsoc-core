@@ -550,7 +550,7 @@ else:
 
 
 
-        def get_property(self, name, format=None):
+        def get_property(self, name: str, format: Any|None=None) -> Any:
             """Get a property.
 
             The value of the property returned here can be overwritten by an option.

@@ -47,6 +47,7 @@ class ddr : public vp::Component
 public:
     ddr(vp::ComponentConf &conf);
     ~ddr();
+    void reset(bool active);
 
     void paraSendRequest(vp::IoReq *req);
 
@@ -58,12 +59,17 @@ public:
 
     static void reqCallback(void *__this);
 
+    static void pimDataReq(vp::Block *__this, PimStride* pimStride);
+
     static void pimCallback(void *__this, PimInfo pimInfo);
 
 private:
     vp::Trace trace;
     vp::IoSlave in_itf;
+    vp::WireMaster<GvsocMemspec> send_memspec_itf;
     vp::IoSlave pim_toggle_itf;
+    vp::WireMaster<PimStride*> pim_notify_itf;
+    vp::WireSlave<PimStride*> pim_data_itf;
 
     GvsocMemspec memspec;
     uint access_size_clog;
@@ -106,8 +112,12 @@ ddr::ddr(vp::ComponentConf &config)
 
     in_itf.set_req_meth(&ddr::req); // Input interface
     this->new_slave_port("input", &in_itf);
+    this->new_master_port("send_memspec", &send_memspec_itf);   // Interface to send memory specification to PIM component
     pim_toggle_itf.set_req_meth(&ddr::handlePimToggle);     // Interface to receive PIM toggle requests from upper component
     this->new_slave_port("pim_toggle", &pim_toggle_itf);
+    this->new_master_port("pim_notify", &pim_notify_itf);   // Interface to notify PIM component of PIM requests
+    pim_data_itf.set_sync_meth(&ddr::pimDataReq);           // Interface to receive PIM data requests from PIM component
+    this->new_slave_port("pim_data", &pim_data_itf);
 
     // Load DRAMSys dynamic library and get function pointers
     libraryHandle = dlopen("libDRAMSys_Simulator.so", RTLD_LAZY);
@@ -164,6 +174,18 @@ ddr::ddr(vp::ComponentConf &config)
     trace.msg("---- Strides are: channel: 0x%lx, rank: 0x%lx, bank group: 0x%lx, bank: 0x%lx, row: 0x%lx, column: 0x%lx\n",
                 memspec.channel_stride, memspec.rank_stride, memspec.bankgroup_stride, memspec.bank_stride, memspec.row_stride, memspec.column_stride);
 }
+
+void ddr::reset(bool active)
+{
+    if (!active)
+    {
+        if (pim_support) {
+            trace.msg("Memory specification sent to PIM component at reset\n");
+            // this->send_memspec_itf.sync(memspec);  
+        }
+    }
+}
+       
 
 void ddr::paraSendRequest(vp::IoReq *req){
     uint64_t offset = req->get_addr();
@@ -327,6 +349,21 @@ void ddr::reqCallback(void *__this){
     }
 }
 
+// PIM data request for strided access from the PIM accelerator to DRAM
+void ddr::pimDataReq(vp::Block *__this, PimStride* pimStride){
+    ddr *_this = (ddr *)__this;
+    
+    if (pimStride->pimInfo.is_write) {
+        _this->dram_pim_write(_this->dram_id, pimStride->pimInfo.channel, pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count, pimStride->buf);
+        _this->trace.msg("PIM Write Data Req to address %#lx, length %d, stride 0x%#lx, count %d\n",
+                         pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count);
+    } else {
+        _this->dram_pim_read(_this->dram_id, pimStride->pimInfo.channel, pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count, pimStride->buf);
+        _this->trace.msg("PIM Read Data Req from address %#lx, length %d, stride 0x%#lx, count %d\n",
+                         pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count);
+    }
+}
+
 // PIM callback from DRAMSys when a PIM operation is triggered
 void ddr::pimCallback(void *__this, PimInfo pimInfo){
     ddr *_this = (ddr *)__this;
@@ -341,6 +378,7 @@ void ddr::pimCallback(void *__this, PimInfo pimInfo){
     current_pim_stride->base_addr = pimInfo.address;
     current_pim_stride->count = 0; // Assure no data transfer if not set by the PIM accelerator
     current_pim_stride->buf = nullptr;
+    // _this->pim_notify_itf.sync(current_pim_stride);
 }
 
 ddr::~ddr(){

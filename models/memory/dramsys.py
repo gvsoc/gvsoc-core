@@ -33,5 +33,15 @@ class Dramsys(st.Component):
     def i_INPUT(self) -> st.SlaveItf:
         return st.SlaveItf(self, 'input')
     
+    def o_SENDMEMSPEC(self, itf: st.SlaveItf):
+        self.itf_bind('send_memspec', itf, signature="wire<GvsocMemspec>")
+    
     def i_PIMTOGGLE(self) -> st.SlaveItf:
         return st.SlaveItf(self, 'pim_toggle')
+    
+    def o_PIMNOTIFY(self, itf: st.SlaveItf):
+        self.itf_bind('pim_notify', itf, signature="wire<PimStride*>")
+    
+    def i_PIMDATA(self) -> st.SlaveItf:
+        return st.SlaveItf(self, 'pim_data', signature="wire<PimStride*>")
+    

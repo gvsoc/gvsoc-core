@@ -39,6 +39,7 @@
 typedef void*   CallbackInstance_t;
 typedef void    (AsynCallbackResp_Meth)(CallbackInstance_t instance, int is_write);
 typedef void    (AsynCallbackUpdateReq_Meth)(CallbackInstance_t instance);
+typedef void    (AsynCallbackPim_Meth)(CallbackInstance_t instance, PimInfo pimInfo);
 
 class ddr : public vp::Component
 {
@@ -51,13 +52,18 @@ public:
 
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
+    static vp::IoReqStatus handlePimToggle(vp::Block *__this, vp::IoReq *req);
+
     static void rspCallback(void *__this, int is_write);
 
     static void reqCallback(void *__this);
 
+    static void pimCallback(void *__this, PimInfo pimInfo);
+
 private:
     vp::Trace trace;
     vp::IoSlave in_itf;
+    vp::IoSlave pim_toggle_itf;
 
     GvsocMemspec memspec;
     uint access_size_clog;
@@ -66,6 +72,7 @@ private:
     // DRAMSys dynamic library handle and function pointers
     void* libraryHandle;
     int dram_id;
+    int pim_support;
     int (*add_dram)(char * resources_path, char * config_path, GvsocMemspec *memspec);
     void (*close_dram)(int dram_id);
     int (*dram_can_accept_req)(int dram_id);
@@ -83,6 +90,10 @@ private:
     void (*dram_load_elf)(int dram_id, uint64_t dram_base_addr, char * elf_path);
     void (*dram_load_memfile)(int dram_id, uint64_t addr_ofst, char * mem_path);
     void (*dram_register_async_callback)(int dram_id, CallbackInstance_t instance, AsynCallbackResp_Meth* resp_meth, AsynCallbackUpdateReq_Meth* req_meth);
+    void (*dram_toggle_pim)(int dram_id, int channel);
+    void (*dram_register_pim_callback)(int dram_id, CallbackInstance_t instance, AsynCallbackPim_Meth* pim_meth);
+    void (*dram_pim_read)(int dram_id, int channel, uint64_t base_addr, uint64_t length, uint64_t stride, uint64_t count, const void* buf);
+    void (*dram_pim_write)(int dram_id, int channel, uint64_t base_addr, uint64_t length, uint64_t stride, uint64_t count, const void* buf);
 
     std::queue<vp::IoReq *>  denied_req_queue;
     std::list<std::pair<vp::IoReq *, std::queue<int>>>  pending_read_req_queue;
@@ -95,6 +106,8 @@ ddr::ddr(vp::ComponentConf &config)
 
     in_itf.set_req_meth(&ddr::req); // Input interface
     this->new_slave_port("input", &in_itf);
+    pim_toggle_itf.set_req_meth(&ddr::handlePimToggle);     // Interface to receive PIM toggle requests from upper component
+    this->new_slave_port("pim_toggle", &pim_toggle_itf);
 
     // Load DRAMSys dynamic library and get function pointers
     libraryHandle = dlopen("libDRAMSys_Simulator.so", RTLD_LAZY);
@@ -115,6 +128,10 @@ ddr::ddr(vp::ComponentConf &config)
     dram_load_elf = (void (*)(int, uint64_t, char*))dlsym(libraryHandle, "dram_load_elf");
     dram_load_memfile = (void (*)(int, uint64_t, char*))dlsym(libraryHandle, "dram_load_memfile");
     dram_register_async_callback = (void (*)(int, CallbackInstance_t, AsynCallbackResp_Meth*, AsynCallbackUpdateReq_Meth*))dlsym(libraryHandle, "dram_register_async_callback");
+    dram_toggle_pim = (void (*)(int, int))dlsym(libraryHandle, "dram_toggle_pim");
+    dram_register_pim_callback = (void (*)(int, CallbackInstance_t, AsynCallbackPim_Meth*))dlsym(libraryHandle, "dram_register_pim_callback");
+    dram_pim_read = (void (*)(int, int, uint64_t, uint64_t, uint64_t, uint64_t, const void*))dlsym(libraryHandle, "dram_pim_read");
+    dram_pim_write = (void (*)(int, int, uint64_t, uint64_t, uint64_t, uint64_t, const void*))dlsym(libraryHandle, "dram_pim_write"); 
 
 #ifdef DRAMSYS_PATH
     std::cout << "DRAMSYS_PATH is defined!: " << DRAMSYS_PATH << std::endl;
@@ -134,6 +151,14 @@ ddr::ddr(vp::ComponentConf &config)
     access_size_clog = log2(memspec.access_size);
     dram_register_async_callback(dram_id, (CallbackInstance_t)this, (AsynCallbackResp_Meth *)&ddr::rspCallback, (AsynCallbackUpdateReq_Meth*)&ddr::reqCallback);
 
+    // Signal PIM support in DRAMSys and enable PIM callback
+    pim_support = get_js_config()->get("pim-support")->get_bool();
+    if (pim_support) {
+        for (int i = 0; i < memspec.nb_channels; i++) {
+            pim_stride_channel.push_back(new PimStride());
+        }
+        dram_register_pim_callback(dram_id, (CallbackInstance_t)this, (AsynCallbackPim_Meth*)&ddr::pimCallback);
+    }
 
     trace.msg("DRAMSys model instantiated with DRAM type: %s, nb_channels: %d, access_size: %d\n", dram_type.c_str(), memspec.nb_channels, memspec.access_size);
     trace.msg("---- Strides are: channel: 0x%lx, rank: 0x%lx, bank group: 0x%lx, bank: 0x%lx, row: 0x%lx, column: 0x%lx\n",
@@ -219,6 +244,30 @@ vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
     }
 }
 
+vp::IoReqStatus ddr::handlePimToggle(vp::Block *__this, vp::IoReq *req)
+{
+    ddr *_this = (ddr *)__this;
+
+    uint64_t offset = req->get_addr();
+    uint8_t *data = req->get_data();
+    uint64_t size = req->get_size();
+    uint32_t channel_idx = 0;
+
+    if (!_this->pim_support || size != 4 || !req->get_is_write()) {
+        _this->trace.fatal("PIM toggle command received but PIM support is disabled\n");
+        return vp::IO_REQ_INVALID;
+    }
+
+    _this->trace.msg("PIM toggle command received (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
+    for (int i = 0; i < size; i++) {
+        channel_idx |= (data[i] << (i*8));
+        _this->trace.msg("---- PIM data[%d] = 0x%x\n", i, (int)data[i]);
+    }
+
+    _this->dram_toggle_pim(_this->dram_id, channel_idx);
+    return vp::IO_REQ_OK;
+}
+
 void ddr::rspCallback(void *__this, int is_write){
     ddr *_this = (ddr *)__this;
     int rep_byte_int, mask;
@@ -276,6 +325,22 @@ void ddr::reqCallback(void *__this){
         if (req->get_is_write()) req->get_resp_port()->resp(req);
         _this->denied_req_queue.pop();
     }
+}
+
+// PIM callback from DRAMSys when a PIM operation is triggered
+void ddr::pimCallback(void *__this, PimInfo pimInfo){
+    ddr *_this = (ddr *)__this;
+
+    _this->trace.msg("PIM Callback Triggered by a %s\n", pimInfo.is_write ? "write" : "read");
+    _this->trace.msg("---- To address %#x: channel %d, rank %d, bank group %d, bank %d, row %d, column %d\n",
+                    pimInfo.address, pimInfo.channel, pimInfo.rank, pimInfo.bankGroup, pimInfo.bank, pimInfo.row, pimInfo.column);
+
+    // Send notification to the PIM accelerator that the PIM operation needs to be handled
+    PimStride* current_pim_stride = _this->pim_stride_channel[pimInfo.channel]; // Get the PimStride structure for the corresponding channel
+    current_pim_stride->pimInfo = pimInfo;
+    current_pim_stride->base_addr = pimInfo.address;
+    current_pim_stride->count = 0; // Assure no data transfer if not set by the PIM accelerator
+    current_pim_stride->buf = nullptr;
 }
 
 ddr::~ddr(){

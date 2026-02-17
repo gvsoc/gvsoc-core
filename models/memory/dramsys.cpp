@@ -181,7 +181,7 @@ void ddr::reset(bool active)
     {
         if (pim_support) {
             trace.msg("Memory specification sent to PIM component at reset\n");
-            // this->send_memspec_itf.sync(memspec);  
+            this->send_memspec_itf.sync(memspec);  
         }
     }
 }
@@ -378,7 +378,7 @@ void ddr::pimCallback(void *__this, PimInfo pimInfo){
     current_pim_stride->base_addr = pimInfo.address;
     current_pim_stride->count = 0; // Assure no data transfer if not set by the PIM accelerator
     current_pim_stride->buf = nullptr;
-    // _this->pim_notify_itf.sync(current_pim_stride);
+    _this->pim_notify_itf.sync(current_pim_stride);
 }
 
 ddr::~ddr(){

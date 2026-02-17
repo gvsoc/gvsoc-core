@@ -162,14 +162,6 @@ class RiscvCommon(st.Component):
         A path to a file describing all the power models used to estimate power consumption in the ISS (default: None)
     cluster_id : int, optional
         The cluster ID of the core simulated by the ISS (default: 0).
-    core_id : int, optional
-        The core ID of the core simulated by the ISS (default: 0).
-    fetch_enable : bool, optional
-        True if the ISS should start executing instructins immediately, False if it will start after the fetch_enable signal
-        starts it (default: False).
-    boot_addr : int, optional
-        Address of the first instruction (default: 0)
-
     """
 
     def __init__(self,
@@ -186,9 +178,6 @@ class RiscvCommon(st.Component):
             power_models: dict[str,Any]={},
             power_models_file: str=None,
             cluster_id: int=0,
-            core_id: int=0,
-            fetch_enable: bool=False,
-            boot_addr: int=0,
             mmu: bool=False,
             pmp: bool=False,
             riscv_exceptions: bool=False,
@@ -204,7 +193,6 @@ class RiscvCommon(st.Component):
             memory_size: int|None=None,
             handle_misaligned: bool=False,
             external_pccr: bool=False,
-            htif: bool=False,
             custom_sources: bool=False,
             float_lib: str='flexfloat',
             stack_checker: bool=False,
@@ -363,14 +351,14 @@ class RiscvCommon(st.Component):
             'debug_handler': debug_handler,
             'power_models': power_models,
             'cluster_id': cluster_id,
-            'core_id': core_id,
-            'fetch_enable': fetch_enable,
-            'boot_addr': boot_addr,
+            'core_id': config.hart_id,
+            'fetch_enable': config.fetch_enable,
+            'boot_addr': config.boot_addr,
             'has_double': isa.has_isa('rvd'),
         })
 
-        self.htif = htif
-        if htif:
+        self.htif = config.htif
+        if config.htif:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_HTIF=1'])
 
             if binaries is not None:

@@ -150,6 +150,13 @@ V_VVU = [
     UnsignedImm (0, Range(25, 1)),
 ]
 
+V_RVU = [
+    OutVReg     (0, Range(7 , 5)),
+    InVReg      (1, Range(20, 5)),
+    InReg       (0, Range(15, 5)),
+    UnsignedImm (0, Range(25, 1)),
+]
+
 V_VU = [
     OutVReg     (0, Range(7 , 5)),
     InVReg      (1, Range(20, 5)),
@@ -252,8 +259,8 @@ Format_OPVFF = [ OutFReg    (0, Range(7 , 5)),
                  UnsignedImm(0, Range(25, 1)),
 ]
 Format_OPIVI = [ OutVReg     (0, Range(7 , 5)),
+                 InVReg      (1, Range(20, 5)),
                  SignedImm  (0, Range(15, 5)),
-                 InReg      (0, Range(20, 5)),
                  UnsignedImm(0, Range(25, 1)),
 ]
 Format_OPVLS = [ OutVReg     (0, Range(7 , 5)),
@@ -286,7 +293,7 @@ class Rv32v(IsaSubset):
         super().__init__(name='v', instrs=[
             Instr('vadd.vv'       ,   Format_OPV  ,    '000000 - ----- ----- 000 ----- 1010111'),#inst[25] = VM , VM = 0 mask enable
             Instr('vadd.vi'       ,   Format_OPIVI,    '000000 - ----- ----- 011 ----- 1010111'),
-            Instr('vadd.vx'       ,   Format_OPV  ,    '000000 - ----- ----- 100 ----- 1010111'),
+            Instr('vadd.vx'       ,   V_RVU       ,    '000000 - ----- ----- 100 ----- 1010111'),
 
             Instr('vsub.vv'       ,   Format_OPV  ,    '000010 - ----- ----- 000 ----- 1010111'),
             Instr('vsub.vx'       ,   Format_OPV  ,    '000010 - ----- ----- 100 ----- 1010111'),

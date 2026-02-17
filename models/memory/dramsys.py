@@ -18,7 +18,7 @@ import gvsoc.systree as st
 
 class Dramsys(st.Component):
 
-    def __init__(self, parent, name, pim_support=True):
+    def __init__(self, parent, name, pim_support=False):
 
         super(Dramsys, self).__init__(parent, name)
 

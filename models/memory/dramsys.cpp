@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
+#include <pim.hpp>
 #include <stdio.h>
 #include <string.h>
 #include <systemc.h>
@@ -60,10 +61,16 @@ public:
 
 private:
     vp::Trace trace;
-    vp::IoSlave in;
+    vp::IoSlave in_itf;
+
+    GvsocMemspec memspec;
+    uint access_size_clog;
+    std::vector<PimStride*> pim_stride_channel;
+
+    // DRAMSys dynamic library handle and function pointers
     void* libraryHandle;
     int dram_id;
-    int (*add_dram)(char * resources_path, char * config_path);
+    int (*add_dram)(char * resources_path, char * config_path, GvsocMemspec *memspec);
     void (*close_dram)(int dram_id);
     int (*dram_can_accept_req)(int dram_id);
     int (*dram_has_read_rsp)(int dram_id);
@@ -90,11 +97,12 @@ ddr::ddr(vp::ComponentConf &config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
-    in.set_req_meth(&ddr::req);
-    new_slave_port("input", &in);
+    in_itf.set_req_meth(&ddr::req); // Input interface
+    this->new_slave_port("input", &in_itf);
 
+    // Load DRAMSys dynamic library and get function pointers
     libraryHandle = dlopen("libDRAMSys_Simulator.so", RTLD_LAZY);
-    add_dram = (int (*)(char*, char*))dlsym(libraryHandle, "add_dram");
+    add_dram = (int (*)(char*, char*, GvsocMemspec*))dlsym(libraryHandle, "add_dram");
     close_dram = (void (*)(int))dlsym(libraryHandle, "close_dram");
     dram_can_accept_req = (int (*)(int))dlsym(libraryHandle, "dram_can_accept_req");
     dram_has_read_rsp = (int (*)(int))dlsym(libraryHandle, "dram_has_read_rsp");
@@ -118,6 +126,7 @@ ddr::ddr(vp::ComponentConf &config)
     std::cout << "DRAMSYS_PATH is not defined." << std::endl;
 #endif
 
+    // Configure DRAMSys according to the type of DRAM specified in the model configuration
     std::string current_path = DRAMSYS_PATH;
     std::string resources_path = current_path + "/dramsys_configs";
     std::string dram_type = get_js_config()->get("dram-type")->get_str();
@@ -125,10 +134,14 @@ ddr::ddr(vp::ComponentConf &config)
     if (dram_type == "")    dram_type = "hbm2-example.json";  // Default DRAM type if not specified in the configuration
     simulationJson_path = resources_path + "/" + dram_type;
 
-
-    dram_id = add_dram((char*)resources_path.c_str(), (char*)simulationJson_path.c_str());
+    dram_id = add_dram((char*)resources_path.c_str(), (char*)simulationJson_path.c_str(), &memspec);
+    access_size_clog = log2(memspec.access_size);
     dram_register_async_callback(dram_id, (CallbackInstance_t)this, (AsynCallbackResp_Meth *)&ddr::rspCallback, (AsynCallbackUpdateReq_Meth*)&ddr::reqCallback);
 
+
+    trace.msg("DRAMSys model instantiated with DRAM type: %s, nb_channels: %d, access_size: %d\n", dram_type.c_str(), memspec.nb_channels, memspec.access_size);
+    trace.msg("---- Strides are: channel: 0x%lx, rank: 0x%lx, bank group: 0x%lx, bank: 0x%lx, row: 0x%lx, column: 0x%lx\n",
+                memspec.channel_stride, memspec.rank_stride, memspec.bankgroup_stride, memspec.bank_stride, memspec.row_stride, memspec.column_stride);
 }
 
 void ddr::paraSendRequest(vp::IoReq *req){
@@ -137,14 +150,14 @@ void ddr::paraSendRequest(vp::IoReq *req){
     uint64_t size = req->get_size();
 
     //Basic information
-    uint64_t req_start_addr = (offset >> GRAN_CLOG) << GRAN_CLOG;
-    uint64_t num_req = 1 + (((offset + size - 1) - req_start_addr) >> GRAN_CLOG);
+    uint64_t req_start_addr = (offset >> access_size_clog) << access_size_clog;
+    uint64_t num_req = 1 + (((offset + size - 1) - req_start_addr) >> access_size_clog);
     trace.msg("---- Req Info: aligned addr->0x%x, #DRAM requests->%d \n",req_start_addr, num_req);
 
     //Generate masks and data queue
     std::queue<int> mask_q, mask_d;
     std::queue<uint8_t> data_q;
-    for (int i = 0; i < GRANULARITY * num_req; ++i)
+    for (int i = 0; i < memspec.access_size * num_req; ++i)
     {
         if (i >= (offset - req_start_addr) && i< (offset + size - req_start_addr))
         {
@@ -163,7 +176,7 @@ void ddr::paraSendRequest(vp::IoReq *req){
     {
         if (req->get_is_write()) trace.msg("---- Write Data List of DRAM REQ #%d \n", iter);
         //Write mask and data to buffer
-        for (int i = 0; i < GRANULARITY; ++i)
+        for (int i = 0; i < memspec.access_size; ++i)
         {
             if (req->get_is_write()) trace.msg("-------- iter %d Put byte %d valid %d \n", i, (int)data_q.front(), mask_q.front());
             dram_write_buffer(dram_id, data_q.front(), i);
@@ -173,7 +186,7 @@ void ddr::paraSendRequest(vp::IoReq *req){
         }
 
         //Send req to dram
-        dram_send_req(dram_id, req_start_addr + iter*GRANULARITY, GRANULARITY, req->get_is_write(), req->get_is_write());
+        dram_send_req(dram_id, req_start_addr + iter*memspec.access_size, memspec.access_size, req->get_is_write(), req->get_is_write());
     }
 
     //queue read request
@@ -226,9 +239,9 @@ void ddr::rspCallback(void *__this, int is_write){
             uint64_t size = req->get_size();
 
             //Basic information
-            uint64_t req_start_addr = (offset >> GRAN_CLOG) << GRAN_CLOG;
-            uint64_t num_req = 1 + (((offset + size - 1) - req_start_addr) >> GRAN_CLOG);
-            uint64_t read_ptr = num_req*GRANULARITY - _this->pending_read_req_queue.front().second.size();
+            uint64_t req_start_addr = (offset >> _this->access_size_clog) << _this->access_size_clog;
+            uint64_t num_req = 1 + (((offset + size - 1) - req_start_addr) >> _this->access_size_clog);
+            uint64_t read_ptr = num_req*_this->memspec.access_size - _this->pending_read_req_queue.front().second.size();
             uint64_t start_ptr = offset - req_start_addr;
             uint64_t end_ptr = offset - req_start_addr + size;
 

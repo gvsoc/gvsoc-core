@@ -18,7 +18,7 @@ import gvsoc.systree as st
 
 class Dramsys(st.Component):
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, pim_support=True):
 
         super(Dramsys, self).__init__(parent, name)
 
@@ -27,7 +27,11 @@ class Dramsys(st.Component):
         self.add_properties({
             'require_systemc': True,
             'dram-type': 'hbm2-example.json',
+            'pim-support': pim_support,
         })
 
     def i_INPUT(self) -> st.SlaveItf:
         return st.SlaveItf(self, 'input')
+    
+    def i_PIMTOGGLE(self) -> st.SlaveItf:
+        return st.SlaveItf(self, 'pim_toggle')

@@ -28,3 +28,6 @@ class Dramsys(st.Component):
             'require_systemc': True,
             'dram-type': 'hbm2-example.json',
         })
+
+    def i_INPUT(self) -> st.SlaveItf:
+        return st.SlaveItf(self, 'input')

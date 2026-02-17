@@ -26,5 +26,5 @@ class Dramsys(st.Component):
 
         self.add_properties({
             'require_systemc': True,
-            'dram-type': 'hbm2',
+            'dram-type': 'hbm2-example.json',
         })

@@ -122,11 +122,8 @@ ddr::ddr(vp::ComponentConf &config)
     std::string resources_path = current_path + "/dramsys_configs";
     std::string dram_type = get_js_config()->get("dram-type")->get_str();
     std::string simulationJson_path;
-    if (dram_type == "ddr3") simulationJson_path = resources_path + "/ddr3-example.json";
-    else if (dram_type == "ddr4") simulationJson_path = resources_path + "/ddr4-example.json";
-    else if (dram_type == "lpddr4") simulationJson_path = resources_path + "/lpddr4-example.json";
-    else if (dram_type == "hbm2") simulationJson_path = resources_path + "/hbm2-example.json";
-    else simulationJson_path = resources_path + "/hbm2-example.json";
+    if (dram_type == "")    dram_type = "hbm2-example.json";  // Default DRAM type if not specified in the configuration
+    simulationJson_path = resources_path + "/" + dram_type;
 
 
     dram_id = add_dram((char*)resources_path.c_str(), (char*)simulationJson_path.c_str());

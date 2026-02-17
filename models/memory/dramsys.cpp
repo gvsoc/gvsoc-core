@@ -40,10 +40,6 @@ typedef void*   CallbackInstance_t;
 typedef void    (AsynCallbackResp_Meth)(CallbackInstance_t instance, int is_write);
 typedef void    (AsynCallbackUpdateReq_Meth)(CallbackInstance_t instance);
 
-#define GRANULARITY 64
-#define GRAN_CLOG 6
-
-
 class ddr : public vp::Component
 {
 

@@ -208,6 +208,7 @@ private:
     int64_t op_timestamp;
     bool prev_is_write;
     bool started;
+    int vstart;
 };
 
 #else
@@ -337,6 +338,10 @@ public:
     inline uint64_t current_insn_reg_get() { return current_insn_reg; }
     inline uint64_t current_insn_reg_2_get() { return current_insn_reg_2; }
 
+    void dump_regs_to_trace(iss_insn_t *insn, PendingInsn *pending_insn, int nb_elem, bool is_out);
+    inline void exec_insn_chunk(iss_insn_t *insn, PendingInsn *pending_insn, int vstart,
+        int vend, int nb_elem);
+
     // Access to upper ISS
     Iss &iss;
     // Number of 64 bits lanes in Ara.
@@ -366,7 +371,7 @@ private:
 
     // Size of the queue holding pending instructions. Once full, Ara can not accept instructions
     // from CVA6 anymore
-    static constexpr int queue_size = 1;
+    static constexpr int queue_size = 8;
 
     // Event for active state
     vp::Trace event_active;
@@ -413,4 +418,21 @@ inline int Ara::alloc_id()
 inline void Ara::free_id(int id)
 {
     this->insn_id_table |= (1ULL << id);
+}
+
+inline void Ara::exec_insn_chunk(iss_insn_t *insn, PendingInsn *pending_insn, int vstart,
+    int vend, int nb_elem)
+{
+    this->vstart = vstart;
+    this->vend = vend;
+
+#ifdef VP_TRACE_ACTIVE
+    this->dump_regs_to_trace(insn, pending_insn, nb_elem, false);
+#endif
+
+    insn->stub_handler(&this->iss, insn, insn->addr);
+
+#ifdef VP_TRACE_ACTIVE
+    this->dump_regs_to_trace(insn, pending_insn, nb_elem, true);
+#endif
 }

@@ -30,8 +30,6 @@ class InsnEntry
 public:
     iss_addr_t addr;
     iss_reg_t opcode;
-#ifdef VP_TRACE_ACTIVE
     TraceEntry *trace;
-#endif
     InsnEntry *next;
 };

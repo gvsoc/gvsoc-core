@@ -784,9 +784,12 @@ void iss_trace_save_args(Iss *iss, iss_insn_t *insn, bool save_out, TraceEntry *
             iss_decoder_arg_t *arg = &insn->decoder_item->u.insn.args[i];
             if (arg->flags & ISS_DECODER_ARG_FLAG_VREG)
             {
+                // Only dump vector registers if they are not dumped already by the pipeline
+#ifndef CONFIG_GVSIC_ISS_V2
     #ifdef CONFIG_ISS_HAS_VECTOR
                 iss_trace_save_varg(iss, insn, &insn->args[i], arg, entry->saved_vargs[i], save_out);
     #endif
+#endif
             }
             else
             {

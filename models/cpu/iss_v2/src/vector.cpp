@@ -28,7 +28,7 @@ void Vector::reset(bool active)
     if (active)
     {
         for (int i = 0; i < ISS_NB_VREGS; i++){
-            for (int j = 0; j < NB_VEL; j++){
+            for (int j = 0; j < CONFIG_ISS_VLEN/8; j++){
                 this->vregs[i][j] = 0;
             }
         }

@@ -113,10 +113,8 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             // Store the instruction register as it will be used by the handler.
             _this->ara.current_insn_reg = pending_insn->reg;
             _this->ara.current_insn_reg_2 = pending_insn->reg_2;
-            // Force trace dump since the core may be stalled which would skip trace
-            _this->ara.vstart = _this->vstart;
-            _this->ara.vend = _this->vend;
-            insn->stub_handler(&_this->ara.iss, insn, insn->addr);
+
+            _this->ara.exec_insn_chunk(insn, pending_insn, _this->vstart, _this->vend, nb_elem_per_cycle);
 
             _this->vstart += nb_elem_per_cycle;
             _this->vend = std::min((int)_this->ara.iss.csr.vl.value,

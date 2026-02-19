@@ -183,6 +183,7 @@ void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_st
     unsigned int lmul = this->ara.iss.vector.lmul;
     this->pending_vreg = reg;
     this->pending_velem = velem_get(&this->ara.iss, reg, 0, sewb, lmul);
+    this->vstart = this->ara.iss.csr.vstart.value;
     this->pending_addr = this->insns[this->insn_first_waiting].insn->reg;
     this->pending_is_write = is_write;
     int inst_elem_size = insn->uim[1] >= 5 ? 1 << (insn->uim[1] - 4) : 1 << 0;
@@ -260,10 +261,10 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (_this->ara.insn_ready(pending_insn))
         {
             uint64_t iter_size = 0;
+            iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
 
             if (!_this->started)
             {
-                iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
                 _this->started = true;
                 _this->event_label.dump(insn->desc->label);
                 _this->event_pc.event((uint8_t *)&insn->addr);
@@ -351,6 +352,11 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             }
 
             _this->ara.insn_commit(pending_insn, iter_size);
+
+            _this->ara.exec_insn_chunk(insn, pending_insn, _this->vstart / _this->elem_size,
+                (_this->vstart + iter_size) / _this->elem_size, iter_size / _this->elem_size);
+
+            _this->vstart += iter_size;
 
             // Check if the first enqueued instruction must be removed
             if (_this->nb_pending_insn.get() > 0)

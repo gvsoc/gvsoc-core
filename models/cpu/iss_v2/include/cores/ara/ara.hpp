@@ -366,7 +366,7 @@ private:
 
     // Size of the queue holding pending instructions. Once full, Ara can not accept instructions
     // from CVA6 anymore
-    static constexpr int queue_size = 8;
+    static constexpr int queue_size = 1;
 
     // Event for active state
     vp::Trace event_active;

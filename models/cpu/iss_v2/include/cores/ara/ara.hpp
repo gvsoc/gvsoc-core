@@ -358,6 +358,7 @@ public:
     int vstart;
     int vend;
     vp::Trace trace;
+    uint64_t saved_value;
 
 private:
     static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);

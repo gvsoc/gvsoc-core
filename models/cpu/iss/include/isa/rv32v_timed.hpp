@@ -1811,11 +1811,44 @@ static inline iss_reg_t vfnmsub_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     return iss_insn_next(iss, insn, pc);
 }
 
+static uint64_t vfred_saved_value_get(Iss *iss, iss_insn_t *insn, unsigned int sewb, unsigned int lmul)
+{
+#ifdef CONFIG_GVSOC_ISS_V2
+    if (VSTART == iss->csr.vstart.value)
+    {
+        return velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+    }
+    else
+    {
+        return iss->arch.ara.saved_value;
+    }
+#else
+    return velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+#endif
+}
+
+static void vfred_saved_value_set(Iss *iss, iss_insn_t *insn, unsigned int sewb, unsigned int lmul, uint64_t res)
+{
+#ifdef CONFIG_GVSOC_ISS_V2
+    if (VEND == iss->csr.vl.value)
+    {
+        velem_set_value(iss, REG_OUT(0), 0, sewb, res);
+    }
+    else
+    {
+        iss->arch.ara.saved_value = res;
+    }
+#else
+    res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+#endif
+}
+
 static inline iss_reg_t vfredmax_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.lmul;
-    uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+    uint64_t res = vfred_saved_value_get(iss, insn, sewb, lmul);
+
     for (unsigned int i=VSTART; i<VEND; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1824,7 +1857,9 @@ static inline iss_reg_t vfredmax_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
             res = LIB_FF_CALL2(lib_flexfloat_max, res, in1, iss->vector.exp, iss->vector.mant);
         }
     }
-    velem_set_value(iss, REG_OUT(0), 0, sewb, res);
+
+    vfred_saved_value_set(iss, insn, sewb, lmul, res);
+
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1849,7 +1884,7 @@ static inline iss_reg_t vfredusum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 {
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.lmul;
-    uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+    uint64_t res = vfred_saved_value_get(iss, insn, sewb, lmul);
     for (unsigned int i=VSTART; i<VEND; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1858,7 +1893,7 @@ static inline iss_reg_t vfredusum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
             res = LIB_FF_CALL3(lib_flexfloat_add_round, res, in1, iss->vector.exp, iss->vector.mant, 7);
         }
     }
-    velem_set_value(iss, REG_OUT(0), 0, sewb, res);
+    vfred_saved_value_set(iss, insn, sewb, lmul, res);
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -1866,7 +1901,7 @@ static inline iss_reg_t vfredosum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
 {
     unsigned int sewb = iss->vector.sewb;
     unsigned int lmul = iss->vector.lmul;
-    uint64_t res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+    uint64_t res = vfred_saved_value_get(iss, insn, sewb, lmul);
     for (unsigned int i=VSTART; i<VEND; i++)
     {
         if (velem_is_active(iss, i, UIM_GET(0)))
@@ -1875,7 +1910,7 @@ static inline iss_reg_t vfredosum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
             res = LIB_FF_CALL3(lib_flexfloat_add_round, res, in1, iss->vector.exp, iss->vector.mant, 7);
         }
     }
-    velem_set_value(iss, REG_OUT(0), 0, sewb, res);
+    vfred_saved_value_set(iss, insn, sewb, lmul, res);
     return iss_insn_next(iss, insn, pc);
 }
 

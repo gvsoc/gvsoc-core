@@ -459,7 +459,6 @@ void Ara::dump_regs_to_trace(iss_insn_t *insn, PendingInsn *pending_insn, int nb
 {
     if (this->iss.trace.insn_trace.get_active())
     {
-        bool wrote = false;
         for (int i = 0; i < insn->decoder_item->u.insn.nb_args; i++)
         {
             iss_insn_arg_t *arg = &insn->args[i];
@@ -467,7 +466,6 @@ void Ara::dump_regs_to_trace(iss_insn_t *insn, PendingInsn *pending_insn, int nb
                 ((is_out && (arg->type & ISS_DECODER_ARG_TYPE_OUT_REG)) ||
                     (!is_out && (arg->type & ISS_DECODER_ARG_TYPE_IN_REG))))
             {
-                wrote = true;
                 int offset = this->vstart * this->iss.vector.sewb;
                 memcpy(&pending_insn->entry->trace->saved_vargs[i][offset],
                     &this->iss.vector.vregs[arg->u.reg.index][offset],

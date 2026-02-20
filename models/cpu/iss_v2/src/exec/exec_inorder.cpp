@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
- *                    University of Bologna
+ * Copyright (C) 2020 ETH Zurich and University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +15,7 @@
  */
 
 /*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ * Authors: Germain Haugou (germain.haugou@gmail.com)
  */
 
 #include <vp/vp.hpp>
@@ -66,10 +65,6 @@ ExecInOrder::ExecInOrder(Iss &iss)
 
     this->current_insn = 0;
     this->stall_insn = 0;
-#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
-    this->hwloop_end_insn[0] = 0;
-    this->hwloop_end_insn[1] = 0;
-#endif
 
     this->iss.traces.new_trace_event_string("label", &this->asm_trace_event);
 }
@@ -103,12 +98,6 @@ void ExecInOrder::reset(bool active)
     }
     else
     {
-        this->elw_insn = 0;
-#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
-        this->hwloop_end_insn[0] = 0;
-        this->hwloop_end_insn[1] = 0;
-#endif
-
         // Check if the core should start fetching, if so this will unstall it and it will start
         // executing instructions.
         this->fetchen_sync((vp::Block *)this, this->iss.get_js_config()->get("fetch_enable")->get_bool());

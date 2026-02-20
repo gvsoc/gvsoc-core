@@ -142,6 +142,8 @@ void Ara::insn_enqueue(InsnEntry *entry)
     this->event_queue.event((uint8_t *)&insn->addr);
     this->event_label.event_string(insn->desc->label, false);
 
+    pending_insn->chaining_factor = insn->desc->chaining_factor;
+
     // Mark the instruction to be handled in the next cycle in case the FSM is already active
     // to prevent it from handling it in the next cycle
     pending_insn->timestamp = this->iss.clock.get_cycles() + 1;
@@ -439,9 +441,12 @@ bool Ara::insn_ready(PendingInsn *insn)
             PendingInsn *dep_insn = &this->pending_insns[dep_insn_id];
 
         //     if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
-        // printf("[%d] CHAINED DEPS %ld %ld\n", insn->id, dep_insn->nb_bytes_done, insn->nb_bytes_done);
+        // printf("[%d] CHAINED DEPS %ld %ld %f\n", insn->id, dep_insn->nb_bytes_done, insn->nb_bytes_done, insn->chaining_factor);
 
-            if (!dep_insn->can_be_chained || dep_insn->nb_bytes_done <= insn->nb_bytes_done)
+            int chunk_size = this->nb_lanes * 8;
+
+            if (!dep_insn->can_be_chained || dep_insn->nb_bytes_done <
+                    (insn->nb_bytes_done + chunk_size) * insn->chaining_factor)
                 return false;
 
             deps_mask &= ~(1 << dep_insn_id);

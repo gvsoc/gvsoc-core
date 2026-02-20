@@ -911,6 +911,10 @@ class Instr(object):
 
         self.decode_func = '%s_decode_gen' % (self.name)
         self.len = len(encoding.strip())
+        self.fields = []
+
+    def add_field(self, name, value):
+        self.fields.append([name, value])
 
     def add_tag(self, tag):
         self.tags.append(tag)
@@ -1015,7 +1019,11 @@ class Instr(object):
         dump(isaFile, f'      .power_group={self.power_group},\n')
         dump(isaFile, f'      .is_macro_op={1 if self.is_macro_op else 0},\n')
         dump(isaFile, f'      .tags={{{", ".join(insn_tags_value)}}},\n')
-        dump(isaFile, f'      .args_order={{{", ".join(args_order)}}}\n')
+        dump(isaFile, f'      .args_order={{{", ".join(args_order)}}},\n')
+        for field in self.fields:
+            dump(isaFile, f'      .{field[0]}={field[1]},\n')
+
+
         dump(isaFile, f'    }}\n')
         dump(isaFile, f'  }}\n')
         dump(isaFile, f'}};\n')

@@ -1839,7 +1839,7 @@ static void vfred_saved_value_set(Iss *iss, iss_insn_t *insn, unsigned int sewb,
         iss->arch.ara.saved_value = res;
     }
 #else
-    res = velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
+    velem_set_value(iss, REG_OUT(0), 0, sewb, res);
 #endif
 }
 

@@ -44,9 +44,11 @@ public:
     int id;
     bool can_be_chained;
     int nb_bytes_done;
+    float chaining_factor;
     int8_t inreg0_index;
     int8_t inreg1_index;
     int8_t inreg2_index;
+
 };
 
 // This represents a generic HW block where vector instructions can be forwarded

@@ -287,7 +287,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     }
                     else
                     {
-                        size = std::min((iss_addr_t)8, _this->pending_size);
+                        size = std::min((iss_addr_t)_this->ara.lane_width, _this->pending_size);
                     }
 
                     _this->trace.msg(vp::Trace::LEVEL_TRACE,

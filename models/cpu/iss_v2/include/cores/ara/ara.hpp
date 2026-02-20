@@ -346,8 +346,10 @@ public:
 
     // Access to upper ISS
     Iss &iss;
-    // Number of 64 bits lanes in Ara.
+    // Number of <lane_width> bits lanes in Ara.
     int nb_lanes;
+    // Width in bits of one lane
+    int lane_width;
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // Number of pending vector loads and stores in spatz. Use to synchronize with snitch memory

@@ -35,6 +35,7 @@ Ara::Ara(Iss &iss)
     this->traces.new_trace_event("queue", &this->event_queue, 64);
 
     this->nb_lanes = iss.get_js_config()->get_int("ara/nb_lanes");
+    this->lane_width = iss.get_js_config()->get_child_int("ara/lane_width");
     this->blocks.resize(Ara::nb_blocks);
     this->blocks[Ara::vlsu_id] = new AraVlsu(*this, iss);
     this->blocks[Ara::vfpu_id] = new AraVcompute(*this, "vfpu");
@@ -415,9 +416,6 @@ void Ara::isa_init()
 
 bool Ara::insn_ready(PendingInsn *insn)
 {
-    // if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
-    // printf("[%d] OUT DEPS %lx\n", insn->id, this->insns_out_deps[insn->id]);
-
     // WAW and WAR deps cannot be chained and are blocking
     if (this->insns_out_deps[insn->id] != 0)
     {
@@ -425,9 +423,6 @@ bool Ara::insn_ready(PendingInsn *insn)
             insn->id, this->insns_out_deps[insn->id]);
         return false;
     }
-
-    // if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
-    // printf("[%d] IN DEPS %lx\n", insn->id, this->insns_in_deps[insn->id]);
 
     uint64_t deps_mask = this->insns_in_deps[insn->id];
 
@@ -439,9 +434,6 @@ bool Ara::insn_ready(PendingInsn *insn)
         {
             int dep_insn_id = __builtin_ctzll(deps_mask);
             PendingInsn *dep_insn = &this->pending_insns[dep_insn_id];
-
-        //     if (this->iss.get_path() == "/chip/soc/cluster_0/pe0")
-        // printf("[%d] CHAINED DEPS %ld %ld %f\n", insn->id, dep_insn->nb_bytes_done, insn->nb_bytes_done, insn->chaining_factor);
 
             int chunk_size = this->nb_lanes * 8;
 

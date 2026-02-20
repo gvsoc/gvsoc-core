@@ -91,7 +91,8 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
         if (ready)
         {
-            int nb_elem_per_cycle = _this->ara.nb_lanes * 8 / _this->ara.iss.vector.sewb;
+            int nb_elem_per_cycle = _this->ara.nb_lanes * _this->ara.lane_width /
+                _this->ara.iss.vector.sewb;
 
             if (pending_insn->nb_bytes_done == 0)
             {

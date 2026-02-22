@@ -48,13 +48,14 @@
 #define REG_GET_UNTIMED(reg) (iss->regfile.get_reg_untimed(insn->in_regs[reg]))
 #define REG_SET(reg,val) (iss->regfile.set_reg(insn->out_regs[reg], val))
 #define IN_REG_SET(reg,val) iss->regfile.set_reg(insn->in_regs[reg], val)
-#define REG64_GET(reg) iss->regfile.get_reg64(insn->in_regs[reg])
-#define REG64_SET(reg,val) iss->regfile.set_reg64(insn->out_regs[reg], val)
 
 #define FREG32_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))
 #define FREG_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))
 #define FREG_OUT_GET(reg) (iss->regfile.get_freg(insn->out_regs[reg]))
 #define FREG32_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
 #define FREG_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
+
+#define REG64_GET(reg) iss->regfile.get_reg_pair(insn->in_regs[reg])
+#define REG64_SET(reg,val) iss->regfile.set_reg_pair(insn->out_regs[reg], val)
 
 #endif

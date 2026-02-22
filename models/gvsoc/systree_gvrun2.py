@@ -17,6 +17,7 @@
 
 from dataclasses import fields
 import logging
+from typing_extensions import override
 import gvsoc.json_tools as js
 import collections
 import os

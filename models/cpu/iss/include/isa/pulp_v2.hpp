@@ -780,6 +780,7 @@ static inline iss_reg_t p_extbz_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 }
 
 #ifndef CONFIG_GVSOC_ISS_SNITCH_PULP_V2
+#if 0
 static inline iss_reg_t hwloop_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // Check now is the instruction has been replayed to know if it is the first
@@ -865,35 +866,41 @@ static inline void hwloop_set_all(Iss *iss, iss_insn_t *insn, int index, iss_reg
     hwloop_set_start(iss, insn, index, start);
     hwloop_set_count(iss, insn, index, count);
 }
+#endif
 
 static inline iss_reg_t lp_starti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    hwloop_set_start(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
+    // hwloop_set_start(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lp_endi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    hwloop_set_end(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
+    // hwloop_set_end(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lp_count_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
-    hwloop_set_count(iss, insn, UIM_GET(0), REG_GET(0));
+    // hwloop_set_count(iss, insn, UIM_GET(0), REG_GET(0));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lp_counti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    hwloop_set_count(iss, insn, UIM_GET(0), UIM_GET(1));
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
+    // hwloop_set_count(iss, insn, UIM_GET(0), UIM_GET(1));
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lp_setup_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
     int index = UIM_GET(0);
@@ -901,19 +908,20 @@ static inline iss_reg_t lp_setup_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     iss_reg_t start = pc + insn->size;
     iss_reg_t end = pc + (UIM_GET(1) << 1);
 
-    hwloop_set_all(iss, insn, index, start, end, count);
+    // hwloop_set_all(iss, insn, index, start, end, count);
 
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t lp_setupi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
     int index = UIM_GET(0);
     iss_reg_t count = UIM_GET(1);
     iss_reg_t start = pc + insn->size;
     iss_reg_t end = pc + (UIM_GET(2) << 1);
 
-    hwloop_set_all(iss, insn, index, start, end, count);
+    // hwloop_set_all(iss, insn, index, start, end, count);
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -1005,6 +1013,7 @@ static inline iss_reg_t SW_RR_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
+#if 0
 static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_addr_t addr, int size, int reg)
 {
     // Always account the overhead of the elw
@@ -1034,12 +1043,13 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_
         }
     }
 }
+#endif
 
 static inline iss_reg_t p_elw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->regfile.memcheck_branch_reg(REG_IN(0));
-
-    iss_handle_elw(iss, insn, pc, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
+    printf("UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
+    // iss_handle_elw(iss, insn, pc, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));
     return iss_insn_next(iss, insn, pc);
 }
 

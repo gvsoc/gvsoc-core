@@ -38,6 +38,7 @@ public:
     void reset(bool active);
 
     inline void set_reg(int reg, uint64_t value);
+    inline void set_reg_pair(int reg, iss_reg64_t value);
     inline uint64_t get_reg(int reg);
     inline uint64_t get_reg_untimed(int reg);
     inline uint64_t get_reg_pair(int reg);
@@ -142,6 +143,15 @@ inline uint64_t Regfile::get_reg_untimed(int reg)
     return this->regs[reg];
 }
 
+inline void Regfile::set_reg_pair(int reg, iss_reg64_t value)
+{
+    if (reg != 0)
+    {
+        this->set_reg(reg, value & 0xFFFFFFFF);
+        this->set_reg(reg + 1, value >> 32);
+    }
+}
+
 inline uint64_t Regfile::get_reg_pair(int reg)
 {
     return this->get_reg_pair_untimed(reg);
@@ -174,6 +184,7 @@ inline void Regfile::set_freg(int reg, uint64_t value)
     this->set_reg(reg, value);
 }
 
+#ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
 inline void Regfile::sb_reg_invalid_set(int reg)
 {
     this->sb_reg_invalid |= 1 << reg;
@@ -184,7 +195,6 @@ inline void Regfile::sb_reg_invalid_clear(int reg)
     this->sb_reg_invalid &= ~(1 << reg);
 }
 
-#ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
 inline bool Regfile::scoreboard_insn_check(iss_insn_t *insn)
 {
     bool stalled = (insn->sb_reg_mask & this->sb_reg_invalid) != 0;

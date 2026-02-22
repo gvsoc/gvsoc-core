@@ -50,6 +50,8 @@ void Regfile::reset(bool active)
             this->regs[i] = (iss_reg_t)0x5757575757575757;
         }
 
+#ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
         this->sb_reg_invalid = 0;
+#endif
     }
 }

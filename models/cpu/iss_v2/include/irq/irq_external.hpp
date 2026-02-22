@@ -23,7 +23,8 @@
 
 #include <vp/vp.hpp>
 #include <vp/register.hpp>
-#include <cpu/iss/include/types.hpp>
+#include <cpu/iss_v2/include/types.hpp>
+#include <cpu/iss_v2/include/insn.hpp>
 
 class IrqExternal
 {

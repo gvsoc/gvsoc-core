@@ -27,7 +27,9 @@ void Iss::start()
     this->trace.start();
     this->syscalls.start();
     this->gdbserver.start();
+#if defined(CONFIG_ISS_HAS_VECTOR)
     this->vector.start();
+#endif
 
     this->arch.start();
     this->exec.start();
@@ -51,7 +53,9 @@ void Iss::stop()
     this->trace.stop();
     this->syscalls.stop();
     this->gdbserver.stop();
+#if defined(CONFIG_ISS_HAS_VECTOR)
     this->vector.stop();
+#endif
 
     this->arch.stop();
     this->exec.stop();
@@ -75,7 +79,9 @@ void Iss::reset(bool active)
     this->trace.reset(active);
     this->syscalls.reset(active);
     this->gdbserver.reset(active);
+#if defined(CONFIG_ISS_HAS_VECTOR)
     this->vector.reset(active);
+#endif
 
     this->arch.reset(active);
     this->exec.reset(active);
@@ -95,7 +101,10 @@ void Iss::reset(bool active)
 
 Iss::Iss(vp::ComponentConf &config)
 : vp::Component(config), insn_cache(*this), decode(*this), trace(*this), syscalls(*this), gdbserver(*this),
-vector(*this), exec(*this), regfile(*this),
+#if defined(CONFIG_ISS_HAS_VECTOR)
+vector(*this),
+#endif
+exec(*this), regfile(*this),
 csr(*this), prefetch(*this), lsu(*this), core(*this), irq(*this), exception(*this), mmu(*this), timing(*this), arch(*this)
 #ifdef CONFIG_GVSOC_ISS_OFFLOAD
 , offload(*this)

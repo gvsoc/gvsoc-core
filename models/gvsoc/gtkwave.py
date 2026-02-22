@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from typing import Any
 import gvsoc.gtkw_new
 import os.path
 
@@ -141,7 +142,8 @@ class Gtkwave_tree(object):
         else:
             return (comp.get_path(gv_path=True) + '/' + vcd_name).replace('/', '.')
 
-    def add_trace(self, comp, name, vcd_signal=None, ext='', map_file=None, map_file_path=None, tag=None, full_vcd_signal=None):
+    def add_trace(self, comp: Any, name: str, vcd_signal: Any=None, ext: str='', map_file: Any=None,
+            map_file_path: Any=None, tag: Any=None, full_vcd_signal: Any=None):
         if full_vcd_signal is None:
             full_vcd_signal = self.get_full_vcd_name(comp, vcd_signal)
         full_vcd_signal_with_ext = full_vcd_signal + ext

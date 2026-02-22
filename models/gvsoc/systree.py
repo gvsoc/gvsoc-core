@@ -19,6 +19,9 @@
 from __future__ import annotations
 import os
 
+from gvsoc.gui import Signal
+from gvsoc.gtkwave import Gtkwave_tree
+
 if os.environ.get('USE_GVRUN2') is not None:
 
     from gvsoc.systree_gvrun2 import *
@@ -750,7 +753,7 @@ else:
             for component in self.components.values():
                 component.gen_gui_stub(parent_signal)
 
-        def gen_gui(self, parent_signal):
+        def gen_gui(self, parent_signal: Signal) -> Signal:
             if self.name is not None:
                 return gvsoc.gui.SignalGenFromSignals(self, parent_signal, to_signal=self.name,
                     mode="combined", from_groups=["active"], groups=["regmap", "active"],
@@ -811,7 +814,7 @@ else:
         def gen_gtkw_conf(self, tree, traces):
             pass
 
-        def gen_gtkw(self, tree, traces):
+        def gen_gtkw(self, tree: Gtkwave_tree, traces: list[Any]):
             pass
 
         def __set_options(self, options):

@@ -345,10 +345,8 @@ typedef struct iss_decoder_insn_s
     int resource_id;
     int resource_latency;   // Time required to get the result when accessing the resource
     int resource_bandwidth; // Time required to accept the next access when accessing the resource
-#if defined(CONFIG_ISS_HAS_VECTOR)
     int block_id;
     void *block_handler;
-#endif
     int power_group;
     int is_macro_op;
     uint64_t flags;

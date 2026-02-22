@@ -42,12 +42,15 @@ class IssModule:
         pass
 
 class Arch(IssModule):
-    def __init__(self, class_name: str):
+    def __init__(self, class_name: str, sourcecode: str|None=None):
         self.class_name = class_name
+        self.sourcecode = sourcecode
 
     def gen(self, iss):
         iss.isa.add_define('CONFIG_GVSOC_ISS_ARCH', self.class_name)
         iss.isa.add_include(f'<cpu/iss_v2/include/cores/{self.class_name.lower()}/{self.class_name.lower()}.hpp>')
+        if self.sourcecode is not None:
+            iss.add_sources([self.sourcecode])
 
 class ExecInOrder(IssModule):
     def __init__(self, scoreboard: bool=False):
@@ -292,7 +295,7 @@ class RiscvCommon(st.Component):
         self.add_c_flags([f'-DCONFIG_GVSOC_ISS_FP_WIDTH={fp_size}'])
 
         if modules.get('arch') is None:
-            modules['arch'] = Arch('EmptyModule')
+            modules['arch'] = Arch('Riscv', sourcecode='cpu/iss_v2/src/cores/riscv/riscv.cpp')
 
         if modules.get('exec') is None:
             modules['exec'] = ExecInOrder()

@@ -22,9 +22,14 @@
 #ifndef __CPU_ISS_RVXCPLX_HPP
 #define __CPU_ISS_RVXCPLX_HPP
 
+#ifdef CONFIG_GVSOC_ISS_V2
+#include "cpu/iss/include/isa_lib/int.h"
+#include "cpu/iss_v2/include/isa_lib/macros.h"
+#else
 #include "cpu/iss/include/iss_core.hpp"
 #include "cpu/iss/include/isa_lib/int.h"
 #include "cpu/iss/include/isa_lib/macros.h"
+#endif
 
 static inline iss_reg_t gap9_CPLXMUL_H_I_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {

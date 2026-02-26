@@ -1122,7 +1122,7 @@ static inline iss_reg_t vfdiv_vf_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         if (velem_is_active(iss, i, UIM_GET(0)))
         {
             uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL3(lib_flexfloat_div_round, in0, in1, iss->vector.exp, iss->vector.mant, 7);
+            uint64_t res = LIB_FF_CALL3(lib_flexfloat_div_round, in1, in0, iss->vector.exp, iss->vector.mant, 7);
 
             velem_set_value(iss, REG_OUT(0), i, sewb, res);
         }
@@ -1140,7 +1140,7 @@ static inline iss_reg_t vfdiv_vv_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         {
             uint64_t in0 = velem_get_value(iss, REG_IN(0), i, sewb, lmul);
             uint64_t in1 = velem_get_value(iss, REG_IN(1), i, sewb, lmul);
-            uint64_t res = LIB_FF_CALL3(lib_flexfloat_div_round, in0, in1, iss->vector.exp, iss->vector.mant, 7);
+            uint64_t res = LIB_FF_CALL3(lib_flexfloat_div_round, in1, in0, iss->vector.exp, iss->vector.mant, 7);
             velem_set_value(iss, REG_OUT(0), i, sewb, res);
         }
     }

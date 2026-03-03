@@ -89,13 +89,18 @@ class Router(gvsoc.systree.Component):
         only when input packet size is smaller or equal to the bandwidth.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
-            synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0, attributes: RouterConfig | None=None):
-        super(Router, self).__init__(parent, name)
+            synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0,
+            attributes: RouterConfig | None=None, config: RouterConfig | None=None):
+        super(Router, self).__init__(parent, name, config=config)
+
+        if config is not None:
+            attributes = config
 
         if attributes is not None:
             bandwidth = attributes.bandwidth
             max_input_pending_size = attributes.max_input_pending_size
             synchronous = attributes.synchronous
+            shared_rw_bandwidth = attributes.shared_rw_bandwidth
 
         # This will store the whole set of mappings and passed to model as a dictionary
         self.add_property('mappings', {})

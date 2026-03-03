@@ -191,7 +191,7 @@ class RiscvCommon(st.Component):
             parent: Component,
             name: str,
             config: RiscvConfig,
-            isa: Isa|None,
+            isa: Isa,
             misa: int|None=None,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
@@ -231,9 +231,9 @@ class RiscvCommon(st.Component):
            else:
                misa = 0
 
-        super().__init__(parent, name)
+        super().__init__(parent, name, config=config)
 
-        self.isa: str = isa
+        self.isa: Isa = isa
 
         self.add_c_flags([
             f'--include {isa.get_header()}'

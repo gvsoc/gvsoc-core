@@ -17,6 +17,8 @@
 import gvsoc.gtkw_new
 import os.path
 
+from gvsoc.systree import Component
+
 
 class Gtkwave_map_file(object):
 
@@ -141,7 +143,8 @@ class Gtkwave_tree(object):
         else:
             return (comp.get_path(gv_path=True) + '/' + vcd_name).replace('/', '.')
 
-    def add_trace(self, comp, name, vcd_signal=None, ext='', map_file=None, map_file_path=None, tag=None, full_vcd_signal=None):
+    def add_trace(self, comp: Component, name: str, vcd_signal:str|None=None, ext:str='',
+            map_file:str|None=None, map_file_path:str|None=None, tag:str|None=None, full_vcd_signal:str|None=None):
         if full_vcd_signal is None:
             full_vcd_signal = self.get_full_vcd_name(comp, vcd_signal)
         full_vcd_signal_with_ext = full_vcd_signal + ext

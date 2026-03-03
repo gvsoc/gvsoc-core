@@ -9,9 +9,61 @@ This module provides the Cache component for GVSOC, implementing a configurable
 set-associative cache with support for flushing, enabling/disabling, and refill
 to the next memory level. The cache uses a pseudo-random LRU replacement policy.
 """
+from typing_extensions import override
+from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
 from gvsoc.gui import Signal
-from cache.cache_v3_config import CacheConfig
+
+class CacheConfig(Config):
+    """Configuration for cache components.
+    This class defines the configuration parameters for cache components in the system,
+    such as size, line size, associativity, and refill behavior.
+
+    Attributes
+    ----------
+    size: int
+        The total size of the cache in bytes.
+    line_size: int
+        The size of a single cache line in bytes.
+    ways: int           The number of ways (associativity) of the cache.
+    enabled: bool       True if the cache is enabled at reset.
+    refill_shift: int
+        Shift applied to the address when issuing a refill request to the next
+        memory level.
+    refill_offset: int
+        Offset added to the address when issuing a refill request to the next
+        memory level.
+    refill_latency: int
+        Latency in cycles for a refill request to the next memory level.
+    """
+
+    size: int = cfg_field(default=0, dump=True, desc=(
+        "Total cache size in bytes"
+    ))
+
+    line_size: int = cfg_field(default=16, dump=True, desc=(
+        "Cache line size in bytes"
+    ))
+
+    ways: int = cfg_field(default=1, dump=True, desc=(
+        "Number of ways (associativity) of the cache"
+    ))
+
+    enabled: bool = cfg_field(default=True, dump=True, desc=(
+        "True if the cache is enabled at reset"
+    ))
+
+    refill_shift: int = cfg_field(default=0, dump=True, desc=(
+        "Shift applied to the address when issuing a refill request to the next memory level"
+    ))
+
+    refill_offset: int = cfg_field(default=0, dump=True, desc=(
+        "Offset added to the address when issuing a refill request to the next memory level"
+    ))
+
+    refill_latency: int = cfg_field(default=0, dump=True, desc=(
+        "Latency in cycles for a refill request to the next memory level"
+    ))
 
 class Cache(Component):
     """Set-associative cache component.
@@ -30,7 +82,7 @@ class Cache(Component):
     """
     def __init__(self, parent: Component, name: str, config: CacheConfig):
 
-        super(Cache, self).__init__(parent, name)
+        super(Cache, self).__init__(parent, name, config=config)
         self.add_sources(['cache/cache_v3.cpp'])
 
         self.add_properties({
@@ -96,6 +148,7 @@ class Cache(Component):
         """
         self.itf_bind('refill', itf, signature='io')
 
+    @override
     def gen_gui(self, parent_signal: Signal):
         """Generate GUI trace signals for cache visualization.
 
@@ -111,7 +164,7 @@ class Cache(Component):
         """
         cache = Signal(self, parent_signal, name=self.name, path='req_addr',
             groups=['cache', 'active'])
-        Signal(self, cache, name='refill', path='refill_addr', groups=['cache'])
+        _ = Signal(self, cache, name='refill', path='refill_addr', groups=['cache'])
         tags = Signal(self, cache, name='tags')
 
         ways = self.get_property('ways')
@@ -121,5 +174,5 @@ class Cache(Component):
         for way in range(0, ways):
             set_trace = Signal(self, tags, name=f'set_{way}')
             for line in range(0, int(size / line_size / ways)):
-                Signal(self, set_trace, name=f'line_{line}', path=f'set_{way}/line_{line}',
+                _ = Signal(self, set_trace, name=f'line_{line}', path=f'set_{way}/line_{line}',
                     groups=['cache'])

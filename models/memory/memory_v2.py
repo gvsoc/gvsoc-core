@@ -74,7 +74,7 @@ class Memory(gvsoc.systree.Component):
 
         super().__init__(parent, name, config=attributes)
 
-        self.add_sources(['memory/memory.cpp'])
+        self.add_sources(['memory/memory_v2.cpp'])
 
         # Since atomics are slowing down the model, this is better to compile the support only
         # if needed. Note that the framework will take care of compiling this model twice

@@ -597,7 +597,7 @@ vp::IoReqStatus Channel::handle_req(vp::IoReq *req, int port)
     uint8_t *data = req->get_data();
     bool is_write = req->get_is_write();
 
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
         offset, size, is_write);
 
     InputPort *in = this->inputs[port];

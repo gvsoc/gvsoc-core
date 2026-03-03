@@ -22,10 +22,11 @@ in the simulation environment.
 """
 
 from dataclasses import dataclass
-from gvrun.config import Config, cfg_field
+import sys
+from typing import ClassVar
+from config_tree import Config, cfg_field, HasSize
 
-@dataclass(repr=False)
-class RouterConfig(Config):
+class RouterConfig(Config, HasSize):
     """
     Configuration class for router behavior.
 
@@ -44,25 +45,52 @@ class RouterConfig(Config):
     bandwidth: int
         Global bandwidth, in bytes per cycle, applied to all incoming
         request. This impacts the end time of the burst.
+    shared_rw_bandwidth: bool
+        True if the router share the bandwidth between read and write requests. Otherwise read
+        requests have full bandwidth and also write requests.
     """
 
-    synchronous: bool = cfg_field(default=False, dump=True, desc=(
+    synchronous: bool = cfg_field(default=True, dump=True, desc=(
         "True if the router should use synchronous mode where all incoming requests are handled as "
         "far as possible in synchronous IO mode."
     ))
-
+    shared_rw_bandwidth: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the router share the bandwidth between read and write requests. Otherwise read "
+        "requests have full bandwidth and also write requests."
+    ))
     max_input_pending_size: int = cfg_field(default=0, dump=True, desc=(
         "Size of the FIFO for each input. Only valid for asynchronous mode and only when input "
         "packet size is smaller or equal to the bandwidth."
     ))
-
     bandwidth: int = cfg_field(default=0, dump=True, desc=(
         "Global bandwidth, in bytes per cycle, applied to all incoming request. This impacts the "
         "end time of the burst."
     ))
 
-@dataclass(repr=False)
-class RouterMapping(Config):
+    mappings: list["RouterMapping"] = cfg_field(default_factory=list, init=False, desc=(
+        "List of address mappings for the router"
+    ))
+
+    def add_mappings(self, *mappings: "RouterMapping"):
+        for mapping in mappings:
+            mapping.adopt(self)
+            self.mappings.append(mapping)
+        return self
+
+    @property
+    def size(self):
+        min_addr = sys.maxsize
+        max_addr = 0
+        for mapping in self.mappings:
+            if not mapping.size:
+                continue
+            if mapping.base < min_addr:
+                min_addr = mapping.base
+            if mapping.base + mapping.size > max_addr:
+                max_addr = mapping.base + mapping.size
+        return max_addr - min_addr
+
+class RouterMapping(Config, HasSize):
     """
     Configuration class for router address mapping.
 
@@ -82,6 +110,8 @@ class RouterMapping(Config):
         the start time of the burst.
     """
 
+    _defer_parent_init: ClassVar[bool] = True
+
     base: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
         "Base address of the mapping"
     ))
@@ -90,7 +120,7 @@ class RouterMapping(Config):
         "Size of the mapping"
     ))
 
-    remove_base: bool = cfg_field(default=True, dump=True, desc=(
+    remove_base: bool = cfg_field(default=False, dump=True, desc=(
         "Remove the base address when a request is propagated using this mapping"
     ))
 

@@ -20,12 +20,10 @@ This module provides configuration classes for memory components in the system,
 including settings for size, atomic operations, and latency.
 """
 
-from dataclasses import dataclass
-from gvrun.config import Config, cfg_field
+from config_tree import Config, cfg_field, HasSize
 
 
-@dataclass(repr=False)
-class MemoryConfig(Config):
+class MemoryConfig(Config, HasSize):
     """Configuration for memory components.
 
     This class defines the configuration parameters for memory components in the system,
@@ -55,4 +53,9 @@ class MemoryConfig(Config):
     latency: int = cfg_field(default=0, dump=True, desc=(
         "Specify extra latency which will be added to any "
         "incoming request"
+    ))
+
+    truncate: int = cfg_field(default=True, dump=True, desc=(
+        "If true, this truncates the global input address with the memory size to make it relative "
+        "to the memory"
     ))

@@ -673,7 +673,7 @@ class DecodeTree(object):
 
 
 class IsaSubset(object):
-    def __init__(self, name: str, instrs: list[Instr], includes:list[str]|None=None):
+    def __init__(self, name: str, instrs: list["Instr"], includes:list[str]|None=None):
         self.name = name
         self.instrs = instrs
         self.instrs_dict = {}

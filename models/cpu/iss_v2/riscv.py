@@ -173,7 +173,7 @@ class RiscvCommon(st.Component):
             name: str,
             config: RiscvConfig,
             isa: Isa|None,
-            misa: int=0,
+            misa: int|None=None,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
             debug_binaries: list[str]=[],
@@ -207,6 +207,12 @@ class RiscvCommon(st.Component):
             fp_width: int | None = None,
             modules: dict[str, IssModule] | None = None
         ):
+
+        if misa is None:
+           if isa is not None:
+               misa = isa.misa
+           else:
+               misa = 0
 
         super().__init__(parent, name)
 

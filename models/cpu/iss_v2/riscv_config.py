@@ -37,7 +37,7 @@ class RiscvConfig(Config):
     hart_id: int = cfg_field(default=0, dump=True, desc=(
         "The core ID of the core simulated by the ISS."
     ))
-    htif: bool = cfg_field(default=False, dump=True, desc=(
+    htif: bool = cfg_field(default=True, dump=True, desc=(
         "True if the ISS should start executing instructins immediately, False if it will start "
         "after the fetch_enable signal starts it."
     ))

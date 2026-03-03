@@ -65,7 +65,7 @@ class Memory(gvsoc.systree.Component):
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
             attributes: MemoryConfig | None=None):
 
-        super().__init__(parent, name, attributes)
+        super().__init__(parent, name, config=attributes)
 
         self.add_sources(['memory/memory.cpp'])
 

@@ -125,7 +125,7 @@ class RiscvCommon(st.Component):
             config=None
         ):
 
-        super().__init__(parent, name, config)
+        super().__init__(parent, name, config=config)
 
         self.isa = isa
         self.modules = modules

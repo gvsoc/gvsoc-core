@@ -16,10 +16,9 @@
 
 
 from dataclasses import dataclass
-from gvrun.config import Config, cfg_field
+from config_tree import Config, cfg_field
 
 
-@dataclass(repr=False)
 class RiscvConfig(Config):
     isa: str = cfg_field(default='rv32imafdc', dump=True, desc=(
         "ISA string of the core"

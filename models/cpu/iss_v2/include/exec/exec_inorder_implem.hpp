@@ -99,7 +99,7 @@ inline void ExecInOrder::insn_exec_power(iss_insn_t *insn)
     }
 }
 
-inline void ExecInOrder::handle_tasks()
+inline bool ExecInOrder::handle_tasks()
 {
     Task *task = this->first_task;
     if (task)
@@ -111,7 +111,16 @@ inline void ExecInOrder::handle_tasks()
             task->callback(&this->iss, task);
             task = task->next;
         } while (task);
+
+        // In case the core is retained, it means it was only executing tasks. Try to stop it
+        // and tell the caller to not continue
+        if (this->retained.get())
+        {
+            this->retain_check();
+            return true;
+        }
     }
+    return false;
 }
 
 inline bool ExecInOrder::can_switch_to_fast_mode()

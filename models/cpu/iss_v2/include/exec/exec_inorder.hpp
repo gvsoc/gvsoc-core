@@ -118,7 +118,7 @@ private:
     void bootaddr_apply(uint32_t value);
     inline InsnEntry *get_entry();
     inline void release_entry(InsnEntry *entry);
-    inline void handle_tasks();
+    inline bool handle_tasks();
 
     Iss &iss;
 

@@ -136,7 +136,8 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
-    iss->exec.handle_tasks();
+    // Leave now in case the core is retained and we are only executing tasks
+    if (iss->exec.handle_tasks()) return;
 
     iss_reg_t pc = iss->exec.current_insn;
 
@@ -230,7 +231,8 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         _this->skip_irq_check = false;
     }
 
-    _this->handle_tasks();
+    // Leave now in case the core is retained and we are only executing tasks
+    if (_this->handle_tasks()) return;
 
     iss_reg_t pc = iss->exec.current_insn;
 

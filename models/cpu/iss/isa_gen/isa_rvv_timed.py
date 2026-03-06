@@ -505,14 +505,14 @@ class Rv32v(IsaSubset):
             Instr('vfwmul.vv'        ,   Format_OPV  ,    '111000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfwmul.vf'        ,   Format_OPVF ,    '111000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfwmacc.vv'       ,   Format_OPV  ,    '111100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfwmacc.vf'       ,   Format_OPVF ,    '111100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfwmacc.vv'       ,   Format_OPV_5  ,    '111100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfwmacc.vf'       ,   Format_OPV_6 ,    '111100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfwmsac.vv'       ,   Format_OPV  ,    '111110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfwmsac.vf'       ,   Format_OPVF ,    '111110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfwmsac.vv'       ,   Format_OPV_5  ,    '111110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfwmsac.vf'       ,   Format_OPV_6 ,    '111110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
-            Instr('vfwnmsac.vv'      ,   Format_OPV  ,    '111111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
-            Instr('vfwnmsac.vf'      ,   Format_OPVF ,    '111111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+            Instr('vfwnmsac.vv'      ,   Format_OPV_5  ,    '111111 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vfwnmsac.vf'      ,   Format_OPV_6 ,    '111111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
             Instr('vfsgnj.vv'        ,   Format_OPV_12  ,    '001000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfsgnj.vf'        ,   Format_OPV_13 ,    '001000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
@@ -552,6 +552,11 @@ class Rv32v(IsaSubset):
             Instr('vle16.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 101 ----- 0000111', tags=['vload']),
             Instr('vle32.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 110 ----- 0000111', tags=['vload']),
             Instr('vle64.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 111 ----- 0000111', tags=['vload']),
+
+            Instr('vle8ff.v'           ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 100 ----- 0000111', tags=['vload']),# vd, (rs1), vm
+            # Instr('vle16ff.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 001 ----- 0000111', tags=['vload']),
+            # Instr('vle32ff.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 110 ----- 0000111', tags=['vload']),
+            # Instr('vle64ff.v'          ,   Format_OPVI  ,    '000 0 00 - 00000 ----- 111 ----- 0000111', tags=['vload']),
 
             Instr('vse8.v'           ,   Format_OPVS  ,    '000 0 00 - 00000 ----- 000 ----- 0100111', tags=['vstore']),
             Instr('vse16.v'          ,   Format_OPVS  ,    '000 0 00 - 00000 ----- 101 ----- 0100111', tags=['vstore']),

@@ -34,6 +34,10 @@ static inline int64_t iss_signed_shift_right(int64_t val, int width, int bits)
     return (val << (64 - width)) >> (64 - width + bits);
 }
 
+static inline int64_t get_signed_value(uint64_t val, int width, int bits)
+{
+    return ((int64_t)val) << (width - bits) >> (width - bits);
+}
 
 static inline iss_uim_t iss_get_signed_value(iss_uim_t val, int bits)
 {

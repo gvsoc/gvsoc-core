@@ -144,6 +144,7 @@ void Ara::insn_enqueue(InsnEntry *entry)
     this->event_label.event_string(insn->desc->label, false);
 
     pending_insn->chaining_factor = insn->desc->chaining_factor;
+    pending_insn->out_chaining_factor = insn->desc->out_chaining_factor;
 
     // Mark the instruction to be handled in the next cycle in case the FSM is already active
     // to prevent it from handling it in the next cycle
@@ -437,7 +438,7 @@ bool Ara::insn_ready(PendingInsn *insn)
 
             int chunk_size = this->nb_lanes * 8;
 
-            if (!dep_insn->can_be_chained || dep_insn->nb_bytes_done <
+            if (!dep_insn->can_be_chained || dep_insn->nb_bytes_done * insn->out_chaining_factor <
                     (insn->nb_bytes_done + chunk_size) * insn->chaining_factor)
                 return false;
 

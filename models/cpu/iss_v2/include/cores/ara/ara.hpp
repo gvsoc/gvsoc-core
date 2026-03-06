@@ -45,6 +45,7 @@ public:
     bool can_be_chained;
     int nb_bytes_done;
     float chaining_factor;
+    float out_chaining_factor;
     int8_t inreg0_index;
     int8_t inreg1_index;
     int8_t inreg2_index;

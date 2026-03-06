@@ -354,6 +354,7 @@ typedef struct iss_decoder_insn_s
     uint8_t args_order[ISS_MAX_DECODE_ARGS];
 #if defined(CONFIG_ISS_HAS_VECTOR)
     float chaining_factor = 1.0f;
+    float out_chaining_factor = 1.0f;
 #endif
 } iss_decoder_insn_t;
 

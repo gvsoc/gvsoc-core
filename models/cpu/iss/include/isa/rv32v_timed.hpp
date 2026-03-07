@@ -18,19 +18,19 @@
 #pragma once
 
 #ifdef CONFIG_GVSOC_ISS_V2
-#define VSTART iss->arch.ara.vstart
-#define VEND iss->arch.ara.vend
+#define VSTART iss->arch.vu.vstart
+#define VEND iss->arch.vu.vend
 #else
 #define VSTART iss->csr.vstart.value
 #define VEND iss->csr.vl.value
 #endif
 
 #ifdef CONFIG_GVSOC_ISS_V2
-#define RVV_FREG_GET(reg) (iss->arch.ara.current_insn_reg_get())
-#define RVV_REG_GET(reg) (iss->arch.ara.current_insn_reg_get())
+#define RVV_FREG_GET(reg) (iss->arch.vu.current_insn_reg_get())
+#define RVV_REG_GET(reg) (iss->arch.vu.current_insn_reg_get())
 #else
-#define RVV_FREG_GET(reg) (iss->ara.current_insn_reg_get())
-#define RVV_REG_GET(reg) (iss->ara.current_insn_reg_get())
+#define RVV_FREG_GET(reg) (iss->vu.current_insn_reg_get())
+#define RVV_REG_GET(reg) (iss->vu.current_insn_reg_get())
 #endif
 
 #if ISS_REG_WIDTH == 64
@@ -136,7 +136,7 @@ static uint64_t vfred_saved_value_get(Iss *iss, iss_insn_t *insn, unsigned int s
     }
     else
     {
-        return iss->arch.ara.saved_value;
+        return iss->arch.vu.saved_value;
     }
 #else
     return velem_get_value(iss, REG_IN(0), 0, sewb, lmul);
@@ -152,7 +152,7 @@ static void vfred_saved_value_set(Iss *iss, iss_insn_t *insn, unsigned int sewb,
     }
     else
     {
-        iss->arch.ara.saved_value = res;
+        iss->arch.vu.saved_value = res;
     }
 #else
     velem_set_value(iss, REG_OUT(0), 0, sewb, res);
@@ -3697,9 +3697,9 @@ static inline iss_reg_t vsetvl_handle(Iss *iss, int idxRs1, int idxRd, iss_reg_t
         iss->csr.vl.value = avl;
 
 #ifdef CONFIG_GVSOC_ISS_V2
-        iss->arch.ara.trace.msg(vp::Trace::LEVEL_TRACE, "Handling vsetvl (avl: %d, sewb: %d, lmul: %f)\n", avl, iss->vector.sewb, iss->vector.lmul);
+        iss->arch.vu.trace.msg(vp::Trace::LEVEL_TRACE, "Handling vsetvl (avl: %d, sewb: %d, lmul: %f)\n", avl, iss->vector.sewb, iss->vector.lmul);
 #else
-        iss->ara.trace.msg(vp::Trace::LEVEL_TRACE, "Handling vsetvl (avl: %d, sewb: %d, lmul: %f)\n", avl, iss->vector.sewb, iss->vector.lmul);
+        iss->vu.trace.msg(vp::Trace::LEVEL_TRACE, "Handling vsetvl (avl: %d, sewb: %d, lmul: %f)\n", avl, iss->vector.sewb, iss->vector.lmul);
 #endif
     }
 
@@ -3709,9 +3709,9 @@ static inline iss_reg_t vsetvl_handle(Iss *iss, int idxRs1, int idxRd, iss_reg_t
 static inline iss_reg_t vsetvli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 #ifdef CONFIG_GVSOC_ISS_V2
-    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->arch.ara.current_insn_reg_get(), UIM_GET(0), UIM_GET(1), UIM_GET(2)));
+    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->arch.vu.current_insn_reg_get(), UIM_GET(0), UIM_GET(1), UIM_GET(2)));
 #else
-    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->ara.current_insn_reg_get(), UIM_GET(0), UIM_GET(1), UIM_GET(2)));
+    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->vu.current_insn_reg_get(), UIM_GET(0), UIM_GET(1), UIM_GET(2)));
 #endif
     return iss_insn_next(iss, insn, pc);
 }
@@ -3719,17 +3719,17 @@ static inline iss_reg_t vsetvli_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t vsetvl_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
 #ifdef CONFIG_GVSOC_ISS_V2
-    iss_reg_t vtype = iss->arch.ara.current_insn_reg_2_get();
+    iss_reg_t vtype = iss->arch.vu.current_insn_reg_2_get();
 #else
-    iss_reg_t vtype = iss->ara.current_insn_reg_2_get();
+    iss_reg_t vtype = iss->vu.current_insn_reg_2_get();
 #endif
     int lmul = (vtype >> 0) & 0x7;
     int sew = (vtype >> 3) & 0x7;
 
 #ifdef CONFIG_GVSOC_ISS_V2
-    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->arch.ara.current_insn_reg_get(), lmul, sew, vtype));
+    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->arch.vu.current_insn_reg_get(), lmul, sew, vtype));
 #else
-    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->ara.current_insn_reg_get(), lmul, sew, vtype));
+    REG_SET(0, LIB_CALL6(vsetvl_handle, REG_IN(0), REG_OUT(0), iss->vu.current_insn_reg_get(), lmul, sew, vtype));
 #endif
     return iss_insn_next(iss, insn, pc);
 }

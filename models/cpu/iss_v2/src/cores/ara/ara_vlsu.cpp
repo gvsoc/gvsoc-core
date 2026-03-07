@@ -19,7 +19,7 @@
  */
 
 #include "cpu/iss/include/iss.hpp"
-#include "cpu/iss/include/cores/ara/ara.hpp"
+#include <cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp>
 
 AraVlsu::AraVlsu(Ara &ara, IssWrapper &top)
 : AraBlock(&ara, "vlsu"), ara(ara),

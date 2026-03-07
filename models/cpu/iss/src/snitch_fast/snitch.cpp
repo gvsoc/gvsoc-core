@@ -36,7 +36,7 @@ Iss::Iss(IssWrapper &top)
       , ssr(top, *this)
 #endif
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
-      , vector(*this), ara(top, *this)
+      , vector(*this), vu(top, *this)
 #endif
 {
     this->csr.declare_csr(&this->csr_fmode, "fmode", 0x800);
@@ -157,7 +157,7 @@ void IssWrapper::reset(bool active)
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     this->iss.syscalls.reset(active);
     this->iss.vector.reset(active);
-    this->iss.ara.reset(active);
+    this->iss.vu.reset(active);
 
     this->do_flush = false;
     this->insn_first = 0;
@@ -188,7 +188,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     this->iss.vector.build();
-    this->iss.ara.build();
+    this->iss.vu.build();
     this->pending_insns.resize(8);
     for (int i=0; i<this->pending_insns.size(); i++)
     {
@@ -256,23 +256,23 @@ void IssWrapper::insn_commit(PendingInsn *pending_insn)
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // We stall the instruction if ara queue is full
-    if (iss->ara.queue_is_full())
+    if (iss->vu.queue_is_full())
     {
         iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
-            iss->ara.queue_is_full() ? "Ara" : "Core", pc);
+            iss->vu.queue_is_full() ? "Ara" : "Core", pc);
         return pc;
     }
 
     // Account vector loads and stores to synchronize with snitch
     if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID])
     {
-        iss->ara.nb_pending_vaccess++;
+        iss->vu.nb_pending_vaccess++;
     }
 
     if (insn->decoder_item->u.insn.tags[ISA_TAG_VSTORE_ID])
     {
-        iss->ara.nb_pending_vaccess++;
-        iss->ara.nb_pending_vstore++;
+        iss->vu.nb_pending_vaccess++;
+        iss->vu.nb_pending_vstore++;
     }
 
     // Only offload the instruction once all input registers are ready
@@ -322,7 +322,7 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
     // Allocate a slot in cva6 queue and offload the instruction
     PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);
 
-    iss->ara.insn_enqueue(&pending_insn);
+    iss->vu.insn_enqueue(&pending_insn);
 
     return iss_insn_next(iss, insn, pc);
 }

@@ -38,7 +38,7 @@ void AraVcompute::reset(bool active)
         uint8_t zero = 0;
         this->pending_insn = NULL;
         this->event_active.event(&zero);
-        this->width = this->ara.iss.top.get_js_config()->get_child_int("ara/compute_width");
+        this->width = this->ara.iss.top.get_js_config()->get_child_int("vu/compute_width");
     }
 }
 

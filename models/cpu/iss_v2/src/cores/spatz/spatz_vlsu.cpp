@@ -18,12 +18,12 @@
  * Authors: Germain Haugou (germain.haugou@gmail.com)
  */
 
-#include "cpu/iss_v2/include/cores/ara/ara.hpp"
+#include <cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp>
 
-AraVlsu::AraVlsu(Ara &ara, Iss &iss)
-: AraBlock(&ara, "vlsu"), ara(ara),
+VuLsu::VuLsu(Vu &vu, Iss &iss)
+: VuBlock(&vu, "vlsu"), vu(vu),
 nb_pending_insn(*this, "nb_pending_insn", 8, true),
-fsm_event(this, &AraVlsu::fsm_handler),
+fsm_event(this, &VuLsu::fsm_handler),
 event_label(*this, "label", 0, gv::Vcd_event_type_string)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
@@ -31,9 +31,9 @@ event_label(*this, "label", 0, gv::Vcd_event_type_string)
     this->traces.new_trace_event("pc", &this->event_pc, 64);
     this->traces.new_trace_event("queue", &this->event_queue, 64);
 
-    this->insns.resize(AraVlsu::queue_size);
+    this->insns.resize(VuLsu::queue_size);
 
-    int nb_ports = iss.get_js_config()->get_child_int("ara/nb_ports");
+    int nb_ports = iss.get_js_config()->get_child_int("vu/nb_ports");
     this->nb_ports = nb_ports;
 
     this->event_addr.resize(nb_ports);
@@ -56,7 +56,7 @@ event_label(*this, "label", 0, gv::Vcd_event_type_string)
         iss.new_master_port("vlsu_" + std::to_string(i), &this->ports[i], this);
     }
 
-    int nb_outstanding_reqs = iss.get_js_config()->get_child_int("ara/nb_outstanding_reqs");
+    int nb_outstanding_reqs = iss.get_js_config()->get_child_int("vu/nb_outstanding_reqs");
     this->req_queues.resize(nb_ports);
     for (int i=0; i<nb_ports; i++)
     {
@@ -66,11 +66,11 @@ event_label(*this, "label", 0, gv::Vcd_event_type_string)
     this->requests.resize(nb_ports * nb_outstanding_reqs);
 }
 
-void AraVlsu::start()
+void VuLsu::start()
 {
 }
 
-void AraVlsu::reset(bool active)
+void VuLsu::reset(bool active)
 {
     if (active)
     {
@@ -90,8 +90,8 @@ void AraVlsu::reset(bool active)
 
         // Since the request queues are cleared with the reset, we need to put back requests
         // in each queue
-        int nb_ports = this->ara.iss.get_js_config()->get_child_int("ara/nb_ports");
-        int nb_outstanding_reqs = this->ara.iss.get_js_config()->get_child_int("ara/nb_outstanding_reqs");
+        int nb_ports = this->vu.iss.get_js_config()->get_child_int("vu/nb_ports");
+        int nb_outstanding_reqs = this->vu.iss.get_js_config()->get_child_int("vu/nb_outstanding_reqs");
         int req_id = 0;
         for (int i=0; i<nb_ports; i++)
         {
@@ -104,9 +104,9 @@ void AraVlsu::reset(bool active)
     }
 }
 
-void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
+void VuLsu::enqueue_insn(PendingInsn *pending_insn)
 {
-    iss_insn_t *insn = this->ara.iss.exec.get_insn(pending_insn->entry);
+    iss_insn_t *insn = this->vu.iss.exec.get_insn(pending_insn->entry);
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
         insn->addr, pending_insn->id);
     uint8_t one = 1;
@@ -115,9 +115,9 @@ void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
 
     // Just push the instruction and let the FSM handle it if needed.
     // A delay is added to take into account the time needed on RTL to start the instruction
-    pending_insn->timestamp = this->ara.iss.clock.get_cycles() + 1;
-    AraVlsuPendingInsn &slot = this->insns[this->insn_last];
-    this->insn_last = (this->insn_last + 1) % AraVlsu::queue_size;
+    pending_insn->timestamp = this->vu.iss.clock.get_cycles() + 1;
+    VuLsuPendingInsn &slot = this->insns[this->insn_last];
+    this->insn_last = (this->insn_last + 1) % VuLsu::queue_size;
     slot.insn = pending_insn;
     slot.nb_pending_bursts = 0;
     this->nb_pending_insn.inc(1);
@@ -126,69 +126,69 @@ void AraVlsu::enqueue_insn(PendingInsn *pending_insn)
     this->fsm_event.enable();
 }
 
-void AraVlsu::isa_init()
+void VuLsu::isa_init()
 {
     // Attach handlers to instructions so that we can quickly handle load and stores differently
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vload"))
+    for (iss_decoder_item_t *insn: *this->vu.iss.decode.get_insns_from_tag("vload"))
     {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load;
+        insn->u.insn.block_handler = (void *)&VuLsu::handle_insn_load;
     }
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vstore"))
+    for (iss_decoder_item_t *insn: *this->vu.iss.decode.get_insns_from_tag("vstore"))
     {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store;
+        insn->u.insn.block_handler = (void *)&VuLsu::handle_insn_store;
     }
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vload_strided"))
+    for (iss_decoder_item_t *insn: *this->vu.iss.decode.get_insns_from_tag("vload_strided"))
     {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load_strided;
+        insn->u.insn.block_handler = (void *)&VuLsu::handle_insn_load_strided;
     }
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vstore_strided"))
+    for (iss_decoder_item_t *insn: *this->vu.iss.decode.get_insns_from_tag("vstore_strided"))
     {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store_strided;
+        insn->u.insn.block_handler = (void *)&VuLsu::handle_insn_store_strided;
     }
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vload_indexed"))
+    for (iss_decoder_item_t *insn: *this->vu.iss.decode.get_insns_from_tag("vload_indexed"))
     {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_load_indexed;
+        insn->u.insn.block_handler = (void *)&VuLsu::handle_insn_load_indexed;
     }
-    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vstore_indexed"))
+    for (iss_decoder_item_t *insn: *this->vu.iss.decode.get_insns_from_tag("vstore_indexed"))
     {
-        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store_indexed;
+        insn->u.insn.block_handler = (void *)&VuLsu::handle_insn_store_indexed;
     }
 }
 
-void AraVlsu::handle_insn_load_strided(AraVlsu *_this, iss_insn_t *insn)
+void VuLsu::handle_insn_load_strided(VuLsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, false, insn->out_regs[0], true, _this->insns[_this->insn_first_waiting].insn->reg_2);
 }
 
-void AraVlsu::handle_insn_store_strided(AraVlsu *_this, iss_insn_t *insn)
+void VuLsu::handle_insn_store_strided(VuLsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, true, insn->in_regs[1], true, _this->insns[_this->insn_first_waiting].insn->reg_3);
 }
 
-void AraVlsu::handle_insn_load_indexed(AraVlsu *_this, iss_insn_t *insn)
+void VuLsu::handle_insn_load_indexed(VuLsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, false, insn->out_regs[0], false, 0, insn->in_regs[1]);
 }
 
-void AraVlsu::handle_insn_store_indexed(AraVlsu *_this, iss_insn_t *insn)
+void VuLsu::handle_insn_store_indexed(VuLsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, true, insn->in_regs[1], false, 0, insn->in_regs[2]);
 }
 
-void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride, iss_reg_t stride, int reg_indexed)
+void VuLsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride, iss_reg_t stride, int reg_indexed)
 {
     // A load or store instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
-    unsigned int sewb = this->ara.iss.vector.sewb;
-    unsigned int lmul = this->ara.iss.vector.lmul;
+    unsigned int sewb = this->vu.iss.vector.sewb;
+    unsigned int lmul = this->vu.iss.vector.lmul;
     this->pending_vreg = reg;
-    this->pending_velem = velem_get(&this->ara.iss, reg, 0, sewb, lmul);
-    this->vstart = this->ara.iss.csr.vstart.value;
+    this->pending_velem = velem_get(&this->vu.iss, reg, 0, sewb, lmul);
+    this->vstart = this->vu.iss.csr.vstart.value;
     this->pending_addr = this->insns[this->insn_first_waiting].insn->reg;
     this->pending_is_write = is_write;
     int inst_elem_size = insn->uim[1] >= 5 ? 1 << (insn->uim[1] - 4) : 1 << 0;
     int elem_size = reg_indexed != -1 ? sewb : inst_elem_size;
-    this->pending_size = (this->ara.iss.csr.vl.value - this->ara.iss.csr.vstart.value) * elem_size;
+    this->pending_size = (this->vu.iss.csr.vl.value - this->vu.iss.csr.vstart.value) * elem_size;
     this->stride = stride;
     this->strided = do_stride;
     this->elem_size = elem_size;
@@ -207,19 +207,19 @@ void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_st
     this->started = false;
 }
 
-void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
+void VuLsu::handle_insn_load(VuLsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, false, insn->out_regs[0]);
 }
 
-void AraVlsu::handle_insn_store(AraVlsu *_this, iss_insn_t *insn)
+void VuLsu::handle_insn_store(VuLsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, true, insn->in_regs[1]);
 }
 
-void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
-    AraVlsu *_this = (AraVlsu *)__this;
+    VuLsu *_this = (VuLsu *)__this;
 
     // In case nothing is on-going, disable the FSM
     if (_this->nb_pending_insn.get() == 0)
@@ -242,26 +242,26 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     // Check if the first waiting instruction can be started
     if (_this->nb_waiting_insn > 0)
     {
-        AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
+        VuLsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
         PendingInsn *pending_insn = slot.insn;
 
-        if (pending_insn->timestamp <=_this->ara.iss.clock.get_cycles() &&
+        if (pending_insn->timestamp <=_this->vu.iss.clock.get_cycles() &&
             _this->pending_size == 0)
         {
-            iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
-            ((void (*)(AraVlsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
+            iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
+            ((void (*)(VuLsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
         }
     }
 
-    if (_this->pending_size && _this->op_timestamp <= _this->ara.iss.clock.get_cycles())
+    if (_this->pending_size && _this->op_timestamp <= _this->vu.iss.clock.get_cycles())
     {
-        AraVlsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
+        VuLsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
         PendingInsn *pending_insn = slot.insn;
 
-        if (_this->ara.insn_ready(pending_insn))
+        if (_this->vu.insn_ready(pending_insn))
         {
             uint64_t iter_size = 0;
-            iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
+            iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
 
             if (!_this->started)
             {
@@ -287,7 +287,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     }
                     else
                     {
-                        size = std::min((iss_addr_t)_this->ara.lane_width, _this->pending_size);
+                        size = std::min((iss_addr_t)_this->vu.lane_width, _this->pending_size);
                     }
 
                     _this->trace.msg(vp::Trace::LEVEL_TRACE,
@@ -307,8 +307,8 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                     if (_this->reg_indexed != -1)
                     {
-                        uint64_t offset = velem_get_value(&_this->ara.iss, _this->reg_indexed, _this->pending_elem,
-                            _this->inst_elem_size, _this->ara.iss.vector.lmul);
+                        uint64_t offset = velem_get_value(&_this->vu.iss, _this->reg_indexed, _this->pending_elem,
+                            _this->inst_elem_size, _this->vu.iss.vector.lmul);
                         addr += offset;
                         _this->pending_elem++;
                     }
@@ -346,14 +346,14 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     if (_this->pending_size == 0)
                     {
                         _this->nb_waiting_insn--;
-                        _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
+                        _this->insn_first_waiting = (_this->insn_first_waiting + 1) % VuLsu::queue_size;
                     }
                 }
             }
 
-            _this->ara.insn_commit(pending_insn, iter_size);
+            _this->vu.insn_commit(pending_insn, iter_size);
 
-            _this->ara.exec_insn_chunk(insn, pending_insn, _this->vstart / _this->elem_size,
+            _this->vu.exec_insn_chunk(insn, pending_insn, _this->vstart / _this->elem_size,
                 (_this->vstart + iter_size) / _this->elem_size, iter_size / _this->elem_size);
 
             _this->vstart += iter_size;
@@ -361,18 +361,18 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             // Check if the first enqueued instruction must be removed
             if (_this->nb_pending_insn.get() > 0)
             {
-                AraVlsuPendingInsn &slot = _this->insns[_this->insn_first];
+                VuLsuPendingInsn &slot = _this->insns[_this->insn_first];
                 PendingInsn *pending_insn = slot.insn;
                 if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
-                    pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
+                    pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
                 {
                     _this->event_label.dump_highz_next();
                     // Remember the timestamp of last operation to impact timing of next one
-                    _this->op_timestamp = _this->ara.iss.clock.get_cycles();
-                    _this->insn_first = (_this->insn_first + 1) % AraVlsu::queue_size;
+                    _this->op_timestamp = _this->vu.iss.clock.get_cycles();
+                    _this->insn_first = (_this->insn_first + 1) % VuLsu::queue_size;
                     _this->nb_pending_insn.dec(1);
-                    pending_insn->timestamp = _this->ara.iss.clock.get_cycles() + 1;
-                    _this->ara.insn_end(pending_insn);
+                    pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + 1;
+                    _this->vu.insn_end(pending_insn);
                 }
             }
         }

@@ -62,7 +62,7 @@ void IssWrapper::reset(bool active)
     this->iss.syscalls.reset(active);
 #if defined(CONFIG_ISS_HAS_VECTOR)
     this->iss.vector.reset(active);
-    this->iss.ara.reset(active);
+    this->iss.vu.reset(active);
 #endif
 
     this->do_flush = false;
@@ -93,7 +93,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
     this->iss.prefetcher.build();
 #if defined(CONFIG_ISS_HAS_VECTOR)
     this->iss.vector.build();
-    this->iss.ara.build();
+    this->iss.vu.build();
 #endif
 
     this->traces.new_trace("wrapper", &this->trace, vp::DEBUG);
@@ -114,7 +114,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
         }
 
 #ifdef CONFIG_ISS_HAS_VECTOR
-        this->iss.ara.isa_init();
+        this->iss.vu.isa_init();
 #endif
     }
 }
@@ -252,10 +252,10 @@ iss_reg_t IssWrapper::insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // We stall the instruction if cva6 queue or ara queue is full
-    if (iss->top.nb_pending_insn == iss->top.max_pending_insn || iss->ara.queue_is_full())
+    if (iss->top.nb_pending_insn == iss->top.max_pending_insn || iss->vu.queue_is_full())
     {
         iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
-            iss->ara.queue_is_full() ? "Ara" : "Core", pc);
+            iss->vu.queue_is_full() ? "Ara" : "Core", pc);
         return pc;
     }
 
@@ -288,7 +288,7 @@ iss_reg_t IssWrapper::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_r
     // Allocate a slot in cva6 queue and offload the instruction
     PendingInsn &pending_insn = iss->top.pending_insn_enqueue(insn, pc);
 
-    iss->ara.insn_enqueue(&pending_insn);
+    iss->vu.insn_enqueue(&pending_insn);
 
     return iss_insn_next(iss, insn, pc);
 }

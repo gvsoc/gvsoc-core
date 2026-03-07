@@ -24,7 +24,7 @@
 #include <cpu/iss_v2/include/insn.hpp>
 #include <cpu/iss_v2/include/csr.hpp>
 #include <cpu/iss_v2/include/vector.hpp>
-#include <cpu/iss_v2/include/cores/ara/ara.hpp>
+#include <cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp>
 
 class Iss;
 
@@ -37,7 +37,7 @@ public:
     void stop() {}
     void reset(bool active);
 
-    Ara ara;
+    Vu vu;
 
     void insn_commit(PendingInsn *pending_insn);
     static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);

@@ -80,7 +80,7 @@ public:
     Memcheck memcheck;
 #if defined(CONFIG_ISS_HAS_VECTOR)
     Vector vector;
-    Ara ara;
+    Ara vu;
 #endif
 
     IssWrapper &top;
@@ -122,7 +122,7 @@ inline Iss::Iss(IssWrapper &top)
     trace(*this), csr(*this), regfile(top, *this), mmu(*this), pmp(*this), exception(*this),
     memcheck(top, *this), top(top)
 #if defined(CONFIG_ISS_HAS_VECTOR)
-    ,vector(*this), ara(top, *this)
+    ,vector(*this), vu(top, *this)
 #endif
 {
 }

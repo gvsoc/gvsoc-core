@@ -53,7 +53,7 @@ Sequencer::Sequencer(IssWrapper &top, Iss &iss)
         }
 
 #ifdef CONFIG_GVSOC_ISS_USE_SPATZ
-        this->iss.ara.isa_init();
+        this->iss.vu.isa_init();
 #endif
     }
 }
@@ -81,11 +81,11 @@ iss_reg_t Sequencer::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     // We need to stall snitch if:
     // - snitch wants to do a store while spatz is having pending memory accesses
     // - snitch wants to do a load while spatz is having pending loads
-    if (insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID] && iss->ara.nb_pending_vaccess ||
-        insn->decoder_item->u.insn.tags[ISA_TAG_LOAD_ID] && iss->ara.nb_pending_vstore)
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID] && iss->vu.nb_pending_vaccess ||
+        insn->decoder_item->u.insn.tags[ISA_TAG_LOAD_ID] && iss->vu.nb_pending_vstore)
     {
         iss->sequencer.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to on-going vector access (is_store: %d, pending_vaccess: %d, pending_vstore: %d\n",
-            insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID], iss->ara.nb_pending_vaccess, iss->ara.nb_pending_vstore);
+            insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID], iss->vu.nb_pending_vaccess, iss->vu.nb_pending_vstore);
         return pc;
     }
     return insn->stub_handler(iss, insn, pc);

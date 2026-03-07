@@ -19,11 +19,11 @@
  */
 
 #include "cpu/iss_v2/include/iss.hpp"
-#include "cpu/iss_v2/include/cores/ara/ara.hpp"
+#include "cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp"
 
-AraVcompute::AraVcompute(Ara &ara, std::string name)
-: AraBlock(&ara, name), ara(ara),
-fsm_event(this, &AraVcompute::fsm_handler)
+VuCompute::VuCompute(Vu &vu, std::string name)
+: VuBlock(&vu, name), vu(vu),
+fsm_event(this, &VuCompute::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->traces.new_trace_event("active", &this->event_active, 1);
@@ -31,7 +31,7 @@ fsm_event(this, &AraVcompute::fsm_handler)
     this->traces.new_trace_event_string("label", &this->event_label);
 }
 
-void AraVcompute::reset(bool active)
+void VuCompute::reset(bool active)
 {
     if (active)
     {
@@ -41,9 +41,9 @@ void AraVcompute::reset(bool active)
     }
 }
 
-void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
+void VuCompute::enqueue_insn(PendingInsn *pending_insn)
 {
-    iss_insn_t *insn = this->ara.iss.exec.get_insn(pending_insn->entry);
+    iss_insn_t *insn = this->vu.iss.exec.get_insn(pending_insn->entry);
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
         insn->addr, pending_insn->id);
     uint8_t one = 1;
@@ -57,18 +57,18 @@ void AraVcompute::enqueue_insn(PendingInsn *pending_insn)
     this->fsm_event.enable();
 }
 
-void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+void VuCompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
-    AraVcompute *_this = (AraVcompute *)__this;
+    VuCompute *_this = (VuCompute *)__this;
 
     // Check if the pending instruction has finished. Its timestamp was set when instruction
     // started annd indicates when it must be terminated
     if (_this->pending_insn)
     {
-        if (_this->pending_insn->timestamp <= _this->ara.iss.clock.get_cycles())
+        if (_this->pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
         {
-            // Notify ara so that it removes it from the pending instruction and update scoreboard
-            _this->ara.insn_end(_this->pending_insn);
+            // Notify vu so that it removes it from the pending instruction and update scoreboard
+            _this->vu.insn_end(_this->pending_insn);
             // Clear it to take a new one
             _this->pending_insn = NULL;
             _this->event_pc.event_highz();
@@ -80,29 +80,29 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     // Take the first one from the queue and see if its timestamp has passed. This was set during
     // enqueue to make sure the instruction starts at best the cycle after.
     if (_this->pending_insn == NULL && _this->insns.size() != 0 &&
-        _this->insns.front()->timestamp <= _this->ara.iss.clock.get_cycles())
+        _this->insns.front()->timestamp <= _this->vu.iss.clock.get_cycles())
     {
         PendingInsn *pending_insn = _this->insns.front();
-        iss_insn_t *insn = _this->ara.iss.exec.get_insn(pending_insn->entry);
-        bool ready= _this->ara.insn_ready(pending_insn);
+        iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
+        bool ready= _this->vu.insn_ready(pending_insn);
 
         _this->trace.msg(vp::Trace::LEVEL_TRACE, "Check ready (pc: 0x%lx, id: %d, ready: %d)\n",
             insn->addr, pending_insn->id, ready);
 
         if (ready)
         {
-            int nb_elem_per_cycle = _this->ara.nb_lanes * _this->ara.lane_width /
-                _this->ara.iss.vector.sewb;
+            int nb_elem_per_cycle = _this->vu.nb_lanes * _this->vu.lane_width /
+                _this->vu.iss.vector.sewb;
 
             if (pending_insn->nb_bytes_done == 0)
             {
                 _this->event_pc.event((uint8_t *)&insn->addr);
                 _this->event_label.event_string(insn->desc->label, false);
 
-                unsigned int nb_elems = _this->ara.iss.csr.vl.value - _this->ara.iss.csr.vstart.value;
-                _this->total_size = nb_elems * _this->ara.iss.vector.sewb;
-                _this->vstart = _this->ara.iss.csr.vstart.value;
-                _this->vend = std::min((int)_this->ara.iss.csr.vl.value,
+                unsigned int nb_elems = _this->vu.iss.csr.vl.value - _this->vu.iss.csr.vstart.value;
+                _this->total_size = nb_elems * _this->vu.iss.vector.sewb;
+                _this->vstart = _this->vu.iss.csr.vstart.value;
+                _this->vend = std::min((int)_this->vu.iss.csr.vl.value,
                     _this->vstart + nb_elem_per_cycle);
             }
 
@@ -112,22 +112,22 @@ void AraVcompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             // Now that the instruction is over, execute the handler to functionally model it. This will
             // write the output register.
             // Store the instruction register as it will be used by the handler.
-            _this->ara.current_insn_reg = pending_insn->reg;
-            _this->ara.current_insn_reg_2 = pending_insn->reg_2;
+            _this->vu.current_insn_reg = pending_insn->reg;
+            _this->vu.current_insn_reg_2 = pending_insn->reg_2;
 
-            _this->ara.exec_insn_chunk(insn, pending_insn, _this->vstart, _this->vend, nb_elem_per_cycle);
+            _this->vu.exec_insn_chunk(insn, pending_insn, _this->vstart, _this->vend, nb_elem_per_cycle);
 
             _this->vstart += nb_elem_per_cycle;
-            _this->vend = std::min((int)_this->ara.iss.csr.vl.value,
+            _this->vend = std::min((int)_this->vu.iss.csr.vl.value,
                 _this->vstart + nb_elem_per_cycle);
 
-            _this->ara.insn_commit(pending_insn, nb_elem_per_cycle * _this->ara.iss.vector.sewb);
+            _this->vu.insn_commit(pending_insn, nb_elem_per_cycle * _this->vu.iss.vector.sewb);
 
             if (pending_insn->nb_bytes_done >= _this->total_size)
             {
                 _this->pending_insn = pending_insn;
                	_this->insns.pop();
-                _this->pending_insn->timestamp = _this->ara.iss.clock.get_cycles() + insn->latency + 1;
+                _this->pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + insn->latency + 1;
             }
 
         }

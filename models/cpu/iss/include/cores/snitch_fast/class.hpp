@@ -96,7 +96,7 @@ public:
     Memcheck memcheck;
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     Vector vector;
-    Ara ara;
+    Ara vu;
 #endif
 
     IssWrapper &top;

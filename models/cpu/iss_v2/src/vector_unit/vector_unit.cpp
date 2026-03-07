@@ -19,12 +19,12 @@
  */
 
  #include <cstdint>
-#include "cpu/iss_v2/include/cores/ara/ara.hpp"
+ #include <cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp>
 
 
-Ara::Ara(Iss &iss)
+Vu::Vu(Iss &iss)
     : Block(&iss, "ara"), iss(iss),
-    fsm_event(this, &Ara::fsm_handler),
+    fsm_event(this, &Vu::fsm_handler),
     nb_pending_insn(*this, "nb_pending_insn", 8, true),
     queue_full(*this, "queue_full", 1, true)
 {
@@ -34,12 +34,12 @@ Ara::Ara(Iss &iss)
     this->traces.new_trace_event("pc", &this->event_pc, 64);
     this->traces.new_trace_event("queue", &this->event_queue, 64);
 
-    this->nb_lanes = iss.get_js_config()->get_int("ara/nb_lanes");
-    this->lane_width = iss.get_js_config()->get_child_int("ara/lane_width");
-    this->blocks.resize(Ara::nb_blocks);
-    this->blocks[Ara::vlsu_id] = new AraVlsu(*this, iss);
-    this->blocks[Ara::vfpu_id] = new AraVcompute(*this, "vfpu");
-    this->blocks[Ara::vslide_id] = new AraVcompute(*this, "vslide");
+    this->nb_lanes = iss.get_js_config()->get_int("vu/nb_lanes");
+    this->lane_width = iss.get_js_config()->get_child_int("vu/lane_width");
+    this->blocks.resize(Vu::nb_blocks);
+    this->blocks[Vu::vlsu_id] = new VuLsu(*this, iss);
+    this->blocks[Vu::vfpu_id] = new VuCompute(*this, "vfpu");
+    this->blocks[Vu::vslide_id] = new VuCompute(*this, "vslide");
 
     this->pending_insns.resize(this->queue_size);
     this->insns_in_deps.resize(this->queue_size);
@@ -58,35 +58,35 @@ Ara::Ara(Iss &iss)
         // Make sure we track snitch load and stores to synchronize with spatz VLSU
         for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("load"))
         {
-            insn->u.insn.stub_handler = &Ara::load_store_handler;
+            insn->u.insn.stub_handler = &Vu::load_store_handler;
         }
 
         for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("store"))
         {
-            insn->u.insn.stub_handler = &Ara::load_store_handler;
+            insn->u.insn.stub_handler = &Vu::load_store_handler;
         }
 
         this->isa_init();
     }
 }
 
-iss_reg_t Ara::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+iss_reg_t Vu::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // We need to stall snitch if:
     // - snitch wants to do a store while spatz is having pending memory accesses
     // - snitch wants to do a load while spatz is having pending loads
-    if (insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID] && iss->arch.ara.nb_pending_vaccess ||
-        insn->decoder_item->u.insn.tags[ISA_TAG_LOAD_ID] && iss->arch.ara.nb_pending_vstore)
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID] && iss->arch.vu.nb_pending_vaccess ||
+        insn->decoder_item->u.insn.tags[ISA_TAG_LOAD_ID] && iss->arch.vu.nb_pending_vstore)
     {
-        iss->arch.ara.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to on-going vector access (is_store: %d, pending_vaccess: %d, pending_vstore: %d\n",
-            insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID], iss->arch.ara.nb_pending_vaccess, iss->arch.ara.nb_pending_vstore);
+        iss->arch.vu.trace.msg(vp::Trace::LEVEL_TRACE, "Stalling due to on-going vector access (is_store: %d, pending_vaccess: %d, pending_vstore: %d\n",
+            insn->decoder_item->u.insn.tags[ISA_TAG_STORE_ID], iss->arch.vu.nb_pending_vaccess, iss->arch.vu.nb_pending_vstore);
         iss->exec.insn_stall();
         return pc;
     }
     return insn->stub_handler(iss, insn, pc);
 }
 
-void Ara::reset(bool active)
+void Vu::reset(bool active)
 {
     if (active)
     {
@@ -106,7 +106,7 @@ void Ara::reset(bool active)
     }
 }
 
-PendingInsn *Ara::pending_insn_alloc(InsnEntry *entry)
+PendingInsn *Vu::pending_insn_alloc(InsnEntry *entry)
 {
     // The new instruction is marked as pending and also waiting for dependecy resolution
     this->nb_pending_insn.inc(1);
@@ -125,12 +125,12 @@ PendingInsn *Ara::pending_insn_alloc(InsnEntry *entry)
 
     // TODO excludes vslide, vlse, vlxe, vsse and vsxe
     iss_insn_t *insn = this->iss.exec.get_insn(entry);
-    pending_insn->can_be_chained = insn->decoder_item->u.insn.block_id != Ara::vslide_id;
+    pending_insn->can_be_chained = insn->decoder_item->u.insn.block_id != Vu::vslide_id;
 
     return pending_insn;
 }
 
-void Ara::insn_enqueue(InsnEntry *entry)
+void Vu::insn_enqueue(InsnEntry *entry)
 {
     PendingInsn *pending_insn = this->pending_insn_alloc(entry);
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
@@ -258,7 +258,7 @@ void Ara::insn_enqueue(InsnEntry *entry)
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Init instruction output deps (pc: 0x%lx, id: %d, deps: 0x%x)\n",
            insn->addr, pending_insn->id, this->insns_out_deps[pending_insn->id]);
 
-        AraBlock *block = this->blocks[block_id];
+        VuBlock *block = this->blocks[block_id];
         if (this->stalled_insns.empty() && !block->is_full())
         {
             // Enqueue the instruction to the processing block
@@ -271,12 +271,12 @@ void Ara::insn_enqueue(InsnEntry *entry)
     }
 }
 
-void Ara::insn_commit(PendingInsn *pending_insn, int size)
+void Vu::insn_commit(PendingInsn *pending_insn, int size)
 {
     pending_insn->nb_bytes_done += size;
 }
 
-void Ara::insn_end(PendingInsn *pending_insn)
+void Vu::insn_end(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
 
@@ -333,9 +333,9 @@ void Ara::insn_end(PendingInsn *pending_insn)
     this->fsm_event.enable();
 }
 
-void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+void Vu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
-    Ara *_this = (Ara *)__this;
+    Vu *_this = (Vu *)__this;
 
     // Check if the pending instruction at the head must be terminated
     if (_this->nb_pending_insn.get() > 0)
@@ -365,7 +365,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         PendingInsn *pending_insn = _this->stalled_insns.front();
         iss_insn_t *insn = _this->iss.exec.get_insn(pending_insn->entry);
         int block_id = insn->decoder_item->u.insn.block_id;
-        AraBlock *block = _this->blocks[block_id];
+        VuBlock *block = _this->blocks[block_id];
         if (!block->is_full())
         {
             _this->stalled_insns.pop();
@@ -381,7 +381,7 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 }
 
-void Ara::isa_init()
+void Vu::isa_init()
 {
     // Make sure all vector instructions are handled with dedicated handler so that they can be
     // offloaded to ara
@@ -394,28 +394,28 @@ void Ara::isa_init()
     // Associate instruction to processing blocks
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vload"))
     {
-        insn->u.insn.block_id = Ara::vlsu_id;
+        insn->u.insn.block_id = Vu::vlsu_id;
     }
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vstore"))
     {
-        insn->u.insn.block_id = Ara::vlsu_id;
+        insn->u.insn.block_id = Vu::vlsu_id;
     }
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vothers"))
     {
-        insn->u.insn.block_id = Ara::vfpu_id;
+        insn->u.insn.block_id = Vu::vfpu_id;
     }
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vslide"))
     {
-        insn->u.insn.block_id = Ara::vslide_id;
+        insn->u.insn.block_id = Vu::vslide_id;
     }
 
-    for (AraBlock *block: this->blocks)
+    for (VuBlock *block: this->blocks)
     {
         block->isa_init();
     }
 }
 
-bool Ara::insn_ready(PendingInsn *insn)
+bool Vu::insn_ready(PendingInsn *insn)
 {
     // WAW and WAR deps cannot be chained and are blocking
     if (this->insns_out_deps[insn->id] != 0)
@@ -453,7 +453,7 @@ bool Ara::insn_ready(PendingInsn *insn)
     return false;
 }
 
-void Ara::dump_regs_to_trace(iss_insn_t *insn, PendingInsn *pending_insn, int nb_elem, bool is_out)
+void Vu::dump_regs_to_trace(iss_insn_t *insn, PendingInsn *pending_insn, int nb_elem, bool is_out)
 {
     if (this->iss.trace.insn_trace.get_active())
     {

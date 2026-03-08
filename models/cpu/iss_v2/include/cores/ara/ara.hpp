@@ -28,19 +28,16 @@
 
 class Iss;
 
-class Vu
+class Ara
 {
 public:
-    Vu(Iss &iss);
+    Ara(Iss &iss);
 
     void start() {}
     void stop() {}
     void reset(bool active);
 
-    Vu ara;
-
-    void insn_commit(PendingInsn *pending_insn);
-    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+    Vu vu;
 
 private:
 

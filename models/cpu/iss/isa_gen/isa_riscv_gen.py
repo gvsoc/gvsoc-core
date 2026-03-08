@@ -966,7 +966,8 @@ class Rv64c(IsaSubset):
             Instr('c.fsdsp',    Format_FCSSD, '101 --- --- -- --- 10', isa_tags=['cf']),
             Instr('c.fldsp',    Format_FCI3D, '001 --- --- -- --- 10', tags=['load', "fload"], isa_tags=['cf']),
         ], includes=[
-            '<cpu/iss_v2/include/isa/rv64c.hpp>',
+            '<cpu/iss/include/isa/rv64c.hpp>',
+            '<cpu/iss/include/isa/rv32c.hpp>',
         ])
 
     def check_compatibilities(self, isa):

@@ -39,9 +39,6 @@ public:
 
     Vu vu;
 
-    void insn_commit(PendingInsn *pending_insn);
-    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
-
 private:
 
     Iss &iss;

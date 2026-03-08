@@ -298,6 +298,8 @@ private:
     vp::Register<uint8_t> nb_pending_insn;
     // Number of instructions waiting to be started
     int nb_waiting_insn;
+    int elem_size;
+    int vstart;
 };
 
 #endif
@@ -352,13 +354,11 @@ public:
     // Width in bits of one lane
     int lane_width;
 
-#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // Number of pending vector loads and stores in spatz. Use to synchronize with snitch memory
     // accesses
     int nb_pending_vaccess;
     // Number of pending vector stores in spatz. Use to synchronize with snitch memory accesses
     int nb_pending_vstore;
-#endif
 
     int vstart;
     int vend;
@@ -366,6 +366,9 @@ public:
     uint64_t saved_value;
 
 private:
+    void insn_commit(PendingInsn *pending_insn);
+    static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
+
     static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);

@@ -41,3 +41,9 @@ class RiscvConfig(Config):
         "True if the ISS should start executing instructins immediately, False if it will start "
         "after the fetch_enable signal starts it."
     ))
+    pmp: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the ISS should include the PMP."
+    ))
+    mmu: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the ISS should include the MMU."
+    ))

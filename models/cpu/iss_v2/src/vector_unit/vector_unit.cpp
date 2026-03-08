@@ -90,10 +90,8 @@ void Vu::reset(bool active)
 {
     if (active)
     {
-#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
         this->nb_pending_vaccess = 0;
         this->nb_pending_vstore = 0;
-#endif
 
         this->insn_id_table = (1 << this->queue_size) - 1;
 
@@ -283,7 +281,6 @@ void Vu::insn_end(PendingInsn *pending_insn)
     this->trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx, id: %d)\n",
         insn->addr, pending_insn->id);
 
-#if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // If the ended instruction is a load or store, decrement associated counters used for
     // for synchronizing snitch and spatz memory accesses
     if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID])
@@ -296,7 +293,6 @@ void Vu::insn_end(PendingInsn *pending_insn)
         this->nb_pending_vaccess--;
         this->nb_pending_vstore--;
     }
-#endif
 
     // Mark the instruction as done. THe FSM will remove it when it is at the head of the queue
     pending_insn->done = true;
@@ -327,7 +323,7 @@ void Vu::insn_end(PendingInsn *pending_insn)
     }
 
     // Commit the instruction. This may unblock other instructions waiting for float registers
-    this->iss.arch.insn_commit(pending_insn);
+    this->insn_commit(pending_insn);
 
     // Enable the FSM to let it handle the pending instructions
     this->fsm_event.enable();
@@ -387,7 +383,7 @@ void Vu::isa_init()
     // offloaded to ara
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_isa("v"))
     {
-        insn->u.insn.stub_handler = &Spatz::vector_insn_stub_handler;
+        insn->u.insn.stub_handler = &Vu::vector_insn_stub_handler;
         // Vector instructions need to be handled differently in cva6
         insn->u.insn.flags |= ISS_INSN_FLAGS_VECTOR;
     }
@@ -471,4 +467,46 @@ void Vu::dump_regs_to_trace(iss_insn_t *insn, PendingInsn *pending_insn, int nb_
             }
         }
     }
+}
+
+void Vu::insn_commit(PendingInsn *pending_insn)
+{
+    iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
+
+    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", insn->addr);
+
+    this->iss.exec.insn_terminate(pending_insn->entry);
+}
+
+iss_reg_t Vu::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    // We stall the instruction if ara queue is full or if the instruction is vsetvli and
+    // the queue is nto empty to avoid issues with different vreg config
+    if (iss->arch.vu.queue_is_full() ||
+        insn->decoder_item->u.insn.block_id == -1 && !iss->arch.vu.queue_is_empty())
+    {
+        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
+            iss->arch.vu.queue_is_full() ? "Ara" : "Core", pc);
+
+        iss->exec.insn_stall();
+        return pc;
+    }
+
+    InsnEntry *entry = iss->exec.insn_hold(insn);
+
+    // Account vector loads and stores to synchronize with snitch
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID])
+    {
+        iss->arch.vu.nb_pending_vaccess++;
+    }
+
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VSTORE_ID])
+    {
+        iss->arch.vu.nb_pending_vaccess++;
+        iss->arch.vu.nb_pending_vstore++;
+    }
+
+    iss->arch.vu.insn_enqueue(entry);
+
+    return iss_insn_next(iss, insn, pc);
 }

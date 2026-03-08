@@ -20,55 +20,12 @@
 
 #include "cpu/iss_v2/include/iss.hpp"
 
-Spatz::Spatz(Iss &iss)
-: iss(iss), ara(iss)
+Ara::Ara(Iss &iss)
+: iss(iss), vu(iss)
 {
 }
 
-void Spatz::reset(bool active)
+void Ara::reset(bool active)
 {
-    this->ara.reset(active);
-}
-
-
-void Spatz::insn_commit(PendingInsn *pending_insn)
-{
-    iss_insn_t *insn = this->iss.exec.get_insn(pending_insn->entry);
-
-    this->iss.exec.trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx)\n", insn->addr);
-
-    this->iss.exec.insn_terminate(pending_insn->entry);
-}
-
-iss_reg_t Spatz::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    // We stall the instruction if ara queue is full or if the instruction is vsetvli and
-    // the queue is nto empty to avoid issues with different vreg config
-    if (iss->arch.ara.queue_is_full() ||
-        insn->decoder_item->u.insn.block_id == -1 && !iss->arch.ara.queue_is_empty())
-    {
-        iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "%s queue is full (pc: 0x%lx)\n",
-            iss->arch.ara.queue_is_full() ? "Ara" : "Core", pc);
-
-        iss->exec.insn_stall();
-        return pc;
-    }
-
-    InsnEntry *entry = iss->exec.insn_hold(insn);
-
-    // Account vector loads and stores to synchronize with snitch
-    if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID])
-    {
-        iss->arch.ara.nb_pending_vaccess++;
-    }
-
-    if (insn->decoder_item->u.insn.tags[ISA_TAG_VSTORE_ID])
-    {
-        iss->arch.ara.nb_pending_vaccess++;
-        iss->arch.ara.nb_pending_vstore++;
-    }
-
-    iss->arch.ara.insn_enqueue(entry);
-
-    return iss_insn_next(iss, insn, pc);
+    this->vu.reset(active);
 }

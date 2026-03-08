@@ -122,6 +122,24 @@ class Exception(IssModule):
         iss.isa.add_include('<cpu/iss_v2/include/exception.hpp>')
         iss.add_sources(['cpu/iss_v2/src/exception.cpp'])
 
+class Pmp(IssModule):
+    def gen(self, iss):
+        iss.isa.add_define('CONFIG_GVSOC_ISS_PMP', 'Pmp')
+        iss.isa.add_include('<cpu/iss_v2/include/pmp/pmp.hpp>')
+        iss.add_sources(["cpu/iss_v2/src/pmp.cpp"])
+
+class PmpEmpty(IssModule):
+    def gen(self, iss):
+        iss.isa.add_define('CONFIG_GVSOC_ISS_PMP', 'PmpEmpty')
+        iss.isa.add_include('<cpu/iss_v2/include/pmp/empty.hpp>')
+
+class Mmu(IssModule):
+    def gen(self, iss):
+        iss.isa.add_define('CONFIG_GVSOC_ISS_MMU', 'Mmu')
+        iss.isa.add_include('<cpu/iss_v2/include/mmu/mmu.hpp>')
+        iss.add_sources(["cpu/iss_v2/src/mmu.cpp"])
+        iss.isa.add_implem_include('<cpu/iss_v2/include/mmu/mmu_implem.hpp>')
+
 class MmuEmpty(IssModule):
     def gen(self, iss):
         iss.isa.add_define('CONFIG_GVSOC_ISS_MMU', 'MmuEmpty')
@@ -182,8 +200,6 @@ class RiscvCommon(st.Component):
             power_models: dict[str,Any]={},
             power_models_file: str=None,
             cluster_id: int=0,
-            mmu: bool=False,
-            pmp: bool=False,
             riscv_exceptions: bool=False,
             core: str='riscv',
             supervisor: bool=False,
@@ -329,7 +345,16 @@ class RiscvCommon(st.Component):
             modules['exception'] = Exception()
 
         if modules.get('mmu') is None:
-            modules['mmu'] = MmuEmpty()
+            if config.mmu:
+                modules['mmu'] = Mmu()
+            else:
+                modules['mmu'] = MmuEmpty()
+
+        if modules.get('pmp') is None:
+            if config.pmp:
+                modules['pmp'] = Pmp()
+            else:
+                modules['pmp'] = PmpEmpty()
 
         if modules.get('event') is None:
             modules['event'] = Event()

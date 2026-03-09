@@ -121,9 +121,11 @@ PendingInsn *Vu::pending_insn_alloc(InsnEntry *entry)
     pending_insn->entry = entry;
     pending_insn->nb_bytes_done = 0;
 
-    // TODO excludes vslide, vlse, vlxe, vsse and vsxe
     iss_insn_t *insn = this->iss.exec.get_insn(entry);
-    pending_insn->can_be_chained = insn->decoder_item->u.insn.block_id != Vu::vslide_id;
+    pending_insn->in_can_be_chained = insn->decoder_item->u.insn.block_id != Vu::vslide_id &&
+        insn->desc->chaining_factor != 0.0f;
+    pending_insn->out_can_be_chained = insn->decoder_item->u.insn.block_id != Vu::vslide_id &&
+        insn->desc->out_chaining_factor != 0.0f;
 
     return pending_insn;
 }
@@ -425,7 +427,9 @@ bool Vu::insn_ready(PendingInsn *insn)
 
     if (deps_mask == 0) return true;
 
-    if (insn->can_be_chained)
+    iss_insn_t *insn2 = this->iss.exec.get_insn(insn->entry);
+
+    if (insn->in_can_be_chained)
     {
         while (deps_mask)
         {
@@ -434,7 +438,7 @@ bool Vu::insn_ready(PendingInsn *insn)
 
             int chunk_size = this->nb_lanes * 8;
 
-            if (!dep_insn->can_be_chained || dep_insn->nb_bytes_done * insn->out_chaining_factor <
+            if (!dep_insn->out_can_be_chained || dep_insn->nb_bytes_done * dep_insn->out_chaining_factor <
                     (insn->nb_bytes_done + chunk_size) * insn->chaining_factor)
                 return false;
 

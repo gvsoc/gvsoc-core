@@ -115,7 +115,12 @@ void VuCompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->vu.current_insn_reg = pending_insn->reg;
             _this->vu.current_insn_reg_2 = pending_insn->reg_2;
 
+            _this->vu.insn_latency = 0;
             _this->vu.exec_insn_chunk(insn, pending_insn, _this->vstart, _this->vend, nb_elem_per_cycle);
+            if (_this->vu.insn_latency > 0)
+            {
+                pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + _this->vu.insn_latency - 1;
+            }
 
             _this->vstart += nb_elem_per_cycle;
             _this->vend = std::min((int)_this->vu.iss.csr.vl.value,

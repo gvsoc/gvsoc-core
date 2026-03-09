@@ -2887,6 +2887,9 @@ static inline iss_reg_t vfredmax_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
     vfred_saved_value_set(iss, insn, sewb, lmul, res);
 
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->arch.vu.insn_handle_reduction();
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -2904,6 +2907,10 @@ static inline iss_reg_t vfredmin_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t p
         }
     }
     velem_set_value(iss, REG_OUT(0), 0, sewb, res);
+
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->arch.vu.insn_handle_reduction();
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -2921,6 +2928,9 @@ static inline iss_reg_t vfredusum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
         }
     }
     vfred_saved_value_set(iss, insn, sewb, lmul, res);
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->arch.vu.insn_handle_reduction();
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -2938,6 +2948,9 @@ static inline iss_reg_t vfredosum_vs_exec(Iss *iss, iss_insn_t *insn, iss_reg_t 
         }
     }
     vfred_saved_value_set(iss, insn, sewb, lmul, res);
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->arch.vu.insn_handle_reduction();
+#endif
     return iss_insn_next(iss, insn, pc);
 }
 

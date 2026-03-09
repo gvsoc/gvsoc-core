@@ -42,7 +42,8 @@ public:
     bool valid;
     bool done;
     int id;
-    bool can_be_chained;
+    bool in_can_be_chained;
+    bool out_can_be_chained;
     int nb_bytes_done;
     float chaining_factor;
     float out_chaining_factor;
@@ -262,7 +263,7 @@ private:
     // Event for PC of instruction being processed
     vp::Trace event_pc;
     // Event for label of instruction being processed
-    vp::Trace event_label;
+    vp::Event event_label;
     // Clock event used for scheduling FSM handler when at least one instruction has to be processed
     vp::ClockEvent fsm_event;
     // Queue of pending instructions to be processed by this block
@@ -364,6 +365,7 @@ public:
     int vend;
     vp::Trace trace;
     uint64_t saved_value;
+    void insn_handle_reduction();
 
 private:
     void insn_commit(PendingInsn *pending_insn);
@@ -415,6 +417,7 @@ private:
     std::vector<uint64_t> insns_out_deps;
     uint64_t writing_insns[32];
     uint64_t reading_insns[32];
+    int insn_latency;
 };
 
 inline int Vu::alloc_id()
@@ -444,4 +447,9 @@ inline void Vu::exec_insn_chunk(iss_insn_t *insn, PendingInsn *pending_insn, int
 #ifdef VP_TRACE_ACTIVE
     this->dump_regs_to_trace(insn, pending_insn, nb_elem, true);
 #endif
+}
+
+inline void Vu::insn_handle_reduction()
+{
+    this->insn_latency = 3;
 }

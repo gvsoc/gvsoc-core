@@ -21,9 +21,10 @@
 #include <cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp>
 
 VuLsu::VuLsu(Vu &vu, Iss &iss)
-: VuBlock(&iss, "vlsu"), vu(vu),
+: VuBlock(&vu, "vlsu"), vu(vu),
 nb_pending_insn(*this, "nb_pending_insn", 8, true),
-fsm_event(this, &VuLsu::fsm_handler)
+fsm_event(this, &VuLsu::fsm_handler),
+event_label(*this, "label", 0, gv::Vcd_event_type_string)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->traces.new_trace_event("active", &this->event_active, 1);
@@ -32,7 +33,6 @@ fsm_event(this, &VuLsu::fsm_handler)
     this->traces.new_trace_event("is_write", &this->event_is_write, 1);
     this->traces.new_trace_event("pc", &this->event_pc, 64);
     this->traces.new_trace_event("queue", &this->event_queue, 64);
-    this->traces.new_trace_event_string("label", &this->event_label);
 
     this->insns.resize(VuLsu::queue_size);
 
@@ -182,7 +182,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->event_addr.event_highz();
         _this->event_size.event_highz();
         _this->event_is_write.event(&zero);
-        _this->event_label.event_string((char *)1, false);
+        _this->event_label.dump_highz();
 
         _this->fsm_event.disable();
     }
@@ -197,7 +197,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->pending_size == 0)
         {
             iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
-            _this->event_label.event_string(insn->desc->label, false);
+            _this->event_label.dump(insn->desc->label);
             _this->event_pc.event((uint8_t *)&insn->addr);
 
             ((void (*)(VuLsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);

@@ -110,6 +110,8 @@ public:
     PendingInsn *insn;
     // Number of pending bursts. This is used to detect when the instruction is fully done.
     int nb_pending_bursts;
+    // Used by some blocks to flag the termination
+    bool done;
 };
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)

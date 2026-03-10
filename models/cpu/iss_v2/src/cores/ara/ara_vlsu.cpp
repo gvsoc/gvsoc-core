@@ -104,30 +104,34 @@ void VuLsu::handle_insn_load(VuLsu *_this, iss_insn_t *insn)
 {
     // A load instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
+    VuLsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
     unsigned int sewb = _this->vu.iss.vector.sewb;
     unsigned int lmul = _this->vu.iss.vector.lmul;
     _this->pending_velem = velem_get(&_this->vu.iss, insn->out_regs[0], 0, sewb, lmul);
-    _this->pending_addr = _this->insns[_this->insn_first_waiting].insn->reg;
+    _this->pending_addr = slot.insn->reg;
     _this->pending_is_write = false;
     int elem_size = insn->uim[1] >= 5 ? 1 << (insn->uim[1] - 4) : 1 << 0;
     _this->elem_size = elem_size;
     _this->pending_size = (_this->vu.iss.csr.vl.value - _this->vu.iss.csr.vstart.value) * elem_size;
     _this->vstart = _this->vu.iss.csr.vstart.value;
+    slot.done = 0;
 }
 
 void VuLsu::handle_insn_store(VuLsu *_this, iss_insn_t *insn)
 {
     // A store instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
+    VuLsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
     unsigned int sewb = _this->vu.iss.vector.sewb;
     unsigned int lmul = _this->vu.iss.vector.lmul;
     _this->pending_velem = velem_get(&_this->vu.iss, insn->in_regs[1], 0, sewb, lmul);
-    _this->pending_addr = _this->insns[_this->insn_first_waiting].insn->reg;
+    _this->pending_addr = slot.insn->reg;
     _this->pending_is_write = true;
     int elem_size = insn->uim[1] >= 5 ? 1 << (insn->uim[1] - 4) : 1 << 0;
     _this->elem_size = elem_size;
     _this->pending_size = (_this->vu.iss.csr.vl.value - _this->vu.iss.csr.vstart.value) * elem_size;
     _this->vstart = _this->vu.iss.csr.vstart.value;
+    slot.done = 0;
 }
 
 void VuLsu::data_grant(vp::Block *__this, vp::IoReq *req)
@@ -265,6 +269,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             // Switch to next instruction once all burst have been sent
             if (_this->pending_size == 0)
             {
+                slot.done = true;
                 _this->nb_waiting_insn--;
                 _this->insn_first_waiting = (_this->insn_first_waiting + 1) % VuLsu::queue_size;
             }
@@ -283,7 +288,8 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         VuLsuPendingInsn &slot = _this->insns[_this->insn_first];
         PendingInsn *pending_insn = slot.insn;
-        if (slot.nb_pending_bursts == 0 && _this->pending_size == 0 &&
+
+        if (slot.nb_pending_bursts == 0 && slot.done &&
             pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
         {
             _this->insn_first = (_this->insn_first + 1) % VuLsu::queue_size;

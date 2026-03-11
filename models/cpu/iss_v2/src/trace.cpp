@@ -26,7 +26,6 @@ Trace::Trace(Iss &iss)
     : iss(iss)
 {
     this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
-    this->insn_trace.register_callback(std::bind(&Trace::insn_trace_callback, this));
     iss_trace_init(&this->iss);
 
     for (auto x : this->iss.get_js_config()->get("**/debug_binaries")->get_elems())
@@ -36,10 +35,6 @@ Trace::Trace(Iss &iss)
 
     this->first_entry = NULL;
 
-    this->iss.traces.new_trace_event("state", &state_event, 8);
-    this->iss.traces.new_trace_event("pc", &pc_trace_event, 32);
-    this->iss.traces.new_trace_event("active_pc", &active_pc_trace_event, 32);
-    this->pc_trace_event.register_callback(std::bind(&Trace::insn_trace_callback, &this->iss.trace));
     this->iss.traces.new_trace_event_string("asm", &insn_trace_event);
     this->iss.traces.new_trace_event_string("func", &func_trace_event);
     this->iss.traces.new_trace_event_string("inline_func", &inline_trace_event);
@@ -74,6 +69,20 @@ void Trace::reset(bool active)
 {
     if (active)
     {
+        if (this->declare_binaries)
+        {
+            if (this->iss.get_js_config()->get("**/binaries") != NULL)
+            {
+                std::string binaries = "static_enable";
+                for (auto x : this->iss.get_js_config()->get("**/binaries")->get_elems())
+                {
+                    binaries += ":" + x->get_str();
+                }
+
+                this->binaries_trace_event.event_string(binaries.c_str(), true);
+            }
+            this->declare_binaries = false;
+        }
     }
 }
 
@@ -878,12 +887,4 @@ void Trace::dump_debug_traces()
         this->file_trace_event.event_string(file, false);
         this->line_trace_event.event((uint8_t *)&line);
     }
-}
-
-
-void Trace::insn_trace_callback()
-{
-    // This is called when the state of the instruction trace has changed, we need
-    // to flush the ISS instruction cache, as it keeps the state of the trace
-    this->iss.insn_cache.flush();
 }

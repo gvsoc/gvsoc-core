@@ -370,7 +370,7 @@ void vp::ClockEngine::dump_traces()
     this->trace_flush_head = NULL;
     while (event)
     {
-        event->dump_next();
+        event->dump_next_values();
         event = event->next_get();
     }
 #endif

@@ -74,18 +74,18 @@ inline void ExecInOrder::insn_exec_profiling()
     this->irq_enter.set(0);
     this->irq_exit.set(0);
 
-    if (this->iss.timing.pc_trace_event.get_event_active())
+    if (this->iss.timing.pc_trace_event.active_get())
     {
-        this->iss.timing.pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn);
+        this->iss.timing.pc_trace_event.dump((uint8_t *)&this->iss.exec.current_insn);
     }
-    if (this->iss.timing.active_pc_trace_event.get_event_active())
+    if (this->iss.timing.active_pc_trace_event.active_get())
     {
-        this->iss.timing.active_pc_trace_event.event((uint8_t *)&this->iss.exec.current_insn);
+        this->iss.timing.active_pc_trace_event.dump((uint8_t *)&this->iss.exec.current_insn);
     }
-    if (this->iss.timing.func_trace_event.get_event_active() ||
-        this->iss.timing.inline_trace_event.get_event_active() ||
-        this->iss.timing.file_trace_event.get_event_active() ||
-        this->iss.timing.line_trace_event.get_event_active())
+    if (this->iss.trace.func_trace_event.get_event_active() ||
+        this->iss.trace.inline_trace_event.get_event_active() ||
+        this->iss.trace.file_trace_event.get_event_active() ||
+        this->iss.trace.line_trace_event.get_event_active())
     {
         this->iss.trace.dump_debug_traces();
     }

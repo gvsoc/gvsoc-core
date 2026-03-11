@@ -47,7 +47,6 @@ public:
     void stop() {}
     void reset(bool active);
 
-    void insn_trace_callback();
     void dump_debug_traces();
 
     void insn_trace_start(iss_insn_t *insn, iss_reg_t pc);
@@ -62,18 +61,6 @@ public:
     std::string str_dump;
     inline TraceEntry *detach_entry();
 
-private:
-
-    TraceEntry *get_entry();
-    void release_entry(TraceEntry *entry);
-
-    Iss &iss;
-
-    TraceEntry *first_entry;
-
-    vp::Trace state_event;
-    vp::Trace pc_trace_event;
-    vp::Trace active_pc_trace_event;
     vp::Trace func_trace_event;
     vp::Trace inline_trace_event;
     vp::Trace line_trace_event;
@@ -83,8 +70,17 @@ private:
     vp::Trace user_line_trace_event;
     vp::Trace user_file_trace_event;
     vp::Trace binaries_trace_event;
-    vp::Trace pcer_trace_event[32];
     vp::Trace insn_trace_event;
+private:
+
+    TraceEntry *get_entry();
+    void release_entry(TraceEntry *entry);
+
+    Iss &iss;
+
+    TraceEntry *first_entry;
+
+    bool declare_binaries = true;
 };
 
 void iss_trace_save_args(Iss *iss, iss_insn_t *insn, bool save_out, TraceEntry *entry);

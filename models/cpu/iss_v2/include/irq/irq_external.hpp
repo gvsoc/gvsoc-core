@@ -59,5 +59,4 @@ public:
     int irq_req_value;
     vp::WireMaster<int> irq_ack_itf;
     vp::WireSlave<int> irq_req_itf;
-    InsnEntry *wfi_entry;
 };

@@ -135,9 +135,9 @@ inline void Timing::event_store_account(int incr)
     this->event_account(CSR_PCER_ST, incr);
 }
 
-inline void Timing::event_branch_account(int incr)
+inline void Timing::event_branch_account()
 {
-    this->event_account(CSR_PCER_BRANCH, incr);
+    this->event_account(CSR_PCER_BRANCH, 1);
 }
 
 inline void Timing::event_taken_branch_account(int incr)

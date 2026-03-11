@@ -21,15 +21,17 @@
 
 #pragma once
 
-class Event
+#include <vp/vp.hpp>
+
+class Events
 {
 public:
 
-    Event(Iss &iss);
+    Events(Iss &iss);
 
     void start() {}
     void stop() {}
-    void reset(bool active) {}
+    void reset(bool active);
 
     inline void stall_fetch_account(int count){}
     inline void stall_taken_branch_account(){}
@@ -45,13 +47,16 @@ public:
     inline void insn_stall_start(){}
     inline void insn_stall_stop(){}
 
-    inline void event_load_account(int incr){}
-    inline void event_rvc_account(int incr){}
-    inline void event_store_account(int incr){}
-    inline void event_branch_account(int incr){}
-    inline void event_taken_branch_account(int incr){}
-    inline void event_jump_account(int incr){}
-    inline void event_misaligned_account(int incr){}
+    inline void event_cycle_enable();
+    inline void event_cycle_disable();
+    inline void event_instr_account();
+    inline void event_load_account(int incr);
+    inline void event_rvc_account(int incr);
+    inline void event_store_account(int incr);
+    inline void event_branch_account();
+    inline void event_taken_branch_account();
+    inline void event_jump_account();
+    inline void event_misaligned_account(int incr);
     inline void event_apu_contention_account(int incr){}
     inline void event_load_load_account(int incr){}
 
@@ -65,30 +70,30 @@ public:
     inline void event_account(unsigned int event, int incr){}
     inline void handle_pending_events(){}
 
+    vp::Event state_event;
+    vp::Event pc_trace_event;
 
-    vp::Trace state_event;
-    vp::Trace pc_trace_event;
-    vp::Trace active_pc_trace_event;
-    vp::Trace func_trace_event;
-    vp::Trace inline_trace_event;
-    vp::Trace line_trace_event;
-    vp::Trace file_trace_event;
-    vp::Trace user_func_trace_event;
-    vp::Trace user_inline_trace_event;
-    vp::Trace user_line_trace_event;
-    vp::Trace user_file_trace_event;
-    vp::Trace binaries_trace_event;
-    vp::Trace pcer_trace_event[32];
-    int64_t pcer_trace_pending_cycles[32];
-    vp::Trace insn_trace_event;
+
+    vp::Event active_pc_trace_event;
     std::vector<vp::PowerSource> insn_groups_power;
     vp::PowerSource power_stall_first;
     vp::PowerSource power_stall_next;
     vp::PowerSource background_power;
-    uint32_t pcer_trace_active_events;
 
-private:
+protected:
 
     Iss &iss;
-    bool declare_binaries = true;
+
+    vp::Event event_cycles;
+    vp::Event event_instr;
+    vp::Event event_ld_stall;
+    vp::Event event_jmp_stall;
+    vp::Event event_imiss;
+    vp::Event event_ld;
+    vp::Event event_st;
+    vp::Event event_jump;
+    vp::Event event_branch;
+    vp::Event event_taken_branch;
+    vp::Event event_rvc;
+    vp::Event event_misaligned;
 };

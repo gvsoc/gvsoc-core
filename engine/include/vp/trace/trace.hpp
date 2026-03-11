@@ -53,14 +53,17 @@ class Event
 public:
     Event(vp::Block &parent, const char *name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical);
+    // To be removed
     inline void dump_value(uint8_t *value, int64_t time_delay=0);
+    inline void dump(uint8_t *value, int64_t time_delay=0);
+    void dump_next(uint8_t *value, int64_t cycles=1, int64_t time_delay=0);
     inline void dump(const char *value, int64_t time_delay=0);
     inline void dump_highz(int64_t time_delay=0);
     void dump_highz_next();
     std::string path_get();
     void enable_set(bool enabled, vp::Event_file *file=NULL);
     inline bool active_get() { return this->dump_callback != NULL; }
-    void dump_next();
+    void dump_next_values();
     void next_set(vp::Event *next) { this->next = next; }
     vp::Event *next_get() { return this->next; }
 
@@ -99,6 +102,7 @@ private:
     uint8_t *next_flags;
     vp::Event *next;
     bool has_next_value = false;
+    int64_t next_value_cyclestamp;
 };
 #else
 class Event {
@@ -106,6 +110,8 @@ public:
     Event(vp::Block &parent, std::string_view name, int width=64,
         gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
     void dump_value(uint8_t *value, int64_t time_delay=0) {}
+    void dump(uint8_t *value, int64_t time_delay=0) {}
+    void dump_next(uint8_t *value, int64_t cycles=1, int64_t time_delay=0) {}
     void dump(const char *value, int64_t time_delay=0) {}
     void dump_highz(int64_t time_delay=0) {}
     void dump_highz_next() {}

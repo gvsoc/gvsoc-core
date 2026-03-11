@@ -71,6 +71,7 @@ void ExecInOrder::reset(bool active)
 {
     if (active)
     {
+        this->stall_cycles = 0;
         this->pending_flush = false;
         this->clock_active = false;
         this->skip_irq_check = true;
@@ -98,7 +99,22 @@ void ExecInOrder::reset(bool active)
     }
 }
 
+void ExecInOrder::sleep_enter(iss_insn_t *insn)
+{
+    this->busy_exit();
+    this->wfi.set(true);
+    this->wfi_start = this->iss.clock.get_cycles();
+    this->retain_inc();
+    this->wfi_entry = this->insn_hold(insn);
+}
 
+void ExecInOrder::sleep_exit()
+{
+    this->busy_enter();
+    this->iss.exec.wfi.set(false);
+    this->iss.exec.retain_dec();
+    this->iss.exec.insn_terminate(this->wfi_entry);
+}
 
 void ExecInOrder::icache_flush()
 {
@@ -134,10 +150,16 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *const iss = (Iss *)__this;
 
+    if (unlikely(iss->exec.stall_cycles > 0))
+    {
+        iss->exec.stall_cycles--;
+        return;
+    }
+
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
     // Leave now in case the core is retained and we are only executing tasks
-    if (iss->exec.handle_tasks()) return;
+    if (unlikely(iss->exec.handle_tasks())) return;
 
     iss_reg_t pc = iss->exec.current_insn;
 
@@ -199,6 +221,12 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *iss = (Iss *)__this;
     ExecInOrder *_this = &iss->exec;
+
+    if (unlikely(iss->exec.stall_cycles > 0))
+    {
+        iss->exec.stall_cycles--;
+        return;
+    }
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
@@ -289,7 +317,7 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
         _this->asm_trace_event.event_string(insn->desc->label, false);
 
-        _this->iss.timing.insn_account();
+        _this->iss.timing.event_instr_account();
 
         _this->insn_exec_power(insn);
 
@@ -335,7 +363,6 @@ void ExecInOrder::retain_check()
         if (this->instr_disabled)
         {
             this->instr_disabled = false;
-            this->busy_enter();
             this->instr_event.enable();
         }
     }
@@ -345,7 +372,6 @@ void ExecInOrder::retain_check()
         {
             this->instr_disabled = true;
             this->instr_event.disable();
-            this->busy_exit();
         }
     }
 }
@@ -366,7 +392,8 @@ void ExecInOrder::retain_dec()
 void ExecInOrder::busy_enter()
 {
     uint8_t one = 1;
-    this->iss.timing.state_event.event(&one);
+    this->iss.timing.state_event.dump(&one);
+    this->iss.timing.event_cycle_enable();
     this->busy.set(1);
     if (this->busy_itf.is_bound())
     {
@@ -376,15 +403,16 @@ void ExecInOrder::busy_enter()
 
 void ExecInOrder::busy_exit()
 {
-    this->iss.timing.state_event.event_highz();
+    this->iss.timing.state_event.dump_highz();
+    this->iss.timing.event_cycle_disable();
     this->busy.release();
     if (this->busy_itf.is_bound())
     {
         this->busy_itf.sync(0);
     }
-    if (this->iss.timing.active_pc_trace_event.get_event_active())
+    if (this->iss.timing.active_pc_trace_event.active_get())
     {
-        this->iss.timing.active_pc_trace_event.event_highz();
+        this->iss.timing.active_pc_trace_event.dump_highz();
     }
 }
 

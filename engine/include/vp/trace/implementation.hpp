@@ -63,6 +63,10 @@ namespace vp {
             callback(this, (uint8_t *)value, time_delay, NULL);
         }
     }
+    inline void vp::Event::dump(uint8_t *value, int64_t time_delay)
+    {
+        this->dump_value(value, time_delay);
+    }
 
     #endif
 

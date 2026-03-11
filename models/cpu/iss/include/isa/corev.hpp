@@ -711,14 +711,18 @@ static inline iss_reg_t cv_bneimm_exec_common(Iss *iss, iss_insn_t *insn, iss_re
 {
     if ((int32_t)REG_GET(0) != SIM_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }
@@ -738,14 +742,18 @@ static inline iss_reg_t cv_beqimm_exec_common(Iss *iss, iss_insn_t *insn, iss_re
 {
     if ((int32_t)REG_GET(0) == SIM_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }

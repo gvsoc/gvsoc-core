@@ -126,10 +126,7 @@ void IrqExternal::wfi_handle(iss_insn_t *insn)
     // so we have to check now if we can really go to sleep.
     if (this->req_irq == -1)
     {
-        this->iss.exec.wfi.set(true);
-        this->iss.exec.wfi_start = this->iss.clock.get_cycles();
-        this->iss.exec.retain_inc();
-        this->wfi_entry = this->iss.exec.insn_hold(insn);
+        this->iss.exec.sleep_enter(insn);
     }
 }
 
@@ -143,9 +140,7 @@ void IrqExternal::irq_req_sync(vp::Block *__this, int irq)
 
     if (irq != -1 && _this->iss.exec.wfi.get())
     {
-        _this->iss.exec.wfi.set(false);
-        _this->iss.exec.retain_dec();
-        _this->iss.exec.insn_terminate(_this->wfi_entry);
+        _this->iss.exec.sleep_exit();
     }
 
     _this->iss.exec.switch_to_full_mode();

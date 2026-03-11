@@ -46,7 +46,7 @@ public:
     inline void event_load_account(int incr);
     inline void event_rvc_account(int incr);
     inline void event_store_account(int incr);
-    inline void event_branch_account(int incr);
+    inline void event_branch_account();
     inline void event_taken_branch_account(int incr);
     inline void event_jump_account(int incr);
     inline void event_misaligned_account(int incr);

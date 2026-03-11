@@ -97,7 +97,7 @@ typedef struct
     uint64_t flags;
 } __attribute__((packed)) event_string_t;
 
-void vp::Event::dump_next()
+void vp::Event::dump_next_values()
 {
     this->has_next_value = false;
     EventDumpCallback callback = (EventDumpCallback)this->dump_callback;
@@ -455,9 +455,16 @@ void vp::Event::dump_highz_next()
 {
     if (this->next_value_fill_callback)
     {
+        uint64_t cycles = this->parent.clock.get_cycles() + 1;
         uint64_t value = 0;
         uint64_t highz = (uint64_t)-1;
         this->next_value_fill_callback(this, (uint8_t *)&value, (uint8_t *)&highz);
+
+        if (!this->has_next_value || cycles < this->next_value_cyclestamp)
+        {
+            this->next_value_cyclestamp = cycles;
+        }
+
         if (!this->has_next_value)
         {
             this->has_next_value = true;
@@ -465,4 +472,27 @@ void vp::Event::dump_highz_next()
         }
     }
 }
+
+void vp::Event::dump_next(uint8_t *value, int64_t cycles, int64_t time_delay)
+{
+    if (this->next_value_fill_callback)
+    {
+        uint64_t cyclestamp = this->parent.clock.get_cycles() + cycles;
+        uint64_t value = 0;
+        uint64_t flags = 0;
+        this->next_value_fill_callback(this, (uint8_t *)&value, (uint8_t *)&flags);
+
+        if (!this->has_next_value || cycles < this->next_value_cyclestamp)
+        {
+            this->next_value_cyclestamp = cycles;
+        }
+
+        if (!this->has_next_value)
+        {
+            this->has_next_value = true;
+            this->parent.clock.get_engine()->enqueue_trace_event(this);
+        }
+    }
+}
+
 #endif

@@ -43,6 +43,9 @@ public:
 
     void pc_set(iss_addr_t value);
 
+    void sleep_enter(iss_insn_t *insn);
+    void sleep_exit();
+
     inline bool is_retained() { return this->retained.get() > 0; }
 
     inline iss_reg_t insn_exec(iss_insn_t *insn, iss_reg_t pc);
@@ -67,6 +70,8 @@ public:
     inline void insn_exec_power(iss_insn_t *insn);
 
     inline void interrupt_taken();
+
+    inline void stall_cycles_inc(int inc) { this->stall_cycles += inc; }
 
     iss_reg_t current_insn;
     vp::ClockEvent instr_event;
@@ -137,4 +142,6 @@ private:
     bool is_insn_hold;
     InsnEntry *first_entry = NULL;
     Task *first_task;
+    InsnEntry *wfi_entry;
+    int stall_cycles;
 };

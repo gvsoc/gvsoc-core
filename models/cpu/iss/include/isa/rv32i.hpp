@@ -68,7 +68,11 @@ static inline iss_reg_t jal_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     unsigned int D = insn->out_regs[0];
     if (D != 0)
         REG_SET(0, pc + insn->size);
+#if defined(CONFIG_GVSOC_ISS_V2)
+    iss->timing.event_jump_account();
+#else
     iss->timing.stall_jump_account();
+#endif
     iss->core.event_jal.event((uint8_t *)&iss->exec.current_insn);
     return pc + insn->sim[0];
 }
@@ -127,14 +131,18 @@ static inline iss_reg_t beq_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
     if (REG_GET(0) == REG_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }
@@ -158,14 +166,18 @@ static inline iss_reg_t bne_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
     if (REG_GET(0) != REG_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }
@@ -189,14 +201,18 @@ static inline iss_reg_t blt_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
     if ((iss_sim_t)REG_GET(0) < (iss_sim_t)REG_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }
@@ -220,14 +236,18 @@ static inline iss_reg_t bge_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t pc
 
     if ((iss_sim_t)REG_GET(0) >= (iss_sim_t)REG_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }
@@ -251,14 +271,18 @@ static inline iss_reg_t bltu_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
     if (REG_GET(0) < REG_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }
@@ -282,14 +306,18 @@ static inline iss_reg_t bgeu_exec_common(Iss *iss, iss_insn_t *insn, iss_reg_t p
 
     if (REG_GET(0) >= REG_GET(1))
     {
+#if defined(CONFIG_GVSOC_ISS_V2)
+        iss->timing.event_taken_branch_account();
+#else
         iss->timing.stall_taken_branch_account();
+#endif
         return pc + SIM_GET(0);
     }
     else
     {
         if (perf)
         {
-            iss->timing.event_branch_account(1);
+            iss->timing.event_branch_account();
         }
         return iss_insn_next(iss, insn, pc);
     }

@@ -260,7 +260,14 @@ if os.environ.get('USE_GVRUN') is None:
 
             gapy_target.register_command_handler(self.gv_handle_command)
 
+            gapy_target.commands.append(
+                ['diagram', 'Generate a Graphviz architecture diagram of the target']
+            )
 
+            if parser is not None:
+                parser.add_argument("--no-group", dest="no_group", action="store_true",
+                    default=False,
+                    help="For diagram command: show all instances instead of grouping similar components")
 
             [args, _] = parser.parse_known_args()
 
@@ -324,6 +331,15 @@ if os.environ.get('USE_GVRUN') is None:
 
             if cmd == 'run':
                 self.run()
+                return True
+
+            elif cmd == 'diagram':
+                from gvrun.diagram import generate_diagram
+                output = 'architecture.dot'
+                target_name = getattr(self.gapy_target, 'name', None) or 'GVSoC Target'
+                no_group = getattr(self.gapy_target.get_args(), 'no_group', False)
+                generate_diagram(self.target, output, target_name=target_name,
+                    group_similar=not no_group)
                 return True
 
             elif cmd == 'regmap_copy':
@@ -1131,6 +1147,15 @@ else:
 
                 if cmd == 'run':
                     self.run()
+                    return True
+
+                elif cmd == 'diagram':
+                    from gvrun.diagram import generate_diagram
+                    output = 'architecture.dot'
+                    target_name = getattr(args, 'target', None) or 'GVSoC Target'
+                    no_group = getattr(args, 'no_group', False)
+                    generate_diagram(self.target, output, target_name=target_name,
+                        group_similar=not no_group)
                     return True
 
                 elif cmd == 'regmap_copy':

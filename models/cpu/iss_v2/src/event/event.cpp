@@ -28,6 +28,7 @@ pc_trace_event(iss, "pc", ISS_REG_WIDTH),
 
 event_cycles(iss, "event_cycles", 1),
 event_instr(iss, "event_instr", 1),
+event_fetch(iss, "event_fetch", 1),
 event_ld_stall(iss, "event_ld_stall", 1),
 event_jmp_stall(iss, "event_jmp_stall", 1),
 event_imiss(iss, "event_imiss", 1),

@@ -172,7 +172,11 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
         }
     }
 
-    this->iss.timing.stall_fetch_account(req->get_latency());
+    this->iss.timing.event_fetch_account();
+    if (req->get_latency() > 1)
+    {
+        this->iss.timing.event_imiss_account(req->get_latency());
+    }
 
     return 0;
 }

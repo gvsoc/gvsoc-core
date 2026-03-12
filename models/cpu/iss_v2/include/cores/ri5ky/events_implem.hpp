@@ -24,6 +24,12 @@
 #include <cpu/iss_v2/include/cores/ri5ky/events.hpp>
 #include <cpu/iss_v2/include/event/event_implem.hpp>
 
+inline void Ri5kyEvents::event_imiss_account(int cycles)
+{
+    Events::event_imiss_account(cycles);
+    this->iss.exec.stall_cycles_inc(cycles);
+}
+
 inline void Ri5kyEvents::event_taken_branch_account()
 {
     Events::event_taken_branch_account();

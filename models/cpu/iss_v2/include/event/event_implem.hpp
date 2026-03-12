@@ -41,6 +41,20 @@ inline void Events::event_instr_account()
     this->event_instr.dump_next(&zero);
 }
 
+inline void Events::event_fetch_account()
+{
+    uint8_t one = 1, zero = 0;
+    this->event_fetch.dump(&one);
+    this->event_fetch.dump_next(&zero);
+}
+
+inline void Events::event_imiss_account(int incr)
+{
+    uint8_t one = 1, zero = 0;
+    this->event_imiss.dump(&one);
+    this->event_imiss.dump_next(&zero, incr);
+}
+
 inline void Events::event_load_account(int incr)
 {
     uint8_t one = 1, zero = 0;

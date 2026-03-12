@@ -27,6 +27,7 @@ class Ri5kyEvents : public Events
 {
 public:
     Ri5kyEvents(Iss &iss) : Events(iss) {}
+    inline void event_imiss_account(int cycles);
     inline void event_taken_branch_account();
     inline void event_jump_account();
 };

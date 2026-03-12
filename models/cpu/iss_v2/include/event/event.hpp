@@ -50,6 +50,8 @@ public:
     inline void event_cycle_enable();
     inline void event_cycle_disable();
     inline void event_instr_account();
+    inline void event_fetch_account();
+    inline void event_imiss_account(int incr);
     inline void event_load_account(int incr);
     inline void event_rvc_account(int incr);
     inline void event_store_account(int incr);
@@ -86,6 +88,7 @@ protected:
 
     vp::Event event_cycles;
     vp::Event event_instr;
+    vp::Event event_fetch;
     vp::Event event_ld_stall;
     vp::Event event_jmp_stall;
     vp::Event event_imiss;

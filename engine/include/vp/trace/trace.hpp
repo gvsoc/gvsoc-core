@@ -63,7 +63,7 @@ public:
     std::string path_get();
     void enable_set(bool enabled, vp::Event_file *file=NULL);
     inline bool active_get() { return this->dump_callback != NULL; }
-    void dump_next_values();
+    bool dump_next_values();
     void next_set(vp::Event *next) { this->next = next; }
     vp::Event *next_get() { return this->next; }
 

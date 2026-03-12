@@ -97,15 +97,20 @@ typedef struct
     uint64_t flags;
 } __attribute__((packed)) event_string_t;
 
-void vp::Event::dump_next_values()
+bool vp::Event::dump_next_values()
 {
-    this->has_next_value = false;
-    EventDumpCallback callback = (EventDumpCallback)this->dump_callback;
-
-    if (callback)
+    if (this->next_value_cyclestamp <= this->parent.clock.get_cycles())
     {
-        callback(this, this->next_value, 0, this->next_flags);
+        this->has_next_value = false;
+        EventDumpCallback callback = (EventDumpCallback)this->dump_callback;
+
+        if (callback)
+        {
+            callback(this, this->next_value, 0, this->next_flags);
+        }
+        return false;
     }
+    return true;
 }
 
 void vp::Event::dump_1(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags)
@@ -484,7 +489,7 @@ void vp::Event::dump_next(uint8_t *value, int64_t cycles, int64_t time_delay)
 
         if (!this->has_next_value || cycles < this->next_value_cyclestamp)
         {
-            this->next_value_cyclestamp = cycles;
+            this->next_value_cyclestamp = cyclestamp;
         }
 
         if (!this->has_next_value)

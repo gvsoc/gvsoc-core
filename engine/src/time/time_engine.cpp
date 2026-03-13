@@ -133,7 +133,10 @@ int64_t vp::TimeEngine::exec()
 
 int64_t vp::TimeEngine::run()
 {
-    return this->exec();
+    this->run_returned = false;
+    int64_t time = this->exec();
+    this->run_returned = true;
+    return time;
 }
 
 void vp::TimeEngine::bind_to_launcher(gv::Gvsoc_user *launcher)

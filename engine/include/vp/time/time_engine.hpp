@@ -133,5 +133,9 @@ namespace vp
 
         // Pointer to the top launcher
         gv::Gvsoc_user *launcher = NULL;
+
+        // Set to true when exec() returns after processing a stop request.
+        // Used by the signal handler to detect whether the engine is stuck in a callback.
+        volatile bool run_returned = false;
     };
 };

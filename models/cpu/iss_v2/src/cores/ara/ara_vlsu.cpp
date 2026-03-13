@@ -217,7 +217,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
         if (_this->vu.insn_ready(pending_insn))
         {
-            uint64_t size = std::min((iss_addr_t)_this->vu.nb_lanes / 2 * 8, _this->pending_size);
+            uint64_t size = std::min((iss_addr_t)_this->vu.nb_lanes * _this->vu.lane_width / 2, _this->pending_size);
             _this->trace.msg(vp::Trace::LEVEL_TRACE,
                 "Sending request (addr: 0x%lx, pending_size: 0x%lx, is_write: %d)\n",
                 _this->pending_addr, _this->pending_size, _this->pending_is_write);

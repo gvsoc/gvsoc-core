@@ -43,7 +43,10 @@ static void sigint_handler(int s)
 }
 
 // This thread takes care of properly stopping the engine when ctrl C is hit
-// so that the python world can properly close everything
+// so that the python world can properly close everything.
+// On first SIGINT, request a gentle quit via stop_req.
+// If the engine doesn't respond within 100ms (e.g. a model is stuck in an
+// infinite loop), warn the user and wait for a second Ctrl-C to force exit.
 void *gv::Controller::signal_routine(void *__this)
 {
     Controller *launcher = (Controller *)__this;
@@ -51,10 +54,35 @@ void *gv::Controller::signal_routine(void *__this)
     int caught;
     sigemptyset(&sigs_to_catch);
     sigaddset(&sigs_to_catch, SIGINT);
+
     do
     {
         sigwait(&sigs_to_catch, &caught);
-        launcher->handler->get_time_engine()->quit(-1);
+
+        vp::TimeEngine *engine = launcher->handler->get_time_engine();
+
+        if (engine->finished_get())
+        {
+            // Second Ctrl-C after quit was already requested — force exit
+            fprintf(stderr, "\n[\033[31mFATAL\033[0m] Forced exit\n");
+            _exit(1);
+        }
+
+        // First Ctrl-C: gentle quit (sets stop_req + finished)
+        engine->quit(-1);
+
+        // Wait 100ms for the engine to process stop_req and exit cleanly
+        struct timespec ts = {0, 100000000};
+        nanosleep(&ts, NULL);
+
+        // If exec() hasn't returned after 100ms, the engine is likely stuck
+        // in a model callback. Warn the user.
+        if (!engine->run_returned)
+        {
+            fprintf(stderr, "\n[\033[33mWARNING\033[0m] Engine is not responding "
+                "(likely stuck in a model). Press Ctrl-C again to force quit.\n");
+        }
+
     } while (1);
     return NULL;
 }

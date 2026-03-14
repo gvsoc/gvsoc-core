@@ -230,7 +230,7 @@ inline void Timing::stall_taken_branch_account()
 #ifndef CONFIG_GVSOC_ISS_SNITCH
     this->stall_cycles_account(2);
 #endif
-    this->event_branch_account(1);
+    this->event_branch_account();
     this->event_taken_branch_account(1);
 }
 

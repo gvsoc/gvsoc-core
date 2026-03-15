@@ -181,6 +181,7 @@ else:
                 options: list[str] | None=None, config: object=None, target_name: str | None=None):
             self.name = name
             self.parent = parent
+            self._component_config = config
             self.json_config_files = []
             self.components = {}
             self.properties = {}

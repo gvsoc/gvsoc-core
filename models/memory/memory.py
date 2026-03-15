@@ -65,6 +65,10 @@ class Memory(gvsoc.systree.Component):
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
             attributes: MemoryConfig | None=None):
 
+        # Always create a MemoryConfig for the compiled tree
+        if attributes is None:
+            attributes = MemoryConfig(size=size, atomics=atomics, latency=latency)
+
         super().__init__(parent, name, config=attributes)
 
         self.add_sources(['memory/memory.cpp'])

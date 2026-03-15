@@ -111,6 +111,15 @@ def gen_config(args, config, cosim_mode):
     return full_config, gvsoc_config_path
 
 
+def _strip_tree_data(config):
+    """Recursively remove data handled by the compiled tree .so."""
+    if hasattr(config, 'items') and isinstance(config.items, dict):
+        config.items.pop('bindings', None)
+        config.items.pop('vp_component', None)
+        config.items.pop('components', None)
+        for v in config.items.values():
+            _strip_tree_data(v)
+
 def dump_config(full_config, gvsoc_config_path):
     with open(gvsoc_config_path, 'w') as file:
         file.write(full_config.dump_to_string())
@@ -231,6 +240,21 @@ class Runner():
         self.full_config, self.gvsoc_config_path = gen_config(
             args, { 'target': self.target.get_config() }, cosim_mode)
 
+        # Set the platform tree library path based on target name
+        target_name = getattr(args, 'target', None) or getattr(gapy_target, 'name', None)
+        if target_name:
+            import re
+            # Strip inline parameters (e.g. "spatz_v2:param=val" -> "spatz_v2")
+            if ':' in target_name:
+                target_name = target_name.split(':')[0]
+            lib_name = re.sub(r'[^a-zA-Z0-9_]', '_', target_name)
+            gvsoc_config = self.full_config.get('target/gvsoc')
+            models_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            tree_lib = os.path.join(models_dir, '..', 'lib', f'libplatform_tree_{lib_name}.so')
+            tree_lib = os.path.normpath(tree_lib)
+            if os.path.exists(tree_lib):
+                gvsoc_config.set('platform_tree', tree_lib)
+
         if args.gdbserver:
             self.full_config.set('**/gdbserver/enabled', True)
             self.full_config.set('**/gdbserver/port', args.gdbserver_port)
@@ -282,15 +306,50 @@ class Runner():
 
         self.args = args
 
+    def _collect_config_classes(self, component):
+        """Walk the component tree and collect unique Config classes for header generation."""
+        from dataclasses import is_dataclass
+        classes = {}
+        config = getattr(component, '_component_config', None)
+        if config is not None and is_dataclass(config):
+            cls = type(config)
+            if cls.__name__ not in classes:
+                classes[cls.__name__] = cls
+        for child in getattr(component, 'components', {}).values():
+            classes.update(self._collect_config_classes(child))
+        return classes
+
+    def _generate_platform_tree(self, target, builddir, component_file):
+        """Generate config headers and compiled component tree .cpp."""
+        import re as _re
+
+        try:
+            from gvrun.config_gen import generate_cpp_header
+            from gvrun.tree_gen import generate_tree_cpp
+        except ImportError as e:
+            print(f'Warning: could not import tree generators: {e}')
+            return
+
+        config_classes = self._collect_config_classes(target)
+        for cls_name, config_cls in config_classes.items():
+            mod_parts = config_cls.__module__.split('.')
+            subdir = mod_parts[0] if len(mod_parts) >= 2 else ''
+            snake = _re.sub(r'(?<!^)(?=[A-Z])', '_', cls_name).lower()
+            header_dir = os.path.join(builddir, subdir)
+            header_path = os.path.join(header_dir, f'{snake}.hpp')
+            generate_cpp_header(config_cls, output_path=header_path)
+
+        base = os.path.splitext(component_file)[0]
+        tree_cpp = base + '.tree.cpp'
+        generate_tree_cpp(target, output_path=tree_cpp)
+
     def gv_handle_command(self, cmd, args):
 
         if cmd == 'prepare':
             self.run(norun=True)
             return True
 
-        return False
-
-        if cmd == 'run':
+        elif cmd == 'run':
             self.run()
             return True
 
@@ -323,7 +382,10 @@ class Runner():
             if args.installdir is None:
                 raise RuntimeError('Install diretory must be specified when components are being generated')
 
-            self.target.gen_all(args.builddir, args.installdir)
+            self.target.generate_all(args.builddir)
+
+            # Generate config headers and per-target tree .cpp
+            self._generate_platform_tree(self.target, args.builddir, args.component_file)
 
             generated_components = self.target.get_generated_components()
 
@@ -398,6 +460,12 @@ class Runner():
         if args is None:
             args = args
         gvsoc_config = self.full_config.get('target/gvsoc')
+
+        # Strip tree-managed data from JSON when platform_tree .so handles them
+        if gvsoc_config.get('platform_tree') is not None:
+            target_config = self.full_config.get('target')
+            if target_config is not None:
+                _strip_tree_data(target_config)
 
         dump_config(self.full_config, gvrun.commands.get_abspath(args, self.gvsoc_config_path))
 
@@ -750,5 +818,9 @@ class Target(gvrun.target.Target):
             self.get_runner()
             self.runner.run(norun=True)
             return True
+
+        if command == 'components':
+            self.get_runner()
+            return self.runner.gv_handle_command(command, args)
 
         return False

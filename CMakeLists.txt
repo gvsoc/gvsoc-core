@@ -212,3 +212,24 @@ foreach(component ${COMPONENTS})
         SOURCES "${SRCS_LIST}"
     )
 endforeach()
+
+# =============================================
+# Per-target platform tree shared libraries
+# =============================================
+# Each target generates a <target>.tree.cpp during gapy components.
+# Compile each into a shared library installed alongside the models.
+file(GLOB TREE_SOURCES "${TARGET_CONFIG_DIR}/*.tree.cpp")
+foreach(tree_src ${TREE_SOURCES})
+    get_filename_component(tree_name ${tree_src} NAME)       # e.g. "acu.acu.tree.cpp"
+    string(REGEX REPLACE "\\.tree\\.cpp$" "" target_name "${tree_name}")  # e.g. "acu.acu"
+    string(REGEX REPLACE "[^a-zA-Z0-9_]" "_" lib_name "${target_name}")    # e.g. "acu_acu"
+    set(lib_target "platform_tree_${lib_name}")
+
+    add_library(${lib_target} SHARED ${tree_src})
+    target_include_directories(${lib_target} PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/engine/include)
+    install(TARGETS ${lib_target}
+        LIBRARY DESTINATION lib)
+endforeach()
+

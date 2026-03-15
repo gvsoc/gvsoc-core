@@ -169,6 +169,7 @@ class Component(gvrun.target.SystemTreeNode):
     def __init__(self, parent: 'Component', name: str, config=None, options=None):
         super().__init__(name, parent=parent, config=config)
         self.parent = parent
+        self._component_config = config
         self.components = {}
         self.properties = {}
         self.bindings = []

@@ -20,7 +20,9 @@
  */
 
 #include <string>
+#include <dlfcn.h>
 #include <vp/vp.hpp>
+#include <vp/component_tree.hpp>
 #include "vp/top.hpp"
 
 vp::Top::Top(std::string config_path, bool is_async, gv::Controller *launcher)
@@ -33,13 +35,31 @@ vp::Top::Top(std::string config_path, bool is_async, gv::Controller *launcher)
 
     this->gv_config = js_config->get("target/gvsoc");
 
+    // Load the per-target compiled tree if available
+    const vp::ComponentTreeNode *platform_tree = nullptr;
+    js::Config *tree_lib_cfg = this->gv_config->get("platform_tree");
+    if (tree_lib_cfg != nullptr)
+    {
+        std::string tree_lib_path = tree_lib_cfg->get_str();
+        void *tree_lib = dlopen(tree_lib_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        if (tree_lib != nullptr)
+        {
+            auto get_tree = (const vp::ComponentTreeNode *(*)())dlsym(tree_lib, "vp_get_platform_tree");
+            if (get_tree != nullptr)
+            {
+                platform_tree = get_tree();
+            }
+        }
+    }
+
     this->time_engine = new vp::TimeEngine(this->gv_config);
     this->trace_engine = new vp::TraceEngine(this->gv_config);
     this->power_engine = new vp::PowerEngine(this->gv_config);
     this->memcheck = new vp::MemCheck();
 
     this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config,
-        NULL, "", this->time_engine, this->trace_engine, this->power_engine, this->memcheck);
+        NULL, "", this->time_engine, this->trace_engine, this->power_engine, this->memcheck,
+        platform_tree);
 
     power_engine->init(this->top_instance);
     trace_engine->init(this->top_instance);

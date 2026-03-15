@@ -23,6 +23,7 @@
 
 #include <map>
 #include <string>
+#include <cstring>
 #include <vp/json.hpp>
 #include <vp/block.hpp>
 #include <vp/itf/clk.hpp>
@@ -52,15 +53,18 @@ namespace vp
     class reg_32;
     class reg_64;
 
+    struct ComponentTreeNode;  // forward declaration
+
     class ComponentConf
     {
     public:
         ComponentConf(std::string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
-            vp::PowerEngine *power_engine, vp::MemCheck *memcheck)
+            vp::PowerEngine *power_engine, vp::MemCheck *memcheck,
+            const vp::ComponentTreeNode *tree_node = nullptr)
             : name(name), parent(parent), config(config), gv_config(gv_config),
             time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine),
-            memcheck(memcheck) {}
+            memcheck(memcheck), tree_node(tree_node) {}
         std::string name;
         vp::Component *parent;
         js::Config *config;
@@ -69,6 +73,7 @@ namespace vp
         vp::TraceEngine *trace_engine;
         vp::PowerEngine *power_engine;
         vp::MemCheck *memcheck;
+        const vp::ComponentTreeNode *tree_node;
     };
 
     /**
@@ -101,6 +106,17 @@ namespace vp
          * @param config The component configuration.
          */
         Component(vp::ComponentConf &config);
+
+        template <typename T>
+        Component(vp::ComponentConf &config, T &cfg)
+            : Component(config)
+        {
+            if (this->tree_config != nullptr)
+            {
+                memcpy(&cfg, this->tree_config, sizeof(T));
+            }
+        }
+
         virtual ~Component() {}
 
         /**
@@ -153,6 +169,13 @@ namespace vp
          */
         inline js::Config *get_js_config() { return js_config; }
 
+
+
+        /**
+         * @brief Check whether this component has a compiled tree config.
+         */
+        bool has_tree_config() const { return this->tree_config != nullptr; }
+
         /**
          * @brief Get the launcher
          *
@@ -179,7 +202,8 @@ namespace vp
         static vp::Component *load_component(js::Config *config, js::Config *gv_config,
             vp::Component *parent, std::string name,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
-            vp::PowerEngine *power_engine, vp::MemCheck *memcheck);
+            vp::PowerEngine *power_engine, vp::MemCheck *memcheck,
+            const vp::ComponentTreeNode *tree_node = nullptr);
 
         // Used by the launcher to set himself as launcher. Could be moved to ComponentConfig
         void set_launcher(gv::Controller *launcher);
@@ -201,6 +225,8 @@ namespace vp
 
         // Create all bindings specified in json config
         void create_bindings();
+        void bind_ports(const char *master_comp, const char *master_port,
+            const char *slave_comp, const char *slave_port);
 
         // Do the connectins between master and slave ports
         void bind_comps();
@@ -224,7 +250,8 @@ namespace vp
         void add_child(std::string name, vp::Component *child);
 
         // Create a new component
-        vp::Component *new_component(std::string name, js::Config *config, std::string module = "");
+        vp::Component *new_component(std::string name, js::Config *config, std::string module = "",
+            const vp::ComponentTreeNode *child_tree_node = nullptr);
 
         // Clock interface handler to catch clock registering and propagate to sub components
         static void clk_reg(vp::Component *_this, vp::Component *clock);
@@ -273,6 +300,12 @@ namespace vp
 
         // Childs components
         std::vector<vp::Component *>child_components;
+
+        // Current node in the compiled component tree (for passing to children)
+        const vp::ComponentTreeNode *tree_node = nullptr;
+
+        // Pointer to constexpr config from the compiled tree
+        const void *tree_config = nullptr;
     };
 
 };

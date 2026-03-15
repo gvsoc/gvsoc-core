@@ -23,6 +23,7 @@
 #include <string>
 #include <stdio.h>
 #include <vp/vp.hpp>
+#include <vp/component_tree.hpp>
 #include <stdio.h>
 #include "string.h"
 #include <string>
@@ -192,30 +193,64 @@ void vp::Component::bind_comps()
 
 void vp::Component::create_comps()
 {
-    js::Config *config = this->get_js_config();
-    js::Config *comps = config->get("vp_comps");
-    if (comps == NULL)
+    // If we have a compiled tree node, use it for instantiation
+    if (this->tree_node != nullptr && this->tree_node->children != nullptr)
     {
-        comps = config->get("components");
-    }
+        this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating components from compiled tree\n");
 
-    if (comps != NULL)
-    {
-        this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating components\n");
+        js::Config *config = this->get_js_config();
 
-        for (auto x : comps->get_elems())
+        for (int i = 0; i < this->tree_node->num_children; i++)
         {
-            std::string comp_name = x->get_str();
+            const vp::ComponentTreeNode *child_node = &this->tree_node->children[i];
+            std::string comp_name = child_node->name;
 
+            // Get the JSON config for this child (still needed for parameters)
             js::Config *comp_config = config->get(comp_name);
 
-            std::string vp_component = comp_config->get_child_str("vp_component");
-
-            if (vp_component == "")
+            // Module name from compiled tree, fall back to default
+            std::string vp_component;
+            if (child_node->vp_component != nullptr)
+            {
+                vp_component = child_node->vp_component;
+            }
+            else
+            {
                 vp_component = "utils.composite_impl";
+            }
 
-            vp::Component *child = this->new_component(comp_name, comp_config, vp_component);
+            vp::Component *child = this->new_component(comp_name, comp_config, vp_component, child_node);
             this->child_components.push_back(child);
+        }
+    }
+    else
+    {
+        // Fall back to JSON-based instantiation
+        js::Config *config = this->get_js_config();
+        js::Config *comps = config->get("vp_comps");
+        if (comps == NULL)
+        {
+            comps = config->get("components");
+        }
+
+        if (comps != NULL)
+        {
+            this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating components\n");
+
+            for (auto x : comps->get_elems())
+            {
+                std::string comp_name = x->get_str();
+
+                js::Config *comp_config = config->get(comp_name);
+
+                std::string vp_component = comp_config->get_child_str("vp_component");
+
+                if (vp_component == "")
+                    vp_component = "utils.composite_impl";
+
+                vp::Component *child = this->new_component(comp_name, comp_config, vp_component);
+                this->child_components.push_back(child);
+            }
         }
     }
 }
@@ -248,9 +283,16 @@ std::string vp::Component::get_module_path(js::Config *gv_config, std::string re
 
 vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_config,
     vp::Component *parent, std::string name, vp::TimeEngine *time_engine,
-    vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine, vp::MemCheck *memcheck)
+    vp::TraceEngine *trace_engine, vp::PowerEngine *power_engine, vp::MemCheck *memcheck,
+    const vp::ComponentTreeNode *tree_node)
 {
     std::string module_name = config->get_child_str("vp_component");
+
+    // If not in JSON, try the compiled tree node
+    if (module_name == "" && tree_node != nullptr && tree_node->vp_component != nullptr)
+    {
+        module_name = tree_node->vp_component;
+    }
 
     if (module_name == "")
     {
@@ -297,7 +339,7 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
     if (gv_new)
     {
         ComponentConf conf(name, parent, config, gv_config, time_engine, trace_engine,
-            power_engine, memcheck);
+            power_engine, memcheck, tree_node);
         return gv_new(conf);
     }
 
@@ -322,10 +364,12 @@ void vp::Component::reset_sync(vp::Block *__this, bool active)
 }
 
 
-vp::Component *vp::Component::new_component(std::string name, js::Config *config, std::string module_name)
+vp::Component *vp::Component::new_component(std::string name, js::Config *config, std::string module_name,
+    const vp::ComponentTreeNode *child_tree_node)
 {
     vp::Component *instance = vp::Component::load_component(config, this->gv_config, this, name,
-        this->time.get_engine(), this->traces.get_trace_engine(), this->power.get_engine(), this->memcheck);
+        this->time.get_engine(), this->traces.get_trace_engine(), this->power.get_engine(), this->memcheck,
+        child_tree_node);
 
     this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "New component (name: %s)\n", name.c_str());
 
@@ -340,6 +384,14 @@ vp::Component::Component(vp::ComponentConf &config)
     this->name = config.name;
     this->parent = config.parent;
     this->gv_config = config.gv_config;
+    this->tree_node = config.tree_node;
+
+    // Assign typed config from the compiled tree
+    if (this->tree_node != nullptr)
+    {
+        this->tree_config = this->tree_node->config;
+    }
+
     if (config.parent)
     {
         parent->add_child(name, this);
@@ -371,6 +423,9 @@ vp::Component::Component(vp::ComponentConf &config)
 
 void vp::Component::create_ports()
 {
+    // Always use JSON-based ports — the JSON ports list is the authoritative
+    // source since it includes all ports (self-referenced in own bindings AND
+    // referenced by parent bindings), while tree bindings only capture the former.
     js::Config *config = this->get_js_config();
     js::Config *ports = config->get("vp_ports");
     if (ports == NULL)
@@ -388,7 +443,7 @@ void vp::Component::create_ports()
 
             this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating port (name: %s)\n", port_name.c_str());
 
-            if (this->get_port(port_name) == NULL && this->get_port(port_name) == NULL)
+            if (this->get_port(port_name) == NULL)
             {
                 vp::VirtualPort *port = new vp::VirtualPort(this);
                 this->add_port(port_name, port);
@@ -398,62 +453,78 @@ void vp::Component::create_ports()
     }
 }
 
+void vp::Component::bind_ports(const char *master_comp_name, const char *master_port_name,
+    const char *slave_comp_name, const char *slave_port_name)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating binding (%s:%s -> %s:%s)\n",
+        master_comp_name, master_port_name, slave_comp_name, slave_port_name);
+
+    vp::Component *master_comp = strcmp(master_comp_name, "self") == 0 ? this : this->get_childs_dict()[master_comp_name];
+    vp::Component *slave_comp = strcmp(slave_comp_name, "self") == 0 ? this : this->get_childs_dict()[slave_comp_name];
+
+    vp_assert_always(master_comp != NULL, this->get_trace(),
+        "Binding from invalid master (master: %s / %s, slave: %s / %s)\n",
+        master_comp_name, master_port_name, slave_comp_name, slave_port_name);
+
+    vp_assert_always(slave_comp != NULL, this->get_trace(),
+        "Binding from invalid slave (master: %s / %s, slave: %s / %s)\n",
+        master_comp_name, master_port_name, slave_comp_name, slave_port_name);
+
+    vp::Port *master_port = master_comp->get_port(master_port_name);
+    vp::Port *slave_port = slave_comp->get_port(slave_port_name);
+
+    vp_assert_always(master_port != NULL, this->get_trace(),
+        "Binding from invalid master port (master: %s / %s, slave: %s / %s)\n",
+        master_comp_name, master_port_name, slave_comp_name, slave_port_name);
+
+    vp_assert_always(slave_port != NULL, this->get_trace(),
+        "Binding from invalid slave port (master: %s / %s, slave: %s / %s)\n",
+        master_comp_name, master_port_name, slave_comp_name, slave_port_name);
+
+    master_port->bind_to_virtual(slave_port);
+}
+
 void vp::Component::create_bindings()
 {
-    js::Config *config = this->get_js_config();
-    js::Config *bindings = config->get("vp_bindings");
-    if (bindings == NULL)
+    // Use compiled tree bindings if available
+    if (this->tree_node != nullptr && this->tree_node->bindings != nullptr)
     {
-        bindings = config->get("bindings");
-    }
+        this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating bindings from compiled tree\n");
 
-    if (bindings != NULL)
-    {
-        this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating bindings\n");
-
-        for (auto x : bindings->get_elems())
+        for (int i = 0; i < this->tree_node->num_bindings; i++)
         {
-            std::string master_binding = x->get_elem(0)->get_str();
-            std::string slave_binding = x->get_elem(1)->get_str();
-            int pos = master_binding.find("->");
-            std::string master_comp_name = master_binding.substr(0, pos);
-            std::string master_port_name = master_binding.substr(pos + 2);
-            pos = slave_binding.find("->");
-            std::string slave_comp_name = slave_binding.substr(0, pos);
-            std::string slave_port_name = slave_binding.substr(pos + 2);
+            const vp::TreeBinding &b = this->tree_node->bindings[i];
+            this->bind_ports(b.master_comp, b.master_port, b.slave_comp, b.slave_port);
+        }
+    }
+    else
+    {
+        // Fall back to JSON-based bindings
+        js::Config *config = this->get_js_config();
+        js::Config *bindings = config->get("vp_bindings");
+        if (bindings == NULL)
+        {
+            bindings = config->get("bindings");
+        }
 
-            this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating binding (%s:%s -> %s:%s)\n",
-                master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), slave_port_name.c_str()
-            );
+        if (bindings != NULL)
+        {
+            this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating bindings\n");
 
-            vp::Component *master_comp = master_comp_name == "self" ? this : this->get_childs_dict()[master_comp_name];
-            vp::Component *slave_comp = slave_comp_name == "self" ? this : this->get_childs_dict()[slave_comp_name];
+            for (auto x : bindings->get_elems())
+            {
+                std::string master_binding = x->get_elem(0)->get_str();
+                std::string slave_binding = x->get_elem(1)->get_str();
+                int pos = master_binding.find("->");
+                std::string master_comp_name = master_binding.substr(0, pos);
+                std::string master_port_name = master_binding.substr(pos + 2);
+                pos = slave_binding.find("->");
+                std::string slave_comp_name = slave_binding.substr(0, pos);
+                std::string slave_port_name = slave_binding.substr(pos + 2);
 
-            vp_assert_always(master_comp != NULL, this->get_trace(),
-                "Binding from invalid master (master: %s / %s, slave: %s / %s)\n",
-                master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), slave_port_name.c_str());
-
-            vp_assert_always(slave_comp != NULL, this->get_trace(),
-                "Binding from invalid slave (master: %s / %s, slave: %s / %s)\n",
-                master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), slave_port_name.c_str());
-
-            vp::Port *master_port = master_comp->get_port(master_port_name);
-            vp::Port *slave_port = slave_comp->get_port(slave_port_name);
-
-            vp_assert_always(master_port != NULL, this->get_trace(),
-                "Binding from invalid master port (master: %s / %s, slave: %s / %s)\n",
-                master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), slave_port_name.c_str());
-
-            vp_assert_always(slave_port != NULL, this->get_trace(),
-                "Binding from invalid slave port (master: %s / %s, slave: %s / %s)\n",
-                master_comp_name.c_str(), master_port_name.c_str(),
-                slave_comp_name.c_str(), slave_port_name.c_str());
-
-            master_port->bind_to_virtual(slave_port);
+                this->bind_ports(master_comp_name.c_str(), master_port_name.c_str(),
+                    slave_comp_name.c_str(), slave_port_name.c_str());
+            }
         }
     }
 }

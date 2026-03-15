@@ -26,6 +26,7 @@
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
+#include <memory/memory_config.hpp>
 
 class Memory : public vp::Component
 {
@@ -37,6 +38,8 @@ public:
 
     uint64_t memcheck_alloc(uint64_t ptr, uint64_t size);
     uint64_t memcheck_free(uint64_t ptr, uint64_t size);
+
+    MemoryConfig cfg;
 
 private:
 
@@ -62,10 +65,10 @@ private:
     vp::Trace trace;
     vp::IoSlave in;
 
-    uint64_t size = 0;
+
     bool check = false;
     int width_bits = -1;
-    int latency;
+
 
     uint8_t *mem_data;
     uint8_t *memcheck_data = NULL;
@@ -113,11 +116,20 @@ private:
 
 
 Memory::Memory(vp::ComponentConf &config)
-: vp::Component(config),
+: vp::Component(config, this->cfg),
 log_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
 log_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
 log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 {
+    // If no compiled tree config, fall back to JSON
+    if (!this->has_tree_config())
+    {
+        js::Config *js = get_js_config();
+        this->cfg.size = js->get("size") ? js->get("size")->get_int() : 0;
+        this->cfg.atomics = js->get("atomics") ? js->get("atomics")->get_bool() : false;
+        this->cfg.latency = js->get("latency") ? js->get("latency")->get_int() : 0;
+    }
+
     traces.new_trace("trace", &trace, vp::DEBUG);
     in.set_req_meth(&Memory::req);
     new_slave_port("input", &in);
@@ -143,21 +155,20 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     power.new_power_source("write_16", &write_16_power, this->get_js_config()->get("**/write_16"));
     power.new_power_source("write_32", &write_32_power, this->get_js_config()->get("**/write_32"));
 
-    this->size = this->get_js_config()->get("size")->get_int();
+    // Fields not yet in MemoryConfig (still via JSON)
     this->check = get_js_config()->get_child_bool("check");
     this->width_bits = get_js_config()->get_child_int("width_bits");
-    this->latency = get_js_config()->get_child_int("latency");
     int align = get_js_config()->get_child_int("align");
 
-    trace.msg("Building Memory (size: 0x%x, check: %d)\n", size, check);
+    trace.msg("Building Memory (size: 0x%x, check: %d)\n", this->cfg.size, check);
 
     if (align)
     {
-        mem_data = (uint8_t *)aligned_alloc(align, size);
+        mem_data = (uint8_t *)aligned_alloc(align, this->cfg.size);
     }
     else
     {
-        mem_data = (uint8_t *)calloc(size, 1);
+        mem_data = (uint8_t *)calloc(this->cfg.size, 1);
         if (mem_data == NULL) throw std::bad_alloc();
     }
     this->free_mem = true;
@@ -165,7 +176,7 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     // Special option to check for uninitialized accesses
     if (check)
     {
-        check_mem = new uint8_t[(size + 7) / 8];
+        check_mem = new uint8_t[(this->cfg.size + 7) / 8];
     }
     else
     {
@@ -174,14 +185,14 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 
     if (this->traces.get_trace_engine()->is_memcheck_enabled())
     {
-        this->memcheck_data = (uint8_t *)calloc(size, 1);
+        this->memcheck_data = (uint8_t *)calloc(this->cfg.size, 1);
         if (this->memcheck_data == NULL) throw std::bad_alloc();
 
         int memcheck_id = this->get_js_config()->get_child_int("memcheck_id");
         if (memcheck_id != -1)
         {
             this->memcheck_expansion_factor = this->get_js_config()->get_child_int("memcheck_expansion_factor");
-            int memcheck_size = size * this->memcheck_expansion_factor;
+            int memcheck_size = this->cfg.size * this->memcheck_expansion_factor;
             this->memcheck_valid_flags = (uint8_t *)calloc((memcheck_size + 7) / 8, 1);
             if (this->memcheck_valid_flags == NULL) throw std::bad_alloc();
 
@@ -195,9 +206,9 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     // Initialize the Memory with a special value to detect uninitialized
     // variables.
     // Only do it for small memories to not slow down too much simulation init.
-    if (this->get_js_config()->get_child_bool("init") && size < (2<<24))
+    if (this->get_js_config()->get_child_bool("init") && this->cfg.size < (2<<24))
     {
-        memset(mem_data, 0x57, size);
+        memset(mem_data, 0x57, this->cfg.size);
     }
 
     // Preload the Memory
@@ -215,7 +226,7 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
                 this->trace.fatal("Unable to open stim file: %s, %s\n", path.c_str(), strerror(errno));
                 return;
             }
-            if (fread(this->mem_data, 1, size, file) == 0)
+            if (fread(this->mem_data, 1, this->cfg.size, file) == 0)
             {
                 this->trace.fatal("Failed to read stim file: %s, %s\n", path.c_str(), strerror(errno));
                 return;
@@ -264,7 +275,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     _this->log_access(offset, size, req->get_is_write());
 
-    req->inc_latency(_this->latency);
+    req->inc_latency(_this->cfg.latency);
 
     if (!req->is_debug())
     {
@@ -331,9 +342,9 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     }
 #endif
 
-    if (offset + size > _this->size)
+    if (offset + size > _this->cfg.size)
     {
-        _this->trace.force_warning_no_error("Received out-of-bound request (reqAddr: 0x%x, reqSize: 0x%x, memSize: 0x%x)\n", offset, size, _this->size);
+        _this->trace.force_warning_no_error("Received out-of-bound request (reqAddr: 0x%x, reqSize: 0x%x, memSize: 0x%x)\n", offset, size, _this->cfg.size);
         return vp::IO_REQ_INVALID;
     }
 
@@ -469,7 +480,7 @@ void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
     uint64_t valid_after_offset_last;
     uint64_t distance_after = 0;
     // First look for the first valid bit to get start of buffer
-    for (uint64_t current_offset = offset; current_offset<this->size; current_offset++)
+    for (uint64_t current_offset = offset; current_offset<this->cfg.size; current_offset++)
     {
         if (this->memcheck_is_valid_address(current_offset))
         {
@@ -481,7 +492,7 @@ void Memory::memcheck_find_closest_buffer(uint64_t offset, uint64_t &distance,
     }
 
     // And then for the first invalid bit to get end of buffer
-    for (uint64_t current_offset = valid_after_offset; current_offset<this->size; current_offset++)
+    for (uint64_t current_offset = valid_after_offset; current_offset<this->cfg.size; current_offset++)
     {
         if (this->memcheck_is_valid_address(current_offset))
         {
@@ -768,10 +779,10 @@ void Memory::memcheck_buffer_setup(uint64_t base, uint64_t size, bool enable)
         this->trace.msg(vp::Trace::LEVEL_INFO, "%s valid buffer (offset: 0x%lx, size: 0x%lx)\n",
             enable ? "Adding" : "Removing", base, size);
 
-        if (base + size >= this->size * this->memcheck_expansion_factor)
+        if (base + size >= this->cfg.size * this->memcheck_expansion_factor)
         {
             this->trace.force_warning("Trying to %s invalid buffer  (offset: 0x%lx, size: 0x%lx, mem_size: 0x%lx)\n",
-                enable ? "add" : "remove", base, size, this->size);
+                enable ? "add" : "remove", base, size, this->cfg.size);
             return;
         }
 

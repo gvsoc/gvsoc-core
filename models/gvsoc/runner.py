@@ -327,6 +327,50 @@ if os.environ.get('USE_GVRUN') is None:
 
             self.args = args
 
+        def _collect_config_classes(self, component):
+            """Walk the component tree and collect unique Config classes for header generation."""
+            from dataclasses import is_dataclass
+            classes = {}
+            config = getattr(component, '_component_config', None)
+            if config is not None and is_dataclass(config):
+                cls = type(config)
+                if cls.__name__ not in classes:
+                    classes[cls.__name__] = cls
+            for child in getattr(component, 'components', {}).values():
+                classes.update(self._collect_config_classes(child))
+            return classes
+
+        def _generate_config_headers(self, target, builddir):
+            """Generate C++ config headers for all components with config dataclasses."""
+            import re
+
+            try:
+                from gvrun.config_gen import generate_cpp_header
+            except ImportError as e:
+                print(f'Warning: could not import config generator: {e}')
+                return
+
+            config_classes = self._collect_config_classes(target)
+            for cls_name, config_cls in config_classes.items():
+                mod_parts = config_cls.__module__.split('.')
+                subdir = mod_parts[0] if len(mod_parts) >= 2 else ''
+                snake = re.sub(r'(?<!^)(?=[A-Z])', '_', cls_name).lower()
+                header_dir = os.path.join(builddir, subdir)
+                header_path = os.path.join(header_dir, f'{snake}.hpp')
+                generate_cpp_header(config_cls, output_path=header_path)
+
+        def _generate_tree_cpp(self, target, component_file):
+            """Generate per-target compiled component tree .cpp."""
+            try:
+                from gvrun.tree_gen import generate_tree_cpp
+            except ImportError as e:
+                print(f'Warning: could not import tree generator: {e}')
+                return
+
+            base = os.path.splitext(component_file)[0]
+            tree_cpp = base + '.tree.cpp'
+            generate_tree_cpp(target, output_path=tree_cpp)
+
         def gv_handle_command(self, cmd):
 
             if cmd == 'run':
@@ -375,7 +419,19 @@ if os.environ.get('USE_GVRUN') is None:
                 if self.gapy_target.get_args().installdir is None:
                     raise RuntimeError('Install diretory must be specified when components are being generated')
 
-                self.target.gen_all(self.gapy_target.get_args().builddir, self.gapy_target.get_args().installdir)
+                builddir = self.gapy_target.get_args().builddir
+                installdir = self.gapy_target.get_args().installdir
+                component_file = self.gapy_target.get_args().component_file
+                self.target.gen_all(builddir, installdir)
+
+                # Always generate config headers for components that have them
+                # Only generate the tree .cpp if the Target has a config dataclass
+                import dataclasses
+                target_config = getattr(self.gapy_target, 'config', None)
+                has_typed_config = target_config is not None and dataclasses.is_dataclass(target_config)
+                self._generate_config_headers(self.target, builddir)
+                if has_typed_config and component_file is not None:
+                    self._generate_tree_cpp(self.target, component_file)
 
                 generated_components = self.target.get_generated_components()
 

@@ -24,6 +24,7 @@
 #include "vp/component.hpp"
 #include "vp/controller.hpp"
 #include "vp/time/time_engine.hpp"
+#include "vp/stats/stats_engine.hpp"
 #include "vp/memcheck.hpp"
 
 namespace vp {
@@ -40,6 +41,7 @@ namespace vp {
       vp::TimeEngine *get_time_engine() { return this->time_engine; };
       vp::TraceEngine *get_trace_engine() { return this->trace_engine; };
       vp::PowerEngine *get_power_engine() { return this->power_engine; };
+      vp::StatsEngine *get_stats_engine() { return this->stats_engine; };
 
     void flush();
     void start();
@@ -48,6 +50,7 @@ namespace vp {
       vp::TimeEngine *time_engine;
       vp::TraceEngine *trace_engine;
       vp::PowerEngine *power_engine;
+      vp::StatsEngine *stats_engine;
       vp::MemCheck *memcheck;
   };
 

@@ -55,15 +55,17 @@ vp::Top::Top(std::string config_path, bool is_async, gv::Controller *launcher)
     this->time_engine = new vp::TimeEngine(this->gv_config);
     this->trace_engine = new vp::TraceEngine(this->gv_config);
     this->power_engine = new vp::PowerEngine(this->gv_config);
+    this->stats_engine = new vp::StatsEngine(this->gv_config);
     this->memcheck = new vp::MemCheck();
 
     this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config,
         NULL, "", this->time_engine, this->trace_engine, this->power_engine, this->memcheck,
-        platform_tree);
+        platform_tree, this->stats_engine);
 
     power_engine->init(this->top_instance);
     trace_engine->init(this->top_instance);
     time_engine->init(this->top_instance);
+    stats_engine->init(this->top_instance);
 }
 
 
@@ -80,6 +82,7 @@ void vp::Top::start()
 
 vp::Top::~Top()
 {
+    delete this->stats_engine;
     delete this->power_engine;
     delete this->trace_engine;
 }

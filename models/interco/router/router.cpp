@@ -22,6 +22,8 @@
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
+#include <vp/stats/stats.hpp>
+
 #include <stdio.h>
 #include <math.h>
 #include <vp/mapping_tree.hpp>
@@ -145,6 +147,16 @@ private:
     // Gives the ID of the error mapping, the one returning an error when a request is matching
     // this mapping
     int error_id = -1;
+
+    // Statistics
+
+    vp::StatScalar stat_reads;
+    vp::StatScalar stat_writes;
+    vp::StatScalar stat_bytes_read;
+    vp::StatScalar stat_bytes_written;
+    vp::StatScalar stat_errors;
+    vp::StatBw stat_read_bw;
+    vp::StatBw stat_write_bw;
 };
 
 
@@ -153,6 +165,19 @@ Router::Router(vp::ComponentConf &config)
     : RouterCommon(config), mapping_tree(&this->trace)
 {
     this->traces.new_trace("trace", &trace, vp::DEBUG);
+
+    // Register statistics
+
+    this->stats.register_stat(&this->stat_reads, "reads", "Number of read requests");
+    this->stats.register_stat(&this->stat_writes, "writes", "Number of write requests");
+    this->stats.register_stat(&this->stat_bytes_read, "bytes_read", "Total bytes read");
+    this->stats.register_stat(&this->stat_bytes_written, "bytes_written", "Total bytes written");
+    this->stats.register_stat(&this->stat_errors, "errors", "Requests with no valid mapping");
+    this->stats.register_stat(&this->stat_read_bw, "read_bandwidth", "Average read bandwidth");
+    this->stat_read_bw.set_source(&this->stat_bytes_read);
+    this->stats.register_stat(&this->stat_write_bw, "write_bandwidth", "Average write bandwidth");
+    this->stat_write_bw.set_source(&this->stat_bytes_written);
+
 
     int bandwidth = this->get_js_config()->get_int("bandwidth");
     int latency = this->get_js_config()->get_int("latency");
@@ -222,6 +247,19 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
         offset, size, is_write);
 
+    // Count stats
+
+    if (is_write)
+    {
+        this->stat_writes++;
+        this->stat_bytes_written += size;
+    }
+    else
+    {
+        this->stat_reads++;
+        this->stat_bytes_read += size;
+    }
+
     // First apply the bandwidth limitation coming from the input port
     this->inputs[port]->bw_limiter.apply_bandwidth(this->clock.get_cycles(), req);
 
@@ -231,6 +269,7 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
     // In case no mapping was found, or we hit the error mapping, return an error
     if (!mapping || mapping->id == this->error_id)
     {
+        this->stat_errors++;
         return vp::IO_REQ_INVALID;
     }
 

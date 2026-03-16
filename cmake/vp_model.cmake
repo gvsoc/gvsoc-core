@@ -118,7 +118,7 @@ function(vp_block)
         set_target_properties(${VP_MODEL_NAME_PROFILE} PROPERTIES PREFIX "")
         target_compile_options(${VP_MODEL_NAME_PROFILE} PRIVATE "-D__GVSOC__")
         # TODO VP_TRACE_ACTIVE should be removed as soon as traces have been switch to events
-        target_compile_definitions(${VP_MODEL_NAME_PROFILE} PRIVATE -DGVSOC_CONFIG_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1)
+        target_compile_definitions(${VP_MODEL_NAME_PROFILE} PRIVATE -DGVSOC_CONFIG_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DCONFIG_GVSOC_STATS_ACTIVE=1)
 
         target_include_directories(${VP_MODEL_NAME_PROFILE} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -322,7 +322,7 @@ function(vp_model)
             set_target_properties(${VP_MODEL_NAME_PROFILE} PROPERTIES PREFIX "")
             target_compile_options(${VP_MODEL_NAME_PROFILE} PRIVATE -fno-stack-protector -D__GVSOC__)
             # TODO VP_TRACE_ACTIVE should be removed as soon as traces have been switch to events
-            target_compile_definitions(${VP_MODEL_NAME_PROFILE} PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1)
+            target_compile_definitions(${VP_MODEL_NAME_PROFILE} PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DCONFIG_GVSOC_STATS_ACTIVE=1)
             target_include_directories(${VP_MODEL_NAME_PROFILE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
             foreach(X IN LISTS GVSOC_MODULES)
                 target_include_directories(${VP_MODEL_NAME_PROFILE} PRIVATE ${X})

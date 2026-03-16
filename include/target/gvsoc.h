@@ -48,6 +48,9 @@ extern "C" {
 #define SEMIHOSTING_GV_MEMCHECK_MEM_ALLOC     0x114
 #define SEMIHOSTING_GV_MEMCHECK_MEM_FREE      0x115
 #define SEMIHOSTING_GV_DEBUG_INFO_DUMP        0x116
+#define SEMIHOSTING_GV_STATS_START            0x117
+#define SEMIHOSTING_GV_STATS_STOP             0x118
+#define SEMIHOSTING_GV_STATS_DUMP             0x119
 
 
 
@@ -562,6 +565,67 @@ static inline void gv_vcd_dump_trace_string(int trace, char *str) {
 /**@{*/
 
 //!@}
+
+/**
+ * @addtogroup GVSOC
+ * @{
+ */
+
+/**
+ * @defgroup STATS Statistics control
+ *
+ */
+
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup STATS
+ * @{
+ */
+
+/**@{*/
+
+/** \brief Start statistics collection.
+ *
+ * This function can be called to start collecting statistics from the
+ * simulated SW. All stat counters are reset and the start timestamp is recorded.
+ */
+static inline void gv_stats_start()
+{
+    gvsoc_semihost(SEMIHOSTING_GV_STATS_START, 0);
+}
+
+
+/** \brief Stop statistics collection.
+ *
+ * This function can be called to stop collecting statistics and record the
+ * stop timestamp.
+ */
+static inline void gv_stats_stop()
+{
+    gvsoc_semihost(SEMIHOSTING_GV_STATS_STOP, 0);
+}
+
+
+/** \brief Dump statistics to file.
+ *
+ * This function can be called to dump all collected statistics to the
+ * configured output file (default: stats.txt).
+ */
+static inline void gv_stats_dump()
+{
+    gvsoc_semihost(SEMIHOSTING_GV_STATS_DUMP, 0);
+}
+
+
+//!@}
+
+/**
+ * @}
+ */
+
 
 static inline void *gv_memcheck_mem_alloc(int mem_id, void *ptr, size_t size)
 {

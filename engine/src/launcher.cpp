@@ -212,9 +212,17 @@ void gv::Controller::close(ControllerClient *client)
     ((vp::Top *)this->handler)->get_trace_engine()->flush();
 
     this->instance->stop_all();
-    this->instance->unbuild_all();
 
     vp::Top *top = (vp::Top *)this->handler;
+
+    // Dump stats before unbuild_all() to avoid reading freed memory.
+    // Skip if the user already dumped explicitly via semihosting.
+    if (top->get_stats_engine()->is_enabled() && !top->get_stats_engine()->has_dumped())
+    {
+        top->get_stats_engine()->dump("stats.txt");
+    }
+
+    this->instance->unbuild_all();
 
     delete top;
 }

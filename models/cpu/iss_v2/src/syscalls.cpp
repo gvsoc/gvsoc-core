@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <vp/itf/io.hpp>
+#include <vp/stats/stats_engine.hpp>
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -773,6 +774,36 @@ void Syscalls::handle_riscv_ebreak()
     //   }
     //   break;
     // }
+
+    case 0x117:  // SEMIHOSTING_GV_STATS_START
+    {
+        vp::StatsEngine *engine = this->iss.stats.get_engine();
+        if (engine != nullptr)
+        {
+            engine->start(this->iss.time.get_time());
+        }
+        break;
+    }
+
+    case 0x118:  // SEMIHOSTING_GV_STATS_STOP
+    {
+        vp::StatsEngine *engine = this->iss.stats.get_engine();
+        if (engine != nullptr)
+        {
+            engine->stop(this->iss.time.get_time());
+        }
+        break;
+    }
+
+    case 0x119:  // SEMIHOSTING_GV_STATS_DUMP
+    {
+        vp::StatsEngine *engine = this->iss.stats.get_engine();
+        if (engine != nullptr)
+        {
+            engine->dump("stats.txt");
+        }
+        break;
+    }
 
     default:
         this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);

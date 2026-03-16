@@ -23,6 +23,7 @@
 #include <string.h>
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
+#include <vp/stats/stats.hpp>
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
@@ -111,6 +112,14 @@ private:
     // Number of requests logged in the same cycle. Used to delay a bit in the trace the requests
     // which arrives in the same cycle
     int nb_logged_access_in_same_cycle = 0;
+
+    // Statistics
+    vp::StatScalar stat_reads;
+    vp::StatScalar stat_writes;
+    vp::StatScalar stat_bytes_read;
+    vp::StatScalar stat_bytes_written;
+    vp::StatBw stat_read_bw;
+    vp::StatBw stat_write_bw;
 };
 
 
@@ -133,6 +142,16 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     traces.new_trace("trace", &trace, vp::DEBUG);
     in.set_req_meth(&Memory::req);
     new_slave_port("input", &in);
+
+    // Register statistics
+    this->stats.register_stat(&this->stat_reads, "reads", "Number of read accesses");
+    this->stats.register_stat(&this->stat_writes, "writes", "Number of write accesses");
+    this->stats.register_stat(&this->stat_bytes_read, "bytes_read", "Total bytes read");
+    this->stats.register_stat(&this->stat_bytes_written, "bytes_written", "Total bytes written");
+    this->stats.register_stat(&this->stat_read_bw, "read_bandwidth", "Average read bandwidth");
+    this->stat_read_bw.set_source(&this->stat_bytes_read);
+    this->stats.register_stat(&this->stat_write_bw, "write_bandwidth", "Average write bandwidth");
+    this->stat_write_bw.set_source(&this->stat_bytes_written);
 
     this->power_ctrl_itf.set_sync_meth(&Memory::power_ctrl_sync);
     new_slave_port("power_ctrl", &this->power_ctrl_itf);
@@ -272,6 +291,18 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     uint64_t size = req->get_size();
 
     _this->trace.msg("Memory access (offset: 0x%x, size: 0x%x, is_write: %d, op: %d)\n", offset, size, req->get_is_write(), req->get_opcode());
+
+    // Count stats
+    if (req->get_is_write())
+    {
+        _this->stat_writes++;
+        _this->stat_bytes_written += size;
+    }
+    else
+    {
+        _this->stat_reads++;
+        _this->stat_bytes_read += size;
+    }
 
     _this->log_access(offset, size, req->get_is_write());
 

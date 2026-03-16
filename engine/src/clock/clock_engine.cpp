@@ -24,6 +24,7 @@
 #include <string>
 #include <stdio.h>
 #include <vp/vp.hpp>
+#include <vp/stats/stats_engine.hpp>
 #include <stdio.h>
 #include "string.h"
 #include <iostream>
@@ -567,5 +568,29 @@ vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
     if (this->factor == 0)
     {
         this->factor = 1;
+    }
+
+    // Register clock domain statistics
+    this->stats.register_stat(&this->stat_start_cycle, "start_cycle", "Cycle at stats start");
+    this->stats.register_stat(&this->stat_end_cycle, "end_cycle", "Cycle at stats end");
+    this->stats.register_stat(&this->stat_duration_cycles, "duration_cycles", "Total cycles during stats window");
+
+    // Register pre-dump callback to snapshot current cycle count
+    if (this->stats.get_engine() != nullptr)
+    {
+        // Snapshot start cycle when stats collection starts
+        this->stats.get_engine()->register_start_callback([this]() {
+            this->sync();
+            this->stat_start_cycle.set(this->get_cycles());
+        });
+
+        // Snapshot end cycle and compute duration before dump
+        this->stats.get_engine()->register_pre_dump([this]() {
+            this->sync();
+            this->stat_end_cycle.set(this->get_cycles());
+            int64_t start = this->stat_start_cycle.get();
+            int64_t end = this->stat_end_cycle.get();
+            this->stat_duration_cycles.set(end > start ? end - start : 0);
+        });
     }
 }

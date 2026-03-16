@@ -21,6 +21,7 @@
 
 #include "vp/controller.hpp"
 #include <vp/vp.hpp>
+#include <vp/stats/stats_engine.hpp>
 #include <cpu/iss/include/iss.hpp>
 #include <algorithm>
 #include <sys/types.h>
@@ -772,6 +773,36 @@ void Syscalls::handle_riscv_ebreak()
           this->iss.timing.user_line_trace_event.event((uint8_t *)&line);
       }
       break;
+    }
+
+    case 0x117:  // SEMIHOSTING_GV_STATS_START
+    {
+        vp::StatsEngine *engine = this->iss.top.stats.get_engine();
+        if (engine != nullptr)
+        {
+            engine->start(this->iss.top.time.get_time());
+        }
+        break;
+    }
+
+    case 0x118:  // SEMIHOSTING_GV_STATS_STOP
+    {
+        vp::StatsEngine *engine = this->iss.top.stats.get_engine();
+        if (engine != nullptr)
+        {
+            engine->stop(this->iss.top.time.get_time());
+        }
+        break;
+    }
+
+    case 0x119:  // SEMIHOSTING_GV_STATS_DUMP
+    {
+        vp::StatsEngine *engine = this->iss.top.stats.get_engine();
+        if (engine != nullptr)
+        {
+            engine->dump("stats.txt");
+        }
+        break;
     }
 
     default:

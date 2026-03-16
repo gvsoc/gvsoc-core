@@ -32,6 +32,7 @@ set(GVSOC_ENGINE_CXX_SRCS
     "src/power/block_power.cpp"
     "src/power/power_trace.cpp"
     "src/power/power_source.cpp"
+    "src/stats.cpp"
     )
 
 set(GVSOC_ENGINE_INC_DIRS "include")
@@ -106,7 +107,7 @@ if(${BUILD_PROFILE})
         )
 
     # TODO VP_TRACE_ACTIVE should be removed as soon as traces have been switch to events
-    target_compile_definitions(gvsoc_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1)
+    target_compile_definitions(gvsoc_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DCONFIG_GVSOC_STATS_ACTIVE=1)
 
     add_executable(gvsoc_launcher_profile "src/main.cpp")
 
@@ -126,7 +127,7 @@ if(${BUILD_PROFILE})
         INCLUDES DESTINATION include
         )
     # TODO VP_TRACE_ACTIVE should be removed as soon as traces have been switch to events
-    target_compile_definitions(gvsoc_launcher_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1)
+    target_compile_definitions(gvsoc_launcher_profile PRIVATE -DCONFIG_GVSOC_EVENT_ACTIVE=1 -DVP_TRACE_ACTIVE=1 -DCONFIG_GVSOC_STATS_ACTIVE=1)
 endif()
 
 # ==============

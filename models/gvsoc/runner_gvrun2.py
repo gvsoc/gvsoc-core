@@ -64,6 +64,10 @@ def gen_config(args, config, cosim_mode):
     gvsoc_config.set('wunconnected-padfun', args.w_unconnected_padfun)
     gvsoc_config.set('memcheck', args.memcheck)
     gvsoc_config.set('power', args.power)
+    gvsoc_config.set('stats', args.stats)
+
+    gvsoc_config.set('stats_raw', args.stats_raw)
+    gvsoc_config.set('stats_flat', args.stats_flat)
 
     for trace in args.traces:
         gvsoc_config.set('traces/include_regex', trace)
@@ -101,7 +105,7 @@ def gen_config(args, config, cosim_mode):
     profile_mode = args.profile_mode or \
         gvsoc_config.get_bool('events/enabled') or \
         len(gvsoc_config.get('events/include_regex')) != 0 or \
-        args.gui or args.power
+        args.gui or args.power or args.stats
 
     gvsoc_config.set("debug-mode", debug_mode)
     gvsoc_config.set("profile-mode", profile_mode)
@@ -190,6 +194,7 @@ class Runner():
 
                     "launchers": {
                         "default": "gvsoc_launcher",
+                        "profile": "gvsoc_launcher_profile",
                         "debug": "gvsoc_launcher_debug"
                     },
 
@@ -529,6 +534,8 @@ class Runner():
                 else:
                     if gvsoc_config.get_bool("debug-mode"):
                         launcher = gvsoc_config.get_str('launchers/debug')
+                    elif gvsoc_config.get_bool("profile-mode"):
+                        launcher = gvsoc_config.get_str('launchers/profile')
                     else:
                         launcher = gvsoc_config.get_str('launchers/default')
 
@@ -740,6 +747,15 @@ class Target(gvrun.target.Target):
 
             parser.add_argument("--power", dest="power",
                             action="store_true", default=False, help="Enable power modeling")
+
+            parser.add_argument("--stats", dest="stats",
+                            action="store_true", default=False, help="Enable statistics collection")
+
+            parser.add_argument("--stats-raw", dest="stats_raw",
+                            action="store_true", default=False, help="Use raw machine-readable format (no human units)")
+
+            parser.add_argument("--stats-flat", dest="stats_flat",
+                            action="store_true", default=False, help="Use flat format with human units (no grouping)")
 
             parser.add_argument("--wunconnected-device", dest="w_unconnected_device",
                 action="store_true", help="Activate warnings when updating padframe with no connected device")

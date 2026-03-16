@@ -28,6 +28,7 @@
 #include <vp/block.hpp>
 #include <vp/itf/clk.hpp>
 #include <vp/itf/implem/wire_class.hpp>
+#include <vp/stats/block_stat.hpp>
 
 #define likely(x) __builtin_expect(x, 1)
 #define unlikely(x) __builtin_expect(x, 0)
@@ -61,10 +62,11 @@ namespace vp
         ComponentConf(std::string name, vp::Component *parent, js::Config *config, js::Config *gv_config,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
             vp::PowerEngine *power_engine, vp::MemCheck *memcheck,
-            const vp::ComponentTreeNode *tree_node = nullptr)
+            const vp::ComponentTreeNode *tree_node = nullptr,
+            vp::StatsEngine *stats_engine = nullptr)
             : name(name), parent(parent), config(config), gv_config(gv_config),
             time_engine(time_engine), trace_engine(trace_engine), power_engine(power_engine),
-            memcheck(memcheck), tree_node(tree_node) {}
+            memcheck(memcheck), tree_node(tree_node), stats_engine(stats_engine) {}
         std::string name;
         vp::Component *parent;
         js::Config *config;
@@ -74,6 +76,7 @@ namespace vp
         vp::PowerEngine *power_engine;
         vp::MemCheck *memcheck;
         const vp::ComponentTreeNode *tree_node;
+        vp::StatsEngine *stats_engine;
     };
 
     /**
@@ -118,6 +121,11 @@ namespace vp
         }
 
         virtual ~Component() {}
+
+        /**
+         * @brief Give access to statistics features
+         */
+        vp::BlockStat stats;
 
         /**
          * @brief Declare a master port
@@ -203,7 +211,8 @@ namespace vp
             vp::Component *parent, std::string name,
             vp::TimeEngine *time_engine, vp::TraceEngine *trace_engine,
             vp::PowerEngine *power_engine, vp::MemCheck *memcheck,
-            const vp::ComponentTreeNode *tree_node = nullptr);
+            const vp::ComponentTreeNode *tree_node = nullptr,
+            vp::StatsEngine *stats_engine = nullptr);
 
         // Used by the launcher to set himself as launcher. Could be moved to ComponentConfig
         void set_launcher(gv::Controller *launcher);

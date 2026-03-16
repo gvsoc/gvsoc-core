@@ -25,6 +25,7 @@
 #include "vp/time/time_engine.hpp"
 #include <vp/itf/clk.hpp>
 #include <vp/itf/implem/clock_class.hpp>
+#include <vp/stats/stats.hpp>
 
 namespace vp
 {
@@ -218,6 +219,11 @@ namespace vp
 
         vp::ClockEvent apply_frequency_event;
         int64_t frequency_to_be_applied;
+
+        // Statistics
+        vp::StatScalar stat_start_cycle;
+        vp::StatScalar stat_end_cycle;
+        vp::StatScalar stat_duration_cycles;
 
         #ifdef CONFIG_GVSOC_EVENT_ACTIVE
         // List of traces to be flushed when next cycle starts. This is mostly used to allow models

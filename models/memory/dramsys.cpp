@@ -121,7 +121,12 @@ ddr::ddr(vp::ComponentConf &config)
 
     // Load DRAMSys dynamic library and get function pointers
     libraryHandle = dlopen("libDRAMSys_Simulator.so", RTLD_LAZY);
-    add_dram = (int (*)(char*, char*, GvsocMemspec*))dlsym(libraryHandle, "add_dram");
+    if (!libraryHandle) {
+        fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        abort();
+    }
+
+    add_dram = (int (*)(char*, char*, GvsocMemspec*))dlsym(libraryHandle, "add_dram");    
     close_dram = (void (*)(int))dlsym(libraryHandle, "close_dram");
     dram_can_accept_req = (int (*)(int))dlsym(libraryHandle, "dram_can_accept_req");
     dram_has_read_rsp = (int (*)(int))dlsym(libraryHandle, "dram_has_read_rsp");
@@ -355,11 +360,11 @@ void ddr::pimDataReq(vp::Block *__this, PimStride* pimStride){
     
     if (pimStride->pimInfo.is_write) {
         _this->dram_pim_write(_this->dram_id, pimStride->pimInfo.channel, pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count, pimStride->buf);
-        _this->trace.msg("PIM Write Data Req to address %#lx, length %d, stride 0x%#lx, count %d\n",
+        _this->trace.msg("PIM Write Data Req to address %#lx, length %d, stride %#lx, count %d\n",
                          pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count);
     } else {
         _this->dram_pim_read(_this->dram_id, pimStride->pimInfo.channel, pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count, pimStride->buf);
-        _this->trace.msg("PIM Read Data Req from address %#lx, length %d, stride 0x%#lx, count %d\n",
+        _this->trace.msg("PIM Read Data Req from address %#lx, length %d, stride %#lx, count %d\n",
                          pimStride->base_addr, pimStride->length, pimStride->stride, pimStride->count);
     }
 }

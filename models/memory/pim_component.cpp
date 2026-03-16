@@ -79,7 +79,9 @@ void PimComponent::setMemspec(vp::Block *__this, GvsocMemspec _memspec)
     PimComponent *_this = (PimComponent *)__this;
 
     _this->memspec = _memspec;
-    _this->trace.msg("Memory specification received: nb_channels=%d\n", _this->memspec.nb_channels);
+    _this->trace.msg("Memory specification received: nb_channels=%d, nb_ranks=%d, nb_bank_groups=%d, nb_banks=%d, nb_rows=%d, nb_columns=%d\n", 
+                    _this->memspec.nb_channels, _this->memspec.nb_ranks, _this->memspec.nb_bank_groups, 
+                    _this->memspec.nb_banks, _this->memspec.nb_rows, _this->memspec.nb_columns);
     
     // Check that the memory specification wasn't already set
     if (_this->pim_channel_data.size() != 0) {
@@ -90,7 +92,8 @@ void PimComponent::setMemspec(vp::Block *__this, GvsocMemspec _memspec)
     // Current parallel access settings: for now considering bank parallelism within a channel
     _this->nb_channels = _this->memspec.nb_channels;
     _this->access_length = _this->memspec.access_size;  // Column size
-    _this->access_stride = _this->memspec.bank_stride;  // Stride to access different banks within the same channel
+    // _this->access_stride = _this->memspec.bank_stride;  // Stride to access different banks within the same channel
+    _this->access_stride = _this->memspec.bankgroup_stride; // Stride to access different bank groups within the same channel (new address mapping in DRAMSys))
     _this->access_count = _this->memspec.nb_banks * _this->memspec.nb_bank_groups;  // Accessing all banks within the channel in parallel
 
     // Allocate PIM buffer for each channel based on the memory specification

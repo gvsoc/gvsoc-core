@@ -21,6 +21,7 @@
 
 #include <pthread.h>
 #include <signal.h>
+#include <unistd.h>
 #include <algorithm>
 
 #include <stdexcept>

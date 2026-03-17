@@ -14,7 +14,7 @@
 int ceil_log2(unsigned int n)
 {
     if (n <= 1) return 0;
-    return std::bit_width(n - 1);
+    return 32 - __builtin_clz(n - 1);
 }
 
 typedef struct

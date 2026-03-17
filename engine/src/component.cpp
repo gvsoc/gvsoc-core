@@ -330,6 +330,20 @@ vp::Component *vp::Component::load_component(js::Config *config, js::Config *gv_
     // SCHEREMO: The behaviour of DEEPBIND is default on MAC OS, but the macro does not exist.
     void *module = dlopen(module_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
 #endif
+
+#ifdef GVSOC_COVERAGE
+    if (module != NULL)
+    {
+        // With RTLD_DEEPBIND each .so has its own gcov runtime whose atexit
+        // handler may not fire reliably. Resolve each module's __gcov_dump
+        // and register it so coverage data is flushed at exit.
+        void (*gcov_dump)() = (void (*)())dlsym(module, "__gcov_dump");
+        if (gcov_dump)
+        {
+            atexit(gcov_dump);
+        }
+    }
+#endif
     if (module == NULL)
     {
         throw std::invalid_argument("ERROR, Failed to open periph model (module: " + module_name + ", error: " + std::string(dlerror()) + ")");

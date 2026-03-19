@@ -1,0 +1,85 @@
+.. _component_ns16550:
+
+Ns16550
+=======
+
+
+**Python module:** ``devices.uart.ns16550``
+
+**Source:** ``core/models/devices/uart/ns16550.py``
+
+
+Properties
+----------
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 15 50
+
+   * - Name
+     - Type
+     - Default
+     - Description
+   * - ``offset_shift``
+     - 
+     - ``0``
+     - 
+
+Ports
+-----
+
+
+Input ports (slave)
+~~~~~~~~~~~~~~~~~~~
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 60
+
+   * - Method
+     - Signature
+     - Description
+   * - ``i_INPUT()``
+     - ``io``
+     - 
+
+Output ports (master)
+~~~~~~~~~~~~~~~~~~~~~
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 60
+
+   * - Method
+     - Signature
+     - Description
+   * - ``o_IRQ()``
+     - ``wire<bool>``
+     - 
+
+.. note::
+
+   All components also inherit the following ports from ``Component``:
+
+   - ``i_CLOCK()`` — clock input (signature: ``clock``)
+   - ``i_RESET()`` — reset input (signature: ``wire<bool>``)
+   - ``i_POWER()`` — power supply control (signature: ``wire<int>``)
+   - ``i_VOLTAGE()`` — voltage control (signature: ``wire<int>``)
+
+Usage example
+-------------
+
+
+.. code-block:: python
+
+   import devices.uart
+
+   # Instantiate in a parent component
+   comp = ns16550.Ns16550(parent, 'name')
+
+   # Connect ports
+   # master.o_XXX(comp.i_INPUT())
+   # comp.o_IRQ(slave.i_XXX())

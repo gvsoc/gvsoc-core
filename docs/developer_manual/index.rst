@@ -21,6 +21,7 @@ It aims to help users:
    interfaces.rst
    models.rst
    tutorials.rst
+   component_library.rst
 
 
 

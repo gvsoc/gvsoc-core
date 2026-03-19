@@ -183,6 +183,7 @@ namespace vp {
     int initiator = -1;
     bool debug=false;
     uint64_t initiator_addr;
+    vp::IoReq *parent_req;
 
 
   private:

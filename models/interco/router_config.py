@@ -45,18 +45,23 @@ class RouterConfig(Config, HasSize):
     bandwidth: int
         Global bandwidth, in bytes per cycle, applied to all incoming
         request. This impacts the end time of the burst.
+    shared_rw_bandwidth: bool
+        True if the router share the bandwidth between read and write requests. Otherwise read
+        requests have full bandwidth and also write requests.
     """
 
-    synchronous: bool = cfg_field(default=False, dump=True, desc=(
+    synchronous: bool = cfg_field(default=True, dump=True, desc=(
         "True if the router should use synchronous mode where all incoming requests are handled as "
         "far as possible in synchronous IO mode."
     ))
-
+    shared_rw_bandwidth: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the router share the bandwidth between read and write requests. Otherwise read "
+        "requests have full bandwidth and also write requests."
+    ))
     max_input_pending_size: int = cfg_field(default=0, dump=True, desc=(
         "Size of the FIFO for each input. Only valid for asynchronous mode and only when input "
         "packet size is smaller or equal to the bandwidth."
     ))
-
     bandwidth: int = cfg_field(default=0, dump=True, desc=(
         "Global bandwidth, in bytes per cycle, applied to all incoming request. This impacts the "
         "end time of the burst."

@@ -63,7 +63,10 @@ class Memory(gvsoc.systree.Component):
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
-            attributes: MemoryConfig | None=None):
+            attributes: MemoryConfig | None=None, config: MemoryConfig | None=None):
+
+        if config is not None:
+            attributes = config
 
         # Always create a MemoryConfig for the compiled tree
         if attributes is None:

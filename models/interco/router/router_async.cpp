@@ -325,6 +325,7 @@ void Router::grant(vp::Block *__this, vp::IoReq *req, int id)
 
 void Router::response(vp::Block *__this, vp::IoReq *req, int id)
 {
+    printf("ROUTER GET RESP\n");
     Router *_this = (Router *)__this;
     int channel = _this->shared_rw_bandwidth ? 0 : req->get_is_write();
     _this->channels[channel]->response(req, id);
@@ -353,6 +354,8 @@ void Channel::arbiter_handler(vp::Block *__this, vp::ClockEvent *event)
                 {
                     in->pending_mapping = _this->top->mapping_tree.get(
                         req->get_addr(), req->get_size(), req->get_is_write());
+
+                    printf("%s\n", _this->top->get_path().c_str());
 
                     if (in->pending_mapping->size > 0 && req->get_addr() + req->get_size() >
                         in->pending_mapping->base + in->pending_mapping->size)
@@ -597,7 +600,7 @@ vp::IoReqStatus Channel::handle_req(vp::IoReq *req, int port)
     uint8_t *data = req->get_data();
     bool is_write = req->get_is_write();
 
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
         offset, size, is_write);
 
     InputPort *in = this->inputs[port];

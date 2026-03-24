@@ -4,10 +4,8 @@
 #
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
-from dataclasses import dataclass
-from gvrun.config import Config
+from config_tree import Config
 
-@dataclass(repr=False)
 class RwSplitterConfig(Config):
 
     pass

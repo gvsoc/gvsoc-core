@@ -54,3 +54,8 @@ class MemoryConfig(Config, HasSize):
         "Specify extra latency which will be added to any "
         "incoming request"
     ))
+
+    truncate: int = cfg_field(default=True, dump=True, desc=(
+        "If true, this truncates the global input address with the memory size to make it relative "
+        "to the memory"
+    ))

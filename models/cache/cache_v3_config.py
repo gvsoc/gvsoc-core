@@ -10,9 +10,8 @@ This module provides configuration classes for cache components in the system,
 including settings for size, associativity, and refill behavior.
 """
 from dataclasses import dataclass
-from gvrun.config import Config, cfg_field
+from config_tree import Config, cfg_field
 
-@dataclass(repr=False)
 class CacheConfig(Config):
     """Configuration for cache components.
     This class defines the configuration parameters for cache components in the system,

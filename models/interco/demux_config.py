@@ -4,10 +4,8 @@
 #
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
-from dataclasses import dataclass
-from gvrun.config import Config, cfg_field
+from config_tree import Config, cfg_field
 
-@dataclass(repr=False)
 class DemuxConfig(Config):
 
     offset: int = cfg_field(default=0, fmt="hex", dump=True, desc=(

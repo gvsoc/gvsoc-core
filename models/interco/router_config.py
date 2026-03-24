@@ -120,7 +120,7 @@ class RouterMapping(AddressMapping, Config, HasSize):
         "Size of the mapping"
     ))
 
-    remove_base: bool = cfg_field(default=True, dump=True, desc=(
+    remove_base: bool = cfg_field(default=False, dump=True, desc=(
         "Remove the base address when a request is propagated using this mapping"
     ))
 

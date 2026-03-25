@@ -5,7 +5,16 @@
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
 from gvsoc.systree import Component, SlaveItf
-from interco.splitter_config import SplitterConfig
+from config_tree import Config, cfg_field
+
+class SplitterConfig(Config):
+
+    input_width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Width in bytes of the input"
+    ))
+    output_width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Width in bytes of each output"
+    ))
 
 class Splitter(Component):
     def __init__(self, parent: Component, name: str, config: SplitterConfig):

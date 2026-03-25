@@ -4,8 +4,11 @@
 #
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
+from config_tree import Config
 from gvsoc.systree import Component, SlaveItf
-from interco.rw_splitter_config import RwSplitterConfig
+
+class RwSplitterConfig(Config):
+    pass
 
 class RwSplitter(Component):
     def __init__(self, parent: Component, name: str, config: RwSplitterConfig):

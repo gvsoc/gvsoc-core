@@ -91,7 +91,7 @@ class Router(gvsoc.systree.Component):
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
             synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0,
             attributes: RouterConfig | None=None, config: RouterConfig | None=None):
-        super(Router, self).__init__(parent, name)
+        super(Router, self).__init__(parent, name, config=config)
 
         if config is not None:
             attributes = config

@@ -5,7 +5,22 @@
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
 from gvsoc.systree import Component, SlaveItf
-from interco.log_ico_config import LogIcoConfig
+from config_tree import Config, cfg_field
+
+class LogIcoConfig(Config):
+
+    nb_masters: int = cfg_field(default=0, dump=True, desc=(
+        "Number of masters"
+    ))
+    nb_slaves: int = cfg_field(default=0, dump=True, desc=(
+        "Number of slaves"
+    ))
+    interleaving_width: int = cfg_field(default=0, dump=True, desc=(
+        "Number of bits for the interleaving"
+    ))
+    remove_offset: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Offset to be removed to the incoming requests"
+    ))
 
 class LogIco(Component):
     def __init__(self, parent: Component, name: str, config: LogIcoConfig):

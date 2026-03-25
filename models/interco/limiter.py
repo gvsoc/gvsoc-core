@@ -5,7 +5,13 @@
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
 from gvsoc.systree import Component, SlaveItf
-from interco.limiter_config import LimiterConfig
+from config_tree import Config, cfg_field
+
+class LimiterConfig(Config):
+
+    bandwidth: int = cfg_field(default=0, dump=True, desc=(
+        "Maximum size of the output requests"
+    ))
 
 class Limiter(Component):
     def __init__(self, parent: Component, name: str, config: LimiterConfig):

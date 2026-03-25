@@ -4,8 +4,17 @@
 #
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
+from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
-from interco.demux_config import DemuxConfig
+
+class DemuxConfig(Config):
+
+    offset: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "First bit used to extract the target index"
+    ))
+    width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Number of bit used to extract the target index"
+    ))
 
 class Demux(Component):
     def __init__(self, parent: Component, name: str, config: DemuxConfig):

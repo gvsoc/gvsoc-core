@@ -4,8 +4,20 @@
 #
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
+from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
-from interco.remapper_config import RemapperConfig
+
+class RemapperConfig(Config):
+
+    base: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Base addresse of the area to remap"
+    ))
+    size: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Size of the area to remap"
+    ))
+    target_base: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Base address of the target area"
+    ))
 
 class Remapper(Component):
     def __init__(self, parent: Component, name: str, config: RemapperConfig):

@@ -15,9 +15,7 @@
 #
 
 
-from dataclasses import dataclass
 from config_tree import Config, cfg_field
-
 
 class RiscvConfig(Config):
     isa: str = cfg_field(default='rv32imafdc', dump=True, desc=(

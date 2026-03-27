@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -23,6 +23,7 @@
 #include <vp/itf/clock.hpp>
 #include <stdio.h>
 #include <string.h>
+#include <utils/clock_generator_config.hpp>
 
 class Clock : public vp::Component
 {
@@ -37,6 +38,7 @@ private:
     inline void raise_edge();
     static void power_sync(vp::Block *__this, bool active);
 
+    ClockGeneratorConfig cfg;
     vp::Trace trace;
     vp::WireSlave<bool> power_itf;
     vp::ClockMaster clock_ctrl_itf;
@@ -45,10 +47,27 @@ private:
     int value;
     float target_frequency;
     float frequency;
-    float powerup_time;
-    bool powered_on;
     int64_t start_time;
 };
+
+Clock::Clock(vp::ComponentConf &config)
+    : vp::Component(config, this->cfg)
+{
+    if (!this->has_tree_config())
+    {
+        this->cfg.powerup_time = this->get_js_config()->get_child_int("powerup_time");
+        this->cfg.powered_on = this->get_js_config()->get("powered_on") == NULL || this->get_js_config()->get_child_bool("powered_on");
+    }
+
+    traces.new_trace("trace", &trace, vp::DEBUG);
+    this->event = this->event_new(Clock::edge_handler);
+
+    this->power_itf.set_sync_meth(&Clock::power_sync);
+    this->new_slave_port("power", &this->power_itf);
+    this->new_master_port("clock_ctrl", &this->clock_ctrl_itf);
+    this->new_master_port("clock_sync", &this->clock_sync_itf);
+    this->value = 0;
+}
 
 inline void Clock::raise_edge()
 {
@@ -57,14 +76,14 @@ inline void Clock::raise_edge()
     if (this->target_frequency)
     {
         int64_t diff_time = this->time.get_time()- this->start_time;
-        if (diff_time >= this->powerup_time)
+        if (diff_time >= this->cfg.powerup_time)
         {
             this->clock_ctrl_itf.set_frequency(this->target_frequency);
             this->target_frequency = 0;
         }
         else
         {
-            float frequency = this->target_frequency * (0.1 + 0.9 * diff_time / this->powerup_time);
+            float frequency = this->target_frequency * (0.1 + 0.9 * diff_time / this->cfg.powerup_time);
             this->clock_ctrl_itf.set_frequency(frequency);
         }
     }
@@ -86,7 +105,7 @@ void Clock::power_sync(vp::Block *__this, bool active)
 
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Changing clock power (is_on: %d)\n", active);
 
-    if (active != _this->powered_on)
+    if (active != _this->cfg.powered_on)
     {
         if (active)
         {
@@ -106,24 +125,7 @@ void Clock::power_sync(vp::Block *__this, bool active)
         }
     }
 
-    _this->powered_on = active;
-}
-
-
-Clock::Clock(vp::ComponentConf &config)
-    : vp::Component(config)
-{
-    traces.new_trace("trace", &trace, vp::DEBUG);
-    this->event = this->event_new(Clock::edge_handler);
-
-    this->power_itf.set_sync_meth(&Clock::power_sync);
-    this->new_slave_port("power", &this->power_itf);
-    this->new_master_port("clock_ctrl", &this->clock_ctrl_itf);
-    this->new_master_port("clock_sync", &this->clock_sync_itf);
-    this->value = 0;
-    this->powerup_time = this->get_js_config()->get_child_int("powerup_time");
-    this->powered_on = this->get_js_config()->get("powered_on") == NULL || this->get_js_config()->get_child_bool("powered_on");
-
+    _this->cfg.powered_on = active;
 }
 
 void Clock::reset(bool active)
@@ -134,7 +136,7 @@ void Clock::reset(bool active)
         this->frequency = this->clock.get_engine()->get_frequency();
         this->clock_sync_itf.set_frequency(this->clock.get_engine()->get_frequency() / 2);
 
-        if (this->powered_on)
+        if (this->cfg.powered_on)
         {
             if (!this->event->is_enqueued())
             {

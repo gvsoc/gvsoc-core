@@ -5,6 +5,8 @@
 Generates the documentation for the register tool
 
 """
+from __future__ import annotations
+
 from .access import SWACCESS_PERMITTED, HWACCESS_PERMITTED
 from reggen import (validate,
                     ip_block, enum_entry, field,

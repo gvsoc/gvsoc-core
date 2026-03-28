@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import gvsoc.systree
 from interco.router_config import RouterMapping, RouterConfig
 

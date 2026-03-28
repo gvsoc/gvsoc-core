@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from inspect import stack
 #
 # Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and University of Bologna

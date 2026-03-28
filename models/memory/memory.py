@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import gvsoc.systree
 
 from memory.memory_config import MemoryConfig

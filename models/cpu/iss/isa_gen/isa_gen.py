@@ -19,6 +19,8 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
+from __future__ import annotations
+
 import collections
 
 

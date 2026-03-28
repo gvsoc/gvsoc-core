@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import regmap.regmap as rmap
 import marko
 from marko import Markdown

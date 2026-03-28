@@ -19,6 +19,8 @@
 # Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
 #
 
+from __future__ import annotations
+
 from cpu.iss.isa_gen.isa_gen import *
 from cpu.iss.isa_gen.isa_rvv_timed import *
 import os.path

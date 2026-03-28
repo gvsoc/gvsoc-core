@@ -110,7 +110,7 @@ class SignalGenThreads(object):
 class Signal(object):
 
     def __init__(self, comp, parent, name=None, path=None, is_group=False, groups=None, display=None, properties=None,
-                 skip_if_no_child=False, required_traces=None, include_traces=None):
+                 skip_if_no_child=False, required_traces=None, include_traces=None, opened=False):
         if path is not None and comp is not None and len(path) != 0 and path[0] != '/':
             comp_path = get_comp_path(comp, inc_top=True)
             if comp_path is not None:
@@ -136,6 +136,7 @@ class Signal(object):
         self.skip_if_no_child = skip_if_no_child
         if parent is not None:
             parent.child_signals.append(self)
+        self.opened = opened
         self.required_traces = required_traces
         self.include_traces = []
         if path is not None:
@@ -198,6 +199,8 @@ class Signal(object):
         childs_config = self.get_childs_config()
         if len(childs_config) != 0:
             config['signals'] = childs_config
+        if self.opened:
+            config['opened'] = True
         if self.properties is not None:
             config['properties'] = self.properties
         if self.required_traces is not None:

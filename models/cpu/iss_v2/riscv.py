@@ -642,7 +642,7 @@ class RiscvCommon(st.Component):
     @override
     def gen_gui(self, parent_signal: Signal) -> Signal:
         active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='active_function',
-            display=gvsoc.gui.DisplayStringBox(), include_traces=['active_pc', 'binaries'])
+            display=gvsoc.gui.DisplayStringBox(), include_traces=['active_pc', 'binaries'], opened=True)
 
         gvsoc.gui.Signal(self, active, path='active_pc', groups=['pc'])
         gvsoc.gui.Signal(self, active, path='binaries', groups=['pc'])

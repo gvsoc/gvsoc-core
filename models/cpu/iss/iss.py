@@ -181,7 +181,7 @@ class Iss(st.Component):
 
     def gen_gui(self, parent_signal):
         active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='active_function',
-            display=gvsoc.gui.DisplayStringBox())
+            display=gvsoc.gui.DisplayStringBox(), opened=True)
 
         gvsoc.gui.Signal(self, active, path='active_pc', groups=['pc'])
         gvsoc.gui.Signal(self, active, path='binaries', groups=['pc'])

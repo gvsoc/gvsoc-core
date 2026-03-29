@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -62,6 +62,7 @@ namespace vp {
 
     static inline void sync_default(vp::Block *, bool value);
     static inline void set_frequency_default(vp::Block *, int64_t value);
+    static inline void set_frequency_muxed_default(vp::Block *, int64_t value, int id);
     static inline void set_frequency_freq_cross_stub(ClockMaster *_this, int64_t value);
 
     void (*sync_meth)(vp::Block *, bool value);

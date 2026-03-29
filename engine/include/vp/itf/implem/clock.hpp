@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
@@ -28,6 +28,7 @@ namespace vp {
   {
     this->sync_meth = &ClockMaster::sync_default;
     this->set_frequency_meth = &ClockMaster::set_frequency_default;
+    this->set_frequency_meth_mux = &ClockMaster::set_frequency_muxed_default;
   }
 
   inline void ClockMaster::bind_to(vp::Port *_port, js::Config *config)
@@ -75,6 +76,10 @@ namespace vp {
   {
   }
 
+  inline void ClockMaster::set_frequency_muxed_default(vp::Block *, int64_t value, int id)
+  {
+  }
+
   inline void ClockMaster::sync_muxed(ClockMaster *_this, bool value)
   {
     return _this->sync_meth_mux(_this->comp_mux, value, _this->sync_mux);
@@ -83,9 +88,9 @@ namespace vp {
   inline void ClockMaster::sync_freq_cross_stub(ClockMaster *_this, bool value)
   {
     // The normal callback was tweaked in order to get there when the master is sending a
-    // request. 
+    // request.
     // First synchronize the target engine in case it was left behind,
-    // and then generate the normal call with the mux ID using the saved 
+    // and then generate the normal call with the mux ID using the saved
     _this->remote_port->get_owner()->clock.get_engine()->sync();
     return _this->sync_meth_freq_cross((Component *)_this->slave_context_for_freq_cross, value);
   }
@@ -93,7 +98,7 @@ namespace vp {
   inline void ClockMaster::set_frequency_freq_cross_stub(ClockMaster *_this, int64_t value)
   {
     // The normal callback was tweaked in order to get there when the master is sending a
-    // request. 
+    // request.
     // First synchronize the target engine in case it was left behind,
     // and then generate the normal call with the mux ID using the saved handler
     if (_this->remote_port->get_owner()->clock.get_engine())
@@ -175,6 +180,7 @@ namespace vp {
   {
     this->sync = &ClockMaster::sync_default;
     this->set_frequency = &ClockMaster::set_frequency_default;
+    this->set_frequency_mux = &ClockMaster::set_frequency_muxed_default;
   }
 
   inline void vp::ClkMaster::bind_to(vp::Port *_port, js::Config *config)

@@ -755,6 +755,12 @@ namespace vp {
         port->SlavePort->master_resp_meth = port->resp_meth;
         port->SlavePort->master_grant_meth = port->grant_meth;
         port->SlavePort->set_remote_context(port->get_context());
+
+        // Also connect the root slave port in case the component wants to reply directly with it
+        // in case of single port connection
+        this->master_resp_meth = port->resp_meth;
+        this->master_grant_meth = port->grant_meth;
+        this->set_remote_context(port->get_context());
     }
     else
     {
@@ -768,6 +774,19 @@ namespace vp {
 
         port->SlavePort->master_context_for_mux = (vp::Block *)port->get_context();
         port->SlavePort->set_remote_context(port->SlavePort);
+
+        // Also connect the root slave port in case the component wants to reply directly with it
+        // in case of single port connection
+        this->master_grant_meth_mux = port->grant_meth_mux;
+        this->master_grant_meth = (IoGrantMeth *)&IoSlave::grant_muxed_stub;
+        this->slave_grant_mux_id = port->grant_mux_id;
+
+        this->master_resp_meth_mux = port->resp_meth_mux;
+        this->master_resp_meth = (IoRespMeth *)&IoSlave::resp_muxed_stub;
+        this->slave_resp_mux_id = port->resp_mux_id;
+
+        this->master_context_for_mux = (vp::Block *)port->get_context();
+        this->set_remote_context(port->SlavePort);
     }
   }
 

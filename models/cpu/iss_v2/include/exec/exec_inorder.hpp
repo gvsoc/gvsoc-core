@@ -51,7 +51,7 @@ public:
     inline iss_reg_t insn_exec(iss_insn_t *insn, iss_reg_t pc);
     inline iss_reg_t insn_exec_fast(iss_insn_t *insn, iss_reg_t pc);
 
-    inline bool can_switch_to_fast_mode();
+    virtual inline bool can_switch_to_fast_mode();
     inline void switch_to_full_mode();
 
     inline void enqueue_task(Task *task);
@@ -114,6 +114,9 @@ public:
 
     bool pending_flush;
 
+protected:
+    Iss &iss;
+
 private:
     void retain_check();
     static void flush_cache_ack_sync(vp::Block *_this, bool active);
@@ -124,8 +127,6 @@ private:
     inline InsnEntry *get_entry();
     inline void release_entry(InsnEntry *entry);
     inline bool handle_tasks();
-
-    Iss &iss;
 
     vp::WireMaster<bool> busy_itf;
     vp::WireMaster<bool> flush_cache_req_itf;

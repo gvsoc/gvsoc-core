@@ -168,6 +168,7 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
         else
         {
             this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
+            this->iss.timing.event_imiss_start();
             return -1;
         }
     }
@@ -194,9 +195,7 @@ void PrefetchSingleLine::fetch_response(vp::Block *__this, vp::IoReq *req)
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received fetch response\n");
 
-    // Since a pending response can also include a latency, we need to account it
-    // as a stall
-    _this->iss.timing.stall_fetch_account(req->get_latency());
+    _this->iss.timing.event_imiss_stop();
 
     // Now unstall the core and call the fetch callback so that we can continue the refill
     // operation

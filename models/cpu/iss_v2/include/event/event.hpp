@@ -47,20 +47,22 @@ public:
     inline void insn_stall_start(){}
     inline void insn_stall_stop(){}
 
-    inline void event_cycle_enable();
-    inline void event_cycle_disable();
-    inline void event_instr_account();
-    inline void event_fetch_account();
-    inline void event_imiss_account(int incr);
-    inline void event_load_account(int incr);
-    inline void event_rvc_account(int incr);
-    inline void event_store_account(int incr);
-    inline void event_branch_account();
-    inline void event_taken_branch_account();
-    inline void event_jump_account();
-    inline void event_misaligned_account(int incr);
-    inline void event_apu_contention_account(int incr){}
-    inline void event_load_load_account(int incr){}
+    virtual inline void event_cycle_enable();
+    virtual inline void event_cycle_disable();
+    virtual inline void event_instr_account();
+    virtual inline void event_fetch_account();
+    virtual inline void event_imiss_account(int incr);
+    virtual inline void event_imiss_start();
+    virtual inline void event_imiss_stop();
+    virtual inline void event_load_account(int incr);
+    virtual inline void event_rvc_account(int incr);
+    virtual inline void event_store_account(int incr);
+    virtual inline void event_branch_account();
+    virtual inline void event_taken_branch_account();
+    virtual inline void event_jump_account();
+    virtual inline void event_misaligned_account(int incr);
+    virtual inline void event_apu_contention_account(int incr){}
+    virtual inline void event_load_load_account(int incr){}
 
     inline void event_trace_account(unsigned int event, int cycles){}
     inline void event_trace_set(unsigned int event){}

@@ -44,20 +44,25 @@ class IssModule:
         pass
 
 class Arch(IssModule):
-    def __init__(self, class_name: str='EmptyModule'):
+    def __init__(self, class_name: str='EmptyModule', source: str|None=None):
         self.class_name: str = class_name
+        self.source: str|None = source
 
-    def gen(self, iss):
+    def gen(self, iss: Component):
         iss.isa.add_define('CONFIG_GVSOC_ISS_ARCH', self.class_name)
         if self.class_name != 'EmptyModule':
             iss.isa.add_include(f'<cpu/iss_v2/include/cores/{self.class_name.lower()}/{self.class_name.lower()}.hpp>')
+            if self.source is not None:
+                iss.add_sources([self.source])
 
 class ExecInOrder(IssModule):
-    def __init__(self, scoreboard: bool=False):
+    def __init__(self, class_name:str='ExecInOrder', scoreboard: bool=False):
         self.scoreboard = scoreboard
+        self.class_name = class_name
 
-    def gen(self, iss):
-        iss.isa.add_define('CONFIG_GVSOC_ISS_EXEC', 'ExecInOrder')
+    @override
+    def gen(self, iss: RiscvCommon):
+        iss.isa.add_define('CONFIG_GVSOC_ISS_EXEC', self.class_name)
         iss.isa.add_include('<cpu/iss_v2/include/exec/exec_inorder.hpp>')
         iss.isa.add_implem_include('<cpu/iss_v2/include/exec/exec_inorder_implem.hpp>')
         iss.add_sources(['cpu/iss_v2/src/exec/exec_inorder.cpp'])
@@ -68,6 +73,7 @@ class Regfile(IssModule):
     def __init__(self, scoreboard: bool=False):
         self.scoreboard = scoreboard
 
+    @override
     def gen(self, iss):
         iss.isa.add_define('CONFIG_GVSOC_ISS_REGFILE', 'Regfile')
         iss.isa.add_include('<cpu/iss_v2/include/regfile.hpp>')
@@ -76,26 +82,30 @@ class Regfile(IssModule):
             iss.isa.add_define('CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD', '1')
 
 class Csr(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_CSR', 'Csr')
         iss.isa.add_include('<cpu/iss_v2/include/csr.hpp>')
         iss.add_sources(['cpu/iss_v2/src/csr.cpp'])
 
 class Core(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_CORE', 'Core')
         iss.isa.add_include('<cpu/iss_v2/include/core.hpp>')
         iss.add_sources(['cpu/iss_v2/src/core.cpp'])
 
 class Irq(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_IRQ', 'IrqRiscv')
         iss.isa.add_define('CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS', 1)
         iss.isa.add_include('<cpu/iss_v2/include/irq/irq_riscv.hpp>')
         iss.add_sources(['cpu/iss_v2/src/irq/irq_riscv.cpp'])
 
 class IrqExternal(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_IRQ', 'IrqExternal')
         iss.isa.add_include('<cpu/iss_v2/include/irq/irq_external.hpp>')
         iss.add_sources(['cpu/iss_v2/src/irq/irq_external.cpp'])
@@ -104,14 +114,16 @@ class PrefetchSingleLine(IssModule):
     def __init__(self, scoreboard: bool=False, size=16):
         self.size = size
 
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_PREFETCH', 'PrefetchSingleLine')
         iss.isa.add_define('CONFIG_GVSOC_ISS_PREFETCH_SIZE', self.size)
         iss.isa.add_include('<cpu/iss_v2/include/prefetch/prefetch_single_line.hpp>')
         iss.add_sources(['cpu/iss_v2/src/prefetch/prefetch_single_line.cpp'])
 
 class Lsu(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', 'Lsu')
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', 1)
         iss.isa.add_include('<cpu/iss_v2/include/lsu.hpp>')
@@ -119,42 +131,49 @@ class Lsu(IssModule):
         iss.isa.add_implem_include('<cpu/iss_v2/include/lsu_implem.hpp>')
 
 class Exception(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_EXCEPTION', 'Exception')
         iss.isa.add_include('<cpu/iss_v2/include/exception.hpp>')
         iss.add_sources(['cpu/iss_v2/src/exception.cpp'])
 
 class Pmp(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_PMP', 'Pmp')
         iss.isa.add_include('<cpu/iss_v2/include/pmp/pmp.hpp>')
         iss.add_sources(["cpu/iss_v2/src/pmp.cpp"])
 
 class PmpEmpty(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_PMP', 'PmpEmpty')
         iss.isa.add_include('<cpu/iss_v2/include/pmp/empty.hpp>')
 
 class Mmu(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_MMU', 'Mmu')
         iss.isa.add_include('<cpu/iss_v2/include/mmu/mmu.hpp>')
         iss.add_sources(["cpu/iss_v2/src/mmu.cpp"])
         iss.isa.add_implem_include('<cpu/iss_v2/include/mmu/mmu_implem.hpp>')
 
 class MmuEmpty(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_MMU', 'MmuEmpty')
         iss.isa.add_include('<cpu/iss_v2/include/mmu/empty.hpp>')
 
 class Offload(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_OFFLOAD', 'Offload')
         iss.isa.add_include('<cpu/iss_v2/include/offload.hpp>')
         iss.add_sources(['cpu/iss_v2/src/offload.cpp'])
 
 class Event(IssModule):
-    def gen(self, iss):
+    @override
+    def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_EVENT', 'Events')
         iss.isa.add_include('<cpu/iss_v2/include/event/event.hpp>')
         iss.add_sources(['cpu/iss_v2/src/event/event.cpp'])

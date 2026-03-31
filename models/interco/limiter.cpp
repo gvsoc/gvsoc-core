@@ -152,7 +152,7 @@ void Limiter::handle_req()
 
 void Limiter::handle_req_end(vp::IoReq *port_req, vp::IoReqStatus status) {
     vp::IoReq *req = port_req->parent_req;
-    if (status == vp::IO_REQ_INVALID) req->parent_req->status = vp::IO_REQ_INVALID;
+    if (status == vp::IO_REQ_INVALID) req->status = vp::IO_REQ_INVALID;
 
     req->set_int(req->arg_current_index(), req->get_int(req->arg_current_index()) - port_req->size);
     if (req->get_int(req->arg_current_index()) == 0) {

@@ -133,10 +133,6 @@ inline bool ExecInOrder::can_switch_to_fast_mode()
 #ifdef VP_TRACE_ACTIVE
     return false;
 #else
-#if defined(ISS_HAS_PERF_COUNTERS)
-    return !(this->iss.csr.pcmr & CSR_PCMR_ACTIVE);
-#else
     return true;
-#endif
 #endif
 }

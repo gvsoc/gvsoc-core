@@ -55,6 +55,18 @@ inline void Events::event_imiss_account(int incr)
     this->event_imiss.dump_next(&zero, incr);
 }
 
+inline void Events::event_imiss_start()
+{
+    uint8_t one = 1;
+    this->event_imiss.dump(&one);
+}
+
+inline void Events::event_imiss_stop()
+{
+    uint8_t zero = 0;
+    this->event_imiss.dump_next(&zero);
+}
+
 inline void Events::event_load_account(int incr)
 {
     uint8_t one = 1, zero = 0;

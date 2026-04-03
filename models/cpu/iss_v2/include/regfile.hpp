@@ -124,6 +124,11 @@ inline int Regfile::get_reg_lid(int reg)
 
 inline void Regfile::set_reg(int reg, uint64_t value)
 {
+    // Since the register file is always 64bits to simplify, be careful to cast to real width
+    // when writing, otherwise some instructions could read back a larger value
+    if (!this->is_freg(reg)) {
+        value = (iss_reg_t)value;
+    }
     this->regs[reg] = value;
 #if defined(CONFIG_GVSOC_EVENT_ACTIVE)
     if (reg < ISS_DUMMY_REG)

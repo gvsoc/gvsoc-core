@@ -89,10 +89,12 @@ class Router(gvsoc.systree.Component):
     shared_rw_bandwidth: True if the read and write requests should share the bandwidth.
     max_input_pending_size: Size of the FIFO for each input. Only valid for asynchronous mode and
         only when input packet size is smaller or equal to the bandwidth.
+    fic_connected: True if router is to register itself with FIC and expose its address map.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
             synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0,
-            attributes: RouterConfig | None=None, config: RouterConfig | None=None):
+                 fic_connected: bool=False, attributes: RouterConfig | None=None, 
+                 config: RouterConfig | None=None):
         super(Router, self).__init__(parent, name, config=config)
 
         if config is not None:
@@ -103,6 +105,9 @@ class Router(gvsoc.systree.Component):
             max_input_pending_size = attributes.max_input_pending_size
             synchronous = attributes.synchronous
             shared_rw_bandwidth = attributes.shared_rw_bandwidth
+
+        if fic_connected:
+            self.add_c_flags(['-DCONFIG_FAULT_INJECTION=1'])
 
         # This will store the whole set of mappings and passed to model as a dictionary
         self.add_property('mappings', {})

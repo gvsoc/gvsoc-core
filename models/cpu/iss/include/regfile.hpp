@@ -110,4 +110,8 @@ protected:
     bool memcheck_reg_fault;
     int memcheck_reg_fault_id;
     std::string memcheck_reg_fault_message;
+
+#ifdef CONFIG_REGFILE_FI
+	bool registered_with_fic;
+#endif
 };

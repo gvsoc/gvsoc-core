@@ -19,6 +19,9 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#ifdef CONFIG_FAULT_INJECTION
+#include <vp/fault_injector.hpp>
+#endif
 #include <vp/vp.hpp>
 #include <vp/queue.hpp>
 #include <vp/itf/io.hpp>
@@ -130,6 +133,10 @@ private:
     void enable(bool enable);
     void flush();
     void flush_line(unsigned int addr);
+
+#ifdef CONFIG_FAULT_INJECTION
+	bool registered_with_fic;
+#endif
 };
 
 void Cache::reset(bool active)
@@ -140,6 +147,30 @@ void Cache::reset(bool active)
         this->enabled = this->enabled_at_reset;
         this->refill_event.release();
     }
+
+#ifdef CONFIG_FAULT_INJECTION
+		if (!this->registered_with_fic)
+		{
+			bool fic_enabled = this->get_js_config()->get_child_bool("fic_enabled");
+			if (fic_enabled)
+			{
+				// FIC does not know this struct. So pass it the relative offsets needed
+				cache_line_t line = this->lines[0];
+
+				uint64_t base = (uint64_t) &line;
+				uint64_t tag_off = ((uint64_t) &(line.tag)) - base;
+				uint64_t dirty_off = ((uint64_t) &(line.dirty)) - base;
+				uint64_t data_off = ((uint64_t) &(line.data)) - base;
+
+				uint64_t nb_lines = this->nb_ways * this->nb_sets;
+
+				vp::FIC_registrator *fic = (vp::FIC_registrator *) this->get_service("FIC");
+				fic->register_cache(this, (uint8_t *) lines, nb_lines, this->line_size_bits, 
+					this->nb_sets_bits, sizeof(cache_line_t), tag_off, dirty_off, data_off);
+				this->registered_with_fic = true;
+			}
+		}
+#endif
 }
 
 void Cache::refill_response(vp::Block *__this, vp::IoReq *req)

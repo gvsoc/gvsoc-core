@@ -54,11 +54,19 @@ namespace vp {
         void build();
         MappingTreeEntry *get(uint64_t base, uint64_t size, bool is_write);
 
+		// FI_START
+		std::vector<MappingTreeEntry *> get_entries_copy();	
+		// FI_END
+
     private:
         vp::Trace *trace;
         MappingTreeEntry *first_map_entry = NULL;
         MappingTreeEntry *top_map_entry = NULL;
         MappingTreeEntry *default_entry = NULL;
         MappingTreeEntry *error_entry = NULL;
+		
+		// FI_START
+		std::vector<MappingTreeEntry *> entries;
+		// FI_END
     };
 };

@@ -49,6 +49,10 @@ public:
     // bandwidth
     void apply_bandwidth(int64_t cycles, vp::IoReq *req);
 
+#ifdef CONFIG_FAULT_INJECTION
+	void reset(bool active) override;
+#endif
+
 private:
     Router *top;
     // Bandwidth in bytes per cycle to be respected
@@ -460,6 +464,21 @@ void Router::handle_entry_req_end(vp::IoReq *entry_req)
     // Finally remove the child size from the parent request
     *(int64_t *)req->arg_get(arg_index + Router::REQ_REM_SIZE) -= entry_req->get_size();
 }
+
+#ifdef CONFIG_FAULT_INJECTION
+void Router::reset(bool active)
+{
+	if (active)
+	{
+		bool fic_connected = this->get_js_config()->get_child_bool("fic_connected");
+		if (fic_connected)
+		{
+			vp::FIC_registrator *fic = (vp::FIC_registrator *) this->get_service("FIC");
+			fic->register_interco(this, &this->mapping_tree);
+		}
+	}
+}
+#endif
 
 OutputPort::OutputPort(Router *top, std::string name, int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth)
     : top(top), bw_limiter(top, bandwidth, latency, shared_rw_bandwidth),

@@ -96,4 +96,8 @@ private:
 
     iss_reg_t current_pc;
 
+#ifdef CONFIG_PREFETCHER_FI
+	bool registered_with_fic=false;
+#endif
+
 };

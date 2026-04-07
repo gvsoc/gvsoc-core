@@ -19,7 +19,9 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-
+#ifdef CONFIG_REGFILE_FI
+#include <vp/fault_injector.hpp>
+#endif
 #include "cpu/iss/include/regfile.hpp"
 #include "cpu/iss/include/iss.hpp"
 #include ISS_CORE_INC(class.hpp)
@@ -86,5 +88,23 @@ void Regfile::reset(bool active)
         // Except x0 which is always valid
         this->regs_memcheck[0] = -1;
         this->regs_memcheck[ISS_NB_REGS] = -1;
+
+#ifdef CONFIG_REGFILE_FI
+		if (!this->registered_with_fic)
+		{
+			bool fic_enabled = this->iss.top.get_js_config()->get_child_bool("regfile_fi");
+			if (fic_enabled)
+			{
+				vp::FIC_registrator *fic = (vp::FIC_registrator *) this->iss.top.get_service("FIC");
+				fic->register_regfile(&this->iss.top, VP_FI_REG, (void *) this->regs, 
+					ISS_NB_REGS + 1, sizeof(iss_reg_t));
+#if !defined(ISS_SINGLE_REGFILE)
+				fic->register_regfile(&this->iss.top, VP_FI_FREG, (void *) this->fregs, 
+					ISS_NB_FREGS, sizeof(iss_freg_t));
+#endif
+				this->registered_with_fic = true;	
+			}
+		}
+#endif
     }
 }

@@ -79,7 +79,10 @@ class RiscvCommon(st.Component):
         starts it (default: False).
     boot_addr : int, optional
         Address of the first instruction (default: 0)
-
+    regfile_fi: bool, optional
+        True if the regfiles of this core are fault-tested
+    prefetcher_fi: bool, optional
+        True if the prefetcher of this core is fault-tested
     """
 
     def __init__(self,
@@ -123,6 +126,8 @@ class RiscvCommon(st.Component):
             zfinx: bool=False,
             zdinx: bool=False,
             fp_width: int | None = None,
+            regfile_fi: bool=False,
+            prefetcher_fi: bool=False,
             modules: list[IssModule] = [],
             config=None
         ):
@@ -190,6 +195,8 @@ class RiscvCommon(st.Component):
             'fetch_enable': fetch_enable,
             'boot_addr': boot_addr,
             'has_double': isa.has_isa('rvd'),
+            'prefetcher_fi': prefetcher_fi,
+            'regfile_fi': regfile_fi,
         })
 
         fp_size = fp_width if fp_width is not None else  64 if isa.has_isa('rvd') else 32
@@ -253,6 +260,12 @@ class RiscvCommon(st.Component):
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
+
+        if regfile_fi:
+            self.add_c_flags(['-DCONFIG_REGFILE_FI=1'])
+
+        if prefetcher_fi:
+            self.add_c_flags(['-DCONFIG_PREFETCHER_FI=1'])
 
         if not float_lib in ['flexfloat', 'native', 'softfloat']:
             raise RuntimeError(f'Unsupported float lib: {float_lib}')

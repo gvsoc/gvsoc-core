@@ -18,8 +18,10 @@
  * Authors: Germain Haugou (germain.haugou@gmail.com)
  */
 
+#ifdef CONFIG_REGFILE_FI
+#include <vp/fault_injector.hpp>
+#endif
 #include "cpu/iss/include/iss.hpp"
-
 
 Vector::Vector(Iss &iss)
 {
@@ -38,5 +40,18 @@ void Vector::reset(bool active)
                 this->vregs[i][j] = 0;
             }
         }
+#ifdef CONFIG_REGFILE_FI
+		if (!this->registered_with_fic)
+		{
+			bool fic_enabled = this->iss.top.get_js_config()->get_child_bool("regfile_fi");
+			if (fic_enabled)
+			{
+				vp::FIC_registrator *fic = (vp::FIC_registrator *) this->iss.top.get_service("FIC");
+				fic->register_regfile(&this->iss.top, VP_FI_VREG, (void *) this->vregs, 
+					ISS_NB_VREGS, CONFIG_ISS_VLEN / 8);
+			}
+			this->registered_with_fic = true;
+		}
+#endif
     }
 }

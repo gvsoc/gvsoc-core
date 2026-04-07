@@ -125,10 +125,18 @@ vp::MappingTreeEntry *vp::MappingTree::get(uint64_t base, uint64_t size, bool is
 void vp::MappingTree::build()
 {
     vp::MappingTreeEntry *current = this->first_map_entry;
+	
+	// FI_START
+	this->entries.clear();
+	// FI_END
 
     this->trace->msg(vp::Trace::LEVEL_INFO, "Building router table\n");
     while(current)
     {
+		// FI_START  (those are all nodes, save them)
+		this->entries.push_back(current);
+		// FI_END
+		
         this->trace->msg(vp::Trace::LEVEL_INFO, "  0x%16llx : 0x%16llx -> %s\n",
             current->base, current->base + current->size, current->name.c_str());
         current = current->next;
@@ -203,3 +211,10 @@ void vp::MappingTree::build()
 
     this->top_map_entry = first_in_level;
 }
+
+// FI_START
+std::vector<vp::MappingTreeEntry *> vp::MappingTree::get_entries_copy()
+{
+	return this->entries;
+}
+// FI_END

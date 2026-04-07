@@ -82,6 +82,15 @@ private:
     vp::WireSlave<void *> meminfo_itf;
     vp::WireSlave<vp::MemCheckRequest *> memcheck_itf;
 
+#ifdef CONFIG_FAULT_INJECTION
+	std::map<uint64_t, std::vector<vp::FIRequest *>> stuck_at_map;
+	bool registered_with_fic = false;
+#endif
+
+#ifdef CONFIG_PARITY_CHECK
+	std::vector<bool> parity;
+#endif
+
     bool power_trigger;
     bool powered_up;
 
@@ -192,6 +201,10 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     }
     this->free_mem = true;
 
+#ifdef CONFIG_PARITY_CHECK
+	this->parity.resize(size);
+#endif
+
     // Special option to check for uninitialized accesses
     if (check)
     {
@@ -228,6 +241,10 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     if (this->get_js_config()->get_child_bool("init") && this->cfg.size < (2<<24))
     {
         memset(mem_data, 0x57, this->cfg.size);
+
+#ifdef CONFIG_PARITY_CHECK 
+		this->parity.assign(true, size);
+#endif
     }
 
     // Preload the Memory
@@ -379,13 +396,41 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
         return vp::IO_REQ_INVALID;
     }
 
+#ifdef CONFIG_FAULT_INJECTION
+	if (req->fault_upset_request)
+	{
+		_this->mem_data[offset] = _this->mem_data[offset] ^ req->mask;
+		return vp::IO_REQ_OK;
+	}
+#endif
+
     if (req->get_opcode() == vp::IoReqOpcode::READ)
     {
 #ifdef VP_MEMCHECK_ACTIVE
-        return _this->handle_read(offset, size, data, req->get_memcheck_data());
+	    vp::IoReqStatus status = _this->handle_read(offset, size, data, req->get_memcheck_data());
 #else
-        return _this->handle_read(offset, size, data, NULL);
+		vp::IoReqStatus status = _this->handle_read(offset, size, data, NULL);
 #endif
+
+#if defined(CONFIG_PARITY_CHECK) && defined(CONFIG_FAULT_INJECTION)
+		// Do parity check unless we compute hashes for integrity checks
+		if (!req->hash_request)
+		{
+			for (uint64_t i = offset; i < offset + size; i++)
+			{
+				uint8_t b = _this->mem_data[i];
+				// https://graphics.stanford.edu/~seander/bithacks.html
+				bool computed_p = (((b * 0x0101010101010101ULL) & 0x8040201008040201ULL) % 0x1FF) & 1;
+				if (computed_p != _this->parity[i])
+				{
+					fprintf(stderr, "FATAL! Parity check in %s failed at 0x%x!\n",
+						_this->get_path().c_str(), i);
+					_this->time.get_engine()->quit(666);
+				}
+			}
+		}
+#endif
+		return status;
     }
     else if (req->get_opcode() == vp::IoReqOpcode::WRITE)
     {
@@ -446,6 +491,17 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
     if (data)
     {
         memcpy((void *)&this->mem_data[offset], (void *)data, size);
+
+#ifdef CONFIG_PARITY_CHECK
+		for (uint64_t i = offset; i < offset + size; i++)
+		{
+			uint8_t b = this->mem_data[i];
+			// https://graphics.stanford.edu/~seander/bithacks.html
+			this->parity[i] = (((b * 0x0101010101010101ULL) & 0x8040201008040201ULL) % 0x1FF) & 1;
+			bool parity = this->parity[i];
+			//printf("Computed parity 0x%x -> %d\n", b, parity);
+		}
+#endif
     }
 
     return vp::IO_REQ_OK;
@@ -629,6 +685,31 @@ vp::IoReqStatus Memory::handle_read(uint64_t offset, uint64_t size, uint8_t *dat
     if (data)
     {
         memcpy((void *)data, (void *)&this->mem_data[offset], size);
+
+#ifdef CONFIG_FAULT_INJECTION
+		auto it = this->stuck_at_map.lower_bound(offset);
+
+		while (it != this->stuck_at_map.end() && it->first < offset + size)
+		{
+			uint64_t byte_rel_offset = it->first - offset;
+
+			for (const auto& tf : it->second)
+			{
+				if (tf->is_high)
+				{
+					((uint8_t *) data)[byte_rel_offset] = 
+					  ((uint8_t *) data)[byte_rel_offset] | (1U << tf->bit);
+				}
+				else
+				{
+					((uint8_t *) data)[byte_rel_offset] = 
+					  ((uint8_t *) data)[byte_rel_offset] & ~(1U << tf->bit);
+				}
+			}
+
+			++it;
+		}
+#endif
     }
 
     return vp::IO_REQ_OK;
@@ -748,6 +829,20 @@ void Memory::reset(bool active)
     {
         this->next_packet_start = 0;
         this->powered_up = true;
+
+#ifdef CONFIG_FAULT_INJECTION
+		if (!this->registered_with_fic)
+		{
+			//printf("[Memory::reset@%s] reset start\n", this->get_path().c_str());
+			bool fic_enabled = this->get_js_config()->get_child_bool("fic_enabled");
+			if (fic_enabled)
+			{
+				vp::FIC_registrator *fic = (vp::FIC_registrator *) this->get_service("FIC");
+				fic->register_memory(this, this->mem_data, this->cfg.size, this->stuck_at_map);
+				this->registered_with_fic = true;
+			}
+		}
+#endif
     }
 }
 

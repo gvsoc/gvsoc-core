@@ -19,6 +19,9 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#ifdef CONFIG_PREFETCHER_FI
+#include <vp/fault_injector.hpp>
+#endif
 #include <vp/vp.hpp>
 #include <cpu/iss/include/iss.hpp>
 
@@ -38,6 +41,18 @@ void Prefetcher::reset(bool active)
 {
     if (active)
     {
+#ifdef CONFIG_PREFETCHER_FI
+		if (!this->registered_with_fic)
+		{
+			bool fic_enabled = this->iss.top.get_js_config()->get_child_bool("prefetcher_fi");
+			if (fic_enabled)
+			{
+				vp::FIC_registrator *fic = (vp::FIC_registrator *) this->iss.top.get_service("FIC");
+				fic->register_prefetcher(&this->iss.top, this->data, ISS_PREFETCHER_SIZE);
+			}
+			this->registered_with_fic = true;
+		}
+#endif
         this->flush();
         this->prefetch_insn = NULL;
     }

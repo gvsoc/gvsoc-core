@@ -185,6 +185,11 @@ namespace vp {
     uint64_t initiator_addr;
     vp::IoReq *parent_req;
 
+	// FI_START
+	bool fault_upset_request=false;
+	bool hash_request=false;
+	uint8_t mask;
+	// FI_END
 
   private:
     IoReq *next;

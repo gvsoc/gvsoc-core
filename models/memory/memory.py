@@ -60,12 +60,17 @@ class Memory(gvsoc.systree.Component):
         Absolute virtual base of allocated buffers.
     memcheck_expansion_factor: int
         Extra size used to track buffer overflow.
+    fic_enabled: bool
+        True if this memory is being fault-injection tested.
+    parity_check: bool
+        True if parity check support is enabled.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int=0, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
-            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
-            attributes: MemoryConfig | None=None, config: MemoryConfig | None=None):
+            memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, fic_enabled: bool=False,
+            parity_check: bool=False, init=True, attributes: MemoryConfig | None=None, 
+            config: MemoryConfig | None=None):
 
         if config is not None:
             attributes = config
@@ -84,6 +89,12 @@ class Memory(gvsoc.systree.Component):
         if atomics or attributes is not None and attributes.atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
+        if fic_enabled:
+            self.add_c_flags(['-DCONFIG_FAULT_INJECTION=1'])
+
+        if parity_check:
+            self.add_c_flags(['-DCONFIG_PARITY_CHECK=1'])
+
         self.add_properties({
             'init': init,
             'size': size if attributes is None else attributes.size,
@@ -96,6 +107,7 @@ class Memory(gvsoc.systree.Component):
             'memcheck_base': memcheck_base,
             'memcheck_virtual_base': memcheck_virtual_base,
             'memcheck_expansion_factor': memcheck_expansion_factor,
+            'fic_enabled': fic_enabled,
         })
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

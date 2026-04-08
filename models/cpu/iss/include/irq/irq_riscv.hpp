@@ -44,26 +44,32 @@ class Irq
 {
 public:
     Irq(Iss &iss);
+    virtual ~Irq() = default;
 
     void build();
 
     bool mideleg_access(bool is_write, iss_reg_t &value);
-    bool mip_access(bool is_write, iss_reg_t &value);
-    bool mie_access(bool is_write, iss_reg_t &value);
+    virtual bool mip_access(bool is_write, iss_reg_t &value);
+    virtual bool mie_access(bool is_write, iss_reg_t &value);
     bool sip_access(bool is_write, iss_reg_t &value);
     bool sie_access(bool is_write, iss_reg_t &value);
-    bool mtvec_access(bool is_write, iss_reg_t &value);
+    virtual bool mtvec_access(bool is_write, iss_reg_t &value);
     bool stvec_access(bool is_write, iss_reg_t &value);
 
     bool mtvec_set(iss_addr_t base);
     bool stvec_set(iss_addr_t base);
     inline void global_enable(int enable);
     void cache_flush();
-    void reset(bool active);
+    virtual void reset(bool active);
     int check();
     void wfi_handle();
-    void elw_irq_unstall();
+    virtual void elw_irq_unstall();
     void check_interrupts();
+
+protected:
+    virtual void register_csr_callbacks();
+
+public:
     static void msi_sync(vp::Block *__this, bool value);
     static void mti_sync(vp::Block *__this, bool value);
     static void mei_sync(vp::Block *__this, bool value);

@@ -28,14 +28,20 @@ class Exception
 {
 public:
     Exception(Iss &iss);
+    virtual ~Exception() = default;
 
     void build();
 
     void raise(iss_reg_t pc, int id);
 
+    /* Hook for core-specific trap vector PC masking.
+     * Default: return vec_value unchanged (generic RISC-V).
+     * CV32E40P: return vec_value & ~3 (mtvec[1:0] hardwired to 0). */
+    virtual iss_reg_t trap_vector_pc(iss_reg_t vec_value) { return vec_value; }
+
     iss_addr_t debug_handler_addr;
 
-private:
+protected:
     Iss &iss;
     vp::Trace trace;
 };

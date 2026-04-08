@@ -168,6 +168,16 @@ void Exec::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 
     if (iss->exec.handle_stall_cycles()) return;
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    // CV32E40P: check interrupts pre-fetch in fast handler to match RTL decode-stage IRQ timing.
+    // RTL checks interrupts combinatorially every cycle at DECODE; without this guard GVSOC
+    // would only check post-execute (in exec_instr_check_all), causing mepc off-by-one.
+    if (!iss->exec.skip_irq_check && iss->irq.check())
+    {
+        return;
+    }
+#endif
+
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
     iss_reg_t pc = iss->exec.current_insn;
@@ -325,7 +335,21 @@ void Exec::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
     if (!_this->skip_irq_check)
     {
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+        /* WP-C: Pre-fetch IRQ check — matches RTL combinatorial check in
+         * DECODE state (cv32e40p_controller.sv).  Check interrupts BEFORE
+         * fetching the next instruction so that mepc captures the PC of the
+         * instruction about to execute.  If an IRQ is taken, irq.check()
+         * sets current_insn=mtvec and adds stall cycles; we return
+         * immediately so the handler instruction is fetched on the next
+         * cycle invocation. */
+        if (_this->iss.irq.check())
+        {
+            return;
+        }
+#else
         _this->iss.irq.check();
+#endif
     }
     else
     {
@@ -432,9 +456,14 @@ void Exec::fetchen_sync(vp::Block *__this, bool active)
 void Exec::bootaddr_apply(uint32_t value)
 {
     this->trace.msg("Setting boot address (value: 0x%x)\n", value);
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
+    /* Generic RISC-V: derive mtvec from boot address.
+     * CV32E40P: mtvec is set by Csr::build() (reset_val=0x1) and
+     * rvviRefCsrSet.  bootaddr 0x80 & ~0xFF = 0x0 is wrong for
+     * CV32E40P where mtvec reset is 0x1 (vectored mode). */
     iss_reg_t bootaddr = this->bootaddr_reg.get() & ~((1 << 8) - 1);
     this->iss.csr.mtvec.access(true, bootaddr);
-
+#endif
 }
 
 

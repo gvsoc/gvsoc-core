@@ -39,7 +39,7 @@ LogIco::LogIco(vp::ComponentConf &config) : vp::Component(config, this->cfg) {
         this->new_slave_port("input_" + std::to_string(i), &this->in[i]);
     }
 
-    this->slave_bits = 32 - __builtin_clz(this->cfg.nb_slaves - 1);
+    this->slave_bits = this->cfg.nb_slaves > 1 ? 32 - __builtin_clz(this->cfg.nb_slaves - 1) : 0;
 }
 
 vp::IoReqStatus LogIco::req(vp::Block *__this, vp::IoReq *req, int id) {

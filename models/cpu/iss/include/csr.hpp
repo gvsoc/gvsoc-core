@@ -52,12 +52,15 @@ public:
 
     const char *name;
     iss_reg_t reset_val;
+    iss_reg_t write_mask;
     bool write_illegal = false;
+
+    // Public setter for write_mask — allows core-specific subclasses to
+    // configure CSR masks without requiring friend access.
+    void set_write_mask(iss_reg_t mask) { write_mask = mask; }
 
 protected:
     void reset(bool active);
-
-    iss_reg_t write_mask;
 
 private:
     std::vector<std::function<bool(bool, iss_reg_t &)>> callbacks;
@@ -152,6 +155,7 @@ public:
 
     void build();
     void reset(bool active);
+    virtual ~Csr() = default;
 
     void declare_pcer(int index, std::string name, std::string help);
     void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, iss_reg_t reset_val=0, iss_reg_t mask=-1);
@@ -213,6 +217,20 @@ public:
     CsrReg mhpmcounterh[29];
 #endif
     CsrReg mcountinhibit;
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+
+#if ISS_REG_WIDTH == 32
+    CsrReg mcycleh;
+    CsrReg minstreth;
+#endif
+
+    CsrReg minstret;
+    CsrReg mhpmevent[29];
+
+    CsrReg tinfo;
+    CsrReg mcontext;
+    CsrReg scontext;
+#endif
 
 #if defined(CONFIG_GVSOC_ISS_PMP)
     CsrReg pmpcfg[16];
@@ -236,8 +254,9 @@ public:
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_fcsr_t fcsr;
-    iss_reg_t mhartid;
-
+    
+    CsrReg mhartid;
+    CsrReg mimpid;
     CsrReg vstart;
     CsrReg vxstat;
     CsrReg vxrm;
@@ -250,13 +269,22 @@ public:
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 #endif
 
+    /* Hook for core-specific mstatus read fixup (e.g. SD bit).
+     * Called by Core::mstatus_update on read path. Default: no-op. */
+    virtual void mstatus_read_fixup(iss_reg_t &value) {}
+
+protected:
+    virtual bool mstatus_access(bool is_write, iss_reg_t &value);
+    virtual bool minstret_access(bool is_write, iss_reg_t &value);
+    virtual bool mcycle_access(bool is_write, iss_reg_t &value);
+    void undeclare_csr(iss_reg_t address) { regs.erase(address); }
+
+    std::map<iss_reg_t, CsrAbtractReg *> regs;
+
 private:
 
     bool tselect_access(bool is_write, iss_reg_t &value);
     bool time_access(bool is_write, iss_reg_t &value);
-    bool mcycle_access(bool is_write, iss_reg_t &value);
-
-    std::map<iss_reg_t, CsrAbtractReg *> regs;
     vp::WireMaster<uint64_t> time_itf;
 
 };

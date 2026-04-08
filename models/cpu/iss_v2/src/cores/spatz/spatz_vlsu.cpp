@@ -246,7 +246,8 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         PendingInsn *pending_insn = slot.insn;
 
         if (pending_insn->timestamp <=_this->vu.iss.clock.get_cycles() &&
-            _this->pending_size == 0)
+            _this->pending_size == 0 &&
+            _this->insn_first_waiting == _this->insn_first)
         {
             iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
 #ifdef CONFIG_GVSOC_STATS_ACTIVE
@@ -269,6 +270,8 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
         if (_this->vu.insn_ready(pending_insn))
         {
+
+            
             uint64_t iter_size = 0;
             iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
 
@@ -353,7 +356,14 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                     // Switch to next instruction once all burst have been sent
                     if (_this->pending_size == 0)
-                    {
+                    {   
+                        // 1. THE BUS TIMER: Record exactly when the bus went idle
+                        _this->op_timestamp = _this->vu.iss.clock.get_cycles();
+
+                        // 2. THE PIPELINE TIMER: Set the retirement delay
+                        iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
+                        pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + insn->latency;
+
                         _this->nb_waiting_insn--;
                         _this->insn_first_waiting = (_this->insn_first_waiting + 1) % VuLsu::queue_size;
                     }
@@ -367,23 +377,25 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
             _this->vstart += iter_size;
 
-            // Check if the first enqueued instruction must be removed
-            if (_this->nb_pending_insn.get() > 0)
-            {
-                VuLsuPendingInsn &slot = _this->insns[_this->insn_first];
-                PendingInsn *pending_insn = slot.insn;
-                if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
-                    pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
-                {
-                    _this->event_label.dump_highz_next();
-                    // Remember the timestamp of last operation to impact timing of next one
-                    _this->op_timestamp = _this->vu.iss.clock.get_cycles();
-                    _this->insn_first = (_this->insn_first + 1) % VuLsu::queue_size;
-                    _this->nb_pending_insn.dec(1);
-                    pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + 1;
-                    _this->vu.insn_end(pending_insn);
-                }
-            }
+        }
+    }
+
+    // Check if the first enqueued instruction must be removed.
+    // This must run even when pending_size is 0, as latency can delay retirement.
+    if (_this->nb_pending_insn.get() > 0)
+    {
+        VuLsuPendingInsn &slot = _this->insns[_this->insn_first];
+        PendingInsn *pending_insn = slot.insn;
+        if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
+            pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
+        {
+            _this->event_label.dump_highz_next();
+            // Remember the timestamp of last operation to impact timing of next one
+            _this->op_timestamp = _this->vu.iss.clock.get_cycles();
+            _this->insn_first = (_this->insn_first + 1) % VuLsu::queue_size;
+            _this->nb_pending_insn.dec(1);
+            pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + 1;
+            _this->vu.insn_end(pending_insn);
         }
     }
 }

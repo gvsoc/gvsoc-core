@@ -52,7 +52,8 @@ class Event
 {
 public:
     Event(vp::Block &parent, const char *name, int width=64,
-        gv::Vcd_event_type type=gv::Vcd_event_type_logical);
+        gv::Vcd_event_type type=gv::Vcd_event_type_logical,
+        const char *description=nullptr);
     // To be removed
     inline void dump_value(uint8_t *value, int64_t time_delay=0);
     inline void dump(uint8_t *value, int64_t time_delay=0);
@@ -69,6 +70,7 @@ public:
 
     gv::Vcd_event_type type;
     int width;
+    const char *description;
 private:
     static void dump_string(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
     static void dump_1(vp::Event *event, uint8_t *value, int64_t time_delay, uint8_t *flags);
@@ -108,7 +110,8 @@ private:
 class Event {
 public:
     Event(vp::Block &parent, std::string_view name, int width=64,
-        gv::Vcd_event_type type=gv::Vcd_event_type_logical) {}
+        gv::Vcd_event_type type=gv::Vcd_event_type_logical,
+        const char *description=nullptr) {}
     void dump_value(uint8_t *value, int64_t time_delay=0) {}
     void dump(uint8_t *value, int64_t time_delay=0) {}
     void dump_next(uint8_t *value, int64_t cycles=1, int64_t time_delay=0) {}

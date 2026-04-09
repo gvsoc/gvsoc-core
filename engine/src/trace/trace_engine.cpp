@@ -375,7 +375,7 @@ void vp::TraceEngine::start()
                     clock_trace_name = trace->clock_trace->path;
                 }
                 int width = trace->type == gv::Vcd_event_type_real ? 8 : trace->type == gv::Vcd_event_type_string ? 0 : trace->width;
-                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace->type, width, clock_trace_name);
+                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace->type, width, "", clock_trace_name);
             }
         }
 
@@ -395,7 +395,7 @@ void vp::TraceEngine::start()
                     clock_trace_name = trace->clock_trace->path;
                 }
                 int width = trace->type == gv::Vcd_event_type_real ? 8 : trace->type == gv::Vcd_event_type_string ? 0 : trace->width;
-                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace->type, width, clock_trace_name);
+                trace->user_trace = this->vcd_user->event_register(trace->get_full_path(), trace->type, width, "", clock_trace_name);
             }
         }
     }

@@ -29,8 +29,9 @@ static int vcd_id = 0;
 
 #ifdef CONFIG_GVSOC_EVENT_ACTIVE
 
-vp::Event::Event(vp::Block &parent, const char *name, int width, gv::Vcd_event_type type)
-: parent(parent), type(type), width(width)
+vp::Event::Event(vp::Block &parent, const char *name, int width, gv::Vcd_event_type type,
+    const char *description)
+: parent(parent), type(type), width(width), description(description)
 {
     this->name = parent.traces.get_trace_engine()->get_string(name);
     this->id = parent.traces.get_trace_engine()->event_declare(this);
@@ -389,7 +390,7 @@ void vp::Event::enable_set(bool enabled, vp::Event_file *file)
         gv::Vcd_user *vcd_user = this->parent.traces.get_trace_engine()->vcd_user;
         if (vcd_user)
         {
-            this->external_trace = vcd_user->event_register(this->path_get(), this->type, this->width, clock_trace_name);
+            this->external_trace = vcd_user->event_register(this->path_get(), this->type, this->width, this->description ? this->description : "", clock_trace_name);
         }
         else if (file)
         {

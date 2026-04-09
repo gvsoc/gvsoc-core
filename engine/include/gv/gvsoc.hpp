@@ -253,12 +253,13 @@ namespace gv {
          * @param path The path of the VCD event in the simulated system.
          * @param type The type of the VCD event.
          * @param width The width of the VCD event.
+         * @param description A description of the VCD event.
          * @param clock_path If any, path of the clock trace.
          *
          * @return The trace identifier, to be used to refer to this trace when an event is pushed.
          */
         virtual void *event_register(std::string path, Vcd_event_type type, int width,
-            std::string clock_path="") { return NULL; }
+            std::string description, std::string clock_path="") { return NULL; }
 
         /**
          * Called by GVSOC to update the value of a logical VCD event.

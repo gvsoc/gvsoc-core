@@ -183,6 +183,8 @@ class Component(gvrun.target.SystemTreeNode):
         self.interfaces = []
         self.c_flags = []
         self.sources = []
+        self.vcd_traces = []
+        self.gui_callbacks = []
 
         if parent is not None and isinstance(parent, Component):
             parent.__add_component(name, self)
@@ -213,6 +215,46 @@ class Component(gvrun.target.SystemTreeNode):
             component.configure_all()
 
         self.configure()
+
+    def add_vcd_trace(self, path: str, trace_type: str):
+        """Declare a user VCD trace.
+
+        This registers a VCD trace that the GVSoC engine will create at startup.
+        The trace can then be opened from the simulated software using
+        gv_vcd_open_trace().
+
+        Parameters
+        ----------
+        path : str
+            Path of the trace (e.g. 'kernel/active').
+        trace_type : str
+            Type of the trace: 'int' for integer values, 'string' for string values.
+        """
+        self.vcd_traces.append({'path': path, 'type': trace_type})
+
+    def get_vcd_traces(self):
+        """Get all declared user VCD traces.
+
+        Returns
+        -------
+        list[dict]
+            List of trace descriptors, each with 'path' and 'type' keys.
+        """
+        return self.vcd_traces
+
+    def add_gui_callback(self, callback):
+        """Register a callback for GUI signal generation.
+
+        The callback will be called during gen_gui_stub with the parent signal
+        as argument: callback(parent_signal). It can use gvsoc.gui.Signal and
+        related classes to add custom signals to the GUI.
+
+        Parameters
+        ----------
+        callback : callable
+            Function taking (parent_signal) as argument.
+        """
+        self.gui_callbacks.append(callback)
 
     def i_RESET(self) -> SlaveItf:
         return SlaveItf(self, 'reset', signature='wire<bool>')
@@ -575,6 +617,9 @@ class Component(gvrun.target.SystemTreeNode):
 
     def gen_gui_stub(self, parent_signal):
         parent_signal = self.gen_gui(parent_signal)
+
+        for callback in self.gui_callbacks:
+            callback(parent_signal)
 
         for component in self.components.values():
             component.gen_gui_stub(parent_signal)

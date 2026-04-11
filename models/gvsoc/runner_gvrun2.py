@@ -209,6 +209,17 @@ class Runner():
                 }
             })
 
+        # Collect user VCD traces declared on the model and inject into gvsoc config
+        vcd_traces = self.target.get_vcd_traces()
+        if vcd_traces:
+            traces_dict = self.target.properties.get("gvsoc", {}).get("events", {}).get("traces", {})
+            for trace in vcd_traces:
+                trace_name = trace['path'].replace('/', '_')
+                traces_dict[trace_name] = {
+                    'path': trace['path'],
+                    'type': trace['type']
+                }
+
         cosim_mode = False
         choices = ['gvsoc']
 

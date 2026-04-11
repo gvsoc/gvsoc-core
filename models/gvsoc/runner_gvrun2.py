@@ -95,6 +95,10 @@ def gen_config(args, config, cosim_mode):
     if args.format is not None:
         gvsoc_config.set('events/format', args.format)
 
+    for opt in args.gv_opts:
+        key, value = opt.split('=', 1)
+        gvsoc_config.set(key, value)
+
     debug_mode = args.debug_mode or gvsoc_config.get_bool('debug-mode') or \
         gvsoc_config.get_bool('traces/enabled') or \
         gvsoc_config.get_bool('events/enabled') or \
@@ -714,6 +718,9 @@ class Target(gvrun.target.Target):
 
             parser.add_argument("--event-format", dest="format", default=None,
                 help="Specify events format (vcd or fst)")
+
+            parser.add_argument("--gv-opt", dest="gv_opts", default=[], action="append",
+                help="Set a gvsoc config option (format: path/to/key=value, e.g. events/traces/my_trace/type=int)")
 
             parser.add_argument("--emulation", dest="emulation", action="store_true",
                 help="Launch in emulation mode")

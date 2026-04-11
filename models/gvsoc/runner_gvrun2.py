@@ -627,10 +627,33 @@ class Runner():
 
 
 
+    display_classes = {
+        'box': gvsoc.gui.DisplayBox,
+        'string_box': gvsoc.gui.DisplayStringBox,
+        'string': gvsoc.gui.DisplayString,
+        'pulse': gvsoc.gui.DisplayPulse,
+        'analog': gvsoc.gui.DisplayAnalog,
+        'logic_box': gvsoc.gui.DisplayLogicBox,
+    }
+
     def gen_gui_config(self, work_dir, path):
         with open(path, 'w') as fd:
             config = GuiConfig(self.args)
             self.target.gen_gui_stub(config)
+
+            gui_signals = self.full_config.get('target/gvsoc/gui/signals')
+            if gui_signals is not None:
+                for name, signal_config in gui_signals.get_items().items():
+                    signal_path = signal_config.get_child_str('path')
+                    display_type = signal_config.get_child_str('display')
+                    if signal_path is not None:
+                        if display_type is not None and display_type in self.display_classes:
+                            display = self.display_classes[display_type]()
+                        else:
+                            display = gvsoc.gui.DisplayBox()
+                        gvsoc.gui.Signal(None, config, name=name,
+                            path='/' + signal_path, display=display)
+
             config.gen(fd)
 
     def gen_gtkw_script(self, work_dir, path, tags=[], level=0, trace_file=None, gen_full_tree=False):

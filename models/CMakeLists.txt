@@ -13,24 +13,3 @@ add_subdirectory(interco)
 add_subdirectory(memory)
 add_subdirectory(utils)
 add_subdirectory(vp)
-
-
-install(
-    FILES gvsoc/gvsoc_control.py
-    DESTINATION  python/gv
-    )
-
-install(
-    FILES gvsoc/gvsoc_control.py
-    DESTINATION  python/gvsoc
-    )
-
-install(
-    FILES gvsoc/json_tools.py
-    DESTINATION  python/gvsoc
-    )
-
-install(
-    DIRECTORY regmap
-    DESTINATION  python
-    )

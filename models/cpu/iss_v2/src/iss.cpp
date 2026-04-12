@@ -117,6 +117,46 @@ pmp(*this), timing(*this), arch(*this)
 {
 }
 
+std::string Iss::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file,
+    std::vector<std::string> args, std::string req)
+{
+    if (args.size() >= 2 && args[0] == "breakpoint_insert")
+    {
+        uint64_t addr = strtoull(args[1].c_str(), NULL, 0);
+        this->gdbserver.gdbserver_breakpoint_insert(addr);
+        return "ok";
+    }
+    else if (args.size() >= 2 && args[0] == "breakpoint_remove")
+    {
+        uint64_t addr = strtoull(args[1].c_str(), NULL, 0);
+        this->gdbserver.gdbserver_breakpoint_remove(addr);
+        return "ok";
+    }
+    else if (args.size() >= 1 && args[0] == "breakpoint_status")
+    {
+        if (this->gdbserver.breakpoint_hit)
+        {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "hit=1 addr=0x%lx",
+                (unsigned long)this->gdbserver.breakpoint_hit_addr);
+            return std::string(buf);
+        }
+        return "hit=0";
+    }
+    else if (args.size() >= 1 && args[0] == "resume")
+    {
+        if (this->exec.halted.get())
+        {
+            this->gdbserver.breakpoint_hit = false;
+            this->exec.halted.set(false);
+            this->exec.retain_dec();
+        }
+        return "ok";
+    }
+
+    return "";
+}
+
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
   return new Iss(config);

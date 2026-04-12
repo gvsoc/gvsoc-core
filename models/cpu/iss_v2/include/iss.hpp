@@ -49,6 +49,9 @@ class Iss : public vp::Component
 public:
     Iss(vp::ComponentConf &config);
 
+    std::string handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_file,
+        std::vector<std::string> args, std::string req) override;
+
     InsnCache insn_cache;
     Decode decode;
     Trace trace;

@@ -226,7 +226,15 @@ static inline iss_reg_t breakpoint_check_exec(Iss *iss, iss_insn_t *insn, iss_re
     {
         iss->exec.retain_inc();
         iss->exec.halted.set(true);
-        iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP, "hwbreak");
+        if (iss->gdbserver.is_enabled())
+        {
+            iss->gdbserver.gdbserver->signal(&iss->gdbserver, vp::Gdbserver_engine::SIGNAL_TRAP, "hwbreak");
+        }
+        else
+        {
+            iss->gdbserver.breakpoint_hit = true;
+            iss->gdbserver.breakpoint_hit_addr = pc;
+        }
         return pc;
     }
     else

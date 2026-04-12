@@ -95,4 +95,6 @@ public:
     std::list<Watchpoint *> write_watchpoints;
     std::list<Watchpoint *> read_watchpoints;
     int id;
+    bool breakpoint_hit = false;
+    iss_addr_t breakpoint_hit_addr = 0;
 };

@@ -50,7 +50,9 @@ class MemoryConfig(Config, HasSize):
         "set to True only if needed"
     ))
 
-    latency: int = cfg_field(default=0, dump=True, desc=(
+    # Memory latency is 1 by default to model the fact that the memory always reply in the next
+    # cycle
+    latency: int = cfg_field(default=1, dump=True, desc=(
         "Specify extra latency which will be added to any "
         "incoming request"
     ))

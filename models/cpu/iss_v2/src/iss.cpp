@@ -153,6 +153,22 @@ std::string Iss::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_
         }
         return "ok";
     }
+    else if (args.size() >= 1 && args[0] == "reg_read")
+    {
+        std::string result;
+        char buf[32];
+        for (int i = 0; i < 32; i++)
+        {
+            snprintf(buf, sizeof(buf), "%s0x%lx", i > 0 ? " " : "",
+                (unsigned long)this->regfile.get_reg_untimed(i));
+            result += buf;
+        }
+        // Append PC as register 32
+        snprintf(buf, sizeof(buf), " 0x%lx",
+            (unsigned long)(this->exec.current_insn ? this->exec.current_insn : 0));
+        result += buf;
+        return result;
+    }
 
     return "";
 }

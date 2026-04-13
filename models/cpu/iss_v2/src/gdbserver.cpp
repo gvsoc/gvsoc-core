@@ -370,8 +370,17 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
             this->iss.exec.retain_inc();
             this->iss.exec.halted.set(true);
             iss_reg_t hit_addr = std::max(wp->addr, addr);
-            this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver,
-                vp::Gdbserver_engine::SIGNAL_TRAP, is_write ? "watch" : "rwatch", hit_addr);
+            if (this->is_enabled())
+            {
+                this->iss.gdbserver.gdbserver->signal(&this->iss.gdbserver,
+                    vp::Gdbserver_engine::SIGNAL_TRAP, is_write ? "watch" : "rwatch", hit_addr);
+            }
+            else
+            {
+                this->watchpoint_hit = true;
+                this->watchpoint_hit_addr = hit_addr;
+                this->watchpoint_hit_is_write = is_write;
+            }
             return true;
         }
     }

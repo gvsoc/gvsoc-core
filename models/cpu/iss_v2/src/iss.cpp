@@ -148,10 +148,39 @@ std::string Iss::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_
         if (this->exec.halted.get())
         {
             this->gdbserver.breakpoint_hit = false;
+            this->gdbserver.watchpoint_hit = false;
             this->exec.halted.set(false);
             this->exec.retain_dec();
         }
         return "ok";
+    }
+    else if (args.size() >= 4 && args[0] == "watchpoint_insert")
+    {
+        bool is_write = (args[1] != "0");
+        uint64_t addr = strtoull(args[2].c_str(), NULL, 0);
+        int size = strtol(args[3].c_str(), NULL, 0);
+        this->gdbserver.gdbserver_watchpoint_insert(is_write, addr, size);
+        return "ok";
+    }
+    else if (args.size() >= 4 && args[0] == "watchpoint_remove")
+    {
+        bool is_write = (args[1] != "0");
+        uint64_t addr = strtoull(args[2].c_str(), NULL, 0);
+        int size = strtol(args[3].c_str(), NULL, 0);
+        this->gdbserver.gdbserver_watchpoint_remove(is_write, addr, size);
+        return "ok";
+    }
+    else if (args.size() >= 1 && args[0] == "watchpoint_status")
+    {
+        if (this->gdbserver.watchpoint_hit)
+        {
+            char buf[96];
+            snprintf(buf, sizeof(buf), "hit=1 addr=0x%lx is_write=%d",
+                (unsigned long)this->gdbserver.watchpoint_hit_addr,
+                this->gdbserver.watchpoint_hit_is_write ? 1 : 0);
+            return std::string(buf);
+        }
+        return "hit=0";
     }
     else if (args.size() >= 1 && args[0] == "reg_read")
     {

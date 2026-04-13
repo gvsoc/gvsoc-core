@@ -97,4 +97,7 @@ public:
     int id;
     bool breakpoint_hit = false;
     iss_addr_t breakpoint_hit_addr = 0;
+    bool watchpoint_hit = false;
+    iss_addr_t watchpoint_hit_addr = 0;
+    bool watchpoint_hit_is_write = false;
 };

@@ -117,7 +117,9 @@ void Lsu::data_response(vp::Block *__this, vp::IoReq *req)
 bool Lsu::handle_req_response(LsuReqEntry *entry)
 {
     vp::IoReq *req = &entry->req;
-    int64_t latency = req->get_latency();
+    // We add one cycle to latency t model the fact that the response is received now but only
+    // available at next cycle
+    int64_t latency = req->get_latency() + 1;
 
     if (latency > 0)
     {

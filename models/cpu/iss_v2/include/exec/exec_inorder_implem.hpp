@@ -108,8 +108,9 @@ inline bool ExecInOrder::handle_tasks()
 
         do
         {
+            Task *next = task->next;
             task->callback(&this->iss, task);
-            task = task->next;
+            task = next;
         } while (task);
 
         // In case the core is retained, it means it was only executing tasks. Try to stop it

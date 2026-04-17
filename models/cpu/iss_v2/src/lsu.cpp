@@ -177,7 +177,11 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoRe
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, opcode: %d)\n", addr, size, opcode);
     LsuReqEntry *entry = this->get_req_entry();
-    if (entry == NULL) return true;
+    if (entry == NULL)
+    {
+        this->trace.msg("Aborting request, no available request\n");
+        return true;
+    }
 
     if (opcode == vp::IoReqOpcode::READ)
     {

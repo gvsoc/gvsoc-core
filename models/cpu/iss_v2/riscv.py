@@ -122,10 +122,13 @@ class PrefetchSingleLine(IssModule):
         iss.add_sources(['cpu/iss_v2/src/prefetch/prefetch_single_line.cpp'])
 
 class Lsu(IssModule):
+    def __init__(self, nb_outstanding: int=1):
+        self.nb_outstanding = nb_outstanding
+
     @override
     def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', 'Lsu')
-        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', 1)
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', self.nb_outstanding)
         iss.isa.add_include('<cpu/iss_v2/include/lsu.hpp>')
         iss.add_sources(['cpu/iss_v2/src/lsu.cpp'])
         iss.isa.add_implem_include('<cpu/iss_v2/include/lsu_implem.hpp>')

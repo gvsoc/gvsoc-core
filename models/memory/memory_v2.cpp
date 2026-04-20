@@ -318,7 +318,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
         if (_this->width_bits != -1)
         {
     #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-            int duration = MAX(size >> _this->width_bits, 1);
+            int duration = ((size - 1) >> _this->width_bits) + 1;
             req->set_duration(duration);
             int64_t cycles = _this->clock.get_cycles();
             int64_t diff = _this->next_packet_start - cycles;

@@ -1,3 +1,4 @@
+GVSOC_ROOT = ../../../../../..
 build ?= $(CURDIR)/build
 TARGET = test
 OPTIONS :=
@@ -42,10 +43,10 @@ TARGET := $(TARGET):$(subst $(space),$(comma),$(strip $(OPTIONS)))
 endif
 
 clean:
-	make -C ../../../../.. TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install clean
+	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install clean
 
 build:
-	make -C ../../../../.. TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install build
+	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install build
 
 all: build
 

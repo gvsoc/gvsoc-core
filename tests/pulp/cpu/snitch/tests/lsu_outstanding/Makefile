@@ -1,11 +1,12 @@
+GVSOC_ROOT = ../../../../../..
 WORK_DIR ?= work
 USE_GVRUN = 1
 
 clean:
-	make -C ../../../../.. TARGETS=test MODULES=$(CURDIR) clean
+	make -C $(GVSOC_ROOT) TARGETS=test MODULES=$(CURDIR) clean
 
 build:
-	make -C ../../../../.. TARGETS=test MODULES=$(CURDIR) build
+	make -C $(GVSOC_ROOT) TARGETS=test MODULES=$(CURDIR) build
 
 all: build
 

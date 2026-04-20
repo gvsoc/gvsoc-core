@@ -436,7 +436,7 @@ bool Vu::insn_ready(PendingInsn *insn)
             int dep_insn_id = __builtin_ctzll(deps_mask);
             PendingInsn *dep_insn = &this->pending_insns[dep_insn_id];
 
-            int chunk_size = this->nb_lanes * 8;
+            int chunk_size = this->nb_lanes * this->lane_width;
 
             if (!dep_insn->out_can_be_chained || dep_insn->nb_bytes_done * dep_insn->out_chaining_factor <
                     (insn->nb_bytes_done + chunk_size) * insn->chaining_factor)

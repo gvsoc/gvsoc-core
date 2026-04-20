@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 
+import os
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
+from gvrun.parameter import TargetParameter
 
 
 class Uart_checker(st.Component):
@@ -41,9 +43,15 @@ class Uart_checker(st.Component):
 
             self.add_property('verbose', False)
             self.add_property('baudrate', 115200)
-            self.add_property('loopback', False)
+            loopback = TargetParameter(
+                self, name='loopback', value=False, description='Enable uart loopback',
+                cast=bool
+            )
+            if os.environ.get('USE_GVRUN') is None:
+                self.add_property('loopback', False)
+            else:
+                self.add_property('loopback', loopback.value)
             self.add_property('stdout', True)
             self.add_property('stdin', False)
             self.add_property('telnet', False)
             self.add_property('tx_file', 'tx_uart.log')
-

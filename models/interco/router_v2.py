@@ -45,50 +45,69 @@ class Router(gvsoc.systree.Component):
 
     Relevant parameters by kind:
 
-    | Parameter               | untimed | bandwidth | backpressure | beat |
-    |-------------------------|---------|-----------|--------------|------|
-    | `latency`               | -       | yes       | yes          | yes  |
-    | `bandwidth`             | -       | yes       | yes          | -    |
-    | `shared_rw_bandwidth`   | -       | yes       | yes          | -    |
-    | `width`                 | -       | -         | -            | yes  |
-    | `max_input_pending_size`| -       | -         | -            | yes  |
-    | `max_pending_bursts`    | -       | -         | -            | yes  |
+    .. list-table::
+       :header-rows: 1
+
+       * - Parameter
+         - untimed
+         - bandwidth
+         - backpressure
+         - beat
+       * - ``latency``
+         - \\-
+         - yes
+         - yes
+         - yes
+       * - ``bandwidth``
+         - \\-
+         - yes
+         - yes
+         - \\-
+       * - ``shared_rw_bandwidth``
+         - \\-
+         - yes
+         - yes
+         - \\-
+       * - ``width``
+         - \\-
+         - \\-
+         - \\-
+         - yes
+       * - ``max_input_pending_size``
+         - \\-
+         - \\-
+         - \\-
+         - yes
+       * - ``max_pending_bursts``
+         - \\-
+         - \\-
+         - \\-
+         - yes
 
     Ignored parameters are passed through to the C++ side as properties but the
     model simply doesn't read them.
     """
 
     def __init__(self, parent: gvsoc.systree.Component, name: str,
+                 config: RouterConfig,
                  kind: str = KIND_BANDWIDTH,
                  latency: int = 0,
-                 bandwidth: int = 0,
-                 shared_rw_bandwidth: bool = False,
                  width: int = 0,
-                 max_input_pending_size: int = 0,
-                 max_pending_bursts: int = 0,
-                 attributes: RouterConfig | None = None,
-                 config: RouterConfig | None = None):
+                 max_pending_bursts: int = 0):
         super(Router, self).__init__(parent, name, config=config)
 
         if kind not in _SOURCES:
             raise ValueError(f"Router kind must be one of {list(_SOURCES)}, got {kind!r}")
 
-        if config is not None:
-            attributes = config
-        if attributes is not None:
-            bandwidth = attributes.bandwidth
-            shared_rw_bandwidth = attributes.shared_rw_bandwidth
-            max_input_pending_size = attributes.max_input_pending_size
-
         self.kind = kind
-        self.shared_rw_bandwidth = shared_rw_bandwidth
+        self.shared_rw_bandwidth = config.shared_rw_bandwidth
 
         self.add_property('mappings', {})
         self.add_property('latency', latency)
-        self.add_property('bandwidth', bandwidth)
-        self.add_property('shared_rw_bandwidth', shared_rw_bandwidth)
+        self.add_property('bandwidth', config.bandwidth)
+        self.add_property('shared_rw_bandwidth', config.shared_rw_bandwidth)
         self.add_property('width', width)
-        self.add_property('max_input_pending_size', max_input_pending_size)
+        self.add_property('max_input_pending_size', config.max_input_pending_size)
         self.add_property('max_pending_bursts', max_pending_bursts)
         self.add_property('nb_input_port', 1)
 

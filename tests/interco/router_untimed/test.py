@@ -8,6 +8,7 @@ import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
 from interco.router_v2 import Router
+from interco.router_config import RouterConfig
 from gvrun.parameter import TargetParameter
 
 from stub_master import StubMaster
@@ -82,7 +83,7 @@ class Chip(gvsoc.systree.Component):
         spec = build_case(case)
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100_000_000)
 
-        router = Router(self, 'router', kind='untimed')
+        router = Router(self, 'router', kind='untimed', config=RouterConfig())
         clock.o_CLOCK(router.i_CLOCK())
 
         master = StubMaster(self, 'master', schedule=spec['schedule'], logname='master')

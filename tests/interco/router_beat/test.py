@@ -8,6 +8,7 @@ import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
 from interco.router_v2 import Router
+from interco.router_config import RouterConfig
 from gvrun.parameter import TargetParameter
 
 from stub_master import StubMaster
@@ -42,7 +43,7 @@ def build_case(case: str):
 
     if case == 'single_beat':
         return dict(
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base + 0x100, size=4, name='r0')],
             targets=[('t0', t0_base, window, ok)],
             nb_masters=1,
@@ -50,7 +51,7 @@ def build_case(case: str):
 
     if case == 'burst4':
         return dict(
-            router=dict(width=4, max_input_pending_size=64),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=64)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, nb_beats=4, burst_id=1,
                             name='b0')],
             targets=[('t0', t0_base, window, ok)],
@@ -61,7 +62,7 @@ def build_case(case: str):
         # Two masters issue a 4-beat burst at cycle 10; expect round-robin interleaving
         # between bursts (not within).
         return dict(
-            router=dict(width=4, max_input_pending_size=64),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=64)),
             schedule_a=[burst(cycle=10, addr=t0_base, size=4, nb_beats=4, burst_id=1,
                               name='A')],
             schedule_b=[burst(cycle=10, addr=t0_base + 0x40, size=4, nb_beats=4,
@@ -72,7 +73,7 @@ def build_case(case: str):
 
     if case == 'size_over_width':
         return dict(
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base, size=8, name='oversized')],
             targets=[('t0', t0_base, window, ok)],
             nb_masters=1,
@@ -83,7 +84,7 @@ def build_case(case: str):
         # stall on beat 1 and 2 of a 4-beat burst).
         rules_t0 = [rule(behavior='deny_then_done', deny_count=2, retry_delay=3)]
         return dict(
-            router=dict(width=4, max_input_pending_size=64),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=64)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, nb_beats=4, burst_id=1,
                             name='b0')],
             targets=[('t0', t0_base, window, rules_t0)],
@@ -93,7 +94,7 @@ def build_case(case: str):
     if case == 'granted_resp_delay':
         rules_t0 = [rule(behavior='granted', resp_delay=5)]
         return dict(
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, name='r0')],
             targets=[('t0', t0_base, window, rules_t0)],
             nb_masters=1,
@@ -106,7 +107,7 @@ def build_case(case: str):
         rules_t0 = [rule(behavior='deny_then_granted', deny_count=2, retry_delay=3,
                          resp_delay=5)]
         return dict(
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, name='r0')],
             targets=[('t0', t0_base, window, rules_t0)],
             nb_masters=1,
@@ -117,7 +118,7 @@ def build_case(case: str):
         # router latency (1 per router's arbiter+fsm).
         return dict(
             topology='cascade',
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base + 0x100, size=4, name='r0')],
             targets=[('t0', t0_base, window, ok)],
             nb_masters=1,
@@ -128,7 +129,7 @@ def build_case(case: str):
         # pipeline: the Nth beat reaches the target at cycle master_send_cycle + 2.
         return dict(
             topology='cascade',
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, nb_beats=4, burst_id=1,
                             name='b0')],
             targets=[('t0', t0_base, window, ok)],
@@ -141,7 +142,7 @@ def build_case(case: str):
         rules_t0 = [rule(behavior='deny_then_done', deny_count=1, retry_delay=3)]
         return dict(
             topology='cascade',
-            router=dict(width=4, max_input_pending_size=16),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=16)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, nb_beats=2, burst_id=7,
                             name='b0')],
             targets=[('t0', t0_base, window, rules_t0)],
@@ -155,7 +156,7 @@ def build_case(case: str):
         # beats should be DENIED upstream and re-sent after retry().
         rules_t0 = [rule(behavior='deny_then_done', deny_count=1, retry_delay=10)]
         return dict(
-            router=dict(width=4, max_input_pending_size=8),
+            router=dict(width=4, config=RouterConfig(max_input_pending_size=8)),
             schedule=[burst(cycle=10, addr=t0_base, size=4, nb_beats=4, burst_id=1,
                             name='b0')],
             targets=[('t0', t0_base, window, rules_t0)],

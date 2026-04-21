@@ -60,11 +60,17 @@ class Memory(gvsoc.systree.Component):
         Absolute virtual base of allocated buffers.
     memcheck_expansion_factor: int
         Extra size used to track buffer overflow.
+    truncate_size: int
+        If non-zero, incoming request addresses are masked with (truncate_size - 1)
+        before accessing the backing array. Lets the caller wrap or fold the incoming
+        address space into the memory. Defaults to 0 (no truncation — addresses are
+        used as-is). truncate_size must be a power of 2 if used.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int=0, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
+            truncate_size: int=0,
             attributes: MemoryConfig | None=None, config: MemoryConfig | None=None):
 
         if config is not None:
@@ -96,6 +102,7 @@ class Memory(gvsoc.systree.Component):
             'memcheck_base': memcheck_base,
             'memcheck_virtual_base': memcheck_virtual_base,
             'memcheck_expansion_factor': memcheck_expansion_factor,
+            'truncate_size': truncate_size,
         })
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

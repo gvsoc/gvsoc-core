@@ -70,6 +70,10 @@ private:
     bool check = false;
     int width_bits = -1;
 
+    // Mask applied to incoming request addresses. -1 (all bits set) means no
+    // truncation. Otherwise it's (truncate_size - 1), where truncate_size is the
+    // user-provided window size to wrap addresses into.
+    uint64_t truncate_mask = (uint64_t)-1;
 
     uint8_t *mem_data;
     uint8_t *memcheck_data = NULL;
@@ -179,6 +183,15 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     this->width_bits = get_js_config()->get_child_int("width_bits");
     int align = get_js_config()->get_child_int("align");
 
+    // Optional address truncation. 0 means inactive; any non-zero value (which
+    // should be a power of 2) is taken as the truncation window — incoming addresses
+    // are AND-masked with (truncate_size - 1) before being used as offsets.
+    int64_t truncate_size = get_js_config()->get_int("truncate_size");
+    if (truncate_size > 0)
+    {
+        this->truncate_mask = (uint64_t)truncate_size - 1;
+    }
+
     trace.msg("Building Memory (size: 0x%x, check: %d)\n", this->cfg.size, check);
 
     if (align)
@@ -286,7 +299,7 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 {
     Memory *_this = (Memory *)__this;
 
-    uint64_t offset = req->get_addr();
+    uint64_t offset = req->get_addr() & _this->truncate_mask;
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();
 

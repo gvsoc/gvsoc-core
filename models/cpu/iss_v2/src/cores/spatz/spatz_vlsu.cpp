@@ -87,6 +87,12 @@ void VuLsu::reset(bool active)
         this->insn_last = 0;
         this->nb_waiting_insn = 0;
         this->pending_size = 0;
+        for (VuLsuPendingInsn &slot : this->insns)
+        {
+            slot.done = false;
+            slot.enqueue_timestamp = 0;
+            slot.start_timestamp_set = false;
+        }
 
         // Since the request queues are cleared with the reset, we need to put back requests
         // in each queue
@@ -113,13 +119,17 @@ void VuLsu::enqueue_insn(PendingInsn *pending_insn)
     this->event_active.event(&one);
     this->event_queue.event((uint8_t *)&insn->addr);
 
-    // Just push the instruction and let the FSM handle it if needed.
-    // A delay is added to take into account the time needed on RTL to start the instruction
-    pending_insn->timestamp = this->vu.iss.clock.get_cycles() + 1;
+    // The start timestamp is armed only when the instruction reaches the head of the waiting
+    // queue, otherwise younger instructions would consume their latency while an older one is
+    // still occupying the VLSU.
+    pending_insn->timestamp = 0;
     VuLsuPendingInsn &slot = this->insns[this->insn_last];
     this->insn_last = (this->insn_last + 1) % VuLsu::queue_size;
     slot.insn = pending_insn;
     slot.nb_pending_bursts = 0;
+    slot.done = false;
+    slot.enqueue_timestamp = this->vu.iss.clock.get_cycles();
+    slot.start_timestamp_set = false;
     this->nb_pending_insn.inc(1);
     this->nb_waiting_insn++;
 
@@ -200,7 +210,7 @@ void VuLsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stri
     // load to store, probably due to latency to write to regfile.
     if (this->op_timestamp != -1)
     {
-        this->op_timestamp += this->prev_is_write != is_write ? (is_write ? 7 : 3) : 2;
+        this->op_timestamp += this->prev_is_write != is_write ? (is_write ? 7 : 3) : (is_write ? 0 : 1);
     }
 
     this->prev_is_write = is_write;
@@ -244,22 +254,33 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         VuLsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
         PendingInsn *pending_insn = slot.insn;
+        iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
 
-        if (pending_insn->timestamp <=_this->vu.iss.clock.get_cycles() &&
-            _this->pending_size == 0 &&
-            _this->insn_first_waiting == _this->insn_first)
+        if (_this->pending_size == 0)
         {
-            iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
+            if (!slot.start_timestamp_set)
+            {
+                uint64_t cycles = _this->vu.iss.clock.get_cycles();
+                uint64_t base_cycle = std::max<uint64_t>(slot.enqueue_timestamp + 1, cycles);
+                pending_insn->timestamp = base_cycle + insn->latency;
+                slot.start_timestamp_set = true;
+            }
+
+            if (pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
+            {
+                
 #ifdef CONFIG_GVSOC_STATS_ACTIVE
             // Instruction leaves the waiting queue and its memory op is set up:
             // real execution starts now, stamped for the per-label duration
             // accounted at Vu::insn_end.
-            if (_this->vu.stats_enabled && pending_insn->exec_start_cycle < 0)
-            {
-                pending_insn->exec_start_cycle = _this->vu.iss.clock.get_cycles();
-            }
+                if (_this->vu.stats_enabled && pending_insn->exec_start_cycle < 0)
+                {
+                    pending_insn->exec_start_cycle = _this->vu.iss.clock.get_cycles();
+                }
 #endif
-            ((void (*)(VuLsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
+
+                ((void (*)(VuLsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
+            }
         }
     }
 
@@ -343,6 +364,11 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                         _this->trace.fatal("Unimplemented async response");
                     }
 
+                    // Delay instruction completion until the slowest memory request of this instruction has responded.
+                    pending_insn->timestamp = std::max(
+                        pending_insn->timestamp,
+                        _this->vu.iss.clock.get_cycles() + req->get_full_latency() );
+
                     // Put it back now until asynchronous responses are supported
                     _this->req_queues[i]->push_back(req);
 
@@ -354,15 +380,20 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     _this->pending_size -= size;
                     _this->pending_velem += size;
 
+
+
                     // Switch to next instruction once all burst have been sent
                     if (_this->pending_size == 0)
                     {   
-                        // 1. THE BUS TIMER: Record exactly when the bus went idle
-                        _this->op_timestamp = _this->vu.iss.clock.get_cycles();
+                        // 1. THE BUS TIMER: Remember the timestamp of last operation to impact timing of next one
+                        _this->op_timestamp = _this->vu.iss.clock.get_cycles() + 1;
 
-                        // 2. THE PIPELINE TIMER: Set the retirement delay
-                        iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
-                        pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + insn->latency;
+                        // 2. THE PIPELINE TIMER: Keep one extra cycle before retirement once the
+                        // last burst has been issued. The instruction latency itself is accounted
+                        // for before the first request is sent.
+                        pending_insn->timestamp = pending_insn->timestamp + 1;
+                        slot.done = true;
+                        slot.start_timestamp_set = false;
 
                         _this->nb_waiting_insn--;
                         _this->insn_first_waiting = (_this->insn_first_waiting + 1) % VuLsu::queue_size;
@@ -386,14 +417,14 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         VuLsuPendingInsn &slot = _this->insns[_this->insn_first];
         PendingInsn *pending_insn = slot.insn;
-        if (_this->pending_size == 0 && slot.nb_pending_bursts == 0 &&
+        if (slot.done && slot.nb_pending_bursts == 0 &&
             pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
         {
             _this->event_label.dump_highz_next();
-            // Remember the timestamp of last operation to impact timing of next one
-            _this->op_timestamp = _this->vu.iss.clock.get_cycles();
             _this->insn_first = (_this->insn_first + 1) % VuLsu::queue_size;
             _this->nb_pending_insn.dec(1);
+            slot.done = false;
+            slot.start_timestamp_set = false;
             pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + 1;
             _this->vu.insn_end(pending_insn);
         }

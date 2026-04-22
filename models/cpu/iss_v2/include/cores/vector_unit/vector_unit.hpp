@@ -117,6 +117,11 @@ public:
     int nb_pending_bursts;
     // Used by some blocks to flag the termination
     bool done;
+
+    // Cycle when the instruction was enqueued in the VLSU.
+    int64_t enqueue_timestamp;
+    // True once the start timestamp has been armed for this instruction.
+    bool start_timestamp_set;
 };
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)

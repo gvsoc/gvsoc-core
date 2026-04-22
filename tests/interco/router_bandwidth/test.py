@@ -7,8 +7,7 @@
 import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
-from interco.router_v2 import Router
-from interco.router_config import RouterConfig
+from interco.router_v2 import Router, RouterConfig, RouterMapping
 from gvrun.parameter import TargetParameter
 
 from stub_master import StubMaster
@@ -23,7 +22,7 @@ def build_case(case_name: str) -> dict:
 
     if case_name == 'done_passthrough':
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='bandwidth', latency=0, bandwidth=0),
             'schedule': [dict(cycle=10, addr=t0_base + 0x100, size=4,
                               is_write=False, name='r0')],
             'targets': [('t0', t0_base, window, ok)],
@@ -34,7 +33,7 @@ def build_case(case_name: str) -> dict:
         # 3 requests back-to-back at cycles 10, 11, 12. Expect ALL accepted
         # immediately (no DENY), but responses stagger based on bandwidth.
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=4)),
+            'config': RouterConfig(kind='bandwidth', latency=0, bandwidth=4),
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x000, size=16, is_write=False, name='r0'),
                 dict(cycle=11, addr=t0_base + 0x100, size=16, is_write=False, name='r1'),
@@ -47,7 +46,7 @@ def build_case(case_name: str) -> dict:
         # Verify that each successive request's response cycle = prior + 4 (the
         # burst_duration for a 16B request at 4B/cycle).
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=4)),
+            'config': RouterConfig(kind='bandwidth', latency=0, bandwidth=4),
             'schedule': [
                 dict(cycle=0, addr=t0_base, size=16, is_write=False, name='r0'),
                 dict(cycle=0, addr=t0_base + 0x10, size=16, is_write=False, name='r1'),
@@ -66,7 +65,7 @@ def build_case(case_name: str) -> dict:
         t1_base = 0x1001_0000
         t2_base = 0x1002_0000
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=4)),
+            'config': RouterConfig(kind='bandwidth', latency=0, bandwidth=4),
             'schedule': [
                 dict(cycle=10, addr=t0_base, size=16, is_write=False, name='r0'),
                 dict(cycle=11, addr=t1_base, size=16, is_write=False, name='r1'),
@@ -84,7 +83,7 @@ def build_case(case_name: str) -> dict:
         # by the router config (here: 0). Expect DONE inline with latency=6
         # (2 router latency + 4 burst_duration). Wall-clock stays at `now`.
         return {
-            'router': dict(latency=2, config=RouterConfig(bandwidth=4)),
+            'config': RouterConfig(kind='bandwidth', latency=2, bandwidth=4),
             'schedule': [dict(cycle=10, addr=t0_base, size=16,
                               is_write=False, name='r0')],
             'targets': [('t0', t0_base, window, ok)],
@@ -92,7 +91,7 @@ def build_case(case_name: str) -> dict:
 
     if case_name == 'out_of_mapping':
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='bandwidth', latency=0, bandwidth=0),
             'schedule': [dict(cycle=10, addr=0x2000_0000, size=4,
                               is_write=False, name='bad')],
             'targets': [('t0', t0_base, window, ok)],
@@ -112,7 +111,7 @@ class Chip(gvsoc.systree.Component):
         spec = build_case(case)
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100_000_000)
 
-        router = Router(self, 'router', kind='bandwidth', **spec['router'])
+        router = Router(self, 'router', config=spec['config'])
         clock.o_CLOCK(router.i_CLOCK())
 
         master = StubMaster(self, 'master', schedule=spec['schedule'], logname='master')
@@ -122,7 +121,7 @@ class Chip(gvsoc.systree.Component):
         for (tname, base, size, rules) in spec['targets']:
             tgt = StubTarget(self, tname, rules=rules, logname=tname)
             clock.o_CLOCK(tgt.i_CLOCK())
-            router.o_MAP(tgt.i_INPUT(), name=tname, base=base, size=size)
+            router.o_MAP(tgt.i_INPUT(), RouterMapping(name=tname, base=base, size=size))
 
 
 class Target(gvsoc.runner.Target):

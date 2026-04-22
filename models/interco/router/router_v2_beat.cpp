@@ -34,15 +34,22 @@
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
 #include <vp/clocked_signal.hpp>
+#include <interco/router_config.hpp>
 
 class RouterBeat;
 class InputPort;
+
+// Number of independent forward channels per output. Indexed [0]=read, [1]=write
+// when ``cfg.shared_rw_channel`` is false; both directions collapse onto [0]
+// when true (the helper ``RouterBeat::channel_of`` performs the mapping).
+static constexpr int NB_CHANNELS = 2;
 
 struct BurstEntry
 {
     bool in_use = false;
     InputPort *input = nullptr;
     int output_id = -1;                // -1 until fsm has decoded the first beat's mapping
+    int channel = 0;                   // resolved direction-channel for this burst
     int64_t original_burst_id = -1;    // master's burst_id, restored on response
 };
 
@@ -55,10 +62,11 @@ public:
     vp::IoMaster itf;
     uint64_t remove_offset = 0;
     uint64_t add_offset = 0;
-    int64_t mapping_latency = 0;
-    // Input currently holding this output for a burst; nullptr when free.
-    InputPort *elected_input = nullptr;
-    // Downstream returned DENIED for the current beat; waiting for retry().
+    // Input currently holding this output for a burst, per channel; nullptr when
+    // the channel is free. With shared_rw_channel=true only [0] is used.
+    InputPort *elected_input[NB_CHANNELS] = {nullptr, nullptr};
+    // Downstream returned DENIED for the most recent forward; waiting for retry().
+    // Stall is per-output (single downstream IoMaster), not per-channel.
     bool stalled = false;
 };
 
@@ -99,13 +107,17 @@ private:
     void schedule_fsm();
     int alloc_burst_slot();
     void free_burst_slot(int slot_idx);
+    // Map a request direction to an output-channel index. Returns 0 for both
+    // reads and writes when ``shared_rw_channel`` is true.
+    int channel_of(bool is_write) const
+    {
+        return this->cfg.shared_rw_channel ? 0 : (is_write ? 1 : 0);
+    }
     // Called when a blocking condition clears (FIFO drained, slot freed). Fires
     // retry() on any input that had been denied upstream.
     void wake_denied_masters();
 
-    int width;
-    uint64_t max_input_pending_size;
-    int nb_input_port;
+    RouterConfig cfg;
     int max_pending_bursts;
     vp::MappingTree mapping_tree;
     int error_id = -1;
@@ -148,7 +160,7 @@ InputPort::InputPort(RouterBeat *top, int id, std::string name)
 //
 
 RouterBeat::RouterBeat(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       mapping_tree(&this->trace),
       fsm_event(this, &RouterBeat::fsm_handler)
 {
@@ -160,29 +172,25 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
     this->stats.register_stat(&this->stat_bytes_written, "bytes_written", "Total bytes written");
     this->stats.register_stat(&this->stat_errors, "errors", "Beats rejected due to size or mapping");
 
-    this->width = this->get_js_config()->get_int("width");
-    this->max_input_pending_size = (uint64_t)this->get_js_config()->get_int("max_input_pending_size");
-    this->nb_input_port = this->get_js_config()->get_int("nb_input_port");
-    this->max_pending_bursts = this->get_js_config()->get_child_int("max_pending_bursts");
-
-    if (this->width <= 0)
+    if (this->cfg.width <= 0)
     {
         this->trace.fatal("router_async_v2 needs a positive `width`\n");
     }
-    if (this->max_input_pending_size == 0)
+    if (this->cfg.max_input_pending_size == 0)
     {
-        this->max_input_pending_size = (uint64_t)this->width;
+        this->cfg.max_input_pending_size = (uint64_t)this->cfg.width;
     }
+    this->max_pending_bursts = this->cfg.max_pending_bursts;
     if (this->max_pending_bursts <= 0)
     {
         // Default: enough for one burst per input.
-        this->max_pending_bursts = this->nb_input_port > 0 ? this->nb_input_port : 1;
+        this->max_pending_bursts = this->cfg.nb_input_port > 0 ? this->cfg.nb_input_port : 1;
     }
 
     this->burst_table.resize(this->max_pending_bursts);
 
-    this->inputs.resize(this->nb_input_port);
-    for (int i = 0; i < this->nb_input_port; i++)
+    this->inputs.resize(this->cfg.nb_input_port);
+    for (int i = 0; i < this->cfg.nb_input_port; i++)
     {
         std::string name = i == 0 ? "input" : "input_" + std::to_string(i);
         InputPort *in = new InputPort(this, i, name);
@@ -190,32 +198,22 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
         this->new_slave_port(name, &in->itf, this);
     }
 
-    js::Config *mappings = this->get_js_config()->get("mappings");
-    if (mappings != NULL)
+    for (int mapping_id = 0; mapping_id < (int)this->cfg.mappings_count; mapping_id++)
     {
-        int mapping_id = 0;
-        for (auto &mapping : mappings->get_childs())
-        {
-            js::Config *mapping_config = mapping.second;
-            std::string name = mapping.first;
+        const RouterMapping &m = this->cfg.mappings[mapping_id];
+        std::string name = m.name ? m.name : "";
 
-            this->mapping_tree.insert(mapping_id, name, mapping_config);
+        this->mapping_tree.insert(mapping_id, name, m.base, m.size);
 
-            OutputPort *out = new OutputPort(this, mapping_id, name);
-            out->remove_offset = mapping_config->get_uint("remove_offset");
-            out->add_offset = mapping_config->get_uint("add_offset");
-            out->mapping_latency = mapping_config->get_int("latency");
-            this->entries.push_back(out);
-            this->new_master_port(name, &out->itf);
+        OutputPort *out = new OutputPort(this, mapping_id, name);
+        out->remove_offset = m.remove_offset;
+        out->add_offset = m.add_offset;
+        this->entries.push_back(out);
+        this->new_master_port(name, &out->itf);
 
-            if (name == "error")
-            {
-                this->error_id = mapping_id;
-            }
-            mapping_id++;
-        }
-        this->mapping_tree.build();
+        if (m.is_error) this->error_id = mapping_id;
     }
+    this->mapping_tree.build();
 }
 
 int RouterBeat::alloc_burst_slot()
@@ -274,7 +272,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         (long)req->burst_id, req->is_first ? 1 : 0, req->is_last ? 1 : 0);
 
     // Size must fit one beat.
-    if (size > (uint64_t)_this->width)
+    if (size > (uint64_t)_this->cfg.width)
     {
         _this->stat_errors++;
         req->set_resp_status(vp::IO_RESP_INVALID);
@@ -299,7 +297,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
 
     // FIFO overflow check (before slot allocation — we don't want to consume a slot
     // and then fail on FIFO).
-    if (in->pending_bytes + size > _this->max_input_pending_size)
+    if (in->pending_bytes + size > _this->cfg.max_input_pending_size)
     {
         in->denied_upstream = true;
         return vp::IO_REQ_DENIED;
@@ -318,6 +316,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         BurstEntry &slot = _this->burst_table[slot_idx];
         slot.input = in;
         slot.output_id = -1;                          // decoded later by fsm
+        slot.channel = _this->channel_of(req->get_is_write());
         slot.original_burst_id = req->burst_id;
         in->active_burst_slot = slot_idx;
     }
@@ -343,7 +342,12 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     int64_t now = _this->clock.get_cycles();
     int n = (int)_this->inputs.size();
 
-    std::vector<bool> output_used(_this->entries.size(), false);
+    // Per-(output, channel) "already used this cycle" tracker. With
+    // shared_rw_channel=false an output can carry one R beat AND one W beat
+    // per cycle (entries [0] and [1]); with shared_rw_channel=true only [0]
+    // is touched for both directions, restoring the single-slot behaviour.
+    std::vector<std::array<bool, NB_CHANNELS>> output_used(
+        _this->entries.size(), {false, false});
 
     for (int k = 0; k < n; k++)
     {
@@ -387,15 +391,16 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
 
         OutputPort *out = _this->entries[slot.output_id];
+        int ch = slot.channel;  // direction-channel locked in handle_req
 
         if (out->stalled) continue;
-        if (out->elected_input != nullptr && out->elected_input != in) continue;
-        if (output_used[slot.output_id]) continue;
+        if (out->elected_input[ch] != nullptr && out->elected_input[ch] != in) continue;
+        if (output_used[slot.output_id][ch]) continue;
 
-        // Lock output to this input on is_first.
+        // Lock output-channel to this input on is_first.
         if (beat->is_first)
         {
-            out->elected_input = in;
+            out->elected_input[ch] = in;
         }
 
         // Forward: translate addr, remap burst_id to slot index.
@@ -419,11 +424,11 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 in->pending_bytes -= beat->get_size();
                 if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
 
-                output_used[slot.output_id] = true;
+                output_used[slot.output_id][ch] = true;
 
                 if (was_last)
                 {
-                    out->elected_input = nullptr;
+                    out->elected_input[ch] = nullptr;
                     in->active_burst_slot = -1;
                     _this->free_burst_slot(slot_idx);
                 }
@@ -436,7 +441,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 in->pending.pop_front();
                 in->pending_bytes -= beat->get_size();
                 if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
-                output_used[slot.output_id] = true;
+                output_used[slot.output_id][ch] = true;
                 // Slot stays alive until resp_muxed (possibly is_last).
                 _this->wake_denied_masters();
                 break;
@@ -482,7 +487,7 @@ void RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*out_id*/)
 
     if (was_last)
     {
-        out->elected_input = nullptr;
+        out->elected_input[slot.channel] = nullptr;
         in->active_burst_slot = -1;
         _this->free_burst_slot(slot_idx);
     }

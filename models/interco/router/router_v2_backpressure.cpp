@@ -20,6 +20,7 @@
 #include <vp/itf/io_v2.hpp>
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
+#include <interco/router_config.hpp>
 
 class RouterBackpressure;
 
@@ -111,6 +112,7 @@ private:
     InFlight *alloc_inflight();
     void free_inflight(InFlight *ifl);
 
+    RouterConfig cfg;
     vp::Trace trace;
     std::vector<InputPort *> inputs;
     std::vector<OutputPort *> entries;
@@ -194,7 +196,7 @@ InputPort::InputPort(RouterBackpressure *top, int id, std::string name, int64_t 
 //
 
 RouterBackpressure::RouterBackpressure(vp::ComponentConf &config)
-    : vp::Component(config), mapping_tree(&this->trace)
+    : vp::Component(config, this->cfg), mapping_tree(&this->trace)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -208,19 +210,11 @@ RouterBackpressure::RouterBackpressure(vp::ComponentConf &config)
     this->stats.register_stat(&this->stat_write_bw, "write_bandwidth", "Average write bandwidth");
     this->stat_write_bw.set_source(&this->stat_bytes_written);
 
-    int bandwidth = this->get_js_config()->get_int("bandwidth");
-    int latency = this->get_js_config()->get_int("latency");
-    int nb_input_port = this->get_js_config()->get_int("nb_input_port");
-    bool shared_rw_bandwidth = this->get_js_config()->get_child_bool("shared_rw_bandwidth");
-
-    // First build the mappings so we know the number of outputs for the per-input deny
-    // bitmaps.
-    int nb_outputs = 0;
-    js::Config *mappings = this->get_js_config()->get("mappings");
-    if (mappings != NULL)
-    {
-        nb_outputs = mappings->get_childs().size();
-    }
+    int bandwidth = this->cfg.bandwidth;
+    int latency = this->cfg.latency;
+    int nb_input_port = this->cfg.nb_input_port;
+    bool shared_rw_bandwidth = this->cfg.shared_rw_channel;
+    int nb_outputs = (int)this->cfg.mappings_count;
 
     this->inputs.resize(nb_input_port);
     for (int i = 0; i < nb_input_port; i++)
@@ -232,35 +226,27 @@ RouterBackpressure::RouterBackpressure(vp::ComponentConf &config)
         this->new_slave_port(name, &in->itf, this);
     }
 
-    if (mappings != NULL)
+    for (int mapping_id = 0; mapping_id < nb_outputs; mapping_id++)
     {
-        int mapping_id = 0;
-        for (auto &mapping : mappings->get_childs())
-        {
-            js::Config *mapping_config = mapping.second;
-            std::string name = mapping.first;
+        const RouterMapping &m = this->cfg.mappings[mapping_id];
+        std::string name = m.name ? m.name : "";
 
-            this->mapping_tree.insert(mapping_id, name, mapping_config);
+        this->mapping_tree.insert(mapping_id, name, m.base, m.size);
 
-            // OutputPort's BandwidthLimiter takes the router's global per-port latency
-            // (same as InputPort). The mapping's own latency is tracked separately as
-            // `mapping_latency` and added once on top of max(d_in, d_out).
-            OutputPort *out = new OutputPort(this, mapping_id, name, bandwidth,
-                latency, shared_rw_bandwidth);
-            out->remove_offset = mapping_config->get_uint("remove_offset");
-            out->add_offset = mapping_config->get_uint("add_offset");
-            out->mapping_latency = mapping_config->get_int("latency");
-            this->entries.push_back(out);
-            this->new_master_port(name, &out->itf);
+        // OutputPort's BandwidthLimiter takes the router's global per-port latency
+        // (same as InputPort). The mapping's own latency is tracked separately as
+        // `mapping_latency` and added once on top of max(d_in, d_out).
+        OutputPort *out = new OutputPort(this, mapping_id, name, bandwidth,
+            latency, shared_rw_bandwidth);
+        out->remove_offset = m.remove_offset;
+        out->add_offset = m.add_offset;
+        out->mapping_latency = m.latency;
+        this->entries.push_back(out);
+        this->new_master_port(name, &out->itf);
 
-            if (name == "error")
-            {
-                this->error_id = mapping_id;
-            }
-            mapping_id++;
-        }
-        this->mapping_tree.build();
+        if (m.is_error) this->error_id = mapping_id;
     }
+    this->mapping_tree.build();
 }
 
 RouterBackpressure::InFlight *RouterBackpressure::alloc_inflight()

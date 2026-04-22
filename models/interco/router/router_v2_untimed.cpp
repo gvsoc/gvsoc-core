@@ -20,6 +20,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/mapping_tree.hpp>
+#include <interco/router_config.hpp>
 
 class RouterUntimed;
 
@@ -66,7 +67,7 @@ private:
     void free_inflight(InFlight *ifl);
     InFlight *inflight_free = nullptr;
 
-    int nb_input_port;
+    RouterConfig cfg;
     vp::MappingTree mapping_tree;
     int error_id = -1;
     std::vector<InputPort *> inputs;
@@ -90,15 +91,13 @@ InputPort::InputPort(RouterUntimed *top, int id, std::string name)
 
 
 RouterUntimed::RouterUntimed(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       mapping_tree(&this->trace)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    this->nb_input_port = this->get_js_config()->get_int("nb_input_port");
-
-    this->inputs.resize(this->nb_input_port);
-    for (int i = 0; i < this->nb_input_port; i++)
+    this->inputs.resize(this->cfg.nb_input_port);
+    for (int i = 0; i < this->cfg.nb_input_port; i++)
     {
         std::string name = i == 0 ? "input" : "input_" + std::to_string(i);
         InputPort *in = new InputPort(this, i, name);
@@ -106,28 +105,22 @@ RouterUntimed::RouterUntimed(vp::ComponentConf &config)
         this->new_slave_port(name, &in->itf, this);
     }
 
-    js::Config *mappings = this->get_js_config()->get("mappings");
-    if (mappings != NULL)
+    for (int mapping_id = 0; mapping_id < (int)this->cfg.mappings_count; mapping_id++)
     {
-        int mapping_id = 0;
-        for (auto &mapping : mappings->get_childs())
-        {
-            js::Config *mapping_config = mapping.second;
-            std::string name = mapping.first;
+        const RouterMapping &m = this->cfg.mappings[mapping_id];
+        std::string name = m.name ? m.name : "";
 
-            this->mapping_tree.insert(mapping_id, name, mapping_config);
+        this->mapping_tree.insert(mapping_id, name, m.base, m.size);
 
-            OutputPort *out = new OutputPort(this, mapping_id, name);
-            out->remove_offset = mapping_config->get_uint("remove_offset");
-            out->add_offset = mapping_config->get_uint("add_offset");
-            this->entries.push_back(out);
-            this->new_master_port(name, &out->itf);
+        OutputPort *out = new OutputPort(this, mapping_id, name);
+        out->remove_offset = m.remove_offset;
+        out->add_offset = m.add_offset;
+        this->entries.push_back(out);
+        this->new_master_port(name, &out->itf);
 
-            if (name == "error") this->error_id = mapping_id;
-            mapping_id++;
-        }
-        this->mapping_tree.build();
+        if (m.is_error) this->error_id = mapping_id;
     }
+    this->mapping_tree.build();
 }
 
 InFlight *RouterUntimed::alloc_inflight()

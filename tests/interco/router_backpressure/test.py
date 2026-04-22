@@ -7,8 +7,7 @@
 import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
-from interco.router_v2 import Router
-from interco.router_config import RouterConfig
+from interco.router_v2 import Router, RouterConfig, RouterMapping
 from gvrun.parameter import TargetParameter
 
 from stub_master import StubMaster
@@ -32,7 +31,7 @@ def build_case(case_name: str) -> dict:
     if case_name == 'done_passthrough':
         # 1 request, bw=0, latency=0, target returns DONE -> zero-cycle path.
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='backpressure', latency=0, bandwidth=0),
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x100, size=4, is_write=False, name='r0'),
             ],
@@ -42,7 +41,7 @@ def build_case(case_name: str) -> dict:
     if case_name == 'router_latency':
         # Router latency 3; target returns DONE. Upstream sees resp at issue + 3.
         return {
-            'router': dict(latency=3, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='backpressure', latency=3, bandwidth=0),
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x100, size=4, is_write=False, name='r0'),
             ],
@@ -52,7 +51,8 @@ def build_case(case_name: str) -> dict:
     if case_name == 'mapping_latency':
         # No router latency; mapping has latency=5.
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=0), mapping_latency=5),
+            'config': RouterConfig(kind='backpressure', latency=0, bandwidth=0),
+            'mapping_latency': 5,
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x100, size=4, is_write=False, name='r0'),
             ],
@@ -63,7 +63,7 @@ def build_case(case_name: str) -> dict:
         # bandwidth=4, size=16 -> burst duration 4 cycles. Issue two requests
         # back-to-back; the second should be throttled.
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=4)),
+            'config': RouterConfig(kind='backpressure', latency=0, bandwidth=4),
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x000, size=16, is_write=False, name='r0'),
                 dict(cycle=11, addr=t0_base + 0x100, size=16, is_write=False, name='r1'),
@@ -77,7 +77,7 @@ def build_case(case_name: str) -> dict:
         granted = [{'addr_min': 0, 'addr_max': 0xFFFF_FFFF_FFFF_FFFF,
                     'behavior': 'granted', 'resp_delay': 10, 'retry_delay': 0}]
         return {
-            'router': dict(latency=3, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='backpressure', latency=3, bandwidth=0),
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x100, size=4, is_write=False, name='r0'),
             ],
@@ -100,7 +100,7 @@ def build_case(case_name: str) -> dict:
         denied = [{'addr_min': 0, 'addr_max': 0xFFFF_FFFF_FFFF_FFFF,
                    'behavior': 'denied', 'resp_delay': 0, 'retry_delay': 5}]
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='backpressure', latency=0, bandwidth=0),
             'schedule': [
                 dict(cycle=10, addr=t0_base + 0x100, size=4, is_write=False, name='r0'),
             ],
@@ -113,7 +113,7 @@ def build_case(case_name: str) -> dict:
     if case_name == 'out_of_mapping':
         # Access outside any mapping -> router returns DONE with IO_RESP_INVALID.
         return {
-            'router': dict(latency=0, config=RouterConfig(bandwidth=0)),
+            'config': RouterConfig(kind='backpressure', latency=0, bandwidth=0),
             'schedule': [
                 dict(cycle=10, addr=0x2000_0000, size=4, is_write=False, name='bad'),
             ],
@@ -133,13 +133,12 @@ class Chip(gvsoc.systree.Component):
         ).get_value()
 
         spec = build_case(case)
-        router_cfg = spec['router']
-        mapping_latency = router_cfg.pop('mapping_latency', 0)
+        mapping_latency = spec.get('mapping_latency', 0)
 
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100_000_000)
 
         master = StubMaster(self, 'master', schedule=spec['schedule'], logname='master')
-        router = Router(self, 'router', kind='backpressure', **router_cfg)
+        router = Router(self, 'router', config=spec['config'])
         master.o_OUTPUT(router.i_INPUT(0))
 
         clock.o_CLOCK(master.i_CLOCK())
@@ -147,8 +146,8 @@ class Chip(gvsoc.systree.Component):
 
         for (tname, base, size, rules) in spec['targets']:
             tgt = StubTarget(self, tname, rules=rules, logname=tname)
-            router.o_MAP(tgt.i_INPUT(), name=tname, base=base, size=size,
-                         latency=mapping_latency)
+            router.o_MAP(tgt.i_INPUT(), RouterMapping(
+                name=tname, base=base, size=size, latency=mapping_latency))
             clock.o_CLOCK(tgt.i_CLOCK())
 
 

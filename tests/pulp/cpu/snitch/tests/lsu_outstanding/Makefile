@@ -1,4 +1,4 @@
-GVSOC_ROOT = ../../../../../..
+GVSOC_ROOT ?= ../../../../../..
 WORK_DIR ?= work
 USE_GVRUN = 1
 

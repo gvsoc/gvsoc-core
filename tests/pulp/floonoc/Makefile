@@ -1,5 +1,5 @@
 TARGET = test
-ROOT_DIR=../../../../..
+ROOT_DIR?=../../../..
 
 build ?= $(CURDIR)/build
 

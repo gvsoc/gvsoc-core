@@ -1,4 +1,4 @@
-GVSOC_ROOT = ../../../../..
+GVSOC_ROOT ?= ../../../..
 build ?= $(CURDIR)/build
 TARGET = test
 CASE ?= single_beat

@@ -41,3 +41,7 @@ vp_model(NAME interco.log_ico_v2
 vp_model(NAME interco.remapper_v2
     SOURCES "remapper_v2.cpp"
     )
+
+vp_model(NAME interco.splitter_v2
+    SOURCES "splitter_v2.cpp"
+    )

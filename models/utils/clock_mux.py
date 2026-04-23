@@ -24,10 +24,10 @@ class ClockMux(Component):
         self.add_sources(['utils/clock_mux.cpp'])
 
     def i_CLOCK_IN(self, id: int) -> SlaveItf:
-        return SlaveItf(self, itf_name=f'clock_in_{id}', signature='clock')
+        return SlaveItf(self, itf_name=f'clock_in_{id}', signature='clock_gen')
 
     def o_CLOCK_OUT(self, itf: SlaveItf):
-        self.itf_bind('clock_out', itf, signature='clock')
+        self.itf_bind('clock_out', itf, signature='clock_gen')
 
     def i_CLOCK_CTRL(self) -> SlaveItf:
         return SlaveItf(self, itf_name='clock_ctrl', signature='wire<int>')

@@ -34,7 +34,7 @@ class ClockGenerator(Component):
         self.add_sources(['utils/clock_impl.cpp'])
 
     def o_CLOCK_SYNC(self, itf: SlaveItf):
-        self.itf_bind('clock_sync', itf, signature='clock')
+        self.itf_bind('clock_sync', itf, signature='clock_gen')
 
     def o_CLOCK_CTRL(self, itf: SlaveItf):
         self.itf_bind('clock_ctrl', itf, signature='clock')

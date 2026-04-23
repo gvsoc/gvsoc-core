@@ -21,10 +21,10 @@ class ClockDivider(Component):
         self.add_sources(['utils/clock_divider.cpp'])
 
     def i_CLOCK_IN(self) -> SlaveItf:
-        return SlaveItf(self, itf_name='clock_in', signature='clock')
+        return SlaveItf(self, itf_name='clock_in', signature='clock_gen')
 
     def o_CLOCK_OUT(self, itf: SlaveItf):
-        self.itf_bind('clock_out', itf, signature='clock')
+        self.itf_bind('clock_out', itf, signature='clock_gen')
 
     def i_CLOCK_CTRL(self) -> SlaveItf:
         return SlaveItf(self, itf_name='clock_ctrl', signature='wire<int>')

@@ -404,8 +404,6 @@ void Router::response(vp::Block *__this, vp::IoReq *req)
 {
     Router *_this = (Router *)__this;
 
-    printf("ROUTER RESP\n");
-
     // We get here in case the input port request is spread over several and one of the child
     // request was handled asynchronously.
 

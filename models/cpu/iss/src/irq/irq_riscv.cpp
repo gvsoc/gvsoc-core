@@ -33,12 +33,10 @@ void Irq::build()
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     this->iss.csr.mideleg.register_callback(std::bind(&Irq::mideleg_access, this, std::placeholders::_1, std::placeholders::_2));
-    this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
-    this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.sip.register_callback(std::bind(&Irq::sip_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.sie.register_callback(std::bind(&Irq::sie_access, this, std::placeholders::_1, std::placeholders::_2));
-    this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->register_csr_callbacks();
 
     this->msi_itf.set_sync_meth(&Irq::msi_sync);
     this->iss.top.new_slave_port("msi", &this->msi_itf, (vp::Block *)this);
@@ -58,6 +56,13 @@ void Irq::build()
         this->iss.top.new_slave_port("external_irq_" + std::to_string(i + 12),
             &this->external_irq_itf[i], (vp::Block *)this);
     }
+}
+
+void Irq::register_csr_callbacks()
+{
+    this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void Irq::reset(bool active)
@@ -214,6 +219,12 @@ bool Irq::stvec_set(iss_addr_t base)
     base &= ~(3ULL);
     this->trace.msg("Setting stvec (addr: 0x%x)\n", base);
     return true;
+}
+
+void Irq::elw_irq_unstall()
+{
+    /* Base implementation: no-op.
+     * CV32E40P overrides this in Cv32e40pIrq to handle ELW interrupt wake-up. */
 }
 
 void Irq::cache_flush()

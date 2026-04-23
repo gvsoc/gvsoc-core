@@ -15,33 +15,24 @@
  * limitations under the License.
  */
 
-/*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+/* 
+ * Authors: Marco Paci, Chips-it (marco.paci@chips.it)
  */
+
 
 #pragma once
 
-#include <vp/vp.hpp>
-#include <cpu/iss/include/types.hpp>
+#include <cpu/iss/include/regfile.hpp>
 
-class Exception
+
+class Cv32e40pRegfile : public Regfile
 {
 public:
-    Exception(Iss &iss);
-    virtual ~Exception() = default;
+    Cv32e40pRegfile(IssWrapper &top, Iss &iss) : Regfile(top, iss) {}
 
-    void build();
+    void reset(bool active) { 
+           Regfile::reset(active);
+           for (int i = 0; i < ISS_NB_REGS; i++) this->regs[i] = 0; 
+        }
 
-    void raise(iss_reg_t pc, int id);
-
-    /* Hook for core-specific trap vector PC masking.
-     * Default: return vec_value unchanged (generic RISC-V).
-     * CV32E40P: return vec_value & ~3 (mtvec[1:0] hardwired to 0). */
-    virtual iss_reg_t trap_vector_pc(iss_reg_t vec_value) { return vec_value; }
-
-    iss_addr_t debug_handler_addr;
-
-protected:
-    Iss &iss;
-    vp::Trace trace;
 };

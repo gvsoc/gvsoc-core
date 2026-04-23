@@ -16,32 +16,24 @@
  */
 
 /*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ * Authors: Marco Paci, Chips-it (marco.paci@chips.it)
  */
 
 #pragma once
 
-#include <vp/vp.hpp>
-#include <cpu/iss/include/types.hpp>
+#include <cpu/iss/include/irq/irq_riscv.hpp>
 
-class Exception
+class Cv32e40pIrq : public Irq
 {
 public:
-    Exception(Iss &iss);
-    virtual ~Exception() = default;
+    Cv32e40pIrq(Iss &iss) : Irq(iss) {}
 
-    void build();
-
-    void raise(iss_reg_t pc, int id);
-
-    /* Hook for core-specific trap vector PC masking.
-     * Default: return vec_value unchanged (generic RISC-V).
-     * CV32E40P: return vec_value & ~3 (mtvec[1:0] hardwired to 0). */
-    virtual iss_reg_t trap_vector_pc(iss_reg_t vec_value) { return vec_value; }
-
-    iss_addr_t debug_handler_addr;
+    void reset(bool active) override;
+    bool mip_access(bool is_write, iss_reg_t &value) override;
+    bool mie_access(bool is_write, iss_reg_t &value) override;
+    bool mtvec_access(bool is_write, iss_reg_t &value) override;
+    void elw_irq_unstall() override;
 
 protected:
-    Iss &iss;
-    vp::Trace trace;
+    void register_csr_callbacks() override;
 };

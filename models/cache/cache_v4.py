@@ -75,10 +75,23 @@ class CacheConfig(Config):
 class Cache(Component):
     """Set-associative cache on the io_v2 protocol.
 
-    Behavioural port of :class:`cache.cache_v3.Cache` to the io_v2 IO
-    interface. Replacement policy (pseudo-random 8-bit LFSR), refill
-    serialisation, and flush / enable semantics are unchanged; only the
-    IO-side plumbing is new:
+    Overview
+    ~~~~~~~~
+
+    A functional, cycle-approximate set-associative cache sitting between
+    a master that issues memory accesses (``INPUT``) and a downstream
+    memory level that serves refills (``REFILL``). The cache observes
+    requests, decides hit vs miss against its tag array, serves hits
+    locally, and forwards misses as line-sized refill requests to the
+    next memory level. Data for every line is stored verbatim inside the
+    model (byte-accurate) so reads return the value that would flow
+    through the real hardware. Replacement on full sets uses a
+    pseudo-random 8-bit LFSR (deterministic across runs with a fixed seed
+    pattern) — there is no LRU tracking.
+
+    This is the io_v2 port of :class:`cache.cache_v3.Cache`. The
+    functional scope (replacement policy, flush semantics, bypass mode)
+    is identical; only the IO-side plumbing is new:
 
     - input and refill ports carry the ``io_v2`` signature
     - status is ``IO_REQ_DONE`` / ``IO_REQ_GRANTED`` / ``IO_REQ_DENIED``
@@ -87,52 +100,184 @@ class Cache(Component):
     - replies travel back on the cache's own slave port (no v1
       ``resp_port`` indirection)
 
+    Geometry
+    ~~~~~~~~
+
+    The three geometry knobs (:attr:`CacheConfig.size`,
+    :attr:`CacheConfig.line_size`, :attr:`CacheConfig.ways`) pin down
+    the cache shape. The model derives:
+
+    - ``nb_sets = size / ways / line_size``
+    - address split into ``tag | set_index | line_offset`` using
+      ``nb_sets_bits = ceil_log2(nb_sets)`` and
+      ``line_size_bits = ceil_log2(line_size)``
+
+    The configuration must satisfy ``size == nb_sets * ways * line_size``
+    exactly — the cache rejects geometries where one of the three does
+    not divide the others cleanly. ``line_size`` and ``nb_sets`` should
+    be powers of two for the tag/offset split to work as expected.
+
     Request flow
     ~~~~~~~~~~~~
 
     - **Hit**: the cache reads/writes the line's byte buffer and returns
       ``IO_REQ_DONE`` inline. If the line has just been filled and its
-      ``timestamp`` is still in the future, the access is stalled via
-      ``req->inc_latency(timestamp - now)`` so the master paces itself.
+      ``timestamp`` is still in the future (because an earlier miss in
+      the same cycle started a multi-cycle refill), the hit is stalled
+      via ``req->inc_latency(timestamp - now)`` so the master paces
+      itself. Hits never stall an in-flight refill.
     - **Miss, no refill pending**: a refill request is sent to the
-      ``REFILL`` port. A synchronous ``DONE`` from the downstream yields
-      an inline ``DONE`` on the input (with accumulated latency); a
-      ``GRANTED`` parks the CPU request and forwards the response later
-      via the master's ``resp()`` callback on our slave port.
-    - **Miss, refill pending**: the CPU request is queued and ack'd as
-      ``GRANTED``; it is resumed by ``fsm_handler`` once the current
-      refill lands.
+      ``REFILL`` port. A synchronous ``IO_REQ_DONE`` from the downstream
+      yields an inline ``IO_REQ_DONE`` on the input (with
+      :attr:`CacheConfig.refill_latency` + any latency the downstream
+      annotated on ``req->latency`` both added to the master's
+      accumulated latency). A ``IO_REQ_GRANTED`` parks the CPU request
+      in an internal FIFO; the master sees ``IO_REQ_GRANTED`` and later
+      receives ``resp()`` once the refill lands.
+    - **Miss, refill pending**: only one refill is ever in flight. A new
+      miss arriving mid-refill is acked as ``IO_REQ_GRANTED`` and
+      pushed to the FIFO. The internal ``fsm_handler`` drains the FIFO
+      one request per cycle once the current refill resolves — the next
+      miss in the FIFO may itself start a new refill, or be a hit if the
+      landing refill happened to bring in its line.
     - **Bypass** (cache disabled): the CPU request is forwarded verbatim
       through ``REFILL`` after the address is rewritten by
-      ``refill_shift`` / ``refill_offset``. Both sync and async target
-      responses are bounced back on the input slave port.
-    - **Refill DENIED**: the cache propagates ``DENIED`` to the master and
-      remembers that it owes an ``input_itf.retry()`` once its own refill
-      port retries.
+      :attr:`CacheConfig.refill_shift` / :attr:`CacheConfig.refill_offset`.
+      Both sync and async target responses are bounced back on the
+      input slave port. No tag is allocated, no line is touched.
+    - **Refill DENIED**: the cache propagates ``IO_REQ_DENIED`` to the
+      master and remembers that it owes an ``input_itf.retry()`` once
+      its own refill port retries. The master is expected to hold the
+      request until retry.
+    - **Error** (straddled access, unmapped address propagated by the
+      refill target): a single ``IO_REQ_DONE`` with
+      ``IO_RESP_INVALID`` is returned on the input.
+
+    Address transformation
+    ~~~~~~~~~~~~~~~~~~~~~~
+
+    Refill requests (and bypass forwards) rewrite the address as
+    ``(addr << refill_shift) + refill_offset``. Use this to:
+
+    - Chain caches at different address widths (``refill_shift``).
+    - Relocate the refill window into a different memory region
+      (``refill_offset``) — for example, an I-cache whose refills
+      actually originate from a flash controller mapped at a high
+      address while the CPU fetches at a low "program" address.
+
+    Timing model (big-packet)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    The cache is a big-packet io_v2 model: it reports latency on the
+    logical transaction via ``req->inc_latency(n)`` rather than by
+    scheduling beat-per-cycle events on the input. Accumulated latency
+    on a hit or sync miss is ``base-hit-latency`` (0) + any refill
+    latency + any latency the downstream already annotated. On an async
+    miss, wall-clock time between ``req()`` and ``resp()`` is the
+    timing signal. Either way, the cache itself never adds bandwidth
+    shaping — pair it with a :class:`interco.limiter_v2.Limiter` on the
+    refill path if throughput shaping is needed.
 
     Control wires
     ~~~~~~~~~~~~~
 
-    - **ENABLE**  — enables / disables the cache at runtime; while disabled,
-      accesses take the bypass path described above.
-    - **FLUSH**   — pulse to invalidate every line; acknowledged on
-      ``FLUSH_ACK``.
-    - **FLUSH_LINE** / **FLUSH_LINE_ADDR** — latch an address then pulse to
-      invalidate just that line.
+    - **ENABLE** (``i_ENABLE``) — runtime enable/disable. While
+      disabled every incoming request takes the bypass path described
+      above. Writing ``True`` re-enables; no flush is implied, so stale
+      lines present before the disable are still hits after the
+      re-enable unless :attr:`CacheConfig.enabled` was ``False`` at
+      reset (in which case the tag array never became valid).
+    - **FLUSH** (``i_FLUSH``) — pulse to invalidate every line. The
+      cache then pulses ``FLUSH_ACK`` to tell the driver the operation
+      has completed. A flush is a single-cycle logical event in this
+      model — no dirty writeback occurs because lines are not marked
+      dirty (writes go straight through to the refilled line; there is
+      no write-back buffer).
+    - **FLUSH_LINE** / **FLUSH_LINE_ADDR** — latch a byte address via
+      ``FLUSH_LINE_ADDR`` then pulse ``FLUSH_LINE`` to invalidate the
+      single line containing that address. No ``FLUSH_ACK`` is pulsed
+      for per-line flushes.
 
-    Configuration fields (:class:`CacheConfig`):
+    Ports
+    ~~~~~
 
-    .. csv-table::
-       :header: Field, Meaning
-       :widths: auto
+    - **INPUT** (slave, ``io_v2``) — master-facing. Accepts reads and
+      writes of any size up to ``line_size``.
+    - **REFILL** (master, ``io_v2``) — downstream memory. Refills
+      emit one request per miss at line granularity; in bypass mode,
+      the CPU request is forwarded verbatim (size unchanged).
+    - **ENABLE** (slave, ``wire<bool>``) — enable/disable control.
+    - **FLUSH** (slave, ``wire<bool>``), **FLUSH_ACK** (master,
+      ``wire<bool>``) — full-flush request/ack.
+    - **FLUSH_LINE** (slave, ``wire<bool>``), **FLUSH_LINE_ADDR**
+      (slave, ``wire<uint32_t>``) — line-flush request.
 
-       ``size``,           "Total cache size in bytes"
-       ``line_size``,      "Line size in bytes (power of two)"
-       ``ways``,           "Associativity; sets = size / ways / line_size"
-       ``enabled``,        "Cache enabled at reset"
-       ``refill_shift``,   "Left-shift applied to addr before refill forward"
-       ``refill_offset``,  "Added to addr after the shift"
-       ``refill_latency``, "Extra cycles stacked on synchronous refills"
+    Constraints and limitations
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    - **Single refill in flight.** A new miss arriving while a refill
+      is already outstanding is queued but never overlapped. For
+      workloads that expect multiple outstanding refills (MSHR-style
+      caches), use a different model.
+    - **No write-back.** Writes hit lines in place; there is no dirty
+      bit and no eviction writeback traffic. A write that crosses a
+      miss refills the line first, then mutates the refilled data.
+    - **Requests must fit within a single line.** An access that
+      straddles two lines (``offset + size > line_size`` across a set
+      boundary) is rejected with ``IO_RESP_INVALID`` — the cache does
+      not split an input request into multiple internal refills.
+    - **Replacement is pseudo-random.** Set-level replacement uses an
+      8-bit LFSR tick per replacement. There is no LRU, no way-locking,
+      no explicit bias. With ``ways=1`` the LFSR is effectively
+      constant so the cache becomes fully deterministic — useful for
+      tests.
+    - **Access size up to the bus width.** No internal serialisation of
+      wide accesses: a 64-byte read served by a 32-byte line requires
+      the caller to split.
+    - **``FLUSH_LINE`` has no ack.** If your driver cares about flush
+      completion, use the full ``FLUSH`` + ``FLUSH_ACK`` handshake
+      instead.
+
+    Configuration fields
+    ~~~~~~~~~~~~~~~~~~~~
+
+    All cache parameters live on :class:`CacheConfig`. Each field is
+    read once at construction; there is no runtime reconfiguration
+    (except ``enabled`` which is mirrored onto the ``ENABLE`` wire).
+
+    ``size``
+        Total cache storage, in bytes. Must equal
+        ``ways * line_size * nb_sets`` with ``nb_sets`` a power of two.
+        Typical values: 2 KiB – 32 KiB. No default — must be set.
+
+    ``line_size``
+        Cache line size, in bytes. Power of two. Sets the granularity
+        of refills: a miss on any byte within a line fetches exactly
+        ``line_size`` bytes from ``REFILL``. Default: ``16``.
+
+    ``ways``
+        Associativity. ``1`` is direct-mapped, higher values are set
+        associative with pseudo-random replacement. Default: ``1``.
+
+    ``enabled``
+        Initial state of the ``ENABLE`` wire. ``True`` makes the cache
+        active from reset; ``False`` boots in bypass mode (every
+        request forwarded to ``REFILL``). Default: ``True``.
+
+    ``refill_shift``
+        Left-shift applied to the address before the refill or bypass
+        forward (``addr << refill_shift``). Default: ``0``.
+
+    ``refill_offset``
+        Offset added to the shifted address. The full transformation
+        is ``(addr << refill_shift) + refill_offset``. Default: ``0``.
+
+    ``refill_latency``
+        Extra cycles stacked onto every synchronous refill completion.
+        Added to ``req->latency`` on the inline ``IO_REQ_DONE`` path.
+        Does not apply to async refills (the wall-clock time at which
+        the downstream's ``resp()`` fires is already the signal).
+        Default: ``0``.
 
     Parameters
     ----------
@@ -142,8 +287,8 @@ class Cache(Component):
         Local name of the cache within ``parent``. Used for component
         path, traces, and as the lookup key for bindings.
     config : CacheConfig
-        All cache parameters live here. The instance is taken over by the
-        cache — pass a fresh :class:`CacheConfig` per instance.
+        All cache parameters live here. The instance is taken over by
+        the cache — pass a fresh :class:`CacheConfig` per instance.
     """
 
     # Developer-manual doc registration. Discovered by AST scan at doc

@@ -29,3 +29,7 @@ vp_model(NAME interco.router_proxy
 vp_model(NAME interco.limiter_v2
     SOURCES "limiter_v2.cpp"
     )
+
+vp_model(NAME interco.demux_v2
+    SOURCES "demux_v2.cpp"
+    )

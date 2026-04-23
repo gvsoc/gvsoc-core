@@ -45,3 +45,7 @@ vp_model(NAME interco.remapper_v2
 vp_model(NAME interco.splitter_v2
     SOURCES "splitter_v2.cpp"
     )
+
+vp_model(NAME interco.rw_splitter_v2
+    SOURCES "rw_splitter_v2.cpp"
+    )

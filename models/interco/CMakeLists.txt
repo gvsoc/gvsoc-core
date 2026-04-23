@@ -33,3 +33,7 @@ vp_model(NAME interco.limiter_v2
 vp_model(NAME interco.demux_v2
     SOURCES "demux_v2.cpp"
     )
+
+vp_model(NAME interco.log_ico_v2
+    SOURCES "log_ico_v2.cpp"
+    )

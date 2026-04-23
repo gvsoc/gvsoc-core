@@ -248,6 +248,25 @@ class Router(gvsoc.systree.Component):
         so each router needs its own ``RouterConfig``.
     """
 
+    # Developer-manual doc registration. Discovered by AST scan at doc
+    # build time; the class docstring above is rendered via autoclass.
+    # Each tests_dirs entry declares the logical component id the tests
+    # target (matching ``testset.set_components(...)``) so the coverage
+    # lookup can find per-variant coverage when that producer ships.
+    __gvsoc_doc__ = {
+        'title': 'Router (v2)',
+        'tests_dirs': [
+            {'dir':       'gvsoc/core/tests/interco/router_untimed',
+             'component': 'interco.router_v2.untimed'},
+            {'dir':       'gvsoc/core/tests/interco/router_bandwidth',
+             'component': 'interco.router_v2.bandwidth'},
+            {'dir':       'gvsoc/core/tests/interco/router_backpressure',
+             'component': 'interco.router_v2.backpressure'},
+            {'dir':       'gvsoc/core/tests/interco/router_beat',
+             'component': 'interco.router_v2.beat'},
+        ],
+    }
+
     def __init__(self, parent: gvsoc.systree.Component, name: str,
                  config: RouterConfig):
         if config.kind not in _SOURCES:

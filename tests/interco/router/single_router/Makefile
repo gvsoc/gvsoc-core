@@ -1,5 +1,4 @@
 GVSOC_ROOT ?= ../../../../..
-build ?= $(CURDIR)/build
 TARGET = test
 OPTIONS :=
 
@@ -42,18 +41,10 @@ ifneq ($(OPTIONS),)
 TARGET := $(TARGET):$(subst $(space),$(comma),$(strip $(OPTIONS)))
 endif
 
-clean:
-	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install clean
+# Per-case identifier used by common.mk to isolate the work dir and
+# uniquify the coverage .info file. Built from the comma-joined
+# OPTIONS with all non-alphanumerics normalized to underscores;
+# falls back to "default" for the option-less case.
+CASE := $(if $(strip $(OPTIONS)),$(subst $(space),_,$(subst =,_,$(subst $(comma),_,$(strip $(OPTIONS))))),default)
 
-build:
-	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install build
-
-all: build
-
-run: $(build)/work
-	$(build)/install/bin/gvrun --target-dir=$(CURDIR) --target=$(TARGET) --work-dir=$(build)/work run $(runner_args)
-
-$(build)/work:
-	mkdir -p $(build)/work
-
-.PHONY: build
+include $(GVSOC_ROOT)/gvsoc/core/tests/common.mk

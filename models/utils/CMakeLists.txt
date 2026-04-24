@@ -64,3 +64,33 @@ if(FSDB_INCLUDE_DIR AND FSDB_NFFR_LIB AND FSDB_NSYS_LIB)
         OPTIONS "-Wl,-rpath,${FSDB_LIB_DIR}"
         )
 endif()
+
+# ---------------------------------------------------------------------------
+# FST dumper (mirrors vcd_dumper for FST files). Uses libfst vendored from
+# Verilator's pre-portabilized copy of GTKWave under ./fst/, so it builds out
+# of the box -- no env var, no system dependency beyond zlib (which the rest
+# of the gvsoc tree already needs). FORCE_BUILD 1 mirrors the FSDB rules so
+# the dumper is available on per-target kconfig builds.
+# ---------------------------------------------------------------------------
+vp_block(NAME utils.fst_libfst
+    SOURCES "fst/fstapi.c" "fst/fastlz.c" "fst/lz4.c"
+)
+# Vendored third-party C: silence warnings the project would otherwise turn
+# into errors. Scoped to the block so the dumper itself stays warning-clean.
+vp_block_compile_options(NAME utils.fst_libfst OPTIONS
+    "-w" "-I${CMAKE_CURRENT_SOURCE_DIR}/fst"
+)
+vp_block_link_libraries(NAME utils.fst_libfst LIBRARY z)
+
+vp_model(NAME utils.fst_dumper
+    FORCE_BUILD 1
+    SOURCES "fst_dumper.cpp"
+)
+vp_model_include_directories(NAME utils.fst_dumper
+    FORCE_BUILD 1
+    DIRECTORY "fst"
+)
+vp_model_link_blocks(NAME utils.fst_dumper
+    FORCE_BUILD 1
+    BLOCK utils.fst_libfst
+)

@@ -20,11 +20,18 @@
 # By default every case of a testset shares BUILDDIR and INSTALLDIR
 # with the root gvsoc build, so the platform compiles only once. The
 # per-case WORKDIR keeps simulation artifacts isolated so runs can
-# execute in parallel. The testset.cfg is expected to serialize the
-# `build` phase across cases via a build resource (see
-# `TestsetImpl.new_make_test(build_resource=...)` in gvtest) and to
+# execute in parallel. Every testset.cfg that drives this fragment
+# MUST serialize its `build` phase through a shared build resource
+# (see `TestsetImpl.new_make_test(build_resource=...)` in gvtest) and
 # opt out of the auto-generated `clean` step via `no_clean=True` —
 # this Makefile fragment intentionally exposes no `clean` target.
+#
+# The resource name is global to the whole gvtest invocation: because
+# every test here invokes `make -C $(GVSOC_ROOT) build` into the same
+# shared root build dir, ALL tests that include common.mk must use
+# the SAME name (`gvsoc.core.build` by convention). Mixing per-testset
+# names lets two workers race on the root CMakeCache / ninja build
+# and corrupts the build tree.
 #
 # With COVERAGE=1, each `run` drops a uniquely-named lcov .info file
 # into $(GVSOC_ROOT)/coverage-report/tests/ so

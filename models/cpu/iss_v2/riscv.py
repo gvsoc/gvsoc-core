@@ -133,6 +133,41 @@ class Lsu(IssModule):
         iss.add_sources(['cpu/iss_v2/src/lsu.cpp'])
         iss.isa.add_implem_include('<cpu/iss_v2/include/lsu_implem.hpp>')
 
+class LsuV2(IssModule):
+    """io_v2 LSU variant.
+
+    Drop-in replacement for :class:`Lsu` that wires the ISS ``data`` port
+    through the v2 IO protocol (``vp/itf/io_v2.hpp``) instead of v1
+    (``vp/itf/io.hpp``). Pass ``modules={'lsu': LsuV2()}`` to
+    :class:`Riscv` (or :class:`RiscvCommon`) to switch the core from the
+    default v1 LSU to this one.
+
+    Enabling ``LsuV2`` also forces every translation unit of the ISS to
+    include ``io_v2.hpp`` (via a conditional in ``types.hpp``), because
+    the two protocols share the same ``vp::IoReq`` / ``vp::IoMaster``
+    class names and cannot coexist in the same unit.
+
+    Notes
+    -----
+    - The Ara vector LSU extension is v1-only. Combining it with
+      :class:`LsuV2` will not compile. Use the v1 :class:`Lsu` when
+      building with Ara.
+    - ``syscalls.cpp`` and other users of ``iss.lsu.data`` have been
+      guarded with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2`` so they work in
+      both modes.
+    """
+    def __init__(self, nb_outstanding: int=1):
+        self.nb_outstanding = nb_outstanding
+
+    @override
+    def gen(self, iss: RiscvCommon):
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', 'LsuV2')
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_V2', '1')
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', self.nb_outstanding)
+        iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')
+        iss.add_sources(['cpu/iss_v2/src/lsu_v2.cpp'])
+        iss.isa.add_implem_include('<cpu/iss_v2/include/lsu_v2_implem.hpp>')
+
 class Exception(IssModule):
     @override
     def gen(self, iss: RiscvCommon):

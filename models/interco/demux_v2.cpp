@@ -35,6 +35,7 @@
 #include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/signal.hpp>
 #include <interco/demux_config.hpp>
 
 class Demux : public vp::Component
@@ -50,6 +51,11 @@ private:
     static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
     static void            output_retry(vp::Block *__this, int id);
 
+    // Pulse the per-instance VCD traces (addr / size / is_write) for one
+    // cycle, with a sub-cycle delay spread so multiple accesses in the same
+    // cycle stay visible. Same idiom used by the v2 routers and udma_core.
+    void log_access(uint64_t addr, uint64_t size, bool is_write);
+
     vp::Trace trace;
 
     vp::IoSlave input_itf{&Demux::input_req};
@@ -64,11 +70,24 @@ private:
     // upstream master re-sends. At most one upstream request can be in the
     // denied state at a time (single slave port), so one int is enough.
     int denied_output = -1;
+
+    // ---- VCD traces ----
+    // One pulse triplet per demux instance — addr/size/is_write of every
+    // forwarded request. The demux is stateless and never modifies the
+    // address, so the logged value is the raw upstream address.
+    vp::Signal<uint64_t> req_addr;
+    vp::Signal<uint64_t> req_size;
+    vp::Signal<bool>     req_is_write;
+    int64_t              last_logged_access = -1;
+    int                  nb_logged_access_in_same_cycle = 0;
 };
 
 
 Demux::Demux(vp::ComponentConf &config)
-    : vp::Component(config, this->cfg)
+    : vp::Component(config, this->cfg),
+      req_addr(*this, "addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      req_size(*this, "size", 64, vp::SignalCommon::ResetKind::HighZ),
+      req_is_write(*this, "is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -109,6 +128,8 @@ vp::IoReqStatus Demux::input_req(vp::Block *__this, vp::IoReq *req)
         (unsigned long long)req->get_size(),
         req->get_is_write() ? 1 : 0, output_id);
 
+    _this->log_access(offset, req->get_size(), req->get_is_write());
+
     vp::IoReqStatus st = _this->outputs[output_id]->req(req);
 
     if (st == vp::IO_REQ_DENIED)
@@ -141,6 +162,26 @@ void Demux::output_retry(vp::Block *__this, int id)
         _this->denied_output = -1;
         _this->input_itf.retry();
     }
+}
+
+
+void Demux::log_access(uint64_t addr, uint64_t size, bool is_write)
+{
+    int64_t cycles = this->clock.get_cycles();
+    if (cycles > this->last_logged_access)
+        this->nb_logged_access_in_same_cycle = 0;
+
+    int64_t time_delay = 0;
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->clock.get_period();
+        time_delay = period - (period >> this->nb_logged_access_in_same_cycle);
+    }
+    this->req_addr.set_and_release(addr,     0, time_delay);
+    this->req_size.set_and_release(size,     0, time_delay);
+    this->req_is_write.set_and_release(is_write, 0, time_delay);
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
 }
 
 

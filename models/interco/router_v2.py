@@ -390,3 +390,31 @@ class Router(gvsoc.systree.Component):
             mapping.is_error = True
         self.config.add_mappings(mapping)
         self.itf_bind(mapping.name, itf, signature='io_v2')
+
+    def o_MAP_DEFAULT(self, itf: gvsoc.systree.SlaveItf, name: str = None,
+                      latency: int = 0, is_error: bool = False):
+        """Attach a catch-all (``size=0``) mapping to this router and bind it.
+
+        Convenience wrapper over :meth:`o_MAP` that builds a fresh
+        :class:`RouterMapping` with ``size=0`` (the v2 catch-all encoding) and
+        forwards it to ``itf``. Useful for the "anything not matched by an
+        explicit window goes here" branch — every router needs its own fresh
+        mapping instance, so this method must be called per binding rather
+        than reusing a shared ``RouterMapping`` variable.
+
+        Parameters
+        ----------
+        itf : gvsoc.systree.SlaveItf
+            Downstream slave interface to bind to.
+        name : str, optional
+            Mapping / port name override. Defaults to
+            ``itf.component.name`` if unset.
+        latency : int, optional
+            Per-mapping latency in cycles, applied on top of the per-router
+            ``latency``. Used by ``'bandwidth'`` and ``'backpressure'``.
+        is_error : bool, optional
+            Marks this mapping as the error sink — requests resolving to it
+            are responded with ``IO_RESP_INVALID``.
+        """
+        self.o_MAP(itf, mapping=RouterMapping(
+            size=0, latency=latency, is_error=is_error), name=name)

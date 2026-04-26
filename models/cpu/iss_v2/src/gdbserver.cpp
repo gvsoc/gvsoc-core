@@ -30,7 +30,9 @@ Gdbserver::Gdbserver(Iss &iss)
 {
     this->iss.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
     this->event = this->iss.event_new((vp::Block *)this, &Gdbserver::handle_pending_io_access_stub);
+#ifndef CONFIG_GVSOC_ISS_LSU_V2
     this->io_itf.set_resp_meth(&Gdbserver::data_response);
+#endif
     this->iss.new_master_port("data_debug", &this->io_itf, (vp::Block *)this);
     pthread_mutex_init(&this->mutex, NULL);
     pthread_cond_init(&this->cond, NULL);
@@ -463,7 +465,11 @@ void Gdbserver::handle_pending_io_access()
             addr, size, this->io_pending_is_write);
 
         // Initialize the request
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+        req->prepare();
+#else
         req->init();
+#endif
         req->set_addr(addr);
         req->set_size(size);
         req->set_is_write(this->io_pending_is_write);
@@ -476,6 +482,21 @@ void Gdbserver::handle_pending_io_access()
 
         // Send the request to the interface
         int err = this->io_itf.req(req);
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+        if (err == vp::IO_REQ_DONE && req->get_resp_status() == vp::IO_RESP_OK)
+        {
+            this->event->enqueue(this->io_req.get_latency() + 1);
+        }
+        else if (err == vp::IO_REQ_DONE && req->get_resp_status() == vp::IO_RESP_INVALID)
+        {
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
+            pthread_mutex_lock(&this->mutex);
+            this->waiting_io_response = false;
+            this->io_retval = 1;
+            pthread_cond_broadcast(&this->cond);
+            pthread_mutex_unlock(&this->mutex);
+        }
+#else
         if (err == vp::IO_REQ_OK)
         {
             // Always handle it through an event to simplify since we should make sure
@@ -492,6 +513,7 @@ void Gdbserver::handle_pending_io_access()
             pthread_cond_broadcast(&this->cond);
             pthread_mutex_unlock(&this->mutex);
         }
+#endif
         else
         {
             // Nothing today for asynchronous reply since the callback will take care of continuing

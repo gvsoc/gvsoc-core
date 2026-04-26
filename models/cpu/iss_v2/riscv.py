@@ -167,6 +167,9 @@ class LsuV2(IssModule):
         iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')
         iss.add_sources(['cpu/iss_v2/src/lsu_v2.cpp'])
         iss.isa.add_implem_include('<cpu/iss_v2/include/lsu_v2_implem.hpp>')
+        # Tell the iss that fetch/data master ports speak the io_v2 protocol
+        # so o_FETCH / o_DATA / o_DATA_DEBUG bind with signature='io_v2'.
+        iss._uses_io_v2 = True
 
 class Exception(IssModule):
     @override
@@ -291,6 +294,11 @@ class RiscvCommon(st.Component):
                misa = 0
 
         super().__init__(parent, name, config=config)
+
+        # Default to v1 IO protocol on the master ports. ``LsuV2.gen()`` flips
+        # this to True so o_FETCH / o_DATA / o_DATA_DEBUG bind with
+        # signature='io_v2'.
+        self._uses_io_v2: bool = False
 
         self.isa: Isa = isa
 
@@ -594,7 +602,8 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
-        self.itf_bind('fetch', itf, signature='io')
+        self.itf_bind('fetch', itf,
+            signature='io_v2' if self._uses_io_v2 else 'io')
 
     def o_DATA(self, itf: gvsoc.systree.SlaveItf):
         """Binds the data port.
@@ -608,7 +617,8 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
-        self.itf_bind('data', itf, signature='io')
+        self.itf_bind('data', itf,
+            signature='io_v2' if self._uses_io_v2 else 'io')
 
     def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('meminfo', itf, signature='io')
@@ -628,7 +638,8 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
-        self.itf_bind('data_debug', itf, signature='io')
+        self.itf_bind('data_debug', itf,
+            signature='io_v2' if self._uses_io_v2 else 'io')
 
     def o_FLUSH_CACHE(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('flush_cache_req', itf, signature='wire<bool>')

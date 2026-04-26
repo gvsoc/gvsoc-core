@@ -26,7 +26,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+#include <vp/itf/io_v2.hpp>
+#else
 #include <vp/itf/io.hpp>
+#endif
 #include <vp/stats/stats_engine.hpp>
 
 #ifndef O_BINARY

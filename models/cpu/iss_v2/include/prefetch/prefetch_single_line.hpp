@@ -41,8 +41,16 @@ public:
     // Response callback for the refill
     static void fetch_response(vp::Block *__this, vp::IoReq *req);
 
-    // Refill interface
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    // io_v2 retry callback (no-op: the fetch path never gets DENIED in this model).
+    static void fetch_retry(vp::Block *__this) {}
+
+    // Refill interface (io_v2 form: retry + resp set at construction).
+    vp::IoMaster fetch_itf{&PrefetchSingleLine::fetch_retry, &PrefetchSingleLine::fetch_response};
+#else
+    // Refill interface (io v1 form: methods set in constructor body).
     vp::IoMaster fetch_itf;
+#endif
 
     // Fetch the given instruction from prefetch buffer
     bool fetch(iss_reg_t pc);

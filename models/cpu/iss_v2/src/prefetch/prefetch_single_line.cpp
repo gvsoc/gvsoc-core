@@ -25,7 +25,9 @@ PrefetchSingleLine::PrefetchSingleLine(Iss &iss)
     : iss(iss)
 {
     this->iss.traces.new_trace("prefetcher", &this->trace, vp::DEBUG);
+#ifndef CONFIG_GVSOC_ISS_LSU_V2
     this->fetch_itf.set_resp_meth(&PrefetchSingleLine::fetch_response);
+#endif
     this->iss.new_master_port("fetch", &fetch_itf, (vp::Block *)this);
 }
 
@@ -149,12 +151,35 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
 
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Fetch request (addr: 0x%lx, size: 0x%lx)\n", addr, size);
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    req->prepare();
+#else
     req->init();
+#endif
     req->set_addr(addr);
     req->set_size(size);
     req->set_is_write(is_write);
     req->set_data(data);
     vp::IoReqStatus err = this->fetch_itf.req(req);
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    if (err == vp::IO_REQ_DONE)
+    {
+        if (req->get_resp_status() == vp::IO_RESP_INVALID)
+        {
+#ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
+            this->trace.force_warning("Invalid fetch request (addr: 0x%x, size: 0x%x)\n", addr, size);
+#endif
+            this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_INSN_FAULT);
+            return 1;
+        }
+    }
+    else
+    {
+        this->trace.msg(vp::Trace::LEVEL_TRACE, "Waiting for asynchronous response\n");
+        this->iss.timing.event_imiss_start();
+        return -1;
+    }
+#else
     if (err != vp::IO_REQ_OK)
     {
         if (err == vp::IO_REQ_INVALID)
@@ -172,6 +197,7 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
             return -1;
         }
     }
+#endif
 
     this->iss.timing.event_fetch_account();
     if (req->get_latency() > 1)

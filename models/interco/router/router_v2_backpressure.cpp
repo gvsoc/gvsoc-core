@@ -20,6 +20,7 @@
 #include <vp/itf/io_v2.hpp>
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
+#include <vp/signal.hpp>
 #include <interco/router_config.hpp>
 
 class RouterBackpressure;
@@ -49,6 +50,7 @@ class OutputPort
 public:
     OutputPort(RouterBackpressure *top, int id, std::string name, int64_t bandwidth,
         int64_t latency, bool shared_rw_bandwidth);
+    void log_access(uint64_t addr, uint64_t size);
     RouterBackpressure *top;
     int id;
     vp::IoMaster itf;
@@ -56,6 +58,11 @@ public:
     uint64_t remove_offset = 0;
     uint64_t add_offset = 0;
     int64_t mapping_latency = 0;
+    // Per-mapping VCD traces — pre-translation addr / size of each request forwarded.
+    vp::Signal<uint64_t> current_addr;
+    vp::Signal<uint64_t> current_size;
+    int64_t last_logged_access = -1;
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 
@@ -169,8 +176,28 @@ OutputPort::OutputPort(RouterBackpressure *top, int id, std::string name, int64_
         int64_t latency, bool shared_rw_bandwidth)
     : top(top), id(id),
       itf(id, &RouterBackpressure::retry_muxed, &RouterBackpressure::resp_muxed),
-      bw(bandwidth, latency, shared_rw_bandwidth)
+      bw(bandwidth, latency, shared_rw_bandwidth),
+      current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
+}
+
+void OutputPort::log_access(uint64_t addr, uint64_t size)
+{
+    int64_t cycles = this->top->clock.get_cycles();
+    if (cycles > this->last_logged_access)
+        this->nb_logged_access_in_same_cycle = 0;
+
+    int64_t delay = 0;
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->top->clock.get_period();
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
+    }
+    this->current_addr.set_and_release(addr, 0, delay);
+    this->current_size.set_and_release(size, 0, delay);
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
 }
 
 
@@ -337,6 +364,8 @@ vp::IoReqStatus RouterBackpressure::req_muxed(vp::Block *__this, vp::IoReq *req,
     int64_t d_out = out->bw.peek(now, size, is_write);
     int64_t delay = std::max(d_in, d_out) + out->mapping_latency;
 
+    // VCD trace before address translation.
+    out->log_access(offset, size);
     // Translate the address to the output's space.
     req->set_addr(offset - out->remove_offset + out->add_offset);
 

@@ -34,6 +34,7 @@
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
 #include <vp/clocked_signal.hpp>
+#include <vp/signal.hpp>
 #include <interco/router_config.hpp>
 
 class RouterBeat;
@@ -57,6 +58,7 @@ class OutputPort
 {
 public:
     OutputPort(RouterBeat *top, int id, std::string name);
+    void log_access(uint64_t addr, uint64_t size);
     RouterBeat *top;
     int id;
     vp::IoMaster itf;
@@ -68,6 +70,11 @@ public:
     // Downstream returned DENIED for the most recent forward; waiting for retry().
     // Stall is per-output (single downstream IoMaster), not per-channel.
     bool stalled = false;
+    // Per-mapping VCD traces — pre-translation addr / size of each beat forwarded.
+    vp::Signal<uint64_t> current_addr;
+    vp::Signal<uint64_t> current_size;
+    int64_t last_logged_access = -1;
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 class InputPort
@@ -143,8 +150,28 @@ private:
 
 OutputPort::OutputPort(RouterBeat *top, int id, std::string name)
     : top(top), id(id),
-      itf(id, &RouterBeat::retry_muxed, &RouterBeat::resp_muxed)
+      itf(id, &RouterBeat::retry_muxed, &RouterBeat::resp_muxed),
+      current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
+}
+
+void OutputPort::log_access(uint64_t addr, uint64_t size)
+{
+    int64_t cycles = this->top->clock.get_cycles();
+    if (cycles > this->last_logged_access)
+        this->nb_logged_access_in_same_cycle = 0;
+
+    int64_t delay = 0;
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->top->clock.get_period();
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
+    }
+    this->current_addr.set_and_release(addr, 0, delay);
+    this->current_size.set_and_release(size, 0, delay);
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
 }
 
 InputPort::InputPort(RouterBeat *top, int id, std::string name)
@@ -406,6 +433,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // Forward: translate addr, remap burst_id to slot index.
         uint64_t original_addr = beat->get_addr();
         int64_t original_burst_id = beat->burst_id;
+        out->log_access(original_addr, beat->get_size());
         beat->set_addr(original_addr - out->remove_offset + out->add_offset);
         beat->burst_id = slot_idx;
 

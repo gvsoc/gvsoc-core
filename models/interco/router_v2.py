@@ -418,3 +418,26 @@ class Router(gvsoc.systree.Component):
         """
         self.o_MAP(itf, mapping=RouterMapping(
             size=0, latency=latency, is_error=is_error), name=name)
+
+    def gen_gui(self, parent_signal):
+        """Surface per-mapping address / size traces in the GUI.
+
+        Each mapping bound via :meth:`o_MAP` (or :meth:`o_MAP_DEFAULT`) has
+        a corresponding ``<name>/addr`` / ``<name>/size`` VCD signal pair
+        published by the C++ model. Group them into one expandable signal
+        per router so the timeline shows traffic per output branch.
+        """
+        import gvsoc.gui
+
+        top = gvsoc.gui.SignalGenFromSignals(self, parent_signal,
+            to_signal=self.name, mode="combined",
+            from_groups=["active"], groups=["regmap", "active"],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'),
+            skip_if_no_child=True)
+
+        for mapping in self.config.mappings:
+            mname = mapping.name or 'mapping'
+            mapping_trace = gvsoc.gui.Signal(self, top, mname,
+                path=mname + "/addr", groups=['regmap', 'active'])
+            gvsoc.gui.Signal(self, mapping_trace, "size",
+                path=mname + "/size", groups=['regmap'])

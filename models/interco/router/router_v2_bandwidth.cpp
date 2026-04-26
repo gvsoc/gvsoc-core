@@ -34,6 +34,7 @@
 #include <vp/itf/io_v2.hpp>
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
+#include <vp/signal.hpp>
 #include <interco/router_config.hpp>
 
 class RouterBandwidth;
@@ -42,6 +43,7 @@ class OutputPort
 {
 public:
     OutputPort(RouterBandwidth *top, int id, std::string name);
+    void log_access(uint64_t addr, uint64_t size);
     RouterBandwidth *top;
     int id;
     vp::IoMaster itf;
@@ -54,6 +56,11 @@ public:
     // True when the downstream returned DENIED for the most recent forward; cleared
     // by retry_muxed.
     bool stalled = false;
+    // Per-mapping VCD traces — pre-translation addr / size of each request forwarded.
+    vp::Signal<uint64_t> current_addr;
+    vp::Signal<uint64_t> current_size;
+    int64_t last_logged_access = -1;
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 struct QueuedReq
@@ -130,8 +137,28 @@ private:
 
 OutputPort::OutputPort(RouterBandwidth *top, int id, std::string name)
     : top(top), id(id),
-      itf(id, &RouterBandwidth::retry_muxed, &RouterBandwidth::resp_muxed)
+      itf(id, &RouterBandwidth::retry_muxed, &RouterBandwidth::resp_muxed),
+      current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
+}
+
+void OutputPort::log_access(uint64_t addr, uint64_t size)
+{
+    int64_t cycles = this->top->clock.get_cycles();
+    if (cycles > this->last_logged_access)
+        this->nb_logged_access_in_same_cycle = 0;
+
+    int64_t delay = 0;
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->top->clock.get_period();
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
+    }
+    this->current_addr.set_and_release(addr, 0, delay);
+    this->current_size.set_and_release(size, 0, delay);
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
 }
 
 InputPort::InputPort(RouterBandwidth *top, int id, std::string name)
@@ -227,6 +254,7 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
     // Translate the address — the only mutation we do BEFORE the forward, so
     // rollback on DENIED is one line.
     uint64_t original_addr = req->get_addr();
+    out->log_access(original_addr, size);
     req->set_addr(original_addr - out->remove_offset + out->add_offset);
 
     vp::IoReqStatus st = out->itf.req(req);

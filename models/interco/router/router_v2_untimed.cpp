@@ -20,6 +20,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/mapping_tree.hpp>
+#include <vp/signal.hpp>
 #include <interco/router_config.hpp>
 
 class RouterUntimed;
@@ -28,11 +29,19 @@ class OutputPort
 {
 public:
     OutputPort(RouterUntimed *top, int id, std::string name);
+    void log_access(uint64_t addr, uint64_t size);
     RouterUntimed *top;
     int id;
     vp::IoMaster itf;
     uint64_t remove_offset = 0;
     uint64_t add_offset = 0;
+    // Per-mapping VCD traces — show pre-translation addr / size of each request
+    // forwarded through this output. Multiple accesses in the same cycle are
+    // spread by a sub-cycle delay so the GUI can show them all.
+    vp::Signal<uint64_t> current_addr;
+    vp::Signal<uint64_t> current_size;
+    int64_t last_logged_access = -1;
+    int nb_logged_access_in_same_cycle = 0;
 };
 
 class InputPort
@@ -79,8 +88,28 @@ private:
 
 OutputPort::OutputPort(RouterUntimed *top, int id, std::string name)
     : top(top), id(id),
-      itf(id, &RouterUntimed::retry_muxed, &RouterUntimed::resp_muxed)
+      itf(id, &RouterUntimed::retry_muxed, &RouterUntimed::resp_muxed),
+      current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
+}
+
+void OutputPort::log_access(uint64_t addr, uint64_t size)
+{
+    int64_t cycles = this->top->clock.get_cycles();
+    if (cycles > this->last_logged_access)
+        this->nb_logged_access_in_same_cycle = 0;
+
+    int64_t delay = 0;
+    if (this->nb_logged_access_in_same_cycle > 0)
+    {
+        int64_t period = this->top->clock.get_period();
+        delay = period - (period >> this->nb_logged_access_in_same_cycle);
+    }
+    this->current_addr.set_and_release(addr, 0, delay);
+    this->current_size.set_and_release(size, 0, delay);
+    this->nb_logged_access_in_same_cycle++;
+    this->last_logged_access = cycles;
 }
 
 InputPort::InputPort(RouterUntimed *top, int id, std::string name)
@@ -156,6 +185,7 @@ vp::IoReqStatus RouterUntimed::req_muxed(vp::Block *__this, vp::IoReq *req, int 
 
     OutputPort *out = _this->entries[mapping->id];
     uint64_t original_addr = req->get_addr();
+    out->log_access(original_addr, size);
     req->set_addr(original_addr - out->remove_offset + out->add_offset);
 
     vp::IoReqStatus st = out->itf.req(req);

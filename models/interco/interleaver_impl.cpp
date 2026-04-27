@@ -138,7 +138,6 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     }
     else if (_this->enable_shift)
     {
-      output_id = (offset >> (_this->interleaving_bits + _this->enable_shift)) & ((1 << _this->stage_bits) - 1);
       new_offset = ((offset >> _this->enable_shift) & (-1ULL << _this->interleaving_bits)) | (offset & ((1ULL << _this->interleaving_bits) - 1));
     }
     else
@@ -153,7 +152,7 @@ vp::IoReqStatus interleaver::req(vp::Block *__this, vp::IoReq *req)
     req->set_addr(new_offset);
     req->set_size(loop_size);
     req->set_data(data);
-    req->set_latency(init_latency);
+    req->set_exact_latency(init_latency);
 
     vp::IoReqStatus err = _this->out[output_id]->req_forward(req);
     if (err != vp::IO_REQ_OK)

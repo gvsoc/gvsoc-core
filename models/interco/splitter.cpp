@@ -6,7 +6,7 @@
 
 #include <vp/itf/io.hpp>
 #include <vp/vp.hpp>
-#include <interco/splitter_config.hpp>
+#include <interco/splitter/splitter_config.hpp>
 
 class Splitter : public vp::Component {
   public:

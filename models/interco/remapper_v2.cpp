@@ -28,7 +28,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
-#include <interco/remapper_config.hpp>
+#include <interco/remapper_v2/remapper_config.hpp>
 
 class Remapper : public vp::Component
 {

@@ -6,7 +6,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/clock.hpp>
-#include <utils/clock_divider_config.hpp>
+#include <utils/clock_divider/clock_divider_config.hpp>
 
 class ClockDivider : public vp::Component {
 

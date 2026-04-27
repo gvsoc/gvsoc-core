@@ -36,7 +36,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
-#include <interco/demux_config.hpp>
+#include <interco/demux_v2/demux_config.hpp>
 
 class Demux : public vp::Component
 {

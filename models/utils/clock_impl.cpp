@@ -23,7 +23,7 @@
 #include <vp/itf/clock.hpp>
 #include <stdio.h>
 #include <string.h>
-#include <utils/clock_generator_config.hpp>
+#include <utils/clock_generator/clock_generator_config.hpp>
 
 class Clock : public vp::Component
 {

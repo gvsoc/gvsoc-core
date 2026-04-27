@@ -48,7 +48,7 @@
 #include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
-#include <interco/splitter_config.hpp>
+#include <interco/splitter_v2/splitter_config.hpp>
 
 class Splitter : public vp::Component
 {

@@ -35,7 +35,7 @@
 #include <vp/mapping_tree.hpp>
 #include <vp/clocked_signal.hpp>
 #include <vp/signal.hpp>
-#include <interco/router_config.hpp>
+#include <interco/router_v2/router_config.hpp>
 
 class RouterBeat;
 class InputPort;

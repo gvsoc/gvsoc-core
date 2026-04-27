@@ -6,7 +6,7 @@
 
 #include <vp/itf/io.hpp>
 #include <vp/vp.hpp>
-#include <interco/log_ico_config.hpp>
+#include <interco/log_ico/log_ico_config.hpp>
 
 class LogIco : public vp::Component {
   public:

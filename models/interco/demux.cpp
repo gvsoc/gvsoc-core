@@ -6,7 +6,7 @@
 
 #include <vp/itf/io.hpp>
 #include <vp/vp.hpp>
-#include <interco/demux_config.hpp>
+#include <interco/demux/demux_config.hpp>
 
 class Demux : public vp::Component {
   public:

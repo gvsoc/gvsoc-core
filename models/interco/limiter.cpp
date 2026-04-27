@@ -8,7 +8,7 @@
 #include <vp/itf/io.hpp>
 #include <vp/clocked_signal.hpp>
 #include <vp/clock/clock_event.hpp>
-#include <interco/limiter_config.hpp>
+#include <interco/limiter/limiter_config.hpp>
 
 class Limiter : public vp::Component {
   public:

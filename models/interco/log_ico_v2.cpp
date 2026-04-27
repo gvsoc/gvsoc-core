@@ -64,7 +64,7 @@
 #include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
-#include <interco/log_ico_config.hpp>
+#include <interco/log_ico_v2/log_ico_config.hpp>
 
 struct LogIcoInFlight
 {

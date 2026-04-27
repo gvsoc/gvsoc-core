@@ -37,7 +37,7 @@
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
 #include <vector>
-#include <cache/cache_config.hpp>
+#include <cache/cache_v4/cache_config.hpp>
 
 static int ceil_log2(unsigned int n)
 {

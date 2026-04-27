@@ -27,7 +27,7 @@
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
-#include <memory/memory_config.hpp>
+#include <memory/memory_config/memory_config.hpp>
 
 class Memory : public vp::Component
 {

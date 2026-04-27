@@ -46,7 +46,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
-#include <interco/limiter_config.hpp>
+#include <interco/limiter_v2/limiter_config.hpp>
 
 class Limiter : public vp::Component
 {

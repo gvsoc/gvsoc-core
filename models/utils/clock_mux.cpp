@@ -7,7 +7,7 @@
 #include <string>
 #include <vp/vp.hpp>
 #include <vp/itf/clock.hpp>
-#include <utils/clock_mux_config.hpp>
+#include <utils/clock_mux/clock_mux_config.hpp>
 
 class ClockMux : public vp::Component {
 

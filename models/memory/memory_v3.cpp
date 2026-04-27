@@ -51,7 +51,7 @@
 #include <vp/stats/stats.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/itf/wire.hpp>
-#include <memory/memory_v3_config.hpp>
+#include <memory/memory_v3/memory_v3_config.hpp>
 
 class Memory : public vp::Component
 {

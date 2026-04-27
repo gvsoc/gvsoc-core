@@ -6,7 +6,7 @@
 
 #include <vp/itf/io.hpp>
 #include <vp/vp.hpp>
-#include <interco/remapper_config.hpp>
+#include <interco/remapper/remapper_config.hpp>
 
 class Remapper : public vp::Component {
   public:

@@ -23,7 +23,9 @@ class Limiter : public vp::Component {
     void req_free(vp::IoReq *);
     void handle_req();
     void handle_req_end(vp::IoReq *req, vp::IoReqStatus status);
+    void send_resp();
     static void event_handler(vp::Block *_this, vp::ClockEvent *event);
+    static void resp_event_handler(vp::Block *_this, vp::ClockEvent *event);
 
     LimiterConfig cfg;
     vp::Trace trace;
@@ -32,18 +34,27 @@ class Limiter : public vp::Component {
     vp::IoSlave input;
 
     vp::IoReq *req_queue = NULL;
+    // Limiter handles one parent IoReq at a time end-to-end: pending_req
+    // is set in req() and cleared in send_resp() once the LAST sub-request
+    // has settled AND its computed completion cycle has been reached.
+    // While set, any new incoming request is denied. That lets us keep
+    // the per-parent split state in plain instance variables.
     vp::IoReq *pending_req;
-    uint64_t pending_size;
+    uint64_t pending_size;          // bytes left to dispatch to output
     uint64_t pending_addr;
     uint8_t *pending_data;
+    int64_t pending_rem_size;       // bytes still owed by in-flight sub-reqs
+    int64_t pending_max_completion; // max(now + sub_req->get_full_latency())
     bool input_denied;
     bool denied;
     vp::ClockEvent event;
+    vp::ClockEvent resp_event;       // fires resp() at pending_max_completion
     vp::Signal<int64_t> next_req_timestamp;
 };
 
 Limiter::Limiter(vp::ComponentConf &config)
 : vp::Component(config, this->cfg), event(this, &Limiter::event_handler),
+resp_event(this, &Limiter::resp_event_handler),
 next_req_timestamp(*this, "next_req_timestamp", 64, vp::SignalCommon::ResetKind::Value, 0) {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -100,12 +111,13 @@ vp::IoReqStatus Limiter::req(vp::Block *__this, vp::IoReq *req) {
         return vp::IO_REQ_DENIED;
     }
 
-    req->set_int(req->arg_current_index(), req->get_size());
     req->status = vp::IO_REQ_OK;
-    _this->pending_size = req->get_size();
-    _this->pending_addr = req->get_addr();
-    _this->pending_data = req->get_data();
-    _this->pending_req = req;
+    _this->pending_size           = req->get_size();
+    _this->pending_addr           = req->get_addr();
+    _this->pending_data           = req->get_data();
+    _this->pending_rem_size       = (int64_t)req->get_size();
+    _this->pending_max_completion = 0;
+    _this->pending_req            = req;
 
     _this->event.enqueue();
 
@@ -131,10 +143,6 @@ void Limiter::handle_req()
         this->pending_size -= size;
         this->next_req_timestamp.set(this->clock.get_cycles() + 1);
 
-        if (this->pending_size == 0) {
-            this->pending_req = NULL;
-        }
-
         vp::IoReqStatus status = this->output.req(req);
         if (status == vp::IO_REQ_OK || status == vp::IO_REQ_INVALID) {
             this->handle_req_end(req, status);
@@ -145,19 +153,58 @@ void Limiter::handle_req()
         }
     }
 
-    if (this->pending_req && !this->denied) {
+    // Re-arm the dispatcher only while there's still data to split. The
+    // parent's resp is handled by handle_req_end once the last sub-request
+    // settles, so nothing else needs to be driven from here after pending_size
+    // reaches 0.
+    if (this->pending_size > 0 && !this->denied) {
         this->event.enqueue();
     }
 }
 
 void Limiter::handle_req_end(vp::IoReq *port_req, vp::IoReqStatus status) {
-    vp::IoReq *req = port_req->parent_req;
+    vp::IoReq *req = this->pending_req;
     if (status == vp::IO_REQ_INVALID) req->status = vp::IO_REQ_INVALID;
 
-    req->set_int(req->arg_current_index(), req->get_int(req->arg_current_index()) - port_req->size);
-    if (req->get_int(req->arg_current_index()) == 0) {
-        req->get_resp_port()->resp(req);
+    // Track the latest absolute cycle at which any sub-request finishes.
+    // get_full_latency() = latency + duration, both relative to "now"
+    // (whether resp arrived sync or async, the limiter's drain runs at the
+    // current cycle), so completion = now + full_latency is the absolute
+    // settle time for this sub-request.
+    int64_t completion = (int64_t)this->clock.get_cycles() +
+                         (int64_t)port_req->get_full_latency();
+    if (completion > this->pending_max_completion)
+        this->pending_max_completion = completion;
+
+    this->pending_rem_size -= (int64_t)port_req->get_size();
+    if (this->pending_rem_size == 0) {
+        // All sub-requests settled. Defer the resp() so the upstream's
+        // resp handler runs exactly at the latest sub-request's completion
+        // cycle, instead of immediately with a latency hint set on the
+        // parent IoReq. If the deadline has already passed (delay <= 0),
+        // fire synchronously.
+        int64_t delay = this->pending_max_completion -
+                        (int64_t)this->clock.get_cycles();
+        if (delay > 0) {
+            this->resp_event.enqueue(delay);
+        } else {
+            this->send_resp();
+        }
     }
+}
+
+void Limiter::send_resp() {
+    // Clear the slot BEFORE calling resp(): the upstream's resp handler
+    // may immediately re-issue a new request, and that request must see
+    // the limiter as free.
+    vp::IoReq *req = this->pending_req;
+    this->pending_req = NULL;
+    req->get_resp_port()->resp(req);
+}
+
+void Limiter::resp_event_handler(vp::Block *__this, vp::ClockEvent *event) {
+    Limiter *_this = (Limiter *)__this;
+    _this->send_resp();
 }
 
 void Limiter::grant(vp::Block *__this, vp::IoReq *req) {

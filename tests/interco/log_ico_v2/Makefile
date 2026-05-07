@@ -8,4 +8,4 @@ TARGET = test
 CASE ?= single_master_interleave
 TARGET := $(TARGET):case=$(CASE)
 
-include $(GVSOC_ROOT)/gvsoc/core/tests/common.mk
+include $(GVSOC_CORE)/tests/common.mk

@@ -47,4 +47,4 @@ endif
 # falls back to "default" for the option-less case.
 CASE := $(if $(strip $(OPTIONS)),$(subst $(space),_,$(subst =,_,$(subst $(comma),_,$(strip $(OPTIONS))))),default)
 
-include $(GVSOC_ROOT)/gvsoc/core/tests/common.mk
+include $(GVSOC_CORE)/tests/common.mk

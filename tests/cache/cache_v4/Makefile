@@ -3,4 +3,4 @@ TARGET = test
 CASE ?= hit_basic
 TARGET := $(TARGET):case=$(CASE)
 
-include $(GVSOC_ROOT)/gvsoc/core/tests/common.mk
+include $(GVSOC_CORE)/tests/common.mk

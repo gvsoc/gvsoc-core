@@ -778,6 +778,14 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         return iss->irq.debug_handler;
     }
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    else if ((iss->csr.dcsr >> 15) & 1)
+    {
+        // dcsr.ebreakm=1 in M-mode: enter debug mode (RISC-V Debug Spec §3.1.2)
+        iss->dbgunit.set_halt_mode(true, HALT_CAUSE_EBREAK);
+        return pc;
+    }
+#endif
     else
     {
         iss->exception.raise(pc, ISS_EXCEPT_BREAKPOINT);

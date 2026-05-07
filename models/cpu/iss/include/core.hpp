@@ -32,6 +32,7 @@ class Core
 {
 public:
     Core(Iss &iss);
+    virtual ~Core() = default;
 
     void build();
     void reset(bool active);
@@ -39,7 +40,14 @@ public:
     iss_reg_t mret_handle();
     iss_reg_t dret_handle();
     iss_reg_t sret_handle();
+
     int mode_get() { return this->mode; }
+
+    /* Hooks called after mret/sret restores state.
+     * Default: clear mcause/scause (generic RISC-V).
+     * CV32E40P: override with empty body (RTL does not clear on xret). */
+    virtual void post_mret_hook();
+    virtual void post_sret_hook();
     void mode_set(int mode);
     iss_reg_t load_reserve_addr_get() { return this->load_reserve_addr; }
     void load_reserve_addr_set(iss_reg_t addr) { this->load_reserve_addr = addr; }

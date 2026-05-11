@@ -56,9 +56,46 @@ class Arch(IssModule):
                 iss.add_sources([self.source])
 
 class ExecInOrder(IssModule):
-    def __init__(self, class_name:str='ExecInOrder', scoreboard: bool=False):
+    """In-order single-issue execution / commit engine.
+
+    Drives the per-cycle dispatch loop (fetch -> decode -> execute) for
+    an in-order, single-issue pipeline and tracks the in-flight insns
+    needed to model asynchronous LSU responses and WFI wake-ups.
+
+    Two opt-in features, useful for narrow in-order cores such as
+    Ri5ky / CV32E40P, are configurable per core:
+
+    ``scoreboard=True``
+        Track live destination-register bits. The dispatcher stalls a
+        new insn whose source register set intersects the live mask.
+        When paired with :class:`LsuV2`, every load response is staged
+        through a single-slot 1-cycle delay (``schedule_scoreboard_release``)
+        before the scoreboard bits actually clear — modelling the
+        classic load-use stall: a dependent insn dispatched the same
+        cycle the response lands still sees the destination as in
+        flight. Sets ``CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD``.
+
+    ``inorder_commit=True``
+        Enable an in-order commit FIFO so that the simulator's
+        instruction trace is dumped strictly in dispatch order, even
+        when LSU responses arrive out of program order (``nb_outstanding > 1``
+        with mixed latencies) or when independent sync insns dispatch
+        while an async load is still in flight. Held async insns are
+        appended with ``ready=false``; sync followers dispatched in
+        the meantime are appended with ``ready=true`` (their result
+        is already in the regfile and their scoreboard bits are
+        cleared at dispatch). Each LSU response flips the matching
+        entry's ready bit and drains the FIFO from the head while
+        heads are ready. Sets ``CONFIG_GVSOC_ISS_EXEC_INORDER_COMMIT``.
+
+    Both features compile out cleanly when not requested; cores that
+    do not opt in see no overhead and no behavioural change.
+    """
+    def __init__(self, class_name:str='ExecInOrder', scoreboard: bool=False,
+                 inorder_commit: bool=False):
         self.scoreboard = scoreboard
         self.class_name = class_name
+        self.inorder_commit = inorder_commit
 
     @override
     def gen(self, iss: RiscvCommon):
@@ -68,6 +105,8 @@ class ExecInOrder(IssModule):
         iss.add_sources(['cpu/iss_v2/src/exec/exec_inorder.cpp'])
         if self.scoreboard:
             iss.isa.add_define('CONFIG_GVSOC_ISS_EXEC_SCOREBOARD', '1')
+        if self.inorder_commit:
+            iss.isa.add_define('CONFIG_GVSOC_ISS_EXEC_INORDER_COMMIT', '1')
 
 class Regfile(IssModule):
     def __init__(self, scoreboard: bool=False):

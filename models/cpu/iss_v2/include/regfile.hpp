@@ -79,6 +79,7 @@ public:
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
     inline void sb_reg_invalid_set(int reg);
     inline void sb_reg_invalid_clear(int reg);
+    inline void sb_reg_invalid_clear_mask(uint64_t mask);
 #endif
 
 private:
@@ -198,6 +199,11 @@ inline void Regfile::sb_reg_invalid_set(int reg)
 inline void Regfile::sb_reg_invalid_clear(int reg)
 {
     this->sb_reg_invalid &= ~(1 << reg);
+}
+
+inline void Regfile::sb_reg_invalid_clear_mask(uint64_t mask)
+{
+    this->sb_reg_invalid &= ~mask;
 }
 
 inline bool Regfile::scoreboard_insn_check(iss_insn_t *insn)

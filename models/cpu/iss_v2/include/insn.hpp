@@ -32,4 +32,12 @@ public:
     iss_reg_t opcode;
     TraceEntry *trace;
     InsnEntry *next;
+#ifdef CONFIG_GVSOC_ISS_EXEC_INORDER_COMMIT
+    // In-order commit queue link state: `false` while a held async
+    // insn is still waiting for its LSU response (or WFI for its
+    // wakeup); flipped to `true` by `insn_terminate`, or set to
+    // `true` at enqueue time for sync followers whose result was
+    // already written to the regfile at dispatch.
+    bool ready;
+#endif
 };

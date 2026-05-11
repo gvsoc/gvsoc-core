@@ -45,6 +45,7 @@ void LsuV2::reset(bool active)
         this->io_req_denied = false;
         this->pending_fence = false;
         this->nb_pending_accesses = 0;
+        this->next_retire_cycle = 0;
     }
 }
 
@@ -103,18 +104,49 @@ void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
 
     _this->trace.msg("Received data response (req: %p)\n", req);
 
-    _this->iss.exec.insn_terminate(entry->insn_entry);
+    int64_t cur = _this->iss.clock.get_cycles();
+    if (cur < _this->next_retire_cycle)
+    {
+        // Another response already retired this cycle. Defer via the
+        // entry's task to the next available retire slot so the
+        // single-slot scoreboard release in ExecInOrder stays
+        // unambiguous (one writeback per cycle).
+        entry->timestamp = _this->next_retire_cycle;
+        _this->next_retire_cycle++;
+        _this->iss.exec.enqueue_task(&entry->task);
+        return;
+    }
 
+    InsnEntry *insn_entry = entry->insn_entry;
     _this->handle_req_end(entry);
+#ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
+    // Load-use stall: the response's dest reg becomes readable one
+    // cycle after retire. Park the release in ExecInOrder's
+    // single-slot delay mechanism, then commit with
+    // `defer_scoreboard_release=true` so `insn_terminate` doesn't
+    // also clear the bits the same cycle. Applies to any core wired
+    // with a scoreboard, not just those opting into in-order commit.
+    iss_insn_t *insn = _this->iss.exec.get_insn(insn_entry);
+    _this->iss.exec.schedule_scoreboard_release(insn->sb_out_reg_mask);
+    _this->iss.exec.insn_terminate(insn_entry, /*defer_scoreboard_release=*/true);
+#else
+    _this->iss.exec.insn_terminate(insn_entry);
+#endif
+    _this->next_retire_cycle = cur + 1;
 }
 
 bool LsuV2::handle_req_response(LsuReqEntry *entry)
 {
     vp::IoReq *req = &entry->req;
-    // Add one cycle to the annotated latency to account for the fact that
-    // the response arrives this cycle but the register file can only
-    // consume it on the next one.
-    int64_t latency = req->get_latency() + 1;
+    // The slave's annotated latency is the cycle at which its response
+    // arrives. Free the LSU pool slot at that cycle so a subsequent
+    // request can re-use the slot immediately without a wasted cycle.
+    // The "register file can only be consumed next cycle" semantics
+    // (load-use stall) are provided separately by ExecInOrder's
+    // single-slot delayed scoreboard release, scheduled in
+    // `data_response` / `task_handle` whenever the regfile has a
+    // scoreboard.
+    int64_t latency = req->get_latency();
 
     if (latency > 0)
     {
@@ -255,15 +287,37 @@ void LsuV2::task_handle(Iss *iss, Task *task)
     LsuReqEntry *entry = (LsuReqEntry *)((char *)task
         - ((char *)&((LsuReqEntry *)0)->task - (char *)0));
 
-    if (iss->clock.get_cycles() >= entry->timestamp)
-    {
-        iss->lsu.handle_req_end(entry);
-        iss->exec.insn_terminate(entry->insn_entry);
-    }
-    else
+    int64_t cur = iss->clock.get_cycles();
+    if (cur < entry->timestamp)
     {
         iss->exec.enqueue_task(task);
+        return;
     }
+
+    if (cur < iss->lsu.next_retire_cycle)
+    {
+        // Another response already retired this cycle. Push our slot
+        // out to the next available retire cycle and re-enqueue.
+        entry->timestamp = iss->lsu.next_retire_cycle;
+        iss->lsu.next_retire_cycle++;
+        iss->exec.enqueue_task(task);
+        return;
+    }
+
+    InsnEntry *insn_entry = entry->insn_entry;
+    iss->lsu.handle_req_end(entry);
+#ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
+    // Same load-use 1-cycle stall as the async path: schedule the
+    // dest reg's scoreboard release for next cycle, and tell
+    // `insn_terminate` to leave the scoreboard alone so the parked
+    // mask fires one cycle from now.
+    iss_insn_t *insn = iss->exec.get_insn(insn_entry);
+    iss->exec.schedule_scoreboard_release(insn->sb_out_reg_mask);
+    iss->exec.insn_terminate(insn_entry, /*defer_scoreboard_release=*/true);
+#else
+    iss->exec.insn_terminate(insn_entry);
+#endif
+    iss->lsu.next_retire_cycle = cur + 1;
 }
 
 bool LsuV2::atomic(iss_insn_t *insn, iss_addr_t addr, int size,

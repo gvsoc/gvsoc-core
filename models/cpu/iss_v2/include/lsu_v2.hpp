@@ -139,4 +139,14 @@ private:
     vp::Signal<bool>       log_is_write;
 
     int nb_pending_accesses;
+
+    // Earliest cycle at which the next response is allowed to retire.
+    // A response landing at `cycle >= next_retire_cycle` retires now
+    // and advances `next_retire_cycle = cycle + 1`. A response landing
+    // earlier (multiple responses on the same cycle, with
+    // `nb_outstanding > 1` and mixed latencies) self-defers via its
+    // entry's task to the value in `next_retire_cycle`. Serializes
+    // writebacks one per cycle so the single-slot scoreboard release
+    // in `ExecInOrder` never sees overlapping pushes.
+    int64_t next_retire_cycle;
 };

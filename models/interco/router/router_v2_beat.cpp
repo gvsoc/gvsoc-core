@@ -35,7 +35,10 @@
 #include <vp/mapping_tree.hpp>
 #include <vp/clocked_signal.hpp>
 #include <vp/signal.hpp>
+#include <vp/proxy.hpp>
 #include <interco/router_v2/router_config.hpp>
+
+#include "proxy_command.hpp"
 
 class RouterBeat;
 class InputPort;
@@ -48,10 +51,13 @@ static constexpr int NB_CHANNELS = 2;
 struct BurstEntry
 {
     bool in_use = false;
-    InputPort *input = nullptr;
+    InputPort *input = nullptr;        // nullptr marks a proxy-originated burst
     int output_id = -1;                // -1 until fsm has decoded the first beat's mapping
     int channel = 0;                   // resolved direction-channel for this burst
     int64_t original_burst_id = -1;    // master's burst_id, restored on response
+    // Non-null when this slot was allocated by handle_proxy_command; resp_muxed
+    // signals it instead of calling input->itf.resp().
+    vp_router_v2_proxy::ProxyWaiter *proxy_waiter = nullptr;
 };
 
 class OutputPort
@@ -104,12 +110,28 @@ class RouterBeat : public vp::Component
 
 public:
     RouterBeat(vp::ComponentConf &conf);
+    std::string handle_command(gv::GvProxy *proxy, FILE *req_file,
+        FILE *reply_file, std::vector<std::string> args,
+        std::string cmd_req) override;
 
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
     static void retry_muxed(vp::Block *__this, int id);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+
+    // Proxy mem_read / mem_write dispatch. Forwards a single-beat request
+    // directly to the matching output, bypassing the per-input FIFO and
+    // round-robin arbitration. Allocates a burst slot tagged with
+    // input=nullptr + proxy_waiter so resp_muxed routes the response back
+    // to the waiting proxy thread.
+    vp::IoReqStatus dispatch_proxy_req(vp::IoReq *req,
+        vp_router_v2_proxy::ProxyWaiter *waiter);
+
+    // Set by handle_proxy_command while waiting for retry_muxed after a
+    // DENIED on the proxy path. Cleared after the proxy resumes.
+    vp_router_v2_proxy::ProxyWaiter *proxy_retry_waiter = nullptr;
+    std::mutex proxy_retry_mu;
 
     void schedule_fsm();
     int alloc_burst_slot();
@@ -506,6 +528,18 @@ void RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*out_id*/)
     // Look up the burst via the remapped burst_id we wrote on forward.
     int slot_idx = (int)req->burst_id;
     BurstEntry &slot = _this->burst_table[slot_idx];
+
+    // Proxy-originated single-beat burst: input is nullptr, the waiter on the
+    // slot holds the synchronization handle for the proxy thread.
+    if (slot.input == nullptr)
+    {
+        vp_router_v2_proxy::ProxyWaiter *waiter = slot.proxy_waiter;
+        req->burst_id = slot.original_burst_id;
+        _this->free_burst_slot(slot_idx);
+        vp_router_v2_proxy::notify_replied(waiter);
+        return;
+    }
+
     InputPort *in = slot.input;
     OutputPort *out = _this->entries[slot.output_id];
     bool was_last = req->is_last;
@@ -536,6 +570,101 @@ void RouterBeat::retry_muxed(vp::Block *__this, int id)
     _this->trace.msg(vp::Trace::LEVEL_TRACE,
         "Output unstalled by downstream retry (output: %d)\n", id);
     _this->schedule_fsm();
+
+    // Wake any proxy thread waiting for retry after a DENIED.
+    vp_router_v2_proxy::ProxyWaiter *waiter = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(_this->proxy_retry_mu);
+        waiter = _this->proxy_retry_waiter;
+        _this->proxy_retry_waiter = nullptr;
+    }
+    if (waiter)
+    {
+        vp_router_v2_proxy::notify_retry(waiter);
+    }
+}
+
+vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
+    vp_router_v2_proxy::ProxyWaiter *waiter)
+{
+    uint64_t addr = req->get_addr();
+    uint64_t size = req->get_size();
+    vp::MappingTreeEntry *mapping = this->mapping_tree.get(
+        addr, size, req->get_is_write());
+    bool straddles = mapping && mapping->size != 0 &&
+        addr + size > mapping->base + mapping->size;
+    if (!mapping || mapping->id == this->error_id || straddles ||
+        !this->entries[mapping->id]->itf.is_bound())
+    {
+        req->set_resp_status(vp::IO_RESP_INVALID);
+        return vp::IO_REQ_DONE;
+    }
+
+    OutputPort *out = this->entries[mapping->id];
+    if (out->stalled)
+    {
+        return vp::IO_REQ_DENIED;
+    }
+
+    int slot_idx = this->alloc_burst_slot();
+    if (slot_idx < 0)
+    {
+        // No free burst slot — wait for one to be released.
+        return vp::IO_REQ_DENIED;
+    }
+
+    BurstEntry &slot = this->burst_table[slot_idx];
+    slot.input = nullptr;
+    slot.output_id = (int)mapping->id;
+    slot.channel = this->channel_of(req->get_is_write());
+    slot.original_burst_id = req->burst_id;
+    slot.proxy_waiter = waiter;
+
+    uint64_t original_addr = addr;
+    int64_t saved_burst_id = req->burst_id;
+    bool saved_first = req->is_first;
+    bool saved_last = req->is_last;
+
+    req->set_addr(addr - out->remove_offset + out->add_offset);
+    req->burst_id = slot_idx;
+    req->is_first = true;
+    req->is_last = true;
+
+    out->log_access(original_addr, size);
+    vp::IoReqStatus st = out->itf.req(req);
+
+    if (st == vp::IO_REQ_GRANTED)
+    {
+        // Slot stays live until resp_muxed.
+        return st;
+    }
+
+    // Synchronous outcome — free the slot and undo our mutations so the
+    // caller sees the request unchanged.
+    this->free_burst_slot(slot_idx);
+    req->burst_id = saved_burst_id;
+    req->is_first = saved_first;
+    req->is_last = saved_last;
+    if (st == vp::IO_REQ_DENIED)
+    {
+        req->set_addr(original_addr);
+        out->stalled = true;
+    }
+    return st;
+}
+
+std::string RouterBeat::handle_command(gv::GvProxy *proxy, FILE *req_file,
+    FILE *reply_file, std::vector<std::string> args, std::string cmd_req)
+{
+    return vp_router_v2_proxy::handle_proxy_command(
+        proxy, this->get_launcher(), req_file, reply_file, args, cmd_req,
+        [this](vp::IoReq *r, vp_router_v2_proxy::ProxyWaiter *w) {
+            return this->dispatch_proxy_req(r, w);
+        },
+        [this](vp_router_v2_proxy::ProxyWaiter *w) {
+            std::lock_guard<std::mutex> lk(this->proxy_retry_mu);
+            this->proxy_retry_waiter = w;
+        });
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

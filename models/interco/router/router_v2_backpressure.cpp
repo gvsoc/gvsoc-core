@@ -13,7 +13,12 @@
  * later. The response path is a pure pass-through with no scheduling.
  *
  * Scope limitation: single-mapping only. Straddling mappings -> IO_RESP_INVALID.
- * No proxy/debug access (no RouterCommon subclass).
+ *
+ * Proxy access (gvsoc_control mem_read / mem_write) is supported via the
+ * shared helper in "proxy_command.hpp". Proxy requests bypass the per-input
+ * "one pending request" gate and the bandwidth watermarks (out-of-band,
+ * matching v1 ``is_debug`` semantics), but observe DENIED replies the same
+ * way a normal master would.
  */
 
 #include <vp/vp.hpp>
@@ -21,7 +26,10 @@
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
 #include <vp/signal.hpp>
+#include <vp/proxy.hpp>
 #include <interco/router_v2/router_config.hpp>
+
+#include "proxy_command.hpp"
 
 class RouterBackpressure;
 
@@ -92,6 +100,9 @@ class RouterBackpressure : public vp::Component
 
 public:
     RouterBackpressure(vp::ComponentConf &conf);
+    std::string handle_command(gv::GvProxy *proxy, FILE *req_file,
+        FILE *reply_file, std::vector<std::string> args,
+        std::string cmd_req) override;
 
 private:
     // Slave callback (muxed by input port id).
@@ -107,17 +118,29 @@ private:
     // IoMaster::req(). `from_delayed` distinguishes the inline vs delayed-forward case.
     vp::IoReqStatus forward(InputPort *in, vp::IoReq *req, int mapping_id, bool from_delayed);
 
+    // Proxy mem_read / mem_write dispatch (skips bandwidth and the
+    // per-input "one pending" gate).
+    vp::IoReqStatus dispatch_proxy_req(vp::IoReq *req,
+        vp_router_v2_proxy::ProxyWaiter *waiter);
+
     // InFlight pool (freelist) — one InFlight per forwarded request, alive while the
-    // downstream has ownership.
+    // downstream has ownership. `proxy_waiter` is non-null for proxy-originated
+    // requests; resp_muxed signals it instead of calling input->itf.resp().
     struct InFlight {
         InputPort *input;
         void *saved_initiator;
         vp::IoReq *req;
         InFlight *next;
+        vp_router_v2_proxy::ProxyWaiter *proxy_waiter = nullptr;
     };
     InFlight *inflight_free = nullptr;
     InFlight *alloc_inflight();
     void free_inflight(InFlight *ifl);
+
+    // Set by handle_proxy_command while waiting for retry_muxed after a
+    // DENIED on the proxy path. Cleared after the proxy resumes.
+    vp_router_v2_proxy::ProxyWaiter *proxy_retry_waiter = nullptr;
+    std::mutex proxy_retry_mu;
 
     RouterConfig cfg;
     vp::Trace trace;
@@ -482,10 +505,18 @@ void RouterBackpressure::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*
 {
     RouterBackpressure *_this = (RouterBackpressure *)__this;
     InFlight *ifl = (InFlight *)req->initiator;
+    vp_router_v2_proxy::ProxyWaiter *waiter = ifl->proxy_waiter;
     InputPort *in = ifl->input;
     req->initiator = ifl->saved_initiator;
     _this->free_inflight(ifl);
-    in->itf.resp(req);
+    if (waiter)
+    {
+        vp_router_v2_proxy::notify_replied(waiter);
+    }
+    else
+    {
+        in->itf.resp(req);
+    }
 }
 
 void RouterBackpressure::retry_muxed(vp::Block *__this, int id)
@@ -515,6 +546,72 @@ void RouterBackpressure::retry_muxed(vp::Block *__this, int id)
             in->itf.retry();
         }
     }
+
+    // Wake any proxy thread waiting for retry after a DENIED.
+    vp_router_v2_proxy::ProxyWaiter *waiter = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(_this->proxy_retry_mu);
+        waiter = _this->proxy_retry_waiter;
+        _this->proxy_retry_waiter = nullptr;
+    }
+    if (waiter)
+    {
+        vp_router_v2_proxy::notify_retry(waiter);
+    }
+}
+
+vp::IoReqStatus RouterBackpressure::dispatch_proxy_req(vp::IoReq *req,
+    vp_router_v2_proxy::ProxyWaiter *waiter)
+{
+    uint64_t addr = req->get_addr();
+    uint64_t size = req->get_size();
+    vp::MappingTreeEntry *mapping = this->mapping_tree.get(
+        addr, size, req->get_is_write());
+    bool straddles = mapping && mapping->size != 0 &&
+        addr + size > mapping->base + mapping->size;
+    if (!mapping || mapping->id == this->error_id || straddles ||
+        !this->entries[mapping->id]->itf.is_bound())
+    {
+        req->set_resp_status(vp::IO_RESP_INVALID);
+        return vp::IO_REQ_DONE;
+    }
+
+    OutputPort *out = this->entries[mapping->id];
+    uint64_t original_addr = addr;
+    req->set_addr(addr - out->remove_offset + out->add_offset);
+    vp::IoReqStatus st = out->itf.req(req);
+
+    if (st == vp::IO_REQ_GRANTED)
+    {
+        InFlight *ifl = this->alloc_inflight();
+        ifl->input = nullptr;
+        ifl->saved_initiator = req->initiator;
+        ifl->req = req;
+        ifl->proxy_waiter = waiter;
+        req->initiator = ifl;
+        return st;
+    }
+    if (st == vp::IO_REQ_DENIED)
+    {
+        req->set_addr(original_addr);
+        // Don't mark any per-input denied bit — there is no "input" for the
+        // proxy. The proxy waits for the next retry_muxed broadcast.
+    }
+    return st;
+}
+
+std::string RouterBackpressure::handle_command(gv::GvProxy *proxy, FILE *req_file,
+    FILE *reply_file, std::vector<std::string> args, std::string cmd_req)
+{
+    return vp_router_v2_proxy::handle_proxy_command(
+        proxy, this->get_launcher(), req_file, reply_file, args, cmd_req,
+        [this](vp::IoReq *r, vp_router_v2_proxy::ProxyWaiter *w) {
+            return this->dispatch_proxy_req(r, w);
+        },
+        [this](vp_router_v2_proxy::ProxyWaiter *w) {
+            std::lock_guard<std::mutex> lk(this->proxy_retry_mu);
+            this->proxy_retry_waiter = w;
+        });
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

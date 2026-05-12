@@ -49,6 +49,16 @@ struct LsuReqEntry
     LsuReqEntry *next;
     InsnEntry *insn_entry;
     int64_t timestamp;
+
+    // Misaligned-access state. RI5CY-style: a word access that straddles
+    // a 4-byte boundary is split into two sequential aligned beats. The
+    // first beat carries the low part starting at the original address;
+    // when its response lands, the same entry is re-armed with the
+    // parameters below to issue the high part. ``misaligned_size``
+    // is 0 for an aligned access (no second beat to fire).
+    int        misaligned_size;
+    iss_addr_t misaligned_addr;
+    int        misaligned_byte_offset;
 };
 
 class LsuV2
@@ -66,6 +76,7 @@ public:
     bool data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2=0);
     bool data_req(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
     bool data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
+    bool data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
 
     template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
@@ -119,6 +130,10 @@ private:
     static void data_response(vp::Block *__this, vp::IoReq *req);
     bool handle_req_response(LsuReqEntry *entry);
     void handle_req_end(LsuReqEntry *entry);
+    // Re-arm and re-issue ``entry`` for the second beat of a misaligned
+    // access. Returns true if a second beat was fired (entry still in
+    // flight); false if the entry was aligned (no second beat needed).
+    bool fire_misaligned_second(LsuReqEntry *entry);
 
     Iss &iss;
 

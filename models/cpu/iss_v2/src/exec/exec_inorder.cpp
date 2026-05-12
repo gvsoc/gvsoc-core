@@ -221,6 +221,13 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 
         iss->exec.asm_trace_event.event_string(insn->desc->label, false);
 
+        // Per-core retire hook (Ri5kyEvents uses it to track prev_dest_reg
+        // so the next jalr can detect the jr_stall hazard). Skipping this
+        // in the fast path would leave the dependency invisible to the
+        // event hooks. The default Events implementation is a no-op so
+        // cores without a retire hook pay nothing.
+        iss->timing.event_retire_account(insn);
+
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
         iss->exec.insn_exec_power(insn);
@@ -364,6 +371,10 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         _this->asm_trace_event.event_string(insn->desc->label, false);
 
         _this->iss.timing.event_instr_account();
+        // Per-core hook: lets Ri5kyEvents track the previous insn's
+        // destination register so a following jalr can detect the
+        // jr_stall hazard. Default in the base Events class is a no-op.
+        _this->iss.timing.event_retire_account(insn);
 
         _this->insn_exec_power(insn);
 

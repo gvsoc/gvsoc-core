@@ -60,6 +60,16 @@ public:
     virtual inline void event_branch_account();
     virtual inline void event_taken_branch_account();
     virtual inline void event_jump_account();
+    // Called once per executed JALR with the rs1 register index. Lets a
+    // core (e.g. Ri5kyEvents) charge the taken-jump pipeline flush and
+    // detect the RI5CY-style jr_stall (rs1 produced by a recent
+    // instruction). Default: no-op.
+    virtual inline void event_jalr_account(int rs1) {}
+    // Called when an instruction retires, with the retiring insn. Lets a
+    // core track the previous instruction's destination register so the
+    // jalr-with-producer hazard can be detected by event_jalr_account.
+    // Default: no-op.
+    virtual inline void event_retire_account(iss_insn_t *insn) {}
     virtual inline void event_misaligned_account(int incr);
     virtual inline void event_apu_contention_account(int incr){}
     virtual inline void event_load_load_account(int incr){}

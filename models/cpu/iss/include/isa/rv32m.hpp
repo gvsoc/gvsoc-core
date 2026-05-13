@@ -138,6 +138,8 @@ static inline iss_reg_t div_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     iss->timing.stall_insn_dependency_account(cycles);
 #endif
 
+    iss->timing.event_div_account(dividend, divider, /*signed*/true, /*rem*/false);
+
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -177,6 +179,8 @@ static inline iss_reg_t divu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #else
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 #endif
+
+    iss->timing.event_div_account(dividend, divider, /*signed*/false, /*rem*/false);
 
     return iss_insn_next(iss, insn, pc);
 }
@@ -241,6 +245,8 @@ static inline iss_reg_t rem_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     iss->timing.stall_insn_dependency_account(cycles);
 #endif
 
+    iss->timing.event_div_account(dividend, divider, /*signed*/true, /*rem*/true);
+
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -281,6 +287,8 @@ static inline iss_reg_t remu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 #else
     iss->timing.stall_insn_dependency_account(__builtin_clz(divider) + 3);
 #endif
+
+    iss->timing.event_div_account(dividend, divider, /*signed*/false, /*rem*/true);
 
     return iss_insn_next(iss, insn, pc);
 }

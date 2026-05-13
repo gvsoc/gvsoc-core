@@ -79,6 +79,13 @@ public:
     // contention, etc. Default: no-op, so cores that don't tag any insn
     // and don't override this pay nothing beyond the latency != 0 check.
     virtual inline void event_insn_latency_account(iss_insn_t *insn, int latency) {}
+    // Called by the shared rv32m.hpp div/divu/rem/remu handlers with the
+    // live operand values, so per-core events classes can model
+    // operand-dependent latency (e.g. the RI5CY divider's serial
+    // bit-iteration loop whose cycle count depends on the divisor's
+    // leading-zero count). Default: no-op.
+    virtual inline void event_div_account(iss_reg_t dividend, iss_reg_t divisor,
+                                          bool is_signed, bool is_rem) {}
     virtual inline void event_misaligned_account(int incr);
     virtual inline void event_apu_contention_account(int incr){}
     virtual inline void event_load_load_account(int incr){}

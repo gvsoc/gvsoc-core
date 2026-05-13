@@ -70,6 +70,15 @@ public:
     // jalr-with-producer hazard can be detected by event_jalr_account.
     // Default: no-op.
     virtual inline void event_retire_account(iss_insn_t *insn) {}
+    // Called when a retiring insn carries a non-zero per-instruction
+    // latency (set by the decoder, typically via a setup pass that walks
+    // get_insns_from_tag(...) and assigns u.insn.latency = N). The hook
+    // lets each core pick a stall policy that matches its pipeline:
+    // unconditional structural stall (e.g. RI5CY MULH FSM blocking the
+    // ID->EX port), scoreboard-timestamp only (dependency-aware), resource
+    // contention, etc. Default: no-op, so cores that don't tag any insn
+    // and don't override this pay nothing beyond the latency != 0 check.
+    virtual inline void event_insn_latency_account(iss_insn_t *insn, int latency) {}
     virtual inline void event_misaligned_account(int incr);
     virtual inline void event_apu_contention_account(int incr){}
     virtual inline void event_load_load_account(int incr){}

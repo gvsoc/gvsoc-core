@@ -228,6 +228,16 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         // cores without a retire hook pay nothing.
         iss->timing.event_retire_account(insn);
 
+        // Per-instruction extra latency, set at decoder time by a per-core
+        // setup pass (see e.g. Ri5ky::start setting latency=4 on the "mulh"
+        // tag). Each core decides what the value means via its
+        // event_insn_latency_account override — unconditional stall,
+        // scoreboard timestamp, resource serialisation, etc.
+        if (insn->latency > 0)
+        {
+            iss->timing.event_insn_latency_account(insn, insn->latency);
+        }
+
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
         iss->exec.insn_exec_power(insn);
@@ -375,6 +385,14 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         // destination register so a following jalr can detect the
         // jr_stall hazard. Default in the base Events class is a no-op.
         _this->iss.timing.event_retire_account(insn);
+
+        // Per-instruction extra latency — see the fast-path equivalent
+        // above. Each core's event_insn_latency_account picks its own
+        // policy (unconditional stall, scoreboard timestamp, …).
+        if (insn->latency > 0)
+        {
+            _this->iss.timing.event_insn_latency_account(insn, insn->latency);
+        }
 
         _this->insn_exec_power(insn);
 

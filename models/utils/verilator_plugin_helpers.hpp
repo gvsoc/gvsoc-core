@@ -140,7 +140,12 @@ public:
             VlSignal h = host_cb_->reg_logical(host_cb_->ctx,
                                                ps.path.c_str(), ps.width);
             if (h == nullptr) continue;
-            codes_[ps.code] = SignalRef{h, ps.width};
+            /* Verilator dedups internally-equivalent signals to a single
+               VCD code (e.g. all 8 cores' clk_i share '?'). Each $var line
+               still declares a distinct hierarchical path, and the host
+               wants a distinct vp::Signal per path — so push every handle
+               into the vector for this code and fan out on value-change. */
+            codes_[ps.code].push_back(SignalRef{h, ps.width});
         }
         pending_.clear();
         pending_.shrink_to_fit();
@@ -284,8 +289,11 @@ private:
     {
         auto it = codes_.find(code);
         if (it == codes_.end()) return;
-        host_cb_->push_logical(host_cb_->ctx, it->second.handle,
-                               value, current_time_ps_);
+        for (auto &ref : it->second)
+        {
+            host_cb_->push_logical(host_cb_->ctx, ref.handle,
+                                   value, current_time_ps_);
+        }
     }
 
     VlHostCb *host_cb_;
@@ -294,7 +302,7 @@ private:
     Phase phase_ = HEADER;
     std::vector<std::string> scope_stack_;
     std::vector<PendingSignal> pending_;
-    std::unordered_map<std::string, SignalRef> codes_;
+    std::unordered_map<std::string, std::vector<SignalRef>> codes_;
     bool callbacks_armed_ = false;
     int64_t current_time_ps_ = 0;
 };

@@ -58,6 +58,7 @@ private:
     std::string plugin_path;
     std::string trace_path;
     std::vector<std::string> firmwares;
+    std::vector<std::string> plusargs;
     bool inject_signals = false;
 
     /* Storage for the argv array we hand to the plugin. argv_storage owns
@@ -115,6 +116,19 @@ VerilatorControl::VerilatorControl(vp::ComponentConf &config)
     {
         this->inject_signals = inject_cfg->get_bool();
     }
+
+    /* Free-form plusarg pass-through: each element in the `plusargs`
+       array is appended verbatim to the plugin's argv. Target files
+       use this to plumb design-specific options (e.g. audio source /
+       sink specs) without modifying this component. */
+    js::Config *plusargs_cfg = js->get("plusargs");
+    if (plusargs_cfg != nullptr)
+    {
+        for (auto *elem : plusargs_cfg->get_elems())
+        {
+            this->plusargs.push_back(elem->get_str());
+        }
+    }
 }
 
 void VerilatorControl::start()
@@ -151,6 +165,11 @@ void VerilatorControl::start()
            parser that calls our reg_logical/push_logical instead of
            writing to a file. */
         this->argv_storage.push_back("+inject_signals=1");
+    }
+    /* Free-form plusargs from the `plusargs` property. */
+    for (auto &arg : this->plusargs)
+    {
+        this->argv_storage.push_back(arg);
     }
 
     this->argv_ptrs.clear();

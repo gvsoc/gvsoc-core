@@ -31,7 +31,10 @@ inline bool LsuV2::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int re
     {
         return true;
     }
-    this->iss.timing.event_load_account(1);
+    // event_load_account is fired in data_req_aligned (and
+    // fire_misaligned_second for beat 1) so we count once per actual
+    // bus transaction, matching RI5CY's mem_load_i (each beat of a
+    // misaligned access counts separately).
     return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, false, reg);
 }
 
@@ -42,7 +45,6 @@ inline bool LsuV2::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size,
     {
         return true;
     }
-    this->iss.timing.event_load_account(1);
     return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::READ, true, reg);
 }
 
@@ -53,7 +55,8 @@ inline bool LsuV2::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int r
     {
         return true;
     }
-    this->iss.timing.event_store_account(1);
+    // event_store_account is fired in data_req_aligned (and
+    // fire_misaligned_second for beat 1).
     return this->data_req_virtual(insn, addr, size, vp::IoReqOpcode::WRITE, false, reg);
 }
 

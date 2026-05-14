@@ -246,8 +246,25 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
     LsuReqEntry *entry = this->get_req_entry();
     if (entry == NULL)
     {
+        // Stalled (LSU full / retry will land us here again). We do NOT
+        // account a load/store event for the retry — the bus transaction
+        // hasn't actually been issued yet.
         this->trace.msg("Aborting request, no available request\n");
         return true;
+    }
+
+    // Per-bus-transaction accounting: matches RI5CY's mem_load_i /
+    // mem_store_i which fire once per memory access. For misaligned
+    // accesses, this fires for beat 0 here; fire_misaligned_second
+    // fires the matching event for beat 1, so a misaligned lw / sw
+    // counts twice (matching PCCR_LD / PCCR_ST on RI5CY).
+    if (opcode == vp::IoReqOpcode::READ)
+    {
+        this->iss.timing.event_load_account(1);
+    }
+    else if (opcode == vp::IoReqOpcode::WRITE)
+    {
+        this->iss.timing.event_store_account(1);
     }
 
     if (opcode == vp::IoReqOpcode::READ)
@@ -433,6 +450,18 @@ bool LsuV2::fire_misaligned_second(LsuReqEntry *entry)
         // data_req_misaligned; shift it down so beat 1's IoReq picks up
         // those bytes at offset 0.
         entry->data = entry->data2 >> (size0 * 8);
+    }
+
+    // Per-bus-transaction accounting for the second beat — see
+    // data_req_aligned for beat 0. Matches RI5CY's mem_load_i /
+    // mem_store_i pulse per bus access.
+    if (is_wr)
+    {
+        this->iss.timing.event_store_account(1);
+    }
+    else
+    {
+        this->iss.timing.event_load_account(1);
     }
 
     // Re-arm the IoReq for the second beat. data pointer is fixed to

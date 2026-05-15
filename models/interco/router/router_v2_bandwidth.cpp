@@ -288,7 +288,13 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
         // Just annotate and advance.
         req->inc_latency(logical_latency);
         in->next_available_cycle  = now + wait + burst_duration;
-        out->next_available_cycle = now + logical_latency;
+        // Output is busy only for the bandwidth-consuming part of the
+        // transfer. router_latency + mapping_latency are pipeline delays —
+        // they delay *this* request's response (already in `logical_latency`
+        // on the annotation) but don't block the next request on the output.
+        // Without this, beat-streaming masters cascade: each beat pays
+        // router_latency again because the output watermark inflates.
+        out->next_available_cycle = now + wait + burst_duration;
         return vp::IO_REQ_DONE;
     }
     if (st == vp::IO_REQ_GRANTED)
@@ -301,7 +307,7 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
         req->initiator = ifl;
         req->inc_latency(logical_latency);
         in->next_available_cycle  = now + wait + burst_duration;
-        out->next_available_cycle = now + logical_latency;
+        out->next_available_cycle = now + wait + burst_duration;
         return vp::IO_REQ_GRANTED;
     }
     // DENIED: restore the addr, mark the output stalled. No watermark advance

@@ -26,6 +26,7 @@
 #include <vp/stats/stats.hpp>
 #include <vp/mapping_tree.hpp>
 #include <vp/signal.hpp>
+#include <vp/clocked_signal.hpp>
 #include <vp/proxy.hpp>
 #include <interco/router_v2/router_config.hpp>
 
@@ -36,7 +37,8 @@ class RouterBackpressure;
 class BandwidthLimiter
 {
 public:
-    BandwidthLimiter(int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth);
+    BandwidthLimiter(vp::Block &parent, std::string name, int64_t bandwidth,
+        int64_t latency, bool shared_rw_bandwidth);
     // Returns cycles of delay to apply to a request of `size` bytes issued at `now`,
     // without mutating state. Caller must apply the delay AND call commit() once the
     // request is actually forwarded.
@@ -48,8 +50,15 @@ private:
     int64_t bandwidth;
     int64_t latency;
     bool shared_rw_bandwidth;
-    int64_t next_read_burst_cycle = 0;
-    int64_t next_write_burst_cycle = 0;
+    // ClockedSignal models the HW register-on-clock-edge semantics: a value
+    // written by commit() during cycle T is only visible to a peek() in
+    // cycle T+1. This breaks the same-cycle race where the router commits
+    // a beat's bandwidth slot AND immediately receives the next beat from
+    // the master in the same cycle — without it, the next beat sees the
+    // just-committed cycle as occupied and accumulates a one-cycle wait
+    // per beat (the bug we fixed in router_v2_bandwidth on out.next_avail).
+    vp::ClockedSignal<int64_t> next_read_burst_cycle;
+    vp::ClockedSignal<int64_t> next_write_burst_cycle;
 };
 
 
@@ -163,8 +172,13 @@ private:
 // BandwidthLimiter
 //
 
-BandwidthLimiter::BandwidthLimiter(int64_t bandwidth, int64_t latency, bool shared_rw_bandwidth)
-    : bandwidth(bandwidth), latency(latency), shared_rw_bandwidth(shared_rw_bandwidth)
+BandwidthLimiter::BandwidthLimiter(vp::Block &parent, std::string name, int64_t bandwidth,
+        int64_t latency, bool shared_rw_bandwidth)
+    : bandwidth(bandwidth), latency(latency), shared_rw_bandwidth(shared_rw_bandwidth),
+      next_read_burst_cycle(parent, name + "/next_read_burst_cycle", 64,
+          vp::SignalCommon::ResetKind::Value, /*reset=*/0),
+      next_write_burst_cycle(parent, name + "/next_write_burst_cycle", 64,
+          vp::SignalCommon::ResetKind::Value, /*reset=*/0)
 {
 }
 
@@ -174,9 +188,9 @@ int64_t BandwidthLimiter::peek(int64_t now, uint64_t size, bool is_write)
     {
         return this->latency;
     }
-    int64_t *next_burst_cycle = (is_write || this->shared_rw_bandwidth) ?
-        &this->next_write_burst_cycle : &this->next_read_burst_cycle;
-    int64_t router_delay = *next_burst_cycle - now;
+    vp::ClockedSignal<int64_t> &next_burst_cycle = (is_write || this->shared_rw_bandwidth) ?
+        this->next_write_burst_cycle : this->next_read_burst_cycle;
+    int64_t router_delay = next_burst_cycle.get() - now;
     if (router_delay < 0) router_delay = 0;
     return router_delay + this->latency;
 }
@@ -184,10 +198,14 @@ int64_t BandwidthLimiter::peek(int64_t now, uint64_t size, bool is_write)
 void BandwidthLimiter::commit(int64_t now, uint64_t size, bool is_write)
 {
     if (this->bandwidth == 0) return;
-    int64_t *next_burst_cycle = (is_write || this->shared_rw_bandwidth) ?
-        &this->next_write_burst_cycle : &this->next_read_burst_cycle;
+    vp::ClockedSignal<int64_t> &next_burst_cycle = (is_write || this->shared_rw_bandwidth) ?
+        this->next_write_burst_cycle : this->next_read_burst_cycle;
     int64_t burst_duration = (size + this->bandwidth - 1) / this->bandwidth;
-    *next_burst_cycle = std::max(now, *next_burst_cycle) + burst_duration;
+    // get() returns the value as of THIS cycle (ignoring any set() done this
+    // cycle, which is exactly the property we want — it models a register
+    // updated on the next clock edge).
+    int64_t new_value = std::max(now, next_burst_cycle.get()) + burst_duration;
+    next_burst_cycle.set(new_value);
 }
 
 
@@ -199,7 +217,7 @@ OutputPort::OutputPort(RouterBackpressure *top, int id, std::string name, int64_
         int64_t latency, bool shared_rw_bandwidth)
     : top(top), id(id),
       itf(id, &RouterBackpressure::retry_muxed, &RouterBackpressure::resp_muxed),
-      bw(bandwidth, latency, shared_rw_bandwidth),
+      bw(*top, name + "/bw", bandwidth, latency, shared_rw_bandwidth),
       current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
       current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
@@ -232,7 +250,7 @@ InputPort::InputPort(RouterBackpressure *top, int id, std::string name, int64_t 
         int64_t latency, bool shared_rw_bandwidth, int nb_outputs)
     : top(top), id(id),
       itf(id, &RouterBackpressure::req_muxed),
-      bw(bandwidth, latency, shared_rw_bandwidth),
+      bw(*top, name + "/bw", bandwidth, latency, shared_rw_bandwidth),
       denied_on_output(nb_outputs, false),
       send_event(top, &RouterBackpressure::send_handler)
 {

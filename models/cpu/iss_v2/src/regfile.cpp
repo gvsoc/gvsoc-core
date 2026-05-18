@@ -52,6 +52,13 @@ void Regfile::reset(bool active)
 
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
         this->sb_reg_invalid = 0;
+        this->sb_reason_set_mask = 0;
+        for (int i = 0; i < 64; i++)
+        {
+            this->sb_reason[i] = 0;
+        }
+        this->sb_last_stall_pc    = (iss_addr_t)-1;
+        this->sb_last_stall_cycle = -2;
 #endif
     }
 }

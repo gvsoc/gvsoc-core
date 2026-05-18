@@ -261,6 +261,12 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
     if (opcode == vp::IoReqOpcode::READ)
     {
         this->iss.timing.event_load_account(1);
+        // Tag this load's destination(s) in the scoreboard so a later
+        // dependent insn that stalls on them gets attributed to a
+        // load-use hazard (PCER_LD_STALL on Ri5ky). The scoreboard
+        // stores the byte opaquely.
+        this->iss.regfile.sb_set_reason(insn->sb_out_reg_mask,
+                                        ISS_STALL_REASON_LOAD);
     }
     else if (opcode == vp::IoReqOpcode::WRITE)
     {

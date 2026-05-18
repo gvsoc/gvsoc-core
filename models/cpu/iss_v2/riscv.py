@@ -116,6 +116,7 @@ class Regfile(IssModule):
     def gen(self, iss):
         iss.isa.add_define('CONFIG_GVSOC_ISS_REGFILE', 'Regfile')
         iss.isa.add_include('<cpu/iss_v2/include/regfile.hpp>')
+        iss.isa.add_implem_include('<cpu/iss_v2/include/regfile_implem.hpp>')
         iss.add_sources(['cpu/iss_v2/src/regfile.cpp'])
         if self.scoreboard:
             iss.isa.add_define('CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD', '1')

@@ -80,6 +80,13 @@ public:
     inline void sb_reg_invalid_set(int reg);
     inline void sb_reg_invalid_clear(int reg);
     inline void sb_reg_invalid_clear_mask(uint64_t mask);
+    // Caller pushes an opaque per-register stall-reason tag at
+    // invalidation time. The scoreboard stores the bytes verbatim and
+    // hands them back via Events::event_scoreboard_stall when a
+    // dependent insn stalls. The scoreboard never interprets the
+    // value — only the per-core events class does. See IssStallReason
+    // in event/event.hpp for the shared enumerators.
+    inline void sb_set_reason(uint64_t mask, uint8_t reason);
 #endif
 
 private:
@@ -89,6 +96,24 @@ private:
 
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
     uint64_t sb_reg_invalid;
+    // 64 entries (one per bit of sb_reg_invalid / sb_out_reg_mask) so
+    // ctzll-based indexing is always in range — sb_out_reg_mask gets
+    // sign-extended bits set in some decode paths (`1 << reg` with
+    // reg=31 widens to 0xFFFFFFFF80000000 when OR-assigned into a
+    // uint64_t), so the iteration can walk bit positions up to 63.
+    uint8_t  sb_reason[64];
+    // Bitmap of which sb_reason[bit] entries are currently non-zero —
+    // mirrors sb_set_reason calls. The release path skips the per-bit
+    // clear loop when the released registers were never tagged, so a
+    // typical retire (whose destination wasn't tagged by a producer)
+    // costs a single AND + branch instead of walking the mask bits.
+    uint64_t sb_reason_set_mask;
+    // Track the (PC, cycle) of the last scoreboard stall so we only
+    // fire event_scoreboard_stall on the *first* cycle of each hazard —
+    // matches RTL's id_valid_q gate that nulls PCCR_in[2..3] on the
+    // retry cycles of a held insn (riscv_cs_registers.sv:1099-1100).
+    iss_addr_t sb_last_stall_pc;
+    int64_t    sb_last_stall_cycle;
 #endif
 
 #if defined(CONFIG_GVSOC_EVENT_ACTIVE)
@@ -204,23 +229,36 @@ inline void Regfile::sb_reg_invalid_clear(int reg)
 inline void Regfile::sb_reg_invalid_clear_mask(uint64_t mask)
 {
     this->sb_reg_invalid &= ~mask;
+    // Fast skip when the released registers were never tagged with a
+    // non-zero stall reason — the common case for non-load retires.
+    uint64_t m = mask & this->sb_reason_set_mask;
+    if (m == 0) return;
+    this->sb_reason_set_mask &= ~m;
+    while (m)
+    {
+        this->sb_reason[__builtin_ctzll(m)] = 0;
+        m &= m - 1;
+    }
 }
 
-inline bool Regfile::scoreboard_insn_check(iss_insn_t *insn)
+inline void Regfile::sb_set_reason(uint64_t mask, uint8_t reason)
 {
-    bool stalled = (insn->sb_reg_mask & this->sb_reg_invalid) != 0;
-    if (stalled)
+    this->sb_reason_set_mask |= mask;
+    while (mask)
     {
-        this->trace.msg(vp::Trace::LEVEL_TRACE,
-            "Scoreboard dependency (insn_mask: 0x%lx, core_mask: 0x%lx)\n",
-            insn->sb_reg_mask, this->sb_reg_invalid);
+        this->sb_reason[__builtin_ctzll(mask)] = reason;
+        mask &= mask - 1;
     }
-    return stalled;
 }
+
+// scoreboard_insn_check's body is in regfile_implem.hpp because it
+// references iss.timing.event_scoreboard_stall, which needs Iss to be
+// complete. That implem header is included after iss.hpp via the ISA
+// implem-include list (see riscv.py: add_implem_include).
 
 inline void Regfile::scoreboard_insn_clear(iss_insn_t *insn)
 {
-    this->sb_reg_invalid &= ~insn->sb_out_reg_mask;
+    this->sb_reg_invalid_clear_mask(insn->sb_out_reg_mask);
 }
 
 inline void Regfile::scoreboard_insn_start(iss_insn_t *insn)
@@ -230,7 +268,7 @@ inline void Regfile::scoreboard_insn_start(iss_insn_t *insn)
 
 inline void Regfile::scoreboard_insn_end(iss_insn_t *insn)
 {
-    this->sb_reg_invalid &= ~insn->sb_out_reg_mask;
+    this->sb_reg_invalid_clear_mask(insn->sb_out_reg_mask);
 }
 #else
 inline bool Regfile::scoreboard_insn_check(iss_insn_t *insn)

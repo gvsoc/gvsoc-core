@@ -23,6 +23,18 @@
 
 #include <vp/vp.hpp>
 
+// Opaque per-register tag stored by the scoreboard at invalidation
+// time and handed back to the per-core events class when a dependent
+// instruction stalls. The scoreboard itself never interprets the
+// value — only Events (and its per-core overrides) does. Adding a
+// new category is a matter of adding an enumerator here, having the
+// producer subsystem call sb_set_reason(mask, NEW_REASON), and giving
+// the per-core event_scoreboard_stall a new switch arm.
+enum IssStallReason : uint8_t {
+    ISS_STALL_REASON_NONE = 0,
+    ISS_STALL_REASON_LOAD = 1,
+};
+
 class Events
 {
 public:
@@ -89,6 +101,14 @@ public:
     virtual inline void event_misaligned_account(int incr);
     virtual inline void event_apu_contention_account(int incr){}
     virtual inline void event_load_load_account(int incr){}
+    // Called by Regfile::scoreboard_insn_check whenever an instruction
+    // is stalled by the scoreboard, with the opaque reason byte that
+    // was stored when the blocking register was invalidated (see
+    // IssStallReason). Per-core events classes interpret the reason
+    // and fire the matching producer-specific stall counter
+    // (e.g. PCCR_LD_STALL for ISS_STALL_REASON_LOAD on Ri5ky). The
+    // scoreboard itself never names a producer. Default: no-op.
+    virtual inline void event_scoreboard_stall(uint8_t reason) {}
 
     inline void event_trace_account(unsigned int event, int cycles){}
     inline void event_trace_set(unsigned int event){}

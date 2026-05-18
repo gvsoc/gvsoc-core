@@ -19,6 +19,7 @@ import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
 from interco.splitter_v2 import Splitter, SplitterConfig
+from interco.router_v2 import Router, RouterConfig, RouterMapping, KIND_BEAT
 from gvrun.parameter import TargetParameter
 
 from stub_master import StubMaster
@@ -160,15 +161,47 @@ def build_case(case_name: str) -> dict:
             ],
         }
 
-    if case_name == 'oversize_reject':
-        # Request bigger than input_width: the splitter refuses up front
-        # with IO_REQ_DONE + IO_RESP_INVALID. No output sees any REQ.
+    if case_name == 'multi_phase_burst':
+        # Request larger than input_width: the splitter walks it as a
+        # sequence of phases, each phase doing the regular fan-out across
+        # outputs. size=32, input_width=16, output_width=4 → 2 phases of
+        # 4 chunks each. Each output sees exactly 2 REQs.
         return {
             'splitter_config': SplitterConfig(input_width=16, output_width=4),
             'schedule': [
-                dict(cycle=10, addr=0x00, size=32, is_write=False, name='huge'),
+                dict(cycle=10, addr=0x00, size=32, is_write=False, name='burst'),
             ],
             'targets': _ok_targets(4),
+        }
+
+    if case_name == 'two_beats_upstream_oversize_read':
+        # Two cascaded BEAT routers between master and splitter — models a
+        # two-stage BEAT fabric in front of a banked TCDM (outer BEAT →
+        # inner BEAT → splitter). Confirms the BEAT→BEAT→splitter chain
+        # delivers the response beats correctly when both routers re-chunk.
+        return {
+            'topology': 'two_beats_upstream',
+            'splitter_config': SplitterConfig(input_width=8, output_width=4),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=64, is_write=False, name='asym'),
+            ],
+            'targets': _ok_targets(2),
+        }
+
+    if case_name == 'beat_upstream_oversize_read':
+        # A BEAT router sits between the master and the splitter. The master
+        # submits one oversize read (size > splitter input_width). The router's
+        # output adapter chunks the splitter's DONE response into beats and
+        # streams them upstream to the master. Mirrors an iDMA back-end
+        # pulling a wide read through one BEAT hop into a banked TCDM
+        # via the splitter.
+        return {
+            'topology': 'beat_upstream',
+            'splitter_config': SplitterConfig(input_width=8, output_width=4),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=64, is_write=False, name='asym'),
+            ],
+            'targets': _ok_targets(2),
         }
 
     raise ValueError(f'Unknown case: {case_name}')
@@ -192,7 +225,36 @@ class Chip(gvsoc.systree.Component):
         # Upstream io_v2 master
         master = StubMaster(self, 'master', schedule=spec['schedule'], logname='master')
         clock.o_CLOCK(master.i_CLOCK())
-        master.o_OUTPUT(splitter.i_INPUT())
+
+        if spec.get('topology') == 'beat_upstream':
+            # Insert a BEAT router between master and splitter. The splitter
+            # input_width=8, the router width=8 — single-beat from input POV
+            # for the master's oversize read; the router's output adapter
+            # chunks the splitter's DONE into beats on the response side.
+            router = Router(self, 'beat_router', config=RouterConfig(
+                kind=KIND_BEAT, width=8, max_pending_bursts=16,
+                max_input_pending_size=4096))
+            clock.o_CLOCK(router.i_CLOCK())
+            master.o_OUTPUT(router.i_INPUT(0))
+            router.o_MAP(splitter.i_INPUT(), RouterMapping(
+                name='to_splitter', base=0, size=0x1_0000, remove_base=False))
+        elif spec.get('topology') == 'two_beats_upstream':
+            # Two cascaded BEAT routers between master and splitter.
+            r1 = Router(self, 'beat_router_a', config=RouterConfig(
+                kind=KIND_BEAT, width=8, max_pending_bursts=16,
+                max_input_pending_size=4096))
+            r2 = Router(self, 'beat_router_b', config=RouterConfig(
+                kind=KIND_BEAT, width=8, max_pending_bursts=16,
+                max_input_pending_size=4096))
+            clock.o_CLOCK(r1.i_CLOCK())
+            clock.o_CLOCK(r2.i_CLOCK())
+            master.o_OUTPUT(r1.i_INPUT(0))
+            r1.o_MAP(r2.i_INPUT(0), RouterMapping(
+                name='through', base=0, size=0x1_0000, remove_base=False))
+            r2.o_MAP(splitter.i_INPUT(), RouterMapping(
+                name='to_splitter', base=0, size=0x1_0000, remove_base=False))
+        else:
+            master.o_OUTPUT(splitter.i_INPUT())
 
         # One downstream target per output
         for i, tgt in enumerate(spec['targets']):

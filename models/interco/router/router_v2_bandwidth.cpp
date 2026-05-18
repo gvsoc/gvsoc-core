@@ -240,6 +240,7 @@ InFlight *RouterBandwidth::alloc_inflight()
     InFlight *ifl = this->inflight_free;
     if (ifl) { this->inflight_free = (InFlight *)ifl->saved_initiator; }
     else     { ifl = new InFlight(); }
+    ifl->proxy_waiter = nullptr;
     return ifl;
 }
 
@@ -300,7 +301,10 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
     if (st == vp::IO_REQ_GRANTED)
     {
         // Install InFlight AFTER the forward. Safe because resp_muxed can't fire
-        // until this function returns (same stack).
+        // until this function returns (same stack). Stashed in req->initiator
+        // (the v1 idiom) so a single load in resp_muxed retrieves it; the
+        // multi-beat / cascade safety comes from the re-install dance in
+        // resp_muxed, not from the stashing scheme itself.
         InFlight *ifl = this->alloc_inflight();
         ifl->input = in;
         ifl->saved_initiator = req->initiator;
@@ -402,15 +406,36 @@ void RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
     InFlight *ifl = (InFlight *)req->initiator;
     vp_router_v2_proxy::ProxyWaiter *waiter = ifl->proxy_waiter;
     InputPort *in = ifl->input;
+    bool burst_done = req->is_last;
+
+    // Restore the master's initiator for the duration of the upstream
+    // resp() / notify so that any upstream resp_muxed (cascaded BW above
+    // us) finds *its* InFlight rather than ours. After the upstream call
+    // returns, we re-install ours so the next beat of a multi-beat
+    // response (asymmetric read forwarded onto a BEAT downstream that
+    // emits one resp per beat) still finds the right InFlight when
+    // resp_muxed fires again on the same req.
     req->initiator = ifl->saved_initiator;
-    _this->free_inflight(ifl);
+
     if (waiter)
     {
-        vp_router_v2_proxy::notify_replied(waiter);
+        if (burst_done)
+        {
+            vp_router_v2_proxy::notify_replied(waiter);
+        }
     }
     else
     {
         in->itf.resp(req);
+    }
+
+    if (burst_done)
+    {
+        _this->free_inflight(ifl);
+    }
+    else
+    {
+        req->initiator = ifl;
     }
 }
 

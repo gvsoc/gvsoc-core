@@ -6,42 +6,58 @@
 //
 // Width-splitting fan-out on the io_v2 protocol.
 //
-// Port of splitter.cpp to io_v2. A single incoming request is carved into
-// up to ``nb_outputs = input_width / output_width`` sub-requests. Each
-// sub-request covers at most ``output_width`` consecutive bytes of the
-// input and is forwarded to a distinct output port — the first chunk on
-// ``output_0``, the second on ``output_1``, and so on. Sub-requests run
-// in parallel on their respective outputs; the parent completes when the
-// last byte has been accounted for.
+// A single incoming request of up to ``input_width`` bytes is carved into
+// up to ``nb_outputs = input_width / output_width`` sub-requests, one per
+// output port: the first chunk on ``output_0``, the second on
+// ``output_1``, and so on. Chunk boundaries follow the ``output_width``
+// alignment of the input address: the first chunk runs from the input
+// address up to the next ``output_width`` boundary, subsequent chunks are
+// aligned and sized at up to ``output_width`` bytes.
 //
-// Chunk boundaries follow the ``output_width`` alignment of the input
-// address: the first chunk runs from the input address up to the next
-// ``output_width`` boundary, and subsequent chunks are aligned and sized
-// at up to ``output_width`` bytes each.
+// Bursts larger than ``input_width``
+// ----------------------------------
 //
-// What changed vs v1:
-//   - Single-master input slave port. Replies travel back via
-//     ``input_itf.resp(req)`` once the parent is done; no v1
-//     ``resp_port`` indirection.
-//   - Status codes are ``IO_REQ_DONE`` / ``IO_REQ_GRANTED`` / ``IO_REQ_DENIED``.
-//   - Only one parent request may be in flight at a time. A second CPU
-//     request that arrives while a parent is still outstanding gets
-//     ``IO_REQ_DENIED``, and is retried upstream via ``input_itf.retry()``
-//     once the parent completes (``input_needs_retry`` flag).
-//   - Downstream DENYs are handled per output via muxed master ports: the
-//     denied sub-request is parked in ``stuck[id]`` and re-sent when the
-//     same output fires ``retry()``. DENYs on different outputs are
-//     independent.
+// A request whose ``size`` exceeds ``input_width`` cannot fit a single
+// fan-out phase. The splitter walks it as a sequence of phases, where
+// each phase covers at most ``input_width`` bytes:
 //
-// Oversize requests (``size > input_width``) cannot be covered by the
-// available outputs. We refuse them up front with ``IO_REQ_DONE`` +
-// ``IO_RESP_INVALID`` rather than silently hanging the master.
+//   - **Phase 0** starts at the incoming address, runs up to the next
+//     ``input_width`` boundary, and uses the existing fan-out rules
+//     (first chunk truncated to ``output_width`` alignment, subsequent
+//     chunks aligned).
+//   - **Phase k > 0** starts at the previous phase's end (now naturally
+//     ``input_width``-aligned) and covers exactly ``input_width`` bytes,
+//     except for the final phase whose tail may be shorter.
 //
-// Timing model: big-packet, zero-latency. The splitter never annotates
-// ``req->latency`` and never schedules a ClockEvent. Whatever latency
-// each output reports (sync ``IO_REQ_DONE`` with ``req->latency`` or
-// async ``resp()`` wall-clock) is observed via the aggregate completion
-// time of the parent.
+// Phases issue strictly in order: phase k+1 only fires after every
+// chunk of phase k has responded. This matches RTL semantics for an
+// AXI→TCDM bridge sitting in front of a wide log interconnect — bursts
+// are unrolled into per-cycle beats, each beat is striped across the
+// bank lanes, and the next beat does not advance until all banks have
+// granted the current one.
+//
+// Latency model
+// -------------
+//
+// The splitter measures, per phase, the maximum ``req->latency``
+// reported by any chunk in that phase (the slowest lane dominates).
+// It sums those per-phase maxima into ``accumulated_phase_latency`` —
+// the "ideal" bandwidth cost assuming every phase advances back-to-back
+// in one cycle plus whatever the bank annotates.
+//
+// At finalisation, real simulator cycles have already elapsed if any
+// chunk responded asynchronously or was denied-and-retried. The final
+// annotation is therefore
+//
+//   req->latency = max(0, accumulated_phase_latency - elapsed_sim)
+//
+// so the master always observes the larger of (ideal bandwidth time,
+// real contention time), never double-counts the two, and never reports
+// a smaller window than what already elapsed.
+//
+// Single-phase requests (``size <= input_width``) degenerate to a
+// one-iteration version of this loop and produce the same observable
+// behaviour as before.
 
 #include <algorithm>
 #include <memory>
@@ -66,14 +82,21 @@ private:
     vp::IoReq *alloc_sub();
     void       free_sub(vp::IoReq *sub);
 
-    // Drop ``sub``'s bytes from its parent's remaining-size counter and
-    // free ``sub``. Does *not* signal parent completion.
-    void account_sub(vp::IoReq *sub);
+    // Issue successive phases of the pending parent until either the
+    // burst is exhausted or a chunk fails to complete inline.
+    void issue_phases();
 
-    // Called from the async completion paths (output_resp / output_retry)
-    // after ``account_sub``. If the parent is now complete, drains the
-    // per-request state and fires ``resp()`` + the pending input retry.
-    void maybe_finish_parent();
+    // Account one chunk as completed: update remaining/latency tracking
+    // and decrement the in-flight count for the current phase.
+    void account_chunk(vp::IoReq *sub);
+
+    // Called after a chunk completes (either inline or via async resp/
+    // retry). If the current phase has no more chunks pending, advance:
+    // either issue the next phase or, if the burst is over, finalise.
+    void after_chunk_completion();
+
+    // Send the final resp(parent) and clear all per-burst state.
+    void finalize_parent();
 
     vp::Trace trace;
 
@@ -81,11 +104,21 @@ private:
     std::vector<std::unique_ptr<vp::IoMaster>> outputs;
 
     int      nb_outputs = 0;
+    uint64_t input_width = 0;
     uint64_t output_width = 0;
 
     // Current parent request being served. Exactly one at a time —
     // concurrent CPU requests from the upstream are refused with DENIED.
     vp::IoReq *pending_parent = nullptr;
+
+    // Multi-phase tracking.
+    uint64_t parent_total_size           = 0;
+    uint64_t parent_bytes_planned        = 0;
+    int      parent_phase_chunks_pending = 0;
+    int64_t  parent_phase_max_latency    = 0;
+    int64_t  parent_accumulated_latency  = 0;
+    int64_t  parent_admission_cycle      = 0;
+    bool     parent_inside_input_req     = false;
 
     // For each output, the sub-request that was DENIED and is waiting for
     // that output's retry(). Null while the output is free.
@@ -105,6 +138,7 @@ Splitter::Splitter(vp::ComponentConf &config)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
+    this->input_width  = (uint64_t)this->cfg.input_width;
     this->output_width = (uint64_t)this->cfg.output_width;
     this->nb_outputs   = (int)(this->cfg.input_width / this->cfg.output_width);
 
@@ -126,8 +160,15 @@ void Splitter::reset(bool active)
 {
     if (active)
     {
-        this->pending_parent    = nullptr;
-        this->input_needs_retry = false;
+        this->pending_parent              = nullptr;
+        this->parent_total_size           = 0;
+        this->parent_bytes_planned        = 0;
+        this->parent_phase_chunks_pending = 0;
+        this->parent_phase_max_latency    = 0;
+        this->parent_accumulated_latency  = 0;
+        this->parent_admission_cycle      = 0;
+        this->parent_inside_input_req     = false;
+        this->input_needs_retry           = false;
         std::fill(this->stuck.begin(), this->stuck.end(), nullptr);
     }
 }
@@ -151,27 +192,157 @@ void Splitter::free_sub(vp::IoReq *sub)
 }
 
 
-void Splitter::account_sub(vp::IoReq *sub)
+void Splitter::account_chunk(vp::IoReq *sub)
 {
-    vp::IoReq *parent = sub->parent;
+    vp::IoReq *parent = this->pending_parent;
     if (sub->get_resp_status() == vp::IO_RESP_INVALID)
     {
         parent->set_resp_status(vp::IO_RESP_INVALID);
     }
+    int64_t lat = sub->get_latency();
+    if (lat > this->parent_phase_max_latency)
+    {
+        this->parent_phase_max_latency = lat;
+    }
     parent->remaining_size -= sub->get_size();
+    this->parent_phase_chunks_pending--;
     this->free_sub(sub);
 }
 
 
-void Splitter::maybe_finish_parent()
+void Splitter::issue_phases()
 {
-    if (this->pending_parent == nullptr ||
-        this->pending_parent->remaining_size != 0)
+    vp::IoReq *parent = this->pending_parent;
+    uint64_t   ow      = this->output_width;
+    uint64_t   ow_mask = ow - 1;
+    uint64_t   iw_mask = this->input_width - 1;
+
+    // Keep issuing phases inline until either the burst is exhausted or
+    // a chunk fails to complete inline (a GRANTED or DENIED leaves a
+    // pending in-flight count on the phase).
+    while (this->parent_bytes_planned < this->parent_total_size
+        && this->parent_phase_chunks_pending == 0)
+    {
+        // Compute this phase's byte range. The phase runs from the
+        // current offset to either the next input_width boundary or the
+        // end of the burst, whichever comes first.
+        uint64_t base       = parent->get_addr() + this->parent_bytes_planned;
+        uint64_t total_rem  = this->parent_total_size - this->parent_bytes_planned;
+        uint64_t iw_rem     = this->input_width - (base & iw_mask);
+        uint64_t phase_size = std::min(iw_rem, total_rem);
+
+        // Reset per-phase latency tracking. The accumulated total is
+        // bumped once the phase actually completes (i.e. when
+        // parent_phase_chunks_pending hits zero again).
+        this->parent_phase_max_latency = 0;
+
+        uint64_t  addr   = base;
+        uint64_t  size   = phase_size;
+        uint8_t  *data   = parent->get_data() + this->parent_bytes_planned;
+        auto      opcode = parent->get_opcode();
+
+        // Fan out across outputs. At most nb_outputs chunks; each chunk
+        // covers up to output_width bytes, aligned at its tail to the
+        // output_width boundary.
+        for (int i = 0; i < this->nb_outputs && size > 0; i++)
+        {
+            uint64_t port_size = ow - (addr & ow_mask);
+            uint64_t iter_size = std::min(port_size, size);
+
+            vp::IoReq *sub = this->alloc_sub();
+            sub->prepare();
+            sub->parent = parent;
+            sub->set_addr(addr);
+            sub->set_size(iter_size);
+            sub->set_data(data);
+            sub->set_opcode(opcode);
+            sub->set_resp_status(vp::IO_RESP_OK);
+
+            addr += iter_size;
+            data += iter_size;
+            size -= iter_size;
+            this->parent_phase_chunks_pending++;
+
+            vp::IoReqStatus st = this->outputs[i]->req(sub);
+            if (st == vp::IO_REQ_DONE)
+            {
+                this->account_chunk(sub);
+            }
+            else if (st == vp::IO_REQ_DENIED)
+            {
+                // Park on this output; resend on output_retry(i).
+                this->stuck[i] = sub;
+            }
+            // IO_REQ_GRANTED: resp will come later via output_resp.
+        }
+
+        this->parent_bytes_planned += phase_size;
+
+        if (this->parent_phase_chunks_pending == 0)
+        {
+            // Phase fully completed inline. Accumulate its latency and
+            // let the while-loop advance to the next phase.
+            this->parent_accumulated_latency += this->parent_phase_max_latency;
+        }
+        // else: the loop exits naturally — the phase is in flight and
+        // will resume from after_chunk_completion() once chunks respond.
+    }
+}
+
+
+void Splitter::after_chunk_completion()
+{
+    // Called every time a chunk finishes responding. Nothing to do
+    // unless the current phase is now fully drained.
+    if (this->parent_phase_chunks_pending != 0)
     {
         return;
     }
+
+    // Phase done — bank its max-latency, then advance.
+    this->parent_accumulated_latency += this->parent_phase_max_latency;
+
+    if (this->parent_bytes_planned < this->parent_total_size)
+    {
+        // More phases left. Issuing them may again leave a phase in
+        // flight or may exhaust the burst entirely.
+        this->issue_phases();
+        if (this->parent_phase_chunks_pending != 0)
+        {
+            return;
+        }
+    }
+
+    // All phases done. If we're still on the input_req call stack the
+    // caller will report IO_REQ_DONE itself; otherwise we have to fire
+    // an explicit resp(parent) to the upstream master.
+    if (!this->parent_inside_input_req)
+    {
+        this->finalize_parent();
+    }
+}
+
+
+void Splitter::finalize_parent()
+{
     vp::IoReq *parent = this->pending_parent;
-    this->pending_parent = nullptr;
+
+    // Total observable time = max(accumulated ideal, real elapsed sim).
+    // We've already burned elapsed_sim cycles between admission and now;
+    // the annotation tops it up to the ideal whenever the burst could
+    // theoretically have taken longer than the contention actually did.
+    int64_t elapsed = this->clock.get_cycles() - this->parent_admission_cycle;
+    int64_t topup   = this->parent_accumulated_latency - elapsed;
+    parent->latency = topup > 0 ? topup : 0;
+    parent->is_first = true;
+    parent->is_last  = true;
+
+    this->pending_parent              = nullptr;
+    this->parent_total_size           = 0;
+    this->parent_bytes_planned        = 0;
+    this->parent_phase_chunks_pending = 0;
+    this->parent_phase_max_latency    = 0;
+    this->parent_accumulated_latency  = 0;
 
     this->input_itf.resp(parent);
 
@@ -202,15 +373,6 @@ vp::IoReqStatus Splitter::input_req(vp::Block *__this, vp::IoReq *req)
 
     uint64_t req_size = req->get_size();
 
-    // Refuse oversize requests up front. ``input_width`` is the maximum
-    // coverage achievable in a single fan-out; anything larger would
-    // silently leave bytes uncovered.
-    if (req_size > (uint64_t)_this->cfg.input_width)
-    {
-        req->set_resp_status(vp::IO_RESP_INVALID);
-        return vp::IO_REQ_DONE;
-    }
-
     // Empty requests: nothing to forward, trivially done.
     if (req_size == 0)
     {
@@ -218,60 +380,36 @@ vp::IoReqStatus Splitter::input_req(vp::Block *__this, vp::IoReq *req)
         return vp::IO_REQ_DONE;
     }
 
-    _this->pending_parent         = req;
-    req->remaining_size           = req_size;
+    _this->pending_parent              = req;
+    _this->parent_total_size           = req_size;
+    _this->parent_bytes_planned        = 0;
+    _this->parent_phase_chunks_pending = 0;
+    _this->parent_phase_max_latency    = 0;
+    _this->parent_accumulated_latency  = 0;
+    _this->parent_admission_cycle      = _this->clock.get_cycles();
+    req->remaining_size                = req_size;
     req->set_resp_status(vp::IO_RESP_OK);
 
-    uint64_t addr   = req->get_addr();
-    uint64_t size   = req_size;
-    uint8_t *data   = req->get_data();
-    auto     opcode = req->get_opcode();
+    _this->parent_inside_input_req = true;
+    _this->issue_phases();
+    _this->parent_inside_input_req = false;
 
-    uint64_t ow      = _this->output_width;
-    uint64_t ow_mask = ow - 1;
-
-    // Fan out: at most nb_outputs chunks, each aligned at its tail to an
-    // ``output_width`` boundary. The first chunk runs from ``addr`` up to
-    // the next boundary; subsequent chunks are naturally aligned.
-    for (int i = 0; i < _this->nb_outputs && size > 0; i++)
+    // If everything resolved inline, complete synchronously without a
+    // resp() round-trip. ``parent_phase_chunks_pending == 0`` *and*
+    // ``parent_bytes_planned == parent_total_size`` means every phase
+    // landed DONE.
+    if (_this->parent_phase_chunks_pending == 0
+        && _this->parent_bytes_planned == _this->parent_total_size)
     {
-        uint64_t port_size = ow - (addr & ow_mask);
-        uint64_t iter_size = std::min(port_size, size);
-
-        vp::IoReq *sub = _this->alloc_sub();
-        sub->prepare();
-        sub->parent = req;
-        sub->set_addr(addr);
-        sub->set_size(iter_size);
-        sub->set_data(data);
-        sub->set_opcode(opcode);
-        sub->set_resp_status(vp::IO_RESP_OK);
-
-        addr += iter_size;
-        data += iter_size;
-        size -= iter_size;
-
-        vp::IoReqStatus st = _this->outputs[i]->req(sub);
-        if (st == vp::IO_REQ_DONE)
-        {
-            _this->account_sub(sub);
-        }
-        else if (st == vp::IO_REQ_DENIED)
-        {
-            // Park on this output; resend on output_retry(i).
-            _this->stuck[i] = sub;
-        }
-        // IO_REQ_GRANTED: resp will come later via output_resp.
-    }
-
-    // If everything completed inline, return DONE — no need for a later
-    // resp() round-trip. Otherwise keep the parent live and return
-    // GRANTED so the upstream master parks the request.
-    if (req->remaining_size == 0)
-    {
-        _this->pending_parent = nullptr;
+        int64_t topup = _this->parent_accumulated_latency;
+        req->latency = topup > 0 ? topup : 0;
+        _this->pending_parent              = nullptr;
+        _this->parent_total_size           = 0;
+        _this->parent_bytes_planned        = 0;
+        _this->parent_accumulated_latency  = 0;
         return vp::IO_REQ_DONE;
     }
+
     return vp::IO_REQ_GRANTED;
 }
 
@@ -279,8 +417,8 @@ vp::IoReqStatus Splitter::input_req(vp::Block *__this, vp::IoReq *req)
 void Splitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     Splitter *_this = (Splitter *)__this;
-    _this->account_sub(req);
-    _this->maybe_finish_parent();
+    _this->account_chunk(req);
+    _this->after_chunk_completion();
 }
 
 
@@ -298,8 +436,8 @@ void Splitter::output_retry(vp::Block *__this, int id)
     vp::IoReqStatus st = _this->outputs[id]->req(sub);
     if (st == vp::IO_REQ_DONE)
     {
-        _this->account_sub(sub);
-        _this->maybe_finish_parent();
+        _this->account_chunk(sub);
+        _this->after_chunk_completion();
     }
     else if (st == vp::IO_REQ_DENIED)
     {

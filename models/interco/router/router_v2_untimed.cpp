@@ -29,6 +29,7 @@
 #include <vp/signal.hpp>
 #include <vp/proxy.hpp>
 #include <interco/router_v2/router_config.hpp>
+#include <unordered_map>
 #include <vector>
 
 #include "proxy_command.hpp"
@@ -66,7 +67,9 @@ public:
 struct InFlight
 {
     InputPort *input;
-    void *saved_initiator;
+    // Free-list link used while parked in inflight_free; meaningless once
+    // alloc_inflight() hands the entry out.
+    InFlight *next_free;
     // Non-null for proxy-originated requests: resp_muxed signals this
     // ProxyWaiter instead of calling back the master via input->itf.
     vp_router_v2_proxy::ProxyWaiter *proxy_waiter = nullptr;
@@ -98,6 +101,16 @@ private:
     InFlight *alloc_inflight();
     void free_inflight(InFlight *ifl);
     InFlight *inflight_free = nullptr;
+    // Per-router in-flight map. A previous design stashed the InFlight* in
+    // req->initiator, but that breaks two ways: (a) the iDMA's idma_be_axi
+    // back-end uses req->initiator to carry its own BurstInfo pointer; the
+    // untimed router stomped on it and only restored on the first
+    // resp_muxed, so a subsequent resp_muxed for the same req (asymmetric
+    // read case where one forward yields N response beats) dereferenced the
+    // restored iDMA pointer as an InFlight* and crashed. (b) Even without
+    // that consumer, two cascaded routers that both stashed into
+    // req->initiator clobbered each other. Keying by req* sidesteps both.
+    std::unordered_map<vp::IoReq *, InFlight *> in_flight_map;
 
     // Set by handle_proxy_command while it is waiting for the next
     // retry_muxed broadcast after a DENIED. Cleared right after.
@@ -183,14 +196,15 @@ RouterUntimed::RouterUntimed(vp::ComponentConf &config)
 InFlight *RouterUntimed::alloc_inflight()
 {
     InFlight *ifl = this->inflight_free;
-    if (ifl) { this->inflight_free = (InFlight *)ifl->saved_initiator; }
+    if (ifl) { this->inflight_free = ifl->next_free; }
     else     { ifl = new InFlight(); }
+    ifl->proxy_waiter = nullptr;
     return ifl;
 }
 
 void RouterUntimed::free_inflight(InFlight *ifl)
 {
-    ifl->saved_initiator = (void *)this->inflight_free;
+    ifl->next_free = this->inflight_free;
     this->inflight_free = ifl;
 }
 
@@ -229,8 +243,7 @@ vp::IoReqStatus RouterUntimed::req_muxed(vp::Block *__this, vp::IoReq *req, int 
         // resp_muxed won't fire until we return.
         InFlight *ifl = _this->alloc_inflight();
         ifl->input = in;
-        ifl->saved_initiator = req->initiator;
-        req->initiator = ifl;
+        _this->in_flight_map[req] = ifl;
         return vp::IO_REQ_GRANTED;
     }
     // DENIED: propagate to master unchanged. Master handles the protocol from here.
@@ -242,11 +255,19 @@ vp::IoReqStatus RouterUntimed::req_muxed(vp::Block *__this, vp::IoReq *req, int 
 void RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     RouterUntimed *_this = (RouterUntimed *)__this;
-    InFlight *ifl = (InFlight *)req->initiator;
+    auto it = _this->in_flight_map.find(req);
+    vp_assert(it != _this->in_flight_map.end(), &_this->trace,
+        "resp_muxed: no in-flight entry for req=%p\n", req);
+    InFlight *ifl = it->second;
     vp_router_v2_proxy::ProxyWaiter *waiter = ifl->proxy_waiter;
     InputPort *in = ifl->input;
-    req->initiator = ifl->saved_initiator;
-    _this->free_inflight(ifl);
+    // For asymmetric reads (1 forward → N response beats) the same req object
+    // visits us multiple times; only retire the slot on the last beat.
+    if (req->is_last)
+    {
+        _this->in_flight_map.erase(it);
+        _this->free_inflight(ifl);
+    }
     if (waiter)
     {
         vp_router_v2_proxy::notify_replied(waiter);
@@ -302,9 +323,8 @@ vp::IoReqStatus RouterUntimed::dispatch_proxy_req(vp::IoReq *req,
     {
         InFlight *ifl = this->alloc_inflight();
         ifl->input = nullptr;
-        ifl->saved_initiator = req->initiator;
         ifl->proxy_waiter = waiter;
-        req->initiator = ifl;
+        this->in_flight_map[req] = ifl;
         return st;
     }
     if (st == vp::IO_REQ_DENIED)

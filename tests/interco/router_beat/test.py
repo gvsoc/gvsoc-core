@@ -351,6 +351,74 @@ def build_case(case: str):
             nb_masters=2,
         )
 
+    if case == 'cascade4_asymmetric_read':
+        # Four KIND_BEAT routers cascaded master -> R1 -> R2 -> R3 -> R4 -> target.
+        # Master submits a SINGLE read req (nb_beats=1) with size much larger
+        # than the per-router width — exactly the shape the v2 iDMA's read
+        # back-end uses (one req per burst, response is beat-streamed).
+        # Width=8, size=4096, 512 beats. Each router's output adapter chunks
+        # the downstream's DONE into N beats and emits them as N upstream
+        # resp() calls; the previous router's adapter must absorb that
+        # stream and re-chunk on its own output. Regression for a multi-stage
+        # iDMA-through-cascaded-beat-routers hang.
+        def cfg():
+            return RouterConfig(kind='beat', width=8,
+                                max_input_pending_size=4096,
+                                max_pending_bursts=64)
+        return dict(
+            topology='cascade4',
+            config=cfg(),
+            config_b=cfg(),
+            config_c=cfg(),
+            config_d=cfg(),
+            schedule=[burst(cycle=10, addr=t0_base, size=4096, nb_beats=1,
+                            burst_id=1, name='asym_read', is_write=False)],
+            targets=[('t0', t0_base, window, ok)],
+            nb_masters=1,
+        )
+
+    if case == 'cascade4_multibeat_write':
+        # Counterpart to cascade4_asymmetric_read: 8 × 8B beat-form write
+        # burst (iDMA's write shape) through the same 4-deep BEAT cascade.
+        def cfg():
+            return RouterConfig(kind='beat', width=8,
+                                max_input_pending_size=4096,
+                                max_pending_bursts=64)
+        return dict(
+            topology='cascade4',
+            config=cfg(),
+            config_b=cfg(),
+            config_c=cfg(),
+            config_d=cfg(),
+            schedule=[burst(cycle=10, addr=t0_base, size=8, nb_beats=8,
+                            burst_id=1, name='mbw', is_write=True)],
+            targets=[('t0', t0_base, window, ok)],
+            nb_masters=1,
+        )
+
+    if case == 'cascade4_rw_concurrent':
+        # Two masters, one read (asymmetric, 4 KiB) + one write (beat-form,
+        # 512 × 8 B) running concurrently through the 4-deep cascade. Mimics
+        # the iDMA's read + write sides hitting the same router fabric.
+        def cfg():
+            return RouterConfig(kind='beat', width=8,
+                                max_input_pending_size=4096,
+                                max_pending_bursts=64)
+        return dict(
+            topology='cascade4_two_masters',
+            config=cfg(),
+            config_b=cfg(),
+            config_c=cfg(),
+            config_d=cfg(),
+            schedule_a=[burst(cycle=10, addr=t0_base, size=4096, nb_beats=1,
+                              burst_id=1, name='read', is_write=False)],
+            schedule_b=[burst(cycle=10, addr=t0_base + 0x800, size=8,
+                              nb_beats=512, burst_id=2, name='write',
+                              is_write=True)],
+            targets=[('t0', t0_base, window, ok)],
+            nb_masters=2,
+        )
+
     if case == 'fifo_overflow':
         # Force the router's input FIFO to fill: target denies the first beat once
         # with a long retry_delay, so the output stalls and beats back up in the
@@ -402,6 +470,70 @@ class Chip(gvsoc.systree.Component):
                 tgt = StubTarget(self, tname, rules=rules, logname=tname)
                 clock.o_CLOCK(tgt.i_CLOCK())
                 router_b.o_MAP(tgt.i_INPUT(), RouterMapping(
+                    name=tname, base=base, size=size))
+            return
+
+        if topology == 'cascade4':
+            # master -> router_a -> router_b -> router_c -> router_d -> target.
+            # Models a 4-deep KIND_BEAT cascade as seen by an iDMA going
+            # through cluster / chip / board-level interconnects.
+            routers = [
+                Router(self, f'router_{n}', config=spec[cfg])
+                for n, cfg in [('a', 'config'), ('b', 'config_b'),
+                               ('c', 'config_c'), ('d', 'config_d')]
+            ]
+            for r in routers:
+                clock.o_CLOCK(r.i_CLOCK())
+
+            master = StubMaster(self, 'master', schedule=spec['schedule'],
+                                logname='master')
+            clock.o_CLOCK(master.i_CLOCK())
+            master.o_OUTPUT(routers[0].i_INPUT(0))
+
+            # Pass-through mappings between every adjacent pair.
+            for i in range(len(routers) - 1):
+                routers[i].o_MAP(routers[i + 1].i_INPUT(0), RouterMapping(
+                    name='through', base=0x1000_0000, size=0x10_0000,
+                    remove_base=False))
+
+            for (tname, base, size, rules) in spec['targets']:
+                tgt = StubTarget(self, tname, rules=rules, logname=tname)
+                clock.o_CLOCK(tgt.i_CLOCK())
+                routers[-1].o_MAP(tgt.i_INPUT(), RouterMapping(
+                    name=tname, base=base, size=size))
+            return
+
+        if topology == 'cascade4_two_masters':
+            # Two masters share the entry router (separate input ports). Both
+            # bursts traverse the 4-deep cascade and target the same final
+            # router output, just like the iDMA's read + write going through
+            # the same CU/chip/board ICOs.
+            routers = [
+                Router(self, f'router_{n}', config=spec[cfg])
+                for n, cfg in [('a', 'config'), ('b', 'config_b'),
+                               ('c', 'config_c'), ('d', 'config_d')]
+            ]
+            for r in routers:
+                clock.o_CLOCK(r.i_CLOCK())
+
+            ma = StubMaster(self, 'master_a', schedule=spec['schedule_a'],
+                            logname='master_a')
+            mb = StubMaster(self, 'master_b', schedule=spec['schedule_b'],
+                            logname='master_b')
+            clock.o_CLOCK(ma.i_CLOCK())
+            clock.o_CLOCK(mb.i_CLOCK())
+            ma.o_OUTPUT(routers[0].i_INPUT(0))
+            mb.o_OUTPUT(routers[0].i_INPUT(1))
+
+            for i in range(len(routers) - 1):
+                routers[i].o_MAP(routers[i + 1].i_INPUT(0), RouterMapping(
+                    name='through', base=0x1000_0000, size=0x10_0000,
+                    remove_base=False))
+
+            for (tname, base, size, rules) in spec['targets']:
+                tgt = StubTarget(self, tname, rules=rules, logname=tname)
+                clock.o_CLOCK(tgt.i_CLOCK())
+                routers[-1].o_MAP(tgt.i_INPUT(), RouterMapping(
                     name=tname, base=base, size=size))
             return
 

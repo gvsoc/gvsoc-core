@@ -280,7 +280,12 @@ class Router(gvsoc.systree.Component):
         # their mappings and input-port counts.
         self.config = config
         super(Router, self).__init__(parent, name, config=self.config)
-        self.add_sources([_SOURCES[config.kind]])
+        sources = [_SOURCES[config.kind]]
+        # The beat-streaming kind owns one BeatResponseAdapter per output port;
+        # pull its source in so it gets compiled into the per-target model lib.
+        if config.kind == KIND_BEAT:
+            sources.append('utils/io_v2_beat_adapter.cpp')
+        self.add_sources(sources)
 
     def add_mapping(self, name: str, base: int = 0, size: int = 0,
                     remove_offset: int = 0, add_offset: int = 0, latency: int = 0,

@@ -7,24 +7,37 @@
 /*
  * Beat-streaming address-decoding router on the io_v2 protocol.
  *
- * Each incoming IoReq is one beat of size <= `width` bytes. A burst is a sequence of
- * beats sharing one `burst_id`, with `is_first` on the first and `is_last` on the last.
+ * Wire shapes (per the io_v2 read-asymmetry convention):
+ *   - Reads:  exactly one forward req() per burst, with size=total_burst_bytes,
+ *             is_first=is_last=true. The response is a stream of beats produced
+ *             by the per-output BeatResponseAdapter regardless of the downstream
+ *             slave's actual response form (sync DONE, async big-packet, or
+ *             native beat stream). The router emits one upstream resp() per
+ *             response beat; the slot stays alive until the response stream's
+ *             is_last.
+ *   - Writes: N forward req() beats per burst (size <= width each), with
+ *             per-beat is_first/is_last/burst_id from the master. Each forward
+ *             produces exactly one upstream resp() (the adapter sees a single
+ *             chunk per req).
  *
- * Per-burst routing table: the router has a fixed-size table (`max_pending_bursts`
- * entries). On the first beat of a burst, a slot is allocated; subsequent beats use
- * the same slot. The slot holds everything the response path needs: originating
- * input, translated output, and the master's original burst_id. On forward, we remap
- * beat.burst_id to the slot index; downstream echoes it back on response; resp_muxed
- * looks up the slot directly by req.burst_id. No per-beat state, no InFlight.
+ * Per-burst routing table: a fixed-size table (`max_pending_bursts` entries).
+ * On is_first of a burst the input allocates a slot; subsequent beats (writes
+ * only) reuse it. The slot holds the originating input, the translated output,
+ * the burst's direction-channel and the master's original burst_id. On forward
+ * we remap beat.burst_id to the slot index; the adapter (and the downstream
+ * slave) echoes it back on response; the OutputPort::on_beat handler looks up
+ * the slot in O(1) via the remapped id.
  *
- * Throughput: 1 beat/cycle/output.
- * Scheduling: single ClockEvent (fsm_event). Arbitration and forwarding happen in
- * one pass, gated by a per-input ClockedSignal<int64_t> head_cycle that ensures
- * beats pushed during cycle T are only visible to an fsm running at cycle T+1
- * (regardless of event ordering).
+ * Beat-everywhere on the wire: every output port owns a BeatResponseAdapter,
+ * which normalises any slave response form into 1-beat-per-cycle on_beat
+ * callbacks. Each callback fans out as one upstream resp(). So a chain of
+ * RouterBeat routers terminating at a sync-DONE memory still produces a beat
+ * stream at every hop.
  *
- * Burst atomicity: once an output is elected to carry an input's burst, it stays
- * locked to that input until the is_last response arrives.
+ * Throughput: 1 forward beat per cycle per (output, channel) on the forward
+ * side; 1 response beat per cycle per output on the response side (paced by
+ * the adapter). Burst atomicity: an output channel locked to an input on
+ * is_first forward stays locked until is_last response.
  */
 
 #include <climits>
@@ -37,11 +50,13 @@
 #include <vp/signal.hpp>
 #include <vp/proxy.hpp>
 #include <interco/router_v2/router_config.hpp>
+#include <utils/io_v2_beat_adapter.hpp>
 
 #include "proxy_command.hpp"
 
 class RouterBeat;
 class InputPort;
+class OutputPort;
 
 // Number of independent forward channels per output. Indexed [0]=read, [1]=write
 // when ``cfg.shared_rw_channel`` is false; both directions collapse onto [0]
@@ -55,19 +70,27 @@ struct BurstEntry
     int output_id = -1;                // -1 until fsm has decoded the first beat's mapping
     int channel = 0;                   // resolved direction-channel for this burst
     int64_t original_burst_id = -1;    // master's burst_id, restored on response
-    // Non-null when this slot was allocated by handle_proxy_command; resp_muxed
-    // signals it instead of calling input->itf.resp().
+    // Non-null when this slot was allocated by handle_proxy_command; on_beat
+    // signals it on the burst's is_last instead of calling input->itf.resp().
     vp_router_v2_proxy::ProxyWaiter *proxy_waiter = nullptr;
 };
 
-class OutputPort
+class OutputPort : public BeatResponseAdapter::Handler
 {
 public:
-    OutputPort(RouterBeat *top, int id, std::string name);
+    OutputPort(RouterBeat *top, int id, std::string name, int beat_width);
+
+    // BeatResponseAdapter::Handler — fired per response beat (any slave form).
+    void on_beat(const BeatResponseAdapter::BeatEvent &event) override;
+    void on_retry() override;
+
     void log_access(uint64_t addr, uint64_t size);
+
     RouterBeat *top;
     int id;
-    vp::IoMaster itf;
+    // Bus-facing master + response normaliser. The router binds
+    // `adapter.out()` outward via `new_master_port(...)`.
+    BeatResponseAdapter adapter;
     uint64_t remove_offset = 0;
     uint64_t add_offset = 0;
     // Input currently holding this output for a burst, per channel; nullptr when
@@ -90,14 +113,26 @@ public:
     RouterBeat *top;
     int id;
     vp::IoSlave itf;
-    // Pending beats FIFO.
-    std::deque<vp::IoReq *> pending;
+    // One entry per queued beat. Each beat carries the slot it was assigned in
+    // req_muxed so the fsm doesn't need any per-input "current burst slot"
+    // lookup; multiple bursts can coexist in the queue.
+    struct PendingBeat
+    {
+        vp::IoReq *req;
+        int        slot_idx;
+    };
+    std::deque<PendingBeat> pending;
     uint64_t pending_bytes = 0;
-    // Cycle-latched "head arrival" gate. See router_async_v2 docs.
+    // Cycle-latched "head arrival" gate — beats pushed in cycle T are only
+    // visible to an fsm running at cycle T+1.
     vp::ClockedSignal<int64_t> head_cycle;
-    // Currently active burst slot (-1 if no burst in flight for this input). One
-    // burst per input at a time.
-    int active_burst_slot = -1;
+    // Tracks the in-progress multi-beat burst on this input (between its
+    // is_first and is_last beats). -1 when no such burst is open. Used only by
+    // continuation beats (is_first=false) to look up their slot; single-beat
+    // bursts (is_first=is_last=true) don't touch it and can pipeline freely
+    // alongside others. Reads and writes use it symmetrically — io_v2 lets a
+    // master send a multi-beat read as N reqs the same way it does for writes.
+    int active_multi_beat_slot = -1;
     // Set when handle_req denied the master (FIFO full or no burst slot). Cleared
     // and propagated to the master via retry() when the blocking condition clears.
     bool denied_upstream = false;
@@ -116,34 +151,28 @@ public:
 
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
-    static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
-    static void retry_muxed(vp::Block *__this, int id);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
-    // Proxy mem_read / mem_write dispatch. Forwards a single-beat request
-    // directly to the matching output, bypassing the per-input FIFO and
+    // Proxy mem_read / mem_write dispatch. Forwards a single request directly
+    // to the matching output's adapter, bypassing the per-input FIFO and
     // round-robin arbitration. Allocates a burst slot tagged with
-    // input=nullptr + proxy_waiter so resp_muxed routes the response back
-    // to the waiting proxy thread.
+    // input=nullptr + proxy_waiter so OutputPort::on_beat routes the
+    // is_last beat back to the waiting proxy thread.
     vp::IoReqStatus dispatch_proxy_req(vp::IoReq *req,
         vp_router_v2_proxy::ProxyWaiter *waiter);
 
-    // Set by handle_proxy_command while waiting for retry_muxed after a
-    // DENIED on the proxy path. Cleared after the proxy resumes.
+    // Set by handle_proxy_command while waiting for retry after a DENIED on
+    // the proxy path. Cleared after the proxy resumes.
     vp_router_v2_proxy::ProxyWaiter *proxy_retry_waiter = nullptr;
     std::mutex proxy_retry_mu;
 
     void schedule_fsm();
     int alloc_burst_slot();
     void free_burst_slot(int slot_idx);
-    // Map a request direction to an output-channel index. Returns 0 for both
-    // reads and writes when ``shared_rw_channel`` is true.
     int channel_of(bool is_write) const
     {
         return this->cfg.shared_rw_channel ? 0 : (is_write ? 1 : 0);
     }
-    // Called when a blocking condition clears (FIFO drained, slot freed). Fires
-    // retry() on any input that had been denied upstream.
     void wake_denied_masters();
 
     RouterConfig cfg;
@@ -170,9 +199,9 @@ private:
 // OutputPort / InputPort
 //
 
-OutputPort::OutputPort(RouterBeat *top, int id, std::string name)
+OutputPort::OutputPort(RouterBeat *top, int id, std::string name, int beat_width)
     : top(top), id(id),
-      itf(id, &RouterBeat::retry_muxed, &RouterBeat::resp_muxed),
+      adapter(top, name + "_adapter", beat_width, this),
       current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
       current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
 {
@@ -205,7 +234,7 @@ InputPort::InputPort(RouterBeat *top, int id, std::string name)
 
 
 //
-// RouterBeat
+// RouterBeat construction
 //
 
 RouterBeat::RouterBeat(vp::ComponentConf &config)
@@ -215,7 +244,7 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    this->stats.register_stat(&this->stat_reads, "reads", "Number of read beats");
+    this->stats.register_stat(&this->stat_reads, "reads", "Number of read requests");
     this->stats.register_stat(&this->stat_writes, "writes", "Number of write beats");
     this->stats.register_stat(&this->stat_bytes_read, "bytes_read", "Total bytes read");
     this->stats.register_stat(&this->stat_bytes_written, "bytes_written", "Total bytes written");
@@ -223,7 +252,7 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
 
     if (this->cfg.width <= 0)
     {
-        this->trace.fatal("router_async_v2 needs a positive `width`\n");
+        this->trace.fatal("router_v2_beat needs a positive `width`\n");
     }
     if (this->cfg.max_input_pending_size == 0)
     {
@@ -254,11 +283,14 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
 
         this->mapping_tree.insert(mapping_id, name, m.base, m.size);
 
-        OutputPort *out = new OutputPort(this, mapping_id, name);
+        OutputPort *out = new OutputPort(this, mapping_id, name, this->cfg.width);
         out->remove_offset = m.remove_offset;
         out->add_offset = m.add_offset;
         this->entries.push_back(out);
-        this->new_master_port(name, &out->itf);
+        // Bind the per-output adapter's bus-facing master to the named port.
+        // The adapter is the context block: its static resp/retry trampolines
+        // dispatch to OutputPort::on_beat / on_retry via the Handler interface.
+        this->new_master_port(name, &out->adapter.out(), &out->adapter);
 
         if (m.is_error) this->error_id = mapping_id;
     }
@@ -284,6 +316,7 @@ void RouterBeat::free_burst_slot(int slot_idx)
     this->burst_table[slot_idx].input = nullptr;
     this->burst_table[slot_idx].output_id = -1;
     this->burst_table[slot_idx].original_burst_id = -1;
+    this->burst_table[slot_idx].proxy_waiter = nullptr;
 }
 
 void RouterBeat::schedule_fsm()
@@ -296,8 +329,6 @@ void RouterBeat::schedule_fsm()
 
 void RouterBeat::wake_denied_masters()
 {
-    // Fire retry() on any input that had been denied. The master re-sends; if the
-    // blocking condition (FIFO or slot) is still present, handle_req denies again.
     for (auto *in : this->inputs)
     {
         if (in->denied_upstream)
@@ -308,55 +339,62 @@ void RouterBeat::wake_denied_masters()
     }
 }
 
+
+//
+// Forward path
+//
+
 vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int port)
 {
     RouterBeat *_this = (RouterBeat *)__this;
     InputPort *in = _this->inputs[port];
     uint64_t size = req->get_size();
+    bool is_write = req->get_is_write();
     int64_t now = _this->clock.get_cycles();
 
     _this->trace.msg(vp::Trace::LEVEL_DEBUG,
         "Beat arrived (input: %d, addr: 0x%lx, size: %lu, write: %d, burst_id: %ld, first: %d, last: %d)\n",
-        port, req->get_addr(), size, req->get_is_write() ? 1 : 0,
+        port, req->get_addr(), size, is_write ? 1 : 0,
         (long)req->burst_id, req->is_first ? 1 : 0, req->is_last ? 1 : 0);
 
-    // Size must fit one beat.
-    if (size > (uint64_t)_this->cfg.width)
+    // Size check is direction-asymmetric: a write beat fits in `width`, but a
+    // read request carries the full burst size and may exceed `width` — the
+    // response is then chunked into beats by the output adapter.
+    if (is_write && size > (uint64_t)_this->cfg.width)
     {
         _this->stat_errors++;
         req->set_resp_status(vp::IO_RESP_INVALID);
         return vp::IO_REQ_DONE;
     }
 
-    // Protocol checks.
-    if (req->is_first && in->active_burst_slot != -1)
+    // Protocol checks. Multiple bursts may coexist on the same input, just
+    // like multiple outstanding AXI ARs / AWs. The only constraint is that
+    // continuation beats of a multi-beat burst must follow its is_first beat
+    // without another multi-beat burst interleaving — that's tracked via
+    // active_multi_beat_slot.
+    if (!req->is_first && in->active_multi_beat_slot == -1)
     {
-        // Previous burst not finished yet.
-        _this->stat_errors++;
-        req->set_resp_status(vp::IO_RESP_INVALID);
-        return vp::IO_REQ_DONE;
-    }
-    if (!req->is_first && in->active_burst_slot == -1)
-    {
-        // Continuation beat without a started burst.
+        // Continuation beat without a started multi-beat burst.
         _this->stat_errors++;
         req->set_resp_status(vp::IO_RESP_INVALID);
         return vp::IO_REQ_DONE;
     }
 
-    // FIFO overflow check (before slot allocation — we don't want to consume a slot
-    // and then fail on FIFO).
+    // FIFO overflow check (before slot allocation — we don't want to consume a
+    // slot and then fail on FIFO).
     if (in->pending_bytes + size > _this->cfg.max_input_pending_size)
     {
         in->denied_upstream = true;
         return vp::IO_REQ_DENIED;
     }
 
-    // First beat of a new burst: allocate a slot. If the table is full, deny the
-    // beat; we'll wake the master when a slot frees.
+    // Determine the slot this beat belongs to.
+    int slot_idx;
     if (req->is_first)
     {
-        int slot_idx = _this->alloc_burst_slot();
+        // New burst: allocate a fresh slot. If the table is full, deny the
+        // beat; we'll wake the master when a slot frees.
+        slot_idx = _this->alloc_burst_slot();
         if (slot_idx == -1)
         {
             in->denied_upstream = true;
@@ -365,16 +403,39 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         BurstEntry &slot = _this->burst_table[slot_idx];
         slot.input = in;
         slot.output_id = -1;                          // decoded later by fsm
-        slot.channel = _this->channel_of(req->get_is_write());
+        slot.channel = _this->channel_of(is_write);
         slot.original_burst_id = req->burst_id;
-        in->active_burst_slot = slot_idx;
+        slot.proxy_waiter = nullptr;
+
+        // Lock the input only while a multi-beat burst is mid-stream so its
+        // continuation beats can find their slot. Single-beat bursts
+        // (is_first=is_last=true) don't need any locking — multiple of them
+        // can pipeline freely on the same input alongside one open
+        // multi-beat burst. Reads and writes are symmetric here: io_v2 lets a
+        // master spread a multi-beat read across N reqs the same way as a
+        // multi-beat write.
+        if (!req->is_last)
+        {
+            in->active_multi_beat_slot = slot_idx;
+        }
+    }
+    else
+    {
+        // Continuation beat of the in-progress multi-beat burst on this input.
+        slot_idx = in->active_multi_beat_slot;
+        if (req->is_last)
+        {
+            // Last beat of the multi-beat burst — the input is free to start
+            // another multi-beat burst as soon as this one is queued.
+            in->active_multi_beat_slot = -1;
+        }
     }
 
-    if (req->get_is_write()) { _this->stat_writes++; _this->stat_bytes_written += size; }
-    else                     { _this->stat_reads++;  _this->stat_bytes_read    += size; }
+    if (is_write) { _this->stat_writes++; _this->stat_bytes_written += size; }
+    else          { _this->stat_reads++;  _this->stat_bytes_read    += size; }
 
     bool was_empty = in->pending.empty();
-    in->pending.push_back(req);
+    in->pending.push_back(InputPort::PendingBeat{req, slot_idx});
     in->pending_bytes += size;
     if (was_empty)
     {
@@ -394,7 +455,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     // Per-(output, channel) "already used this cycle" tracker. With
     // shared_rw_channel=false an output can carry one R beat AND one W beat
     // per cycle (entries [0] and [1]); with shared_rw_channel=true only [0]
-    // is touched for both directions, restoring the single-slot behaviour.
+    // is touched for both directions.
     std::vector<std::array<bool, NB_CHANNELS>> output_used(
         _this->entries.size(), {false, false});
 
@@ -407,13 +468,12 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // ClockedSignal gate: head must have been committed to a prior cycle.
         if (in->head_cycle.get() >= now) continue;
 
-        vp::IoReq *beat = in->pending.front();
-
-        // Slot was allocated in handle_req; invariant: active_burst_slot != -1.
-        int slot_idx = in->active_burst_slot;
+        InputPort::PendingBeat head = in->pending.front();
+        vp::IoReq *beat = head.req;
+        int slot_idx = head.slot_idx;
         BurstEntry &slot = _this->burst_table[slot_idx];
 
-        // First time the fsm sees this burst: decode the mapping for the first beat.
+        // First time the fsm sees this burst: decode the mapping.
         if (slot.output_id == -1)
         {
             vp::MappingTreeEntry *mapping = _this->mapping_tree.get(
@@ -422,7 +482,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 beat->get_addr() + beat->get_size() > mapping->base + mapping->size;
 
             if (!mapping || mapping->id == _this->error_id || straddles ||
-                !_this->entries[mapping->id]->itf.is_bound())
+                !_this->entries[mapping->id]->adapter.out().is_bound())
             {
                 _this->stat_errors++;
                 beat->set_resp_status(vp::IO_RESP_INVALID);
@@ -431,7 +491,13 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
                 // Free the burst (it never actually got routed).
                 _this->free_burst_slot(slot_idx);
-                in->active_burst_slot = -1;
+                // If this beat opened a multi-beat burst that's now dead,
+                // also clear the input's in-progress tracker so a future
+                // multi-beat burst can start.
+                if (in->active_multi_beat_slot == slot_idx)
+                {
+                    in->active_multi_beat_slot = -1;
+                }
                 in->itf.resp(beat);
                 _this->wake_denied_masters();
                 continue;
@@ -440,71 +506,59 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
 
         OutputPort *out = _this->entries[slot.output_id];
-        int ch = slot.channel;  // direction-channel locked in handle_req
+        int ch = slot.channel;
 
         if (out->stalled) continue;
         if (out->elected_input[ch] != nullptr && out->elected_input[ch] != in) continue;
         if (output_used[slot.output_id][ch]) continue;
 
-        // Lock output-channel to this input on is_first.
+        // Lock output-channel to this input on is_first (writes) or on the
+        // single read forward (reads).
         if (beat->is_first)
         {
             out->elected_input[ch] = in;
         }
 
-        // Forward: translate addr, remap burst_id to slot index.
+        // Forward: translate addr, remap burst_id to slot index. We capture
+        // originals only for the rollback-on-DENIED path; on accepted forward
+        // the response side restores burst_id from slot.original_burst_id.
         uint64_t original_addr = beat->get_addr();
         int64_t original_burst_id = beat->burst_id;
         out->log_access(original_addr, beat->get_size());
         beat->set_addr(original_addr - out->remove_offset + out->add_offset);
         beat->burst_id = slot_idx;
 
-        vp::IoReqStatus st = out->itf.req(beat);
+        vp::IoReqStatus st = out->adapter.submit(beat);
+        // The adapter never returns IO_REQ_DONE — it converts inline DONE
+        // into a scheduled on_beat callback stream. Asserting here protects
+        // against future protocol drift.
+        vp_assert(st != vp::IO_REQ_DONE, &_this->trace,
+            "BeatResponseAdapter must not surface IO_REQ_DONE\n");
 
         switch (st)
         {
-            case vp::IO_REQ_DONE:
-            {
-                bool was_last = beat->is_last;
-                // Restore burst_id for the master. (Addr stays translated — matches
-                // v1 router behavior and the sync router_v2.)
-                beat->burst_id = original_burst_id;
-
-                in->pending.pop_front();
-                in->pending_bytes -= beat->get_size();
-                if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
-
-                output_used[slot.output_id][ch] = true;
-
-                if (was_last)
-                {
-                    out->elected_input[ch] = nullptr;
-                    in->active_burst_slot = -1;
-                    _this->free_burst_slot(slot_idx);
-                }
-                in->itf.resp(beat);
-                _this->wake_denied_masters();
-                break;
-            }
             case vp::IO_REQ_GRANTED:
             {
                 in->pending.pop_front();
                 in->pending_bytes -= beat->get_size();
                 if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
                 output_used[slot.output_id][ch] = true;
-                // Slot stays alive until resp_muxed (possibly is_last).
+                // Slot stays alive until on_beat fires for the burst's is_last.
                 _this->wake_denied_masters();
                 break;
             }
             case vp::IO_REQ_DENIED:
             {
-                // Roll back the forward: beat stays at head of FIFO with original
-                // addr and burst_id. Output stalls until downstream retry().
+                // Roll back the forward: beat stays at head of FIFO with
+                // original addr/burst_id. Output stalls until on_retry().
                 beat->set_addr(original_addr);
                 beat->burst_id = original_burst_id;
                 out->stalled = true;
                 break;
             }
+            case vp::IO_REQ_DONE:
+                // Unreachable (asserted above), but keep the compiler quiet.
+                break;
         }
     }
 
@@ -521,68 +575,120 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 }
 
-void RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*out_id*/)
+
+//
+// Response path — driven by the per-output BeatResponseAdapter.
+//
+
+void OutputPort::on_beat(const BeatResponseAdapter::BeatEvent &event)
 {
-    RouterBeat *_this = (RouterBeat *)__this;
+    // The forward path stashed slot_idx in event.req->burst_id and the adapter
+    // captured it as event.burst_id at schedule time. Reading from
+    // event.burst_id (instead of the live req field) is critical when this
+    // response is being relayed up a chain of BEAT routers: each router does
+    // a local restore of req->burst_id back to its own slot after calling
+    // in->itf.resp(), so by the time the upstream router's on_beat fires the
+    // live req->burst_id holds the deeper router's slot, not ours.
+    int slot_idx = (int)event.burst_id;
+    BurstEntry &slot = this->top->burst_table[slot_idx];
 
-    // Look up the burst via the remapped burst_id we wrote on forward.
-    int slot_idx = (int)req->burst_id;
-    BurstEntry &slot = _this->burst_table[slot_idx];
+    bool master_is_last = event.req->is_last;
 
-    // Proxy-originated single-beat burst: input is nullptr, the waiter on the
-    // slot holds the synchronization handle for the proxy thread.
+    // The slot's lifetime is the union of:
+    //   - the adapter saying this beat is the last of its current in-flight
+    //     request (event.is_last — derived from cumulative bytes routed
+    //     against the request's size), AND
+    //   - the master saying this request is the last forward of the burst
+    //     (master_is_last — snapshot of req->is_last before any mutation).
+    //
+    // For the asymmetric read case (1 req per burst, master_is_last=true,
+    // N response beats from the adapter) both are true only on the last
+    // response beat. For the beat-streamed write case (N forward reqs per
+    // burst, master_is_last varies per req) the adapter sees a single
+    // chunk per req so event.is_last is always true, leaving
+    // master_is_last as the burst-level guard.
+    bool burst_done = event.is_last && master_is_last;
+
+    // Proxy-originated burst: the input handle is nullptr and the waiter on the
+    // slot holds the synchronisation handle for the proxy thread. Notify only
+    // on the burst's last beat — earlier beats have already written the
+    // payload into the proxy's req->data buffer.
     if (slot.input == nullptr)
     {
-        vp_router_v2_proxy::ProxyWaiter *waiter = slot.proxy_waiter;
-        req->burst_id = slot.original_burst_id;
-        _this->free_burst_slot(slot_idx);
-        vp_router_v2_proxy::notify_replied(waiter);
+        if (burst_done)
+        {
+            vp_router_v2_proxy::ProxyWaiter *waiter = slot.proxy_waiter;
+            event.req->burst_id = slot.original_burst_id;
+            event.req->is_last = master_is_last;   // (true on the last forward)
+            this->elected_input[slot.channel] = nullptr;
+            this->top->free_burst_slot(slot_idx);
+            vp_router_v2_proxy::notify_replied(waiter);
+        }
+        // Intermediate adapter chunks for a proxy burst: data is being
+        // accumulated into the proxy's req->data buffer; nothing to signal.
         return;
     }
 
     InputPort *in = slot.input;
-    OutputPort *out = _this->entries[slot.output_id];
-    bool was_last = req->is_last;
 
-    // Restore the master's original burst_id.
-    req->burst_id = slot.original_burst_id;
+    // Mutate the req to expose this beat to the upstream master.
+    event.req->set_data(event.data);
+    event.req->set_size(event.size);
+    event.req->is_first = event.is_first;
+    event.req->is_last = event.is_last;
+    event.req->set_resp_status(event.status);
+    event.req->burst_id = slot.original_burst_id;
 
-    if (was_last)
+    if (burst_done)
     {
-        out->elected_input[slot.channel] = nullptr;
-        in->active_burst_slot = -1;
-        _this->free_burst_slot(slot_idx);
+        this->elected_input[slot.channel] = nullptr;
+        // The input's in-progress tracker (active_multi_beat_slot) was
+        // already cleared by req_muxed at queue-time on the master's is_last
+        // beat — the input could start a new multi-beat burst before this
+        // response even came back, AXI-style. So nothing to clear here.
+        this->top->free_burst_slot(slot_idx);
     }
 
-    in->itf.resp(req);
+    in->itf.resp(event.req);
 
-    if (was_last)
+    if (!burst_done)
     {
-        _this->wake_denied_masters();
-        _this->schedule_fsm();
+        // Restore so the next on_beat for this req sees its master state
+        // (the lookup key + the master's is_last flag).
+        event.req->burst_id = slot_idx;
+        event.req->is_last = master_is_last;
+    }
+    else
+    {
+        this->top->wake_denied_masters();
+        this->top->schedule_fsm();
     }
 }
 
-void RouterBeat::retry_muxed(vp::Block *__this, int id)
+void OutputPort::on_retry()
 {
-    RouterBeat *_this = (RouterBeat *)__this;
-    _this->entries[id]->stalled = false;
-    _this->trace.msg(vp::Trace::LEVEL_TRACE,
-        "Output unstalled by downstream retry (output: %d)\n", id);
-    _this->schedule_fsm();
+    this->stalled = false;
+    this->top->trace.msg(vp::Trace::LEVEL_TRACE,
+        "Output unstalled by downstream retry (output: %d)\n", this->id);
+    this->top->schedule_fsm();
 
-    // Wake any proxy thread waiting for retry after a DENIED.
+    // Wake any proxy thread waiting for retry after a DENIED on the proxy path.
     vp_router_v2_proxy::ProxyWaiter *waiter = nullptr;
     {
-        std::lock_guard<std::mutex> lk(_this->proxy_retry_mu);
-        waiter = _this->proxy_retry_waiter;
-        _this->proxy_retry_waiter = nullptr;
+        std::lock_guard<std::mutex> lk(this->top->proxy_retry_mu);
+        waiter = this->top->proxy_retry_waiter;
+        this->top->proxy_retry_waiter = nullptr;
     }
     if (waiter)
     {
         vp_router_v2_proxy::notify_retry(waiter);
     }
 }
+
+
+//
+// Proxy command path
+//
 
 vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     vp_router_v2_proxy::ProxyWaiter *waiter)
@@ -594,7 +700,7 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     bool straddles = mapping && mapping->size != 0 &&
         addr + size > mapping->base + mapping->size;
     if (!mapping || mapping->id == this->error_id || straddles ||
-        !this->entries[mapping->id]->itf.is_bound())
+        !this->entries[mapping->id]->adapter.out().is_bound())
     {
         req->set_resp_status(vp::IO_RESP_INVALID);
         return vp::IO_REQ_DONE;
@@ -619,6 +725,9 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     slot.channel = this->channel_of(req->get_is_write());
     slot.original_burst_id = req->burst_id;
     slot.proxy_waiter = waiter;
+    out->elected_input[slot.channel] = nullptr;  // proxy bursts don't lock the channel
+                                                 // (no upstream input to track), but we
+                                                 // still hold the slot until is_last.
 
     uint64_t original_addr = addr;
     int64_t saved_burst_id = req->burst_id;
@@ -631,25 +740,26 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     req->is_last = true;
 
     out->log_access(original_addr, size);
-    vp::IoReqStatus st = out->itf.req(req);
+    vp::IoReqStatus st = out->adapter.submit(req);
+
+    // The adapter never returns IO_REQ_DONE.
+    vp_assert(st != vp::IO_REQ_DONE, &this->trace,
+        "BeatResponseAdapter must not surface IO_REQ_DONE on proxy path\n");
 
     if (st == vp::IO_REQ_GRANTED)
     {
-        // Slot stays live until resp_muxed.
+        // Slot stays live until on_beat fires for is_last.
         return st;
     }
 
-    // Synchronous outcome — free the slot and undo our mutations so the
-    // caller sees the request unchanged.
+    // DENIED: free the slot and undo our mutations so the caller sees the
+    // request unchanged. The adapter has already cleaned its in-flight slot.
     this->free_burst_slot(slot_idx);
     req->burst_id = saved_burst_id;
     req->is_first = saved_first;
     req->is_last = saved_last;
-    if (st == vp::IO_REQ_DENIED)
-    {
-        req->set_addr(original_addr);
-        out->stalled = true;
-    }
+    req->set_addr(original_addr);
+    out->stalled = true;
     return st;
 }
 

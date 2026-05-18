@@ -250,6 +250,17 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
         return;
     }
 
+    // Cached refill path. A beat-streaming downstream (KIND_BEAT router) may
+    // emit one resp() per beat for a single refill request. The cache-line
+    // buffer is filled in place via slice pointers, so the data is already
+    // complete by the time the final beat fires; we only run the completion
+    // logic on the burst's last beat. Sync DONE and async big-packet responses
+    // produce a single resp() with is_last=true, so this is a no-op for them.
+    if (!req->is_last)
+    {
+        return;
+    }
+
     // Cached-refill path. The CPU request whose miss triggered this refill is at
     // the head of refill_pending_reqs (placed there by Cache::refill()).
     vp_assert(!_this->refill_pending_reqs.empty(), &_this->trace,

@@ -17,6 +17,19 @@ vp_model(NAME utils.dpi_chip_wrapper
     SOURCES "dpi_chip_wrapper.cpp"
     )
 
+# ---------------------------------------------------------------------------
+# BeatResponseAdapter — reusable Block that normalises any io_v2 slave
+# response form (sync DONE, async big-packet, or beat stream) into a uniform
+# per-beat callback stream for beat-fidelity initiators (cycle-accurate
+# routers, iDMA back-ends, ...). Consumers link via:
+#     vp_model_link_blocks(NAME <model> BLOCK utils.io_v2_beat_adapter)
+# and include "io_v2_beat_adapter.hpp" (the block's source dir is added as a
+# PUBLIC include directory by vp_block).
+# ---------------------------------------------------------------------------
+vp_block(NAME utils.io_v2_beat_adapter
+    SOURCES "io_v2_beat_adapter.cpp"
+)
+
 add_subdirectory(loader)
 
 # ---------------------------------------------------------------------------

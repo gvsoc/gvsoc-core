@@ -233,9 +233,16 @@ void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
     Beat *beat = (Beat *)req->initiator;
     const char *name = beat ? beat->burst->name.c_str() : "?";
     int idx = beat ? beat->idx : -1;
-    printf("[%ld] %s RESP name=%s#%d status=%d\n",
-        now, _this->logname.c_str(), name, idx, (int)req->get_resp_status());
-    if (beat)
+    printf("[%ld] %s RESP name=%s#%d size=%lu first=%d last=%d status=%d\n",
+        now, _this->logname.c_str(), name, idx,
+        (unsigned long)req->get_size(),
+        req->is_first ? 1 : 0, req->is_last ? 1 : 0,
+        (int)req->get_resp_status());
+    // The response may arrive as a stream of per-beat callbacks (when the
+    // downstream router's BeatResponseAdapter chunked a wide req or a
+    // big-packet slave response). Only retire the Beat object on the final
+    // response beat (is_last).
+    if (beat && req->is_last)
     {
         delete[] beat->data;
         delete beat->req;

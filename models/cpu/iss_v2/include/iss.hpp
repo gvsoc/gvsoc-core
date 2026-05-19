@@ -91,3 +91,10 @@ private:
     void stop();
 
 };
+
+// Inline Regfile methods that need a complete Iss type (the scoreboard
+// stall hook reaches into iss.timing.event_scoreboard_stall). Pulled
+// in here, after Iss is fully defined, so every iss_v2 build picks up
+// the inline body without each core's gen() having to add it via
+// add_implem_include.
+#include <cpu/iss_v2/include/regfile_implem.hpp>

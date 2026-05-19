@@ -52,6 +52,13 @@ public:
     inline void event_misaligned_account(int incr);
     inline void event_apu_contention_account(int incr);
     inline void event_load_load_account(int incr);
+    // No-op shim — iss_v2 cores override this on their Events class to
+    // model operand-dependent divider latency. iss v1 keeps the cycle
+    // count via stall_insn_dependency_account elsewhere in the div
+    // handlers, so the hook is just a placeholder here for the shared
+    // rv32m.hpp.
+    inline void event_div_account(iss_reg_t dividend, iss_reg_t divisor,
+                                  bool is_signed, bool is_rem) {}
 
     inline void event_trace_account(unsigned int event, int cycles);
     inline void event_trace_set(unsigned int event);

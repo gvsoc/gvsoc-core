@@ -18,15 +18,13 @@ vp_model(NAME utils.dpi_chip_wrapper
     )
 
 # ---------------------------------------------------------------------------
-# BeatResponseAdapter — reusable Block that normalises any io_v2 slave
-# response form (sync DONE, async big-packet, or beat stream) into a uniform
-# per-beat callback stream for beat-fidelity initiators (cycle-accurate
-# routers, iDMA back-ends, ...). Consumers link via:
-#     vp_model_link_blocks(NAME <model> BLOCK utils.io_v2_beat_adapter)
-# and include "io_v2_beat_adapter.hpp" (the block's source dir is added as a
-# PUBLIC include directory by vp_block).
+# IoV2BeatAdapter — standalone component auto-inserted by the gvrun2 systree
+# on io_v2 bindings where the master signature is IoV2Beat and the slave
+# signature is IoV2BigPacket. Normalises any of the three v2 slave response
+# forms (sync DONE, async big-packet, beat stream) into a uniform per-beat
+# resp() stream observed by the upstream master.
 # ---------------------------------------------------------------------------
-vp_block(NAME utils.io_v2_beat_adapter
+vp_model(NAME utils.io_v2_beat_adapter
     SOURCES "io_v2_beat_adapter.cpp"
 )
 

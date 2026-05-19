@@ -10,6 +10,7 @@ import sys
 from typing import ClassVar
 
 import gvsoc.systree
+from gvsoc.signature import IoV2Beat
 from config_tree import Config, cfg_field, HasSize
 
 
@@ -281,10 +282,6 @@ class Router(gvsoc.systree.Component):
         self.config = config
         super(Router, self).__init__(parent, name, config=self.config)
         sources = [_SOURCES[config.kind]]
-        # The beat-streaming kind owns one BeatResponseAdapter per output port;
-        # pull its source in so it gets compiled into the per-target model lib.
-        if config.kind == KIND_BEAT:
-            sources.append('utils/io_v2_beat_adapter.cpp')
         self.add_sources(sources)
 
     def add_mapping(self, name: str, base: int = 0, size: int = 0,
@@ -394,7 +391,14 @@ class Router(gvsoc.systree.Component):
         if mapping.name == 'error':
             mapping.is_error = True
         self.config.add_mappings(mapping)
-        self.itf_bind(mapping.name, itf, signature='io_v2')
+        # The beat kind produces per-beat responses on its outputs; declare
+        # IoV2Beat so the framework auto-inserts an IoV2BeatAdapter when the
+        # downstream slave uses a non-beat io_v2 signature. Other kinds use
+        # the legacy string signature (no auto-bridging).
+        if self.config.kind == KIND_BEAT:
+            self.itf_bind(mapping.name, itf, signature=IoV2Beat(self.config.width))
+        else:
+            self.itf_bind(mapping.name, itf, signature='io_v2')
 
     def o_MAP_DEFAULT(self, itf: gvsoc.systree.SlaveItf, name: str = None,
                       latency: int = 0, is_error: bool = False):

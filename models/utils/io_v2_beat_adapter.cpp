@@ -9,89 +9,87 @@
 #include <algorithm>
 
 
-BeatResponseAdapter::BeatResponseAdapter(vp::Block *parent, std::string name,
-                                        int beat_width, Handler *handler)
-    : vp::Block(parent, name),
-      beat_width(beat_width),
-      handler(handler),
-      downstream(&BeatResponseAdapter::retry_handler,
-                 &BeatResponseAdapter::resp_handler),
-      fsm_event(this, &BeatResponseAdapter::fsm_handler)
+IoV2BeatAdapter::IoV2BeatAdapter(vp::ComponentConf &config)
+    : vp::Component(config),
+      in(&IoV2BeatAdapter::req_handler),
+      out(&IoV2BeatAdapter::retry_handler, &IoV2BeatAdapter::resp_handler),
+      fsm_event(this, &IoV2BeatAdapter::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
-    if (beat_width <= 0)
+
+    this->beat_width = this->get_js_config()->get_child_int("beat_width");
+    if (this->beat_width <= 0)
     {
-        this->trace.fatal("BeatResponseAdapter requires beat_width > 0 (got %d)\n", beat_width);
+        this->trace.fatal("IoV2BeatAdapter requires beat_width > 0 (got %d)\n",
+                          this->beat_width);
     }
+
+    this->new_slave_port("input", &this->in);
+    this->new_master_port("output", &this->out);
 }
 
 
-vp::IoReqStatus BeatResponseAdapter::submit(vp::IoReq *req)
+vp::IoReqStatus IoV2BeatAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
 {
+    auto *self = static_cast<IoV2BeatAdapter *>(__this);
     uint64_t size = req->get_size();
 
     // Register the in-flight tracking slot before forwarding so the slave can
-    // legitimately respond inline (DONE) or even synchronously via a same-stack
+    // legitimately respond inline (DONE) or synchronously via a same-stack
     // resp() during the req() call.
-    auto inserted = this->in_flight.emplace(req, InFlight{size, 0});
+    auto inserted = self->in_flight.emplace(req, InFlight{size, 0});
     if (!inserted.second)
     {
-        // The initiator resubmitted a request pointer that's already in flight
-        // here. That's almost certainly a model bug; warn loudly and reset the
-        // slot rather than silently corrupting beat accounting.
-        this->trace.force_warning(
+        self->trace.force_warning(
             "Resubmit of in-flight req (req=%p) — resetting bookkeeping\n", req);
         inserted.first->second = InFlight{size, 0};
     }
 
-    this->trace.msg(vp::Trace::LEVEL_TRACE,
+    self->trace.msg(vp::Trace::LEVEL_TRACE,
         "Submit (req=%p, addr=0x%lx, size=%lu, write=%d, burst_id=%ld)\n",
         req, req->get_addr(), size, req->get_is_write() ? 1 : 0,
         (long)req->burst_id);
 
-    vp::IoReqStatus st = this->downstream.req(req);
+    vp::IoReqStatus st = self->out.req(req);
 
     if (st == vp::IO_REQ_DONE)
     {
         // Sync big-packet — req->data is already filled for reads / consumed
-        // for writes. Synthesize the per-beat callback stream now so the
-        // initiator sees the uniform "GRANTED then on_beat" semantic.
-        this->schedule_chunk(req, req->get_data(), size, req->get_latency());
+        // for writes. Synthesize the per-beat resp() stream now so the
+        // upstream master sees the uniform "GRANTED then resp() per beat"
+        // semantic.
+        self->schedule_chunk(req, req->get_data(), size, req->get_latency());
         return vp::IO_REQ_GRANTED;
     }
     if (st == vp::IO_REQ_DENIED)
     {
-        this->in_flight.erase(req);
+        self->in_flight.erase(req);
     }
     return st;
 }
 
 
-void BeatResponseAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
+void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
-    auto *self = static_cast<BeatResponseAdapter *>(__this);
+    auto *self = static_cast<IoV2BeatAdapter *>(__this);
     self->schedule_chunk(req, req->get_data(), req->get_size(),
                          req->get_latency());
 }
 
 
-void BeatResponseAdapter::retry_handler(vp::Block *__this)
+void IoV2BeatAdapter::retry_handler(vp::Block *__this)
 {
-    auto *self = static_cast<BeatResponseAdapter *>(__this);
-    self->handler->on_retry();
+    auto *self = static_cast<IoV2BeatAdapter *>(__this);
+    self->in.retry();
 }
 
 
-void BeatResponseAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
-                                        uint64_t size, int64_t latency_cycles)
+void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
+                                     uint64_t size, int64_t latency_cycles)
 {
     auto it = this->in_flight.find(req);
     if (it == this->in_flight.end())
     {
-        // Either the request was already retired (cumulative bytes complete and
-        // the entry erased) or the slave is responding to a request the adapter
-        // never accepted. In both cases there's nothing legitimate we can do —
-        // warn and drop the chunk.
         this->trace.force_warning(
             "Response for unknown req (req=%p, size=%lu) — dropping\n",
             req, size);
@@ -100,19 +98,16 @@ void BeatResponseAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
     InFlight &inf = it->second;
 
     int64_t now = this->clock.get_cycles();
-    // Number of beats this chunk will produce.
     int64_t n = (int64_t)((size + this->beat_width - 1) / this->beat_width);
     if (n <= 0) n = 1;
 
     // Bandwidth model: the slave's latency annotation is the time-to-
-    // completion of the *whole* chunk. The adapter spreads the n beats so
-    // that the LAST one lands at now+latency, with a minimum 1-cycle gap
-    // between beats. For a single-beat chunk (n == 1, the legacy per-req
-    // case) this is just "beat at now+latency". For a wide chunk where the
-    // slave's annotation already accounts for the bandwidth-imposed cost of
-    // delivering all n beats (e.g. router_v2_bandwidth's
-    // burst_duration = size / bandwidth), this avoids double-counting the
-    // per-beat spread.
+    // completion of the *whole* chunk. Spread the n beats so the LAST one
+    // lands at now+latency, with a 1-cycle minimum gap between beats. For
+    // n == 1 this collapses to "beat at now+latency". For a wide chunk where
+    // the slave's annotation already accounts for the bandwidth cost of
+    // delivering all n beats (e.g. burst_duration = size / bandwidth), this
+    // avoids double-counting via the per-beat spread.
     int64_t step = (n > 1) ? std::max((int64_t)1, latency_cycles / n) : (int64_t)1;
     int64_t first_ready = now + latency_cycles - (n - 1) * step;
     if (first_ready < now + 1) first_ready = now + 1;
@@ -129,7 +124,7 @@ void BeatResponseAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
 
         int64_t ready = first_ready + beat_idx * step;
 
-        BeatEvent ev{
+        PendingBeat ev{
             req,
             data + cursor,
             beat,
@@ -167,16 +162,34 @@ void BeatResponseAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
 }
 
 
-void BeatResponseAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
+void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
 {
-    auto *self = static_cast<BeatResponseAdapter *>(__this);
+    vp::IoReq *req = ev.req;
+    req->set_data(ev.data);
+    req->set_size(ev.size);
+    req->burst_id = ev.burst_id;
+    req->is_first = ev.is_first;
+    req->is_last = ev.is_last;
+    req->set_resp_status(ev.status);
+
+    this->trace.msg(vp::Trace::LEVEL_TRACE,
+        "Emit beat (req=%p, offset=%lu, size=%lu, first=%d, last=%d)\n",
+        req, ev.offset, ev.size, ev.is_first ? 1 : 0, ev.is_last ? 1 : 0);
+
+    this->in.resp(req);
+}
+
+
+void IoV2BeatAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
+{
+    auto *self = static_cast<IoV2BeatAdapter *>(__this);
     int64_t now = self->clock.get_cycles();
 
     while (!self->pending.empty() && self->pending.front().ready_cycle <= now)
     {
-        BeatEvent ev = self->pending.front();
+        PendingBeat ev = self->pending.front();
         self->pending.pop_front();
-        self->handler->on_beat(ev);
+        self->emit_beat(ev);
     }
 
     if (!self->pending.empty())
@@ -187,7 +200,7 @@ void BeatResponseAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 }
 
 
-void BeatResponseAdapter::reschedule_fsm()
+void IoV2BeatAdapter::reschedule_fsm()
 {
     if (this->pending.empty() || this->fsm_event.is_enqueued())
     {
@@ -199,7 +212,7 @@ void BeatResponseAdapter::reschedule_fsm()
 }
 
 
-void BeatResponseAdapter::reset(bool active)
+void IoV2BeatAdapter::reset(bool active)
 {
     if (active)
     {
@@ -210,4 +223,10 @@ void BeatResponseAdapter::reset(bool active)
             this->fsm_event.cancel();
         }
     }
+}
+
+
+extern "C" vp::Component *gv_new(vp::ComponentConf &config)
+{
+    return new IoV2BeatAdapter(config);
 }

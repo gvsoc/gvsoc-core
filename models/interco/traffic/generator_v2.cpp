@@ -96,6 +96,16 @@ private:
     // v2: the slave only sends retry() (no req argument) — the master must
     // hold the request that was denied and re-send it.
     vp::IoReq *stalled_req = nullptr;
+    // Per-gen sync-counter latches: ensure each generator increments
+    // sync->nb_*_done at most once per case, and parks at the case until the
+    // sync barrier is satisfied. Without these, step++ unconditionally and a
+    // generator that runs out of work between cross-gen barriers (e.g. when
+    // it finishes a phase early) skips through cases 1-3 in a few cycles,
+    // bumping the counters prematurely and triggering handle_end while it
+    // still has reqs in flight from the next phase.
+    bool sync_step1_done = false;
+    bool sync_step2_done = false;
+    bool sync_step3_done = false;
 };
 
 GeneratorV2::GeneratorV2(vp::ComponentConf &config)
@@ -170,6 +180,9 @@ void GeneratorV2::control_sync(vp::Block *__this, TrafficGeneratorConfig *config
         _this->check = config->check;
         _this->check_write = config->do_write;
         _this->step = 0;
+        _this->sync_step1_done = false;
+        _this->sync_step2_done = false;
+        _this->sync_step3_done = false;
         _this->config_size = config->size;
         _this->config_address = config->address;
         _this->packet_size = config->packet_size;
@@ -223,44 +236,68 @@ void GeneratorV2::handle_step()
 
         case 1:
         {
-            this->sync->nb_pre_check_done++;
-            if (this->sync->nb_pre_check_done == this->sync->generators.size())
+            if (!this->sync_step1_done)
             {
-                for (TrafficGenerator *generator : this->sync->generators)
+                this->sync_step1_done = true;
+                this->sync->nb_pre_check_done++;
+                if (this->sync->nb_pre_check_done == this->sync->generators.size())
                 {
-                    ((GeneratorV2 *)generator)->handle_transfer();
+                    for (TrafficGenerator *generator : this->sync->generators)
+                    {
+                        ((GeneratorV2 *)generator)->handle_transfer();
+                    }
                 }
             }
-            this->step++;
+            // Only advance once every generator has reached this barrier;
+            // otherwise this generator parks here, allowing other gens to
+            // catch up before any of them moves on to the transfer phase.
+            if (this->sync->nb_pre_check_done == this->sync->generators.size())
+            {
+                this->step++;
+            }
             break;
         }
 
         case 2:
         {
-            this->sync->nb_transfers_done++;
-            if (this->sync->nb_transfers_done == this->sync->generators.size())
+            if (!this->sync_step2_done)
             {
-                for (TrafficGenerator *generator : this->sync->generators)
+                this->sync_step2_done = true;
+                this->sync->nb_transfers_done++;
+                if (this->sync->nb_transfers_done == this->sync->generators.size())
                 {
-                    ((GeneratorV2 *)generator)->handle_post_transfer();
+                    for (TrafficGenerator *generator : this->sync->generators)
+                    {
+                        ((GeneratorV2 *)generator)->handle_post_transfer();
+                    }
                 }
             }
-            this->step++;
+            if (this->sync->nb_transfers_done == this->sync->generators.size())
+            {
+                this->step++;
+            }
             break;
         }
 
         case 3:
         {
-            this->sync->nb_post_check_done++;
+            if (!this->sync_step3_done)
+            {
+                this->sync_step3_done = true;
+                this->sync->nb_post_check_done++;
+                if (this->sync->nb_post_check_done == this->sync->generators.size())
+                {
+                    for (TrafficGenerator *generator : this->sync->generators)
+                    {
+                        ((GeneratorV2 *)generator)->handle_end();
+                    }
+                    this->sync->event->enqueue();
+                }
+            }
             if (this->sync->nb_post_check_done == this->sync->generators.size())
             {
-                for (TrafficGenerator *generator : this->sync->generators)
-                {
-                    ((GeneratorV2 *)generator)->handle_end();
-                }
-                this->sync->event->enqueue();
+                this->step++;
             }
-            this->step++;
             break;
         }
     }

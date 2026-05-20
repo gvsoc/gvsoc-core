@@ -54,6 +54,7 @@ public:
 class TrafficGeneratorSync
 {
     friend class Generator;
+    friend class GeneratorV2;
 public:
     TrafficGeneratorSync(vp::ClockEvent *event=NULL) : event(event) { this->init(); }
     void init() { this->nb_pre_check_done = 0; this->nb_transfers_done=0; this->nb_post_check_done = 0; this->generators.clear(); }

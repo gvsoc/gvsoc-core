@@ -95,7 +95,7 @@ class ClockDomain(Component):
     @override
     def gen_gui(self, parent_signal: Signal):
         active = Signal(self, parent_signal, name=self.name, path='period', groups='regmap',
-            display=DisplayBox())
+            display=DisplayBox(format='int'))
 
         return active
 
@@ -170,6 +170,6 @@ class Clock_domain(gvsoc.systree.Component):
         return gvsoc.systree.SlaveItf(self, 'clock_in', signature='clock_ctrl')
 
     def gen_gui(self, parent_signal):
-        active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='period', groups='regmap', display=gvsoc.gui.DisplayBox())
+        active = gvsoc.gui.Signal(self, parent_signal, name=self.name, path='period', groups='regmap', display=gvsoc.gui.DisplayBox(format='int'))
 
         return active

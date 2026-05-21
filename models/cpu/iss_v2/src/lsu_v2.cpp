@@ -34,6 +34,7 @@ LsuV2::LsuV2(Iss &iss)
         req->req.set_data((uint8_t *)&req->data);
         req->req.set_second_data((uint8_t *)&req->data2);
         req->misaligned_size = 0;
+        req->misaligned_byte_offset = 0;
         this->req_entry_first = req;
         req->task.callback = &LsuV2::task_handle;
     }

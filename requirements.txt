@@ -19,3 +19,4 @@ six>=1.16.0
 sphinx_rtd_theme
 breathe
 pyvcd
+psutil

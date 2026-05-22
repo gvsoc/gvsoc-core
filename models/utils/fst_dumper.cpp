@@ -130,6 +130,12 @@ private:
     fstReaderContext *fst_ctx = nullptr;
     std::vector<std::string> scope_stack;
     std::unordered_map<fstHandle, FstSignal *> signals;
+    // Handles in the order the hierarchy walk first encountered them
+    // (= VCD/FST declaration order). materialize_signals() iterates this so
+    // every signal is registered with the trace engine in the same order the
+    // FST file declared them, matching what GUI consumers (signal browser,
+    // gtkwave) expect.
+    std::vector<fstHandle> signals_order;
     std::unordered_map<std::string, int> element_size_map;
 
     // One entry per value change in the file, in monotonically increasing
@@ -335,6 +341,12 @@ void FstDumper::walk_hierarchy()
             }
             // else: element_size stays 0 -> scalar signal in materialize.
 
+            // First time we see this handle, append it to signals_order so the
+            // materialization pass below replays signals in declaration order.
+            if (this->signals.find(sig->handle) == this->signals.end())
+            {
+                this->signals_order.push_back(sig->handle);
+            }
             this->signals[sig->handle] = sig;
             break;
         }
@@ -411,9 +423,11 @@ void FstDumper::materialize_signals()
     // take the vcd_user == NULL branch and the events would never appear.
     // The FST value-change load already ran in the constructor, so this
     // pass is only the cheap allocation + register step and runs fast.
-    for (auto &kv : this->signals)
+    for (fstHandle handle : this->signals_order)
     {
-        FstSignal *sig = kv.second;
+        auto it = this->signals.find(handle);
+        if (it == this->signals.end()) continue;
+        FstSignal *sig = it->second;
         if (sig->element_size == 0)
         {
             // Scalar (<= 64 bits).

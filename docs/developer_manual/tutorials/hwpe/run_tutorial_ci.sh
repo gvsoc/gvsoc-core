@@ -19,7 +19,7 @@ ordered_tasks=("task1" "task2" "task3" "task4" "task5" "task6" "task7" "task8")
 output_trace_base="traces"
 
 # Run initial steps to make the source files correct
-mkdir traces 
+mkdir -p traces
 echo "Running initial setup commands..."
 make create_target_sol_task4
 make integrate_hwpe_sol10

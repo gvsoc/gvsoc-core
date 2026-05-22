@@ -7,11 +7,11 @@ Tutorials
 The goal of this tutorial is to build a simple system from scratch containing a core,
 an interconnect and a memory.
 
-The tutorial is located here: docs/developer/tutorials/0_how_to_build_a_system_from_scratch
+The tutorial is located here: core/docs/developer_manual/tutorials/0_how_to_build_a_system_from_scratch
 
 The solution is under directory *solution*.
 
-A simple runtime is available here: docs/developer/tutorials/utils
+A simple runtime is available here: core/docs/developer_manual/tutorials/utils
 
 A makefile is available in the tutorial for compiling gvsoc, compiling the application to be
 simulated, and running the simulation.
@@ -19,7 +19,7 @@ simulated, and running the simulation.
 GVSOC can be compiled with *make gvsoc*, using this target: ::
 
     gvsoc:
-        make -C ../../../.. TARGETS=my_system MODULES=$(CURDIR) build
+        make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) build
 
 It adds our local directory to the list of GVSOC modules so that it can find our system. This command is for now
 failing as we need to write the script describing our system.
@@ -28,7 +28,7 @@ Compiling and running the application can be done with *make all run*. The run t
 adds our local directory to the list of target dirs so that it can find our system: ::
 
     run:
-	    gvsoc --target-dir=$(CURDIR) --target=my_system --work-dir=$(BUILDDIR) --binary=$(BUILDDIR)/test run $(runner_args)
+	    gvrun --target-dir=$(CURDIR) --target=my_system --work-dir=$(BUILDDIR)/work --parameter binary=$(BUILDDIR)/test/test run $(runner_args)
 
 Now, in order to build a system scratch, we need to write a python generator of the system which
 will assemble all the pieces together.
@@ -44,40 +44,45 @@ simulation:
 
     class Target(gvsoc.runner.Target):
 
-        def __init__(self, parser, options):
-            super(Target, self).__init__(parser, options,
-                model=Rv64, description="RV64 virtual board")
+        gapy_description = "Router test"
+        model = Rv64
+        name = "test"
 
-The target should aways inherit from *gvsoc.runner.Target* and we should always put
+The target should always inherit from *gvsoc.runner.Target*. We should always put
 *GAPY_TARGET = True* in the file so that gapy knows this is a valid target when we put it on
 gapy command-line.
 
-The *model* argument should give the class of our system that we will describe now.
+The *model* attribute should give the class of our system that we will describe now.
 
 First we will put a top component whose role is to provide a clock to the rest of the system.
-The top component must always inherit from *gvsoc.systree.Component*, and contain and propagate all the
-following options:
+The top component must always inherit from *gvsoc.systree.Component*:
 
 .. code-block:: python
 
     class Rv64(gvsoc.systree.Component):
 
-        def __init__(self, parent, name, parser, options):
-            super().__init__(parent, name, options=options)
+        def __init__(self, parent, name=None):
+            super().__init__(parent, name)
 
-Only the parser option does not need to be propagated but can be used to declare or get options
-from the command-line.
+Additional options can be declared here to pass parameters to the system.
 
 Now we can instantiate a clock generator and give it the initial frequency:
 
 .. code-block:: python
 
     import vp.clock_domain
+    from gvrun.parameter import TargetParameter
 
 .. code-block:: python
 
+    binary = TargetParameter(
+        self, name='binary', value=None, description='Binary to be simulated'
+    ).get_value()
+
     clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100000000)
 
+The *TargetParameter* class allows retrieving the binary path passed on the command line
+with ``--parameter binary=<path>``.
 
 Then let's instantiate our real system and connect its clock to the clock generator.
 Since we connect the whole system to the clock generator, the same clock will be propagated
@@ -85,28 +90,20 @@ to all components in our system:
 
 .. code-block:: python
 
-    soc = Soc(self, 'soc', parser)
+    soc = Soc(self, 'soc', binary)
     clock.o_CLOCK    (soc.i_CLOCK    ())
 
 Each component is providing methods for getting input ports and connecting output ports, that we
 can use to connect our components together.
 
-Now we can declare our real system:
+Now we can declare our real system. The binary path is received as a parameter from the parent:
 
 .. code-block:: python
 
     class Soc(gvsoc.systree.Component):
 
-        def __init__(self, parent, name, parser):
+        def __init__(self, parent, name, binary):
             super().__init__(parent, name)
-
-            # Parse the arguments to get the path to the binary to be loaded
-            [args, __] = parser.parse_known_args()
-
-            binary = args.binary
-
-We give it the top parser so that it can get the path of the binary to be simulated, which we
-will use later for the loading.
 
 We first instantiate the memory. We give it its size, which is passed as method parameter.
 The Python generator of the memory component will declare it as a property, which will make sure
@@ -130,11 +127,11 @@ requests to the memory only for a certain range of the memory map.
 .. code-block:: python
 
     ico = interco.router.Router(self, 'ico')
-    ico.o_MAP(mem.i_INPUT(), 'mem', base=0x00000000, remove_offset=0x00000000, size=0x00100000)
+    ico.o_MAP(mem.i_INPUT(), 'mem', base=0x00000000, size=0x00100000, rm_base=True)
 
-The range is specified using *base* and *size*. The other argument, *remove_offset* can be used
-to remap the base address of the requests, so that they arrive in the memory component with
-a local offset.
+The range is specified using *base* and *size*. The *rm_base* argument can be used
+to subtract the base address from incoming requests, so that they arrive in the memory component
+with a local offset.
 
 Now we can add and bind the core. We take a default riscv core:
 
@@ -144,7 +141,7 @@ Now we can add and bind the core. We take a default riscv core:
 
 .. code-block:: python
 
-    host = cpu.iss.riscv.Riscv(self, 'host', isa='rv64imafdc')
+    host = cpu.iss.riscv.Riscv(self, 'host', isa='rv64imafdc', binaries=[binary])
     host.o_FETCH     (ico.i_INPUT    ())
     host.o_DATA      (ico.i_INPUT    ())
     host.o_DATA_DEBUG(ico.i_INPUT    ())
@@ -188,17 +185,17 @@ our binary execution.
 Now we can compile gvsoc with *make gvsoc*. Since it will execute our script to know which components
 should be built, it is possible that we get some Python errors at this point.
 
-Then we can run the simulation with "make all run".
+Then we can compile the application with "make all" and run the simulation with "make run".
 
 We can activate instruction traces to see what happened: ::
 
     make all run runner_args="--trace=insn"
 
-In order to connect GDB, we can run the simulation with "make run runner_args=--gdbserver". This will
-open an RSP socket and wait for gdb connection which can then be launcher from another
+In order to connect GDB, we can run the simulation with ``make run runner_args="--gdbserver"``. This will
+open an RSP socket and wait for gdb connection which can then be launched from another
 terminal with: ::
 
-    riscv64-unknown-elf-gdb build/test
+    riscv64-unknown-elf-gdb build/test/test
     (gdb) target remote:12345
     Remote debugging using :12345
     _start () at ../utils/crt0.S:5
@@ -312,7 +309,7 @@ second argument. We can also add in the class a variable which will hold the val
 .. code-block:: cpp
 
     private:
-        static vp::IoReqStatus handle_req(void *__this, vp::IoReq *req);
+        static vp::IoReqStatus handle_req(vp::Block *__this, vp::IoReq *req);
 
         vp::IoSlave input_itf;
 
@@ -369,10 +366,10 @@ And then instantiated:
     comp = my_comp.MyComp(self, 'my_comp', value=0x12345678)
     ico.o_MAP(comp.i_INPUT(), 'comp', base=0x20000000, size=0x00001000, rm_base=True)
 
-We can now compile gvsoc. Since our component is included into the system, the framework will automatically
+We can now compile gvsoc with *make gvsoc*. Since our component is included into the system, the framework will automatically
 compile it.
 
-We can compile and run the application, which should output: ::
+We can compile the application with *make all* and run the simulation with *make run*, which should output: ::
 
     Received request at offset 0x0, size 0x4, is_write 0
     Hello, got 0x12345678 from my comp
@@ -396,11 +393,11 @@ receiving the result:
 
 .. code-block:: python
 
-    def o_NOTIF(self, itf: gsystree.SlaveItf):
+    def o_NOTIF(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('notif', itf, signature='wire<bool>')
 
-    def i_RESULT(self) -> gsystree.SlaveItf:
-        return gsystree.SlaveItf(self, 'result', signature='wire<MyResult>')
+    def i_RESULT(self) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, 'result', signature='wire<MyResult>')
 
 Both are using the wire interface, which is an interface which can be used for sending values to
 another component. This interface is a template, so that the type of the value to be exchanged
@@ -412,18 +409,18 @@ In the same Python script we can then describe our second component:
 
 .. code-block:: python
 
-    class MyComp2(gsystree.Component):
+    class MyComp2(gvsoc.systree.Component):
 
-        def __init__(self, parent: gsystree.Component, name: str):
+        def __init__(self, parent: gvsoc.systree.Component, name: str):
 
             super().__init__(parent, name)
 
             self.add_sources(['my_comp2.cpp'])
 
-        def i_NOTIF(self) -> gsystree.SlaveItf:
-            return gsystree.SlaveItf(self, 'notif', signature='wire<bool>')
+        def i_NOTIF(self) -> gvsoc.systree.SlaveItf:
+            return gvsoc.systree.SlaveItf(self, 'notif', signature='wire<bool>')
 
-        def o_RESULT(self, itf: gsystree.SlaveItf):
+        def o_RESULT(self, itf: gvsoc.systree.SlaveItf):
             self.itf_bind('result', itf, signature='wire<MyResult>')
 
 It has same interfaces but reversed in direction.
@@ -450,11 +447,11 @@ The handler for the result port can then be declared and implemented:
 
 .. code-block:: cpp
 
-    static void handle_result(void *__this, MyClass *result);
+    static void handle_result(vp::Block *__this, MyClass *result);
 
 .. code-block:: cpp
 
-    void MyComp::handle_result(void *__this, MyClass *result)
+    void MyComp::handle_result(vp::Block *__this, MyClass *result)
     {
         printf("Received results %x %x\n", result->value0, result->value1);
     }
@@ -473,7 +470,7 @@ The second component can then be implemented:
         MyComp(vp::ComponentConf &config);
 
     private:
-        static void handle_notif(void *__this, bool value);
+        static void handle_notif(vp::Block *__this, bool value);
         vp::WireSlave<bool> notif_itf;
         vp::WireMaster<MyClass *> result_itf;
     };
@@ -490,7 +487,7 @@ The second component can then be implemented:
 
 
 
-    void MyComp::handle_notif(void *__this, bool value)
+    void MyComp::handle_notif(vp::Block *__this, bool value)
     {
         MyComp *_this = (MyComp *)__this;
 
@@ -558,7 +555,7 @@ handler, in order to show information about the request:
         _this->trace.msg(vp::TraceLevel::DEBUG, "Received request at offset 0x%lx, size 0x%lx, is_write %d\n",
             req->get_addr(), req->get_size(), req->get_is_write());
 
-Once gvsoc has been recompiled, we can then activate all the traces of our component with this command: ::
+Once gvsoc has been recompiled with *make gvsoc*, we can then activate all the traces of our component with this command: ::
 
     make all run runner_args="--trace=my_comp"
 
@@ -1131,19 +1128,18 @@ it with a top component containing everything. Then we create our 2 clock domain
 
 .. code-block:: python
 
-    class Rv64(gsystree.Component):
+    class Rv64(gvsoc.systree.Component):
 
-        def __init__(self, parent, name, parser, options):
+        def __init__(self, parent, name=None):
 
-            super().__init__(parent, name, options=options)
+            super().__init__(parent, name)
 
-            # Parse the arguments to get the path to the binary to be loaded
-            [args, __] = parser.parse_known_args()
+            binary = TargetParameter(
+                self, name='binary', value=None, description='Binary to be simulated'
+            ).get_value()
 
-            binary = args.binary
-
-            clock1 = Clock_domain(self, 'clock1', frequency=100000000)
-            clock2 = Clock_domain(self, 'clock2', frequency=100000000)
+            clock1 = vp.clock_domain.Clock_domain(self, 'clock1', frequency=100000000)
+            clock2 = vp.clock_domain.Clock_domain(self, 'clock2', frequency=100000000)
 
 Since the clock domains are now at the same level than the other components, we need to connect
 their clock one by one:
@@ -1163,7 +1159,7 @@ The clock generators also have an input port for dynamically controlling their f
 We will connect our component to the control port of the first clock generator, so that it
 can change its frequency:
 
-.. code-block:: cpp
+.. code-block:: python
 
     comp.o_CLK_CTRL   (clock1.i_CTRL())
 
@@ -1382,6 +1378,11 @@ our system script and make our system use it:
             # Instantiates the ISA from the provided string.
             isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa)
 
+            # Assign latency to our instruction output register before passing the ISA to the parent
+            for insn in isa_instance.get_insns():
+                if insn.label == "my_instr":
+                    insn.get_out_reg(0).set_latency(100)
+
             # And instantiate common class with default parameters
             super().__init__(parent, name, isa=isa_instance, misa=0,
                 riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
@@ -1393,13 +1394,8 @@ our system script and make our system use it:
                 "-DCONFIG_ISS_CORE=riscv",
             ])
 
-Then we can modify the isa to include a latency on our instruction:
-
-.. code-block:: python
-
-    for insn in isa_instance.get_insns():
-        if insn.label == "my_instr":
-            insn.get_out_reg(0).set_latency(100)
+The latency modification must be done after creating the ISA instance and before calling
+*super().__init__()* so that the decoding tree is built with the latency already set.
 
 We can see the impact on the traces: ::
 
@@ -1867,20 +1863,20 @@ system:
 .. code-block:: python
 
     class MultiChip(gvsoc.systree.Component):
-        def __init__(self, parent, name, parser, options):
-            super().__init__(parent, name, options=options)
+        def __init__(self, parent, name=None):
+            super().__init__(parent, name)
 
-            chip0 = Rv64(self, 'chip0', parser, options)
+            chip0 = Rv64(self, 'chip0')
 
-            chip1 = Rv64(self, 'chip1', parser, options)
+            chip1 = Rv64(self, 'chip1')
 
 
-    # This is the top target that gapy will instantiate
+    # This is the top target that gvrun will instantiate
     class Target(gvsoc.runner.Target):
 
-        def __init__(self, parser, options):
-            super(Target, self).__init__(parser, options,
-                model=MultiChip, description="RV64 virtual board")
+        gapy_description = "Custom system"
+        model = MultiChip
+        name = "test"
 
 Since our chip are independent, as each one has its own memory, the runtime
 is replicated twice in memory, and we see both executing at the same time: ::
@@ -1975,12 +1971,13 @@ router, and then start interacting:
 
 GVSOC must be started in proxy mode with this option: ::
 
-    make all run runner_args="--config-opt=**/gvsoc/proxy/enabled=true"
+    make all run runner_args="--proxy --proxy-port=42951"
 
-This will block its execution until the script is connected. This also displays the port we have to use
-on script side.
+This will block its execution until the script is connected. The port number must match
+what you pass to the control script.
 
-On script side, we have to make sure *gv/gvsoc_control.py* is in PYTHONPATH. Then we can launch it with: ::
+On script side, the solution provides a ``gvcontrol`` script. It can be launched from the
+tutorial directory with: ::
 
     ./gvcontrol --host=localhost --port=42951
 
@@ -2125,15 +2122,20 @@ In the makefile, we now need to compile the launcher together with gvsoc:
 .. code-block:: makefile
 
     gvsoc:
-        make -C ../../../.. TARGETS=my_system MODULES=$(CURDIR) build
-        g++ -o launcher launcher.cpp -I../../../../core/engine/include -L../../../../install/lib -lpulpvp
+        make -C ../../../../.. TARGETS=my_system MODULES=$(CURDIR) build
+        g++ -o launcher launcher.cpp -I../../../../../core/engine/include -L$(BUILDDIR)/install/lib -lpulpvp
+
+Before running the launcher, a GVSOC configuration file must be generated with *make config*.
+This sets up the system configuration without running the simulation.
 
 Running is now done through the launcher:
 
 .. code-block:: makefile
 
     run_launcher:
-        LD_LIBRARY_PATH=$(CURDIR)/../../../../install/lib:$(LD_LIBRARY_PATH) ./launcher --config=build/gvsoc_config.json
+        LD_LIBRARY_PATH=$(BUILDDIR)/install/lib:$(LD_LIBRARY_PATH) ./launcher --config=$(BUILDDIR)/work/gvsoc_config.json
+
+So the full sequence is: *make gvsoc*, *make all*, *make config*, then *make run_launcher*.
 
 18 - How to boot Linux
 ......................
@@ -2145,6 +2147,11 @@ GVSOC should first be compiled for rv64 with this command: ::
 The Linux kernel can be taken from cva6 sdk, and the following command run from it: ::
 
     gvsoc --target=rv64 --binary install64/spike_fw_payload.elf  run
+
+.. note::
+
+    Tutorial 18 uses the rv64 target directly with a pre-built Linux image. The command above
+    uses the installed ``gvsoc`` launcher from the rv64 build.
 
 
 19 - How to test a model with a standalone testbench

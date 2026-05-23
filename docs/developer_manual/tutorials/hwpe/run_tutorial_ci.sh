@@ -1,3 +1,19 @@
+#
+# Copyright (C) 2022-2026 ETH Zurich and University of Bologna
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 echo "verifying HWPE tutorial"
 
 # An array of tasks with key-value pair
@@ -21,8 +37,8 @@ output_trace_base="traces"
 # Run initial steps to make the source files correct
 mkdir -p traces
 echo "Running initial setup commands..."
-make create_target_sol_task4
-make integrate_hwpe_sol10
+make -C core/docs/developer_manual/tutorials/hwpe create_target_sol_task4
+make -C core/docs/developer_manual/tutorials/hwpe integrate_hwpe_sol10
 echo "Initial setup completed."
 
 # Loop through each task in the specified order and perform the operations
@@ -35,9 +51,9 @@ for task in "${ordered_tasks[@]}"; do
     
     # Execute the commands to source relevant files and build gvsoc
     echo "Building $model_step"
-    make $model_step
+    make -C core/docs/developer_manual/tutorials/hwpe $model_step
     echo "Building with make build TARGETS=pulp-open-hwpe"
-    make build TARGETS=pulp-open-hwpe
+    make -C core/docs/developer_manual/tutorials/hwpe build TARGETS=pulp-open-hwpe
 
     # Extract the task number from the task name (e.g., "task2" -> 2)
     task_number=${task:4}

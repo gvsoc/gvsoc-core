@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2020-2022  GreenWaves Technologies, ETH Zurich, University of Bologna
+ * Copyright (C) 2020-2026  GreenWaves Technologies, ETH Zurich, University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

@@ -70,6 +70,12 @@ public:
     uint64_t last_flags = 0;
     std::vector<uint64_t> last_elem_values;
     std::vector<uint64_t> last_elem_flags;
+    // Pre-formatted "dir|type" metadata sent through vp::Signal's description
+    // field so the trace-engine forwards it to the GUI's Vcd_user proxy. Kept
+    // here because vp::Event stores the description as a non-owning const
+    // char* — the c_str() pointer must outlive the Event, which it does as
+    // long as the FstSignal does.
+    std::string meta_description;
 };
 
 class FstDumper : public vp::Component
@@ -316,6 +322,51 @@ void FstDumper::walk_hierarchy()
             sig->full_name = full_name;
             sig->bit_size = bit_size;
 
+            // Encode direction and VCD type as "<dir>|<type>" so the GUI's
+            // Vcd_user proxy can split it back out and populate the Dir/Type
+            // columns in the signal browser. Empty fields are allowed (e.g.
+            // a signal with FST_VD_IMPLICIT direction gets "|wire").
+            const char *dir_str = "";
+            switch (h->u.var.direction)
+            {
+                case FST_VD_INPUT:   dir_str = "I"; break;
+                case FST_VD_OUTPUT:  dir_str = "O"; break;
+                case FST_VD_INOUT:   dir_str = "IO"; break;
+                case FST_VD_BUFFER:  dir_str = "B"; break;
+                case FST_VD_LINKAGE: dir_str = "L"; break;
+                default: break; // FST_VD_IMPLICIT -> empty
+            }
+            const char *type_str = "";
+            switch (typ)
+            {
+                case FST_VT_VCD_EVENT:     type_str = "event"; break;
+                case FST_VT_VCD_INTEGER:   type_str = "int"; break;
+                case FST_VT_VCD_PARAMETER: type_str = "parm"; break;
+                case FST_VT_VCD_REG:       type_str = "reg"; break;
+                case FST_VT_VCD_SUPPLY0:   type_str = "sup0"; break;
+                case FST_VT_VCD_SUPPLY1:   type_str = "sup1"; break;
+                case FST_VT_VCD_TIME:      type_str = "time"; break;
+                case FST_VT_VCD_TRI:       type_str = "tri"; break;
+                case FST_VT_VCD_TRIAND:    type_str = "triand"; break;
+                case FST_VT_VCD_TRIOR:     type_str = "trior"; break;
+                case FST_VT_VCD_TRIREG:    type_str = "trireg"; break;
+                case FST_VT_VCD_TRI0:      type_str = "tri0"; break;
+                case FST_VT_VCD_TRI1:      type_str = "tri1"; break;
+                case FST_VT_VCD_WAND:      type_str = "wand"; break;
+                case FST_VT_VCD_WIRE:      type_str = "wire"; break;
+                case FST_VT_VCD_WOR:       type_str = "wor"; break;
+                case FST_VT_VCD_PORT:      type_str = "port"; break;
+                case FST_VT_SV_BIT:        type_str = "bit"; break;
+                case FST_VT_SV_LOGIC:      type_str = "logic"; break;
+                case FST_VT_SV_INT:        type_str = "int"; break;
+                case FST_VT_SV_SHORTINT:   type_str = "shortint"; break;
+                case FST_VT_SV_LONGINT:    type_str = "longint"; break;
+                case FST_VT_SV_BYTE:       type_str = "byte"; break;
+                case FST_VT_SV_ENUM:       type_str = "enum"; break;
+                default: break;
+            }
+            sig->meta_description = std::string(dir_str) + "|" + type_str;
+
             // Decide the split strategy now so materialize_signals() can just
             // allocate. The actual vp::Signal<uint64_t> objects are created
             // post-bind so signal.enable() registers with a vcd_user that's
@@ -428,10 +479,13 @@ void FstDumper::materialize_signals()
         auto it = this->signals.find(handle);
         if (it == this->signals.end()) continue;
         FstSignal *sig = it->second;
+        const char *desc = sig->meta_description.empty()
+            ? nullptr : sig->meta_description.c_str();
         if (sig->element_size == 0)
         {
             // Scalar (<= 64 bits).
             sig->signal = new vp::Signal<uint64_t>(*this, sig->full_name, sig->bit_size);
+            if (desc) sig->signal->description_set(desc);
             sig->signal->enable();
         }
         else if (sig->user_split)
@@ -447,6 +501,7 @@ void FstDumper::materialize_signals()
                 auto *s = new vp::Signal<uint64_t>(
                     *this, sig->full_name + "/[" + std::to_string(i) + "]",
                     sig->element_size);
+                if (desc) s->description_set(desc);
                 s->enable();
                 sig->signal_array.push_back(s);
             }
@@ -466,6 +521,7 @@ void FstDumper::materialize_signals()
                 std::string elem_name = sig->full_name + "/[" +
                     std::to_string(hi) + ":" + std::to_string(lo) + "]";
                 auto *s = new vp::Signal<uint64_t>(*this, elem_name, width);
+                if (desc) s->description_set(desc);
                 s->enable();
                 sig->signal_array.push_back(s);
             }

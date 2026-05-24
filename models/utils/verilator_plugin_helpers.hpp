@@ -51,6 +51,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -105,6 +107,146 @@ inline PluginArgs parse_plusargs(int argc, const char *const *argv)
 #if defined(GV_TRACE_VCD)
 
 /* ---------------------------------------------------------------------------
+ * Verilator XML metadata loader. Verilator's VCD output drops all signals
+ * to type "wire" with no direction info, but its --xml-output describes
+ * every variable with `dir`, `vartype`, and `param` attributes. We load
+ * the XML once at plugin startup, build a flat
+ *   "TOP/<scope>/<...>/<varname>" -> { dir, type }
+ * map, and have the VCD parser consult it to populate the Dir/Type
+ * columns in the GUI.
+ *
+ * The XML is a few MB even for medium designs; the scanner is hand-written
+ * (no XML lib deps) and relies on Verilator emitting one element per line
+ * for <cell>, <module>, <package>, <var>. Quotes inside attribute values
+ * aren't allowed in XML so the simple " key=\"value\"" pattern is robust.
+ * --------------------------------------------------------------------------- */
+struct VlXmlVarMeta { std::string dir; std::string vcd_type; };
+
+inline std::string vl_xml_attr(const std::string &line, const char *key)
+{
+    std::string pat = std::string(" ") + key + "=\"";
+    size_t k = line.find(pat);
+    if (k == std::string::npos) return "";
+    size_t v = k + pat.size();
+    size_t e = line.find('"', v);
+    if (e == std::string::npos) return "";
+    return line.substr(v, e - v);
+}
+
+inline std::string vl_xml_map_dir(const std::string &dir)
+{
+    if (dir == "input")  return "I";
+    if (dir == "output") return "O";
+    if (dir == "inout")  return "IO";
+    return "";
+}
+
+struct VlXmlMetadata
+{
+    /* Full hierarchical-path → (dir, type) map. Built from <cell> tree +
+       <module>/<package> vars. Primary lookup. */
+    std::unordered_map<std::string, VlXmlVarMeta> by_path;
+    /* var-name → "parm" fallback. SystemVerilog package parameters get
+       inlined per importing module in the XML but show up under a
+       synthetic TOP/<pkg-name>/ scope in Verilator's VCD output. The path
+       lookup misses; the name lookup recovers the "parm" type at least. */
+    std::unordered_map<std::string, std::string> param_by_name;
+};
+
+inline bool vl_xml_load(const std::string &xml_path, VlXmlMetadata &out)
+{
+    std::ifstream f(xml_path);
+    if (!f) return false;
+
+    struct VarLine { std::string name, dir, vartype; bool param; };
+
+    /* Pass 1: scan modules and packages, collect their var lists. */
+    std::unordered_map<std::string, std::vector<VarLine>> mod_vars;
+    std::unordered_map<std::string, std::vector<VarLine>> pkg_vars;
+    std::string current_mod, current_pkg;
+    std::string line;
+    while (std::getline(f, line))
+    {
+        size_t s = line.find_first_not_of(" \t");
+        if (s == std::string::npos) continue;
+        const char *p = line.c_str() + s;
+        if (std::strncmp(p, "<module ", 8) == 0)
+        {
+            current_mod = vl_xml_attr(line, "name");
+        }
+        else if (std::strncmp(p, "</module>", 9) == 0)
+        {
+            current_mod.clear();
+        }
+        else if (std::strncmp(p, "<package ", 9) == 0)
+        {
+            current_pkg = vl_xml_attr(line, "name");
+        }
+        else if (std::strncmp(p, "</package>", 10) == 0)
+        {
+            current_pkg.clear();
+        }
+        else if (std::strncmp(p, "<var ", 5) == 0)
+        {
+            VarLine v;
+            v.name    = vl_xml_attr(line, "name");
+            v.dir     = vl_xml_attr(line, "dir");
+            v.vartype = vl_xml_attr(line, "vartype");
+            /* SV uses both `parameter` (param="true") and `localparam`
+               (localparam="true"). Treat them the same for the Type
+               column. */
+            v.param   = (vl_xml_attr(line, "param") == "true"
+                      || vl_xml_attr(line, "localparam") == "true");
+            if (v.name.empty()) continue;
+            if (!current_mod.empty()) mod_vars[current_mod].push_back(std::move(v));
+            else if (!current_pkg.empty()) pkg_vars[current_pkg].push_back(std::move(v));
+        }
+    }
+
+    /* Pass 2: walk <cell> tree to flatten module-var into instance paths. */
+    f.clear(); f.seekg(0);
+    while (std::getline(f, line))
+    {
+        size_t s = line.find_first_not_of(" \t");
+        if (s == std::string::npos) continue;
+        const char *p = line.c_str() + s;
+        if (std::strncmp(p, "<cell ", 6) != 0) continue;
+        std::string hier = vl_xml_attr(line, "hier");
+        std::string subm = vl_xml_attr(line, "submodname");
+        if (hier.empty() || subm.empty()) continue;
+        /* "a.b.c" -> "TOP/a/b/c" so the key matches what the VCD parser
+           builds for register_var. */
+        std::string base = "TOP/";
+        for (char c : hier) base += (c == '.') ? '/' : c;
+        auto it = mod_vars.find(subm);
+        if (it == mod_vars.end()) continue;
+        for (auto &v : it->second)
+        {
+            std::string type_str = v.param ? "parm" : v.vartype;
+            if (type_str == "integer") type_str = "int";
+            out.by_path[base + "/" + v.name] =
+                { vl_xml_map_dir(v.dir), type_str };
+            if (v.param) out.param_by_name[v.name] = "parm";
+        }
+    }
+
+    /* Packages live directly under TOP/<pkg>/<var> in Verilator's VCD. */
+    for (auto &kv : pkg_vars)
+    {
+        for (auto &v : kv.second)
+        {
+            std::string type_str = v.param ? "parm" : v.vartype;
+            if (type_str == "integer") type_str = "int";
+            out.by_path["TOP/" + kv.first + "/" + v.name] =
+                { vl_xml_map_dir(v.dir), type_str };
+            if (v.param) out.param_by_name[v.name] = "parm";
+        }
+    }
+
+    return true;
+}
+
+/* ---------------------------------------------------------------------------
  * MemoryVcdFile — a VerilatedVcdFile that intercepts the VCD byte stream
  * Verilator's VCD writer produces, parses it line-by-line, and forwards
  * value changes to the host via VlHostCb instead of writing to disk.
@@ -138,7 +280,8 @@ public:
         for (auto &ps : pending_)
         {
             VlSignal h = host_cb_->reg_logical(host_cb_->ctx,
-                                               ps.path.c_str(), ps.width);
+                                               ps.path.c_str(), ps.width,
+                                               ps.desc.c_str());
             if (h == nullptr) continue;
             /* Verilator dedups internally-equivalent signals to a single
                VCD code (e.g. all 8 cores' clk_i share '?'). Each $var line
@@ -154,9 +297,19 @@ public:
 
     size_t signal_count() const { return codes_.size(); }
 
+    /* Replace the metadata populated from Verilator's XML (loaded once
+       at plugin startup). Overrides the type/direction extracted from
+       the bare VCD $var line, which is always just "wire". */
+    void xml_meta_set(VlXmlMetadata meta)
+    {
+        xml_meta_ = std::move(meta);
+    }
+
 private:
     enum Phase { HEADER, DATA };
-    struct PendingSignal { std::string path; std::string code; int width; };
+    // `desc` is the "<dir>|<type>" string forwarded to host_cb_->reg_logical
+    // so the GUI can populate the Dir/Type columns in the signal browser.
+    struct PendingSignal { std::string path; std::string code; int width; std::string desc; };
     struct SignalRef    { VlSignal handle; int width; };
 
     void process_buffer()
@@ -198,7 +351,12 @@ private:
         {
             const char *q = p + 4;
             while (*q == ' ' || *q == '\t') q++;
+            // VCD $var line: "$var <type> <width> <code> <name> $end".
+            // We capture the type token so the host can populate the Type
+            // column in the GUI (direction isn't in VCD; only FST has it).
+            const char *type_start = q;
             while (*q && *q != ' ' && *q != '\t') q++;
+            std::string type_str(type_start, q - type_start);
             while (*q == ' ' || *q == '\t') q++;
             int width = std::atoi(q);
             while (*q && *q != ' ' && *q != '\t') q++;
@@ -210,7 +368,7 @@ private:
             const char *name_start = q;
             while (*q && *q != ' ' && *q != '\t') q++;
             std::string name(name_start, q - name_start);
-            register_var(width, code, name);
+            register_var(width, code, name, type_str);
         }
         else if (std::strncmp(p, "$enddefinitions", 15) == 0)
         {
@@ -219,7 +377,8 @@ private:
     }
 
     void register_var(int width, const std::string &code,
-                      const std::string &name)
+                      const std::string &name,
+                      const std::string &type_str)
     {
         if (width <= 0 || width > kMaxSignalWidth) return;
 
@@ -235,7 +394,38 @@ private:
         if (bracket != std::string::npos) path.append(name, 0, bracket);
         else                              path.append(name);
 
-        pending_.push_back({std::move(path), code, width});
+        /* Look up the rich (dir, type) pair in the XML metadata map. The
+           map's keys match the path format we just built. If no entry
+           exists (XML wasn't loaded, or signal not in XML), fall back to
+           the VCD $var type token (which Verilator emits as "wire" for
+           everything). Format: "<dir>|<type>" — same as fst_dumper, so
+           the GUI's signal browser parses both with the same code. */
+        std::string desc;
+        auto it = xml_meta_.by_path.find(path);
+        if (it != xml_meta_.by_path.end())
+        {
+            desc = it->second.dir + "|" + it->second.vcd_type;
+        }
+        else
+        {
+            /* Fallback: VCD path didn't match XML (typical for SV package
+               parameters that VCD groups under a synthetic TOP/<pkg>/
+               scope). Look up by the trailing var name — if it's a known
+               parameter elsewhere in the design, we at least get "parm"
+               in the Type column. */
+            std::string ty = type_str;
+            if (ty == "parameter") ty = "parm";
+            else if (ty == "integer") ty = "int";
+            /* Strip "[hi:lo]" suffix from name when looking up params. */
+            std::string base_name = name;
+            size_t bracket = base_name.find('[');
+            if (bracket != std::string::npos) base_name.resize(bracket);
+            auto pit = xml_meta_.param_by_name.find(base_name);
+            if (pit != xml_meta_.param_by_name.end()) ty = pit->second;
+            desc = "|" + ty;
+        }
+
+        pending_.push_back({std::move(path), code, width, std::move(desc)});
     }
 
     void handle_data_line(const std::string &line)
@@ -303,6 +493,9 @@ private:
     std::vector<std::string> scope_stack_;
     std::vector<PendingSignal> pending_;
     std::unordered_map<std::string, std::vector<SignalRef>> codes_;
+    /* Per-path (dir, type) from Verilator's --xml-output, loaded at
+       plugin startup. Empty when no XML is available. */
+    VlXmlMetadata xml_meta_;
     bool callbacks_armed_ = false;
     int64_t current_time_ps_ = 0;
 };
@@ -350,6 +543,33 @@ struct PluginCommon
         if (args.inject)
         {
             vcd_sink.reset(new MemoryVcdFile(&host_cb, ps_per_vcd_tick));
+            /* Load Verilator's --xml-output BEFORE tfp->open() runs the
+               VCD header processing — that's what triggers MemoryVcdFile
+               to parse $var lines and pre-record each signal, so the
+               metadata map needs to be in place by then. Look for
+               design.xml next to this .so (dladdr on any header symbol
+               gives the .so path). Silent fallback to VCD-only when the
+               XML is missing or unreadable. */
+            Dl_info info{};
+            if (dladdr(reinterpret_cast<void *>(&vl_xml_load), &info)
+                && info.dli_fname)
+            {
+                std::string so_path = info.dli_fname;
+                size_t slash = so_path.rfind('/');
+                std::string xml_path = (slash == std::string::npos)
+                    ? std::string("design.xml")
+                    : so_path.substr(0, slash + 1) + "design.xml";
+                VlXmlMetadata meta;
+                if (vl_xml_load(xml_path, meta))
+                {
+                    std::fprintf(stderr,
+                        "[SIM] VCD trace metadata loaded from %s "
+                        "(%zu paths, %zu param names)\n",
+                        xml_path.c_str(), meta.by_path.size(),
+                        meta.param_by_name.size());
+                    vcd_sink->xml_meta_set(std::move(meta));
+                }
+            }
             tfp = new VerilatedVcdC(vcd_sink.get());
             dut->trace(tfp, 99);
             tfp->open("memory");

@@ -29,6 +29,7 @@
 #include <vp/signal.hpp>
 #include <vp/time/time_event.hpp>
 #include <dlfcn.h>
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -48,7 +49,8 @@ private:
 
     /* Host-side callbacks plugged into the plugin via set_host_callbacks.
        The plugin uses these to expose signals to the GVSoC trace engine. */
-    static VlSignal vl_reg_logical(void *ctx, const char *path, int width);
+    static VlSignal vl_reg_logical(void *ctx, const char *path, int width,
+                                   const char *description);
     static void vl_push_logical(void *ctx, VlSignal sig, uint64_t value,
                                 int64_t time_ps);
 
@@ -74,6 +76,12 @@ private:
        lifetime matches the component, not the plugin. The cookie returned
        to the plugin (VlSignal) is just `signals[i].get()`. */
     std::vector<std::unique_ptr<vp::Signal<uint64_t>>> signals;
+    /* Owning store for per-signal description strings. vp::Event keeps the
+       description as a non-owning const char*, so we hold the std::string
+       here for the component's lifetime. std::deque (not std::vector) so
+       push_back never invalidates the c_str() pointers we already handed
+       out to earlier vp::Signal::description_set calls. */
+    std::deque<std::string> signal_descriptions;
     VlHostCb host_cb;
 
     /* set_host_callbacks runs only once, on the first reset(false) — see
@@ -267,7 +275,8 @@ void VerilatorControl::step_handler(vp::Block *_this, vp::TimeEvent *)
     t->step_event.enqueue(r.time_to_next);
 }
 
-VlSignal VerilatorControl::vl_reg_logical(void *ctx, const char *path, int width)
+VlSignal VerilatorControl::vl_reg_logical(void *ctx, const char *path, int width,
+                                          const char *description)
 {
     auto *self = static_cast<VerilatorControl *>(ctx);
     if (path == nullptr || width <= 0 || width > 64)
@@ -282,6 +291,15 @@ VlSignal VerilatorControl::vl_reg_logical(void *ctx, const char *path, int width
     if (anchor == nullptr) anchor = self;
     auto sig = std::make_unique<vp::Signal<uint64_t>>(
         *anchor, path, width, vp::SignalCommon::ResetKind::None);
+    /* Forward the "<dir>|<type>" metadata string the plugin built from the
+       VCD $var line so the GUI's signal browser populates Dir/Type. We own
+       a copy because vp::Event stores description as a non-owning const
+       char* and the plugin frees its own copy after arm_callbacks. */
+    if (description != nullptr && description[0] != '\0')
+    {
+        self->signal_descriptions.emplace_back(description);
+        sig->description_set(self->signal_descriptions.back().c_str());
+    }
     sig->enable();
     auto *raw = sig.get();
     self->signals.push_back(std::move(sig));

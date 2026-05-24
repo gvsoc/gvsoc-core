@@ -53,10 +53,17 @@ typedef struct {
     /*
      * Register a logical-typed signal of the given bit width (1..64).
      * `path` is a `/`-separated hierarchical name (e.g. "core/regfile/x5").
+     * `description` is an optional free-form metadata string (encoded as
+     *     "<dir>|<type>" by convention — VCD doesn't carry direction, so
+     *     the plugin-side helper just emits "|<vcd-type>" e.g. "|wire" or
+     *     "|parm". May be NULL or empty when no metadata is available.
+     *     The pointer must stay valid for the lifetime of the simulation;
+     *     the host is responsible for owning a copy if it needs to.
      * Returns an opaque handle, or NULL if the host refuses (e.g. width too
      * wide). Safe to call multiple times before the simulation starts.
      */
-    VlSignal (*reg_logical)(void *ctx, const char *path, int width);
+    VlSignal (*reg_logical)(void *ctx, const char *path, int width,
+                            const char *description);
 
     /*
      * Report a new value for a previously registered signal.

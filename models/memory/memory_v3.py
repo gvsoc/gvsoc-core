@@ -18,17 +18,19 @@ from __future__ import annotations
 
 import gvsoc.systree
 from config_tree import Config, cfg_field, HasSize
+from gvsoc.signature import IoV2Sync
 
 
 class MemoryV3Config(Config, HasSize):
     """Private configuration for the io_v2 ``Memory`` (v3) generator.
 
     Snake-cased to ``memory/memory_v3_config.hpp`` at build time; only
-    ``memory_v3.cpp`` includes it. The field set is a superset of the
-    legacy :class:`memory.memory_config.MemoryConfig`: the first four
-    fields are identical, the rest were added so v3 can read every
-    tunable out of the compiled config struct and skip ``get_js_config()``
-    entirely.
+    ``memory_v3.cpp`` includes it.
+
+    memory_v3 is a strict-sync ``io_v2`` slave: every accepted request is
+    served inline and ``req->latency`` is left at zero. Any timing or
+    bandwidth shaping must be modelled in a dedicated upstream component
+    (e.g. :class:`interco.limiter_v2.Limiter`).
 
     Attributes
     ----------
@@ -37,15 +39,10 @@ class MemoryV3Config(Config, HasSize):
     atomics: bool
         True to compile in the RISC-V atomic handler. Atomics cost
         extra simulation time, so leave ``False`` when not needed.
-    latency: int
-        Extra latency (cycles) added to every request. Default ``1``.
     truncate: bool
         If True, the incoming address is masked with ``size - 1`` so
         the memory appears as a repeating window over the whole
         address space.
-    width_log2: int
-        log2 of the bandwidth (bytes per cycle). ``-1`` disables the
-        bandwidth model (infinite bandwidth).
     align: int
         Alignment (bytes) requested from ``aligned_alloc`` for the
         backing buffer. ``0`` falls back to ``calloc``.
@@ -74,18 +71,9 @@ class MemoryV3Config(Config, HasSize):
         "set to True only if needed"
     ))
 
-    latency: int = cfg_field(default=1, dump=True, desc=(
-        "Specify extra latency which will be added to any "
-        "incoming request"
-    ))
-
     truncate: int = cfg_field(default=True, dump=True, desc=(
         "If true, this truncates the global input address with the "
         "memory size to make it relative to the memory"
-    ))
-
-    width_log2: int = cfg_field(default=-1, dump=True, desc=(
-        "log2 of the bytes/cycle bandwidth (-1 disables the bandwidth model)"
     ))
 
     align: int = cfg_field(default=0, dump=True, desc=(
@@ -117,14 +105,18 @@ class Memory(gvsoc.systree.Component):
     ~~~~~~~~
 
     A byte-addressable, word-granular memory array terminating an
-    io_v2 request path. Accepts reads, writes, and (optionally)
-    RISC-V atomic memory operations on a single slave port; emits
-    exactly one synchronous response per request. This is the
-    drop-in replacement for :class:`memory.memory_v2.Memory` for
-    masters that speak the io_v2 protocol — every other aspect
-    (preload, power-capture trigger, bandwidth model, atomics) is
-    identical. Memcheck bookkeeping is *not* carried over: v3 is a
-    plain backing store.
+    io_v2 request path under the strict-sync sub-protocol
+    (:class:`gvsoc.signature.IoV2Sync`). Accepts reads, writes, and
+    (optionally) RISC-V atomic memory operations on a single slave
+    port; emits exactly one synchronous response per request and
+    never annotates ``req->latency``. The io_v2 port of
+    :class:`memory.memory_v2.Memory` for masters that speak the io_v2
+    protocol — every other aspect (preload, power-capture trigger,
+    atomics) is identical. Memcheck bookkeeping is *not* carried
+    over: v3 is a plain backing store. The bandwidth / extra-latency
+    model that v2 carried is *also* not carried over — model that in
+    a dedicated upstream shaper such as
+    :class:`interco.limiter_v2.Limiter`.
 
     Pair this with io_v2 interconnect components like
     :class:`interco.router_v2.Router`,
@@ -160,31 +152,17 @@ class Memory(gvsoc.systree.Component):
     Timing model
     ~~~~~~~~~~~~
 
-    Fully synchronous, latency-annotated:
-
-    .. code-block:: text
-
-        total_latency = max(cfg.latency, max(0, next_packet_start - cycles))
-                      + ceil(size / (1 << width_log2))
-
-    The second term is only added when a bandwidth limit is
-    configured (``width_log2 >= 0``). ``next_packet_start`` tracks
-    when the memory's (single) port becomes free again; the formula
-    matches memory_v2's ``max(latency, diff) + duration`` total to
-    the cycle, except that v2 stores the whole contribution in
-    ``req->latency`` (io_v2 has no ``duration`` field).
-
-    Debug-flag bypass does not exist in io_v2 (there is no
-    ``req->is_debug()``), so every access — including syscalls and
-    loader debug reads — pays the same latency. For regular traffic
-    this is the right behaviour; for pure-diagnostic accesses the
-    user should route them through a separate, zero-latency memory
-    instance if needed.
+    None. The memory is a strict-sync ``IoV2Sync`` slave: every
+    request returns ``IO_REQ_DONE`` inline with ``req->latency``
+    left at zero. Bandwidth shaping and base latency must be
+    modelled with an upstream component (e.g.
+    :class:`interco.limiter_v2.Limiter`) — they are deliberately
+    no longer baked into the memory itself.
 
     Ports
     ~~~~~
 
-    - **INPUT** (slave, ``io_v2``) — the memory's master-facing
+    - **INPUT** (slave, ``IoV2Sync``) — the memory's master-facing
       port. Accepts reads, writes, and atomics of any 1-, 2-, 4-,
       or 8-byte alignment.
     - **power_ctrl** (slave, ``wire<bool>``) — ``False`` gates the
@@ -241,19 +219,12 @@ class Memory(gvsoc.systree.Component):
     ``atomics``
         ``True`` to compile in the RISC-V atomic handler. Default
         ``False`` (atomics respond with ``IO_RESP_INVALID``).
-    ``latency``
-        Extra latency (cycles) added to every request. Default 1.
     ``truncate``
         When ``True``, the incoming address is masked by
         ``cfg.size - 1`` before bounds checking and lookup —
         effectively giving the memory a repeating address space.
         When ``False``, addresses above ``cfg.size`` fail the bounds
         check. Default ``True``.
-    ``width_log2``
-        log2 of the bytes-per-cycle bandwidth. ``-1`` disables the
-        bandwidth model (infinite bandwidth). With ``width_log2=2``,
-        the memory can move 4 bytes per cycle; a 16-byte access
-        takes 4 cycles.
     ``align``
         Alignment (bytes) passed to ``aligned_alloc`` for the
         backing buffer. ``0`` falls back to ``calloc``.
@@ -274,14 +245,12 @@ class Memory(gvsoc.systree.Component):
     Example
     ~~~~~~~
 
-    A 64 KiB io_v2 memory with a 4-byte-per-cycle bandwidth cap and
-    atomic support:
+    A 64 KiB io_v2 memory with atomic support:
 
     .. code-block:: python
 
         mem = Memory(self, 'mem',
-            config=MemoryV3Config(size=0x10000, latency=1, atomics=True,
-                                    width_log2=2))
+            config=MemoryV3Config(size=0x10000, atomics=True))
         loader.o_OUT(mem.i_INPUT())
         lim.o_OUTPUT(mem.i_INPUT())
 
@@ -292,8 +261,8 @@ class Memory(gvsoc.systree.Component):
     name : str
         Local name of the memory within ``parent``.
     config : MemoryV3Config
-        Full configuration. Every tunable — size, latency, bandwidth,
-        stim_file, power_trigger, etc. — lives on this object.
+        Full configuration. Every tunable — size, atomics, stim_file,
+        power_trigger, etc. — lives on this object.
     """
 
     # Developer-manual doc registration. Discovered by AST scan at
@@ -321,11 +290,15 @@ class Memory(gvsoc.systree.Component):
         """Returns the io_v2 input port.
 
         Every read / write / atomic request lands here and is served
-        synchronously. The signature is ``io_v2`` — v1 masters
-        cannot bind to this port; use :class:`memory.memory_v2.Memory`
-        for v1 traffic.
+        synchronously. The signature is :class:`IoV2Sync` — the
+        memory guarantees inline ``IO_REQ_DONE`` with zero latency,
+        which lets sync-aware masters elide their async/retry code
+        paths. ``IoV2BigPacket`` and ``IoV2Beat`` masters bind here
+        as well (directly for big-packet, through the existing beat
+        adapter for beat). v1 masters cannot bind to this port; use
+        :class:`memory.memory_v2.Memory` for v1 traffic.
         """
-        return gvsoc.systree.SlaveItf(self, 'input', signature='io_v2')
+        return gvsoc.systree.SlaveItf(self, 'input', signature=IoV2Sync())
 
     def gen_gui(self, parent_signal):
         import gvsoc.gui

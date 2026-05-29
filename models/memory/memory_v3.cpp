@@ -6,11 +6,11 @@
 //
 // io_v2 port of the ``memory_v2`` SRAM model.
 //
-// Strict-sync ``IoV2Sync`` slave: every request is served inline,
-// ``req->latency`` is left at zero, and the model never returns
-// ``IO_REQ_GRANTED`` / ``IO_REQ_DENIED``. Configurable-size
-// byte-addressable store, optional RISC-V atomics, preload-from-file,
-// and a ``power_ctrl`` wire to gate the backing store.
+// Functionally identical to memory_v2.cpp minus the memcheck
+// bookkeeping and the bandwidth model: configurable-size
+// byte-addressable store, fixed per-request latency, optional RISC-V
+// atomics, preload-from-file, and a ``power_ctrl`` wire to gate the
+// backing store.
 //
 // Differences vs memory_v2:
 //
@@ -18,15 +18,17 @@
 //   - Completion status is ``IO_REQ_DONE`` (never ``GRANTED`` /
 //     ``DENIED`` — memory never stalls), with ``IO_RESP_OK`` /
 //     ``IO_RESP_INVALID`` on the response-status sideband.
-//   - **No timing.** ``req->latency`` is never touched. The base
-//     latency / bandwidth model carried by memory_v2 has been moved
-//     out: shape traffic with an upstream component (e.g.
-//     :class:`interco.limiter_v2.Limiter`) instead.
-//   - ``req->is_debug()`` is gone; every access takes the same path.
+//   - Timing is a single fixed latency annotated via
+//     ``req->inc_latency(cfg.latency)``, read inline by the master
+//     under the IoV2Sync contract. The v2 per-byte bandwidth model
+//     (``width_log2`` / ``set_duration``) is not reproduced; place a
+//     shaper (e.g. interco.limiter_v2.Limiter) upstream if needed.
+//   - ``req->is_debug()`` is gone; every access goes through the full
+//     timing path.
 //   - ``req->get_initiator()`` returns ``void *`` instead of ``int``;
 //     the LR/SC reservation table is rekeyed on the pointer.
-//   - **No JSON access.** Every tunable (size, stim file, atomics,
-//     ...) is read exclusively from the compiled
+//   - **No JSON access.** Every tunable (size, latency, stim file,
+//     atomics, ...) is read exclusively from the compiled
 //     :class:`MemoryV3Config` struct. The model reads zero entries via
 //     ``get_js_config()``.
 //   - Memcheck bookkeeping is entirely dropped. v1 / v2 carried a
@@ -236,9 +238,12 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
 
     _this->log_access(offset, size, req->get_is_write());
 
-    // Strict-sync IoV2Sync contract: ``req->latency`` is left at zero.
-    // Any base latency or bandwidth shaping belongs in an upstream
-    // limiter (e.g. interco.limiter_v2.Limiter), not here.
+    // Timing annotation. memory_v3 only models a fixed per-request
+    // latency; it is read inline by the master under the IoV2Sync
+    // contract (no async response). Bandwidth / per-byte duration is
+    // deliberately not modelled here — put a shaper (e.g.
+    // interco.limiter_v2.Limiter) upstream if that is needed.
+    req->inc_latency((int64_t)_this->cfg.latency);
 
 #ifdef VP_TRACE_ACTIVE
     if (_this->cfg.power_trigger)

@@ -41,7 +41,7 @@ def build_case(case_name: str, work_dir: str) -> dict:
         # Plain 4-byte read at 0x0. With init=True (default) the fresh
         # memory holds 0x57 bytes, so the master should see data=57575757.
         return {
-            'config': MemoryV3Config(size=0x1000),
+            'config': MemoryV3Config(size=0x1000, latency=1),
             'schedule': [
                 dict(cycle=10, addr=0x0, size=4, is_write=False, name='r'),
             ],
@@ -51,7 +51,7 @@ def build_case(case_name: str, work_dir: str) -> dict:
         # Write a known 4-byte pattern, then read it back and verify the
         # same bytes come out.
         return {
-            'config': MemoryV3Config(size=0x1000),
+            'config': MemoryV3Config(size=0x1000, latency=1),
             'schedule': [
                 dict(cycle=10, addr=0x20, size=4, is_write=True,  name='w',
                      data_hex='deadbeef'),
@@ -64,7 +64,7 @@ def build_case(case_name: str, work_dir: str) -> dict:
         # the pattern are all the master logs, so we only need
         # ``data_hex`` long enough for that prefix to be non-trivial.
         return {
-            'config': MemoryV3Config(size=0x1000),
+            'config': MemoryV3Config(size=0x1000, latency=1),
             'schedule': [
                 dict(cycle=10, addr=0x40, size=16, is_write=True,  name='w',
                      data_hex='0102030405060708090a0b0c0d0e0f10'),
@@ -72,11 +72,20 @@ def build_case(case_name: str, work_dir: str) -> dict:
             ],
         }
 
+    if case_name == 'latency_nonzero':
+        # latency=5 → inline DONE must carry req->latency >= 5.
+        return {
+            'config': MemoryV3Config(size=0x1000, latency=5),
+            'schedule': [
+                dict(cycle=10, addr=0x0, size=4, is_write=False, name='r'),
+            ],
+        }
+
     if case_name == 'out_of_range':
         # 8-byte read starting 4 bytes before the end of a 64-byte memory:
         # crosses the boundary. Memory should refuse with IO_RESP_INVALID.
         return {
-            'config': MemoryV3Config(size=0x40),
+            'config': MemoryV3Config(size=0x40, latency=1),
             'schedule': [
                 dict(cycle=10, addr=0x3c, size=8, is_write=False, name='r_oob'),
             ],
@@ -88,7 +97,7 @@ def build_case(case_name: str, work_dir: str) -> dict:
         stim_path = _write_stim(work_dir, 'stim_file',
                                   b'\xef\xbe\xad\xde' + b'\x00' * 28)
         return {
-            'config': MemoryV3Config(size=0x20, stim_file=stim_path),
+            'config': MemoryV3Config(size=0x20, latency=1, stim_file=stim_path),
             'schedule': [
                 dict(cycle=10, addr=0x0, size=4, is_write=False, name='r_stim'),
             ],

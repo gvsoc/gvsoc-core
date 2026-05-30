@@ -148,14 +148,18 @@ ddr::ddr(vp::ComponentConf &config)
     dram_pim_read = (void (*)(int, int, uint64_t, uint64_t, uint64_t, uint64_t, const void*))dlsym(libraryHandle, "dram_pim_read");
     dram_pim_write = (void (*)(int, int, uint64_t, uint64_t, uint64_t, uint64_t, const void*))dlsym(libraryHandle, "dram_pim_write"); 
 
-#ifdef DRAMSYS_PATH
-    std::cout << "DRAMSYS_PATH is defined!: " << DRAMSYS_PATH << std::endl;
-#else
-    std::cout << "DRAMSYS_PATH is not defined." << std::endl;
-#endif
+    // Pick the dramsys_configs/ parent dir. Prefer the DRAMSYS_PATH env
+    // var so the configs (and prebuilt libDRAMSys_Simulator.so) can be
+    // shipped/located independently of the model source tree; fall back
+    // to the compile-time DRAMSYS_PATH (set by the model CMakeLists to
+    // CMAKE_CURRENT_SOURCE_DIR) when the env var is unset.
+    const char *env_path = std::getenv("DRAMSYS_PATH");
+    std::string current_path = env_path ? env_path : DRAMSYS_PATH;
+    std::cout << "DRAMSYS_PATH: " << current_path
+              << (env_path ? " (from env)" : " (from compile-time default)")
+              << std::endl;
 
     // Configure DRAMSys according to the type of DRAM specified in the model configuration
-    std::string current_path = DRAMSYS_PATH;
     std::string resources_path = current_path + "/dramsys_configs";
     std::string dram_type = get_js_config()->get("dram-type")->get_str();
     std::string simulationJson_path;

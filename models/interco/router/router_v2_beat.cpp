@@ -88,7 +88,9 @@ class OutputPort
 public:
     OutputPort(RouterBeat *top, int id, std::string name);
 
-    void log_access(uint64_t addr, uint64_t size);
+    void log_access(uint64_t addr, uint64_t size, bool is_write,
+                    bool is_first, bool is_last);
+    void log_resp(uint64_t addr, uint64_t size, bool is_first, bool is_last);
 
     RouterBeat *top;
     int id;
@@ -105,11 +107,27 @@ public:
     // Downstream returned DENIED for the most recent forward; waiting for retry().
     // Stall is per-output (single downstream IoMaster), not per-channel.
     bool stalled = false;
-    // Per-mapping VCD traces — pre-translation addr / size of each beat forwarded.
-    vp::Signal<uint64_t> current_addr;
-    vp::Signal<uint64_t> current_size;
-    int64_t last_logged_access = -1;
-    int nb_logged_access_in_same_cycle = 0;
+    // Per-mapping VCD traces split into request and response sub-trees.
+    // req/* logs every outgoing forward — read setup reqs and per-beat writes.
+    // resp/* logs every read beat returned upstream (writes get no per-resp
+    // beats in the beat-stream form).
+    vp::Signal<uint64_t> req_addr;
+    vp::Signal<uint64_t> req_size;
+    vp::Signal<uint64_t> req_is_write;
+    vp::Signal<uint64_t> req_is_first;
+    vp::Signal<uint64_t> req_is_last;
+    vp::Signal<uint64_t> resp_addr;
+    vp::Signal<uint64_t> resp_size;
+    vp::Signal<uint64_t> resp_is_first;
+    vp::Signal<uint64_t> resp_is_last;
+    // Explicit per-mapping busy bit: pulsed for one cycle on every log_access
+    // or log_resp on this output. Used as the "busy strip" path of the
+    // mapping's row in the GUI.
+    vp::Signal<uint64_t> active;
+    int64_t last_logged_req = -1;
+    int nb_logged_req_in_same_cycle = 0;
+    int64_t last_logged_resp = -1;
+    int nb_logged_resp_in_same_cycle = 0;
 };
 
 class InputPort
@@ -195,6 +213,11 @@ private:
 
     vp::Trace trace;
 
+    // Top-level busy bit: pulsed for one cycle whenever any output port
+    // logs an access or a response. Used as the path for the router row's
+    // busy strip in the GUI.
+    vp::Signal<uint64_t> active;
+
     vp::StatScalar stat_reads;
     vp::StatScalar stat_writes;
     vp::StatScalar stat_bytes_read;
@@ -210,27 +233,89 @@ private:
 OutputPort::OutputPort(RouterBeat *top, int id, std::string name)
     : top(top), id(id),
       bus(id, &RouterBeat::retry_muxed, &RouterBeat::resp_muxed),
-      current_addr(*top, name + "/addr", 64, vp::SignalCommon::ResetKind::HighZ),
-      current_size(*top, name + "/size", 64, vp::SignalCommon::ResetKind::HighZ)
+      req_addr(*top, name + "/req/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      req_size(*top, name + "/req/size", 64, vp::SignalCommon::ResetKind::HighZ),
+      req_is_write(*top, name + "/req/is_write", 1, vp::SignalCommon::ResetKind::HighZ),
+      req_is_first(*top, name + "/req/is_first", 1, vp::SignalCommon::ResetKind::HighZ),
+      req_is_last(*top, name + "/req/is_last", 1, vp::SignalCommon::ResetKind::HighZ),
+      resp_addr(*top, name + "/resp/addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      resp_size(*top, name + "/resp/size", 64, vp::SignalCommon::ResetKind::HighZ),
+      resp_is_first(*top, name + "/resp/is_first", 1, vp::SignalCommon::ResetKind::HighZ),
+      resp_is_last(*top, name + "/resp/is_last", 1, vp::SignalCommon::ResetKind::HighZ),
+      active(*top, name + "/active", 1, vp::SignalCommon::ResetKind::HighZ)
 {
 }
 
-void OutputPort::log_access(uint64_t addr, uint64_t size)
+void OutputPort::log_access(uint64_t addr, uint64_t size, bool is_write,
+                            bool is_first, bool is_last)
 {
     int64_t cycles = this->top->clock.get_cycles();
-    if (cycles > this->last_logged_access)
-        this->nb_logged_access_in_same_cycle = 0;
+    if (cycles > this->last_logged_req)
+        this->nb_logged_req_in_same_cycle = 0;
 
+    int64_t period = this->top->clock.get_period();
     int64_t delay = 0;
-    if (this->nb_logged_access_in_same_cycle > 0)
+    if (this->nb_logged_req_in_same_cycle > 0)
     {
-        int64_t period = this->top->clock.get_period();
-        delay = period - (period >> this->nb_logged_access_in_same_cycle);
+        delay = period - (period >> this->nb_logged_req_in_same_cycle);
     }
-    this->current_addr.set_and_release(addr, 0, delay);
-    this->current_size.set_and_release(size, 0, delay);
-    this->nb_logged_access_in_same_cycle++;
-    this->last_logged_access = cycles;
+    // Dump value now and high-Z at +1 cycle. set_and_release() would defer the
+    // high-Z via dump_highz_next, which only fires on the next clock tick;
+    // when the router is idle for many cycles between events that deferred
+    // dump never lands and the value visually persists. release() with a
+    // non-zero time_delay dumps high-Z immediately into the trace buffer at
+    // the future timestamp, independent of clock ticks.
+    this->req_addr.set(addr, (int64_t)0, delay);
+    this->req_addr.release(0, delay + period);
+    this->req_size.set(size, (int64_t)0, delay);
+    this->req_size.release(0, delay + period);
+    this->req_is_write.set(is_write ? 1 : 0, (int64_t)0, delay);
+    this->req_is_write.release(0, delay + period);
+    this->req_is_first.set(is_first ? 1 : 0, (int64_t)0, delay);
+    this->req_is_first.release(0, delay + period);
+    this->req_is_last.set(is_last ? 1 : 0, (int64_t)0, delay);
+    this->req_is_last.release(0, delay + period);
+    // Pulse the per-mapping and top-level busy bits for one cycle.
+    this->active.set((uint64_t)1, (int64_t)0, delay);
+    this->active.release(0, delay + period);
+    this->top->active.set((uint64_t)1, (int64_t)0, delay);
+    this->top->active.release(0, delay + period);
+    this->nb_logged_req_in_same_cycle++;
+    this->last_logged_req = cycles;
+}
+
+void OutputPort::log_resp(uint64_t addr, uint64_t size,
+                          bool is_first, bool is_last)
+{
+    int64_t cycles = this->top->clock.get_cycles();
+    if (cycles > this->last_logged_resp)
+        this->nb_logged_resp_in_same_cycle = 0;
+
+    int64_t period = this->top->clock.get_period();
+    int64_t delay = 0;
+    if (this->nb_logged_resp_in_same_cycle > 0)
+    {
+        delay = period - (period >> this->nb_logged_resp_in_same_cycle);
+    }
+    // See log_access — use explicit release(time_delay=delay+period) so the
+    // high-Z lands in the trace at the right time even when the router has no
+    // clock event at +1 cycle (which is the case for the gap between the
+    // first read-response beat and the second).
+    this->resp_addr.set(addr, (int64_t)0, delay);
+    this->resp_addr.release(0, delay + period);
+    this->resp_size.set(size, (int64_t)0, delay);
+    this->resp_size.release(0, delay + period);
+    this->resp_is_first.set(is_first ? 1 : 0, (int64_t)0, delay);
+    this->resp_is_first.release(0, delay + period);
+    this->resp_is_last.set(is_last ? 1 : 0, (int64_t)0, delay);
+    this->resp_is_last.release(0, delay + period);
+    // Pulse the per-mapping and top-level busy bits for one cycle.
+    this->active.set((uint64_t)1, (int64_t)0, delay);
+    this->active.release(0, delay + period);
+    this->top->active.set((uint64_t)1, (int64_t)0, delay);
+    this->top->active.release(0, delay + period);
+    this->nb_logged_resp_in_same_cycle++;
+    this->last_logged_resp = cycles;
 }
 
 InputPort::InputPort(RouterBeat *top, int id, std::string name)
@@ -248,7 +333,8 @@ InputPort::InputPort(RouterBeat *top, int id, std::string name)
 RouterBeat::RouterBeat(vp::ComponentConf &config)
     : vp::Component(config, this->cfg),
       mapping_tree(&this->trace),
-      fsm_event(this, &RouterBeat::fsm_handler)
+      fsm_event(this, &RouterBeat::fsm_handler),
+      active(*this, "active", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -391,8 +477,14 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     }
 
     // FIFO overflow check (before slot allocation — we don't want to consume a
-    // slot and then fail on FIFO).
-    if (in->pending_bytes + size > _this->cfg.max_input_pending_size)
+    // slot and then fail on FIFO). Only write beats consume FIFO bytes: their
+    // payload sits in the queue until the fsm forwards it. Read reqs carry
+    // only the descriptor (the data streams back later as response beats), so
+    // their `size` field (the full burst length) MUST NOT be charged against
+    // the input FIFO — otherwise a 4 KB read against a width=32 router would
+    // always exceed the default cap and deadlock.
+    uint64_t fifo_cost = is_write ? size : 0;
+    if (in->pending_bytes + fifo_cost > _this->cfg.max_input_pending_size)
     {
         in->denied_upstream = true;
         return vp::IO_REQ_DENIED;
@@ -446,7 +538,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
 
     bool was_empty = in->pending.empty();
     in->pending.push_back(InputPort::PendingBeat{req, slot_idx});
-    in->pending_bytes += size;
+    in->pending_bytes += fifo_cost;
     if (was_empty)
     {
         in->head_cycle.set(now);
@@ -497,7 +589,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 _this->stat_errors++;
                 beat->set_resp_status(vp::IO_RESP_INVALID);
                 in->pending.pop_front();
-                in->pending_bytes -= beat->get_size();
+                // Mirror the directional accounting from req_muxed.
+                in->pending_bytes -= beat->get_is_write() ? beat->get_size() : 0;
                 if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
                 // Free the burst (it never actually got routed).
                 _this->free_burst_slot(slot_idx);
@@ -534,7 +627,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // the response side restores burst_id from slot.original_burst_id.
         uint64_t original_addr = beat->get_addr();
         int64_t original_burst_id = beat->burst_id;
-        out->log_access(original_addr, beat->get_size());
+        out->log_access(original_addr, beat->get_size(), beat->get_is_write(),
+                        beat->is_first, beat->is_last);
         beat->set_addr(original_addr - out->remove_offset + out->add_offset);
         beat->burst_id = slot_idx;
 
@@ -558,7 +652,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             case vp::IO_REQ_GRANTED:
             {
                 in->pending.pop_front();
-                in->pending_bytes -= beat->get_size();
+                // Mirror the directional accounting from req_muxed.
+                in->pending_bytes -= beat->get_is_write() ? beat->get_size() : 0;
                 if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
                 output_used[slot.output_id][ch] = true;
                 // Slot stays alive until the resp handler fires for the burst's is_last.
@@ -671,6 +766,17 @@ void RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port)
         _this->free_burst_slot(slot_idx);
     }
 
+    // Reads only: writes don't get a per-beat response stream — they finish
+    // inline on the forward. Reverse-translate addr back to master coord so
+    // the resp/* trace lines up with req/* in the GUI.
+    if (!req->get_is_write())
+    {
+        uint64_t master_addr =
+            req->get_addr() - self->add_offset + self->remove_offset;
+        self->log_resp(master_addr, req->get_size(),
+                       req->is_first, req->is_last);
+    }
+
     in->itf.resp(req);
 
     // No need to restore req->burst_id between beats: the downstream adapter
@@ -764,7 +870,8 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     // Single proxy req is its own last forward.
     slot.pending_master_is_last.push_back(true);
 
-    out->log_access(original_addr, size);
+    out->log_access(original_addr, size, req->get_is_write(),
+                    req->is_first, req->is_last);
     vp::IoReqStatus st = out->bus.req(req);
 
     // An IoV2Beat-side master never surfaces IO_REQ_DONE (see resp path).

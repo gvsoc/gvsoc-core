@@ -431,22 +431,61 @@ class Router(gvsoc.systree.Component):
     def gen_gui(self, parent_signal):
         """Surface per-mapping address / size traces in the GUI.
 
-        Each mapping bound via :meth:`o_MAP` (or :meth:`o_MAP_DEFAULT`) has
-        a corresponding ``<name>/addr`` / ``<name>/size`` VCD signal pair
-        published by the C++ model. Group them into one expandable signal
-        per router so the timeline shows traffic per output branch.
+        For most router kinds, each mapping has a ``<name>/addr`` /
+        ``<name>/size`` signal pair from the C++ model.
+
+        The ``beat`` kind further splits each mapping into ``req/*`` (every
+        outgoing forward — read setup reqs and per-beat writes, plus an
+        ``is_write`` discriminator) and ``resp/*`` (per-beat read responses
+        coming back upstream), and exposes explicit ``active`` busy bits
+        (pulsed for one cycle on each access) at both the router and
+        per-mapping levels so the corresponding rows render as ACTIVE
+        strips in the timeline.
         """
         import gvsoc.gui
 
-        top = gvsoc.gui.SignalGenFromSignals(self, parent_signal,
-            to_signal=self.name, mode="combined",
-            from_groups=["active"], groups=["regmap", "active"],
-            display=gvsoc.gui.DisplayLogicBox('ACTIVE'),
-            skip_if_no_child=True)
+        if self.config.kind == KIND_BEAT:
+            top = gvsoc.gui.Signal(self, parent_signal, name=self.name,
+                path="active", groups=['regmap', 'active'],
+                display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        else:
+            top = gvsoc.gui.SignalGenFromSignals(self, parent_signal,
+                to_signal=self.name, mode="combined",
+                from_groups=["active"], groups=["regmap", "active"],
+                display=gvsoc.gui.DisplayLogicBox('ACTIVE'),
+                skip_if_no_child=True)
 
         for mapping in self.config.mappings:
             mname = mapping.name or 'mapping'
-            mapping_trace = gvsoc.gui.Signal(self, top, mname,
-                path=mname + "/addr", groups=['regmap', 'active'])
-            gvsoc.gui.Signal(self, mapping_trace, "size",
-                path=mname + "/size", groups=['regmap'])
+
+            if self.config.kind == KIND_BEAT:
+                # Per-mapping busy bit — driven by the C++ model on every
+                # log_access / log_resp for this output port. The row in the
+                # timeline shows an ACTIVE strip independently of req/resp
+                # expansion.
+                mapping_trace = gvsoc.gui.Signal(self, top, mname,
+                    path=mname + "/active", groups=['regmap', 'active'],
+                    display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+                req_trace = gvsoc.gui.Signal(self, mapping_trace, "req",
+                    path=mname + "/req/addr", groups=['regmap', 'active'])
+                gvsoc.gui.Signal(self, req_trace, "size",
+                    path=mname + "/req/size", groups=['regmap'])
+                gvsoc.gui.Signal(self, req_trace, "is_write",
+                    path=mname + "/req/is_write", groups=['regmap'])
+                gvsoc.gui.Signal(self, req_trace, "is_first",
+                    path=mname + "/req/is_first", groups=['regmap'])
+                gvsoc.gui.Signal(self, req_trace, "is_last",
+                    path=mname + "/req/is_last", groups=['regmap'])
+                resp_trace = gvsoc.gui.Signal(self, mapping_trace, "resp",
+                    path=mname + "/resp/addr", groups=['regmap', 'active'])
+                gvsoc.gui.Signal(self, resp_trace, "size",
+                    path=mname + "/resp/size", groups=['regmap'])
+                gvsoc.gui.Signal(self, resp_trace, "is_first",
+                    path=mname + "/resp/is_first", groups=['regmap'])
+                gvsoc.gui.Signal(self, resp_trace, "is_last",
+                    path=mname + "/resp/is_last", groups=['regmap'])
+            else:
+                mapping_trace = gvsoc.gui.Signal(self, top, mname,
+                    path=mname + "/addr", groups=['regmap', 'active'])
+                gvsoc.gui.Signal(self, mapping_trace, "size",
+                    path=mname + "/size", groups=['regmap'])

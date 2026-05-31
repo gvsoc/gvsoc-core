@@ -36,13 +36,16 @@ vp::IoReqStatus IoV2BeatAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
 
     // Register the in-flight tracking slot before forwarding so the slave can
     // legitimately respond inline (DONE) or synchronously via a same-stack
-    // resp() during the req() call.
-    auto inserted = self->in_flight.emplace(req, InFlight{size, 0});
+    // resp() during the req() call. Snapshot the burst's addr so per-beat
+    // addresses can be set on the upstream-facing resp() calls without
+    // depending on a (possibly-mutated) req->addr at emit time.
+    uint64_t burst_addr = req->get_addr();
+    auto inserted = self->in_flight.emplace(req, InFlight{size, 0, burst_addr});
     if (!inserted.second)
     {
         self->trace.force_warning(
             "Resubmit of in-flight req (req=%p) — resetting bookkeeping\n", req);
-        inserted.first->second = InFlight{size, 0};
+        inserted.first->second = InFlight{size, 0, burst_addr};
     }
 
     self->trace.msg(vp::Trace::LEVEL_TRACE,
@@ -129,6 +132,7 @@ void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
             data + cursor,
             beat,
             offset,
+            inf.burst_addr + offset,
             ready,
             is_first,
             is_last,
@@ -165,6 +169,7 @@ void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
 void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
 {
     vp::IoReq *req = ev.req;
+    req->set_addr(ev.addr);
     req->set_data(ev.data);
     req->set_size(ev.size);
     req->burst_id = ev.burst_id;

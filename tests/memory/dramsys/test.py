@@ -11,9 +11,11 @@ import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
 import memory.dramsys
+import interco.router_v2
 from gvrun.parameter import TargetParameter
 
 from stub_master_v1 import StubMasterV1
+from stub_master_v2 import StubMasterV2
 
 
 def build_case(case_name: str) -> dict:
@@ -97,6 +99,118 @@ def build_case(case_name: str) -> dict:
             ))
         return {'schedule': schedule}
 
+    if case_name == 'v2_read_basic':
+        # Single-beat v2 read at addr 0, size == HBM2 access_size (32 B).
+        # Wrapper returns GRANTED, then one beat resp with
+        # is_first==is_last==true. Smoke test for the v2 read path.
+        return {
+            'version': 2,
+            'schedule': [
+                dict(cycle=10, addr=0x0, size=32, is_write=False, name='r',
+                     burst_id=0),
+            ],
+        }
+
+    if case_name == 'v2_write_then_read':
+        # Single-beat write (1 byte at 0x100, beat-form: is_first=is_last=true,
+        # one beat == whole burst, burst_id=0) then a single-beat read of
+        # the same byte. Checker validates the read returns the same value
+        # via the XOR checksum.
+        return {
+            'version': 2,
+            'schedule': [
+                dict(cycle=10, addr=0x100, size=1, is_write=True,
+                     name='w', data_hex='a5', burst_id=0),
+                dict(cycle=200, addr=0x100, size=1, is_write=False,
+                     name='r', burst_id=1),
+            ],
+        }
+
+    if case_name == 'v2_beat_read_stream':
+        # 4 KB v2 read -> 128 beats of 32 B (access_size). Validate strict
+        # cycle ordering on each beat and cumulative XOR.
+        size = 4096
+        base = bytearray(((j * 13 + 17) & 0xFF) for j in range(size))
+        base[0] ^= 0xa5  # break the XOR=0 degeneracy
+        # NOTE: stamping the pattern actually requires a prior write —
+        # without one, DRAMSys returns whatever the backing store holds.
+        # We do that with a 128-beat beat-form write first.
+        beat_w = 32
+        nbeats = size // beat_w
+        schedule = []
+        for i in range(nbeats):
+            schedule.append(dict(
+                cycle=10 + i * 5,
+                addr=i * beat_w, size=beat_w, is_write=True,
+                name=f'w{i}', data_hex=bytes(base[i*beat_w:(i+1)*beat_w]).hex(),
+                burst_id=0,
+                is_first=(i == 0), is_last=(i == nbeats - 1),
+            ))
+        schedule.append(dict(
+            cycle=10 + nbeats * 5 + 5000,
+            addr=0x0, size=size, is_write=False, name='r',
+            burst_id=1,
+        ))
+        return {'version': 2, 'schedule': schedule}
+
+    if case_name == 'v2_write_beat_form':
+        # 4 KB beat-form write (128 beats of 32 B sharing burst_id=0),
+        # then a single 4 KB read to verify the pattern landed.
+        size = 4096
+        base = bytearray(((j * 13 + 17) & 0xFF) for j in range(size))
+        base[0] ^= 0xa5
+        beat_w = 32
+        nbeats = size // beat_w
+        schedule = []
+        for i in range(nbeats):
+            schedule.append(dict(
+                cycle=10 + i * 5,
+                addr=i * beat_w, size=beat_w, is_write=True,
+                name=f'w{i}', data_hex=bytes(base[i*beat_w:(i+1)*beat_w]).hex(),
+                burst_id=0,
+                is_first=(i == 0), is_last=(i == nbeats - 1),
+            ))
+        schedule.append(dict(
+            cycle=10 + nbeats * 5 + 5000,
+            addr=0x0, size=size, is_write=False, name='r',
+            burst_id=1,
+        ))
+        return {'version': 2, 'schedule': schedule}
+
+    if case_name == 'v2_read_loop':
+        # Beat-form write of a 4 KB pattern (128 beats of 32 B sharing
+        # burst_id=0) pipelined at 1/cycle, then loop 16 chained 4 KB
+        # reads of the same region. Each read fires only after the previous
+        # read's RESP via chain_to_prev. Routed through a v2 beat-kind
+        # router so the traffic is visible on the GUI timeline.
+        # Beat width matches the router's 16-byte width (half of DRAMSys's
+        # 32 B access_size, so the framework adapter splits 32 B wrapper
+        # responses into two 16 B router beats).
+        beat_width = 16
+        total_size = 4096
+        nbeats     = total_size // beat_width
+        nreads     = 16
+        base = bytearray((j * 13 + 17) & 0xFF for j in range(total_size))
+        base[0] = 0xa5
+        schedule = []
+        write_start = 10
+        for b in range(nbeats):
+            chunk = base[b * beat_width : (b + 1) * beat_width]
+            schedule.append(dict(
+                cycle=write_start + b,
+                addr=b * beat_width, size=beat_width, is_write=True,
+                name=f'wb{b}', data_hex=bytes(chunk).hex(), burst_id=0,
+                is_first=(b == 0), is_last=(b == nbeats - 1),
+            ))
+        for i in range(nreads):
+            schedule.append(dict(
+                cycle=(write_start + nbeats + 200) if i == 0 else 0,
+                chain_to_prev=(i > 0),
+                addr=0x0, size=total_size, is_write=False,
+                name=f'r{i}', burst_id=10 + i,
+            ))
+        return {'version': 2, 'schedule': schedule, 'with_router': True}
+
     raise ValueError(f'Unknown case: {case_name}')
 
 
@@ -109,16 +223,38 @@ class Chip(gvsoc.systree.Component):
         ).get_value()
 
         spec = build_case(case)
+        version = spec.get('version', 1)
+        with_router = spec.get('with_router', False)
 
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=1_000_000_000)
 
-        ddr = memory.dramsys.Dramsys(self, 'ddr')
+        ddr = memory.dramsys.Dramsys(self, 'ddr', version=version)
         clock.o_CLOCK(ddr.i_CLOCK())
 
-        master = StubMasterV1(self, 'master', schedule=spec['schedule'],
-                              logname='master')
+        if version == 1:
+            master = StubMasterV1(self, 'master', schedule=spec['schedule'],
+                                  logname='master')
+        else:
+            master = StubMasterV2(self, 'master', schedule=spec['schedule'],
+                                  logname='master')
         clock.o_CLOCK(master.i_CLOCK())
-        master.o_OUTPUT(ddr.i_INPUT())
+
+        if with_router:
+            # Beat-protocol router (kind='beat'), width=16 (half of the
+            # DRAMSys access size of 32 B). The framework auto-inserts an
+            # IoV2BeatAdapter between router and wrapper that splits each
+            # 32-byte wrapper response into two 16-byte router beats — and
+            # since DRAMSys delivers a 32-byte chunk every 2 cycles, the
+            # router sees one 16-byte beat per cycle on its resp traces.
+            assert version == 2, "with_router only supported on v2"
+            router_cfg = interco.router_v2.RouterConfig(
+                name='router', kind=interco.router_v2.KIND_BEAT, width=16)
+            router = interco.router_v2.Router(self, 'router', config=router_cfg)
+            clock.o_CLOCK(router.i_CLOCK())
+            master.o_OUTPUT(router.i_INPUT())
+            router.o_MAP_DEFAULT(ddr.i_INPUT(), name='ddr')
+        else:
+            master.o_OUTPUT(ddr.i_INPUT())
 
 
 class Target(gvsoc.runner.Target):

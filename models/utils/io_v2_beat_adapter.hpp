@@ -20,7 +20,10 @@
  *   - For each accepted submission, the upstream master receives exactly
  *     ceil(total_size / beat_width) resp() calls in cumulative byte order,
  *     with is_first=true on the first call, is_last=true on the last, and
- *     req->size / req->data / req->burst_id / req->status mutated per beat.
+ *     req->size / req->data / req->addr / req->burst_id / req->status mutated
+ *     per beat. addr is set to the per-beat start address (= burst_addr +
+ *     cumulative emitted bytes); see the io_v2.hpp contract note about
+ *     per-beat addr.
  *   - Per-beat ready cycle honours the slave's req->latency annotation. A
  *     sync DONE / async big resp covering M beats spreads them at
  *     now+latency, now+latency+1, … so the LAST beat lands at now+latency
@@ -59,6 +62,7 @@ private:
         uint8_t *data;
         uint64_t size;
         uint64_t offset;
+        uint64_t addr;            // per-beat addr = burst_addr + offset
         int64_t  ready_cycle;
         bool is_first;
         bool is_last;
@@ -73,6 +77,7 @@ private:
     {
         uint64_t total_size;
         uint64_t bytes_routed;
+        uint64_t burst_addr;      // snapshot of req->addr at submit time
     };
 
     static vp::IoReqStatus req_handler(vp::Block *__this, vp::IoReq *req);

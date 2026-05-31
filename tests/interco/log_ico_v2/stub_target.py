@@ -5,14 +5,16 @@
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
 import gvsoc.systree
+from gvsoc.signature import IoV2Sync
 
 
 class StubTarget(gvsoc.systree.Component):
-    """io_v2 testbench target.
+    """IoV2Sync testbench target.
 
     Behaves per a list of rules. Each rule is a dict with keys:
     addr_min, addr_max, behavior, resp_delay, retry_delay.
-    behavior in {done, done_invalid, granted, denied}.
+    behavior must be one of {done, done_invalid} — the async behaviours
+    (granted, denied) are not compatible with the IoV2Sync contract.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str,
                  rules: list | None = None, logname: str | None = None):
@@ -22,4 +24,4 @@ class StubTarget(gvsoc.systree.Component):
         self.add_property('rules', rules or [])
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
-        return gvsoc.systree.SlaveItf(self, 'input', signature='io_v2')
+        return gvsoc.systree.SlaveItf(self, 'input', signature=IoV2Sync())

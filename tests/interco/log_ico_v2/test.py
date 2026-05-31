@@ -39,8 +39,7 @@ def build_case(case_name: str) -> dict:
         # One master, four banks, 16-byte interleaving (iw=4). The master
         # issues four requests at 0x00, 0x10, 0x20, 0x30. All four should
         # hit bank 0..3 at bank-local address 0.
-        cfg = LogIcoConfig(nb_masters=1, nb_slaves=4, interleaving_width=4,
-                           remove_offset=0)
+        cfg = LogIcoConfig(nb_masters=1, nb_slaves=4, interleaving_width=4)
         return {
             'log_ico_config': cfg,
             'masters': [{'name': 'm0', 'schedule': [
@@ -58,8 +57,7 @@ def build_case(case_name: str) -> dict:
         # bank 0 local 0x10, etc. Verifies that the high-bit compaction
         # works: each bank's local address advances by one granule (16)
         # after a full sweep across banks.
-        cfg = LogIcoConfig(nb_masters=1, nb_slaves=4, interleaving_width=4,
-                           remove_offset=0)
+        cfg = LogIcoConfig(nb_masters=1, nb_slaves=4, interleaving_width=4)
         return {
             'log_ico_config': cfg,
             'masters': [{'name': 'm0', 'schedule': [
@@ -71,25 +69,11 @@ def build_case(case_name: str) -> dict:
             'targets': _ok_targets(4),
         }
 
-    if case_name == 'remove_offset':
-        # remove_offset=0x1000. A master issuing at 0x1000+0x00 should
-        # reach bank 0 at local 0, and at 0x1000+0x10 should reach bank 1.
-        cfg = LogIcoConfig(nb_masters=1, nb_slaves=4, interleaving_width=4,
-                           remove_offset=0x1000)
-        return {
-            'log_ico_config': cfg,
-            'masters': [{'name': 'm0', 'schedule': [
-                dict(cycle=10, addr=0x1000, size=4, is_write=False, name='base'),
-                dict(cycle=20, addr=0x1010, size=4, is_write=False, name='off16'),
-            ]}],
-            'targets': _ok_targets(4),
-        }
 
     if case_name == 'multi_master_no_conflict':
         # 2 masters, 2 banks, each master hits a different bank — no
         # contention. Both complete without DENIEDs.
-        cfg = LogIcoConfig(nb_masters=2, nb_slaves=2, interleaving_width=4,
-                           remove_offset=0)
+        cfg = LogIcoConfig(nb_masters=2, nb_slaves=2, interleaving_width=4)
         return {
             'log_ico_config': cfg,
             'masters': [
@@ -103,63 +87,11 @@ def build_case(case_name: str) -> dict:
             'targets': _ok_targets(2),
         }
 
-    if case_name == 'multi_master_indep_deny':
-        # 2 masters, 2 banks. Bank 0 denies (retry_delay=5), bank 1 is
-        # normal. Master 0 hits bank 0 (gets DENIED). Master 1 hits bank 1
-        # (must succeed independently, NOT be held up by bank 0's stall).
-        cfg = LogIcoConfig(nb_masters=2, nb_slaves=2, interleaving_width=4,
-                           remove_offset=0)
-        rules_deny = [dict(addr_min=0, addr_max=0xFFFF, behavior='denied',
-                           resp_delay=0, retry_delay=5)]
-        return {
-            'log_ico_config': cfg,
-            'masters': [
-                {'name': 'm0', 'schedule': [
-                    dict(cycle=10, addr=0x00, size=4, is_write=False, name='to_b0'),
-                ]},
-                {'name': 'm1', 'schedule': [
-                    dict(cycle=11, addr=0x10, size=4, is_write=False, name='to_b1'),
-                ]},
-            ],
-            'targets': [
-                {'name': 'mem0', 'rules': rules_deny},
-                {'name': 'mem1', 'rules': _mem_ok},
-            ],
-        }
-
-    if case_name == 'multi_master_async_resp':
-        # 2 masters sending requests to two banks that reply asynchronously
-        # with different delays. Validates that responses return on the
-        # correct master's input port (the InFlight must carry input_id
-        # correctly).
-        cfg = LogIcoConfig(nb_masters=2, nb_slaves=2, interleaving_width=4,
-                           remove_offset=0)
-        rules_slow = [dict(addr_min=0, addr_max=0xFFFF, behavior='granted',
-                           resp_delay=20, retry_delay=0)]
-        rules_fast = [dict(addr_min=0, addr_max=0xFFFF, behavior='granted',
-                           resp_delay=5,  retry_delay=0)]
-        return {
-            'log_ico_config': cfg,
-            'masters': [
-                {'name': 'm0', 'schedule': [
-                    dict(cycle=10, addr=0x00, size=4, is_write=False, name='m0_slow'),
-                ]},
-                {'name': 'm1', 'schedule': [
-                    dict(cycle=10, addr=0x10, size=4, is_write=False, name='m1_fast'),
-                ]},
-            ],
-            'targets': [
-                {'name': 'mem0', 'rules': rules_slow},
-                {'name': 'mem1', 'rules': rules_fast},
-            ],
-        }
-
     if case_name == 'single_bank':
         # nb_slaves=1 → slave_bits=0, bank decode collapses to bank 0 for
-        # everything, bank_offset == offset (minus remove_offset). Good edge
-        # case to catch any off-by-one in the shift.
-        cfg = LogIcoConfig(nb_masters=1, nb_slaves=1, interleaving_width=4,
-                           remove_offset=0)
+        # everything, bank_offset == addr. Good edge case to catch any
+        # off-by-one in the shift.
+        cfg = LogIcoConfig(nb_masters=1, nb_slaves=1, interleaving_width=4)
         return {
             'log_ico_config': cfg,
             'masters': [{'name': 'm0', 'schedule': [
@@ -172,8 +104,7 @@ def build_case(case_name: str) -> dict:
     if case_name == 'write_through':
         # Writes are forwarded verbatim — same addressing as reads, opcode
         # preserved.
-        cfg = LogIcoConfig(nb_masters=1, nb_slaves=2, interleaving_width=4,
-                           remove_offset=0)
+        cfg = LogIcoConfig(nb_masters=1, nb_slaves=2, interleaving_width=4)
         return {
             'log_ico_config': cfg,
             'masters': [{'name': 'm0', 'schedule': [
@@ -181,6 +112,40 @@ def build_case(case_name: str) -> dict:
                 dict(cycle=20, addr=0x10, size=4, is_write=True, name='w1'),
             ]}],
             'targets': _ok_targets(2),
+        }
+
+    if case_name == 'sync_single_master':
+        # The output is IoV2Sync and the bank answers inline. One master,
+        # one bank, two reads. Each is GRANTED on issue and RESP'd by the
+        # arbiter; the bank sees the rewritten local addresses. Exercises
+        # the no-InFlight sync forward path.
+        cfg = LogIcoConfig(nb_masters=1, nb_slaves=1, interleaving_width=4)
+        return {
+            'log_ico_config': cfg,
+            'masters': [{'name': 'm0', 'schedule': [
+                dict(cycle=10, addr=0x00, size=4, is_write=False, name='a0'),
+                dict(cycle=20, addr=0x40, size=4, is_write=False, name='a1'),
+            ]}],
+            'targets': _ok_targets(1),
+        }
+
+    if case_name == 'sync_same_bank_serialize':
+        # Two masters issue to the SAME bank on the same cycle. Round-robin
+        # admits one per cycle, so the bank must see the two REQs on
+        # distinct (consecutive) cycles, and both masters must be RESP'd.
+        # Exercises the one-access-per-bank-per-cycle limit.
+        cfg = LogIcoConfig(nb_masters=2, nb_slaves=1, interleaving_width=4)
+        return {
+            'log_ico_config': cfg,
+            'masters': [
+                {'name': 'm0', 'schedule': [
+                    dict(cycle=10, addr=0x00, size=4, is_write=False, name='m0a'),
+                ]},
+                {'name': 'm1', 'schedule': [
+                    dict(cycle=10, addr=0x00, size=4, is_write=False, name='m1a'),
+                ]},
+            ],
+            'targets': _ok_targets(1),
         }
 
     raise ValueError(f'Unknown case: {case_name}')
@@ -208,7 +173,8 @@ class Chip(gvsoc.systree.Component):
             clock.o_CLOCK(m.i_CLOCK())
             m.o_OUTPUT(xbar.i_INPUT(i))
 
-        # One bank per output
+        # One bank per output. The crossbar output is unconditionally
+        # IoV2Sync, so the stub target advertises the same signature.
         for i, t_spec in enumerate(spec['targets']):
             t = StubTarget(self, t_spec['name'], rules=t_spec['rules'],
                            logname=t_spec['name'])

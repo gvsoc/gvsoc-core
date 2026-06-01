@@ -494,10 +494,9 @@ class RiscvCommon(st.Component):
             module.gen(self)
 
         # Instruction-trace symbols are resolved lazily at runtime from the ELF
-        # binary via libdwfl. This flag pulls in the libdw code path and makes
-        # the build link libdw/libelf (see the engine CMakeLists); the 32-bit
-        # model variant excludes it at compile and link time.
-        self.add_c_flags(['-DCONFIG_ISS_USE_LIBDW=1'])
+        # binary via libdwfl, so link libdw/libelf into the ISS component. The
+        # libdw code is excluded from the 32-bit model variant.
+        self.add_libraries(['dw', 'elf'])
 
         self.add_sources([
             isa.get_source()

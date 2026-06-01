@@ -24,10 +24,10 @@
 #include <vector>
 
 // Resolve trace PC -> symbol lazily at runtime from the ELF binary via libdwfl.
-// CONFIG_ISS_USE_LIBDW is defined for every ISS build and also drives the
-// libdw/libelf link; the block is excluded for the 32-bit model variant, which
-// has no libdw available and therefore no trace symbols.
-#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+// libdw/libelf are linked in from the generator (Component.add_libraries); the
+// block is excluded for the 32-bit model variant, which has no libdw available
+// and therefore no trace symbols.
+#if !defined(__M32_MODE__)
 #include <elfutils/libdwfl.h>
 
 static Dwfl *iss_dwfl = NULL;
@@ -47,7 +47,7 @@ Trace::Trace(Iss &iss)
     this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
     iss_trace_init(&this->iss);
 
-#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+#if !defined(__M32_MODE__)
     // Register the ELF binaries; trace symbols are resolved lazily on demand.
     js::Config *binaries_config = this->iss.get_js_config()->get("**/binaries");
     if (binaries_config != NULL)
@@ -148,7 +148,7 @@ static iss_pc_info *get_pc_info(unsigned int base)
     return pc_info;
 }
 
-#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+#if !defined(__M32_MODE__)
 static iss_pc_info *add_pc_info(unsigned int base, const char *func, const char *inline_func,
     const char *file, int line, bool valid)
 {
@@ -207,7 +207,7 @@ static iss_pc_info *iss_pc_info_get(iss_addr_t addr)
         return info;
     }
 
-#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+#if !defined(__M32_MODE__)
     return iss_libdw_resolve(addr);
 #else
     return NULL;
@@ -230,7 +230,7 @@ int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_fu
 
 void iss_register_debug_elf(Iss *iss, const char *binary)
 {
-#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+#if !defined(__M32_MODE__)
     if (std::find(binaries.begin(), binaries.end(), std::string(binary)) != binaries.end())
         return;
 

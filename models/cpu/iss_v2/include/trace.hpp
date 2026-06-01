@@ -86,7 +86,7 @@ private:
 void iss_trace_save_args(Iss *iss, iss_insn_t *insn, bool save_out, TraceEntry *entry);
 void iss_trace_dump(Iss *iss, iss_insn_t *insn, iss_reg_t pc, TraceEntry *entry);
 void iss_trace_init(Iss *iss);
-void iss_register_debug_info(Iss *iss, const char *binary);
+void iss_register_debug_elf(Iss *iss, const char *binary);
 int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_func, const char **file, int *line);
 
 inline TraceEntry *Trace::detach_entry()

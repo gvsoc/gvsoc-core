@@ -18,7 +18,6 @@ from inspect import stack
 #
 
 import os
-import subprocess
 from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
@@ -35,7 +34,6 @@ from cpu.iss_v2.riscv_config import RiscvConfig
 
 binaries_info = {}
 
-binaries = {}
 
 
 class IssModule:
@@ -300,8 +298,6 @@ class RiscvCommon(st.Component):
         The index of the first PCER which is retrieved externally (default: 0).
     riscv_dbg_unit : bool, optional
         True if a riscv debug unit should be included, False otherwise (default: False).
-    debug_binaries : list, optional
-        A list of path to riscv binaries debug info which can be used to get debug symbols for the assembly trace (default: []).
     binaries : list, optional
         A list of path to riscv binaries (default: []).
     debug_handler : int, optional
@@ -322,7 +318,6 @@ class RiscvCommon(st.Component):
             misa: int|None=None,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
-            debug_binaries: list[str]=[],
             binaries: list[str]=[],
             debug_handler: int=0,
             power_models: dict[str,Any]={},
@@ -498,6 +493,12 @@ class RiscvCommon(st.Component):
         for module in self.modules.values():
             module.gen(self)
 
+        # Instruction-trace symbols are resolved lazily at runtime from the ELF
+        # binary via libdwfl. This flag pulls in the libdw code path and makes
+        # the build link libdw/libelf (see the engine CMakeLists); the 32-bit
+        # model variant excludes it at compile and link time.
+        self.add_c_flags(['-DCONFIG_ISS_USE_LIBDW=1'])
+
         self.add_sources([
             isa.get_source()
         ])
@@ -517,7 +518,6 @@ class RiscvCommon(st.Component):
             'misa': misa,
             'first_external_pcer': first_external_pcer,
             'riscv_dbg_unit': riscv_dbg_unit,
-            'debug_binaries': debug_binaries.copy(),
             'binaries': binaries.copy(),
             'debug_handler': debug_handler,
             'power_models': power_models,
@@ -552,35 +552,9 @@ class RiscvCommon(st.Component):
 
     def handle_executable(self, binary):
 
+        # Record the binary; the ISS resolves trace symbols from it lazily at
+        # runtime via libdw (no precompute step, no binary-size cap).
         self.get_property('binaries').append(binary)
-
-        global binaries
-
-        path = binary
-        debug_info_path = os.path.join(os.path.dirname(path), f'debug_binary_{os.path.basename(path)}.debugInfo')
-
-        if binaries.get(path) is None:
-            binaries[path] = True
-
-            # Only generate debug symbols for small binaries, otherwise it is too slow
-            # To allow it, the ISS should itself read the symbols.
-            if os.path.getsize(path) < 5 * 1024*1024:
-                try:
-                    result = subprocess.run(
-                        ["gen-debug-info", path, debug_info_path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-                except Exception as e:
-                    print(f'{e}')
-                    result = subprocess.CompletedProcess(args=[], returncode=1)
-
-                if result.returncode != 0:
-                    print(f'Error while generating debug symbols information for binary: {path}')
-                    print('Make sure the toolchain and the binaries are accessible')
-
-        if os.path.getsize(path) < 5 * 1024*1024:
-            self.get_property('debug_binaries').append(debug_info_path)
 
         if self.htif:
             self.handle_htif(binary)

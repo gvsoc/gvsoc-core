@@ -21,6 +21,25 @@
 
 #include <string.h>
 #include <algorithm>
+#include <vector>
+
+// Resolve trace PC -> symbol lazily at runtime from the ELF binary via libdwfl.
+// CONFIG_ISS_USE_LIBDW is defined for every ISS build and also drives the
+// libdw/libelf link; the block is excluded for the 32-bit model variant, which
+// has no libdw available and therefore no trace symbols.
+#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+#include <elfutils/libdwfl.h>
+
+static Dwfl *iss_dwfl = NULL;
+static char *iss_dwfl_debuginfo_path = NULL;
+// Fields, in declaration order: find_elf, find_debuginfo, section_address, debuginfo_path.
+static const Dwfl_Callbacks iss_dwfl_callbacks = {
+    dwfl_build_id_find_elf,
+    dwfl_standard_find_debuginfo,
+    dwfl_offline_section_address,
+    &iss_dwfl_debuginfo_path,
+};
+#endif
 
 Trace::Trace(Iss &iss)
     : iss(iss)
@@ -28,10 +47,17 @@ Trace::Trace(Iss &iss)
     this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
     iss_trace_init(&this->iss);
 
-    for (auto x : this->iss.get_js_config()->get("**/debug_binaries")->get_elems())
+#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+    // Register the ELF binaries; trace symbols are resolved lazily on demand.
+    js::Config *binaries_config = this->iss.get_js_config()->get("**/binaries");
+    if (binaries_config != NULL)
     {
-        iss_register_debug_info(&this->iss, x->get_str().c_str());
+        for (auto x : binaries_config->get_elems())
+        {
+            iss_register_debug_elf(&this->iss, x->get_str().c_str());
+        }
     }
+#endif
 
     this->first_entry = NULL;
 
@@ -98,27 +124,15 @@ public:
     char *inline_func;
     char *file;
     int line;
+    // False for a negative-cache entry: the PC was looked up but no symbol was
+    // found. Stored so a fruitless libdw lookup is not repeated on every hit.
+    bool valid;
     iss_pc_info *next;
 };
 
 static bool pc_infos_is_init = false;
 static iss_pc_info *pc_infos[PC_INFO_ARRAY_SIZE];
 static std::vector<std::string> binaries;
-
-static void add_pc_info(unsigned int base, char *func, char *inline_func, char *file, int line)
-{
-    iss_pc_info *pc_info = new iss_pc_info();
-
-    int index = base & (PC_INFO_ARRAY_SIZE - 1);
-    pc_info->next = pc_infos[index];
-    pc_infos[index] = pc_info;
-
-    pc_info->base = base;
-    pc_info->func = strdup(func);
-    pc_info->inline_func = strdup(inline_func);
-    pc_info->file = strdup(file);
-    pc_info->line = line;
-}
 
 static iss_pc_info *get_pc_info(unsigned int base)
 {
@@ -134,10 +148,76 @@ static iss_pc_info *get_pc_info(unsigned int base)
     return pc_info;
 }
 
-int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_func, const char **file, int *line)
+#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+static iss_pc_info *add_pc_info(unsigned int base, const char *func, const char *inline_func,
+    const char *file, int line, bool valid)
+{
+    iss_pc_info *pc_info = new iss_pc_info();
+
+    int index = base & (PC_INFO_ARRAY_SIZE - 1);
+    pc_info->next = pc_infos[index];
+    pc_infos[index] = pc_info;
+
+    pc_info->base = base;
+    pc_info->func = strdup(func);
+    pc_info->inline_func = strdup(inline_func);
+    pc_info->file = strdup(file);
+    pc_info->line = line;
+    pc_info->valid = valid;
+
+    return pc_info;
+}
+
+// Resolve a PC from the DWARF info of the registered binaries, then store the
+// result (positive or negative) in the pc_info hash so it acts as a cache.
+static iss_pc_info *iss_libdw_resolve(iss_addr_t addr)
+{
+    if (iss_dwfl != NULL)
+    {
+        Dwfl_Module *mod = dwfl_addrmodule(iss_dwfl, addr);
+        if (mod != NULL)
+        {
+            const char *func = dwfl_module_addrname(mod, addr);
+            const char *file = NULL;
+            int line = 0;
+            Dwfl_Line *dwline = dwfl_module_getsrc(mod, addr);
+            if (dwline != NULL)
+            {
+                file = dwfl_lineinfo(dwline, NULL, &line, NULL, NULL, NULL);
+            }
+            if (func != NULL || file != NULL)
+            {
+                // inline_func mirrors func (no separate inline-frame info).
+                return add_pc_info(addr, func ? func : "-", func ? func : "-",
+                    file ? file : "-", line, true);
+            }
+        }
+    }
+
+    return add_pc_info(addr, "-", "-", "-", 0, false);
+}
+#endif
+
+// Cache lookup with, in libdw mode, a lazy DWARF resolution on miss.
+static iss_pc_info *iss_pc_info_get(iss_addr_t addr)
 {
     iss_pc_info *info = get_pc_info(addr);
-    if (info == NULL)
+    if (info != NULL)
+    {
+        return info;
+    }
+
+#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
+    return iss_libdw_resolve(addr);
+#else
+    return NULL;
+#endif
+}
+
+int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_func, const char **file, int *line)
+{
+    iss_pc_info *info = iss_pc_info_get(addr);
+    if (info == NULL || !info->valid)
         return -1;
 
     *func = info->func;
@@ -148,33 +228,36 @@ int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_fu
     return 0;
 }
 
-void iss_register_debug_info(Iss *iss, const char *binary)
+void iss_register_debug_elf(Iss *iss, const char *binary)
 {
+#if defined(CONFIG_ISS_USE_LIBDW) && !defined(__M32_MODE__)
     if (std::find(binaries.begin(), binaries.end(), std::string(binary)) != binaries.end())
         return;
 
     binaries.push_back(std::string(binary));
 
-    FILE *file = fopen(binary, "r");
-    if (file != NULL)
+    if (iss_dwfl == NULL)
     {
-        char *line = NULL;
-        size_t len = 0;
-        ssize_t read;
-        while ((read = getline(&line, &len, file)) != -1)
+        iss_dwfl = dwfl_begin(&iss_dwfl_callbacks);
+        if (iss_dwfl == NULL)
         {
-            char *token = strtok(line, " ");
-            char *tokens[5];
-            int index = 0;
-            while (token)
-            {
-                tokens[index++] = token;
-                token = strtok(NULL, " ");
-            }
-            if (index == 5)
-                add_pc_info(strtol(tokens[0], NULL, 16), tokens[1], tokens[2], tokens[3], atoi(tokens[4]));
+            fprintf(stderr, "Unable to initialize libdw for debug info (binary: %s)\n", binary);
+            return;
         }
     }
+
+    // Report the binary at its native (link-time) addresses, as is the case for
+    // these bare-metal executables.
+    dwfl_report_begin_add(iss_dwfl);
+    Dwfl_Module *mod = dwfl_report_offline(iss_dwfl, binary, binary, -1);
+    dwfl_report_end(iss_dwfl, NULL, NULL);
+
+    if (mod == NULL)
+    {
+        fprintf(stderr, "Unable to load debug info from binary: %s (%s)\n",
+            binary, dwfl_errmsg(-1));
+    }
+#endif
 }
 
 static inline char iss_trace_get_mode(int mode)
@@ -585,8 +668,8 @@ static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *bu
     char *file = (char *)"-";
     uint32_t line = 0;
     char *inline_func = (char *)"-";
-    iss_pc_info *pc_info = get_pc_info(pc);
-    if (pc_info)
+    iss_pc_info *pc_info = iss_pc_info_get(pc);
+    if (pc_info && pc_info->valid)
     {
         name = pc_info->func;
         file = pc_info->file;

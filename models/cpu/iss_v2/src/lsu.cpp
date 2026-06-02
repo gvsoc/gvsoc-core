@@ -200,6 +200,7 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoRe
 
     vp::IoReq *req = &entry->req;
     req->prepare();
+    req->status = vp::IO_REQ_OK;
     req->set_addr(addr);
     req->set_size(size);
     req->set_opcode(opcode);

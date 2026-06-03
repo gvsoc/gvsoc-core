@@ -22,6 +22,7 @@
 
 #include <queue>
 #include <cpu/iss_v2/include/types.hpp>
+#include <cpu/iss_v2/include/stats/insn_duration.hpp>
 #include <vp/clock/clock_event.hpp>
 #include <vp/register.hpp>
 
@@ -50,6 +51,10 @@ public:
     int8_t inreg0_index;
     int8_t inreg1_index;
     int8_t inreg2_index;
+    // Cycle at which the owning block really started executing this
+    // instruction (not when it was enqueued/queued). -1 until then. Used to
+    // measure per-label execution duration up to Vu::insn_end.
+    int64_t exec_start_cycle;
 
 };
 
@@ -508,6 +513,15 @@ private:
     uint64_t writing_insns[32];
     uint64_t reading_insns[32];
     int insn_latency;
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+    // Per-label execution-duration statistics for vector instructions, dumped
+    // under the "vinsn_duration" group. A vector instruction waits in the Vu
+    // queue and in its block before really executing, so duration is measured
+    // from the block's real start (exec_start_cycle) to Vu::insn_end.
+    bool stats_enabled = false;
+    InsnDurationStats insn_durations;
+#endif
 };
 
 inline int Vu::alloc_id()

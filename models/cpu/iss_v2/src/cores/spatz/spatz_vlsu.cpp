@@ -249,6 +249,15 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             _this->pending_size == 0)
         {
             iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+            // Instruction leaves the waiting queue and its memory op is set up:
+            // real execution starts now, stamped for the per-label duration
+            // accounted at Vu::insn_end.
+            if (_this->vu.stats_enabled && pending_insn->exec_start_cycle < 0)
+            {
+                pending_insn->exec_start_cycle = _this->vu.iss.clock.get_cycles();
+            }
+#endif
             ((void (*)(VuLsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
         }
     }

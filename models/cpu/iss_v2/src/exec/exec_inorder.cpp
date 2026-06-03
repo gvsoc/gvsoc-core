@@ -314,6 +314,19 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
 
         if (iss->regfile.scoreboard_insn_check(insn)) return;
 
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+        // Open the per-label duration window once the instruction's input
+        // dependencies are ready (after the scoreboard check, which returns
+        // above while an input reg is still invalid). This excludes load-use /
+        // RAW waits: the instruction effectively starts when its inputs are
+        // ready. The icache miss already elapsed during the fetch (before this
+        // point) so it stays excluded, and the stall_cycles baseline still
+        // cancels a synchronous icache-miss stall. Opens once: the instruction's
+        // own data-access retries (is_insn_stalled) re-enter here but keep the
+        // original anchor, so that wait is counted.
+        _this->iss.timing.dur_window_open(insn, _this->stall_cycles);
+#endif
+
         iss->regfile.scoreboard_insn_start(insn);
 
         if (iss->trace.insn_trace.get_active())
@@ -393,6 +406,13 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         {
             _this->iss.timing.event_insn_latency_account(insn, insn->latency);
         }
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+        // Close the per-label duration window: exec + data-load/use wait, plus
+        // the branch/jump/div latency just queued in stall_cycles (minus the
+        // at-open fetch baseline). After the latency hook so div/mul is counted.
+        _this->iss.timing.dur_window_close(_this->stall_cycles);
+#endif
 
         _this->insn_exec_power(insn);
 

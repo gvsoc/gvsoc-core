@@ -2121,7 +2121,10 @@ static inline unsigned long int lib_flexfloat_lt(Iss *s, unsigned long int a, un
 static inline unsigned long int lib_flexfloat_ge(Iss *s, unsigned long int a, unsigned long int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
+    {
+        set_fflags(s, 1ULL << 4);
         return 0;
+    }
     FF_INIT_2(a, b, e, m)
     feclearexcept(FE_ALL_EXCEPT);
     int32_t res = (ff_lt(&ff_a, &ff_b) == 0);
@@ -2146,7 +2149,10 @@ static inline unsigned long int lib_flexfloat_le(Iss *s, unsigned long int a, un
 static inline unsigned long int lib_flexfloat_gt(Iss *s, unsigned long int a, unsigned long int b, uint8_t e, uint8_t m)
 {
     if (IsNan(a, e, m) || IsNan(b, e, m))
+    {
+        set_fflags(s, 1ULL << 4);
         return 0;
+    }
     FF_INIT_2(a, b, e, m)
     feclearexcept(FE_ALL_EXCEPT);
     int32_t res = (ff_le(&ff_a, &ff_b) == 0);

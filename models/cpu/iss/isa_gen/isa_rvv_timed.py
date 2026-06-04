@@ -458,6 +458,22 @@ class Rv32v(IsaSubset):
             Instr('vfmax.vv'      ,   Format_OPV_7  ,    '000110 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfmax.vf'      ,   Format_OPV_8 ,    '000110 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 
+            Instr('vmfeq.vv'      ,   Format_OPV_7  ,    '011000 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vmfeq.vf'      ,   Format_OPV_8 ,    '011000 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+
+            Instr('vmfne.vv'      ,   Format_OPV_7  ,    '011100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vmfne.vf'      ,   Format_OPV_8 ,    '011100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+
+            Instr('vmfle.vv'      ,   Format_OPV_7  ,    '011001 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vmfle.vf'      ,   Format_OPV_8 ,    '011001 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+
+            Instr('vmflt.vv'      ,   Format_OPV_7  ,    '011011 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
+            Instr('vmflt.vf'      ,   Format_OPV_8 ,    '011011 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+
+            Instr('vmfgt.vf'      ,   Format_OPV_8 ,    '011101 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+
+            Instr('vmfge.vf'      ,   Format_OPV_8 ,    '011111 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
+
             Instr('vfmul.vv'      ,   Format_OPV_7  ,    '100100 - ----- ----- 001 ----- 1010111', tags=['fp_op']),
             Instr('vfmul.vf'      ,   Format_OPV_8 ,    '100100 - ----- ----- 101 ----- 1010111', tags=['fp_op']),
 

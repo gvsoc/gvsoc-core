@@ -264,7 +264,7 @@ void IoV2CdcRtlBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void IoV2CdcRtlBridge::out_retry_handler(vp::Block *)
+void IoV2CdcRtlBridge::out_retry_handler(vp::Block *, vp::IoRetryChannel)
 {
     // Downstream became ready after a DENIED. Our adapter currently doesn't
     // re-issue (the downstream slave in the v2 IO ports we connect to is

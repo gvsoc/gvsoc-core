@@ -20,9 +20,9 @@
 #include "hwpe.hpp"
 #define VERBOSE
 
-#define EFFICIENT_IMPLEMNTATION 
+#define EFFICIENT_IMPLEMENTATION 
 
-#ifndef EFFICIENT_IMPLEMNTATION 
+#ifndef EFFICIENT_IMPLEMENTATION 
 int64_t Hwpe::input_load()
 {
   int64_t max_latency = 0;

@@ -26,7 +26,7 @@ The tutorial is located here: ``core/docs/developer_manual/tutorials/hwpe``
       │       ├── inc
       │       ├── src
       │       ├── CMakeLists.txt
-      │       └── simple_hwpe.py
+      │       └── hwpe.py
 
    - **/pulp**: Contains all the necessary source code for the tutorial.
    - **/pulp/pulp-open.py**: GVSoC target, similar to the chip name in the RTL context.
@@ -39,7 +39,7 @@ The tutorial is located here: ``core/docs/developer_manual/tutorials/hwpe``
    - **/pulp/simple_hwpe/inc**: Relevant includes.
    - **/pulp/simple_hwpe/src**: C++ source codes.
    - **/pulp/simple_hwpe/CMakeLists.txt**: Compilation file requirements.
-   - **/pulp/simple_hwpe/simple_hwpe.py**: Python generator to instantiate the simple_hwpe.
+   - **/pulp/simple_hwpe/hwpe.py**: Python generator to instantiate the simple_hwpe.
 
 1 - Create a new target on the top of pulp-open
 ................................................
@@ -47,21 +47,43 @@ In this section, you will create a new Hardware Target ``pulp-open-hwpe`` which 
 
 After the installation is done, setup the source files to add inline comments to help in performing the tasks.
 
+.. admonition:: Prerequisites: Python environment
+   :class: explanation
+
+   Before running any of the tutorial commands, create and activate a Python virtual environment from the GVSoC root and install the required dependencies:
+
+   .. code-block:: bash
+
+      $ cd .../gvsoc
+      $ python3 -m venv .venv
+      $ source .venv/bin/activate
+      $ pip install --upgrade pip
+      $ pip install -r requirements.txt -r core/requirements.txt -r gapy/requirements.txt
+
 .. admonition:: Task - 1.0 setup the source files
    :class: task
 
    .. code-block:: bash
 
-      $ make create_target_task1
+      $ make -C core/docs/developer_manual/tutorials/hwpe create_target_sol_task4
 
-Let's create a new gvsoc target ``pulp-open-hwpe`` at ``gvsoc/pulp/`` by copying the pulp-open target.
+   This single command both creates ``pulp-open-hwpe.py`` and populates the
+   ``pulp/pulp/chips/pulp_open_hwpe/`` folder using the up-to-date solution
+   scaffold. It replaces what would otherwise be the manual Tasks 1.1 and
+   1.2.2 below -- do **not** also run those ``cp`` commands or you will
+   overwrite the working scaffold with stale snapshots and re-introduce
+   broken dependencies (e.g. the ``L1_subsystem`` signature mismatch).
 
-.. admonition:: Task - 1.1 Create pulp-open-hwpe
-   :class: task
+Conceptually, Task 1.0 above performs what the next two sub-sections describe. They are kept here as a walkthrough of what just happened to the filesystem; you do not need to execute the commands yourself.
+
+.. admonition:: Task - 1.1 equivalent: Create pulp-open-hwpe
+   :class: explanation
+
+   Task 1.0 effectively executed the following from ``gvsoc/pulp``:
 
    .. code-block:: bash
 
-      $ cd gvsoc/pulp
+      $ cd pulp
       $ cp pulp-open.py pulp-open-hwpe.py
 
 
@@ -72,6 +94,7 @@ The new target should work like the pulp-open because it is a copy of the pulp-o
 
    .. code-block:: bash
 
+      $ cd .../gvsoc
       $ make build TARGETS=pulp-open-hwpe
       $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary examples/pulp-open/hello run
 
@@ -91,12 +114,14 @@ It is a `GAPY_TARGET`. It relies on the imports from the `pulp/chips/pulp_open` 
 
 In the next task create a dedicated folder by copying the the contents of the pulp_open to pulp_open_hwpe. Then in the later exercises we will change the contents of the pulp_open_hwpe folder.
 
-.. admonition:: Task-1.2.2 Create a replica of pulp_open_board
-   :class: task
+.. admonition:: Task-1.2.2 equivalent: Create a replica of pulp_open_board
+   :class: explanation
+
+   Task 1.0 also performed this step for you:
 
    .. code-block:: bash
 
-      $ cd gvsoc/pulp/pulp/chips
+      $ cd pulp/pulp/chips
       $ mkdir pulp_open_hwpe
       $ cp pulp_open/* pulp_open_hwpe -r
 
@@ -106,19 +131,38 @@ The next part is to change the dependencies to point to the new pulp_open_hwpe f
 .. admonition:: Task-1.2.3 Fix the dependencies for pulp-open-hwpe
    :class: task
 
+   .. note::
+      The solution scaffold installed by Task 1.0 already has these fixes applied. You can either redo this step manually for practice (compare the diff against ``gvsoc/pulp/pulp/chips/pulp_open/``) or skip ahead to Verify-1.2.3.
+
+   Two distinct kinds of changes are required to fully retarget the new chip onto ``pulp_open_hwpe``:
+
+   **(a) Python imports.** Update the ``Pulp_open_board`` entry-point in ``pulp-open-hwpe.py``:
+
    .. code-block:: python
 
       from pulp.chips.pulp_open_hwpe.pulp_open_board import Pulp_open_board
       import gvsoc.runner as gvsoc
 
-   Similiarly, the references in the following files needs to be modified. Look for the inline hints.
+   Similarly, retarget every ``from pulp.chips.pulp_open.X`` import in the following four files (search for the inline ``#### TASK`` hints):
 
    .. code-block:: text
 
        /gvsoc/pulp/pulp/chips/pulp_open_hwpe
        ├── pulp_open_board.py
        ├── pulp_open.py
+       ├── soc.py
        └── cluster.py
+
+   ``soc.py`` is easy to miss: fixing imports in the other three files alone leaves ``soc.py`` silently pulling in ``pulp_open.*`` submodules (``l2_subsystem``, ``soc_interco``, ``apb_soc_ctrl``, ``cluster.get_cluster_name``, ``udma``), so any later customization of those in ``pulp_open_hwpe`` is ignored.
+
+   **(b) Hard-coded string paths.** Several config files are referenced by string and are NOT picked up by fixing the imports above. Retarget each from ``pulp/chips/pulp_open/`` to ``pulp/chips/pulp_open_hwpe/``:
+
+   - ``pulp_open.py`` -- the ``soc_config_file``, ``cluster_config_file`` and ``padframe_config_file`` default args of ``Pulp_open.__init__``.
+   - ``soc.py`` -- the ``udma_conf_path`` literal.
+   - ``cluster.json`` -- the ``power_models_file`` (core) and ``power_models`` (L1) entries.
+
+   .. warning::
+      The ``hello`` binary used by Verify-1.2.3 runs only on the FC and never touches the cluster. It will pass even if the HWPE integration is broken (e.g. ``pulp_open_hwpe/cluster.py`` is silently bypassed because of a missing import fix). Real integration is only exercised by the Section 3 tests, which will hang with zero output if anything in this section is incomplete.
 
 After modifications, you can verify that the changes are correct by building GVSoC with the new target
 and running the hello application again by executing the following commands:
@@ -128,6 +172,7 @@ and running the hello application again by executing the following commands:
 
    .. code-block:: bash
 
+      $ cd .../gvsoc
       $ make build TARGETS=pulp-open-hwpe
       $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary examples/pulp-open/hello run
 
@@ -150,10 +195,9 @@ Let's begin the setup for this task by copying the relevant source files for pul
 
    .. code-block:: bash
 
-      $ cd gvsoc
-      $ make integrate_hwpe_task1
+      $ make -C core/docs/developer_manual/tutorials/hwpe integrate_hwpe_task1
 
-All the necessary modifications are to be done in ``gvsoc/pulp/pulp/chips/pulp_open_hwpe/cluster.json``. To include the new HWPE accelerator in the PULP system, an entry of the cluster needs to be updated in ``cluster.json``. The entry needs to be added below the ``dma`` entry as its base address comes next.
+The first set of modifications starts with ``gvsoc/pulp/pulp/chips/pulp_open_hwpe/cluster.json`` (further changes in ``cluster.py`` and ``l1_subsystem.py`` will follow in the next tasks). To include the new HWPE accelerator in the PULP system, an entry of the cluster needs to be updated in ``cluster.json``. The entry needs to be added below the ``dma`` entry as its base address comes next.
 
 .. admonition:: Task - 2.1.1 Add HWPE entry to address map
    :class: task
@@ -232,7 +276,7 @@ In the previous steps, we added hwpe to the peripheral interconnect. Now let's a
 
 Next, we go back to the cluster.py file. The L1 subsystem is instantiated as l1. Thus, we connect the l1's port named hwpe to the Hwpe's port named ``tcdm``.
 
-.. admonition:: Task - 2.1.4 Connection of Hwpe with L1 subsystem
+.. admonition:: Task - 2.1.5 Connection of Hwpe with L1 subsystem
    :class: task
 
    Connect the ``Hwpe``'s ``tcdm`` port to the ``l1``'s ``hwpe`` port
@@ -243,10 +287,10 @@ Next, we go back to the cluster.py file. The L1 subsystem is instantiated as l1.
 
 The last part of the integration is to connect the event signal ``irq`` of the Hwpe to the cores.
 
-.. admonition:: Task - 2.1.4 Connection of Hwpe with L1 subsystem
+.. admonition:: Task - 2.1.6 Connection of Hwpe irq to event_unit
    :class: task
 
-   Connect the Hwpe's ``irq`` port to the ``event_unit``'s ``hwpe_irq`` port
+   Connect the Hwpe's ``irq`` port to one of the ``event_unit``'s ``in_event_*_pe_*`` ports -- specifically the slot reserved for ``acc_1`` (the HWPE accelerator IRQ index), broadcast to every PE.
 
    .. code-block:: python
 
@@ -260,6 +304,7 @@ The last part of the integration is to connect the event signal ``irq`` of the H
 
    .. code-block:: bash
 
+      $ cd .../gvsoc
       $ make build TARGETS=pulp-open-hwpe
       $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary examples/pulp-open/hello run
 
@@ -268,7 +313,14 @@ The last part of the integration is to connect the event signal ``irq`` of the H
    :class: task
 
    Search for hwpe in the gvsoc_config.json file. What went wrong?
-   Add the simple_hwpe folder in gvsoc/pulp/pulp/CMakeLists.txt. Then rebuild the model and run the hello application as done previously.
+
+   The build succeeded but the simple_hwpe model was never compiled. Add the following line to ``pulp/pulp/CMakeLists.txt`` (e.g. right after ``add_subdirectory(ne16)``):
+
+   .. code-block:: cmake
+
+      add_subdirectory(simple_hwpe)
+
+   Without this line ``simple_hwpe.so`` is never built; ``make build`` exits 0 silently and gapy then fails at runtime because it cannot find the hwpe model. Rebuild and re-run the hello application after the fix.
 
 3 - Intrinsics of the Hwpe development
 ......................................
@@ -362,6 +414,7 @@ Below is an example of a C++ class definition for Hwpe. This class inherits from
     {
         Hwpe *_this = (Hwpe *)__this;
         _this->trace.msg("Received request (addr: 0x%x, size: 0x%x, is_write: %d, data: 0x%x\n", req->get_addr(), req->get_size(), req->get_is_write(), *(uint32_t *)(req->get_data()));
+        return vp::IO_REQ_OK;
     }
 
     extern "C" vp::Component *gv_new(vp::ComponentConf &config)
@@ -399,7 +452,7 @@ Ideally, a trace related to Hwpe configuration should appear. If not, the issue 
 
    .. code-block:: bash
 
-        $ make model_hwpe_task1
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task1
 
    Add the following line to ``hwpe.cpp`` to establish the link:
 
@@ -452,9 +505,9 @@ We introduced special and configuration registers in ``hal.h``. In ``test.c``, w
 
    .. code-block:: bash
 
-        $ make model_hwpe_task2
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task2
 
-The Task - 3.2 source files are built on top of Task - 3.2. Did you notice any additional files compared to Task - 3.2 in the ``simple_hwpe`` component?
+The Task - 3.2 source files are built on top of Task - 3.1. Did you notice any additional files compared to Task - 3.1 in the ``simple_hwpe`` component?
 
 The main difference is the addition of ``params.hpp`` and ``regconfig_manager.hpp`` in the ``inc`` folder. As the names suggest, ``params.hpp`` contains hardware-related parameters, similar to ``hal.h``. Similarly, ``regconfig_manager.hpp`` includes helper functions for register read and write operations, supporting modularity and potential future enhancements for debugging and control. Now we focus on handling the configuration requests. There are two tasks in this section.
 
@@ -509,7 +562,7 @@ Start by setting up the source for this task:
 
    .. code-block:: bash
 
-        $ make model_hwpe_task3
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task3
 
 Open ``hwpe.cpp`` file. Do you notice any difference compared to Task - 3.2?
 
@@ -578,7 +631,7 @@ Start by setting up the source for this task:
 
    .. code-block:: bash
 
-        $ make model_hwpe_task4
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task4
 
 
 Open ``hwpe_fsm.cpp`` file. Do you notice any difference compared to Task - 3.3?
@@ -617,7 +670,7 @@ What prints do you see from the trace? Does the prints looks like the ones below
 
    Can you guess what just happened? The FSM is stuck in an infinite loop. Why is this the case?
 
-   Hint: Check the ``hwpe_fsm.cpp`` file. The exit condition ``input.iteration == iteration.count`` is never met for the ``LOAD_INPUT`` state. Uncomment the trace for ``iteration`` and ``count`` in the FSM. Build the GVSoC model and run the application. You will observe ``iteration=-1`` and ``count=0``.
+   Hint: Check the ``hwpe_fsm.cpp`` file. The exit condition ``input.iteration == input.count`` is never met for the ``LOAD_INPUT`` state. Uncomment the trace for ``iteration`` and ``count`` in the FSM. Build the GVSoC model and run the application. You will observe ``iteration=-1`` and ``count=0``.
 
 This brings us to the next task. Initialize the values correctly. If you remember in Section 3.3, we discussed about the ``clear()`` function that we will implement in later tasks. Now is the time!
 
@@ -688,7 +741,7 @@ Start the source setup by running:
 
    .. code-block:: bash
 
-        $ make model_hwpe_task5
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task5
 
 
 .. admonition:: Task - 3.5.2 Complete the weight load operation
@@ -717,10 +770,10 @@ Start the source setup by running:
 
    .. code-block:: bash
 
-        $ make model_hwpe_task6
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task6
 
 
-We have integrated the compute part from ``neureka/inc/binconv`` and buffers from ``neureka/inc/buffer``. You can find the instantiation of these modules in ``hwpe.hpp`` and the includes in ``CMakeLists.txt``.
+We have integrated the compute part from ``simple_hwpe/inc/binconv`` and buffers from ``simple_hwpe/inc/buffer``. You can find the instantiation of these modules in ``hwpe.hpp`` and the includes in ``CMakeLists.txt``.
 Let's see how to utilize the given datapath.
 
 The first task is to write data from the input streamer to the input buffer.
@@ -783,10 +836,10 @@ Start the source setup by running:
 
    .. code-block:: bash
 
-        $ make model_hwpe_task7
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task7
 
 
-Build the model and run the ``task4`` application. You will notice that both ``LOAD_INPUT`` and ``COMPUTE`` are finished with a latency of 4 instead of 1.
+Build the model and run the ``task4`` application. You will notice that both ``LOAD_INPUT`` and ``LOAD_WEIGHT`` are finished with a latency of 4 instead of 1.
 
 .. admonition:: Task - 3.7.1 Fix LOAD_INPUT latency issue
    :class: task
@@ -818,7 +871,7 @@ Use the same application ``task4`` located at ``core/docs/developer_manual/tutor
 
    .. code-block:: bash
 
-        $ make model_hwpe_task8
+        $ make -C core/docs/developer_manual/tutorials/hwpe model_hwpe_task8
         $ make build TARGETS=pulp-open-hwpe
         $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task8/test run --trace=hwpe
 
@@ -829,7 +882,7 @@ To resolve this issue, we should use the ``irq`` port connected to the event uni
 .. admonition:: Task - 3.8.2 Fix FsmEndHandler
    :class: task
 
-   Open ``hwpe_fsm.cpp`` and in ``FsmEndHandler``, uncomment the line ``irq.sync(true)``.
+   Open ``hwpe_fsm.cpp`` and in ``FsmEndHandler``, uncomment the line ``_this->irq.sync(true);``.
 
 
 Use the ``task8`` application located at ``core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task8/test``.
@@ -859,3 +912,14 @@ If implemented correctly, the output trace should resemble the following:
 In this trace, note the successful completion of various states and operations, culminating in the ``Received request`` indicating the end of accelerator execution.
 
 This setup ensures proper termination handling and synchronization using the irq port.
+
+4 - Hooking the tutorial into CI
+.................................
+
+If you author a new tutorial under ``core/docs/developer_manual/tutorials/`` and want it covered by the GVSoC regression, follow the layout used by this HWPE tutorial as a reference. Three files in ``core/docs/developer_manual/tutorials/hwpe/`` form the CI hookup:
+
+- ``run_tutorial_ci.sh`` -- the end-to-end driver. It calls the ``*_sol*`` make targets in order, builds GVSoC, runs each task's binary with ``--trace=hwpe`` and dumps the output under ``traces/``.
+- ``test_traces.py`` -- a small comparator that checks each captured trace against the expected reference for that task, returning a non-zero exit status on mismatch.
+- ``testset.cfg`` -- the entry point picked up by ``gvtest``. It registers a single test (``hwpe_tutorial``) whose command ``cd``s to the GVSoC root and invokes ``run_tutorial_ci.sh``.
+
+With those three files in place, the higher-level ``gvsoc-test`` runner discovers the ``testset.cfg`` automatically; no extra registration is required. To wire your new tutorial in, copy the same three-file pattern next to the tutorial sources and adapt the task names, binary paths and expected traces.

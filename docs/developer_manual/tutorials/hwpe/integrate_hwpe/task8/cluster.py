@@ -73,6 +73,7 @@ class Cluster(st.Component):
         #
 
         self.add_properties(self.load_property_file(config_file))
+        self.conf = self
 
         nb_pe               = self.get_property('nb_pe', int)
         cluster_size        = self.get_property('mapping/size', int)

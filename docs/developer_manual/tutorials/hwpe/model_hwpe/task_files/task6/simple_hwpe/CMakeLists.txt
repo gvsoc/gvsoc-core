@@ -29,8 +29,8 @@ vp_model(NAME pulp.simple_hwpe.hwpe
     SOURCES ${HWPE_SRCS}
     )
 set(HWPE_INCS
-"../neureka/inc/binconv"
-"../neureka/inc/buffer"
+"inc/binconv"
+"inc/buffer"
 "inc"
 )
 

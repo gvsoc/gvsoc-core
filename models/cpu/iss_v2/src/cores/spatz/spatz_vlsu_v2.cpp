@@ -238,7 +238,7 @@ void VuLsu::handle_insn_store(VuLsu *_this, iss_insn_t *insn)
 // support is not implemented yet, so any retry firing means something
 // upstream returned DENIED, which itself shouldn't happen with the current
 // sync-only assumption — fatal as a safety net.
-void VuLsu::port_retry_muxed(vp::Block *__this, int id)
+void VuLsu::port_retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)
 {
     VuLsu *_this = (VuLsu *)__this;
     _this->trace.fatal("Unimplemented io_v2 retry on VLSU port %d\n", id);

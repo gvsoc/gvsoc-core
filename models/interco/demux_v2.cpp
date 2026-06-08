@@ -49,7 +49,7 @@ public:
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
-    static void            output_retry(vp::Block *__this, int id);
+    static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
 
     // Pulse the per-instance VCD traces (addr / size / is_write) for one
     // cycle, with a sub-cycle delay spread so multiple accesses in the same
@@ -154,7 +154,7 @@ void Demux::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
 }
 
 
-void Demux::output_retry(vp::Block *__this, int id)
+void Demux::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
 {
     Demux *_this = (Demux *)__this;
     if (_this->denied_output == id)

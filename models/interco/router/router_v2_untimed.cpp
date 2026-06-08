@@ -89,7 +89,7 @@ public:
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
-    static void retry_muxed(vp::Block *__this, int id);
+    static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
 
     // Mapping + forward used by handle_command for proxy mem_read/mem_write.
     // On IO_REQ_GRANTED, installs an InFlight whose `proxy_waiter` is the
@@ -278,7 +278,7 @@ void RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
     }
 }
 
-void RouterUntimed::retry_muxed(vp::Block *__this, int /*id*/)
+void RouterUntimed::retry_muxed(vp::Block *__this, int /*id*/, vp::IoRetryChannel)
 {
     RouterUntimed *_this = (RouterUntimed *)__this;
     // Broadcast to every input. Masters with nothing held just ignore it.

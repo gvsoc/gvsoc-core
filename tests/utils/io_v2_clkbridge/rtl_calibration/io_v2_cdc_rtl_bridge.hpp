@@ -52,7 +52,7 @@ private:
     // v2 IO callbacks
     static vp::IoReqStatus in_req_handler(vp::Block *__this, vp::IoReq *req);
     static void            out_resp_handler(vp::Block *__this, vp::IoReq *req);
-    static void            out_retry_handler(vp::Block *__this);
+    static void            out_retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void            step_handler(vp::Block *_this, vp::TimeEvent *event);
 
     void marshal_req_into_exchange(vp::IoReq *req);

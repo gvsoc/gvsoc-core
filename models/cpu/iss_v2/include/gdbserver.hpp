@@ -70,7 +70,7 @@ public:
     static void handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event);
     static void data_response(vp::Block *__this, vp::IoReq *req);
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
-    static void data_retry(vp::Block *__this) {}
+    static void data_retry(vp::Block *__this, vp::IoRetryChannel) {}
 #endif
 
     void breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc);

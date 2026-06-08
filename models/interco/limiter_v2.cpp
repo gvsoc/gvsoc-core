@@ -59,7 +59,7 @@ public:
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static void            output_resp(vp::Block *__this, vp::IoReq *req);
-    static void            output_retry(vp::Block *__this);
+    static void            output_retry(vp::Block *__this, vp::IoRetryChannel);
     static void            event_handler(vp::Block *__this, vp::ClockEvent *event);
 
     // Internal helpers.
@@ -308,7 +308,7 @@ void Limiter::output_resp(vp::Block *__this, vp::IoReq *sub)
 }
 
 
-void Limiter::output_retry(vp::Block *__this)
+void Limiter::output_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     Limiter *_this = (Limiter *)__this;
 

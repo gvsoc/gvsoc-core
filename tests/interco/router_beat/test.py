@@ -351,6 +351,30 @@ def build_case(case: str):
             nb_masters=2,
         )
 
+    if case == 'rw_channel_stall_independent':
+        # Per-channel back-pressure. A write to one output is denied and stays
+        # stalled for a long retry_delay; a read to the SAME output, arriving
+        # a few cycles later (after the write channel is already stalled), must
+        # still complete promptly. The target serves reads (offset < 0x200)
+        # inline but denies the write (offset >= 0x200) once with a 20-cycle
+        # retry. With per-channel stall the read channel is independent of the
+        # stalled write channel; with a per-output stall the read would be
+        # blocked behind the write until its retry fires.
+        rules_t0 = [
+            rule(addr_min=0x000, addr_max=0x1ff, behavior='done'),
+            rule(addr_min=0x200, addr_max=0xffff, behavior='deny_then_done',
+                 deny_count=1, retry_delay=20),
+        ]
+        return dict(
+            config=beat_cfg(max_input_pending_size=16),
+            schedule_a=[burst(cycle=14, addr=t0_base + 0x100, size=4, name='R',
+                              is_write=False)],
+            schedule_b=[burst(cycle=10, addr=t0_base + 0x200, size=4, name='W',
+                              is_write=True)],
+            targets=[('t0', t0_base, window, rules_t0)],
+            nb_masters=2,
+        )
+
     if case == 'cascade4_asymmetric_read':
         # Four KIND_BEAT routers cascaded master -> R1 -> R2 -> R3 -> R4 -> target.
         # Master submits a SINGLE read req (nb_beats=1) with size much larger

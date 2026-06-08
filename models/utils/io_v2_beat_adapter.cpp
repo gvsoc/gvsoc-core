@@ -80,10 +80,11 @@ void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void IoV2BeatAdapter::retry_handler(vp::Block *__this)
+void IoV2BeatAdapter::retry_handler(vp::Block *__this, vp::IoRetryChannel channel)
 {
     auto *self = static_cast<IoV2BeatAdapter *>(__this);
-    self->in.retry();
+    // Transparent pass-through: forward the downstream channel upstream.
+    self->in.retry(channel);
 }
 
 

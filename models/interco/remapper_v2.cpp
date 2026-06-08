@@ -41,7 +41,7 @@ public:
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static void            output_resp(vp::Block *__this, vp::IoReq *req);
-    static void            output_retry(vp::Block *__this);
+    static void            output_retry(vp::Block *__this, vp::IoRetryChannel);
 
     vp::Trace trace;
 
@@ -127,7 +127,7 @@ void Remapper::output_resp(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void Remapper::output_retry(vp::Block *__this)
+void Remapper::output_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     Remapper *_this = (Remapper *)__this;
     if (_this->input_needs_retry)

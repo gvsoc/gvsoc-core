@@ -97,7 +97,7 @@ public:
 private:
     static vp::IoReqStatus input_req   (vp::Block *__this, vp::IoReq *req, int id);
     static void            output_resp (vp::Block *__this, vp::IoReq *req, int id);
-    static void            output_retry(vp::Block *__this, int id);
+    static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
     static void            fsm_handler (vp::Block *__this, vp::ClockEvent *event);
 
     int       decode_bank   (uint64_t offset) const;
@@ -324,7 +324,7 @@ void LogIco::output_resp(vp::Block *__this, vp::IoReq * /*req*/, int id)
                        "(the synchronous sub-protocol forbids it)\n", id);
 }
 
-void LogIco::output_retry(vp::Block *__this, int id)
+void LogIco::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
 {
     LogIco *_this = (LogIco *)__this;
     _this->trace.fatal("Unexpected retry() from IoV2Sync bank %d "

@@ -115,7 +115,7 @@ public:
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
-    static void retry_muxed(vp::Block *__this, int id);
+    static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
 
     // Proxy mem_read / mem_write dispatch (skips bandwidth watermarks).
     vp::IoReqStatus dispatch_proxy_req(vp::IoReq *req,
@@ -439,7 +439,7 @@ void RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
     }
 }
 
-void RouterBandwidth::retry_muxed(vp::Block *__this, int id)
+void RouterBandwidth::retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)
 {
     RouterBandwidth *_this = (RouterBandwidth *)__this;
     _this->entries[id]->stalled = false;

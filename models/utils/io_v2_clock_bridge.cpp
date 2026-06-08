@@ -167,14 +167,15 @@ void IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void IoV2ClockBridge::out_retry_handler(vp::Block *__this)
+void IoV2ClockBridge::out_retry_handler(vp::Block *__this, vp::IoRetryChannel channel)
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(__this);
 
     if (!self->parametric)
     {
         self->master_engine->sync();
-        self->in.retry();
+        // Transparent bridge: forward the downstream channel upstream.
+        self->in.retry(channel);
         return;
     }
     // Downstream became ready after DENIED β€” unused for sync-DONE slaves.

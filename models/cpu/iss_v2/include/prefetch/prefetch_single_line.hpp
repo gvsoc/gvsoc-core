@@ -43,7 +43,7 @@ public:
 
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     // io_v2 retry callback (no-op: the fetch path never gets DENIED in this model).
-    static void fetch_retry(vp::Block *__this) {}
+    static void fetch_retry(vp::Block *__this, vp::IoRetryChannel) {}
 
     // Refill interface (io_v2 form: retry + resp set at construction).
     vp::IoMaster fetch_itf{&PrefetchSingleLine::fetch_retry, &PrefetchSingleLine::fetch_response};

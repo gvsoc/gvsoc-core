@@ -66,7 +66,7 @@ private:
     // `this->parametric` to the fast or modeled path.
     static vp::IoReqStatus in_req_handler(vp::Block *__this, vp::IoReq *req);
     static void            out_resp_handler(vp::Block *__this, vp::IoReq *req);
-    static void            out_retry_handler(vp::Block *__this);
+    static void            out_retry_handler(vp::Block *__this, vp::IoRetryChannel);
 
     // Parametric-path stage handlers
     static void fwd_src_done_handler(vp::Block *_this, vp::ClockEvent *ev);

@@ -79,7 +79,7 @@ public:
 private:
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
     static void output_resp(vp::Block *__this, vp::IoReq *req);
-    static void output_retry(vp::Block *__this);
+    static void output_retry(vp::Block *__this, vp::IoRetryChannel);
 
     bool load_elf(const char *file, uint64_t *entry);
     bool load_elf32(unsigned char *file, uint64_t *entry);
@@ -339,7 +339,7 @@ void Loader::output_resp(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void Loader::output_retry(vp::Block *__this)
+void Loader::output_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     Loader *_this = (Loader *)__this;
     if (_this->chunk_in_flight)

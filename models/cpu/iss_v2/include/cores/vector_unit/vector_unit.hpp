@@ -155,7 +155,7 @@ private:
 
     // io_v2 master callbacks — pure ready/valid signal (no request) on retry,
     // and response notification on resp.
-    static void port_retry_muxed(vp::Block *__this, int id);
+    static void port_retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
     static void port_resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
 
     // Number of instruction that can be enqueued at the same time

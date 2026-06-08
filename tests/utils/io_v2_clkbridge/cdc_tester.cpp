@@ -58,7 +58,7 @@ private:
     };
 
     static void out_resp(vp::Block *__this, vp::IoReq *req);
-    static void out_retry(vp::Block *__this);
+    static void out_retry(vp::Block *__this, vp::IoRetryChannel);
     static void done_in_sync(vp::Block *__this, bool value);
     static void step_handler(vp::Block *__this, vp::ClockEvent *event);
     static void timeout_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -367,7 +367,7 @@ void CDCTester::out_resp(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void CDCTester::out_retry(vp::Block *__this)
+void CDCTester::out_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     CDCTester *_this = (CDCTester *)__this;
     if (_this->retry_pending)

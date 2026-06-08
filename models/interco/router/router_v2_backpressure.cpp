@@ -118,7 +118,7 @@ private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     // Master callbacks (muxed by output / mapping id).
     static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
-    static void retry_muxed(vp::Block *__this, int id);
+    static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
     // Delayed-forward handler. One event per input port; the InputPort* is stashed in
     // event->get_args()[0].
     static void send_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -537,7 +537,7 @@ void RouterBackpressure::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*
     }
 }
 
-void RouterBackpressure::retry_muxed(vp::Block *__this, int id)
+void RouterBackpressure::retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)
 {
     RouterBackpressure *_this = (RouterBackpressure *)__this;
 

@@ -43,7 +43,7 @@ public:
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
-    static void            output_retry(vp::Block *__this, int id);
+    static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
 
     static constexpr int ID_READ  = 0;
     static constexpr int ID_WRITE = 1;
@@ -120,7 +120,7 @@ void RwSplitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
 }
 
 
-void RwSplitter::output_retry(vp::Block *__this, int id)
+void RwSplitter::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
 {
     RwSplitter *_this = (RwSplitter *)__this;
     if (_this->denied_output == id)

@@ -77,7 +77,7 @@ private:
     // io_v2 callbacks
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static void refill_resp(vp::Block *__this, vp::IoReq *req);
-    static void refill_retry(vp::Block *__this);
+    static void refill_retry(vp::Block *__this, vp::IoRetryChannel);
 
     vp::IoReqStatus handle_req(vp::IoReq *req);
     void check_state();
@@ -298,7 +298,7 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void Cache::refill_retry(vp::Block *__this)
+void Cache::refill_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     Cache *_this = (Cache *)__this;
 

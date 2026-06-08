@@ -68,7 +68,7 @@ private:
 
     static vp::IoReqStatus retry_unused(vp::Block *) { return vp::IO_REQ_DONE; }  // unused
     static void resp_handler(vp::Block *__this, vp::IoReq *req);
-    static void retry_handler(vp::Block *__this);
+    static void retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void issue_handler(vp::Block *__this, vp::ClockEvent *event);
     static void chain_handler(vp::Block *__this, vp::ClockEvent *event);
     static void quit_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -385,7 +385,7 @@ void StubMasterV2::resp_handler(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void StubMasterV2::retry_handler(vp::Block *__this)
+void StubMasterV2::retry_handler(vp::Block *__this, vp::IoRetryChannel)
 {
     StubMasterV2 *_this = (StubMasterV2 *)__this;
     int64_t now = _this->clock.get_cycles();

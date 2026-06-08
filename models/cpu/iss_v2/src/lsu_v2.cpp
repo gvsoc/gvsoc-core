@@ -89,7 +89,7 @@ bool LsuV2::fence()
     return true;
 }
 
-void LsuV2::data_retry(vp::Block *__this)
+void LsuV2::data_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     // A previously-denied request may now be re-sent. The core stall
     // driven by io_req_denied clears once this flag goes false; the core

@@ -82,7 +82,7 @@ private:
 
     static vp::IoReqStatus req_handler(vp::Block *__this, vp::IoReq *req);
     static void            resp_handler(vp::Block *__this, vp::IoReq *req);
-    static void            retry_handler(vp::Block *__this);
+    static void            retry_handler(vp::Block *__this, vp::IoRetryChannel channel);
     static void            fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
     void schedule_chunk(vp::IoReq *req, uint8_t *data, uint64_t size,

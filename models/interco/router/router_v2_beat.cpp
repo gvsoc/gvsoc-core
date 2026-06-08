@@ -104,15 +104,18 @@ public:
     // Input currently holding this output for a burst, per channel; nullptr when
     // the channel is free. With shared_rw_channel=true only [0] is used.
     InputPort *elected_input[NB_CHANNELS] = {nullptr, nullptr};
-    // Downstream returned DENIED for the most recent forward; waiting for retry().
-    // Stall is per-output (single downstream IoMaster), not per-channel.
-    bool stalled = false;
-    // Input that owns the single beat denied on this output while stalled. The
-    // denied beat is that input's pending.front(); on retry() we re-issue it
-    // synchronously (see retry_muxed). Only one beat can be stalled per output
-    // because the FSM skips a stalled output, so this never aliases. Null when
-    // the stall was caused by the proxy path instead of a FIFO beat.
-    InputPort *stalled_input = nullptr;
+    // Downstream returned DENIED for the most recent forward on a channel;
+    // waiting for retry(). Stall is per (output, channel) so a back-pressured
+    // write does not block reads to the same output (and vice versa). With
+    // shared_rw_channel only [0] is ever used.
+    bool stalled[NB_CHANNELS] = {false, false};
+    // Input that owns the single beat denied on this (output, channel) while
+    // stalled. The denied beat is that input's pending.front(); on retry() we
+    // re-issue it synchronously (see retry_muxed). At most one beat is stalled
+    // per (output, channel): the FSM skips a stalled channel, and one input's
+    // in-order FIFO front is a single beat (one direction), so this never
+    // aliases. Null when the stall came from the proxy path, not a FIFO beat.
+    InputPort *stalled_input[NB_CHANNELS] = {nullptr, nullptr};
     // Per-mapping VCD traces split into request and response sub-trees.
     // req/* logs every outgoing forward — read setup reqs and per-beat writes.
     // resp/* logs every read beat returned upstream (writes get no per-resp
@@ -182,7 +185,7 @@ public:
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     static void resp_muxed(vp::Block *__this, vp::IoReq *req, int port);
-    static void retry_muxed(vp::Block *__this, int port);
+    static void retry_muxed(vp::Block *__this, int port, vp::IoRetryChannel channel);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
     // Proxy mem_read / mem_write dispatch. Forwards a single request directly
@@ -212,6 +215,16 @@ private:
     int channel_of(bool is_write) const
     {
         return this->cfg.shared_rw_channel ? 0 : (is_write ? 1 : 0);
+    }
+    // Channel indices a retry on `channel` should re-issue: ANY -> both;
+    // READ/WRITE -> the matching index, collapsed to 0 when shared_rw_channel.
+    // Fills `out` (capacity NB_CHANNELS) and returns the count.
+    int channels_for(vp::IoRetryChannel channel, int *out) const
+    {
+        if (this->cfg.shared_rw_channel) { out[0] = 0; return 1; }
+        if (channel == vp::IO_RETRY_READ)  { out[0] = 0; return 1; }
+        if (channel == vp::IO_RETRY_WRITE) { out[0] = 1; return 1; }
+        out[0] = 0; out[1] = 1; return 2;  // IO_RETRY_ANY
     }
     void wake_denied_masters();
 
@@ -676,7 +689,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         OutputPort *out = _this->entries[slot.output_id];
         int ch = slot.channel;
 
-        if (out->stalled) continue;
+        if (out->stalled[ch]) continue;
         if (out->elected_input[ch] != nullptr && out->elected_input[ch] != in) continue;
         if (output_used[slot.output_id][ch]) continue;
 
@@ -699,8 +712,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
         else // IO_REQ_DENIED
         {
-            out->stalled = true;
-            out->stalled_input = in;
+            out->stalled[ch] = true;
+            out->stalled_input[ch] = in;
         }
     }
 
@@ -818,34 +831,44 @@ void RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port)
     }
 }
 
-void RouterBeat::retry_muxed(vp::Block *__this, int port)
+void RouterBeat::retry_muxed(vp::Block *__this, int port, vp::IoRetryChannel channel)
 {
     RouterBeat *_this = (RouterBeat *)__this;
     OutputPort *self = _this->entries[port];
 
-    self->stalled = false;
     _this->trace.msg(vp::Trace::LEVEL_TRACE,
-        "Output unstalled by downstream retry (output: %d)\n", self->id);
+        "Output unstalled by downstream retry (output: %d, channel: %d)\n",
+        self->id, (int)channel);
 
-    // io_v2 requires retry() to be serviced synchronously: re-issue the beat
-    // that was denied on this output *now*, in the same call, not on a later
+    // io_v2 requires retry() to be serviced synchronously: re-issue the beat(s)
+    // that were denied on this output *now*, in the same call, not on a later
     // FSM tick. Some downstream slaves (e.g. log_ico_v2) only keep their
     // inline-forward window open for the duration of this retry() call, so
-    // deferring the re-issue would deadlock. Only one beat can be stalled per
-    // output (the FSM skips a stalled output), so no re-arbitration is needed.
-    if (self->stalled_input != nullptr)
+    // deferring the re-issue would deadlock.
+    //
+    // The retry names a channel (READ/WRITE/ANY); we re-issue only the stalled
+    // channels it covers. At most one beat is stalled per (output, channel) and
+    // it is exactly that channel's owner input front beat, so no re-arbitration
+    // is needed — the rest of the queue resumes on the next FSM tick.
+    int chans[NB_CHANNELS];
+    int nb = _this->channels_for(channel, chans);
+    for (int k = 0; k < nb; k++)
     {
-        InputPort *in = self->stalled_input;
-        self->stalled_input = nullptr;
+        int c = chans[k];
+        if (!self->stalled[c]) continue;
+        self->stalled[c] = false;
+        InputPort *in = self->stalled_input[c];
+        if (in == nullptr) continue;   // proxy-owned stall — handled below
+        self->stalled_input[c] = nullptr;
         // Copy the head: forward_beat pops the front on success.
         InputPort::PendingBeat head = in->pending.front();
         vp::IoReqStatus st = _this->forward_beat(in, self, head.slot_idx, head.req);
         if (st == vp::IO_REQ_DENIED)
         {
             // Slave filled up again between retry() and our re-send; stay
-            // stalled and wait for the next retry().
-            self->stalled = true;
-            self->stalled_input = in;
+            // stalled on this channel and wait for the next retry().
+            self->stalled[c] = true;
+            self->stalled_input[c] = in;
         }
         else
         {
@@ -892,7 +915,8 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     }
 
     OutputPort *out = this->entries[mapping->id];
-    if (out->stalled)
+    int channel = this->channel_of(req->get_is_write());
+    if (out->stalled[channel])
     {
         return vp::IO_REQ_DENIED;
     }
@@ -907,7 +931,7 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     BurstEntry &slot = this->burst_table[slot_idx];
     slot.input = nullptr;
     slot.output_id = (int)mapping->id;
-    slot.channel = this->channel_of(req->get_is_write());
+    slot.channel = channel;
     slot.original_burst_id = req->burst_id;
     slot.proxy_waiter = waiter;
     out->elected_input[slot.channel] = nullptr;  // proxy bursts don't lock the channel
@@ -948,7 +972,9 @@ vp::IoReqStatus RouterBeat::dispatch_proxy_req(vp::IoReq *req,
     req->is_first = saved_first;
     req->is_last = saved_last;
     req->set_addr(original_addr);
-    out->stalled = true;
+    // Proxy-owned stall: leave stalled_input[channel] null so retry_muxed
+    // wakes the proxy waiter instead of re-issuing a FIFO beat.
+    out->stalled[channel] = true;
     return st;
 }
 

@@ -48,7 +48,7 @@ public:
 
 private:
     void start_transfer() override;
-    static void retry_meth(vp::Block *__this);
+    static void retry_meth(vp::Block *__this, vp::IoRetryChannel);
     static void response(vp::Block *__this, vp::IoReq *req);
     static void control_sync(vp::Block *__this, TrafficGeneratorConfig *config);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -140,7 +140,7 @@ void GeneratorV2::start_transfer()
     this->fsm_event.enqueue();
 }
 
-void GeneratorV2::retry_meth(vp::Block *__this)
+void GeneratorV2::retry_meth(vp::Block *__this, vp::IoRetryChannel)
 {
     GeneratorV2 *_this = (GeneratorV2 *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received retry\n");

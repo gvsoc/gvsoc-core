@@ -23,6 +23,13 @@
 //      forwarded inline to its bank instead of being denied -- so the
 //      master's synchronous retry handler just re-issues and the
 //      crossbar serves it within the same tick.
+//
+//      This relies on the io_v2 synchronous-retry constraint: a master
+//      MUST re-issue inside its retry() callback (same cycle), not defer
+//      it. The in_election window is open only for the duration of the
+//      retry() call here; a master that re-sends a cycle later misses it
+//      and live-locks. See vp/itf/io_v2.hpp (IoSlave::retry) and
+//      interfaces/io_v2.rst.
 //   3. The bank is IoV2Sync and answers DONE inline, so input_req
 //      returns DONE to the re-issuing master. By the time retry()
 //      returns to the FSM the bank has already been hit this cycle.

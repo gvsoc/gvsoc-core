@@ -107,6 +107,12 @@ public:
     // Downstream returned DENIED for the most recent forward; waiting for retry().
     // Stall is per-output (single downstream IoMaster), not per-channel.
     bool stalled = false;
+    // Input that owns the single beat denied on this output while stalled. The
+    // denied beat is that input's pending.front(); on retry() we re-issue it
+    // synchronously (see retry_muxed). Only one beat can be stalled per output
+    // because the FSM skips a stalled output, so this never aliases. Null when
+    // the stall was caused by the proxy path instead of a FIFO beat.
+    InputPort *stalled_input = nullptr;
     // Per-mapping VCD traces split into request and response sub-trees.
     // req/* logs every outgoing forward — read setup reqs and per-beat writes.
     // resp/* logs every read beat returned upstream (writes get no per-resp
@@ -193,6 +199,14 @@ private:
     std::mutex proxy_retry_mu;
 
     void schedule_fsm();
+    // Forward one committed beat (front of `in`'s FIFO, already assigned to
+    // `out`/`slot_idx`) to its output: translate addr, remap burst_id, snapshot
+    // is_last, and submit. On GRANTED, pop the beat and account it; on DENIED,
+    // fully roll the beat back so it stays re-issuable at the FIFO head. The
+    // caller owns the stall/output_used/wake bookkeeping. Shared by the FSM
+    // arbitration sweep and the synchronous retry path.
+    vp::IoReqStatus forward_beat(InputPort *in, OutputPort *out, int slot_idx,
+                                 vp::IoReq *beat);
     int alloc_burst_slot();
     void free_burst_slot(int slot_idx);
     int channel_of(bool is_write) const
@@ -435,6 +449,57 @@ void RouterBeat::wake_denied_masters()
     }
 }
 
+vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
+                                         int slot_idx, vp::IoReq *beat)
+{
+    BurstEntry &slot = this->burst_table[slot_idx];
+
+    // Translate addr, remap burst_id to slot index. We capture originals only
+    // for the rollback-on-DENIED path; on accepted forward the response side
+    // restores burst_id from slot.original_burst_id.
+    uint64_t original_addr = beat->get_addr();
+    int64_t original_burst_id = beat->burst_id;
+    out->log_access(original_addr, beat->get_size(), beat->get_is_write(),
+                    beat->is_first, beat->is_last);
+    beat->set_addr(original_addr - out->remove_offset + out->add_offset);
+    beat->burst_id = slot_idx;
+
+    // Snapshot the master's is_last so the resp handler can detect burst
+    // completion. The downstream (or auto-inserted IoV2BeatAdapter) is free to
+    // overwrite req->is_last with a per-response-beat value, so we cannot rely
+    // on reading it back from the request later.
+    slot.pending_master_is_last.push_back(beat->is_last);
+
+    vp::IoReqStatus st = out->bus.req(beat);
+    // An IoV2Beat-side master never surfaces IO_REQ_DONE: an auto-inserted
+    // IoV2BeatAdapter converts inline DONE into a scheduled beat-callback
+    // stream, and a directly-bound IoV2Beat slave is required to respond
+    // asynchronously per beat. Assert defensively in case the contract is
+    // violated at runtime.
+    vp_assert(st != vp::IO_REQ_DONE, &this->trace,
+        "IoV2Beat master must not surface IO_REQ_DONE\n");
+
+    if (st == vp::IO_REQ_GRANTED)
+    {
+        in->pending.pop_front();
+        // Mirror the directional accounting from req_muxed.
+        in->pending_bytes -= beat->get_is_write() ? beat->get_size() : 0;
+        if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
+        // Slot stays alive until the resp handler fires for the burst's is_last.
+    }
+    else // IO_REQ_DENIED
+    {
+        // Roll back the forward: beat stays at head of FIFO with original
+        // addr/burst_id so it can be re-issued verbatim. The caller stalls the
+        // output until retry().
+        beat->set_addr(original_addr);
+        beat->burst_id = original_burst_id;
+        slot.pending_master_is_last.pop_back();
+    }
+
+    return st;
+}
+
 
 //
 // Forward path
@@ -622,57 +687,20 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             out->elected_input[ch] = in;
         }
 
-        // Forward: translate addr, remap burst_id to slot index. We capture
-        // originals only for the rollback-on-DENIED path; on accepted forward
-        // the response side restores burst_id from slot.original_burst_id.
-        uint64_t original_addr = beat->get_addr();
-        int64_t original_burst_id = beat->burst_id;
-        out->log_access(original_addr, beat->get_size(), beat->get_is_write(),
-                        beat->is_first, beat->is_last);
-        beat->set_addr(original_addr - out->remove_offset + out->add_offset);
-        beat->burst_id = slot_idx;
-
-        // Snapshot the master's is_last so the resp handler can detect burst
-        // completion. The downstream (or auto-inserted IoV2BeatAdapter) is
-        // free to overwrite req->is_last with a per-response-beat value, so
-        // we cannot rely on reading it back from the request later.
-        slot.pending_master_is_last.push_back(beat->is_last);
-
-        vp::IoReqStatus st = out->bus.req(beat);
-        // An IoV2Beat-side master never surfaces IO_REQ_DONE: an auto-inserted
-        // IoV2BeatAdapter converts inline DONE into a scheduled beat-callback
-        // stream, and a directly-bound IoV2Beat slave is required to respond
-        // asynchronously per beat. Assert defensively in case the contract
-        // is violated at runtime.
-        vp_assert(st != vp::IO_REQ_DONE, &_this->trace,
-            "IoV2Beat master must not surface IO_REQ_DONE\n");
-
-        switch (st)
+        // Forward the committed beat. On success mark the output-channel used
+        // this cycle and wake any FIFO-denied masters; on DENIED stall the
+        // output and remember this input so retry() can re-issue the beat
+        // synchronously without re-arbitrating.
+        vp::IoReqStatus st = _this->forward_beat(in, out, slot_idx, beat);
+        if (st == vp::IO_REQ_GRANTED)
         {
-            case vp::IO_REQ_GRANTED:
-            {
-                in->pending.pop_front();
-                // Mirror the directional accounting from req_muxed.
-                in->pending_bytes -= beat->get_is_write() ? beat->get_size() : 0;
-                if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
-                output_used[slot.output_id][ch] = true;
-                // Slot stays alive until the resp handler fires for the burst's is_last.
-                _this->wake_denied_masters();
-                break;
-            }
-            case vp::IO_REQ_DENIED:
-            {
-                // Roll back the forward: beat stays at head of FIFO with
-                // original addr/burst_id. Output stalls until retry().
-                beat->set_addr(original_addr);
-                beat->burst_id = original_burst_id;
-                slot.pending_master_is_last.pop_back();
-                out->stalled = true;
-                break;
-            }
-            case vp::IO_REQ_DONE:
-                // Unreachable (asserted above), but keep the compiler quiet.
-                break;
+            output_used[slot.output_id][ch] = true;
+            _this->wake_denied_masters();
+        }
+        else // IO_REQ_DENIED
+        {
+            out->stalled = true;
+            out->stalled_input = in;
         }
     }
 
@@ -798,6 +826,35 @@ void RouterBeat::retry_muxed(vp::Block *__this, int port)
     self->stalled = false;
     _this->trace.msg(vp::Trace::LEVEL_TRACE,
         "Output unstalled by downstream retry (output: %d)\n", self->id);
+
+    // io_v2 requires retry() to be serviced synchronously: re-issue the beat
+    // that was denied on this output *now*, in the same call, not on a later
+    // FSM tick. Some downstream slaves (e.g. log_ico_v2) only keep their
+    // inline-forward window open for the duration of this retry() call, so
+    // deferring the re-issue would deadlock. Only one beat can be stalled per
+    // output (the FSM skips a stalled output), so no re-arbitration is needed.
+    if (self->stalled_input != nullptr)
+    {
+        InputPort *in = self->stalled_input;
+        self->stalled_input = nullptr;
+        // Copy the head: forward_beat pops the front on success.
+        InputPort::PendingBeat head = in->pending.front();
+        vp::IoReqStatus st = _this->forward_beat(in, self, head.slot_idx, head.req);
+        if (st == vp::IO_REQ_DENIED)
+        {
+            // Slave filled up again between retry() and our re-send; stay
+            // stalled and wait for the next retry().
+            self->stalled = true;
+            self->stalled_input = in;
+        }
+        else
+        {
+            // Accepted: a FIFO byte may have freed, so let denied masters back in.
+            _this->wake_denied_masters();
+        }
+    }
+    // Resume normal 1-beat/cycle pacing for whatever else is queued (other
+    // inputs that were blocked on this output, the proxy path, the next beats).
     _this->schedule_fsm();
 
     // Wake any proxy thread waiting for retry after a DENIED on the proxy path.

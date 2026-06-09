@@ -146,6 +146,12 @@ private:
     // another request until the downstream fires ``retry()``; cleared
     // from ``data_retry``.
     vp::Signal<bool> io_req_denied;
+    // The denied in-flight entry, kept alive so ``data_retry`` can re-issue
+    // it synchronously inside the retry() callback. Zero-buffer arbiters
+    // (log_ico_v2) keep their accept window open only for the duration of
+    // that call — a deferred re-execution by the core misses it and
+    // live-locks.
+    LsuReqEntry *denied_entry;
     bool pending_fence;
 
     vp::Signal<bool>       stalled;

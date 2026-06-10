@@ -22,6 +22,7 @@ from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
 from gvsoc.systree import Component
+import gvrun.timing
 import os.path
 import gvsoc.gui
 from gvsoc.gui import Signal
@@ -329,7 +330,7 @@ class RiscvCommon(st.Component):
             supervisor: bool=False,
             user: bool=False,
             internal_atomics: bool=False,
-            timed: bool=True,
+            timed: bool | None=None,
             scoreboard: bool=False,
             prefetcher_size: int|None=None,
             wrapper: str="pulp/cpu/iss/default_iss_wrapper.cpp",
@@ -436,6 +437,14 @@ class RiscvCommon(st.Component):
         self.modules = modules
 
         self.add_c_flags(['-DCONFIG_GVSOC_ISS_V2=1'])
+
+        # When not explicitly set, derive the timing model from the
+        # hierarchical timing level: only 'functional' disables it ('cycle'
+        # snaps to 'timed', the ISS has no finer-grained model).
+        if timed is None:
+            timed = self.get_timing_level(
+                supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
+        self.add_property('timed', timed)
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -843,14 +852,15 @@ class Riscv(RiscvCommon):
         True if the core should immediately start executing instructions.
     boot_addr: int
         Boot address, i.e. address where the core will start executing instructions.
-    timed: bool
-        True if the core should model timing.
+    timed: bool | None
+        True if the core should model timing. When None (default), derived
+        from the hierarchical timing level (see ``gvrun.timing``).
     core_id : int, optional
         The core ID of the core simulated by the ISS (default: 0).
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool | None=None,
             core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
             float_lib='flexfloat'):
 

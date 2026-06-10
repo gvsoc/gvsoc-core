@@ -17,6 +17,7 @@ and is unaffected.
 from __future__ import annotations
 
 import gvsoc.systree
+import gvrun.timing
 from config_tree import Config, cfg_field, HasSize
 from gvsoc.signature import IoV2Sync
 
@@ -163,6 +164,10 @@ class Memory(gvsoc.systree.Component):
     upstream shaper (e.g. :class:`interco.limiter_v2.Limiter`) if it
     is needed.
 
+    Under the ``functional`` hierarchical timing level (see
+    ``gvrun.timing``) the latency is forced to 0, whatever the config
+    says.
+
     Debug-flag bypass does not exist in io_v2 (there is no
     ``req->is_debug()``), so every access — including syscalls and
     loader debug reads — pays the same latency. For regular traffic
@@ -293,6 +298,19 @@ class Memory(gvsoc.systree.Component):
     def __init__(self, parent: gvsoc.systree.Component, name: str,
                  config: MemoryV3Config):
         super().__init__(parent, name, config=config)
+
+        # Under the 'functional' timing level, timing is dropped by design:
+        # the per-request latency is forced to zero, regardless of the value
+        # set on the config. Magnitude knobs like ``latency`` are governed by
+        # the level — unlike selection knobs (e.g. router ``kind``), there is
+        # no explicit-wins sentinel for them.
+        level = self.get_timing_level(
+            supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED])
+        if level == gvrun.timing.FUNCTIONAL:
+            config.latency = 0
+            self.add_property('latency', 0)
+        self.add_property('timing_level', level)
+
         self.add_sources(['memory/memory_v3.cpp'])
 
         # Atomics cost a meaningful amount of simulation time; only

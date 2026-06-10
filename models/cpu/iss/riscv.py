@@ -26,6 +26,7 @@ import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
 from gvrun.systree import ExecutableContainer
+import gvrun.timing
 
 binaries_info = {}
 
@@ -100,7 +101,7 @@ class RiscvCommon(st.Component):
             supervisor=False,
             user=False,
             internal_atomics=False,
-            timed=True,
+            timed: bool | None=None,
             scoreboard=False,
             cflags=None,
             prefetcher_size=None,
@@ -249,6 +250,14 @@ class RiscvCommon(st.Component):
 
         if prefetcher_size is not None:
             self.add_c_flags([f'-DCONFIG_GVSOC_ISS_PREFETCHER_SIZE={prefetcher_size}'])
+
+        # When not explicitly set, derive the timing model from the
+        # hierarchical timing level: only 'functional' disables it ('cycle'
+        # snaps to 'timed', the ISS has no finer-grained model).
+        if timed is None:
+            timed = self.get_timing_level(
+                supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
+        self.add_property('timed', timed)
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -627,14 +636,15 @@ class Riscv(RiscvCommon):
         True if the core should immediately start executing instructions.
     boot_addr: int
         Boot address, i.e. address where the core will start executing instructions.
-    timed: bool
-        True if the core should model timing.
+    timed: bool | None
+        True if the core should model timing. When None (default), derived
+        from the hierarchical timing level (see ``gvrun.timing``).
     core_id : int, optional
         The core ID of the core simulated by the ISS (default: 0).
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool | None=None,
             core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
             float_lib='flexfloat'):
 

@@ -120,6 +120,7 @@ private:
 
     void handle_read(vp::IoReq *req);
     void handle_write_beat(vp::IoReq *req);
+    void drain_read_rsp();
     void flush_write_chunk(WriteAccum &accum);
     void emit_one_beat();
     // Bring the local TimeEngine + ClockEngine forward to the current SC
@@ -382,28 +383,34 @@ void ddr_v2::rspCallback(void *__this_v, int is_write)
         }
         return;
     }
-    // Read: drain DRAMSys bytes into the head in-flight req. Schedule the
+    _this->drain_read_rsp();
+}
+
+
+void ddr_v2::drain_read_rsp()
+{
+    // Drain DRAMSys bytes into the head in-flight req. Schedule the
     // beat_event whenever a beat boundary is reached (i.e. enough bytes
     // ready to fill the next beat).
     bool need_beat_event = false;
-    while (_this->dram_has_read_rsp(_this->dram_id) && !_this->read_inflight.empty()) {
-        ReadInflight *infl = _this->read_inflight.front();
+    while (this->dram_has_read_rsp(this->dram_id) && !this->read_inflight.empty()) {
+        ReadInflight *infl = this->read_inflight.front();
         if (infl->mask_q.empty()) {
             // Already fully drained for this in-flight; let beat_handler retire it.
             break;
         }
-        int byte = _this->dram_get_read_rsp_byte(_this->dram_id);
+        int byte = this->dram_get_read_rsp_byte(this->dram_id);
         int mask = infl->mask_q.front();
         infl->mask_q.pop();
         if (mask) {
             infl->master_data[infl->bytes_filled++] = (uint8_t)byte;
-            bool boundary = (infl->bytes_filled % (uint64_t)_this->beat_width == 0) ||
+            bool boundary = (infl->bytes_filled % (uint64_t)this->beat_width == 0) ||
                             (infl->bytes_filled == infl->total_size);
             if (boundary) need_beat_event = true;
         }
     }
-    if (need_beat_event && !_this->beat_event.is_enqueued()) {
-        _this->beat_event.enqueue(1);
+    if (need_beat_event && !this->beat_event.is_enqueued()) {
+        this->beat_event.enqueue(1);
     }
 }
 
@@ -451,6 +458,12 @@ void ddr_v2::emit_one_beat()
     if (is_last) {
         read_inflight.pop_front();
         delete infl;
+        // Responses for the next in-flight reads may have already arrived
+        // while this one was blocking the head of the queue (rspCallback
+        // only drains into the head). Nothing will re-trigger rspCallback
+        // for bytes DRAMSys has already delivered, so re-drain here or the
+        // remaining in-flight reads never complete and the system deadlocks.
+        this->drain_read_rsp();
     }
 
     // Reschedule if any in-flight still has emitted < filled (more beats ready).

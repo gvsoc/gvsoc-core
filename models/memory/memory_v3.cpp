@@ -51,15 +51,20 @@
 #include <vp/stats/stats.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/itf/wire.hpp>
+#include <vp/debug_mem.hpp>
 #include <memory/memory_v3/memory_v3_config.hpp>
 
-class Memory : public vp::Component
+class Memory : public vp::Component, public vp::DebugMemIf
 {
 
 public:
     Memory(vp::ComponentConf &config);
 
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
+
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
 
     MemoryV3Config cfg;
 
@@ -297,6 +302,28 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     }
 }
 
+
+
+int Memory::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+{
+    uint64_t offset = addr & this->truncate_mask;
+
+    if (offset + size > (uint64_t)this->cfg.size)
+    {
+        return -1;
+    }
+
+    if (is_write)
+    {
+        this->handle_write(offset, size, data);
+    }
+    else
+    {
+        this->handle_read(offset, size, data);
+    }
+
+    return 0;
+}
 
 
 vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *data)

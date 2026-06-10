@@ -17,10 +17,10 @@
  * Scope: single-mapping only.
  *
  * Proxy access (gvsoc_control mem_read / mem_write) is supported via the
- * shared helper in "proxy_command.hpp". DENIED replies fall back to a
- * "wait-for-retry then re-dispatch" loop; GRANTED replies block until
- * the variant's resp callback notifies the proxy waiter installed in the
- * forwarded request's InFlight slot.
+ * shared helper in "proxy_command.hpp": it goes through the backdoor
+ * debug-memory map (vp/debug_mem.hpp), lazily built by walking the mappings
+ * down to the terminal memories, so it completes inline even while the
+ * simulation is paused.
  */
 
 #include <vp/vp.hpp>
@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "proxy_command.hpp"
+#include "router_v2_debug.hpp"
 
 class RouterUntimed;
 
@@ -70,12 +71,9 @@ struct InFlight
     // Free-list link used while parked in inflight_free; meaningless once
     // alloc_inflight() hands the entry out.
     InFlight *next_free;
-    // Non-null for proxy-originated requests: resp_muxed signals this
-    // ProxyWaiter instead of calling back the master via input->itf.
-    vp_router_v2_proxy::ProxyWaiter *proxy_waiter = nullptr;
 };
 
-class RouterUntimed : public vp::Component
+class RouterUntimed : public vp::Component, public vp::DebugMemIf
 {
     friend class InputPort;
     friend class OutputPort;
@@ -86,17 +84,19 @@ public:
         FILE *reply_file, std::vector<std::string> args,
         std::string cmd_req) override;
 
+    // Backdoor debug access (proxy mem_read/mem_write, GDB) — resolved
+    // through the lazily-built flat map, bypassing the timed path entirely.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
     static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
-
-    // Mapping + forward used by handle_command for proxy mem_read/mem_write.
-    // On IO_REQ_GRANTED, installs an InFlight whose `proxy_waiter` is the
-    // ProxyWaiter passed in, so resp_muxed can route the response back to
-    // the proxy thread waiting on it.
-    vp::IoReqStatus dispatch_proxy_req(vp::IoReq *req,
-        vp_router_v2_proxy::ProxyWaiter *waiter);
 
     InFlight *alloc_inflight();
     void free_inflight(InFlight *ifl);
@@ -112,10 +112,8 @@ private:
     // req->initiator clobbered each other. Keying by req* sidesteps both.
     std::unordered_map<vp::IoReq *, InFlight *> in_flight_map;
 
-    // Set by handle_proxy_command while it is waiting for the next
-    // retry_muxed broadcast after a DENIED. Cleared right after.
-    vp_router_v2_proxy::ProxyWaiter *proxy_retry_waiter = nullptr;
-    std::mutex proxy_retry_mu;
+    // Flat backdoor map, built lazily on first debug access
+    vp::DebugMemMap debug_map;
 
     RouterConfig cfg;
     vp::MappingTree mapping_tree;
@@ -198,7 +196,6 @@ InFlight *RouterUntimed::alloc_inflight()
     InFlight *ifl = this->inflight_free;
     if (ifl) { this->inflight_free = ifl->next_free; }
     else     { ifl = new InFlight(); }
-    ifl->proxy_waiter = nullptr;
     return ifl;
 }
 
@@ -259,7 +256,6 @@ void RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
     vp_assert(it != _this->in_flight_map.end(), &_this->trace,
         "resp_muxed: no in-flight entry for req=%p\n", req);
     InFlight *ifl = it->second;
-    vp_router_v2_proxy::ProxyWaiter *waiter = ifl->proxy_waiter;
     InputPort *in = ifl->input;
     // For asymmetric reads (1 forward → N response beats) the same req object
     // visits us multiple times; only retire the slot on the last beat.
@@ -268,14 +264,7 @@ void RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
         _this->in_flight_map.erase(it);
         _this->free_inflight(ifl);
     }
-    if (waiter)
-    {
-        vp_router_v2_proxy::notify_replied(waiter);
-    }
-    else
-    {
-        in->itf.resp(req);
-    }
+    in->itf.resp(req);
 }
 
 void RouterUntimed::retry_muxed(vp::Block *__this, int /*id*/, vp::IoRetryChannel)
@@ -286,67 +275,31 @@ void RouterUntimed::retry_muxed(vp::Block *__this, int /*id*/, vp::IoRetryChanne
     {
         in->itf.retry();
     }
-    // Wake any proxy thread that was waiting for retry after a DENIED.
-    vp_router_v2_proxy::ProxyWaiter *waiter = nullptr;
-    {
-        std::lock_guard<std::mutex> lk(_this->proxy_retry_mu);
-        waiter = _this->proxy_retry_waiter;
-        _this->proxy_retry_waiter = nullptr;
-    }
-    if (waiter)
-    {
-        vp_router_v2_proxy::notify_retry(waiter);
-    }
 }
 
-vp::IoReqStatus RouterUntimed::dispatch_proxy_req(vp::IoReq *req,
-    vp_router_v2_proxy::ProxyWaiter *waiter)
+int RouterUntimed::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
 {
-    uint64_t addr = req->get_addr();
-    uint64_t size = req->get_size();
-    vp::MappingTreeEntry *mapping = this->mapping_tree.get(
-        addr, size, req->get_is_write());
-    bool straddles = mapping && mapping->size != 0 &&
-        addr + size > mapping->base + mapping->size;
-    if (!mapping || mapping->id == this->error_id || straddles ||
-        !this->entries[mapping->id]->itf.is_bound())
+    if (!this->debug_map.is_built())
     {
-        req->set_resp_status(vp::IO_RESP_INVALID);
-        return vp::IO_REQ_DONE;
+        this->debug_map.build(this);
     }
-    OutputPort *out = this->entries[mapping->id];
-    uint64_t original_addr = addr;
-    req->set_addr(addr - out->remove_offset + out->add_offset);
-    vp::IoReqStatus st = out->itf.req(req);
+    return this->debug_map.access(addr, data, size, is_write);
+}
 
-    if (st == vp::IO_REQ_GRANTED)
-    {
-        InFlight *ifl = this->alloc_inflight();
-        ifl->input = nullptr;
-        ifl->proxy_waiter = waiter;
-        this->in_flight_map[req] = ifl;
-        return st;
-    }
-    if (st == vp::IO_REQ_DENIED)
-    {
-        // Target rejected the req; restore the address for the next try.
-        req->set_addr(original_addr);
-    }
-    return st;
+void RouterUntimed::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    vp_router_v2_debug::collect_regions(this->cfg, this->error_id,
+        [this](int id) -> vp::MasterPort * { return &this->entries[id]->itf; },
+        regions, local_base, window_size, entry_base, depth);
 }
 
 std::string RouterUntimed::handle_command(gv::GvProxy *proxy, FILE *req_file,
     FILE *reply_file, std::vector<std::string> args, std::string cmd_req)
 {
     return vp_router_v2_proxy::handle_proxy_command(
-        proxy, this->get_launcher(), req_file, reply_file, args, cmd_req,
-        [this](vp::IoReq *r, vp_router_v2_proxy::ProxyWaiter *w) {
-            return this->dispatch_proxy_req(r, w);
-        },
-        [this](vp_router_v2_proxy::ProxyWaiter *w) {
-            std::lock_guard<std::mutex> lk(this->proxy_retry_mu);
-            this->proxy_retry_waiter = w;
-        });
+        proxy, req_file, reply_file, args, cmd_req, this);
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

@@ -22,6 +22,7 @@
 #pragma once
 
 #include <cpu/iss/include/types.hpp>
+#include <vp/debug_mem.hpp>
 #include <mutex>
 #include <condition_variable>
 #include <pthread.h>
@@ -86,6 +87,12 @@ public:
     vp::IoMaster io_itf;
 #endif
     vp::IoReq io_req;
+    // Backdoor debug-memory interface of the component bound on data_debug,
+    // resolved at start(). When set, gdbserver_io_access() goes through it
+    // inline instead of the event-based FSM, so accesses complete even while
+    // the simulation is paused (mandatory with buffering io_v2 routers,
+    // whose timed responses only come from clock events).
+    vp::DebugMemIf *debug_mem = nullptr;
     vp::Trace trace;
     vp::ClockEvent *event;
     vp::Gdbserver_engine *gdbserver;

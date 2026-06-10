@@ -46,15 +46,27 @@
 #include <unordered_map>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 
 
-class IoV2BeatAdapter : public vp::Component
+class IoV2BeatAdapter : public vp::Component, public vp::DebugMemIf
 {
 public:
     IoV2BeatAdapter(vp::ComponentConf &config);
     void reset(bool active) override;
 
+    // Backdoor debug path (vp/debug_mem.hpp): the adapter is invisible —
+    // both calls are forwarded unchanged to the component bound downstream.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+
 private:
+    vp::DebugMemIf *resolve_debug_mem();
+
     // One scheduled beat, sitting in the pending deque until its ready cycle.
     struct PendingBeat
     {

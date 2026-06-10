@@ -42,6 +42,12 @@ Gdbserver::Gdbserver(Iss &iss)
 
 void Gdbserver::start()
 {
+    std::vector<vp::SlavePort *> finals = this->io_itf.get_final_ports();
+    if (!finals.empty() && finals[0]->get_owner() != nullptr)
+    {
+        this->debug_mem = finals[0]->get_owner()->debug_mem_if();
+    }
+
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
 
     if (this->gdbserver)
@@ -537,6 +543,15 @@ void Gdbserver::handle_pending_io_access()
 int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
 {
     this->trace.msg(vp::Trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
+
+    // Backdoor path: the access completes inline under the engine lock we
+    // already hold, with no timing and no simulation advance. This is the
+    // only working path when the target interconnect buffers requests
+    // (io_v2 async routers), since the FSM below needs clock events.
+    if (this->debug_mem)
+    {
+        return this->debug_mem->debug_mem_access(addr, data, size, is_write) ? 1 : 0;
+    }
 
     // Since the whole request may need to be processed in several small requests,
     // we setup an internal FSM that will inform us when the whole request is over.

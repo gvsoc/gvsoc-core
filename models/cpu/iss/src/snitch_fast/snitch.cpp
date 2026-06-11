@@ -36,7 +36,7 @@ Iss::Iss(IssWrapper &top)
       , ssr(top, *this)
 #endif
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
-      , vector(*this), vu(top, *this)
+      , vector(*this), vu(top, *this), tile(*this)
 #endif
 {
     this->csr.declare_csr(&this->csr_fmode, "fmode", 0x800);
@@ -158,6 +158,7 @@ void IssWrapper::reset(bool active)
     this->iss.syscalls.reset(active);
     this->iss.vector.reset(active);
     this->iss.vu.reset(active);
+    this->iss.tile.reset(active);
 
     this->do_flush = false;
     this->insn_first = 0;
@@ -189,6 +190,7 @@ IssWrapper::IssWrapper(vp::ComponentConf &config)
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     this->iss.vector.build();
     this->iss.vu.build();
+    this->iss.tile.build();
     this->pending_insns.resize(8);
     for (int i=0; i<this->pending_insns.size(); i++)
     {

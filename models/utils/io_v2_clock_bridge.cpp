@@ -41,16 +41,19 @@ IoV2ClockBridge::IoV2ClockBridge(vp::ComponentConf &config)
 
 void IoV2ClockBridge::start()
 {
-    auto *master_block = static_cast<vp::Block *>(this->in.get_remote_context());
-    auto *slave_block  = static_cast<vp::Block *>(this->out.get_remote_context());
-    if (master_block == nullptr || slave_block == nullptr)
+    // Use the remote PORT owners, not the remote contexts: with a muxed
+    // peer port the remote context is the dispatch-stub port object, not
+    // the component.
+    auto *master_port = this->in.get_remote_port();
+    auto *slave_port  = this->out.get_remote_port();
+    if (master_port == nullptr || slave_port == nullptr)
     {
         this->trace.fatal("bridge not fully bound (in.bound=%d, out.bound=%d)\n",
-                          master_block != nullptr, slave_block != nullptr);
+                          master_port != nullptr, slave_port != nullptr);
         return;
     }
-    this->master_engine = master_block->clock.get_engine();
-    this->slave_engine  = slave_block->clock.get_engine();
+    this->master_engine = master_port->get_owner()->clock.get_engine();
+    this->slave_engine  = slave_port->get_owner()->clock.get_engine();
 
     this->trace.msg(vp::Trace::LEVEL_INFO,
         "bridge mode=%s k_src=%d k_dst=%d depth=%d\n",

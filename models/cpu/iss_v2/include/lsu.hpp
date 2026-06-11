@@ -50,6 +50,9 @@ public:
     void stop() {}
     void reset(bool active);
 
+    // Generic extension hook (see lsu_v2.hpp); no-op on the v1-io LSU.
+    inline void irq_req_hook(int irq, bool irq_enabled) {}
+
     // Not implemented yet, just defined to keep compatibility with ISA files
     inline void stack_access_check(int reg, iss_addr_t addr) {}
 

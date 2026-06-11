@@ -46,6 +46,7 @@ void LsuV2::reset(bool active)
     {
         this->io_req_denied = false;
         this->denied_entry = NULL;
+        this->granted_entry = NULL;
         this->pending_fence = false;
         this->nb_pending_accesses = 0;
         this->next_retire_cycle = 0;
@@ -158,6 +159,7 @@ void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
     }
 
     InsnEntry *insn_entry = entry->insn_entry;
+    _this->iss.lsu.req_retire_hook(entry);
     _this->handle_req_end(entry);
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
     // Load-use stall: the response's dest reg becomes readable one
@@ -273,6 +275,7 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, opcode: %d)\n",
                      addr, size, opcode);
+    this->granted_entry = NULL;
     LsuReqEntry *entry = this->get_req_entry();
     if (entry == NULL)
     {
@@ -351,6 +354,7 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
         // Async: park the instruction; data_response will eventually fire
         // the completion.
         entry->insn_entry = this->iss.exec.insn_hold(insn);
+        this->granted_entry = entry;
         return false;
     }
     else
@@ -570,6 +574,7 @@ void LsuV2::task_handle(Iss *iss, Task *task)
     }
 
     InsnEntry *insn_entry = entry->insn_entry;
+    iss->lsu.req_retire_hook(entry);
     iss->lsu.handle_req_end(entry);
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
     // Same load-use 1-cycle stall as the async path: schedule the

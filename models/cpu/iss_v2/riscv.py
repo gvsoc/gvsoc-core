@@ -193,12 +193,13 @@ class LsuV2(IssModule):
       guarded with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2`` so they work in
       both modes.
     """
-    def __init__(self, nb_outstanding: int=1):
+    def __init__(self, nb_outstanding: int=1, class_name: str='LsuV2'):
         self.nb_outstanding = nb_outstanding
+        self.class_name = class_name
 
     @override
     def gen(self, iss: RiscvCommon):
-        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', 'LsuV2')
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', self.class_name)
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_V2', '1')
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', self.nb_outstanding)
         iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')

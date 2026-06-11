@@ -1083,7 +1083,24 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_
 
 static inline iss_reg_t p_elw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#if defined(CONFIG_GVSOC_ISS_ELW)
+    // Event load: a regular load whose park puts the whole core to sleep
+    // (clock-gated) until the event unit answers or an interrupt replays
+    // the instruction. Provided by the core's LSU subclass (see
+    // Ri5kyLsu::elw / elw_irq_unstall in gvsoc/pulp cores/ri5ky).
+    if (iss->lsu.elw(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return pc;
+    }
+    return iss_insn_next(iss, insn, pc);
+#elif defined(CONFIG_GVSOC_ISS_V2)
+    // No event-load support on this core's LSU: behave as a plain load.
+    if (iss->lsu.load_signed<int32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return pc;
+    }
+    return iss_insn_next(iss, insn, pc);
+#else
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
     iss_handle_elw(iss, insn, pc, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));

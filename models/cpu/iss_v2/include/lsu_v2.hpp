@@ -78,6 +78,15 @@ public:
     bool data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
     bool data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
 
+    // Generic extension hooks, called through the configured LSU type
+    // (CONFIG_GVSOC_ISS_LSU) so an LSU subclass can intercept them
+    // statically (see the ri5ky LSU and its p.elw event load). No-ops here.
+    // Called when a request retires (both the async response and the timed
+    // task paths), before handle_req_end.
+    inline void req_retire_hook(LsuReqEntry *entry) {}
+    // Called when the external IRQ unit receives a new interrupt state.
+    inline void irq_req_hook(int irq, bool irq_enabled) {}
+
     template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
@@ -116,14 +125,17 @@ public:
     vp::IoReq   debug_req;
     vp::IoMaster data{&LsuV2::data_retry, &LsuV2::data_response};
 
-private:
+protected:
     // Allocate a request. Returns NULL if no entry is free and the core
     // must stall.
     inline LsuReqEntry *get_req_entry();
     // Free a request so that it can be used for another access.
     inline void free_req_entry(LsuReqEntry *entry);
+
+private:
     bool load_req(iss_insn_t *insn, iss_addr_t addr, int size, int reg, bool is_signed);
     static void task_handle(Iss *iss, Task *task);
+
     // io_v2 downstream callbacks. ``retry`` fires without a request
     // argument — it is a pure "ready-again" signal per the v2 protocol.
     static void data_retry(vp::Block *__this, vp::IoRetryChannel);
@@ -135,11 +147,16 @@ private:
     // flight); false if the entry was aligned (no second beat needed).
     bool fire_misaligned_second(LsuReqEntry *entry);
 
+protected:
     Iss &iss;
 
     vp::Trace trace;
 
     LsuReqEntry *req_entry_first;
+    // Entry parked by the last data_req_aligned that returned GRANTED
+    // (scratch used by LSU subclasses, e.g. the ri5ky p.elw, to detect
+    // the park). Cleared at issue.
+    LsuReqEntry *granted_entry;
     LsuReqEntry req_entry[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
 
     // True while a downstream DENY is outstanding. The core must not send

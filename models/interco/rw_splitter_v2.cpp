@@ -33,12 +33,23 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 
-class RwSplitter : public vp::Component
+class RwSplitter : public vp::Component, public vp::DebugMemIf
 {
 public:
     RwSplitter(vp::ComponentConf &conf);
     void reset(bool active) override;
+
+    // Backdoor debug access (vp/debug_mem.hpp): pure pass-through into the
+    // read output. Reads and writes reach the same terminals through
+    // symmetric downstream trees, so the read-side map is valid for both.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
 
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
@@ -127,6 +138,44 @@ void RwSplitter::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
     {
         _this->denied_output = -1;
         _this->input_itf.retry();
+    }
+}
+
+
+// Backdoor target behind the read output, or nullptr.
+static vp::DebugMemIf *read_debug_mem(vp::IoMaster &itf)
+{
+    std::vector<vp::SlavePort *> finals = itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int RwSplitter::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    vp::DebugMemIf *child = read_debug_mem(this->output_read_itf);
+    if (child == nullptr)
+    {
+        return -1;
+    }
+    return child->debug_mem_access(addr, data, size, is_write);
+}
+
+void RwSplitter::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *child = read_debug_mem(this->output_read_itf);
+    if (child != nullptr)
+    {
+        child->debug_mem_regions(regions, local_base, window_size, entry_base,
+            depth + 1);
     }
 }
 

@@ -48,11 +48,35 @@ void Gdbserver::start()
         this->debug_mem = finals[0]->get_owner()->debug_mem_if();
     }
 
+    if (this->debug_mem == nullptr)
+    {
+        // No explicit data_debug binding: locate the backdoor through the
+        // component the LSU data port talks to, so that targets get gdb
+        // memory accesses without any dedicated wiring. This is a read-only
+        // walk of the binding graph; no request is ever issued on the data
+        // port, all accesses go through the out-of-band debug_mem interface.
+        finals = this->iss.lsu.data.get_final_ports();
+        if (!finals.empty() && finals[0]->get_owner() != nullptr)
+        {
+            this->debug_mem = finals[0]->get_owner()->debug_mem_if();
+        }
+    }
+
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
 
     if (this->gdbserver)
     {
         this->gdbserver->register_core(this);
+
+        if (this->debug_mem == nullptr)
+        {
+            // Without the backdoor, memory accesses fall back to the timed IO
+            // FSM, which crashes if data_debug is unbound and hangs with
+            // buffering io_v2 routers (their responses only come from clock
+            // events, which don't fire while the simulation is paused).
+            this->trace.msg(vp::Trace::LEVEL_WARNING,
+                "No debug-memory backdoor behind data_debug port, gdb memory accesses may fail or hang\n");
+        }
     }
 
     this->halt_on_reset = this->gdbserver;
@@ -112,13 +136,18 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 {
     this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting register from gdbserver (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
 
-    if (reg == 32)
+    if (reg < 32)
+    {
+        this->iss.regfile.set_reg(reg, *(iss_reg_t *)value);
+    }
+    else if (reg == 32)
     {
         this->iss.exec.pc_set(*(iss_addr_t *)value);
     }
     else
     {
-        this->trace.msg(vp::Trace::LEVEL_ERROR, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Setting invalid register (reg: %d, value: 0x%x)\n", reg, *(uint32_t *)value);
+        return -1;
     }
 
     return 0;
@@ -128,7 +157,22 @@ int Gdbserver::gdbserver_reg_set(int reg, uint8_t *value)
 
 int Gdbserver::gdbserver_reg_get(int reg, uint8_t *value)
 {
-    fprintf(stderr, "UNIMPLEMENTED AT %s %d\n", __FILE__, __LINE__);
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Getting register from gdbserver (reg: %d)\n", reg);
+
+    if (reg < 32)
+    {
+        *(iss_reg_t *)value = this->iss.regfile.get_reg_untimed(reg);
+    }
+    else if (reg == 32)
+    {
+        *(iss_reg_t *)value = this->iss.exec.current_insn;
+    }
+    else
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Getting invalid register (reg: %d)\n", reg);
+        return -1;
+    }
+
     return 0;
 }
 

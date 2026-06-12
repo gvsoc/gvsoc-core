@@ -64,13 +64,25 @@
 #include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/splitter_v2/splitter_config.hpp>
 
-class Splitter : public vp::Component
+class Splitter : public vp::Component, public vp::DebugMemIf
 {
 public:
     Splitter(vp::ComponentConf &conf);
     void reset(bool active) override;
+
+    // Backdoor debug access (vp/debug_mem.hpp): pure pass-through into
+    // output 0. Chunk-to-output assignment is positional (first chunk goes
+    // to output_0), so every output sees the full address space and any
+    // single one is a valid debug entry into the downstream tree.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
 
     SplitterConfig cfg;
 
@@ -445,6 +457,44 @@ void Splitter::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
         _this->stuck[id] = sub;
     }
     // IO_REQ_GRANTED: the output will resp() later.
+}
+
+
+// Backdoor target behind output 0, or nullptr.
+static vp::DebugMemIf *output0_debug_mem(vp::IoMaster &itf)
+{
+    std::vector<vp::SlavePort *> finals = itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int Splitter::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    vp::DebugMemIf *child = output0_debug_mem(*this->outputs[0]);
+    if (child == nullptr)
+    {
+        return -1;
+    }
+    return child->debug_mem_access(addr, data, size, is_write);
+}
+
+void Splitter::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *child = output0_debug_mem(*this->outputs[0]);
+    if (child != nullptr)
+    {
+        child->debug_mem_regions(regions, local_base, window_size, entry_base,
+            depth + 1);
+    }
 }
 
 

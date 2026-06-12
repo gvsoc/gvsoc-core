@@ -290,6 +290,44 @@ void IoV2ClockBridge::rev_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
 }
 
 
+// Backdoor target behind the output, or nullptr.
+static vp::DebugMemIf *output_debug_mem(vp::IoMaster &itf)
+{
+    std::vector<vp::SlavePort *> finals = itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int IoV2ClockBridge::debug_mem_access(uint64_t addr, uint8_t *data,
+    uint64_t size, bool is_write)
+{
+    vp::DebugMemIf *child = output_debug_mem(this->out);
+    if (child == nullptr)
+    {
+        return -1;
+    }
+    return child->debug_mem_access(addr, data, size, is_write);
+}
+
+void IoV2ClockBridge::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *child = output_debug_mem(this->out);
+    if (child != nullptr)
+    {
+        child->debug_mem_regions(regions, local_base, window_size, entry_base,
+            depth + 1);
+    }
+}
+
+
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new IoV2ClockBridge(config);

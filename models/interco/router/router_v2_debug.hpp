@@ -80,11 +80,20 @@ inline void collect_regions(const RouterConfig &cfg, int error_id,
             std::vector<vp::SlavePort *> finals = get_port(id)->get_final_ports();
             if (finals.empty() || finals[0]->get_owner() == nullptr)
             {
+                if (getenv("GV_DEBUG_MEM_VERBOSE"))
+                {
+                    fprintf(stderr, "DEBUG_MEM skip mapping %s: no final port\n", m.name);
+                }
                 continue;
             }
             vp::DebugMemIf *child = finals[0]->get_owner()->debug_mem_if();
             if (child == nullptr)
             {
+                if (getenv("GV_DEBUG_MEM_VERBOSE"))
+                {
+                    fprintf(stderr, "DEBUG_MEM skip mapping %s: owner %s has no debug_mem_if\n",
+                        m.name, finals[0]->get_owner()->get_path().c_str());
+                }
                 continue;
             }
 

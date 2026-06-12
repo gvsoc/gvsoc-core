@@ -52,12 +52,23 @@ public:
 
     const char *name;
     iss_reg_t reset_val;
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    iss_reg_t write_mask;
+#endif
     bool write_illegal = false;
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+
+    // Public setter for write_mask — allows core-specific subclasses to
+    // configure CSR masks without requiring friend access.
+    void set_write_mask(iss_reg_t mask) { write_mask = mask; }
+#endif
 
 protected:
     void reset(bool active);
 
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     iss_reg_t write_mask;
+#endif
 
 private:
     std::vector<std::function<bool(bool, iss_reg_t &)>> callbacks;
@@ -152,6 +163,9 @@ public:
 
     void build();
     void reset(bool active);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    virtual ~Csr() = default;
+#endif
 
     void declare_pcer(int index, std::string name, std::string help);
     void declare_csr(CsrAbtractReg *reg, std::string name, iss_reg_t address, iss_reg_t reset_val=0, iss_reg_t mask=-1);
@@ -214,6 +228,22 @@ public:
 #endif
     CsrReg mcountinhibit;
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    // Optional extension CSRs (CV32E40P-only).
+    // When the config is off, access falls through to the "unsupported CSR" warning.
+#if ISS_REG_WIDTH == 32
+    CsrReg mcycleh;
+    CsrReg minstreth;
+#endif
+
+    CsrReg minstret;
+    CsrReg mhpmevent[29];
+
+    CsrReg tinfo;
+    CsrReg mcontext;
+    CsrReg scontext;
+
+#endif /* CONFIG_GVSOC_ISS_CV32E40P */
 #if defined(CONFIG_GVSOC_ISS_PMP)
     CsrReg pmpcfg[16];
     CsrReg pmpaddr[64];
@@ -236,7 +266,12 @@ public:
     iss_reg_t scratch0;
     iss_reg_t scratch1;
     iss_fcsr_t fcsr;
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    CsrReg mhartid;
+    CsrReg mimpid;
+#else
     iss_reg_t mhartid;
+#endif
 
     CsrReg vstart;
     CsrReg vxstat;
@@ -250,6 +285,60 @@ public:
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    /* Hook for core-specific mstatus read fixup (e.g. SD bit).
+     * Called by Core::mstatus_update on read path. Default: no-op. */
+    virtual void mstatus_read_fixup(iss_reg_t &value) {}
+
+    /* FP/Vector CSR access pre-check.
+     * Default: allow (returns false → not illegal).
+     * Called from static fflags/frm/fcsr read/write to detect illegal access. */
+    virtual bool fp_access_illegal() { return false; }
+
+    /* Default tselect read value when no trigger is selected.
+     * Default: -1 (all-1s, conventional "no trigger" sentinel). */
+    iss_reg_t tselect_default_read = (iss_reg_t)-1;
+
+    /* Behavior on access to an undeclared/unsupported CSR.
+     * Default: false → log warning, no exception (legacy GVSOC behavior). */
+    bool raise_on_unsupported_csr_flag = false;
+
+    /* Map a CSR address to its core-specific HWLOOP register index.
+     * Default: -1 (not a HWLOOP CSR).
+     * Used by iss_csr_read (dispatch to hwloop_read) and iss_csr_write. */
+    virtual int hwloop_csr_index(iss_reg_t reg) { return -1; }
+
+    /* Core-specific CSR name lookup for trace messages.
+     * Default: nullptr (fall through to generic table). */
+    virtual const char *custom_csr_name(iss_reg_t reg) { return nullptr; }
+
+    /* Whether Exec::bootaddr_apply derives mtvec from boot address.
+     * Default: true (generic RISC-V: mtvec = bootaddr & ~0xFF). */
+    bool bootaddr_writes_mtvec_flag = true;
+
+    /* EBREAK in M-mode behavior.
+     * Default: false → raise ISS_EXCEPT_BREAKPOINT (generic RISC-V w/o debug). */
+    virtual bool ebreak_m_mode_enters_debug() { return false; }
+
+protected:
+    /* mstatus access hook.
+     * Default: pass through (return true). */
+    virtual bool mstatus_access(bool is_write, iss_reg_t &value);
+    /* mcycle access hook.
+     * Default: on read, return current clock cycle count; on write, no-op. */
+    virtual bool mcycle_access(bool is_write, iss_reg_t &value);
+    void undeclare_csr(iss_reg_t address) { regs.erase(address); }
+
+    std::map<iss_reg_t, CsrAbtractReg *> regs;
+
+private:
+
+    bool tselect_access(bool is_write, iss_reg_t &value);
+    bool time_access(bool is_write, iss_reg_t &value);
+    vp::WireMaster<uint64_t> time_itf;
+
+};
+#else
 private:
 
     bool tselect_access(bool is_write, iss_reg_t &value);
@@ -260,3 +349,4 @@ private:
     vp::WireMaster<uint64_t> time_itf;
 
 };
+#endif

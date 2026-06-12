@@ -28,6 +28,9 @@ class Exception
 {
 public:
     Exception(Iss &iss);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    virtual ~Exception() = default;
+#endif
 
     void build();
 
@@ -35,7 +38,17 @@ public:
 
     iss_addr_t debug_handler_addr;
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+protected:
+#else
 private:
+#endif
     Iss &iss;
     vp::Trace trace;
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+
+    /* Trap vector PC alignment mask.
+     * Default: -1 (no masking — generic RISC-V). */
+    iss_reg_t trap_vector_align_mask = (iss_reg_t)-1;
+#endif
 };

@@ -555,7 +555,11 @@ bool Lsu::atomic(iss_insn_t *insn, iss_addr_t addr, int size, int reg_in, int re
 //     uint8_t *check_second_data = (uint8_t *)this->iss.regfile.reg_ref(reg_out);
 //     req->set_second_memcheck_data(check_second_data);
 // #endif
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    req->set_initiator(this->iss.csr.mhartid.value);
+#else
     req->set_initiator(this->iss.csr.mhartid);
+#endif
 
     this->log_addr.set_and_release(addr);
     this->log_size.set_and_release(size);

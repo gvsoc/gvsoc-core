@@ -19,12 +19,16 @@
 #
 # By default every case of a testset shares BUILDDIR and INSTALLDIR
 # with the root gvsoc build, so the platform compiles only once. The
-# per-case WORKDIR keeps simulation artifacts isolated so runs can
-# execute in parallel. Every testset.cfg that drives this fragment
-# MUST serialize its `build` phase through a shared build resource
-# (see `TestsetImpl.new_make_test(build_resource=...)` in gvtest) and
-# opt out of the auto-generated `clean` step via `no_clean=True` —
-# this Makefile fragment intentionally exposes no `clean` target.
+# test module is passed as an extra module, which is only visible to
+# the test's own generated components — the shared models keep stable
+# compile commands and are neither recompiled nor reinstalled by test
+# builds. The per-case WORKDIR keeps simulation artifacts isolated so
+# runs can execute in parallel. Every testset.cfg that drives this
+# fragment MUST serialize its `build` phase through a shared build
+# resource (see `TestsetImpl.new_make_test(build_resource=...)` in
+# gvtest) and opt out of the auto-generated `clean` step via
+# `no_clean=True` — this Makefile fragment intentionally exposes no
+# `clean` target.
 #
 # The resource name is global to the whole gvtest invocation: because
 # every test here invokes `make -C $(GVSOC_ROOT) build` into the same

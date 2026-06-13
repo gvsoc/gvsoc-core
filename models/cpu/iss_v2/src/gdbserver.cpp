@@ -20,7 +20,6 @@
  */
 
 #include <algorithm>
-#include <pthread.h>
 #include <vp/controller.hpp>
 
 
@@ -29,37 +28,21 @@ Gdbserver::Gdbserver(Iss &iss)
     : iss(iss)
 {
     this->iss.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
-    this->event = this->iss.event_new((vp::Block *)this, &Gdbserver::handle_pending_io_access_stub);
-#ifndef CONFIG_GVSOC_ISS_LSU_V2
-    this->io_itf.set_resp_meth(&Gdbserver::data_response);
-#endif
-    this->iss.new_master_port("data_debug", &this->io_itf, (vp::Block *)this);
-    pthread_mutex_init(&this->mutex, NULL);
-    pthread_cond_init(&this->cond, NULL);
 }
 
 
 
 void Gdbserver::start()
 {
-    std::vector<vp::SlavePort *> finals = this->io_itf.get_final_ports();
+    // Locate the backdoor through the component the LSU data port talks to,
+    // so that targets get debug memory accesses without any dedicated wiring.
+    // This is a read-only walk of the binding graph; no request is ever
+    // issued on the data port, all accesses go through the out-of-band
+    // debug_mem interface.
+    std::vector<vp::SlavePort *> finals = this->iss.lsu.data.get_final_ports();
     if (!finals.empty() && finals[0]->get_owner() != nullptr)
     {
         this->debug_mem = finals[0]->get_owner()->debug_mem_if();
-    }
-
-    if (this->debug_mem == nullptr)
-    {
-        // No explicit data_debug binding: locate the backdoor through the
-        // component the LSU data port talks to, so that targets get gdb
-        // memory accesses without any dedicated wiring. This is a read-only
-        // walk of the binding graph; no request is ever issued on the data
-        // port, all accesses go through the out-of-band debug_mem interface.
-        finals = this->iss.lsu.data.get_final_ports();
-        if (!finals.empty() && finals[0]->get_owner() != nullptr)
-        {
-            this->debug_mem = finals[0]->get_owner()->debug_mem_if();
-        }
     }
 
     this->gdbserver = (vp::Gdbserver_engine *)this->iss.get_service("gdbserver");
@@ -70,23 +53,12 @@ void Gdbserver::start()
 
         if (this->debug_mem == nullptr)
         {
-            // Without the backdoor, memory accesses fall back to the timed IO
-            // FSM, which crashes if data_debug is unbound and hangs with
-            // buffering io_v2 routers (their responses only come from clock
-            // events, which don't fire while the simulation is paused).
             this->trace.msg(vp::Trace::LEVEL_WARNING,
-                "No debug-memory backdoor behind data_debug port, gdb memory accesses may fail or hang\n");
+                "No debug-memory backdoor behind LSU data port, gdb memory accesses will fail\n");
         }
     }
 
     this->halt_on_reset = this->gdbserver;
-}
-
-void Gdbserver::stop()
-{
-    // Keep lock to avoid any IO access from gdb thread
-    pthread_mutex_lock(&this->mutex);
-    pthread_cond_broadcast(&this->cond);
 }
 
 void Gdbserver::reset(bool active)
@@ -475,149 +447,19 @@ void Gdbserver::gdbserver_watchpoint_remove(bool is_write, uint64_t addr, int si
 
 
 
-void Gdbserver::handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event)
-{
-    // Just forward to the common handle so that it either continue the full request or notify
-    // the end
-    Gdbserver *_this = (Gdbserver *)__this;
-    _this->handle_pending_io_access();
-}
-
-
-
-void Gdbserver::data_response(vp::Block *__this, vp::IoReq *req)
-{
-    // Just forward to the common handle so that it either continue the full request or notify
-    // the end
-    Gdbserver *_this = (Gdbserver *)__this;
-    _this->handle_pending_io_access();
-}
-
-
-
-void Gdbserver::handle_pending_io_access()
-{
-    if (this->io_pending_size > 0)
-    {
-        vp::IoReq *req = &this->io_req;
-
-        // Compute the size of the request since the core can only do aligned accesses of its
-        // register width.
-        iss_addr_t addr = this->io_pending_addr;
-        iss_addr_t addr_aligned = addr & ~(ISS_REG_WIDTH / 8 - 1);
-        int size = addr_aligned + ISS_REG_WIDTH/8 - addr;
-        if (size > this->io_pending_size)
-        {
-            size = this->io_pending_size;
-        }
-
-        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request to interface (addr: 0x%lx, size: 0x%x, is_write: %d)\n",
-            addr, size, this->io_pending_is_write);
-
-        // Initialize the request
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-        req->prepare();
-#else
-        req->init();
-#endif
-        req->set_addr(addr);
-        req->set_size(size);
-        req->set_is_write(this->io_pending_is_write);
-        req->set_data(this->io_pending_data);
-
-        // Update the full request for the next iteration
-        this->io_pending_data += size;
-        this->io_pending_size -= size;
-        this->io_pending_addr += size;
-
-        // Send the request to the interface
-        int err = this->io_itf.req(req);
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-        if (err == vp::IO_REQ_DONE && req->get_resp_status() == vp::IO_RESP_OK)
-        {
-            this->event->enqueue(this->io_req.get_latency() + 1);
-        }
-        else if (err == vp::IO_REQ_DONE && req->get_resp_status() == vp::IO_RESP_INVALID)
-        {
-            this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
-            pthread_mutex_lock(&this->mutex);
-            this->waiting_io_response = false;
-            this->io_retval = 1;
-            pthread_cond_broadcast(&this->cond);
-            pthread_mutex_unlock(&this->mutex);
-        }
-#else
-        if (err == vp::IO_REQ_OK)
-        {
-            // Always handle it through an event to simplify since we should make sure
-            // we don't enqueue another request before the latency of this one is over.
-            this->event->enqueue(this->io_req.get_latency() + 1);
-        }
-        else if (err == vp::IO_REQ_INVALID)
-        {
-            // Stop here if we got an error
-            this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
-            pthread_mutex_lock(&this->mutex);
-            this->waiting_io_response = false;
-            this->io_retval = 1;
-            pthread_cond_broadcast(&this->cond);
-            pthread_mutex_unlock(&this->mutex);
-        }
-#endif
-        else
-        {
-            // Nothing today for asynchronous reply since the callback will take care of continuing
-            // the whole access
-        }
-    }
-    else
-    {
-        // We reached the end of the whole request, notify the waiting thread
-        this->trace.msg(vp::Trace::LEVEL_DEBUG, "End of data request\n");
-        pthread_mutex_lock(&this->mutex);
-        this->waiting_io_response = false;
-        this->io_retval = 0;
-        pthread_cond_broadcast(&this->cond);
-        pthread_mutex_unlock(&this->mutex);
-    }
-}
-
-
-
 int Gdbserver::gdbserver_io_access(uint64_t addr, int size, uint8_t *data, bool is_write)
 {
     this->trace.msg(vp::Trace::LEVEL_DEBUG, "Data request (addr: 0x%lx, size: 0x%x, is_write: %d)\n", addr, size, is_write);
 
-    // Backdoor path: the access completes inline under the engine lock we
-    // already hold, with no timing and no simulation advance. This is the
-    // only working path when the target interconnect buffers requests
-    // (io_v2 async routers), since the FSM below needs clock events.
-    if (this->debug_mem)
+    if (this->debug_mem == nullptr)
     {
-        return this->debug_mem->debug_mem_access(addr, data, size, is_write) ? 1 : 0;
+        this->trace.force_warning(
+            "Debug memory access without debug-memory backdoor (addr: 0x%lx, size: 0x%x, is_write: %d)\n",
+            addr, size, is_write);
+        return 1;
     }
 
-    // Since the whole request may need to be processed in several small requests,
-    // we setup an internal FSM that will inform us when the whole request is over.
-    this->io_pending_addr = addr;
-    this->io_pending_size = size;
-    this->io_pending_data = data;
-    this->io_pending_is_write = is_write;
-    this->waiting_io_response = true;
-
-    // Trigger the first access, with engine locked, since we come from an external thread
-    this->handle_pending_io_access();
-    this->iss.get_launcher()->engine_unlock();
-
-    // Then wait until the FSM is over
-    pthread_mutex_lock(&this->mutex);
-    while (this->waiting_io_response)
-    {
-        pthread_cond_wait(&this->cond, &this->mutex);
-    }
-    pthread_mutex_unlock(&this->mutex);
-
-    this->iss.get_launcher()->engine_lock();
-
-    return this->io_retval;
+    // The access completes inline under the engine lock we already hold,
+    // with no timing and no simulation advance.
+    return this->debug_mem->debug_mem_access(addr, data, size, is_write) ? 1 : 0;
 }

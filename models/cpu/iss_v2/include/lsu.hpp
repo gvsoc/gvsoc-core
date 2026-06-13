@@ -94,8 +94,6 @@ public:
 
     bool fence();
 
-    // TODO used by syscalls, find a better to handle such accesses
-    vp::IoReq debug_req;
     vp::IoMaster data;
 
 private:

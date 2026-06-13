@@ -23,9 +23,6 @@
 
 #include <cpu/iss/include/types.hpp>
 #include <vp/debug_mem.hpp>
-#include <mutex>
-#include <condition_variable>
-#include <pthread.h>
 
 class Watchpoint
 {
@@ -41,7 +38,6 @@ public:
     Gdbserver(Iss &iss);
     void build();
     void start();
-    void stop();
     void reset(bool active);
 
     bool is_enabled() { return this->gdbserver != NULL; }
@@ -67,13 +63,6 @@ public:
     void enable_all_breakpoints();
     bool watchpoint_check(bool is_write, iss_addr_t addr, int size);
 
-    void handle_pending_io_access();
-    static void handle_pending_io_access_stub(vp::Block *__this, vp::ClockEvent *event);
-    static void data_response(vp::Block *__this, vp::IoReq *req);
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-    static void data_retry(vp::Block *__this, vp::IoRetryChannel) {}
-#endif
-
     void breakpoint_stub_insert(iss_insn_t *insn, iss_reg_t pc);
     void breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc);
     bool breakpoint_check_pc(iss_addr_t pc);
@@ -81,31 +70,17 @@ public:
     void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     Iss &iss;
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-    vp::IoMaster io_itf{&Gdbserver::data_retry, &Gdbserver::data_response};
-#else
-    vp::IoMaster io_itf;
-#endif
-    vp::IoReq io_req;
-    // Backdoor debug-memory interface of the component bound on data_debug,
-    // resolved at start(). When set, gdbserver_io_access() goes through it
-    // inline instead of the event-based FSM, so accesses complete even while
-    // the simulation is paused (mandatory with buffering io_v2 routers,
-    // whose timed responses only come from clock events).
+    // Backdoor debug-memory interface of the component behind the LSU data
+    // port, resolved at start(). All debug accesses (gdb memory accesses,
+    // semi-hosting) go through it inline, so they complete even while the
+    // simulation is paused (mandatory with buffering io_v2 routers, whose
+    // timed responses only come from clock events). Without it, debug
+    // accesses are reported as errors.
     vp::DebugMemIf *debug_mem = nullptr;
     vp::Trace trace;
-    vp::ClockEvent *event;
     vp::Gdbserver_engine *gdbserver;
     std::list<iss_addr_t> breakpoints;
     bool halt_on_reset;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int io_retval;
-    bool waiting_io_response;
-    uint64_t io_pending_addr;
-    int io_pending_size;
-    uint8_t *io_pending_data;
-    bool io_pending_is_write;
     std::list<Watchpoint *> write_watchpoints;
     std::list<Watchpoint *> read_watchpoints;
     int id;

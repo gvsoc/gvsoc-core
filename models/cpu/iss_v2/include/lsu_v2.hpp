@@ -19,12 +19,11 @@
  *     ``io_req_denied`` and wait for ``retry()`` from the downstream
  *     before allowing the core to re-submit.
  *
- * Publicly-visible fields (``data``, ``debug_req``) keep the same names
- * as v1 so external users (``syscalls.cpp``, ``ara_vlsu.cpp``, ...) can
- * talk to either variant through the same ``iss.lsu.data`` / ``iss.lsu.debug_req``
- * handles. Those callers still need to guard any v1-specific API use
- * (``req->init()``, ``set_debug()``, ``IO_REQ_OK``, ``get_full_latency()``)
- * with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2``.
+ * The publicly-visible ``data`` field keeps the same name as v1 so
+ * external users (``ara_vlsu.cpp``, ...) can talk to either variant
+ * through the same ``iss.lsu.data`` handle. Those callers still need to
+ * guard any v1-specific API use (``req->init()``, ``IO_REQ_OK``,
+ * ``get_full_latency()``) with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2``.
  */
 
 #pragma once
@@ -121,8 +120,6 @@ public:
 
     bool fence();
 
-    // TODO used by syscalls, find a better to handle such accesses
-    vp::IoReq   debug_req;
     vp::IoMaster data{&LsuV2::data_retry, &LsuV2::data_response};
 
 protected:

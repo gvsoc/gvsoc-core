@@ -677,21 +677,6 @@ class RiscvCommon(st.Component):
     def o_TIME(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('time', itf, signature='wire<uint64_t>')
 
-    def o_DATA_DEBUG(self, itf: gvsoc.systree.SlaveItf):
-        """Binds the data debug port.
-
-        This port is used for issuing data accesses from gdb server to the memory.\n
-        It instantiates a port of type vp::IoMaster.\n
-        If gdbserver is used It is mandatory to bind it.\n
-
-        Parameters
-        ----------
-        slave: gvsoc.systree.SlaveItf
-            Slave interface
-        """
-        self.itf_bind('data_debug', itf,
-            signature='io_v2' if self._uses_io_v2 else 'io')
-
     def o_FLUSH_CACHE(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('flush_cache_req', itf, signature='wire<bool>')
 

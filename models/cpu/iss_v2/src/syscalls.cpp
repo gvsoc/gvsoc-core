@@ -26,11 +26,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-#include <vp/itf/io_v2.hpp>
-#else
-#include <vp/itf/io.hpp>
-#endif
 #include <vp/stats/stats_engine.hpp>
 
 #ifndef O_BINARY
@@ -53,7 +48,6 @@ Syscalls::Syscalls(Iss &iss)
 void Syscalls::reset(bool active)
 {
   this->htif.reset(active);
-  this->latency = 0;
 }
 
 
@@ -115,63 +109,22 @@ void Syscalls::handle_ebreak()
 
 bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bool is_write)
 {
-    vp::IoReq *req = &this->iss.lsu.debug_req;
-    std::string str = "";
-    while (size != 0)
+    // Go through the same debug-memory backdoor as the gdbserver. The access
+    // is zero-time and works also with buffering io_v2 interconnects, which
+    // cannot serve debug requests on the data port.
+    vp::DebugMemIf *debug_mem = this->iss.gdbserver.debug_mem;
+    if (debug_mem == nullptr)
     {
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-        // v2 protocol: no per-request ``init()`` or ``set_debug()`` exists.
-        // Expected completion is IO_REQ_DONE with IO_RESP_OK; DENIED /
-        // GRANTED paths are not reachable for a debug access.
-        req->prepare();
-        req->set_addr(addr);
-        req->set_size(1);
-        req->set_is_write(is_write);
-        req->set_data(buffer);
-        req->set_resp_status(vp::IO_RESP_OK);
-        vp::IoReqStatus err = this->iss.lsu.data.req(req);
-        if (err != vp::IO_REQ_DONE
-            || req->get_resp_status() == vp::IO_RESP_INVALID)
-        {
-            this->trace.fatal("Invalid IO response during debug request (addr: 0x%lx, size: 0x%lx)\n",
-                addr, size);
-            return true;
-        }
-        int64_t latency = req->get_latency();
-#else
-        req->init();
-        req->set_debug(true);
-        req->set_addr(addr);
-        req->set_size(1);
-        req->set_is_write(is_write);
-        req->set_data(buffer);
-        int err = this->iss.lsu.data.req(req);
-        if (err != vp::IO_REQ_OK)
-        {
-            if (err == vp::IO_REQ_INVALID)
-            {
-                this->trace.fatal("Invalid IO response during debug request (addr: 0x%lx, size: 0x%lx)\n",
-                    addr, size);
-            }
-            else
-            {
-                this->trace.fatal("Pending IO response during debug request (addr: 0x%lx, size: 0x%lx)\n",
-                    addr, size);
-            }
+        this->trace.force_warning("Semi-hosting access without debug-memory backdoor"
+            " (addr: 0x%lx, size: 0x%lx)\n", addr, size);
+        return true;
+    }
 
-            return true;
-        }
-
-        int64_t latency = req->get_full_latency();
-#endif
-        if (latency > this->latency)
-        {
-            this->latency = latency;
-        }
-
-        addr++;
-        size--;
-        buffer++;
+    if (debug_mem->debug_mem_access(addr, buffer, size, is_write))
+    {
+        this->trace.fatal("Invalid access during semi-hosting request (addr: 0x%lx, size: 0x%lx)\n",
+            addr, size);
+        return true;
     }
 
     return false;
@@ -179,43 +132,23 @@ bool Syscalls::user_access(iss_addr_t addr, uint8_t *buffer, iss_addr_t size, bo
 
 std::string Syscalls::read_user_string(iss_addr_t addr, int size)
 {
-    vp::IoReq *req = &this->iss.lsu.debug_req;
+    // Same debug-memory backdoor as the gdbserver, see user_access
+    vp::DebugMemIf *debug_mem = this->iss.gdbserver.debug_mem;
+    if (debug_mem == nullptr)
+    {
+        this->trace.force_warning("Semi-hosting access without debug-memory backdoor"
+            " (addr: 0x%lx)\n", addr);
+        return "";
+    }
+
     std::string str = "";
     while (size != 0)
     {
         uint8_t buffer;
-#ifdef CONFIG_GVSOC_ISS_LSU_V2
-        req->prepare();
-        req->set_addr(addr);
-        req->set_size(1);
-        req->set_is_write(false);
-        req->set_data(&buffer);
-        req->set_resp_status(vp::IO_RESP_OK);
-        vp::IoReqStatus err = this->iss.lsu.data.req(req);
-        if (err != vp::IO_REQ_DONE)
-        {
-            this->trace.fatal("Pending IO response during debug request\n");
-        }
-        if (req->get_resp_status() == vp::IO_RESP_INVALID)
+        if (debug_mem->debug_mem_access(addr, &buffer, 1, false))
         {
             return "";
         }
-#else
-        req->init();
-        req->set_debug(true);
-        req->set_addr(addr);
-        req->set_size(1);
-        req->set_is_write(false);
-        req->set_data(&buffer);
-        int err = this->iss.lsu.data.req(req);
-        if (err != vp::IO_REQ_OK)
-        {
-            if (err == vp::IO_REQ_INVALID)
-                return "";
-            else
-                this->trace.fatal("Pending IO response during debug request\n");
-        }
-#endif
 
         if (buffer == 0)
             return str;
@@ -247,7 +180,6 @@ static const int open_modeflags[12] = {
 void Syscalls::handle_riscv_ebreak()
 {
     int id = this->iss.regfile.get_reg_untimed(10);
-    this->latency = 0;
 
     switch (id)
     {
@@ -851,11 +783,6 @@ void Syscalls::handle_riscv_ebreak()
     default:
         this->trace.force_warning("Unknown ebreak call (id: %d)\n", id);
         break;
-    }
-
-    if (this->latency > 0)
-    {
-        this->iss.timing.stall_load_account(this->latency);
     }
 }
 

@@ -54,7 +54,6 @@ void Iss::stop()
     this->insn_cache.stop();
     this->trace.stop();
     this->syscalls.stop();
-    this->gdbserver.stop();
 #if defined(CONFIG_ISS_HAS_VECTOR)
     this->vector.stop();
 #endif

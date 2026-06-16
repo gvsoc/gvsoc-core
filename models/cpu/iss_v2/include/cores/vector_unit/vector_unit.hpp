@@ -483,7 +483,7 @@ private:
 
     // Size of the queue holding pending instructions. Once full, vu can not accept instructions
     // from CVA6 anymore
-    static constexpr int queue_size = 8;
+    static constexpr int queue_size = 4;
 
     // Event for active state
     vp::Trace event_active;

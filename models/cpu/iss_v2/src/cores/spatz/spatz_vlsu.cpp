@@ -253,7 +253,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         PendingInsn *pending_insn = slot.insn;
         iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
 
-        if (pending_insn->timestamp <= _this->vu.iss.clock.get_cycles())
+        if (pending_insn->timestamp <= _this->vu.iss.clock.get_cycles() && _this->vu.insn_ready(pending_insn))
         {
             
 #ifdef CONFIG_GVSOC_STATS_ACTIVE

@@ -563,15 +563,15 @@ void LsuV2::task_handle(Iss *iss, Task *task)
         return;
     }
 
-    if (cur < iss->lsu.next_retire_cycle)
-    {
-        // Another response already retired this cycle. Push our slot
-        // out to the next available retire cycle and re-enqueue.
-        entry->timestamp = iss->lsu.next_retire_cycle;
-        iss->lsu.next_retire_cycle++;
-        iss->exec.enqueue_task(task);
-        return;
-    }
+    // We have reached the unique retire slot (entry->timestamp) that was
+    // reserved for this completion when it was deferred (in data_response, or
+    // an earlier pass through this handler). That slot is ours, so retire now.
+    //
+    // Do NOT re-apply the `cur < next_retire_cycle` gate here: next_retire_cycle
+    // was already advanced past our slot when the slot was reserved, so the
+    // check would be permanently true and the task would keep pushing its own
+    // slot one cycle further every cycle (next_retire_cycle tracking cur+1),
+    // livelocking the core until an unrelated event happens to break the tie.
 
     InsnEntry *insn_entry = entry->insn_entry;
     iss->lsu.req_retire_hook(entry);
@@ -587,7 +587,10 @@ void LsuV2::task_handle(Iss *iss, Task *task)
 #else
     iss->exec.insn_terminate(insn_entry);
 #endif
-    iss->lsu.next_retire_cycle = cur + 1;
+    // Advance the next free retire slot, but never rewind it below slots that
+    // were already reserved for other in-flight completions.
+    if (iss->lsu.next_retire_cycle < cur + 1)
+        iss->lsu.next_retire_cycle = cur + 1;
 }
 
 bool LsuV2::atomic(iss_insn_t *insn, iss_addr_t addr, int size,

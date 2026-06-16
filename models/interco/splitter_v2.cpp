@@ -67,6 +67,15 @@
 #include <vp/debug_mem.hpp>
 #include <interco/splitter_v2/splitter_config.hpp>
 
+// Pulse a GUI signal to `v` now (+`delay` sub-cycle offset) and back to high-Z
+// one cycle later, so each access shows as a one-cycle marker in the timeline.
+static inline void gui_pulse(vp::Signal<uint64_t> &s, uint64_t v,
+                             int64_t delay, int64_t period)
+{
+    s.set(v, (int64_t)0, delay);
+    s.release(0, delay + period);
+}
+
 class Splitter : public vp::Component, public vp::DebugMemIf
 {
 public:
@@ -142,11 +151,28 @@ private:
     // Set when we refused an upstream request with DENIED. Cleared — and
     // retry() fired — once the pending parent completes.
     bool input_needs_retry = false;
+
+    // --- GUI traces (visible in the model-graph / timeline) ---
+    int64_t gui_slot_delay();
+    void    gui_log_input(uint64_t addr, uint64_t size, bool is_write);
+    void    gui_log_output(int i, uint64_t addr, uint64_t size);
+    int64_t gui_last_cycle = -1;
+    int     gui_nb_same_cycle = 0;
+    vp::Signal<uint64_t> gui_active;
+    vp::Signal<uint64_t> gui_addr;
+    vp::Signal<uint64_t> gui_size;
+    vp::Signal<uint64_t> gui_is_write;
+    std::vector<std::unique_ptr<vp::Signal<uint64_t>>> gui_out_addr;
+    std::vector<std::unique_ptr<vp::Signal<uint64_t>>> gui_out_size;
 };
 
 
 Splitter::Splitter(vp::ComponentConf &config)
-    : vp::Component(config, this->cfg)
+    : vp::Component(config, this->cfg),
+      gui_active(*this, "active", 1, vp::SignalCommon::ResetKind::HighZ),
+      gui_addr(*this, "addr", 64, vp::SignalCommon::ResetKind::HighZ),
+      gui_size(*this, "size", 64, vp::SignalCommon::ResetKind::HighZ),
+      gui_is_write(*this, "is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -161,6 +187,12 @@ Splitter::Splitter(vp::ComponentConf &config)
             i, &Splitter::output_retry, &Splitter::output_resp);
         this->new_master_port("output_" + std::to_string(i), m.get());
         this->outputs.push_back(std::move(m));
+
+        std::string pfx = "output_" + std::to_string(i);
+        this->gui_out_addr.push_back(std::make_unique<vp::Signal<uint64_t>>(
+            *this, pfx + "/addr", 64, vp::SignalCommon::ResetKind::HighZ));
+        this->gui_out_size.push_back(std::make_unique<vp::Signal<uint64_t>>(
+            *this, pfx + "/size", 64, vp::SignalCommon::ResetKind::HighZ));
     }
 
     this->stuck.assign((size_t)this->nb_outputs, nullptr);
@@ -183,6 +215,43 @@ void Splitter::reset(bool active)
         this->input_needs_retry           = false;
         std::fill(this->stuck.begin(), this->stuck.end(), nullptr);
     }
+}
+
+
+// Sub-cycle offset so several accesses logged in the same cycle are spread
+// across the cycle and all remain visible in the GUI.
+int64_t Splitter::gui_slot_delay()
+{
+    int64_t cycles = this->clock.get_cycles();
+    if (cycles > this->gui_last_cycle)
+    {
+        this->gui_nb_same_cycle = 0;
+        this->gui_last_cycle = cycles;
+    }
+    int64_t period = this->clock.get_period();
+    int64_t delay = this->gui_nb_same_cycle > 0
+        ? period - (period >> this->gui_nb_same_cycle) : 0;
+    this->gui_nb_same_cycle++;
+    return delay;
+}
+
+void Splitter::gui_log_input(uint64_t addr, uint64_t size, bool is_write)
+{
+    int64_t period = this->clock.get_period();
+    int64_t delay = this->gui_slot_delay();
+    gui_pulse(this->gui_addr, addr, delay, period);
+    gui_pulse(this->gui_size, size, delay, period);
+    gui_pulse(this->gui_is_write, is_write ? 1 : 0, delay, period);
+    gui_pulse(this->gui_active, 1, delay, period);
+}
+
+void Splitter::gui_log_output(int i, uint64_t addr, uint64_t size)
+{
+    int64_t period = this->clock.get_period();
+    int64_t delay = this->gui_slot_delay();
+    gui_pulse(*this->gui_out_addr[i], addr, delay, period);
+    gui_pulse(*this->gui_out_size[i], size, delay, period);
+    gui_pulse(this->gui_active, 1, delay, period);
 }
 
 
@@ -260,6 +329,8 @@ void Splitter::issue_phases()
         {
             uint64_t port_size = ow - (addr & ow_mask);
             uint64_t iter_size = std::min(port_size, size);
+
+            this->gui_log_output(i, addr, iter_size);
 
             vp::IoReq *sub = this->alloc_sub();
             sub->prepare();
@@ -391,6 +462,8 @@ vp::IoReqStatus Splitter::input_req(vp::Block *__this, vp::IoReq *req)
         req->set_resp_status(vp::IO_RESP_OK);
         return vp::IO_REQ_DONE;
     }
+
+    _this->gui_log_input(req->get_addr(), req_size, req->get_is_write());
 
     _this->pending_parent              = req;
     _this->parent_total_size           = req_size;

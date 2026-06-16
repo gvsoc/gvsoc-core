@@ -288,6 +288,17 @@ class LogIco(Component):
     def __init__(self, parent: Component, name: str, config: LogIcoConfig):
         super().__init__(parent, name, config=config)
         self.add_sources(['interco/log_ico_v2.cpp'])
+        self.nb_slaves = config.nb_slaves
+
+    def gen_gui(self, parent_signal):
+        """Surface the per-bank accesses served by the crossbar in the GUI."""
+        import gvsoc.gui
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name,
+            path="active", groups=['regmap', 'active'],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        for i in range(self.nb_slaves):
+            gvsoc.gui.Signal(self, top, f"output_{i}", path=f"output_{i}/addr",
+                groups=['regmap', 'active'])
 
     def i_INPUT(self, id: int) -> SlaveItf:
         """Returns the slave port ``input_<id>`` for master ``id``.

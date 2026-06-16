@@ -406,6 +406,14 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
 
     vp::IoReq *r = &this->refill_req;
     r->prepare();
+    // A refill is a single whole-line burst. Reset the burst flags explicitly:
+    // prepare() does not touch them, and a beat-streaming downstream (KIND_BEAT
+    // router / IoV2BeatAdapter) leaves is_first=0/is_last=1 on the shared
+    // refill_req after the previous response's last beat. Reusing it without a
+    // reset would send the next refill as a stray continuation beat.
+    r->is_first = true;
+    r->is_last = true;
+    r->burst_id = -1;
     r->set_addr(full_addr);
     r->set_is_write(false);
     r->set_size(1U << this->line_size_bits);

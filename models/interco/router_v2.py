@@ -389,9 +389,15 @@ class Router(gvsoc.systree.Component):
             The ``io_v2`` slave interface to bind a master output to.
         """
         self.__alloc_input_port(id)
-        if id == 0:
-            return gvsoc.systree.SlaveItf(self, 'input', signature='io_v2')
-        return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='io_v2')
+        # The beat kind consumes per-beat io_v2 traffic on its inputs; declare
+        # IoV2Beat so a beat master (e.g. the cluster DMA ext port) binds
+        # directly with no auto-inserted IoV2BeatAdapter. A legacy 'io_v2'
+        # string master still binds directly too (the framework only bridges
+        # when the master side is a class-based Signature). Other kinds keep
+        # the legacy string signature.
+        sig = IoV2Beat(self.config.width) if self.config.kind == KIND_BEAT else 'io_v2'
+        name = 'input' if id == 0 else f'input_{id}'
+        return gvsoc.systree.SlaveItf(self, name, signature=sig)
 
     def o_MAP(self, itf: gvsoc.systree.SlaveItf, mapping: RouterMapping,
               name: str = None):

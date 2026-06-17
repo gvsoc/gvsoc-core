@@ -160,7 +160,8 @@ class PrefetchSingleLine(IssModule):
         iss.add_sources(['cpu/iss_v2/src/prefetch/prefetch_single_line.cpp'])
 
 class Lsu(IssModule):
-    def __init__(self, nb_outstanding: int=1):
+    # ignore
+    def __init__(self, nb_outstanding: int=8):
         self.nb_outstanding = nb_outstanding
 
     @override

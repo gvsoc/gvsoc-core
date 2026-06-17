@@ -28,6 +28,8 @@ Most logic is bookkeeping and the fault application in `FIC::inject_fault()`.
 
 The commands must be passed through a file specified by `faults_path`. 
 
+**Note**: Only memories and VRF registers have been calibrated against RTL. Other targets are tentative.
+
 | Numerical command                                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |---------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0 0 0 -1 `addr` `bit` 0 0 `cycle` `nb_bits` 0                 | Flip sequence of `nb_bits` bits starting from `bit` in byte at `addr` in global addres space in `cycle` cycle                                                                                                                                                                                                                                                                                                                              |

@@ -1,16 +1,18 @@
 # Overview
 
-The main functionality of FIC consists in storing, parsing, and distributing the fault requests in a meaningful way. Additionally, it may perform other related functionality such as computing hashes for integrity checks. The model takes `faults_path` parameter which specifies file containing faults.
+The main functionality of FIC consists in storing, parsing, and distributing the fault requests in a meaningful way. Additionally, it may perform other related functionality such as computing hashes for integrity checks. 
 
-To integrate a memory device into fault injection campaign, one has to pass `fic_enabled=True` to its constructor (see attribute annotations in `../memory/memory.py`). Similar for other supported devices.
+The model takes `faults_path` parameter which specifies file containing faults.
+
+To integrate a memory device into fault injection campaign, pass `fic_enabled=True` to probed device. The probed device must then register with FIC at `reset`. See `../memory/memory.{py,cpp}` for an example.
 
 ## Functionality
 
 - Store and inject faults
 
-- Hashing for integrity checks. **CURRENT ISSUE**: if the user wants to hash a region specified by global address, we cannot map it (yet) to the right device and so we have to issue global interconnect debug IO request.
+- Hashing for integrity checks. 
 
-- Dumps relevant data for fault campaign: indices, paths, sizes, etc. of the connected target devices.
+- Dump relevant data for fault campaign: indices, paths, sizes, etc. of the connected target devices.
 
 ## Internals
 
@@ -20,7 +22,11 @@ For now, there is no option of manual ID assignment for target memory devices. I
 
 The faults are read from file into a sorted `faults_queue`. Upon leaving the reset state for the first time, FIC checks whether the queue is non-empty. If so, it sets its event timer `event` to the timestamp of the first injection. Upon waking up and handling the fault injection, it again sets the timer to the timestamp of next fault injection.
 
+Most logic is bookkeeping and the fault application in `FIC::inject_fault()`.
+
 ## What about commands?
+
+The commands must be passed through a file specified by `faults_path`. 
 
 | Numerical command                                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |---------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

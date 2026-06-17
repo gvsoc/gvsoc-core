@@ -217,6 +217,8 @@ vp::FIRequest *FIC::assemble_request(int cmd, int kind, int target_type,
 }
 
 /*
+ *	Fault application logic here. Split by case.
+ *
  *	Object pointed to by @fir should be freed here.	
  */
 void FIC::inject_fault(vp::FIRequest *fir)
@@ -477,7 +479,7 @@ void FIC::inject_fault(vp::FIRequest *fir)
 }
 
 /*
- *	Here we also update fir->target_cycle
+ *	Here we also update fir->target_cycle.
  */
 void FIC::enqueue_fault_dynamic(vp::FIRequest *fir)
 {
@@ -560,6 +562,9 @@ void FIC::handle_event(vp::Block *__this, vp::ClockEvent *event)
 	}
 }
   
+/*
+ *	Use this method to dump all relevant information about the system.
+ */
 void FIC::stop()
 {
 	/* Dump all requested info on components */
@@ -578,7 +583,6 @@ void FIC::stop()
 			int target 		= hr->target;
 			uint64_t addr 	= hr->addr;
 			uint64_t size 	= hr->size;
-
 
 			if (target == -1)
 			{
@@ -750,6 +754,11 @@ vp::FIRequest *FIC::fir_deep_copy(vp::FIRequest *other)
 
 	return copy;
 }
+
+/*
+ *	Below is a sequence of registration function.
+ *	Purely for bookkeeping purposes.
+ */
 
 void FIC::register_memory(vp::Component *comp, uint8_t *memory_ptr, 
 	uint64_t memory_size, StuckAtMap& stuck_at_map)

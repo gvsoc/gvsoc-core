@@ -233,7 +233,6 @@ bool Lsu::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoRe
     {
         // In case the request is denied, make sure we don't allow any other access
         // until this request is granted
-        //ignore
         this->io_req_denied = true;
         entry->insn_entry = this->iss.exec.insn_hold(insn);
         return false;

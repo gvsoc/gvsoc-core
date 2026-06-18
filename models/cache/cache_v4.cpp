@@ -366,8 +366,15 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 void Cache::check_state()
 {
+    // Use has_reqs() (presence), NOT !empty() (readiness): a CPU request queued
+    // via push_back this same cycle carries a now+1 timestamp, so empty() reports
+    // it as "not yet available". If a refill completes the same cycle the request
+    // is queued, an !empty() test would skip scheduling the drain fsm, and nothing
+    // re-checks next cycle -> the queued request is lost and the master hangs. The
+    // fsm runs at +1, by which point the element is ready, so scheduling on
+    // presence is correct.
     if (!this->pending_refill.get() && !this->refill_retry_pending
-        && !this->refill_pending_reqs.empty())
+        && this->refill_pending_reqs.has_reqs())
     {
         if (!this->fsm_event->is_enqueued())
         {

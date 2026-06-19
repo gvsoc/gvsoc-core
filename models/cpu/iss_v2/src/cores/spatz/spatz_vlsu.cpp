@@ -118,9 +118,7 @@ void VuLsu::enqueue_insn(PendingInsn *pending_insn)
     this->event_active.event(&one);
     this->event_queue.event((uint8_t *)&insn->addr);
 
-    // The start timestamp is armed only when the instruction reaches the head of the waiting
-    // queue, otherwise younger instructions would consume their latency while an older one is
-    // still occupying the VLSU.
+    // Push the instruction in the queue for the FSM. The +1 keeps it from being executed immediately in the same cycle.
     pending_insn->timestamp = this->vu.iss.clock.get_cycles() + 1;
     VuLsuPendingInsn &slot = this->insns[this->insn_last];
     this->insn_last = (this->insn_last + 1) % VuLsu::queue_size;
@@ -246,7 +244,10 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->fsm_event.disable();
     }
 
-    // Check if the first waiting instruction can be started
+    // Check if the first waiting instruction can be started:
+    // - if the current on-going instruction finished issuing all requests i.e. _this->pending_size == 0;
+    // - if the first waiting instruction past its enqueue cycle,
+    // - and is ready dependency-wise.
     if (_this->nb_waiting_insn > 0 && _this->pending_size == 0)
     {
         VuLsuPendingInsn &slot = _this->insns[_this->insn_first_waiting];
@@ -265,6 +266,10 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 pending_insn->exec_start_cycle = _this->vu.iss.clock.get_cycles();
             }
 #endif
+            
+            // If so, it becomes the on-going instruction and gets armed with the allowed start of its request issuing phase
+            // according to its instruction latency. 
+            // Only the active on-going instruction may consume instruction latency.
             pending_insn->timestamp = _this->vu.iss.clock.get_cycles() + insn->latency;
             ((void (*)(VuLsu *, iss_insn_t *))insn->decoder_item->u.insn.block_handler)(_this, insn);
             _this->insn_ongoing = _this->insn_first_waiting;
@@ -280,9 +285,11 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         VuLsuPendingInsn &slot = _this->insns[_this->insn_ongoing];
         PendingInsn *pending_insn = slot.insn;
 
+        
+        // If the on-going instruction is ready and its instruction latency has elapsed, 
+        // try to send requests to available ports
         if (pending_insn->timestamp <= _this->vu.iss.clock.get_cycles() && _this->vu.insn_ready(pending_insn))
         {
-
 
             uint64_t iter_size = 0;
             iss_insn_t *insn = _this->vu.iss.exec.get_insn(pending_insn->entry);
@@ -294,7 +301,6 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 _this->event_pc.event((uint8_t *)&insn->addr);
             }
 
-            // If a pending request is ready, try to send requests to available ports
             for (int i=0; i<_this->ports.size(); i++)
             {
                 if (_this->pending_size == 0) break;
@@ -322,7 +328,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     _this->event_size[i].event((uint8_t *)&size);
                     _this->event_is_write[i].event((uint8_t *)&_this->pending_is_write);
 
-                    /// Pop a request from this port queue to limit number of outstanding requests
+                    // Pop a request from this port queue to limit number of outstanding requests
                     vp::IoReq *req = (vp::IoReq *)_this->req_queues[i]->pop();
 
                     req->prepare();
@@ -373,16 +379,16 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 
 
-                    // Switch to next instruction once all burst have been sent
+                    // Check if the on-going instruction finishes sending all requests.
                     if (_this->pending_size == 0)
                     {   
-                        // 1. THE BUS TIMER: Remember the timestamp of last operation to impact timing of next one
+                        // Keep the last bus operation time to model the gap before the next one.
                         _this->op_timestamp = _this->vu.iss.clock.get_cycles() + 1;
 
-                        // 2. THE PIPELINE TIMER: Keep one extra cycle before retirement once the
-                        // last burst has been issued. The instruction latency itself is accounted
-                        // for before the first request is sent.
+                        // Keep one extra cycle before retirement after the last burst is issued.
                         pending_insn->timestamp = pending_insn->timestamp + 1;
+
+                        // Mark the instruction done once all bursts have been issued.
                         slot.done = true;
                     }
                 }
@@ -399,7 +405,6 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 
     // Check if the first enqueued instruction must be removed.
-    // This must run even when pending_size is 0, as latency can delay retirement.
     if (_this->nb_pending_insn.get() > 0)
     {
         VuLsuPendingInsn &slot = _this->insns[_this->insn_first];

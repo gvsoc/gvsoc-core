@@ -511,7 +511,12 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
                     vp::IoReqStatus err = _this->ports[i].req(req);
 
-                    if (err == vp::IO_REQ_OK || err == vp::IO_REQ_INVALID)
+                    if (err == vp::IO_REQ_INVALID)
+                    {
+                        _this->trace.fatal("Invalid request (req: %p, addr: 0x%lx, size: 0x%lx, is_write: %d)\n",
+                            req, addr, size, _this->pending_is_write);
+                    }
+                    else if (err == vp::IO_REQ_OK)
                     {
                         int64_t latency = req->get_full_latency();
                         if (latency == 0)
@@ -535,7 +540,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     }
                     else
                     {
-                        // Nothing to for asynchronous requests, they are handled in the callback
+                        // Nothing to do for asynchronous requests (status PENDING), they are handled in the callback
                     }
 
 

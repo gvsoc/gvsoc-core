@@ -307,7 +307,11 @@ private:
     bool started;
     int vstart;
 
-    // Ongoing instruction
+    // Instruction currently active in the VLSU. pending_insn->timestamp is reused across phases:
+    // 1. as an enqueue-cycle guard, 2. as the request issuing start time after instruction latency, 
+    // and 3. for memory-response/retirement timing. Keeping this index separate from insn_first_waiting 
+    // makes the phase explicit and prevents queued instructions from consuming their instruction latency 
+    // before they become active.
     int insn_ongoing;
 };
 
@@ -400,7 +404,15 @@ private:
     int elem_size;
     int vstart;
 
-    // Ongoing instruction
+    // Instruction currently active in the VLSU. It is either waiting for its instruction latency to elapse 
+    // or already actively issuing memory requests. This is kept separate from insn_first_waiting for the following reason. 
+    // pending_insn->timestamp has multiple purposes:
+    // 1. At the instruction enqueue time, it is set to (enqueue cycle + 1) to avoid starting to execute the instruction immediately in the same cycle;
+    // 2. At the instruction execution start, it is set to (current cycle + instruction latency), to prevent the instruction from issuing memory requests before its instruction latency elapses;
+    // 3. During the instruction execution, it is used to track the synchronous memory access latency (current cycle + request latency) and instruction retirement time.
+    // In order to distinguish between the first two cases in the FSM, and ensure that instruction latency is only modeled once,
+    // we seperate index insn_ongoing (with timestamp of purpose 2 or 3) from insn_first_waiting (with timestamp of purpose 1).
+    // This also prevents the younger instructions waiting in the queue from consuming its latency while the older instruction is still active.
     int insn_ongoing;
 };
 
@@ -482,7 +494,7 @@ private:
     inline void free_id(int id);
 
     // Size of the queue holding pending instructions. Once full, vu can not accept instructions
-    // from CVA6 anymore
+    // from CVA6 anymore. Spatz can handle 4 instructions at a time.
     static constexpr int queue_size = 4;
 
     // Event for active state

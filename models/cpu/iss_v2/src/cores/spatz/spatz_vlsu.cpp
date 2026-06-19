@@ -296,7 +296,6 @@ void VuLsu::data_response(vp::Block *__this, vp::IoReq *req)
 {
     VuLsu *_this = (VuLsu *)__this;
 
-    // We just received the response to one of the burst, set valid=True
     auto *rob_entry = (VlsuRobEntry *)req->get_args()[0];
 
     if (rob_entry == nullptr || rob_entry->port < 0 || rob_entry->port >= _this->nb_ports ||
@@ -305,16 +304,19 @@ void VuLsu::data_response(vp::Block *__this, vp::IoReq *req)
         _this->trace.fatal("Invalid VLSU response context (req: %p, rob_entry: %p)\n",
             req, rob_entry);
     }
-    
+
+    // We just received the response to one of the requests, set valid=True
+    _this->rob[rob_entry->port][rob_entry->rob_id].valid = true;
+
+    _this->trace.msg("Received data response (req: %p)\n", req);
+
+    // Free any arguments associated with the request, to avoid memory leaks. 
+    // This is important because the request object is reused for future requests.
     int req_nb_args = req->arg_current_index();
     if (req_nb_args > 0)
     {
         req->arg_free(req_nb_args);
     }
-
-    _this->rob[rob_entry->port][rob_entry->rob_id].valid = true;
-
-    _this->trace.msg("Received data response (req: %p)\n", req);
 
     int port = rob_entry->port;
     int rob_id = rob_entry->rob_id;
@@ -518,6 +520,7 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                         }
                         else
                         {
+                            // The request is synchronous, use a priority queue model the synchronous response delay.
                             uint64_t response_timestamp = _this->vu.iss.clock.get_cycles() + latency;
                             _this->delayed_bursts.push({req, response_timestamp});
                             pending_insn->timestamp = std::max(pending_insn->timestamp, response_timestamp);
@@ -565,7 +568,6 @@ void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     }
                 }
             }
-
         }
     }
 

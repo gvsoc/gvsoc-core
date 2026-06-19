@@ -344,7 +344,7 @@ private:
 
     std::priority_queue<DelayedBurst, std::vector<DelayedBurst>, DelayedBurstCompare> delayed_bursts;
 
-    // For mempool configuration
+    // Reorder Buffer for mempool configuration
     struct VlsuRobEntry
     {
         // Port and id

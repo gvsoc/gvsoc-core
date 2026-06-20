@@ -36,6 +36,10 @@ IoV2ClockBridge::IoV2ClockBridge(vp::ComponentConf &config)
         this->fwd_dst_event = new vp::ClockEvent(this, &IoV2ClockBridge::fwd_dst_done_handler);
         this->rev_src_event = new vp::ClockEvent(this, &IoV2ClockBridge::rev_src_done_handler);
     }
+    else
+    {
+        this->resp_event = new vp::ClockEvent(this, &IoV2ClockBridge::resp_event_handler);
+    }
 }
 
 
@@ -64,23 +68,29 @@ void IoV2ClockBridge::start()
 
 void IoV2ClockBridge::reset(bool active)
 {
-    if (!this->parametric) return;
-    if (active)
+    if (!active) return;
+
+    if (!this->parametric)
     {
-        if (this->fwd_src_event->is_enqueued())
-            this->master_engine->cancel(this->fwd_src_event);
-        if (this->rev_dst_event->is_enqueued())
-            this->master_engine->cancel(this->rev_dst_event);
-        if (this->fwd_dst_event->is_enqueued())
-            this->slave_engine->cancel(this->fwd_dst_event);
-        if (this->rev_src_event->is_enqueued())
-            this->slave_engine->cancel(this->rev_src_event);
-        this->fwd_src_queue.clear();
-        this->fwd_dst_queue.clear();
-        this->rev_src_queue.clear();
-        this->rev_dst_queue.clear();
-        this->retry_owed = false;
+        if (this->resp_event->is_enqueued())
+            this->master_engine->cancel(this->resp_event);
+        this->resp_queue.clear();
+        return;
     }
+
+    if (this->fwd_src_event->is_enqueued())
+        this->master_engine->cancel(this->fwd_src_event);
+    if (this->rev_dst_event->is_enqueued())
+        this->master_engine->cancel(this->rev_dst_event);
+    if (this->fwd_dst_event->is_enqueued())
+        this->slave_engine->cancel(this->fwd_dst_event);
+    if (this->rev_src_event->is_enqueued())
+        this->slave_engine->cancel(this->rev_src_event);
+    this->fwd_src_queue.clear();
+    this->fwd_dst_queue.clear();
+    this->rev_src_queue.clear();
+    this->rev_dst_queue.clear();
+    this->retry_owed = false;
 }
 
 
@@ -157,8 +167,15 @@ void IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
 
     if (!self->parametric)
     {
-        self->master_engine->sync();
-        self->in.resp(req);
+        // The resp lands here on a slave (SoC) clock edge. Re-synchronize it
+        // onto the master (cluster) clock by delivering on the master's next
+        // edge: enqueue() on the idle master engine aligns the wake-up to the
+        // next cluster edge at/after the current time, as a CDC synchronizer
+        // would sample the response. Delivering inline instead would leak the
+        // SoC edge timing into the cluster.
+        self->resp_queue.push_back(req);
+        if (!self->resp_event->is_enqueued())
+            self->master_engine->enqueue(self->resp_event, 1);
         return;
     }
 
@@ -182,6 +199,23 @@ void IoV2ClockBridge::out_retry_handler(vp::Block *__this, vp::IoRetryChannel ch
         return;
     }
     // Downstream became ready after DENIED β€” unused for sync-DONE slaves.
+}
+
+
+// ---- sync_only response delivery -----------------------------------------
+
+void IoV2ClockBridge::resp_event_handler(vp::Block *_this, vp::ClockEvent *)
+{
+    IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(_this);
+
+    // Deliver every response that has crossed the bridge so far, now aligned
+    // on a master (cluster) clock edge.
+    while (!self->resp_queue.empty())
+    {
+        vp::IoReq *req = self->resp_queue.front();
+        self->resp_queue.pop_front();
+        self->in.resp(req);
+    }
 }
 
 

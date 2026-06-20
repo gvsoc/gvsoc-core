@@ -11,9 +11,12 @@
  * Two modes selected by (k_src_per_dir, k_dst_per_dir):
  *
  *   k_src = k_dst = 0 (DEFAULT, "sync_only"):
- *     Fast pass-through. Forwards req/resp/retry unchanged, calling
- *     engine->sync() on the remote engine before each forward. No event
- *     scheduling, no queues. Matches v1's transparent freq-cross stub.
+ *     Zero modeled latency, but still re-synchronizes each crossing onto
+ *     the destination clock edge β€” like a CDC synchronizer sampling on the
+ *     next edge. The forward req is forwarded inline (the downstream slave
+ *     re-aligns when it enqueues on its own clock); the async resp is
+ *     scheduled on the master engine's next edge so the cluster sees it on
+ *     a cluster cycle, not on the SoC edge the resp happened to land on.
  *
  *   k_src > 0 or k_dst > 0 (parametric, "cdc_*_beh"):
  *     Models a CDC IP as four cycle-counted stages:
@@ -79,6 +82,9 @@ private:
     static void            out_resp_handler(vp::Block *__this, vp::IoReq *req);
     static void            out_retry_handler(vp::Block *__this, vp::IoRetryChannel);
 
+    // sync_only-path response delivery, aligned on the master clock edge
+    static void resp_event_handler(vp::Block *_this, vp::ClockEvent *ev);
+
     // Parametric-path stage handlers
     static void fwd_src_done_handler(vp::Block *_this, vp::ClockEvent *ev);
     static void fwd_dst_done_handler(vp::Block *_this, vp::ClockEvent *ev);
@@ -102,6 +108,10 @@ private:
 
     vp::ClockEngine *master_engine = nullptr;
     vp::ClockEngine *slave_engine  = nullptr;
+
+    // sync_only-path state: responses pending delivery on the next master edge
+    vp::ClockEvent *resp_event = nullptr;
+    std::deque<vp::IoReq *> resp_queue;
 
     // Parametric-path state (unused when k=0)
     vp::ClockEvent *fwd_src_event = nullptr;

@@ -22,6 +22,7 @@ from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
 from gvsoc.systree import Component
+import gvrun.timing
 import os.path
 import gvsoc.gui
 from gvsoc.gui import Signal
@@ -193,12 +194,13 @@ class LsuV2(IssModule):
       guarded with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2`` so they work in
       both modes.
     """
-    def __init__(self, nb_outstanding: int=1):
+    def __init__(self, nb_outstanding: int=1, class_name: str='LsuV2'):
         self.nb_outstanding = nb_outstanding
+        self.class_name = class_name
 
     @override
     def gen(self, iss: RiscvCommon):
-        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', 'LsuV2')
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', self.class_name)
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_V2', '1')
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', self.nb_outstanding)
         iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')
@@ -332,7 +334,7 @@ class RiscvCommon(st.Component):
             supervisor: bool=False,
             user: bool=False,
             internal_atomics: bool=False,
-            timed: bool=True,
+            timed: bool | None=None,
             scoreboard: bool=False,
             prefetcher_size: int|None=None,
             wrapper: str="pulp/cpu/iss/default_iss_wrapper.cpp",
@@ -441,6 +443,14 @@ class RiscvCommon(st.Component):
         self.modules = modules
 
         self.add_c_flags(['-DCONFIG_GVSOC_ISS_V2=1'])
+
+        # When not explicitly set, derive the timing model from the
+        # hierarchical timing level: only 'functional' disables it ('cycle'
+        # snaps to 'timed', the ISS has no finer-grained model).
+        if timed is None:
+            timed = self.get_timing_level(
+                supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
+        self.add_property('timed', timed)
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -680,21 +690,6 @@ class RiscvCommon(st.Component):
     def o_TIME(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('time', itf, signature='wire<uint64_t>')
 
-    def o_DATA_DEBUG(self, itf: gvsoc.systree.SlaveItf):
-        """Binds the data debug port.
-
-        This port is used for issuing data accesses from gdb server to the memory.\n
-        It instantiates a port of type vp::IoMaster.\n
-        If gdbserver is used It is mandatory to bind it.\n
-
-        Parameters
-        ----------
-        slave: gvsoc.systree.SlaveItf
-            Slave interface
-        """
-        self.itf_bind('data_debug', itf,
-            signature='io_v2' if self._uses_io_v2 else 'io')
-
     def o_FLUSH_CACHE(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('flush_cache_req', itf, signature='wire<bool>')
 
@@ -855,14 +850,15 @@ class Riscv(RiscvCommon):
         True if the core should immediately start executing instructions.
     boot_addr: int
         Boot address, i.e. address where the core will start executing instructions.
-    timed: bool
-        True if the core should model timing.
+    timed: bool | None
+        True if the core should model timing. When None (default), derived
+        from the hierarchical timing level (see ``gvrun.timing``).
     core_id : int, optional
         The core ID of the core simulated by the ISS (default: 0).
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool | None=None,
             core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
             float_lib='flexfloat'):
 

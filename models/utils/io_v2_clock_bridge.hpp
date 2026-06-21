@@ -44,16 +44,27 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 
 #include <deque>
 
 
-class IoV2ClockBridge : public vp::Component
+class IoV2ClockBridge : public vp::Component, public vp::DebugMemIf
 {
 public:
     IoV2ClockBridge(vp::ComponentConf &config);
     void start() override;
     void reset(bool active) override;
+
+    // Backdoor debug access (vp/debug_mem.hpp): pure pass-through into the
+    // output. Debug accesses are zero-time, so the CDC timing model does not
+    // apply to them.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
 
 private:
     struct Txn

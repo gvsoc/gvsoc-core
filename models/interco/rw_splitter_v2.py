@@ -211,6 +211,19 @@ class RwSplitter(Component):
         super().__init__(parent, name, config=config)
         self.add_sources(['interco/rw_splitter_v2.cpp'])
 
+    def gen_gui(self, parent_signal):
+        """Surface the routed read/write accesses in the GUI."""
+        import gvsoc.gui
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name,
+            path="active", groups=['regmap', 'active'],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        gvsoc.gui.Signal(self, top, "is_write", path="is_write", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "size", path="size", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "output_read", path="output_read/addr",
+            groups=['regmap', 'active'])
+        gvsoc.gui.Signal(self, top, "output_write", path="output_write/addr",
+            groups=['regmap', 'active'])
+
     def i_INPUT(self) -> SlaveItf:
         """Returns the single input slave port.
 

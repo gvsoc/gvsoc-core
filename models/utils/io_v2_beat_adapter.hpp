@@ -46,15 +46,27 @@
 #include <unordered_map>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 
 
-class IoV2BeatAdapter : public vp::Component
+class IoV2BeatAdapter : public vp::Component, public vp::DebugMemIf
 {
 public:
     IoV2BeatAdapter(vp::ComponentConf &config);
     void reset(bool active) override;
 
+    // Backdoor debug path (vp/debug_mem.hpp): the adapter is invisible —
+    // both calls are forwarded unchanged to the component bound downstream.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+
 private:
+    vp::DebugMemIf *resolve_debug_mem();
+
     // One scheduled beat, sitting in the pending deque until its ready cycle.
     struct PendingBeat
     {
@@ -72,12 +84,30 @@ private:
     };
 
     // Per-in-flight-request progress. Keyed by the upstream IoReq*; alive
-    // from submit() until cumulative bytes routed reach total_size.
+    // from submit() until cumulative bytes routed reach total_size. Used by
+    // the WRITE path only (reads are tracked by the read_jobs FIFO instead).
     struct InFlight
     {
         uint64_t total_size;
         uint64_t bytes_routed;
         uint64_t burst_addr;      // snapshot of req->addr at submit time
+    };
+
+    // One beat-sized downstream sub-read to perform for an in-flight read
+    // burst. A read burst received from the upstream beat master is split into
+    // ceil(size/beat_width) of these and issued downstream one per cycle, so
+    // the big-packet interconnect sees per-cycle beat traffic instead of one
+    // whole-burst request.
+    struct SubReadJob
+    {
+        vp::IoReq *up_req;        // upstream req (resp target + burst_id source)
+        uint64_t   offset;        // cumulative byte offset within the burst
+        uint64_t   beat_bytes;    // min(beat_width, remaining) — short final beat ok
+        uint64_t   addr;          // burst_addr + offset
+        uint8_t   *data;          // master_data + offset (initiator buffer slice)
+        bool       is_first;      // offset == 0
+        bool       is_last;       // offset + beat_bytes == total_size
+        int64_t    burst_id;      // snapshot of up_req->burst_id
     };
 
     static vp::IoReqStatus req_handler(vp::Block *__this, vp::IoReq *req);
@@ -90,11 +120,39 @@ private:
     void reschedule_fsm();
     void emit_beat(const PendingBeat &ev);
 
+    // Read path.
+    void enqueue_read_burst(vp::IoReq *req);
+    void issue_sub_read(const SubReadJob &job);
+    void complete_sub_read(const SubReadJob &job, vp::IoRespStatus status,
+                           int64_t latency_cycles);
+
     int beat_width;
     vp::IoSlave in;
     vp::IoMaster out;
     vp::ClockEvent fsm_event;
     std::deque<PendingBeat> pending;
     std::unordered_map<vp::IoReq *, InFlight> in_flight;
+    // Ready cycle of the last beat scheduled so far, tracked separately for the
+    // read and write channels. New beats on a channel are forced to be at least
+    // one cycle after the previous beat on that *same* channel, so each channel
+    // never exceeds one beat per cycle even when the downstream slave delivers a
+    // whole burst's chunks in the same cycle. Keeping the cursors independent
+    // lets a read and a write proceed in the same cycle (2 beats/cycle), which
+    // is the split-channel behaviour of the beat router upstream; serialising
+    // R and W onto one channel is the router's shared_rw_channel job, not the
+    // adapter's.
+    int64_t read_last_sched_cycle;
+    int64_t write_last_sched_cycle;
+
+    // Read sub-request pacing: one beat-sized downstream read per cycle. Reads
+    // pending issue sit in read_jobs (FIFO, a whole burst enqueued at once so
+    // bursts are serviced in arrival order); at most one sub-read is in flight
+    // downstream at a time, carried by sub_req / current_job.
+    std::deque<SubReadJob> read_jobs;
+    vp::IoReq sub_req;
+    SubReadJob current_job;
+    bool sub_read_outstanding = false;
+    bool sub_read_denied = false;
+
     vp::Trace trace;
 };

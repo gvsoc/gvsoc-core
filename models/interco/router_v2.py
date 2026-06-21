@@ -10,6 +10,7 @@ import sys
 from typing import ClassVar
 
 import gvsoc.systree
+import gvrun.timing
 from gvsoc.signature import IoV2Beat
 from config_tree import Config, cfg_field, HasSize
 
@@ -20,11 +21,22 @@ KIND_BANDWIDTH    = 'bandwidth'
 KIND_BACKPRESSURE = 'backpressure'
 KIND_BEAT         = 'beat'
 
+# Resolve the kind from the hierarchical timing level (the default).
+KIND_AUTO         = 'auto'
+
 _SOURCES = {
     KIND_UNTIMED:      'interco/router/router_v2_untimed.cpp',
     KIND_BANDWIDTH:    'interco/router/router_v2_bandwidth.cpp',
     KIND_BACKPRESSURE: 'interco/router/router_v2_backpressure.cpp',
     KIND_BEAT:         'interco/router/router_v2_beat.cpp',
+}
+
+# Timing level → kind. 'backpressure' is never auto-selected: it is a
+# protocol choice (blocking handshake), not an accuracy rung.
+_LEVEL_TO_KIND = {
+    gvrun.timing.FUNCTIONAL: KIND_UNTIMED,
+    gvrun.timing.TIMED:      KIND_BANDWIDTH,
+    gvrun.timing.CYCLE:      KIND_BEAT,
 }
 
 
@@ -109,8 +121,12 @@ class RouterConfig(Config, HasSize):
     Attributes
     ----------
     kind : str
-        Implementation flavour. One of ``'untimed'``, ``'bandwidth'``
-        (default), ``'backpressure'``, ``'beat'``.
+        Implementation flavour. One of ``'untimed'``, ``'bandwidth'``,
+        ``'backpressure'``, ``'beat'`` or ``'auto'`` (default). ``'auto'``
+        resolves the flavour from the hierarchical timing level (see
+        ``gvrun.timing``): functional → untimed, timed → bandwidth,
+        cycle → beat (the latter only when ``width`` is set, else
+        bandwidth). An explicitly set kind always wins over the level.
     synchronous : bool
         Hint for v1 compatibility — the v2 sources do not actually read it.
     shared_rw_channel : bool
@@ -141,8 +157,10 @@ class RouterConfig(Config, HasSize):
         :meth:`add_mappings` (or :meth:`Router.o_MAP` / :meth:`Router.add_mapping`).
     """
 
-    kind: str = cfg_field(default=KIND_BANDWIDTH, dump=True, desc=(
-        "Router implementation flavour: 'untimed', 'bandwidth', 'backpressure' or 'beat'."
+    kind: str = cfg_field(default=KIND_AUTO, dump=True, desc=(
+        "Router implementation flavour: 'untimed', 'bandwidth', 'backpressure', 'beat' or "
+        "'auto' (default). 'auto' picks the flavour matching the hierarchical timing level "
+        "(functional->untimed, timed->bandwidth, cycle->beat); an explicit kind always wins."
     ))
     synchronous: bool = cfg_field(default=True, dump=True, desc=(
         "True if the router should use synchronous mode where all incoming requests are handled as "
@@ -205,9 +223,14 @@ class Router(gvsoc.systree.Component):
     Four implementations are available via the ``kind`` field on the
     :class:`RouterConfig`:
 
+    By default (``kind='auto'``) the implementation is picked from the
+    hierarchical timing level (``name:timing=<level>`` in the target string,
+    ``timing.`` qualifiers or ``set_timing_level()``): functional → untimed,
+    timed → bandwidth, cycle → beat (when ``width`` is set).
+
     - **'untimed'**: zero timing. Address decode + forward, nothing else. Fastest.
       Use for pure functional simulation or when timing is modeled elsewhere.
-    - **'bandwidth'** (default): rate-limited, non-blocking. Requests are always
+    - **'bandwidth'** (auto default at the 'timed' level): rate-limited, non-blocking. Requests are always
       accepted; latency grows with the per-input/per-output bandwidth backlog and
       is reported via ``req->latency`` (no ClockEvent scheduling). A master can
       pipeline an arbitrary number of outstanding requests without handshaking.
@@ -270,9 +293,10 @@ class Router(gvsoc.systree.Component):
 
     def __init__(self, parent: gvsoc.systree.Component, name: str,
                  config: RouterConfig):
-        if config.kind not in _SOURCES:
+        if config.kind != KIND_AUTO and config.kind not in _SOURCES:
             raise ValueError(
-                f"Router kind must be one of {list(_SOURCES)}, got {config.kind!r}")
+                f"Router kind must be one of {list(_SOURCES) + [KIND_AUTO]}, "
+                f"got {config.kind!r}")
 
         # ``config`` is owned by this router from now on: ``add_mapping`` /
         # ``o_MAP`` will append to ``config.mappings`` and ``i_INPUT`` will
@@ -281,6 +305,18 @@ class Router(gvsoc.systree.Component):
         # their mappings and input-port counts.
         self.config = config
         super(Router, self).__init__(parent, name, config=self.config)
+
+        if config.kind == KIND_AUTO:
+            # The beat variant needs a beat width; without one the router
+            # can't do cycle-level streaming, so 'cycle' snaps to 'timed'.
+            supported = [gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]
+            if config.width > 0:
+                supported.append(gvrun.timing.CYCLE)
+            level = self.get_timing_level(supported=supported)
+            config.kind = _LEVEL_TO_KIND[level]
+            self.add_property('kind', config.kind)
+            self.add_property('timing_level', level)
+
         sources = [_SOURCES[config.kind]]
         self.add_sources(sources)
 
@@ -353,9 +389,15 @@ class Router(gvsoc.systree.Component):
             The ``io_v2`` slave interface to bind a master output to.
         """
         self.__alloc_input_port(id)
-        if id == 0:
-            return gvsoc.systree.SlaveItf(self, 'input', signature='io_v2')
-        return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='io_v2')
+        # The beat kind consumes per-beat io_v2 traffic on its inputs; declare
+        # IoV2Beat so a beat master (e.g. the cluster DMA ext port) binds
+        # directly with no auto-inserted IoV2BeatAdapter. A legacy 'io_v2'
+        # string master still binds directly too (the framework only bridges
+        # when the master side is a class-based Signature). Other kinds keep
+        # the legacy string signature.
+        sig = IoV2Beat(self.config.width) if self.config.kind == KIND_BEAT else 'io_v2'
+        name = 'input' if id == 0 else f'input_{id}'
+        return gvsoc.systree.SlaveItf(self, name, signature=sig)
 
     def o_MAP(self, itf: gvsoc.systree.SlaveItf, mapping: RouterMapping,
               name: str = None):

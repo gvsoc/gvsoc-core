@@ -20,7 +20,8 @@ import gvsoc.signature
 
 class Dramsys(st.Component):
 
-    def __init__(self, parent, name, pim_support=False, version=1):
+    def __init__(self, parent, name, pim_support=False, version=1,
+                 dram_type='hbm2-example.json'):
 
         super(Dramsys, self).__init__(parent, name)
 
@@ -40,7 +41,7 @@ class Dramsys(st.Component):
 
         self.add_properties({
             'require_systemc': True,
-            'dram-type': 'hbm2-example.json',
+            'dram-type': dram_type,
             'pim-support': pim_support,
         })
 

@@ -41,16 +41,19 @@ IoV2ClockBridge::IoV2ClockBridge(vp::ComponentConf &config)
 
 void IoV2ClockBridge::start()
 {
-    auto *master_block = static_cast<vp::Block *>(this->in.get_remote_context());
-    auto *slave_block  = static_cast<vp::Block *>(this->out.get_remote_context());
-    if (master_block == nullptr || slave_block == nullptr)
+    // Use the remote PORT owners, not the remote contexts: with a muxed
+    // peer port the remote context is the dispatch-stub port object, not
+    // the component.
+    auto *master_port = this->in.get_remote_port();
+    auto *slave_port  = this->out.get_remote_port();
+    if (master_port == nullptr || slave_port == nullptr)
     {
         this->trace.fatal("bridge not fully bound (in.bound=%d, out.bound=%d)\n",
-                          master_block != nullptr, slave_block != nullptr);
+                          master_port != nullptr, slave_port != nullptr);
         return;
     }
-    this->master_engine = master_block->clock.get_engine();
-    this->slave_engine  = slave_block->clock.get_engine();
+    this->master_engine = master_port->get_owner()->clock.get_engine();
+    this->slave_engine  = slave_port->get_owner()->clock.get_engine();
 
     this->trace.msg(vp::Trace::LEVEL_INFO,
         "bridge mode=%s k_src=%d k_dst=%d depth=%d\n",
@@ -284,6 +287,44 @@ void IoV2ClockBridge::rev_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
 
     self->reschedule_event(*self->rev_dst_event, self->rev_dst_queue,
                            self->master_engine);
+}
+
+
+// Backdoor target behind the output, or nullptr.
+static vp::DebugMemIf *output_debug_mem(vp::IoMaster &itf)
+{
+    std::vector<vp::SlavePort *> finals = itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int IoV2ClockBridge::debug_mem_access(uint64_t addr, uint8_t *data,
+    uint64_t size, bool is_write)
+{
+    vp::DebugMemIf *child = output_debug_mem(this->out);
+    if (child == nullptr)
+    {
+        return -1;
+    }
+    return child->debug_mem_access(addr, data, size, is_write);
+}
+
+void IoV2ClockBridge::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *child = output_debug_mem(this->out);
+    if (child != nullptr)
+    {
+        child->debug_mem_regions(regions, local_base, window_size, entry_base,
+            depth + 1);
+    }
 }
 
 

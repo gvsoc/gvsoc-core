@@ -84,12 +84,16 @@ class VerilatorBoard(st.Component):
     objcopy : str, optional
         Path to the ``objcopy`` binary that converts ELFs to verilog hex.
         Defaults to ``$RISCV32_GCC_TOOLCHAIN/bin/riscv32-unknown-elf-objcopy``.
+    objcopy_args : list[str], optional
+        Extra arguments for the objcopy invocation. Typically
+        ``['--change-addresses=-0x10000000']`` when the testbench's
+        firmware loader expects addresses rebased to its memory base.
     config : optional
         Forwarded to :class:`Component` ``__init__``.
     """
 
     def __init__(self, parent, name, target_name,
-                 objcopy=None, config=None,
+                 objcopy=None, objcopy_args=None, config=None,
                  inject_signals=False):
         if config is not None:
             super().__init__(parent, name, config=config)
@@ -114,6 +118,7 @@ class VerilatorBoard(st.Component):
 
         self._objcopy = objcopy or (
             os.environ.get('RISCV32_GCC_TOOLCHAIN', '') + '/bin/riscv32-unknown-elf-objcopy')
+        self._objcopy_args = list(objcopy_args) if objcopy_args else []
         self._firmwares = []
         self.register_binary_handler(self._handle_binary)
 
@@ -151,7 +156,8 @@ class VerilatorBoard(st.Component):
             if elf is None or not os.path.exists(elf):
                 continue
             hex_path = elf + '.hex'
-            cmd = [self._objcopy, '-O', 'verilog', elf, hex_path]
+            cmd = [self._objcopy, '-O', 'verilog', *self._objcopy_args,
+                   elf, hex_path]
             proc = subprocess.run(cmd, text=True, capture_output=True)
             if proc.returncode != 0:
                 raise RuntimeError(

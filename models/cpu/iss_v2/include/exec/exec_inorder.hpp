@@ -161,7 +161,7 @@ public:
 
     bool cache_sync;
 
-    bool debug_mode;
+    bool debug_mode = false;
 
     bool skip_irq_check;
 

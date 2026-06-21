@@ -88,6 +88,10 @@ public:
     uint64_t remove_offset = 0;
     // Offset to be added when request is forwarded
     uint64_t add_offset = 0;
+    // Mapping base and size in the router address space (size 0 == catch-all),
+    // kept for the debug-memory backdoor.
+    uint64_t base = 0;
+    uint64_t size = 0;
     vp::Signal<uint64_t> current_addr;
     vp::Signal<uint64_t> current_size;
     int64_t last_logged_access = -1;
@@ -110,12 +114,23 @@ public:
  * This models an AXI-like router that is capable of routing memory-mapped requests from an input
  * port to output ports based on the request address.
  */
-class Router : public RouterCommon
+class Router : public RouterCommon, public vp::DebugMemIf
 {
     friend class BandwidthLimiter;
 
 public:
     Router(vp::ComponentConf &conf);
+
+    // Backdoor debug access (vp/debug_mem.hpp): recurse into the component
+    // behind each mapping, applying the mapping's address translation.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+    // Used when this router is the entry point of a debug access: serve it
+    // through a flat map rooted here, built lazily on first access.
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
 
 private:
     // Incoming requests are received here. The port indicates from which input port it is received.
@@ -147,6 +162,9 @@ private:
     // Gives the ID of the error mapping, the one returning an error when a request is matching
     // this mapping
     int error_id = -1;
+    // Flat backdoor map rooted at this router, built lazily when it is the
+    // entry point of a debug access.
+    vp::DebugMemMap debug_map;
 
     // Statistics
 
@@ -216,6 +234,8 @@ Router::Router(vp::ComponentConf &config)
 
             entry->remove_offset = config->get_uint("remove_offset");
             entry->add_offset = config->get_uint("add_offset");
+            entry->base = config->get_uint("base");
+            entry->size = config->get_uint("size");
 
             this->entries.push_back(entry);
 
@@ -229,6 +249,34 @@ Router::Router(vp::ComponentConf &config)
 
         this->mapping_tree.build();
     }
+}
+
+void Router::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    std::vector<vp_router_legacy_debug::DebugMapping> mappings;
+    for (int id = 0; id < (int)this->entries.size(); id++)
+    {
+        if (id == this->error_id)
+        {
+            continue;
+        }
+        OutputPort *entry = this->entries[id];
+        mappings.push_back({ entry->base, entry->size, entry->remove_offset,
+            entry->add_offset, &entry->itf });
+    }
+
+    vp_router_legacy_debug::collect_regions(mappings, regions,
+        local_base, window_size, entry_base, depth);
+}
+
+int Router::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+{
+    if (!this->debug_map.is_built())
+    {
+        this->debug_map.build(this);
+    }
+    return this->debug_map.access(addr, data, size, is_write);
 }
 
 vp::IoReqStatus Router::req(vp::Block *__this, vp::IoReq *req, int port)

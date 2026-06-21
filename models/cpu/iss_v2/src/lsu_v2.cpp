@@ -45,6 +45,8 @@ void LsuV2::reset(bool active)
     if (active)
     {
         this->io_req_denied = false;
+        this->denied_entry = NULL;
+        this->granted_entry = NULL;
         this->pending_fence = false;
         this->nb_pending_accesses = 0;
         this->next_retire_cycle = 0;
@@ -91,12 +93,40 @@ bool LsuV2::fence()
 
 void LsuV2::data_retry(vp::Block *__this, vp::IoRetryChannel)
 {
-    // A previously-denied request may now be re-sent. The core stall
-    // driven by io_req_denied clears once this flag goes false; the core
-    // will then re-issue its pending instruction, which re-enters
-    // ``data_req_aligned`` with a fresh entry.
     LsuV2 *_this = (LsuV2 *)__this;
+    LsuReqEntry *entry = _this->denied_entry;
+
+    if (entry == NULL)
+    {
+        // Retry broadcast with nothing held here (e.g. another master's
+        // deny on a shared router input). Nothing to re-send.
+        _this->io_req_denied = false;
+        return;
+    }
+
+    // Re-issue the denied request synchronously, inside the retry()
+    // callback: zero-buffer arbiters (log_ico_v2) keep their accept window
+    // open only for the duration of this call (io_v2 contract).
+    vp::IoReqStatus err = _this->data.req(&entry->req);
+
+    if (err == vp::IO_REQ_DENIED)
+    {
+        // Lost the election again; keep holding for the next retry.
+        return;
+    }
+
+    _this->denied_entry = NULL;
     _this->io_req_denied = false;
+
+    if (err == vp::IO_REQ_DONE)
+    {
+        // Completed inline. The instruction was parked when the deny was
+        // taken, so finish it through the deferred task path, honouring
+        // the response's annotated latency.
+        entry->timestamp = _this->iss.clock.get_cycles() + entry->req.get_latency();
+        _this->iss.exec.enqueue_task(&entry->task);
+    }
+    // GRANTED: data_response will complete the parked instruction.
 }
 
 void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
@@ -129,6 +159,7 @@ void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
     }
 
     InsnEntry *insn_entry = entry->insn_entry;
+    _this->iss.lsu.req_retire_hook(entry);
     _this->handle_req_end(entry);
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
     // Load-use stall: the response's dest reg becomes readable one
@@ -244,6 +275,7 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
 {
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, opcode: %d)\n",
                      addr, size, opcode);
+    this->granted_entry = NULL;
     LsuReqEntry *entry = this->get_req_entry();
     if (entry == NULL)
     {
@@ -322,19 +354,23 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
         // Async: park the instruction; data_response will eventually fire
         // the completion.
         entry->insn_entry = this->iss.exec.insn_hold(insn);
+        this->granted_entry = entry;
         return false;
     }
     else
     {
-        // DENIED: the downstream did not accept the request. Free the
-        // entry (the slave has not taken ownership), and block the core
-        // from issuing another access until ``data_retry`` clears the
-        // flag. The core's stall mechanism will then re-issue the
-        // instruction, which lands back in ``data_req_aligned`` with a
-        // fresh entry carrying the current register file state.
-        this->free_req_entry(entry);
+        // DENIED: the downstream did not accept the request. Park the
+        // instruction like the GRANTED path and keep the request alive:
+        // zero-buffer arbiters (log_ico_v2) only accept a re-issue from
+        // INSIDE the synchronous retry() callback, so ``data_retry``
+        // re-sends this request itself. A core-driven re-execution one
+        // cycle later would miss the accept window and live-lock.
+        // ``io_req_denied`` blocks younger accesses meanwhile, preserving
+        // ordering.
+        entry->insn_entry = this->iss.exec.insn_hold(insn);
+        this->denied_entry = entry;
         this->io_req_denied = true;
-        return true;
+        return false;
     }
 }
 
@@ -398,11 +434,11 @@ bool LsuV2::data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size,
 
     // Peek the entry that data_req_aligned is about to allocate (head of
     // the free list). After the call returns, this same entry is the
-    // in-flight one — `data_req_aligned` doesn't free it on the
-    // sync-DONE / GRANTED paths. The DENIED path frees it, so we'll
-    // only commit the misaligned bookkeeping if the call returned
-    // ``false`` (no stall) — which is exactly the path that leaves the
-    // entry in flight.
+    // in-flight one — `data_req_aligned` keeps it in flight on the
+    // sync-DONE / GRANTED / DENIED-held paths, all of which return
+    // ``false`` (no stall). Only the LSU-full path (``true``) leaves no
+    // entry allocated, so the misaligned bookkeeping is committed on
+    // ``false``.
     LsuReqEntry *entry = this->req_entry_first;
 
     // For writes, snapshot the full register value into data2 BEFORE
@@ -494,8 +530,16 @@ bool LsuV2::fire_misaligned_second(LsuReqEntry *entry)
         // > 0) or call handle_req_end immediately (latency 0).
         return this->handle_req_response(entry);
     }
-    // GRANTED/DENIED: response or retry will land us back in
-    // data_response. Instruction is already held from beat 0.
+    if (err == vp::IO_REQ_DENIED)
+    {
+        // Beat 1 denied: register the entry so data_retry re-issues it
+        // synchronously (see data_retry). Instruction already held.
+        this->denied_entry = entry;
+        this->io_req_denied = true;
+        return true;
+    }
+    // GRANTED: data_response will land the completion. Instruction is
+    // already held from beat 0.
     return true;
 }
 
@@ -519,17 +563,18 @@ void LsuV2::task_handle(Iss *iss, Task *task)
         return;
     }
 
-    if (cur < iss->lsu.next_retire_cycle)
-    {
-        // Another response already retired this cycle. Push our slot
-        // out to the next available retire cycle and re-enqueue.
-        entry->timestamp = iss->lsu.next_retire_cycle;
-        iss->lsu.next_retire_cycle++;
-        iss->exec.enqueue_task(task);
-        return;
-    }
+    // We have reached the unique retire slot (entry->timestamp) that was
+    // reserved for this completion when it was deferred (in data_response, or
+    // an earlier pass through this handler). That slot is ours, so retire now.
+    //
+    // Do NOT re-apply the `cur < next_retire_cycle` gate here: next_retire_cycle
+    // was already advanced past our slot when the slot was reserved, so the
+    // check would be permanently true and the task would keep pushing its own
+    // slot one cycle further every cycle (next_retire_cycle tracking cur+1),
+    // livelocking the core until an unrelated event happens to break the tie.
 
     InsnEntry *insn_entry = entry->insn_entry;
+    iss->lsu.req_retire_hook(entry);
     iss->lsu.handle_req_end(entry);
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
     // Same load-use 1-cycle stall as the async path: schedule the
@@ -542,7 +587,10 @@ void LsuV2::task_handle(Iss *iss, Task *task)
 #else
     iss->exec.insn_terminate(insn_entry);
 #endif
-    iss->lsu.next_retire_cycle = cur + 1;
+    // Advance the next free retire slot, but never rewind it below slots that
+    // were already reserved for other in-flight completions.
+    if (iss->lsu.next_retire_cycle < cur + 1)
+        iss->lsu.next_retire_cycle = cur + 1;
 }
 
 bool LsuV2::atomic(iss_insn_t *insn, iss_addr_t addr, int size,

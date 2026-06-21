@@ -19,12 +19,11 @@
  *     ``io_req_denied`` and wait for ``retry()`` from the downstream
  *     before allowing the core to re-submit.
  *
- * Publicly-visible fields (``data``, ``debug_req``) keep the same names
- * as v1 so external users (``syscalls.cpp``, ``ara_vlsu.cpp``, ...) can
- * talk to either variant through the same ``iss.lsu.data`` / ``iss.lsu.debug_req``
- * handles. Those callers still need to guard any v1-specific API use
- * (``req->init()``, ``set_debug()``, ``IO_REQ_OK``, ``get_full_latency()``)
- * with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2``.
+ * The publicly-visible ``data`` field keeps the same name as v1 so
+ * external users (``ara_vlsu.cpp``, ...) can talk to either variant
+ * through the same ``iss.lsu.data`` handle. Those callers still need to
+ * guard any v1-specific API use (``req->init()``, ``IO_REQ_OK``,
+ * ``get_full_latency()``) with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2``.
  */
 
 #pragma once
@@ -78,6 +77,15 @@ public:
     bool data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
     bool data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
 
+    // Generic extension hooks, called through the configured LSU type
+    // (CONFIG_GVSOC_ISS_LSU) so an LSU subclass can intercept them
+    // statically (see the ri5ky LSU and its p.elw event load). No-ops here.
+    // Called when a request retires (both the async response and the timed
+    // task paths), before handle_req_end.
+    inline void req_retire_hook(LsuReqEntry *entry) {}
+    // Called when the external IRQ unit receives a new interrupt state.
+    inline void irq_req_hook(int irq, bool irq_enabled) {}
+
     template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
 
@@ -112,18 +120,19 @@ public:
 
     bool fence();
 
-    // TODO used by syscalls, find a better to handle such accesses
-    vp::IoReq   debug_req;
     vp::IoMaster data{&LsuV2::data_retry, &LsuV2::data_response};
 
-private:
+protected:
     // Allocate a request. Returns NULL if no entry is free and the core
     // must stall.
     inline LsuReqEntry *get_req_entry();
     // Free a request so that it can be used for another access.
     inline void free_req_entry(LsuReqEntry *entry);
+
+private:
     bool load_req(iss_insn_t *insn, iss_addr_t addr, int size, int reg, bool is_signed);
     static void task_handle(Iss *iss, Task *task);
+
     // io_v2 downstream callbacks. ``retry`` fires without a request
     // argument — it is a pure "ready-again" signal per the v2 protocol.
     static void data_retry(vp::Block *__this, vp::IoRetryChannel);
@@ -135,17 +144,28 @@ private:
     // flight); false if the entry was aligned (no second beat needed).
     bool fire_misaligned_second(LsuReqEntry *entry);
 
+protected:
     Iss &iss;
 
     vp::Trace trace;
 
     LsuReqEntry *req_entry_first;
+    // Entry parked by the last data_req_aligned that returned GRANTED
+    // (scratch used by LSU subclasses, e.g. the ri5ky p.elw, to detect
+    // the park). Cleared at issue.
+    LsuReqEntry *granted_entry;
     LsuReqEntry req_entry[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
 
     // True while a downstream DENY is outstanding. The core must not send
     // another request until the downstream fires ``retry()``; cleared
     // from ``data_retry``.
     vp::Signal<bool> io_req_denied;
+    // The denied in-flight entry, kept alive so ``data_retry`` can re-issue
+    // it synchronously inside the retry() callback. Zero-buffer arbiters
+    // (log_ico_v2) keep their accept window open only for the duration of
+    // that call — a deferred re-execution by the core misses it and
+    // live-locks.
+    LsuReqEntry *denied_entry;
     bool pending_fence;
 
     vp::Signal<bool>       stalled;

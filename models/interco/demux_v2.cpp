@@ -36,13 +36,23 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/demux_v2/demux_config.hpp>
 
-class Demux : public vp::Component
+class Demux : public vp::Component, public vp::DebugMemIf
 {
 public:
     Demux(vp::ComponentConf &conf);
     void reset(bool active) override;
+
+    // Backdoor debug access (vp/debug_mem.hpp). The default
+    // debug_mem_regions() is kept: like on the timed path the address is
+    // forwarded verbatim (select bits included), so emitting per-output
+    // regions would alias; the demux advertises itself as a terminal and
+    // debug_mem_access() redoes the output select per access.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
 
     DemuxConfig cfg;
 
@@ -80,6 +90,12 @@ private:
     vp::Signal<bool>     req_is_write;
     int64_t              last_logged_access = -1;
     int                  nb_logged_access_in_same_cycle = 0;
+
+    // Per-output backdoor targets, resolved on first debug access through
+    // the output ports' final bindings. nullptr where the downstream does
+    // not support backdoor accesses.
+    std::vector<vp::DebugMemIf *> output_debug_mem;
+    bool output_debug_mem_resolved = false;
 };
 
 
@@ -182,6 +198,53 @@ void Demux::log_access(uint64_t addr, uint64_t size, bool is_write)
     this->req_is_write.set_and_release(is_write, 0, time_delay);
     this->nb_logged_access_in_same_cycle++;
     this->last_logged_access = cycles;
+}
+
+
+int Demux::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    if (!this->output_debug_mem_resolved)
+    {
+        this->output_debug_mem_resolved = true;
+        this->output_debug_mem.assign(this->outputs.size(), nullptr);
+        for (size_t i = 0; i < this->outputs.size(); i++)
+        {
+            std::vector<vp::SlavePort *> finals =
+                this->outputs[i]->get_final_ports();
+            if (!finals.empty() && finals[0]->get_owner() != nullptr)
+            {
+                this->output_debug_mem[i] = finals[0]->get_owner()->debug_mem_if();
+            }
+        }
+    }
+
+    // Split the access at output-select boundaries; within one chunk the
+    // address is forwarded verbatim, exactly like the timed path.
+    uint64_t mask = (1ULL << this->cfg.width) - 1;
+    uint64_t select_granule = 1ULL << this->cfg.offset;
+    while (size > 0)
+    {
+        int output_id = (int)((addr >> this->cfg.offset) & mask);
+        uint64_t chunk = select_granule - (addr & (select_granule - 1));
+        if (chunk > size)
+        {
+            chunk = size;
+        }
+
+        if (this->output_debug_mem[output_id] == nullptr ||
+            this->output_debug_mem[output_id]->debug_mem_access(
+                addr, data, chunk, is_write))
+        {
+            return -1;
+        }
+
+        addr += chunk;
+        data += chunk;
+        size -= chunk;
+    }
+
+    return 0;
 }
 
 

@@ -54,7 +54,17 @@
 #include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/log_ico_v2/log_ico_config.hpp>
+
+// Pulse a GUI signal to `v` now (+`delay` sub-cycle offset) and back to high-Z
+// one cycle later, so each bank access shows as a one-cycle marker in the GUI.
+static inline void gui_pulse(vp::Signal<uint64_t> &s, uint64_t v,
+                             int64_t delay, int64_t period)
+{
+    s.set(v, (int64_t)0, delay);
+    s.release(0, delay + period);
+}
 
 
 class LogIco;
@@ -79,10 +89,12 @@ struct BankState
     uint64_t pending_mask = 0;
     // Next round-robin scan start (in [0, nb_masters)).
     int rr_next = 0;
+    // GUI trace: the address of the access currently served by this bank.
+    vp::Signal<uint64_t> gui_addr;
 };
 
 
-class LogIco : public vp::Component
+class LogIco : public vp::Component, public vp::DebugMemIf
 {
     friend struct InputState;
     friend struct BankState;
@@ -90,6 +102,14 @@ class LogIco : public vp::Component
 public:
     LogIco(vp::ComponentConf &conf);
     void reset(bool active) override;
+
+    // Backdoor debug access (vp/debug_mem.hpp). The default
+    // debug_mem_regions() is kept: a flat region cannot express the bank
+    // interleaving, so the crossbar advertises itself as a terminal and
+    // debug_mem_access() redoes the bank math per granule chunk.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
 
     LogIcoConfig cfg;
     vp::Trace trace;
@@ -102,6 +122,8 @@ private:
 
     int       decode_bank   (uint64_t offset) const;
     uint64_t  decode_offset (uint64_t offset) const;
+    // GUI: pulse the bank's address trace and the top-level activity strip.
+    void      gui_log_bank  (int bank_id, uint64_t addr);
     // Find the first set bit at or after `rr_next` in a `nb`-wide mask,
     // wrapping. Returns the bit index in [0, nb); precondition: mask != 0.
     int       pick_winner   (uint64_t mask, int rr_next, int nb) const;
@@ -113,7 +135,18 @@ private:
     // Any incoming request seen during this window is forwarded inline.
     bool in_election = false;
 
+    // Per-bank backdoor targets, resolved on first debug access through the
+    // bank output ports' final bindings. nullptr where the bank component
+    // does not support backdoor accesses.
+    std::vector<vp::DebugMemIf *> bank_debug_mem;
+    bool bank_debug_mem_resolved = false;
+
     vp::ClockEvent fsm_event;
+
+    // --- GUI traces (visible in the model-graph / timeline) ---
+    vp::Signal<uint64_t> gui_active;
+    int64_t gui_last_cycle = -1;
+    int     gui_nb_same_cycle = 0;
 };
 
 
@@ -136,7 +169,9 @@ InputState::InputState(LogIco *top, int id)
 
 BankState::BankState(LogIco *top, int id)
     : top(top), id(id),
-      itf(id, &LogIco::output_retry, &LogIco::output_resp)
+      itf(id, &LogIco::output_retry, &LogIco::output_resp),
+      gui_addr(*(vp::Block *)top, "output_" + std::to_string(id) + "/addr", 64,
+               vp::SignalCommon::ResetKind::HighZ)
 {
 }
 
@@ -147,7 +182,8 @@ BankState::BankState(LogIco *top, int id)
 
 LogIco::LogIco(vp::ComponentConf &config)
     : vp::Component(config, this->cfg),
-      fsm_event(this, &LogIco::fsm_handler)
+      fsm_event(this, &LogIco::fsm_handler),
+      gui_active(*this, "active", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -188,6 +224,24 @@ void LogIco::reset(bool active)
             b->rr_next = 0;
         }
     }
+}
+
+
+void LogIco::gui_log_bank(int bank_id, uint64_t addr)
+{
+    int64_t cycles = this->clock.get_cycles();
+    if (cycles > this->gui_last_cycle)
+    {
+        this->gui_nb_same_cycle = 0;
+        this->gui_last_cycle = cycles;
+    }
+    int64_t period = this->clock.get_period();
+    int64_t delay = this->gui_nb_same_cycle > 0
+        ? period - (period >> this->gui_nb_same_cycle) : 0;
+    this->gui_nb_same_cycle++;
+
+    gui_pulse(this->banks[bank_id]->gui_addr, addr, delay, period);
+    gui_pulse(this->gui_active, 1, delay, period);
 }
 
 
@@ -252,6 +306,8 @@ vp::IoReqStatus LogIco::input_req(vp::Block *__this, vp::IoReq *req, int id)
             (unsigned long long)addr,
             bank_id,
             (unsigned long long)bank_offset);
+
+        _this->gui_log_bank(bank_id, addr);
 
         req->set_addr(bank_offset);
         vp::IoReqStatus st = _this->banks[bank_id]->itf.req(req);
@@ -329,6 +385,56 @@ void LogIco::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
     LogIco *_this = (LogIco *)__this;
     _this->trace.fatal("Unexpected retry() from IoV2Sync bank %d "
                        "(the synchronous sub-protocol forbids it)\n", id);
+}
+
+
+//
+// Backdoor debug access
+//
+
+int LogIco::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    if (!this->bank_debug_mem_resolved)
+    {
+        this->bank_debug_mem_resolved = true;
+        this->bank_debug_mem.assign(this->banks.size(), nullptr);
+        for (size_t i = 0; i < this->banks.size(); i++)
+        {
+            std::vector<vp::SlavePort *> finals =
+                this->banks[i]->itf.get_final_ports();
+            if (!finals.empty() && finals[0]->get_owner() != nullptr)
+            {
+                this->bank_debug_mem[i] = finals[0]->get_owner()->debug_mem_if();
+            }
+        }
+    }
+
+    // Walk the access one interleaving granule at a time, each chunk going
+    // to its bank at the bank-local offset.
+    uint64_t granule = 1ULL << this->cfg.interleaving_width;
+    while (size > 0)
+    {
+        int bank = this->decode_bank(addr);
+        uint64_t chunk = granule - (addr & (granule - 1));
+        if (chunk > size)
+        {
+            chunk = size;
+        }
+
+        if (this->bank_debug_mem[bank] == nullptr ||
+            this->bank_debug_mem[bank]->debug_mem_access(
+                this->decode_offset(addr), data, chunk, is_write))
+        {
+            return -1;
+        }
+
+        addr += chunk;
+        data += chunk;
+        size -= chunk;
+    }
+
+    return 0;
 }
 
 

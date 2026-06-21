@@ -43,20 +43,35 @@
  */
 
 #include <algorithm>
+#include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/limiter_v2/limiter_config.hpp>
 
-class Limiter : public vp::Component
+class Limiter : public vp::Component, public vp::DebugMemIf
 {
 public:
     Limiter(vp::ComponentConf &conf);
     void reset(bool active) override;
 
+    // Backdoor debug access (vp/debug_mem.hpp): the limiter is bandwidth-only
+    // and does not touch addresses/data, so the backdoor is a pure pass-through
+    // to whatever is bound downstream (e.g. a memory bank). Without this, a
+    // backdoor access (semi-hosting, GDB, proxy) to a target behind the limiter
+    // would have no path and fail.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+
     LimiterConfig cfg;
 
 private:
+    vp::DebugMemIf *resolve_debug_mem();
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static void            output_resp(vp::Block *__this, vp::IoReq *req);
     static void            output_retry(vp::Block *__this, vp::IoRetryChannel);
@@ -340,6 +355,39 @@ void Limiter::output_retry(vp::Block *__this, vp::IoRetryChannel)
         && !_this->event.is_enqueued())
     {
         _this->event.enqueue(1);
+    }
+}
+
+
+vp::DebugMemIf *Limiter::resolve_debug_mem()
+{
+    std::vector<vp::SlavePort *> finals = this->output_itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int Limiter::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    vp::DebugMemIf *target = this->resolve_debug_mem();
+    return target ? target->debug_mem_access(addr, data, size, is_write) : -1;
+}
+
+void Limiter::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *target = this->resolve_debug_mem();
+    if (target != nullptr)
+    {
+        target->debug_mem_regions(regions, local_base, window_size, entry_base,
+            depth + 1);
     }
 }
 

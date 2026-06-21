@@ -282,6 +282,23 @@ class Splitter(Component):
     def __init__(self, parent: Component, name: str, config: SplitterConfig):
         super().__init__(parent, name, config=config)
         self.add_sources(['interco/splitter_v2.cpp'])
+        self.nb_outputs = config.input_width // config.output_width
+
+    def gen_gui(self, parent_signal):
+        """Surface the input access and each fan-out chunk in the GUI."""
+        import gvsoc.gui
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name,
+            path="active", groups=['regmap', 'active'],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        inp = gvsoc.gui.Signal(self, top, "input", path="addr",
+            groups=['regmap', 'active'])
+        gvsoc.gui.Signal(self, inp, "size", path="size", groups=['regmap'])
+        gvsoc.gui.Signal(self, inp, "is_write", path="is_write", groups=['regmap'])
+        for i in range(self.nb_outputs):
+            out = gvsoc.gui.Signal(self, top, f"output_{i}",
+                path=f"output_{i}/addr", groups=['regmap', 'active'])
+            gvsoc.gui.Signal(self, out, "size", path=f"output_{i}/size",
+                groups=['regmap'])
 
     def i_INPUT(self) -> SlaveItf:
         """Returns the single input slave port.

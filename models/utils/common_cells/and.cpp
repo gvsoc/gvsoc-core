@@ -19,6 +19,8 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#include <cstdint>
+
 #include <vp/vp.hpp>
 #include <vp/itf/wire.hpp>
 
@@ -40,8 +42,8 @@ private:
     vp::WireMaster<bool> output_itf;
 
     std::vector<uint64_t> values;
+    int nb_input;
     int nb_values;
-    uint64_t last_value_mask;
 };
 
 
@@ -51,10 +53,10 @@ And::And(vp::ComponentConf &config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
-    int nb_input = this->get_js_config()->get_child_int("nb_input");
-    this->input_itfs.resize(nb_input);
+    this->nb_input = this->get_js_config()->get_child_int("nb_input");
+    this->input_itfs.resize(this->nb_input);
 
-    for (int i=0; i<nb_input; i++)
+    for (int i=0; i<this->nb_input; i++)
     {
         this->input_itfs[i].set_sync_meth_muxed(&And::sync, i);
         this->new_slave_port("input_" + std::to_string(i), &this->input_itfs[i]);
@@ -62,10 +64,7 @@ And::And(vp::ComponentConf &config)
 
     this->new_master_port("output", &this->output_itf);
 
-    this->nb_values = (nb_input + 63) / 64;
-
-    this->last_value_mask = ~((1 << (nb_input % 64)) - 1);
-
+    this->nb_values = (this->nb_input + 63) / 64;
     this->values.resize(this->nb_values);
 }
 
@@ -80,7 +79,15 @@ void And::reset(bool active)
             this->values[i] = 0;
         }
 
-        this->values[this->nb_values - 1] = this->last_value_mask;
+        if (this->nb_values != 0)
+        {
+            int last_bits = this->nb_input % 64;
+            if (last_bits != 0)
+            {
+                this->values[this->nb_values - 1] =
+                    ~((uint64_t(1) << last_bits) - 1);
+            }
+        }
     }
 }
 
@@ -90,31 +97,29 @@ void And::sync(vp::Block *__this, bool value, int id)
 {
     And *_this = (And *)__this;
 
-    int value_byte = id / 64;
-    int value_bit = id % 64;
+    int value_word = id / 64;
+    uint64_t value_mask = uint64_t(1) << (id % 64);
 
     if (value)
     {
-        _this->values[value_byte] |= 1 << value_bit;
+        _this->values[value_word] |= value_mask;
     }
     else
     {
-        _this->values[value_byte] &= ~(1 << value_bit);
+        _this->values[value_word] &= ~value_mask;
     }
 
-    if (_this->values[value_byte] == -1)
+    bool output_value = true;
+    for (int i=0; i<_this->nb_values; i++)
     {
-        for (int i=0; i<_this->nb_values; i++)
+        if (_this->values[i] != ~uint64_t(0))
         {
-            if (_this->values[i] != -1)
-            {
-                _this->output_itf.sync(false);
-                return;
-            }
+            output_value = false;
+            break;
         }
-
-        _this->output_itf.sync(true);
     }
+
+    _this->output_itf.sync(output_value);
 }
 
 

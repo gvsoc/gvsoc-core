@@ -124,6 +124,12 @@ private:
 
     void handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride=false, iss_reg_t stride=0, int reg_indexed=-1);
 
+    // Handlers for tile load/store (vtle*/vtse* — ZVT extension)
+    static void handle_insn_tile_load(AraVlsu *vlsu, iss_insn_t *insn);
+    static void handle_insn_tile_store(AraVlsu *vlsu, iss_insn_t *insn);
+    // Post-process tile load: extend raw staging bytes into tile.mregs
+    void tile_load_commit();
+
     // Number of instruction that can be enqueued at the same time
     static constexpr int queue_size = 4;
 
@@ -184,6 +190,23 @@ private:
     int pending_elem;
     int inst_elem_size;
     int width;
+    // Burst width used specifically for tile load/store operations (vu/tile_lsu_width).
+    // Defaults to width when not explicitly configured.
+    int tile_width;
+
+    // --- tile load/store (vtle*/vtse*) ---
+    // True while the active operation targets tile.mregs instead of a vreg
+    bool pending_is_tile;
+    // TSS-decoded fields saved for tile_load_commit()
+    uint32_t pending_tile_id;
+    uint32_t pending_tile_pattern;   // 0 = row, 1 = col
+    uint32_t pending_tile_index;     // row index (pattern=0) or col index (pattern=1)
+    uint32_t pending_tile_count;     // number of elements (tn or tm)
+    // Staging buffer: raw memory bytes collected by the FSM before extension into mregs
+    // (also used as pre-packed source for tile stores)
+    // MAX_TILE_DIM * sizeof(int32_t) = 16 * 4 = 64 bytes — covers any row/col at any EEW
+    static constexpr uint32_t tile_staging_bytes = 16 * sizeof(int32_t);
+    uint8_t tile_staging[tile_staging_bytes];
 };
 
 #else

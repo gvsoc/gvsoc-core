@@ -635,3 +635,175 @@ class Rv32v(IsaSubset):
         ], includes=[
             '<cpu/iss/include/isa/rv32v_timed.hpp>',
         ])
+
+# =============================================================
+# Format definitions for VME instructions
+# =============================================================
+
+# Format for arithmetic: OutReg(tile from rd[4:2]), InReg(vs1/B), InReg(vs2/A)
+Format_VME_ARITH = [
+    OutReg      (0, Range(8,  4)),   # rd[4:0] — tile selector in rd[4:1]
+    InReg       (0, Range(15, 5)),   # vs1 — B matrix
+    InReg       (1, Range(20, 5)),   # vs2 — A matrix
+]
+
+class Rv32vme(IsaSubset):
+
+    def __init__(self):
+        super().__init__(name='vme', instrs=[
+
+            # =============================================================
+            # Matrix Configuration Instructions
+            # Spec section 1.4
+            #
+            # msetmtype:  bit31=1 | 000001 | rs2[24:20] | rs1[19:15] | 111 | 00000 | 1010111
+            # msettn:     bit31=1 | 000010 | 00 | 000 | rs1[19:15] | 111 | rd[11:7] | 1010111
+            # msettm:     bit31=1 | 000010 | 00 | 001 | rs1[19:15] | 111 | rd[11:7] | 1010111
+            # msettk:     bit31=1 | 000010 | 00 | 010 | rs1[19:15] | 111 | rd[11:7] | 1010111
+            # msetmtypei: bit31=1 | 000010 | vsew[1:0] | 011 | mtype[4:0] | 111 | 00000 | 1010111
+            # =============================================================
+
+            Instr('msetmtype', [
+                InReg       (0, Range(15, 5)),   # rs1 = new mtype value
+                InReg       (1, Range(20, 5)),   # rs2 = new vtype value
+            ],  '1 000001 ----- ----- 111 00000 1010111'),
+
+            Instr('msettn', [
+                OutReg      (0, Range(7,  5)),   # rd  = written with new vl/tn
+                InReg       (0, Range(15, 5)),   # rs1 = requested tn
+            ],  '1 000010 00000 ----- 111 ----- 1010111'),
+
+            Instr('msettm', [
+                OutReg      (0, Range(7,  5)),   # rd  = written with new tm
+                InReg       (0, Range(15, 5)),   # rs1 = requested tm
+            ],  '1 000010 00001 ----- 111 ----- 1010111'),
+
+            Instr('msettk', [
+                OutReg      (0, Range(7,  5)),   # rd  = written with new tk
+                InReg       (0, Range(15, 5)),   # rs1 = requested tk
+            ],  '1 000010 00010 ----- 111 ----- 1010111'),
+
+            Instr('msetmtypei', [
+                UnsignedImm (0, Range(15, 5)),   # mtype[4:0] = mtypei immediate
+                UnsignedImm (1, Range(23, 2)),   # vsew[1:0]  = SEW select
+            ],  '1 000010 -- 011 ----- 111 00000 1010111'),
+
+            # =============================================================
+            # Matrix Arithmetic Instructions
+            # Spec section 1.8.1: opcode=1110111 (OP-VE)
+            # Encoding: funct6=111100 | vm=1 | vs2[24:20] | vs1[19:15] | funct3[14:12] | rd[11:7] | opcode
+            # rd[4:1] = tile number, rd[0] = altfmt
+            # TEW=32: 4 tiles => rd[4:2] in {000,001,010,011} => tiles 0,4,8,12
+            # =============================================================
+
+            # vtfmm.tvv:     funct3=001, altfmt=0 => rd[0]=0
+            Instr('vtfmm.tvv',     Format_VME_ARITH,
+                '111100 1 ----- ----- 001 ----0 1110111'),
+
+            # vtfmm.alt.tvv: funct3=001, altfmt=1 => rd[0]=1
+            Instr('vtfmm.alt.tvv', Format_VME_ARITH,
+                '111100 1 ----- ----- 001 ----1 1110111'),
+
+            # vtmmu.tvv:     funct3=000, altfmt=0 => rd[0]=0
+            Instr('vtmmu.tvv',     Format_VME_ARITH,
+                '111100 1 ----- ----- 000 ----0 1110111'),
+
+            # vtmms.tvv:     funct3=000, altfmt=1 => rd[0]=1
+            Instr('vtmms.tvv',     Format_VME_ARITH,
+                '111100 1 ----- ----- 000 ----1 1110111'),
+
+            # =============================================================
+            # Move Tile Subset <-> Vector Registers
+            # Spec section 1.7: opcode=1010111 (OP-V)
+            #
+            # vtmv.v.t: 010000 | 1 | 11111 | rs1[19:15] | 110 | vd[11:7]  | 1010111
+            # vtmv.t.v: 010111 | 1 | vs2[24:20] | rs1[19:15] | 110 | 00000 | 1010111
+            # =============================================================
+
+            Instr('vtmv.v.t', [
+                OutReg      (0, Range(7,  5)),   # vd — destination vector register
+                InReg       (0, Range(15, 5)),   # rs1 — TSS scalar value
+            ],  '010000 1 11111 ----- 110 ----- 1010111'),
+
+            Instr('vtmv.t.v', [
+                InReg       (0, Range(15, 5)),   # rs1 — TSS scalar value
+                InReg       (1, Range(20, 5)),   # vs2 — source vector register
+            ],  '010111 1 ----- ----- 110 00000 1010111'),
+
+            # =============================================================
+            # Tile Load / Store
+            # Spec section 1.6: opcode=0000111 (LOAD-FP) / 0100111 (STORE-FP)
+            # vtle*: nf_eew[31:29] | 1 | 00 | 1 | rs2[24:20] | rs1[19:15] | 011 | 00000 | 0000111
+            # vtse*: nf_eew[31:29] | 1 | 00 | 1 | rs2[24:20] | rs1[19:15] | 011 | 00000 | 0100111
+            # rs2 = TSS (tile subset specifier), rs1 = base address
+            # =============================================================
+
+            # uim[0] = nf_eew bits[31:29]: 0→8b, 1→16b, 2→32b, 3→64b
+            # inst_elem_size = 1 << uim[0]  (used by VLSU block_handler)
+            Instr('vtle8', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS  → pending_insn->reg
+                InReg       (1, Range(15, 5)),   # rs1 = base → pending_insn->reg_2
+                UnsignedImm (0, Range(29, 3)),   # nf_eew     → insn->uim[0]
+            ],  '000 1 00 1 ----- ----- 111 00000 0000111', tags=['vtload']),
+
+            Instr('vtle16', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS
+                InReg       (1, Range(15, 5)),   # rs1 = base
+                UnsignedImm (0, Range(29, 3)),   # nf_eew
+            ],  '001 1 00 1 ----- ----- 111 00000 0000111', tags=['vtload']),
+
+            Instr('vtle32', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS
+                InReg       (1, Range(15, 5)),   # rs1 = base
+                UnsignedImm (0, Range(29, 3)),   # nf_eew
+            ],  '010 1 00 1 ----- ----- 111 00000 0000111', tags=['vtload']),
+
+            Instr('vtle64', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS
+                InReg       (1, Range(15, 5)),   # rs1 = base
+                UnsignedImm (0, Range(29, 3)),   # nf_eew
+            ],  '011 1 00 1 ----- ----- 111 00000 0000111', tags=['vtload']),
+
+            Instr('vtse8', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS  → pending_insn->reg
+                InReg       (1, Range(15, 5)),   # rs1 = base → pending_insn->reg_2
+                UnsignedImm (0, Range(29, 3)),   # nf_eew     → insn->uim[0]
+            ],  '000 1 00 1 ----- ----- 111 00000 0100111', tags=['vtstore']),
+
+            Instr('vtse16', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS
+                InReg       (1, Range(15, 5)),   # rs1 = base
+                UnsignedImm (0, Range(29, 3)),   # nf_eew
+            ],  '001 1 00 1 ----- ----- 111 00000 0100111', tags=['vtstore']),
+
+            Instr('vtse32', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS
+                InReg       (1, Range(15, 5)),   # rs1 = base
+                UnsignedImm (0, Range(29, 3)),   # nf_eew
+            ],  '010 1 00 1 ----- ----- 111 00000 0100111', tags=['vtstore']),
+
+            Instr('vtse64', [
+                InReg       (0, Range(20, 5)),   # rs2 = TSS
+                InReg       (1, Range(15, 5)),   # rs1 = base
+                UnsignedImm (0, Range(29, 3)),   # nf_eew
+            ],  '011 1 00 1 ----- ----- 111 00000 0100111', tags=['vtstore']),
+
+            # =============================================================
+            # Tile Zero / Discard
+            # Spec section 1.9 / 1.10.3: opcode=1010111 (OP-V)
+            #
+            # vtzero:    010000 | 1 | 11110 | 00000 | 110 | tttt0 | 1010111
+            #            tile specifier in rd[4:1], rd[0]=0
+            # vtdiscard: 010000 | 1 | 11100 | 00000 | 110 | 00000 | 1010111
+            # =============================================================
+
+            Instr('vtzero', [
+                OutReg      (0, Range(8,  4)),   # rd[4:1]
+            ],  '010000 1 11110 00000 110 ----0 1010111'),
+
+            Instr('vtdiscard', [
+            ],  '010000 1 11100 00000 110 00000 1010111'),
+
+        ], includes=[
+            '<cpu/iss/include/isa/rv32vme_timed.hpp>',
+        ])

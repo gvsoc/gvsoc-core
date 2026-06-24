@@ -106,6 +106,8 @@ Csr::Csr(Iss &iss)
 #if defined(CONFIG_ISS_HAS_VECTOR)
     this->declare_csr(&this->vlenb,  "vlenb",  0xC22, CONFIG_ISS_VLEN/8);
 #endif
+    this->declare_csr(&this->mtype,   "mtype",   0xC23);
+
 #if defined(CONFIG_GVSOC_ISS_PMP)
     // Machine protection and translation
     for (int i=0; i<16; i++)

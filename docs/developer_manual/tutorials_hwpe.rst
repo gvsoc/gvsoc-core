@@ -183,7 +183,7 @@ After the ``hwpe`` is instantiated in ``cluster.json``, the hwpe model needs to 
         hwpe = Hwpe(self, 'hwpe')
 
 
-Now the HWPE instantiated in the cluster. However, there are no connections made to the other components in the cluster!
+Now the HWPE is instantiated in the cluster. However, there are no connections made to the other components in the cluster!
 A brief overview of the connection is given in the below picture. A pulp-cluster template consists of a cluster of RISC-V cores connected to a Multibank
 shared Tightly coupled data memory (TCDM). The HWPE could be configured by an of the RISC-V core in the cluster through the peripheral interconnect connected to the
 configuration port of the HWPE. The HWPE consists of the streamers, to access the L1 memory to load/store the processed data.
@@ -199,7 +199,7 @@ First, we will start connecting the peripheral interconnect to the configuration
 
    .. code-block:: python
 
-        periph_ico.add_mapping('hwpe', **self._reloc_mapping(self.get_property('peripherals/hwpe/mapping')))
+        periph_ico.add_mapping('hwpe', **self._reloc_mapping(cluster_conf.get_property('peripherals/hwpe/mapping')))
 
 
    The next part is to connect the peripheral interconnect's hwpe port to the config port of the Hwpe.
@@ -242,7 +242,7 @@ The last part of the integration is to connect the event signal ``irq`` of the H
 
    .. code-block:: python
 
-        hwpe_irq = self.get_property('pe/irq').index('acc_1')
+        hwpe_irq = cluster_conf.get_property('pe/irq').index('acc_1')
         for i in range(0, nb_pe):
             self.bind(hwpe, 'irq', event_unit, 'in_event_%d_pe_%d' % (hwpe_irq, i))
 

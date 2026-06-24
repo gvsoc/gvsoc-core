@@ -149,6 +149,13 @@ std::string Iss::handle_command(gv::GvProxy *proxy, FILE *req_file, FILE *reply_
     {
         if (this->exec.halted.get())
         {
+            // If we are halted on a breakpoint, arm a one-shot skip so this continue steps over the
+            // breakpoint instruction instead of immediately re-triggering the same breakpoint.
+            if (this->gdbserver.breakpoint_check_pc(this->exec.current_insn))
+            {
+                this->gdbserver.bp_skip_active = true;
+                this->gdbserver.bp_skip_pc = this->exec.current_insn;
+            }
             this->gdbserver.breakpoint_hit = false;
             this->gdbserver.watchpoint_hit = false;
             this->exec.halted.set(false);

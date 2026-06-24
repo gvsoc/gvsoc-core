@@ -19,6 +19,9 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
+#ifdef CONFIG_FAULT_INJECTION
+#include <vp/fault_injector.hpp>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <vp/vp.hpp>
@@ -93,6 +96,11 @@ private:
     vp::WireSlave<bool> power_ctrl_itf;
     vp::WireSlave<void *> meminfo_itf;
     vp::WireSlave<vp::MemCheckRequest *> memcheck_itf;
+
+#ifdef CONFIG_FAULT_INJECTION
+	std::map<uint64_t, std::vector<vp::FIRequest *>> stuck_at_map;
+	bool registered_with_fic = false;
+#endif
 
     bool power_trigger;
     bool powered_up;
@@ -400,6 +408,14 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
         return vp::IO_REQ_INVALID;
     }
 
+#ifdef CONFIG_FAULT_INJECTION
+	if (req->fault_upset_request)
+	{
+		_this->mem_data[offset] = _this->mem_data[offset] ^ req->mask;
+		return vp::IO_REQ_OK;
+	}
+#endif
+
     if (req->get_opcode() == vp::IoReqOpcode::READ)
     {
 #ifdef VP_MEMCHECK_ACTIVE
@@ -490,6 +506,31 @@ vp::IoReqStatus Memory::handle_write(uint64_t offset, uint64_t size, uint8_t *da
     if (data)
     {
         memcpy((void *)&this->mem_data[offset], (void *)data, size);
+
+#ifdef CONFIG_FAULT_INJECTION
+		auto it = this->stuck_at_map.lower_bound(offset);
+
+		while (it != this->stuck_at_map.end() && it->first < offset + size)
+		{
+			for (const auto& tf : it->second)
+			{
+				uint8_t mask = (uint8_t) (1u << tf->bit);
+				
+				
+				if (tf->is_high)
+				{
+					this->mem_data[tf->addr] |= mask;
+				}
+				else
+				{
+					this->mem_data[tf->addr] &= ~mask;
+				}
+			}
+
+			++it;
+		}
+
+#endif
     }
 
     return vp::IO_REQ_OK;
@@ -792,6 +833,19 @@ void Memory::reset(bool active)
     {
         this->next_packet_start = 0;
         this->powered_up = true;
+
+#ifdef CONFIG_FAULT_INJECTION
+		if (!this->registered_with_fic)
+		{
+			bool fic_enabled = this->get_js_config()->get_child_bool("fic_enabled");
+			if (fic_enabled)
+			{
+				vp::FIC_registrator *fic = (vp::FIC_registrator *) this->get_service("FIC");
+				fic->register_memory(this, this->mem_data, this->cfg.size, this->stuck_at_map);
+				this->registered_with_fic = true;
+			}
+		}
+#endif
     }
 }
 

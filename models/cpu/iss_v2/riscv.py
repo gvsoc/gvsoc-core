@@ -308,6 +308,10 @@ class RiscvCommon(st.Component):
         A dictionnay describing all the power models used to estimate power consumption in the ISS (default: {})
     power_models_file : file, optional
         A path to a file describing all the power models used to estimate power consumption in the ISS (default: None)
+    regfile_fi: bool, optional
+        True if the register files of this core are fault-injected
+    prefetcher_fi: bool, optional
+        True if the prefetcher buffer of this core is fault-injected
     cluster_id : int, optional
         The cluster ID of the core simulated by the ISS (default: 0).
     """
@@ -346,6 +350,8 @@ class RiscvCommon(st.Component):
             zfinx: bool=False,
             zdinx: bool=False,
             fp_width: int | None = None,
+            regfile_fi: bool=False,
+            prefetcher_fi: bool=False,
             modules: dict[str, IssModule] | None = None
         ):
 
@@ -455,6 +461,12 @@ class RiscvCommon(st.Component):
         if zdinx or isa.has_extension('zdinx'):
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_ZDINX=1'])
 
+        if regfile_fi:
+            self.add_c_flags(['-DCONFIG_REGFILE_FI=1'])
+
+        if prefetcher_fi:
+            self.add_c_flags(['-DCONFIG_PREFETCHER_FI=1'])
+
         fp_size = fp_width if fp_width is not None else  64 if isa.has_isa('rvd') else 32
         self.add_c_flags([f'-DCONFIG_GVSOC_ISS_FP_WIDTH={fp_size}'])
 
@@ -535,6 +547,7 @@ class RiscvCommon(st.Component):
             'fetch_enable': config.fetch_enable,
             'boot_addr': config.boot_addr,
             'has_double': isa.has_isa('rvd'),
+            'regfile_fi': regfile_fi,
         })
 
         self.htif = config.htif

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
  *                    University of Bologna
+ * Copyright (C) 2026 Fondazione Chips-it
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,39 +17,23 @@
  */
 
 /*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ * Authors: Marco Paci, Fondazione Chips-it (marco.paci@chips.it)
  */
 
 #pragma once
 
-#include <vp/vp.hpp>
-#include <cpu/iss/include/types.hpp>
+#include <cpu/iss/include/irq/irq_riscv.hpp>
 
-class Exception
+class Cv32e40pIrq : public Irq
 {
 public:
-    Exception(Iss &iss);
-#ifdef CONFIG_GVSOC_ISS_CV32E40P
-    virtual ~Exception() = default;
-#endif
+    Cv32e40pIrq(Iss &iss) : Irq(iss) {}
 
-    void build();
+    bool mip_access(bool is_write, iss_reg_t &value) override;
+    bool mie_access(bool is_write, iss_reg_t &value) override;
+    bool mtvec_access(bool is_write, iss_reg_t &value) override;
+    void elw_irq_unstall() override;
 
-    void raise(iss_reg_t pc, int id);
-
-    iss_addr_t debug_handler_addr;
-
-#ifdef CONFIG_GVSOC_ISS_CV32E40P
 protected:
-#else
-private:
-#endif
-    Iss &iss;
-    vp::Trace trace;
-#ifdef CONFIG_GVSOC_ISS_CV32E40P
-
-    /* Trap vector PC alignment mask.
-     * Default: -1 (no masking — generic RISC-V). */
-    iss_reg_t trap_vector_align_mask = (iss_reg_t)-1;
-#endif
+    void register_csr_callbacks() override;
 };

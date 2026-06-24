@@ -33,12 +33,19 @@ void Irq::build()
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     this->iss.csr.mideleg.register_callback(std::bind(&Irq::mideleg_access, this, std::placeholders::_1, std::placeholders::_2));
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
+#endif
     this->iss.csr.sip.register_callback(std::bind(&Irq::sip_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.sie.register_callback(std::bind(&Irq::sie_access, this, std::placeholders::_1, std::placeholders::_2));
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
+#endif
     this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    this->register_csr_callbacks();
+#endif
 
     this->msi_itf.set_sync_meth(&Irq::msi_sync);
     this->iss.top.new_slave_port("msi", &this->msi_itf, (vp::Block *)this);
@@ -60,6 +67,15 @@ void Irq::build()
     }
 }
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+void Irq::register_csr_callbacks()
+{
+    this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
+}
+
+#endif
 void Irq::reset(bool active)
 {
     if (active)
@@ -71,8 +87,10 @@ void Irq::reset(bool active)
     }
     else
     {
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
         this->mtvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
         this->stvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
+#endif
     }
 }
 
@@ -216,6 +234,13 @@ bool Irq::stvec_set(iss_addr_t base)
     return true;
 }
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+void Irq::elw_irq_unstall()
+{
+    // Base implementation: no-op. The CV32E40P subclass overrides this.
+}
+
+#endif
 void Irq::cache_flush()
 {
 }

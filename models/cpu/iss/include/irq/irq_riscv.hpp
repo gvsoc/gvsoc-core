@@ -44,15 +44,27 @@ class Irq
 {
 public:
     Irq(Iss &iss);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    virtual ~Irq() = default;
+#endif
 
     void build();
 
     bool mideleg_access(bool is_write, iss_reg_t &value);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    virtual bool mip_access(bool is_write, iss_reg_t &value);
+    virtual bool mie_access(bool is_write, iss_reg_t &value);
+#else
     bool mip_access(bool is_write, iss_reg_t &value);
     bool mie_access(bool is_write, iss_reg_t &value);
+#endif
     bool sip_access(bool is_write, iss_reg_t &value);
     bool sie_access(bool is_write, iss_reg_t &value);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    virtual bool mtvec_access(bool is_write, iss_reg_t &value);
+#else
     bool mtvec_access(bool is_write, iss_reg_t &value);
+#endif
     bool stvec_access(bool is_write, iss_reg_t &value);
 
     bool mtvec_set(iss_addr_t base);
@@ -62,8 +74,21 @@ public:
     void reset(bool active);
     int check();
     void wfi_handle();
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    virtual void elw_irq_unstall();
+#else
     void elw_irq_unstall();
+#endif
     void check_interrupts();
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+
+protected:
+    /* Register CSR access callbacks (mip/mie/mtvec).
+     * Default: registers handlers for mip, mie, mtvec on the base Csr class. */
+    virtual void register_csr_callbacks();
+
+public:
+#endif
     static void msi_sync(vp::Block *__this, bool value);
     static void mti_sync(vp::Block *__this, bool value);
     static void mei_sync(vp::Block *__this, bool value);

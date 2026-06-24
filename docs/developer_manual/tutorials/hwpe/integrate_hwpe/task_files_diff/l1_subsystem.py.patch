@@ -1,5 +1,5 @@
---- /srv/home/francesco.conti9/Devel/gvsoc/pulp/pulp/chips/pulp_open_hwpe/l1_subsystem.py	2026-06-24 22:52:19.724148436 +0200
-+++ /srv/home/francesco.conti9/Devel/gvsoc/core/docs/developer_manual/tutorials/hwpe/integrate_hwpe/task_files/l1_subsystem.py	2026-06-24 22:51:50.792504849 +0200
+--- /srv/home/francesco.conti9/Devel/gvsoc/pulp/pulp/chips/pulp_open_hwpe/l1_subsystem.py	2026-06-24 23:10:22.978943438 +0200
++++ /tmp/claude-2126132713/-srv-home-francesco-conti9-Devel-gvsoc-pulp/673153fd-f354-48e1-9404-988975358498/scratchpad/l1_subsystem_task.py	2026-06-24 23:11:13.053363318 +0200
 @@ -44,6 +44,9 @@
          l1_banking_factor = cluster_conf.get_property('l1/banking_factor')
          nb_l1_banks = 1<<int(math.log(nb_pe * l1_banking_factor, 2.0))
@@ -10,12 +10,12 @@
          l1_interleaver_nb_masters = nb_pe + 4 + 1 # 1 port per PE + 4 for DMA + 1 for NE16
          first_external_pcer = 12
          power_models = cluster_conf.get_property('l1/power_models')
-@@ -67,6 +70,8 @@
-         # L1 interleaver
-         interleaver = L1_interleaver(self, 'interleaver', nb_slaves=nb_l1_banks, nb_masters=l1_interleaver_nb_masters, interleaving_bits=2)
+@@ -122,6 +125,8 @@
+         for i in range(0, nb_l1_banks):
+             self.bind(interleaver, 'out_%d' % i, l1_banks[i], 'input')
  
 +#### TASK-7 -- Bind it with hwpe port name and attach it with correct index of the L1 subsystem's interleaver. Hint: (nb_pe + 5) connection
 +
-         # EXT2LOC
-         ext2loc = Converter(self, 'ext2loc', output_width=4, output_align=4)
+         self.bind(self, 'ne16_in', interleaver, 'in_%d' % (nb_pe + 4))
+         self.bind(self, 'redmule_in', interleaver, 'in_%d' % (nb_pe + 4)) # TODO: check why it is "nb_pe + 4" and not "nb_pe + 8" -> alternative to NE16!!
  

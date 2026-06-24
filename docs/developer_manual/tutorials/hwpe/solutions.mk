@@ -52,8 +52,10 @@ integrate_hwpe_sol8:
 integrate_hwpe_sol9:
 	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task9/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
 integrate_hwpe_sol10:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/solutions/pulp_open_hwpe DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-	$(MAKE) SRC_FPATH=$(SUBTASKS_MK_DIR)integrate_hwpe/solutions/CMakeLists.txt DEST_FPATH=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/ copy_file 
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py < $(SUBTASKS_MK_DIR)integrate_hwpe/solutions_diff/pulp_open_hwpe/cluster.py.patch && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/l1_subsystem.py < $(SUBTASKS_MK_DIR)integrate_hwpe/solutions_diff/pulp_open_hwpe/l1_subsystem.py.patch && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/CMakeLists.txt < $(SUBTASKS_MK_DIR)integrate_hwpe/solutions_diff/CMakeLists.txt.patch \
+	|| { echo "ERROR: Failed to apply solution patches for hwpe tutorial!"; exit 1; }
 
 model_hwpe_sol1:
 	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)model_hwpe/solutions/task1/simple_hwpe DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/simple_hwpe replace_folder

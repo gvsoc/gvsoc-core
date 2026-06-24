@@ -21,7 +21,15 @@ create_target_task1:
 	cp -r $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe && \
 	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/pulp_open.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/pulp_open.py.patch && \
 	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/pulp_open_board.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/pulp_open_board.py.patch && \
-	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/cluster.py.patch \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/cluster.py.patch && \
+	cp $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open-hwpe.py $(SUBTASKS_MK_DIR)create_target/solutions/task3/pulp-open-hwpe.py && \
+	patch $(SUBTASKS_MK_DIR)create_target/solutions/task3/pulp-open-hwpe.py < $(SUBTASKS_MK_DIR)create_target/solutions_diff/pulp-open-hwpe.py.patch && \
+	cp $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/pulp_open.py $(SUBTASKS_MK_DIR)create_target/solutions/task4/pulp_open.py && \
+	patch $(SUBTASKS_MK_DIR)create_target/solutions/task4/pulp_open.py < $(SUBTASKS_MK_DIR)create_target/solutions_diff/pulp_open_hwpe/pulp_open.py.patch && \
+	cp $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/pulp_open_board.py $(SUBTASKS_MK_DIR)create_target/solutions/task4/pulp_open_board.py && \
+	patch $(SUBTASKS_MK_DIR)create_target/solutions/task4/pulp_open_board.py < $(SUBTASKS_MK_DIR)create_target/solutions_diff/pulp_open_hwpe/pulp_open_board.py.patch && \
+	cp $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py $(SUBTASKS_MK_DIR)create_target/solutions/task4/cluster.py && \
+	patch $(SUBTASKS_MK_DIR)create_target/solutions/task4/cluster.py < $(SUBTASKS_MK_DIR)create_target/solutions_diff/pulp_open_hwpe/cluster.py.patch \
 	|| { echo "ERROR: Failed to apply patches for hwpe tutorial!"; exit 1; }
 
 integrate_hwpe_task1:

@@ -15,9 +15,13 @@
 #
 
 import gvsoc.systree as st
+
 #### SOLUTION - Changed from pulp_open to pulp_open_hwpe
+
 from pulp.chips.pulp_open_hwpe.soc import Soc, SocAttr
+
 #### SOLUTION - Changed from pulp_open to pulp_open_hwpe
+
 from pulp.chips.pulp_open_hwpe.cluster import Cluster, get_cluster_name
 from vp.clock_domain import Clock_domain
 from utils.clock_generator import Clock_generator
@@ -34,6 +38,10 @@ class PulpOpenAttr(Tree):
 
 
 class Pulp_open(st.Component):
+
+#### SOLUTION - Change the path from soc_config_file='pulp/chips/pulp_open/soc.json to soc_config_file='pulp/chips/pulp_open_hwpe/soc.json'
+#### SOLUTION - Change the path from cluster_config_file='pulp/chips/pulp_open/cluster.json' to cluster_config_file='pulp/chips/pulp_open_hwpe/cluster.json'
+#### SOLUTION - Change the path from padframe_config_file='pulp/chips/pulp_open/padframe.json' to padframe_config_file='pulp/chips/pulp_open_hwpe/padframe.json'
 
     def __init__(self, parent, name, attr: PulpOpenAttr, parser, soc_config_file='pulp/chips/pulp_open_hwpe/soc.json',
             cluster_config_file='pulp/chips/pulp_open_hwpe/cluster.json', padframe_config_file='pulp/chips/pulp_open_hwpe/padframe.json',

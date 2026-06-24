@@ -16,7 +16,9 @@
 
 import os
 import gvsoc.systree as st
-#### SOLUTION - Changed from pulp_open to pulp_open_hwpe
+
+#### SOLUTION - Change the path from pulp.chips.pulp_open.pulp_open to pulp.chips.pulp_open_hwpe.pulp_open
+
 from pulp.chips.pulp_open_hwpe.pulp_open import Pulp_open
 from devices.hyperbus.hyperflash import Hyperflash
 from devices.spiflash.spiflash import Spiflash
@@ -25,8 +27,7 @@ from devices.hyperbus.hyperram import Hyperram
 from devices.testbench.testbench import Testbench
 from devices.uart.uart_checker import Uart_checker
 import gvsoc.runner
-#### SOLUTION - Changed from pulp_open to pulp_open_hwpe
-from pulp.chips.pulp_open_hwpe.pulp_open import PulpOpenAttr
+from pulp.chips.pulp_open.pulp_open import PulpOpenAttr
 if os.environ.get('USE_GVRUN') is None:
     from gapylib.chips.pulp.flash import *
 else:

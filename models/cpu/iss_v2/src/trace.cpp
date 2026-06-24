@@ -85,6 +85,10 @@ Trace::Trace(Iss &iss)
     this->iss.traces.new_trace("insn", &this->insn_trace, vp::DEBUG);
     iss_trace_init(&this->iss);
 
+    // Make this core known as a watchpoint-capable master. The block path is already valid at
+    // construction (cached in the Block ctor), unlike get_launcher(), so build is the right place.
+    this->iss.traces.register_as_master();
+
 #if !defined(__M32_MODE__)
     // Register the ELF binaries; trace symbols are resolved lazily on demand.
     js::Config *binaries_config = this->iss.get_js_config()->get("**/binaries");

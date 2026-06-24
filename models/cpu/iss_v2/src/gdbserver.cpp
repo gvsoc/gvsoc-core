@@ -28,6 +28,10 @@ Gdbserver::Gdbserver(Iss &iss)
     : iss(iss)
 {
     this->iss.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
+    // Register this core with the controller so a proxy front-end (e.g. the console) can set
+    // breakpoints/watchpoints on every core, not just one. Reached via the controller singleton
+    // (get_launcher is not yet usable during construction).
+    gv::Controller::get().register_core(&this->iss);
 }
 
 

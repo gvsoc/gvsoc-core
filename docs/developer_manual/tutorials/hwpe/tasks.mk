@@ -33,7 +33,9 @@ create_target_task1:
 	|| { echo "ERROR: Failed to apply patches for hwpe tutorial!"; exit 1; }
 
 integrate_hwpe_task1:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task_files/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py < $(SUBTASKS_MK_DIR)integrate_hwpe/task_files_diff/cluster.py.patch && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/l1_subsystem.py < $(SUBTASKS_MK_DIR)integrate_hwpe/task_files_diff/l1_subsystem.py.patch \
+	|| { echo "ERROR: Failed to apply patches for hwpe tutorial!"; exit 1; }
 integrate_hwpe_task2:
 	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task1/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
 integrate_hwpe_task3:

@@ -15,8 +15,14 @@
 #
 
 create_target_task1:
-	$(MAKE) SRC_FPATH=$(SUBTASKS_MK_DIR)create_target/task_setup/pulp-open.py DEST_FPATH=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open.py copy_file
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)create_target/task_setup/pulp_open/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open/ copy_folder_contents
+	cp $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open.py $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open-hwpe.py && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open-hwpe.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp-open.py.patch && \
+	rm -rf $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe && \
+	cp -r $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/pulp_open.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/pulp_open.py.patch && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/pulp_open_board.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/pulp_open_board.py.patch && \
+	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp_open/cluster.py.patch \
+	|| { echo "ERROR: Failed to apply patches for hwpe tutorial!"; exit 1; }
 
 integrate_hwpe_task1:
 	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task_files/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder

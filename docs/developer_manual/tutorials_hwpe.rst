@@ -4,8 +4,19 @@ This tutorial is designed to provide a comprehensive, hands-on experience in imp
 
 The tutorial is located here: ``core/docs/developer_manual/tutorials/hwpe``
 
+Navigate to the tutorial directory before running any commands, and set ``GVSOC_ROOT`` for use in build and run commands:
+
+.. code-block:: bash
+
+   $ cd core/docs/developer_manual/tutorials/hwpe
+   $ export GVSOC_ROOT=$(realpath ../../../../../)
+
+All ``make`` commands for task setup are run from this directory. ``make build`` is also available here and delegates to the GVSoC root. Commands invoking the ``gvsoc`` binary use ``$GVSOC_ROOT`` as shown throughout this tutorial.
+The main directory where you need to manually operate on files, instead, is ``gvsoc/pulp``.
+
 0 - Getting familiar with the file structure
 .............................................
+This is the directory structure of ``gvsoc/pulp``:
 
 .. admonition:: Directory Structure
 
@@ -61,7 +72,7 @@ Let's create a new gvsoc target ``pulp-open-hwpe`` at ``gvsoc/pulp/`` by copying
 
    .. code-block:: bash
 
-      $ cd gvsoc/pulp
+      $ cd $GVSOC_ROOT/pulp
       $ cp pulp-open.py pulp-open-hwpe.py
 
 
@@ -73,7 +84,7 @@ The new target should work like the pulp-open because it is a copy of the pulp-o
    .. code-block:: bash
 
       $ make build TARGETS=pulp-open-hwpe
-      $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary examples/pulp-open/hello run
+      $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary $GVSOC_ROOT/examples/pulp-open/hello run
 
 You should see the Hello code passing successfully.
 
@@ -96,7 +107,7 @@ In the next task create a dedicated folder by copying the the contents of the pu
 
    .. code-block:: bash
 
-      $ cd gvsoc/pulp/pulp/chips
+      $ cd $GVSOC_ROOT/pulp/pulp/chips
       $ mkdir pulp_open_hwpe
       $ cp pulp_open/* pulp_open_hwpe -r
 
@@ -129,7 +140,7 @@ and running the hello application again by executing the following commands:
    .. code-block:: bash
 
       $ make build TARGETS=pulp-open-hwpe
-      $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary examples/pulp-open/hello run
+      $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary $GVSOC_ROOT/examples/pulp-open/hello run
 
 The test should pass without any issue. How do you know if your changes are reflected correctly?
 
@@ -150,7 +161,6 @@ Let's begin the setup for this task by copying the relevant source files for pul
 
    .. code-block:: bash
 
-      $ cd gvsoc
       $ make integrate_hwpe_task1
 
 All the necessary modifications are to be done in ``gvsoc/pulp/pulp/chips/pulp_open_hwpe/cluster.json``. To include the new HWPE accelerator in the PULP system, an entry of the cluster needs to be updated in ``cluster.json``. The entry needs to be added below the ``dma`` entry as its base address comes next.
@@ -261,7 +271,7 @@ The last part of the integration is to connect the event signal ``irq`` of the H
    .. code-block:: bash
 
       $ make build TARGETS=pulp-open-hwpe
-      $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary examples/pulp-open/hello run
+      $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary $GVSOC_ROOT/examples/pulp-open/hello run
 
 
 .. admonition:: Fixing failing build
@@ -378,7 +388,7 @@ Below is an example of a C++ class definition for Hwpe. This class inherits from
 
 3.1 SW execution including HWPE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In this task, we execute a basic application on RISC-V to configure the HWPE model. The application files reside at ``core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task1``. Here, the RISC-V cluster core writes ``0x12345678`` to the 0th configuration address via the ``cfg`` port, which is handled by the ``Hwpe::hwpe_slave(vp::Block * this, vp::IoReq *req)`` function.
+In this task, we execute a basic application on RISC-V to configure the HWPE model. The application files reside at ``model_hwpe/application/task1``. Here, the RISC-V cluster core writes ``0x12345678`` to the 0th configuration address via the ``cfg`` port, which is handled by the ``Hwpe::hwpe_slave(vp::Block * this, vp::IoReq *req)`` function.
 
 .. admonition:: Verify - 3.1.1 Enable Traces
    :class: solution
@@ -388,7 +398,7 @@ In this task, we execute a basic application on RISC-V to configure the HWPE mod
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task1/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task1/test run --trace=hwpe
 
 Ideally, a trace related to Hwpe configuration should appear. If not, the issue may be in ``hwpe.cpp``, where there could be a missing link between the ``cfg_port_`` port and the callback function. The model needs to associate the ``cfg_port_`` port with the callback function ``vp::IoReqStatus Hwpe::hwpe_slave(vp::Block * this, vp::IoReq *req)``. Let's address this issue!
 
@@ -443,7 +453,7 @@ Additionally, we require four registers for HWPE functional execution, starting 
 .. admonition:: Task - 3.2 Getting familiar with the SW application
    :class: task
 
-   Examine ``hal.h`` and ``test.c`` in ``core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task2``. What differences do you notice compared to task1?
+   Examine ``hal.h`` and ``test.c`` in ``model_hwpe/application/task2``. What differences do you notice compared to task1?
 
 We introduced special and configuration registers in ``hal.h``. In ``test.c``, we wrote a small application that clears and sets the configuration register. To handle this, we need to update the model. Currently, the register configuration function only prints the trace. In this task, we'll add functionality to the callback function ``hwpe_slave``.
 
@@ -486,7 +496,7 @@ It's time to build and verify the output.
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task2/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task2/test run --trace=hwpe
 
 
 If everything is implemented correctly, you should see in the traces the Hello message from ``clear()``.
@@ -551,7 +561,7 @@ How do we verify when the event is executed? For simplicity add a Trace to the `
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task3/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task3/test run --trace=hwpe
 
 
 .. admonition:: Task - 3.3.4 Expected traces
@@ -600,7 +610,7 @@ Code Explanation:
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task4/test run --trace=hwpe
 
 **Warning! It will lead to an infinite loop. Remember to terminate the process.**
 
@@ -655,7 +665,7 @@ Now the initial values are set correctly. But we also have to ensure ``input.ite
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task4/test run --trace=hwpe
 
 
 .. admonition:: Task - 3.4 Expected Traces
@@ -705,7 +715,7 @@ Once the implementation is complete verify the implementation, using the same te
    .. code-block:: bash
 
        $ make build TARGETS=pulp-open-hwpe
-       $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test run --trace=hwpe
+       $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task4/test run --trace=hwpe
 
 3.6 Datapath
 ^^^^^^^^^^^^^
@@ -764,7 +774,7 @@ Next, we move on to the computation task. We need to accumulate the value from t
         this->output_buffer_.WriteAtIndex(this->compute.iteration, 1, sum);
 
 
-Use the same application ``task4`` located at ``core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test`` to verify the implementation.
+Use the same application ``task4`` located at ``model_hwpe/application/task4/test`` to verify the implementation.
 
 .. admonition:: Verify - 3.6 Build and execute the application
    :class: solution
@@ -772,7 +782,7 @@ Use the same application ``task4`` located at ``core/docs/developer_manual/tutor
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task4/test run --trace=hwpe
 
 3.7 Optimize Load Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -800,7 +810,7 @@ Build the model and run the ``task4`` application. You will notice that both ``L
    Hint! Take inspiration from ``input_load``
 
 
-Use the same application ``task4`` located at ``core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test``.
+Use the same application ``task4`` located at ``model_hwpe/application/task4/test``.
 
 .. admonition:: Verify - 3.7 Build and Execute
    :class: solution
@@ -808,7 +818,7 @@ Use the same application ``task4`` located at ``core/docs/developer_manual/tutor
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task4/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task4/test run --trace=hwpe
 
 3.8 The final step - FSM termination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -820,7 +830,7 @@ Use the same application ``task4`` located at ``core/docs/developer_manual/tutor
 
         $ make model_hwpe_task8
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task8/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task8/test run --trace=hwpe
 
 
 **Warning! This command will hang because the core will be stuck at HWPE_WRITE_CMD(HWPE_COMMIT_AND_TRIGGER, HWPE_TRIGGER_CMD)**
@@ -832,7 +842,7 @@ To resolve this issue, we should use the ``irq`` port connected to the event uni
    Open ``hwpe_fsm.cpp`` and in ``FsmEndHandler``, uncomment the line ``irq.sync(true)``.
 
 
-Use the ``task8`` application located at ``core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task8/test``.
+Use the ``task8`` application located at ``model_hwpe/application/task8/test``.
 
 Build and execute the application:
 
@@ -842,7 +852,7 @@ Build and execute the application:
    .. code-block:: bash
 
         $ make build TARGETS=pulp-open-hwpe
-        $ ./install/bin/gvsoc --target=pulp-open-hwpe --binary ./core/docs/developer_manual/tutorials/hwpe/model_hwpe/application/task8/test run --trace=hwpe
+        $ $GVSOC_ROOT/install/bin/gvsoc --target=pulp-open-hwpe --binary ./model_hwpe/application/task8/test run --trace=hwpe
 
 If implemented correctly, the output trace should resemble the following:
 

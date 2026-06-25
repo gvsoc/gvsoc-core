@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-create_target_task1:
+.PHONY: create_target_task integrate_hwpe_task
+
+# this target sets everything up in the gvsoc-pulp folder to run the tutorial T1, and creates solutions in create_target/solutions
+create_target_task:
 	cp $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open.py $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open-hwpe.py && \
 	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp-open-hwpe.py < $(SUBTASKS_MK_DIR)create_target/task_setup_diffs/pulp-open.py.patch && \
 	rm -rf $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe && \
@@ -32,30 +35,11 @@ create_target_task1:
 	patch $(SUBTASKS_MK_DIR)create_target/solutions/task4/cluster.py < $(SUBTASKS_MK_DIR)create_target/solutions_diff/pulp_open_hwpe/cluster.py.patch \
 	|| { echo "ERROR: Failed to apply patches for hwpe tutorial!"; exit 1; }
 
-integrate_hwpe_task1:
+# this target sets everything up in the gvsoc-pulp folder to run the tutorial T2, and creates solutions in create_target/solutions
+integrate_hwpe_task:
 	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/cluster.py < $(SUBTASKS_MK_DIR)integrate_hwpe/task_files_diff/cluster.py.patch && \
 	patch $(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe/l1_subsystem.py < $(SUBTASKS_MK_DIR)integrate_hwpe/task_files_diff/l1_subsystem.py.patch \
 	|| { echo "ERROR: Failed to apply patches for hwpe tutorial!"; exit 1; }
-integrate_hwpe_task2:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task1/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task3:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task2/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task4:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task3/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task5:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task4/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task6:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task5/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task7:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task6/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task8:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task7/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task9:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task8/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task10:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task9/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
-integrate_hwpe_task11:
-	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)integrate_hwpe/task10/ DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/chips/pulp_open_hwpe copy_folder
 
 model_hwpe_task1:
 	$(MAKE) SRC_DIR=$(SUBTASKS_MK_DIR)model_hwpe/task_files/task1/simple_hwpe DEST_DIR=$(SUBTASKS_MK_DIR)../../../../../pulp/pulp/simple_hwpe replace_folder

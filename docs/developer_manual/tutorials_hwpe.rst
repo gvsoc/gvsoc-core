@@ -63,7 +63,7 @@ After the installation is done, run the setup command which creates the scaffold
 
    .. code-block:: bash
 
-      $ make create_target_task1
+      $ make create_target_task
 
 The command creates a new gvsoc target ``pulp-open-hwpe.py`` at ``gvsoc/pulp/`` by patching ``pulp-open.py``, and a new folder ``pulp/chips/pulp_open_hwpe/`` by copying ``pulp/chips/pulp_open/`` and adding inline hints in the relevant files.
 
@@ -143,7 +143,7 @@ Let's begin the setup for this task by copying the relevant source files for pul
 
    .. code-block:: bash
 
-      $ make integrate_hwpe_task1
+      $ make integrate_hwpe_task
 
 All the necessary modifications are to be done in ``gvsoc/pulp/pulp/chips/pulp_open_hwpe/cluster.json``. To include the new HWPE accelerator in the PULP system, an entry of the cluster needs to be updated in ``cluster.json``. The entry needs to be added below the ``dma`` entry as its base address comes next.
 
@@ -289,12 +289,12 @@ looks like the following:
     .. code-block:: text
 
         /simple_hwpe
-        ├── inc
-        │   └── hwpe.hpp
-        ├── src
-        │   └── hwpe.cpp
-        ├── CMakeLists.txt
-        └── hwpe.py
+        |-- inc
+        |   |-- hwpe.hpp
+        |-- src
+        |   |-- hwpe.cpp
+        |-- CMakeLists.txt
+        |-- hwpe.py
 
     - **/simple_hwpe**: code base for the simple HWPE.
     - **/inc/hwpe.hpp**: instantiation of the Hwpe class.

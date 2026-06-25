@@ -46,18 +46,10 @@ vp::IoReqStatus IoV2BeatAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
     if (!req->get_is_write())
     {
         self->enqueue_read_burst(req);
-        // Kick off the first sub-read inline, mirroring the write path's
-        // out.req() in req_handler: a single-beat read then completes with the
-        // same timing as an equivalent write (no extra FSM fill cycle). The
-        // FSM / resp-chain pace the remaining beats one per cycle. Only the
-        // upstream resp() is deferred to the FSM, never a reentrant in.resp().
-        if (!self->sub_read_outstanding && !self->sub_read_denied
-            && !self->read_jobs.empty())
-        {
-            SubReadJob job = self->read_jobs.front();
-            self->read_jobs.pop_front();
-            self->issue_sub_read(job);
-        }
+        // Fire off as many sub-reads as the downstream will take right now
+        // (bounded by max_sub_outstanding), so reads pipeline instead of
+        // waiting one round-trip per beat.
+        self->issue_pending_sub_reads();
         self->reschedule_fsm();
         return vp::IO_REQ_GRANTED;
     }
@@ -96,27 +88,21 @@ void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     auto *self = static_cast<IoV2BeatAdapter *>(__this);
 
-    // Async completion of one of our downstream read sub-requests.
-    if (req == &self->sub_req)
+    // Async completion of one of our in-flight read sub-reads? Mark it done,
+    // drain any now-contiguous completed beats in order, and refill the
+    // pipeline. (Searching is cheap: max_sub_outstanding is small.)
+    for (auto &e : self->sub_inflight)
     {
-        self->sub_read_outstanding = false;
-        self->complete_sub_read(self->current_job, req->get_resp_status(),
-                                req->get_latency());
-        // Issue the next sub-read right now (not via a +1 FSM re-arm): a
-        // multi-cycle downstream just freed up this cycle, so the next sub-read
-        // can start immediately and reads pace at the downstream completion
-        // rate (matching the write path), with no extra idle cycle per beat.
-        // If the downstream is busy it DENIES and we wait for its retry; if it
-        // completes inline the FSM picks up the rest at one per cycle.
-        if (!self->sub_read_outstanding && !self->sub_read_denied
-            && !self->read_jobs.empty())
+        if (e.req == req)
         {
-            SubReadJob job = self->read_jobs.front();
-            self->read_jobs.pop_front();
-            self->issue_sub_read(job);
+            e.completed = true;
+            e.status    = req->get_resp_status();
+            e.latency   = req->get_latency();
+            self->drain_completed_sub_reads();
+            self->issue_pending_sub_reads();
+            self->reschedule_fsm();
+            return;
         }
-        self->reschedule_fsm();
-        return;
     }
 
     // Write path: the slave responds on the master's own req object.
@@ -134,7 +120,8 @@ void IoV2BeatAdapter::retry_handler(vp::Block *__this, vp::IoRetryChannel channe
     if (self->sub_read_denied)
     {
         self->sub_read_denied = false;
-        self->issue_sub_read(self->current_job);
+        self->issue_sub_read(self->denied_job);
+        self->issue_pending_sub_reads();
         self->reschedule_fsm();
     }
 
@@ -173,35 +160,74 @@ void IoV2BeatAdapter::enqueue_read_burst(vp::IoReq *req)
 
 void IoV2BeatAdapter::issue_sub_read(const SubReadJob &job)
 {
-    this->current_job = job;
+    // Each in-flight sub-read needs its own object so several can coexist
+    // downstream. Freed when the entry is drained (in issue/offset order).
+    vp::IoReq *r = new vp::IoReq();
+    r->prepare();
+    r->set_addr(job.addr);
+    r->set_data(job.data);
+    r->set_size(job.beat_bytes);
+    r->set_is_write(false);
+    r->is_first = true;
+    r->is_last  = true;
+    r->burst_id = -1;
 
-    this->sub_req.prepare();
-    this->sub_req.set_addr(job.addr);
-    this->sub_req.set_data(job.data);
-    this->sub_req.set_size(job.beat_bytes);
-    this->sub_req.set_is_write(false);
-    // prepare() does not reset these — set them explicitly on every reuse.
-    this->sub_req.is_first = true;
-    this->sub_req.is_last  = true;
-    this->sub_req.burst_id = -1;
+    vp::IoReqStatus st = this->out.req(r);
 
-    this->sub_read_outstanding = true;
+    if (st == vp::IO_REQ_DENIED)
+    {
+        // Downstream full: hold this job, re-issue on retry, issue nothing more
+        // until then. The job was already popped from read_jobs by the caller,
+        // so it lives in denied_job now and is not lost.
+        this->sub_read_denied = true;
+        this->denied_job = job;
+        delete r;
+        return;
+    }
 
-    vp::IoReqStatus st = this->out.req(&this->sub_req);
-
+    // Track in issue order. GRANTED completes later in resp_handler; DONE is
+    // already done — record it and let the in-order drain pick it up (it may
+    // still have to wait behind an earlier not-yet-completed sub-read).
+    this->sub_inflight.push_back(InflightSubRead{r, job, false,
+                                                 vp::IO_RESP_OK, 0});
     if (st == vp::IO_REQ_DONE)
     {
-        this->sub_read_outstanding = false;
-        this->complete_sub_read(job, this->sub_req.get_resp_status(),
-                                this->sub_req.get_latency());
+        InflightSubRead &e = this->sub_inflight.back();
+        e.completed = true;
+        e.status    = r->get_resp_status();
+        e.latency   = r->get_latency();
+        this->drain_completed_sub_reads();
     }
-    else if (st == vp::IO_REQ_DENIED)
+}
+
+
+void IoV2BeatAdapter::issue_pending_sub_reads()
+{
+    while (!this->sub_read_denied
+        && (int)this->sub_inflight.size() < this->max_sub_outstanding
+        && !this->read_jobs.empty())
     {
-        // Hold this job and stop issuing until the slave retries.
-        this->sub_read_outstanding = false;
-        this->sub_read_denied = true;
+        SubReadJob job = this->read_jobs.front();
+        this->read_jobs.pop_front();
+        this->issue_sub_read(job);
+        // issue_sub_read sets sub_read_denied on a downstream DENY; the loop
+        // condition then stops (the held job is in denied_job).
     }
-    // IO_REQ_GRANTED: stays outstanding; resp_handler will complete it.
+}
+
+
+void IoV2BeatAdapter::drain_completed_sub_reads()
+{
+    // Emit beats strictly in issue (offset) order: only the head, and only
+    // once it has completed, so a later sub-read that finished early cannot
+    // make is_last reach the upstream master before earlier beats.
+    while (!this->sub_inflight.empty() && this->sub_inflight.front().completed)
+    {
+        InflightSubRead e = this->sub_inflight.front();
+        this->sub_inflight.pop_front();
+        this->complete_sub_read(e.job, e.status, e.latency);
+        delete e.req;
+    }
 }
 
 
@@ -331,20 +357,57 @@ void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
 
 void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
 {
-    vp::IoReq *req = ev.req;
-    req->set_addr(ev.addr);
-    req->set_data(ev.data);
-    req->set_size(ev.size);
-    req->burst_id = ev.burst_id;
-    req->is_first = ev.is_first;
-    req->is_last = ev.is_last;
-    req->set_resp_status(ev.status);
+    // A response delivered as a single beat never aliases (one resp(), one
+    // object, delivered once), so round-trip the master's own req — many
+    // masters (e.g. a CPU LSU) key their completion on getting that exact
+    // object back. Only a multi-beat read reuses one object across N deliveries
+    // and so needs a distinct object per beat (below).
+    if (ev.req->get_is_write() || (ev.is_first && ev.is_last))
+    {
+        vp::IoReq *req = ev.req;
+        req->set_addr(ev.addr);
+        req->set_data(ev.data);
+        req->set_size(ev.size);
+        req->burst_id = ev.burst_id;
+        req->is_first = ev.is_first;
+        req->is_last = ev.is_last;
+        req->set_resp_status(ev.status);
+
+        this->trace.msg(vp::Trace::LEVEL_TRACE,
+            "Emit write ack (req=%p, offset=%lu, size=%lu, first=%d, last=%d)\n",
+            req, ev.offset, ev.size, ev.is_first ? 1 : 0, ev.is_last ? 1 : 0);
+
+        this->in.resp(req);
+        return;
+    }
+
+    // Read response beat: a single read burst is answered by N beats, so the
+    // beats cannot share the burst's req object (a downstream that queues a
+    // response — e.g. a clock bridge — would alias the reused object). Each
+    // beat is its own object, owned by whoever receives it and freed by the
+    // terminal master. The burst req itself is owned by us and freed on the
+    // last beat; the master never gets it back.
+    vp::IoReq *beat = new vp::IoReq();
+    beat->set_addr(ev.addr);
+    beat->set_data(ev.data);
+    beat->set_size(ev.size);
+    beat->set_is_write(false);
+    beat->burst_id = ev.burst_id;
+    beat->is_first = ev.is_first;
+    beat->is_last = ev.is_last;
+    beat->set_resp_status(ev.status);
+    beat->initiator = ev.req->initiator;
 
     this->trace.msg(vp::Trace::LEVEL_TRACE,
-        "Emit beat (req=%p, offset=%lu, size=%lu, first=%d, last=%d)\n",
-        req, ev.offset, ev.size, ev.is_first ? 1 : 0, ev.is_last ? 1 : 0);
+        "Emit read beat (beat=%p, burst=%p, offset=%lu, size=%lu, first=%d, last=%d)\n",
+        beat, ev.req, ev.offset, ev.size, ev.is_first ? 1 : 0, ev.is_last ? 1 : 0);
 
-    this->in.resp(req);
+    this->in.resp(beat);
+
+    if (ev.is_last)
+    {
+        delete ev.req;
+    }
 }
 
 
@@ -361,17 +424,9 @@ void IoV2BeatAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
         self->emit_beat(ev);
     }
 
-    // Issue at most one downstream read sub-request this cycle, so the
-    // big-packet interconnect sees per-cycle beat traffic. An inline DONE
-    // schedules its upstream beat for a later cycle (>= now+1), keeping the
-    // upstream stream at one beat per cycle too.
-    if (!self->sub_read_outstanding && !self->sub_read_denied
-        && !self->read_jobs.empty())
-    {
-        SubReadJob job = self->read_jobs.front();
-        self->read_jobs.pop_front();
-        self->issue_sub_read(job);
-    }
+    // Refill the downstream read pipeline (a slot may have freed since the
+    // last tick, or back-pressure may have cleared).
+    self->issue_pending_sub_reads();
 
     self->reschedule_fsm();
 }
@@ -389,10 +444,10 @@ void IoV2BeatAdapter::reschedule_fsm()
     {
         next = std::min(next, this->pending.front().ready_cycle);
     }
-    // A queued read sub-request that can be issued (no sub-read in flight or
-    // held) wants the next cycle.
-    if (!this->read_jobs.empty() && !this->sub_read_outstanding
-        && !this->sub_read_denied)
+    // A queued read sub-request that can still be issued (room in the
+    // in-flight window and not held on back-pressure) wants the next cycle.
+    if (!this->read_jobs.empty() && !this->sub_read_denied
+        && (int)this->sub_inflight.size() < this->max_sub_outstanding)
     {
         next = std::min(next, now + 1);
     }
@@ -446,7 +501,11 @@ void IoV2BeatAdapter::reset(bool active)
         this->pending.clear();
         this->in_flight.clear();
         this->read_jobs.clear();
-        this->sub_read_outstanding = false;
+        for (auto &e : this->sub_inflight)
+        {
+            delete e.req;
+        }
+        this->sub_inflight.clear();
         this->sub_read_denied = false;
         this->read_last_sched_cycle = -1;
         this->write_last_sched_cycle = -1;

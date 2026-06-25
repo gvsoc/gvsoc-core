@@ -28,6 +28,10 @@ vp_model(NAME utils.io_v2_beat_adapter
     SOURCES "io_v2_beat_adapter.cpp"
 )
 
+vp_model(NAME utils.io_v2_beat_collapse_adapter
+    SOURCES "io_v2_beat_collapse_adapter.cpp"
+)
+
 add_subdirectory(loader)
 
 # ---------------------------------------------------------------------------

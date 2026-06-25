@@ -145,6 +145,14 @@ private:
     // adapter's.
     int64_t read_last_sched_cycle;
     int64_t write_last_sched_cycle;
+    // Cycle of the most recent sub-read issued downstream. Issuance is paced to
+    // at most one sub-read per cycle: a bandwidth router charges burst_duration
+    // and advances a per-input watermark per request, so bursting several reads
+    // in one cycle makes a *series* of such routers each compound the bandwidth
+    // wait — double-charging the transfer (two 8 B/cyc routers would stream at
+    // 4 B/cyc). One per cycle lets each watermark catch up so the per-beat
+    // latency stays flat, while the outstanding window still hides round-trip.
+    int64_t read_issue_last_cycle = -1;
 
     // Read sub-request pacing. Reads pending issue sit in read_jobs (FIFO, a
     // whole burst enqueued at once so bursts are serviced in arrival order).
@@ -168,7 +176,10 @@ private:
         int64_t           latency   = 0;
     };
     std::deque<InflightSubRead> sub_inflight;
-    int max_sub_outstanding = 8;
+    // Outstanding-window depth. With one-per-cycle issuance the window must be
+    // at least the downstream round-trip latency to sustain 1 beat/cycle; sized
+    // generously so high-latency paths (e.g. router_latency=10) don't bottleneck.
+    int max_sub_outstanding = 32;
 
     // A sub-read DENIED by the downstream is held here and re-issued from the
     // retry() callback; no further sub-reads are issued until it is accepted.

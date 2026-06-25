@@ -203,16 +203,28 @@ void IoV2BeatAdapter::issue_sub_read(const SubReadJob &job)
 
 void IoV2BeatAdapter::issue_pending_sub_reads()
 {
-    while (!this->sub_read_denied
-        && (int)this->sub_inflight.size() < this->max_sub_outstanding
-        && !this->read_jobs.empty())
+    // Pace issuance at one sub-read per cycle (see read_issue_last_cycle): the
+    // fsm re-ticks every cycle while read_jobs remain (reschedule_fsm), so the
+    // rest drip out on subsequent cycles. This keeps a series of bandwidth
+    // routers from compounding their per-request waits while still keeping
+    // round-trip-many sub-reads outstanding.
+    int64_t now = this->clock.get_cycles();
+    if (now <= this->read_issue_last_cycle)
     {
-        SubReadJob job = this->read_jobs.front();
-        this->read_jobs.pop_front();
-        this->issue_sub_read(job);
-        // issue_sub_read sets sub_read_denied on a downstream DENY; the loop
-        // condition then stops (the held job is in denied_job).
+        return;
     }
+    if (this->sub_read_denied
+        || (int)this->sub_inflight.size() >= this->max_sub_outstanding
+        || this->read_jobs.empty())
+    {
+        return;
+    }
+    SubReadJob job = this->read_jobs.front();
+    this->read_jobs.pop_front();
+    this->read_issue_last_cycle = now;
+    // issue_sub_read sets sub_read_denied on a downstream DENY (held in
+    // denied_job and re-issued from retry_handler).
+    this->issue_sub_read(job);
 }
 
 
@@ -360,8 +372,9 @@ void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
     // A response delivered as a single beat never aliases (one resp(), one
     // object, delivered once), so round-trip the master's own req — many
     // masters (e.g. a CPU LSU) key their completion on getting that exact
-    // object back. Only a multi-beat read reuses one object across N deliveries
-    // and so needs a distinct object per beat (below).
+    // object back. Writes are also one-resp-per-req. Only a multi-beat read
+    // splits one request into N deliveries and so needs a distinct object per
+    // beat (below).
     if (ev.req->get_is_write() || (ev.is_first && ev.is_last))
     {
         vp::IoReq *req = ev.req;
@@ -381,12 +394,13 @@ void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
         return;
     }
 
-    // Read response beat: a single read burst is answered by N beats, so the
-    // beats cannot share the burst's req object (a downstream that queues a
-    // response — e.g. a clock bridge — would alias the reused object). Each
-    // beat is its own object, owned by whoever receives it and freed by the
-    // terminal master. The burst req itself is owned by us and freed on the
-    // last beat; the master never gets it back.
+    // Read response beat: a multi-beat read answers one burst with N beats, so
+    // the beats cannot share the burst's req object (a downstream that queues a
+    // response — e.g. a clock bridge — would alias the reused object). Each beat
+    // is its own heap object, freed by the terminal master. The burst's own req
+    // is owned by the adapter and freed on the last beat — the master must
+    // therefore hand the adapter a freeable (heap-allocated) request, not a
+    // pooled/borrowed object, and never gets it back.
     vp::IoReq *beat = new vp::IoReq();
     beat->set_addr(ev.addr);
     beat->set_data(ev.data);
@@ -509,6 +523,7 @@ void IoV2BeatAdapter::reset(bool active)
         this->sub_read_denied = false;
         this->read_last_sched_cycle = -1;
         this->write_last_sched_cycle = -1;
+        this->read_issue_last_cycle = -1;
         if (this->fsm_event.is_enqueued())
         {
             this->fsm_event.cancel();

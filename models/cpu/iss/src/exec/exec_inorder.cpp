@@ -103,6 +103,7 @@ void Exec::reset(bool active)
         this->irq_locked = 0;
         this->insn_on_hold = false;
         this->stall_cycles = 0;
+        this->wfi_start = 0;
         this->cache_sync = false;
 
         // Always increase the stall when reset is asserted since stall count is set to 0

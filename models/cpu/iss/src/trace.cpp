@@ -24,56 +24,21 @@
 #include <algorithm>
 #include <vector>
 
-// Resolve trace PC -> symbol at runtime from the ELF binary. This block is the
-// portable replacement for the former libdwfl/elfutils dependency, which has no
-// supported macOS build. It splits the job the way libdwfl did internally:
-//
-//   * function name  <- ELF symbol table (covers assembly labels and compiler
-//                       .isra/.constprop clones that have no DWARF DIE). Parsed
-//                       once at registration with a tiny self-contained reader
-//                       (no libelf / no <elf.h>, so it builds anywhere).
-//   * file and line  <- DWARF .debug_line, via libdwarf (which bundles its own
-//                       object reader, so neither libelf nor libdw is needed).
-//
-// Registration stays cheap: it reads the symbol table and each compilation
-// unit's address range (the CU root DIE only), but defers every CU's line
-// program until the first PC actually lands in it. A run that never resolves a
-// symbol, or that only touches part of a big binary, pays nothing for the rest
-// -- mirroring how libdwfl deferred and per-CU-cached its parsing.
-//
-// The block is excluded for the 32-bit model variant, which has no libdwarf
-// available and therefore no trace symbols.
+// Resolve a trace PC to its function name and source file:line, straight from
+// the ELF binary -- function name from the symbol table, file:line from the
+// DWARF .debug_line program. All of it is parsed by the self-contained,
+// dependency-free reader in <cpu/dwarf_trace.hpp> (no libdwarf, no libdw/libelf,
+// no <elf.h>), so this builds identically on Linux, macOS, etc. The block is
+// excluded for the 32-bit model variant, which has no trace symbols.
 #if !defined(__M32_MODE__)
-#include <map>
-#include <string>
-#include <libdwarf.h>
-#include <dwarf.h>
+#include <cpu/dwarf_trace.hpp>
 
-// A function symbol from the ELF symbol table (high == low means size 0).
-struct iss_sym_entry { uint64_t low, high; uint32_t idx; std::string name; };
-struct iss_line_entry { uint64_t addr; int line; std::string file; bool end; };
-
-// One compilation unit: known by DIE offset, its line table parsed lazily.
-struct iss_cu_info
-{
-    Dwarf_Off off = 0;
-    bool parsed = false;
-    std::vector<iss_line_entry> lines;   // sorted by addr (filled on parse)
-};
-
-// One contiguous address range -> the CU that owns it (CU root DW_AT_low/high).
-struct iss_arange { uint64_t low, high; Dwarf_Off cu_off; };
-
-// One registered binary: symbol table (for names) + lazy DWARF line index.
+// One registered binary: its symbol table and line-number rows, both parsed
+// once and address-sorted by dwarf_trace::load().
 struct iss_binary_info
 {
-    Dwarf_Debug dbg = NULL;
-    std::vector<iss_sym_entry> syms;            // sorted by (low, idx)
-    std::vector<iss_arange> aranges;            // sorted by low
-    std::map<Dwarf_Off, iss_cu_info> cus;       // keyed by CU DIE offset
-    // Non-contiguous (DW_AT_ranges) CUs are parsed eagerly here at registration,
-    // since a single range cannot index them; their line rows go in all_lines.
-    std::vector<iss_line_entry> all_lines;      // sorted by addr
+    std::vector<dwarf_trace::SymEntry> syms;
+    std::vector<dwarf_trace::LineRow> lines;
 };
 
 static std::vector<iss_binary_info> iss_dw_binaries;
@@ -128,7 +93,7 @@ public:
     char *file;
     int line;
     // False for a negative-cache entry: the PC was looked up but no symbol was
-    // found. Stored so a fruitless libdw lookup is not repeated on every hit.
+    // found. Stored so a fruitless lookup is not repeated on every hit.
     bool valid;
     iss_pc_info *next;
 };
@@ -171,53 +136,9 @@ static iss_pc_info *add_pc_info(unsigned int base, const char *func, const char 
     return pc_info;
 }
 
-// Forward decl: parse one CU's line table on demand.
-static void iss_dw_parse_cu(iss_binary_info &b, iss_cu_info &cu);
-
-// Function name for addr from the ELF symbol table, matching libdwfl's lookup:
-// prefer the nearest *sized* symbol that actually contains addr; otherwise fall
-// back to the nearest preceding symbol (covers zero-sized assembly labels).
-static const char *iss_sym_func(const std::vector<iss_sym_entry> &syms, iss_addr_t addr)
-{
-    auto it = std::upper_bound(syms.begin(), syms.end(), (uint64_t)addr,
-        [](uint64_t a, const iss_sym_entry &e) { return a < e.low; });
-    if (it == syms.begin())
-        return NULL;
-
-    const iss_sym_entry *fallback = NULL;
-    for (auto j = it; j != syms.begin(); )
-    {
-        --j;
-        if (!fallback)
-            fallback = &*j;                            // nearest preceding symbol
-        if (j->high > j->low && addr < j->high)
-            return j->name.c_str();                    // nearest sized container
-        if (j->high > j->low && j->high <= addr)
-            break;                                     // a sized symbol ends before addr
-    }
-    return fallback ? fallback->name.c_str() : NULL;
-}
-
-// file:line for addr from a CU's (already sorted) line table. The last entry
-// with addr <= pc wins; an end_sequence marker means "no line".
-static bool iss_dw_fileline(const std::vector<iss_line_entry> &lines, iss_addr_t addr,
-    const char **file, int *line)
-{
-    auto lit = std::upper_bound(lines.begin(), lines.end(), (uint64_t)addr,
-        [](uint64_t a, const iss_line_entry &e) { return a < e.addr; });
-    if (lit == lines.begin())
-        return false;
-    --lit;
-    if (lit->end)
-        return false;
-    *file = lit->file.c_str();
-    *line = lit->line;
-    return true;
-}
-
-// Resolve a PC across the registered binaries -- function from the symbol table,
-// file:line from DWARF (parsing the owning CU on first touch) -- then store the
-// result (positive or negative) in the pc_info hash so it acts as a cache.
+// Resolve a PC across the registered binaries -- function name from the symbol
+// table, file:line from the DWARF line rows -- then store the result (positive
+// or negative) in the pc_info hash so it acts as a cache.
 static iss_pc_info *iss_libdw_resolve(iss_addr_t addr)
 {
     const char *func = NULL;
@@ -226,27 +147,8 @@ static iss_pc_info *iss_libdw_resolve(iss_addr_t addr)
 
     for (auto &b : iss_dw_binaries)
     {
-        const char *bf = iss_sym_func(b.syms, addr);
-
-        // Lazy path: the contiguous CU owning addr, its line table parsed on
-        // first touch.
-        bool got_line = false;
-        auto it = std::upper_bound(b.aranges.begin(), b.aranges.end(), (uint64_t)addr,
-            [](uint64_t a, const iss_arange &e) { return a < e.low; });
-        if (it != b.aranges.begin())
-        {
-            --it;
-            if (addr >= it->low && addr < it->high)
-            {
-                iss_cu_info &cu = b.cus[it->cu_off];
-                iss_dw_parse_cu(b, cu);
-                got_line = iss_dw_fileline(cu.lines, addr, &file, &line);
-            }
-        }
-        // Eager fallback: line rows of non-contiguous (DW_AT_ranges) CUs.
-        if (!got_line)
-            got_line = iss_dw_fileline(b.all_lines, addr, &file, &line);
-
+        const char *bf = dwarf_trace::func_for(b.syms, addr);
+        bool got_line = dwarf_trace::line_for(b.lines, addr, &file, &line);
         if (bf != NULL || got_line)
         {
             func = bf;
@@ -265,7 +167,7 @@ static iss_pc_info *iss_libdw_resolve(iss_addr_t addr)
 }
 #endif
 
-// Cache lookup with, in libdw mode, a lazy DWARF resolution on miss.
+// Cache lookup with a lazy DWARF resolution on miss.
 static iss_pc_info *iss_pc_info_get(iss_addr_t addr)
 {
     iss_pc_info *info = get_pc_info(addr);
@@ -295,203 +197,6 @@ int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_fu
     return 0;
 }
 
-#if !defined(__M32_MODE__)
-// --- ELF symbol table reader (function names) -------------------------------
-//
-// A tiny, self-contained reader: no libelf and no <elf.h>, parsing the symtab
-// with explicit field offsets so it builds anywhere (incl. macOS). It handles
-// ELF32/ELF64 and both byte orders. libdwfl named addresses from the symbol
-// table, so this is what gives parity for assembly labels (STT_NOTYPE) and
-// compiler .isra/.constprop clones that have no DWARF subprogram DIE.
-
-static bool iss_elf_le = true;   // target byte order of the binary being read
-static uint16_t iss_rd16(const uint8_t *p)
-{
-    return iss_elf_le ? (uint16_t)(p[0] | p[1] << 8) : (uint16_t)(p[1] | p[0] << 8);
-}
-static uint32_t iss_rd32(const uint8_t *p)
-{
-    return iss_elf_le ? ((uint32_t)p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24)
-                      : ((uint32_t)p[3] | p[2] << 8 | p[1] << 16 | (uint32_t)p[0] << 24);
-}
-static uint64_t iss_rd64(const uint8_t *p)
-{
-    uint64_t a = iss_rd32(p), b = iss_rd32(p + 4);
-    return iss_elf_le ? (a | (b << 32)) : ((a << 32) | b);
-}
-
-// Parse STT_FUNC/STT_NOTYPE/STT_GNU_IFUNC symbols into out (sorted by low,idx).
-static void iss_load_symbols(const char *binary, std::vector<iss_sym_entry> &out)
-{
-    FILE *f = fopen(binary, "rb");
-    if (!f)
-        return;
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (sz < 64) { fclose(f); return; }
-    std::vector<uint8_t> buf(sz);
-    if (fread(buf.data(), 1, sz, f) != (size_t)sz) { fclose(f); return; }
-    fclose(f);
-
-    const uint8_t *b = buf.data();
-    if (memcmp(b, "\177ELF", 4) != 0)
-        return;
-    bool is64 = b[4] == 2;       // EI_CLASS: 1=32, 2=64
-    iss_elf_le = b[5] != 2;      // EI_DATA:  1=LE, 2=BE
-
-    uint64_t shoff   = is64 ? iss_rd64(b + 0x28) : iss_rd32(b + 0x20);
-    uint16_t shentsz = is64 ? iss_rd16(b + 0x3a) : iss_rd16(b + 0x2e);
-    uint16_t shnum   = is64 ? iss_rd16(b + 0x3c) : iss_rd16(b + 0x30);
-    if (shoff == 0 || shoff + (uint64_t)shentsz * shnum > (uint64_t)sz)
-        return;
-
-    // Find SHT_SYMTAB (type 2); its sh_link names the associated string table.
-    const uint32_t SHT_SYMTAB = 2;
-    uint64_t sym_off = 0, sym_size = 0, sym_entsz = 0, str_off = 0, str_size = 0;
-    for (uint16_t i = 0; i < shnum; i++)
-    {
-        const uint8_t *sh = b + shoff + (uint64_t)i * shentsz;
-        if (iss_rd32(sh + 4) != SHT_SYMTAB)
-            continue;
-        uint32_t sh_link = is64 ? iss_rd32(sh + 0x28) : iss_rd32(sh + 0x18);
-        sym_off   = is64 ? iss_rd64(sh + 0x18) : iss_rd32(sh + 0x10);
-        sym_size  = is64 ? iss_rd64(sh + 0x20) : iss_rd32(sh + 0x14);
-        sym_entsz = is64 ? iss_rd64(sh + 0x38) : iss_rd32(sh + 0x24);
-        const uint8_t *strsh = b + shoff + (uint64_t)sh_link * shentsz;
-        str_off  = is64 ? iss_rd64(strsh + 0x18) : iss_rd32(strsh + 0x10);
-        str_size = is64 ? iss_rd64(strsh + 0x20) : iss_rd32(strsh + 0x14);
-        break;
-    }
-    if (sym_off == 0 || sym_entsz == 0)
-        return;
-    if (sym_off + sym_size > (uint64_t)sz || str_off + str_size > (uint64_t)sz)
-        return;
-
-    // FUNC, GNU_IFUNC and NOTYPE name code addresses (libdwfl does the same);
-    // OBJECT/SECTION/FILE are skipped.
-    const uint32_t STT_NOTYPE = 0, STT_FUNC = 2, STT_GNU_IFUNC = 10;
-    uint32_t idx = 0;
-    for (uint64_t o = 0; o + sym_entsz <= sym_size; o += sym_entsz, idx++)
-    {
-        const uint8_t *s = b + sym_off + o;
-        uint32_t st_name;
-        uint8_t st_info;
-        uint64_t st_value, st_sz;
-        if (is64)
-        {
-            st_name = iss_rd32(s + 0); st_info = s[4];
-            st_value = iss_rd64(s + 8); st_sz = iss_rd64(s + 16);
-        }
-        else
-        {
-            st_name = iss_rd32(s + 0); st_value = iss_rd32(s + 4);
-            st_sz = iss_rd32(s + 8);   st_info = s[12];
-        }
-        uint32_t type = st_info & 0xf;
-        if ((type != STT_FUNC && type != STT_NOTYPE && type != STT_GNU_IFUNC)
-            || st_value == 0 || st_name >= str_size)
-            continue;
-        const char *nm = (const char *)(b + str_off + st_name);
-        if (!*nm)
-            continue;
-        out.push_back({ st_value, st_value + st_sz, idx, std::string(nm) });
-    }
-    // Sort by address; ties broken by symtab index so the lookup reproduces
-    // libdwfl's choice among coincident symbols (the later-defined one).
-    std::sort(out.begin(), out.end(),
-        [](const iss_sym_entry &a, const iss_sym_entry &c) {
-            return a.low != c.low ? a.low < c.low : a.idx < c.idx; });
-}
-
-// --- DWARF line table (file:line) -------------------------------------------
-
-// Flatten one compilation unit's line-number program into out.
-static void iss_dw_collect_lines(Dwarf_Debug dbg, Dwarf_Die cu_die,
-    std::vector<iss_line_entry> &out)
-{
-    Dwarf_Unsigned version = 0;
-    Dwarf_Small table_count = 0;
-    Dwarf_Line_Context ctx = NULL;
-    if (dwarf_srclines_b(cu_die, &version, &table_count, &ctx, NULL) != DW_DLV_OK)
-        return;
-
-    Dwarf_Line *lines = NULL;
-    Dwarf_Signed count = 0;
-    if (dwarf_srclines_from_linecontext(ctx, &lines, &count, NULL) == DW_DLV_OK)
-    {
-        for (Dwarf_Signed i = 0; i < count; i++)
-        {
-            Dwarf_Addr addr = 0;
-            dwarf_lineaddr(lines[i], &addr, NULL);
-            Dwarf_Bool is_end = 0;
-            dwarf_lineendsequence(lines[i], &is_end, NULL);
-            int lineno = 0;
-            std::string file = "-";
-            if (!is_end)
-            {
-                Dwarf_Unsigned ln = 0;
-                dwarf_lineno(lines[i], &ln, NULL);
-                lineno = (int)ln;
-                char *src = NULL;
-                if (dwarf_linesrc(lines[i], &src, NULL) == DW_DLV_OK && src)
-                {
-                    file = src;
-                    dwarf_dealloc(dbg, src, DW_DLA_STRING);
-                }
-            }
-            out.push_back({ (uint64_t)addr, lineno, file, (bool)is_end });
-        }
-    }
-    dwarf_srclines_dealloc_b(ctx);
-}
-
-// Sort a CU's line table and collapse same-address rows. A single address can
-// carry several rows (DWARF "views"); the line-number state machine leaves the
-// LAST row's registers active for [addr, next_addr), and libdwfl reports that
-// one -- so keep the last non-end row at each address (the stable sort
-// preserves program order for the tie-break).
-static void iss_dw_finalize(std::vector<iss_line_entry> &lines)
-{
-    std::stable_sort(lines.begin(), lines.end(),
-        [](const iss_line_entry &a, const iss_line_entry &b) { return a.addr < b.addr; });
-
-    std::vector<iss_line_entry> collapsed;
-    collapsed.reserve(lines.size());
-    for (size_t i = 0; i < lines.size(); )
-    {
-        size_t j = i, pick = i;
-        while (j < lines.size() && lines[j].addr == lines[i].addr)
-        {
-            if (!lines[j].end)
-                pick = j;
-            j++;
-        }
-        collapsed.push_back(lines[pick]);
-        i = j;
-    }
-    lines.swap(collapsed);
-}
-
-// Parse one CU's line table on first touch: re-fetch its DIE by offset, flatten
-// the line program, finalize. This is the lazy work registration deferred.
-static void iss_dw_parse_cu(iss_binary_info &b, iss_cu_info &cu)
-{
-    if (cu.parsed)
-        return;
-    cu.parsed = true;
-
-    Dwarf_Die cu_die = NULL;
-    if (dwarf_offdie_b(b.dbg, cu.off, /*is_info*/ 1, &cu_die, NULL) != DW_DLV_OK)
-        return;
-
-    iss_dw_collect_lines(b.dbg, cu_die, cu.lines);
-    dwarf_dealloc(b.dbg, cu_die, DW_DLA_DIE);
-
-    iss_dw_finalize(cu.lines);
-}
-#endif
-
 void iss_register_debug_elf(Iss *iss, const char *binary)
 {
 #if !defined(__M32_MODE__)
@@ -500,68 +205,14 @@ void iss_register_debug_elf(Iss *iss, const char *binary)
 
     binaries.push_back(std::string(binary));
 
-    Dwarf_Debug dbg = NULL;
-    Dwarf_Error err = NULL;
-    int res = dwarf_init_path(binary, NULL, 0, DW_GROUPNUMBER_ANY, NULL, NULL, &dbg, &err);
-    if (res != DW_DLV_OK)
-    {
-        fprintf(stderr, "Unable to load debug info from binary: %s (%s)\n",
-            binary, res == DW_DLV_ERROR ? dwarf_errmsg(err) : "no DWARF info");
-        if (res == DW_DLV_ERROR)
-            dwarf_dealloc_error(dbg, err);
-        return;
-    }
-
+    // Parse the symbol table (function names) and the DWARF .debug_line program
+    // (file:line) once into address-sorted tables; resolution is then lookups.
     iss_dw_binaries.push_back({});
     iss_binary_info &b = iss_dw_binaries.back();
-    b.dbg = dbg;
-
-    // Function names come from the symbol table (parsed once, cheaply).
-    iss_load_symbols(binary, b.syms);
-
-    // For file:line, index each CU's address range from its root DIE. Bare-metal
-    // executables use native (link-time) addresses, so no bias is applied. A CU
-    // with a contiguous DW_AT_low/high_pc is indexed and its line program parsed
-    // lazily on first hit (iss_dw_parse_cu). A non-contiguous CU (DW_AT_ranges,
-    // e.g. Snitch/LLVM output) cannot be indexed by a single range, so its line
-    // program is parsed eagerly here into all_lines -- such CUs are the
-    // exception; the common GCC case is all-contiguous and stays fully lazy.
-    Dwarf_Unsigned cu_len, abbrev, next_cu, typeoff;
-    Dwarf_Half ver, addr_sz, len_sz, ext_sz, cu_type;
-    Dwarf_Sig8 sig;
-    while (dwarf_next_cu_header_d(dbg, /*is_info*/ 1, &cu_len, &ver, &abbrev,
-        &addr_sz, &len_sz, &ext_sz, &sig, &typeoff, &next_cu, &cu_type, NULL) == DW_DLV_OK)
+    if (!dwarf_trace::load(binary, b.syms, b.lines))
     {
-        Dwarf_Die cu_die = NULL;
-        if (dwarf_siblingof_b(dbg, NULL, /*is_info*/ 1, &cu_die, NULL) != DW_DLV_OK)
-            continue;
-
-        Dwarf_Off off = 0;
-        dwarf_dieoffset(cu_die, &off, NULL);
-
-        Dwarf_Addr low = 0, high = 0;
-        Dwarf_Half form = 0;
-        enum Dwarf_Form_Class cls = DW_FORM_CLASS_UNKNOWN;
-        bool contiguous = dwarf_lowpc(cu_die, &low, NULL) == DW_DLV_OK &&
-            dwarf_highpc_b(cu_die, &high, &form, &cls, NULL) == DW_DLV_OK;
-        if (contiguous)
-        {
-            // DW_AT_high_pc is an absolute address or, since DWARF4, an offset
-            // (constant class) from low_pc.
-            uint64_t high_abs = (cls == DW_FORM_CLASS_CONSTANT) ? low + high : high;
-            b.aranges.push_back({ (uint64_t)low, high_abs, off });
-            b.cus[off].off = off;            // create the (unparsed) CU slot
-        }
-        else
-        {
-            iss_dw_collect_lines(dbg, cu_die, b.all_lines);   // eager: scattered CU
-        }
-        dwarf_dealloc(dbg, cu_die, DW_DLA_DIE);
+        fprintf(stderr, "Unable to load debug info from binary: %s\n", binary);
     }
-
-    std::sort(b.aranges.begin(), b.aranges.end(),
-        [](const iss_arange &a, const iss_arange &c) { return a.low < c.low; });
-    iss_dw_finalize(b.all_lines);
 #endif
 }
 

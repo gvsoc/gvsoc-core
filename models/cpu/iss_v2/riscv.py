@@ -503,14 +503,6 @@ class RiscvCommon(st.Component):
         for module in self.modules.values():
             module.gen(self)
 
-        # Instruction-trace symbols are resolved at runtime from the ELF binary
-        # via libdwarf (portable, macOS-friendly; bundles its own object reader,
-        # so libelf/libdw are not needed). The code is excluded from the 32-bit
-        # model variant. The libdwarf include path is set globally in
-        # gvsoc/engine/CMakeLists.txt (its headers live in a versioned subdir),
-        # since trace.cpp is also compiled into other generated components.
-        self.add_libraries(['dwarf'])
-
         self.add_sources([
             isa.get_source()
         ])
@@ -565,7 +557,7 @@ class RiscvCommon(st.Component):
     def handle_executable(self, binary):
 
         # Record the binary; the ISS resolves trace symbols from it lazily at
-        # runtime via libdw (no precompute step, no binary-size cap).
+        # runtime from the ELF binary (no precompute step, no binary-size cap).
         self.get_property('binaries').append(binary)
 
         if self.htif:

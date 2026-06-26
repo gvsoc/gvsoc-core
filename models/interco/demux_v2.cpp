@@ -58,7 +58,7 @@ public:
 
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req, int id);
     static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
 
     // Pulse the per-instance VCD traces (addr / size / is_write) for one
@@ -160,13 +160,13 @@ vp::IoReqStatus Demux::input_req(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void Demux::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck Demux::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     Demux *_this = (Demux *)__this;
-    // Stateless forward: reply on the single upstream port. The request
-    // object itself carries any latency the downstream annotated, so there
-    // is nothing to add here.
-    _this->input_itf.resp(req);
+    // Stateless forward: reply on the single upstream port and propagate its
+    // accept/deny back to the downstream. The request object itself carries any
+    // latency the downstream annotated, so there is nothing to add here.
+    return _this->input_itf.resp(req);
 }
 
 

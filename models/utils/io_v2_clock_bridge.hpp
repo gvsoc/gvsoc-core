@@ -79,7 +79,7 @@ private:
     // Single set of v2 IO callbacks; the implementation branches on
     // `this->parametric` to the fast or modeled path.
     static vp::IoReqStatus in_req_handler(vp::Block *__this, vp::IoReq *req);
-    static void            out_resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   out_resp_handler(vp::Block *__this, vp::IoReq *req);
     static void            out_retry_handler(vp::Block *__this, vp::IoRetryChannel);
 
     // sync_only-path response delivery, aligned on the master clock edge

@@ -95,7 +95,7 @@ public:
 
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
-    static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
     static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
 
     InFlight *alloc_inflight();
@@ -249,7 +249,7 @@ vp::IoReqStatus RouterUntimed::req_muxed(vp::Block *__this, vp::IoReq *req, int 
     return vp::IO_REQ_DENIED;
 }
 
-void RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     RouterUntimed *_this = (RouterUntimed *)__this;
     auto it = _this->in_flight_map.find(req);
@@ -265,6 +265,7 @@ void RouterUntimed::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
         _this->free_inflight(ifl);
     }
     in->itf.resp(req);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void RouterUntimed::retry_muxed(vp::Block *__this, int /*id*/, vp::IoRetryChannel)

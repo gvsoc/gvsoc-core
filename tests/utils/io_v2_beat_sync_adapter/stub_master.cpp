@@ -59,7 +59,7 @@ private:
         int64_t last_resp_cycle;
     };
 
-    static void resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck resp_handler(vp::Block *__this, vp::IoReq *req);
     static void retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void issue_handler(vp::Block *__this, vp::ClockEvent *event);
     static void quit_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -198,7 +198,7 @@ void StubMaster::quit_handler(vp::Block *__this, vp::ClockEvent *event)
     _this->time.get_engine()->quit(0);
 }
 
-void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     StubMaster *_this = (StubMaster *)__this;
     int64_t now = _this->clock.get_cycles();
@@ -258,6 +258,8 @@ void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
         delete bs;
         _this->outstanding--;
     }
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void StubMaster::retry_handler(vp::Block *__this, vp::IoRetryChannel)

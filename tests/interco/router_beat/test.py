@@ -232,6 +232,25 @@ def build_case(case: str):
             nb_masters=2,
         )
 
+    if case == 'resp_arbitration':
+        # One master issues two multi-beat reads to two different outputs. Both
+        # output adapters stream their response beats back at 1 beat/cycle, so
+        # their streams overlap on the single input's response channel. The
+        # router's per-input response arbiter must forward at most one beat per
+        # cycle to that input; without it the master would see two RESP beats in
+        # the same cycle. 4 beats each (size 16 at width 4) → 8 beats total.
+        return dict(
+            config=beat_cfg(max_input_pending_size=64, max_pending_bursts=4),
+            schedule=[
+                burst(cycle=10, addr=t0_base, size=16, nb_beats=1, burst_id=1,
+                      name='A', is_write=False),
+                burst(cycle=10, addr=t1_base, size=16, nb_beats=1, burst_id=2,
+                      name='B', is_write=False),
+            ],
+            targets=[('t0', t0_base, window, ok), ('t1', t1_base, window, ok)],
+            nb_masters=1,
+        )
+
     if case == 'size_over_width':
         return dict(
             config=beat_cfg(max_input_pending_size=16),

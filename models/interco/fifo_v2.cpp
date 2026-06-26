@@ -39,7 +39,7 @@ public:
 
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req);
     static void            output_retry(vp::Block *__this);
     static void            pump_handler(vp::Block *__this, vp::ClockEvent *event);
 
@@ -183,11 +183,12 @@ void Fifo::head_done()
 }
 
 
-void Fifo::output_resp(vp::Block *__this, vp::IoReq * /*req*/)
+vp::IoRespAck Fifo::output_resp(vp::Block *__this, vp::IoReq * /*req*/)
 {
     Fifo *_this = (Fifo *)__this;
     // Async downstream completion of the outstanding head.
     _this->head_done();
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

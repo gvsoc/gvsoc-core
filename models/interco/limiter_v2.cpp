@@ -73,7 +73,7 @@ public:
 private:
     vp::DebugMemIf *resolve_debug_mem();
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req);
     static void            output_retry(vp::Block *__this, vp::IoRetryChannel);
     static void            event_handler(vp::Block *__this, vp::ClockEvent *event);
 
@@ -316,10 +316,11 @@ void Limiter::check_last_chunk(vp::IoReq *parent)
 }
 
 
-void Limiter::output_resp(vp::Block *__this, vp::IoReq *sub)
+vp::IoRespAck Limiter::output_resp(vp::Block *__this, vp::IoReq *sub)
 {
     Limiter *_this = (Limiter *)__this;
     _this->finish_chunk(sub);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

@@ -60,7 +60,7 @@ public:
 
 private:
     static vp::IoReqStatus in_req(vp::Block *__this, vp::IoReq *req);
-    static void            out_resp(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   out_resp(vp::Block *__this, vp::IoReq *req);
     static void            out_retry(vp::Block *__this, vp::IoRetryChannel channel);
 
     void maybe_retry_input();
@@ -167,7 +167,7 @@ vp::IoReqStatus IoV2BeatCollapseAdapter::in_req(vp::Block *__this, vp::IoReq *re
 }
 
 
-void IoV2BeatCollapseAdapter::out_resp(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck IoV2BeatCollapseAdapter::out_resp(vp::Block *__this, vp::IoReq *req)
 {
     auto *self = static_cast<IoV2BeatCollapseAdapter *>(__this);
     vp::IoReq *master = self->pending;
@@ -192,6 +192,8 @@ void IoV2BeatCollapseAdapter::out_resp(vp::Block *__this, vp::IoReq *req)
         self->in.resp(master);
         self->maybe_retry_input();
     }
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

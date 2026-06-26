@@ -127,7 +127,7 @@ private:
     // Slave callback (muxed by input port id).
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
     // Master callbacks (muxed by output / mapping id).
-    static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
     static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
     // Delayed-forward handler. One event per input port; the InputPort* is stashed in
     // event->get_args()[0].
@@ -520,7 +520,7 @@ void RouterBackpressure::send_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 }
 
-void RouterBackpressure::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck RouterBackpressure::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     RouterBackpressure *_this = (RouterBackpressure *)__this;
     InFlight *ifl = (InFlight *)req->initiator;
@@ -528,6 +528,7 @@ void RouterBackpressure::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*
     req->initiator = ifl->saved_initiator;
     _this->free_inflight(ifl);
     in->itf.resp(req);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void RouterBackpressure::retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)

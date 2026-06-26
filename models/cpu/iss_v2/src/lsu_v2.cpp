@@ -129,7 +129,7 @@ void LsuV2::data_retry(vp::Block *__this, vp::IoRetryChannel)
     // GRANTED: data_response will complete the parked instruction.
 }
 
-void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
 {
     LsuV2 *_this = (LsuV2 *)__this;
     LsuReqEntry *entry = (LsuReqEntry *)req;
@@ -142,7 +142,7 @@ void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
     if (entry->misaligned_size != 0)
     {
         _this->fire_misaligned_second(entry);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     int64_t cur = _this->iss.clock.get_cycles();
@@ -155,7 +155,7 @@ void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
         entry->timestamp = _this->next_retire_cycle;
         _this->next_retire_cycle++;
         _this->iss.exec.enqueue_task(&entry->task);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     InsnEntry *insn_entry = entry->insn_entry;
@@ -175,6 +175,8 @@ void LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
     _this->iss.exec.insn_terminate(insn_entry);
 #endif
     _this->next_retire_cycle = cur + 1;
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 bool LsuV2::handle_req_response(LsuReqEntry *entry)

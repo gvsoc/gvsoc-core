@@ -67,7 +67,7 @@ private:
     };
 
     static vp::IoReqStatus retry_unused(vp::Block *) { return vp::IO_REQ_DONE; }  // unused
-    static void resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck resp_handler(vp::Block *__this, vp::IoReq *req);
     static void retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void issue_handler(vp::Block *__this, vp::ClockEvent *event);
     static void chain_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -344,11 +344,11 @@ void StubMasterV2::chain_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void StubMasterV2::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck StubMasterV2::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     StubMasterV2 *_this = (StubMasterV2 *)__this;
     ScheduleEntry *e = _this->entry_from_req(req);
-    if (e == nullptr) return;
+    if (e == nullptr) return vp::IO_RESP_ACCEPTED;
 
     int64_t now = _this->clock.get_cycles();
 
@@ -382,6 +382,7 @@ void StubMasterV2::resp_handler(vp::Block *__this, vp::IoReq *req)
         _this->mark_resolved(e);
         _this->release_if_idle();
     }
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

@@ -63,12 +63,17 @@ private:
     vp::DebugMemIf *resolve_debug_mem();
 
     static vp::IoReqStatus req_handler(vp::Block *__this, vp::IoReq *req);
-    static void            resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   resp_handler(vp::Block *__this, vp::IoReq *req);
     static void            retry_handler(vp::Block *__this, vp::IoRetryChannel channel);
+    // Upstream master is ready to accept responses again: re-send the held beat
+    // (response-path back-pressure) and resume streaming.
+    static void            resp_retry_in_handler(vp::Block *__this, vp::IoRetryChannel channel);
     static void            fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
     // Emit one beat of the active response (cur_*) at the current cur_offset.
-    void emit_beat(bool is_first, bool is_last, uint64_t beat);
+    // Returns false if the upstream master back-pressured the beat (held for
+    // re-send); the caller must then not advance the cursor.
+    bool emit_beat(bool is_first, bool is_last, uint64_t beat);
 
     int beat_width;
     vp::IoSlave in;
@@ -90,6 +95,15 @@ private:
     uint64_t          cur_addr = 0;
     int64_t           cur_burst_id = -1;
     vp::IoRespStatus  cur_status = vp::IO_RESP_OK;
+
+    // Response-path back-pressure: the upstream master refused the beat we just
+    // emitted. We hold that exact object and re-send it from
+    // resp_retry_in_handler; the cursor is not advanced until it is accepted.
+    // held_beat snapshots its size (read before the master takes ownership, as a
+    // round-tripped write/last object may be reused once accepted).
+    bool      resp_held = false;
+    vp::IoReq *held_req = nullptr;
+    uint64_t  held_beat = 0;
 
     vp::Trace trace;
 };

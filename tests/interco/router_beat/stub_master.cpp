@@ -57,7 +57,7 @@ private:
         uint8_t *data;
     };
 
-    static void resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck resp_handler(vp::Block *__this, vp::IoReq *req);
     static void retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void issue_handler(vp::Block *__this, vp::ClockEvent *event);
     static void quit_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -226,28 +226,52 @@ void StubMaster::quit_handler(vp::Block *__this, vp::ClockEvent *event)
     _this->time.get_engine()->quit(0);
 }
 
-void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     StubMaster *_this = (StubMaster *)__this;
     int64_t now = _this->clock.get_cycles();
     Beat *beat = (Beat *)req->initiator;
     const char *name = beat ? beat->burst->name.c_str() : "?";
     int idx = beat ? beat->idx : -1;
+    bool is_last = req->is_last;
     printf("[%ld] %s RESP name=%s#%d size=%lu first=%d last=%d status=%d\n",
         now, _this->logname.c_str(), name, idx,
         (unsigned long)req->get_size(),
-        req->is_first ? 1 : 0, req->is_last ? 1 : 0,
+        req->is_first ? 1 : 0, is_last ? 1 : 0,
         (int)req->get_resp_status());
-    // The response may arrive as a stream of per-beat callbacks (when the
-    // downstream router's BeatResponseAdapter chunked a wide req or a
-    // big-packet slave response). Only retire the Beat object on the final
-    // response beat (is_last).
-    if (beat && req->is_last)
+    if (!beat)
     {
-        delete[] beat->data;
-        delete beat->req;
-        delete beat;
+        return vp::IO_RESP_ACCEPTED;
     }
+    // Two response-ownership cases (see io_v2_beat_adapter):
+    //  - req == beat->req: the adapter round-tripped our own request object —
+    //    a write ack or a single-beat read. We own it and free it on the last
+    //    response beat.
+    //  - req != beat->req: a multi-beat read answers one burst with N distinct
+    //    adapter-allocated beat objects. The adapter owns and frees our original
+    //    burst request (beat->req); we must free each received beat object, and
+    //    on the last beat also retire our Beat bookkeeping — but NOT beat->req
+    //    (the adapter already freed it).
+    if (req == beat->req)
+    {
+        if (is_last)
+        {
+            delete[] beat->data;
+            delete beat->req;
+            delete beat;
+        }
+    }
+    else
+    {
+        delete req;
+        if (is_last)
+        {
+            delete[] beat->data;
+            delete beat;
+        }
+    }
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void StubMaster::retry_handler(vp::Block *__this, vp::IoRetryChannel)

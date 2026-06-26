@@ -11,7 +11,7 @@
 
 IoV2BeatSyncAdapter::IoV2BeatSyncAdapter(vp::ComponentConf &config)
     : vp::Component(config),
-      in(&IoV2BeatSyncAdapter::req_handler),
+      in(&IoV2BeatSyncAdapter::req_handler, &IoV2BeatSyncAdapter::resp_retry_in_handler),
       out(&IoV2BeatSyncAdapter::retry_handler, &IoV2BeatSyncAdapter::resp_handler),
       fsm_event(this, &IoV2BeatSyncAdapter::fsm_handler)
 {
@@ -57,11 +57,12 @@ vp::IoReqStatus IoV2BeatSyncAdapter::req_handler(vp::Block *__this, vp::IoReq *r
 }
 
 
-void IoV2BeatSyncAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck IoV2BeatSyncAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
     // A sync slave never responds asynchronously.
     self->trace.fatal("Unexpected resp() from a sync slave (req=%p)\n", req);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 
@@ -73,7 +74,7 @@ void IoV2BeatSyncAdapter::retry_handler(vp::Block *__this, vp::IoRetryChannel)
 }
 
 
-void IoV2BeatSyncAdapter::emit_beat(bool is_first, bool is_last, uint64_t beat)
+bool IoV2BeatSyncAdapter::emit_beat(bool is_first, bool is_last, uint64_t beat)
 {
     // Deliver on the master's own request for a write (every ack) and for the
     // LAST beat of any read (which covers a single-beat read): once a beat is the
@@ -107,13 +108,60 @@ void IoV2BeatSyncAdapter::emit_beat(bool is_first, bool is_last, uint64_t beat)
         r, this->cur_offset, beat, is_first ? 1 : 0, is_last ? 1 : 0,
         this->cur_req->get_is_write() ? 1 : 0);
 
-    this->in.resp(r);
+    if (this->in.resp(r) == vp::IO_RESP_DENIED)
+    {
+        // Upstream back-pressure: hold this object and its beat size (read now,
+        // before the master can take ownership and reuse it) and re-send on
+        // resp_retry. The caller must not advance the cursor.
+        this->resp_held = true;
+        this->held_req = r;
+        this->held_beat = beat;
+        return false;
+    }
+    return true;
+}
+
+
+void IoV2BeatSyncAdapter::resp_retry_in_handler(vp::Block *__this,
+                                                vp::IoRetryChannel /*channel*/)
+{
+    auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+    if (!self->resp_held)
+    {
+        return;
+    }
+    // io_v2 requires the re-send to happen synchronously inside the callback.
+    if (self->in.resp(self->held_req) == vp::IO_RESP_DENIED)
+    {
+        return;   // still busy; keep holding
+    }
+    // Accepted: advance the cursor that fsm_handler left pending, then resume.
+    uint64_t beat = self->held_beat;
+    self->resp_held = false;
+    self->held_req = nullptr;
+    self->held_beat = 0;
+    self->cur_offset += beat;
+    if (self->cur_offset >= self->cur_size)
+    {
+        self->cur_req = nullptr;   // burst fully streamed
+    }
+    if (self->cur_req != nullptr || !self->pending.empty())
+    {
+        self->fsm_event.enqueue(1);
+    }
 }
 
 
 void IoV2BeatSyncAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 {
     auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+
+    // Blocked on upstream back-pressure: the held beat must be re-sent first
+    // (from resp_retry_in_handler), so don't stream anything now.
+    if (self->resp_held)
+    {
+        return;
+    }
 
     // Activate the next queued response if idle.
     if (self->cur_req == nullptr)
@@ -139,7 +187,12 @@ void IoV2BeatSyncAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
     bool is_first = (self->cur_offset == 0);
     bool is_last  = (self->cur_offset + beat >= self->cur_size);
 
-    self->emit_beat(is_first, is_last, beat);
+    if (!self->emit_beat(is_first, is_last, beat))
+    {
+        // Held on upstream back-pressure; resp_retry_in_handler advances the
+        // cursor and resumes once the master accepts.
+        return;
+    }
 
     self->cur_offset += beat;
     if (self->cur_offset >= self->cur_size)
@@ -197,6 +250,9 @@ void IoV2BeatSyncAdapter::reset(bool active)
         this->pending.clear();
         this->cur_req = nullptr;
         this->cur_offset = 0;
+        this->resp_held = false;
+        this->held_req = nullptr;
+        this->held_beat = 0;
         this->fsm_event.cancel();   // safe even if not enqueued
     }
 }

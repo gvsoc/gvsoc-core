@@ -49,7 +49,7 @@ public:
 private:
     void start_transfer() override;
     static void retry_meth(vp::Block *__this, vp::IoRetryChannel);
-    static void response(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck response(vp::Block *__this, vp::IoReq *req);
     static void control_sync(vp::Block *__this, TrafficGeneratorConfig *config);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     void handle_req_end(vp::IoReq *req, int64_t latency = 0);
@@ -157,11 +157,12 @@ void GeneratorV2::retry_meth(vp::Block *__this, vp::IoRetryChannel)
     _this->fsm_event.enqueue();
 }
 
-void GeneratorV2::response(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck GeneratorV2::response(vp::Block *__this, vp::IoReq *req)
 {
     GeneratorV2 *_this = (GeneratorV2 *)__this;
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received response (req: %p)\n", req);
     _this->handle_req_end(req, req->get_latency());
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void GeneratorV2::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)

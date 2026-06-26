@@ -247,10 +247,12 @@ void VuLsu::port_retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)
 // io_v2 response — fires when an async (GRANTED) request completes. Same
 // situation as retry: the current sync-only path never produces GRANTED, so
 // hitting this callback means the async path was used unexpectedly.
-void VuLsu::port_resp_muxed(vp::Block *__this, vp::IoReq *req, int id)
+vp::IoRespAck VuLsu::port_resp_muxed(vp::Block *__this, vp::IoReq *req, int id)
 {
     VuLsu *_this = (VuLsu *)__this;
     _this->trace.fatal("Unimplemented io_v2 async response on VLSU port %d\n", id);
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void VuLsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)

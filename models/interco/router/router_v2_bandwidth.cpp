@@ -125,7 +125,7 @@ public:
 
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
-    static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
     static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
 
     // Flat backdoor map, built lazily on first debug access
@@ -411,7 +411,7 @@ void RouterBandwidth::drain_queue(InputPort *in)
     }
 }
 
-void RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     RouterBandwidth *_this = (RouterBandwidth *)__this;
     InFlight *ifl = (InFlight *)req->initiator;
@@ -437,6 +437,7 @@ void RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
     {
         req->initiator = ifl;
     }
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void RouterBandwidth::retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)

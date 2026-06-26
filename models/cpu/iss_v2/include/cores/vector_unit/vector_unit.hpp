@@ -331,7 +331,7 @@ private:
     struct DelayedBurst
     {
         vp::IoReq *req;
-        int64_t timestamp;
+        uint64_t timestamp;
     };
 
     struct DelayedBurstCompare

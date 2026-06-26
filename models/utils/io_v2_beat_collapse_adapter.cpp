@@ -143,8 +143,12 @@ vp::IoReqStatus IoV2BeatCollapseAdapter::in_req(vp::Block *__this, vp::IoReq *re
     if (st == vp::IO_REQ_DONE)
     {
         // Inline completion: bytes already in the master's buffer (aliased).
+        // Fold the downstream's full timing (head latency + bandwidth duration)
+        // into the master's latency field. The master's request was prepare()'d
+        // (duration==0), so both get_latency() and get_full_latency() return the
+        // correct total — safe whichever the identity master reads.
         req->set_resp_status(dn->get_resp_status());
-        req->set_latency(dn->get_latency());
+        req->set_latency(dn->get_full_latency());
         delete dn;
         return vp::IO_REQ_DONE;
     }

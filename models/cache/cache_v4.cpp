@@ -462,7 +462,9 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
     {
         latency += this->refill_timestamp - now;
     }
-    latency += r->get_latency() + this->cfg.refill_latency;
+    // get_full_latency() so a bandwidth router on the refill path contributes
+    // its (max-combined) transfer time, not just the head latency.
+    latency += r->get_full_latency() + this->cfg.refill_latency;
 
     this->refill_timestamp = now + latency;
     this->refill_event_clear_event.enqueue(latency);

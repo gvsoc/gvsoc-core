@@ -166,7 +166,7 @@ void StubMaster::issue(ScheduleEntry *entry)
         case vp::IO_REQ_DONE:
             printf("[%ld] %s DONE name=%s status=%d latency=%ld\n",
                 now, this->logname.c_str(), entry->name.c_str(),
-                (int)entry->req->get_resp_status(), entry->req->get_latency());
+                (int)entry->req->get_resp_status(), entry->req->get_full_latency());
             break;
         case vp::IO_REQ_GRANTED:
             printf("[%ld] %s GRANTED name=%s\n",
@@ -188,7 +188,7 @@ void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
     const char *name = e ? e->name.c_str() : "?";
     printf("[%ld] %s RESP name=%s status=%d latency=%ld\n",
         now, _this->logname.c_str(), name,
-        (int)req->get_resp_status(), req->get_latency());
+        (int)req->get_resp_status(), req->get_full_latency());
 }
 
 void StubMaster::retry_handler(vp::Block *__this, vp::IoRetryChannel)

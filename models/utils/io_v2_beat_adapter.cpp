@@ -73,7 +73,10 @@ vp::IoReqStatus IoV2BeatAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
         // Sync big-packet — req->data is already consumed. Synthesize the
         // per-beat resp() stream now so the upstream master sees the uniform
         // "GRANTED then resp() per beat" semantic.
-        self->schedule_chunk(req, req->get_data(), size, req->get_latency());
+        // get_full_latency() = head latency + bandwidth occupancy (duration):
+        // a bandwidth slave reports its transfer cost via set_duration(), which
+        // is max-combined across hops, so reading latency alone would miss it.
+        self->schedule_chunk(req, req->get_data(), size, req->get_full_latency());
         return vp::IO_REQ_GRANTED;
     }
     if (st == vp::IO_REQ_DENIED)
@@ -97,7 +100,7 @@ void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
         {
             e.completed = true;
             e.status    = req->get_resp_status();
-            e.latency   = req->get_latency();
+            e.latency   = req->get_full_latency();
             self->drain_completed_sub_reads();
             self->issue_pending_sub_reads();
             self->reschedule_fsm();
@@ -107,7 +110,7 @@ void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 
     // Write path: the slave responds on the master's own req object.
     self->schedule_chunk(req, req->get_data(), req->get_size(),
-                         req->get_latency());
+                         req->get_full_latency());
 }
 
 
@@ -195,7 +198,7 @@ void IoV2BeatAdapter::issue_sub_read(const SubReadJob &job)
         InflightSubRead &e = this->sub_inflight.back();
         e.completed = true;
         e.status    = r->get_resp_status();
-        e.latency   = r->get_latency();
+        e.latency   = r->get_full_latency();
         this->drain_completed_sub_reads();
     }
 }

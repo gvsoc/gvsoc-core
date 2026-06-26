@@ -32,6 +32,16 @@ vp_model(NAME utils.io_v2_beat_collapse_adapter
     SOURCES "io_v2_beat_collapse_adapter.cpp"
 )
 
+# ---------------------------------------------------------------------------
+# IoV2BeatSyncAdapter — dedicated adapter for the IoV2Beat master <-> IoV2Sync
+# slave case. The sync slave always replies IO_REQ_DONE inline, so this drops
+# the general adapter's per-beat sub-read pipeline and just spreads the inline
+# response into a per-beat resp() stream.
+# ---------------------------------------------------------------------------
+vp_model(NAME utils.io_v2_beat_sync_adapter
+    SOURCES "io_v2_beat_sync_adapter.cpp"
+)
+
 add_subdirectory(loader)
 
 # ---------------------------------------------------------------------------

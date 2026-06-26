@@ -227,12 +227,22 @@ private:
     void parse_unit(const uint8_t **pp, const uint8_t *secend, std::vector<LineRow> &out)
     {
         Cur c{ this, *pp, secend };
+        if (c.p + 4 > secend) { *pp = secend; return; }
         uint64_t ulen = c.u32_();
         bool d64 = false;
-        if (ulen == 0xffffffff) { ulen = c.u64_(); d64 = true; }
+        if (ulen == 0xffffffff) { if (c.p + 8 > secend) { *pp = secend; return; } ulen = c.u64_(); d64 = true; }
         const uint8_t *unit_end = c.p + ulen;
-        if (unit_end > secend) unit_end = secend;
+        if (ulen == 0 || unit_end > secend || unit_end < c.p) unit_end = secend;
+        // Guarantee forward progress: a zero/garbage unit_length must never leave
+        // *pp where it started, or parse_lines() would spin forever.
+        if (unit_end <= *pp) { *pp = secend; return; }
+        if (c.p + 2 > unit_end) { *pp = unit_end; return; }
         uint16_t ver = c.u16_();
+        // Only DWARF 2..5 line programs are understood. Anything else means a
+        // corrupt or alien .debug_line (e.g. a concatenated/relinked binary);
+        // stop rather than misread it into a runaway allocation. This matches
+        // libdwfl, which reported no line info instead of crashing.
+        if (ver < 2 || ver > 5) { *pp = secend; return; }
         if (ver >= 5) { c.u8_(); c.u8_(); }            // address_size, segment_selector_size
         uint64_t hlen = c.off(d64);
         const uint8_t *prog = c.p + hlen;
@@ -250,17 +260,17 @@ private:
         if (ver <= 4)
         {
             dirs.push_back("");                          // [0] = comp_dir (implicit, unknown here)
-            while (*c.p) dirs.push_back(c.cstr());
-            c.p++;
+            while (c.p < unit_end && *c.p) dirs.push_back(c.cstr());
+            if (c.p < unit_end) c.p++;
             files.push_back("");                         // [0] reserved
-            while (*c.p)
+            while (c.p < unit_end && *c.p)
             {
                 const char *nm = c.cstr();
                 uint64_t di = c.uleb(); c.uleb(); c.uleb();
                 std::string dir = (di < dirs.size()) ? dirs[di] : std::string();
                 files.push_back(join(dir, nm));
             }
-            c.p++;
+            if (c.p < unit_end) c.p++;
         }
         else
         {
@@ -268,7 +278,7 @@ private:
             std::vector<std::pair<uint64_t, uint64_t>> dfmt(dfc);
             for (int i = 0; i < dfc; i++) { dfmt[i].first = c.uleb(); dfmt[i].second = c.uleb(); }
             uint64_t dcount = c.uleb();
-            for (uint64_t i = 0; i < dcount; i++)
+            for (uint64_t i = 0; i < dcount && c.p < unit_end; i++)
             {
                 std::string path;
                 for (auto &f : dfmt) { std::string s; uint64_t n = 0; read_form(c, f.second, d64, &s, &n); if (f.first == 1) path = s; }
@@ -278,7 +288,7 @@ private:
             std::vector<std::pair<uint64_t, uint64_t>> ffmt(ffc);
             for (int i = 0; i < ffc; i++) { ffmt[i].first = c.uleb(); ffmt[i].second = c.uleb(); }
             uint64_t fcount = c.uleb();
-            for (uint64_t i = 0; i < fcount; i++)
+            for (uint64_t i = 0; i < fcount && c.p < unit_end; i++)
             {
                 std::string name; uint64_t di = 0;
                 for (auto &f : ffmt)

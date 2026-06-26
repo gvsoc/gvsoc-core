@@ -136,11 +136,30 @@ static iss_pc_info *add_pc_info(unsigned int base, const char *func, const char 
     return pc_info;
 }
 
+// Parse the registered binaries' symbol + line tables on first use. The parse is
+// deferred until a trace line actually needs to resolve a PC, so a run with no
+// tracing enabled never pays for it. Globals are process-wide, so binaries
+// registered by every ISS are loaded once; late registrations are picked up too.
+static void iss_dw_ensure_loaded()
+{
+    for (size_t i = iss_dw_binaries.size(); i < binaries.size(); i++)
+    {
+        iss_dw_binaries.push_back({});
+        iss_binary_info &b = iss_dw_binaries.back();
+        if (!dwarf_trace::load(binaries[i].c_str(), b.syms, b.lines))
+        {
+            fprintf(stderr, "Unable to load debug info from binary: %s\n", binaries[i].c_str());
+        }
+    }
+}
+
 // Resolve a PC across the registered binaries -- function name from the symbol
 // table, file:line from the DWARF line rows -- then store the result (positive
 // or negative) in the pc_info hash so it acts as a cache.
 static iss_pc_info *iss_libdw_resolve(iss_addr_t addr)
 {
+    iss_dw_ensure_loaded();
+
     const char *func = NULL;
     const char *file = NULL;
     int line = 0;
@@ -203,16 +222,10 @@ void iss_register_debug_elf(Iss *iss, const char *binary)
     if (std::find(binaries.begin(), binaries.end(), std::string(binary)) != binaries.end())
         return;
 
+    // Only record the path here. The symbol table + DWARF .debug_line parse is
+    // deferred to the first PC resolution (iss_dw_ensure_loaded), so a run with
+    // no tracing enabled never parses the binaries.
     binaries.push_back(std::string(binary));
-
-    // Parse the symbol table (function names) and the DWARF .debug_line program
-    // (file:line) once into address-sorted tables; resolution is then lookups.
-    iss_dw_binaries.push_back({});
-    iss_binary_info &b = iss_dw_binaries.back();
-    if (!dwarf_trace::load(binary, b.syms, b.lines))
-    {
-        fprintf(stderr, "Unable to load debug info from binary: %s\n", binary);
-    }
 #endif
 }
 

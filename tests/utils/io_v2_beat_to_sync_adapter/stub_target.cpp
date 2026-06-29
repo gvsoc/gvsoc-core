@@ -5,7 +5,7 @@
 // Authors: Germain Haugou (germain.haugou@gmail.com)
 
 /*
- * IoV2Sync stub target for IoV2BeatSyncAdapter. Always completes inline with
+ * IoV2Sync stub target for IoV2BeatToSyncAdapter. Always completes inline with
  * IO_REQ_DONE (the sync contract): fills read data with an addr-derived
  * pattern, annotates latency (and optionally duration), and optionally reports
  * IO_RESP_INVALID. It POLICES the adapter/initiator with traces.assert: each

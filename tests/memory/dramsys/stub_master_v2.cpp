@@ -184,9 +184,11 @@ void StubMasterV2::reset(bool active)
 
 StubMasterV2::ScheduleEntry *StubMasterV2::entry_from_req(vp::IoReq *req)
 {
-    for (ScheduleEntry *e : this->schedule)
-        if (e->req == req) return e;
-    return nullptr;
+    // Correlate by req->initiator (set at issue), not object identity: a read
+    // response arrives as DISTINCT per-beat objects (initiator-owned convention),
+    // each carrying our entry as initiator; a write ack round-trips our own req
+    // (whose initiator is also the entry). So req->initiator is the entry either way.
+    return (ScheduleEntry *)req->initiator;
 }
 
 
@@ -280,6 +282,8 @@ void StubMasterV2::issue(ScheduleEntry *e)
     e->req->is_first = e->is_first;
     e->req->is_last  = e->is_last;
     e->req->burst_id = e->burst_id;
+    // Back-reference so response beats (distinct objects) correlate to this entry.
+    e->req->initiator = e;
     // Reset the read-side accumulator for this issue.
     e->bytes_received = 0;
     e->checksum = 0;
@@ -381,6 +385,12 @@ vp::IoRespAck StubMasterV2::resp_handler(vp::Block *__this, vp::IoReq *req)
         _this->log_done("RESP", e);
         _this->mark_resolved(e);
         _this->release_if_idle();
+    }
+    // Free the distinct read-beat objects we consume; never our own request
+    // object (reused across issues, round-tripped as the write ack).
+    if (req != e->req)
+    {
+        delete req;
     }
     return vp::IO_RESP_ACCEPTED;
 }

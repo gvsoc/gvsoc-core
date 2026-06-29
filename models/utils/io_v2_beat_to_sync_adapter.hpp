@@ -5,7 +5,7 @@
 // Authors: Germain Haugou (germain.haugou@gmail.com)
 
 /*
- * IoV2BeatSyncAdapter — dedicated adapter auto-inserted by the gvrun2 systree
+ * IoV2BeatToSyncAdapter — dedicated adapter auto-inserted by the gvrun2 systree
  * on io_v2 bindings whose master side declares signature IoV2Beat and whose
  * slave side declares signature IoV2Sync.
  *
@@ -44,10 +44,10 @@
 #include <vp/debug_mem.hpp>
 
 
-class IoV2BeatSyncAdapter : public vp::Component, public vp::DebugMemIf
+class IoV2BeatToSyncAdapter : public vp::Component, public vp::DebugMemIf
 {
 public:
-    IoV2BeatSyncAdapter(vp::ComponentConf &config);
+    IoV2BeatToSyncAdapter(vp::ComponentConf &config);
     void reset(bool active) override;
 
     // Backdoor debug path (vp/debug_mem.hpp): the adapter is invisible — both

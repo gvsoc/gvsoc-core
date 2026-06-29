@@ -22,6 +22,7 @@ from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
 from gvsoc.systree import Component
+from gvsoc.signature import IoV2SingleReq
 import gvrun.timing
 import os.path
 import gvsoc.gui
@@ -663,8 +664,13 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
+        # SingleReq: the LSU owns its (pooled) request and recovers it on the
+        # response by identity, so the data port is a single-req initiator. The
+        # class signature also makes the framework insert a collapse adapter when
+        # this binds to a beat plane (e.g. a KIND_BEAT router), so the LSU's own
+        # request never travels downstream — only a reallocated one does.
         self.itf_bind('data', itf,
-            signature='io_v2' if self._uses_io_v2 else 'io')
+            signature=IoV2SingleReq() if self._uses_io_v2 else 'io')
 
     def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('meminfo', itf, signature='io')

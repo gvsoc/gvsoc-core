@@ -5,7 +5,7 @@
 // Authors: Germain Haugou (germain.haugou@gmail.com)
 
 /*
- * Beat-master testbench for IoV2BeatSyncAdapter. It declares signature
+ * Beat-master testbench for IoV2BeatToSyncAdapter. It declares signature
  * IoV2Beat on its output, so binding it to an IoV2Sync stub target makes the
  * framework auto-insert the adapter between them.
  *
@@ -22,12 +22,19 @@
  *   is_write     : false for reads
  *   burst_id     : tag echoed on every beat (default -1)
  *   expect_status: 0 => IO_RESP_OK, 1 => IO_RESP_INVALID (default 0)
+ *   deny_beats   : list of 0-based beat indices to back-pressure once each: the
+ *                  master returns IO_RESP_DENIED for that beat, then calls
+ *                  out.resp_retry() retry_delay cycles later. The adapter must
+ *                  hold the exact beat and re-send it; the second arrival is
+ *                  accepted. Exercises the response-path back-pressure handshake.
+ *   retry_delay  : cycles between a denied beat and the resp_retry() (default 2)
  *   name         : log label
  */
 
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <cstdio>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -45,6 +52,8 @@ private:
         bool is_write;
         int64_t burst_id;
         int expect_status;
+        std::vector<int> deny_beats;
+        int retry_delay;
         std::string name;
     };
 
@@ -57,18 +66,21 @@ private:
         int expected_beats;
         int beats_seen;
         int64_t last_resp_cycle;
+        std::set<int> deny_remaining;   // beat indices still to back-pressure once
     };
 
     static vp::IoRespAck resp_handler(vp::Block *__this, vp::IoReq *req);
     static void retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void issue_handler(vp::Block *__this, vp::ClockEvent *event);
     static void quit_handler(vp::Block *__this, vp::ClockEvent *event);
+    static void resp_retry_handler(vp::Block *__this, vp::ClockEvent *event);
 
     void send_burst(BurstEntry *entry);
 
     vp::IoMaster out;
     vp::ClockEvent issue_event;
     vp::ClockEvent quit_event;
+    vp::ClockEvent resp_retry_event;
     vp::Trace trace;
     std::vector<BurstEntry *> schedule;
     size_t next_to_schedule = 0;
@@ -82,7 +94,8 @@ StubMaster::StubMaster(vp::ComponentConf &config)
     : vp::Component(config),
       out(&StubMaster::retry_handler, &StubMaster::resp_handler),
       issue_event(this, &StubMaster::issue_handler),
-      quit_event(this, &StubMaster::quit_handler)
+      quit_event(this, &StubMaster::quit_handler),
+      resp_retry_event(this, &StubMaster::resp_retry_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->new_master_port("output", &this->out);
@@ -108,6 +121,14 @@ StubMaster::StubMaster(vp::ComponentConf &config)
             b->burst_id = (int64_t)item->get_int("burst_id");
             if (item->get("burst_id") == nullptr) b->burst_id = -1;
             b->expect_status = item->get_child_int("expect_status");
+            b->retry_delay = (int)item->get_int("retry_delay");
+            if (b->retry_delay <= 0) b->retry_delay = 2;
+            js::Config *deny = item->get("deny_beats");
+            if (deny != nullptr)
+            {
+                for (auto &d : deny->get_elems())
+                    b->deny_beats.push_back((int)d->get_int());
+            }
             b->name = item->get_child_str("name");
             if (b->name.empty()) b->name = "b" + std::to_string(this->schedule.size());
             this->schedule.push_back(b);
@@ -135,6 +156,8 @@ void StubMaster::send_burst(BurstEntry *entry)
         : (int)((entry->size + this->beat_width - 1) / this->beat_width);
     bs->beats_seen = 0;
     bs->last_resp_cycle = -1;
+    bs->deny_remaining = std::set<int>(entry->deny_beats.begin(),
+                                       entry->deny_beats.end());
 
     uint64_t buf_size = entry->size == 0 ? 1 : entry->size;
     bs->buffer = new uint8_t[buf_size];
@@ -205,6 +228,22 @@ vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
     BurstState *bs = (BurstState *)req->initiator;
     BurstEntry *e = bs->entry;
 
+    // ---- Response-path back-pressure ----
+    // Back-pressure this beat once if its index is in deny_beats. We must refuse
+    // BEFORE counting / asserting / freeing: the adapter holds this exact object
+    // and re-sends it after we call out.resp_retry(), at which point we accept it.
+    // beats_seen is the 0-based index of the beat being offered right now.
+    if (bs->deny_remaining.erase(bs->beats_seen))
+    {
+        printf("[%ld] %s DENY name=%s beat=%d/%d retry_in=%d\n",
+            now, _this->logname.c_str(), e->name.c_str(),
+            bs->beats_seen, bs->expected_beats, e->retry_delay);
+        // Only one beat can be held by the adapter at a time, so a single event
+        // suffices. Re-opening happens in resp_retry_handler.
+        _this->resp_retry_event.enqueue(e->retry_delay);
+        return vp::IO_RESP_DENIED;
+    }
+
     printf("[%ld] %s RESP name=%s beat=%d/%d addr=0x%lx size=%lu first=%d last=%d status=%d\n",
         now, _this->logname.c_str(), e->name.c_str(),
         bs->beats_seen, bs->expected_beats, req->get_addr(),
@@ -265,9 +304,20 @@ vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
 void StubMaster::retry_handler(vp::Block *__this, vp::IoRetryChannel)
 {
     StubMaster *_this = (StubMaster *)__this;
-    // The adapter never denies a beat master (it always accepts and streams),
-    // so it must never retry.
+    // The adapter never denies a beat master's request (it always accepts and
+    // streams), so it must never retry the request channel. This is the
+    // request-path retry, distinct from the response-path resp_retry() we drive.
     _this->traces.assert(false, "unexpected retry() from the beat-sync adapter");
+}
+
+void StubMaster::resp_retry_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    StubMaster *_this = (StubMaster *)__this;
+    int64_t now = _this->clock.get_cycles();
+    printf("[%ld] %s RETRY\n", now, _this->logname.c_str());
+    // Tell the adapter we can accept responses again. The adapter re-sends the
+    // exact held beat synchronously inside this call (-> resp_handler accepts it).
+    _this->out.resp_retry(vp::IO_RETRY_ANY);
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

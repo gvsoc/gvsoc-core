@@ -376,13 +376,10 @@ void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
 
 void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
 {
-    // A response delivered as a single beat never aliases (one resp(), one
-    // object, delivered once), so round-trip the master's own req — many
-    // masters (e.g. a CPU LSU) key their completion on getting that exact
-    // object back. Writes are also one-resp-per-req. Only a multi-beat read
-    // splits one request into N deliveries and so needs a distinct object per
-    // beat (below).
-    if (ev.req->get_is_write() || (ev.is_first && ev.is_last))
+    // A write is one-resp-per-req, so round-trip the master's own request object
+    // as the single ack — the master frees/recycles it as its own object. (Reads
+    // never round-trip; see below.)
+    if (ev.req->get_is_write())
     {
         vp::IoReq *req = ev.req;
         req->set_addr(ev.addr);
@@ -403,18 +400,16 @@ void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
             // and re-send it on resp_retry. Nothing to free on acceptance.
             this->resp_held = true;
             this->held_req = req;
-            this->held_burst_to_free = nullptr;
         }
         return;
     }
 
-    // Read response beat: a multi-beat read answers one burst with N beats, so
-    // the beats cannot share the burst's req object (a downstream that queues a
-    // response — e.g. a clock bridge — would alias the reused object). Each beat
-    // is its own heap object, freed by the terminal master. The burst's own req
-    // is owned by the adapter and freed on the last beat — the master must
-    // therefore hand the adapter a freeable (heap-allocated) request, not a
-    // pooled/borrowed object, and never gets it back.
+    // Read response beat (initiator-owned request convention): every read beat —
+    // single- or multi-beat — is a distinct heap object the terminal master frees
+    // as it consumes it. The master's burst request is NEVER round-tripped as a
+    // read beat and is NEVER freed by the adapter: the initiator owns it and frees
+    // it on the last response, correlating each beat back to its request by
+    // req->initiator (copied below), not by object identity.
     vp::IoReq *beat = new vp::IoReq();
     beat->set_addr(ev.addr);
     beat->set_data(ev.data);
@@ -433,17 +428,10 @@ void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
     if (this->in.resp(beat) == vp::IO_RESP_DENIED)
     {
         // Upstream busy: hold this freshly-built beat and re-send it on
-        // resp_retry. Defer freeing the burst object until the held beat (if it
-        // is the last) is finally accepted.
+        // resp_retry. The master's request is the initiator's to free, not ours.
         this->resp_held = true;
         this->held_req = beat;
-        this->held_burst_to_free = ev.is_last ? ev.req : nullptr;
         return;
-    }
-
-    if (ev.is_last)
-    {
-        delete ev.req;
     }
 }
 
@@ -463,13 +451,8 @@ void IoV2BeatAdapter::resp_retry_in_handler(vp::Block *__this,
         // Still not ready — keep holding and wait for the next resp_retry.
         return;
     }
-    if (self->held_burst_to_free != nullptr)
-    {
-        delete self->held_burst_to_free;
-    }
     self->resp_held = false;
     self->held_req = nullptr;
-    self->held_burst_to_free = nullptr;
     // Resume draining the rest of the pending beats (on the next cycle — the
     // master accepts one beat per cycle).
     self->reschedule_fsm();
@@ -586,7 +569,6 @@ void IoV2BeatAdapter::reset(bool active)
         // / freed at teardown elsewhere); just clear the held state.
         this->resp_held = false;
         this->held_req = nullptr;
-        this->held_burst_to_free = nullptr;
         this->read_last_sched_cycle = -1;
         this->write_last_sched_cycle = -1;
         this->read_issue_last_cycle = -1;

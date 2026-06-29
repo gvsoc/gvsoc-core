@@ -71,6 +71,45 @@ def build_case(case_name: str) -> dict:
             'schedule': [dict(cycle=10, addr=BASE, size=0, name='r0')],
         }
 
+    # ---- Response-path back-pressure cases ----
+    # The master denies the listed beats once, then drives out.resp_retry() a few
+    # cycles later; the adapter must hold the exact beat and re-send it. Beat count
+    # observed by the master is unchanged (each beat is eventually accepted once).
+
+    if case_name == 'bp_read':
+        # 32 B read -> 4 beats; back-pressure two middle beats.
+        return {
+            'target': dict(latency=1),
+            'schedule': [dict(cycle=10, addr=BASE, size=32, burst_id=5,
+                              deny_beats=[1, 2], retry_delay=3, name='r0')],
+        }
+
+    if case_name == 'bp_write':
+        # 32 B write -> 4 write-ack beats; back-pressure the first and last.
+        return {
+            'target': dict(latency=1),
+            'schedule': [dict(cycle=10, addr=BASE, size=32, is_write=True,
+                              deny_beats=[0, 3], retry_delay=2, name='w0')],
+        }
+
+    if case_name == 'bp_last':
+        # Single-beat read: back-pressure the only beat (which is also is_last,
+        # round-tripping the master's own descriptor).
+        return {
+            'target': dict(latency=1),
+            'schedule': [dict(cycle=10, addr=BASE, size=8,
+                              deny_beats=[0], retry_delay=2, name='r0')],
+        }
+
+    if case_name == 'bp_all':
+        # 32 B read with EVERY beat back-pressured once: repeated hold/retry,
+        # including a deny right after a previous re-send.
+        return {
+            'target': dict(latency=2, duration=6),
+            'schedule': [dict(cycle=10, addr=BASE, size=32,
+                              deny_beats=[0, 1, 2, 3], retry_delay=2, name='r0')],
+        }
+
     raise ValueError(f'Unknown case: {case_name}')
 
 
@@ -94,11 +133,11 @@ class Chip(gvsoc.systree.Component):
         clock.o_CLOCK(target.i_CLOCK())
 
         # Beat master -> Sync target: the framework auto-inserts
-        # IoV2BeatSyncAdapter between them.
+        # IoV2BeatToSyncAdapter between them.
         master.o_OUTPUT(target.i_INPUT())
 
 
 class Target(gvsoc.runner.Target):
-    gapy_description = 'io_v2_beat_sync_adapter testbench'
+    gapy_description = 'io_v2_beat_to_sync_adapter testbench'
     model = Chip
     name = 'test'

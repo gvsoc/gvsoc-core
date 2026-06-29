@@ -74,6 +74,11 @@ private:
     // The master request currently in flight (single outstanding), handed back
     // on completion. Null when idle.
     vp::IoReq *pending = nullptr;
+    // The downstream request we allocated and forwarded for `pending`. We own it
+    // (initiator-owned convention): nothing downstream frees it, and it is never
+    // round-tripped back as a response beat — so we free it ourselves on the last
+    // response. Null when idle.
+    vp::IoReq *pending_dn = nullptr;
     // We refused a master access (busy or downstream-denied) and owe it a
     // retry() once we can accept again.
     bool need_retry = false;
@@ -93,6 +98,7 @@ void IoV2BeatCollapseAdapter::reset(bool active)
     if (active)
     {
         this->pending = nullptr;
+        this->pending_dn = nullptr;
         this->need_retry = false;
     }
 }
@@ -161,8 +167,11 @@ vp::IoReqStatus IoV2BeatCollapseAdapter::in_req(vp::Block *__this, vp::IoReq *re
         return vp::IO_REQ_DENIED;
     }
 
-    // GRANTED: the beat slave will respond (N read beats, or one write ack).
+    // GRANTED: the beat slave will respond (N read beats, or one write ack). We
+    // keep `dn` to free on completion — the response beats are distinct producer
+    // objects and `dn` itself never comes back.
     self->pending = req;
+    self->pending_dn = dn;
     return vp::IO_REQ_GRANTED;
 }
 
@@ -172,20 +181,28 @@ vp::IoRespAck IoV2BeatCollapseAdapter::out_resp(vp::Block *__this, vp::IoReq *re
     auto *self = static_cast<IoV2BeatCollapseAdapter *>(__this);
     vp::IoReq *master = self->pending;
 
-    // `req` is always a downstream-owned object — either an independent read
-    // beat or the round-tripped downstream write/single-beat request — never
-    // the master's own request (which we never forwarded). Latch any error onto
-    // the master, free the downstream object, and on the last beat hand the
-    // master's request back as one big-packet response.
+    // Two response shapes reach us, both owned by us as the consumer:
+    //   - read beats: distinct objects the downstream producer allocated per beat
+    //     (req != pending_dn) — free each as we consume it;
+    //   - write acks: our own `dn` round-tripped as the ack (req == pending_dn) —
+    //     do NOT free here, it is freed once below as pending_dn.
+    // Either way the master's own request was never forwarded, so we latch any
+    // error onto it and, on the last beat, free `dn` and hand the master's
+    // request back as one big-packet response.
     if (req->get_resp_status() == vp::IO_RESP_INVALID)
     {
         master->set_resp_status(vp::IO_RESP_INVALID);
     }
     bool last = req->is_last;
-    delete req;
+    if (req != self->pending_dn)
+    {
+        delete req;                  // distinct read beat — free it
+    }
 
     if (last)
     {
+        delete self->pending_dn;     // our request (and any round-tripped ack)
+        self->pending_dn = nullptr;
         self->pending = nullptr;
         master->is_first = true;
         master->is_last  = true;

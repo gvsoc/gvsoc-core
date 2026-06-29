@@ -193,12 +193,10 @@ private:
     // arbitrating its per-input response channel) refused our most recent
     // resp() beat. We hold that exact object and re-send it from
     // resp_retry_in_handler; no further upstream beats are emitted until it is
-    // accepted. held_burst_to_free is the burst request to delete once a held
-    // *last* read beat is finally accepted (a multi-beat read's burst object is
-    // adapter-owned), or NULL when the held object is the master's own request.
+    // accepted. The master's burst request is never held/freed here — the
+    // initiator owns it (initiator-owned request convention).
     bool resp_held = false;
     vp::IoReq *held_req = nullptr;
-    vp::IoReq *held_burst_to_free = nullptr;
 
     vp::Trace trace;
 };

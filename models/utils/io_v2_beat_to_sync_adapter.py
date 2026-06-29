@@ -16,7 +16,7 @@
 #
 
 """
-Python generator for the IoV2BeatSyncAdapter component.
+Python generator for the IoV2BeatToSyncAdapter component.
 
 Auto-inserted by the gvrun2 systree binding pass when a master port declares
 signature ``IoV2Beat`` and the bound slave port declares signature
@@ -31,11 +31,11 @@ from gvsoc.systree import Component, SlaveItf
 from gvsoc.signature import IoV2Beat, IoV2Sync
 
 
-class IoV2BeatSyncAdapter(Component):
+class IoV2BeatToSyncAdapter(Component):
 
     def __init__(self, parent: Component, name: str, beat_width: int):
         super().__init__(parent, name)
-        self.set_component('utils.io_v2_beat_sync_adapter')
+        self.set_component('utils.io_v2_beat_to_sync_adapter')
         self.add_property('beat_width', beat_width)
         self._beat_width = beat_width
 

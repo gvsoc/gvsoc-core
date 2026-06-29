@@ -243,15 +243,14 @@ vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
     {
         return vp::IO_RESP_ACCEPTED;
     }
-    // Two response-ownership cases (see io_v2_beat_adapter):
-    //  - req == beat->req: the adapter round-tripped our own request object —
-    //    a write ack or a single-beat read. We own it and free it on the last
-    //    response beat.
-    //  - req != beat->req: a multi-beat read answers one burst with N distinct
-    //    adapter-allocated beat objects. The adapter owns and frees our original
-    //    burst request (beat->req); we must free each received beat object, and
-    //    on the last beat also retire our Beat bookkeeping — but NOT beat->req
-    //    (the adapter already freed it).
+    // Two response-ownership cases (initiator-owned request convention, see
+    // io_v2_beat_adapter):
+    //  - req == beat->req: a write ack — the adapter round-trips our own request
+    //    object as the single ack. We own it and free it on the last beat.
+    //  - req != beat->req: a read answers our burst with distinct adapter-allocated
+    //    beat objects (one per beat, single- or multi-beat). We free each received
+    //    beat object, and on the last beat free our own burst request (beat->req)
+    //    too — the adapter never frees it — plus our Beat bookkeeping.
     if (req == beat->req)
     {
         if (is_last)
@@ -267,6 +266,7 @@ vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
         if (is_last)
         {
             delete[] beat->data;
+            delete beat->req;
             delete beat;
         }
     }

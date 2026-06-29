@@ -12,7 +12,8 @@ class StubMaster(gvsoc.systree.Component):
     """io_v2 beat-master testbench initiator.
 
     Declares signature ``IoV2Beat`` on its output so binding it to an
-    ``IoV2Sync`` target makes the framework auto-insert IoV2BeatSyncAdapter.
+    ``IoV2SingleReq`` target makes the framework auto-insert
+    IoV2BeatToSingleReqAdapter.
     """
     def __init__(self, parent, name, schedule=None, beat_width=8, logname=None,
                  quit_after_cycles=200):

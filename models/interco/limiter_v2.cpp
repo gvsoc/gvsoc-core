@@ -228,6 +228,10 @@ void Limiter::event_handler(vp::Block *__this, vp::ClockEvent *event)
     vp::IoReq *sub = _this->alloc_sub();
     sub->prepare();
     sub->parent      = _this->pending_req;
+    // Back-reference so distinct response beats correlate to this sub-request
+    // (initiator-owned convention): the downstream may answer with distinct beat
+    // objects rather than round-tripping our sub.
+    sub->initiator   = sub;
     sub->set_addr(_this->pending_addr);
     sub->set_size(chunk);
     sub->set_data(_this->pending_data);
@@ -280,19 +284,31 @@ void Limiter::event_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void Limiter::finish_chunk(vp::IoReq *sub)
+void Limiter::finish_chunk(vp::IoReq *resp)
 {
+    // `resp` is correlated to our sub-request via resp->initiator (set at issue,
+    // initiator-owned convention): a splitting downstream answers with DISTINCT
+    // beat objects, while a plain slave round-trips our own sub (resp == sub).
+    vp::IoReq *sub = (vp::IoReq *)resp->initiator;
     vp::IoReq *parent = sub->parent;
 
-    // Propagate per-chunk errors to the parent. We latch the first INVALID and
+    // Propagate per-beat errors to the parent. We latch the first INVALID and
     // keep it until the parent's last response lands.
-    if (sub->get_resp_status() == vp::IO_RESP_INVALID)
+    if (resp->get_resp_status() == vp::IO_RESP_INVALID)
     {
         parent->set_resp_status(vp::IO_RESP_INVALID);
     }
-    parent->remaining_size -= sub->get_size();
+    parent->remaining_size -= resp->get_size();
 
-    this->free_sub(sub);
+    bool last = resp->is_last;
+    if (resp != sub)
+    {
+        delete resp;            // distinct response beat — we own/free it
+    }
+    if (last)
+    {
+        this->free_sub(sub);    // recycle our sub on its last response beat
+    }
 
     this->check_last_chunk(parent);
 }

@@ -4,23 +4,23 @@
 //
 // Authors: Germain Haugou (germain.haugou@gmail.com)
 
-#include "io_v2_beat_sync_adapter.hpp"
+#include "io_v2_beat_to_sync_adapter.hpp"
 
 #include <algorithm>
 
 
-IoV2BeatSyncAdapter::IoV2BeatSyncAdapter(vp::ComponentConf &config)
+IoV2BeatToSyncAdapter::IoV2BeatToSyncAdapter(vp::ComponentConf &config)
     : vp::Component(config),
-      in(&IoV2BeatSyncAdapter::req_handler, &IoV2BeatSyncAdapter::resp_retry_in_handler),
-      out(&IoV2BeatSyncAdapter::retry_handler, &IoV2BeatSyncAdapter::resp_handler),
-      fsm_event(this, &IoV2BeatSyncAdapter::fsm_handler)
+      in(&IoV2BeatToSyncAdapter::req_handler, &IoV2BeatToSyncAdapter::resp_retry_in_handler),
+      out(&IoV2BeatToSyncAdapter::retry_handler, &IoV2BeatToSyncAdapter::resp_handler),
+      fsm_event(this, &IoV2BeatToSyncAdapter::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
     this->beat_width = this->get_js_config()->get_child_int("beat_width");
     if (this->beat_width <= 0)
     {
-        this->trace.fatal("IoV2BeatSyncAdapter requires beat_width > 0 (got %d)\n",
+        this->trace.fatal("IoV2BeatToSyncAdapter requires beat_width > 0 (got %d)\n",
                           this->beat_width);
     }
 
@@ -29,9 +29,9 @@ IoV2BeatSyncAdapter::IoV2BeatSyncAdapter(vp::ComponentConf &config)
 }
 
 
-vp::IoReqStatus IoV2BeatSyncAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoReqStatus IoV2BeatToSyncAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
 {
-    auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+    auto *self = static_cast<IoV2BeatToSyncAdapter *>(__this);
 
     self->trace.msg(vp::Trace::LEVEL_TRACE,
         "Submit (req=%p, addr=0x%lx, size=%lu, write=%d, burst_id=%ld)\n",
@@ -57,24 +57,24 @@ vp::IoReqStatus IoV2BeatSyncAdapter::req_handler(vp::Block *__this, vp::IoReq *r
 }
 
 
-vp::IoRespAck IoV2BeatSyncAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck IoV2BeatToSyncAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
-    auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+    auto *self = static_cast<IoV2BeatToSyncAdapter *>(__this);
     // A sync slave never responds asynchronously.
     self->trace.fatal("Unexpected resp() from a sync slave (req=%p)\n", req);
     return vp::IO_RESP_ACCEPTED;
 }
 
 
-void IoV2BeatSyncAdapter::retry_handler(vp::Block *__this, vp::IoRetryChannel)
+void IoV2BeatToSyncAdapter::retry_handler(vp::Block *__this, vp::IoRetryChannel)
 {
-    auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+    auto *self = static_cast<IoV2BeatToSyncAdapter *>(__this);
     // A sync slave never denies, so it never retries.
     self->trace.fatal("Unexpected retry() from a sync slave\n");
 }
 
 
-bool IoV2BeatSyncAdapter::emit_beat(bool is_first, bool is_last, uint64_t beat)
+bool IoV2BeatToSyncAdapter::emit_beat(bool is_first, bool is_last, uint64_t beat)
 {
     // Deliver on the master's own request for a write (every ack) and for the
     // LAST beat of any read (which covers a single-beat read): once a beat is the
@@ -122,10 +122,10 @@ bool IoV2BeatSyncAdapter::emit_beat(bool is_first, bool is_last, uint64_t beat)
 }
 
 
-void IoV2BeatSyncAdapter::resp_retry_in_handler(vp::Block *__this,
+void IoV2BeatToSyncAdapter::resp_retry_in_handler(vp::Block *__this,
                                                 vp::IoRetryChannel /*channel*/)
 {
-    auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+    auto *self = static_cast<IoV2BeatToSyncAdapter *>(__this);
     if (!self->resp_held)
     {
         return;
@@ -152,9 +152,9 @@ void IoV2BeatSyncAdapter::resp_retry_in_handler(vp::Block *__this,
 }
 
 
-void IoV2BeatSyncAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
+void IoV2BeatToSyncAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 {
-    auto *self = static_cast<IoV2BeatSyncAdapter *>(__this);
+    auto *self = static_cast<IoV2BeatToSyncAdapter *>(__this);
 
     // Blocked on upstream back-pressure: the held beat must be re-sent first
     // (from resp_retry_in_handler), so don't stream anything now.
@@ -208,7 +208,7 @@ void IoV2BeatSyncAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 }
 
 
-vp::DebugMemIf *IoV2BeatSyncAdapter::resolve_debug_mem()
+vp::DebugMemIf *IoV2BeatToSyncAdapter::resolve_debug_mem()
 {
     std::vector<vp::SlavePort *> finals = this->out.get_final_ports();
     if (finals.empty() || finals[0]->get_owner() == nullptr)
@@ -219,7 +219,7 @@ vp::DebugMemIf *IoV2BeatSyncAdapter::resolve_debug_mem()
 }
 
 
-int IoV2BeatSyncAdapter::debug_mem_access(uint64_t addr, uint8_t *data,
+int IoV2BeatToSyncAdapter::debug_mem_access(uint64_t addr, uint8_t *data,
                                           uint64_t size, bool is_write)
 {
     vp::DebugMemIf *target = this->resolve_debug_mem();
@@ -227,7 +227,7 @@ int IoV2BeatSyncAdapter::debug_mem_access(uint64_t addr, uint8_t *data,
 }
 
 
-void IoV2BeatSyncAdapter::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+void IoV2BeatToSyncAdapter::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
     uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
 {
     if (depth >= vp::DebugMemIf::MAX_DEPTH)
@@ -243,7 +243,7 @@ void IoV2BeatSyncAdapter::debug_mem_regions(std::vector<vp::DebugMemRegion> &reg
 }
 
 
-void IoV2BeatSyncAdapter::reset(bool active)
+void IoV2BeatToSyncAdapter::reset(bool active)
 {
     if (active)
     {
@@ -260,5 +260,5 @@ void IoV2BeatSyncAdapter::reset(bool active)
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    return new IoV2BeatSyncAdapter(config);
+    return new IoV2BeatToSyncAdapter(config);
 }

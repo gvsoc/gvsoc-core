@@ -163,6 +163,14 @@ public:
     // alongside others. Reads and writes use it symmetrically — io_v2 lets a
     // master send a multi-beat read as N reqs the same way it does for writes.
     int active_multi_beat_slot = -1;
+    // Number of bursts this input currently has in flight (from a burst's
+    // is_first beat until its last response beat frees the slot). When the
+    // router is configured with a per-input budget (max_pending_bursts_per_input
+    // > 0), a new burst is denied once this reaches that cap — so each input has
+    // its own independent outstanding budget, matching how each AXI master's
+    // ID-bounded outstanding is private in HW and no shared pool can starve one
+    // input.
+    int nb_outstanding_bursts = 0;
     // Set when handle_req denied the master (FIFO full or no burst slot). Cleared
     // and propagated to the master via retry() when the blocking condition clears.
     bool denied_upstream = false;
@@ -226,6 +234,8 @@ private:
 
     RouterConfig cfg;
     int max_pending_bursts;
+    // Per-input outstanding-burst budget (0 = disabled, shared table only).
+    int max_pending_per_input;
     vp::MappingTree mapping_tree;
     int error_id = -1;
     std::vector<InputPort *> inputs;
@@ -375,11 +385,24 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
     {
         this->cfg.max_input_pending_size = (uint64_t)this->cfg.width;
     }
-    this->max_pending_bursts = this->cfg.max_pending_bursts;
-    if (this->max_pending_bursts <= 0)
+    int nb_input = this->cfg.nb_input_port > 0 ? this->cfg.nb_input_port : 1;
+    this->max_pending_per_input = this->cfg.max_pending_bursts_per_input;
+    if (this->max_pending_per_input > 0)
     {
-        // Default: enough for one burst per input.
-        this->max_pending_bursts = this->cfg.nb_input_port > 0 ? this->cfg.nb_input_port : 1;
+        // Per-input outstanding budget: each input independently allows up to
+        // max_pending_per_input in-flight bursts. The shared table is sized to
+        // hold every input's budget so the global allocation never becomes the
+        // binding constraint — the per-input counter is.
+        this->max_pending_bursts = this->max_pending_per_input * nb_input;
+    }
+    else
+    {
+        this->max_pending_bursts = this->cfg.max_pending_bursts;
+        if (this->max_pending_bursts <= 0)
+        {
+            // Default: enough for one burst per input.
+            this->max_pending_bursts = nb_input;
+        }
     }
 
     this->burst_table.resize(this->max_pending_bursts);
@@ -430,6 +453,12 @@ int RouterBeat::alloc_burst_slot()
 void RouterBeat::free_burst_slot(int slot_idx)
 {
     BurstEntry &slot = this->burst_table[slot_idx];
+    // Release this input's outstanding-burst budget. Decrement before clearing
+    // slot.input so we credit the right input.
+    if (slot.input != nullptr && slot.input->nb_outstanding_bursts > 0)
+    {
+        slot.input->nb_outstanding_bursts--;
+    }
     slot.in_use = false;
     slot.input = nullptr;
     slot.output_id = -1;
@@ -467,8 +496,13 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
     // restores burst_id from slot.original_burst_id.
     uint64_t original_addr = beat->get_addr();
     int64_t original_burst_id = beat->burst_id;
-    out->log_access(original_addr, beat->get_size(), beat->get_is_write(),
-                    beat->is_first, beat->is_last);
+    // Snapshot the fields the GUI log needs; the access is logged only once it
+    // is actually accepted (below). A denied forward is re-tried later and must
+    // not show up as a separate access at the denied address.
+    uint64_t log_size     = beat->get_size();
+    bool     log_is_write = beat->get_is_write();
+    bool     log_first    = beat->is_first;
+    bool     log_last     = beat->is_last;
     beat->set_addr(original_addr - out->remove_offset + out->add_offset);
     beat->burst_id = slot_idx;
 
@@ -489,6 +523,8 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
 
     if (st == vp::IO_REQ_GRANTED)
     {
+        // Accepted: log the access now (once), at the master-side address.
+        out->log_access(original_addr, log_size, log_is_write, log_first, log_last);
         in->pending.pop_front();
         // Mirror the directional accounting from req_muxed.
         in->pending_bytes -= beat->get_is_write() ? beat->get_size() : 0;
@@ -567,14 +603,24 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     int slot_idx;
     if (req->is_first)
     {
-        // New burst: allocate a fresh slot. If the table is full, deny the
-        // beat; we'll wake the master when a slot frees.
+        // New burst: deny up front if this input is already at its per-input
+        // outstanding budget. Each input has its own budget, so a busy input
+        // can't consume the slots another input needs.
+        if (_this->max_pending_per_input > 0 &&
+            in->nb_outstanding_bursts >= _this->max_pending_per_input)
+        {
+            in->denied_upstream = true;
+            return vp::IO_REQ_DENIED;
+        }
+        // Allocate a fresh slot. If the table is full, deny the beat; we'll wake
+        // the master when a slot frees.
         slot_idx = _this->alloc_burst_slot();
         if (slot_idx == -1)
         {
             in->denied_upstream = true;
             return vp::IO_REQ_DENIED;
         }
+        in->nb_outstanding_bursts++;
         BurstEntry &slot = _this->burst_table[slot_idx];
         slot.input = in;
         slot.output_id = -1;                          // decoded later by fsm

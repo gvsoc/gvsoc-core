@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2020 GreenWaves Technologies, SAS, ETH Zurich and
- *                    University of Bologna
+ * Copyright (C) 2026 ETH Zurich and University of Bologna
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +15,8 @@
  */
 
 /*
- * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
+ * Description: This file implements a GVSoC OR common cell.
+ * Author: Yinrong Li (ETH Zurich) (yinrli@student.ethz.ch)
  */
 
 #include <cstdint>
@@ -25,11 +25,11 @@
 #include <vp/itf/wire.hpp>
 
 
-class And : public vp::Component
+class Or : public vp::Component
 {
 
 public:
-    And(vp::ComponentConf &config);
+    Or(vp::ComponentConf &config);
 
     void reset(bool active);
 
@@ -48,7 +48,7 @@ private:
 
 
 
-And::And(vp::ComponentConf &config)
+Or::Or(vp::ComponentConf &config)
     : vp::Component(config)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
@@ -58,7 +58,7 @@ And::And(vp::ComponentConf &config)
 
     for (int i=0; i<this->nb_input; i++)
     {
-        this->input_itfs[i].set_sync_meth_muxed(&And::sync, i);
+        this->input_itfs[i].set_sync_meth_muxed(&Or::sync, i);
         this->new_slave_port("input_" + std::to_string(i), &this->input_itfs[i]);
     }
 
@@ -70,7 +70,7 @@ And::And(vp::ComponentConf &config)
 
 
 
-void And::reset(bool active)
+void Or::reset(bool active)
 {
     if (active)
     {
@@ -78,24 +78,14 @@ void And::reset(bool active)
         {
             this->values[i] = 0;
         }
-
-        if (this->nb_values != 0)
-        {
-            int last_bits = this->nb_input % 64;
-            if (last_bits != 0)
-            {
-                this->values[this->nb_values - 1] =
-                    ~((uint64_t(1) << last_bits) - 1);
-            }
-        }
     }
 }
 
 
 
-void And::sync(vp::Block *__this, bool value, int id)
+void Or::sync(vp::Block *__this, bool value, int id)
 {
-    And *_this = (And *)__this;
+    Or *_this = (Or *)__this;
 
     int value_word = id / 64;
     uint64_t value_mask = uint64_t(1) << (id % 64);
@@ -109,12 +99,12 @@ void And::sync(vp::Block *__this, bool value, int id)
         _this->values[value_word] &= ~value_mask;
     }
 
-    bool output_value = true;
+    bool output_value = false;
     for (int i=0; i<_this->nb_values; i++)
     {
-        if (_this->values[i] != ~uint64_t(0))
+        if (_this->values[i] != 0)
         {
-            output_value = false;
+            output_value = true;
             break;
         }
     }
@@ -126,5 +116,5 @@ void And::sync(vp::Block *__this, bool value, int id)
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    return new And(config);
+    return new Or(config);
 }

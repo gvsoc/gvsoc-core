@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from config_tree import Config
 from gvsoc.systree import Component, SlaveItf
+from gvsoc.signature import IoV2SingleReq
 
 
 class RwSplitterConfig(Config):
@@ -233,18 +234,18 @@ class RwSplitter(Component):
         ``output_write`` (writes, atomics with write semantics),
         verbatim.
         """
-        return SlaveItf(self, 'input', signature='io_v2')
+        return SlaveItf(self, 'input', signature=IoV2SingleReq())
 
     def o_READ_OUTPUT(self, itf: SlaveItf):
         """Binds the downstream read-side master port.
 
         Receives every request whose ``is_write`` bit is false.
         """
-        self.itf_bind('output_read', itf, signature='io_v2')
+        self.itf_bind('output_read', itf, signature=IoV2SingleReq())
 
     def o_WRITE_OUTPUT(self, itf: SlaveItf):
         """Binds the downstream write-side master port.
 
         Receives every request whose ``is_write`` bit is true.
         """
-        self.itf_bind('output_write', itf, signature='io_v2')
+        self.itf_bind('output_write', itf, signature=IoV2SingleReq())

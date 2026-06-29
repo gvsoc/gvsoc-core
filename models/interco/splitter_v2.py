@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
+from gvsoc.signature import IoV2SingleReq
 
 
 class SplitterConfig(Config):
@@ -24,21 +25,21 @@ class SplitterConfig(Config):
     Attributes
     ----------
     input_width : int
-        Width of one fan-out phase, in bytes. Requests larger than
-        ``input_width`` are walked as a sequence of phases, each phase
-        covering up to ``input_width`` bytes. Bounds the maximum
-        observable bandwidth per phase but not the maximum request
-        size.
+        Width of the input port / one fan-out window, in bytes. Every
+        request must fit a single window
+        (``(addr % input_width) + size <= input_width``); larger bursts
+        must be chunked into ``input_width``-wide beats upstream before
+        they reach the splitter.
     output_width : int
         Width of each output port, in bytes. Must divide
         ``input_width`` evenly. The splitter creates exactly
         ``input_width / output_width`` output ports and slices each
-        phase into consecutive chunks of at most ``output_width``
+        request into consecutive chunks of at most ``output_width``
         bytes, one per output port.
     """
 
     input_width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
-        "Width of one fan-out phase, in bytes"
+        "Width of the input port / one fan-out window, in bytes"
     ))
     output_width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
         "Width of each output port, in bytes"
@@ -51,15 +52,28 @@ class Splitter(Component):
     Overview
     ~~~~~~~~
 
-    A one-input, N-output component that walks every incoming request
-    as a sequence of phases. Each phase covers at most ``input_width``
-    bytes and is fanned out across up to ``N = input_width /
-    output_width`` consecutive chunks, each chunk at most
-    ``output_width`` bytes wide, on distinct output ports — the first
-    chunk on ``output_0``, the second on ``output_1``, and so on.
-    Chunks within a phase run in parallel; phases run strictly in
-    order, the next one starting only after every chunk of the
-    current phase has responded.
+    A one-input, N-output component that fans every incoming request
+    across up to ``N = input_width / output_width`` consecutive
+    chunks, each chunk at most ``output_width`` bytes wide, on distinct
+    output ports — the first chunk on ``output_0``, the second on
+    ``output_1``, and so on. The chunks of one request run in parallel.
+
+    The splitter is **stateless and pipelined**: it keeps no per-request
+    state of its own. Each request is the aggregation context for its
+    own chunks — ``remaining_size`` counts down as chunks respond and
+    ``latency`` takes the max (the critical path) — and every chunk
+    carries a ``parent`` back-link, so a chunk response is folded
+    straight into its parent no matter how many parents are in flight.
+    The splitter therefore never serialises on a single in-flight
+    parent: it forwards a request's chunks and returns immediately,
+    ready to accept the next request, so beats stream back-to-back.
+
+    Single-fan-out only. A request must fit one ``input_width`` window
+    (``(addr % input_width) + size <= input_width``). Larger bursts are
+    expected to be chunked into ``input_width``-wide beats upstream
+    (e.g. by an AXI beat router / its auto-inserted ``IoV2BeatAdapter``)
+    before reaching the splitter; a request that would straddle the
+    window aborts.
 
     This is the io_v2 port of :class:`interco.splitter.Splitter`. Only
     the IO-side plumbing is new:
@@ -70,13 +84,9 @@ class Splitter(Component):
       retry callbacks can identify which output fired back
     - back-pressure uses the AXI-like ``retry()`` handshake: a DENY
       on any single output parks that sub-request and the others
-      keep flowing; upstream sees ``IO_REQ_DENIED`` only when it
-      tries to send a *new* parent while another is still in flight
-    - requests larger than ``input_width`` are walked as multiple
-      phases instead of being refused; this mirrors the role of an
-      AXI→memory bridge in front of a wide log interconnect (one AXI
-      burst unrolled into per-cycle beats, each beat striped across
-      the bank lanes)
+      keep flowing; upstream sees ``IO_REQ_DENIED`` only while an
+      output still holds a denied chunk (so it never accumulates a
+      second one)
 
     Address/chunk layout
     ~~~~~~~~~~~~~~~~~~~~
@@ -104,74 +114,47 @@ class Splitter(Component):
     Request flow
     ~~~~~~~~~~~~
 
-    - **Idle + new request**: the splitter latches the parent and
-      iterates through phases. Each phase carves up to N sub-requests
-      and fires them on the corresponding outputs. The iteration is
-      eager: as long as every chunk of the current phase resolved
-      inline, the next phase is issued in the same call. The return
-      status is ``IO_REQ_DONE`` if every chunk of every phase
-      resolved synchronously, ``IO_REQ_GRANTED`` otherwise.
-    - **Phase boundary**: phase k+1 only fires once every chunk of
-      phase k has responded. The slowest chunk dominates the phase's
-      observable latency; the splitter accumulates the per-phase max
-      ``req->latency`` into a running total used at finalisation.
+    - **New request**: the splitter carves up to N sub-requests and
+      fires them on the corresponding outputs, then returns. The
+      status is ``IO_REQ_DONE`` if every chunk resolved inline,
+      ``IO_REQ_GRANTED`` if at least one chunk is pending or stuck.
+      It does not wait for prior parents — the next request can be
+      accepted on the very next cycle.
     - **Asynchronous completion**: when a bank fires ``resp(sub)``,
-      the splitter decrements ``parent->remaining_size`` by that
-      chunk's size, latches ``IO_RESP_INVALID`` if the sub reported
-      an error, and decrements the in-flight count for the current
-      phase. When that count hits zero, the phase is done; the
-      splitter either issues the next phase or fires
-      ``input_itf.resp(parent)`` with the bandwidth annotation
-      described below.
+      the splitter folds the chunk into ``sub->parent`` — decrements
+      ``parent->remaining_size`` by the chunk size, max-ins the
+      chunk's ``latency``, and latches ``IO_RESP_INVALID`` on error.
+      When ``remaining_size`` reaches zero the parent is complete and
+      ``input_itf.resp(parent)`` fires.
     - **Downstream DENY**: a DENY on output ``i`` parks the sub in
-      ``stuck[i]``. Other outputs of the same phase keep operating
-      normally. When output ``i`` fires ``retry()``, the splitter
-      re-sends the parked sub (possibly DENYing again). The phase
-      does not advance until that chunk eventually succeeds.
-    - **Upstream busy**: any CPU request that arrives while another
-      is still in flight is refused with ``IO_REQ_DENIED``. The
-      splitter remembers that an upstream retry is owed and fires
-      ``input_itf.retry()`` once the in-flight parent completes.
-    - **Per-sub error (``IO_RESP_INVALID``)**: the splitter latches
-      the error on the parent, keeps processing the remaining sub
-      responses of the current phase, advances to subsequent phases
-      normally, and completes the parent with ``IO_RESP_INVALID``
-      once every chunk of every phase is accounted for.
+      ``stuck[i]``. Other outputs keep operating normally. When output
+      ``i`` fires ``retry()``, the splitter re-sends the parked sub
+      (possibly DENYing again).
+    - **Upstream back-pressure**: while any output holds a denied
+      chunk, a new incoming request is refused with ``IO_REQ_DENIED``
+      (so an output never accumulates a second stuck chunk). The
+      splitter fires ``input_itf.retry()`` once every output is free.
+    - **Per-sub error (``IO_RESP_INVALID``)**: latched on the parent;
+      the parent completes with ``IO_RESP_INVALID`` once all chunks
+      are accounted for.
 
     Timing model
     ~~~~~~~~~~~~
 
-    Per phase, the splitter takes the maximum ``req->latency``
-    reported by any of the phase's chunks (the slowest lane
-    dominates) and adds it to a running ``accumulated_phase_latency``
-    counter. The fan-out itself is simulator-instantaneous; the
-    splitter does not schedule its own ClockEvents.
-
-    At finalisation, real simulator cycles have already elapsed if
-    any chunk responded asynchronously or was denied-and-retried.
-    The annotation on the parent's response is the leftover ideal
-    budget:
-
-    .. code-block:: text
-
-        req->latency = max(0, accumulated_phase_latency - elapsed_sim)
-
-    so the master observes the larger of (ideal bandwidth time,
-    real contention time), never double-counts the two, and never
-    reports a smaller window than what already elapsed. For a
-    single-phase request with all chunks DONE inline, this collapses
-    to "max chunk latency" — the same critical-path semantic the
-    previous splitter had.
+    The splitter adds no cycles of its own and schedules no
+    ClockEvents. A request's reported ``latency`` is the maximum
+    ``latency`` annotated by any of its chunks — the slowest lane
+    dominates the critical path. All cycle accuracy comes from the
+    downstream models.
 
     Ports
     ~~~~~
 
-    - **INPUT** (slave, ``io_v2``) — master-facing. Accepts one
-      request at a time, of any size. Returns ``IO_REQ_DONE`` when
-      every chunk of every phase lands inline, ``IO_REQ_GRANTED``
-      when at least one chunk is pending or stuck, and
-      ``IO_REQ_DENIED`` when the splitter is already busy on another
-      parent.
+    - **INPUT** (slave, ``io_v2``) — master-facing. Accepts a request
+      that fits one ``input_width`` window. Returns ``IO_REQ_DONE``
+      when every chunk lands inline, ``IO_REQ_GRANTED`` when at least
+      one chunk is pending or stuck, and ``IO_REQ_DENIED`` while an
+      output still holds a denied chunk.
     - **output_0 .. output_{N-1}** (master, ``io_v2``, muxed) — one
       per chunk slot, ``N = input_width / output_width``. Each
       output receives the N-th consecutive chunk of the parent (if
@@ -188,19 +171,16 @@ class Splitter(Component):
     - **``output_width`` must be a power of two.** The chunk boundary
       computation uses ``addr & (output_width - 1)`` as the mask —
       non-power-of-two widths produce nonsensical splits.
-    - **Requests larger than ``input_width`` are walked in phases.**
-      Each phase covers up to ``input_width`` bytes (less if it sits
-      at the start of an unaligned burst). Phases run strictly in
-      order — phase k+1 only fires after every chunk of phase k has
-      responded — so the slowest lane of any phase back-pressures the
-      whole burst.
+    - **Single fan-out only.** A request must satisfy
+      ``(addr % input_width) + size <= input_width``; one that would
+      straddle the window aborts. Chunk larger bursts into
+      ``input_width``-wide beats upstream (an AXI beat router does this
+      via its auto-inserted ``IoV2BeatAdapter``).
     - **Empty requests (size = 0) complete as DONE with OK status.**
       No sub-request is emitted, no output is touched.
-    - **One parent in flight at a time.** Even if the parent has
-      left all chunks pending asynchronously, a new incoming CPU
-      request will be DENIED until every byte of the first parent
-      has been responded to. Use a :class:`interco.router_v2.Router`
-      upstream if you need multiple parents overlapping.
+    - **Multiple parents may overlap.** The splitter is stateless and
+      pipelined; it does not serialise on one in-flight parent. The
+      only back-pressure is the one-stuck-chunk-per-output rule.
     - **No arbitration fairness.** Chunks go out on their fixed
       output slot — chunk 0 always hits ``output_0``, chunk 1 always
       hits ``output_1``, etc. A pathological workload where every
@@ -307,7 +287,7 @@ class Splitter(Component):
         up to ``nb_outputs`` consecutive sub-requests and fired out on
         the corresponding output ports.
         """
-        return SlaveItf(self, 'input', signature='io_v2')
+        return SlaveItf(self, 'input', signature=IoV2SingleReq())
 
     def o_OUTPUT(self, id: int, itf: SlaveItf):
         """Binds downstream ``output_<id>`` to ``itf``.
@@ -317,4 +297,4 @@ class Splitter(Component):
         downstream receives the N-th consecutive chunk of every parent
         request that has ``chunk_id`` ≤ ``N``.
         """
-        self.itf_bind(f'output_{id}', itf, signature='io_v2')
+        self.itf_bind(f'output_{id}', itf, signature=IoV2SingleReq())

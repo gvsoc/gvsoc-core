@@ -154,7 +154,12 @@ vp::IoReqStatus RwSplitter::input_req(vp::Block *__this, vp::IoReq *req)
         (unsigned long long)req->get_size(),
         is_write ? 1 : 0, is_write ? "write" : "read");
 
-    _this->gui_log(req->get_addr(), req->get_size(), is_write);
+    // Snapshot before forwarding: log only once the req is actually accepted,
+    // at the original address (the downstream may mutate the req object). A
+    // denied req is re-sent by the upstream on retry and must not be shown as a
+    // separate access at each attempt.
+    uint64_t log_addr = req->get_addr();
+    uint64_t log_size = req->get_size();
 
     vp::IoMaster &out = is_write ? _this->output_write_itf
                                  : _this->output_read_itf;
@@ -163,6 +168,11 @@ vp::IoReqStatus RwSplitter::input_req(vp::Block *__this, vp::IoReq *req)
     if (st == vp::IO_REQ_DENIED)
     {
         _this->denied_output = output_id;
+    }
+    else
+    {
+        // Accepted (DONE or GRANTED): it goes out now, so log it once.
+        _this->gui_log(log_addr, log_size, is_write);
     }
     return st;
 }

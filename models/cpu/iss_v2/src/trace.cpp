@@ -22,6 +22,7 @@
 #include <string.h>
 #include <algorithm>
 #include <vector>
+#include <vp/controller.hpp>
 
 // Resolve trace PC -> symbol lazily at runtime from the ELF binary via libdwfl.
 // libdw/libelf are linked in from the generator (Component.add_libraries); the
@@ -103,6 +104,11 @@ void Trace::reset(bool active)
                 for (auto x : this->iss.get_js_config()->get("**/binaries")->get_elems())
                 {
                     binaries += ":" + x->get_str();
+                    // Alongside the GUI-facing "binaries" trace event, tell any connected proxy
+                    // front-end (e.g. the console) about each binary so it can auto-load its
+                    // symbols. Done at reset (not in the Trace ctor) so the component is linked
+                    // into the hierarchy and get_launcher() can reach the real launcher.
+                    this->iss.get_launcher()->declare_binary(x->get_str());
                 }
 
                 this->binaries_trace_event.event_string(binaries.c_str(), true);

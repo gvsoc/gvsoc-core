@@ -203,6 +203,9 @@ private:
     bool prev_is_write;
     bool started;
     int vstart;
+
+    // Ongoing instruction
+    int insn_ongoing;
 };
 
 #else
@@ -242,6 +245,11 @@ private:
     static void handle_insn_store_indexed(VuLsu *vlsu, iss_insn_t *insn);
 
     void handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_stride=false, iss_reg_t stride=0, int reg_indexed=-1);
+
+    // Handler for asynchronous burst grants
+    static void data_grant(vp::Block *__this, vp::IoReq *req);
+    // Handler for asynchronous burst responses
+    static void data_response(vp::Block *__this, vp::IoReq *req);
 
     // Number of instruction that can be enqueued at the same time
     static constexpr int queue_size = 4;
@@ -306,6 +314,71 @@ private:
     bool prev_is_write;
     bool started;
     int vstart;
+
+    // Instruction currently active in the VLSU. pending_insn->timestamp is reused across phases:
+    // 1. as an enqueue-cycle guard, 2. as the request issuing start time after instruction latency, 
+    // and 3. for memory-response/retirement timing. Keeping this index separate from insn_first_waiting 
+    // makes the phase explicit and prevents queued instructions from consuming their instruction latency 
+    // before they become active.
+    int insn_ongoing;
+    
+    // True if one burst was not granted. Once it is true, the block can not send any burst
+    // anymore until the last one is granted
+    bool stalled;
+
+    // Bursts which have been handled synchronously with a delay. There are hold here until their
+    // delay has elapsed
+    struct DelayedBurst
+    {
+        vp::IoReq *req;
+        uint64_t timestamp;
+    };
+
+    struct DelayedBurstCompare
+    {
+        bool operator()(const DelayedBurst &a, const DelayedBurst &b) const
+        {
+            return a.timestamp > b.timestamp;
+        }
+    };
+
+    std::priority_queue<DelayedBurst, std::vector<DelayedBurst>, DelayedBurstCompare> delayed_bursts;
+
+    // Reorder Buffer for mempool configuration
+    struct VlsuRobEntry
+    {
+        // Port and id
+        int port = 0;
+        int rob_id = 0;
+
+        // If the entry is allocated to a request
+        bool allocated = false;
+
+        // If the response is valid
+        bool valid = false;
+
+        // Request itself
+        vp::IoReq *req = nullptr;
+
+        // Instruction slot issued the request
+        VuLsuPendingInsn *slot = nullptr;
+
+        // Vector register
+        int vreg = 0;
+
+        int elem_size = 0;
+        int vstart = 0;
+        int size = 0;
+    };
+
+    // Reorder buffer
+    std::vector<std::vector<VlsuRobEntry>> rob; 
+    // Next available entry in the ROB for each port
+    std::vector<int> rob_next;
+    // The first entry in the ROB which is waiting for response for each port
+    std::vector<int> rob_first;
+    // Number of allocated entries in the ROB for each port
+    std::vector<int> rob_count;
 };
 
 #endif // CONFIG_GVSOC_ISS_VLSU_V2
@@ -396,6 +469,17 @@ private:
     int nb_waiting_insn;
     int elem_size;
     int vstart;
+
+    // Instruction currently active in the VLSU. It is either waiting for its instruction latency to elapse 
+    // or already actively issuing memory requests. This is kept separate from insn_first_waiting for the following reason. 
+    // pending_insn->timestamp has multiple purposes:
+    // 1. At the instruction enqueue time, it is set to (enqueue cycle + 1) to avoid starting to execute the instruction immediately in the same cycle;
+    // 2. At the instruction execution start, it is set to (current cycle + instruction latency), to prevent the instruction from issuing memory requests before its instruction latency elapses;
+    // 3. During the instruction execution, it is used to track the synchronous memory access latency (current cycle + request latency) and instruction retirement time.
+    // In order to distinguish between the first two cases in the FSM, and ensure that instruction latency is only modeled once,
+    // we seperate index insn_ongoing (with timestamp of purpose 2 or 3) from insn_first_waiting (with timestamp of purpose 1).
+    // This also prevents the younger instructions waiting in the queue from consuming its latency while the older instruction is still active.
+    int insn_ongoing;
 };
 
 #endif
@@ -476,8 +560,8 @@ private:
     inline void free_id(int id);
 
     // Size of the queue holding pending instructions. Once full, vu can not accept instructions
-    // from CVA6 anymore
-    static constexpr int queue_size = 8;
+    // from CVA6 anymore. Spatz can handle 4 instructions at a time.
+    static constexpr int queue_size = 4;
 
     // Event for active state
     vp::Trace event_active;

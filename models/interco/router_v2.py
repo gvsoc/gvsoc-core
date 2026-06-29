@@ -11,7 +11,7 @@ from typing import ClassVar
 
 import gvsoc.systree
 import gvrun.timing
-from gvsoc.signature import IoV2Beat
+from gvsoc.signature import IoV2Beat, IoV2SingleReq
 from config_tree import Config, cfg_field, HasSize
 
 
@@ -187,7 +187,16 @@ class RouterConfig(Config, HasSize):
         "Beat width in bytes (only used by the beat-streaming variant)."
     ))
     max_pending_bursts: int = cfg_field(default=0, dump=True, desc=(
-        "Burst-table capacity (only used by the beat-streaming variant)."
+        "Burst-table capacity (only used by the beat-streaming variant). Shared "
+        "across all inputs; ignored when max_pending_bursts_per_input is set."
+    ))
+    max_pending_bursts_per_input: int = cfg_field(default=0, dump=True, desc=(
+        "Per-input outstanding-burst budget (beat variant). When > 0, each input "
+        "independently allows up to this many in-flight bursts — the HW-faithful "
+        "shape, where each AXI master's ID-bounded outstanding is its own and no "
+        "shared pool can starve one input. The burst table is sized to hold all "
+        "inputs' budgets. When 0 (default), the single shared max_pending_bursts "
+        "table is used instead."
     ))
     nb_input_port: int = cfg_field(default=1, dump=True, desc=(
         "Number of input ports the router exposes."
@@ -395,7 +404,7 @@ class Router(gvsoc.systree.Component):
         # string master still binds directly too (the framework only bridges
         # when the master side is a class-based Signature). Other kinds keep
         # the legacy string signature.
-        sig = IoV2Beat(self.config.width) if self.config.kind == KIND_BEAT else 'io_v2'
+        sig = IoV2Beat(self.config.width) if self.config.kind == KIND_BEAT else IoV2SingleReq()
         name = 'input' if id == 0 else f'input_{id}'
         return gvsoc.systree.SlaveItf(self, name, signature=sig)
 
@@ -435,12 +444,16 @@ class Router(gvsoc.systree.Component):
         self.config.add_mappings(mapping)
         # The beat kind produces per-beat responses on its outputs; declare
         # IoV2Beat so the framework auto-inserts an IoV2BeatAdapter when the
-        # downstream slave uses a non-beat io_v2 signature. Other kinds use
-        # the legacy string signature (no auto-bridging).
+        # downstream slave uses a non-beat io_v2 signature. Other kinds route
+        # responses by request identity and so handle only single-beat
+        # responses: declare IoV2SingleReq, which binds directly to other
+        # single-req / big-packet / sync slaves and makes the framework
+        # auto-insert a collapse converter if the downstream is a beat slave
+        # (a multi-beat stream this router could not route back).
         if self.config.kind == KIND_BEAT:
             self.itf_bind(mapping.name, itf, signature=IoV2Beat(self.config.width))
         else:
-            self.itf_bind(mapping.name, itf, signature='io_v2')
+            self.itf_bind(mapping.name, itf, signature=IoV2SingleReq())
 
     def o_MAP_DEFAULT(self, itf: gvsoc.systree.SlaveItf, name: str = None,
                       latency: int = 0, is_error: bool = False):

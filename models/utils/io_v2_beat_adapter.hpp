@@ -123,6 +123,8 @@ private:
     // Read path.
     void enqueue_read_burst(vp::IoReq *req);
     void issue_sub_read(const SubReadJob &job);
+    void issue_pending_sub_reads();
+    void drain_completed_sub_reads();
     void complete_sub_read(const SubReadJob &job, vp::IoRespStatus status,
                            int64_t latency_cycles);
 
@@ -143,16 +145,46 @@ private:
     // adapter's.
     int64_t read_last_sched_cycle;
     int64_t write_last_sched_cycle;
+    // Cycle of the most recent sub-read issued downstream. Issuance is paced to
+    // at most one sub-read per cycle: a bandwidth router charges burst_duration
+    // and advances a per-input watermark per request, so bursting several reads
+    // in one cycle makes a *series* of such routers each compound the bandwidth
+    // wait — double-charging the transfer (two 8 B/cyc routers would stream at
+    // 4 B/cyc). One per cycle lets each watermark catch up so the per-beat
+    // latency stays flat, while the outstanding window still hides round-trip.
+    int64_t read_issue_last_cycle = -1;
 
-    // Read sub-request pacing: one beat-sized downstream read per cycle. Reads
-    // pending issue sit in read_jobs (FIFO, a whole burst enqueued at once so
-    // bursts are serviced in arrival order); at most one sub-read is in flight
-    // downstream at a time, carried by sub_req / current_job.
+    // Read sub-request pacing. Reads pending issue sit in read_jobs (FIFO, a
+    // whole burst enqueued at once so bursts are serviced in arrival order).
+    // Several beat-sized sub-reads are kept in flight downstream at once
+    // (up to max_sub_outstanding) so reads pipeline at the downstream's
+    // throughput rather than its per-beat round-trip latency.
     std::deque<SubReadJob> read_jobs;
-    vp::IoReq sub_req;
-    SubReadJob current_job;
-    bool sub_read_outstanding = false;
+
+    // One in-flight (or just-completed-but-not-yet-drained) downstream
+    // sub-read. Each carries its own heap req object so several can be
+    // outstanding. Responses may arrive out of order (multi-bank shared L2),
+    // so completed entries are buffered and drained to the upstream beat
+    // stream strictly in issue/offset order — the upstream master needs
+    // is_last to be the genuine last beat.
+    struct InflightSubRead
+    {
+        vp::IoReq        *req;
+        SubReadJob        job;
+        bool              completed = false;
+        vp::IoRespStatus  status    = vp::IO_RESP_OK;
+        int64_t           latency   = 0;
+    };
+    std::deque<InflightSubRead> sub_inflight;
+    // Outstanding-window depth. With one-per-cycle issuance the window must be
+    // at least the downstream round-trip latency to sustain 1 beat/cycle; sized
+    // generously so high-latency paths (e.g. router_latency=10) don't bottleneck.
+    int max_sub_outstanding = 32;
+
+    // A sub-read DENIED by the downstream is held here and re-issued from the
+    // retry() callback; no further sub-reads are issued until it is accepted.
     bool sub_read_denied = false;
+    SubReadJob denied_job;
 
     vp::Trace trace;
 };

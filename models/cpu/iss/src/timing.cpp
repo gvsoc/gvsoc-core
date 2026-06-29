@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <vp/controller.hpp>
 #include "cpu/iss/include/iss.hpp"
 #include ISS_CORE_INC(class.hpp)
 
@@ -95,6 +96,11 @@ void Timing::reset(bool active)
                 for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
                 {
                     binaries += ":" + x->get_str();
+                    // Alongside the GUI-facing "binaries" trace event, tell any connected proxy
+                    // front-end (e.g. the console) about each binary so it can auto-load its
+                    // symbols. Done at reset so the component is linked into the hierarchy and
+                    // get_launcher() can reach the real launcher.
+                    this->iss.top.get_launcher()->declare_binary(x->get_str());
                 }
 
                 this->binaries_trace_event.event_string(binaries.c_str(), true);

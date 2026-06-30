@@ -596,8 +596,11 @@ class RiscvCommon(st.Component):
         for id in range(0, 32):
             gvsoc.gui.Signal(self, regfile, f"x{id}", path=f"regfile/x{id}", groups=['regmap'])
 
-        # TODO this should be enabled by the build process when the runtime is using multi-threading
-        # thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
+        # Flame chart of the function call stack, reconstructed from the pc / jal / jalr / irq
+        # traces. Only generated when the gui-threads parameter is set (the runtime must also be
+        # built with __GVSOC_GUI__ to emit thread_lifecycle / thread_current for per-thread groups).
+        if self.get_parameter('/gui-threads'):
+            gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
 
         return active
 

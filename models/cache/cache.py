@@ -28,7 +28,7 @@ class Cache(st.Component):
 
     """
 
-    def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False, cache_v2=False):
+    def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False, cache_v2=False, fic_enabled=False):
 
         super(Cache, self).__init__(parent, name)
 
@@ -45,7 +45,8 @@ class Cache(st.Component):
             'refill_latency': refill_latency,
             'add_offset': add_offset,
             'refill_shift': refill_shift,
-            'enabled': enabled
+            'enabled': enabled,
+            'fic_enabled': fic_enabled,
         })
 
     def i_INPUT(self) -> st.SlaveItf:

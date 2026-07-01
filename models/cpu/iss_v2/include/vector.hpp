@@ -42,4 +42,10 @@ public:
     uint8_t mant;
 
     uint8_t vregs[ISS_NB_VREGS][CONFIG_ISS_VLEN/8];
+
+#ifdef CONFIG_REGFILE_FI
+private:
+	Iss &iss;
+	bool registered_with_fic=false;
+#endif
 };

@@ -45,6 +45,8 @@ Iss::Iss(IssWrapper &top)
 
     this->top.new_master_port("barrier_req", &this->barrier_req_itf, (vp::Block *)this);
 
+    this->waiting_barrier = false;
+
 
     this->snitch = true;
     this->fp_ss = false;

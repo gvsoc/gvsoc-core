@@ -77,6 +77,7 @@ void Exec::build()
 
     this->current_insn = 0;
     this->stall_insn = 0;
+    this->cache_sync = false;
 #if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     this->hwloop_end_insn[0] = 0;
     this->hwloop_end_insn[1] = 0;
@@ -102,6 +103,7 @@ void Exec::reset(bool active)
         this->irq_locked = 0;
         this->insn_on_hold = false;
         this->stall_cycles = 0;
+        this->wfi_start = 0;
         this->cache_sync = false;
 
         // Always increase the stall when reset is asserted since stall count is set to 0
@@ -464,7 +466,9 @@ void Exec::offload_grant(vp::Block *__this, IssOffloadInsnGrant<iss_reg_t> *resu
 void Exec::flush_cache_ack_sync(vp::Block *__this, bool active)
 {
     Exec *_this = (Exec *)__this;
-    if (_this->iss.exec.cache_sync)
+    // Only complete the flush on the ack assertion. The flush-ack aggregator (And cell)
+    // also emits de-assertion edges, which must not prematurely terminate the flush.
+    if (active && _this->iss.exec.cache_sync)
     {
         _this->iss.exec.cache_sync = false;
         _this->stalled_dec();

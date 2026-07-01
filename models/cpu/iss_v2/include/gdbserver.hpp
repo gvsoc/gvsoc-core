@@ -67,6 +67,11 @@ public:
     void breakpoint_stub_remove(iss_insn_t *insn, iss_reg_t pc);
     bool breakpoint_check_pc(iss_addr_t pc);
 
+    // When no gdb front-end is attached (console/proxy debugging), actively stop the simulation and
+    // notify proxy clients on a breakpoint/watchpoint hit, so the front-end can free-run and be
+    // woken on the hit instead of polling the engine in small steps.
+    void stop_for_debug();
+
     void decode_insn(iss_insn_t *insn, iss_addr_t pc);
 
     Iss &iss;
@@ -89,4 +94,8 @@ public:
     bool watchpoint_hit = false;
     iss_addr_t watchpoint_hit_addr = 0;
     bool watchpoint_hit_is_write = false;
+    // One-shot "step over the breakpoint at this PC" set by resume, so a continue past a breakpoint
+    // executes the instruction once instead of immediately re-triggering the same breakpoint.
+    bool bp_skip_active = false;
+    iss_addr_t bp_skip_pc = 0;
 };

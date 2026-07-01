@@ -254,13 +254,14 @@ vp::IoReqStatus IoV2CdcRtlBridge::in_req_handler(vp::Block *__this, vp::IoReq *r
 }
 
 
-void IoV2CdcRtlBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck IoV2CdcRtlBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     IoV2CdcRtlBridge *self = static_cast<IoV2CdcRtlBridge *>(__this);
     self->marshal_resp_into_exchange();
     self->exchange.rev_src_pending = 1;
     self->phase = PHASE_WAIT_REV;
     self->schedule_step(0);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

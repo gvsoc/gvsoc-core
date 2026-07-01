@@ -111,8 +111,11 @@ private:
     };
 
     static vp::IoReqStatus req_handler(vp::Block *__this, vp::IoReq *req);
-    static void            resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   resp_handler(vp::Block *__this, vp::IoReq *req);
     static void            retry_handler(vp::Block *__this, vp::IoRetryChannel channel);
+    // Upstream master is ready to accept responses again: re-send the beat we
+    // are holding (response-path back-pressure).
+    static void            resp_retry_in_handler(vp::Block *__this, vp::IoRetryChannel channel);
     static void            fsm_handler(vp::Block *__this, vp::ClockEvent *event);
 
     void schedule_chunk(vp::IoReq *req, uint8_t *data, uint64_t size,
@@ -185,6 +188,15 @@ private:
     // retry() callback; no further sub-reads are issued until it is accepted.
     bool sub_read_denied = false;
     SubReadJob denied_job;
+
+    // Response-path back-pressure: the upstream master (e.g. a beat router
+    // arbitrating its per-input response channel) refused our most recent
+    // resp() beat. We hold that exact object and re-send it from
+    // resp_retry_in_handler; no further upstream beats are emitted until it is
+    // accepted. The master's burst request is never held/freed here — the
+    // initiator owns it (initiator-owned request convention).
+    bool resp_held = false;
+    vp::IoReq *held_req = nullptr;
 
     vp::Trace trace;
 };

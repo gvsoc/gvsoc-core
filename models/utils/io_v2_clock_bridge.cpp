@@ -161,7 +161,7 @@ vp::IoReqStatus IoV2ClockBridge::in_req_handler(vp::Block *__this, vp::IoReq *re
 }
 
 
-void IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(__this);
 
@@ -176,7 +176,7 @@ void IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
         self->resp_queue.push_back(req);
         if (!self->resp_event->is_enqueued())
             self->master_engine->enqueue(self->resp_event, 1);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     int64_t now_slave = self->slave_engine->get_cycles();
@@ -184,6 +184,8 @@ void IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *req)
                      now_slave + self->k_src_per_dir, 1);
     self->reschedule_event(*self->rev_src_event, self->rev_src_queue,
                            self->slave_engine);
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

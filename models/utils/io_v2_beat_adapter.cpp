@@ -11,7 +11,7 @@
 
 IoV2BeatAdapter::IoV2BeatAdapter(vp::ComponentConf &config)
     : vp::Component(config),
-      in(&IoV2BeatAdapter::req_handler),
+      in(&IoV2BeatAdapter::req_handler, &IoV2BeatAdapter::resp_retry_in_handler),
       out(&IoV2BeatAdapter::retry_handler, &IoV2BeatAdapter::resp_handler),
       fsm_event(this, &IoV2BeatAdapter::fsm_handler)
 {
@@ -73,7 +73,10 @@ vp::IoReqStatus IoV2BeatAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
         // Sync big-packet — req->data is already consumed. Synthesize the
         // per-beat resp() stream now so the upstream master sees the uniform
         // "GRANTED then resp() per beat" semantic.
-        self->schedule_chunk(req, req->get_data(), size, req->get_latency());
+        // get_full_latency() = head latency + bandwidth occupancy (duration):
+        // a bandwidth slave reports its transfer cost via set_duration(), which
+        // is max-combined across hops, so reading latency alone would miss it.
+        self->schedule_chunk(req, req->get_data(), size, req->get_full_latency());
         return vp::IO_REQ_GRANTED;
     }
     if (st == vp::IO_REQ_DENIED)
@@ -84,9 +87,12 @@ vp::IoReqStatus IoV2BeatAdapter::req_handler(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     auto *self = static_cast<IoV2BeatAdapter *>(__this);
+
+    // The adapter always accepts the downstream response (it buffers it and
+    // paces the upstream stream itself), so it never back-pressures downstream.
 
     // Async completion of one of our in-flight read sub-reads? Mark it done,
     // drain any now-contiguous completed beats in order, and refill the
@@ -97,17 +103,18 @@ void IoV2BeatAdapter::resp_handler(vp::Block *__this, vp::IoReq *req)
         {
             e.completed = true;
             e.status    = req->get_resp_status();
-            e.latency   = req->get_latency();
+            e.latency   = req->get_full_latency();
             self->drain_completed_sub_reads();
             self->issue_pending_sub_reads();
             self->reschedule_fsm();
-            return;
+            return vp::IO_RESP_ACCEPTED;
         }
     }
 
     // Write path: the slave responds on the master's own req object.
     self->schedule_chunk(req, req->get_data(), req->get_size(),
-                         req->get_latency());
+                         req->get_full_latency());
+    return vp::IO_RESP_ACCEPTED;
 }
 
 
@@ -195,7 +202,7 @@ void IoV2BeatAdapter::issue_sub_read(const SubReadJob &job)
         InflightSubRead &e = this->sub_inflight.back();
         e.completed = true;
         e.status    = r->get_resp_status();
-        e.latency   = r->get_latency();
+        e.latency   = r->get_full_latency();
         this->drain_completed_sub_reads();
     }
 }
@@ -369,13 +376,10 @@ void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint8_t *data,
 
 void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
 {
-    // A response delivered as a single beat never aliases (one resp(), one
-    // object, delivered once), so round-trip the master's own req — many
-    // masters (e.g. a CPU LSU) key their completion on getting that exact
-    // object back. Writes are also one-resp-per-req. Only a multi-beat read
-    // splits one request into N deliveries and so needs a distinct object per
-    // beat (below).
-    if (ev.req->get_is_write() || (ev.is_first && ev.is_last))
+    // A write is one-resp-per-req, so round-trip the master's own request object
+    // as the single ack — the master frees/recycles it as its own object. (Reads
+    // never round-trip; see below.)
+    if (ev.req->get_is_write())
     {
         vp::IoReq *req = ev.req;
         req->set_addr(ev.addr);
@@ -390,17 +394,22 @@ void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
             "Emit write ack (req=%p, offset=%lu, size=%lu, first=%d, last=%d)\n",
             req, ev.offset, ev.size, ev.is_first ? 1 : 0, ev.is_last ? 1 : 0);
 
-        this->in.resp(req);
+        if (this->in.resp(req) == vp::IO_RESP_DENIED)
+        {
+            // Upstream busy: hold this exact object (the master's own request)
+            // and re-send it on resp_retry. Nothing to free on acceptance.
+            this->resp_held = true;
+            this->held_req = req;
+        }
         return;
     }
 
-    // Read response beat: a multi-beat read answers one burst with N beats, so
-    // the beats cannot share the burst's req object (a downstream that queues a
-    // response — e.g. a clock bridge — would alias the reused object). Each beat
-    // is its own heap object, freed by the terminal master. The burst's own req
-    // is owned by the adapter and freed on the last beat — the master must
-    // therefore hand the adapter a freeable (heap-allocated) request, not a
-    // pooled/borrowed object, and never gets it back.
+    // Read response beat (initiator-owned request convention): every read beat —
+    // single- or multi-beat — is a distinct heap object the terminal master frees
+    // as it consumes it. The master's burst request is NEVER round-tripped as a
+    // read beat and is NEVER freed by the adapter: the initiator owns it and frees
+    // it on the last response, correlating each beat back to its request by
+    // req->initiator (copied below), not by object identity.
     vp::IoReq *beat = new vp::IoReq();
     beat->set_addr(ev.addr);
     beat->set_data(ev.data);
@@ -416,12 +425,37 @@ void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
         "Emit read beat (beat=%p, burst=%p, offset=%lu, size=%lu, first=%d, last=%d)\n",
         beat, ev.req, ev.offset, ev.size, ev.is_first ? 1 : 0, ev.is_last ? 1 : 0);
 
-    this->in.resp(beat);
-
-    if (ev.is_last)
+    if (this->in.resp(beat) == vp::IO_RESP_DENIED)
     {
-        delete ev.req;
+        // Upstream busy: hold this freshly-built beat and re-send it on
+        // resp_retry. The master's request is the initiator's to free, not ours.
+        this->resp_held = true;
+        this->held_req = beat;
+        return;
     }
+}
+
+
+void IoV2BeatAdapter::resp_retry_in_handler(vp::Block *__this,
+                                            vp::IoRetryChannel /*channel*/)
+{
+    auto *self = static_cast<IoV2BeatAdapter *>(__this);
+    if (!self->resp_held)
+    {
+        return;
+    }
+    // The io_v2 contract requires the re-send to happen synchronously inside the
+    // retry callback.
+    if (self->in.resp(self->held_req) == vp::IO_RESP_DENIED)
+    {
+        // Still not ready — keep holding and wait for the next resp_retry.
+        return;
+    }
+    self->resp_held = false;
+    self->held_req = nullptr;
+    // Resume draining the rest of the pending beats (on the next cycle — the
+    // master accepts one beat per cycle).
+    self->reschedule_fsm();
 }
 
 
@@ -430,8 +464,11 @@ void IoV2BeatAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
     auto *self = static_cast<IoV2BeatAdapter *>(__this);
     int64_t now = self->clock.get_cycles();
 
-    // Emit any upstream beats that are due this cycle.
-    while (!self->pending.empty() && self->pending.front().ready_cycle <= now)
+    // Emit any upstream beats that are due this cycle. Stop the instant a beat
+    // is back-pressured (emit_beat sets resp_held): the held beat must be
+    // re-sent first, from resp_retry_in_handler, before any later beat.
+    while (!self->resp_held && !self->pending.empty()
+           && self->pending.front().ready_cycle <= now)
     {
         PendingBeat ev = self->pending.front();
         self->pending.pop_front();
@@ -448,6 +485,12 @@ void IoV2BeatAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 
 void IoV2BeatAdapter::reschedule_fsm()
 {
+    // Blocked on upstream back-pressure: nothing can drain until resp_retry
+    // releases the held beat, which reschedules us itself. Don't arm a timer.
+    if (this->resp_held)
+    {
+        return;
+    }
     if (this->fsm_event.is_enqueued())
     {
         return;
@@ -521,6 +564,11 @@ void IoV2BeatAdapter::reset(bool active)
         }
         this->sub_inflight.clear();
         this->sub_read_denied = false;
+        // Drop any held (back-pressured) beat. Like pending/read_jobs above, the
+        // upstream-side objects are not freed here (they are owned by the master
+        // / freed at teardown elsewhere); just clear the held state.
+        this->resp_held = false;
+        this->held_req = nullptr;
         this->read_last_sched_cycle = -1;
         this->write_last_sched_cycle = -1;
         this->read_issue_last_cycle = -1;

@@ -32,6 +32,34 @@ vp_model(NAME utils.io_v2_beat_collapse_adapter
     SOURCES "io_v2_beat_collapse_adapter.cpp"
 )
 
+# ---------------------------------------------------------------------------
+# IoV2BeatToSyncAdapter — dedicated adapter for the IoV2Beat master <-> IoV2Sync
+# slave case. The sync slave always replies IO_REQ_DONE inline, so this drops
+# the general adapter's per-beat sub-read pipeline and just spreads the inline
+# response into a per-beat resp() stream.
+# ---------------------------------------------------------------------------
+vp_model(NAME utils.io_v2_beat_to_sync_adapter
+    SOURCES "io_v2_beat_to_sync_adapter.cpp"
+)
+
+# ---------------------------------------------------------------------------
+# IoV2BeatToSingleReqAdapter — dedicated adapter for the IoV2Beat master <->
+# IoV2SingleReq slave case. A single-req slave answers each request with a
+# single-beat response (inline DONE / async GRANTED+resp / DENIED+retry, never
+# a multi-beat stream). Per-combination specialisation of the general beat
+# adapter: same sub-read pipeline, with the single-beat-response contract
+# checked in asserts builds.
+#
+# It reads its parameters from the generated config tree
+# (IoV2BeatToSingleReqAdapterConfig); the generated struct header lands under the
+# engine binary dir, so add it to the include path for this standalone build
+# (target-driven gen_ builds get it automatically).
+# ---------------------------------------------------------------------------
+vp_model(NAME utils.io_v2_beat_to_single_req_adapter
+    SOURCES "io_v2_beat_to_single_req_adapter.cpp"
+    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
+)
+
 add_subdirectory(loader)
 
 # ---------------------------------------------------------------------------

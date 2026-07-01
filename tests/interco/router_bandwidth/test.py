@@ -89,6 +89,24 @@ def build_case(case_name: str) -> dict:
             'targets': [('t0', t0_base, window, ok)],
         }
 
+    if case_name == 'series_two_routers':
+        # Two bandwidth routers in series, each bandwidth=8 latency=1. One 64-byte
+        # read => burst_duration = ceil(64/8) = 8 on EACH router. With the
+        # duration field max-combined (and head latency additive), the master
+        # should see get_full_latency() = (1+1 head) + max(8,8) = 10, NOT the old
+        # store-and-forward sum of 2*(1+8) = 18. This is the regression guard for
+        # series bandwidth modelling.
+        return {
+            'config': RouterConfig(kind='bandwidth', latency=1, bandwidth=8),
+            'chain': [
+                RouterConfig(kind='bandwidth', latency=1, bandwidth=8),
+                RouterConfig(kind='bandwidth', latency=1, bandwidth=8),
+            ],
+            'schedule': [dict(cycle=10, addr=t0_base, size=64,
+                              is_write=False, name='r0')],
+            'targets': [('t0', t0_base, window, ok)],
+        }
+
     if case_name == 'out_of_mapping':
         return {
             'config': RouterConfig(kind='bandwidth', latency=0, bandwidth=0),
@@ -111,17 +129,30 @@ class Chip(gvsoc.systree.Component):
         spec = build_case(case)
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100_000_000)
 
-        router = Router(self, 'router', config=spec['config'])
-        clock.o_CLOCK(router.i_CLOCK())
+        # A single router by default, or a series chain when the case provides
+        # one (to exercise cross-hop latency/duration combination).
+        chain_cfgs = spec.get('chain', [spec['config']])
+        routers = []
+        for i, cfg in enumerate(chain_cfgs):
+            r = Router(self, 'router' if i == 0 else f'router{i}', config=cfg)
+            clock.o_CLOCK(r.i_CLOCK())
+            routers.append(r)
 
         master = StubMaster(self, 'master', schedule=spec['schedule'], logname='master')
         clock.o_CLOCK(master.i_CLOCK())
-        master.o_OUTPUT(router.i_INPUT(0))
+        master.o_OUTPUT(routers[0].i_INPUT(0))
 
+        # Wire each router to the next, passing the whole address range through.
+        for i in range(len(routers) - 1):
+            routers[i].o_MAP(routers[i + 1].i_INPUT(0),
+                             RouterMapping(name=f'hop{i}', base=0,
+                                           size=0x7FFF_FFFF_FFFF_FFFF))
+
+        last = routers[-1]
         for (tname, base, size, rules) in spec['targets']:
             tgt = StubTarget(self, tname, rules=rules, logname=tname)
             clock.o_CLOCK(tgt.i_CLOCK())
-            router.o_MAP(tgt.i_INPUT(), RouterMapping(name=tname, base=base, size=size))
+            last.o_MAP(tgt.i_INPUT(), RouterMapping(name=tname, base=base, size=size))
 
 
 class Target(gvsoc.runner.Target):

@@ -116,7 +116,7 @@ public:
 
 private:
     static vp::IoReqStatus input_req   (vp::Block *__this, vp::IoReq *req, int id);
-    static void            output_resp (vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck   output_resp (vp::Block *__this, vp::IoReq *req, int id);
     static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
     static void            fsm_handler (vp::Block *__this, vp::ClockEvent *event);
 
@@ -373,11 +373,12 @@ void LogIco::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 // Response path: the IoV2Sync bank must never drive these.
 //
 
-void LogIco::output_resp(vp::Block *__this, vp::IoReq * /*req*/, int id)
+vp::IoRespAck LogIco::output_resp(vp::Block *__this, vp::IoReq * /*req*/, int id)
 {
     LogIco *_this = (LogIco *)__this;
     _this->trace.fatal("Unexpected async resp() from IoV2Sync bank %d "
                        "(the synchronous sub-protocol forbids it)\n", id);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void LogIco::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)

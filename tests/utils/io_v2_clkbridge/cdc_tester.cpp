@@ -57,7 +57,7 @@ private:
         vp::IoReq req;
     };
 
-    static void out_resp(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck out_resp(vp::Block *__this, vp::IoReq *req);
     static void out_retry(vp::Block *__this, vp::IoRetryChannel);
     static void done_in_sync(vp::Block *__this, bool value);
     static void step_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -335,16 +335,16 @@ void CDCTester::step()
 }
 
 
-void CDCTester::out_resp(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck CDCTester::out_resp(vp::Block *__this, vp::IoReq *req)
 {
     CDCTester *_this = (CDCTester *)__this;
-    if (_this->failed) return;
+    if (_this->failed) return vp::IO_RESP_ACCEPTED;
 
     int slot_idx = _this->find_slot_for_req(req);
     if (slot_idx < 0)
     {
         _this->fail("resp for unknown req=%p", (void *)req);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
     Slot &s = _this->slots[slot_idx];
 
@@ -352,18 +352,19 @@ void CDCTester::out_resp(vp::Block *__this, vp::IoReq *req)
     {
         _this->fail("async resp INVALID idx=%lu is_write=%d",
             s.index, s.is_write ? 1 : 0);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
     if (!s.is_write
         && memcmp(s.data, s.expected, _this->access_size) != 0)
     {
         _this->fail("read mismatch idx=%lu (async)", s.index);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     s.active = false;
     _this->in_flight_count--;
     _this->schedule_step(1);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

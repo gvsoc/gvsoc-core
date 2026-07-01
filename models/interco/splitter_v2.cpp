@@ -87,7 +87,7 @@ public:
 
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req, int id);
     static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
 
     vp::IoReq *alloc_sub();
@@ -393,7 +393,7 @@ vp::IoReqStatus Splitter::input_req(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void Splitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck Splitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     Splitter *_this = (Splitter *)__this;
     vp::IoReq *parent = req->parent;
@@ -402,6 +402,7 @@ void Splitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
     {
         _this->input_itf.resp(parent);
     }
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

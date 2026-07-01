@@ -98,9 +98,15 @@ void SsrStreamer::reset(bool active)
     if (active)
     {
         this->active = false;
+        this->is_write = false;
+        this->read_dim = 0;
+        this->write_dim = 0;
         this->in_fifo_head = 0;
         this->in_fifo_tail = 0;
         this->in_fifo_nb_elem = 0;
+        this->out_fifo_head = 0;
+        this->out_fifo_tail = 0;
+        this->out_fifo_nb_elem = 0;
         this->repeat_count = 0;
         for (int i=0; i<4; i++)
         {

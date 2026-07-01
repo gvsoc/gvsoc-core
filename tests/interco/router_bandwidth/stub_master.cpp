@@ -40,7 +40,7 @@ private:
     };
 
     static vp::IoReqStatus retry_default(vp::Block *) { return vp::IO_REQ_DONE; } // unused
-    static void resp_handler(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck resp_handler(vp::Block *__this, vp::IoReq *req);
     static void retry_handler(vp::Block *__this, vp::IoRetryChannel);
     static void issue_handler(vp::Block *__this, vp::ClockEvent *event);
     static void quit_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -166,7 +166,7 @@ void StubMaster::issue(ScheduleEntry *entry)
         case vp::IO_REQ_DONE:
             printf("[%ld] %s DONE name=%s status=%d latency=%ld\n",
                 now, this->logname.c_str(), entry->name.c_str(),
-                (int)entry->req->get_resp_status(), entry->req->get_latency());
+                (int)entry->req->get_resp_status(), entry->req->get_full_latency());
             break;
         case vp::IO_REQ_GRANTED:
             printf("[%ld] %s GRANTED name=%s\n",
@@ -180,7 +180,7 @@ void StubMaster::issue(ScheduleEntry *entry)
     }
 }
 
-void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
 {
     StubMaster *_this = (StubMaster *)__this;
     ScheduleEntry *e = _this->entry_from_req(req);
@@ -188,7 +188,8 @@ void StubMaster::resp_handler(vp::Block *__this, vp::IoReq *req)
     const char *name = e ? e->name.c_str() : "?";
     printf("[%ld] %s RESP name=%s status=%d latency=%ld\n",
         now, _this->logname.c_str(), name,
-        (int)req->get_resp_status(), req->get_latency());
+        (int)req->get_resp_status(), req->get_full_latency());
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void StubMaster::retry_handler(vp::Block *__this, vp::IoRetryChannel)

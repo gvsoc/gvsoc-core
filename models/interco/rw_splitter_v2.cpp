@@ -62,7 +62,7 @@ public:
 
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req, int id);
     static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
 
     static constexpr int ID_READ  = 0;
@@ -178,12 +178,13 @@ vp::IoReqStatus RwSplitter::input_req(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void RwSplitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck RwSplitter::output_resp(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     RwSplitter *_this = (RwSplitter *)__this;
     // Stateless forward. The request object already carries any latency
     // the downstream annotated on it — nothing to add or restore here.
     _this->input_itf.resp(req);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

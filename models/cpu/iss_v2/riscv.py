@@ -22,6 +22,7 @@ from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
 from gvsoc.systree import Component
+from gvsoc.signature import IoV2SingleReq
 import gvrun.timing
 import os.path
 import gvsoc.gui
@@ -515,11 +516,6 @@ class RiscvCommon(st.Component):
         for module in self.modules.values():
             module.gen(self)
 
-        # Instruction-trace symbols are resolved lazily at runtime from the ELF
-        # binary via libdwfl, so link libdw/libelf into the ISS component. The
-        # libdw code is excluded from the 32-bit model variant.
-        self.add_libraries(['dw', 'elf'])
-
         self.add_sources([
             isa.get_source()
         ])
@@ -575,7 +571,7 @@ class RiscvCommon(st.Component):
     def handle_executable(self, binary):
 
         # Record the binary; the ISS resolves trace symbols from it lazily at
-        # runtime via libdw (no precompute step, no binary-size cap).
+        # runtime from the ELF binary (no precompute step, no binary-size cap).
         self.get_property('binaries').append(binary)
 
         if self.htif:
@@ -681,8 +677,13 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
+        # SingleReq: the LSU owns its (pooled) request and recovers it on the
+        # response by identity, so the data port is a single-req initiator. The
+        # class signature also makes the framework insert a collapse adapter when
+        # this binds to a beat plane (e.g. a KIND_BEAT router), so the LSU's own
+        # request never travels downstream — only a reallocated one does.
         self.itf_bind('data', itf,
-            signature='io_v2' if self._uses_io_v2 else 'io')
+            signature=IoV2SingleReq() if self._uses_io_v2 else 'io')
 
     def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('meminfo', itf, signature='io')
@@ -815,8 +816,11 @@ class RiscvCommon(st.Component):
         for id in range(0, 32):
             gvsoc.gui.Signal(self, regfile, f"x{id}", path=f"regfile/x{id}", groups=['regmap'])
 
-        # TODO this should be enabled by the build process when the runtime is using multi-threading
-        # thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
+        # Flame chart of the function call stack, reconstructed from the pc / jal / jalr / irq
+        # traces. Only generated when the gui-threads parameter is set (the runtime must also be
+        # built with __GVSOC_GUI__ to emit thread_lifecycle / thread_current for per-thread groups).
+        if self.get_parameter('/gui-threads'):
+            gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
 
         return active
 

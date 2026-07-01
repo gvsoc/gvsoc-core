@@ -136,7 +136,7 @@ private:
     // io_v2 downstream callbacks. ``retry`` fires without a request
     // argument — it is a pure "ready-again" signal per the v2 protocol.
     static void data_retry(vp::Block *__this, vp::IoRetryChannel);
-    static void data_response(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck data_response(vp::Block *__this, vp::IoReq *req);
     bool handle_req_response(LsuReqEntry *entry);
     void handle_req_end(LsuReqEntry *entry);
     // Re-arm and re-issue ``entry`` for the second beat of a misaligned

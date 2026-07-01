@@ -230,7 +230,11 @@ int PrefetchSingleLine::fill(iss_addr_t addr)
     return this->send_fetch_req(aligned_addr, this->data, CONFIG_GVSOC_ISS_PREFETCH_SIZE, false);
 }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+vp::IoRespAck PrefetchSingleLine::fetch_response(vp::Block *__this, vp::IoReq *req)
+#else
 void PrefetchSingleLine::fetch_response(vp::Block *__this, vp::IoReq *req)
+#endif
 {
     PrefetchSingleLine *_this = (PrefetchSingleLine *)__this;
 
@@ -245,6 +249,10 @@ void PrefetchSingleLine::fetch_response(vp::Block *__this, vp::IoReq *req)
     {
         _this->fetch_stall_callback(_this);
     }
+
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    return vp::IO_RESP_ACCEPTED;
+#endif
 }
 
 bool PrefetchSingleLine::fetch(iss_reg_t addr)

@@ -9,16 +9,20 @@
  *
  * Fastest of the three router variants. Every incoming request is forwarded to the
  * output inline — there is no scheduling of ClockEvents, no internal watermark-based
- * queueing. Timing is reported purely via `req->latency`:
+ * queueing. Timing is reported on the request in two parts:
  *
- *     logical_latency = max(0, next_available - now) + router_latency + mapping_latency
- *                     + ceil(size / bandwidth)
- *     req->inc_latency(logical_latency)
- *     next_available  := now + logical_latency  (moved forward by this request's cost)
+ *     wait         = max(0, next_available - now)         // contention back-pressure
+ *     head_latency = wait + router_latency + mapping_latency
+ *     burst_dur    = ceil(size / bandwidth)               // bandwidth occupancy
+ *     req->inc_latency(head_latency)    // ADDITIVE across series hops
+ *     req->set_duration(burst_dur)      // MAX-combined across series hops
+ *     next_available := now + wait + burst_dur            // throughput watermark
  *
- * A latency-aware initiator reads `req->get_latency()` and paces itself accordingly
- * (e.g. advances its internal cycle counter by that much before issuing the next
- * request). Wall-clock on the simulator stays at `now`.
+ * Splitting head latency (additive) from bandwidth occupancy (max-combined) is what
+ * lets two bandwidth routers in series report the bottleneck transfer time instead of
+ * summing it: the same request object carries `duration`, and each hop's set_duration()
+ * takes the max. A latency-aware initiator reads `req->get_full_latency()`
+ * (= latency + duration) and paces itself accordingly. Wall-clock stays at `now`.
  *
  * The only time a request is NOT forwarded inline is when the output is stalled
  * because a previous downstream DENY has not yet been retried. In that case the
@@ -121,7 +125,7 @@ public:
 
 private:
     static vp::IoReqStatus req_muxed(vp::Block *__this, vp::IoReq *req, int port);
-    static void resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck resp_muxed(vp::Block *__this, vp::IoReq *req, int id);
     static void retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel);
 
     // Flat backdoor map, built lazily on first debug access
@@ -271,9 +275,14 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
         burst_duration = ((int64_t)size + this->cfg.bandwidth - 1) / this->cfg.bandwidth;
     }
 
-    // Router and mapping latency are output-side only — they don't stall the input
-    // channel.
-    int64_t logical_latency = wait + this->cfg.latency + out->mapping_latency + burst_duration;
+    // Head latency: contention wait + router/mapping pipeline delay. This is
+    // additive across series hops (each hop adds its own), so it goes on
+    // `latency` via inc_latency(). The bandwidth occupancy (burst_duration) is
+    // reported separately via set_duration() so it combines with MAX, not sum —
+    // two series bandwidth routers streaming the same packet overlap, so the
+    // end-to-end transfer time is the bottleneck, not the total. See
+    // IoReq::get_duration() / get_full_latency().
+    int64_t head_latency = wait + this->cfg.latency + out->mapping_latency;
 
     // Translate the address — the only mutation we do BEFORE the forward, so
     // rollback on DENIED is one line.
@@ -287,7 +296,8 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
     {
         // Hot path: no InFlight, no initiator juggling, no watermark save/restore.
         // Just annotate and advance.
-        req->inc_latency(logical_latency);
+        req->inc_latency(head_latency);
+        req->set_duration(burst_duration);
         in->next_available_cycle  = now + wait + burst_duration;
         // Output is busy only for the bandwidth-consuming part of the
         // transfer. router_latency + mapping_latency are pipeline delays —
@@ -309,7 +319,8 @@ vp::IoReqStatus RouterBandwidth::forward_inline(InputPort *in, vp::IoReq *req,
         ifl->input = in;
         ifl->saved_initiator = req->initiator;
         req->initiator = ifl;
-        req->inc_latency(logical_latency);
+        req->inc_latency(head_latency);
+        req->set_duration(burst_duration);
         in->next_available_cycle  = now + wait + burst_duration;
         out->next_available_cycle = now + wait + burst_duration;
         return vp::IO_REQ_GRANTED;
@@ -400,7 +411,7 @@ void RouterBandwidth::drain_queue(InputPort *in)
     }
 }
 
-void RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
+vp::IoRespAck RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
 {
     RouterBandwidth *_this = (RouterBandwidth *)__this;
     InFlight *ifl = (InFlight *)req->initiator;
@@ -426,6 +437,7 @@ void RouterBandwidth::resp_muxed(vp::Block *__this, vp::IoReq *req, int /*id*/)
     {
         req->initiator = ifl;
     }
+    return vp::IO_RESP_ACCEPTED;
 }
 
 void RouterBandwidth::retry_muxed(vp::Block *__this, int id, vp::IoRetryChannel)

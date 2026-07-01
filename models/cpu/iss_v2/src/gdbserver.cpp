@@ -28,6 +28,10 @@ Gdbserver::Gdbserver(Iss &iss)
     : iss(iss)
 {
     this->iss.traces.new_trace("gdbserver", &this->trace, vp::DEBUG);
+    // Register this core with the controller so a proxy front-end (e.g. the console) can set
+    // breakpoints/watchpoints on every core, not just one. Reached via the controller singleton
+    // (get_launcher is not yet usable during construction).
+    gv::Controller::get().register_core(&this->iss);
 }
 
 
@@ -246,7 +250,11 @@ int Gdbserver::gdbserver_state()
 
 static inline iss_reg_t breakpoint_check_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-    if (std::count(insn->breakpoints.begin(), insn->breakpoints.end(), pc) > 0)
+    // Skip the breakpoint exactly once when resuming from it (continue), so the instruction makes
+    // progress instead of re-triggering the same breakpoint forever.
+    bool skip = iss->gdbserver.bp_skip_active && iss->gdbserver.bp_skip_pc == pc;
+
+    if (!skip && std::count(insn->breakpoints.begin(), insn->breakpoints.end(), pc) > 0)
     {
         iss->exec.retain_inc();
         iss->exec.halted.set(true);
@@ -258,12 +266,17 @@ static inline iss_reg_t breakpoint_check_exec(Iss *iss, iss_insn_t *insn, iss_re
         {
             iss->gdbserver.breakpoint_hit = true;
             iss->gdbserver.breakpoint_hit_addr = pc;
+            iss->gdbserver.stop_for_debug();
         }
         return pc;
     }
     else
     {
-        return iss->exec.insn_exec(insn, pc);
+        // No breakpoint to take here (or we are stepping over it): run the real instruction via the
+        // saved handler (insn->handler is this stub, so insn_exec would recurse) and clear the
+        // one-shot skip now that the breakpoint instruction has executed.
+        iss->gdbserver.bp_skip_active = false;
+        return insn->breakpoint_saved_handler(iss, insn, pc);
     }
 }
 
@@ -308,6 +321,16 @@ bool Gdbserver::breakpoint_check_pc(iss_addr_t pc)
     }
 
     return false;
+}
+
+void Gdbserver::stop_for_debug()
+{
+    // The core is already halted by the caller; now stop the whole simulation and notify proxy
+    // clients (e.g. the console), reusing the semi-hosting stop path. This lets a front-end issue a
+    // single free run and be woken on the hit, instead of stepping the engine in small chunks and
+    // polling breakpoint status (which is ~100x slower).
+    this->iss.get_launcher()->syscall_stop_handle();
+    this->iss.time.get_engine()->pause();
 }
 
 
@@ -404,6 +427,7 @@ bool Gdbserver::watchpoint_check(bool is_write, iss_addr_t addr, int size)
                 this->watchpoint_hit = true;
                 this->watchpoint_hit_addr = hit_addr;
                 this->watchpoint_hit_is_write = is_write;
+                this->stop_for_debug();
             }
             return true;
         }

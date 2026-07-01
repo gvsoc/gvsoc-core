@@ -241,10 +241,19 @@ void Syscalls::handle_riscv_ebreak()
                 return;
             }
 
-            if (write(args[0], (void *)(long)buffer, iter_size) != iter_size)
-                break;
+            if (args[0] == 1 || args[0] == 2)
+            {
+                // stdout / stderr: route through the always-on console channel so the output can
+                // also be captured by the GUI, tagged with time + core path.
+                this->iss.stdout_write((char *)buffer, iter_size);
+            }
+            else
+            {
+                if (write(args[0], (void *)(long)buffer, iter_size) != iter_size)
+                    break;
 
-            fsync(args[0]);
+                fsync(args[0]);
+            }
 
             size -= iter_size;
             addr += iter_size;
@@ -310,7 +319,8 @@ void Syscalls::handle_riscv_ebreak()
             this->iss.regfile.set_reg(10, -1);
             return;
         }
-        putchar(args[0]);
+        char c = (char)args[0];
+        this->iss.stdout_write(&c, 1);
         break;
     }
 

@@ -52,7 +52,7 @@ public:
 
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req);
     static void            output_retry(vp::Block *__this, vp::IoRetryChannel);
 
     vp::Trace trace;
@@ -132,7 +132,7 @@ vp::IoReqStatus Remapper::input_req(vp::Block *__this, vp::IoReq *req)
 }
 
 
-void Remapper::output_resp(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck Remapper::output_resp(vp::Block *__this, vp::IoReq *req)
 {
     Remapper *_this = (Remapper *)__this;
     // Stateless forward. The request object still carries whatever address
@@ -140,6 +140,7 @@ void Remapper::output_resp(vp::Block *__this, vp::IoReq *req)
     // on DONE/RESP because the upstream master typically does not re-read
     // req->addr after completion.
     _this->input_itf.resp(req);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 

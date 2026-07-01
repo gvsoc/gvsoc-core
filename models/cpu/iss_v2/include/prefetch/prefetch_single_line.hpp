@@ -39,7 +39,11 @@ public:
     void flush();
 
     // Response callback for the refill
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    static vp::IoRespAck fetch_response(vp::Block *__this, vp::IoReq *req);
+#else
     static void fetch_response(vp::Block *__this, vp::IoReq *req);
+#endif
 
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     // io_v2 retry callback (no-op: the fetch path never gets DENIED in this model).

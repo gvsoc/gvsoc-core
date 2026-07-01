@@ -76,7 +76,7 @@ private:
 
     // io_v2 callbacks
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void refill_resp(vp::Block *__this, vp::IoReq *req);
+    static vp::IoRespAck refill_resp(vp::Block *__this, vp::IoReq *req);
     static void refill_retry(vp::Block *__this, vp::IoRetryChannel);
 
     vp::IoReqStatus handle_req(vp::IoReq *req);
@@ -237,7 +237,7 @@ void Cache::reset(bool active)
 // Refill path (master-side response / retry)
 // ---------------------------------------------------------------------------
 
-void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
 {
     Cache *_this = (Cache *)__this;
 
@@ -247,7 +247,7 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
     if (req != &_this->refill_req)
     {
         _this->input_itf.resp(req);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     // Cached refill path. A beat-streaming downstream (KIND_BEAT router) may
@@ -258,7 +258,7 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
     // produce a single resp() with is_last=true, so this is a no-op for them.
     if (!req->is_last)
     {
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     // Cached-refill path. The CPU request whose miss triggered this refill is at
@@ -295,6 +295,8 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
 
     _this->input_itf.resp(cpu_req);
     _this->check_state();
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 
@@ -462,7 +464,9 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
     {
         latency += this->refill_timestamp - now;
     }
-    latency += r->get_latency() + this->cfg.refill_latency;
+    // get_full_latency() so a bandwidth router on the refill path contributes
+    // its (max-combined) transfer time, not just the head latency.
+    latency += r->get_full_latency() + this->cfg.refill_latency;
 
     this->refill_timestamp = now + latency;
     this->refill_event_clear_event.enqueue(latency);

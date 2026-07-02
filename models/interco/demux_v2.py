@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
+from gvsoc.signature import IoV2Sync
 
 
 class DemuxConfig(Config):
@@ -257,14 +258,15 @@ class Demux(Component):
         output index from the address and forwards the request to the
         corresponding ``output_<id>`` master port, verbatim.
         """
-        return SlaveItf(self, 'input', signature='io_v2')
+        return SlaveItf(self, 'input', signature=IoV2Sync())
 
     def o_OUTPUT(self, id: int, itf: SlaveItf):
         """Binds downstream ``output_<id>`` to ``itf``.
 
         ``id`` must be in ``[0, (1 << width))``. The bound downstream
         receives every request whose selector bit field equals ``id``.
-        Responses and retries flow back through this port and are
-        forwarded on the demux's input slave port.
+        The demux is a transparent pass-through, so the input and output
+        carry the same sync contract: the downstream must answer inline
+        with ``IO_REQ_DONE`` (no async ``resp()`` / ``retry()``).
         """
-        self.itf_bind(f'output_{id}', itf, signature='io_v2')
+        self.itf_bind(f'output_{id}', itf, signature=IoV2Sync())

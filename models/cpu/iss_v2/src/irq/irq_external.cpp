@@ -143,6 +143,11 @@ void IrqExternal::irq_req_sync(vp::Block *__this, int irq)
         _this->iss.exec.sleep_exit();
     }
 
+    // Let the LSU react to the new interrupt state (e.g. the ri5ky p.elw
+    // event load abandons its parked request and replays the instruction
+    // after the handler).
+    _this->iss.lsu.irq_req_hook(irq, _this->irq_enable.get());
+
     _this->iss.exec.switch_to_full_mode();
 }
 

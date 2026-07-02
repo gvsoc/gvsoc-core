@@ -32,3 +32,21 @@ class And(gvsoc.systree.Component):
 
     def o_OUTPUT(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('output', itf, signature='wire<bool>')
+
+
+class Or(gvsoc.systree.Component):
+    def __init__(self, parent: gvsoc.systree.Component, name: str, nb_input: int=0):
+
+        super().__init__(parent, name)
+
+        self.add_sources(['utils/common_cells/or.cpp'])
+
+        self.add_properties({
+            'nb_input': nb_input
+        })
+
+    def i_INPUT(self, id: int) -> gvsoc.systree.SlaveItf:
+        return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='wire<bool>')
+
+    def o_OUTPUT(self, itf: gvsoc.systree.SlaveItf):
+        self.itf_bind('output', itf, signature='wire<bool>')

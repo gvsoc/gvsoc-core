@@ -870,7 +870,9 @@ static inline void hwloop_set_all(Iss *iss, iss_insn_t *insn, int index, iss_reg
 
 static inline iss_reg_t lp_starti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->hwloop.set_start(UIM_GET(0), pc + (UIM_GET(1) << 1));
+#else
     hwloop_set_start(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
 #endif
     return iss_insn_next(iss, insn, pc);
@@ -878,7 +880,9 @@ static inline iss_reg_t lp_starti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lp_endi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->hwloop.set_end(UIM_GET(0), pc + (UIM_GET(1) << 1));
+#else
     hwloop_set_end(iss, insn, UIM_GET(0), pc + (UIM_GET(1) << 1));
 #endif
     return iss_insn_next(iss, insn, pc);
@@ -886,7 +890,11 @@ static inline iss_reg_t lp_endi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lp_count_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+
+    iss->hwloop.set_count(UIM_GET(0), REG_GET(0));
+#else
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
     hwloop_set_count(iss, insn, UIM_GET(0), REG_GET(0));
@@ -896,7 +904,9 @@ static inline iss_reg_t lp_count_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lp_counti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->hwloop.set_count(UIM_GET(0), UIM_GET(1));
+#else
     hwloop_set_count(iss, insn, UIM_GET(0), UIM_GET(1));
 #endif
     return iss_insn_next(iss, insn, pc);
@@ -904,7 +914,18 @@ static inline iss_reg_t lp_counti_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lp_setup_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#ifdef CONFIG_GVSOC_ISS_V2
+    iss->regfile.memcheck_branch_reg(REG_IN(0));
+
+    int index = UIM_GET(0);
+    iss_reg_t count = REG_GET(0);
+    iss_reg_t start = pc + insn->size;
+    iss_reg_t end = pc + (UIM_GET(1) << 1);
+
+    iss->hwloop.set_start(index, start);
+    iss->hwloop.set_end(index, end);
+    iss->hwloop.set_count(index, count);
+#else
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
     int index = UIM_GET(0);
@@ -920,7 +941,16 @@ static inline iss_reg_t lp_setup_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t lp_setupi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#ifdef CONFIG_GVSOC_ISS_V2
+    int index = UIM_GET(0);
+    iss_reg_t count = UIM_GET(1);
+    iss_reg_t start = pc + insn->size;
+    iss_reg_t end = pc + (UIM_GET(2) << 1);
+
+    iss->hwloop.set_start(index, start);
+    iss->hwloop.set_end(index, end);
+    iss->hwloop.set_count(index, count);
+#else
     int index = UIM_GET(0);
     iss_reg_t count = UIM_GET(1);
     iss_reg_t start = pc + insn->size;
@@ -1053,7 +1083,24 @@ static inline void iss_handle_elw(Iss *iss, iss_insn_t *insn, iss_reg_t pc, iss_
 
 static inline iss_reg_t p_elw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifndef CONFIG_GVSOC_ISS_V2
+#if defined(CONFIG_GVSOC_ISS_ELW)
+    // Event load: a regular load whose park puts the whole core to sleep
+    // (clock-gated) until the event unit answers or an interrupt replays
+    // the instruction. Provided by the core's LSU subclass (see
+    // Ri5kyLsu::elw / elw_irq_unstall in gvsoc/pulp cores/ri5ky).
+    if (iss->lsu.elw(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return pc;
+    }
+    return iss_insn_next(iss, insn, pc);
+#elif defined(CONFIG_GVSOC_ISS_V2)
+    // No event-load support on this core's LSU: behave as a plain load.
+    if (iss->lsu.load_signed<int32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
+    {
+        return pc;
+    }
+    return iss_insn_next(iss, insn, pc);
+#else
     iss->regfile.memcheck_branch_reg(REG_IN(0));
 
     iss_handle_elw(iss, insn, pc, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0));

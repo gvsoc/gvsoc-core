@@ -54,5 +54,4 @@ public:
 
 private:
     Iss &iss;
-    int64_t latency;
 };

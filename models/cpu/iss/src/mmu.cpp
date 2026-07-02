@@ -30,7 +30,11 @@
 
 static inline iss_reg_t get_field(iss_reg_t field, int bit, int width)
 {
-    return (field >> bit) & ((1 << width) - 1);
+    // The shift must be done in the register-width type: fields such as the satp
+    // PPN are up to 44 bits wide, so "1 << width" with a 32-bit int is undefined
+    // behaviour and yields a wrong mask (notably zeroing the page-table base under
+    // clang/arm64), which hangs the page-table walk once paging is enabled.
+    return (field >> bit) & (((iss_reg_t)1 << width) - 1);
 }
 
 Mmu::Mmu(Iss &iss)

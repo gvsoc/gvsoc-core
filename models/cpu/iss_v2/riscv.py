@@ -18,11 +18,12 @@ from inspect import stack
 #
 
 import os
-import subprocess
 from typing_extensions import Any, override
 import gvsoc.systree
 import gvsoc.systree as st
 from gvsoc.systree import Component
+from gvsoc.signature import IoV2SingleReq
+import gvrun.timing
 import os.path
 import gvsoc.gui
 from gvsoc.gui import Signal
@@ -35,7 +36,6 @@ from cpu.iss_v2.riscv_config import RiscvConfig
 
 binaries_info = {}
 
-binaries = {}
 
 
 class IssModule:
@@ -195,12 +195,13 @@ class LsuV2(IssModule):
       guarded with ``#ifdef CONFIG_GVSOC_ISS_LSU_V2`` so they work in
       both modes.
     """
-    def __init__(self, nb_outstanding: int=1):
+    def __init__(self, nb_outstanding: int=1, class_name: str='LsuV2'):
         self.nb_outstanding = nb_outstanding
+        self.class_name = class_name
 
     @override
     def gen(self, iss: RiscvCommon):
-        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', 'LsuV2')
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', self.class_name)
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_V2', '1')
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', self.nb_outstanding)
         iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')
@@ -300,8 +301,6 @@ class RiscvCommon(st.Component):
         The index of the first PCER which is retrieved externally (default: 0).
     riscv_dbg_unit : bool, optional
         True if a riscv debug unit should be included, False otherwise (default: False).
-    debug_binaries : list, optional
-        A list of path to riscv binaries debug info which can be used to get debug symbols for the assembly trace (default: []).
     binaries : list, optional
         A list of path to riscv binaries (default: []).
     debug_handler : int, optional
@@ -322,7 +321,6 @@ class RiscvCommon(st.Component):
             misa: int|None=None,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
-            debug_binaries: list[str]=[],
             binaries: list[str]=[],
             debug_handler: int=0,
             power_models: dict[str,Any]={},
@@ -333,7 +331,7 @@ class RiscvCommon(st.Component):
             supervisor: bool=False,
             user: bool=False,
             internal_atomics: bool=False,
-            timed: bool=True,
+            timed: bool | None=None,
             scoreboard: bool=False,
             prefetcher_size: int|None=None,
             wrapper: str="pulp/cpu/iss/default_iss_wrapper.cpp",
@@ -441,6 +439,14 @@ class RiscvCommon(st.Component):
 
         self.add_c_flags(['-DCONFIG_GVSOC_ISS_V2=1'])
 
+        # When not explicitly set, derive the timing model from the
+        # hierarchical timing level: only 'functional' disables it ('cycle'
+        # snaps to 'timed', the ISS has no finer-grained model).
+        if timed is None:
+            timed = self.get_timing_level(
+                supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
+        self.add_property('timed', timed)
+
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
 
@@ -517,7 +523,6 @@ class RiscvCommon(st.Component):
             'misa': misa,
             'first_external_pcer': first_external_pcer,
             'riscv_dbg_unit': riscv_dbg_unit,
-            'debug_binaries': debug_binaries.copy(),
             'binaries': binaries.copy(),
             'debug_handler': debug_handler,
             'power_models': power_models,
@@ -552,35 +557,9 @@ class RiscvCommon(st.Component):
 
     def handle_executable(self, binary):
 
+        # Record the binary; the ISS resolves trace symbols from it lazily at
+        # runtime from the ELF binary (no precompute step, no binary-size cap).
         self.get_property('binaries').append(binary)
-
-        global binaries
-
-        path = binary
-        debug_info_path = os.path.join(os.path.dirname(path), f'debug_binary_{os.path.basename(path)}.debugInfo')
-
-        if binaries.get(path) is None:
-            binaries[path] = True
-
-            # Only generate debug symbols for small binaries, otherwise it is too slow
-            # To allow it, the ISS should itself read the symbols.
-            if os.path.getsize(path) < 5 * 1024*1024:
-                try:
-                    result = subprocess.run(
-                        ["gen-debug-info", path, debug_info_path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-                except Exception as e:
-                    print(f'{e}')
-                    result = subprocess.CompletedProcess(args=[], returncode=1)
-
-                if result.returncode != 0:
-                    print(f'Error while generating debug symbols information for binary: {path}')
-                    print('Make sure the toolchain and the binaries are accessible')
-
-        if os.path.getsize(path) < 5 * 1024*1024:
-            self.get_property('debug_binaries').append(debug_info_path)
 
         if self.htif:
             self.handle_htif(binary)
@@ -685,29 +664,19 @@ class RiscvCommon(st.Component):
         slave: gvsoc.systree.SlaveItf
             Slave interface
         """
+        # SingleReq: the LSU owns its (pooled) request and recovers it on the
+        # response by identity, so the data port is a single-req initiator. The
+        # class signature also makes the framework insert a collapse adapter when
+        # this binds to a beat plane (e.g. a KIND_BEAT router), so the LSU's own
+        # request never travels downstream — only a reallocated one does.
         self.itf_bind('data', itf,
-            signature='io_v2' if self._uses_io_v2 else 'io')
+            signature=IoV2SingleReq() if self._uses_io_v2 else 'io')
 
     def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('meminfo', itf, signature='io')
 
     def o_TIME(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('time', itf, signature='wire<uint64_t>')
-
-    def o_DATA_DEBUG(self, itf: gvsoc.systree.SlaveItf):
-        """Binds the data debug port.
-
-        This port is used for issuing data accesses from gdb server to the memory.\n
-        It instantiates a port of type vp::IoMaster.\n
-        If gdbserver is used It is mandatory to bind it.\n
-
-        Parameters
-        ----------
-        slave: gvsoc.systree.SlaveItf
-            Slave interface
-        """
-        self.itf_bind('data_debug', itf,
-            signature='io_v2' if self._uses_io_v2 else 'io')
 
     def o_FLUSH_CACHE(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('flush_cache_req', itf, signature='wire<bool>')
@@ -834,8 +803,11 @@ class RiscvCommon(st.Component):
         for id in range(0, 32):
             gvsoc.gui.Signal(self, regfile, f"x{id}", path=f"regfile/x{id}", groups=['regmap'])
 
-        # TODO this should be enabled by the build process when the runtime is using multi-threading
-        # thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
+        # Flame chart of the function call stack, reconstructed from the pc / jal / jalr / irq
+        # traces. Only generated when the gui-threads parameter is set (the runtime must also be
+        # built with __GVSOC_GUI__ to emit thread_lifecycle / thread_current for per-thread groups).
+        if self.get_parameter('/gui-threads'):
+            gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
 
         return active
 
@@ -869,14 +841,15 @@ class Riscv(RiscvCommon):
         True if the core should immediately start executing instructions.
     boot_addr: int
         Boot address, i.e. address where the core will start executing instructions.
-    timed: bool
-        True if the core should model timing.
+    timed: bool | None
+        True if the core should model timing. When None (default), derived
+        from the hierarchical timing level (see ``gvrun.timing``).
     core_id : int, optional
         The core ID of the core simulated by the ISS (default: 0).
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool | None=None,
             core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
             float_lib='flexfloat'):
 

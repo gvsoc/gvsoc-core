@@ -10,7 +10,8 @@ import sys
 from typing import ClassVar
 
 import gvsoc.systree
-from gvsoc.signature import IoV2Beat
+import gvrun.timing
+from gvsoc.signature import IoV2Beat, IoV2SingleReq
 from config_tree import Config, cfg_field, HasSize
 
 
@@ -20,11 +21,22 @@ KIND_BANDWIDTH    = 'bandwidth'
 KIND_BACKPRESSURE = 'backpressure'
 KIND_BEAT         = 'beat'
 
+# Resolve the kind from the hierarchical timing level (the default).
+KIND_AUTO         = 'auto'
+
 _SOURCES = {
     KIND_UNTIMED:      'interco/router/router_v2_untimed.cpp',
     KIND_BANDWIDTH:    'interco/router/router_v2_bandwidth.cpp',
     KIND_BACKPRESSURE: 'interco/router/router_v2_backpressure.cpp',
     KIND_BEAT:         'interco/router/router_v2_beat.cpp',
+}
+
+# Timing level → kind. 'backpressure' is never auto-selected: it is a
+# protocol choice (blocking handshake), not an accuracy rung.
+_LEVEL_TO_KIND = {
+    gvrun.timing.FUNCTIONAL: KIND_UNTIMED,
+    gvrun.timing.TIMED:      KIND_BANDWIDTH,
+    gvrun.timing.CYCLE:      KIND_BEAT,
 }
 
 
@@ -109,8 +121,12 @@ class RouterConfig(Config, HasSize):
     Attributes
     ----------
     kind : str
-        Implementation flavour. One of ``'untimed'``, ``'bandwidth'``
-        (default), ``'backpressure'``, ``'beat'``.
+        Implementation flavour. One of ``'untimed'``, ``'bandwidth'``,
+        ``'backpressure'``, ``'beat'`` or ``'auto'`` (default). ``'auto'``
+        resolves the flavour from the hierarchical timing level (see
+        ``gvrun.timing``): functional → untimed, timed → bandwidth,
+        cycle → beat (the latter only when ``width`` is set, else
+        bandwidth). An explicitly set kind always wins over the level.
     synchronous : bool
         Hint for v1 compatibility — the v2 sources do not actually read it.
     shared_rw_channel : bool
@@ -141,8 +157,10 @@ class RouterConfig(Config, HasSize):
         :meth:`add_mappings` (or :meth:`Router.o_MAP` / :meth:`Router.add_mapping`).
     """
 
-    kind: str = cfg_field(default=KIND_BANDWIDTH, dump=True, desc=(
-        "Router implementation flavour: 'untimed', 'bandwidth', 'backpressure' or 'beat'."
+    kind: str = cfg_field(default=KIND_AUTO, dump=True, desc=(
+        "Router implementation flavour: 'untimed', 'bandwidth', 'backpressure', 'beat' or "
+        "'auto' (default). 'auto' picks the flavour matching the hierarchical timing level "
+        "(functional->untimed, timed->bandwidth, cycle->beat); an explicit kind always wins."
     ))
     synchronous: bool = cfg_field(default=True, dump=True, desc=(
         "True if the router should use synchronous mode where all incoming requests are handled as "
@@ -169,7 +187,16 @@ class RouterConfig(Config, HasSize):
         "Beat width in bytes (only used by the beat-streaming variant)."
     ))
     max_pending_bursts: int = cfg_field(default=0, dump=True, desc=(
-        "Burst-table capacity (only used by the beat-streaming variant)."
+        "Burst-table capacity (only used by the beat-streaming variant). Shared "
+        "across all inputs; ignored when max_pending_bursts_per_input is set."
+    ))
+    max_pending_bursts_per_input: int = cfg_field(default=0, dump=True, desc=(
+        "Per-input outstanding-burst budget (beat variant). When > 0, each input "
+        "independently allows up to this many in-flight bursts — the HW-faithful "
+        "shape, where each AXI master's ID-bounded outstanding is its own and no "
+        "shared pool can starve one input. The burst table is sized to hold all "
+        "inputs' budgets. When 0 (default), the single shared max_pending_bursts "
+        "table is used instead."
     ))
     nb_input_port: int = cfg_field(default=1, dump=True, desc=(
         "Number of input ports the router exposes."
@@ -205,9 +232,14 @@ class Router(gvsoc.systree.Component):
     Four implementations are available via the ``kind`` field on the
     :class:`RouterConfig`:
 
+    By default (``kind='auto'``) the implementation is picked from the
+    hierarchical timing level (``name:timing=<level>`` in the target string,
+    ``timing.`` qualifiers or ``set_timing_level()``): functional → untimed,
+    timed → bandwidth, cycle → beat (when ``width`` is set).
+
     - **'untimed'**: zero timing. Address decode + forward, nothing else. Fastest.
       Use for pure functional simulation or when timing is modeled elsewhere.
-    - **'bandwidth'** (default): rate-limited, non-blocking. Requests are always
+    - **'bandwidth'** (auto default at the 'timed' level): rate-limited, non-blocking. Requests are always
       accepted; latency grows with the per-input/per-output bandwidth backlog and
       is reported via ``req->latency`` (no ClockEvent scheduling). A master can
       pipeline an arbitrary number of outstanding requests without handshaking.
@@ -270,9 +302,10 @@ class Router(gvsoc.systree.Component):
 
     def __init__(self, parent: gvsoc.systree.Component, name: str,
                  config: RouterConfig):
-        if config.kind not in _SOURCES:
+        if config.kind != KIND_AUTO and config.kind not in _SOURCES:
             raise ValueError(
-                f"Router kind must be one of {list(_SOURCES)}, got {config.kind!r}")
+                f"Router kind must be one of {list(_SOURCES) + [KIND_AUTO]}, "
+                f"got {config.kind!r}")
 
         # ``config`` is owned by this router from now on: ``add_mapping`` /
         # ``o_MAP`` will append to ``config.mappings`` and ``i_INPUT`` will
@@ -281,6 +314,18 @@ class Router(gvsoc.systree.Component):
         # their mappings and input-port counts.
         self.config = config
         super(Router, self).__init__(parent, name, config=self.config)
+
+        if config.kind == KIND_AUTO:
+            # The beat variant needs a beat width; without one the router
+            # can't do cycle-level streaming, so 'cycle' snaps to 'timed'.
+            supported = [gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]
+            if config.width > 0:
+                supported.append(gvrun.timing.CYCLE)
+            level = self.get_timing_level(supported=supported)
+            config.kind = _LEVEL_TO_KIND[level]
+            self.add_property('kind', config.kind)
+            self.add_property('timing_level', level)
+
         sources = [_SOURCES[config.kind]]
         self.add_sources(sources)
 
@@ -353,9 +398,15 @@ class Router(gvsoc.systree.Component):
             The ``io_v2`` slave interface to bind a master output to.
         """
         self.__alloc_input_port(id)
-        if id == 0:
-            return gvsoc.systree.SlaveItf(self, 'input', signature='io_v2')
-        return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='io_v2')
+        # The beat kind consumes per-beat io_v2 traffic on its inputs; declare
+        # IoV2Beat so a beat master (e.g. the cluster DMA ext port) binds
+        # directly with no auto-inserted IoV2BeatAdapter. A legacy 'io_v2'
+        # string master still binds directly too (the framework only bridges
+        # when the master side is a class-based Signature). Other kinds keep
+        # the legacy string signature.
+        sig = IoV2Beat(self.config.width) if self.config.kind == KIND_BEAT else IoV2SingleReq()
+        name = 'input' if id == 0 else f'input_{id}'
+        return gvsoc.systree.SlaveItf(self, name, signature=sig)
 
     def o_MAP(self, itf: gvsoc.systree.SlaveItf, mapping: RouterMapping,
               name: str = None):
@@ -393,12 +444,16 @@ class Router(gvsoc.systree.Component):
         self.config.add_mappings(mapping)
         # The beat kind produces per-beat responses on its outputs; declare
         # IoV2Beat so the framework auto-inserts an IoV2BeatAdapter when the
-        # downstream slave uses a non-beat io_v2 signature. Other kinds use
-        # the legacy string signature (no auto-bridging).
+        # downstream slave uses a non-beat io_v2 signature. Other kinds route
+        # responses by request identity and so handle only single-beat
+        # responses: declare IoV2SingleReq, which binds directly to other
+        # single-req / big-packet / sync slaves and makes the framework
+        # auto-insert a collapse converter if the downstream is a beat slave
+        # (a multi-beat stream this router could not route back).
         if self.config.kind == KIND_BEAT:
             self.itf_bind(mapping.name, itf, signature=IoV2Beat(self.config.width))
         else:
-            self.itf_bind(mapping.name, itf, signature='io_v2')
+            self.itf_bind(mapping.name, itf, signature=IoV2SingleReq())
 
     def o_MAP_DEFAULT(self, itf: gvsoc.systree.SlaveItf, name: str = None,
                       latency: int = 0, is_error: bool = False):
@@ -431,22 +486,61 @@ class Router(gvsoc.systree.Component):
     def gen_gui(self, parent_signal):
         """Surface per-mapping address / size traces in the GUI.
 
-        Each mapping bound via :meth:`o_MAP` (or :meth:`o_MAP_DEFAULT`) has
-        a corresponding ``<name>/addr`` / ``<name>/size`` VCD signal pair
-        published by the C++ model. Group them into one expandable signal
-        per router so the timeline shows traffic per output branch.
+        For most router kinds, each mapping has a ``<name>/addr`` /
+        ``<name>/size`` signal pair from the C++ model.
+
+        The ``beat`` kind further splits each mapping into ``req/*`` (every
+        outgoing forward — read setup reqs and per-beat writes, plus an
+        ``is_write`` discriminator) and ``resp/*`` (per-beat read responses
+        coming back upstream), and exposes explicit ``active`` busy bits
+        (pulsed for one cycle on each access) at both the router and
+        per-mapping levels so the corresponding rows render as ACTIVE
+        strips in the timeline.
         """
         import gvsoc.gui
 
-        top = gvsoc.gui.SignalGenFromSignals(self, parent_signal,
-            to_signal=self.name, mode="combined",
-            from_groups=["active"], groups=["regmap", "active"],
-            display=gvsoc.gui.DisplayLogicBox('ACTIVE'),
-            skip_if_no_child=True)
+        if self.config.kind == KIND_BEAT:
+            top = gvsoc.gui.Signal(self, parent_signal, name=self.name,
+                path="active", groups=['regmap', 'active'],
+                display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        else:
+            top = gvsoc.gui.SignalGenFromSignals(self, parent_signal,
+                to_signal=self.name, mode="combined",
+                from_groups=["active"], groups=["regmap", "active"],
+                display=gvsoc.gui.DisplayLogicBox('ACTIVE'),
+                skip_if_no_child=True)
 
         for mapping in self.config.mappings:
             mname = mapping.name or 'mapping'
-            mapping_trace = gvsoc.gui.Signal(self, top, mname,
-                path=mname + "/addr", groups=['regmap', 'active'])
-            gvsoc.gui.Signal(self, mapping_trace, "size",
-                path=mname + "/size", groups=['regmap'])
+
+            if self.config.kind == KIND_BEAT:
+                # Per-mapping busy bit — driven by the C++ model on every
+                # log_access / log_resp for this output port. The row in the
+                # timeline shows an ACTIVE strip independently of req/resp
+                # expansion.
+                mapping_trace = gvsoc.gui.Signal(self, top, mname,
+                    path=mname + "/active", groups=['regmap', 'active'],
+                    display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+                req_trace = gvsoc.gui.Signal(self, mapping_trace, "req",
+                    path=mname + "/req/addr", groups=['regmap', 'active'])
+                gvsoc.gui.Signal(self, req_trace, "size",
+                    path=mname + "/req/size", groups=['regmap'])
+                gvsoc.gui.Signal(self, req_trace, "is_write",
+                    path=mname + "/req/is_write", groups=['regmap'])
+                gvsoc.gui.Signal(self, req_trace, "is_first",
+                    path=mname + "/req/is_first", groups=['regmap'])
+                gvsoc.gui.Signal(self, req_trace, "is_last",
+                    path=mname + "/req/is_last", groups=['regmap'])
+                resp_trace = gvsoc.gui.Signal(self, mapping_trace, "resp",
+                    path=mname + "/resp/addr", groups=['regmap', 'active'])
+                gvsoc.gui.Signal(self, resp_trace, "size",
+                    path=mname + "/resp/size", groups=['regmap'])
+                gvsoc.gui.Signal(self, resp_trace, "is_first",
+                    path=mname + "/resp/is_first", groups=['regmap'])
+                gvsoc.gui.Signal(self, resp_trace, "is_last",
+                    path=mname + "/resp/is_last", groups=['regmap'])
+            else:
+                mapping_trace = gvsoc.gui.Signal(self, top, mname,
+                    path=mname + "/addr", groups=['regmap', 'active'])
+                gvsoc.gui.Signal(self, mapping_trace, "size",
+                    path=mname + "/size", groups=['regmap'])

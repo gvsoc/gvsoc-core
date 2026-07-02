@@ -27,6 +27,7 @@ inline bool LsuV2::store(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 template<typename T>
 inline bool LsuV2::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
+    this->iss.traces.declare_access(addr, size, false);
     if (this->iss.gdbserver.watchpoint_check(false, addr, size))
     {
         return true;
@@ -41,6 +42,7 @@ inline bool LsuV2::load_perf(iss_insn_t *insn, iss_addr_t addr, int size, int re
 template<typename T>
 inline bool LsuV2::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
+    this->iss.traces.declare_access(addr, size, false);
     if (this->iss.gdbserver.watchpoint_check(false, addr, size))
     {
         return true;
@@ -51,6 +53,7 @@ inline bool LsuV2::load_signed_perf(iss_insn_t *insn, iss_addr_t addr, int size,
 template<typename T>
 inline bool LsuV2::store_perf(iss_insn_t *insn, iss_addr_t addr, int size, int reg)
 {
+    this->iss.traces.declare_access(addr, size, true);
     if (this->iss.gdbserver.watchpoint_check(true, addr, size))
     {
         return true;

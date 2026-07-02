@@ -19,6 +19,7 @@
  */
 
  #include <cstdint>
+ #include <vp/stats/stats_engine.hpp>
  #include <cpu/iss_v2/include/cores/vector_unit/vector_unit.hpp>
 
 
@@ -68,6 +69,14 @@ Vu::Vu(Iss &iss)
 
         this->isa_init();
     }
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+    // Cache whether stats are enabled; per-label entries register lazily under
+    // the "vinsn_duration" group the first time each label completes.
+    vp::StatsEngine *stats_engine = this->iss.stats.get_engine();
+    this->stats_enabled = stats_engine != nullptr && stats_engine->is_enabled();
+    this->insn_durations.init(&this->iss.stats, "vinsn_duration");
+#endif
 }
 
 iss_reg_t Vu::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
@@ -149,6 +158,9 @@ void Vu::insn_enqueue(InsnEntry *entry)
     // Mark the instruction to be handled in the next cycle in case the FSM is already active
     // to prevent it from handling it in the next cycle
     pending_insn->timestamp = this->iss.clock.get_cycles() + 1;
+
+    // Not yet executing in any block; set by the block at its real start.
+    pending_insn->exec_start_cycle = -1;
 
     // Copy the CVA6 register since we will use it later and it will probably change before that
     int reg = insn->in_regs[0];
@@ -282,6 +294,16 @@ void Vu::insn_end(PendingInsn *pending_insn)
 
     this->trace.msg(vp::Trace::LEVEL_TRACE, "End of instruction (pc: 0x%lx, id: %d)\n",
         insn->addr, pending_insn->id);
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+    // Account the per-label execution duration: from the block's real start to
+    // now. Common to all blocks (VLSU / VFPU / VSLIDE).
+    if (this->stats_enabled && pending_insn->exec_start_cycle >= 0)
+    {
+        this->insn_durations.account(insn->desc->label,
+            this->iss.clock.get_cycles() - pending_insn->exec_start_cycle);
+    }
+#endif
 
     // If the ended instruction is a load or store, decrement associated counters used for
     // for synchronizing snitch and spatz memory accesses

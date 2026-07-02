@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from config_tree import Config
 from gvsoc.systree import Component, SlaveItf
+from gvsoc.signature import IoV2SingleReq
 
 
 class RwSplitterConfig(Config):
@@ -211,6 +212,19 @@ class RwSplitter(Component):
         super().__init__(parent, name, config=config)
         self.add_sources(['interco/rw_splitter_v2.cpp'])
 
+    def gen_gui(self, parent_signal):
+        """Surface the routed read/write accesses in the GUI."""
+        import gvsoc.gui
+        top = gvsoc.gui.Signal(self, parent_signal, name=self.name,
+            path="active", groups=['regmap', 'active'],
+            display=gvsoc.gui.DisplayLogicBox('ACTIVE'))
+        gvsoc.gui.Signal(self, top, "is_write", path="is_write", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "size", path="size", groups=['regmap'])
+        gvsoc.gui.Signal(self, top, "output_read", path="output_read/addr",
+            groups=['regmap', 'active'])
+        gvsoc.gui.Signal(self, top, "output_write", path="output_write/addr",
+            groups=['regmap', 'active'])
+
     def i_INPUT(self) -> SlaveItf:
         """Returns the single input slave port.
 
@@ -220,18 +234,18 @@ class RwSplitter(Component):
         ``output_write`` (writes, atomics with write semantics),
         verbatim.
         """
-        return SlaveItf(self, 'input', signature='io_v2')
+        return SlaveItf(self, 'input', signature=IoV2SingleReq())
 
     def o_READ_OUTPUT(self, itf: SlaveItf):
         """Binds the downstream read-side master port.
 
         Receives every request whose ``is_write`` bit is false.
         """
-        self.itf_bind('output_read', itf, signature='io_v2')
+        self.itf_bind('output_read', itf, signature=IoV2SingleReq())
 
     def o_WRITE_OUTPUT(self, itf: SlaveItf):
         """Binds the downstream write-side master port.
 
         Receives every request whose ``is_write`` bit is true.
         """
-        self.itf_bind('output_write', itf, signature='io_v2')
+        self.itf_bind('output_write', itf, signature=IoV2SingleReq())

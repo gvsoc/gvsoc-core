@@ -76,8 +76,8 @@ private:
 
     // io_v2 callbacks
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void refill_resp(vp::Block *__this, vp::IoReq *req);
-    static void refill_retry(vp::Block *__this);
+    static vp::IoRespAck refill_resp(vp::Block *__this, vp::IoReq *req);
+    static void refill_retry(vp::Block *__this, vp::IoRetryChannel);
 
     vp::IoReqStatus handle_req(vp::IoReq *req);
     void check_state();
@@ -237,7 +237,7 @@ void Cache::reset(bool active)
 // Refill path (master-side response / retry)
 // ---------------------------------------------------------------------------
 
-void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
+vp::IoRespAck Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
 {
     Cache *_this = (Cache *)__this;
 
@@ -247,7 +247,7 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
     if (req != &_this->refill_req)
     {
         _this->input_itf.resp(req);
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     // Cached refill path. A beat-streaming downstream (KIND_BEAT router) may
@@ -258,7 +258,7 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
     // produce a single resp() with is_last=true, so this is a no-op for them.
     if (!req->is_last)
     {
-        return;
+        return vp::IO_RESP_ACCEPTED;
     }
 
     // Cached-refill path. The CPU request whose miss triggered this refill is at
@@ -295,10 +295,12 @@ void Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
 
     _this->input_itf.resp(cpu_req);
     _this->check_state();
+
+    return vp::IO_RESP_ACCEPTED;
 }
 
 
-void Cache::refill_retry(vp::Block *__this)
+void Cache::refill_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     Cache *_this = (Cache *)__this;
 
@@ -366,8 +368,15 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 void Cache::check_state()
 {
+    // Use has_reqs() (presence), NOT !empty() (readiness): a CPU request queued
+    // via push_back this same cycle carries a now+1 timestamp, so empty() reports
+    // it as "not yet available". If a refill completes the same cycle the request
+    // is queued, an !empty() test would skip scheduling the drain fsm, and nothing
+    // re-checks next cycle -> the queued request is lost and the master hangs. The
+    // fsm runs at +1, by which point the element is ready, so scheduling on
+    // presence is correct.
     if (!this->pending_refill.get() && !this->refill_retry_pending
-        && !this->refill_pending_reqs.empty())
+        && this->refill_pending_reqs.has_reqs())
     {
         if (!this->fsm_event->is_enqueued())
         {
@@ -406,6 +415,14 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
 
     vp::IoReq *r = &this->refill_req;
     r->prepare();
+    // A refill is a single whole-line burst. Reset the burst flags explicitly:
+    // prepare() does not touch them, and a beat-streaming downstream (KIND_BEAT
+    // router / IoV2BeatAdapter) leaves is_first=0/is_last=1 on the shared
+    // refill_req after the previous response's last beat. Reusing it without a
+    // reset would send the next refill as a stray continuation beat.
+    r->is_first = true;
+    r->is_last = true;
+    r->burst_id = -1;
     r->set_addr(full_addr);
     r->set_is_write(false);
     r->set_size(1U << this->line_size_bits);
@@ -447,7 +464,9 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
     {
         latency += this->refill_timestamp - now;
     }
-    latency += r->get_latency() + this->cfg.refill_latency;
+    // get_full_latency() so a bandwidth router on the refill path contributes
+    // its (max-combined) transfer time, not just the head latency.
+    latency += r->get_full_latency() + this->cfg.refill_latency;
 
     this->refill_timestamp = now + latency;
     this->refill_event_clear_event.enqueue(latency);

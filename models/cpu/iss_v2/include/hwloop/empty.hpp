@@ -32,4 +32,11 @@ public:
     void reset(bool active) {}
 
     inline iss_reg_t check(iss_reg_t pc, iss_reg_t next_pc) { return next_pc; }
+
+    // No-op setters so ISA subsets providing the lp.* instructions
+    // (cpu/iss/include/isa/pulp_v2.hpp) compile on cores without the
+    // hwloop module — the instructions then behave as nops.
+    void set_start(int idx, iss_reg_t pc) {}
+    void set_end(int idx, iss_reg_t pc) {}
+    void set_count(int idx, iss_reg_t count) {}
 };

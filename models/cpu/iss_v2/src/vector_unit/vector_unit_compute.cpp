@@ -99,6 +99,15 @@ void VuCompute::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 _this->event_pc.event((uint8_t *)&insn->addr);
                 _this->event_label.event_string(insn->desc->label, false);
 
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+                // Real execution starts now (first chunk); stamp it for the
+                // per-label duration accounted at Vu::insn_end.
+                if (_this->vu.stats_enabled && pending_insn->exec_start_cycle < 0)
+                {
+                    pending_insn->exec_start_cycle = _this->vu.iss.clock.get_cycles();
+                }
+#endif
+
                 unsigned int nb_elems = _this->vu.iss.csr.vl.value - _this->vu.iss.csr.vstart.value;
                 _this->total_size = nb_elems * _this->vu.iss.vector.sewb;
                 _this->vstart = _this->vu.iss.csr.vstart.value;

@@ -96,7 +96,6 @@ void Htif::build()
 
 void Htif::data_response(vp::Block *__this, vp::IoReq *req)
 {
-
 }
 
 

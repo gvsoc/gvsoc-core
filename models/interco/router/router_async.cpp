@@ -180,12 +180,23 @@ private:
  * This models an AXI-like router that is capable of routing memory-mapped requests from an input
  * port to output ports based on the request address.
  */
-class Router : public RouterCommon
+class Router : public RouterCommon, public vp::DebugMemIf
 {
     friend class Channel;
 
 public:
     Router(vp::ComponentConf &conf);
+
+    // Backdoor debug access (vp/debug_mem.hpp): recurse into the component
+    // behind each mapping, applying the mapping's address translation.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+    // Used when this router is the entry point of a debug access: serve it
+    // through a flat map rooted here, built lazily on first access.
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
 
 private:
     // Incoming requests are received here. The port indicates from which input port it is received.
@@ -217,6 +228,9 @@ private:
     // Gives the ID of the error mapping, the one returning an error when a request is matching
     // this mapping
     int error_id = -1;
+    // Flat backdoor map rooted at this router, built lazily when it is the
+    // entry point of a debug access.
+    vp::DebugMemMap debug_map;
     // COmponent input interfaces
     std::vector<vp::IoSlave> input_itfs;
     // COmponent output interfaces
@@ -225,6 +239,10 @@ private:
     std::vector<uint64_t> remove_offset;
     // Offset to be added when request is forwarded
     std::vector<uint64_t> add_offset;
+    // Mapping base and size in the router address space (size 0 == catch-all),
+    // kept for the debug-memory backdoor.
+    std::vector<uint64_t> map_base;
+    std::vector<uint64_t> map_size;
     // Mapping names
     std::vector<std::string> mapping_names;
     // Mapping latencies
@@ -279,6 +297,8 @@ Router::Router(vp::ComponentConf &config)
 
             this->remove_offset.push_back(config->get_uint("remove_offset"));
             this->add_offset.push_back(config->get_uint("add_offset"));
+            this->map_base.push_back(config->get_uint("base"));
+            this->map_size.push_back(config->get_uint("size"));
             this->mapping_names.push_back(name);
             this->mapping_latency.push_back(config->get_int("latency"));
 
@@ -302,6 +322,33 @@ Router::Router(vp::ComponentConf &config)
         this->channels.push_back(new Channel(this, "rchannel"));
         this->channels.push_back(new Channel(this, "wchannel"));
     }
+}
+
+void Router::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    std::vector<vp_router_legacy_debug::DebugMapping> mappings;
+    for (int id = 0; id < (int)this->output_itfs.size(); id++)
+    {
+        if (id == this->error_id)
+        {
+            continue;
+        }
+        mappings.push_back({ this->map_base[id], this->map_size[id],
+            this->remove_offset[id], this->add_offset[id], this->output_itfs[id] });
+    }
+
+    vp_router_legacy_debug::collect_regions(mappings, regions,
+        local_base, window_size, entry_base, depth);
+}
+
+int Router::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+{
+    if (!this->debug_map.is_built())
+    {
+        this->debug_map.build(this);
+    }
+    return this->debug_map.access(addr, data, size, is_write);
 }
 
 vp::IoReqStatus Router::req(vp::Block *__this, vp::IoReq *req, int port)

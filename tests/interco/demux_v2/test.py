@@ -76,42 +76,6 @@ def build_case(case_name: str) -> dict:
             'targets': _ok_targets(2),
         }
 
-    if case_name == 'resp_async':
-        # Target 0 replies GRANTED + deferred resp after 15 cycles; target 1
-        # returns DONE inline. Both CPU requests must see a RESP from the
-        # master's perspective, and target 0's must land strictly after
-        # cycle ~25.
-        rules_async = [dict(addr_min=0, addr_max=0xFFFF, behavior='granted',
-                            resp_delay=15, retry_delay=0)]
-        return {
-            'demux_config': DemuxConfig(offset=0, width=1),
-            'schedule': [
-                dict(cycle=10, addr=0x0, size=4, is_write=False, name='async'),
-                dict(cycle=20, addr=0x1, size=4, is_write=False, name='sync'),
-            ],
-            'targets': [
-                {'name': 'mem0', 'rules': rules_async},
-                {'name': 'mem1', 'rules': _mem_ok},
-            ],
-        }
-
-    if case_name == 'deny_retry':
-        # Target 0 denies with retry_delay=5, target 1 is normal. A request
-        # to output 0 must be DENIED upstream, then RETRY-ed upstream only
-        # when target 0 fires retry (not when target 1 does anything).
-        rules_deny = [dict(addr_min=0, addr_max=0xFFFF, behavior='denied',
-                           resp_delay=0, retry_delay=5)]
-        return {
-            'demux_config': DemuxConfig(offset=0, width=1),
-            'schedule': [
-                dict(cycle=10, addr=0x0, size=4, is_write=False, name='to0'),
-            ],
-            'targets': [
-                {'name': 'mem0', 'rules': rules_deny},
-                {'name': 'mem1', 'rules': _mem_ok},
-            ],
-        }
-
     if case_name == 'single_output':
         # Width=0 → one output. Every request, whatever the address, goes
         # to output_0. Validates the edge case.
@@ -123,29 +87,6 @@ def build_case(case_name: str) -> dict:
                 dict(cycle=30, addr=0x1234, size=4, is_write=False, name='c'),
             ],
             'targets': _ok_targets(1),
-        }
-
-    if case_name == 'interleaved':
-        # Mix traffic across all 4 outputs, some with async targets, to
-        # check that responses from different outputs don't cross-leak.
-        rules_async_slow = [dict(addr_min=0, addr_max=0xFFFF, behavior='granted',
-                                 resp_delay=8, retry_delay=0)]
-        rules_async_fast = [dict(addr_min=0, addr_max=0xFFFF, behavior='granted',
-                                 resp_delay=2, retry_delay=0)]
-        return {
-            'demux_config': DemuxConfig(offset=0, width=2),
-            'schedule': [
-                dict(cycle=10, addr=0x00, size=4, is_write=False, name='to0'),
-                dict(cycle=11, addr=0x01, size=4, is_write=False, name='to1'),
-                dict(cycle=12, addr=0x02, size=4, is_write=False, name='to2'),
-                dict(cycle=13, addr=0x03, size=4, is_write=False, name='to3'),
-            ],
-            'targets': [
-                {'name': 'mem0', 'rules': _mem_ok},          # DONE inline
-                {'name': 'mem1', 'rules': rules_async_slow}, # deferred long
-                {'name': 'mem2', 'rules': _mem_ok},          # DONE inline
-                {'name': 'mem3', 'rules': rules_async_fast}, # deferred short
-            ],
         }
 
     raise ValueError(f'Unknown case: {case_name}')

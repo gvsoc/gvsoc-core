@@ -159,7 +159,7 @@ V_VVU = [
 
 V_VU = [
     OutVReg     (0, Range(7 , 5)),
-    InVReg      (1, Range(20, 5)),
+    InVReg      (0, Range(20, 5)),
     UnsignedImm (0, Range(25, 1)),
 ]
 

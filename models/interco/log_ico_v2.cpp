@@ -4,110 +4,149 @@
 //
 // Authors: Germain Haugou (germain.haugou@gmail.com)
 //
-// Logarithmic (bank-interleaved) crossbar on the io_v2 protocol.
+// Logarithmic (bank-interleaved) crossbar on the io_v2 protocol with
+// round-robin arbitration. M masters -> N banks. The crossbar never
+// queues request pointers: an incoming request is DENIED in the normal
+// (idle) state and the master is expected to retry it later. The
+// crossbar only remembers *which* input wants to talk to *which* bank
+// in one bit per (input, bank) pair.
 //
-// Port of log_ico.cpp to io_v2. The crossbar connects ``nb_masters`` input
-// master ports to ``nb_slaves`` output bank ports. Every incoming request
-// has:
-//   - ``remove_offset`` subtracted from its byte address
-//   - the middle ``slave_bits = ceil_log2(nb_slaves)`` bits sliced out to
-//     pick a bank
-//   - the remaining bits recomposed into a bank-local address by placing
-//     the high bits (above the bank selector) above the ``interleaving_width``
-//     low bits
+// Forward path:
+//   1. Master M calls req() for bank B. We decode B from the address,
+//      set bit M in banks[B].pending_mask, schedule the FSM (0 delay),
+//      and return DENIED.
+//   2. The FSM iterates the banks. For each bank with pending bits it
+//      picks a single winner via round-robin (find-first-set on a
+//      rotated bitmask), clears the bit, and calls retry() on that
+//      master. The FSM raises an "in_election" flag for the whole
+//      iteration: while it is set, any request landing on input_req is
+//      forwarded inline to its bank instead of being denied -- so the
+//      master's synchronous retry handler just re-issues and the
+//      crossbar serves it within the same tick.
 //
-// ::
+//      This relies on the io_v2 synchronous-retry constraint: a master
+//      MUST re-issue inside its retry() callback (same cycle), not defer
+//      it. The in_election window is open only for the duration of the
+//      retry() call here; a master that re-sends a cycle later misses it
+//      and live-locks. See vp/itf/io_v2.hpp (IoSlave::retry) and
+//      interfaces/io_v2.rst.
+//   3. The bank is IoV2Sync and answers DONE inline, so input_req
+//      returns DONE to the re-issuing master. By the time retry()
+//      returns to the FSM the bank has already been hit this cycle.
+//   4. If any bank still has bits after the iteration, the FSM re-arms
+//      for the next cycle so each bank serves at most one master per
+//      cycle.
 //
-//     offset      = addr - remove_offset
-//     bank_id     = (offset >> interleaving_width) & (nb_slaves - 1)
-//     bank_offset = ((offset >> (slave_bits + interleaving_width)) << interleaving_width)
-//                   | (offset & ((1 << interleaving_width) - 1))
+// Output side (IoV2Sync): the bank must answer inline with
+// IO_REQ_DONE and never drives resp()/retry(). Bind only to a sync
+// slave such as memory.memory_v3.
 //
-// The request's address is rewritten to ``bank_offset`` before forwarding,
-// so the bank sees its local address space starting at 0.
+// Address decoding: the input address is expected to be in
+// ``[0, nb_slaves * <bank_size>)`` (the upstream router or remapper
+// strips any region base before reaching the crossbar):
 //
-// IO-side plumbing differs from v1:
-//   - Muxed slave ports per master. The shared ``input_req`` callback gets
-//     the master id as its ``int id`` argument.
-//   - Muxed master ports per bank. The shared ``output_resp`` /
-//     ``output_retry`` callbacks get the bank id as their ``int id``
-//     argument.
-//   - Replies travel back through the muxed slave port via
-//     ``inputs[m]->resp(req)`` — no v1 ``resp_port`` lookup.
-//   - Back-pressure uses the AXI-like ``DENIED``/``retry()`` handshake.
-//     Each master has an independent denied state; a bank that is DENYing
-//     one master does not affect traffic from other masters to other banks.
-//
-// Request flow
-// ============
-//
-// - **DONE** from a bank: we free the InFlight bookkeeping and return
-//   DONE up the same master. No further callback.
-// - **GRANTED** from a bank: we install an ``InFlight`` on ``req->initiator``
-//   so the eventual ``resp()`` from the bank knows which master to reply
-//   on. We forward GRANTED up to that master.
-// - **DENIED** from a bank: we restore the original address, free the
-//   in-flight slot, record ``denied_on_bank[m] = bank_id``, and return
-//   DENIED up to that master. The master must hold the request until we
-//   call ``retry()`` on its input port.
-// - **Bank retry**: when bank ``b`` fires ``retry()`` to us, we iterate
-//   over every master ``m`` with ``denied_on_bank[m] == b`` and call
-//   ``inputs[m]->retry()``. Other masters blocked on other banks are
-//   untouched.
-//
-// Timing model: big-packet, zero-latency. No extra ``inc_latency``, no
-// event scheduling. Whatever latency a bank annotates on ``req->latency``
-// or whatever wall-clock delay it introduces via a deferred ``resp()`` is
-// observed directly by the calling master.
+//     bank_id     = (addr >> interleaving_width) & (nb_slaves - 1)
+//     bank_offset = ((addr >> (slave_bits + interleaving_width)) << interleaving_width)
+//                   | (addr & ((1 << interleaving_width) - 1))
 
+#include <climits>
 #include <memory>
 #include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/log_ico_v2/log_ico_config.hpp>
 
-struct LogIcoInFlight
+// Pulse a GUI signal to `v` now (+`delay` sub-cycle offset) and back to high-Z
+// one cycle later, so each bank access shows as a one-cycle marker in the GUI.
+static inline void gui_pulse(vp::Signal<uint64_t> &s, uint64_t v,
+                             int64_t delay, int64_t period)
 {
-    // Master id that issued this request.
-    int input_id;
-    // Original ``initiator`` pointer, restored on resp/deny.
-    void *saved_initiator;
-    // Original address before bank-local rewrite, restored on DENIED so the
-    // master's re-send finds the same incoming address.
-    uint64_t saved_addr;
+    s.set(v, (int64_t)0, delay);
+    s.release(0, delay + period);
+}
+
+
+class LogIco;
+
+// One per master input port. Just a thin wrapper around its IoSlave --
+// the crossbar keeps no per-input state in the new design.
+struct InputState
+{
+    InputState(LogIco *top, int id);
+    LogIco *top;
+    int id;
+    vp::IoSlave itf;
 };
 
-class LogIco : public vp::Component
+struct BankState
 {
+    BankState(LogIco *top, int id);
+    LogIco *top;
+    int id;
+    vp::IoMaster itf;
+    // Bit i set means input i has a pending (denied) request to this bank.
+    uint64_t pending_mask = 0;
+    // Next round-robin scan start (in [0, nb_masters)).
+    int rr_next = 0;
+    // GUI trace: the address of the access currently served by this bank.
+    vp::Signal<uint64_t> gui_addr;
+};
+
+
+class LogIco : public vp::Component, public vp::DebugMemIf
+{
+    friend struct InputState;
+    friend struct BankState;
+
 public:
     LogIco(vp::ComponentConf &conf);
     void reset(bool active) override;
 
+    // Backdoor debug access (vp/debug_mem.hpp). The default
+    // debug_mem_regions() is kept: a flat region cannot express the bank
+    // interleaving, so the crossbar advertises itself as a terminal and
+    // debug_mem_access() redoes the bank math per granule chunk.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+
     LogIcoConfig cfg;
-
-private:
-    static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req, int id);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req, int id);
-    static void            output_retry(vp::Block *__this, int id);
-
-    LogIcoInFlight *alloc_inflight();
-    void            free_inflight(LogIcoInFlight *ifl);
-
     vp::Trace trace;
 
-    std::vector<std::unique_ptr<vp::IoSlave>>  inputs;
-    std::vector<std::unique_ptr<vp::IoMaster>> outputs;
+private:
+    static vp::IoReqStatus input_req   (vp::Block *__this, vp::IoReq *req, int id);
+    static vp::IoRespAck   output_resp (vp::Block *__this, vp::IoReq *req, int id);
+    static void            output_retry(vp::Block *__this, int id, vp::IoRetryChannel);
+    static void            fsm_handler (vp::Block *__this, vp::ClockEvent *event);
 
-    // Bit width of the bank selector (``ceil_log2(nb_slaves)``). Cached
-    // once because it depends only on the config.
+    int       decode_bank   (uint64_t offset) const;
+    uint64_t  decode_offset (uint64_t offset) const;
+    // GUI: pulse the bank's address trace and the top-level activity strip.
+    void      gui_log_bank  (int bank_id, uint64_t addr);
+    // Find the first set bit at or after `rr_next` in a `nb`-wide mask,
+    // wrapping. Returns the bit index in [0, nb); precondition: mask != 0.
+    int       pick_winner   (uint64_t mask, int rr_next, int nb) const;
+
     int slave_bits = 0;
+    std::vector<std::unique_ptr<InputState>> inputs;
+    std::vector<std::unique_ptr<BankState>>  banks;
+    // True while the FSM is calling retry() on the elected winners.
+    // Any incoming request seen during this window is forwarded inline.
+    bool in_election = false;
 
-    // Per-master: bank id that last denied this master, or -1 when the
-    // master is not currently holding a denied request.
-    std::vector<int> denied_on_bank;
+    // Per-bank backdoor targets, resolved on first debug access through the
+    // bank output ports' final bindings. nullptr where the bank component
+    // does not support backdoor accesses.
+    std::vector<vp::DebugMemIf *> bank_debug_mem;
+    bool bank_debug_mem_resolved = false;
 
-    // Free list of in-flight bookkeeping slots.
-    LogIcoInFlight *inflight_free = nullptr;
+    vp::ClockEvent fsm_event;
+
+    // --- GUI traces (visible in the model-graph / timeline) ---
+    vp::Signal<uint64_t> gui_active;
+    int64_t gui_last_cycle = -1;
+    int     gui_nb_same_cycle = 0;
 };
 
 
@@ -118,8 +157,33 @@ static int ceil_log2_u(unsigned int n)
 }
 
 
+//
+// Per-port state ctors
+//
+
+InputState::InputState(LogIco *top, int id)
+    : top(top), id(id),
+      itf(id, &LogIco::input_req)
+{
+}
+
+BankState::BankState(LogIco *top, int id)
+    : top(top), id(id),
+      itf(id, &LogIco::output_retry, &LogIco::output_resp),
+      gui_addr(*(vp::Block *)top, "output_" + std::to_string(id) + "/addr", 64,
+               vp::SignalCommon::ResetKind::HighZ)
+{
+}
+
+
+//
+// LogIco
+//
+
 LogIco::LogIco(vp::ComponentConf &config)
-    : vp::Component(config, this->cfg)
+    : vp::Component(config, this->cfg),
+      fsm_event(this, &LogIco::fsm_handler),
+      gui_active(*this, "active", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -127,149 +191,251 @@ LogIco::LogIco(vp::ComponentConf &config)
     int nb_slaves  = (int)this->cfg.nb_slaves;
     this->slave_bits = ceil_log2_u((unsigned int)nb_slaves);
 
-    this->outputs.reserve(nb_slaves);
+    vp_assert_always(nb_masters > 0 && nb_masters <= 64, &this->trace,
+        "nb_masters must be in (0, 64], got %d\n", nb_masters);
+
+    this->banks.reserve(nb_slaves);
     for (int i = 0; i < nb_slaves; i++)
     {
-        auto m = std::make_unique<vp::IoMaster>(
-            i, &LogIco::output_retry, &LogIco::output_resp);
-        this->new_master_port("output_" + std::to_string(i), m.get());
-        this->outputs.push_back(std::move(m));
+        std::string name = "output_" + std::to_string(i);
+        auto b = std::make_unique<BankState>(this, i);
+        this->new_master_port(name, &b->itf);
+        this->banks.push_back(std::move(b));
     }
 
     this->inputs.reserve(nb_masters);
     for (int i = 0; i < nb_masters; i++)
     {
-        auto s = std::make_unique<vp::IoSlave>(i, &LogIco::input_req);
-        this->new_slave_port("input_" + std::to_string(i), s.get());
-        this->inputs.push_back(std::move(s));
+        std::string name = "input_" + std::to_string(i);
+        auto in = std::make_unique<InputState>(this, i);
+        this->new_slave_port(name, &in->itf);
+        this->inputs.push_back(std::move(in));
     }
-
-    this->denied_on_bank.assign((size_t)nb_masters, -1);
 }
 
 void LogIco::reset(bool active)
 {
     if (active)
     {
-        std::fill(this->denied_on_bank.begin(),
-                  this->denied_on_bank.end(), -1);
+        this->in_election = false;
+        for (auto &b : this->banks)
+        {
+            b->pending_mask = 0;
+            b->rr_next = 0;
+        }
     }
 }
 
 
-LogIcoInFlight *LogIco::alloc_inflight()
+void LogIco::gui_log_bank(int bank_id, uint64_t addr)
 {
-    LogIcoInFlight *ifl = this->inflight_free;
-    if (ifl != nullptr)
+    int64_t cycles = this->clock.get_cycles();
+    if (cycles > this->gui_last_cycle)
     {
-        this->inflight_free = (LogIcoInFlight *)ifl->saved_initiator;
-        return ifl;
+        this->gui_nb_same_cycle = 0;
+        this->gui_last_cycle = cycles;
     }
-    return new LogIcoInFlight();
+    int64_t period = this->clock.get_period();
+    int64_t delay = this->gui_nb_same_cycle > 0
+        ? period - (period >> this->gui_nb_same_cycle) : 0;
+    this->gui_nb_same_cycle++;
+
+    gui_pulse(this->banks[bank_id]->gui_addr, addr, delay, period);
+    gui_pulse(this->gui_active, 1, delay, period);
 }
 
-void LogIco::free_inflight(LogIcoInFlight *ifl)
+
+int LogIco::decode_bank(uint64_t offset) const
 {
-    // Reuse saved_initiator as the free-list link — it will be overwritten
-    // on the next alloc.
-    ifl->saved_initiator = (void *)this->inflight_free;
-    this->inflight_free = ifl;
+    if (this->slave_bits == 0) return 0;
+    int mask = (1 << this->slave_bits) - 1;
+    return (int)((offset >> this->cfg.interleaving_width) & (uint64_t)mask);
 }
 
+uint64_t LogIco::decode_offset(uint64_t offset) const
+{
+    uint64_t iw = (uint64_t)this->cfg.interleaving_width;
+    uint64_t iw_mask  = (iw == 0) ? 0 : ((((uint64_t)1) << iw) - 1);
+    uint64_t hi_shift = (uint64_t)this->slave_bits + iw;
+    return ((offset >> hi_shift) << iw) | (offset & iw_mask);
+}
+
+int LogIco::pick_winner(uint64_t mask, int rr_next, int nb) const
+{
+    // Valid-bit mask so an over-wide rotation doesn't pull stale bits in.
+    uint64_t valid = (nb == 64) ? ~0ULL : ((1ULL << nb) - 1);
+    mask &= valid;
+
+    // Rotate the mask right by rr_next so the scan start lands at bit 0,
+    // then ctz gives the offset of the first set bit at-or-after rr_next.
+    uint64_t rotated;
+    if (rr_next == 0)
+    {
+        rotated = mask;
+    }
+    else
+    {
+        rotated = ((mask >> rr_next) | (mask << (nb - rr_next))) & valid;
+    }
+    int rel = __builtin_ctzll(rotated);
+    return (rr_next + rel) % nb;
+}
+
+
+//
+// Forward path
+//
 
 vp::IoReqStatus LogIco::input_req(vp::Block *__this, vp::IoReq *req, int id)
 {
     LogIco *_this = (LogIco *)__this;
 
-    uint64_t addr = req->get_addr();
-    uint64_t offset = addr - (uint64_t)_this->cfg.remove_offset;
+    uint64_t addr   = req->get_addr();
+    int bank_id    = _this->decode_bank(addr);
 
-    int mask = (1 << _this->slave_bits) - 1;
-    int bank_id = 0;
-    if (_this->slave_bits > 0)
+    if (_this->in_election)
     {
-        bank_id = (int)((offset >> _this->cfg.interleaving_width) & (uint64_t)mask);
-    }
+        // FSM is dispatching retries; any request arriving in this
+        // window (typically the re-issue triggered by the retry call
+        // we just made) is forwarded inline to the IoV2Sync bank.
+        uint64_t bank_offset = _this->decode_offset(addr);
 
-    uint64_t iw = (uint64_t)_this->cfg.interleaving_width;
-    uint64_t iw_mask = (iw == 0) ? 0 : ((((uint64_t)1) << iw) - 1);
-    uint64_t hi_shift = (uint64_t)_this->slave_bits + iw;
-    uint64_t bank_offset = ((offset >> hi_shift) << iw) | (offset & iw_mask);
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Forwarding (input: %d, addr: 0x%llx -> bank %d bank_addr: 0x%llx)\n",
+            id,
+            (unsigned long long)addr,
+            bank_id,
+            (unsigned long long)bank_offset);
 
-    _this->trace.msg(vp::Trace::LEVEL_DEBUG,
-        "Routing IO req (input: %d, addr: 0x%llx -> bank %d bank_addr: 0x%llx, "
-        "size: 0x%llx, write: %d)\n",
-        id, (unsigned long long)addr, bank_id,
-        (unsigned long long)bank_offset,
-        (unsigned long long)req->get_size(),
-        req->get_is_write() ? 1 : 0);
+        _this->gui_log_bank(bank_id, addr);
 
-    // Install InFlight so response / deny can find the originating master
-    // and we can roll the addr back on DENIED.
-    LogIcoInFlight *ifl = _this->alloc_inflight();
-    ifl->input_id        = id;
-    ifl->saved_initiator = req->initiator;
-    ifl->saved_addr      = addr;
-    req->initiator = ifl;
-
-    req->set_addr(bank_offset);
-
-    vp::IoReqStatus st = _this->outputs[bank_id]->req(req);
-
-    if (st == vp::IO_REQ_DONE)
-    {
-        // Inline completion: restore initiator, free InFlight, return DONE.
-        req->initiator = ifl->saved_initiator;
-        _this->free_inflight(ifl);
+        req->set_addr(bank_offset);
+        vp::IoReqStatus st = _this->banks[bank_id]->itf.req(req);
+        vp_assert_always(st == vp::IO_REQ_DONE, &_this->trace,
+            "IoV2Sync output returned a non-DONE status (%d)\n", (int)st);
         return vp::IO_REQ_DONE;
     }
 
-    if (st == vp::IO_REQ_DENIED)
-    {
-        // Nothing actually went through. Roll the request back to its
-        // pre-forward state so the master's re-send looks like the
-        // original issue.
-        req->initiator = ifl->saved_initiator;
-        req->set_addr(ifl->saved_addr);
-        _this->free_inflight(ifl);
+    // Idle state: record that this input wants this bank, schedule the
+    // arbiter, and tell the master to retry later.
+    _this->trace.msg(vp::Trace::LEVEL_DEBUG,
+        "Req arrived, denying (input: %d, addr: 0x%llx, size: 0x%llx, write: %d, bank: %d)\n",
+        id,
+        (unsigned long long)addr,
+        (unsigned long long)req->get_size(),
+        req->get_is_write() ? 1 : 0,
+        bank_id);
 
-        _this->denied_on_bank[id] = bank_id;
-        return vp::IO_REQ_DENIED;
+    _this->banks[bank_id]->pending_mask |= (1ULL << id);
+    _this->fsm_event.enqueue(0);
+    return vp::IO_REQ_DENIED;
+}
+
+void LogIco::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    LogIco *_this = (LogIco *)__this;
+    int nb = (int)_this->cfg.nb_masters;
+    bool any_remaining = false;
+
+    _this->in_election = true;
+    for (auto &bank : _this->banks)
+    {
+        if (bank->pending_mask == 0) continue;
+
+        int winner = _this->pick_winner(bank->pending_mask, bank->rr_next, nb);
+        bank->pending_mask &= ~(1ULL << winner);
+        bank->rr_next = (winner + 1) % nb;
+
+        _this->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Round-robin pick (bank: %d, winner: %d, remaining_mask: 0x%llx)\n",
+            bank->id, winner,
+            (unsigned long long)bank->pending_mask);
+
+        // Retry runs the master's retry handler synchronously: the
+        // master re-issues, input_req (with in_election=true) forwards
+        // inline to the bank and returns DONE.
+        _this->inputs[winner]->itf.retry();
+
+        if (bank->pending_mask != 0) any_remaining = true;
     }
+    _this->in_election = false;
 
-    // IO_REQ_GRANTED: keep InFlight active; the bank will call resp() later.
-    return vp::IO_REQ_GRANTED;
-}
-
-
-void LogIco::output_resp(vp::Block *__this, vp::IoReq *req, int /*bank_id*/)
-{
-    LogIco *_this = (LogIco *)__this;
-    LogIcoInFlight *ifl = (LogIcoInFlight *)req->initiator;
-    int input_id = ifl->input_id;
-
-    req->initiator = ifl->saved_initiator;
-    _this->free_inflight(ifl);
-
-    _this->inputs[input_id]->resp(req);
-}
-
-
-void LogIco::output_retry(vp::Block *__this, int id)
-{
-    LogIco *_this = (LogIco *)__this;
-
-    // Wake every master that is currently blocked on bank ``id``. A master
-    // blocked on a different bank stays blocked — its retry will come when
-    // its own bank retries.
-    for (size_t m = 0; m < _this->denied_on_bank.size(); m++)
+    if (any_remaining)
     {
-        if (_this->denied_on_bank[m] == id)
+        // Re-arm next cycle so each bank serves at most one master per
+        // cycle.
+        _this->fsm_event.enqueue(1);
+    }
+}
+
+
+//
+// Response path: the IoV2Sync bank must never drive these.
+//
+
+vp::IoRespAck LogIco::output_resp(vp::Block *__this, vp::IoReq * /*req*/, int id)
+{
+    LogIco *_this = (LogIco *)__this;
+    _this->trace.fatal("Unexpected async resp() from IoV2Sync bank %d "
+                       "(the synchronous sub-protocol forbids it)\n", id);
+    return vp::IO_RESP_ACCEPTED;
+}
+
+void LogIco::output_retry(vp::Block *__this, int id, vp::IoRetryChannel)
+{
+    LogIco *_this = (LogIco *)__this;
+    _this->trace.fatal("Unexpected retry() from IoV2Sync bank %d "
+                       "(the synchronous sub-protocol forbids it)\n", id);
+}
+
+
+//
+// Backdoor debug access
+//
+
+int LogIco::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    if (!this->bank_debug_mem_resolved)
+    {
+        this->bank_debug_mem_resolved = true;
+        this->bank_debug_mem.assign(this->banks.size(), nullptr);
+        for (size_t i = 0; i < this->banks.size(); i++)
         {
-            _this->denied_on_bank[m] = -1;
-            _this->inputs[m]->retry();
+            std::vector<vp::SlavePort *> finals =
+                this->banks[i]->itf.get_final_ports();
+            if (!finals.empty() && finals[0]->get_owner() != nullptr)
+            {
+                this->bank_debug_mem[i] = finals[0]->get_owner()->debug_mem_if();
+            }
         }
     }
+
+    // Walk the access one interleaving granule at a time, each chunk going
+    // to its bank at the bank-local offset.
+    uint64_t granule = 1ULL << this->cfg.interleaving_width;
+    while (size > 0)
+    {
+        int bank = this->decode_bank(addr);
+        uint64_t chunk = granule - (addr & (granule - 1));
+        if (chunk > size)
+        {
+            chunk = size;
+        }
+
+        if (this->bank_debug_mem[bank] == nullptr ||
+            this->bank_debug_mem[bank]->debug_mem_access(
+                this->decode_offset(addr), data, chunk, is_write))
+        {
+            return -1;
+        }
+
+        addr += chunk;
+        data += chunk;
+        size -= chunk;
+    }
+
+    return 0;
 }
 
 

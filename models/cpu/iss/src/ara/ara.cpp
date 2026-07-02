@@ -216,12 +216,16 @@ void Ara::insn_end(PendingInsn *pending_insn)
     {
         if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
         {
-            this->scoreboard_in_use[insn->in_regs[i]]--;
+            // The register index lives at in_regs[arg.id], not in_regs[i]: a format
+            // can have a non-register operand (e.g. OPIVI's immediate) occupy a lower
+            // input slot, leaving a gap so the arg position and in_regs index differ.
+            int in_reg = insn->in_regs[insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.id];
+            this->scoreboard_in_use[in_reg]--;
             // Cancel the register chaining if it was involved in this instruction, this will
             // allow other instructions to use this register for chaining
-            if (this->scoreboard_chained[insn->in_regs[i]] == pending_insn)
+            if (this->scoreboard_chained[in_reg] == pending_insn)
             {
-                this->scoreboard_chained[insn->in_regs[i]] = NULL;
+                this->scoreboard_chained[in_reg] = NULL;
             }
         }
     }
@@ -282,12 +286,16 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             {
                 if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                 {
+                    // Resolve through the arg's declared id: the input register lives at
+                    // in_regs[arg.id], which differs from in_regs[i] when a lower input
+                    // slot is taken by a non-register operand (e.g. OPIVI's immediate).
+                    int in_reg = insn->in_regs[insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.id];
                     // The instruction can be chained if the register has already elements and is
                     // not already chained with another instructions
-                    if (_this->scoreboard_committed[insn->in_regs[i]] != 0 && !_this->scoreboard_chained[insn->in_regs[i]])
+                    if (_this->scoreboard_committed[in_reg] != 0 && !_this->scoreboard_chained[in_reg])
                     {
                         pending_insn->chained = true;
-                        _this->scoreboard_chained[insn->in_regs[i]] = pending_insn;
+                        _this->scoreboard_chained[in_reg] = pending_insn;
                     }
                 }
             }
@@ -298,10 +306,11 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             {
                 if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                 {
+                    int in_reg = insn->in_regs[insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.id];
                     // This register can stall the instruction only if it not chained to it
-                    if (_this->scoreboard_chained[insn->in_regs[i]] != pending_insn)
+                    if (_this->scoreboard_chained[in_reg] != pending_insn)
                     {
-                        if (_this->scoreboard_valid_ts[insn->in_regs[i]] > _this->iss.top.clock.get_cycles())
+                        if (_this->scoreboard_valid_ts[in_reg] > _this->iss.top.clock.get_cycles())
                         {
                             stalled = true;
                             break;
@@ -319,8 +328,10 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 {
                     if ((insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                     {
-                        // This register can stall the instruction only if it not chained to it
-                        if (_this->scoreboard_chained[insn->in_regs[i]] != pending_insn)
+                        // This register can stall the instruction only if it not chained to it.
+                        // This loop is about the output register, so test the chaining of
+                        // out_regs[i] (in_regs[i] may be a gap slot, e.g. for OPIVI).
+                        if (_this->scoreboard_chained[insn->out_regs[i]] != pending_insn)
                         {
                             if (_this->scoreboard_valid_ts[insn->out_regs[i]] > _this->iss.top.clock.get_cycles())
                             {
@@ -391,7 +402,8 @@ void Ara::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                         {
                             if ((insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) != 0)
                             {
-                                _this->scoreboard_in_use[insn->in_regs[i]]++;
+                                int in_reg = insn->in_regs[insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.id];
+                                _this->scoreboard_in_use[in_reg]++;
                             }
                         }
 

@@ -43,23 +43,38 @@
  */
 
 #include <algorithm>
+#include <vector>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/limiter_v2/limiter_config.hpp>
 
-class Limiter : public vp::Component
+class Limiter : public vp::Component, public vp::DebugMemIf
 {
 public:
     Limiter(vp::ComponentConf &conf);
     void reset(bool active) override;
 
+    // Backdoor debug access (vp/debug_mem.hpp): the limiter is bandwidth-only
+    // and does not touch addresses/data, so the backdoor is a pure pass-through
+    // to whatever is bound downstream (e.g. a memory bank). Without this, a
+    // backdoor access (semi-hosting, GDB, proxy) to a target behind the limiter
+    // would have no path and fail.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
+
     LimiterConfig cfg;
 
 private:
+    vp::DebugMemIf *resolve_debug_mem();
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
-    static void            output_resp(vp::Block *__this, vp::IoReq *req);
-    static void            output_retry(vp::Block *__this);
+    static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req);
+    static void            output_retry(vp::Block *__this, vp::IoRetryChannel);
     static void            event_handler(vp::Block *__this, vp::ClockEvent *event);
 
     // Internal helpers.
@@ -213,6 +228,10 @@ void Limiter::event_handler(vp::Block *__this, vp::ClockEvent *event)
     vp::IoReq *sub = _this->alloc_sub();
     sub->prepare();
     sub->parent      = _this->pending_req;
+    // Back-reference so distinct response beats correlate to this sub-request
+    // (initiator-owned convention): the downstream may answer with distinct beat
+    // objects rather than round-tripping our sub.
+    sub->initiator   = sub;
     sub->set_addr(_this->pending_addr);
     sub->set_size(chunk);
     sub->set_data(_this->pending_data);
@@ -265,19 +284,31 @@ void Limiter::event_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 
-void Limiter::finish_chunk(vp::IoReq *sub)
+void Limiter::finish_chunk(vp::IoReq *resp)
 {
+    // `resp` is correlated to our sub-request via resp->initiator (set at issue,
+    // initiator-owned convention): a splitting downstream answers with DISTINCT
+    // beat objects, while a plain slave round-trips our own sub (resp == sub).
+    vp::IoReq *sub = (vp::IoReq *)resp->initiator;
     vp::IoReq *parent = sub->parent;
 
-    // Propagate per-chunk errors to the parent. We latch the first INVALID and
+    // Propagate per-beat errors to the parent. We latch the first INVALID and
     // keep it until the parent's last response lands.
-    if (sub->get_resp_status() == vp::IO_RESP_INVALID)
+    if (resp->get_resp_status() == vp::IO_RESP_INVALID)
     {
         parent->set_resp_status(vp::IO_RESP_INVALID);
     }
-    parent->remaining_size -= sub->get_size();
+    parent->remaining_size -= resp->get_size();
 
-    this->free_sub(sub);
+    bool last = resp->is_last;
+    if (resp != sub)
+    {
+        delete resp;            // distinct response beat — we own/free it
+    }
+    if (last)
+    {
+        this->free_sub(sub);    // recycle our sub on its last response beat
+    }
 
     this->check_last_chunk(parent);
 }
@@ -301,14 +332,15 @@ void Limiter::check_last_chunk(vp::IoReq *parent)
 }
 
 
-void Limiter::output_resp(vp::Block *__this, vp::IoReq *sub)
+vp::IoRespAck Limiter::output_resp(vp::Block *__this, vp::IoReq *sub)
 {
     Limiter *_this = (Limiter *)__this;
     _this->finish_chunk(sub);
+    return vp::IO_RESP_ACCEPTED;
 }
 
 
-void Limiter::output_retry(vp::Block *__this)
+void Limiter::output_retry(vp::Block *__this, vp::IoRetryChannel)
 {
     Limiter *_this = (Limiter *)__this;
 
@@ -340,6 +372,39 @@ void Limiter::output_retry(vp::Block *__this)
         && !_this->event.is_enqueued())
     {
         _this->event.enqueue(1);
+    }
+}
+
+
+vp::DebugMemIf *Limiter::resolve_debug_mem()
+{
+    std::vector<vp::SlavePort *> finals = this->output_itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int Limiter::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+    bool is_write)
+{
+    vp::DebugMemIf *target = this->resolve_debug_mem();
+    return target ? target->debug_mem_access(addr, data, size, is_write) : -1;
+}
+
+void Limiter::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *target = this->resolve_debug_mem();
+    if (target != nullptr)
+    {
+        target->debug_mem_regions(regions, local_base, window_size, entry_base,
+            depth + 1);
     }
 }
 

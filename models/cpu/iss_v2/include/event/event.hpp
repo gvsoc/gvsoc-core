@@ -22,6 +22,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
+#include <cpu/iss_v2/include/stats/insn_duration.hpp>
 
 // Opaque per-register tag stored by the scoreboard at invalidation
 // time and handed back to the per-core events class when a dependent
@@ -34,6 +35,60 @@ enum IssStallReason : uint8_t {
     ISS_STALL_REASON_NONE = 0,
     ISS_STALL_REASON_LOAD = 1,
 };
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+// Derived statistic: instructions per non-idle cycle (IPC), computed
+// lazily at dump time from the live instr and active-cycle counters.
+// Lives in the model (not the engine) so no engine change is needed —
+// register_stat() accepts any vp::StatCommon.
+class StatIpc : public vp::StatCommon
+{
+public:
+    StatIpc(vp::StatScalar *instr, vp::StatScalar *active_cycles)
+        : instr(instr), active_cycles(active_cycles) {}
+
+    std::string format_value(bool raw) const override
+    {
+        uint64_t cycles = this->active_cycles->get();
+        double ipc = cycles ? (double)this->instr->get() / (double)cycles : 0.0;
+        char buf[32];
+        snprintf(buf, sizeof(buf), raw ? "%.6f" : "%.3f", ipc);
+        return buf;
+    }
+
+    void reset() override {}
+
+private:
+    vp::StatScalar *instr;
+    vp::StatScalar *active_cycles;
+};
+
+// Derived statistic: percentage of time the core was active (not idle),
+// computed from the active and idle cycle counters which together tile
+// the whole run.
+class StatActivePct : public vp::StatCommon
+{
+public:
+    StatActivePct(vp::StatScalar *active_cycles, vp::StatScalar *idle_cycles)
+        : active_cycles(active_cycles), idle_cycles(idle_cycles) {}
+
+    std::string format_value(bool raw) const override
+    {
+        uint64_t active = this->active_cycles->get();
+        uint64_t total = active + this->idle_cycles->get();
+        double pct = total ? 100.0 * (double)active / (double)total : 0.0;
+        char buf[32];
+        snprintf(buf, sizeof(buf), raw ? "%.4f" : "%.2f %%", pct);
+        return buf;
+    }
+
+    void reset() override {}
+
+private:
+    vp::StatScalar *active_cycles;
+    vp::StatScalar *idle_cycles;
+};
+#endif
 
 class Events
 {
@@ -147,4 +202,54 @@ protected:
     vp::Event event_taken_branch;
     vp::Event event_rvc;
     vp::Event event_misaligned;
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+    // Engine statistics, dumped to stats.txt when run with --stats. One
+    // counter per countable event, registered in the constructor and
+    // incremented from the matching event_*_account() in event_implem.hpp.
+    bool stats_enabled = false;   // cached in ctor: true only when --stats is active
+    vp::StatScalar stat_instr;
+    vp::StatScalar stat_fetch;
+    vp::StatScalar stat_imiss;
+    vp::StatScalar stat_ld;
+    vp::StatScalar stat_st;
+    vp::StatScalar stat_jump;
+    vp::StatScalar stat_branch;
+    vp::StatScalar stat_taken_branch;
+    vp::StatScalar stat_rvc;
+    vp::StatScalar stat_misaligned;
+    vp::StatScalar stat_active_cycles;   // cycles the core was not idle
+    vp::StatScalar stat_idle_cycles;     // cycles the core was idle
+    StatIpc stat_ipc{&stat_instr, &stat_active_cycles};  // instr / active_cycles
+    StatActivePct stat_active_pct{&stat_active_cycles, &stat_idle_cycles};  // active %
+    // Active/idle window accounting. The core alternates between active
+    // (busy_enter..busy_exit) and idle (busy_exit..busy_enter); each
+    // transition closes the open window and opens the other one.
+    bool active_open = false;
+    bool idle_open = false;
+    int64_t active_start = 0;
+    int64_t idle_start = 0;
+    // Per-label execution-duration statistics. The window opens right after an
+    // instruction's fetch completes and closes at its commit; at close we add
+    // the latency still pending in stall_cycles (branch/jump/div), so the
+    // duration is exec + data-load/use wait + pipeline penalty, with the icache
+    // miss excluded (it happens during the fetch, before the window opens, and
+    // any synchronous-fetch stall is cancelled by the dur_open_stall baseline).
+    InsnDurationStats insn_durations;
+    const char *dur_label = nullptr;   // label of the open window (null = none)
+    int64_t dur_open_cycle = 0;        // cycle the fetch completed
+    int64_t dur_open_stall = 0;        // stall_cycles snapshot at open (sync-fetch baseline)
+#endif
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+public:
+    // Open a duration window for insn just after its fetch/decode, capturing the
+    // stall_cycles baseline. Opens once (no-op if a window is already open), so a
+    // stalled load's retries do not re-anchor it. Non-virtual: runs for every
+    // iss_v2 core (e.g. Ri5kyEvents) without an override.
+    inline void dur_window_open(iss_insn_t *insn, int64_t stall_now);
+    // Close the open window at commit, charging exec + data wait + the latency
+    // still pending in stall_cycles minus the at-open baseline.
+    inline void dur_window_close(int64_t stall_now);
+#endif
 };

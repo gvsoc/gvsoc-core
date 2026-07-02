@@ -23,7 +23,9 @@
 
 static inline iss_reg_t get_field(iss_reg_t field, int bit, int width)
 {
-    return (field >> bit) & ((1 << width) - 1);
+    // Do the shift in the register-width type: "1 << width" with a 32-bit int is
+    // undefined behaviour for width >= 32 and produces a wrong mask.
+    return (field >> bit) & (((iss_reg_t)1 << width) - 1);
 }
 
 Pmp::Pmp(Iss &iss)

@@ -142,7 +142,7 @@ public:
     int elw_interrupted;
     bool cache_sync;
 
-    bool debug_mode;
+    bool debug_mode = false;
     iss_reg_t elw_insn;
 
     bool skip_irq_check;

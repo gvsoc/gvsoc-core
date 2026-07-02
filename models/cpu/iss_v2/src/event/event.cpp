@@ -19,6 +19,7 @@
  */
 
 #include <vp/trace/trace.hpp>
+#include <vp/stats/stats_engine.hpp>
 #include <cpu/iss_v2/include/event/event.hpp>
 
 Events::Events(Iss &iss)
@@ -60,6 +61,54 @@ active_pc_trace_event(iss, "active_pc", ISS_REG_WIDTH, gv::Vcd_event_type_logica
     this->iss.power.new_power_source("power_stall_next", &this->power_stall_next, this->iss.get_js_config()->get("**/power_models/stall_next"));
 
     this->iss.power.new_power_source("background", &background_power, this->iss.get_js_config()->get("**/power_models/background"));
+
+#ifdef CONFIG_GVSOC_STATS_ACTIVE
+    // Cache whether stats are enabled at runtime (--stats). Skip all work otherwise.
+    vp::StatsEngine *stats_engine = this->iss.stats.get_engine();
+    this->stats_enabled = stats_engine != nullptr && stats_engine->is_enabled();
+
+    if (this->stats_enabled)
+    {
+        this->iss.stats.register_stat(&this->stat_instr,        "instr",        "Instructions executed");
+        this->iss.stats.register_stat(&this->stat_fetch,        "fetch",        "Prefetch refills");
+        this->iss.stats.register_stat(&this->stat_imiss,        "imiss",        "Instruction cache miss cycles");
+        this->iss.stats.register_stat(&this->stat_ld,           "ld",           "Memory loads executed");
+        this->iss.stats.register_stat(&this->stat_st,           "st",           "Memory stores executed");
+        this->iss.stats.register_stat(&this->stat_jump,         "jump",         "Unconditional jumps");
+        this->iss.stats.register_stat(&this->stat_branch,       "branch",       "Conditional branches");
+        this->iss.stats.register_stat(&this->stat_taken_branch, "taken_branch", "Taken branches");
+        this->iss.stats.register_stat(&this->stat_rvc,          "rvc",          "Compressed instructions");
+        this->iss.stats.register_stat(&this->stat_misaligned,   "misaligned",   "Misaligned memory accesses");
+        this->iss.stats.register_stat(&this->stat_active_cycles, "active_cycles", "Cycles the core was not idle");
+        this->iss.stats.register_stat(&this->stat_idle_cycles,  "idle_cycles",  "Cycles the core was idle");
+        this->iss.stats.register_stat(&this->stat_ipc,          "ipc",          "Instructions per non-idle cycle");
+        this->iss.stats.register_stat(&this->stat_active_pct,   "active_pct",   "Percentage of cycles the core was active");
+
+        // Per-label instruction durations are registered lazily, the first
+        // time each label is seen, under the "insn_duration" group.
+        this->insn_durations.init(&this->iss.stats, "insn_duration");
+
+        // Flush the in-progress window at dump time so the cycle counters
+        // (and the derived ipc / active_pct) account for activity up to the
+        // dump, even if the core never transitioned before the sim ended.
+        stats_engine->register_pre_dump([this]()
+        {
+            int64_t now = this->iss.clock.get_cycles();
+            if (this->active_open)
+            {
+                this->stat_active_cycles += now - this->active_start;
+                this->active_start = now;
+            }
+            if (this->idle_open)
+            {
+                this->stat_idle_cycles += now - this->idle_start;
+                this->idle_start = now;
+            }
+            // Per-label durations close at each instruction's own commit, so
+            // there is nothing pending to flush here.
+        });
+    }
+#endif
 }
 
 void Events::reset(bool active)

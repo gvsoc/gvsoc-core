@@ -17,6 +17,7 @@
 import gvsoc.systree as st
 import os.path
 import gvsoc.gui
+import gvrun.timing
 
 class Iss(st.Component):
     """
@@ -80,7 +81,7 @@ class Iss(st.Component):
             supervisor=False,
             user=False,
             internal_atomics=False,
-            timed=True,
+            timed: bool | None=None,
             scoreboard=False):
 
         super(Iss, self).__init__(parent, name)
@@ -119,6 +120,14 @@ class Iss(st.Component):
 
         if mmu:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MMU=1'])
+
+        # When not explicitly set, derive the timing model from the
+        # hierarchical timing level: only 'functional' disables it ('cycle'
+        # snaps to 'timed', the ISS has no finer-grained model).
+        if timed is None:
+            timed = self.get_timing_level(
+                supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
+        self.add_property('timed', timed)
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])

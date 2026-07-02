@@ -24,6 +24,26 @@
 #include <algorithm>
 #include <vector>
 
+// Resolve a trace PC to its function name and source file:line, straight from
+// the ELF binary -- function name from the symbol table, file:line from the
+// DWARF .debug_line program. All of it is parsed by the self-contained,
+// dependency-free reader in <cpu/dwarf_trace.hpp> (no libdwarf, no libdw/libelf,
+// no <elf.h>), so this builds identically on Linux, macOS, etc. The block is
+// excluded for the 32-bit model variant, which has no trace symbols.
+#if !defined(__M32_MODE__)
+#include <cpu/dwarf_trace.hpp>
+
+// One registered binary: its symbol table and line-number rows, both parsed
+// once and address-sorted by dwarf_trace::load().
+struct iss_binary_info
+{
+    std::vector<dwarf_trace::SymEntry> syms;
+    std::vector<dwarf_trace::LineRow> lines;
+};
+
+static std::vector<iss_binary_info> iss_dw_binaries;
+#endif
+
 Trace::Trace(Iss &iss)
     : iss(iss)
 {
@@ -36,10 +56,17 @@ void Trace::build()
     this->insn_trace.register_callback(std::bind(&Trace::insn_trace_callback, this));
     iss_trace_init(&this->iss);
 
-    for (auto x : this->iss.top.get_js_config()->get("**/debug_binaries")->get_elems())
+#if !defined(__M32_MODE__)
+    // Register the ELF binaries; trace symbols are resolved lazily on demand.
+    js::Config *binaries_config = this->iss.top.get_js_config()->get("**/binaries");
+    if (binaries_config != NULL)
     {
-        iss_register_debug_info(&this->iss, x->get_str().c_str());
+        for (auto x : binaries_config->get_elems())
+        {
+            iss_register_debug_elf(&this->iss, x->get_str().c_str());
+        }
     }
+#endif
 
 }
 
@@ -65,27 +92,15 @@ public:
     char *inline_func;
     char *file;
     int line;
+    // False for a negative-cache entry: the PC was looked up but no symbol was
+    // found. Stored so a fruitless lookup is not repeated on every hit.
+    bool valid;
     iss_pc_info *next;
 };
 
 static bool pc_infos_is_init = false;
 static iss_pc_info *pc_infos[PC_INFO_ARRAY_SIZE];
 static std::vector<std::string> binaries;
-
-static void add_pc_info(unsigned int base, char *func, char *inline_func, char *file, int line)
-{
-    iss_pc_info *pc_info = new iss_pc_info();
-
-    int index = base & (PC_INFO_ARRAY_SIZE - 1);
-    pc_info->next = pc_infos[index];
-    pc_infos[index] = pc_info;
-
-    pc_info->base = base;
-    pc_info->func = strdup(func);
-    pc_info->inline_func = strdup(inline_func);
-    pc_info->file = strdup(file);
-    pc_info->line = line;
-}
 
 static iss_pc_info *get_pc_info(unsigned int base)
 {
@@ -101,10 +116,96 @@ static iss_pc_info *get_pc_info(unsigned int base)
     return pc_info;
 }
 
-int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_func, const char **file, int *line)
+#if !defined(__M32_MODE__)
+static iss_pc_info *add_pc_info(unsigned int base, const char *func, const char *inline_func,
+    const char *file, int line, bool valid)
+{
+    iss_pc_info *pc_info = new iss_pc_info();
+
+    int index = base & (PC_INFO_ARRAY_SIZE - 1);
+    pc_info->next = pc_infos[index];
+    pc_infos[index] = pc_info;
+
+    pc_info->base = base;
+    pc_info->func = strdup(func);
+    pc_info->inline_func = strdup(inline_func);
+    pc_info->file = strdup(file);
+    pc_info->line = line;
+    pc_info->valid = valid;
+
+    return pc_info;
+}
+
+// Parse the registered binaries' symbol + line tables on first use. The parse is
+// deferred until a trace line actually needs to resolve a PC, so a run with no
+// tracing enabled never pays for it. Globals are process-wide, so binaries
+// registered by every ISS are loaded once; late registrations are picked up too.
+static void iss_dw_ensure_loaded()
+{
+    for (size_t i = iss_dw_binaries.size(); i < binaries.size(); i++)
+    {
+        iss_dw_binaries.push_back({});
+        iss_binary_info &b = iss_dw_binaries.back();
+        if (!dwarf_trace::load(binaries[i].c_str(), b.syms, b.lines))
+        {
+            fprintf(stderr, "Unable to load debug info from binary: %s\n", binaries[i].c_str());
+        }
+    }
+}
+
+// Resolve a PC across the registered binaries -- function name from the symbol
+// table, file:line from the DWARF line rows -- then store the result (positive
+// or negative) in the pc_info hash so it acts as a cache.
+static iss_pc_info *iss_libdw_resolve(iss_addr_t addr)
+{
+    iss_dw_ensure_loaded();
+
+    const char *func = NULL;
+    const char *file = NULL;
+    int line = 0;
+
+    for (auto &b : iss_dw_binaries)
+    {
+        const char *bf = dwarf_trace::func_for(b.syms, addr);
+        bool got_line = dwarf_trace::line_for(b.lines, addr, &file, &line);
+        if (bf != NULL || got_line)
+        {
+            func = bf;
+            break;
+        }
+    }
+
+    if (func != NULL || file != NULL)
+    {
+        // inline_func mirrors func (no separate inline-frame info).
+        return add_pc_info(addr, func ? func : "-", func ? func : "-",
+            file ? file : "-", line, true);
+    }
+
+    return add_pc_info(addr, "-", "-", "-", 0, false);
+}
+#endif
+
+// Cache lookup with a lazy DWARF resolution on miss.
+static iss_pc_info *iss_pc_info_get(iss_addr_t addr)
 {
     iss_pc_info *info = get_pc_info(addr);
-    if (info == NULL)
+    if (info != NULL)
+    {
+        return info;
+    }
+
+#if !defined(__M32_MODE__)
+    return iss_libdw_resolve(addr);
+#else
+    return NULL;
+#endif
+}
+
+int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_func, const char **file, int *line)
+{
+    iss_pc_info *info = iss_pc_info_get(addr);
+    if (info == NULL || !info->valid)
         return -1;
 
     *func = info->func;
@@ -115,33 +216,17 @@ int iss_trace_pc_info(iss_addr_t addr, const char **func, const char **inline_fu
     return 0;
 }
 
-void iss_register_debug_info(Iss *iss, const char *binary)
+void iss_register_debug_elf(Iss *iss, const char *binary)
 {
+#if !defined(__M32_MODE__)
     if (std::find(binaries.begin(), binaries.end(), std::string(binary)) != binaries.end())
         return;
 
+    // Only record the path here. The symbol table + DWARF .debug_line parse is
+    // deferred to the first PC resolution (iss_dw_ensure_loaded), so a run with
+    // no tracing enabled never parses the binaries.
     binaries.push_back(std::string(binary));
-
-    FILE *file = fopen(binary, "r");
-    if (file != NULL)
-    {
-        char *line = NULL;
-        size_t len = 0;
-        ssize_t read;
-        while ((read = getline(&line, &len, file)) != -1)
-        {
-            char *token = strtok(line, " ");
-            char *tokens[5];
-            int index = 0;
-            while (token)
-            {
-                tokens[index++] = token;
-                token = strtok(NULL, " ");
-            }
-            if (index == 5)
-                add_pc_info(strtol(tokens[0], NULL, 16), tokens[1], tokens[2], tokens[3], atoi(tokens[4]));
-        }
-    }
+#endif
 }
 
 static inline char iss_trace_get_mode(int mode)
@@ -554,8 +639,8 @@ static char *trace_dump_debug(Iss *iss, iss_insn_t *insn, iss_reg_t pc, char *bu
     char *file = (char *)"-";
     uint32_t line = 0;
     char *inline_func = (char *)"-";
-    iss_pc_info *pc_info = get_pc_info(pc);
-    if (pc_info)
+    iss_pc_info *pc_info = iss_pc_info_get(pc);
+    if (pc_info && pc_info->valid)
     {
         name = pc_info->func;
         file = pc_info->file;

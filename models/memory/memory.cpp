@@ -27,15 +27,23 @@
 #include <vp/memcheck.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
+#include <vp/debug_mem.hpp>
 #include <memory/memory_config/memory_config.hpp>
 
-class Memory : public vp::Component
+class Memory : public vp::Component, public vp::DebugMemIf
 {
 
 public:
     Memory(vp::ComponentConf &config);
 
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
+
+    // Backdoor debug access (vp/debug_mem.hpp): direct, zero-time access to
+    // the backing storage. The default debug_mem_regions() advertises this
+    // memory as one flat terminal region.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
 
     uint64_t memcheck_alloc(uint64_t ptr, uint64_t size);
     uint64_t memcheck_free(uint64_t ptr, uint64_t size);
@@ -423,6 +431,29 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
         return vp::IO_REQ_INVALID;
 #endif
     }
+}
+
+
+
+int Memory::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+{
+    uint64_t offset = addr & this->truncate_mask;
+
+    if (offset + size > (uint64_t)this->cfg.size)
+    {
+        return -1;
+    }
+
+    if (is_write)
+    {
+        memcpy((void *)&this->mem_data[offset], (void *)data, size);
+    }
+    else
+    {
+        memcpy((void *)data, (void *)&this->mem_data[offset], size);
+    }
+
+    return 0;
 }
 
 

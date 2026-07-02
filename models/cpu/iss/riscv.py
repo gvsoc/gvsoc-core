@@ -18,7 +18,6 @@ from inspect import stack
 #
 
 import os
-import subprocess
 import gvsoc.systree
 import gvsoc.systree as st
 import os.path
@@ -27,10 +26,10 @@ import cpu.iss.isa_gen.isa_riscv_gen
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
 from gvrun.systree import ExecutableContainer
+import gvrun.timing
 
 binaries_info = {}
 
-binaries = {}
 
 
 class IssModule:
@@ -60,8 +59,6 @@ class RiscvCommon(st.Component):
         The index of the first PCER which is retrieved externally (default: 0).
     riscv_dbg_unit : bool, optional
         True if a riscv debug unit should be included, False otherwise (default: False).
-    debug_binaries : list, optional
-        A list of path to riscv binaries debug info which can be used to get debug symbols for the assembly trace (default: []).
     binaries : list, optional
         A list of path to riscv binaries (default: []).
     debug_handler : int, optional
@@ -89,7 +86,6 @@ class RiscvCommon(st.Component):
             misa: int=0,
             first_external_pcer: int=0,
             riscv_dbg_unit: bool=False,
-            debug_binaries: list=[],
             binaries: list=[],
             debug_handler: int=0,
             power_models: dict={},
@@ -105,7 +101,7 @@ class RiscvCommon(st.Component):
             supervisor=False,
             user=False,
             internal_atomics=False,
-            timed=True,
+            timed: bool | None=None,
             scoreboard=False,
             cflags=None,
             prefetcher_size=None,
@@ -181,7 +177,6 @@ class RiscvCommon(st.Component):
             'misa': misa,
             'first_external_pcer': first_external_pcer,
             'riscv_dbg_unit': riscv_dbg_unit,
-            'debug_binaries': debug_binaries.copy(),
             'binaries': binaries.copy(),
             'debug_handler': debug_handler,
             'power_models': power_models,
@@ -250,6 +245,14 @@ class RiscvCommon(st.Component):
 
         if prefetcher_size is not None:
             self.add_c_flags([f'-DCONFIG_GVSOC_ISS_PREFETCHER_SIZE={prefetcher_size}'])
+
+        # When not explicitly set, derive the timing model from the
+        # hierarchical timing level: only 'functional' disables it ('cycle'
+        # snaps to 'timed', the ISS has no finer-grained model).
+        if timed is None:
+            timed = self.get_timing_level(
+                supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
+        self.add_property('timed', timed)
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -343,35 +346,9 @@ class RiscvCommon(st.Component):
 
     def handle_executable(self, binary):
 
+        # Record the binary; the ISS resolves trace symbols from it lazily at
+        # runtime from the ELF binary (no precompute step, no binary-size cap).
         self.get_property('binaries').append(binary)
-
-        global binaries
-
-        path = binary
-        debug_info_path = os.path.join(os.path.dirname(path), f'debug_binary_{os.path.basename(path)}.debugInfo')
-
-        if binaries.get(path) is None:
-            binaries[path] = True
-
-            # Only generate debug symbols for small binaries, otherwise it is too slow
-            # To allow it, the ISS should itself read the symbols.
-            if os.path.getsize(path) < 5 * 1024*1024:
-                try:
-                    result = subprocess.run(
-                        ["gen-debug-info", path, debug_info_path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-                except Exception as e:
-                    print(f'{e}')
-                    result = subprocess.CompletedProcess(args=[], returncode=1)
-
-                if result.returncode != 0:
-                    print(f'Error while generating debug symbols information for binary: {path}')
-                    print('Make sure the toolchain and the binaries are accessible')
-
-        if os.path.getsize(path) < 5 * 1024*1024:
-            self.get_property('debug_binaries').append(debug_info_path)
 
         if self.htif:
             self.handle_htif(binary)
@@ -619,8 +596,11 @@ class RiscvCommon(st.Component):
         for id in range(0, 32):
             gvsoc.gui.Signal(self, regfile, f"x{id}", path=f"regfile/x{id}", groups=['regmap'])
 
-        # TODO this should be enabled by the build process when the runtime is using multi-threading
-        # thread = gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
+        # Flame chart of the function call stack, reconstructed from the pc / jal / jalr / irq
+        # traces. Only generated when the gui-threads parameter is set (the runtime must also be
+        # built with __GVSOC_GUI__ to emit thread_lifecycle / thread_current for per-thread groups).
+        if self.get_parameter('/gui-threads'):
+            gvsoc.gui.SignalGenThreads(self, active, 'thread', 'pc', 'active_function', 'function')
 
         return active
 
@@ -654,14 +634,15 @@ class Riscv(RiscvCommon):
         True if the core should immediately start executing instructions.
     boot_addr: int
         Boot address, i.e. address where the core will start executing instructions.
-    timed: bool
-        True if the core should model timing.
+    timed: bool | None
+        True if the core should model timing. When None (default), derived
+        from the hierarchical timing level (see ``gvrun.timing``).
     core_id : int, optional
         The core ID of the core simulated by the ISS (default: 0).
     """
     def __init__(self,
             parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool=True,
+            fetch_enable: bool=False, boot_addr: int=0, timed: bool | None=None,
             core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
             float_lib='flexfloat'):
 

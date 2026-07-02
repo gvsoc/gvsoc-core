@@ -63,7 +63,6 @@ public:
     void reset(bool active);
     int check();
     void wfi_handle(iss_insn_t *insn);
-    void elw_irq_unstall();
     void check_interrupts();
     static void msi_sync(vp::Block *__this, bool value);
     static void mti_sync(vp::Block *__this, bool value);

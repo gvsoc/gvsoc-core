@@ -63,7 +63,11 @@ void Regfile::reset(bool active)
 
 #ifdef CONFIG_GVSOC_ISS_SCOREBOARD
         // Initialize the scoreboard so that registers can be read by default.
-        for (int i = 0; i < ISS_NB_REGS; i++)
+        // The timestamp array has ISS_NB_REGS+1 entries: the extra slot is the
+        // scratch destination used by instructions writing to x0 and must be
+        // cleared too, otherwise scoreboard_reg_check() reads a garbage timestamp
+        // and stalls the core for a huge number of cycles.
+        for (int i = 0; i < ISS_NB_REGS + 1; i++)
         {
             this->scoreboard_reg_timestamp[i] = 0;
         }

@@ -232,6 +232,25 @@ def build_case(case: str):
             nb_masters=2,
         )
 
+    if case == 'resp_arbitration':
+        # One master issues two multi-beat reads to two different outputs. Both
+        # output adapters stream their response beats back at 1 beat/cycle, so
+        # their streams overlap on the single input's response channel. The
+        # router's per-input response arbiter must forward at most one beat per
+        # cycle to that input; without it the master would see two RESP beats in
+        # the same cycle. 4 beats each (size 16 at width 4) → 8 beats total.
+        return dict(
+            config=beat_cfg(max_input_pending_size=64, max_pending_bursts=4),
+            schedule=[
+                burst(cycle=10, addr=t0_base, size=16, nb_beats=1, burst_id=1,
+                      name='A', is_write=False),
+                burst(cycle=10, addr=t1_base, size=16, nb_beats=1, burst_id=2,
+                      name='B', is_write=False),
+            ],
+            targets=[('t0', t0_base, window, ok), ('t1', t1_base, window, ok)],
+            nb_masters=1,
+        )
+
     if case == 'size_over_width':
         return dict(
             config=beat_cfg(max_input_pending_size=16),
@@ -348,6 +367,30 @@ def build_case(case: str):
                               nb_beats=nb_beats, burst_id=2, name='W',
                               is_write=True)],
             targets=[('t0', t0_base, window, ok)],
+            nb_masters=2,
+        )
+
+    if case == 'rw_channel_stall_independent':
+        # Per-channel back-pressure. A write to one output is denied and stays
+        # stalled for a long retry_delay; a read to the SAME output, arriving
+        # a few cycles later (after the write channel is already stalled), must
+        # still complete promptly. The target serves reads (offset < 0x200)
+        # inline but denies the write (offset >= 0x200) once with a 20-cycle
+        # retry. With per-channel stall the read channel is independent of the
+        # stalled write channel; with a per-output stall the read would be
+        # blocked behind the write until its retry fires.
+        rules_t0 = [
+            rule(addr_min=0x000, addr_max=0x1ff, behavior='done'),
+            rule(addr_min=0x200, addr_max=0xffff, behavior='deny_then_done',
+                 deny_count=1, retry_delay=20),
+        ]
+        return dict(
+            config=beat_cfg(max_input_pending_size=16),
+            schedule_a=[burst(cycle=14, addr=t0_base + 0x100, size=4, name='R',
+                              is_write=False)],
+            schedule_b=[burst(cycle=10, addr=t0_base + 0x200, size=4, name='W',
+                              is_write=True)],
+            targets=[('t0', t0_base, window, rules_t0)],
             nb_masters=2,
         )
 

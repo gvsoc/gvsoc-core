@@ -127,19 +127,25 @@ def build_case(case_name: str) -> dict:
         }
 
     if case_name == 'upstream_deny':
-        # A second CPU request arrives while the first is still stuck on a
-        # slow output (async). The splitter must DENY it and RETRY
-        # upstream once the first completes.
-        rules_slow = [dict(addr_min=0, addr_max=0xFFFF, behavior='granted',
-                           resp_delay=30, retry_delay=0)]
+        # Output 0 stays DENIED, so the first request leaves a stuck chunk on
+        # it. A second CPU request then arrives: the splitter is stateless and
+        # multi-parent, but it must still refuse the new parent with
+        # IO_REQ_DENIED while any output holds a denied chunk (the
+        # one-stuck-chunk-per-output rule), and owe an upstream RETRY.
+        rules_deny = [dict(addr_min=0, addr_max=0xFFFF, behavior='denied',
+                           resp_delay=0, retry_delay=5)]
         return {
             'splitter_config': SplitterConfig(input_width=16, output_width=4),
             'schedule': [
-                dict(cycle=10, addr=0x00, size=16, is_write=False, name='slow1'),
-                dict(cycle=12, addr=0x10, size=16, is_write=False, name='slow2'),
+                dict(cycle=10, addr=0x00, size=16, is_write=False, name='stuck1'),
+                dict(cycle=12, addr=0x10, size=16, is_write=False, name='blocked2'),
             ],
-            'targets': [{'name': f'mem{i}', 'rules': rules_slow}
-                         for i in range(4)],
+            'targets': [
+                {'name': 'mem0', 'rules': rules_deny},
+                {'name': 'mem1', 'rules': _mem_ok},
+                {'name': 'mem2', 'rules': _mem_ok},
+                {'name': 'mem3', 'rules': _mem_ok},
+            ],
         }
 
     if case_name == 'partial_invalid':
@@ -159,19 +165,6 @@ def build_case(case_name: str) -> dict:
                 {'name': 'mem2', 'rules': _mem_ok},
                 {'name': 'mem3', 'rules': _mem_ok},
             ],
-        }
-
-    if case_name == 'multi_phase_burst':
-        # Request larger than input_width: the splitter walks it as a
-        # sequence of phases, each phase doing the regular fan-out across
-        # outputs. size=32, input_width=16, output_width=4 → 2 phases of
-        # 4 chunks each. Each output sees exactly 2 REQs.
-        return {
-            'splitter_config': SplitterConfig(input_width=16, output_width=4),
-            'schedule': [
-                dict(cycle=10, addr=0x00, size=32, is_write=False, name='burst'),
-            ],
-            'targets': _ok_targets(4),
         }
 
     if case_name == 'two_beats_upstream_oversize_read':

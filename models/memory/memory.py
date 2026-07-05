@@ -65,12 +65,14 @@ class Memory(gvsoc.systree.Component):
         before accessing the backing array. Lets the caller wrap or fold the incoming
         address space into the memory. Defaults to 0 (no truncation — addresses are
         used as-is). truncate_size must be a power of 2 if used.
+    fic_enabled: bool
+        If True, this memory is being fault injected.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int=0, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, memcheck_id: int=-1, memcheck_base: int=0,
             memcheck_virtual_base: int=0, memcheck_expansion_factor: int=5, init=True,
-            truncate_size: int=0,
+            truncate_size: int=0, fic_enabled=False,
             attributes: MemoryConfig | None=None, config: MemoryConfig | None=None):
 
         if config is not None:
@@ -90,6 +92,9 @@ class Memory(gvsoc.systree.Component):
         if atomics or attributes is not None and attributes.atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
+        if fic_enabled:
+            self.add_c_flags(['-DCONFIG_FAULT_INJECTION=1'])
+
         self.add_properties({
             'init': init,
             'size': size if attributes is None else attributes.size,
@@ -103,6 +108,7 @@ class Memory(gvsoc.systree.Component):
             'memcheck_virtual_base': memcheck_virtual_base,
             'memcheck_expansion_factor': memcheck_expansion_factor,
             'truncate_size': truncate_size,
+            'fic_enabled': fic_enabled,
         })
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

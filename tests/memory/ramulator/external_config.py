@@ -40,4 +40,9 @@ mem = ramulator.memory_system.GenericDRAM(
     channel_mapper=ramulator.channel_mapper.CacheLineInterleave(),
 )
 
+# Append the cycle period to the memory config
+org, timing = dram.resolve()
+mem = mem.to_config()
+mem["tCK_ps"] = timing["tCK_ps"]
+
 sim = ramulator.Simulation(frontend, mem)

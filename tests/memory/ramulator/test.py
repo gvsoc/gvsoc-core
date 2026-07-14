@@ -21,6 +21,7 @@ directly as DRAM cycles.
 from __future__ import annotations
 
 import os
+import yaml
 
 import gvsoc.systree
 import gvsoc.runner
@@ -152,17 +153,19 @@ class Chip(gvsoc.systree.Component):
         # (Ramulator tx_bytes, DRAMSys ddr4 access_size).
         beat_width = 64
 
-        # DDR4 command clock: 1.2 GHz (matches Ramulator's DDR4-2400 tCK; for
-        # DRAMSys it is only the harness clock — DRAMSys keeps its own SC time).
-        clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=1_200_000_000)
-
         if which == 'dramsys':
             import memory.dramsys
             mem = memory.dramsys.Dramsys(self, 'mem', version=2,
                                          dram_type='ddr4-example.json')
+            clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=1_200_000_000)
         else:
             mem = Ramulator(self, 'mem', config=RamulatorConfig(
                 size=spec['size'], config_yaml=CONFIG_YAML, beat_width=beat_width))
+            tck_ps = yaml.safe_load(open(CONFIG_YAML))["memory_system"]["tCK_ps"]
+            clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=round(1e12 / tck_ps))
+
+        # DDR4 command clock: 1.2 GHz (matches Ramulator's DDR4-2400 tCK; for
+        # DRAMSys it is only the harness clock — DRAMSys keeps its own SC time).
         clock.o_CLOCK(mem.i_CLOCK())
 
         master = BeatMaster(self, 'master', schedule=spec['schedule'],

@@ -32,6 +32,7 @@ ctrl = ramulator.controller.GenericDDR(
     refresh_manager=ramulator.refresh_manager.AllBank(),
     row_policy=ramulator.row_policy.Open(),
     addr_mapper=ramulator.addr_mapper.RoBaRaCoCh(),
+    controller_plugins=[{"impl": "GvsocBridge"}],
 )
 
 mem = ramulator.memory_system.GenericDRAM(

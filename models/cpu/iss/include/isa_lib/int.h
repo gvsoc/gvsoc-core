@@ -1974,27 +1974,34 @@ static inline int64_t lib_flexfloat_cvt_w_ff_round(Iss *s, unsigned long int a, 
     int32_t result_int = double_to_int(s, ff_a.value);
     if (neg)
     {
-        result_int = -result_int;
+        /* Two's-complement asymmetry: |INT32_MIN| = 2^31 is not representable
+         * as a positive int32, so the magnitude above saturated to INT32_MAX
+         * and negating it gives INT32_MIN+1 (off by one). A negative value
+         * whose magnitude reaches/overflows 2^31 must saturate to INT32_MIN. */
+        if (nearbyint(ff_a.value) >= 2147483648.0)
+            result_int = INT32_MIN;
+        else
+            result_int = -result_int;
     }
-    restoreFFRoundingMode(new_round);
+    restoreFFRoundingMode(old);
     return iss_get_signed_value(result_int, 32);
 }
 
 static inline int64_t lib_flexfloat_cvt_wu_ff_round(Iss *s, unsigned long int a, uint8_t e, uint8_t m, unsigned long int round)
 {
     int old;
-    bool neg = false;
     unsigned long int new_round = round == 4 ? 2 : round;
     old = setFFRoundingMode(s, new_round);
     FF_INIT_1(a, e, m)
     if (round == 4)
     {
-        if (ff_a.value < 0)
-        {
-            ff_a.value = -ff_a.value;
-            neg = true;
-        }
-        ff_a.value += 0.5f;
+        /* Unsigned conversion of a negative value saturates to 0, with the
+         * proper flags, inside double_to_uint - do NOT negate the input on
+         * this path (there is no sign to re-apply afterwards, unlike the
+         * signed sibling). Only the non-negative RMM magnitude needs the
+         * +0.5 nudge. */
+        if (ff_a.value >= 0)
+            ff_a.value += 0.5f;
     }
     int32_t result_int = double_to_uint(s, ff_a.value);
     restoreFFRoundingMode(old);

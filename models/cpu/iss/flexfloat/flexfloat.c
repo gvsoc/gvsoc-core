@@ -183,7 +183,11 @@ bool flexfloat_sticky_bit(const flexfloat_t *a, int_fast16_t exp)
                ( ((denorm & MASK_FRAC) == 0)  && (CAST_TO_INT(a->value)!=0) );
 #else
         unsigned short shift = NUM_BITS_FRAC - a->desc.frac_bits - exp + 1;
-	if (shift>=NUM_BITS) return 0;
+	// Every significant bit (the value is normal in the backend, hence
+	// nonzero) sits below the sticky window: the sticky bit is set. A
+	// zero here would lose inexact/underflow and directed rounding to
+	// the smallest subnormal for deeply tiny values.
+	if (shift>=NUM_BITS) return 1;
 	uint_t Frac = (CAST_TO_INT(a->value) & MASK_FRAC) | MASK_FRAC_MSB;
         int StiB = ((Frac & (((uint_t)1<<(shift-1))-1)) != 0);
         return (StiB!=0);
@@ -241,6 +245,26 @@ int_t flexfloat_rounding_value(const flexfloat_t *a, int_fast16_t exp, bool sign
 
 }
 
+// apply a one-ulp (target grid) increment to the backend value
+static void flexfloat_apply_rounding(flexfloat_t *a, int_fast16_t exp, bool sign)
+{
+    int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
+    /* Truncate the discarded bits first (integer, exact): both addends are
+     * then on the target grid and the sum is exact. Adding the ulp to the
+     * raw backend value rounds in the backend format and can overshoot the
+     * target grid by one ulp when the discarded bits extend to the bottom
+     * of the backend mantissa. */
+    if (EXPONENT(CAST_TO_INT(a->value)) != 0)
+    {
+        int shift = NUM_BITS_FRAC - a->desc.frac_bits + ((exp <= 0) ? - exp + 1 : 0);
+        if (shift <= NUM_BITS_FRAC)
+            CAST_TO_INT(a->value) &= ~((UINT_C(1) << shift) - UINT_C(1));
+        else // magnitude entirely below one target ulp: truncate to (signed) zero
+            CAST_TO_INT(a->value) &= UINT_C(1) << (NUM_BITS - 1);
+    }
+    a->value += CAST_TO_FP(rounding_value);
+}
+
 #endif // FLEXFLOAT_ROUNDING
 
 // RISC-V RMM support: with FE_TONEAREST set, a tie (round bit 1, sticky 0) is
@@ -253,6 +277,9 @@ void flexfloat_sanitize(flexfloat_t *a)
     int_fast16_t exp;
     int_fast16_t inf_exp;
     uint_t frac;
+#ifdef FLEXFLOAT_FLAGS
+    bool inexact = false;
+#endif
 
     if (isnan(a->value))
     {
@@ -277,8 +304,37 @@ void flexfloat_sanitize(flexfloat_t *a)
     {
 #ifdef FLEXFLOAT_FLAGS
         // Inexact results raise an exception
-        if(flexfloat_round_bit(a, exp) || flexfloat_sticky_bit(a, exp))
+        inexact = flexfloat_round_bit(a, exp) || flexfloat_sticky_bit(a, exp);
+        if(inexact)
             feraiseexcept(FE_INEXACT);
+        if (inexact && exp <= 0 && EXPONENT(CAST_TO_INT(a->value)) != 0)
+        {
+            /* Underflow = tiny AND inexact (IEEE 754 §7.5). */
+            bool escapes = false;
+#ifdef FLEXFLOAT_TININESS_AFTER_ROUNDING
+            /* IEEE 754 leaves the tininess detection point implementation-
+             * defined. This opt-in per-core c-flag selects detection after
+             * rounding with unbounded exponent range: a subnormal-range
+             * value escapes tininess only when, at full target precision,
+             * it rounds up across the smallest normal (probed with the
+             * helpers' normal branch, exp arg 1). Default: the historical
+             * before-rounding detection. */
+            if (exp == 0)
+            {
+                uint_t frac_all = (UINT_C(1) << a->desc.frac_bits) - 1;
+                bool all_ones = (((CAST_TO_INT(a->value) & MASK_FRAC)
+                                  >> (NUM_BITS_FRAC - a->desc.frac_bits)) == frac_all);
+                int m = fegetround();
+                bool up = (m == FE_TONEAREST && (flexfloat_rmm ? flexfloat_round_bit(a, 1)
+                                                               : flexfloat_nearest_rounding(a, 1)))
+                       || (m == FE_UPWARD   && flexfloat_inf_rounding(a, 1, sign, 1))
+                       || (m == FE_DOWNWARD && flexfloat_inf_rounding(a, 1, sign, 0));
+                escapes = all_ones && up;
+            }
+#endif
+            if (!escapes)
+                feraiseexcept(FE_UNDERFLOW);
+        }
         // As rounding uses FP operations, we don't want to tarnish the accrued flags
         fexcept_t flags;
         fegetexceptflag(&flags, FE_ALL_EXCEPT);
@@ -288,18 +344,15 @@ void flexfloat_sanitize(flexfloat_t *a)
         if(mode == FE_TONEAREST && (flexfloat_rmm ? flexfloat_round_bit(a, exp)
                                                   : flexfloat_nearest_rounding(a, exp)))
         {
-            int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
-            a->value +=  CAST_TO_FP(rounding_value);
+            flexfloat_apply_rounding(a, exp, sign);
         }
         else if(mode == FE_UPWARD && flexfloat_inf_rounding(a, exp, sign, 1))
         {
-            int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
-            a->value +=  CAST_TO_FP(rounding_value);
+            flexfloat_apply_rounding(a, exp, sign);
         }
         else if(mode == FE_DOWNWARD && flexfloat_inf_rounding(a, exp, sign, 0))
         {
-            int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
-            a->value +=  CAST_TO_FP(rounding_value);
+            flexfloat_apply_rounding(a, exp, sign);
         }
 #ifdef FLEXFLOAT_FLAGS
         // Restore flags from before
@@ -327,8 +380,11 @@ void flexfloat_sanitize(flexfloat_t *a)
 
    if(exp <= 0) // Denormalized value in the target format (saved in normalized format in the backend value)
     {
-#ifdef FLEXFLOAT_FLAGS
-        // Raise the underflow exception
+#if defined(FLEXFLOAT_FLAGS) && !defined(FLEXFLOAT_ROUNDING)
+        /* With rounding enabled, underflow is raised in the rounding block
+         * above (tiny and inexact, tininess after rounding with unbounded
+         * exponent range). Keep the legacy unconditional raise for
+         * flag-only builds. */
         feraiseexcept(FE_UNDERFLOW);
 #endif
         uint_t denorm = flexfloat_denorm_frac(a, exp);
@@ -666,32 +722,45 @@ INLINE void ff_fma(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits) &&
            (b->desc.exp_bits == c->desc.exp_bits) && (b->desc.frac_bits == c->desc.frac_bits));
     #ifdef FLEXFLOAT_ROUNDING
-    // Change the rounding mode according to the error direction if we need to do manual rounding for RNE
-    int mode = fegetround();
-    bool eff_sub = flexfloat_sign(a) ^ flexfloat_sign(b) ^ flexfloat_sign(c);
-    if (a->desc.frac_bits < NUM_BITS_FRAC && mode == FE_TONEAREST) {
-        if (!eff_sub) { // in this case, we need to round away from zero
-            fexcept_t flags;
-            fegetexceptflag(&flags, FE_ALL_EXCEPT); // get accrued flags to not tarnish them here
-            double try = fma(a->value, b->value, c->value);
-            (try >= 0) ? fesetround(FE_UPWARD) : fesetround(FE_DOWNWARD);
-            fesetexceptflag(&flags, FE_ALL_EXCEPT); // restore flags here
-        } else {
-#ifdef OLD
-            fesetround(FE_TOWARDZERO); // just truncate
-#endif
-        }
+    if (a->desc.frac_bits < NUM_BITS_FRAC)
+    {
+        /* Round-to-odd intermediate (Boldo-Muller): truncate the fused op
+         * toward zero and, if inexact, force the mantissa LSB to 1. An odd
+         * binary64 intermediate keeps faithful round AND sticky information
+         * for any narrower destination, so the software rounding in
+         * flexfloat_sanitize (every mode, RMM included) yields the
+         * single-rounding fused result - the double-rounding artefact is
+         * structurally gone. The binary64 op cannot overflow or
+         * underflow on narrow-format inputs; INVALID is re-raised, its
+         * INEXACT is dropped - sanitize re-derives the destination
+         * inexactness from the odd/round/sticky bits. */
+        fexcept_t accrued;
+        fegetexceptflag(&accrued, FE_ALL_EXCEPT);
+        feclearexcept(FE_ALL_EXCEPT);
+        int mode = fegetround();
+        fesetround(FE_TOWARDZERO);
+        double r = fma(a->value, b->value, c->value);
+        int raised = fetestexcept(FE_ALL_EXCEPT);
+        fesetround(mode);
+        fesetexceptflag(&accrued, FE_ALL_EXCEPT);
+        if (raised & FE_INVALID)
+            feraiseexcept(FE_INVALID);
+        if ((raised & FE_INEXACT) && !isnan(r) && !isinf(r))
+            CAST_TO_INT(r) |= 1;
+        else if (r == 0.0)
+            /* Exact zero: its sign depends on the actual rounding mode
+             * (-0 on exact cancellation under RDN), which the toward-zero
+             * run hides. Recompute exactly, no flags raised. */
+            r = fma(a->value, b->value, c->value);
+        dest->value = r;
     }
+    else
     #endif
-    dest->value = fma(a->value, b->value, c->value); // finally the actual operation
+    dest->value = fma(a->value, b->value, c->value); // full-width destination: plain fused op
 
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = fma(a->exact_value, b->exact_value, c->exact_value);
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);
-    #endif
-    #ifdef FLEXFLOAT_ROUNDING
-    if (a->desc.frac_bits < NUM_BITS_FRAC && mode == FE_TONEAREST)
-        fesetround(FE_TONEAREST); // restore rounding
     #endif
     flexfloat_sanitize(dest);
     #ifdef FLEXFLOAT_STATS
@@ -704,31 +773,42 @@ INLINE void ff_fnma(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits) &&
            (b->desc.exp_bits == c->desc.exp_bits) && (b->desc.frac_bits == c->desc.frac_bits));
     #ifdef FLEXFLOAT_ROUNDING
-    // Change the rounding mode according to the error direction if we need to do manual rounding for RNE
-    int mode = fegetround();
-    bool eff_sub = flexfloat_sign(a) ^ flexfloat_sign(b) ^ flexfloat_sign(c);
-    if (a->desc.frac_bits < NUM_BITS_FRAC && mode == FE_TONEAREST) {
-        if (!eff_sub) { // in this case, we need to round away from zero
-            fexcept_t flags;
-            fegetexceptflag(&flags, FE_ALL_EXCEPT); // get accrued flags to not tarnish them here
-            double try = fma(a->value, b->value, c->value);
-            (try >= 0) ? fesetround(FE_UPWARD) : fesetround(FE_DOWNWARD);
-            fesetexceptflag(&flags, FE_ALL_EXCEPT); // restore flags here
-        } else {
-            fesetround(FE_TOWARDZERO); // just truncate
+    if (a->desc.frac_bits < NUM_BITS_FRAC)
+    {
+        /* Round-to-odd intermediate, then negate: truncation toward zero
+         * and the odd bit are sign-symmetric, so -round_to_odd(a*b+c) is
+         * the odd-rounded -(a*b+c). See ff_fma for the full rationale. */
+        fexcept_t accrued;
+        fegetexceptflag(&accrued, FE_ALL_EXCEPT);
+        feclearexcept(FE_ALL_EXCEPT);
+        int mode = fegetround();
+        fesetround(FE_TOWARDZERO);
+        double r = fma(a->value, b->value, c->value);
+        int raised = fetestexcept(FE_ALL_EXCEPT);
+        fesetround(mode);
+        fesetexceptflag(&accrued, FE_ALL_EXCEPT);
+        if (raised & FE_INVALID)
+            feraiseexcept(FE_INVALID);
+        if ((raised & FE_INEXACT) && !isnan(r) && !isinf(r))
+        {
+            CAST_TO_INT(r) |= 1;
+            dest->value = -r;
         }
+        else if (r == 0.0)
+            /* Exact zero: the sign must be derived on the negated fusion
+             * in the actual rounding mode (-0 on exact cancellation under
+             * RDN) - negating the toward-zero result would flip it. */
+            dest->value = fma(-a->value, b->value, -c->value);
+        else
+            dest->value = -r;
     }
+    else
     #endif
-
     dest->value = -fma(a->value, b->value, c->value);
 
     #ifdef FLEXFLOAT_TRACKING
     dest->exact_value = fma(a->exact_value, b->exact_value, c->exact_value);
     if(dest->tracking_fn) (dest->tracking_fn)(dest, dest->tracking_arg);
-    #endif
-    #ifdef FLEXFLOAT_ROUNDING
-    if (a->desc.frac_bits < NUM_BITS_FRAC && mode == FE_TONEAREST)
-        fesetround(FE_TONEAREST); // restore rounding
     #endif
     flexfloat_sanitize(dest);
     #ifdef FLEXFLOAT_STATS

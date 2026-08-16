@@ -416,11 +416,13 @@ void flexfloat_sanitize(flexfloat_t *a)
     }
     else if(exp == INF_EXP) // Inf
     {
-#ifdef FLEXFLOAT_FLAGS
-        // Raise the proper overflow exception, unless a DIV/0 exception had occured
-        if (!fetestexcept(FE_DIVBYZERO))
-            feraiseexcept(FE_OVERFLOW | FE_INEXACT);
-#endif
+        /* No overflow here. IEEE 754 7.4 raises OF only when the result
+         * rounded with an unbounded exponent range exceeds the destination
+         * range; a backend value that is already Inf is an infinity
+         * propagated from an operand (or produced by a division by zero,
+         * which raises its own flag) and is exact. A genuine destination
+         * overflow leaves the backend finite and is handled by the
+         * (exp >= inf_exp) branch below. */
         exp = inf_exp;
     }
     else if(exp >= inf_exp) // Out of bounds for target format: overflow
@@ -721,6 +723,15 @@ INLINE void ff_fma(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *b
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits) &&
            (b->desc.exp_bits == c->desc.exp_bits) && (b->desc.frac_bits == c->desc.frac_bits));
+    #ifdef FLEXFLOAT_FLAGS
+    /* inf*0 signals INVALID even when the addend is a quiet NaN: IEEE 754
+     * 7.2 leaves that sub-case implementation-defined and the host FMA
+     * propagates the NaN silently, but RISC-V mandates the flag (unpriv F).
+     * Idempotent when the addend is not a NaN: the host raises it too. */
+    if ((a->value == 0.0 && isinf(b->value)) ||
+        (isinf(a->value) && b->value == 0.0))
+        feraiseexcept(FE_INVALID);
+    #endif
     #ifdef FLEXFLOAT_ROUNDING
     if (a->desc.frac_bits < NUM_BITS_FRAC)
     {
@@ -772,6 +783,15 @@ INLINE void ff_fnma(flexfloat_t *dest, const flexfloat_t *a, const flexfloat_t *
     assert((dest->desc.exp_bits == a->desc.exp_bits) && (dest->desc.frac_bits == a->desc.frac_bits) &&
            (a->desc.exp_bits == b->desc.exp_bits) && (a->desc.frac_bits == b->desc.frac_bits) &&
            (b->desc.exp_bits == c->desc.exp_bits) && (b->desc.frac_bits == c->desc.frac_bits));
+    #ifdef FLEXFLOAT_FLAGS
+    /* inf*0 signals INVALID even when the addend is a quiet NaN: IEEE 754
+     * 7.2 leaves that sub-case implementation-defined and the host FMA
+     * propagates the NaN silently, but RISC-V mandates the flag (unpriv F).
+     * Idempotent when the addend is not a NaN: the host raises it too. */
+    if ((a->value == 0.0 && isinf(b->value)) ||
+        (isinf(a->value) && b->value == 0.0))
+        feraiseexcept(FE_INVALID);
+    #endif
     #ifdef FLEXFLOAT_ROUNDING
     if (a->desc.frac_bits < NUM_BITS_FRAC)
     {

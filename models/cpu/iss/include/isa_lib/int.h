@@ -1989,27 +1989,38 @@ static inline int64_t lib_flexfloat_cvt_w_ff_round(Iss *s, unsigned long int a, 
     unsigned long int new_round = round == 4 ? 2 : round;
     old = setFFRoundingMode(s, new_round);
     FF_INIT_1(a, e, m)
-    if (round == 4)
+    if (round == 4 && ff_a.value == ff_a.value /* !NaN */)
     {
-        if (ff_a.value < 0)
+        /* RMM(x) = trunc(|x|+0.5) with the sign re-applied (host fenv is in
+         * RTZ here). The flags must come from the ORIGINAL operand, not the
+         * nudged one: feeding x+0.5 to the generic converter raised a
+         * spurious NX for every exact-integer input (x+0.5 truncates) and
+         * LOST the NX of every half-tie (x+0.5 lands on an integer). On
+         * saturation NV is raised alone (IEEE 754 7.2 / RISC-V F 11.7); a
+         * NaN input keeps the generic path below, which raises NV alone. */
+        neg = ff_a.value < 0;
+        double mag = neg ? -ff_a.value : ff_a.value;
+        double t = trunc(mag + 0.5);   /* round-half-away magnitude; exact:
+                                        * above 2^52 the +0.5 is absorbed and
+                                        * mag is already integral */
+        double lim = neg ? 2147483648.0 : 2147483647.0;
+        int32_t result_rmm;
+        if (t > lim)
         {
-            ff_a.value = -ff_a.value;
-            neg = true;
+            set_fflags(s, 1ULL << 4);  /* NV alone on out-of-range */
+            result_rmm = neg ? INT32_MIN : INT32_MAX;
         }
-        ff_a.value += 0.5f;
+        else
+        {
+            double rounded = neg ? -t : t;
+            result_rmm = (int32_t)rounded;
+            if (rounded != ff_a.value)
+                set_fflags(s, 1ULL << 0);  /* NX iff the rounding moved x */
+        }
+        restoreFFRoundingMode(old);
+        return iss_get_signed_value(result_rmm, 32);
     }
     int32_t result_int = double_to_int(s, ff_a.value);
-    if (neg)
-    {
-        /* Two's-complement asymmetry: |INT32_MIN| = 2^31 is not representable
-         * as a positive int32, so the magnitude above saturated to INT32_MAX
-         * and negating it gives INT32_MIN+1 (off by one). A negative value
-         * whose magnitude reaches/overflows 2^31 must saturate to INT32_MIN. */
-        if (nearbyint(ff_a.value) >= 2147483648.0)
-            result_int = INT32_MIN;
-        else
-            result_int = -result_int;
-    }
     restoreFFRoundingMode(old);
     return iss_get_signed_value(result_int, 32);
 }
@@ -2020,15 +2031,50 @@ static inline int64_t lib_flexfloat_cvt_wu_ff_round(Iss *s, unsigned long int a,
     unsigned long int new_round = round == 4 ? 2 : round;
     old = setFFRoundingMode(s, new_round);
     FF_INIT_1(a, e, m)
-    if (round == 4)
+    if (round == 4 && ff_a.value == ff_a.value /* !NaN */)
     {
-        /* Unsigned conversion of a negative value saturates to 0, with the
-         * proper flags, inside double_to_uint - do NOT negate the input on
-         * this path (there is no sign to re-apply afterwards, unlike the
-         * signed sibling). Only the non-negative RMM magnitude needs the
-         * +0.5 nudge. */
-        if (ff_a.value >= 0)
-            ff_a.value += 0.5f;
+        /* Same flag discipline as the signed sibling: RMM via trunc(x+0.5)
+         * on the magnitude, NX decided against the ORIGINAL operand (the
+         * nudge corrupted it both ways), NV alone on out-of-range. A
+         * negative operand rounds half-away from zero DOWN: anything that
+         * rounds below zero is out of range for the unsigned destination
+         * (NV, result 0) - the old path fed it unrounded to the RTZ
+         * converter, so RMM(-0.5), an out-of-range -1, came back 0 with a
+         * mere NX. NaN keeps the generic path (NV alone, all-ones). */
+        double v = ff_a.value;
+        int32_t result_rmm;
+        if (v < 0)
+        {
+            double t = trunc(-v + 0.5);
+            if (t > 0)
+            {
+                set_fflags(s, 1ULL << 4);  /* rounds to < 0: out of range */
+                result_rmm = 0;
+            }
+            else
+            {
+                result_rmm = 0;            /* RMM(v) == 0 exactly */
+                if (v != 0.0)
+                    set_fflags(s, 1ULL << 0);
+            }
+        }
+        else
+        {
+            double t = trunc(v + 0.5);
+            if (t > 4294967295.0)
+            {
+                set_fflags(s, 1ULL << 4);
+                result_rmm = (int32_t)UINT32_MAX;
+            }
+            else
+            {
+                result_rmm = (int32_t)(uint32_t)t;
+                if (t != v)
+                    set_fflags(s, 1ULL << 0);
+            }
+        }
+        restoreFFRoundingMode(old);
+        return (int64_t)result_rmm;
     }
     int32_t result_int = double_to_uint(s, ff_a.value);
     restoreFFRoundingMode(old);
@@ -2111,7 +2157,13 @@ static inline long int lib_flexfloat_cvt_ff_ff_round(Iss *s, unsigned long int a
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, es, ms)
+    // A narrowing format conversion rounds and can overflow/underflow:
+    // flexfloat_sanitize raises the host fenv flags inside ff_cast, they
+    // were simply never collected here - every sibling conversion in this
+    // file collects them (same pattern as lib_flexfloat_cvt_ff_w_round).
+    feclearexcept(FE_ALL_EXCEPT);
     ff_cast(&ff_res, &ff_a, (flexfloat_desc_t){ed, md});
+    update_fflags_fenv(s);
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_res);
 }

@@ -299,8 +299,20 @@ void flexfloat_sanitize(flexfloat_t *a)
     exp = flexfloat_exp(a);
 
 #ifdef FLEXFLOAT_ROUNDING
-    // In these cases no rounding is needed
-    if (!(exp == INF_EXP  || a->desc.frac_bits == NUM_BITS_FRAC))
+    /* No rounding needed for a propagated Inf/NaN or a full-width target.
+     * Also skip it when the target-format exponent already overflows
+     * (exp >= inf_exp of the target): rounding cannot bring the exponent
+     * back into range, and the overflow branch below owns the delivery
+     * (OF|NX per IEEE 754 7.4, mode-aware clamp vs infinity). Rounding
+     * here would be worse than useless: at exactly
+     * exp - frac_bits == inf_exp the increment built by
+     * flexfloat_rounding_value packs as the target's infinity
+     * (flexfloat_pack maps exp == inf_exp to INF_EXP), the += turns the
+     * value into Inf mid-rounding with its flags deliberately discarded,
+     * and the Inf branch below then reads it as an infinity propagated
+     * from an operand - delivering Inf with the overflow flag lost. */
+    if (!(exp == INF_EXP || exp >= flexfloat_inf_exp(a->desc)
+          || a->desc.frac_bits == NUM_BITS_FRAC))
     {
 #ifdef FLEXFLOAT_FLAGS
         // Inexact results raise an exception

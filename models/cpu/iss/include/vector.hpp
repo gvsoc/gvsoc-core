@@ -34,9 +34,9 @@ public:
     const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
 
-    int   sew    = SEW_VALUES[2];
+    unsigned int sewb = 0;
+    unsigned int sew  = SEW_VALUES[sewb-1];
     float lmul   = LMUL_VALUES[0];
-    unsigned int sewb = 8;
     uint8_t exp;
     uint8_t mant;
 

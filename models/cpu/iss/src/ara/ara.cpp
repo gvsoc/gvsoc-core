@@ -453,7 +453,22 @@ void Ara::isa_init()
     {
         insn->u.insn.block_id = Ara::vslide_id;
     }
-
+    
+    // 1. vme ISA also need a vector flag
+    for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_isa("vme"))
+    {
+        insn->u.insn.stub_handler = &IssWrapper::vector_insn_stub_handler;
+        insn->u.insn.flags |= ISS_INSN_FLAGS_VECTOR;
+    }
+    // 2. vtload/vtstore goes into vlsu block
+    for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vtload"))
+    {
+        insn->u.insn.block_id = Ara::vlsu_id;
+    }
+    for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("vtstore"))
+    {
+        insn->u.insn.block_id = Ara::vlsu_id;
+    }    
     for (AraBlock *block: this->blocks)
     {
         block->isa_init();

@@ -977,70 +977,94 @@ class Rv64c(IsaSubset):
             isa.disable_from_isa_tag('cf')
 
 
-
 class RiscvIsa(Isa):
 
-    def __init__(self, name, isa: str, inc_priv=True, inc_supervisor=True, inc_user=False, no_hash=False, extensions=None):
+    def __init__(
+        self,
+        name,
+        isa: str,
+        inc_priv=True,
+        inc_supervisor=True,
+        inc_user=False,
+        no_hash=False,
+        extensions=None
+    ):
         super().__init__(name, isa)
 
-        self.extensions: list[str] = []
-        if isa.find('_') != -1:
-            self.extensions = isa.split('_')[1:]
-
+        parts = isa.split('_', 1)
+        base_isa = parts[0]
+        self.extensions: list[str] = parts[1].split('_') if len(parts) > 1 else []
 
         misa = 0
-
-        if extensions is not None:
-            for extension in extensions:
-                self.add_isa(extension)
-
         self.generated = False
 
-        if isa[0:4] == 'rv32':
+        if base_isa.startswith('rv32'):
             self.word_size = 32
-        elif isa[0:4] == 'rv64':
+        elif base_isa.startswith('rv64'):
             self.word_size = 64
         else:
             raise RuntimeError('Isa should start with either rv32 or rv64')
 
-        for isa in isa[4:]:
+        def add_extension_by_name(ext_name: str):
+            ext_name = ext_name.strip()
+            if ext_name == 'vme':
+                self.add_isa(Rv32vme())
+            elif ext_name == 'zcmp':
+                self.add_isa(Zcmp())
+            else:
+                raise RuntimeError(f'Unknown extension: {ext_name}')
 
-            if isa == 'i':
+        for ch in base_isa[4:]:
+
+            if ch == 'i':
                 misa |= 1 << 8
                 self.add_isa(Rv32i())
                 if self.word_size > 32:
                     self.add_isa(Rv64i())
 
-            elif isa == 'm':
+            elif ch == 'm':
                 misa |= 1 << 12
                 self.add_isa(Rv32m())
                 if self.word_size > 32:
                     self.add_isa(Rv64m())
 
-            elif isa == 'a':
+            elif ch == 'a':
                 misa |= 1 << 0
                 self.add_isa(Rv32a())
                 if self.word_size > 32:
                     self.add_isa(Rv64a())
 
-            elif isa == 'c':
+            elif ch == 'c':
                 misa |= 1 << 2
                 if self.word_size == 32:
                     self.add_isa(Rv32c())
                 else:
                     self.add_isa(Rv64c())
 
-            elif isa == 'f':
+            elif ch == 'f':
                 misa |= 1 << 5
                 self.add_isa(Rv32f())
 
-            elif isa == 'd':
+            elif ch == 'd':
                 misa |= 1 << 3
                 self.add_isa(Rv32d())
 
-            elif isa == 'v':
+            elif ch == 'v':
                 misa |= 1 << 3
                 self.add_isa(Rv32v())
+
+            else:
+                raise RuntimeError(f'Unknown ISA letter: {ch}')
+
+        for ext_name in self.extensions:
+            add_extension_by_name(ext_name)
+
+        if extensions is not None:
+            for ext in extensions:
+                if isinstance(ext, str):
+                    add_extension_by_name(ext)
+                else:
+                    self.add_isa(ext)
 
         if inc_priv:
             self.add_isa(Priv())
@@ -1049,8 +1073,7 @@ class RiscvIsa(Isa):
         if inc_supervisor:
             self.add_isa(PrivSmmu())
 
-        # Now we need to disable specific instructions depending on the combination of
-        # isa subsets
+        # Disable incompatible instructions depending on combination of subsets
         self.check_compatibilities()
 
         if inc_supervisor:
@@ -1064,9 +1087,8 @@ class RiscvIsa(Isa):
         if no_hash:
             self.full_name = f'isa_{self.name}'
         else:
-            name = ''.join(self.isas.keys())
-            name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
-
+            name_keys = ''.join(self.isas.keys())
+            name_hash = int(hashlib.md5(name_keys.encode('utf-8')).hexdigest()[0:7], 16)
             self.full_name = f'isa_{self.name}_{name_hash}'
 
     def has_extension(self, extension: str):

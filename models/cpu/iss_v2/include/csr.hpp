@@ -54,6 +54,11 @@ public:
     iss_reg_t reset_val;
     bool write_illegal = false;
 
+    // Public setter so core-specific Csr subclasses can tighten the write
+    // mask of registers declared by the base class (declare_csr sets it only
+    // at declaration time).
+    void set_write_mask(iss_reg_t mask) { this->write_mask = mask; }
+
 protected:
     void reset(bool active);
 
@@ -160,6 +165,12 @@ public:
 
     bool access(iss_insn_t *insn, bool is_write, iss_reg_t address, iss_reg_t &value);
 
+    // When set, accessing a CSR that no path handles raises an
+    // illegal-instruction exception instead of only logging a warning.
+    // Cores that follow the privileged spec strictly (e.g. CV32E40P)
+    // enable this from their Csr subclass constructor.
+    bool raise_on_unsupported_csr = false;
+
     Iss &iss;
 
     vp::Trace trace;
@@ -257,6 +268,13 @@ public:
 #define CSR_HWLOOP1_COUNTER 0x7C6
 #endif
 #endif
+
+protected:
+    // Remove a CSR declared by the base class. Core-specific subclasses use
+    // it to drop registers their core does not implement (e.g. the S-mode
+    // set on an M-mode-only core), so access falls through to the
+    // unsupported-CSR path.
+    void undeclare_csr(iss_reg_t address) { this->regs.erase(address); }
 
 private:
 

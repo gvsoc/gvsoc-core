@@ -227,6 +227,7 @@ int PrefetchSingleLine::fill(iss_addr_t addr)
 {
     iss_addr_t aligned_addr = addr & ~(CONFIG_GVSOC_ISS_PREFETCH_SIZE - 1);
     this->buffer_start_addr = aligned_addr;
+    this->buffer_valid = true;
     return this->send_fetch_req(aligned_addr, this->data, CONFIG_GVSOC_ISS_PREFETCH_SIZE, false);
 }
 
@@ -280,24 +281,39 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
 
     unsigned int index = phys_addr - this->buffer_start_addr;
 
-    // If it is entirely within the buffer, get the opcode and decode it.
-    if (likely(index <= CONFIG_GVSOC_ISS_PREFETCH_SIZE - sizeof(iss_opcode_t)))
+    // If the buffer is valid and the instruction is entirely within it, get the
+    // opcode and decode it. buffer_valid guards the flushed/empty state (see
+    // flush(): the unsigned index would otherwise false-hit a stale low-address
+    // line).
+    if (likely(this->buffer_valid &&
+               index <= CONFIG_GVSOC_ISS_PREFETCH_SIZE - sizeof(iss_opcode_t)))
     {
         insn->opcode = *(iss_opcode_t *)&this->data[index];
         return true;
     }
 
-    // Otherwise, fake a refill
+    // Miss or invalidated buffer: refill from this address. Force fetch_refill's
+    // fill() branch when the buffer was flushed, since the wrapped index could
+    // still look in-range.
     this->current_pc = addr;
+    if (!this->buffer_valid)
+        index = CONFIG_GVSOC_ISS_PREFETCH_SIZE;
     return this->fetch_refill(insn, phys_addr, index);
 }
 
 
 void PrefetchSingleLine::flush()
 {
-    // Since the address is an unsigned int, the next index will be negative and will force the prefetcher
-    // to refill
+    // Mark the buffer empty. buffer_start_addr=-1 is kept for legacy callers, but
+    // it is NOT sufficient on its own: the fetch() fast-path index is unsigned and
+    // wraps to addr+1, so a fetch in the first bytes of the address space
+    // (addr <= 0x0b with a 16-byte line) would still hit in-window and read the
+    // stale line (stale opcode -> bogus next-PC). buffer_valid=false forces a
+    // real refill on the next fetch. Also drop any in-flight prefetch insn so a
+    // stale resume cannot fire.
     this->buffer_start_addr = -1;
+    this->buffer_valid = false;
+    this->prefetch_insn = NULL;
 }
 
 void PrefetchSingleLine::handle_stall(void (*callback)(PrefetchSingleLine *), iss_insn_t *current_insn)

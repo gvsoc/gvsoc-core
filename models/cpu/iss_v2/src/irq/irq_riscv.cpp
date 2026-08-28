@@ -256,6 +256,17 @@ void IrqRiscv::check_interrupts()
 
 int IrqRiscv::check()
 {
+    /* One-shot async gate: a dispatch stepped with skip_irq_check set (external
+     * lockstep stepping, gdb resume) takes no interrupt and serves no
+     * asynchronous debug request. Consumed here rather than at the call
+     * site so a personality can evaluate synchronous debug conditions
+     * (execute-address triggers) ahead of this point on every boundary. */
+    if (this->iss.exec.skip_irq_check)
+    {
+        this->iss.exec.skip_irq_check = false;
+        return 0;
+    }
+
     if (this->req_debug && !this->iss.exec.debug_mode)
     {
         this->iss.exec.debug_mode = true;

@@ -35,35 +35,3 @@ void Hwloop::reset(bool active)
         this->active = 0;
     }
 }
-
-
-void Hwloop::set_start(int idx, iss_reg_t pc)
-{
-    this->trace.msg(vp::Trace::LEVEL_DEBUG,
-        "Setting hwloop start (idx: %d, pc: 0x%lx)\n", idx, (unsigned long)pc);
-    this->start_pc[idx] = pc;
-}
-
-
-void Hwloop::set_end(int idx, iss_reg_t pc)
-{
-    this->trace.msg(vp::Trace::LEVEL_DEBUG,
-        "Setting hwloop end (idx: %d, pc: 0x%lx)\n", idx, (unsigned long)pc);
-    this->end_pc[idx] = pc;
-}
-
-
-void Hwloop::set_count(int idx, iss_reg_t count)
-{
-    this->trace.msg(vp::Trace::LEVEL_DEBUG,
-        "Setting hwloop count (idx: %d, count: %d)\n", idx, (int)count);
-    this->count[idx] = count;
-    if (count == 0)
-    {
-        this->active &= ~(1u << idx);
-    }
-    else
-    {
-        this->active |= (1u << idx);
-    }
-}

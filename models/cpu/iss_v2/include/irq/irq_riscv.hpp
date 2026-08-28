@@ -23,6 +23,7 @@
 
 #include <vp/vp.hpp>
 #include <cpu/iss_v2/include/types.hpp>
+#include <cpu/iss_v2/include/insn.hpp>
 
 #define IRQ_U_SOFT   0
 #define IRQ_S_SOFT   1

@@ -91,6 +91,14 @@ private:
     // Start address of the prefetch buffer. Can be -1 to indicate it is empty
     iss_addr_t buffer_start_addr;
 
+    // Explicit "buffer holds valid data" flag. The buffer_start_addr=-1 empty
+    // sentinel alone is NOT enough: the fast-path index = addr - buffer_start_addr
+    // is unsigned, so it wraps to addr+1 for every address, and in the first
+    // bytes of the address space (addr <= 0x0b with a 16-byte line) that index
+    // is still in-window and the stale line is read without a refill. This flag
+    // forces a real refill after any flush() regardless of the address.
+    bool buffer_valid = false;
+
     // Request used for sending fetch request to the fetch interface
     vp::IoReq fetch_req;
 

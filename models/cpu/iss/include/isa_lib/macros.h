@@ -73,4 +73,47 @@
 #define FREG_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+// CV32E40P RTL: a trapped instruction has no architectural side effects, and
+// an FP regfile write (fregs_we_i) forces mstatus.FS=Dirty
+// (cv32e40p_cs_registers.sv). Redefine the write-back macros accordingly: any
+// destination write -- integer or FP -- is killed when the instruction raised
+// an exception mid-execution (reserved FP rounding modes raise
+// illegal-instruction inside the value expression, see setFFRoundingMode;
+// fcvt.w.s and friends land in an integer rd, so guarding only the FP macros
+// left that path writing a trapped result), and FP writes additionally
+// promote FS. Kept in this isolated block (not inline above) so the shared
+// definitions preprocess back to upstream byte-for-byte without this define.
+// The write must target the same bank as the definitions above: the integer
+// regfile on ISS_SINGLE_REGFILE (ZFINX) builds, the FP regfile otherwise
+// (FPU=1 ZFINX=0 builds have a separate FP bank; routing these writes to
+// the integer bank there corrupts the integer registers).
+// The value expression MUST be evaluated before the guard: the raise happens
+// inside it, so testing has_exception first would always see the pre-raise
+// state.
+#undef REG_SET
+#define REG_SET(reg,val) \
+    do { iss_reg_t int_wb_val_ = (val); \
+         if (!iss->exec.has_exception) { \
+             iss->regfile.set_reg(insn->out_regs[reg], int_wb_val_); \
+         } } while (0)
+#undef FREG_SET
+#undef FREG32_SET
+#ifdef ISS_SINGLE_REGFILE
+#define FREG_SET(reg,val) \
+    do { iss_reg_t fp_wb_val_ = (val); \
+         if (!iss->exec.has_exception) { \
+             REG_SET(reg, fp_wb_val_); \
+             iss->csr.fp_state_dirty(); \
+         } } while (0)
+#else
+#define FREG_SET(reg,val) \
+    do { iss_freg_t fp_wb_val_ = (val); \
+         if (!iss->exec.has_exception) { \
+             iss->regfile.set_freg(insn->out_regs[reg], fp_wb_val_); \
+             iss->csr.fp_state_dirty(); \
+         } } while (0)
+#endif
+#define FREG32_SET(reg,val) FREG_SET(reg, val)
+#endif
 #endif

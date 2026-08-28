@@ -50,10 +50,37 @@ public:
     // otherwise returns next_pc unchanged.
     inline iss_reg_t check(iss_reg_t pc, iss_reg_t next_pc);
 
-    // Setters (called from ISA decoders and CSR writes).
-    void set_start(int idx, iss_reg_t pc);
-    void set_end(int idx, iss_reg_t pc);
-    void set_count(int idx, iss_reg_t count);
+    // Setters (called from ISA decoders and CSR writes). Header-inline on
+    // purpose: external controllers living in a separate shared object can
+    // only call what inlines (the model library does not export symbols).
+    void set_start(int idx, iss_reg_t pc)
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Setting hwloop start (idx: %d, pc: 0x%lx)\n", idx, (unsigned long)pc);
+        this->start_pc[idx] = pc;
+    }
+
+    void set_end(int idx, iss_reg_t pc)
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Setting hwloop end (idx: %d, pc: 0x%lx)\n", idx, (unsigned long)pc);
+        this->end_pc[idx] = pc;
+    }
+
+    void set_count(int idx, iss_reg_t count)
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Setting hwloop count (idx: %d, count: %d)\n", idx, (int)count);
+        this->count[idx] = count;
+        if (count == 0)
+        {
+            this->active &= ~(1u << idx);
+        }
+        else
+        {
+            this->active |= (1u << idx);
+        }
+    }
 
     // Getters (called from CSR reads).
     iss_reg_t get_start(int idx) const { return this->start_pc[idx]; }

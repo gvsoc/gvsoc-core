@@ -176,33 +176,36 @@ static inline unsigned int lib_MAC_SH_SH_NR(Iss *s, unsigned int a, unsigned int
 static inline unsigned int lib_MAC_ZL_ZL_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(a + ZL(b) * ZL(c))) >> shift; }
 static inline unsigned int lib_MAC_ZH_ZH_NR(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift) { return ((uint32_t)(a + ZH(b) * ZH(c))) >> shift; }
 
+/* The rounding constant takes part in the 32-bit wrap of the accumulate sum
+ * (RI5CY-family mult datapath); adding it after the wrap flips the result
+ * sign when a + product + round crosses the 32-bit boundary. */
 static inline unsigned int lib_MAC_SL_SL_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
-    int32_t result = (int32_t)(a + SL(b) * SL(c));
+    uint32_t result = a + SL(b) * SL(c);
     if (shift > 0)
-        result = (result + (1ULL << (shift - 1))) >> shift;
-    return result;
+        result += 1u << (shift - 1);
+    return ((int32_t)result) >> shift;
 }
 static inline unsigned int lib_MAC_SH_SH_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
-    int32_t result = (int32_t)(a + SH(b) * SH(c));
+    uint32_t result = a + SH(b) * SH(c);
     if (shift > 0)
-        result = (result + (1ULL << (shift - 1))) >> shift;
-    return result;
+        result += 1u << (shift - 1);
+    return ((int32_t)result) >> shift;
 }
 static inline unsigned int lib_MAC_ZL_ZL_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
-    uint32_t result = (uint32_t)(a + ZL(b) * ZL(c));
+    uint32_t result = a + (uint32_t)ZL(b) * ZL(c);
     if (shift > 0)
-        result = (result + (1ULL << (shift - 1))) >> shift;
-    return result;
+        result += 1u << (shift - 1);
+    return result >> shift;
 }
 static inline unsigned int lib_MAC_ZH_ZH_NR_R(Iss *s, unsigned int a, unsigned int b, unsigned int c, unsigned int shift)
 {
-    uint32_t result = (uint32_t)(a + ZH(b) * ZH(c));
+    uint32_t result = a + (uint32_t)ZH(b) * ZH(c);
     if (shift > 0)
-        result = (result + (1ULL << (shift - 1))) >> shift;
-    return result;
+        result += 1u << (shift - 1);
+    return result >> shift;
 }
 
 static inline unsigned int lib_MSU_SL_SL(Iss *s, unsigned int a, unsigned int b, unsigned int c) { return a - SL(b) * SL(c); }
@@ -1496,6 +1499,13 @@ static inline void clear_fflags(Iss *iss, unsigned long int fflags)
 // updates the fflags from fenv exceptions
 static inline void update_fflags_fenv(Iss *iss)
 {
+#if defined(CONFIG_GVSOC_ISS_CV32E40P) || defined(CONFIG_GVSOC_ISS_CV32E40P_FP_TRAPS)
+    // A trapped FP instruction (reserved rounding mode, see setFFRoundingMode)
+    // must not update fflags: the RTL kills every side effect of an
+    // instruction that raised illegal-instruction.
+    if (iss->exec.has_exception)
+        return;
+#endif
     int ex = fetestexcept(FE_ALL_EXCEPT);
     int flags = !!(ex & FE_INEXACT) |
                 !!(ex & FE_UNDERFLOW) << 1 |
@@ -1511,15 +1521,20 @@ static inline int32_t double_to_int(Iss *s, double dbl_i)
 {
     double dbl = nearbyint(dbl_i);
 
-    if (dbl != dbl_i)
-    {
-        set_fflags(s, 1ULL << 0);
-    }
-
     if (dbl < 2.0 * (INT32_MAX / 2 + 1))
     {                               // NO OVERFLOW
         if (ceil(dbl) >= INT32_MIN) // NO UNDERFLOW
+        {
+            // Inexact belongs to a VALID conversion only: an invalid float to
+            // integer conversion (NaN or out of range) raises NV alone
+            // (IEEE 754 7.2, RISC-V unpriv F). The test used to fire on NaN
+            // too, since NaN != NaN holds.
+            if (dbl != dbl_i)
+            {
+                set_fflags(s, 1ULL << 0);
+            }
             return (int32_t)dbl;
+        }
         else // UNDERFLOW
         {
             set_fflags(s, 1ULL << 4);
@@ -1538,15 +1553,20 @@ static inline uint32_t double_to_uint(Iss *s, double dbl_i)
 {
     double dbl = nearbyint(dbl_i);
 
-    if (dbl != dbl_i)
-    {
-        set_fflags(s, 1ULL << 0);
-    }
-
     if (dbl < 2.0 * (UINT32_MAX / 2 + 1))
     {                       // NO OVERFLOW
         if (ceil(dbl) >= 0) // NO UNDERFLOW
+        {
+            // Inexact belongs to a VALID conversion only: an invalid float to
+            // integer conversion (NaN or out of range) raises NV alone
+            // (IEEE 754 7.2, RISC-V unpriv F). The test used to fire on NaN
+            // too, since NaN != NaN holds.
+            if (dbl != dbl_i)
+            {
+                set_fflags(s, 1ULL << 0);
+            }
             return (uint32_t)dbl;
+        }
         else // UNDERFLOW
         {
             set_fflags(s, 1ULL << 4);
@@ -1565,15 +1585,20 @@ static inline int64_t double_to_long(Iss *s, double dbl_i)
 {
     double dbl = nearbyint(dbl_i);
 
-    if (dbl != dbl_i)
-    {
-        set_fflags(s, 1ULL << 0);
-    }
-
     if (dbl < 2.0 * (INT64_MAX / 2 + 1))
     {                               // NO OVERFLOW
         if (ceil(dbl) >= INT64_MIN) // NO UNDERFLOW
+        {
+            // Inexact belongs to a VALID conversion only: an invalid float to
+            // integer conversion (NaN or out of range) raises NV alone
+            // (IEEE 754 7.2, RISC-V unpriv F). The test used to fire on NaN
+            // too, since NaN != NaN holds.
+            if (dbl != dbl_i)
+            {
+                set_fflags(s, 1ULL << 0);
+            }
             return (int64_t)dbl;
+        }
         else // UNDERFLOW
         {
             set_fflags(s, 1ULL << 4);
@@ -1592,15 +1617,20 @@ static inline uint64_t double_to_ulong(Iss *s, double dbl_i)
 {
     double dbl = nearbyint(dbl_i);
 
-    if (dbl != dbl_i)
-    {
-        set_fflags(s, 1ULL << 0);
-    }
-
     if (dbl < 2.0 * (UINT64_MAX / 2 + 1))
     {                       // NO OVERFLOW
         if (ceil(dbl) >= 0) // NO UNDERFLOW
+        {
+            // Inexact belongs to a VALID conversion only: an invalid float to
+            // integer conversion (NaN or out of range) raises NV alone
+            // (IEEE 754 7.2, RISC-V unpriv F). The test used to fire on NaN
+            // too, since NaN != NaN holds.
+            if (dbl != dbl_i)
+            {
+                set_fflags(s, 1ULL << 0);
+            }
             return (uint64_t)dbl;
+        }
         else // UNDERFLOW
         {
             set_fflags(s, 1ULL << 4);
@@ -1719,9 +1749,25 @@ static inline unsigned long int setFFRoundingMode(Iss *s, unsigned long int mode
         fesetround(FE_UPWARD);
         break;
     case 4:
-        printf("Unimplemented roudning mode nearest ties to max magnitude");
-        exit(-1);
+        // RMM has no fenv equivalent: nearest plus the flexfloat ties-away flag.
+        fesetround(FE_TONEAREST);
+        flexfloat_rmm = 1;
         break;
+#if defined(CONFIG_GVSOC_ISS_CV32E40P) || defined(CONFIG_GVSOC_ISS_CV32E40P_FP_TRAPS)
+    case 5:
+    case 6:
+        // Reserved static rounding modes: illegal-instruction on the RTL
+        // (RISC-V F spec, rm 101/110 reserved). The FP op still runs after
+        // the raise; its writeback and fflags update are suppressed by the
+        // has_exception guards (macros.h FREG_SET, update_fflags_fenv).
+        s->exception.raise(s->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P_FP_TRAPS
+        // The iss_v2 macros have no write-back guard; the regfile
+        // personality drops the pending write instead.
+        s->regfile.wb_suppress_arm();
+#endif
+        break;
+#endif
     case 7:
     {
         switch (s->csr.fcsr.frm)
@@ -1739,9 +1785,21 @@ static inline unsigned long int setFFRoundingMode(Iss *s, unsigned long int mode
             fesetround(FE_UPWARD);
             break;
         case 4:
-            printf("Unimplemented roudning mode nearest ties to max magnitude");
-            exit(-1);
+            fesetround(FE_TONEAREST);
+            flexfloat_rmm = 1;
             break;
+#if defined(CONFIG_GVSOC_ISS_CV32E40P) || defined(CONFIG_GVSOC_ISS_CV32E40P_FP_TRAPS)
+        case 5:
+        case 6:
+        case 7:
+            // Dynamic rounding with a reserved frm value: illegal-instruction
+            // on the RTL (frm 101/110/111 reserved on use).
+            s->exception.raise(s->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+#ifdef CONFIG_GVSOC_ISS_CV32E40P_FP_TRAPS
+            s->regfile.wb_suppress_arm();
+#endif
+            break;
+#endif
         }
     }
     }
@@ -1750,6 +1808,7 @@ static inline unsigned long int setFFRoundingMode(Iss *s, unsigned long int mode
 
 static inline void restoreFFRoundingMode(unsigned long int mode)
 {
+    flexfloat_rmm = 0;
     fesetround(mode);
 }
 
@@ -1902,6 +1961,13 @@ static inline unsigned long int lib_flexfloat_min(Iss *s, unsigned long int a, u
 #ifdef OLD
     FF_EXEC_2(s, ff_min, a, b, e, m)
 #else
+    // IEEE 754-2019 minimumNumber/maximumNumber (the semantics RISC-V gives
+    // fmin/fmax) signal invalid on a signaling NaN input; the max twin below
+    // already does it.
+    if (IsNan(a, e, m) == 2 || IsNan(b, e, m) == 2)
+    {
+        set_fflags(s, 1ULL << 4);
+    }
     int Nan_a = IsNan(a, e, m);
     int Nan_b = IsNan(b, e, m);
     unsigned long int Nan_Q = (((1ULL << e) - 1) << m) | ((unsigned long int)1ULL << (m - 1));
@@ -1960,39 +2026,92 @@ static inline int64_t lib_flexfloat_cvt_w_ff_round(Iss *s, unsigned long int a, 
     unsigned long int new_round = round == 4 ? 2 : round;
     old = setFFRoundingMode(s, new_round);
     FF_INIT_1(a, e, m)
-    if (round == 4)
+    if (round == 4 && ff_a.value == ff_a.value /* !NaN */)
     {
-        if (ff_a.value < 0)
+        /* RMM(x) = trunc(|x|+0.5) with the sign re-applied (host fenv is in
+         * RTZ here). The flags must come from the ORIGINAL operand, not the
+         * nudged one: feeding x+0.5 to the generic converter raised a
+         * spurious NX for every exact-integer input (x+0.5 truncates) and
+         * LOST the NX of every half-tie (x+0.5 lands on an integer). On
+         * saturation NV is raised alone (IEEE 754 7.2 / RISC-V F 11.7); a
+         * NaN input keeps the generic path below, which raises NV alone. */
+        neg = ff_a.value < 0;
+        double mag = neg ? -ff_a.value : ff_a.value;
+        double t = trunc(mag + 0.5);   /* round-half-away magnitude; exact:
+                                        * above 2^52 the +0.5 is absorbed and
+                                        * mag is already integral */
+        double lim = neg ? 2147483648.0 : 2147483647.0;
+        int32_t result_rmm;
+        if (t > lim)
         {
-            ff_a.value = -ff_a.value;
-            neg = true;
+            set_fflags(s, 1ULL << 4);  /* NV alone on out-of-range */
+            result_rmm = neg ? INT32_MIN : INT32_MAX;
         }
-        ff_a.value += 0.5f;
+        else
+        {
+            double rounded = neg ? -t : t;
+            result_rmm = (int32_t)rounded;
+            if (rounded != ff_a.value)
+                set_fflags(s, 1ULL << 0);  /* NX iff the rounding moved x */
+        }
+        restoreFFRoundingMode(old);
+        return iss_get_signed_value(result_rmm, 32);
     }
     int32_t result_int = double_to_int(s, ff_a.value);
-    if (neg)
-    {
-        result_int = -result_int;
-    }
-    restoreFFRoundingMode(new_round);
+    restoreFFRoundingMode(old);
     return iss_get_signed_value(result_int, 32);
 }
 
 static inline int64_t lib_flexfloat_cvt_wu_ff_round(Iss *s, unsigned long int a, uint8_t e, uint8_t m, unsigned long int round)
 {
     int old;
-    bool neg = false;
     unsigned long int new_round = round == 4 ? 2 : round;
     old = setFFRoundingMode(s, new_round);
     FF_INIT_1(a, e, m)
-    if (round == 4)
+    if (round == 4 && ff_a.value == ff_a.value /* !NaN */)
     {
-        if (ff_a.value < 0)
+        /* Same flag discipline as the signed sibling: RMM via trunc(x+0.5)
+         * on the magnitude, NX decided against the ORIGINAL operand (the
+         * nudge corrupted it both ways), NV alone on out-of-range. A
+         * negative operand rounds half-away from zero DOWN: anything that
+         * rounds below zero is out of range for the unsigned destination
+         * (NV, result 0) - the old path fed it unrounded to the RTZ
+         * converter, so RMM(-0.5), an out-of-range -1, came back 0 with a
+         * mere NX. NaN keeps the generic path (NV alone, all-ones). */
+        double v = ff_a.value;
+        int32_t result_rmm;
+        if (v < 0)
         {
-            ff_a.value = -ff_a.value;
-            neg = true;
+            double t = trunc(-v + 0.5);
+            if (t > 0)
+            {
+                set_fflags(s, 1ULL << 4);  /* rounds to < 0: out of range */
+                result_rmm = 0;
+            }
+            else
+            {
+                result_rmm = 0;            /* RMM(v) == 0 exactly */
+                if (v != 0.0)
+                    set_fflags(s, 1ULL << 0);
+            }
         }
-        ff_a.value += 0.5f;
+        else
+        {
+            double t = trunc(v + 0.5);
+            if (t > 4294967295.0)
+            {
+                set_fflags(s, 1ULL << 4);
+                result_rmm = (int32_t)UINT32_MAX;
+            }
+            else
+            {
+                result_rmm = (int32_t)(uint32_t)t;
+                if (t != v)
+                    set_fflags(s, 1ULL << 0);
+            }
+        }
+        restoreFFRoundingMode(old);
+        return (int64_t)result_rmm;
     }
     int32_t result_int = double_to_uint(s, ff_a.value);
     restoreFFRoundingMode(old);
@@ -2003,7 +2122,13 @@ static inline long int lib_flexfloat_cvt_ff_w_round(Iss *s, int64_t a, uint8_t e
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
+    // An integer to float conversion is inexact when the integer does not fit
+    // in the mantissa: flexfloat_sanitize already raises FE_INEXACT in the host
+    // fenv, it was simply never collected. Same pattern as the vector twin
+    // lib_flexfloat_cvt_ff_x_round below.
+    feclearexcept(FE_ALL_EXCEPT);
     ff_init_int(&ff_a, a & 0xffffffff, (flexfloat_desc_t){e, m});
+    update_fflags_fenv(s);
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_a);
 }
@@ -2012,7 +2137,11 @@ static inline unsigned long int lib_flexfloat_cvt_ff_wu_round(Iss *s, int64_t a,
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
+    // Inexact when the integer does not fit in the mantissa; see
+    // lib_flexfloat_cvt_ff_w_round above.
+    feclearexcept(FE_ALL_EXCEPT);
     ff_init_long(&ff_a, (uint32_t)a & 0xffffffff, (flexfloat_desc_t){e, m});
+    update_fflags_fenv(s);
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_a);
 }
@@ -2039,7 +2168,11 @@ static inline long int lib_flexfloat_cvt_ff_l_round(Iss *s, int64_t a, uint8_t e
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
+    // Inexact when the integer does not fit in the mantissa; see
+    // lib_flexfloat_cvt_ff_w_round above.
+    feclearexcept(FE_ALL_EXCEPT);
     ff_init_long(&ff_a, a, (flexfloat_desc_t){e, m});
+    update_fflags_fenv(s);
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_a);
 }
@@ -2048,7 +2181,11 @@ static inline unsigned long int lib_flexfloat_cvt_ff_lu_round(Iss *s, uint64_t a
 {
     int old = setFFRoundingMode(s, round);
     flexfloat_t ff_a;
+    // Inexact when the integer does not fit in the mantissa; see
+    // lib_flexfloat_cvt_ff_w_round above.
+    feclearexcept(FE_ALL_EXCEPT);
     ff_init_long_long_unsigned(&ff_a, a, (flexfloat_desc_t){e, m});
+    update_fflags_fenv(s);
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_a);
 }
@@ -2057,7 +2194,13 @@ static inline long int lib_flexfloat_cvt_ff_ff_round(Iss *s, unsigned long int a
 {
     int old = setFFRoundingMode(s, round);
     FF_INIT_1(a, es, ms)
+    // A narrowing format conversion rounds and can overflow/underflow:
+    // flexfloat_sanitize raises the host fenv flags inside ff_cast, they
+    // were simply never collected here - every sibling conversion in this
+    // file collects them (same pattern as lib_flexfloat_cvt_ff_w_round).
+    feclearexcept(FE_ALL_EXCEPT);
     ff_cast(&ff_res, &ff_a, (flexfloat_desc_t){ed, md});
+    update_fflags_fenv(s);
     restoreFFRoundingMode(old);
     return flexfloat_get_bits(&ff_res);
 }

@@ -64,8 +64,17 @@
 #else
 #define FREG_GET(reg) (iss->regfile.get_freg(insn->in_regs[reg]))
 #define FREG_OUT_GET(reg) (iss->regfile.get_freg(insn->out_regs[reg]))
+#if defined(CONFIG_GVSOC_ISS_FP_STATE_DIRTY)
+// Opt-in for cores whose csr class tracks mstatus.FS on FP write-backs.
+#define FREG_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val), iss->csr.fp_state_dirty())
+#else
 #define FREG_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
 #endif
+#endif
+#if defined(CONFIG_GVSOC_ISS_FP_STATE_DIRTY)
+#define FREG32_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val), iss->csr.fp_state_dirty())
+#else
 #define FREG32_SET(reg,val) (iss->regfile.set_freg(insn->out_regs[reg], val))
+#endif
 
 #endif

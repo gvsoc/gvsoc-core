@@ -784,6 +784,25 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     {
         return iss->irq.debug_handler;
     }
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    // dcsr.ebreakm=1 in M-mode: enter debug (RISC-V Debug Spec).
+    else if (iss->csr.ebreak_m_mode_enters_debug())
+    {
+        iss->dbgunit.set_halt_mode(true, HALT_CAUSE_EBREAK);
+        return pc;
+    }
+#endif
+#ifdef CONFIG_GVSOC_ISS_CV32E40P_V2
+    // dcsr.ebreakm=1 in M-mode: enter debug (RISC-V Debug Spec).
+    // Arms the request (cause=1); Cv32e40pIrq::check() performs the entry
+    // at the next dispatch boundary, so the ebreak never retires and
+    // mcause/mepc stay untouched, as in the hardware.
+    else if (iss->csr.ebreak_m_mode_enters_debug())
+    {
+        iss->irq.ebreak_enter_debug();
+        return pc;
+    }
+#endif
     else
     {
         iss->exception.raise(pc, ISS_EXCEPT_BREAKPOINT);

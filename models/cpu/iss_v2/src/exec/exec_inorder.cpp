@@ -168,6 +168,21 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
+    // Honor a pending front-end flush in the FAST path too (the slow handler
+    // already does at exec_instr_check_all): after an external redirect
+    // (gvsoc_engine_set_pc sets pending_flush) the very next dispatch can be the
+    // fast handler, which otherwise fetches the redirected PC through the STALE
+    // prefetch line (PrefetchSingleLine::fetch's in-window fast-path reads
+    // this->data[index] without a refill) and decodes garbage bytes -> a bogus
+    // next-PC at the vector entry. Flushing the prefetch (buffer_start_addr=-1)
+    // and insn cache here forces a real refill+redecode at current_insn.
+    if (unlikely(iss->exec.pending_flush))
+    {
+        iss->prefetch.flush();
+        iss->insn_cache.flush();
+        iss->exec.pending_flush = false;
+    }
+
     // Leave now in case the core is retained and we are only executing tasks
     if (unlikely(iss->exec.handle_tasks())) return;
 
@@ -208,7 +223,13 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         // Hardware-loop redirect: if pc matches a registered loop end
         // and its counter > 0, decrement and redirect to the loop start.
         // The default HwloopEmpty variant inlines to a no-op.
-        next_pc = iss->hwloop.check(pc, next_pc);
+        // A trapping loop-end instruction is killed before the loop
+        // update on the RTL (the exception wins), so the count must not
+        // move when the handler raised.
+        if (likely(!iss->exec.has_exception))
+        {
+            next_pc = iss->hwloop.check(pc, next_pc);
+        }
 
         iss->exec.current_insn = next_pc;
 
@@ -282,14 +303,11 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         _this->switch_to_fast_mode();
     }
 
-    if (!_this->skip_irq_check)
-    {
-        _this->iss.irq.check();
-    }
-    else
-    {
-        _this->skip_irq_check = false;
-    }
+    // The one-shot async gate (skip_irq_check) is consumed inside check():
+    // synchronous debug conditions (execute-address triggers) are evaluated
+    // on every boundary, even when interrupt checking is suppressed for the
+    // dispatch (external lockstep stepping, gdb resume).
+    _this->iss.irq.check();
 
     // Leave now in case the core is retained and we are only executing tasks
     if (_this->handle_tasks()) return;
@@ -345,8 +363,12 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
             return;
         }
 
-        // Hardware-loop redirect: see fast-path equivalent above.
-        next_pc = iss->hwloop.check(pc, next_pc);
+        // Hardware-loop redirect: see fast-path equivalent above (including
+        // the trapping-insn carve-out).
+        if (likely(!_this->has_exception))
+        {
+            next_pc = iss->hwloop.check(pc, next_pc);
+        }
 
         _this->current_insn = next_pc;
 

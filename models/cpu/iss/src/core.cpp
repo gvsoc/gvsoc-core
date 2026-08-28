@@ -56,6 +56,11 @@ void Core::build()
     this->iss.csr.mstatus.reset_val |= 2ULL << 34;
 #endif
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    // Default: no-op. Subclasses can override to apply a core-specific mask.
+    this->mstatus_write_mask_fixup();
+
+#endif
 #if ISS_REG_WIDTH == 64
     this->sstatus_write_mask = this->mstatus_write_mask & 0x80000003000DE762;
 #else
@@ -96,20 +101,39 @@ void Core::reset(bool active)
 }
 
 
-iss_reg_t Core::mret_handle()
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+void Core::mret_mode_restore()
 {
-    this->iss.exec.switch_to_full_mode();
-
     this->mode_set(this->iss.csr.mstatus.mpp);
 #ifdef CONFIG_GVSOC_ISS_USER_MODE
     this->iss.csr.mstatus.mpp = PRIV_U;
 #else
     this->iss.csr.mstatus.mpp = PRIV_M;
 #endif
+}
+
+#endif
+iss_reg_t Core::mret_handle()
+{
+    this->iss.exec.switch_to_full_mode();
+
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    // Privilege-mode restore on MRET (default: from mstatus.mpp).
+    this->mret_mode_restore();
+#else
+    this->mode_set(this->iss.csr.mstatus.mpp);
+#ifdef CONFIG_GVSOC_ISS_USER_MODE
+    this->iss.csr.mstatus.mpp = PRIV_U;
+#else
+    this->iss.csr.mstatus.mpp = PRIV_M;
+#endif
+#endif
     this->iss.irq.irq_enable.set(this->iss.csr.mstatus.mpie);
     this->iss.csr.mstatus.mie = this->iss.csr.mstatus.mpie;
     this->iss.csr.mstatus.mpie = 1;
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     this->iss.csr.mcause.value = 0;
+#endif
 
     return this->iss.csr.mepc.value;
 }
@@ -129,7 +153,9 @@ iss_reg_t Core::sret_handle()
     this->iss.irq.irq_enable.set(this->iss.csr.mstatus.spie);
     this->iss.csr.mstatus.sie = this->iss.csr.mstatus.spie;
     this->iss.csr.mstatus.spie = 1;
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     this->iss.csr.scause.value = 0;
+#endif
 
     return this->iss.csr.sepc.value;
 }
@@ -167,6 +193,9 @@ bool Core::mstatus_update(bool is_write, iss_reg_t &value)
     else
     {
         value = this->iss.csr.mstatus.value;
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+        this->iss.csr.mstatus_read_fixup(value);
+#endif
     }
 
     return false;

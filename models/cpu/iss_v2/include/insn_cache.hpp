@@ -48,6 +48,16 @@ public:
     inline void insn_init(iss_insn_t *insn, iss_addr_t addr);
     InsnPage *page_get(iss_reg_t paddr);
 
+    // True when addr falls inside an already-decoded page - the only case
+    // where a hart store can stale decoded instructions (self-modifying
+    // code executed without fence.i: cores fetching straight from memory,
+    // like CV32E40P, see the new code on the next fetch, so the decoded
+    // cache must stay coherent with the hart's own stores).
+    inline bool covers(iss_reg_t addr)
+    {
+        return this->pages.find(addr >> INSN_PAGE_BITS) != this->pages.end();
+    }
+
     // Bumped on every flush (full or mode flush). Consumers caching
     // pointers into the pages (e.g. the DBT translation cache) compare
     // it to detect that their cached state went stale.

@@ -972,6 +972,16 @@ class Instr(object):
         for tag_name in isa.isa_tags_insns.keys():
             insn_tags_value.append('1' if tag_name in self.tags else '0')
 
+        # Inactive instructions never decode nor execute, so emit NULL instead
+        # of referencing handlers whose subset header may not be included (e.g.
+        # the compressed FP rows when the F extension is not part of the ISA).
+        if self.active:
+            handler = self.exec_func
+            fast_handler = self.exec_func_fast
+            decode = "NULL" if self.decode is None else self.decode
+        else:
+            handler = fast_handler = decode = "NULL"
+
         dump(isaFile, f'static iss_decoder_item_t {name} = {{\n')
         dump(isaFile, f'  .is_insn=true,\n')
         dump(isaFile, f'  .is_active={ 1 if self.active else 0},\n')
@@ -979,10 +989,10 @@ class Instr(object):
         dump(isaFile, f'  .opcode=0b{opcode},\n')
         dump(isaFile, f'  .u={{\n')
         dump(isaFile, f'    .insn={{\n')
-        dump(isaFile, f'      .handler={self.exec_func},\n')
-        dump(isaFile, f'      .fast_handler={self.exec_func_fast},\n')
+        dump(isaFile, f'      .handler={handler},\n')
+        dump(isaFile, f'      .fast_handler={fast_handler},\n')
         dump(isaFile, f'      .stub_handler=NULL,\n')
-        dump(isaFile, f'      .decode={"NULL" if self.decode is None else self.decode},\n')
+        dump(isaFile, f'      .decode={decode},\n')
         dump(isaFile, f'      .label=(char *)"{self.get_label()}",\n')
         dump(isaFile, f'      .size={int(self.len/8)},\n')
         dump(isaFile, f'      .nb_args={len(self.args_format)},\n')

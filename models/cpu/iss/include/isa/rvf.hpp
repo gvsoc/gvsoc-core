@@ -35,8 +35,24 @@
 #include "cpu/iss/include/isa_lib/float.h"
 #include "cpu/iss/include/isa/rvd.hpp"
 
+// On cores that track mstatus.FS (CONFIG_GVSOC_ISS_FP_STATE_DIRTY) every
+// completed FPU op dirties FS: the RTL raises fflags_we on apu_valid even
+// when no flag ends up set, so GPR-writing FP ops (compare, convert,
+// classify, fmv.x) dirty it too. FP register write-backs already get this
+// from the FREG*_SET macros; call this after the write-back so a raise
+// (reserved rounding mode) has already set has_exception and is skipped.
+#if defined(CONFIG_GVSOC_ISS_FP_STATE_DIRTY)
+#define FP_EXEC_DIRTY() (iss->csr.fp_state_dirty())
+#else
+#define FP_EXEC_DIRTY() ((void)0)
+#endif
+
 static inline iss_reg_t flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
+#if defined(CONFIG_GVSOC_ISS_FP_STATE_DIRTY)
+    // Opt-in: FP loads dirty mstatus.FS (see iss_v2 isa_lib/macros.h).
+    iss->csr.fp_state_dirty();
+#endif
     if (iss->lsu.load_float<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
     {
         return pc;
@@ -47,6 +63,9 @@ static inline iss_reg_t flw_exec_fast(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t flw_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->lsu.stack_access_check(REG_IN(0), REG_GET(0) + SIM_GET(0));
+#if defined(CONFIG_GVSOC_ISS_FP_STATE_DIRTY)
+    iss->csr.fp_state_dirty();
+#endif
     if (iss->lsu.load_float_perf<uint32_t>(insn, REG_GET(0) + SIM_GET(0), 4, REG_OUT(0)))
     {
         return pc;
@@ -174,18 +193,21 @@ static inline iss_reg_t fmax_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t fcvt_w_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_w_ff_round, FREG32_GET(0), 8, 23, UIM_GET(0)));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_wu_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_wu_ff_round, FREG32_GET(0), 8, 23, UIM_GET(0)));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fmv_x_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL1(lib_flexfloat_fmv_x_ff, FREG32_GET(0), 8, 23));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -198,24 +220,28 @@ static inline iss_reg_t fmv_s_x_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t feq_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_eq, FREG32_GET(0), FREG32_GET(1), 8, 23));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t flt_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_lt, FREG32_GET(0), FREG32_GET(1), 8, 23));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fle_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_le, FREG32_GET(0), FREG32_GET(1), 8, 23));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fclass_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL1(lib_flexfloat_class, FREG32_GET(0), 8, 23));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
@@ -237,12 +263,14 @@ static inline iss_reg_t fcvt_s_wu_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t fcvt_l_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_l_ff_round, FREG32_GET(0), 8, 23, UIM_GET(0)));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 
 static inline iss_reg_t fcvt_lu_s_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     REG_SET(0, LIB_FF_CALL2(lib_flexfloat_cvt_lu_ff_round, FREG32_GET(0), 8, 23, UIM_GET(0)));
+    FP_EXEC_DIRTY();
     return iss_insn_next(iss, insn, pc);
 }
 

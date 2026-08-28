@@ -313,6 +313,9 @@ class RiscvCommon(st.Component):
         A list of path to riscv binaries (default: []).
     debug_handler : int, optional
         The address where the core should jump when switching to debug mode (default: 0).
+    debug_exception_handler : int, optional
+        The address where the core should jump when an exception is taken while
+        in debug mode (dm_exception_addr). Defaults to debug_handler.
     power_models : dict, optional
         A dictionnay describing all the power models used to estimate power consumption in the ISS (default: {})
     power_models_file : file, optional
@@ -335,6 +338,7 @@ class RiscvCommon(st.Component):
             riscv_dbg_unit: bool=False,
             binaries: list[str]=[],
             debug_handler: int=0,
+            debug_exception_handler: int|None=None,
             power_models: dict[str,Any]={},
             power_models_file: str=None,
             cluster_id: int=0,
@@ -551,6 +555,8 @@ class RiscvCommon(st.Component):
             'riscv_dbg_unit': riscv_dbg_unit,
             'binaries': binaries.copy(),
             'debug_handler': debug_handler,
+            'debug_exception_handler':
+                debug_exception_handler if debug_exception_handler is not None else debug_handler,
             'power_models': power_models,
             'cluster_id': cluster_id,
             'core_id': config.hart_id,

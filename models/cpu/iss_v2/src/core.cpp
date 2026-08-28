@@ -25,6 +25,13 @@ Core::Core(Iss &iss)
     this->iss.traces.new_trace("core", &this->trace, vp::DEBUG);
 
     // Initialize the mstatus write mask so that WPRI fields are preserved
+#if defined(CONFIG_GVSOC_ISS_CORE_MSTATUS_WRITE_MASK)
+    // The core recipe owns the whole mstatus policy: its mask applies as-is
+    // and none of the generic refinements below (vector/user state, forced
+    // dirty FS/SD in the reset value) is wanted. Typical user: an M-mode-only
+    // core whose RTL hardwires most fields and controls FS itself.
+    this->mstatus_write_mask = CONFIG_GVSOC_ISS_CORE_MSTATUS_WRITE_MASK;
+#else
 #if ISS_REG_WIDTH == 64
     this->mstatus_write_mask = 0x8000003F007FFFEA;
 #else
@@ -48,6 +55,7 @@ Core::Core(Iss &iss)
     this->iss.csr.mstatus.reset_val |= 2ULL << 32;
     this->mstatus_write_mask &= ~(0x3ULL << 34);
     this->iss.csr.mstatus.reset_val |= 2ULL << 34;
+#endif
 #endif
 
 #if ISS_REG_WIDTH == 64

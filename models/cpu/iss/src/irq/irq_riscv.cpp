@@ -33,12 +33,19 @@ void Irq::build()
     iss.top.traces.new_trace("irq", &this->trace, vp::DEBUG);
 
     this->iss.csr.mideleg.register_callback(std::bind(&Irq::mideleg_access, this, std::placeholders::_1, std::placeholders::_2));
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
+#endif
     this->iss.csr.sip.register_callback(std::bind(&Irq::sip_access, this, std::placeholders::_1, std::placeholders::_2));
     this->iss.csr.sie.register_callback(std::bind(&Irq::sie_access, this, std::placeholders::_1, std::placeholders::_2));
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
     this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
+#endif
     this->iss.csr.stvec.register_callback(std::bind(&Irq::stvec_access, this, std::placeholders::_1, std::placeholders::_2));
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+    this->register_csr_callbacks();
+#endif
 
     this->msi_itf.set_sync_meth(&Irq::msi_sync);
     this->iss.top.new_slave_port("msi", &this->msi_itf, (vp::Block *)this);
@@ -60,6 +67,15 @@ void Irq::build()
     }
 }
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+void Irq::register_csr_callbacks()
+{
+    this->iss.csr.mip.register_callback(std::bind(&Irq::mip_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.mie.register_callback(std::bind(&Irq::mie_access, this, std::placeholders::_1, std::placeholders::_2));
+    this->iss.csr.mtvec.register_callback(std::bind(&Irq::mtvec_access, this, std::placeholders::_1, std::placeholders::_2));
+}
+
+#endif
 void Irq::reset(bool active)
 {
     if (active)
@@ -71,8 +87,10 @@ void Irq::reset(bool active)
     }
     else
     {
+#ifndef CONFIG_GVSOC_ISS_CV32E40P
         this->mtvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
         this->stvec_set(this->iss.exec.bootaddr_reg.get() & ~((1 << 8) - 1));
+#endif
     }
 }
 
@@ -216,6 +234,13 @@ bool Irq::stvec_set(iss_addr_t base)
     return true;
 }
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+void Irq::elw_irq_unstall()
+{
+    // Base implementation: no-op. The CV32E40P subclass overrides this.
+}
+
+#endif
 void Irq::cache_flush()
 {
 }
@@ -269,6 +294,14 @@ void Irq::check_interrupts()
     }
 }
 
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+// CV32E40P: default trap-entry returns the base unchanged (upstream direct-mode
+// behaviour).  Cv32e40pIrq overrides this to implement vectored mode.
+iss_reg_t Irq::compute_trap_entry(iss_reg_t base, int /*cause*/, bool /*is_interrupt*/)
+{
+    return base;
+}
+#endif
 int Irq::check()
 {
     if (this->req_debug && !this->iss.exec.debug_mode)
@@ -353,7 +386,14 @@ int Irq::check()
                     this->iss.csr.mstatus.mie = 0;
                     this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
                     this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
+#ifdef CONFIG_GVSOC_ISS_CV32E40P
+                    // CV32E40P: honour mtvec.MODE (vectored -> base + cause*4).  The
+                    // default Irq::compute_trap_entry() returns the base unchanged, so
+                    // non-CV32E40P targets keep the upstream direct-mode behaviour.
+                    this->iss.exec.current_insn = this->compute_trap_entry(this->iss.csr.mtvec.value, irq, true);
+#else
                     this->iss.exec.current_insn = this->iss.csr.mtvec.value;
+#endif
                     this->iss.csr.mcause.value = (1ULL << (ISS_REG_WIDTH - 1)) | (unsigned int)irq;
                 }
                 else

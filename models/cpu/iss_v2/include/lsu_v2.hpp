@@ -187,9 +187,15 @@ private:
     bool handle_req_response(LsuReqEntry *entry);
     void handle_req_end(LsuReqEntry *entry);
     // Re-arm and re-issue ``entry`` for the second beat of a misaligned
-    // access. Returns true if a second beat was fired (entry still in
-    // flight); false if the entry was aligned (no second beat needed).
+    // access. Returns true while the completion is still in flight
+    // (task, granted or denied); false when beat 1 completed inline with
+    // zero latency — handle_req_end has run and the entry is back on the
+    // free list, so a caller holding the insn must retire it itself.
     bool fire_misaligned_second(LsuReqEntry *entry);
+    // Terminate a held insn the way the normal response path does:
+    // delayed scoreboard release when a scoreboard is wired, immediate
+    // otherwise. Used when a misaligned beat 1 completes inline.
+    void retire_held_insn(InsnEntry *insn_entry);
 
 protected:
     Iss &iss;

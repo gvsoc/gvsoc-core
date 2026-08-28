@@ -806,6 +806,22 @@ bool iss_csr_read(Iss *iss, iss_insn_t *insn, iss_reg_t reg, iss_reg_t *value)
         return false;
     }
 
+    // Strict cores treat the declared-register map as the whole CSR space:
+    // anything it does not contain raises illegal-instruction, without
+    // falling back to the legacy dispatch below.
+    if (iss->csr.raise_on_unsupported_csr)
+    {
+        // The instruction handlers issue the read and the write of a csrrw
+        // back-to-back; raise only once as Exception::raise is not idempotent
+        // (the second call would capture mpie after irq_enable was cleared).
+        if (!iss->exec.has_exception)
+        {
+            iss->csr.trace.msg(vp::Trace::LEVEL_DEBUG, "Unsupported CSR read (id: 0x%x) -> illegal instruction\n", reg);
+            iss->exception.raise(iss->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        }
+        return true;
+    }
+
     // And dispatch
     switch (reg)
     {
@@ -1188,6 +1204,20 @@ bool iss_csr_write(Iss *iss, iss_insn_t *insn, iss_reg_t reg, iss_reg_t value)
     if (!iss->csr.access(insn, true, reg, value))
     {
         return false;
+    }
+
+    // Strict cores: same rule as the read path, the declared-register map
+    // is the whole CSR space.
+    if (iss->csr.raise_on_unsupported_csr)
+    {
+        // See the matching block in iss_csr_read: raise at most once per
+        // instruction, the csrrw handlers call both functions unconditionally.
+        if (!iss->exec.has_exception)
+        {
+            iss->csr.trace.msg(vp::Trace::LEVEL_DEBUG, "Unsupported CSR write (id: 0x%x) -> illegal instruction\n", reg);
+            iss->exception.raise(iss->exec.current_insn, ISS_EXCEPT_ILLEGAL);
+        }
+        return true;
     }
 
     // And dispatch

@@ -48,6 +48,11 @@ public:
     inline void insn_init(iss_insn_t *insn, iss_addr_t addr);
     InsnPage *page_get(iss_reg_t paddr);
 
+    // Take ownership of a macro-instruction expansion table, so that it is
+    // freed with the rest of the cache on a flush. The table must come from
+    // new[], as the flush deletes it that way.
+    inline void register_insn_table(iss_insn_t *table);
+
     // Bumped on every flush (full or mode flush). Consumers caching
     // pointers into the pages (e.g. the DBT translation cache) compare
     // it to detect that their cached state went stale.
@@ -64,6 +69,11 @@ private:
 };
 
 
+
+inline void InsnCache::register_insn_table(iss_insn_t *table)
+{
+    this->insn_tables.push_back(table);
+}
 
 inline iss_insn_t *InsnCache::get_insn(iss_reg_t vaddr)
 {

@@ -33,6 +33,8 @@ public:
     Regfile(IssWrapper &top, Iss &iss);
 
     void reset(bool active);
+    // Re-arm memcheck: all registers uninitialized again. See regfile.cpp.
+    void memcheck_reset();
 
     iss_reg_t regs[ISS_NB_REGS+1];
 

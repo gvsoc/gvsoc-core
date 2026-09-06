@@ -771,6 +771,16 @@ void Syscalls::handle_riscv_ebreak()
         break;
     }
 
+    // The runtime declares the application is starting: re-arm the register
+    // shadow, so that what ran before -- a boot ROM initializing every register,
+    // then spilled onto the application stack -- does not pass for initialized
+    // data. Memory already written stays initialized, which is correct.
+    case 0x11B:
+    {
+        this->iss.regfile.memcheck_reset();
+        break;
+    }
+
     case 0x116:
     {
       const char *func, *inline_func, *file;

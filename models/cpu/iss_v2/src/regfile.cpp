@@ -49,6 +49,26 @@ Regfile::Regfile(Iss &iss)
 }
 
 
+#ifdef VP_MEMCHECK_ACTIVE
+// Arm the memory checker: every register is uninitialized with no buffer
+// attached, except x0 and the dummy register which are always valid. Called at
+// core reset, and again when the runtime declares the application is starting
+// (semihosting 0x11B), so that what the boot ROM left behind is not taken for
+// initialized data.
+void Regfile::memcheck_reset()
+{
+    for (int i = 0; i < ISS_NB_REGS + ISS_NB_FREGS + 1; i++)
+    {
+        this->regs_memcheck[i] = 0;
+        this->regs_memcheck_id[i] = 0;
+    }
+    this->regs_memcheck[0] = (iss_reg_t)-1;
+    this->regs_memcheck[ISS_DUMMY_REG] = (iss_reg_t)-1;
+    this->memcheck_reg_fault = false;
+}
+#endif
+
+
 void Regfile::reset(bool active)
 {
     if (active)
@@ -64,16 +84,7 @@ void Regfile::reset(bool active)
 #endif
 
 #ifdef VP_MEMCHECK_ACTIVE
-        // All registers start uninitialized with no buffer attached, except x0 and
-        // the dummy register which are always valid
-        for (int i = 0; i < ISS_NB_REGS + ISS_NB_FREGS + 1; i++)
-        {
-            this->regs_memcheck[i] = 0;
-            this->regs_memcheck_id[i] = 0;
-        }
-        this->regs_memcheck[0] = (iss_reg_t)-1;
-        this->regs_memcheck[ISS_DUMMY_REG] = (iss_reg_t)-1;
-        this->memcheck_reg_fault = false;
+        this->memcheck_reset();
 #endif
 
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD

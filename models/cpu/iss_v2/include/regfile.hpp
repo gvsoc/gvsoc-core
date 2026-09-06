@@ -36,6 +36,10 @@ public:
     void start() {}
     void stop() {}
     void reset(bool active);
+#ifdef VP_MEMCHECK_ACTIVE
+    // Re-arm memcheck: all registers uninitialized again. See regfile.cpp.
+    void memcheck_reset();
+#endif
 
     inline void set_reg(int reg, uint64_t value);
     inline void set_reg_pair(int reg, uint64_t value);

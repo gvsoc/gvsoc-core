@@ -687,13 +687,12 @@ void IoV2BeatToSingleReqAdapter::emit_write_beat(WriteAckStream &b)
     vp::IoReq *r = b.ack;
     if (!b.is_atomic)
     {
-        r->prepare();
+        // The single data-less burst ack: a dedicated request, the burst's
+        // consumed last beat goes back to its own pool
+        r = vp::io_v2_write_ack(r);
         r->set_addr(b.ack_addr);
-        r->set_data(nullptr);
         r->set_size(b.ack_size);
         r->burst_id = b.ack_burst_id;
-        r->is_first = true;
-        r->is_last = true;
         r->set_resp_status(b.ack_status);
         r->initiator = b.ack_initiator;
     }

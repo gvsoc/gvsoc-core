@@ -582,13 +582,11 @@ void RamulatorModel::emit_one_beat()
         // virtual tick.
         if (infl->burst_last && is_last)
         {
-            // Recycle the parked burst-final beat as the single data-less
-            // allocator-backed ack. The initiator frees it.
-            vp::IoReq *ack = infl->req;
+            // Release the parked burst-final beat and emit the single
+            // data-less ack as a dedicated request. The initiator frees it.
+            vp::IoReq *ack = vp::io_v2_write_ack(infl->req);
             infl->req = nullptr;
             infl->owns_req = false;
-            ack->prepare();
-            ack->set_data(nullptr);
             // addr/size are informational on an ack. Beats of one burst are
             // not correlated across requests here (each request paces
             // independently), so they carry this request's own base / byte

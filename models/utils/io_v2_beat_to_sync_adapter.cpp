@@ -274,15 +274,13 @@ bool IoV2BeatToSyncAdapter::emit_entry(const StreamEntry &e)
     }
     else if (e.kind == StreamEntry::WRITE_ACK)
     {
-        // The single data-less burst ack, recycling the burst's consumed last
-        // beat (see io_v2.hpp, "The write ack"). The initiator frees it.
-        r->prepare();
+        // The single data-less burst ack: a dedicated request, the burst's
+        // consumed last beat goes back to its own pool (see io_v2.hpp, "The
+        // write ack"). The initiator frees the ack.
+        r = vp::io_v2_write_ack(r);
         r->set_addr(e.addr);
-        r->set_data(nullptr);
         r->set_size(e.size);
         r->burst_id = e.burst_id;
-        r->is_first = true;
-        r->is_last = true;
         r->set_resp_status(e.status);
         r->initiator = e.initiator;
         this->stream_interval = 1;

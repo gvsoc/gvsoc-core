@@ -24,8 +24,9 @@
  *             beat — the downstream consumer frees them), and forwards the
  *             single data-less burst ack back upstream when it arrives. A
  *             native beat slave answering the last beat with an inline DONE
- *             has its ack synthesized by the router (the beat it still owns
- *             is recycled as the ack) through the response FSM.
+ *             has its ack synthesized by the router (a dedicated data-less
+ *             request; the beat it still owns is freed) through the
+ *             response FSM.
  *
  * Per-burst routing table: a fixed-size table (`max_pending_bursts` entries).
  * On is_first of a burst the input allocates a slot; subsequent beats (writes
@@ -635,20 +636,19 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         if (log_last)
         {
             // Inline burst ack: DONE keeps ownership with the caller, so the
-            // router owns the beat — recycle it as the upstream ack,
+            // router owns the beat — release it and synthesize the upstream
+            // ack as a dedicated data-less request (the beat's pool promises
+            // its payload buffer to the next user, so it is not reused),
             // delivered through the response FSM so it honours the
             // per-(input, channel) response pacing and lands at
             // now + full_latency, like a downstream-produced ack would.
             int64_t lat = beat->get_full_latency();
-            beat->prepare();
-            beat->set_addr(slot.base_addr);
-            beat->set_data(nullptr);
-            beat->set_size(slot.total_bytes);
-            beat->is_first = true;
-            beat->is_last = true;
-            beat->burst_id = slot.original_burst_id;
-            beat->set_resp_status(slot.status);
-            this->synth_acks.push_back(SynthAck{beat, slot_idx,
+            vp::IoReq *ack = vp::io_v2_write_ack(beat);
+            ack->set_addr(slot.base_addr);
+            ack->set_size(slot.total_bytes);
+            ack->burst_id = slot.original_burst_id;
+            ack->set_resp_status(slot.status);
+            this->synth_acks.push_back(SynthAck{ack, slot_idx,
                 this->clock.get_cycles() + std::max((int64_t)1, lat)});
             this->schedule_resp_fsm();
         }
@@ -896,15 +896,14 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     slot.total_bytes += err_size;
                     if (err_is_last)
                     {
-                        beat->prepare();
-                        beat->set_addr(slot.base_addr);
-                        beat->set_data(nullptr);
-                        beat->set_size(slot.total_bytes);
-                        beat->is_first = true;
-                        beat->is_last = true;
-                        beat->burst_id = slot.original_burst_id;
-                        beat->set_resp_status(vp::IO_RESP_INVALID);
-                        _this->synth_acks.push_back(SynthAck{beat, slot_idx,
+                        // The ack is a dedicated data-less request; the
+                        // consumed beat goes back to its own pool
+                        vp::IoReq *ack = vp::io_v2_write_ack(beat);
+                        ack->set_addr(slot.base_addr);
+                        ack->set_size(slot.total_bytes);
+                        ack->burst_id = slot.original_burst_id;
+                        ack->set_resp_status(vp::IO_RESP_INVALID);
+                        _this->synth_acks.push_back(SynthAck{ack, slot_idx,
                             now + 1});
                         _this->schedule_resp_fsm();
                     }

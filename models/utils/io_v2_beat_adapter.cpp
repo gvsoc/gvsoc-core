@@ -590,22 +590,19 @@ void IoV2BeatAdapter::schedule_chunk(vp::IoReq *req, uint64_t size,
 void IoV2BeatAdapter::emit_beat(const PendingBeat &ev)
 {
     // Write entries (req == nullptr): silent virtual-ack ticks pace the write
-    // cursor and emit nothing; the burst-final entry recycles the burst's
-    // last beat as the single data-less ack (see io_v2.hpp, "The write ack").
+    // cursor and emit nothing; the burst-final entry releases the burst's
+    // last beat and emits the single data-less ack as a dedicated request
+    // (see io_v2.hpp, "The write ack").
     if (ev.req == nullptr)
     {
         if (ev.silent)
         {
             return;
         }
-        vp::IoReq *ack = ev.beat;
-        ack->prepare();
+        vp::IoReq *ack = vp::io_v2_write_ack(ev.beat);
         ack->set_addr(ev.addr);
-        ack->set_data(nullptr);
         ack->set_size(ev.size);
         ack->burst_id = ev.burst_id;
-        ack->is_first = true;
-        ack->is_last = true;
         ack->set_resp_status(ev.status);
         ack->initiator = ev.initiator;
 

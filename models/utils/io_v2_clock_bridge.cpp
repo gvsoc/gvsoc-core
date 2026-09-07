@@ -370,23 +370,26 @@ void IoV2ClockBridge::fwd_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
             {
                 // Inline DONE on the LAST write beat: the burst's inline
                 // ack. The upstream master granted the beat to the bridge,
-                // so the bridge still owns the object — recycle it in place
-                // as the async data-less burst ack (keep the burst's final
-                // status and carry the downstream timing annotation;
-                // burst_id / initiator are already the burst's own) and push
-                // it into the rev path exactly like a round-tripped
-                // response, so the upstream ack keeps the CDC delay shape.
+                // so the bridge owns a pool-backed beat — release it and
+                // build the async data-less burst ack as a dedicated
+                // request; a master-owned object (classic round-trip write)
+                // travels back itself (io_v2_write_ack handles both). Keep
+                // the burst's final status and the downstream timing
+                // annotation, and push the ack into the rev path exactly
+                // like a round-tripped response, so it keeps the CDC delay
+                // shape.
                 vp::IoRespStatus status = t.req->get_resp_status();
                 int64_t latency  = t.req->get_latency();
                 int64_t duration = t.req->get_duration();
-                t.req->prepare();
-                t.req->set_data(NULL);
-                t.req->is_first = true;
-                t.req->is_last  = true;
-                t.req->set_resp_status(status);
-                t.req->set_latency(latency);
-                t.req->set_duration(duration);
-                self->enqueue_in(self->rev_src_queue, t.req,
+                uint64_t addr = t.req->get_addr();
+                uint64_t size = t.req->get_size();
+                vp::IoReq *ack = vp::io_v2_write_ack(t.req);
+                ack->set_addr(addr);
+                ack->set_size(size);
+                ack->set_resp_status(status);
+                ack->set_latency(latency);
+                ack->set_duration(duration);
+                self->enqueue_in(self->rev_src_queue, ack,
                                  now_slave + self->k_src_per_dir, 1);
             }
             else

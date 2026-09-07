@@ -121,6 +121,12 @@ public:
     // Input currently holding this output for a burst, per channel; nullptr when
     // the channel is free. With shared_rw_channel=true only [0] is used.
     InputPort *elected_input[NB_CHANNELS] = {nullptr, nullptr};
+    // Burst slot the lock was taken for. An input may open its next burst
+    // while the previous one still awaits its ack (write pipelining), so a
+    // completing burst only releases the lock if it is the one holding it:
+    // otherwise the earlier burst's ack would free the channel under the
+    // later burst and let another input's beats interleave with it.
+    int elected_slot[NB_CHANNELS] = {-1, -1};
     // Downstream returned DENIED for the most recent forward on a channel;
     // waiting for retry(). Stall is per (output, channel) so a back-pressured
     // write does not block reads to the same output (and vice versa). With
@@ -930,6 +936,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (beat->is_first)
         {
             out->elected_input[ch] = in;
+            out->elected_slot[ch] = slot_idx;
         }
 
         // Forward the committed beat. On success mark the output-channel used
@@ -1061,7 +1068,11 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
 
     if (burst_done)
     {
-        self->elected_input[slot.channel] = nullptr;
+        if (self->elected_slot[slot.channel] == slot_idx)
+        {
+            self->elected_input[slot.channel] = nullptr;
+            self->elected_slot[slot.channel] = -1;
+        }
         // The input's in-progress tracker (active_multi_beat_slot) was
         // already cleared by req_muxed at queue-time on the master's is_last
         // beat — the input could start a new multi-beat burst before this
@@ -1225,9 +1236,11 @@ void RouterBeat::deliver_synth_acks()
         int slot_idx = it->slot_idx;
         it = this->synth_acks.erase(it);
 
-        if (slot.output_id >= 0)
+        if (slot.output_id >= 0 &&
+            this->entries[slot.output_id]->elected_slot[ch] == slot_idx)
         {
             this->entries[slot.output_id]->elected_input[ch] = nullptr;
+            this->entries[slot.output_id]->elected_slot[ch] = -1;
         }
         this->free_burst_slot(slot_idx);
 

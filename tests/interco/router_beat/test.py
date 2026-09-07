@@ -490,6 +490,33 @@ def build_case(case: str):
             native_beat_width=4,
         )
 
+    if case == 'write_pipelined_lock':
+        # Regression: a write burst's ack must not release the output lock
+        # held by the SAME input's next burst. master_a streams two write
+        # bursts back to back (the second one long); the native target acks
+        # each burst 12 cycles after its last beat, so the first burst's ack
+        # lands while the second burst is still streaming. master_b's
+        # single-beat write to the same output, queued meanwhile, must wait
+        # for the second burst's last beat. Before the fix the first ack
+        # cleared the lock and master_b's beat interleaved with the second
+        # burst (seen downstream as "write burst opened while another is
+        # still accepting beats").
+        rules_t0 = [rule(behavior='granted', resp_delay=12)]
+        return dict(
+            config=beat_cfg(max_input_pending_size=256, max_pending_bursts=8),
+            schedule_a=[
+                burst(cycle=10, addr=t0_base, size=4, nb_beats=8, burst_id=1,
+                      name='A1', is_write=True),
+                burst(cycle=10, addr=t0_base + 0x100, size=4, nb_beats=32,
+                      burst_id=2, name='A2', is_write=True),
+            ],
+            schedule_b=[burst(cycle=20, addr=t0_base + 0x400, size=4, nb_beats=1,
+                              burst_id=3, name='B', is_write=True)],
+            targets=[('t0', t0_base, window, rules_t0)],
+            nb_masters=2,
+            native_beat_width=4,
+        )
+
     if case == 'fifo_overflow':
         # Force the router's input FIFO to fill: target denies the first beat once
         # with a long retry_delay, so the output stalls and beats back up in the

@@ -209,6 +209,11 @@ public:
     // input in the same cycle only one is forwarded and the rest are
     // back-pressured. INT64_MIN means "never used".
     int64_t resp_used_cycle[NB_CHANNELS] = {INT64_MIN, INT64_MIN};
+    // Response beats the upstream master denied, per channel, in order. The
+    // burst bookkeeping was done when they arrived (the downstream producer is
+    // done with them), so they are re-sent from here on the master's
+    // resp_retry(); later beats for the channel queue behind them.
+    std::deque<vp::IoReq *> held_resps[NB_CHANNELS];
 };
 
 class RouterBeat : public vp::Component, public vp::DebugMemIf
@@ -244,6 +249,7 @@ private:
     // previous cycle (one beat/cycle/input pacing), letting their downstream
     // re-send the held beat.
     static void resp_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    void resend_held_resps();
 
     // Flat backdoor map, built lazily on first debug access
     vp::DebugMemMap debug_map;
@@ -996,19 +1002,20 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
     // arbitration), matching the pre-arbitration behaviour — still setting
     // resp_used_cycle below so any *supporting* sibling output is arbitrated
     // against it.
-    if (in->resp_used_cycle[ch] == now && self->bus.is_resp_retry_bound())
+    if ((in->resp_used_cycle[ch] == now || !in->held_resps[ch].empty())
+        && self->bus.is_resp_retry_bound())
     {
         self->resp_stalled = true;
         _this->schedule_resp_fsm();
         return vp::IO_RESP_DENIED;
     }
 
-    // Past the gate we are committed to delivering this beat (no upstream master
-    // currently denies, see the assert below), so consume the burst bookkeeping
-    // now — before the forward — exactly as the pre-arbitration code did. In
-    // particular the slot is freed before resp() so a master that reentrantly
-    // issues a new request from its resp callback can reuse it.
-    in->resp_used_cycle[ch] = now;
+    // Past the gate we are committed to consuming this beat from the
+    // downstream, so do the burst bookkeeping now — before the forward —
+    // exactly as the pre-arbitration code did. In particular the slot is freed
+    // before resp() so a master that reentrantly issues a new request from its
+    // resp callback can reuse it. The channel is only marked used once the
+    // master has really taken the beat (below).
 
     // A pure write response is the burst's single data-less ack (AXI B
     // semantics): it completes the burst unconditionally. Reads and atomics
@@ -1074,14 +1081,34 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
                        req->is_first, req->is_last);
     }
 
-    vp::IoRespAck st = in->itf.resp(req);
+    // A downstream which cannot be denied (no resp_retry handler) may deliver
+    // while the master still holds an earlier beat: queue behind it to keep
+    // the channel in order.
+    vp::IoRespAck st;
+    if (!in->held_resps[ch].empty())
+    {
+        st = vp::IO_RESP_DENIED;
+    }
+    else
+    {
+        st = in->itf.resp(req);
+    }
 
-    // No upstream master in the current codebase back-pressures its response
-    // channel, so a DENIED here is not expected. If one is introduced, it must
-    // be handled symmetrically to the gate case above (hold + re-drive on the
-    // input's resp_retry); assert for now rather than silently dropping a beat.
-    vp_assert(st != vp::IO_RESP_DENIED, &_this->trace,
-        "upstream master denied a response beat (not yet supported)\n");
+    // The upstream master back-pressures its response channel (a width
+    // adapter unpacking wide beats does): the bookkeeping is done and the
+    // downstream is done with the beat, so hold it here and re-send it on the
+    // master's resp_retry(), symmetrically to the gate case above.
+    if (st == vp::IO_RESP_DENIED)
+    {
+        _this->trace.msg(vp::Trace::LEVEL_TRACE,
+            "Upstream master denied a response beat, holding it (input: %d)\n", in->id);
+        in->held_resps[ch].push_back(req);
+        _this->schedule_resp_fsm();
+    }
+    else
+    {
+        in->resp_used_cycle[ch] = now;
+    }
     (void)st;
 
     // No need to restore req->burst_id between beats: the downstream adapter
@@ -1098,13 +1125,41 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
 }
 
 void RouterBeat::resp_retry_in_muxed(vp::Block *__this, int port,
-                                     vp::IoRetryChannel /*channel*/)
+                                     vp::IoRetryChannel channel)
 {
     RouterBeat *_this = (RouterBeat *)__this;
-    // An upstream master signalled its response channel is ready again. The
-    // beats we hold live in the downstream producers, so re-drive every stalled
-    // output now (synchronously, as the retry contract requires): the one
-    // targeting this input will forward, the rest re-stall harmlessly.
+    InputPort *in = _this->inputs[port];
+    int64_t now = _this->clock.get_cycles();
+
+    // An upstream master signalled its response channel is ready again. First
+    // re-send the beats we hold for it, in order and one per channel per
+    // cycle (synchronously, as the retry contract requires).
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
+    {
+        if (channel != vp::IO_RETRY_ANY && (int)channel != ch)
+        {
+            continue;
+        }
+        while (!in->held_resps[ch].empty() && in->resp_used_cycle[ch] != now)
+        {
+            vp::IoReq *req = in->held_resps[ch].front();
+            if (in->itf.resp(req) == vp::IO_RESP_DENIED)
+            {
+                break;
+            }
+            in->held_resps[ch].pop_front();
+            in->resp_used_cycle[ch] = now;
+        }
+        if (!in->held_resps[ch].empty())
+        {
+            // Still holding: try again next cycle
+            _this->schedule_resp_fsm();
+        }
+    }
+
+    // Then the beats which live in the downstream producers: re-drive every
+    // stalled output now: the one targeting this input will forward, the rest
+    // re-stall harmlessly.
     _this->drive_stalled_resps();
 }
 
@@ -1177,10 +1232,11 @@ void RouterBeat::deliver_synth_acks()
         }
         this->free_burst_slot(slot_idx);
 
-        vp::IoRespAck st = in->itf.resp(ack);
-        vp_assert(st != vp::IO_RESP_DENIED, &this->trace,
-            "upstream master denied a response beat (not yet supported)\n");
-        (void)st;
+        vp::IoRespAck st = in->held_resps[ch].empty() ? in->itf.resp(ack) : vp::IO_RESP_DENIED;
+        if (st == vp::IO_RESP_DENIED)
+        {
+            in->held_resps[ch].push_back(ack);
+        }
 
         this->wake_denied_masters();
         this->schedule_fsm();
@@ -1195,8 +1251,36 @@ void RouterBeat::deliver_synth_acks()
 void RouterBeat::resp_fsm_handler(vp::Block *__this, vp::ClockEvent * /*event*/)
 {
     RouterBeat *_this = (RouterBeat *)__this;
+    _this->resend_held_resps();
     _this->drive_stalled_resps();
     _this->deliver_synth_acks();
+}
+
+void RouterBeat::resend_held_resps()
+{
+    // Beats an upstream master denied: offer them again, one per channel
+    // per cycle, until the master takes them
+    int64_t now = this->clock.get_cycles();
+    for (InputPort *in: this->inputs)
+    {
+        for (int ch = 0; ch < NB_CHANNELS; ch++)
+        {
+            if (in->held_resps[ch].empty() || in->resp_used_cycle[ch] == now)
+            {
+                continue;
+            }
+            vp::IoReq *req = in->held_resps[ch].front();
+            if (in->itf.resp(req) != vp::IO_RESP_DENIED)
+            {
+                in->held_resps[ch].pop_front();
+                in->resp_used_cycle[ch] = now;
+            }
+            if (!in->held_resps[ch].empty())
+            {
+                this->schedule_resp_fsm();
+            }
+        }
+    }
 }
 
 void RouterBeat::retry_muxed(vp::Block *__this, int port, vp::IoRetryChannel channel)

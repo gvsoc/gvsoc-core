@@ -164,13 +164,22 @@ vp::IoReqStatus IoV2BeatToSyncAdapter::req_handler(vp::Block *__this, vp::IoReq 
         // lightweight descriptor per beat; each beat is read from the sync
         // slave in emit_entry, at its own delivery cycle, and paced by its own
         // bandwidth occupancy (get_duration()). No filled beats are held.
+        //
+        // Beats are bus words, as on AXI: a burst starting inside a word gets
+        // a short first beat up to the next word boundary, then full words,
+        // then the remainder. An unaligned burst therefore costs one more beat
+        // (cycle) than its size divided by the width, and the word shared by
+        // two consecutive bursts is served once per burst, which is what a
+        // beat-serialising slave (an AXI-to-register bridge, a bus memory)
+        // charges.
         size_t first_idx = self->entries.size();
         uint64_t offset = 0;
         do
         {
             // A zero-size burst still gets a single zero-size completion beat.
-            uint64_t beat = std::min<uint64_t>(total - offset,
-                                               (uint64_t)self->beat_width);
+            uint64_t to_word = self->beat_width
+                - ((burst_addr + offset) & (uint64_t)(self->beat_width - 1));
+            uint64_t beat = std::min<uint64_t>(total - offset, to_word);
             self->entries.push_back(StreamEntry{StreamEntry::READ_BEAT,
                 nullptr, burst_addr + offset, beat, burst_id, vp::IO_RESP_OK,
                 req->initiator, offset == 0, offset + beat >= total});

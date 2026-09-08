@@ -68,6 +68,16 @@ class RouterMapping(Config, HasSize):
     is_error : bool
         Marks this mapping as the error sink — requests resolving to it are
         responded with ``IO_RESP_INVALID``.
+    max_pending_bursts : int
+        Beat variant only. Outstanding transactions the downstream slave
+        accepts on this output, per channel (reads and writes counted
+        separately, like an AXI slave's ``MAX_READ_TXNS`` /
+        ``MAX_WRITE_TXNS``). A burst counts from the forward of its first
+        beat to its completion (last response beat or write ack). While the
+        output is at its limit no input can open a new burst on it, so a
+        waiting master gets in only when one transaction finishes: the
+        transaction-granular arbitration of a slave that serialises its
+        requests. ``0`` (default) is unlimited.
     """
 
     _defer_parent_init: ClassVar[bool] = True
@@ -102,6 +112,12 @@ class RouterMapping(Config, HasSize):
     is_error: bool = cfg_field(default=False, dump=True, desc=(
         "If true, this mapping is treated as an error sink: requests resolving to "
         "it are responded with IO_RESP_INVALID."
+    ))
+
+    max_pending_bursts: int = cfg_field(default=0, dump=True, desc=(
+        "Outstanding transactions the downstream slave accepts on this output, per "
+        "channel (beat variant). A burst is counted from the forward of its first beat "
+        "to its completion. 0 means unlimited."
     ))
 
 
@@ -263,6 +279,7 @@ class Router(gvsoc.systree.Component):
        ``width``,                  –, –,   –,   yes
        ``max_input_pending_size``, –, –,   –,   yes
        ``max_pending_bursts``,     –, –,   –,   yes
+       mapping ``max_pending_bursts``, –, –, –, yes
 
     Fields not used by the selected kind are still packed into the compiled
     config struct, but the C++ model simply ignores them.

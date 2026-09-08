@@ -57,6 +57,26 @@ Verifies round-robin arbitration *between* bursts (a starting input keeps
 the output until ``is_last``) and burst atomicity *within* a burst (no
 interleaving of the two streams' beats on the output channel).
 
+output_max_pending
+~~~~~~~~~~~~~~~~~~
+
+The target mapping carries ``max_pending_bursts=1``. Three single-beat
+reads (two from ``master_a``, one from ``master_b``), each answered 10
+cycles after its forward, reach the target one at a time: a new
+transaction is opened on the output only once the previous one completed,
+whichever input asks. Checker: consecutive target ``REQ`` lines are at
+least the response latency apart.
+
+read_no_lock
+~~~~~~~~~~~~
+
+Two masters issue one single-beat read each to the same target at the same
+cycle; the target answers 10 cycles later. ``master_b``'s read must be
+forwarded the cycle after ``master_a``'s: a single-request read takes no
+output lock (only the beats of a write burst, or of the multi-request read
+form, lock the output). Checker: the two target ``REQ`` lines are at most
+two cycles apart.
+
 Downstream stall behaviour
 --------------------------
 
@@ -517,6 +537,44 @@ def build_case(case: str):
             native_beat_width=4,
         )
 
+    if case == 'output_max_pending':
+        # A mapping with max_pending_bursts=1 lets one transaction at a time
+        # into the target, whichever input asks: reads from two masters, each
+        # answered 10 cycles after its forward, must reach the target one
+        # after the other with the whole response latency in between, the
+        # way a slave that serialises its requests (an AXI-to-register
+        # bridge with a small transaction table) is fed.
+        rules_t0 = [rule(behavior='granted', resp_delay=10)]
+        return dict(
+            config=beat_cfg(max_input_pending_size=64, max_pending_bursts=8),
+            mapping_kwargs=dict(max_pending_bursts=1),
+            schedule_a=[
+                burst(cycle=10, addr=t0_base, size=4, nb_beats=1, burst_id=1, name='A1'),
+                burst(cycle=10, addr=t0_base + 0x40, size=4, nb_beats=1, burst_id=2,
+                      name='A2'),
+            ],
+            schedule_b=[burst(cycle=10, addr=t0_base + 0x80, size=4, nb_beats=1,
+                              burst_id=3, name='B')],
+            targets=[('t0', t0_base, window, rules_t0)],
+            nb_masters=2,
+        )
+
+    if case == 'read_no_lock':
+        # A single-request read does not lock the output: master_b's read to
+        # the same target is forwarded the cycle after master_a's, while
+        # master_a's response is still 10 cycles away. (A locked output would
+        # hold it until that response returned.)
+        rules_t0 = [rule(behavior='granted', resp_delay=10)]
+        return dict(
+            config=beat_cfg(max_input_pending_size=64, max_pending_bursts=8),
+            schedule_a=[burst(cycle=10, addr=t0_base, size=4, nb_beats=1, burst_id=1,
+                              name='A')],
+            schedule_b=[burst(cycle=10, addr=t0_base + 0x40, size=4, nb_beats=1,
+                              burst_id=2, name='B')],
+            targets=[('t0', t0_base, window, rules_t0)],
+            nb_masters=2,
+        )
+
     if case == 'fifo_overflow':
         # Force the router's input FIFO to fill: target denies the first beat once
         # with a long retry_delay, so the output stalls and beats back up in the
@@ -655,7 +713,8 @@ class Chip(gvsoc.systree.Component):
             tgt = StubTarget(self, tname, rules=rules, logname=tname,
                              native_beat_width=spec.get('native_beat_width', 0))
             clock.o_CLOCK(tgt.i_CLOCK())
-            router.o_MAP(tgt.i_INPUT(), RouterMapping(name=tname, base=base, size=size))
+            router.o_MAP(tgt.i_INPUT(), RouterMapping(name=tname, base=base, size=size,
+                                                      **spec.get('mapping_kwargs', {})))
 
 
 class Target(gvsoc.runner.Target):

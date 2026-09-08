@@ -98,6 +98,10 @@ struct BurstEntry
     uint64_t base_addr = 0;
     uint64_t total_bytes = 0;
     vp::IoRespStatus status = vp::IO_RESP_OK;
+    // The burst holds one of its output's outstanding-transaction slots
+    // (mapping max_pending_bursts): taken when its first beat is forwarded,
+    // given back when the slot is freed.
+    bool counted_on_output = false;
 };
 
 class OutputPort
@@ -118,6 +122,15 @@ public:
     vp::IoMaster bus;
     uint64_t remove_offset = 0;
     uint64_t add_offset = 0;
+    // Outstanding transactions the downstream accepts per channel (mapping
+    // max_pending_bursts, 0 = unlimited) and how many are in flight: a burst
+    // counts from the forward of its first beat to its completion. While a
+    // channel is at its limit no new burst is opened on it, whichever input
+    // asks: the arbitration becomes transaction-granular, as behind a slave
+    // that serialises its requests (an AXI-to-register bridge, a memory with
+    // a small transaction table).
+    int max_pending = 0;
+    int nb_pending[NB_CHANNELS] = {0, 0};
     // Input currently holding this output for a burst, per channel; nullptr when
     // the channel is free. With shared_rw_channel=true only [0] is used.
     InputPort *elected_input[NB_CHANNELS] = {nullptr, nullptr};
@@ -508,6 +521,7 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
         OutputPort *out = new OutputPort(this, mapping_id, name);
         out->remove_offset = m.remove_offset;
         out->add_offset = m.add_offset;
+        out->max_pending = m.max_pending_bursts;
         this->entries.push_back(out);
         // Bind the per-output bus master to the named port. resp() and retry()
         // dispatch back through RouterBeat::resp_muxed / retry_muxed keyed by
@@ -541,6 +555,11 @@ void RouterBeat::free_burst_slot(int slot_idx)
     {
         slot.input->nb_outstanding_bursts--;
     }
+    if (slot.counted_on_output && slot.output_id >= 0)
+    {
+        this->entries[slot.output_id]->nb_pending[slot.channel]--;
+    }
+    slot.counted_on_output = false;
     slot.in_use = false;
     slot.input = nullptr;
     slot.output_id = -1;
@@ -632,6 +651,11 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         in->pending.pop_front();
         in->pending_bytes -= log_size;
         if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
+        if (log_first && out->max_pending > 0)
+        {
+            out->nb_pending[slot.channel]++;
+            slot.counted_on_output = true;
+        }
 
         if (beat->get_resp_status() == vp::IO_RESP_INVALID)
         {
@@ -680,6 +704,13 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         // Mirror the directional accounting from req_muxed.
         in->pending_bytes -= log_is_write ? log_size : 0;
         if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
+        // The downstream took a new transaction: one of its outstanding slots
+        // is held until the burst completes (free_burst_slot gives it back).
+        if (log_first && out->max_pending > 0)
+        {
+            out->nb_pending[slot.channel]++;
+            slot.counted_on_output = true;
+        }
         if (is_pure_write)
         {
             slot.total_bytes += log_size;
@@ -930,10 +961,23 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (out->stalled[ch]) continue;
         if (out->elected_input[ch] != nullptr && out->elected_input[ch] != in) continue;
         if (output_used[slot.output_id][ch]) continue;
+        // The downstream has no room for another transaction on this channel:
+        // nobody opens a burst on it until one completes (resp path schedules
+        // the FSM again). Continuation beats of an already-counted burst pass.
+        if (beat->is_first && out->max_pending > 0 &&
+            out->nb_pending[ch] >= out->max_pending) continue;
 
-        // Lock output-channel to this input on is_first (writes) or on the
-        // single read forward (reads).
-        if (beat->is_first)
+        // Lock the output channel to this input for the beats of a burst, so
+        // another input's beats cannot interleave with them: the W channel of
+        // a write burst, and the exotic multi-request form of a read burst. A
+        // read carried by a single data-less request takes no lock: its
+        // response beats are correlated by burst, and holding the output until
+        // they returned would serialise every input's reads behind it (an AXI
+        // AR channel arbitrates per transaction; what the downstream accepts is
+        // the mapping's max_pending_bursts). With shared_rw_channel the single
+        // channel is a bus (OBI-like) and every burst locks it.
+        if (beat->is_first &&
+            (beat->get_is_write() || !beat->is_last || _this->cfg.shared_rw_channel))
         {
             out->elected_input[ch] = in;
             out->elected_slot[ch] = slot_idx;

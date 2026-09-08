@@ -25,6 +25,28 @@ Spatz::Spatz(Iss &iss)
 {
 }
 
+void Spatz::start()
+{
+#ifdef CONFIG_GVSOC_ISS_SPATZ_MULDIV_OFFLOAD
+    // Scalar mul / div are offloaded to the vector unit's integer lanes:
+    // tag the decoder items so the exec path hands them to
+    // SpatzEvents::event_insn_latency_account (multiplies with their
+    // latency, divides with a marker resolved from the operands). The
+    // decoder table is shared by all the cores, so this is idempotent.
+    for (const char *tag : {"mul", "mulh"})
+    {
+        for (iss_decoder_item_t *item : *this->iss.decode.get_insns_from_tag(tag))
+        {
+            item->u.insn.latency = SpatzEvents::MUL_LATENCY;
+        }
+    }
+    for (iss_decoder_item_t *item : *this->iss.decode.get_insns_from_tag("div"))
+    {
+        item->u.insn.latency = SpatzEvents::DIV_TAG_LATENCY;
+    }
+#endif
+}
+
 void Spatz::reset(bool active)
 {
     this->vu.reset(active);

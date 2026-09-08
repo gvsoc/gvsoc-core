@@ -98,5 +98,6 @@ public:
 private:
 
     Iss &iss;
+    int jump_stall_cycles = 1;
     bool declare_binaries = true;
 };

@@ -169,6 +169,8 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->req.set_addr(paddr);
         _this->req.set_size(itersize);
         _this->req.set_is_write(true);
+        auto preload = _this->get_js_config()->get("preload");
+        _this->req.set_debug(preload && preload->get_bool());
 
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Handling section chunk (addr: 0x%x, data: %p, size: 0x%x)\n",
             paddr, data, size);

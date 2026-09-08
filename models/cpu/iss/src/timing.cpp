@@ -31,6 +31,12 @@ Timing::Timing(Iss &iss)
 
 void Timing::build()
 {
+    // A single-stage core can redirect its next fetch without an extra bubble.
+    // Preserve the existing one-cycle penalty unless the target specifies it.
+    auto jump_stall = this->iss.top.get_js_config()->get("jump_stall_cycles");
+    if (jump_stall)
+        this->jump_stall_cycles = jump_stall->get_int();
+
     this->iss.top.traces.new_trace_event("state", &state_event, 8);
     this->iss.top.traces.new_trace_event("pc", &pc_trace_event, 32);
     this->iss.top.traces.new_trace_event("active_pc", &active_pc_trace_event, 32);

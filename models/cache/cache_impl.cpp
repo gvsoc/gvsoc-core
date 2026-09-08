@@ -86,6 +86,8 @@ private:
     unsigned int R2;
 
     uint8_t lru_out;
+    bool round_robin = false;
+    unsigned int next_refill_way = 0;
 
     uint32_t line_offset_mask;
     uint32_t line_index_mask;
@@ -143,6 +145,7 @@ void Cache::reset(bool active)
 {
     if (active)
     {
+        this->next_refill_way = 0;
         this->flush();
         this->enabled = this->enabled_at_reset;
         this->refill_event.release();
@@ -305,8 +308,11 @@ cache_line_t *Cache::refill(int line_index, unsigned int addr, unsigned int tag,
     vp::IoReqStatus err = this->refill_itf.req(refill_req);
     if (err != vp::IO_REQ_OK)
     {
-        if (err == vp::IO_REQ_PENDING)
+        if (err == vp::IO_REQ_PENDING || err == vp::IO_REQ_DENIED)
         {
+            // IO-v1 DENIED requests remain owned by the downstream target and
+            // receive a later grant/response. DRAMSys uses this when its
+            // request input is busy, so retain the refill just as for PENDING.
             req->save();
             this->refill_pending_reqs.push_front(req);
             this->refill_line = line;
@@ -504,6 +510,10 @@ vp::IoReqStatus Cache::req(vp::Block *__this, vp::IoReq *req, int port)
 
 unsigned int Cache::stepLru()
 {
+    // Snitch's fully associative L0 uses round-robin line replacement.
+    // Other caches keep the existing LFSR policy unless explicitly selected.
+    if (this->round_robin)
+        return this->next_refill_way++ % this->nb_ways;
     if (1)
     {
         // 8 bits LFSR used on GAP FC icache
@@ -568,6 +578,8 @@ Cache::Cache(vp::ComponentConf &config)
     req_event(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ)
 {
     this->enabled_at_reset = this->get_js_config()->get_child_bool("enabled");
+    auto replacement = this->get_js_config()->get("round_robin");
+    this->round_robin = replacement && replacement->get_bool();
     this->nb_ports = this->get_js_config()->get_child_int("nb_ports");
     this->nb_sets_bits = this->get_js_config()->get_child_int("nb_sets_bits");
     this->nb_ways_bits = this->get_js_config()->get_child_int("nb_ways_bits");

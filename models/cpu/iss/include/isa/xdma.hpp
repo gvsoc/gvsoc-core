@@ -86,6 +86,21 @@ static inline iss_reg_t dmrep_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     return iss_insn_next(iss, insn, pc);
 }
 
+static inline iss_reg_t dmidx_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
+{
+    IssOffloadInsn<iss_reg_t> offload_insn = {
+        .opcode=insn->opcode,
+        .arg_a=(iss_reg_t)REG_GET(0),
+        .arg_b=(iss_reg_t)UIM_GET(0),
+    };
+#ifndef CONFIG_GVSOC_ISS_V2
+    iss->exec.offload_insn(&offload_insn);
+#else
+    iss->offload.offload_insn(&offload_insn);
+#endif
+    return iss_insn_next(iss, insn, pc);
+}
+
 static inline iss_reg_t dmcpy_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     IssOffloadInsn<iss_reg_t> offload_insn = {

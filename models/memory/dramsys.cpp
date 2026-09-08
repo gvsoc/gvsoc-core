@@ -257,6 +257,21 @@ vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
 {
     ddr *_this = (ddr *)__this;
 
+    // ELF preload, HTIF and debugger accesses are synchronous backdoor
+    // operations. Sending them into the timed DRAM queue breaks the debug
+    // protocol and changes the controller state before the benchmark starts.
+    if (req->is_debug())
+    {
+        for (uint64_t i = 0; i < req->get_size(); ++i)
+        {
+            if (req->get_is_write())
+                _this->dram_preload_byte(_this->dram_id, req->get_addr() + i, req->get_data()[i]);
+            else
+                req->get_data()[i] = _this->dram_check_byte(_this->dram_id, req->get_addr() + i);
+        }
+        return vp::IO_REQ_OK;
+    }
+
     uint64_t offset = req->get_addr();
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();

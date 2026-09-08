@@ -246,7 +246,7 @@ inline void Timing::stall_insn_dependency_account(int latency)
 
 inline void Timing::stall_jump_account()
 {
-    this->stall_cycles_account(1);
+    this->stall_cycles_account(this->jump_stall_cycles);
     this->event_jump_account(1);
 }
 

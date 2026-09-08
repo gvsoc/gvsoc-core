@@ -43,7 +43,7 @@ class ElfLoader(gvsoc.systree.Component):
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None,
             binaries: list=None, entry: int=None, entry_addr: int=None,
-            fetchen_addr: int=None, fetchen_value=None):
+            fetchen_addr: int=None, fetchen_value=None, preload: bool=False):
 
         super().__init__(parent, name)
 
@@ -57,7 +57,8 @@ class ElfLoader(gvsoc.systree.Component):
         self.set_component('utils.loader.loader')
 
         self.add_properties({
-            'binary': whole_binaries
+            'binary': whole_binaries,
+            'preload': preload,
         })
 
         if entry is not None:

@@ -1321,15 +1321,23 @@ void RouterBeat::resend_held_resps()
     {
         for (int ch = 0; ch < NB_CHANNELS; ch++)
         {
-            if (in->held_resps[ch].empty() || in->resp_used_cycle[ch] == now)
+            if (in->held_resps[ch].empty())
             {
                 continue;
             }
-            vp::IoReq *req = in->held_resps[ch].front();
-            if (in->itf.resp(req) != vp::IO_RESP_DENIED)
+            // The input forwards at most one response beat per cycle. When it
+            // already used this cycle we cannot offer a beat now, but the queue
+            // must still be re-armed for the next one: the master only calls
+            // resp_retry() for the single beat it remembers, so once that one
+            // is taken nothing else would ever come back for the rest.
+            if (in->resp_used_cycle[ch] != now)
             {
-                in->held_resps[ch].pop_front();
-                in->resp_used_cycle[ch] = now;
+                vp::IoReq *req = in->held_resps[ch].front();
+                if (in->itf.resp(req) != vp::IO_RESP_DENIED)
+                {
+                    in->held_resps[ch].pop_front();
+                    in->resp_used_cycle[ch] = now;
+                }
             }
             if (!in->held_resps[ch].empty())
             {

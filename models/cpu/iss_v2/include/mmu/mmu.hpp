@@ -71,12 +71,18 @@ public:
     bool satp_update(iss_insn_t *insn, bool is_write, iss_reg_t &value);
     void flush(iss_addr_t address, iss_reg_t address_space);
 
+    // Called by the LSU when the response of an asynchronous PTE read is received,
+    // to resume the page-table walk.
+    void handle_pte_response();
+
+    // Request used for reading the page-table entries through the LSU data port. The
+    // LSU response callback compares against it to route the response back to the MMU.
+    vp::IoReq pte_req;
+
 private:
-    void read_pte(iss_addr_t pte_addr);
-    void walk_pgtab(iss_addr_t virt_addr);
-    bool handle_pte();
-    static void handle_pte_stub(vp::Block *__this, vp::ClockEvent *event);
-    static void handle_pte_response(Lsu *lsu, vp::IoReq *req);
+    bool read_pte(iss_addr_t pte_addr);
+    bool walk_pgtab(iss_addr_t virt_addr);
+    bool walk_continue();
     void raise_exception();
 
     Iss &iss;
@@ -102,5 +108,8 @@ private:
     Pte pte_value;
     int access_type;
 
-    iss_reg_t stall_insn;
+    // True while a page-table walk is in progress, waiting for an asynchronous PTE
+    // read. The stalled access is retried by the core until the walk fills the TLB
+    // or raises an exception.
+    bool walk_pending;
 };

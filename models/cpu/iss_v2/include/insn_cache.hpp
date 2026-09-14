@@ -44,6 +44,10 @@ public:
     void flush();
     iss_insn_t *get_insn_from_cache(iss_reg_t vaddr);
     inline iss_insn_t *get_insn(iss_reg_t vaddr);
+    // Get an instruction from its physical address (the insn addr field), without
+    // going through the virtual-address translation. Used to retrieve held
+    // instructions (InsnEntry) whose addr is physical.
+    iss_insn_t *get_insn_phys(iss_reg_t paddr);
     void mode_flush();
     inline void insn_init(iss_insn_t *insn, iss_addr_t addr);
     InsnPage *page_get(iss_reg_t paddr);
@@ -62,6 +66,8 @@ public:
 private:
     InsnPage *current_insn_page;
     iss_reg_t current_insn_page_base;
+    InsnPage *current_phys_page;
+    iss_reg_t current_phys_page_base;
     std::unordered_map<iss_reg_t, InsnPage *>pages;
     std::vector<iss_insn_t *> insn_tables;
 

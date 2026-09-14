@@ -706,7 +706,10 @@ InsnEntry *ExecInOrder::insn_hold(iss_insn_t *insn)
 
 iss_insn_t *ExecInOrder::get_insn(InsnEntry *entry)
 {
-    iss_insn_t *insn = this->iss.insn_cache.get_insn(entry->addr);
+    // The entry addr comes from the insn addr field which is a physical address, so
+    // it must not go through the virtual-address lookup (with the MMU enabled, this
+    // could even trigger a page-table walk on a physical address).
+    iss_insn_t *insn = this->iss.insn_cache.get_insn_phys(entry->addr);
     if (!this->iss.decode.is_decoded(insn))
     {
         insn->opcode = entry->opcode;

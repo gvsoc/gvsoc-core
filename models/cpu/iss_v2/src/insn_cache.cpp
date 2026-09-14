@@ -26,6 +26,7 @@ InsnCache::InsnCache(Iss &iss)
     : iss(iss)
 {
     this->current_insn_page_base = -INSN_PAGE_SIZE*2;
+    this->current_phys_page = NULL;
 }
 
 void InsnCache::reset(bool active)
@@ -50,6 +51,7 @@ void InsnCache::flush()
     }
 
     this->pages.clear();
+    this->current_phys_page = NULL;
 
     this->mode_flush();
 
@@ -100,12 +102,11 @@ iss_insn_t *InsnCache::get_insn_from_cache(iss_reg_t vaddr)
     iss_reg_t paddr;
 
 #ifdef CONFIG_GVSOC_ISS_MMU_ENABLED
-#error 1
-    // TODO this does not support MMU with InsnEntry
-    // iss_insn_t should be pages on physical address to simplify and allow getting physical
-    // address from entry, which would contain both virtual and physical addresses.
-    // We would probably need to remove some optimizations during decoding which assumes
-    // we can work with virtual addresses like PC-based precoded addresses.
+    // Pages are indexed by physical address, so that the decoded instructions are
+    // shared between all the virtual mappings of the same physical page. The insn
+    // addr field then contains the physical address, while the virtual pc is passed
+    // to the handlers by the exec loop. Note that the insn page must not be larger
+    // than a TLB page so that one insn page has a single translation.
     if (this->iss.mmu.insn_virt_to_phys(vaddr, paddr))
     {
         return NULL;
@@ -118,4 +119,15 @@ iss_insn_t *InsnCache::get_insn_from_cache(iss_reg_t vaddr)
     this->current_insn_page_base = (vaddr >> INSN_PAGE_BITS) << INSN_PAGE_BITS;
 
     return this->get_insn(vaddr);
+}
+
+iss_insn_t *InsnCache::get_insn_phys(iss_reg_t paddr)
+{
+    iss_reg_t page_base = (paddr >> INSN_PAGE_BITS) << INSN_PAGE_BITS;
+    if (unlikely(this->current_phys_page == NULL || page_base != this->current_phys_page_base))
+    {
+        this->current_phys_page = this->page_get(paddr);
+        this->current_phys_page_base = page_base;
+    }
+    return &this->current_phys_page->insns[(paddr - page_base) >> 1];
 }

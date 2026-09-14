@@ -243,6 +243,9 @@ class Mmu(IssModule):
     @override
     def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_MMU', 'Mmu')
+        # Boolean marker for code which must only be compiled when the real MMU is
+        # included, like the LSU routing of page-table walk responses
+        iss.isa.add_define('CONFIG_GVSOC_ISS_MMU_ENABLED', '1')
         iss.isa.add_include('<cpu/iss_v2/include/mmu/mmu.hpp>')
         iss.add_sources(["cpu/iss_v2/src/mmu.cpp"])
         iss.isa.add_implem_include('<cpu/iss_v2/include/mmu/mmu_implem.hpp>')

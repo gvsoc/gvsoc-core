@@ -46,7 +46,9 @@ void Exception::raise(iss_reg_t pc, int id)
     else
     {
         int next_mode = PRIV_M;
-        if ((this->iss.csr.medeleg.value >> id) & 1)
+        // Exceptions are delegated to supervisor mode only when they occur in
+        // supervisor or user mode
+        if (this->iss.core.mode_get() < PRIV_M && ((this->iss.csr.medeleg.value >> id) & 1))
         {
             next_mode = PRIV_S;
         }

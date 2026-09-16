@@ -224,7 +224,11 @@ inline void Exec::insn_exec_power(iss_insn_t *insn)
 {
     if (this->iss.top.power.is_enabled())
     {
-        this->iss.timing.insn_groups_power[insn->decoder_item->u.insn.power_group].account_energy_quantum();
+        unsigned int group = insn->decoder_item->u.insn.power_group;
+        if (group < this->iss.timing.insn_groups_power.size())
+        {
+            this->iss.timing.insn_groups_power[group].account_energy_quantum();
+        }
     }
 }
 

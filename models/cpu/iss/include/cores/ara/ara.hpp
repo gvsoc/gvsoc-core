@@ -21,6 +21,7 @@
 #pragma once
 
 #include <queue>
+#include <map>
 #include "cpu/iss/include/types.hpp"
 #include "vp/clock/clock_event.hpp"
 #include "vp/register.hpp"
@@ -307,6 +308,9 @@ public:
     // Called by a unit to notify that part of the vector result has been produced.
     // Used for vector chaining to start another operation before the result is fully produced.
     void insn_commit(int reg, int size);
+    // Optional technology-table accounting, independent of functional timing.
+    void account_power(iss_insn_t *insn);
+    void account_vlsu_power(unsigned int bytes);
     // Return true when queue if full and ara can not accept new instructions
     bool queue_is_full() { return this->queue_full.get(); }
     // Return the CVA6 register value associated to the instruction being executed
@@ -328,6 +332,8 @@ public:
     vp::Trace trace;
 
 private:
+    std::map<std::string, vp::PowerSource> operation_power;
+    bool has_power_model = false;
     // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     // Allocate a slot for an instruction being enqueued. This is used to duplicate the cva6

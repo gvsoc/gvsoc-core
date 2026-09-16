@@ -41,6 +41,71 @@ Ara::Ara(IssWrapper &top, Iss &iss)
     this->blocks[Ara::vlsu_id] = new AraVlsu(*this, top);
     this->blocks[Ara::vfpu_id] = new AraVcompute(*this, "vfpu");
     this->blocks[Ara::vslide_id] = new AraVcompute(*this, "vslide");
+
+    js::Config *power_config = top.get_js_config()->get("spatz_power_models");
+    if (power_config != nullptr)
+    {
+        this->has_power_model = true;
+        for (auto entry : power_config->get_childs())
+        {
+            this->power.new_power_source(entry.first, &this->operation_power[entry.first], entry.second);
+        }
+        this->operation_power.at("background").leakage_power_start();
+        this->operation_power.at("background").dynamic_power_start();
+    }
+}
+
+void Ara::account_vlsu_power(unsigned int bytes)
+{
+    if (this->has_power_model && this->power.is_enabled())
+    {
+        this->operation_power.at("vlsu_byte").account_energy_quantum(bytes);
+        this->operation_power.at("vrf_byte").account_energy_quantum(bytes);
+    }
+}
+
+void Ara::account_power(iss_insn_t *insn)
+{
+    if (!this->has_power_model || !this->power.is_enabled()) return;
+    this->operation_power.at("issue").account_energy_quantum();
+    // Memory and associated VRF traffic is accounted at successful VLSU requests.
+    if (insn->decoder_item->u.insn.tags[ISA_TAG_VLOAD_ID] ||
+        insn->decoder_item->u.insn.tags[ISA_TAG_VSTORE_ID]) return;
+
+    std::string label = insn->desc->label;
+    bool reduction = label.find("red") != std::string::npos;
+    std::string operation = "alu";
+    if (label.find("exp") != std::string::npos) operation = "exponential";
+    else if (label.find("div") != std::string::npos || label.find("sqrt") != std::string::npos) operation = "divide";
+    else if (label.find("macc") != std::string::npos || label.find("madd") != std::string::npos ||
+             label.find("msac") != std::string::npos || label.find("msub") != std::string::npos) operation = "fma";
+    else if (reduction) operation = "reduce";
+    else if (label.find("mul") != std::string::npos) operation = "multiply";
+    else if (label.find("slide") != std::string::npos || label.find("gather") != std::string::npos ||
+             label.find("mv") != std::string::npos) operation = "permute";
+
+    unsigned int sew = this->iss.vector.sewb * 8;
+    unsigned int result_sew = label.rfind("vfw", 0) == 0 ? std::min(64u, sew * 2) : sew;
+    unsigned int precision = result_sew <= 8 ? 8 : result_sew <= 16 ? 16 : result_sew <= 32 ? 32 : 64;
+    unsigned int elements = 0;
+    bool unmasked = (insn->opcode >> 25) & 1;
+    for (unsigned int index = this->iss.csr.vstart.value; index < this->iss.csr.vl.value; index++)
+    {
+        if (unmasked || ((this->iss.vector.vregs[0][index / 8] >> (index % 8)) & 1)) elements++;
+    }
+    this->operation_power.at(operation + "_" + std::to_string(precision)).account_energy_quantum(elements);
+    unsigned int reads = 0, writes = 0;
+    for (int i = 0; i < insn->nb_in_reg; i++)
+    {
+        if (insn->decoder_item->u.insn.args[insn->nb_out_reg + i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) reads++;
+    }
+    for (int i = 0; i < insn->nb_out_reg; i++)
+    {
+        if (insn->decoder_item->u.insn.args[i].u.reg.flags & ISS_DECODER_ARG_FLAG_VREG) writes++;
+    }
+    double bytes = double(elements) * reads * sew / 8 +
+        double(reduction ? std::min(1u, elements) : elements) * writes * result_sew / 8;
+    this->operation_power.at("vrf_byte").account_energy_quantum(bytes);
 }
 
 void Ara::reset(bool active)
@@ -163,6 +228,8 @@ void Ara::insn_enqueue(PendingInsn *cva6_pending_insn)
 void Ara::insn_end(PendingInsn *pending_insn)
 {
     iss_insn_t *insn = pending_insn->insn;
+    // Before the functional handler overwrites registers (including v0).
+    this->account_power(insn);
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     // If the ended instruction is a load or store, decrement associated counters used for

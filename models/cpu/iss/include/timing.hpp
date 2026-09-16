@@ -98,5 +98,7 @@ public:
 private:
 
     Iss &iss;
+    // Optional leaf domain, separate from an attached vector unit's subtree.
+    vp::Block *scalar_power_domain = nullptr;
     bool declare_binaries = true;
 };

@@ -46,25 +46,38 @@ void Timing::build()
     this->iss.top.traces.new_trace_event_string("user_file", &user_file_trace_event);
     this->iss.top.traces.new_trace_event("user_line", &user_line_trace_event, 32);
 
+    vp::Block *source_block = &this->iss.top;
+    js::Config *separate = this->iss.top.get_js_config()->get("power_models/separate_scalar_domain");
+    if (separate != nullptr && separate->get_bool())
+    {
+        this->scalar_power_domain = new vp::Block(&this->iss.top, "scalar_power");
+        source_block = this->scalar_power_domain;
+    }
+
     if (this->iss.top.get_js_config()->get("**/insn_groups"))
     {
         js::Config *config = this->iss.top.get_js_config()->get("**/insn_groups");
         this->insn_groups_power.resize(config->get_size());
         for (int i = 0; i < config->get_size(); i++)
         {
-            this->iss.top.power.new_power_source("power_insn_" + std::to_string(i), &this->insn_groups_power[i], config->get_elem(i));
+            source_block->power.new_power_source("power_insn_" + std::to_string(i), &this->insn_groups_power[i], config->get_elem(i));
         }
     }
     else
     {
         this->insn_groups_power.resize(1);
-        this->iss.top.power.new_power_source("power_insn", &this->insn_groups_power[0], this->iss.top.get_js_config()->get("**/insn"));
+        source_block->power.new_power_source("power_insn", &this->insn_groups_power[0], this->iss.top.get_js_config()->get("**/insn"));
     }
 
-    this->iss.top.power.new_power_source("power_stall_first", &this->power_stall_first, this->iss.top.get_js_config()->get("**/power_models/stall_first"));
-    this->iss.top.power.new_power_source("power_stall_next", &this->power_stall_next, this->iss.top.get_js_config()->get("**/power_models/stall_next"));
+    source_block->power.new_power_source("power_stall_first", &this->power_stall_first, this->iss.top.get_js_config()->get("**/power_models/stall_first"));
+    source_block->power.new_power_source("power_stall_next", &this->power_stall_next, this->iss.top.get_js_config()->get("**/power_models/stall_next"));
 
-    this->iss.top.power.new_power_source("background", &background_power, this->iss.top.get_js_config()->get("**/power_models/background"));
+    source_block->power.new_power_source("background", &background_power, this->iss.top.get_js_config()->get("**/power_models/background"));
+    if (this->scalar_power_domain != nullptr)
+    {
+        this->background_power.leakage_power_start();
+        this->background_power.dynamic_power_start();
+    }
 
     for (int i = 0; i < 32; i++)
     {

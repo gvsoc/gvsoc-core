@@ -306,6 +306,7 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 {
                     _this->trace.fatal("Unimplemented async response");
                 }
+                _this->ara.account_vlsu_power(size);
 
                 // Put it back now until asynchronous responses are supported
                 _this->req_queues[i]->push_back(req);

@@ -46,8 +46,12 @@ public:
 #endif
 
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
-    // io_v2 retry callback (no-op: the fetch path never gets DENIED in this model).
-    static void fetch_retry(vp::Block *__this, vp::IoRetryChannel) {}
+    // io_v2 retry callback. A fetch CAN be denied: several cores share one
+    // outstanding-limited path whenever their instruction caches are bypassed
+    // (the cluster hierarchical icache boots that way), and the loser of the
+    // arbitration gets IO_REQ_DENIED. The request object is held and re-sent
+    // from here, as the io_v2 deny/retry handshake requires.
+    static void fetch_retry(vp::Block *__this, vp::IoRetryChannel);
 
     // Refill interface (io_v2 form: retry + resp set at construction).
     vp::IoMaster fetch_itf{&PrefetchSingleLine::fetch_retry, &PrefetchSingleLine::fetch_response};
@@ -93,6 +97,12 @@ private:
 
     // Request used for sending fetch request to the fetch interface
     vp::IoReq fetch_req;
+
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    // True while fetch_req has been denied and is waiting for a retry() to be
+    // re-sent. No response is coming for it; only the retry can unblock it.
+    bool fetch_denied;
+#endif
 
     // Callback called when a pending fetch response is received
     void (*fetch_stall_callback)(PrefetchSingleLine *_this);

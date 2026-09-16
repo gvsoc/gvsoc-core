@@ -40,7 +40,7 @@ public:
 private:
     static vp::IoReqStatus input_req(vp::Block *__this, vp::IoReq *req);
     static vp::IoRespAck   output_resp(vp::Block *__this, vp::IoReq *req);
-    static void            output_retry(vp::Block *__this);
+    static void            output_retry(vp::Block *__this, vp::IoRetryChannel channel);
     static void            pump_handler(vp::Block *__this, vp::ClockEvent *event);
 
     // Send the head request downstream; classify the returned status.
@@ -192,7 +192,7 @@ vp::IoRespAck Fifo::output_resp(vp::Block *__this, vp::IoReq * /*req*/)
 }
 
 
-void Fifo::output_retry(vp::Block *__this)
+void Fifo::output_retry(vp::Block *__this, vp::IoRetryChannel /*channel*/)
 {
     Fifo *_this = (Fifo *)__this;
     if (!_this->downstream_stalled)

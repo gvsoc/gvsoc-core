@@ -588,13 +588,21 @@ vp::IoReqStatus IoV2BeatWidthAdapter::submit_write(vp::IoReq *req)
             this->cur_chunk->burst_id = burst_id;
         }
         WriteChunk *chunk = this->cur_chunk;
-        uint64_t copy = std::min(size - off,
-                                 (uint64_t)this->output_width - chunk->fill);
+        // A downstream beat never crosses an output_width boundary, exactly
+        // like an AXI upsizer: the wider bus has fixed byte lanes, so a burst
+        // starting mid-word only fills the lanes from its address to the next
+        // boundary in its first beat. Without this, a write starting at an odd
+        // address produced a full-width beat at that odd address, which no
+        // downstream width-aware model can express (the SoC write splitter
+        // rejects it as needing more chunks than it has lanes).
+        uint64_t capacity = (uint64_t)this->output_width
+            - chunk->addr % (uint64_t)this->output_width;
+        uint64_t copy = std::min(size - off, capacity - chunk->fill);
         memcpy(chunk->req->get_data() + chunk->fill, data + off, copy);
         chunk->fill += copy;
         off += copy;
         bool burst_ends_here = up_last && off == size;
-        if (chunk->fill == (uint64_t)this->output_width || burst_ends_here)
+        if (chunk->fill == capacity || burst_ends_here)
         {
             this->finish_chunk(burst_ends_here);
         }

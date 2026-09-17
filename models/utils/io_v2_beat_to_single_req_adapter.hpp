@@ -297,7 +297,7 @@ private:
     std::deque<vp::IoReq *> issued;
     // Outstanding-window depth: with one-per-cycle issuance the window must cover
     // the downstream round-trip latency to sustain 1 beat/cycle.
-    int max_sub_outstanding = 32;
+    int max_sub_outstanding = 1;
 
     // True when a sub-read was DENIED by the downstream: no further sub-reads are
     // issued until retry(), where it is re-generated from the burst cursor (the

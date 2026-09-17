@@ -73,6 +73,51 @@ class VerilatorControl(st.Component):
         return parent_signal
 
 
+def elf_to_verilog_hex(elf_path, hex_path, address_offset=0):
+    """Write the loadable contents of an ELF as a verilog hex file, like
+    ``objcopy -O verilog`` does: one ``@address`` line per section at its load
+    address, followed by its bytes, 16 per line.
+
+    ``address_offset`` is added to every address, like ``--change-addresses``.
+    """
+    from elftools.elf.elffile import ELFFile
+    from elftools.common.utils import struct_parse
+
+    with open(elf_path, 'rb') as elf_file, open(hex_path, 'w', newline='') as hex_file:
+        elf = ELFFile(elf_file)
+        segments = [segment for segment in elf.iter_segments() if segment['p_type'] == 'PT_LOAD']
+        contents = []
+        # Only the raw section headers are read: pyelftools fails to build the
+        # section object of the .riscv.attributes clang generates.
+        for index in range(elf['e_shnum']):
+            section = struct_parse(elf.structs.Elf_Shdr, elf_file,
+                stream_pos=elf['e_shoff'] + index * elf['e_shentsize'])
+            if (section['sh_flags'] & 0x2) == 0 or section['sh_type'] == 'SHT_NOBITS' \
+                    or section['sh_size'] == 0:
+                continue
+            # A section is loaded at the physical address of its segment
+            address = section['sh_addr']
+            for segment in segments:
+                if segment['p_vaddr'] <= address and \
+                        address + section['sh_size'] <= segment['p_vaddr'] + segment['p_memsz']:
+                    address += segment['p_paddr'] - segment['p_vaddr']
+                    break
+            address += address_offset
+            if address < 0:
+                raise RuntimeError(
+                    f'{elf_path}: address offset {address_offset:#x} moves the section at '
+                    f'{section["sh_addr"]:#x} below address 0')
+            elf_file.seek(section['sh_offset'])
+            contents.append((address, elf_file.read(section['sh_size'])))
+
+        # Sections are written by increasing address, like objcopy does
+        for address, data in sorted(contents, key=lambda content: content[0]):
+            hex_file.write(f'@{address:08X}\r\n')
+            for offset in range(0, len(data), 16):
+                line = ' '.join(f'{byte:02X}' for byte in data[offset:offset + 16])
+                hex_file.write(line + '\r\n')
+
+
 class VerilatorBoard(st.Component):
     """Generic single-component board hosting a :class:`VerilatorControl`.
 
@@ -82,12 +127,14 @@ class VerilatorBoard(st.Component):
         Chip target name (used by the build system to compile the right
         executable, e.g. ``"acu.acu_core_v2"``).
     objcopy : str, optional
-        Path to the ``objcopy`` binary that converts ELFs to verilog hex.
-        Defaults to ``$RISCV32_GCC_TOOLCHAIN/bin/riscv32-unknown-elf-objcopy``.
+        Path to an ``objcopy`` binary to convert the ELFs to verilog hex
+        with. By default the hex files are written by this module, so no
+        binutils are needed.
     objcopy_args : list[str], optional
-        Extra arguments for the objcopy invocation. Typically
+        Extra arguments for the conversion. Typically
         ``['--change-addresses=-0x10000000']`` when the testbench's
         firmware loader expects addresses rebased to its memory base.
+        Without ``objcopy``, only ``--change-addresses`` is supported.
     config : optional
         Forwarded to :class:`Component` ``__init__``.
     """
@@ -116,8 +163,7 @@ class VerilatorBoard(st.Component):
         # advances absolute time by whatever the plugin returns.
         self.verilator = VerilatorControl(self, 'verilator', inject_signals=inject_signals)
 
-        self._objcopy = objcopy or (
-            os.environ.get('RISCV32_GCC_TOOLCHAIN', '') + '/bin/riscv32-unknown-elf-objcopy')
+        self._objcopy = objcopy
         self._objcopy_args = list(objcopy_args) if objcopy_args else []
         self._firmwares = []
         self.register_binary_handler(self._handle_binary)
@@ -156,6 +202,9 @@ class VerilatorBoard(st.Component):
             if elf is None or not os.path.exists(elf):
                 continue
             hex_path = elf + '.hex'
+            if self._objcopy is None:
+                elf_to_verilog_hex(elf, hex_path, self._address_offset())
+                continue
             cmd = [self._objcopy, '-O', 'verilog', *self._objcopy_args,
                    elf, hex_path]
             proc = subprocess.run(cmd, text=True, capture_output=True)
@@ -163,3 +212,14 @@ class VerilatorBoard(st.Component):
                 raise RuntimeError(
                     f'VerilatorBoard: objcopy failed (cmd: {" ".join(cmd)}):\n'
                     f'{proc.stderr}')
+
+    def _address_offset(self):
+        offset = 0
+        for arg in self._objcopy_args:
+            name, _, value = arg.partition('=')
+            if name != '--change-addresses' or value == '':
+                raise RuntimeError(
+                    f'VerilatorBoard: unsupported objcopy argument {arg}, only '
+                    '--change-addresses=<offset> is handled without an objcopy binary')
+            offset += int(value, 0)
+        return offset

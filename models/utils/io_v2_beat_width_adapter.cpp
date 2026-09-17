@@ -23,9 +23,10 @@
 //   fsm_event        -> fsm_handler          (per-cycle pump)
 //
 // READ flow:  submit_read (forward data-less descriptor) -> [downstream
-//   streams output_width beats] -> consume_read_beat (pack into input_width
-//   beats, deny when the unpacked backlog is full) -> schedule_read_beat ->
-//   fsm_handler -> emit_read_beat (-> upstream, 1/cycle).
+//   streams output_width beats] -> consume_read_beat (buffer the beat in its
+//   burst's response FIFO, deny when the FIFO is full) -> fsm_handler ->
+//   emit_read_beat (extract ONE input_width beat from the buffered bytes and
+//   send it upstream, 1/cycle).
 // WRITE flow: submit_write (chop/pack payload into output_width chunks,
 //   free the consumed upstream beat, DENY upstream while the chunk backlog is
 //   full) -> issue_pending_chunks (1/cycle downstream, one framed downstream
@@ -298,17 +299,10 @@ void IoV2BeatWidthAdapter::complete_read_inline(ReadBurst *burst, int64_t latenc
     burst->dn_req->free();
     burst->dn_req = nullptr;
     burst->bytes_received = burst->total;
-
-    uint64_t offset = 0;
-    do
-    {
-        uint64_t beat = std::min<uint64_t>(burst->total - offset,
-                                           (uint64_t)this->input_width);
-        vp::IoReq *b = this->in_beat_allocator->alloc();
-        b->prepare();
-        this->schedule_read_beat(burst, b, offset, beat, latency);
-        offset += beat;
-    } while (offset < burst->total);
+    // No payload: the pump synthesizes the upstream beats, one per cycle.
+    burst->dn_done = true;
+    burst->synth = true;
+    burst->done_ready = this->clock.get_cycles() + std::max((int64_t)1, latency);
 
     this->reschedule_fsm();
 }
@@ -324,16 +318,16 @@ vp::IoRespAck IoV2BeatWidthAdapter::consume_read_beat(vp::IoReq *beat)
     this->traces.assert(beat != burst->dn_req,
         "downstream round-tripped our read descriptor as a beat (req=%p)", beat);
 
-    // Back-pressure the downstream producer while the unpacked upstream
-    // backlog is full (wide downstream beats fan out into several upstream
-    // beats drained one per cycle). Refuse before consuming anything: the
-    // producer holds the exact beat and re-sends it on our resp_retry().
-    if (this->read_pending.size() >= this->read_pending_limit
+    // Back-pressure the downstream producer while the response FIFO is full
+    // (the buffered bytes drain one upstream beat per cycle). Refuse before
+    // consuming anything: the producer holds the exact beat and re-sends it
+    // on our resp_retry().
+    if (this->rx_bytes >= this->read_pending_limit * (size_t)this->input_width
         && this->out.is_resp_retry_bound())
     {
         this->trace.msg(vp::Trace::LEVEL_TRACE,
-            "Deny downstream read beat (pending=%zu, limit=%zu)\n",
-            this->read_pending.size(), this->read_pending_limit);
+            "Deny downstream read beat (buffered=%zu bytes, limit=%zu beats)\n",
+            this->rx_bytes, this->read_pending_limit);
         this->dn_read_blocked = true;
         return vp::IO_RESP_DENIED;
     }
@@ -341,60 +335,52 @@ vp::IoRespAck IoV2BeatWidthAdapter::consume_read_beat(vp::IoReq *beat)
     uint64_t bytes = beat->get_size();
     int64_t latency = beat->get_full_latency();
     bool last = beat->is_last;
+    int64_t ready = this->clock.get_cycles() + std::max((int64_t)1, latency);
 
     this->trace.msg(vp::Trace::LEVEL_TRACE,
         "Consume downstream read beat (beat=%p, burst=%p, size=%lu, last=%d)\n",
         beat, burst, bytes, last ? 1 : 0);
+
+    // A stream longer than the burst it answers is a protocol violation of the
+    // downstream. Fatal in every build: carrying on would deliver bytes nobody
+    // asked for.
+    if (burst->dn_done || burst->bytes_received + bytes > burst->total)
+    {
+        this->trace.fatal("downstream read stream overran its burst (burst=%p, "
+            "received=%lu, beat=%lu, total=%lu, done=%d)\n", burst,
+            burst->bytes_received, bytes, burst->total, burst->dn_done ? 1 : 0);
+        return vp::IO_RESP_ACCEPTED;
+    }
 
     if (beat->get_resp_status() == vp::IO_RESP_INVALID)
     {
         burst->status = vp::IO_RESP_INVALID;
     }
 
-    // Pack the payload into input_width-sized upstream beats at cumulative-
-    // offset boundaries; a beat is scheduled the moment it is full.
-    uint64_t off = 0;
-    while (off < bytes)
-    {
-        if (burst->cur_beat == nullptr)
-        {
-            burst->cur_beat = this->in_beat_allocator->alloc();
-            burst->cur_beat->prepare();
-            burst->cur_start = burst->bytes_received + off;
-            burst->cur_size = std::min<uint64_t>(
-                burst->total - burst->cur_start, (uint64_t)this->input_width);
-            burst->cur_fill = 0;
-        }
-        uint64_t copy = std::min(bytes - off, burst->cur_size - burst->cur_fill);
-        memcpy(burst->cur_beat->get_data() + burst->cur_fill,
-               beat->get_data() + off, copy);
-        burst->cur_fill += copy;
-        off += copy;
-        if (burst->cur_fill == burst->cur_size)
-        {
-            this->schedule_read_beat(burst, burst->cur_beat, burst->cur_start,
-                                     burst->cur_size, latency);
-            burst->cur_beat = nullptr;
-        }
-    }
     burst->bytes_received += bytes;
-
-    // Degenerate zero-size burst: the single (zero-size, is_last) downstream
-    // beat produces the single zero-size upstream completion beat.
-    if (burst->total == 0 && last)
+    if (bytes > 0)
     {
-        vp::IoReq *b = this->in_beat_allocator->alloc();
-        b->prepare();
-        this->schedule_read_beat(burst, b, 0, 0, latency);
+        // Keep the downstream beat as is; the pump extracts upstream beats
+        // from it and frees it with its last byte.
+        burst->rx.push_back(RxSegment{beat, bytes, 0, ready});
+        burst->rx_avail += bytes;
+        this->rx_bytes += bytes;
     }
-
-    beat->free();
+    else
+    {
+        beat->free();
+    }
 
     if (last)
     {
         this->traces.assert(burst->bytes_received >= burst->total,
             "downstream read stream ended short (burst=%p, got=%lu, total=%lu)",
             burst, burst->bytes_received, burst->total);
+        burst->dn_done = true;
+        burst->done_ready = ready;
+        // Degenerate zero-size burst: the single (zero-size, is_last)
+        // downstream beat produces the single zero-size upstream beat.
+        burst->synth = burst->total == 0;
         // The response stream is over: our descriptor is dead, free it.
         burst->dn_req->free();
         burst->dn_req = nullptr;
@@ -405,56 +391,87 @@ vp::IoRespAck IoV2BeatWidthAdapter::consume_read_beat(vp::IoReq *beat)
 }
 
 
-void IoV2BeatWidthAdapter::schedule_read_beat(ReadBurst *burst, vp::IoReq *beat,
-                                              uint64_t offset, uint64_t size,
-                                              int64_t latency_cycles)
+int64_t IoV2BeatWidthAdapter::next_read_beat_ready(ReadBurst *burst)
 {
-    int64_t now = this->clock.get_cycles();
-    if (this->read_cursor < now)
-        this->read_cursor = now;
-
-    int64_t ready = now + std::max((int64_t)1, latency_cycles);
-    if (ready <= this->read_cursor)
-        ready = this->read_cursor + 1;
-    this->read_cursor = ready;
-
-    this->read_pending.push_back(PendingRead{
-        burst, beat,
-        burst->burst_addr + offset, size,
-        offset == 0,
-        offset + size >= burst->total,
-        burst->burst_id,
-        burst->status,
-        ready,
-    });
-
-    this->trace.msg(vp::Trace::LEVEL_TRACE,
-        "Read beat ready (burst=%p, offset=%lu, size=%lu, ready=%ld)\n",
-        burst, offset, size, (long)ready);
+    if (burst->synth)
+    {
+        return burst->done_ready;
+    }
+    uint64_t want = std::min<uint64_t>(burst->total - burst->bytes_emitted,
+                                       (uint64_t)this->input_width);
+    if (want == 0 || burst->rx_avail < want)
+    {
+        return INT64_MAX;
+    }
+    // The beat is due once the buffered beat holding its last byte is.
+    int64_t ready = 0;
+    uint64_t covered = 0;
+    for (const RxSegment &seg : burst->rx)
+    {
+        ready = std::max(ready, seg.ready_cycle);
+        covered += seg.size - seg.consumed;
+        if (covered >= want)
+        {
+            break;
+        }
+    }
+    return ready;
 }
 
 
-void IoV2BeatWidthAdapter::emit_read_beat(const PendingRead &pr)
+void IoV2BeatWidthAdapter::emit_read_beat(ReadBurst *burst)
 {
-    vp::IoReq *beat = pr.beat;
-    beat->set_addr(pr.addr);
-    beat->set_size(pr.size);
+    uint64_t offset = burst->bytes_emitted;
+    uint64_t size = std::min<uint64_t>(burst->total - offset,
+                                       (uint64_t)this->input_width);
+
+    vp::IoReq *beat = this->in_beat_allocator->alloc();
+    beat->prepare();
+
+    // Extract this beat's bytes from the front of the response FIFO. Every
+    // pass takes at least one byte (no empty beat is ever buffered) and
+    // rx_avail >= size was checked, so this ends within the few downstream
+    // beats one upstream beat can span.
+    uint64_t fill = 0;
+    while (!burst->synth && fill < size)
+    {
+        RxSegment &seg = burst->rx.front();
+        uint64_t copy = std::min(size - fill, seg.size - seg.consumed);
+        memcpy(beat->get_data() + fill, seg.beat->get_data() + seg.consumed, copy);
+        fill += copy;
+        seg.consumed += copy;
+        if (seg.consumed == seg.size)
+        {
+            seg.beat->free();
+            burst->rx.pop_front();
+        }
+    }
+    if (!burst->synth)
+    {
+        burst->rx_avail -= size;
+        this->rx_bytes -= size;
+    }
+    burst->bytes_emitted += size;
+
+    bool is_last = burst->bytes_emitted >= burst->total;
+    beat->set_addr(burst->burst_addr + offset);
+    beat->set_size(size);
     beat->set_is_write(false);
-    beat->burst_id = pr.burst_id;
-    beat->is_first = pr.is_first;
-    beat->is_last = pr.is_last;
-    beat->set_resp_status(pr.status);
-    beat->initiator = pr.burst->up_initiator;
+    beat->burst_id = burst->burst_id;
+    beat->is_first = offset == 0;
+    beat->is_last = is_last;
+    beat->set_resp_status(burst->status);
+    beat->initiator = burst->up_initiator;
 
     this->trace.msg(vp::Trace::LEVEL_TRACE,
         "Emit read beat (beat=%p, addr=0x%lx, size=%lu, first=%d, last=%d)\n",
-        beat, pr.addr, pr.size, pr.is_first ? 1 : 0, pr.is_last ? 1 : 0);
+        beat, burst->burst_addr + offset, size, offset == 0 ? 1 : 0, is_last ? 1 : 0);
 
     // The burst bookkeeping is done before sending: the beat carries
     // everything upstream needs, so a hold/re-send never touches the burst.
-    if (pr.is_last)
+    if (is_last)
     {
-        this->retire_read_burst(pr.burst);
+        this->retire_read_burst(burst);
     }
 
     if (this->in.resp(beat) == vp::IO_RESP_DENIED)
@@ -822,12 +839,26 @@ void IoV2BeatWidthAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
     // Emit due upstream beats/acks. Stop the instant one is back-pressured
     // (emit_* sets resp_held): the held beat must be re-sent first, from
     // resp_retry_in_handler, before anything else goes upstream.
-    while (!self->resp_held && !self->read_pending.empty()
-           && self->read_pending.front().ready_cycle <= now)
+    // One upstream read beat per cycle, from the burst whose next beat has
+    // been due the longest (the bursts in creation order on a tie).
+    if (!self->resp_held && self->read_cursor < now)
     {
-        PendingRead pr = self->read_pending.front();
-        self->read_pending.pop_front();
-        self->emit_read_beat(pr);
+        ReadBurst *pick = nullptr;
+        int64_t pick_ready = INT64_MAX;
+        for (ReadBurst *burst : self->live_reads)
+        {
+            int64_t ready = self->next_read_beat_ready(burst);
+            if (ready <= now && ready < pick_ready)
+            {
+                pick = burst;
+                pick_ready = ready;
+            }
+        }
+        if (pick != nullptr)
+        {
+            self->read_cursor = now;
+            self->emit_read_beat(pick);
+        }
     }
     while (!self->resp_held && !self->ack_pending.empty()
            && self->ack_pending.front().ready_cycle <= now)
@@ -842,7 +873,7 @@ void IoV2BeatWidthAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
     // Room freed in the upstream read backlog: let the downstream producer
     // re-send the beat it is holding (synchronously inside resp_retry()).
     if (self->dn_read_blocked
-        && self->read_pending.size() < self->read_pending_limit)
+        && self->rx_bytes < self->read_pending_limit * (size_t)self->input_width)
     {
         self->dn_read_blocked = false;
         self->out.resp_retry(vp::IO_RETRY_READ);
@@ -860,15 +891,16 @@ void IoV2BeatWidthAdapter::reschedule_fsm()
     {
         return;
     }
-    if (this->fsm_event.is_enqueued())
-    {
-        return;
-    }
     int64_t now = this->clock.get_cycles();
     int64_t next = INT64_MAX;
-    if (!this->read_pending.empty())
+    for (ReadBurst *burst : this->live_reads)
     {
-        next = std::min(next, this->read_pending.front().ready_cycle);
+        int64_t ready = this->next_read_beat_ready(burst);
+        if (ready != INT64_MAX)
+        {
+            // Not before the cycle after the last upstream read beat.
+            next = std::min(next, std::max(ready, this->read_cursor + 1));
+        }
     }
     if (!this->ack_pending.empty())
     {
@@ -879,7 +911,7 @@ void IoV2BeatWidthAdapter::reschedule_fsm()
         next = std::min(next, std::max(now, this->chunk_issue_cursor) + 1);
     }
     if (this->dn_read_blocked
-        && this->read_pending.size() < this->read_pending_limit)
+        && this->rx_bytes < this->read_pending_limit * (size_t)this->input_width)
     {
         next = std::min(next, now + 1);
     }
@@ -964,17 +996,13 @@ void IoV2BeatWidthAdapter::reset(bool active)
     // Read side: scheduled upstream beats, partial accumulation beats and
     // still-live downstream descriptors are ours (allocator-backed) — return
     // them to their pools. The upstream requests are the initiator's, not ours.
-    for (auto &pr : this->read_pending)
-    {
-        pr.beat->free();
-    }
-    this->read_pending.clear();
     for (ReadBurst *burst : this->live_reads)
     {
-        if (burst->cur_beat != nullptr)
+        for (RxSegment &seg : burst->rx)
         {
-            burst->cur_beat->free();
+            seg.beat->free();
         }
+        burst->rx.clear();
         if (burst->dn_req != nullptr)
         {
             burst->dn_req->free();
@@ -983,6 +1011,7 @@ void IoV2BeatWidthAdapter::reset(bool active)
     }
     this->live_reads.clear();
     this->read_cursor = -1;
+    this->rx_bytes = 0;
     this->dn_read_blocked = false;
 
     // Write side: chunks queued, held or under construction are ours

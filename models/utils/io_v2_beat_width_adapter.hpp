@@ -117,10 +117,22 @@ public:
 
 private:
     // ---- READ path ---------------------------------------------------------
+    // One downstream read beat buffered in a burst's response FIFO. The
+    // downstream object itself is kept (we own it once accepted) and freed
+    // when its last byte has been extracted.
+    struct RxSegment
+    {
+        vp::IoReq *beat;
+        uint64_t   size;
+        uint64_t   consumed;      // bytes already extracted upstream
+        int64_t    ready_cycle;   // arrival cycle + its latency
+    };
+
     // One in-flight upstream read burst. Downstream beats are correlated back
     // to it via initiator (copied by the downstream producer from our
-    // descriptor onto every beat), payload bytes are packed into
-    // input_width-sized upstream beats at cumulative-offset boundaries.
+    // descriptor onto every beat) and buffered as they arrive; the per-cycle
+    // pump extracts ONE input_width-sized upstream beat per cycle from the
+    // buffered bytes, at cumulative-offset boundaries.
     struct ReadBurst
     {
         vp::IoReq *up_req;        // upstream descriptor (initiator-owned upstream)
@@ -129,28 +141,18 @@ private:
         uint64_t   total;
         int64_t    burst_id;
         void      *up_initiator;  // snapshot of up_req->initiator
-        uint64_t   bytes_received = 0;
-        // Upstream beat under construction: covers [cur_start, cur_start+cur_size)
-        // of the burst; cur_fill bytes copied so far.
-        vp::IoReq *cur_beat = nullptr;
-        uint64_t   cur_start = 0;
-        uint64_t   cur_size = 0;
-        uint64_t   cur_fill = 0;
+        uint64_t   bytes_received = 0;   // taken from the downstream stream
+        uint64_t   bytes_emitted = 0;    // delivered upstream
+        uint64_t   rx_avail = 0;         // buffered, not yet extracted
+        std::deque<RxSegment> rx;        // buffered downstream beats, in order
+        // The downstream stream is over (last beat seen, or answered inline).
+        bool       dn_done = false;
+        // Data-less stream (zero-size read or error answered inline, or the
+        // zero-size last beat): the upstream beats carry no payload and are
+        // due from done_ready.
+        bool       synth = false;
+        int64_t    done_ready = 0;
         vp::IoRespStatus status = vp::IO_RESP_OK;
-    };
-
-    // One upstream read beat scheduled for emission (fully packed).
-    struct PendingRead
-    {
-        ReadBurst *burst;
-        vp::IoReq *beat;          // allocator-backed (input_width pool)
-        uint64_t   addr;
-        uint64_t   size;
-        bool       is_first;
-        bool       is_last;
-        int64_t    burst_id;
-        vp::IoRespStatus status;
-        int64_t    ready_cycle;
     };
 
     // ---- WRITE path --------------------------------------------------------
@@ -210,9 +212,11 @@ private:
     vp::IoReqStatus submit_read(vp::IoReq *req);
     vp::IoRespAck   consume_read_beat(vp::IoReq *beat);
     void complete_read_inline(ReadBurst *burst, int64_t latency);
-    void schedule_read_beat(ReadBurst *burst, vp::IoReq *beat, uint64_t offset,
-                            uint64_t size, int64_t latency_cycles);
-    void emit_read_beat(const PendingRead &pr);
+    // Cycle from which `burst` can deliver its next upstream beat, INT64_MAX
+    // while its bytes have not all arrived.
+    int64_t next_read_beat_ready(ReadBurst *burst);
+    // Extract and send upstream the next beat of `burst` (one per cycle).
+    void emit_read_beat(ReadBurst *burst);
     void retire_read_burst(ReadBurst *burst);
 
     // Write path.
@@ -264,7 +268,7 @@ private:
 
     // Read state.
     std::vector<ReadBurst *> live_reads;        // for reset cleanup
-    std::deque<PendingRead> read_pending;
+    size_t rx_bytes = 0;                        // buffered downstream read bytes
     int64_t read_cursor = -1;                   // <=1 upstream read beat / cycle
     bool dn_read_blocked = false;               // we denied a downstream beat
 

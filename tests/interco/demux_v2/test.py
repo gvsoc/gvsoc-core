@@ -19,6 +19,7 @@ import gvsoc.systree
 import gvsoc.runner
 import vp.clock_domain
 from interco.demux_v2 import Demux, DemuxConfig
+from gvsoc.signature import IoV2SingleReq
 from gvrun.parameter import TargetParameter
 
 from stub_master import StubMaster
@@ -76,6 +77,63 @@ def build_case(case_name: str) -> dict:
             'targets': _ok_targets(2),
         }
 
+    if case_name == 'split_inline':
+        # split: a 16-byte read at 0xffc crosses the 0x1000 selector boundary.
+        # Both outputs answer inline, so the master gets one inline DONE and
+        # each target sees its own piece, in the same cycle, at full address.
+        return {
+            'demux_config': DemuxConfig(offset=12, width=1, split=True),
+            'schedule': [
+                dict(cycle=10, addr=0xffc, size=16, is_write=False, name='x0'),
+                dict(cycle=20, addr=0xff0, size=16, is_write=False, name='fit'),
+            ],
+            'targets': _ok_targets(2),
+        }
+
+    if case_name == 'split_rebase':
+        # split + rebase: each output sees addresses relative to its slice.
+        return {
+            'demux_config': DemuxConfig(offset=12, width=1, split=True, rebase=True),
+            'schedule': [
+                dict(cycle=10, addr=0x10000ffc, size=16, is_write=True, name='x0'),
+                dict(cycle=20, addr=0x10001008, size=4, is_write=True, name='fit'),
+            ],
+            'targets': _ok_targets(2),
+        }
+
+    if case_name == 'split_denied':
+        # The second output refuses its piece once: the piece is held in the
+        # demux and re-sent on that output's retry, the first piece is NOT
+        # sent again; the master is denied, then retried when the second piece
+        # lands and its re-issue completes inline.
+        return {
+            'demux_config': DemuxConfig(offset=12, width=1, split=True),
+            'schedule': [
+                dict(cycle=10, addr=0xffc, size=16, is_write=True, name='x0'),
+            ],
+            'targets': [
+                {'name': 'mem0', 'rules': _mem_ok},
+                {'name': 'mem1', 'rules': [dict(addr_min=0, addr_max=0xFFFF_FFFF_FFFF_FFFF,
+                    behavior='denied_once', resp_delay=0, retry_delay=3)]},
+            ],
+        }
+
+    if case_name == 'split_granted':
+        # The first output answers asynchronously after 2 cycles, the second
+        # inline: the master is denied, then retried and completed when the
+        # slower piece answers.
+        return {
+            'demux_config': DemuxConfig(offset=12, width=1, split=True),
+            'schedule': [
+                dict(cycle=10, addr=0xffc, size=16, is_write=False, name='x0'),
+            ],
+            'targets': [
+                {'name': 'mem0', 'rules': [dict(addr_min=0, addr_max=0xFFFF_FFFF_FFFF_FFFF,
+                    behavior='granted', resp_delay=2, retry_delay=0)]},
+                {'name': 'mem1', 'rules': _mem_ok},
+            ],
+        }
+
     if case_name == 'single_output':
         # Width=0 → one output. Every request, whatever the address, goes
         # to output_0. Validates the edge case.
@@ -104,7 +162,10 @@ class Chip(gvsoc.systree.Component):
         clock = vp.clock_domain.Clock_domain(self, 'clock', frequency=100_000_000)
 
         # DUT
-        demux = Demux(self, 'demux', config=spec['demux_config'])
+        # A splitting demux can deny and retry an access: it needs a
+        # signature looser than the default IoV2Sync.
+        demux = Demux(self, 'demux', config=spec['demux_config'],
+            signature=IoV2SingleReq() if spec['demux_config'].split else None)
         clock.o_CLOCK(demux.i_CLOCK())
 
         # Upstream io_v2 master

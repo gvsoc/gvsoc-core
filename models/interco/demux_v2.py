@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
-from gvsoc.signature import IoV2Sync
+from gvsoc.signature import IoV2Sync, Signature
 
 
 class DemuxConfig(Config):
@@ -41,6 +41,17 @@ class DemuxConfig(Config):
     ))
     width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
         "Number of bits used to extract the target index"
+    ))
+    rebase: bool = cfg_field(default=False, dump=True, desc=(
+        "Forward the address with the selector bits and everything above them "
+        "removed, so each output sees addresses relative to its own slice"
+    ))
+    split: bool = cfg_field(default=False, dump=True, desc=(
+        "Cut an access crossing a selector boundary and send its two pieces, in "
+        "the same cycle, to the two consecutive outputs; the access completes "
+        "once both pieces did. Needs a signature allowing the deny/retry "
+        "handshake (not IoV2Sync): the access is denied while a piece is in "
+        "flight and completes inline on the re-issue that follows our retry"
     ))
 
 
@@ -247,9 +258,18 @@ class Demux(Component):
         ],
     }
 
-    def __init__(self, parent: Component, name: str, config: DemuxConfig):
+    def __init__(self, parent: Component, name: str, config: DemuxConfig,
+                 signature: Signature = None):
         super().__init__(parent, name, config=config)
         self.add_sources(['interco/demux_v2.cpp'])
+        # Protocol of the input and of every output (the demux is a
+        # pass-through, so they are the same). IoV2Sync by default; a demux
+        # that splits needs a looser one, e.g. IoV2SingleReq().
+        self._signature = signature if signature is not None else IoV2Sync()
+        if config.split and isinstance(self._signature, IoV2Sync):
+            raise RuntimeError(
+                f'{name}: a splitting demux can deny and retry an access, pass '
+                f'signature=IoV2SingleReq() (or looser)')
 
     def i_INPUT(self) -> SlaveItf:
         """Returns the single input slave port.
@@ -258,7 +278,7 @@ class Demux(Component):
         output index from the address and forwards the request to the
         corresponding ``output_<id>`` master port, verbatim.
         """
-        return SlaveItf(self, 'input', signature=IoV2Sync())
+        return SlaveItf(self, 'input', signature=self._signature)
 
     def o_OUTPUT(self, id: int, itf: SlaveItf):
         """Binds downstream ``output_<id>`` to ``itf``.
@@ -269,4 +289,4 @@ class Demux(Component):
         carry the same sync contract: the downstream must answer inline
         with ``IO_REQ_DONE`` (no async ``resp()`` / ``retry()``).
         """
-        self.itf_bind(f'output_{id}', itf, signature=IoV2Sync())
+        self.itf_bind(f'output_{id}', itf, signature=self._signature)

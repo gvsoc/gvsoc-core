@@ -9,13 +9,14 @@
  *
  * Reads a list of rules from get_js_config()/rules, each entry:
  *   { addr_min, addr_max, behavior, resp_delay, retry_delay }
- * behavior in {"done", "done_invalid", "granted", "denied"}.
+ * behavior in {"done", "done_invalid", "granted", "denied", "denied_once"}.
  *
  * On req(), the target picks the first matching rule and:
  *   done         -> IO_REQ_DONE + IO_RESP_OK
  *   done_invalid -> IO_REQ_DONE + IO_RESP_INVALID
  *   granted      -> IO_REQ_GRANTED, schedule resp() after resp_delay cycles
  *   denied       -> IO_REQ_DENIED, schedule retry() after retry_delay cycles
+ *   denied_once  -> as "denied" for the first request of the rule, "done" after
  */
 
 #include <vp/vp.hpp>
@@ -32,7 +33,7 @@ public:
     StubTarget(vp::ComponentConf &conf);
 
 private:
-    enum class Behavior { DONE, DONE_INVALID, GRANTED, DENIED };
+    enum class Behavior { DONE, DONE_INVALID, GRANTED, DENIED, DENIED_ONCE };
 
     struct Rule {
         uint64_t addr_min;
@@ -90,6 +91,7 @@ StubTarget::StubTarget(vp::ComponentConf &config)
             if (b == "done_invalid")      r.behavior = Behavior::DONE_INVALID;
             else if (b == "granted")      r.behavior = Behavior::GRANTED;
             else if (b == "denied")       r.behavior = Behavior::DENIED;
+            else if (b == "denied_once")  r.behavior = Behavior::DENIED_ONCE;
             else                           r.behavior = Behavior::DONE;
             r.resp_delay = item->get_child_int("resp_delay");
             r.retry_delay = item->get_child_int("retry_delay");
@@ -121,6 +123,12 @@ vp::IoReqStatus StubTarget::req_handler(vp::Block *__this, vp::IoReq *req)
 
     Rule *r = _this->rule_for(req->get_addr());
     Behavior b = r ? r->behavior : Behavior::DONE_INVALID;
+    if (b == Behavior::DENIED_ONCE)
+    {
+        // Refuse once, then behave as a plain "done" rule.
+        r->behavior = Behavior::DONE;
+        b = Behavior::DENIED;
+    }
 
     switch (b)
     {

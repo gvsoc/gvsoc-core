@@ -57,7 +57,7 @@ vp_model(NAME utils.io_v2_beat_to_sync_adapter
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_beat_to_single_req_adapter
     SOURCES "io_v2_beat_to_single_req_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
+    INCLUDES "${gvsoc-core_BINARY_DIR}"
 )
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ vp_model(NAME utils.io_v2_beat_to_single_req_adapter
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_beat_width_adapter
     SOURCES "io_v2_beat_width_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
+    INCLUDES "${gvsoc-core_BINARY_DIR}"
 )
 
 # ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ vp_model(NAME utils.io_v2_beat_width_adapter
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_single_req_to_beat_adapter
     SOURCES "io_v2_single_req_to_beat_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
+    INCLUDES "${gvsoc-core_BINARY_DIR}"
 )
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ vp_model(NAME utils.io_v2_single_req_to_beat_adapter
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_single_req_width_adapter
     SOURCES "io_v2_single_req_width_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
+    INCLUDES "${gvsoc-core_BINARY_DIR}"
 )
 
 add_subdirectory(loader)

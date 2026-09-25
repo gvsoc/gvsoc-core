@@ -106,7 +106,10 @@ void loader::grant(vp::Block *__this, vp::IoReq *req)
 void loader::response(vp::Block *__this, vp::IoReq *req)
 {
     loader *_this = (loader *)__this;
-    _this->event_enqueue(_this->event, _this->req.get_full_latency());
+    // As for a synchronous completion, resume on a following clock edge.
+    // A zero-cycle event from a SystemC callback can otherwise repeatedly
+    // wake the time driver without advancing it to execute this event.
+    _this->event_enqueue(_this->event, std::max<int64_t>(1, _this->req.get_full_latency()));
 }
 
 

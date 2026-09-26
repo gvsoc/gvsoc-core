@@ -7,8 +7,10 @@
 """
 Python generator for the IoV2SharedClockBridge component: the io_v2 bridge
 between two clock domains driven by the same clock (one clock behind two gates
-or dividers, no synchronizer on the chip). It relays everything in the same
-cycle, as a binding inside one domain. Selected with the ``'shared_clock'``
+or dividers, no synchronizer on the chip). Nothing is resynchronized, but the
+crossing is registered, as the AXI slices of a cluster interface: each
+direction has a list of pending requests (or responses), whose head is sent
+every cycle, at least one cycle after it was taken. Selected with the ``'shared_clock'``
 bridge kind (``gvsoc.clock_bridges``), never as a default: a real crossing keeps
 its synchronizer latency whatever the phase of the two clocks.
 """

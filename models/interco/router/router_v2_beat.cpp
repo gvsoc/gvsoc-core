@@ -52,6 +52,18 @@
  * the adapter). Burst atomicity: an output channel locked to an input on
  * is_first forward stays locked until the burst ack (write) / is_last
  * response (read).
+ *
+ * Latency: a beat is elected and forwarded the cycle after it arrived, as a
+ * crossbar with registered inputs. With `combinational`, as a crossbar
+ * without registers (PULP axi_node), a beat is forwarded in the cycle it
+ * arrives: its election runs at the end of that cycle, once every input had
+ * the chance to issue, and a beat arriving after it (a master re-sending
+ * inside a retry, or woken up after the election) counts for the next cycle.
+ * A write beat carries its address and its data and moves as the address
+ * does: the data of a real crossbar may follow one cycle later, which the
+ * target accounts for. What the election forwards reaches the output at the
+ * end of the cycle, so this is only valid when the outputs lead to components
+ * which buffer what they receive.
  */
 
 #include <climits>
@@ -203,6 +215,14 @@ public:
     // Cycle-latched "head arrival" gate — beats pushed in cycle T are only
     // visible to an fsm running at cycle T+1.
     vp::ClockedSignal<int64_t> head_cycle;
+    // Same value, visible at once: the combinational mode needs the arrival of
+    // a beat in the cycle it arrived.
+    int64_t head_cycle_now = INT64_MAX;
+    void set_head_cycle(int64_t cycle)
+    {
+        this->head_cycle.set(cycle);
+        this->head_cycle_now = cycle;
+    }
     // Tracks the in-progress multi-beat burst on this input (between its
     // is_first and is_last beats). -1 when no such burst is open. Used only by
     // continuation beats (is_first=false) to look up their slot; single-beat
@@ -274,7 +294,10 @@ private:
     // Flat backdoor map, built lazily on first debug access
     vp::DebugMemMap debug_map;
 
-    void schedule_fsm();
+    // Arm the forward election: on the next cycle by default. With
+    // `combinational`, `this_cycle` (a beat arrived) arms it at the end of the
+    // current cycle, unless its election already ran.
+    void schedule_fsm(bool this_cycle=false);
     // Forward one committed beat (front of `in`'s FIFO, already assigned to
     // `out`/`slot_idx`) to its output: translate addr, remap burst_id, snapshot
     // is_last, and submit. On GRANTED, pop the beat and account it; on DENIED,
@@ -332,6 +355,22 @@ private:
     std::deque<SynthAck> synth_acks;
     vp::ClockEvent fsm_event;
     vp::ClockEvent resp_fsm_event;
+    // Combinational mode: fires at the start of a cycle to arm the election at
+    // the end of it. Enqueued with a delay of 1, the election would be placed
+    // among the events of that cycle in enqueue order, possibly before an
+    // input issuing in that cycle.
+    vp::ClockEvent next_cycle_event;
+    static void next_cycle_handler(vp::Block *__this, vp::ClockEvent *event);
+    // Combinational mode: the election is running, and the cycle of the last
+    // one. A beat arriving during or after the election of its cycle counts
+    // for the next one.
+    bool in_election = false;
+    int64_t election_cycle = -1;
+#ifdef VP_ASSERT_ACTIVE
+    // Retries sent by wake_denied_masters are running: the beats they bring
+    // are re-sends, which may legitimately arrive after the election.
+    bool in_wake = false;
+#endif
     int round_robin_next = 0;
     // Rotating start index for the response arbiter, so a long burst on a
     // low-index output cannot perpetually win an input's response channel over a
@@ -462,6 +501,7 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
       mapping_tree(&this->trace),
       fsm_event(this, &RouterBeat::fsm_handler),
       resp_fsm_event(this, &RouterBeat::resp_fsm_handler),
+      next_cycle_event(this, &RouterBeat::next_cycle_handler),
       active(*this, "active", 1, vp::SignalCommon::ResetKind::HighZ)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
@@ -570,12 +610,34 @@ void RouterBeat::free_burst_slot(int slot_idx)
     slot.status = vp::IO_RESP_OK;
 }
 
-void RouterBeat::schedule_fsm()
+void RouterBeat::schedule_fsm(bool this_cycle)
 {
-    if (!this->fsm_event.is_enqueued())
+    if (!this->cfg.combinational)
     {
-        this->fsm_event.enqueue(1);
+        if (!this->fsm_event.is_enqueued())
+        {
+            this->fsm_event.enqueue(1);
+        }
+        return;
     }
+
+    if (this_cycle && !this->in_election &&
+        this->election_cycle != this->clock.get_cycles())
+    {
+        // Behind every event already queued for this cycle. enqueue() keeps
+        // the earliest cycle if it was already armed.
+        this->fsm_event.enqueue(0);
+    }
+    else
+    {
+        this->next_cycle_event.enqueue(1);
+    }
+}
+
+void RouterBeat::next_cycle_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    RouterBeat *_this = (RouterBeat *)__this;
+    _this->fsm_event.enqueue(0);
 }
 
 void RouterBeat::schedule_resp_fsm()
@@ -593,7 +655,14 @@ void RouterBeat::wake_denied_masters()
         if (in->denied_upstream)
         {
             in->denied_upstream = false;
+#ifdef VP_ASSERT_ACTIVE
+            bool in_wake = this->in_wake;
+            this->in_wake = true;
+#endif
             in->itf.retry();
+#ifdef VP_ASSERT_ACTIVE
+            this->in_wake = in_wake;
+#endif
         }
     }
 }
@@ -650,7 +719,7 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         out->log_access(original_addr, log_size, log_is_write, log_first, log_last);
         in->pending.pop_front();
         in->pending_bytes -= log_size;
-        if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
+        if (in->pending.empty()) in->set_head_cycle(INT64_MAX);
         if (log_first && out->max_pending > 0)
         {
             out->nb_pending[slot.channel]++;
@@ -703,7 +772,7 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         in->pending.pop_front();
         // Mirror the directional accounting from req_muxed.
         in->pending_bytes -= log_is_write ? log_size : 0;
-        if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
+        if (in->pending.empty()) in->set_head_cycle(INT64_MAX);
         // The downstream took a new transaction: one of its outstanding slots
         // is held until the burst completes (free_burst_slot gives it back).
         if (log_first && out->max_pending > 0)
@@ -852,10 +921,24 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     in->pending_bytes += fifo_cost;
     if (was_empty)
     {
-        in->head_cycle.set(now);
+        // Combinational mode: a beat arriving during or after the election of
+        // its cycle is taken as arriving in the next cycle, so that it is not
+        // granted by a second election in the same cycle.
+        bool late = _this->cfg.combinational &&
+            (_this->in_election || _this->election_cycle == now);
+#ifdef VP_ASSERT_ACTIVE
+        // Outside a retry we sent, a beat arriving after the election was
+        // issued in this cycle by an input which then misses it: it must
+        // issue before, e.g. from the next cycle if it waited for something
+        // freed in this one.
+        _this->traces.assert(!late || _this->in_election || _this->in_wake,
+            "input %d issued a beat after the election of its cycle (addr: 0x%lx)\n",
+            port, req->get_addr());
+#endif
+        in->set_head_cycle(late ? now + 1 : now);
     }
 
-    _this->schedule_fsm();
+    _this->schedule_fsm(true);
     return vp::IO_REQ_GRANTED;
 }
 
@@ -864,6 +947,9 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     RouterBeat *_this = (RouterBeat *)__this;
     int64_t now = _this->clock.get_cycles();
     int n = (int)_this->inputs.size();
+
+    _this->in_election = true;
+    _this->election_cycle = now;
 
     // Per-(output, channel) "already used this cycle" tracker. With
     // shared_rw_channel=false an output can carry one R beat AND one W beat
@@ -878,11 +964,19 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         InputPort *in = _this->inputs[i];
         if (in->pending.empty()) continue;
 
-        // ClockedSignal gate: head must have been committed to a prior cycle.
-        if (in->head_cycle.get() >= now) continue;
-
         InputPort::PendingBeat head = in->pending.front();
         vp::IoReq *beat = head.req;
+
+        // ClockedSignal gate: head must have been committed to a prior cycle.
+        // Combinational mode: a beat may go in the cycle it arrived.
+        if (!_this->cfg.combinational)
+        {
+            if (in->head_cycle.get() >= now) continue;
+        }
+        else
+        {
+            if (in->head_cycle_now > now) continue;
+        }
         int slot_idx = head.slot_idx;
         BurstEntry &slot = _this->burst_table[slot_idx];
 
@@ -904,7 +998,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 in->pending.pop_front();
                 // Mirror the directional accounting from req_muxed.
                 in->pending_bytes -= beat->get_is_write() ? err_size : 0;
-                if (in->pending.empty()) in->head_cycle.set(INT64_MAX);
+                if (in->pending.empty()) in->set_head_cycle(INT64_MAX);
 
                 if (!err_is_pure_write)
                 {
@@ -1001,6 +1095,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 
     _this->round_robin_next = (_this->round_robin_next + 1) % n;
+    _this->in_election = false;
 
     bool any_pending = false;
     for (auto *in : _this->inputs)

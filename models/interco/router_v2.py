@@ -165,6 +165,10 @@ class RouterConfig(Config, HasSize):
     max_pending_bursts : int
         Burst-table capacity. Used by the beat variant. ``0`` means "one slot
         per input port".
+    combinational : bool
+        Beat variant only: forward a beat in the cycle it arrives (election at
+        the end of the cycle). Only valid when the outputs lead to components
+        which buffer what they receive.
     nb_input_port : int
         Number of input ports the router exposes. Grown on demand by
         :meth:`Router.i_INPUT`.
@@ -213,6 +217,14 @@ class RouterConfig(Config, HasSize):
         "shared pool can starve one input. The burst table is sized to hold all "
         "inputs' budgets. When 0 (default), the single shared max_pending_bursts "
         "table is used instead."
+    ))
+    combinational: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant: forward in the cycle a beat arrives instead of the next one, as a "
+        "crossbar without registers (PULP axi_node). The election then runs at the end of "
+        "the cycle, after every input issued. Only valid when every output leads to a "
+        "component which buffers what it receives (such as a register slice or a clock "
+        "bridge): what the election forwards reaches it at the end of the cycle, after any "
+        "decision it took in that cycle."
     ))
     nb_input_port: int = cfg_field(default=1, dump=True, desc=(
         "Number of input ports the router exposes."
@@ -279,6 +291,7 @@ class Router(gvsoc.systree.Component):
        ``width``,                  –, –,   –,   yes
        ``max_input_pending_size``, –, –,   –,   yes
        ``max_pending_bursts``,     –, –,   –,   yes
+       ``combinational``,          –, –,   –,   yes
        mapping ``max_pending_bursts``, –, –, –, yes
 
     Fields not used by the selected kind are still packed into the compiled

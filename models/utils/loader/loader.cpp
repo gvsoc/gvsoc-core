@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <vector>
 
 #include "elf.h"
 
@@ -70,6 +71,9 @@ private:
     vp::WireMaster<bool> start_itf;
     vp::WireMaster<uint64_t> entry_itf;
     vp::IoReq req;
+    // Zero-fill writes may finish asynchronously. Their data must outlive the
+    // event handler, just like ordinary ELF section data does.
+    std::vector<uint8_t> clear_buffer;
     uint64_t entry;
     bool is_32 = true;
     Section *current_section = NULL;
@@ -166,9 +170,11 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
 
         int itersize = std::min(size, 1 << 16);
 
-        uint8_t buffer[itersize];
-
         _this->req.init();
+        // init() resets timing, not the optional protocol payload. A loader
+        // write must never inherit collective metadata from uninitialized RAM.
+        memset(_this->req.get_payload(), 0, _this->req.get_payload_size());
+        _this->req.set_second_data(nullptr);
         _this->req.set_addr(paddr);
         _this->req.set_size(itersize);
         _this->req.set_is_write(true);
@@ -184,8 +190,8 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
         }
         else
         {
-            memset(buffer, 0, itersize);
-            _this->req.set_data(buffer);
+            _this->clear_buffer.assign(itersize, 0);
+            _this->req.set_data(_this->clear_buffer.data());
         }
 
         _this->current_section->paddr += itersize;

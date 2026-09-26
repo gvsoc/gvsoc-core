@@ -37,6 +37,14 @@
 //      for the next cycle so each bank serves at most one master per
 //      cycle.
 //
+// With one_access_per_input, an input is also granted at most one bank
+// per cycle, as a hardware master port presenting one request per cycle:
+// an input already granted in this cycle is skipped by the election of
+// the other banks, and during the election only the re-issue of the
+// elected input for the elected bank goes through. Any other request
+// (e.g. a second master merged on the same input and woken by the same
+// retry) is recorded as pending and denied, for a later cycle.
+//
 // Output side (IoV2Sync): the bank must answer inline with
 // IO_REQ_DONE and never drives resp()/retry(). Bind only to a sync
 // slave such as memory.memory_v3.
@@ -77,6 +85,8 @@ struct InputState
     LogIco *top;
     int id;
     vp::IoSlave itf;
+    // one_access_per_input: last cycle this input was granted a bank.
+    int64_t granted_cycle = -1;
 };
 
 struct BankState
@@ -134,6 +144,11 @@ private:
     // True while the FSM is calling retry() on the elected winners.
     // Any incoming request seen during this window is forwarded inline.
     bool in_election = false;
+    // one_access_per_input: input and bank being served by the retry() in
+    // progress, and whether a denied request must re-arm the next cycle.
+    int elected_input = -1;
+    int elected_bank = -1;
+    bool rearm = false;
 
     // Per-bank backdoor targets, resolved on first debug access through the
     // bank output ports' final bindings. nullptr where the bank component
@@ -218,6 +233,13 @@ void LogIco::reset(bool active)
     if (active)
     {
         this->in_election = false;
+        this->elected_input = -1;
+        this->elected_bank = -1;
+        this->rearm = false;
+        for (auto &in : this->inputs)
+        {
+            in->granted_cycle = -1;
+        }
         for (auto &b : this->banks)
         {
             b->pending_mask = 0;
@@ -311,6 +333,23 @@ vp::IoReqStatus LogIco::input_req(vp::Block *__this, vp::IoReq *req, int id)
         "size: %lu, granule: %lu)",
         id, addr, req->get_size(), 1UL << _this->cfg.interleaving_width);
 
+    if (_this->in_election && _this->cfg.one_access_per_input)
+    {
+        int64_t cycle = _this->clock.get_cycles();
+        if (id != _this->elected_input || bank_id != _this->elected_bank ||
+            _this->inputs[id]->granted_cycle == cycle)
+        {
+            // Not the access being elected: it competes from the next cycle.
+            _this->trace.msg(vp::Trace::LEVEL_DEBUG,
+                "Req arrived during election, denying (input: %d, addr: 0x%llx, bank: %d)\n",
+                id, (unsigned long long)addr, bank_id);
+            _this->banks[bank_id]->pending_mask |= (1ULL << id);
+            _this->rearm = true;
+            return vp::IO_REQ_DENIED;
+        }
+        _this->inputs[id]->granted_cycle = cycle;
+    }
+
     if (_this->in_election)
     {
         // FSM is dispatching retries; any request arriving in this
@@ -354,13 +393,33 @@ void LogIco::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     LogIco *_this = (LogIco *)__this;
     int nb = (int)_this->cfg.nb_masters;
     bool any_remaining = false;
+    int64_t cycle = _this->clock.get_cycles();
 
     _this->in_election = true;
+    _this->rearm = false;
     for (auto &bank : _this->banks)
     {
         if (bank->pending_mask == 0) continue;
 
-        int winner = _this->pick_winner(bank->pending_mask, bank->rr_next, nb);
+        uint64_t candidates = bank->pending_mask;
+        if (_this->cfg.one_access_per_input)
+        {
+            // Inputs already granted a bank in this cycle wait for the next.
+            for (int i = 0; i < nb; i++)
+            {
+                if (_this->inputs[i]->granted_cycle == cycle)
+                {
+                    candidates &= ~(1ULL << i);
+                }
+            }
+            if (candidates == 0)
+            {
+                any_remaining = true;
+                continue;
+            }
+        }
+
+        int winner = _this->pick_winner(candidates, bank->rr_next, nb);
         bank->pending_mask &= ~(1ULL << winner);
         bank->rr_next = (winner + 1) % nb;
 
@@ -372,11 +431,16 @@ void LogIco::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // Retry runs the master's retry handler synchronously: the
         // master re-issues, input_req (with in_election=true) forwards
         // inline to the bank and returns DONE.
+        _this->elected_input = winner;
+        _this->elected_bank = bank->id;
         _this->inputs[winner]->itf.retry();
+        _this->elected_input = -1;
+        _this->elected_bank = -1;
 
         if (bank->pending_mask != 0) any_remaining = true;
     }
     _this->in_election = false;
+    if (_this->rearm) any_remaining = true;
 
     if (any_remaining)
     {

@@ -35,6 +35,11 @@ class LogIcoConfig(Config):
         stays within one bank before the traffic rolls over to the next
         one. Expressed in *bit positions*, not bytes: a value of
         ``4`` means 16-byte (``1 << 4``) granules.
+    one_access_per_input : bool
+        Grant each input at most one bank per cycle, as a hardware master
+        port presenting one request per cycle. Needed when an input merges
+        several masters (a router in front of it) whose requests would
+        otherwise be served in the same cycle on different banks.
     """
 
     nb_masters: int = cfg_field(default=0, dump=True, desc=(
@@ -45,6 +50,9 @@ class LogIcoConfig(Config):
     ))
     interleaving_width: int = cfg_field(default=0, dump=True, desc=(
         "Number of low-order address bits kept local to a bank (granule size = 1 << interleaving_width)"
+    ))
+    one_access_per_input: bool = cfg_field(default=False, dump=True, desc=(
+        "Grant each input at most one bank per cycle (one request per cycle per master port)"
     ))
 
 

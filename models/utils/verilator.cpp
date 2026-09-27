@@ -23,6 +23,16 @@
  * a vp::Signal in the GVSoC trace engine, visible in the gvsoc-gui3
  * timeline. The plugin uses Verilator's VPI cbValueChange to drive the
  * stream.
+ *
+ * A v2 plugin (gv_verilator_plugin_get_v2) registers every signal of the
+ * design but only produces values for the enabled ones: its signals are
+ * registered at start() without being enabled, so the trace engine declares
+ * them to the GUI (signal browser), and the GUI enables the ones added to
+ * the timeline. Enable changes are forwarded to the plugin before each step.
+ * A v2 plugin is also stepped with step_until: it simulates up to the next
+ * event of the rest of the platform (e.g. the end of a run-for-time or cycle
+ * step) and returns earlier when the engine is asked to stop (GUI stop
+ * button), so the design never runs ahead of GVSoC's time.
  */
 
 #include <vp/vp.hpp>
@@ -35,6 +45,15 @@
 #include <vector>
 #include "verilator_plugin.h"
 
+// A vp::Signal whose enable state (set by the GUI's subscriptions) the
+// component can read, to forward it to a v2 plugin.
+class PluginSignal : public vp::Signal<uint64_t>
+{
+public:
+    using vp::Signal<uint64_t>::Signal;
+    bool active() { return this->event.get_event_active(); }
+};
+
 class VerilatorControl : public vp::Component
 {
 public:
@@ -46,6 +65,7 @@ public:
 
 private:
     static void step_handler(vp::Block *_this, vp::TimeEvent *event);
+    static int should_stop(void *engine);
 
     /* Host-side callbacks plugged into the plugin via set_host_callbacks.
        The plugin uses these to expose signals to the GVSoC trace engine. */
@@ -70,12 +90,17 @@ private:
 
     void *handle = nullptr;
     const VlPluginVtable *vt = nullptr;
+    const VlPluginVtableV2 *vt2 = nullptr;  // non-null for a v2 plugin
     VlPlugin *design = nullptr;
 
     /* Signals registered by the plugin. Held by unique_ptr so their
        lifetime matches the component, not the plugin. The cookie returned
        to the plugin (VlSignal) is just `signals[i].get()`. */
-    std::vector<std::unique_ptr<vp::Signal<uint64_t>>> signals;
+    std::vector<std::unique_ptr<PluginSignal>> signals;
+    /* v2: last enable state forwarded to the plugin, per signal. */
+    std::vector<bool> signal_enabled;
+    void arm_host_callbacks();
+    void forward_enables();
     /* Owning store for per-signal description strings. vp::Event keeps the
        description as a non-owning const char*, so we hold the std::string
        here for the component's lifetime. std::deque (not std::vector) so
@@ -148,13 +173,22 @@ void VerilatorControl::start()
             this->plugin_path.c_str(), dlerror());
     }
 
-    auto get_vt = (const VlPluginVtable *(*)())dlsym(this->handle, "gv_verilator_plugin_get");
-    if (get_vt == nullptr)
+    auto get_vt2 = (const VlPluginVtableV2 *(*)())dlsym(this->handle, "gv_verilator_plugin_get_v2");
+    if (get_vt2 != nullptr)
     {
-        this->trace.fatal("verilator_control: missing 'gv_verilator_plugin_get' in '%s'\n",
-            this->plugin_path.c_str());
+        this->vt2 = get_vt2();
+        this->vt = &this->vt2->base;
     }
-    this->vt = get_vt();
+    else
+    {
+        auto get_vt = (const VlPluginVtable *(*)())dlsym(this->handle, "gv_verilator_plugin_get");
+        if (get_vt == nullptr)
+        {
+            this->trace.fatal("verilator_control: missing 'gv_verilator_plugin_get' in '%s'\n",
+                this->plugin_path.c_str());
+        }
+        this->vt = get_vt();
+    }
 
     /* Build a Verilator-style argv. argv[0] is conventionally the program name. */
     this->argv_storage.clear();
@@ -192,6 +226,13 @@ void VerilatorControl::start()
         this->trace.fatal("verilator_control: plugin->open() failed\n");
     }
 
+    /* v2: register the signals now, disabled. The trace engine starts after
+       the components and declares every existing event to the GUI then. */
+    if (this->vt2 != nullptr && this->inject_signals)
+    {
+        this->arm_host_callbacks();
+    }
+
     this->trace.msg(vp::Trace::LEVEL_INFO,
         "verilator_control: opened plugin '%s' (%zu firmware(s)%s)\n",
         this->plugin_path.c_str(),
@@ -209,15 +250,9 @@ void VerilatorControl::reset(bool active)
            every signal because vcd_user is still NULL there. Run once.
            Skip entirely when inject_signals is false: the per-cycle
            VPI dispatch is heavy and pointless without a GUI consumer. */
-        if (this->inject_signals
-            && !this->host_callbacks_armed
-            && this->vt->set_host_callbacks != nullptr)
+        if (this->inject_signals)
         {
-            this->host_cb.ctx = this;
-            this->host_cb.reg_logical = &VerilatorControl::vl_reg_logical;
-            this->host_cb.push_logical = &VerilatorControl::vl_push_logical;
-            this->vt->set_host_callbacks(this->design, &this->host_cb);
-            this->host_callbacks_armed = true;
+            this->arm_host_callbacks();
         }
         /* Kick off the first step "now" (delta = 0). step_handler
            re-enqueues itself for time_to_next ps later. Note: enqueue
@@ -228,6 +263,39 @@ void VerilatorControl::reset(bool active)
     else
     {
         this->step_event.cancel();
+    }
+}
+
+void VerilatorControl::arm_host_callbacks()
+{
+    if (this->host_callbacks_armed || this->vt->set_host_callbacks == nullptr)
+    {
+        return;
+    }
+    this->host_cb.ctx = this;
+    this->host_cb.reg_logical = &VerilatorControl::vl_reg_logical;
+    this->host_cb.push_logical = &VerilatorControl::vl_push_logical;
+    this->vt->set_host_callbacks(this->design, &this->host_cb);
+    this->host_callbacks_armed = true;
+    this->signal_enabled.assign(this->signals.size(), false);
+}
+
+// v2: tell the plugin which signals the GUI enabled or disabled since the
+// last step, so that it produces the values of the shown signals only.
+void VerilatorControl::forward_enables()
+{
+    if (this->vt2 == nullptr || !this->host_callbacks_armed || this->vt2->signal_enabled == nullptr)
+    {
+        return;
+    }
+    for (size_t i = 0; i < this->signals.size(); i++)
+    {
+        bool active = this->signals[i]->active();
+        if (active != this->signal_enabled[i])
+        {
+            this->signal_enabled[i] = active;
+            this->vt2->signal_enabled(this->design, this->signals[i].get(), active);
+        }
     }
 }
 
@@ -247,6 +315,7 @@ void VerilatorControl::stop()
 
 void VerilatorControl::on_pause()
 {
+    this->forward_enables();
     /* Engine just paused — push any buffered VCD bytes through the
        plugin's parser so the GUI sees current signal values. The plugin
        leaves vt->flush NULL when it has nothing to flush. */
@@ -261,6 +330,28 @@ void VerilatorControl::on_pause()
 void VerilatorControl::step_handler(vp::Block *_this, vp::TimeEvent *)
 {
     VerilatorControl *t = (VerilatorControl *)_this;
+    t->forward_enables();
+    if (t->vt2 != nullptr && t->vt2->step_until != nullptr)
+    {
+        vp::TimeEngine *engine = t->time.get_engine();
+        VlStepUntilResult r = t->vt2->step_until(t->design, engine->next_event_time_get(),
+            &VerilatorControl::should_stop, engine);
+        /* The design was simulated up to reached_ps, never past the next event
+           of the rest of the platform: that is now the platform time. */
+        engine->update(r.reached_ps);
+        if (r.exit_code >= 0)
+        {
+            t->trace.msg(vp::Trace::LEVEL_INFO,
+                "verilator_control: design exited with code %d\n", r.exit_code);
+            engine->quit(r.exit_code);
+            return;
+        }
+        if (r.next_ps >= 0)
+        {
+            t->step_event.enqueue(r.next_ps - engine->get_time());
+        }
+        return;
+    }
     VlStepResult r = t->vt->step(t->design);
     if (r.exit_code >= 0)
     {
@@ -273,6 +364,11 @@ void VerilatorControl::step_handler(vp::Block *_this, vp::TimeEvent *)
        so it can batch multiple internal cycles per host call when
        desirable. enqueue() takes a delta from current time. */
     t->step_event.enqueue(r.time_to_next);
+}
+
+int VerilatorControl::should_stop(void *engine)
+{
+    return static_cast<vp::TimeEngine *>(engine)->stop_requested();
 }
 
 VlSignal VerilatorControl::vl_reg_logical(void *ctx, const char *path, int width,
@@ -289,7 +385,7 @@ VlSignal VerilatorControl::vl_reg_logical(void *ctx, const char *path, int width
        the GUI root with no synthetic 'verilator' wrapper in the way. */
     vp::Block *anchor = self->get_parent();
     if (anchor == nullptr) anchor = self;
-    auto sig = std::make_unique<vp::Signal<uint64_t>>(
+    auto sig = std::make_unique<PluginSignal>(
         *anchor, path, width, vp::SignalCommon::ResetKind::None);
     /* Forward the "<dir>|<type>" metadata string the plugin built from the
        VCD $var line so the GUI's signal browser populates Dir/Type. We own
@@ -300,7 +396,12 @@ VlSignal VerilatorControl::vl_reg_logical(void *ctx, const char *path, int width
         self->signal_descriptions.emplace_back(description);
         sig->description_set(self->signal_descriptions.back().c_str());
     }
-    sig->enable();
+    /* A v1 plugin pushes every signal: enable them all. A v2 plugin's signals
+       are enabled by the GUI when shown (see forward_enables). */
+    if (self->vt2 == nullptr)
+    {
+        sig->enable();
+    }
     auto *raw = sig.get();
     self->signals.push_back(std::move(sig));
     return raw;

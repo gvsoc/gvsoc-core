@@ -143,6 +143,44 @@ typedef struct {
 
 const VlPluginVtable *gv_verilator_plugin_get(void);
 
+/*
+ * Version 2 (proposed by hdlsim; hosts that don't know it keep using
+ * gv_verilator_plugin_get and are unaffected).
+ *
+ * Signals: a v2 plugin registers every signal of the design with
+ * reg_logical but only needs to produce the values of the signals somebody
+ * looks at. A v2 host therefore registers them without enabling them: they
+ * are declared to the GUI (visible in its signal browser) and enabled when
+ * the user adds them to the timeline. The host reports every enable change
+ * with signal_enabled (initially every signal is disabled); the plugin then
+ * pushes the current value of a newly enabled signal and its changes from
+ * then on.
+ *
+ * Time: instead of step(), the host calls step_until with the time of its
+ * own next event (the end of a run-for-time or cycle step, another model's
+ * event; -1 when there is none). The plugin simulates up to that time at
+ * most, and stops earlier, between two of its time steps, when should_stop
+ * returns true (the host's stop request, e.g. the GUI's stop button; the
+ * plugin polls it periodically). It returns the time it reached, which the
+ * host adopts as its current time, and the time of the design's next event,
+ * where the host calls it again. The design never runs ahead of the host.
+ */
+typedef struct {
+    int exit_code;       /* -1: continue; >= 0: the design finished with this code */
+    int64_t reached_ps;  /* the design has been simulated up to this time */
+    int64_t next_ps;     /* time of its next event (-1: none) */
+} VlStepUntilResult;
+
+typedef struct {
+    VlPluginVtable base;
+    uint32_t version;  /* 2 */
+    void (*signal_enabled)(VlPlugin *, VlSignal sig, int enabled);
+    VlStepUntilResult (*step_until)(VlPlugin *, int64_t limit_ps,
+                                    int (*should_stop)(void *ctx), void *ctx);
+} VlPluginVtableV2;
+
+const VlPluginVtableV2 *gv_verilator_plugin_get_v2(void);
+
 #ifdef __cplusplus
 }
 #endif

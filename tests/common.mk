@@ -76,7 +76,7 @@ COV_CAPTURE = mkdir -p $(COV_INFO_DIR) && \
 endif
 
 build:
-	$(MAKE) -C $(GVSOC_ROOT) TARGETS="$(TARGET)" MODULES="$(MODULES)" $(_root_mk_args) build
+	$(MAKE) -C $(GVSOC_ROOT) TARGETS="$(TARGET)" MODULES="$(MODULES)" $(_root_mk_args) GVSOC_ONLY=1 build
 
 all: build
 

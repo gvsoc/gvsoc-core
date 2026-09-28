@@ -22,7 +22,7 @@ clean:
 	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install clean
 
 build:
-	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install build
+	make -C $(GVSOC_ROOT) TARGETS=$(TARGET) MODULES=$(CURDIR) BUILDDIR=$(build)/build INSTALLDIR=$(build)/install GVSOC_ONLY=1 build
 
 all: build
 

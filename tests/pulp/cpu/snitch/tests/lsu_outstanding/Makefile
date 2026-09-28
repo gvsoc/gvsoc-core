@@ -6,7 +6,7 @@ clean:
 	make -C $(GVSOC_ROOT) TARGETS=test MODULES=$(CURDIR) clean
 
 build:
-	make -C $(GVSOC_ROOT) TARGETS=test MODULES=$(CURDIR) build
+	make -C $(GVSOC_ROOT) TARGETS=test MODULES=$(CURDIR) GVSOC_ONLY=1 build
 
 all: build
 

@@ -171,12 +171,26 @@ typedef struct {
     int64_t next_ps;     /* time of its next event (-1: none) */
 } VlStepUntilResult;
 
+/*
+ * Version 3 (4-state values): host callbacks with push_logical_flags, which
+ * reports a value with its per-bit flags, as vp::Signal::set(value, flags):
+ * (flag 0, value b) is b, (flag 1, value 0) X, (flag 1, value 1) Z. A v3 host
+ * (version >= 3 and set_host_callbacks_v3 set) calls set_host_callbacks_v3
+ * instead of set_host_callbacks; older hosts ignore the field.
+ */
+typedef struct {
+    VlHostCb base;
+    void (*push_logical_flags)(void *ctx, VlSignal sig, uint64_t value,
+                               uint64_t flags, int64_t time_ps);
+} VlHostCbV3;
+
 typedef struct {
     VlPluginVtable base;
-    uint32_t version;  /* 2 */
+    uint32_t version;  /* 2, or 3 with set_host_callbacks_v3 */
     void (*signal_enabled)(VlPlugin *, VlSignal sig, int enabled);
     VlStepUntilResult (*step_until)(VlPlugin *, int64_t limit_ps,
                                     int (*should_stop)(void *ctx), void *ctx);
+    void (*set_host_callbacks_v3)(VlPlugin *, const VlHostCbV3 *cb);
 } VlPluginVtableV2;
 
 const VlPluginVtableV2 *gv_verilator_plugin_get_v2(void);

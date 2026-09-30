@@ -71,6 +71,8 @@ private:
        The plugin uses these to expose signals to the GVSoC trace engine. */
     static VlSignal vl_reg_logical(void *ctx, const char *path, int width,
                                    const char *description);
+    static void vl_push_logical_flags(void *ctx, VlSignal sig, uint64_t value,
+                                      uint64_t flags, int64_t time_ps);
     static void vl_push_logical(void *ctx, VlSignal sig, uint64_t value,
                                 int64_t time_ps);
 
@@ -108,6 +110,7 @@ private:
        out to earlier vp::Signal::description_set calls. */
     std::deque<std::string> signal_descriptions;
     VlHostCb host_cb;
+    VlHostCbV3 host_cb3;  /* v3 plugins: host_cb and push_logical_flags */
 
     /* set_host_callbacks runs only once, on the first reset(false) — see
        reset() for why we can't do it in start(). */
@@ -275,7 +278,17 @@ void VerilatorControl::arm_host_callbacks()
     this->host_cb.ctx = this;
     this->host_cb.reg_logical = &VerilatorControl::vl_reg_logical;
     this->host_cb.push_logical = &VerilatorControl::vl_push_logical;
-    this->vt->set_host_callbacks(this->design, &this->host_cb);
+    if (this->vt2 != nullptr && this->vt2->version >= 3 && this->vt2->set_host_callbacks_v3 != nullptr)
+    {
+        /* v3: 4-state values, X and Z bits as flags. */
+        this->host_cb3.base = this->host_cb;
+        this->host_cb3.push_logical_flags = &VerilatorControl::vl_push_logical_flags;
+        this->vt2->set_host_callbacks_v3(this->design, &this->host_cb3);
+    }
+    else
+    {
+        this->vt->set_host_callbacks(this->design, &this->host_cb);
+    }
     this->host_callbacks_armed = true;
     this->signal_enabled.assign(this->signals.size(), false);
 }
@@ -421,6 +434,16 @@ void VerilatorControl::vl_push_logical(void *ctx, VlSignal sig, uint64_t value,
     int64_t delta = time_ps - self->time.get_time();
     /* int64_t literal disambiguates from the 4-arg set(value, flags, ...). */
     static_cast<vp::Signal<uint64_t> *>(sig)->set(value, (int64_t)0, delta);
+}
+
+void VerilatorControl::vl_push_logical_flags(void *ctx, VlSignal sig, uint64_t value,
+                                             uint64_t flags, int64_t time_ps)
+{
+    if (sig == nullptr) return;
+    auto *self = static_cast<VerilatorControl *>(ctx);
+    int64_t delta = time_ps - self->time.get_time();
+    /* Per bit: flag 1 is X (value 0) or Z (value 1). */
+    static_cast<vp::Signal<uint64_t> *>(sig)->set(value, flags, (int64_t)0, delta);
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

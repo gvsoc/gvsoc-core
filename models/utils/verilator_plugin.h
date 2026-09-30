@@ -107,6 +107,11 @@ typedef struct {
     /*
      * Build the design and parse Verilator-style plusargs from argv
      * (e.g. "+firmware=foo.hex", "+trace=foo.vcd", "+maxcycles=N").
+     * Arguments starting with "--" are options of the RTL simulator, from
+     * the host component's properties: --design=DIR (compiled design, for
+     * simulators which load one), --stats, --slice=T (time per step without
+     * step_until), --gui-scope=S[:N] (signals shown in the GUI, repeatable).
+     * A plugin ignores the ones it does not know.
      * Returns NULL on failure.
      */
     VlPlugin *(*open)(int argc, const char *const *argv);
@@ -144,7 +149,7 @@ typedef struct {
 const VlPluginVtable *gv_verilator_plugin_get(void);
 
 /*
- * Version 2 (proposed by hdlsim; hosts that don't know it keep using
+ * Version 2 (proposed by gvsoc_svsim; hosts that don't know it keep using
  * gv_verilator_plugin_get and are unaffected).
  *
  * Signals: a v2 plugin registers every signal of the design with

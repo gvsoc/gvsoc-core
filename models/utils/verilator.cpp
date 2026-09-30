@@ -84,6 +84,12 @@ private:
     std::vector<std::string> firmwares;
     std::vector<std::string> plusargs;
     bool inject_signals = false;
+    /* Options of the RTL simulator, passed to the plugin as --options
+       (the plusargs are the design's). */
+    std::string design_path;
+    bool stats = false;
+    std::string time_slice;
+    std::vector<std::string> gui_scopes;
 
     /* Storage for the argv array we hand to the plugin. argv_storage owns
        the strings; argv_ptrs holds pointers into it for plugin->open(). */
@@ -153,6 +159,33 @@ VerilatorControl::VerilatorControl(vp::ComponentConf &config)
         this->inject_signals = inject_cfg->get_bool();
     }
 
+    js::Config *design_cfg = js->get("design");
+    if (design_cfg != nullptr)
+    {
+        this->design_path = design_cfg->get_str();
+    }
+
+    js::Config *stats_cfg = js->get("stats");
+    if (stats_cfg != nullptr)
+    {
+        this->stats = stats_cfg->get_bool();
+    }
+
+    js::Config *slice_cfg = js->get("time_slice");
+    if (slice_cfg != nullptr)
+    {
+        this->time_slice = slice_cfg->get_str();
+    }
+
+    js::Config *scopes_cfg = js->get("gui_scopes");
+    if (scopes_cfg != nullptr)
+    {
+        for (auto *elem : scopes_cfg->get_elems())
+        {
+            this->gui_scopes.push_back(elem->get_str());
+        }
+    }
+
     /* Free-form plusarg pass-through: each element in the `plusargs`
        array is appended verbatim to the plugin's argv. Target files
        use this to plumb design-specific options (e.g. audio source /
@@ -210,6 +243,23 @@ void VerilatorControl::start()
            parser that calls our reg_logical/push_logical instead of
            writing to a file. */
         this->argv_storage.push_back("+inject_signals=1");
+    }
+    /* Options of the RTL simulator, set only when the target gives them. */
+    if (!this->design_path.empty())
+    {
+        this->argv_storage.push_back("--design=" + this->design_path);
+    }
+    if (this->stats)
+    {
+        this->argv_storage.push_back("--stats");
+    }
+    if (!this->time_slice.empty())
+    {
+        this->argv_storage.push_back("--slice=" + this->time_slice);
+    }
+    for (auto &scope : this->gui_scopes)
+    {
+        this->argv_storage.push_back("--gui-scope=" + scope);
     }
     /* Free-form plusargs from the `plusargs` property. */
     for (auto &arg : this->plusargs)

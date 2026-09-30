@@ -17,7 +17,9 @@ in to drive a Verilator-built RTL design from GVSoC's TimeEngine:
   * :class:`VerilatorBoard` — a generic top-level :class:`Component` that
     instantiates one :class:`VerilatorControl`, wires a clock domain to
     it, exposes the ``plugin_path``/``trace_path`` :class:`TargetParameter`
-    pair, and converts ELF firmwares to verilog hex on demand.
+    pair and the options of the RTL simulator (``design``, ``stats``,
+    ``time_slice``, ``gui_scopes``), and converts ELF firmwares to verilog
+    hex on demand.
 
 Use by any gvrun target via, e.g.:
 
@@ -40,14 +42,32 @@ import gvsoc.systree as st
 from gvrun.parameter import TargetParameter
 
 
+_SOURCES = ['utils/verilator.cpp']
+
+
+def declare():
+    """Register the C++ model of :class:`VerilatorControl` for compilation
+    without instantiating it. The components of a target are listed on its
+    gvsoc platform, so a target which uses this model only on its RTL
+    platform calls this to have it built with the target."""
+    st.get_generated_component(list(_SOURCES), [], [])
+
+
 class VerilatorControl(st.Component):
     """Bind to the C++ ``utils.verilator`` model that owns the
     :class:`VerilatedContext` and steps the design once per clock cycle."""
 
     def __init__(self, parent, name, plugin_path=None, firmwares=None, trace_path=None,
-                 inject_signals=False):
+                 inject_signals=False, design=None, stats=False, time_slice=None,
+                 gui_scopes=None):
+        """The RTL simulator's options go to the plugin as options, not as
+        plusargs (which are the design's): ``design`` (--design=DIR, the
+        compiled design, for simulators which load one), ``stats`` (--stats,
+        statistics at the end), ``time_slice`` (--slice=T, simulated time
+        per step for a host without step_until) and ``gui_scopes``
+        (--gui-scope=S[:N] each, the signals shown in the GUI)."""
         super().__init__(parent, name)
-        self.add_sources(['utils/verilator.cpp'])
+        self.add_sources(list(_SOURCES))
         if plugin_path is not None:
             self.add_property('plugin_path', plugin_path)
         if firmwares:
@@ -56,6 +76,14 @@ class VerilatorControl(st.Component):
             self.add_property('trace_path', trace_path)
         if inject_signals:
             self.add_property('inject_signals', True)
+        if design is not None:
+            self.add_property('design', design)
+        if stats:
+            self.add_property('stats', True)
+        if time_slice is not None:
+            self.add_property('time_slice', time_slice)
+        if gui_scopes:
+            self.add_property('gui_scopes', list(gui_scopes))
 
     def gen_gui(self, parent_signal):
         # Only emit the SignalGenAll entry when the plugin will actually
@@ -156,6 +184,22 @@ class VerilatorBoard(st.Component):
             self, name='trace_path', value=None, cast=str,
             description='Optional VCD/FST trace output path forwarded to the plugin',
         )
+        TargetParameter(
+            self, name='design', value=None, cast=str,
+            description='Compiled design the RTL simulator runs (simulators which load one)',
+        )
+        TargetParameter(
+            self, name='stats', value=False, cast=bool,
+            description="Print the RTL simulator's statistics at the end",
+        )
+        TargetParameter(
+            self, name='time_slice', value=None, cast=str,
+            description='Simulated time per step (e.g. 10us), for plugins stepped without step_until',
+        )
+        TargetParameter(
+            self, name='gui_scopes', value=None, cast=str,
+            description='Semicolon-separated scopes S[:N] of the signals shown in the GUI (default: all)',
+        )
 
         # No clock domain — VerilatorControl uses TimeEvent driven by the
         # plugin's reported next-event delta, so it doesn't need a tick
@@ -183,6 +227,18 @@ class VerilatorBoard(st.Component):
         trace_path = self.get_parameter('trace_path')
         if trace_path is not None:
             self.verilator.add_property('trace_path', trace_path)
+        design = self.get_parameter('design')
+        if design is not None:
+            self.verilator.add_property('design', design)
+        if self.get_parameter('stats'):
+            self.verilator.add_property('stats', True)
+        time_slice = self.get_parameter('time_slice')
+        if time_slice is not None:
+            self.verilator.add_property('time_slice', time_slice)
+        gui_scopes = self.get_parameter('gui_scopes')
+        if gui_scopes:
+            self.verilator.add_property(
+                'gui_scopes', [scope.strip() for scope in gui_scopes.split(';') if scope.strip()])
 
         # Register the predicted .hex paths *now*. The ELF→hex conversion
         # itself is deferred to :meth:`run_objcopy` because configure()

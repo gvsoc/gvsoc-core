@@ -197,6 +197,82 @@ def build_case(case_name: str) -> dict:
             'rules': mem_ok,
         }
 
+    # Several refills in flight (max_refills > 1): every miss is answered 20
+    # cycles after its refill was sent.
+    slow = [dict(addr_min=0, addr_max=0xFFFF_FFFF, behavior='granted',
+                 resp_delay=20, retry_delay=0)]
+
+    if case_name == 'multi_overlap':
+        # Three misses on three lines, one cycle apart: each sends its refill
+        # at once, and the three are answered one cycle apart too.
+        return {
+            'cache_config': cache_cfg(max_refills=4),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=4, is_write=False, name='rA'),
+                dict(cycle=11, addr=0x10, size=4, is_write=False, name='rB'),
+                dict(cycle=12, addr=0x20, size=4, is_write=False, name='rC'),
+            ],
+            'rules': slow,
+        }
+
+    if case_name == 'multi_same_line':
+        # A second miss on a line which is being refilled waits for that
+        # refill: one refill, both answered when it lands.
+        return {
+            'cache_config': cache_cfg(max_refills=4),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=4, is_write=False, name='rA'),
+                dict(cycle=12, addr=0x04, size=4, is_write=False, name='rB'),
+            ],
+            'rules': slow,
+        }
+
+    if case_name == 'multi_hit_during_refill':
+        # A line is brought in (synchronous refill), then a miss on another
+        # line starts a long refill: a hit on the first line is served at once.
+        rules = [
+            dict(addr_min=0x00, addr_max=0x0F, behavior='done',
+                 resp_delay=0, retry_delay=0),
+            dict(addr_min=0x10, addr_max=0xFFFF_FFFF, behavior='granted',
+                 resp_delay=20, retry_delay=0),
+        ]
+        return {
+            'cache_config': cache_cfg(max_refills=4),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=4, is_write=False, name='prime'),
+                dict(cycle=20, addr=0x10, size=4, is_write=False, name='miss'),
+                dict(cycle=22, addr=0x04, size=4, is_write=False, name='hit'),
+            ],
+            'rules': rules,
+        }
+
+    if case_name == 'multi_table_full':
+        # Two refills at most: the third miss waits for one of them to land
+        # before its own refill is sent.
+        return {
+            'cache_config': cache_cfg(max_refills=2),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=4, is_write=False, name='rA'),
+                dict(cycle=11, addr=0x10, size=4, is_write=False, name='rB'),
+                dict(cycle=12, addr=0x20, size=4, is_write=False, name='rC'),
+            ],
+            'rules': slow,
+        }
+
+    if case_name == 'multi_banks':
+        # Two banks of lines (even and odd), two refills at most in each: the
+        # third miss on an even line waits, a miss on an odd line does not.
+        return {
+            'cache_config': cache_cfg(max_refills=2, refill_banks=2),
+            'schedule': [
+                dict(cycle=10, addr=0x00, size=4, is_write=False, name='even0'),
+                dict(cycle=11, addr=0x20, size=4, is_write=False, name='even1'),
+                dict(cycle=12, addr=0x40, size=4, is_write=False, name='even2'),
+                dict(cycle=13, addr=0x10, size=4, is_write=False, name='odd0'),
+            ],
+            'rules': slow,
+        }
+
     raise ValueError(f'Unknown case: {case_name}')
 
 

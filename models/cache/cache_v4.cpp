@@ -29,6 +29,25 @@
  *     forwarded verbatim through the refill port (address transformed by
  *     refill_shift / refill_offset first)
  *   - flush, flush-line, flush-ack wires are unchanged
+ *
+ * Several refills in flight (cfg.max_refills > 1), for a cache shared by
+ * several masters whose misses overlap (a refill table, like the PULP shared
+ * instruction cache):
+ *   - a miss takes a free entry of the table, sends its refill and leaves the
+ *     cache free for the other requests: hits are served while refills are in
+ *     flight, and other misses start their own refill
+ *   - a miss on a line which is already being refilled waits for that refill
+ *     instead of sending another one
+ *   - with cfg.refill_banks > 1 the table is split between banks of lines
+ *     (line address modulo the number of banks), max_refills in each, as in
+ *     a cache made of several banks with a refill table of their own
+ *   - a miss finding the table full (or every way of its set being refilled,
+ *     or the refill port denying) is queued; the queued requests are served
+ *     one per cycle, oldest first, as refills complete
+ *   - the way a refill goes to is invalidated when the refill starts, since
+ *     requests are served while its data comes in
+ * With max_refills = 1 the cache behaves as described above: everything waits
+ * behind the refill in flight.
  */
 
 #include <bit>
@@ -37,6 +56,7 @@
 #include <vp/itf/io_v2.hpp>
 #include <vp/signal.hpp>
 #include <vector>
+#include <deque>
 #include <cache/cache_v4/cache_config.hpp>
 
 static int ceil_log2(unsigned int n)
@@ -57,6 +77,23 @@ typedef struct
     // (tagged prefetching, like the RTL snitch_icache prefetcher).
     bool prefetched;
 } cache_line_t;
+
+// One refill in flight (max_refills > 1): the request sent downstream, where
+// its data goes, and the requests waiting for that line.
+struct RefillSlot
+{
+    struct Waiter
+    {
+        vp::IoReq *req;
+        unsigned int line_offset;
+    };
+
+    bool busy = false;
+    vp::IoReq req;
+    cache_line_t *line = nullptr;
+    uint32_t tag = 0;
+    std::vector<Waiter> waiters;
+};
 
 class Cache : public vp::Component
 {
@@ -85,6 +122,17 @@ private:
 
     vp::IoReqStatus handle_req(vp::IoReq *req);
     void check_state();
+
+    // Several refills in flight (cfg.max_refills > 1)
+    vp::IoReqStatus handle_req_multi(vp::IoReq *req, bool queued, bool *blocked);
+    vp::IoRespAck refill_resp_multi(RefillSlot *slot, vp::IoReq *req);
+    void fsm_multi();
+    void check_state_multi();
+    RefillSlot *slot_of(vp::IoReq *req);
+    bool line_under_refill(cache_line_t *line);
+    int get_refill_way_multi(unsigned int line_index);
+    bool bank_has_waiting(uint32_t tag);
+    void update_pending_refill();
 
     cache_line_t *refill(int line_index, unsigned int addr, unsigned int tag,
                           vp::IoReq *req, bool *pending);
@@ -175,6 +223,16 @@ private:
     // Set if we returned IO_REQ_DENIED to the upstream master; on the next retry
     // from our refill port we owe input_itf.retry() to un-stick it.
     bool input_needs_retry = false;
+
+    // Refill table (cfg.max_refills > 1). `multi` selects this mode, in which
+    // `waiting` holds, in order of arrival, the requests which found no room
+    // for their refill; `drain_blocked` is set while none of them has any, so
+    // that they are only looked at again once a refill completes.
+    bool multi = false;
+    int nb_slots = 0;
+    RefillSlot *slots = nullptr;
+    std::deque<vp::IoReq *> waiting;
+    bool drain_blocked = false;
 };
 
 
@@ -231,6 +289,17 @@ Cache::Cache(vp::ComponentConf &config)
 
     this->fsm_event = this->event_new(&Cache::fsm_handler);
 
+    this->multi = this->cfg.max_refills > 1;
+    if (this->multi)
+    {
+        if (this->cfg.prefetch)
+        {
+            this->trace.fatal("The prefetcher is not supported with max_refills > 1\n");
+        }
+        this->nb_slots = this->cfg.max_refills * this->cfg.refill_banks;
+        this->slots = new RefillSlot[this->nb_slots];
+    }
+
     this->trace.msg(vp::Trace::LEVEL_INFO,
         "Instantiating cache (sets: %d, ways: %d, line_size: %d)\n",
         this->nb_sets, this->cfg.ways, this->cfg.line_size);
@@ -249,6 +318,13 @@ void Cache::reset(bool active)
         this->refill_timestamp = -1;
         this->prefetch_wanted = false;
         this->pending_is_prefetch = false;
+        this->drain_blocked = false;
+        this->waiting.clear();
+        for (int i = 0; i < this->nb_slots; i++)
+        {
+            this->slots[i].busy = false;
+            this->slots[i].waiters.clear();
+        }
     }
 }
 
@@ -260,6 +336,18 @@ void Cache::reset(bool active)
 vp::IoRespAck Cache::refill_resp(vp::Block *__this, vp::IoReq *req)
 {
     Cache *_this = (Cache *)__this;
+
+    if (_this->multi)
+    {
+        RefillSlot *slot = _this->slot_of(req);
+        if (slot == nullptr)
+        {
+            // Bypass path, see below.
+            _this->input_itf.resp(req);
+            return vp::IO_RESP_ACCEPTED;
+        }
+        return _this->refill_resp_multi(slot, req);
+    }
 
     // Asynchronous completion of a prefetch: tag the line and free the refill
     // port; queued demand requests (if any) drain through check_state. No CPU
@@ -377,6 +465,12 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     Cache *_this = (Cache *)__this;
 
+    if (_this->multi)
+    {
+        _this->fsm_multi();
+        return;
+    }
+
     if (!_this->pending_refill.get() && !_this->refill_retry_pending
         && !_this->refill_pending_reqs.empty())
     {
@@ -407,6 +501,12 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
 void Cache::check_state()
 {
+    if (this->multi)
+    {
+        this->check_state_multi();
+        return;
+    }
+
     // Use has_reqs() (presence), NOT !empty() (readiness): a CPU request queued
     // via push_back this same cycle carries a now+1 timestamp, so empty() reports
     // it as "not yet available". If a refill completes the same cycle the request
@@ -790,6 +890,22 @@ vp::IoReqStatus Cache::input_req(vp::Block *__this, vp::IoReq *req)
 
     _this->io_event.event((uint8_t *)&offset);
 
+    if (_this->multi)
+    {
+        // Hits are served and refills are started whatever is in flight. A
+        // request which finds no room for its refill is queued and granted:
+        // the queued requests are served as refills complete.
+        bool blocked = false;
+        vp::IoReqStatus st = _this->handle_req_multi(req, false, &blocked);
+        if (blocked || st == vp::IO_REQ_DENIED)
+        {
+            _this->waiting.push_back(req);
+            _this->check_state();
+            return vp::IO_REQ_GRANTED;
+        }
+        return st;
+    }
+
     // Cached path. If a refill is pending we must not start another one: queue
     // this request and ack upstream with GRANTED. When the current refill
     // resolves, fsm_handler will re-enter handle_req for this request.
@@ -813,6 +929,362 @@ vp::IoReqStatus Cache::input_req(vp::Block *__this, vp::IoReq *req)
         _this->try_prefetch();
     }
     return st;
+}
+
+
+// ---------------------------------------------------------------------------
+// Several refills in flight (cfg.max_refills > 1)
+// ---------------------------------------------------------------------------
+
+RefillSlot *Cache::slot_of(vp::IoReq *req)
+{
+    for (int i = 0; i < this->nb_slots; i++)
+    {
+        if (req == &this->slots[i].req)
+        {
+            return &this->slots[i];
+        }
+    }
+    return nullptr;
+}
+
+
+bool Cache::line_under_refill(cache_line_t *line)
+{
+    for (int i = 0; i < this->nb_slots; i++)
+    {
+        if (this->slots[i].busy && this->slots[i].line == line)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void Cache::update_pending_refill()
+{
+    bool busy = false;
+    for (int i = 0; i < this->nb_slots; i++)
+    {
+        busy |= this->slots[i].busy;
+    }
+    this->pending_refill.set(busy);
+}
+
+
+// Way to refill in a set, never one which is being refilled. Returns -1 if
+// every way of the set is.
+int Cache::get_refill_way_multi(unsigned int line_index)
+{
+    cache_line_t *set = &this->lines[line_index * this->cfg.ways];
+
+    if (this->cfg.refill_free_way_first)
+    {
+        for (unsigned int i = 0; i < this->cfg.ways; i++)
+        {
+            if (set[i].tag == (uint32_t)-1 && !this->line_under_refill(&set[i]))
+            {
+                return i;
+            }
+        }
+    }
+
+    bool any = false;
+    for (unsigned int i = 0; i < this->cfg.ways; i++)
+    {
+        any |= !this->line_under_refill(&set[i]);
+    }
+    if (!any)
+    {
+        return -1;
+    }
+
+    unsigned int way = this->step_lru() % this->cfg.ways;
+    while (this->line_under_refill(&set[way]))
+    {
+        way = (way + 1) % this->cfg.ways;
+    }
+    return way;
+}
+
+
+// A request is waiting for a refill entry of the bank this line belongs to.
+bool Cache::bank_has_waiting(uint32_t tag)
+{
+    uint32_t bank_mask = this->cfg.refill_banks - 1;
+    for (vp::IoReq *req : this->waiting)
+    {
+        uint32_t req_tag = req->get_addr() >> this->line_size_bits;
+        if ((req_tag & bank_mask) == (tag & bank_mask))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+// Serve a request: a hit inline, a miss by joining the refill of its line or
+// by starting one. `queued` tells the request comes from the queue (it then
+// keeps its turn). `*blocked` is set if nothing could be done for it now: no
+// free refill entry in its bank, no way to refill, or requests already
+// waiting for an entry of that bank.
+vp::IoReqStatus Cache::handle_req_multi(vp::IoReq *req, bool queued, bool *blocked)
+{
+    unsigned int line_index;
+    unsigned int tag;
+    unsigned int line_offset;
+    uint64_t size = req->get_size();
+    uint8_t *data = req->get_data();
+    bool is_write = req->get_is_write();
+    int64_t now = this->clock.get_cycles();
+
+    *blocked = false;
+
+    cache_line_t *line = this->get_line(req, &line_index, &tag, &line_offset);
+
+    if (line != nullptr)
+    {
+        // Hit. A line which has just been refilled synchronously is only
+        // there once its refill has landed.
+        if (now < line->timestamp)
+        {
+            req->inc_latency(line->timestamp - now);
+        }
+    }
+    else
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Cache miss\n");
+        uint64_t offset = req->get_addr();
+        this->refill_event.set(offset);
+
+        // The line is already on its way: wait for it.
+        for (int i = 0; i < this->nb_slots; i++)
+        {
+            RefillSlot *slot = &this->slots[i];
+            if (slot->busy && slot->tag == tag)
+            {
+                this->trace.msg(vp::Trace::LEVEL_DEBUG,
+                    "Line already being refilled, waiting for it\n");
+                slot->waiters.push_back({req, line_offset});
+                return vp::IO_REQ_GRANTED;
+            }
+        }
+
+        // A new refill: behind the requests already waiting for one in the
+        // same bank.
+        if (this->refill_retry_pending ||
+            (!queued && this->bank_has_waiting(tag)))
+        {
+            *blocked = true;
+            return vp::IO_REQ_GRANTED;
+        }
+
+        // A free entry, with room left in the bank of the line: lines are
+        // spread over the banks by their low address bits, and each bank has
+        // its own share of the table.
+        uint32_t bank_mask = this->cfg.refill_banks - 1;
+        int in_bank = 0;
+        RefillSlot *slot = nullptr;
+        for (int i = 0; i < this->nb_slots; i++)
+        {
+            if (!this->slots[i].busy)
+            {
+                if (slot == nullptr) slot = &this->slots[i];
+            }
+            else if ((this->slots[i].tag & bank_mask) == (tag & bank_mask))
+            {
+                in_bank++;
+            }
+        }
+        if (in_bank >= (int)this->cfg.max_refills)
+        {
+            slot = nullptr;
+        }
+        int way = slot ? this->get_refill_way_multi(line_index) : -1;
+        if (way == -1)
+        {
+            *blocked = true;
+            return vp::IO_REQ_GRANTED;
+        }
+
+        line = &this->lines[line_index * this->cfg.ways + way];
+
+        uint32_t full_addr = ((offset & ~((1U << this->line_size_bits) - 1))
+                              << this->cfg.refill_shift) + this->cfg.refill_offset;
+
+        this->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Refilling line (addr: 0x%x, index: %d, way: %d)\n",
+            full_addr, line_index, way);
+
+        line->tag_event.event((uint8_t *)&full_addr);
+
+        vp::IoReq *r = &slot->req;
+        r->prepare();
+        r->is_first = true;
+        r->is_last = true;
+        r->burst_id = -1;
+        r->set_addr(full_addr);
+        r->set_is_write(false);
+        r->set_size(1U << this->line_size_bits);
+        r->set_data(line->data);
+
+        this->refill_event_clear_event.cancel();
+
+        vp::IoReqStatus st = this->refill_itf.req(r);
+
+        if (st == vp::IO_REQ_GRANTED)
+        {
+            // The data comes in while other requests are served: the line it
+            // replaces is gone from now on.
+            line->tag = -1;
+            slot->busy = true;
+            slot->line = line;
+            slot->tag = tag;
+            slot->waiters.clear();
+            slot->waiters.push_back({req, line_offset});
+            this->pending_refill.set(1);
+            return vp::IO_REQ_GRANTED;
+        }
+
+        if (st == vp::IO_REQ_DENIED)
+        {
+            this->refill_retry_pending = true;
+            return vp::IO_REQ_DENIED;
+        }
+
+        // Synchronous refill: the line is there after its latency.
+        int64_t latency = r->get_full_latency() + this->cfg.refill_latency;
+        line->tag = tag;
+        line->timestamp = now + latency;
+        req->inc_latency(latency);
+        this->refill_event_clear_event.enqueue(latency);
+    }
+
+    if (data)
+    {
+        if (!is_write)
+        {
+            memcpy(data, &line->data[line_offset], size);
+        }
+        else
+        {
+            memcpy(&line->data[line_offset], data, size);
+        }
+    }
+
+    return vp::IO_REQ_DONE;
+}
+
+
+vp::IoRespAck Cache::refill_resp_multi(RefillSlot *slot, vp::IoReq *req)
+{
+    // A beat-streaming downstream answers one beat at a time; the line is
+    // filled in place and complete on the last one.
+    if (!req->is_last)
+    {
+        return vp::IO_RESP_ACCEPTED;
+    }
+
+    cache_line_t *line = slot->line;
+    line->tag = slot->tag;
+
+    this->trace.msg(vp::Trace::LEVEL_TRACE,
+        "Received refill response (tag: 0x%x, waiters: %d)\n",
+        slot->tag, (int)slot->waiters.size());
+
+    // Free the entry before answering: a master may send its next request
+    // from inside resp().
+    std::vector<RefillSlot::Waiter> waiters;
+    waiters.swap(slot->waiters);
+    slot->busy = false;
+    this->drain_blocked = false;
+    this->update_pending_refill();
+    this->refill_event.release();
+
+    for (RefillSlot::Waiter &waiter : waiters)
+    {
+        uint8_t *data = waiter.req->get_data();
+        if (data)
+        {
+            if (!waiter.req->get_is_write())
+            {
+                memcpy(data, &line->data[waiter.line_offset], waiter.req->get_size());
+            }
+            else
+            {
+                memcpy(&line->data[waiter.line_offset], data, waiter.req->get_size());
+            }
+        }
+        this->input_itf.resp(waiter.req);
+    }
+
+    this->check_state();
+
+    return vp::IO_RESP_ACCEPTED;
+}
+
+
+// Drainer of the waiting requests: one per cycle, the oldest one which can be
+// served (a bank which is full does not hold the requests of another one).
+void Cache::fsm_multi()
+{
+    if (!this->refill_retry_pending && !this->waiting.empty())
+    {
+        bool served = false;
+
+        for (auto it = this->waiting.begin(); it != this->waiting.end(); ++it)
+        {
+            vp::IoReq *req = *it;
+            bool blocked = false;
+            vp::IoReqStatus st = this->handle_req_multi(req, true, &blocked);
+            if (blocked)
+            {
+                continue;
+            }
+
+            served = true;
+            if (st == vp::IO_REQ_DENIED)
+            {
+                // Stays where it is, sent again once the refill port retries.
+                break;
+            }
+
+            this->trace.msg(vp::Trace::LEVEL_TRACE,
+                "Resumed req (req: %p, is_write: %d, offset: 0x%lx, size: 0x%lx)\n",
+                req, req->get_is_write(), req->get_addr(), req->get_size());
+
+            // Out of the list before answering: a master may send its next
+            // request from inside resp().
+            this->waiting.erase(it);
+            if (st == vp::IO_REQ_DONE)
+            {
+                this->input_itf.resp(req);
+            }
+            break;
+        }
+
+        if (!served)
+        {
+            this->drain_blocked = true;
+        }
+    }
+
+    this->check_state();
+}
+
+
+void Cache::check_state_multi()
+{
+    if (!this->refill_retry_pending && !this->drain_blocked
+        && !this->waiting.empty())
+    {
+        if (!this->fsm_event->is_enqueued())
+        {
+            this->event_enqueue(this->fsm_event, 1);
+        }
+    }
 }
 
 

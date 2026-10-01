@@ -42,6 +42,8 @@ class CacheConfig(Config):
         memory level.
     refill_latency : int
         Latency in cycles added to synchronous refill completions.
+    max_refills : int
+        Number of refills which can be in flight at once.
     """
 
     size: int = cfg_field(default=0, dump=True, desc=(
@@ -77,6 +79,20 @@ class CacheConfig(Config):
         "first hit on a prefetched line) prefetches the following line "
         "through the refill port when it is otherwise idle, hiding the "
         "refill latency of streaming code (RTL snitch_icache prefetcher)"
+    ))
+    max_refills: int = cfg_field(default=1, dump=True, desc=(
+        "Number of refills which can be in flight at once. 1 (default): everything "
+        "waits behind the refill in flight. More: a miss starts its refill and leaves "
+        "the cache free, so hits are served and other misses start theirs meanwhile, "
+        "up to this number (the refill table of a cache shared by several masters); a "
+        "miss on a line already being refilled waits for that refill. Not supported "
+        "with the prefetcher."
+    ))
+    refill_banks: int = cfg_field(default=1, dump=True, desc=(
+        "With max_refills > 1, number of banks the refill table is split between "
+        "(a power of two): a line belongs to the bank given by its line address "
+        "modulo this number, and each bank can have max_refills refills in flight. "
+        "For a cache made of several banks with a refill table of their own."
     ))
     refill_free_way_first: bool = cfg_field(default=False, dump=True, desc=(
         "True if a refill goes to a free way of the set when there is one, and only "
@@ -153,6 +169,18 @@ class Cache(Component):
       one request per cycle once the current refill resolves — the next
       miss in the FIFO may itself start a new refill, or be a hit if the
       landing refill happened to bring in its line.
+    - **Several refills in flight** (:attr:`CacheConfig.max_refills` > 1):
+      the cache keeps a table of the refills in flight instead of
+      blocking behind one. A miss takes a free entry, sends its refill
+      and is acked ``IO_REQ_GRANTED``; the cache then keeps serving the
+      other requests, hits inline and other misses with a refill of
+      their own. A miss on a line which is already being refilled waits
+      for that refill and is answered with it. A miss finding the table
+      full, or every way of its set being refilled, or the refill port
+      denying, is queued and served in order, one per cycle, as refills
+      complete. The way a refill goes to is invalidated when the refill
+      starts. This is the behaviour of a cache shared by several
+      masters, like the PULP shared instruction cache.
     - **Bypass** (cache disabled): the CPU request is forwarded verbatim
       through ``REFILL`` after the address is rewritten by
       :attr:`CacheConfig.refill_shift` / :attr:`CacheConfig.refill_offset`.
@@ -228,10 +256,12 @@ class Cache(Component):
     Constraints and limitations
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    - **Single refill in flight.** A new miss arriving while a refill
-      is already outstanding is queued but never overlapped. For
-      workloads that expect multiple outstanding refills (MSHR-style
-      caches), use a different model.
+    - **Single refill in flight by default.** A new miss arriving
+      while a refill is already outstanding is queued but never
+      overlapped, and so is a hit. Set
+      :attr:`CacheConfig.max_refills` for a cache which overlaps the
+      refills of several masters. The prefetcher is only available
+      with a single refill in flight.
     - **No write-back.** Writes hit lines in place; there is no dirty
       bit and no eviction writeback traffic. A write that crosses a
       miss refills the line first, then mutates the refilled data.
@@ -291,6 +321,18 @@ class Cache(Component):
         Does not apply to async refills (the wall-clock time at which
         the downstream's ``resp()`` fires is already the signal).
         Default: ``0``.
+
+    ``max_refills``
+        Number of refills which can be in flight at once. ``1`` keeps
+        everything behind the refill in flight; more lets the cache
+        serve hits and start other refills meanwhile, see *Several
+        refills in flight* above. Default: ``1``.
+
+    ``refill_banks``
+        With ``max_refills`` above 1, number of banks the refill table
+        is split between: a line belongs to the bank given by its line
+        address modulo this number, and each bank can have
+        ``max_refills`` refills in flight. Default: ``1``.
 
     Parameters
     ----------
@@ -385,8 +427,8 @@ class Cache(Component):
         The address sent downstream is transformed according to the
         configured ``refill_shift`` and ``refill_offset``.
 
-        The refill master routes responses by request identity and keeps a
-        single refill in flight, expecting a single-beat response — so it is
+        The refill master routes responses by request identity (one request
+        per refill in flight), expecting a single-beat response — so it is
         declared :class:`IoV2SingleReq`: against a beat slave (e.g. a
         ``router_v2`` beat crossbar) the framework auto-inserts the
         single-req-to-beat adapter instead of letting the per-beat response

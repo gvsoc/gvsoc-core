@@ -42,6 +42,9 @@ void PrefetchSingleLine::reset(bool active)
         this->prefetch_insn = NULL;
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
         this->fetch_denied = false;
+        this->lookahead = this->iss.cfg.fetch_lookahead;
+        this->lookahead_pending = false;
+        this->lookahead_waiting = false;
 #endif
 #ifdef CONFIG_PREFETCHER_FI
         if (!this->registered_with_fic)
@@ -106,6 +109,16 @@ bool PrefetchSingleLine::fetch_check_overflow(iss_insn_t *insn, int index)
     {
         insn->opcode = *(iss_opcode_t *)&this->data[index];
     }
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    else if (this->lookahead && index + 2 == CONFIG_GVSOC_ISS_PREFETCH_SIZE &&
+        (this->data[index] & 0x3) != 0x3)
+    {
+        // A compressed instruction in the last two bytes of the line: it is
+        // complete, and the line after it is only fetched ahead.
+        insn->opcode = *(uint16_t *)&this->data[index];
+        this->fetch_ahead(addr, insn->opcode, addr + 2);
+    }
+#endif
     else
     {
         // Case where the opcode is between 2 lines. The prefetcher can only store one line so we have
@@ -163,7 +176,45 @@ void PrefetchSingleLine::fetch_resume_after_high_refill(PrefetchSingleLine *_thi
     _this->prefetch_insn->opcode = _this->fetch_stall_opcode | ((*(iss_opcode_t *)&_this->data[0]) << (nb_bytes * 8));
 }
 
-int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+// Fetch the line which follows the one being executed, while its last
+// instruction executes. That instruction is not held: a line which is there
+// within one cycle costs nothing, and the next instruction only waits for
+// what is left of the fetch.
+void PrefetchSingleLine::fetch_ahead(iss_addr_t insn_addr, iss_opcode_t opcode, iss_addr_t addr)
+{
+    iss_reg_t phys_addr;
+#ifdef CONFIG_GVSOC_ISS_MMU
+    if (this->iss.mmu.insn_virt_to_phys(addr, phys_addr))
+    {
+        return;
+    }
+#else
+    phys_addr = addr;
+#endif
+
+    this->buffer_start_addr = phys_addr & ~(CONFIG_GVSOC_ISS_PREFETCH_SIZE - 1);
+    // The instruction which is executing has left the buffer: keep it, in case
+    // it is fetched again before it completes (it may be stalled for a
+    // register).
+    this->ahead_insn_addr = insn_addr;
+    this->ahead_insn_opcode = opcode;
+    int err = this->send_fetch_req(this->buffer_start_addr, this->data,
+        CONFIG_GVSOC_ISS_PREFETCH_SIZE, false, 1);
+    if (err == -1)
+    {
+        // Still on its way: whatever is fetched next waits for it.
+        this->lookahead_pending = true;
+    }
+    else if (err != 0)
+    {
+        this->flush();
+    }
+}
+#endif
+
+int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write,
+    int ahead)
 {
     vp::IoReq *req = &this->fetch_req;
 
@@ -187,6 +238,12 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
 #ifndef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
             this->trace.force_warning("Invalid fetch request (addr: 0x%x, size: 0x%x)\n", addr, size);
 #endif
+            if (ahead)
+            {
+                // Nothing was asked for there: the fault is for whoever really
+                // fetches this line.
+                return 1;
+            }
             this->iss.exception.raise(this->iss.exec.current_insn, ISS_EXCEPT_INSN_FAULT);
             return 1;
         }
@@ -235,7 +292,11 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
     this->iss.timing.event_fetch_account();
     if (req->get_latency() > 1)
     {
-        this->iss.timing.event_imiss_account(req->get_latency());
+        // A line fetched ahead had `ahead` cycles to come in before it is needed
+        if (req->get_latency() > ahead)
+        {
+            this->iss.timing.event_imiss_account(req->get_latency() - ahead);
+        }
     }
 
     return 0;
@@ -245,6 +306,9 @@ int PrefetchSingleLine::fill(iss_addr_t addr)
 {
     iss_addr_t aligned_addr = addr & ~(CONFIG_GVSOC_ISS_PREFETCH_SIZE - 1);
     this->buffer_start_addr = aligned_addr;
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    this->ahead_insn_addr = -1;
+#endif
     return this->send_fetch_req(aligned_addr, this->data, CONFIG_GVSOC_ISS_PREFETCH_SIZE, false);
 }
 
@@ -296,6 +360,25 @@ void PrefetchSingleLine::fetch_response(vp::Block *__this, vp::IoReq *req)
 
     _this->iss.timing.event_imiss_stop();
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    if (_this->lookahead_pending)
+    {
+        // The line fetched ahead is there. The core only has to be resumed if
+        // it got to need it meanwhile, and then fetches again.
+        _this->lookahead_pending = false;
+        if (req->get_resp_status() == vp::IO_RESP_INVALID)
+        {
+            _this->flush();
+        }
+        if (_this->lookahead_waiting)
+        {
+            _this->lookahead_waiting = false;
+            _this->iss.exec.retain_dec();
+        }
+        return vp::IO_RESP_ACCEPTED;
+    }
+#endif
+
     // Now unstall the core and call the fetch callback so that we can continue the refill
     // operation
     _this->iss.exec.retain_dec();
@@ -332,12 +415,44 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
         return false;
     }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    if (unlikely(phys_addr == this->ahead_insn_addr))
+    {
+        // The instruction which triggered the fetch of the next line
+        insn->opcode = this->ahead_insn_opcode;
+        return true;
+    }
+
+    if (unlikely(this->lookahead_pending))
+    {
+        // The line fetched ahead is not there yet: wait for it, whether it is
+        // the one needed or not (a pending fetch cannot be cancelled). The
+        // instruction is fetched again once it is.
+        if (!this->lookahead_waiting)
+        {
+            this->lookahead_waiting = true;
+            this->prefetch_insn = NULL;
+            this->fetch_stall_callback = NULL;
+            this->iss.exec.retain_inc();
+        }
+        return false;
+    }
+#endif
+
     unsigned int index = phys_addr - this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.
     if (likely(index <= CONFIG_GVSOC_ISS_PREFETCH_SIZE - sizeof(iss_opcode_t)))
     {
         insn->opcode = *(iss_opcode_t *)&this->data[index];
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+        if (unlikely(this->lookahead && index == CONFIG_GVSOC_ISS_PREFETCH_SIZE - 4 &&
+            (insn->opcode & 0x3) == 0x3))
+        {
+            // The last instruction of the line: the next line is fetched ahead
+            this->fetch_ahead(phys_addr, insn->opcode, phys_addr + 4);
+        }
+#endif
         return true;
     }
 
@@ -352,6 +467,9 @@ void PrefetchSingleLine::flush()
     // Since the address is an unsigned int, the next index will be negative and will force the prefetcher
     // to refill
     this->buffer_start_addr = -1;
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    this->ahead_insn_addr = -1;
+#endif
 }
 
 void PrefetchSingleLine::handle_stall(void (*callback)(PrefetchSingleLine *), iss_insn_t *current_insn)

@@ -71,6 +71,13 @@ class RiscvConfig(Config):
         "(the response stands for the grant of a core which is only granted such an access "
         "when it completes, like a PULP core behind its demux for anything but the TCDM)."
     ))
+    fetch_lookahead: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the line which follows the one being executed is fetched while its last "
+        "instruction executes, so that a line which takes one cycle to come in costs "
+        "nothing and a longer fetch one cycle less (RI5CY: the prefetch buffer asks for "
+        "the next word before the decoder needs it; after a jump the target is only asked "
+        "for when the jump is taken)."
+    ))
     lsu_misaligned_store_stall: bool = cfg_field(default=False, dump=True, desc=(
         "True if a misaligned store keeps the execute stage one more cycle for its second "
         "half, so the next instruction starts one cycle later (RI5CY: the second access of a "

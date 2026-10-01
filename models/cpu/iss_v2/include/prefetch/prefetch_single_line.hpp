@@ -79,8 +79,15 @@ private:
     // Send a fetch request to refill the buffer
     int fill(iss_addr_t addr);
 
-    // Send the fetch request
-    int send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write);
+    // Send the fetch request. `ahead` is the number of cycles the line is asked
+    // ahead of its use (0 for a line needed now).
+    int send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write, int ahead=0);
+
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    // Fetch the line at `addr` ahead of its use, while the instruction at
+    // `insn_addr` executes
+    void fetch_ahead(iss_addr_t insn_addr, iss_opcode_t opcode, iss_addr_t addr);
+#endif
 
     // Can be called to stall the core after a pending refill.
     // The core will be unstalled automatically once the refill is done
@@ -102,6 +109,19 @@ private:
     // True while fetch_req has been denied and is waiting for a retry() to be
     // re-sent. No response is coming for it; only the retry can unblock it.
     bool fetch_denied;
+
+    // Config field ``fetch_lookahead``: the line which follows the one being
+    // executed is fetched while its last instruction executes, instead of
+    // when its first instruction is needed.
+    bool lookahead = false;
+    // A line fetched ahead is still on its way
+    bool lookahead_pending = false;
+    // The core is held until it is there
+    bool lookahead_waiting = false;
+    // Instruction which was executing when the next line was fetched ahead,
+    // and its opcode: the buffer holds the next line from then on
+    iss_addr_t ahead_insn_addr = -1;
+    iss_opcode_t ahead_insn_opcode = 0;
 #endif
 
     // Callback called when a pending fetch response is received

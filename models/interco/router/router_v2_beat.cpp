@@ -152,6 +152,13 @@ public:
     // otherwise the earlier burst's ack would free the channel under the
     // later burst and let another input's beats interleave with it.
     int elected_slot[NB_CHANNELS] = {-1, -1};
+    // Round-robin pointer of each channel: the input with the highest priority
+    // the next time several of them want it. It moves past an input each time
+    // that input is given a transaction, and only then: a pointer moving with
+    // the cycles instead would hand the channel to the same input over and
+    // over whenever the channel frees with a period the number of inputs
+    // divides (a DMA sending bursts of a fixed length).
+    int rr_next[NB_CHANNELS] = {0, 0};
     // Downstream returned DENIED for the most recent forward on a channel;
     // waiting for retry(). Stall is per (output, channel) so a back-pressured
     // write does not block reads to the same output (and vice versa). With
@@ -285,6 +292,11 @@ private:
     // input we are holding.
     static void resp_retry_in_muxed(vp::Block *__this, int port, vp::IoRetryChannel channel);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    // Forward arbitration helpers: whether the head beat of `in` wants
+    // (out, ch) this cycle and may have it, and whether `in` is the one the
+    // round-robin of that channel elects among those.
+    bool is_candidate(InputPort *in, OutputPort *out, int ch, int64_t now);
+    bool wins_election(int input_idx, OutputPort *out, int ch, int64_t now);
     // Response FSM: each cycle it releases the outputs back-pressured on the
     // previous cycle (one beat/cycle/input pacing), letting their downstream
     // re-send the held beat.
@@ -371,10 +383,9 @@ private:
     // are re-sends, which may legitimately arrive after the election.
     bool in_wake = false;
 #endif
-    int round_robin_next = 0;
     // Rotating start index for the response arbiter, so a long burst on a
     // low-index output cannot perpetually win an input's response channel over a
-    // higher-index output (mirrors round_robin_next on the forward path).
+    // higher-index output.
     int resp_round_robin_next = 0;
 
     vp::Trace trace;
@@ -942,6 +953,63 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     return vp::IO_REQ_GRANTED;
 }
 
+bool RouterBeat::is_candidate(InputPort *in, OutputPort *out, int ch, int64_t now)
+{
+    if (in->pending.empty()) return false;
+    if (!this->cfg.combinational)
+    {
+        if (in->head_cycle.get() >= now) return false;
+    }
+    else
+    {
+        if (in->head_cycle_now > now) return false;
+    }
+
+    InputPort::PendingBeat head = in->pending.front();
+    vp::IoReq *beat = head.req;
+    BurstEntry &slot = this->burst_table[head.slot_idx];
+    if (slot.channel != ch) return false;
+
+    int output_id = slot.output_id;
+    if (output_id == -1)
+    {
+        // Not decoded yet (the FSM has not reached this input): same decoding,
+        // a beat that is going to be answered with an error wants no output.
+        vp::MappingTreeEntry *mapping = this->mapping_tree.get(
+            beat->get_addr(), beat->get_size(), beat->get_is_write());
+        bool straddles = mapping && mapping->size != 0 &&
+            beat->get_addr() + beat->get_size() > mapping->base + mapping->size;
+        if (!mapping || mapping->id == this->error_id || straddles ||
+            !this->entries[mapping->id]->bus.is_bound())
+        {
+            return false;
+        }
+        output_id = mapping->id;
+    }
+    if (this->entries[output_id] != out) return false;
+
+    if (out->elected_input[ch] != nullptr && out->elected_input[ch] != in) return false;
+    if (beat->is_first && out->max_pending > 0 &&
+        out->nb_pending[ch] >= out->max_pending) return false;
+    return true;
+}
+
+bool RouterBeat::wins_election(int input_idx, OutputPort *out, int ch, int64_t now)
+{
+    int n = (int)this->inputs.size();
+    int rank = (input_idx - out->rr_next[ch] + n) % n;
+    for (int j = 0; j < n; j++)
+    {
+        if (j == input_idx) continue;
+        if ((j - out->rr_next[ch] + n) % n < rank &&
+            this->is_candidate(this->inputs[j], out, ch, now))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     RouterBeat *_this = (RouterBeat *)__this;
@@ -958,9 +1026,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     std::vector<std::array<bool, NB_CHANNELS>> output_used(
         _this->entries.size(), {false, false});
 
-    for (int k = 0; k < n; k++)
+    for (int i = 0; i < n; i++)
     {
-        int i = (_this->round_robin_next + k) % n;
         InputPort *in = _this->inputs[i];
         if (in->pending.empty()) continue;
 
@@ -1060,6 +1127,9 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // the FSM again). Continuation beats of an already-counted burst pass.
         if (beat->is_first && out->max_pending > 0 &&
             out->nb_pending[ch] >= out->max_pending) continue;
+        // Several inputs want this channel: the round-robin elects one.
+        if (!_this->wins_election(i, out, ch, now)) continue;
+        bool opens_burst = beat->is_first;
 
         // Lock the output channel to this input for the beats of a burst, so
         // another input's beats cannot interleave with them: the W channel of
@@ -1092,9 +1162,14 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             out->stalled[ch] = true;
             out->stalled_input[ch] = in;
         }
+        // The input got its transaction (a denied one is re-sent on the retry
+        // without another election): the others go first next time.
+        if (opens_burst)
+        {
+            out->rr_next[ch] = (i + 1) % n;
+        }
     }
 
-    _this->round_robin_next = (_this->round_robin_next + 1) % n;
     _this->in_election = false;
 
     bool any_pending = false;

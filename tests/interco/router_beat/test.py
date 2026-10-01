@@ -67,6 +67,19 @@ transaction is opened on the output only once the previous one completed,
 whichever input asks. Checker: consecutive target ``REQ`` lines are at
 least the response latency apart.
 
+fair_period_even / fair_period_odd
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Two masters each queue 4 single-beat reads to a target which takes one
+transaction at a time (``max_pending_bursts=1``) and answers after 9
+(``even``) or 10 (``odd``) cycles, so the output frees with a fixed period.
+The round-robin must hand it to the two masters in turn whatever that
+period: its pointer moves when an input is served, not with the cycles
+(a pointer moving every cycle is back on the same input each time the
+output frees when the period is a multiple of the number of inputs, and
+that input then starves the other). Checker: the target sees the reads of
+the two masters strictly alternating.
+
 read_no_lock
 ~~~~~~~~~~~~
 
@@ -555,6 +568,24 @@ def build_case(case: str):
             ],
             schedule_b=[burst(cycle=10, addr=t0_base + 0x80, size=4, nb_beats=1,
                               burst_id=3, name='B')],
+            targets=[('t0', t0_base, window, rules_t0)],
+            nb_masters=2,
+        )
+
+    if case == 'fair_period_even' or case == 'fair_period_odd':
+        # The output frees with a fixed period (one transaction at a time, a
+        # fixed response latency): both masters always have a read waiting,
+        # and must be served in turn whatever the parity of that period.
+        delay = 9 if case == 'fair_period_even' else 10
+        rules_t0 = [rule(behavior='granted', resp_delay=delay)]
+        return dict(
+            config=beat_cfg(max_input_pending_size=64, max_pending_bursts=8),
+            mapping_kwargs=dict(max_pending_bursts=1),
+            schedule_a=[burst(cycle=10, addr=t0_base + 4 * i, size=4, nb_beats=1,
+                              burst_id=i, name=f'A{i}') for i in range(4)],
+            schedule_b=[burst(cycle=10, addr=t0_base + 0x80 + 4 * i, size=4,
+                              nb_beats=1, burst_id=8 + i, name=f'B{i}')
+                        for i in range(4)],
             targets=[('t0', t0_base, window, rules_t0)],
             nb_masters=2,
         )

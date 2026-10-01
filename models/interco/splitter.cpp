@@ -146,6 +146,10 @@ vp::IoReqStatus Splitter::req(vp::Block *__this, vp::IoReq *req) {
         port_req->size = iter_size;
         port_req->is_write = is_write;
         port_req->data = data;
+        // Atomics return the previous value through the second data
+        port_req->set_second_data(req->get_second_data() ?
+            req->get_second_data() + (data - req->get_data()) : NULL);
+        port_req->set_initiator(req->get_initiator());
         port_req->parent_req = req;
 
         addr += iter_size;

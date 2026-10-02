@@ -80,6 +80,24 @@ output frees when the period is a multiple of the number of inputs, and
 that input then starves the other). Checker: the target sees the reads of
 the two masters strictly alternating.
 
+write_lock_last_beat / write_order
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``master_a`` streams three write bursts back to back, each opened before
+the acknowledgement of the previous one; ``master_b`` has a single-beat
+write to the same output. The output is handed over at the last beat of a
+burst: ``master_b`` goes after the first burst of ``master_a``, instead of
+waiting for all of them. With ``write_order_depth=2`` the address of
+``master_a``'s second burst counts as taken before ``master_b`` shows up,
+so ``master_b`` goes after the second burst.
+
+input_rw_queues
+~~~~~~~~~~~~~~~
+
+One master sends a read to a target which denies it for 20 cycles, then a
+write to another target. Reads and writes queue apart at an input: the
+write reaches its target while the read is still held.
+
 read_no_lock
 ~~~~~~~~~~~~
 
@@ -548,6 +566,46 @@ def build_case(case: str):
             targets=[('t0', t0_base, window, rules_t0)],
             nb_masters=2,
             native_beat_width=4,
+        )
+
+    if case == 'write_lock_last_beat' or case == 'write_order':
+        # master_a streams three write bursts back to back, each opened before
+        # the acknowledgement of the previous one (the target acks 12 cycles
+        # after the last beat); master_b has a single-beat write to the same
+        # output from cycle 12. The output is handed over at the last beat of
+        # a burst, not at its acknowledgement: master_b goes after the first
+        # burst of master_a (write_lock_last_beat). With write_order_depth=2
+        # the address of master_a's second burst is taken as out before
+        # master_b shows up, so master_b goes after the second burst.
+        rules_t0 = [rule(behavior='granted', resp_delay=12)]
+        return dict(
+            config=beat_cfg(max_input_pending_size=256, max_pending_bursts=8,
+                            write_order_depth=2 if case == 'write_order' else 0),
+            schedule_a=[
+                burst(cycle=10, addr=t0_base + 0x100 * i, size=4, nb_beats=8,
+                      burst_id=1 + i, name=f'A{i}', is_write=True)
+                for i in range(3)
+            ],
+            schedule_b=[burst(cycle=12, addr=t0_base + 0x400, size=4, nb_beats=1,
+                              burst_id=8, name='B', is_write=True)],
+            targets=[('t0', t0_base, window, rules_t0)],
+            nb_masters=2,
+            native_beat_width=4,
+        )
+
+    if case == 'input_rw_queues':
+        # One master sends a read to a target which denies it for 20 cycles,
+        # then a write to another target: the write does not wait behind the
+        # read, the two queue apart at the input.
+        rules_t0 = [rule(behavior='deny_then_done', deny_count=1, retry_delay=20)]
+        return dict(
+            config=beat_cfg(max_input_pending_size=16, max_pending_bursts=8),
+            schedule=[
+                burst(cycle=10, addr=t0_base, size=4, name='R', is_write=False),
+                burst(cycle=12, addr=t1_base, size=4, name='W', is_write=True),
+            ],
+            targets=[('t0', t0_base, window, rules_t0), ('t1', t1_base, window, ok)],
+            nb_masters=1,
         )
 
     if case == 'output_max_pending':

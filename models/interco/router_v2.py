@@ -212,11 +212,20 @@ class RouterConfig(Config, HasSize):
     ))
     max_pending_bursts_per_input: int = cfg_field(default=0, dump=True, desc=(
         "Per-input outstanding-burst budget (beat variant). When > 0, each input "
-        "independently allows up to this many in-flight bursts — the HW-faithful "
+        "independently allows up to this many in-flight bursts on each channel (reads "
+        "and writes are counted apart, unless shared_rw_channel) — the HW-faithful "
         "shape, where each AXI master's ID-bounded outstanding is its own and no "
         "shared pool can starve one input. The burst table is sized to hold all "
         "inputs' budgets. When 0 (default), the single shared max_pending_bursts "
         "table is used instead."
+    ))
+    write_order_depth: int = cfg_field(default=0, dump=True, desc=(
+        "Beat variant: number of write bursts whose address an output takes ahead of "
+        "their data (the write-data routing FIFO of a PULP axi_node). The bursts then go "
+        "in the order their address was taken, and an input which is sending a burst is "
+        "taken to have the address of its next one out already, so that a burst of "
+        "another input arriving meanwhile goes behind it when there was room. 0 "
+        "(default): the next burst is elected when the output frees."
     ))
     combinational: bool = cfg_field(default=False, dump=True, desc=(
         "Beat variant: forward in the cycle a beat arrives instead of the next one, as a "

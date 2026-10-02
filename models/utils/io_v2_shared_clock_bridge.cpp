@@ -43,17 +43,20 @@ void IoV2SharedClockBridge::init_lists()
 {
     // Requests go from the input (master) domain to the output (slave) one,
     // responses the other way.
-    this->req_list = List();
-    this->req_list.engine = this->slave_engine;
-    this->req_list.event = &this->req_event;
-    this->req_list.src_engine = this->master_engine;
-    this->req_list.retry_event = &this->req_retry_event;
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
+    {
+        this->req_list[ch] = List();
+        this->req_list[ch].engine = this->slave_engine;
+        this->req_list[ch].event = &this->req_event;
+        this->req_list[ch].src_engine = this->master_engine;
+        this->req_list[ch].retry_event = &this->req_retry_event;
 
-    this->resp_list = List();
-    this->resp_list.engine = this->master_engine;
-    this->resp_list.event = &this->resp_event;
-    this->resp_list.src_engine = this->slave_engine;
-    this->resp_list.retry_event = &this->resp_retry_event;
+        this->resp_list[ch] = List();
+        this->resp_list[ch].engine = this->master_engine;
+        this->resp_list[ch].event = &this->resp_event;
+        this->resp_list[ch].src_engine = this->slave_engine;
+        this->resp_list[ch].retry_event = &this->resp_retry_event;
+    }
 }
 
 
@@ -73,16 +76,35 @@ void IoV2SharedClockBridge::reset(bool active)
     // nobody else will free it. A write without allocator is a master-owned
     // object (round-trip write), not ours to free. The rest is dropped: the
     // owners reset with us.
-    for (vp::IoReq *req = this->req_list.head; req != nullptr; )
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        vp::IoReq *next = req->get_next();
-        if (req->get_opcode() == vp::WRITE && req->allocator != nullptr)
+        for (vp::IoReq *req = this->req_list[ch].head; req != nullptr; )
         {
-            req->free();
+            vp::IoReq *next = req->get_next();
+            if (req->get_opcode() == vp::WRITE && req->allocator != nullptr)
+            {
+                req->free();
+            }
+            req = next;
         }
-        req = next;
     }
     this->init_lists();
+}
+
+
+// Channel a request or a response travels on: the write beats and their
+// acknowledgements on one, everything else on the other.
+static inline int channel_of(vp::IoReq *req)
+{
+    return req->get_opcode() == vp::WRITE ? IoV2SharedClockBridge::CH_WRITE
+                                          : IoV2SharedClockBridge::CH_READ;
+}
+
+// Tell if a retry on `channel` concerns the list of channel `ch`.
+static inline bool covers(vp::IoRetryChannel channel, int ch)
+{
+    return channel == vp::IO_RETRY_ANY ||
+        (channel == vp::IO_RETRY_READ) == (ch == IoV2SharedClockBridge::CH_READ);
 }
 
 
@@ -158,17 +180,19 @@ vp::IoReqStatus IoV2SharedClockBridge::in_req_handler(vp::Block *__this, vp::IoR
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
 
-    if (!self->can_take(self->req_list))
+    List &list = self->req_list[channel_of(req)];
+
+    if (!self->can_take(list))
     {
         self->trace.msg(vp::Trace::LEVEL_TRACE, "Denied request (req: %p)\n", req);
-        self->req_list.retry_owed = true;
+        list.retry_owed = true;
         return vp::IO_REQ_DENIED;
     }
 
     self->trace.msg(vp::Trace::LEVEL_TRACE, "Buffered request (req: %p, addr: 0x%lx, size: 0x%lx, "
         "is_write: %d)\n", req, req->get_addr(), req->get_size(), req->get_is_write());
 
-    self->push(self->req_list, req);
+    self->push(list, req);
     return vp::IO_REQ_GRANTED;
 }
 
@@ -176,14 +200,17 @@ vp::IoReqStatus IoV2SharedClockBridge::in_req_handler(vp::Block *__this, vp::IoR
 void IoV2SharedClockBridge::req_event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
-    self->req_send();
-    self->check(self->req_list);
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
+    {
+        self->req_send(ch);
+        self->check(self->req_list[ch]);
+    }
 }
 
 
-void IoV2SharedClockBridge::req_send()
+void IoV2SharedClockBridge::req_send(int ch)
 {
-    List &list = this->req_list;
+    List &list = this->req_list[ch];
     if (list.head == nullptr || list.held || list.head_cycle > list.engine->get_cycles())
     {
         return;
@@ -242,11 +269,11 @@ void IoV2SharedClockBridge::req_send()
             ack->set_resp_status(resp_status);
             ack->set_latency(latency);
             ack->set_duration(duration);
-            this->push(this->resp_list, ack);
+            this->push(this->resp_list[CH_WRITE], ack);
         }
         else
         {
-            this->push(this->resp_list, req);
+            this->push(this->resp_list[CH_READ], req);
         }
     }
     // GRANTED: the output side owns it now. A read or an atomic comes back
@@ -258,12 +285,15 @@ void IoV2SharedClockBridge::req_send()
 void IoV2SharedClockBridge::out_retry_handler(vp::Block *__this, vp::IoRetryChannel channel)
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
-    // The held request must be sent again from here, in the same cycle.
-    if (self->req_list.held)
+    // The held requests must be sent again from here, in the same cycle.
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        self->req_list.held = false;
-        self->req_send();
-        self->check(self->req_list);
+        if (covers(channel, ch) && self->req_list[ch].held)
+        {
+            self->req_list[ch].held = false;
+            self->req_send(ch);
+            self->check(self->req_list[ch]);
+        }
     }
 }
 
@@ -274,10 +304,14 @@ void IoV2SharedClockBridge::req_retry_event_handler(vp::Block *__this, vp::Clock
     // In the input domain, from the cycle after the slot freed. If it got
     // taken again meanwhile (an inline response for the response list), the
     // retry waits for the next free slot.
-    if (self->req_list.retry_owed && self->can_take(self->req_list))
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        self->req_list.retry_owed = false;
-        self->in.retry();
+        List &list = self->req_list[ch];
+        if (list.retry_owed && self->can_take(list))
+        {
+            list.retry_owed = false;
+            self->in.retry(ch == CH_READ ? vp::IO_RETRY_READ : vp::IO_RETRY_WRITE);
+        }
     }
 }
 
@@ -288,16 +322,18 @@ vp::IoRespAck IoV2SharedClockBridge::out_resp_handler(vp::Block *__this, vp::IoR
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
 
-    if (!self->can_take(self->resp_list))
+    List &list = self->resp_list[channel_of(req)];
+
+    if (!self->can_take(list))
     {
         self->trace.msg(vp::Trace::LEVEL_TRACE, "Denied response (req: %p)\n", req);
-        self->resp_list.retry_owed = true;
+        list.retry_owed = true;
         return vp::IO_RESP_DENIED;
     }
 
     self->trace.msg(vp::Trace::LEVEL_TRACE, "Buffered response (req: %p)\n", req);
 
-    self->push(self->resp_list, req);
+    self->push(list, req);
     return vp::IO_RESP_ACCEPTED;
 }
 
@@ -305,14 +341,17 @@ vp::IoRespAck IoV2SharedClockBridge::out_resp_handler(vp::Block *__this, vp::IoR
 void IoV2SharedClockBridge::resp_event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
-    self->resp_send();
-    self->check(self->resp_list);
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
+    {
+        self->resp_send(ch);
+        self->check(self->resp_list[ch]);
+    }
 }
 
 
-void IoV2SharedClockBridge::resp_send()
+void IoV2SharedClockBridge::resp_send(int ch)
 {
-    List &list = this->resp_list;
+    List &list = this->resp_list[ch];
     if (list.head == nullptr || list.held || list.head_cycle > list.engine->get_cycles())
     {
         return;
@@ -340,12 +379,15 @@ void IoV2SharedClockBridge::resp_send()
 void IoV2SharedClockBridge::in_resp_retry_handler(vp::Block *__this, vp::IoRetryChannel channel)
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
-    // The held response must be sent again from here, in the same cycle.
-    if (self->resp_list.held)
+    // The held responses must be sent again from here, in the same cycle.
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        self->resp_list.held = false;
-        self->resp_send();
-        self->check(self->resp_list);
+        if (covers(channel, ch) && self->resp_list[ch].held)
+        {
+            self->resp_list[ch].held = false;
+            self->resp_send(ch);
+            self->check(self->resp_list[ch]);
+        }
     }
 }
 
@@ -354,12 +396,16 @@ void IoV2SharedClockBridge::resp_retry_event_handler(vp::Block *__this, vp::Cloc
 {
     IoV2SharedClockBridge *self = static_cast<IoV2SharedClockBridge *>(__this);
     // In the output domain, from the cycle after the slot freed.
-    if (self->resp_list.retry_owed && self->can_take(self->resp_list))
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        self->resp_list.retry_owed = false;
-        if (self->out.is_resp_retry_bound())
+        List &list = self->resp_list[ch];
+        if (list.retry_owed && self->can_take(list))
         {
-            self->out.resp_retry();
+            list.retry_owed = false;
+            if (self->out.is_resp_retry_bound())
+            {
+                self->out.resp_retry(ch == CH_READ ? vp::IO_RETRY_READ : vp::IO_RETRY_WRITE);
+            }
         }
     }
 }

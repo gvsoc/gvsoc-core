@@ -16,9 +16,12 @@
 // clock domain crossing, which keeps its synchronizer latency whatever the
 // phase of the two clocks (see IoV2ClockBridge and its cdc kinds).
 //
-// The crossing is registered, as with the AXI slices of a cluster interface.
-// Each direction buffers one request (or response) and sends one per cycle, at
-// least one cycle after it was taken:
+// The crossing is registered, as with the AXI slices of a cluster interface,
+// and reads and writes cross apart, as the channels of an AXI do: a read
+// which is denied on the other side does not hold a write, nor a write a
+// read, and one of each can cross in the same cycle. Each direction buffers
+// one request (or response) of each channel and sends one per cycle, at least
+// one cycle after it was taken:
 //
 // - A request is taken if the slot is empty, or if the one in it leaves in
 //   this cycle (it has waited its cycle and was not denied): the slot then
@@ -37,6 +40,10 @@
 class IoV2SharedClockBridge : public vp::Component, public vp::DebugMemIf
 {
 public:
+    // Channels: write beats and their acknowledgements, and the rest (reads
+    // and their response beats).
+    enum { CH_READ = 0, CH_WRITE = 1, NB_CHANNELS = 2 };
+
     IoV2SharedClockBridge(vp::ComponentConf &config);
     void start() override;
     void reset(bool active) override;
@@ -90,10 +97,10 @@ private:
     // Remove the head of a list, given its successor read before the head was
     // sent. The next one can go on the next cycle.
     void pop(List &list, vp::IoReq *next);
-    // Send the head of the request list to the output, if it can go now.
-    void req_send();
-    // Send the head of the response list to the input, if it can go now.
-    void resp_send();
+    // Send the head of a request list to the output, if it can go now.
+    void req_send(int ch);
+    // Send the head of a response list to the input, if it can go now.
+    void resp_send(int ch);
     // Wake up on the next cycle of its engine if a list still has something
     // to send.
     void check(List &list);
@@ -107,8 +114,8 @@ private:
     vp::ClockEngine *master_engine = nullptr;
     vp::ClockEngine *slave_engine  = nullptr;
 
-    List req_list;
-    List resp_list;
+    List req_list[NB_CHANNELS];
+    List resp_list[NB_CHANNELS];
     vp::ClockEvent req_event;
     vp::ClockEvent resp_event;
     vp::ClockEvent req_retry_event;

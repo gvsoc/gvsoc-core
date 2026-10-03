@@ -42,6 +42,10 @@ public:
 #endif
 
     inline void set_reg(int reg, uint64_t value);
+    // Write the whole 64-bit slot, whatever the register width: for cores
+    // whose integer registers are wider than XLEN (ACU200 V2 64-bit
+    // registers). set_reg() truncates to XLEN.
+    inline void set_reg_full(int reg, uint64_t value);
     inline void set_reg_pair(int reg, uint64_t value);
     inline uint64_t get_reg(int reg);
     inline uint64_t get_reg_untimed(int reg);
@@ -225,6 +229,11 @@ inline void Regfile::set_reg(int reg, uint64_t value)
     if (!this->is_freg(reg)) {
         value = (iss_reg_t)value;
     }
+    this->set_reg_full(reg, value);
+}
+
+inline void Regfile::set_reg_full(int reg, uint64_t value)
+{
     this->regs[reg] = value;
 #if defined(CONFIG_GVSOC_EVENT_ACTIVE)
     if (reg < ISS_DUMMY_REG)

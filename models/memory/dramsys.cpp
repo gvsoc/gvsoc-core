@@ -71,7 +71,7 @@ private:
     vp::WireMaster<PimStride*> pim_notify_itf;
     vp::WireSlave<PimStride*> pim_data_itf;
 
-    GvsocMemspec memspec;
+    GvsocMemspec memspec = {};
     uint access_size_clog;
     std::vector<PimStride*> pim_stride_channel;
 
@@ -167,6 +167,12 @@ ddr::ddr(vp::ComponentConf &config)
     simulationJson_path = resources_path + "/" + dram_type;
 
     dram_id = add_dram((char*)resources_path.c_str(), (char*)simulationJson_path.c_str(), &memspec);
+    if (memspec.access_size == 0 || (memspec.access_size & (memspec.access_size - 1)) != 0 ||
+        memspec.nb_channels == 0)
+    {
+        this->trace.fatal("DRAMSys returned an invalid memory specification; rebuild "
+            "libDRAMSys_Simulator.so with the repository's matching DRAMSys patch\n");
+    }
     access_size_clog = log2(memspec.access_size);
     dram_register_async_callback(dram_id, (CallbackInstance_t)this, (AsynCallbackResp_Meth *)&ddr::rspCallback, (AsynCallbackUpdateReq_Meth*)&ddr::reqCallback);
 
@@ -260,6 +266,24 @@ vp::IoReqStatus ddr::req(vp::Block *__this, vp::IoReq *req)
     uint64_t offset = req->get_addr();
     uint8_t *data = req->get_data();
     uint64_t size = req->get_size();
+
+    if (req->is_debug())
+    {
+        // DRAMSys stores the bytes immediately; no transactions, callbacks or SystemC time.
+        if (size > UINT64_MAX - offset || data == nullptr) return vp::IO_REQ_INVALID;
+        if (req->get_opcode() == vp::IoReqOpcode::WRITE && _this->dram_preload_byte)
+        {
+            for (uint64_t i = 0; i < size; ++i)
+                _this->dram_preload_byte(_this->dram_id, offset + i, data[i]);
+        }
+        else if (req->get_opcode() == vp::IoReqOpcode::READ && _this->dram_check_byte)
+        {
+            for (uint64_t i = 0; i < size; ++i)
+                data[i] = _this->dram_check_byte(_this->dram_id, offset + i);
+        }
+        else return vp::IO_REQ_INVALID;
+        return vp::IO_REQ_OK;
+    }
 
     _this->trace.msg("IO access (offset: 0x%x, size: 0x%x, is_write: %d)\n", offset, size, req->get_is_write());
 

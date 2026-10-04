@@ -58,10 +58,12 @@ public:
 private:
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
     bool load_elf(const char* file, uint64_t *entry);
-    bool load_elf32(unsigned char* file, uint64_t *entry);
-    bool load_elf64(unsigned char* file, uint64_t *entry);
+    bool load_elf32(unsigned char* file, size_t size, uint64_t *entry);
+    bool load_elf64(unsigned char* file, size_t size, uint64_t *entry);
     void section_copy(uint64_t paddr, uint8_t *data, size_t size);
     void section_clear(uint64_t paddr, size_t size);
+    void load_direct();
+    void finish();
 
     vp::Trace trace;
     std::list<Section *> sections;
@@ -72,6 +74,7 @@ private:
     vp::IoReq req;
     uint64_t entry;
     bool is_32 = true;
+    bool direct = false;
     Section *current_section = NULL;
     uint64_t fetchen_value;
 };
@@ -92,6 +95,8 @@ loader::loader(vp::ComponentConf &config)
     new_master_port("entry", &this->entry_itf);
 
     this->event = this->event_new(loader::event_handler);
+    js::Config *direct_conf = this->get_js_config()->get("direct");
+    this->direct = direct_conf != nullptr && direct_conf->get_bool();
 
 }
 
@@ -117,7 +122,11 @@ void loader::reset(bool active)
     {
         for (auto x:this->get_js_config()->get("binary")->get_elems())
         {
-            this->load_elf(x->get_str().c_str(), &this->entry);
+            if (this->load_elf(x->get_str().c_str(), &this->entry))
+            {
+                this->trace.fatal("Unable to load ELF: %s\n", x->get_str().c_str());
+                return;
+            }
         }
 
         js::Config *entry_addr_conf = this->get_js_config()->get("entry_addr");
@@ -137,7 +146,10 @@ void loader::reset(bool active)
 
         if (this->sections.size() > 0)
         {
-            this->event_enqueue(this->event, 1);
+            // All memories have already seen reset assertion. Initialize them during reset
+            // release, before the simulator executes any core or SystemC transaction.
+            if (this->direct) this->load_direct();
+            else this->event_enqueue(this->event, 1);
         }
     }
 }
@@ -146,6 +158,11 @@ void loader::reset(bool active)
 void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     loader *_this = (loader *)__this;
+    if (_this->direct)
+    {
+        _this->finish();
+        return;
+    }
     if (_this->sections.size() > 0 && _this->current_section == NULL)
     {
         _this->current_section = _this->sections.front();
@@ -212,22 +229,62 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
     }
     else
     {
-        js::Config *entry_conf = _this->get_js_config()->get("entry");
-        if (entry_conf != NULL)
-        {
-            _this->entry = entry_conf->get_int();
-        }
+        _this->finish();
+    }
+}
 
-        if (_this->entry_itf.is_bound())
+void loader::load_direct()
+{
+    uint8_t zeros[1 << 16] = {};
+    uint64_t loaded = 0;
+    while (!this->sections.empty())
+    {
+        Section *section = this->sections.front();
+        this->sections.pop_front();
+        for (size_t offset = 0; offset < section->size;)
         {
-            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending entry (addr: 0x%x)\n", _this->entry);
-            _this->entry_itf.sync(_this->entry);
+            size_t size = std::min(section->size - offset, sizeof(zeros));
+            this->req.init();
+            this->req.set_addr(section->paddr + offset);
+            this->req.set_size(size);
+            this->req.set_data(section->data ? section->data + offset : zeros);
+            this->req.set_is_write(true);
+            this->req.set_debug(true);
+            if (this->out_itf.req(&this->req) != vp::IO_REQ_OK)
+            {
+                this->trace.fatal("Direct ELF preload failed (address: 0x%llx, size: 0x%zx); "
+                    "the destination must support synchronous debug writes\n",
+                    section->paddr + offset, size);
+                return;
+            }
+            offset += size;
+            loaded += size;
         }
-        if (_this->start_itf.is_bound())
-        {
-            _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending start\n");
-            _this->start_itf.sync(true);
-        }
+        delete section;
+    }
+    this->trace.msg("Direct ELF preload complete (bytes: %llu, cycle: %lld)\n",
+        loaded, this->clock.get_cycles());
+    // Release cores on the first clock edge, after reset has propagated everywhere. The
+    // initialization itself consumes no cycles, irrespective of the amount of ELF data.
+    this->event_enqueue(this->event, 1);
+}
+
+void loader::finish()
+{
+    js::Config *entry_conf = this->get_js_config()->get("entry");
+    if (entry_conf != NULL)
+    {
+        this->entry = entry_conf->get_int();
+    }
+    if (this->entry_itf.is_bound())
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending entry (addr: 0x%x)\n", this->entry);
+        this->entry_itf.sync(this->entry);
+    }
+    if (this->start_itf.is_bound())
+    {
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending start\n");
+        this->start_itf.sync(true);
     }
 }
 
@@ -240,9 +297,15 @@ bool loader::load_elf(const char* file, uint64_t *entry)
     if (fstat(fd, &s) < 0)
     {
         this->trace.force_warning("Unable to open binary (path: %s, error: %s)\n", file, strerror(errno));
+        if (fd >= 0) close(fd);
         return true;
     }
     size_t size = s.st_size;
+    if (size < EI_NIDENT)
+    {
+        close(fd);
+        return true;
+    }
 
     unsigned char* buf = (unsigned char*)mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (buf == MAP_FAILED)
@@ -253,15 +316,21 @@ bool loader::load_elf(const char* file, uint64_t *entry)
     }
     close(fd);
 
+    if (memcmp(buf, ELFMAG, SELFMAG) != 0 || buf[EI_DATA] != ELFDATA2LSB ||
+        (buf[EI_CLASS] != ELFCLASS32 && buf[EI_CLASS] != ELFCLASS64))
+    {
+        munmap(buf, size);
+        return true;
+    }
     this->is_32 = buf[EI_CLASS] == ELFCLASS32;
 
     if (buf[EI_CLASS] == ELFCLASS32)
     {
-        return this->load_elf32(buf, entry);
+        return this->load_elf32(buf, size, entry);
     }
     else
     {
-        return this->load_elf64(buf, entry);
+        return this->load_elf64(buf, size, entry);
     }
 }
 
@@ -287,9 +356,12 @@ void loader::section_clear(uint64_t paddr, size_t size)
 
 
 
-bool loader::load_elf32(unsigned char* file, uint64_t *entry)
+bool loader::load_elf32(unsigned char* file, size_t size, uint64_t *entry)
 {
+    if (size < sizeof(Elf32_Ehdr)) return true;
     Elf32_Ehdr *header = (Elf32_Ehdr *) file;
+    if (header->e_phentsize != sizeof(Elf32_Phdr) || header->e_phoff > size ||
+        header->e_phnum > (size - header->e_phoff) / sizeof(Elf32_Phdr)) return true;
     Elf32_Phdr *pg_headers = (Elf32_Phdr *) &file[header->e_phoff];
 
     for (int i=0; i<header->e_phnum; i++)
@@ -297,6 +369,8 @@ bool loader::load_elf32(unsigned char* file, uint64_t *entry)
         Elf32_Phdr *segment = &pg_headers[i];
         if (segment->p_type == PT_LOAD && segment->p_memsz)
         {
+            if (segment->p_filesz > segment->p_memsz || segment->p_offset > size ||
+                segment->p_filesz > size - segment->p_offset) return true;
             this->section_copy(segment->p_paddr, &file[segment->p_offset], segment->p_filesz);
             if (segment->p_filesz < segment->p_memsz)
             {
@@ -312,16 +386,22 @@ bool loader::load_elf32(unsigned char* file, uint64_t *entry)
 
 
 
-bool loader::load_elf64(unsigned char* file, uint64_t *entry)
+bool loader::load_elf64(unsigned char* file, size_t size, uint64_t *entry)
 {
+    if (size < sizeof(Elf64_Ehdr)) return true;
     Elf64_Ehdr *header = (Elf64_Ehdr *) file;
+    if (header->e_phentsize != sizeof(Elf64_Phdr) || header->e_phoff > size ||
+        header->e_phnum > (size - header->e_phoff) / sizeof(Elf64_Phdr)) return true;
     Elf64_Phdr *pg_headers = (Elf64_Phdr *) &file[header->e_phoff];
 
     for (int i=0; i<header->e_phnum; i++)
     {
         Elf64_Phdr *segment = &pg_headers[i];
-        if (segment->p_type == PT_LOAD && segment->p_filesz)
+        if (segment->p_type == PT_LOAD && segment->p_memsz)
         {
+            if (segment->p_filesz > segment->p_memsz || segment->p_offset > size ||
+                segment->p_filesz > size - segment->p_offset ||
+                segment->p_memsz > UINT64_MAX - segment->p_paddr) return true;
             this->section_copy(segment->p_paddr, &file[segment->p_offset], segment->p_filesz);
             if (segment->p_filesz < segment->p_memsz)
             {

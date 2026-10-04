@@ -40,10 +40,13 @@ class ElfLoader(gvsoc.systree.Component):
         taken from the binary.
     entry_addr: int
         Address where the entry should be written.
+    direct: bool
+        Initialize memory through synchronous debug writes at reset release, without advancing
+        simulated time. Every component on the loading path must support untimed debug requests.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, binary: str=None,
             binaries: list=None, entry: int=None, entry_addr: int=None,
-            fetchen_addr: int=None, fetchen_value=None):
+            fetchen_addr: int=None, fetchen_value=None, direct: bool=False):
 
         super().__init__(parent, name)
 
@@ -57,7 +60,8 @@ class ElfLoader(gvsoc.systree.Component):
         self.set_component('utils.loader.loader')
 
         self.add_properties({
-            'binary': whole_binaries
+            'binary': whole_binaries,
+            'direct': direct,
         })
 
         if entry is not None:

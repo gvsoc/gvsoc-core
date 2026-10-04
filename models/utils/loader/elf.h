@@ -22,6 +22,10 @@
 
 #define EI_NIDENT  (16)
 #define EI_CLASS   4
+#define EI_DATA    5
+#define ELFDATA2LSB 1
+#define ELFMAG     "\177ELF"
+#define SELFMAG    4
 #define ELFCLASS32 1
 #define ELFCLASS64 2
 #define PT_LOAD    1

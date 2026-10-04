@@ -292,6 +292,37 @@ vp::IoReqStatus Router::handle_req(vp::IoReq *req, int port)
     uint8_t *data = req->get_data();
     bool is_write = req->get_is_write();
 
+    if (req->is_debug())
+    {
+        // Keep address decoding, including split mappings, but leave bandwidth, statistics and
+        // activity signals untouched. Debug/preload requests must complete synchronously.
+        if (size > UINT64_MAX - offset) return vp::IO_REQ_INVALID;
+        while (size)
+        {
+            auto *mapping = this->mapping_tree.get(offset, size, is_write);
+            if (!mapping || mapping->id == this->error_id) return vp::IO_REQ_INVALID;
+            OutputPort *entry = this->entries[mapping->id];
+            if (!entry->itf.is_bound()) return vp::IO_REQ_INVALID;
+            uint64_t chunk = mapping->size == 0 ? size :
+                std::min(size, mapping->size - (offset - mapping->base));
+            vp::IoReq child;
+            child.init();
+            child.set_addr(offset - entry->remove_offset + entry->add_offset);
+            child.set_size(chunk);
+            child.set_data(data);
+            child.set_opcode(req->get_opcode());
+            child.set_debug(true);
+            vp::IoReqStatus status = entry->itf.req(&child);
+            if (status == vp::IO_REQ_PENDING || status == vp::IO_REQ_DENIED)
+                this->trace.fatal("Asynchronous destination on debug access at 0x%llx\n", offset);
+            if (status != vp::IO_REQ_OK) return vp::IO_REQ_INVALID;
+            offset += chunk;
+            data += chunk;
+            size -= chunk;
+        }
+        return vp::IO_REQ_OK;
+    }
+
     this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received IO req (offset: 0x%llx, size: 0x%llx, is_write: %d)\n",
         offset, size, is_write);
 

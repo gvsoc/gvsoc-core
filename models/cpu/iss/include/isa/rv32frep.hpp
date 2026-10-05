@@ -43,7 +43,8 @@ static inline iss_reg_t frep_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t frep_o_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // Only the integer core offloads, the FP subsystem build does not have the offload path
+#if defined(CONFIG_GVSOC_ISS_SNITCH) && !defined(CONFIG_GVSOC_ISS_SNITCH_FP_SS)
     // Add access check REG_GET(0) here, one of input operand is from register.
     // Latency accumulates after the instruction if there's data dependency.
     insn->max_rpt = REG_GET(0);
@@ -72,7 +73,8 @@ static inline iss_reg_t frep_o_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 
 static inline iss_reg_t frep_i_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // Only the integer core offloads, the FP subsystem build does not have the offload path
+#if defined(CONFIG_GVSOC_ISS_SNITCH) && !defined(CONFIG_GVSOC_ISS_SNITCH_FP_SS)
     insn->max_rpt = REG_GET(0);
     insn->is_outer = false;
 

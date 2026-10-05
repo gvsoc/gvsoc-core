@@ -88,7 +88,7 @@ int Decode::decode_info(iss_insn_t *insn, iss_opcode_t opcode, iss_decoder_arg_i
     return 0;
 }
 
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+#if defined(CONFIG_GVSOC_ISS_SNITCH) && !defined(CONFIG_GVSOC_ISS_SNITCH_FP_SS)
 static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (iss->snitch & !iss->fp_ss)
@@ -165,7 +165,7 @@ static inline iss_reg_t fp_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc
     // check whether that operation has finished. Otherwise, block the integer core.
     // 2. If one of the input and output operand are invalid in regfile.scoreboard_reg_valid, stall at current pc.
     // If all operands are ready, continue to execute.
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+#if defined(CONFIG_GVSOC_ISS_SNITCH) && !defined(CONFIG_GVSOC_ISS_SNITCH_FP_SS)
 static inline iss_reg_t int_offload_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     if (iss->snitch & !iss->fp_ss)
@@ -449,7 +449,8 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
 #endif
 
     // For floating point instructions, go to offload handler instead of executing directly.
-#ifdef CONFIG_GVSOC_ISS_SNITCH
+    // Only the integer core offloads, the FP subsystem build does not have the offload path.
+#if defined(CONFIG_GVSOC_ISS_SNITCH) && !defined(CONFIG_GVSOC_ISS_SNITCH_FP_SS)
     if (this->iss.snitch & !this->iss.fp_ss)
     {
         insn->resource_handler = insn->handler;

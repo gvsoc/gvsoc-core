@@ -32,7 +32,9 @@ namespace vp
     {
 
     public:
-        Composite(vp::ComponentConf &config);
+        // Defined inline so that composites subclassed in other models do not import it from
+        // this model, which only exports its entry point.
+        Composite(vp::ComponentConf &config) : vp::Component(config) {}
 
         // Forwarding constructor for composite subclasses using a compiled config
         // struct (e.g. to declare power sources from generated power tables)

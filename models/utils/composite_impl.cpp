@@ -24,13 +24,6 @@
 
 
 
-
-vp::Composite::Composite(vp::ComponentConf &config)
-    : vp::Component(config)
-{
-}
-
-
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
     return new vp::Composite(config);

@@ -23,6 +23,17 @@
 Spatz::Spatz(Iss &iss)
 : iss(iss), vu(iss)
 {
+#ifdef CONFIG_GVSOC_ISS_SNITCH_BARRIER_CSR
+    this->iss.traces.new_trace("barrier", &this->barrier_trace, vp::DEBUG);
+
+    this->iss.csr.declare_csr(&this->barrier, "barrier", 0x7C2);
+    this->barrier.register_callback(std::bind(&Spatz::barrier_update,
+        this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+    this->barrier_ack_itf.set_sync_meth(&Spatz::barrier_sync);
+    this->iss.new_slave_port("barrier_ack", &this->barrier_ack_itf, (vp::Block *)this);
+    this->iss.new_master_port("barrier_req", &this->barrier_req_itf);
+#endif
 }
 
 void Spatz::start()
@@ -50,4 +61,50 @@ void Spatz::start()
 void Spatz::reset(bool active)
 {
     this->vu.reset(active);
+#ifdef CONFIG_GVSOC_ISS_SNITCH_BARRIER_CSR
+    if (active)
+    {
+        this->barrier_waiting = false;
+        this->barrier_stalled = false;
+    }
+#endif
 }
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH_BARRIER_CSR
+bool Spatz::barrier_update(iss_insn_t *insn, bool is_write, iss_reg_t &value)
+{
+    if (!is_write && this->barrier_req_itf.is_bound())
+    {
+        this->barrier_trace.msg(vp::Trace::LEVEL_DEBUG, "Entering barrier\n");
+
+        // The last core to arrive gets its ack synchronously, from inside
+        // the notification: flag the wait first so that it is seen.
+        this->barrier_waiting = true;
+        this->barrier_req_itf.sync(1);
+
+        if (this->barrier_waiting)
+        {
+            // Stall the core until barrier_sync releases it
+            this->barrier_stalled = true;
+            this->iss.exec.busy_exit();
+            this->iss.exec.retain_inc();
+        }
+    }
+    return false;
+}
+
+void Spatz::barrier_sync(vp::Block *__this, bool value)
+{
+    Spatz *_this = (Spatz *)__this;
+
+    _this->barrier_trace.msg(vp::Trace::LEVEL_DEBUG, "Leaving barrier\n");
+
+    _this->barrier_waiting = false;
+    if (_this->barrier_stalled)
+    {
+        _this->barrier_stalled = false;
+        _this->iss.exec.busy_enter();
+        _this->iss.exec.retain_dec();
+    }
+}
+#endif

@@ -28,6 +28,15 @@
 
 class Iss;
 
+/**
+ * Snitch core with the Spatz vector unit.
+ *
+ * With CONFIG_GVSOC_ISS_SNITCH_BARRIER_CSR, the core also has the Snitch
+ * barrier CSR (0x7C2): reading it notifies the cluster barrier unit through
+ * the barrier_req port and stalls the core until the unit answers on
+ * barrier_ack, once every core of the cluster has arrived. Clusters using a
+ * memory-mapped barrier instead leave it out.
+ */
 class Spatz
 {
 public:
@@ -42,4 +51,18 @@ public:
 private:
 
     Iss &iss;
+
+#ifdef CONFIG_GVSOC_ISS_SNITCH_BARRIER_CSR
+    bool barrier_update(iss_insn_t *insn, bool is_write, iss_reg_t &value);
+    static void barrier_sync(vp::Block *__this, bool value);
+
+    CsrReg barrier;
+    vp::WireMaster<bool> barrier_req_itf;
+    vp::WireSlave<bool> barrier_ack_itf;
+    // True between the barrier CSR read and the barrier_ack
+    bool barrier_waiting;
+    // True while the core is retained (stalled) on the barrier
+    bool barrier_stalled;
+    vp::Trace barrier_trace;
+#endif
 };

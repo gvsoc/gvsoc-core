@@ -51,13 +51,10 @@ vp_model(NAME utils.io_v2_beat_to_sync_adapter
 # checked in asserts builds.
 #
 # It reads its parameters from the generated config tree
-# (IoV2BeatToSingleReqAdapterConfig); the generated struct header lands under the
-# engine binary dir, so add it to the include path for this standalone build
-# (target-driven gen_ builds get it automatically).
+# (IoV2BeatToSingleReqAdapterConfig).
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_beat_to_single_req_adapter
     SOURCES "io_v2_beat_to_single_req_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
 )
 
 # ---------------------------------------------------------------------------
@@ -66,11 +63,10 @@ vp_model(NAME utils.io_v2_beat_to_single_req_adapter
 # per-beat streams in both directions (N narrow beats <-> one wide beat) so
 # each side runs at its own beat width and shows its own per-cycle occupancy.
 # Reads its parameters from the generated config tree
-# (IoV2BeatWidthAdapterConfig), hence the engine binary-dir include.
+# (IoV2BeatWidthAdapterConfig).
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_beat_width_adapter
     SOURCES "io_v2_beat_width_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
 )
 
 # ---------------------------------------------------------------------------
@@ -79,12 +75,10 @@ vp_model(NAME utils.io_v2_beat_width_adapter
 # the allocation conventions (frees the downstream read beats, hands the
 # master back its own request) with no single-outstanding serialisation:
 # any number of accesses can be in flight. Reads its parameters from the
-# generated config tree (IoV2SingleReqToBeatAdapterConfig), hence the engine
-# binary-dir include.
+# generated config tree (IoV2SingleReqToBeatAdapterConfig).
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_single_req_to_beat_adapter
     SOURCES "io_v2_single_req_to_beat_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
 )
 
 # ---------------------------------------------------------------------------
@@ -93,12 +87,10 @@ vp_model(NAME utils.io_v2_single_req_to_beat_adapter
 # access straddling an aligned granule boundary into granule-aligned
 # sub-accesses (identity contract preserved), so a bank-interleaved fabric
 # never mis-routes a too-wide access to a single bank. Reads its parameters
-# from the generated config tree (IoV2SingleReqWidthAdapterConfig), hence the
-# engine binary-dir include.
+# from the generated config tree (IoV2SingleReqWidthAdapterConfig).
 # ---------------------------------------------------------------------------
 vp_model(NAME utils.io_v2_single_req_width_adapter
     SOURCES "io_v2_single_req_width_adapter.cpp"
-    INCLUDES "${CMAKE_BINARY_DIR}/gvsoc/engine"
 )
 
 add_subdirectory(loader)

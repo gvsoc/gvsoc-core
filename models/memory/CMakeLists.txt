@@ -50,12 +50,6 @@ if(RAMULATOR_LIB)
     vp_model_include_directories(NAME memory.ramulator
         DIRECTORY "${RAMULATOR_DIR}/src"
         )
-    # Generated-config-header root (holds memory/ramulator/ramulator_config.hpp,
-    # emitted under the engine build dir). add_sources models inherit this; a
-    # vp_model target must add it explicitly.
-    vp_model_include_directories(NAME memory.ramulator
-        DIRECTORY "${CMAKE_BINARY_DIR}/gvsoc/engine"
-        )
     vp_model_compile_options(NAME memory.ramulator
         OPTIONS "-std=c++20"
         )

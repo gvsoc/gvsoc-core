@@ -567,7 +567,7 @@ void Syscalls::handle_riscv_ebreak()
         std::string path = this->read_user_string(args[0]);
         if (path == "")
         {
-            this->trace.force_warning("Invalid user string while opening VCD trace (addr: 0x%x)\n", args[0]);
+            this->trace.force_warning_no_error("Invalid user string while opening VCD trace (addr: 0x%x)\n", args[0]);
         }
         else
         {
@@ -578,7 +578,7 @@ void Syscalls::handle_riscv_ebreak()
             vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_from_path(path);
             if (trace == NULL)
             {
-                this->trace.force_warning("Invalid VCD trace (path: %s)\n", path.c_str());
+                this->trace.force_warning_no_error("Invalid VCD trace (path: %s)\n", path.c_str());
             }
             else
             {
@@ -598,6 +598,11 @@ void Syscalls::handle_riscv_ebreak()
     case 0x10A:
     {
         int id = this->iss.regfile.regs[11];
+        // A negative descriptor comes from an open which failed, and already warned
+        if (id < 0)
+        {
+            break;
+        }
         vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
         if (trace == NULL)
         {
@@ -620,6 +625,12 @@ void Syscalls::handle_riscv_ebreak()
                         event->dump_value((uint8_t *)&this->iss.regfile.regs[12]);
                 }
             }
+        }
+        else if (trace->type == gv::Vcd_event_type_real)
+        {
+            // Real traces are written with signed integers
+            iss_reg_t value = this->iss.regfile.regs[12];
+            trace->event_real((double)(int32_t)value);
         }
         else
         {
@@ -649,6 +660,11 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
+        // A negative descriptor comes from an open which failed, and already warned
+        if (id < 0)
+        {
+            break;
+        }
         vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
         if (trace == NULL)
         {
@@ -680,6 +696,11 @@ void Syscalls::handle_riscv_ebreak()
         }
 
         int id = args[0];
+        // A negative descriptor comes from an open which failed, and already warned
+        if (id < 0)
+        {
+            break;
+        }
         vp::Trace *trace = this->iss.top.traces.get_trace_engine()->get_trace_event_from_id(id);
         if (trace == NULL)
         {

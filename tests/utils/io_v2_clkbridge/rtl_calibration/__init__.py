@@ -33,7 +33,7 @@ invokes those builds before each test run.
 from gvsoc.clock_bridges import register
 
 
-def _cdc_2phase_rtl_factory(parent, name, **opts):
+def _cdc_2phase_rtl_factory(parent, name, signature, **opts):
     from rtl_calibration.io_v2_cdc_2phase_rtl import IoV2Cdc2PhaseRtl
     plugin_path = opts.pop('plugin_path', None)
     if opts:
@@ -42,7 +42,7 @@ def _cdc_2phase_rtl_factory(parent, name, **opts):
     return IoV2Cdc2PhaseRtl(parent, name, plugin_path=plugin_path)
 
 
-def _cdc_fifo_gray_rtl_factory(parent, name, **opts):
+def _cdc_fifo_gray_rtl_factory(parent, name, signature, **opts):
     from rtl_calibration.io_v2_cdc_fifo_gray_rtl import IoV2CdcFifoGrayRtl
     plugin_path = opts.pop('plugin_path', None)
     if opts:
@@ -51,7 +51,7 @@ def _cdc_fifo_gray_rtl_factory(parent, name, **opts):
     return IoV2CdcFifoGrayRtl(parent, name, plugin_path=plugin_path)
 
 
-def _cdc_fifo_2phase_rtl_factory(parent, name, **opts):
+def _cdc_fifo_2phase_rtl_factory(parent, name, signature, **opts):
     from rtl_calibration.io_v2_cdc_fifo_2phase_rtl import IoV2CdcFifo2PhaseRtl
     plugin_path = opts.pop('plugin_path', None)
     if opts:

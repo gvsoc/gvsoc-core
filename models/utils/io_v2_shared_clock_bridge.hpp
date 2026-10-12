@@ -9,6 +9,9 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/debug_mem.hpp>
+// Generated from the IoV2SharedClockBridgeConfig dataclass in the Python
+// generator (config tree).
+#include <utils/io_v2_shared_clock_bridge/io_v2_shared_clock_bridge_config.hpp>
 
 // io_v2 bridge between two clock domains driven by the same clock (one clock
 // behind two gates or dividers, no synchronizer on the chip): the two domains
@@ -43,6 +46,10 @@ public:
     // Channels: write beats and their acknowledgements, and the rest (reads
     // and their response beats).
     enum { CH_READ = 0, CH_WRITE = 1, NB_CHANNELS = 2 };
+    // io_v2 protocol of the crossing. Only the beat protocol acknowledges a
+    // write burst with a separate data-less request, on the others a write
+    // goes back to its master as itself.
+    enum Protocol { PROTOCOL_BEAT, PROTOCOL_SINGLE_REQ, PROTOCOL_SYNC };
 
     IoV2SharedClockBridge(vp::ComponentConf &config);
     void start() override;
@@ -110,6 +117,8 @@ private:
     vp::IoMaster out{&IoV2SharedClockBridge::out_retry_handler,
                      &IoV2SharedClockBridge::out_resp_handler};
     vp::Trace trace;
+    IoV2SharedClockBridgeConfig cfg;
+    Protocol protocol;
 
     vp::ClockEngine *master_engine = nullptr;
     vp::ClockEngine *slave_engine  = nullptr;

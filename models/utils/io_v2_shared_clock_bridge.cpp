@@ -8,7 +8,7 @@
 
 
 IoV2SharedClockBridge::IoV2SharedClockBridge(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       req_event(this, &IoV2SharedClockBridge::req_event_handler),
       resp_event(this, &IoV2SharedClockBridge::resp_event_handler),
       req_retry_event(this, &IoV2SharedClockBridge::req_retry_event_handler),
@@ -17,6 +17,16 @@ IoV2SharedClockBridge::IoV2SharedClockBridge(vp::ComponentConf &config)
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->new_slave_port("input", &this->in);
     this->new_master_port("output", &this->out);
+
+    std::string protocol = this->cfg.protocol;
+    if (protocol == "beat")
+        this->protocol = PROTOCOL_BEAT;
+    else if (protocol == "single_req")
+        this->protocol = PROTOCOL_SINGLE_REQ;
+    else if (protocol == "sync")
+        this->protocol = PROTOCOL_SYNC;
+    else
+        this->trace.fatal("unknown protocol '%s'\n", this->cfg.protocol);
 }
 
 
@@ -35,7 +45,8 @@ void IoV2SharedClockBridge::start()
     this->master_engine = master_port->get_owner()->clock.get_engine();
     this->slave_engine  = slave_port->get_owner()->clock.get_engine();
     this->init_lists();
-    this->trace.msg(vp::Trace::LEVEL_INFO, "bridge mode=shared_clock\n");
+    this->trace.msg(vp::Trace::LEVEL_INFO, "bridge mode=shared_clock protocol=%s\n",
+        this->cfg.protocol);
 }
 
 
@@ -72,16 +83,17 @@ void IoV2SharedClockBridge::reset(bool active)
     this->master_engine->cancel(&this->resp_event);
     this->master_engine->cancel(&this->req_retry_event);
     this->slave_engine->cancel(&this->resp_retry_event);
-    // A write beat still in the request list was granted to the bridge and
-    // nobody else will free it. A write without allocator is a master-owned
-    // object (round-trip write), not ours to free. The rest is dropped: the
-    // owners reset with us.
+    // On the beat protocol, a write beat still in the request list was granted
+    // to the bridge and nobody else will free it. A write without allocator is
+    // a master-owned object (round-trip write), not ours to free, as are the
+    // writes of the other protocols. The rest is dropped: the owners reset
+    // with us.
     for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
         for (vp::IoReq *req = this->req_list[ch].head; req != nullptr; )
         {
             vp::IoReq *next = req->get_next();
-            if (req->get_opcode() == vp::WRITE && req->allocator != nullptr)
+            if (this->protocol == PROTOCOL_BEAT && req->get_opcode() == vp::WRITE && req->allocator != nullptr)
             {
                 req->free();
             }
@@ -254,7 +266,7 @@ void IoV2SharedClockBridge::req_send(int ch)
                 req, req->get_addr());
             req->free();
         }
-        else if (is_write)
+        else if (is_write && this->protocol == PROTOCOL_BEAT)
         {
             // Inline burst ack on the last write beat: the upstream master
             // granted the beat to the bridge and waits for a separate ack.
@@ -273,7 +285,9 @@ void IoV2SharedClockBridge::req_send(int ch)
         }
         else
         {
-            this->push(this->resp_list[CH_READ], req);
+            // A read, or a write of another protocol than beat: the request
+            // goes back as itself, the master owns it.
+            this->push(this->resp_list[channel_of(req)], req);
         }
     }
     // GRANTED: the output side owns it now. A read or an atomic comes back

@@ -51,10 +51,18 @@ void LsuV2::reset(bool active)
         this->io_req_denied = false;
         this->denied_entry = NULL;
         this->granted_entry = NULL;
-        // The retain count of the core is reset with it
+        // The retain count of the core is reset with it. Every entry is free
+        // again, including the ones of the accesses in flight at reset, whose
+        // responses are dropped with the rest of the reset system.
+        this->req_entry_first = NULL;
         for (int i = 0; i < CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING; i++)
         {
-            this->req_entry[i].holds_core = false;
+            LsuReqEntry *req = &this->req_entry[i];
+            req->holds_core = false;
+            req->misaligned_size = 0;
+            req->misaligned_byte_offset = 0;
+            req->next = this->req_entry_first;
+            this->req_entry_first = req;
         }
         this->pending_fence = false;
         this->nb_pending_accesses = 0;

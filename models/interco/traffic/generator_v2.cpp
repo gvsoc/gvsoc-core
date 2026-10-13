@@ -58,6 +58,11 @@ public:
     bool do_write;
     size_t packet_size;
     uint8_t *data;
+    // Second stream, interleaved packet by packet (interleave only).
+    bool interleave = false;
+    uint64_t address2 = 0;
+    bool do_write2 = false;
+    uint8_t *data2 = nullptr;
 };
 
 // Per-in-flight-request record. It is the initiator handle carried by
@@ -109,6 +114,12 @@ private:
     bool check_write;
     uint64_t address;
     uint8_t *data;
+    // Second stream of an interleaved transfer: its cursor and bytes left,
+    // and which stream sends the next packet.
+    uint64_t address2 = 0;
+    uint8_t *data2 = nullptr;
+    uint64_t size2 = 0;
+    int next_stream = 0;
     vp::Signal<uint64_t> size;
     vp::Signal<uint64_t> pending_size;
     TrafficGeneratorSync *sync;
@@ -140,6 +151,9 @@ private:
     uint64_t config_size;
     uint64_t config_address;
     size_t packet_size;
+    bool config_interleave = false;
+    uint64_t config_address2 = 0;
+    bool config_do_write2 = false;
     // Burst legalization boundary (AXI 4KB rule); 0 disables it.
     uint64_t max_burst_size;
 
@@ -324,6 +338,13 @@ void GeneratorV2::control_sync(vp::Block *__this, TrafficGeneratorConfig *config
         _this->config_size = config->size;
         _this->config_address = config->address;
         _this->packet_size = config->packet_size;
+        _this->config_interleave = config->interleave;
+        _this->config_address2 = config->address2;
+        _this->config_do_write2 = config->do_write2;
+        if (config->interleave && config->check)
+        {
+            throw std::invalid_argument("interleaved transfers have no data check");
+        }
 
         for (int i = 0; i < _this->nb_pending_reqs; i++)
         {
@@ -460,8 +481,16 @@ void GeneratorV2::handle_transfer()
 
     this->close_transfer();
 
-    this->transfers.push(new TransferV2(
-        {this->config_address, this->config_size, this->check_write, this->packet_size, data}));
+    TransferV2 *transfer = new TransferV2(
+        {this->config_address, this->config_size, this->check_write, this->packet_size, data});
+    if (this->config_interleave)
+    {
+        transfer->interleave = true;
+        transfer->address2 = this->config_address2;
+        transfer->do_write2 = this->config_do_write2;
+        transfer->data2 = new uint8_t[this->config_size];
+    }
+    this->transfers.push(transfer);
     this->fsm_event.enqueue();
 }
 
@@ -501,6 +530,7 @@ void GeneratorV2::close_transfer()
     if (this->current_transfer)
     {
         delete[] this->current_transfer->data;
+        delete[] this->current_transfer->data2;
         delete this->current_transfer;
         this->current_transfer = NULL;
     }
@@ -562,10 +592,28 @@ void GeneratorV2::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->pending_size = _this->current_transfer->size;
         _this->address = _this->current_transfer->address;
         _this->data = _this->current_transfer->data;
+        _this->next_stream = 0;
+        _this->size2 = 0;
+        if (_this->current_transfer->interleave)
+        {
+            _this->size2 = _this->current_transfer->size;
+            _this->pending_size = 2 * _this->current_transfer->size;
+            _this->address2 = _this->current_transfer->address2;
+            _this->data2 = _this->current_transfer->data2;
+        }
     }
 
-    if (!_this->stalled && _this->size > 0 && !_this->free_reqs.empty())
+    if (!_this->stalled && (_this->size > 0 || _this->size2 > 0) && !_this->free_reqs.empty())
     {
+        // Interleaved transfer: one packet of each stream in turn, the
+        // other one once a stream is done.
+        bool second = _this->size2 > 0 && (_this->next_stream == 1 || _this->size == 0);
+        _this->next_stream = second ? 0 : 1;
+        uint64_t &address = second ? _this->address2 : _this->address;
+        uint8_t *&data = second ? _this->data2 : _this->data;
+        uint64_t left = second ? _this->size2 : _this->size.get();
+        bool do_write = second ? _this->current_transfer->do_write2 : _this->current_transfer->do_write;
+
         TransferRecord *rec = (TransferRecord *)_this->free_reqs.pop();
 
         // Drawn per send from the shared size-0 pool: the object may end up
@@ -583,15 +631,15 @@ void GeneratorV2::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         uint64_t chunk = _this->current_transfer->packet_size;
         if (_this->max_burst_size > 0)
         {
-            uint64_t to_boundary = _this->max_burst_size - (_this->address % _this->max_burst_size);
+            uint64_t to_boundary = _this->max_burst_size - (address % _this->max_burst_size);
             if (chunk > to_boundary) chunk = to_boundary;
         }
-        if (chunk > _this->size.get()) chunk = _this->size.get();
+        if (chunk > left) chunk = left;
 
         req->set_size(chunk);
-        req->set_addr(_this->address);
-        req->set_data(_this->data);
-        req->set_is_write(_this->current_transfer->do_write);
+        req->set_addr(address);
+        req->set_data(data);
+        req->set_is_write(do_write);
         // Correlation handle for the initiator-owned convention: a beat
         // slave answers a read with distinct beat objects — and a write
         // burst with a single data-less ack — carrying this pointer in
@@ -606,18 +654,19 @@ void GeneratorV2::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         req->burst_id = -1;
 
         rec->req = req;
-        rec->data = _this->data;
+        rec->data = data;
         rec->size = chunk;
         rec->fill = 0;
-        rec->is_write = _this->current_transfer->do_write;
+        rec->is_write = do_write;
         _this->outstanding.insert(rec);
 
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request (req: %p, address: 0x%llx, size: 0x%llx, packet_size: 0x%llx)\n",
-            req, _this->address, chunk, _this->current_transfer->packet_size);
+            req, address, chunk, _this->current_transfer->packet_size);
 
-        _this->address += chunk;
-        _this->data += chunk;
-        _this->size -= chunk;
+        address += chunk;
+        data += chunk;
+        if (second) _this->size2 -= chunk;
+        else _this->size -= chunk;
 
         _this->try_send(req);
     }

@@ -143,6 +143,10 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
 
     if (config->is_start)
     {
+        if (config->interleave)
+        {
+            throw std::invalid_argument("interleaved transfers need GeneratorV2");
+        }
         config->sync->add_generator(_this);
 
         _this->check_status = false;

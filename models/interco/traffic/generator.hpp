@@ -42,6 +42,12 @@ public:
     bool check;
     bool check_status;
     int64_t duration;
+    // A second stream of <size> bytes from address2 (do_write2), its
+    // packets interleaved with the first one's, as one DMA alternating two
+    // transfers (GeneratorV2 only, without data check).
+    bool interleave;
+    uint64_t address2;
+    bool do_write2;
 };
 
 class TrafficGenerator
@@ -77,6 +83,10 @@ public:
     // Send one burst of size <packet_size> at each cycle for a total of <size> bytes.
     inline void start(uint64_t address, size_t size, size_t packet_size,
         TrafficGeneratorSync *sync, bool do_write=false, bool check=false);
+    // The same with a second stream (address2, do_write2) of the same size,
+    // one packet of each in turn.
+    inline void start_interleaved(uint64_t address, bool do_write, uint64_t address2,
+        bool do_write2, size_t size, size_t packet_size, TrafficGeneratorSync *sync);
     inline void get_result(bool *check_status=NULL, int64_t *duration=NULL);
     inline bool is_finished();
 };
@@ -88,6 +98,16 @@ inline void TrafficGeneratorConfigMaster::start(uint64_t address, size_t size, s
     TrafficGeneratorConfig config = { .is_start=true, .address=address, .size=size,
         .packet_size=packet_size, .sync=sync, .do_write=do_write,
         .check=check
+    };
+    this->sync(&config);
+}
+
+inline void TrafficGeneratorConfigMaster::start_interleaved(uint64_t address, bool do_write,
+    uint64_t address2, bool do_write2, size_t size, size_t packet_size, TrafficGeneratorSync *sync)
+{
+    TrafficGeneratorConfig config = { .is_start=true, .address=address, .size=size,
+        .packet_size=packet_size, .sync=sync, .do_write=do_write, .check=false,
+        .interleave=true, .address2=address2, .do_write2=do_write2
     };
     this->sync(&config);
 }

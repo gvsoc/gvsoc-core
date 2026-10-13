@@ -90,6 +90,7 @@ private:
     bool stats = false;
     std::string time_slice;
     std::vector<std::string> gui_scopes;
+    std::string exit_signal;
 
     /* Storage for the argv array we hand to the plugin. argv_storage owns
        the strings; argv_ptrs holds pointers into it for plugin->open(). */
@@ -177,6 +178,12 @@ VerilatorControl::VerilatorControl(vp::ComponentConf &config)
         this->time_slice = slice_cfg->get_str();
     }
 
+    js::Config *exit_signal_cfg = js->get("exit_signal");
+    if (exit_signal_cfg != nullptr)
+    {
+        this->exit_signal = exit_signal_cfg->get_str();
+    }
+
     js::Config *scopes_cfg = js->get("gui_scopes");
     if (scopes_cfg != nullptr)
     {
@@ -260,6 +267,10 @@ void VerilatorControl::start()
     for (auto &scope : this->gui_scopes)
     {
         this->argv_storage.push_back("--gui-scope=" + scope);
+    }
+    if (!this->exit_signal.empty())
+    {
+        this->argv_storage.push_back("--exit-signal=" + this->exit_signal);
     }
     /* Free-form plusargs from the `plusargs` property. */
     for (auto &arg : this->plusargs)

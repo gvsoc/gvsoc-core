@@ -18,7 +18,7 @@ in to drive a Verilator-built RTL design from GVSoC's TimeEngine:
     instantiates one :class:`VerilatorControl`, wires a clock domain to
     it, exposes the ``plugin_path``/``trace_path`` :class:`TargetParameter`
     pair and the options of the RTL simulator (``design``, ``stats``,
-    ``time_slice``, ``gui_scopes``), and converts ELF firmwares to verilog
+    ``time_slice``, ``gui_scopes``, ``exit_signal``), and converts ELF firmwares to verilog
     hex on demand.
 
 Use by any gvrun target via, e.g.:
@@ -59,13 +59,15 @@ class VerilatorControl(st.Component):
 
     def __init__(self, parent, name, plugin_path=None, firmwares=None, trace_path=None,
                  inject_signals=False, design=None, stats=False, time_slice=None,
-                 gui_scopes=None):
+                 gui_scopes=None, exit_signal=None):
         """The RTL simulator's options go to the plugin as options, not as
         plusargs (which are the design's): ``design`` (--design=DIR, the
         compiled design, for simulators which load one), ``stats`` (--stats,
         statistics at the end), ``time_slice`` (--slice=T, simulated time
-        per step for a host without step_until) and ``gui_scopes``
-        (--gui-scope=S[:N] each, the signals shown in the GUI)."""
+        per step for a host without step_until), ``gui_scopes``
+        (--gui-scope=S[:N] each, the signals shown in the GUI) and
+        ``exit_signal`` (--exit-signal=NAME, the signal holding the exit code
+        when the design stops, for simulators which support it)."""
         super().__init__(parent, name)
         self.add_sources(list(_SOURCES))
         if plugin_path is not None:
@@ -84,6 +86,8 @@ class VerilatorControl(st.Component):
             self.add_property('time_slice', time_slice)
         if gui_scopes:
             self.add_property('gui_scopes', list(gui_scopes))
+        if exit_signal is not None:
+            self.add_property('exit_signal', exit_signal)
 
     def gen_gui(self, parent_signal):
         # Only emit the SignalGenAll entry when the plugin will actually
@@ -197,6 +201,10 @@ class VerilatorBoard(st.Component):
             description='Simulated time per step (e.g. 10us), for plugins stepped without step_until',
         )
         TargetParameter(
+            self, name='exit_signal', value=None, cast=str,
+            description='Signal holding the exit code when the design stops (simulators which support it)',
+        )
+        TargetParameter(
             self, name='gui_scopes', value=None, cast=str,
             description='Semicolon-separated scopes S[:N] of the signals shown in the GUI (default: all)',
         )
@@ -235,6 +243,9 @@ class VerilatorBoard(st.Component):
         time_slice = self.get_parameter('time_slice')
         if time_slice is not None:
             self.verilator.add_property('time_slice', time_slice)
+        exit_signal = self.get_parameter('exit_signal')
+        if exit_signal is not None:
+            self.verilator.add_property('exit_signal', exit_signal)
         gui_scopes = self.get_parameter('gui_scopes')
         if gui_scopes:
             self.verilator.add_property(

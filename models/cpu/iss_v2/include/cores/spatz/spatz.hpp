@@ -21,6 +21,7 @@
 #pragma once
 
 #include <cpu/iss_v2/include/types.hpp>
+#include <cpu/iss_v2/include/arch.hpp>
 #include <cpu/iss_v2/include/insn.hpp>
 #include <cpu/iss_v2/include/csr.hpp>
 #include <cpu/iss_v2/include/vector.hpp>
@@ -37,7 +38,7 @@ class Iss;
  * barrier_ack, once every core of the cluster has arrived. Clusters using a
  * memory-mapped barrier instead leave it out.
  */
-class Spatz
+class Spatz : public IssArch
 {
 public:
     Spatz(Iss &iss);

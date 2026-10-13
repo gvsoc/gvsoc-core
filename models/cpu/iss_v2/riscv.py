@@ -44,6 +44,7 @@ class IssModule:
         pass
 
 class Arch(IssModule):
+    """Core class of the ISS, derived from IssArch (include/arch.hpp)."""
     def __init__(self, class_name: str='EmptyModule', source: str|None=None):
         self.class_name: str = class_name
         self.source: str|None = source

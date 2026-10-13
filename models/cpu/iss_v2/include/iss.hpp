@@ -29,6 +29,7 @@
 #include <cpu/iss_v2/include/syscalls.hpp>
 #include <cpu/iss_v2/include/gdbserver.hpp>
 #include <cpu/iss_v2/include/memcheck.hpp>
+#include <cpu/iss_v2/include/arch.hpp>
 #ifdef CONFIG_ISS_HAS_VECTOR
 #include <cpu/iss_v2/include/vector.hpp>
 #endif
@@ -42,7 +43,7 @@
 
 class Iss;
 
-class EmptyModule
+class EmptyModule : public IssArch
 {
 public:
     EmptyModule(Iss &top) {}

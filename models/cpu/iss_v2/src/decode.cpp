@@ -251,6 +251,10 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
         insn->fast_handler = item->u.insn.stub_handler;
     }
 
+    // Last word to the core class on the decoded instruction, e.g. to
+    // rebuild the scoreboard masks of instructions executed elsewhere.
+    this->iss.arch.decode_hook(insn);
+
     return 0;
 }
 

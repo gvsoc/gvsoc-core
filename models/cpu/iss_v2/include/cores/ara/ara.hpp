@@ -21,6 +21,7 @@
 #pragma once
 
 #include <cpu/iss_v2/include/types.hpp>
+#include <cpu/iss_v2/include/arch.hpp>
 #include <cpu/iss_v2/include/insn.hpp>
 #include <cpu/iss_v2/include/csr.hpp>
 #include <cpu/iss_v2/include/vector.hpp>
@@ -28,7 +29,7 @@
 
 class Iss;
 
-class Ara
+class Ara : public IssArch
 {
 public:
     Ara(Iss &iss);

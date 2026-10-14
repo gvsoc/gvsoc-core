@@ -29,6 +29,10 @@
  * in the floonoc tests), the framework auto-inserts the beat-to-single-req
  * converter in between, so raw write beats never reach this component — it
  * always sits on the round-trip plane.
+ *
+ * Reads and writes are two independent channels, like the AR/R and AW/W/B
+ * channels of an AXI slave: each has its own pending queue, pacing and
+ * response queue, so a read and a write are served in the same cycle.
  */
 
 #include <algorithm>
@@ -45,34 +49,43 @@ public:
     ~ReceiverV2();
 
 private:
+    // One channel: reads (0) or writes (1).
+    struct Channel
+    {
+        Channel(ReceiverV2 *top, std::string name, vp::ClockEventMeth *pending_meth,
+            vp::ClockEventMeth *ready_meth);
+        vp::ClockEvent pending_fsm_event;
+        vp::ClockEvent ready_fsm_event;
+        vp::Queue pending_reqs;
+        vp::Queue ready_reqs;
+        int64_t ready_timestamp = -1;
+        int64_t pace_rem = 0;
+        // v2 deny/retry: true when a master was denied and is owed a retry()
+        // once capacity returns.
+        bool owes_retry = false;
+    };
+
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     static void control_sync(vp::Block *__this, TrafficReceiverConfig config);
-    static void pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
-    static void ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    template<int ch> static void pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    template<int ch> static void ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
     void log_access(uint64_t addr, uint64_t size, bool is_write);
 
     vp::Trace trace;
 
     vp::IoSlave input_itf;
     vp::WireSlave<TrafficReceiverConfig> control_itf;
-    vp::ClockEvent pending_fsm_event;
-    vp::ClockEvent ready_fsm_event;
-    vp::Queue pending_reqs;
-    vp::Queue ready_reqs;
-    int64_t ready_timestamp = -1;
+    Channel channels[2];
     int bandwidth = 0;
     // Pacing rate is <bandwidth> bytes per <bandwidth_period> cycles; the
     // division remainder is carried over to the next request so the average
     // rate is exact even when requests are smaller than the rate quantum.
     int bandwidth_period = 1;
-    int64_t pace_rem = 0;
     // Fixed pipelined response delay, on top of the pacing.
     int latency = 0;
+    // Per channel.
     int max_pending_reqs = 4;
     vp::Signal<bool> stalled;
-    // v2 deny/retry: true when a master was denied and is owed a retry() once
-    // capacity returns.
-    bool owes_retry = false;
     vp::Signal<uint64_t> log_addr;
     vp::Signal<uint64_t> log_size;
     vp::Signal<bool> log_is_write;
@@ -82,13 +95,20 @@ private:
     uint8_t *mem_data;
 };
 
+ReceiverV2::Channel::Channel(ReceiverV2 *top, std::string name, vp::ClockEventMeth *pending_meth,
+    vp::ClockEventMeth *ready_meth)
+    : pending_fsm_event(top, pending_meth), ready_fsm_event(top, ready_meth),
+      pending_reqs(top, name + "_pending_reqs", &this->pending_fsm_event),
+      ready_reqs(top, name + "_ready_reqs", &this->ready_fsm_event)
+{
+}
+
 ReceiverV2::ReceiverV2(vp::ComponentConf &config)
     : vp::Component(config),
       input_itf(&ReceiverV2::req),
-      pending_fsm_event(this, ReceiverV2::pending_fsm_handler),
-      ready_fsm_event(this, ReceiverV2::ready_fsm_handler),
-      pending_reqs(this, "pending_reqs", &this->pending_fsm_event),
-      ready_reqs(this, "ready_reqs", &this->ready_fsm_event),
+      channels{
+        Channel(this, "read", ReceiverV2::pending_fsm_handler<0>, ReceiverV2::ready_fsm_handler<0>),
+        Channel(this, "write", ReceiverV2::pending_fsm_handler<1>, ReceiverV2::ready_fsm_handler<1>)},
       log_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
       log_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
       log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ),
@@ -141,17 +161,18 @@ vp::IoReqStatus ReceiverV2::req(vp::Block *__this, vp::IoReq *req)
 
     _this->log_access(req->get_addr(), req->get_size(), req->get_is_write());
 
-    if (_this->pending_reqs.size() == _this->max_pending_reqs)
+    Channel &channel = _this->channels[req->get_is_write()];
+    if (channel.pending_reqs.size() == _this->max_pending_reqs)
     {
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received req, full — denying (req: %p)\n", req);
         _this->stalled = true;
-        _this->owes_retry = true;
+        channel.owes_retry = true;
         return vp::IO_REQ_DENIED;
     }
     else
     {
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Received req, queuing (req: %p)\n", req);
-        _this->pending_reqs.push_back(req);
+        channel.pending_reqs.push_back(req);
         return vp::IO_REQ_GRANTED;
     }
 }
@@ -186,43 +207,50 @@ void ReceiverV2::control_sync(vp::Block *__this, TrafficReceiverConfig config)
     _this->bandwidth = config.bandwidth;
     _this->bandwidth_period = config.bandwidth_period;
     _this->latency = config.latency;
-    _this->pace_rem = 0;
+    for (Channel &channel : _this->channels)
+    {
+        channel.pace_rem = 0;
+    }
 }
 
+template<int ch>
 void ReceiverV2::pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     ReceiverV2 *_this = (ReceiverV2 *)__this;
+    Channel &channel = _this->channels[ch];
 
-    if (!_this->pending_reqs.empty() && _this->ready_timestamp <= _this->clock.get_cycles())
+    if (!channel.pending_reqs.empty() && channel.ready_timestamp <= _this->clock.get_cycles())
     {
-        vp::IoReq *req = (vp::IoReq *)_this->pending_reqs.pop();
+        vp::IoReq *req = (vp::IoReq *)channel.pending_reqs.pop();
 
         if (_this->bandwidth > 0)
         {
-            int64_t num = (int64_t)req->get_size() * _this->bandwidth_period + _this->pace_rem;
+            int64_t num = (int64_t)req->get_size() * _this->bandwidth_period + channel.pace_rem;
             int64_t cycles = num / _this->bandwidth;
-            _this->pace_rem = num % _this->bandwidth;
-            _this->ready_timestamp = _this->clock.get_cycles() + cycles;
-            _this->ready_reqs.push_back(req,
+            channel.pace_rem = num % _this->bandwidth;
+            channel.ready_timestamp = _this->clock.get_cycles() + cycles;
+            channel.ready_reqs.push_back(req,
                 std::max((int64_t)0, cycles - 1 + _this->latency));
         }
         else
         {
-            _this->ready_reqs.push_back(req, _this->latency);
+            channel.ready_reqs.push_back(req, _this->latency);
         }
     }
 
-    _this->pending_reqs.trigger_next();
-    _this->ready_reqs.trigger_next();
+    channel.pending_reqs.trigger_next();
+    channel.ready_reqs.trigger_next();
 }
 
+template<int ch>
 void ReceiverV2::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     ReceiverV2 *_this = (ReceiverV2 *)__this;
+    Channel &channel = _this->channels[ch];
 
-    if (!_this->ready_reqs.empty())
+    if (!channel.ready_reqs.empty())
     {
-        vp::IoReq *req = (vp::IoReq *)_this->ready_reqs.pop();
+        vp::IoReq *req = (vp::IoReq *)channel.ready_reqs.pop();
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Popping ready req (req: %p)\n", req);
         req->set_resp_status(vp::IO_RESP_OK);
         _this->input_itf.resp(req);
@@ -230,16 +258,16 @@ void ReceiverV2::ready_fsm_handler(vp::Block *__this, vp::ClockEvent *event)
 
     // v2 deny/retry: when we have capacity again, signal retry() once. The
     // master that was denied is responsible for re-sending its request.
-    if (_this->owes_retry && _this->pending_reqs.size() < _this->max_pending_reqs)
+    if (channel.owes_retry && channel.pending_reqs.size() < _this->max_pending_reqs)
     {
-        _this->owes_retry = false;
-        _this->stalled = false;
+        channel.owes_retry = false;
+        _this->stalled = _this->channels[!ch].owes_retry;
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Capacity returned, calling retry()\n");
-        _this->input_itf.retry();
+        _this->input_itf.retry(ch ? vp::IO_RETRY_WRITE : vp::IO_RETRY_READ);
     }
 
-    _this->pending_reqs.trigger_next();
-    _this->ready_reqs.trigger_next();
+    channel.pending_reqs.trigger_next();
+    channel.ready_reqs.trigger_next();
 }
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)

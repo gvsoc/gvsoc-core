@@ -106,7 +106,7 @@ static inline iss_reg_t dmcpy_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss->exec.insn_stall();
     }
 #else
-    if (iss->offload.offload_insn(&offload_insn)) return pc;
+    iss->offload.offload_insn_result(&offload_insn, insn, REG_OUT(0));
 #endif
 
     return iss_insn_next(iss, insn, pc);
@@ -132,7 +132,7 @@ static inline iss_reg_t dmcpyi_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss->exec.insn_stall();
     }
 #else
-    if (iss->offload.offload_insn(&offload_insn)) return pc;
+    iss->offload.offload_insn_result(&offload_insn, insn, REG_OUT(0));
 #endif
 
     return iss_insn_next(iss, insn, pc);

@@ -53,12 +53,20 @@ public:
     void reset(bool active);
 
     bool offload_insn(IssOffloadInsn<iss_reg_t> *insn);
+    // Offloads an instruction returning a result in register `reg`. If the
+    // offload target does not grant it, the instruction is held and the core
+    // stalls until the grant, which writes the result: the target sees the
+    // instruction once, as with the v1 ISS.
+    void offload_insn_result(IssOffloadInsn<iss_reg_t> *offload, iss_insn_t *insn, int reg);
 
 private:
     static void offload_grant(vp::Block *__this, IssOffloadInsnGrant<iss_reg_t> *result);
 
     Iss &iss;
     bool denied;
+    // Instruction held until the grant of its offload, and its output register
+    InsnEntry *pending_entry;
+    int pending_reg;
     vp::WireMaster<IssOffloadInsn<iss_reg_t> *> offload_itf;
     vp::WireSlave<IssOffloadInsnGrant<iss_reg_t> *> offload_grant_itf;
 };

@@ -30,9 +30,12 @@
  *   - a GRANTED write transfers ownership of the object (buffer included) to
  *     the target, which consumes and frees it — the generator forgets the
  *     pointer at GRANT and never dereferences it again;
- *   - the burst (always submitted as a one-beat burst, is_first=is_last=true)
- *     is acknowledged exactly once, either inline (IO_REQ_DONE) or with a
- *     single data-less ack via resp() that the generator frees;
+ *   - a write burst is submitted as a one-beat burst (is_first=is_last=true)
+ *     of any size or, with beat_stream, as a stream of beats of the port
+ *     width, one per cycle (is_first/is_last/burst_id), like an AXI DMA
+ *     master; either way it is acknowledged exactly once, inline
+ *     (IO_REQ_DONE) or with a single data-less ack via resp() that the
+ *     generator frees. A read is always one data-less burst request;
  *   - correlation is by req->initiator, which carries a per-transfer
  *     TransferRecord (beat slaves copy it onto their response beats/acks) —
  *     never by object identity, since a consumed write beat may be recycled
@@ -104,6 +107,7 @@ private:
     void handle_end();
     void close_transfer();
     void try_send(vp::IoReq *req);
+    void send_beat();
 
     vp::Trace trace;
 
@@ -156,6 +160,21 @@ private:
     bool config_do_write2 = false;
     // Burst legalization boundary (AXI 4KB rule); 0 disables it.
     uint64_t max_burst_size;
+    // Width of the output port, the size of the streamed write beats.
+    uint64_t width;
+    // Write bursts streamed beat by beat instead of as one request.
+    bool beat_stream;
+    // Write burst being streamed: its record (the window token, also the
+    // initiator of every beat), id, cursor and bytes left to send. NULL when
+    // no burst is open.
+    TransferRecord *burst_rec = nullptr;
+    int64_t burst_id = 0;
+    uint64_t burst_addr = 0;
+    uint8_t *burst_data = nullptr;
+    uint64_t burst_left = 0;
+    bool burst_first = false;
+    // Cycle of the last request sent, to stream at most one beat per cycle.
+    int64_t last_beat_cycle = -1;
 
     // v2: the slave only sends retry() (no req argument) — the master must
     // hold the request that was denied and re-send it.
@@ -193,6 +212,8 @@ GeneratorV2::GeneratorV2(vp::ComponentConf &config)
 
     this->nb_pending_reqs = this->get_js_config()->get_int("nb_pending_reqs");
     this->max_burst_size = this->get_js_config()->get_uint("max_burst_size");
+    this->width = this->get_js_config()->get_uint("width");
+    this->beat_stream = this->get_js_config()->get_child_bool("beat_stream");
 
     // Requests cross consumer-frees boundaries on beat planes (write beats
     // freed by the target, acks freed by us), so they must be pool-backed.
@@ -219,6 +240,7 @@ void GeneratorV2::reset(bool active)
         }
         this->outstanding.clear();
         this->stalled_req = nullptr;
+        this->burst_rec = nullptr;
     }
 }
 
@@ -329,6 +351,7 @@ void GeneratorV2::control_sync(vp::Block *__this, TrafficGeneratorConfig *config
         _this->sync = config->sync;
         _this->stalled = false;
         _this->stalled_req = nullptr;
+        _this->burst_rec = nullptr;
         _this->check = config->check;
         _this->check_write = config->do_write;
         _this->step = 0;
@@ -542,10 +565,13 @@ void GeneratorV2::try_send(vp::IoReq *req)
     // ownership of the object to the target, which may free it synchronously
     // inside req() — no field may be read after that point.
     TransferRecord *rec = (TransferRecord *)req->initiator;
+    bool is_last = req->is_last;
 
     this->signal_req_addr.set_and_release(req->get_addr());
     this->signal_req_size.set_and_release(req->get_size());
     this->signal_req_is_write.set_and_release(req->get_is_write());
+    // A beat re-sent from retry() is the beat of its cycle too.
+    this->last_beat_cycle = this->clock.get_cycles();
 
     vp::IoReqStatus status = this->output_itf.req(req);
 
@@ -566,6 +592,15 @@ void GeneratorV2::try_send(vp::IoReq *req)
             // forget the pointer — nothing may dereference it after GRANT.
             rec->req = nullptr;
         }
+        this->fsm_event.enqueue();
+    }
+    else if (!is_last)
+    {
+        // IO_REQ_DONE on a streamed beat before the last one: the target
+        // rejected it (the error escape of the write acknowledgement). The
+        // beat stays ours: free it, the burst goes on, its ack ends it.
+        rec->req = nullptr;
+        req->free();
         this->fsm_event.enqueue();
     }
     else
@@ -603,7 +638,15 @@ void GeneratorV2::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         }
     }
 
-    if (!_this->stalled && (_this->size > 0 || _this->size2 > 0) && !_this->free_reqs.empty())
+    if (_this->burst_rec != nullptr)
+    {
+        if (!_this->stalled && _this->last_beat_cycle != _this->clock.get_cycles())
+        {
+            _this->send_beat();
+        }
+    }
+    else if (!_this->stalled && (_this->size > 0 || _this->size2 > 0) && !_this->free_reqs.empty() &&
+        !(_this->beat_stream && _this->last_beat_cycle == _this->clock.get_cycles()))
     {
         // Interleaved transfer: one packet of each stream in turn, the
         // other one once a stream is done.
@@ -668,7 +711,24 @@ void GeneratorV2::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (second) _this->size2 -= chunk;
         else _this->size -= chunk;
 
-        _this->try_send(req);
+        if (_this->beat_stream && do_write && chunk > _this->width)
+        {
+            // Streamed instead: the record opens the burst, its beats go out
+            // one per cycle from here.
+            req->free();
+            rec->req = nullptr;
+            _this->burst_rec = rec;
+            _this->burst_id++;
+            _this->burst_addr = address - chunk;
+            _this->burst_data = data - chunk;
+            _this->burst_left = chunk;
+            _this->burst_first = true;
+            _this->send_beat();
+        }
+        else
+        {
+            _this->try_send(req);
+        }
     }
 
     if (_this->pending_size == 0 && _this->free_reqs.size() == _this->nb_pending_reqs &&
@@ -681,6 +741,41 @@ void GeneratorV2::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     {
         _this->fsm_event.enqueue();
     }
+}
+
+void GeneratorV2::send_beat()
+{
+    // The next beat of the open write burst: up to the next width boundary,
+    // like the beats of an AXI burst.
+    TransferRecord *rec = this->burst_rec;
+    uint64_t size = this->width - (this->burst_addr % this->width);
+    if (size > this->burst_left) size = this->burst_left;
+
+    vp::IoReq *req = this->req_allocator->alloc();
+    req->prepare();
+    req->set_size(size);
+    req->set_addr(this->burst_addr);
+    req->set_data(this->burst_data);
+    req->set_is_write(true);
+    req->initiator = rec;
+    req->is_first = this->burst_first;
+    req->is_last = size == this->burst_left;
+    req->burst_id = this->burst_id;
+    rec->req = req;
+
+    this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending beat (req: %p, address: 0x%llx, size: 0x%llx, first: %d, last: %d, burst_id: %lld)\n",
+        req, this->burst_addr, size, req->is_first, req->is_last, (long long)this->burst_id);
+
+    this->burst_addr += size;
+    this->burst_data += size;
+    this->burst_left -= size;
+    this->burst_first = false;
+    if (this->burst_left == 0)
+    {
+        this->burst_rec = nullptr;
+    }
+
+    this->try_send(req);
 }
 
 void GeneratorV2::handle_req_end(TransferRecord *rec, int64_t latency)

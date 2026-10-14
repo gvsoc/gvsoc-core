@@ -22,7 +22,7 @@ class GeneratorV2(gvsoc.systree.Component):
     """v2 traffic generator (io_v2 output)."""
 
     def __init__(self, parent, name, nb_pending_reqs=64, max_burst_size=0,
-                 width: int = 0):
+                 width: int = 0, beat_stream: bool = False):
 
         super().__init__(parent, name)
 
@@ -41,6 +41,11 @@ class GeneratorV2(gvsoc.systree.Component):
         # max_burst_size or crosses a max_burst_size boundary (the 4KB rule).
         # 0 (default) keeps the raw packet_size chunking.
         self.add_property('max_burst_size', max_burst_size)
+        self.add_property('width', width)
+        # Write bursts streamed as beats of the port width, one per cycle,
+        # like an AXI DMA master (is_first/is_last/burst_id). False sends each
+        # burst as one request of any size.
+        self.add_property('beat_stream', beat_stream)
 
         self.add_sources(['interco/traffic/generator_v2.cpp'])
 
@@ -53,6 +58,7 @@ class GeneratorV2(gvsoc.systree.Component):
         # stream must reach it unmodified) and its pool-backed write requests
         # follow the per-burst acknowledgement contract (consumed/freed by
         # the target, one data-less ack back). Its runtime packet_size chunks
-        # are legal one-beat bursts of any size; `width` only names the plane
-        # so the bind against the driven beat port is direct and adapter-free.
+        # are one-beat bursts of any size, or, with beat_stream, write bursts
+        # of beats of `width`; `width` also names the plane so the bind
+        # against the driven beat port is direct and adapter-free.
         self.itf_bind('output', itf, signature=gvsoc.signature.IoV2Beat(self._width))

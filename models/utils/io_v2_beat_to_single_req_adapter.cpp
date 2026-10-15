@@ -597,8 +597,7 @@ void IoV2BeatToSingleReqAdapter::emit_read_beat(const ReadyBeat &rb)
     {
         // Upstream busy: hold this beat and re-send it on resp_retry; on the last
         // beat, release the slot when it finally lands.
-        this->resp_held = true;
-        this->held_req = rb.beat;
+        this->held_read = rb.beat;
         this->held_read_last = last;
         return;
     }
@@ -771,7 +770,7 @@ void IoV2BeatToSingleReqAdapter::schedule_chunk(vp::IoReq *req, uint64_t size,
 // data-less burst ack, recycling the burst's consumed last beat (see
 // io_v2.hpp, "The write ack"); an atomic stream's final entry round-trips the
 // master's own request instead. On upstream back-pressure the emitted object
-// is held (held_write) and re-sent from resp_retry_in_handler, which advances
+// is held (held_ack) and re-sent from resp_retry_in_handler, which advances
 // the cursor when it finally lands; on accept the cursor advances here.
 void IoV2BeatToSingleReqAdapter::emit_write_beat(WriteAckStream &b)
 {
@@ -810,11 +809,8 @@ void IoV2BeatToSingleReqAdapter::emit_write_beat(WriteAckStream &b)
         // Upstream busy: hold the ack and re-send it on resp_retry. Do NOT
         // advance the cursor — resp_retry advances it once the held ack is
         // accepted.
-        this->resp_held = true;
-        this->held_req = r;
-        this->held_write = true;
+        this->held_ack = r;
         this->held_ack_owned = !b.is_atomic;
-        this->held_read_last = false;
         return;
     }
 
@@ -824,30 +820,30 @@ void IoV2BeatToSingleReqAdapter::emit_write_beat(WriteAckStream &b)
 
 // Slave "input" resp_retry callback: the upstream master can accept responses
 // again, after it returned IO_RESP_DENIED to one of our in.resp() beats. Re-sends
-// the single held beat synchronously (io_v2 requirement); if accepted, releases the
-// in-flight slot when it was a read burst's last beat and resumes draining.
-// Applies to both read beats and write acks (whichever was held). Frees nothing —
-// the initiator owns its request and the response objects. Does nothing if no beat
-// is currently held.
+// the held read beat and the held write ack, each synchronously (io_v2
+// requirement); a re-sent read burst's last beat releases its in-flight slot, a
+// re-sent ack advances its stream. Frees nothing — the initiator owns its
+// request and the response objects.
 void IoV2BeatToSingleReqAdapter::resp_retry_in_handler(vp::Block *__this,
                                             vp::IoRetryChannel /*channel*/)
 {
     auto *self = static_cast<IoV2BeatToSingleReqAdapter *>(__this);
-    if (!self->resp_held)
+    if (self->held_read != nullptr && self->in.resp(self->held_read) != vp::IO_RESP_DENIED)
     {
-        return;
+        bool last = self->held_read_last;
+        self->held_read = nullptr;
+        self->held_read_last = false;
+        if (last)
+        {
+            self->on_read_burst_complete();   // release the in-flight slot
+        }
     }
-    // The io_v2 contract requires the re-send to happen synchronously inside the
-    // retry callback.
-    if (self->in.resp(self->held_req) == vp::IO_RESP_DENIED)
+    if (self->held_ack != nullptr && self->in.resp(self->held_ack) != vp::IO_RESP_DENIED)
     {
-        return;   // still not ready — keep holding
-    }
-    // The held beat just landed. Advance the matching cursor:
-    if (self->held_write)
-    {
-        // Front ack stream's final entry: advance it and drop the stream (the
-        // real ack is always a stream's final entry).
+        // Front ack stream's final entry (the real ack is always a stream's
+        // final entry): advance it and drop the stream.
+        self->held_ack = nullptr;
+        self->held_ack_owned = false;
         WriteAckStream &b = self->ack_streams.front();
         b.emitted_beats++;
         if (b.emitted_beats >= b.nb_beats)
@@ -855,16 +851,6 @@ void IoV2BeatToSingleReqAdapter::resp_retry_in_handler(vp::Block *__this,
             self->ack_streams.pop_front();
         }
     }
-    else if (self->held_read_last)
-    {
-        // Read burst's last beat: release the in-flight slot.
-        self->on_read_burst_complete();
-    }
-    self->resp_held = false;
-    self->held_req = nullptr;
-    self->held_read_last = false;
-    self->held_write = false;
-    self->held_ack_owned = false;
     // Resume draining the rest of the beats (next cycle — one beat per cycle).
     self->reschedule_fsm();
 }
@@ -873,9 +859,10 @@ void IoV2BeatToSingleReqAdapter::resp_retry_in_handler(vp::Block *__this,
 // Per-cycle pump, run by fsm_event at the cycle reschedule_fsm() armed. It (1)
 // emits every read beat and write-ack beat whose ready cycle has arrived — read
 // and write are independent channels, each ≤1 beat/cycle by construction — and
-// (2) refills the downstream issue pipeline. Stops emitting the instant a beat is
-// back-pressured (resp_held), since the held beat must go out first (from
-// resp_retry_in_handler) before any later one. Re-arms itself via reschedule_fsm.
+// (2) refills the downstream issue pipeline. A channel stops emitting the instant
+// one of its beats is back-pressured (held_read / held_ack), since the held beat
+// must go out first (from resp_retry_in_handler) before any later one; the other
+// channel and the issue pipeline go on. Re-arms itself via reschedule_fsm.
 void IoV2BeatToSingleReqAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 {
     auto *self = static_cast<IoV2BeatToSingleReqAdapter *>(__this);
@@ -890,9 +877,9 @@ void IoV2BeatToSingleReqAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *
         self->in.retry(vp::IO_RETRY_WRITE);
     }
 
-    // Emit due read beats. Stop the instant one is back-pressured (resp_held):
+    // Emit due read beats. Stop the instant one is back-pressured (held_read):
     // the held beat must be re-sent first, from resp_retry_in_handler.
-    while (!self->resp_held && !self->read_pending.empty()
+    while (self->held_read == nullptr && !self->read_pending.empty()
            && self->read_pending.front().ready_cycle <= now)
     {
         ReadyBeat rb = self->read_pending.front();
@@ -906,14 +893,14 @@ void IoV2BeatToSingleReqAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *
     // the same cycle the last per-beat ack did. The stream is dropped once its
     // last entry has been consumed; a backlog drains one entry per cycle
     // (reschedule re-arms for now+1 while a due entry remains).
-    if (!self->resp_held && !self->ack_streams.empty())
+    if (self->held_ack == nullptr && !self->ack_streams.empty())
     {
         WriteAckStream &b = self->ack_streams.front();
         int64_t ready = b.first_ready + (int64_t)b.emitted_beats * b.step;
         if (ready <= now)
         {
             self->emit_write_beat(b);
-            if (!self->resp_held && b.emitted_beats >= b.nb_beats)
+            if (self->held_ack == nullptr && b.emitted_beats >= b.nb_beats)
             {
                 self->ack_streams.pop_front();
             }
@@ -930,26 +917,20 @@ void IoV2BeatToSingleReqAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *
 
 // (Re)arm fsm_event for the earliest future work: the soonest due read/write beat
 // and/or the next cycle if a sub-read can still be issued. Called at the end of
-// every state-changing method. A no-op while back-pressured (resp_held) — the
-// resp_retry path will re-arm.
+// every state-changing method. A back-pressured channel (held_read / held_ack)
+// is left out: the resp_retry path re-arms it.
 void IoV2BeatToSingleReqAdapter::reschedule_fsm()
 {
-    // Blocked on upstream back-pressure: nothing can drain until resp_retry
-    // releases the held beat, which reschedules us itself.
-    if (this->resp_held)
-    {
-        return;
-    }
     // No is_enqueued() guard: the event may be waiting for a response due in a
     // few cycles while a sub-read wants the next one. enqueue() keeps the
     // earliest of the two.
     int64_t now = this->clock.get_cycles();
     int64_t next = INT64_MAX;
-    if (!this->read_pending.empty())
+    if (this->held_read == nullptr && !this->read_pending.empty())
     {
         next = std::min(next, this->read_pending.front().ready_cycle);
     }
-    if (!this->ack_streams.empty())
+    if (this->held_ack == nullptr && !this->ack_streams.empty())
     {
         const WriteAckStream &b = this->ack_streams.front();
         next = std::min(next, b.first_ready + (int64_t)b.emitted_beats * b.step);
@@ -1101,15 +1082,17 @@ void IoV2BeatToSingleReqAdapter::reset(bool active)
         // A held (back-pressured) read beat or recycled burst ack is
         // allocator-backed and ours — free it; a held atomic round-trip is the
         // master's own request, left alone.
-        if (this->resp_held && this->held_req != nullptr
-            && (!this->held_write || this->held_ack_owned))
+        if (this->held_read != nullptr)
         {
-            this->held_req->free();
+            this->held_read->free();
         }
-        this->resp_held = false;
-        this->held_req = nullptr;
+        if (this->held_ack != nullptr && this->held_ack_owned)
+        {
+            this->held_ack->free();
+        }
+        this->held_read = nullptr;
         this->held_read_last = false;
-        this->held_write = false;
+        this->held_ack = nullptr;
         this->held_ack_owned = false;
         this->read_last_sched_cycle = -1;
         this->read_issue_last_cycle = -1;

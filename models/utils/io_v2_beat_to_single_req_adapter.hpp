@@ -332,18 +332,18 @@ private:
     // beat — no separate held-job state needed).
     bool sub_read_denied = false;
 
-    // Response-path back-pressure: the upstream master refused our most recent
-    // resp() beat. We hold that exact object and re-send it from
-    // resp_retry_in_handler. When the held beat finally lands we need to
-    // advance the right cursor: held_write means it is the front ack stream's
-    // final entry (advance emitted_beats, pop the stream); held_read_last
-    // means it is a read burst's last beat (release the in-flight slot).
-    // held_ack_owned distinguishes, for reset(), an adapter-owned recycled
-    // burst ack (freed) from a master-owned atomic round-trip (left alone).
-    bool resp_held = false;
-    vp::IoReq *held_req = nullptr;
+    // Response-path back-pressure, per channel (AXI R and B): the upstream
+    // master refused our most recent read beat (held_read) or write ack /
+    // atomic round-trip (held_ack). The held object is re-sent from
+    // resp_retry_in_handler; only its own channel waits meanwhile — the other
+    // channel keeps draining and sub-reads keep being issued, like a target
+    // whose r_ready is low. held_read_last: the held read beat is its burst's
+    // last (release the in-flight slot when it lands). held_ack_owned
+    // distinguishes, for reset(), an adapter-owned recycled burst ack (freed)
+    // from a master-owned atomic round-trip (left alone).
+    vp::IoReq *held_read = nullptr;
     bool held_read_last = false;
-    bool held_write = false;
+    vp::IoReq *held_ack = nullptr;
     bool held_ack_owned = false;
 
     vp::Trace trace;

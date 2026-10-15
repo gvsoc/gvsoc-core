@@ -58,6 +58,7 @@ fsm_event(this, &AraVlsu::fsm_handler)
     }
 
     this->width = top.get_js_config()->get_child_int("vu/lsu_width");
+    this->tile_width = top.get_js_config()->get_child_int("vu/tile_lsu_width");
 
     int nb_outstanding_reqs = top.get_js_config()->get_child_int("vu/nb_outstanding_reqs");
     this->req_queues.resize(nb_ports);
@@ -90,6 +91,7 @@ void AraVlsu::reset(bool active)
         this->insn_last = 0;
         this->nb_waiting_insn = 0;
         this->pending_size = 0;
+        this->pending_is_tile = false;
 
         // Since the request queues are cleared with the reset, we need to put back requests
         // in each queue
@@ -153,6 +155,14 @@ void AraVlsu::isa_init()
     {
         insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_store_indexed;
     }
+    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vtload"))
+    {
+        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_tile_load;
+    }
+    for (iss_decoder_item_t *insn: *this->ara.iss.decode.get_insns_from_tag("vtstore"))
+    {
+        insn->u.insn.block_handler = (void *)&AraVlsu::handle_insn_tile_store;
+    }
 }
 
 void AraVlsu::handle_insn_load_strided(AraVlsu *_this, iss_insn_t *insn)
@@ -179,6 +189,7 @@ void AraVlsu::handle_access(iss_insn_t *insn, bool is_write, int reg, bool do_st
 {
     // A load or store instruction is starting, just store information about the first burst and let
     // the FSM handle all the bursts.
+    this->pending_is_tile = false;
     unsigned int sewb = this->ara.iss.vector.sewb;
     unsigned int lmul = this->ara.iss.vector.lmul;
     this->pending_vreg = reg;
@@ -204,6 +215,191 @@ void AraVlsu::handle_insn_load(AraVlsu *_this, iss_insn_t *insn)
 void AraVlsu::handle_insn_store(AraVlsu *_this, iss_insn_t *insn)
 {
     _this->handle_access(insn, true, insn->in_regs[1]);
+}
+
+// ---------------------------------------------------------------------------
+// Tile load (vtle8/16/32/64)
+//
+// Operand mapping (from isa_rvv_timed.py InReg order):
+//   pending_insn->reg   = InReg(0) = rs2 value = TSS
+//   pending_insn->reg_2 = InReg(1) = rs1 value = base address
+//   insn->uim[0]        = nf_eew bits[31:29]:  0→1B  1→2B  2→4B  3→8B
+//
+// Strategy: always load raw bytes into tile_staging via the FSM, then call
+// tile_load_commit() to zero-extend and scatter into tile.mregs.
+// vtle64 is not supported (TEW=32 accumulator cannot hold 64-bit values).
+// ---------------------------------------------------------------------------
+void AraVlsu::handle_insn_tile_load(AraVlsu *_this, iss_insn_t *insn)
+{
+    PendingInsn *pending_insn = _this->insns[_this->insn_first_waiting].insn;
+
+    const uint32_t tss      = (uint32_t)pending_insn->reg;
+    const iss_addr_t base   = (iss_addr_t)pending_insn->reg_2;
+
+    // Decode TSS (ZVT spec section 1.5)
+    _this->pending_tile_id      = (tss >> 27) & 0xF;
+    _this->pending_tile_pattern = (tss >> 24) & 0x7;
+    _this->pending_tile_index   = (tss >>  0) & 0xFFFFFF;
+
+    // Tile dimensions from mtype / vl CSRs
+    const uint32_t mtype = (uint32_t)_this->ara.iss.csr.mtype.value;
+    const uint32_t tm    = (mtype >> 10) & 0x3FFF;
+    const uint32_t vl    = (uint32_t)_this->ara.iss.csr.vl.value;
+    const uint32_t ETE   = CONFIG_ISS_TE;
+    const uint32_t tn    = (vl < ETE) ? vl : ETE;
+    _this->pending_tile_count = (_this->pending_tile_pattern == 0) ? tn : tm;
+
+    // Element size: 1 << uim[0]  (0→1B, 1→2B, 2→4B; 3 = 8B = illegal for TEW=32)
+    const uint32_t esize = 1u << (uint32_t)insn->uim[0];
+
+    // FSM state
+    _this->pending_is_tile  = true;
+    _this->pending_is_write = false;
+    _this->inst_elem_size   = (int)esize;
+    _this->elem_size        = (int)esize;
+    _this->pending_addr     = base;
+    _this->pending_size     = _this->pending_tile_count * esize;
+    _this->strided          = false;
+    _this->reg_indexed      = -1;
+    _this->pending_elem     = 0;
+    _this->pending_vreg     = 0;  // unused for tiles; set to avoid stale value
+
+    // Point the FSM data pointer at the staging buffer.
+    // No zero-init needed: the FSM writes exactly pending_size bytes and
+    // tile_load_commit() reads only those bytes, zero-extending element-wise.
+    _this->pending_velem = _this->tile_staging;
+}
+
+// ---------------------------------------------------------------------------
+// Tile store (vtse8/16/32/64)
+//
+// Same operand mapping as tile load.
+// Strategy: pre-pack tile.mregs → tile_staging (with truncation), then let
+// the FSM drain tile_staging to memory.
+// ---------------------------------------------------------------------------
+void AraVlsu::handle_insn_tile_store(AraVlsu *_this, iss_insn_t *insn)
+{
+    PendingInsn *pending_insn = _this->insns[_this->insn_first_waiting].insn;
+
+    const uint32_t tss      = (uint32_t)pending_insn->reg;
+    const iss_addr_t base   = (iss_addr_t)pending_insn->reg_2;
+
+    const uint32_t tile_id  = (tss >> 27) & 0xF;
+    const uint32_t pattern  = (tss >> 24) & 0x7;
+    const uint32_t index    = (tss >>  0) & 0xFFFFFF;
+
+    const uint32_t mtype = (uint32_t)_this->ara.iss.csr.mtype.value;
+    const uint32_t tm    = (mtype >> 10) & 0x3FFF;
+    const uint32_t vl    = (uint32_t)_this->ara.iss.csr.vl.value;
+    const uint32_t ETE   = CONFIG_ISS_TE;
+    const uint32_t tn    = (vl < ETE) ? vl : ETE;
+    const uint32_t count = (pattern == 0) ? tn : tm;
+
+    const uint32_t esize = 1u << (uint32_t)insn->uim[0];
+
+    // Pack mregs into staging buffer (truncate int32 → esize bytes).
+    // esize/pattern switches are hoisted outside the loop to avoid per-element branching.
+    // Fast path for esize==4 row: mregs[tile_id][index][*] is contiguous → single memcpy.
+    uint8_t *dst = _this->tile_staging;
+    if (esize == 4 && pattern == 0)
+    {
+        memcpy(dst, &_this->ara.iss.tile.mregs[tile_id][index][0], count * 4);
+    }
+    else
+    {
+        switch (esize)
+        {
+        case 1:
+            if (pattern == 0)
+                for (uint32_t k = 0; k < count; ++k)
+                    dst[k] = (uint8_t)(_this->ara.iss.tile.mregs[tile_id][index][k] & 0xFF);
+            else
+                for (uint32_t k = 0; k < count; ++k)
+                    dst[k] = (uint8_t)(_this->ara.iss.tile.mregs[tile_id][k][index] & 0xFF);
+            break;
+        case 2:
+            if (pattern == 0)
+                for (uint32_t k = 0; k < count; ++k)
+                    *(uint16_t *)(dst + k * 2) = (uint16_t)(_this->ara.iss.tile.mregs[tile_id][index][k] & 0xFFFF);
+            else
+                for (uint32_t k = 0; k < count; ++k)
+                    *(uint16_t *)(dst + k * 2) = (uint16_t)(_this->ara.iss.tile.mregs[tile_id][k][index] & 0xFFFF);
+            break;
+        case 4:
+            // pattern == 1 (column): mregs[tile_id][k][index] is strided, must loop
+            for (uint32_t k = 0; k < count; ++k)
+                *(uint32_t *)(dst + k * 4) = (uint32_t)_this->ara.iss.tile.mregs[tile_id][k][index];
+            break;
+        // esize == 8: TEW=32 cannot store 64-bit (should not be reached)
+        }
+    }
+
+    _this->pending_is_tile   = true;
+    _this->pending_tile_id      = tile_id;
+    _this->pending_tile_pattern = pattern;
+    _this->pending_tile_index   = index;
+    _this->pending_tile_count   = count;
+    _this->pending_is_write  = true;
+    _this->inst_elem_size    = (int)esize;
+    _this->elem_size         = (int)esize;
+    _this->pending_addr      = base;
+    _this->pending_size      = count * esize;
+    _this->strided           = false;
+    _this->reg_indexed       = -1;
+    _this->pending_elem      = 0;
+    _this->pending_vreg      = 0;
+    _this->pending_velem     = _this->tile_staging;
+}
+
+// ---------------------------------------------------------------------------
+// tile_load_commit — called by FSM when a tile load finishes (pending_size==0)
+//
+// The staging buffer holds count * inst_elem_size raw memory bytes.
+// Zero-extend each element and scatter into tile.mregs.
+// ---------------------------------------------------------------------------
+void AraVlsu::tile_load_commit()
+{
+    const uint32_t tile_id  = this->pending_tile_id;
+    const uint32_t pattern  = this->pending_tile_pattern;
+    const uint32_t index    = this->pending_tile_index;
+    const uint32_t count    = this->pending_tile_count;
+    const uint32_t esize    = (uint32_t)this->inst_elem_size;
+    const uint8_t *src      = this->tile_staging;
+
+    // esize/pattern switches are hoisted outside the loop to avoid per-element branching.
+    // Fast path for esize==4 row: destination is contiguous int32_t[] → single memcpy.
+    if (esize == 4 && pattern == 0)
+    {
+        memcpy(&this->ara.iss.tile.mregs[tile_id][index][0], src, count * 4);
+    }
+    else
+    {
+        switch (esize)
+        {
+        case 1:
+            if (pattern == 0)
+                for (uint32_t k = 0; k < count; ++k)
+                    this->ara.iss.tile.mregs[tile_id][index][k] = (int32_t)(uint32_t)src[k];
+            else
+                for (uint32_t k = 0; k < count; ++k)
+                    this->ara.iss.tile.mregs[tile_id][k][index] = (int32_t)(uint32_t)src[k];
+            break;
+        case 2:
+            if (pattern == 0)
+                for (uint32_t k = 0; k < count; ++k)
+                    this->ara.iss.tile.mregs[tile_id][index][k] = (int32_t)(uint32_t)*(const uint16_t *)(src + k * 2);
+            else
+                for (uint32_t k = 0; k < count; ++k)
+                    this->ara.iss.tile.mregs[tile_id][k][index] = (int32_t)(uint32_t)*(const uint16_t *)(src + k * 2);
+            break;
+        case 4:
+            // pattern == 1 (column): mregs[tile_id][k][index] is strided, must loop
+            for (uint32_t k = 0; k < count; ++k)
+                this->ara.iss.tile.mregs[tile_id][k][index] = (int32_t)*(const uint32_t *)(src + k * 4);
+            break;
+        // esize == 8: not supported (TEW=32)
+        }
+    }
 }
 
 void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
@@ -258,9 +454,13 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             {
                 uint64_t size;
 
-                if (_this->strided ||  _this->reg_indexed != -1)
+                if (_this->strided || _this->reg_indexed != -1)
                 {
                     size = _this->elem_size;
+                }
+                else if (_this->pending_is_tile)
+                {
+                    size = std::min((iss_addr_t)_this->tile_width, _this->pending_size);
                 }
                 else
                 {
@@ -317,17 +517,23 @@ void AraVlsu::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 }
                 _this->pending_size -= size;
                 _this->pending_velem += size;
-
+                bool was_tile = _this->pending_is_tile;
                 // Switch to next instruction once all burst have been sent
                 if (_this->pending_size == 0)
                 {
+                    // Tile load post-processing: extend raw bytes from staging into tile.mregs
+                    if (_this->pending_is_tile && !_this->pending_is_write)
+                        _this->tile_load_commit();
+                    _this->pending_is_tile = false;
+
                     _this->nb_waiting_insn--;
                     _this->insn_first_waiting = (_this->insn_first_waiting + 1) % AraVlsu::queue_size;
                 }
 
                 // In case chaining is enabled, notify that some elements has been handled as it
-                // might start an instruction
-                _this->ara.insn_commit(_this->pending_vreg, req->get_size());
+                // might start an instruction. Tile ops have no vreg to chain on.
+                if (!was_tile)
+                    _this->ara.insn_commit(_this->pending_vreg, req->get_size());
             }
         }
 

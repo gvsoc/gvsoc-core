@@ -39,6 +39,11 @@ public:
     // pacing. Pipelined: delays the response without holding back the pacing
     // of the following requests.
     int latency = 0;
+    // Memory query instead of a start (v2 receiver): the receiver stores its
+    // memory and its size there, so that a testbench can fill and check it
+    // outside of the simulated traffic.
+    uint8_t **mem = nullptr;
+    uint64_t *mem_size = nullptr;
 };
 
 
@@ -46,6 +51,8 @@ class TrafficReceiverConfigMaster : public vp::WireMaster<TrafficReceiverConfig>
 {
 public:
     inline void start(int bandwidth, int bandwidth_period=1, int latency=0);
+    // The memory of the receiver and its size (NULL and 0 without one).
+    inline uint8_t *get_mem(uint64_t *size);
 };
 
 
@@ -54,4 +61,15 @@ inline void TrafficReceiverConfigMaster::start(int bandwidth, int bandwidth_peri
     TrafficReceiverConfig config = { .is_start=true, .bandwidth=bandwidth,
         .bandwidth_period=bandwidth_period, .latency=latency };
     this->sync(config);
+}
+
+inline uint8_t *TrafficReceiverConfigMaster::get_mem(uint64_t *size)
+{
+    uint8_t *mem = nullptr;
+    *size = 0;
+    TrafficReceiverConfig config;
+    config.mem = &mem;
+    config.mem_size = size;
+    this->sync(config);
+    return mem;
 }

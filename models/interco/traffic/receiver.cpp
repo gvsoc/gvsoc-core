@@ -166,6 +166,11 @@ void Receiver::log_access(uint64_t addr, uint64_t size, bool is_write)
 void Receiver::control_sync(vp::Block *__this, TrafficReceiverConfig config)
 {
     Receiver *_this = (Receiver *)__this;
+    if (config.mem != nullptr)
+    {
+        // No memory
+        return;
+    }
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Start (bw: %d)\n", config.bandwidth);
     _this->bandwidth = config.bandwidth;
 }

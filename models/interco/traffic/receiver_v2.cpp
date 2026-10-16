@@ -202,6 +202,12 @@ void ReceiverV2::log_access(uint64_t addr, uint64_t size, bool is_write)
 void ReceiverV2::control_sync(vp::Block *__this, TrafficReceiverConfig config)
 {
     ReceiverV2 *_this = (ReceiverV2 *)__this;
+    if (config.mem != nullptr)
+    {
+        *config.mem = _this->size > 0 ? _this->mem_data : nullptr;
+        *config.mem_size = _this->size;
+        return;
+    }
     _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Start (bw: %d per %d cycles, latency: %d)\n",
         config.bandwidth, config.bandwidth_period, config.latency);
     _this->bandwidth = config.bandwidth;

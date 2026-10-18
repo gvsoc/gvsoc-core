@@ -112,6 +112,18 @@ def build_case(case_name: str) -> dict:
                               deny_beats=[0, 1, 2, 3], retry_delay=2, name='r0')],
         }
 
+    if case_name == 'bp_read_write':
+        # A read beat is back-pressured for 30 cycles while a write burst
+        # completes: R and B are independent channels, so the write ack must
+        # reach the master before the held read beat is retried.
+        return {
+            'target': dict(latency=1),
+            'schedule': [dict(cycle=10, addr=BASE, size=32, burst_id=5,
+                              deny_beats=[1], retry_delay=30, name='r0'),
+                         dict(cycle=20, addr=BASE + 0x100, size=32,
+                              is_write=True, burst_id=6, name='w0')],
+        }
+
     # ---- Async response cases (target returns GRANTED + one resp() per req) ----
     # Exercises the adapter's async-resp path: the read sub-reads and the write
     # are answered out-of-line via resp() rather than inline IO_REQ_DONE.

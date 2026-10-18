@@ -187,14 +187,16 @@ public:
     // in-order FIFO front is a single beat (one direction), so this never
     // aliases.
     InputPort *stalled_input[NB_CHANNELS] = {nullptr, nullptr};
-    // Set when this output's most recent response beat was back-pressured: the
-    // target input had already forwarded its one beat for the cycle, so the
-    // downstream (the auto-inserted beat adapter or a native beat slave) was
-    // told to hold the beat (resp_muxed returned IO_RESP_DENIED). The response FSM
-    // releases it on a later cycle by calling bus.resp_retry(), which makes the
-    // downstream re-send synchronously. At most one beat is ever held per output
-    // because the downstream stops streaming the instant it is denied.
-    bool resp_stalled = false;
+    // Set, per response channel, when this output's most recent response beat
+    // on that channel was back-pressured: the target input had already
+    // forwarded its one beat for the cycle, so the downstream (the
+    // auto-inserted beat adapter or a native beat slave) was told to hold the
+    // beat (resp_muxed returned IO_RESP_DENIED). The response FSM releases it
+    // on a later cycle by calling bus.resp_retry() for that channel, which
+    // makes the downstream re-send synchronously. At most one beat is ever
+    // held per output and channel because the downstream stops streaming that
+    // channel the instant it is denied; R and B stall independently.
+    bool resp_stalled[NB_CHANNELS] = {false, false};
     // Per-mapping VCD traces split into request and response sub-trees.
     // req/* logs every outgoing forward — read setup reqs and per-beat writes.
     // resp/* logs every read beat returned upstream (writes get no per-resp
@@ -366,6 +368,13 @@ private:
     int channel_of(bool is_write) const
     {
         return this->cfg.shared_rw_channel ? 0 : (is_write ? 1 : 0);
+    }
+    // Retry channel naming channel index `ch` (ANY when the router shares one
+    // channel for reads and writes).
+    vp::IoRetryChannel retry_channel_of(int ch) const
+    {
+        if (this->cfg.shared_rw_channel) return vp::IO_RETRY_ANY;
+        return ch == 1 ? vp::IO_RETRY_WRITE : vp::IO_RETRY_READ;
     }
     // Channel indices a retry on `channel` should re-issue: ANY -> both;
     // READ/WRITE -> the matching index, collapsed to 0 when shared_rw_channel.
@@ -1383,7 +1392,7 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
     if ((in->resp_used_cycle[ch] == now || !in->held_resps[ch].empty())
         && self->bus.is_resp_retry_bound())
     {
-        self->resp_stalled = true;
+        self->resp_stalled[ch] = true;
         _this->schedule_resp_fsm();
         return vp::IO_RESP_DENIED;
     }
@@ -1559,10 +1568,13 @@ void RouterBeat::drive_stalled_resps()
     for (int k = 0; k < n; k++)
     {
         OutputPort *out = this->entries[(start + k) % n];
-        if (!out->resp_stalled) continue;
-        out->resp_stalled = false;
-        any_retry = true;
-        out->bus.resp_retry();
+        for (int ch = 0; ch < NB_CHANNELS; ch++)
+        {
+            if (!out->resp_stalled[ch]) continue;
+            out->resp_stalled[ch] = false;
+            any_retry = true;
+            out->bus.resp_retry(this->retry_channel_of(ch));
+        }
     }
     this->resp_round_robin_next = (this->resp_round_robin_next + 1) % n;
     // If anything re-stalled, drain it on the next cycle (one beat/cycle/input).
@@ -1570,7 +1582,7 @@ void RouterBeat::drive_stalled_resps()
     {
         for (int i = 0; i < n; i++)
         {
-            if (this->entries[i]->resp_stalled)
+            if (this->entries[i]->resp_stalled[0] || this->entries[i]->resp_stalled[1])
             {
                 this->schedule_resp_fsm();
                 break;

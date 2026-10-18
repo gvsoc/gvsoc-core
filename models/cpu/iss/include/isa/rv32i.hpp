@@ -776,6 +776,14 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
     // Until it is fixed, we just cast it for now.
     if (((uint32_t)prev->opcode) == 0x01f01013)
     {
+#ifdef CONFIG_GVSOC_ISS_V2
+        // The semihosting call reads its arguments from memory through the
+        // backdoor: wait until the core's loads and stores have landed.
+        if (iss->lsu.fence())
+        {
+            return pc;
+        }
+#endif
         iss->syscalls.handle_riscv_ebreak();
         return next_pc;
     }

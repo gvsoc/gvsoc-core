@@ -32,8 +32,18 @@
  *     frequency changes are tracked structurally β€” the engine maps cycles
  *     to wall time, not the bridge.
  *
- *     `depth` caps total in-flight across all four stages. depth=1 is
+ *     `depth` caps the total in-flight across the four stages. depth=1 is
  *     strictly serial; depth>1 lets FIFO kinds pipeline.
+ *
+ *     With `axi_channels`, the bridge is an AXI CDC, with one FIFO per
+ *     channel: reads (requests and their responses) and writes (write beats
+ *     and their acknowledgements) have their own four stages, and `depth`
+ *     caps the requests of each crossing at a time (its two forward stages),
+ *     the responses crossing in their own FIFO, at the pace they come. A
+ *     write is then never held behind a read, nor a read behind a write.
+ *
+ *     A request the downstream denies, or a response the upstream master
+ *     denies, stays at the head of its channel until the retry.
  *
  * Ownership (io_v2 per-burst write-acknowledgement contract, see io_v2.hpp
  * "Write acknowledgement"):
@@ -73,12 +83,17 @@
 #include <vp/itf/io_v2.hpp>
 #include <vp/debug_mem.hpp>
 
+#include <cstdint>
 #include <deque>
 
 
 class IoV2ClockBridge : public vp::Component, public vp::DebugMemIf
 {
 public:
+    // Parametric-path channels: write beats and their acknowledgements, and
+    // the rest (reads and their response beats).
+    enum { CH_READ = 0, CH_WRITE = 1, NB_CHANNELS = 2 };
+
     IoV2ClockBridge(vp::ComponentConf &config);
     void start() override;
     void reset(bool active) override;
@@ -119,14 +134,48 @@ private:
     // schedule_retry()).
     static void retry_event_handler(vp::Block *_this, vp::ClockEvent *ev);
 
-    void reschedule_event(vp::ClockEvent &ev, const std::deque<Txn> &queue,
-                          vp::ClockEngine *engine);
     void enqueue_in(std::deque<Txn> &queue, vp::IoReq *req,
                     int64_t now_cycle, int min_spacing_cycles);
 
-    // Total in-flight across the four stage queues — the quantity the
-    // `depth` admission gate compares against.
-    int occupancy() const;
+    // Parametric-path state of a channel. Reads (requests and their
+    // responses) and writes (write beats and their acknowledgements) cross
+    // apart, as the AXI channels of a CDC have their own FIFOs: a write is
+    // not held behind a read, nor a read behind a write.
+    struct Channel
+    {
+        std::deque<Txn> fwd_src;
+        std::deque<Txn> fwd_dst;
+        std::deque<Txn> rev_src;
+        std::deque<Txn> rev_dst;
+        bool retry_owed = false;
+        // The downstream denied the request at the head of fwd_dst: it stays
+        // there until the downstream calls retry(), which sends it again.
+        bool fwd_out_denied = false;
+        // The upstream master denied the response at the head of rev_dst: it
+        // stays there until the master calls resp_retry(), which sends it
+        // again.
+        bool rev_in_denied = false;
+    };
+
+    // Reschedule a stage event on the earliest head of the channels, skipping
+    // the denied ones (`denied` null for a stage which is never denied).
+    void reschedule_stage(vp::ClockEvent &ev, std::deque<Txn> Channel::*queue,
+                          bool Channel::*denied, vp::ClockEngine *engine);
+    void reschedule_fwd_src();
+    void reschedule_fwd_dst();
+    void reschedule_rev_src();
+    void reschedule_rev_dst();
+    // Send the forward (resp. reverse) heads of a channel whose deadline is
+    // reached, until one is denied.
+    void fwd_dst_send(int ch);
+    void rev_dst_send(int ch);
+
+    // What the `depth` admission gate of a channel compares against: its
+    // requests crossing with axi_channels, its requests and responses
+    // without.
+    int occupancy(int ch) const;
+    // Channel of a request or response.
+    int channel_of(vp::IoReq *req) const;
     // Master-engine context ONLY (in.retry() must fire on the upstream
     // domain): if a retry is owed and a slot is free, service it now.
     void maybe_retry();
@@ -143,6 +192,10 @@ private:
     int k_src_per_dir = 0;
     int k_dst_per_dir = 0;
     int depth = 1;
+    // Reads and writes cross apart, each with its `depth` of requests (see
+    // the class comment). Off: a single FIFO for both, requests and
+    // responses alike.
+    bool axi_channels = false;
     bool parametric = false;
 
     vp::ClockEngine *master_engine = nullptr;
@@ -169,9 +222,5 @@ private:
     // when occupancy was freed on the slave-domain (forward) side, where
     // in.retry() must not be called directly.
     vp::ClockEvent *retry_event = nullptr;
-    std::deque<Txn> fwd_src_queue;
-    std::deque<Txn> fwd_dst_queue;
-    std::deque<Txn> rev_src_queue;
-    std::deque<Txn> rev_dst_queue;
-    bool retry_owed = false;
+    Channel channels[NB_CHANNELS];
 };

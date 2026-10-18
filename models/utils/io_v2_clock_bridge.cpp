@@ -22,6 +22,8 @@ IoV2ClockBridge::IoV2ClockBridge(vp::ComponentConf &config)
         this->k_dst_per_dir = c->get_int();
     if (js::Config *c = js->get("depth"); c != nullptr)
         this->depth = c->get_int();
+    if (js::Config *c = js->get("axi_channels"); c != nullptr)
+        this->axi_channels = c->get_bool();
 
     if (this->k_src_per_dir < 0) this->k_src_per_dir = 0;
     if (this->k_dst_per_dir < 0) this->k_dst_per_dir = 0;
@@ -61,9 +63,9 @@ void IoV2ClockBridge::start()
     this->slave_engine  = slave_port->get_owner()->clock.get_engine();
 
     this->trace.msg(vp::Trace::LEVEL_INFO,
-        "bridge mode=%s k_src=%d k_dst=%d depth=%d\n",
+        "bridge mode=%s k_src=%d k_dst=%d depth=%d axi_channels=%d\n",
         this->parametric ? "parametric" : "sync_only",
-        this->k_src_per_dir, this->k_dst_per_dir, this->depth);
+        this->k_src_per_dir, this->k_dst_per_dir, this->depth, this->axi_channels);
 }
 
 
@@ -102,34 +104,73 @@ void IoV2ClockBridge::reset(bool active)
     // acks travelling upstream) are dropped un-freed, exactly as before: the
     // whole subtree resets with us and the respective owners rebuild their
     // state.
-    for (std::deque<Txn> *queue : { &this->fwd_src_queue, &this->fwd_dst_queue })
+    for (Channel &c : this->channels)
     {
-        for (Txn &t : *queue)
+        for (std::deque<Txn> *queue : { &c.fwd_src, &c.fwd_dst })
         {
-            if (t.req->get_opcode() == vp::WRITE && t.req->allocator != nullptr)
+            for (Txn &t : *queue)
             {
-                t.req->free();
+                if (t.req->get_opcode() == vp::WRITE && t.req->allocator != nullptr)
+                {
+                    t.req->free();
+                }
             }
         }
+        c.fwd_src.clear();
+        c.fwd_dst.clear();
+        c.rev_src.clear();
+        c.rev_dst.clear();
+        c.retry_owed = false;
+        c.fwd_out_denied = false;
+        c.rev_in_denied = false;
     }
-    this->fwd_src_queue.clear();
-    this->fwd_dst_queue.clear();
-    this->rev_src_queue.clear();
-    this->rev_dst_queue.clear();
-    this->retry_owed = false;
 }
 
 
 // ---- Helpers (parametric path) --------------------------------------------
 
-void IoV2ClockBridge::reschedule_event(vp::ClockEvent &ev,
-                                        const std::deque<Txn> &queue,
-                                        vp::ClockEngine *engine)
+// Channel a request or a response travels on: with axi_channels, the write
+// beats and their acknowledgements on one, everything else on the other;
+// without, everything on the read one.
+int IoV2ClockBridge::channel_of(vp::IoReq *req) const
 {
-    if (ev.is_enqueued()) engine->cancel(&ev);
-    if (queue.empty()) return;
-    int64_t now = engine->get_cycles();
-    int64_t delta = queue.front().deadline_cycle - now;
+    return this->axi_channels && req->get_opcode() == vp::WRITE ? CH_WRITE : CH_READ;
+}
+
+// Tell if a retry on `channel` concerns the channel `ch`.
+static inline bool covers(vp::IoRetryChannel channel, int ch)
+{
+    return channel == vp::IO_RETRY_ANY ||
+        (channel == vp::IO_RETRY_READ) == (ch == IoV2ClockBridge::CH_READ);
+}
+
+static inline vp::IoRetryChannel retry_channel(int ch)
+{
+    return ch == IoV2ClockBridge::CH_READ ? vp::IO_RETRY_READ : vp::IO_RETRY_WRITE;
+}
+
+
+void IoV2ClockBridge::reschedule_stage(vp::ClockEvent &ev, std::deque<Txn> Channel::*queue,
+                                        bool Channel::*denied, vp::ClockEngine *engine)
+{
+    // The stage event serves both channels: it wakes up for the earliest
+    // head. A denied head waits for its retry, not for a cycle. The event is
+    // never pushed back: the engine keeps the earliest cycle of an enqueued
+    // event, and one waking up early finds nothing due and rearms. Cancelling
+    // it here instead would starve it, as this is called at every activity
+    // of the channels, possibly each cycle before the event runs.
+    int64_t deadline = INT64_MAX;
+    for (Channel &c : this->channels)
+    {
+        if ((c.*queue).empty() || (denied != nullptr && c.*denied)) continue;
+        if ((c.*queue).front().deadline_cycle < deadline)
+            deadline = (c.*queue).front().deadline_cycle;
+    }
+    if (deadline == INT64_MAX) return;
+    // Called from either domain: bring the engine of the stage to the current
+    // time before counting from its cycle.
+    engine->sync();
+    int64_t delta = deadline - engine->get_cycles();
     if (delta < 1) delta = 1;
     engine->enqueue(&ev, delta);
 }
@@ -149,12 +190,41 @@ void IoV2ClockBridge::enqueue_in(std::deque<Txn> &queue, vp::IoReq *req,
 }
 
 
-int IoV2ClockBridge::occupancy() const
+void IoV2ClockBridge::reschedule_fwd_src()
 {
-    return (int)(this->fwd_src_queue.size()
-                 + this->fwd_dst_queue.size()
-                 + this->rev_src_queue.size()
-                 + this->rev_dst_queue.size());
+    this->reschedule_stage(*this->fwd_src_event, &Channel::fwd_src, nullptr, this->master_engine);
+}
+
+void IoV2ClockBridge::reschedule_fwd_dst()
+{
+    this->reschedule_stage(*this->fwd_dst_event, &Channel::fwd_dst, &Channel::fwd_out_denied,
+        this->slave_engine);
+}
+
+void IoV2ClockBridge::reschedule_rev_src()
+{
+    this->reschedule_stage(*this->rev_src_event, &Channel::rev_src, nullptr, this->slave_engine);
+}
+
+void IoV2ClockBridge::reschedule_rev_dst()
+{
+    this->reschedule_stage(*this->rev_dst_event, &Channel::rev_dst, &Channel::rev_in_denied,
+        this->master_engine);
+}
+
+
+int IoV2ClockBridge::occupancy(int ch) const
+{
+    // With axi_channels, the requests crossing: the responses have their own
+    // FIFO, which does not hold the requests back (they come at the pace the
+    // downstream sends them). Without, a single FIFO holding both.
+    const Channel &c = this->channels[ch];
+    int size = (int)(c.fwd_src.size() + c.fwd_dst.size());
+    if (!this->axi_channels)
+    {
+        size += (int)(c.rev_src.size() + c.rev_dst.size());
+    }
+    return size;
 }
 
 
@@ -165,10 +235,14 @@ void IoV2ClockBridge::maybe_retry()
     // every call — it is the live queue population, not a counter, so a
     // write beat that was granted downstream (and will never produce a
     // response) has already retired its slot by leaving fwd_dst.
-    if (this->retry_owed && this->occupancy() < this->depth)
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        this->retry_owed = false;
-        this->in.retry();
+        Channel &c = this->channels[ch];
+        if (c.retry_owed && this->occupancy(ch) < this->depth)
+        {
+            c.retry_owed = false;
+            this->in.retry(retry_channel(ch));
+        }
     }
 }
 
@@ -180,11 +254,15 @@ void IoV2ClockBridge::schedule_retry()
     // through a master-engine event — the same re-alignment the rev path
     // applies to responses. The handler re-checks the condition: occupancy
     // may have been refilled (e.g. by response beats) in between.
-    if (this->retry_owed && this->occupancy() < this->depth)
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        // ClockEngine::enqueue keeps the earliest pending cycle if the event
-        // is already enqueued.
-        this->master_engine->enqueue(this->retry_event, 1);
+        if (this->channels[ch].retry_owed && this->occupancy(ch) < this->depth)
+        {
+            // ClockEngine::enqueue keeps the earliest pending cycle if the
+            // event is already enqueued.
+            this->master_engine->enqueue(this->retry_event, 1);
+            return;
+        }
     }
 }
 
@@ -221,22 +299,21 @@ vp::IoReqStatus IoV2ClockBridge::in_req_handler(vp::Block *__this, vp::IoReq *re
     // downstream retires its slot by leaving fwd_dst (it never comes back),
     // while round-tripped requests re-occupy a slot in the rev queues until
     // delivered upstream.
-    if (self->occupancy() >= self->depth)
+    // Reads and writes have their own queues and budget, as the AXI channels
+    // of a CDC have their own FIFOs.
+    int ch = self->channel_of(req);
+    if (self->occupancy(ch) >= self->depth)
     {
-        self->retry_owed = true;
+        self->channels[ch].retry_owed = true;
         return vp::IO_REQ_DENIED;
     }
 
     int64_t now_master = self->master_engine->get_cycles();
-    int64_t deadline = now_master + self->k_src_per_dir;
-    if (!self->fwd_src_queue.empty())
-    {
-        int64_t prev = self->fwd_src_queue.back().deadline_cycle;
-        if (deadline < prev + 1) deadline = prev + 1;
-    }
-    self->fwd_src_queue.push_back({req, deadline});
-    self->reschedule_event(*self->fwd_src_event, self->fwd_src_queue,
-                           self->master_engine);
+    self->trace.msg(vp::Trace::LEVEL_DEBUG,
+        "Request in (req: %p, addr: 0x%lx, size: 0x%lx, write: %d)\n",
+        req, req->get_addr(), req->get_size(), ch == CH_WRITE);
+    self->enqueue_in(self->channels[ch].fwd_src, req, now_master + self->k_src_per_dir, 1);
+    self->reschedule_fwd_src();
     return vp::IO_REQ_GRANTED;
 }
 
@@ -268,10 +345,11 @@ vp::IoRespAck IoV2ClockBridge::out_resp_handler(vp::Block *__this, vp::IoReq *re
     }
 
     int64_t now_slave = self->slave_engine->get_cycles();
-    self->enqueue_in(self->rev_src_queue, req,
+    self->trace.msg(vp::Trace::LEVEL_DEBUG, "Response in (req: %p, write: %d)\n",
+        req, self->channel_of(req) == CH_WRITE);
+    self->enqueue_in(self->channels[self->channel_of(req)].rev_src, req,
                      now_slave + self->k_src_per_dir, 1);
-    self->reschedule_event(*self->rev_src_event, self->rev_src_queue,
-                           self->slave_engine);
+    self->reschedule_rev_src();
 
     return vp::IO_RESP_ACCEPTED;
 }
@@ -288,7 +366,22 @@ void IoV2ClockBridge::out_retry_handler(vp::Block *__this, vp::IoRetryChannel ch
         self->in.retry(channel);
         return;
     }
-    // Downstream became ready after DENIED β€” unused for sync-DONE slaves.
+
+    // The downstream can take the request it denied: send it again now, in
+    // the retry call (a zero-buffer arbiter only keeps its accept window open
+    // during it), then the ones which became due meanwhile.
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
+    {
+        Channel &c = self->channels[ch];
+        if (covers(channel, ch) && c.fwd_out_denied)
+        {
+            c.fwd_out_denied = false;
+            self->fwd_dst_send(ch);
+        }
+    }
+    self->reschedule_fwd_dst();
+    self->reschedule_rev_src();
+    self->schedule_retry();
 }
 
 
@@ -328,6 +421,24 @@ void IoV2ClockBridge::in_resp_retry_handler(vp::Block *__this, vp::IoRetryChanne
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(__this);
 
+    if (self->parametric)
+    {
+        // The upstream master can take the response it denied: send it again
+        // now, then the ones which became due meanwhile.
+        for (int ch = 0; ch < NB_CHANNELS; ch++)
+        {
+            Channel &c = self->channels[ch];
+            if (covers(channel, ch) && c.rev_in_denied)
+            {
+                c.rev_in_denied = false;
+                self->rev_dst_send(ch);
+            }
+        }
+        self->maybe_retry();
+        self->reschedule_rev_dst();
+        return;
+    }
+
     // The upstream master can take responses again. The held response has to
     // be sent again from here, in the same cycle.
     if (self->resp_held)
@@ -355,34 +466,60 @@ void IoV2ClockBridge::fwd_src_done_handler(vp::Block *_this, vp::ClockEvent *)
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(_this);
     int64_t now_master = self->master_engine->get_cycles();
+    // The slave engine may be behind (not run yet in this cycle): bring it to
+    // the current time, or the deadline would be computed on a stale cycle.
+    self->slave_engine->sync();
     int64_t now_slave  = self->slave_engine->get_cycles();
 
-    while (!self->fwd_src_queue.empty()
-           && self->fwd_src_queue.front().deadline_cycle <= now_master)
+    for (Channel &c : self->channels)
     {
-        Txn t = self->fwd_src_queue.front();
-        self->fwd_src_queue.pop_front();
-        self->enqueue_in(self->fwd_dst_queue, t.req,
-                         now_slave + self->k_dst_per_dir, 1);
+        while (!c.fwd_src.empty() && c.fwd_src.front().deadline_cycle <= now_master)
+        {
+            Txn t = c.fwd_src.front();
+            c.fwd_src.pop_front();
+            self->enqueue_in(c.fwd_dst, t.req, now_slave + self->k_dst_per_dir, 1);
+        }
     }
 
-    self->reschedule_event(*self->fwd_src_event, self->fwd_src_queue,
-                           self->master_engine);
-    self->reschedule_event(*self->fwd_dst_event, self->fwd_dst_queue,
-                           self->slave_engine);
+    self->reschedule_fwd_src();
+    self->reschedule_fwd_dst();
 }
 
 
 void IoV2ClockBridge::fwd_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(_this);
+
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
+    {
+        if (!self->channels[ch].fwd_out_denied)
+        {
+            self->fwd_dst_send(ch);
+        }
+    }
+
+    self->reschedule_fwd_dst();
+    self->reschedule_rev_src();
+
+    // Forwarding retires occupancy: a granted write beat leaves the bridge
+    // for good here (it never produces a response, so no rev-path drain will
+    // ever run on its behalf), and an inline-INVALID non-last beat was freed
+    // outright. The upstream accept window may thus re-open NOW — service an
+    // owed retry. We are on the slave engine, so cross back into the master
+    // domain through the dedicated retry event.
+    self->schedule_retry();
+}
+
+
+void IoV2ClockBridge::fwd_dst_send(int ch)
+{
+    IoV2ClockBridge *self = this;
+    Channel &c = this->channels[ch];
     int64_t now_slave = self->slave_engine->get_cycles();
 
-    while (!self->fwd_dst_queue.empty()
-           && self->fwd_dst_queue.front().deadline_cycle <= now_slave)
+    while (!c.fwd_dst.empty() && c.fwd_dst.front().deadline_cycle <= now_slave)
     {
-        Txn t = self->fwd_dst_queue.front();
-        self->fwd_dst_queue.pop_front();
+        Txn t = c.fwd_dst.front();
 
         // Snapshot what the write-ack rules key on BEFORE req(): a GRANTED
         // write beat transfers ownership (buffer included) to the downstream
@@ -391,7 +528,18 @@ void IoV2ClockBridge::fwd_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
         bool was_last   = t.req->is_last;
 
         t.req->prepare();
+        self->trace.msg(vp::Trace::LEVEL_DEBUG,
+            "Request out (req: %p, addr: 0x%lx, size: 0x%lx, write: %d)\n",
+            t.req, t.req->get_addr(), t.req->get_size(), ch == CH_WRITE);
         vp::IoReqStatus st = self->out.req(t.req);
+        if (st == vp::IO_REQ_DENIED)
+        {
+            // The request stays at the head, and nothing behind it goes
+            // before it, until the downstream calls retry().
+            c.fwd_out_denied = true;
+            return;
+        }
+        c.fwd_dst.pop_front();
         if (st == vp::IO_REQ_DONE)
         {
             if (write_beat && !was_last)
@@ -433,15 +581,13 @@ void IoV2ClockBridge::fwd_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
                 ack->set_resp_status(status);
                 ack->set_latency(latency);
                 ack->set_duration(duration);
-                self->enqueue_in(self->rev_src_queue, ack,
-                                 now_slave + self->k_src_per_dir, 1);
+                self->enqueue_in(c.rev_src, ack, now_slave + self->k_src_per_dir, 1);
             }
             else
             {
                 // Reads and atomics keep the classic round-trip: the same
                 // object travels back through the rev queues.
-                self->enqueue_in(self->rev_src_queue, t.req,
-                                 now_slave + self->k_src_per_dir, 1);
+                self->enqueue_in(c.rev_src, t.req, now_slave + self->k_src_per_dir, 1);
             }
         }
         // GRANTED: ownership moved downstream — drop the pointer, never
@@ -449,21 +595,8 @@ void IoV2ClockBridge::fwd_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
         // frees it (non-last beats produce no response at all; the burst's
         // single ack comes back through out_resp_handler like any other
         // response). For reads/atomics the response arrives later through
-        // out_resp_handler. DENIED: not modeled.
+        // out_resp_handler.
     }
-
-    self->reschedule_event(*self->fwd_dst_event, self->fwd_dst_queue,
-                           self->slave_engine);
-    self->reschedule_event(*self->rev_src_event, self->rev_src_queue,
-                           self->slave_engine);
-
-    // Forwarding retires occupancy: a granted write beat leaves the bridge
-    // for good here (it never produces a response, so no rev-path drain will
-    // ever run on its behalf), and an inline-INVALID non-last beat was freed
-    // outright. The upstream accept window may thus re-open NOW — service an
-    // owed retry. We are on the slave engine, so cross back into the master
-    // domain through the dedicated retry event.
-    self->schedule_retry();
 }
 
 
@@ -471,43 +604,64 @@ void IoV2ClockBridge::rev_src_done_handler(vp::Block *_this, vp::ClockEvent *)
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(_this);
     int64_t now_slave  = self->slave_engine->get_cycles();
+    // Same for the master engine, seen from the slave domain.
+    self->master_engine->sync();
     int64_t now_master = self->master_engine->get_cycles();
 
-    while (!self->rev_src_queue.empty()
-           && self->rev_src_queue.front().deadline_cycle <= now_slave)
+    for (Channel &c : self->channels)
     {
-        Txn t = self->rev_src_queue.front();
-        self->rev_src_queue.pop_front();
-        self->enqueue_in(self->rev_dst_queue, t.req,
-                         now_master + self->k_dst_per_dir, 1);
+        while (!c.rev_src.empty() && c.rev_src.front().deadline_cycle <= now_slave)
+        {
+            Txn t = c.rev_src.front();
+            c.rev_src.pop_front();
+            self->enqueue_in(c.rev_dst, t.req, now_master + self->k_dst_per_dir, 1);
+        }
     }
 
-    self->reschedule_event(*self->rev_src_event, self->rev_src_queue,
-                           self->slave_engine);
-    self->reschedule_event(*self->rev_dst_event, self->rev_dst_queue,
-                           self->master_engine);
+    self->reschedule_rev_src();
+    self->reschedule_rev_dst();
 }
 
 
 void IoV2ClockBridge::rev_dst_done_handler(vp::Block *_this, vp::ClockEvent *)
 {
     IoV2ClockBridge *self = static_cast<IoV2ClockBridge *>(_this);
-    int64_t now_master = self->master_engine->get_cycles();
 
-    while (!self->rev_dst_queue.empty()
-           && self->rev_dst_queue.front().deadline_cycle <= now_master)
+    for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
-        Txn t = self->rev_dst_queue.front();
-        self->rev_dst_queue.pop_front();
-        self->in.resp(t.req);
+        if (!self->channels[ch].rev_in_denied)
+        {
+            self->rev_dst_send(ch);
+        }
     }
 
     // Delivering upstream freed occupancy; this handler runs on the master
     // engine, so an owed retry can be serviced synchronously.
     self->maybe_retry();
 
-    self->reschedule_event(*self->rev_dst_event, self->rev_dst_queue,
-                           self->master_engine);
+    self->reschedule_rev_dst();
+}
+
+
+void IoV2ClockBridge::rev_dst_send(int ch)
+{
+    Channel &c = this->channels[ch];
+    int64_t now_master = this->master_engine->get_cycles();
+
+    while (!c.rev_dst.empty() && c.rev_dst.front().deadline_cycle <= now_master)
+    {
+        Txn t = c.rev_dst.front();
+        this->trace.msg(vp::Trace::LEVEL_DEBUG, "Response out (req: %p, write: %d)\n",
+            t.req, ch == CH_WRITE);
+        if (this->in.resp(t.req) == vp::IO_RESP_DENIED)
+        {
+            // The master keeps nothing of a denied response: it stays at the
+            // head until the master calls resp_retry().
+            c.rev_in_denied = true;
+            return;
+        }
+        c.rev_dst.pop_front();
+    }
 }
 
 

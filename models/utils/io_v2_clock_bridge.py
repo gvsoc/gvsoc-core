@@ -51,6 +51,7 @@ class IoV2ClockBridge(Component):
                  k_src_per_dir: int | None = None,
                  k_dst_per_dir: int | None = None,
                  depth: int | None = None,
+                 axi_channels: bool = False,
                  signature: Signature = None):
         super().__init__(parent, name)
         self._port_signature = signature
@@ -72,6 +73,9 @@ class IoV2ClockBridge(Component):
                                         else self._DEFAULT_K_DST)
         self.add_property('depth',
                           depth if depth is not None else self._DEFAULT_DEPTH)
+        # Reads and writes cross apart, each with its own FIFO and depth of
+        # requests, as in an AXI CDC (one FIFO per channel); see the C++.
+        self.add_property('axi_channels', axi_channels)
 
     def i_INPUT(self) -> SlaveItf:
         return SlaveItf(self, 'input', signature=self._signature())

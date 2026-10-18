@@ -518,7 +518,7 @@ Format_CS = [
 ]
 
 Format_CFSD = [
-    InRegComp(1, Range(2, 3)),
+    InFRegComp(1, Range(2, 3)),
     Indirect(InRegComp(0, Range(7, 3)), SignedImm(0, Ranges([[10, 3, 3], [5, 2, 6]]), isSigned=False)),
 ]
 

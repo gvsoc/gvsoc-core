@@ -67,6 +67,25 @@ def build_case(case_name: str) -> dict:
             'schedule': [dict(cycle=10, addr=BASE, size=64, name='r0')],
         }
 
+    if case_name == 'overlap':
+        # latency=10: r1 is submitted 2 cycles after r0, so its latency elapses
+        # while r0 streams (beats at 20..23) and it follows at once (24, 25).
+        return {
+            'target': dict(latency=10),
+            'schedule': [dict(cycle=10, addr=BASE, size=32, name='r0'),
+                         dict(cycle=12, addr=BASE + 0x100, size=16, name='r1')],
+        }
+
+    if case_name == 'overlap_late':
+        # latency=10: r1 is submitted while r0 streams its beats (20..23). It
+        # still pays its own latency from its submission (21 + 10 = 31) instead
+        # of following r0 at once.
+        return {
+            'target': dict(latency=10),
+            'schedule': [dict(cycle=10, addr=BASE, size=32, name='r0'),
+                         dict(cycle=21, addr=BASE + 0x100, size=16, name='r1')],
+        }
+
     if case_name == 'err':
         # The sync slave reports IO_RESP_INVALID; every beat must carry it.
         return {

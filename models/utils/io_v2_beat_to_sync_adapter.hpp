@@ -20,10 +20,10 @@
  * ever held. An FSM drives the queue: the beats of a burst are paced by each
  * beat's own bandwidth occupancy (get_duration(), floored at one cycle), so
  * the transfer spreads naturally across the burst window; writes/atomics
- * stream at one per cycle. The burst's head beat is the one exception — when
- * the stream is idle it is issued at submit (the address phase) purely to
- * sample the head latency, and its data rides along to be delivered after
- * that latency. No async/deny bookkeeping.
+ * stream at one per cycle. The burst's head beat is the one exception — it
+ * is issued at submit (the address phase) purely to sample the head latency,
+ * and its data rides along to be delivered after that latency. No async/deny
+ * bookkeeping.
  *
  * Wire-protocol invariants preserved (identical to the general adapter for the
  * sync case):
@@ -52,7 +52,11 @@
  *     read at the cycle it is delivered (the head beat excepted).
  *
  * Multi-outstanding: a second burst received while one is still streaming is
- * forwarded inline and queued behind the active one.
+ * forwarded inline and queued behind the active one. It still pays its own
+ * latency, counted from its submission: its first entry leaves at the later
+ * of its slot in the stream and submit + latency, so the latency overlaps
+ * the streaming of the bursts ahead of it, as on a pipelined AXI slave,
+ * instead of being skipped.
  *
  * The file is a private header for the component implementation; no model
  * includes it (the framework auto-inserts the component).
@@ -121,6 +125,9 @@ private:
         void *initiator;
         bool is_first = false;   // READ_BEAT: upstream burst framing
         bool is_last = false;
+        // Cycle before which the entry may not be emitted: submit + latency
+        // on the first entry of a submission, 0 (no constraint) on the others.
+        int64_t ready_cycle = 0;
     };
 
     // One upstream write burst currently accepting beats (nullptr between
@@ -144,7 +151,8 @@ private:
 
     // Enqueue the FSM for the next queued entry, stream_interval cycles from
     // now (set by the entry just emitted: a read beat's own bandwidth
-    // occupancy, floored at one; everything else one per cycle).
+    // occupancy, floored at one; everything else one per cycle), or later if
+    // that entry's latency has not elapsed yet.
     void schedule_next();
 
     int beat_width;

@@ -48,6 +48,8 @@ vp::IoReqStatus IoV2BeatToSyncAdapter::req_handler(vp::Block *__this, vp::IoReq 
     // appended entries drain behind the active ones; a fresh enqueue could
     // pull the next paced beat earlier than its slot.
     bool     was_idle   = self->entries.empty() && !self->resp_held;
+    // First entry of this submission, which carries its latency
+    size_t   first_entry = self->entries.size();
 
     if (req->get_is_write() && req->get_opcode() != vp::WRITE)
     {
@@ -186,11 +188,10 @@ vp::IoReqStatus IoV2BeatToSyncAdapter::req_handler(vp::Block *__this, vp::IoReq 
             offset += beat;
         } while (offset < total);
 
-        // Head beat: only when the stream was idle do we pay a head latency.
-        // Issue it now (the address phase) purely to sample get_latency(); its
-        // data is stashed on the entry and delivered after that latency (the
-        // FSM start below). Following beats are read lazily at their slots.
-        if (was_idle)
+        // Head beat: issue it now (the address phase) purely to sample
+        // get_latency(); its data is stashed on the entry and delivered after
+        // that latency (the entry's ready cycle below). Following beats are
+        // read lazily at their slots.
         {
             StreamEntry &e0 = self->entries[first_idx];
             vp::IoReq *b0 = self->beat_allocator->alloc();
@@ -211,12 +212,17 @@ vp::IoReqStatus IoV2BeatToSyncAdapter::req_handler(vp::Block *__this, vp::IoReq 
         }
     }
 
-    // Start the FSM after the head latency (reads) / full latency (writes,
-    // atomics), but only if it was idle — otherwise the active stream drains
-    // the appended entries at their own pace (see was_idle / schedule_next).
+    // The submission's first entry leaves after the head latency (reads) /
+    // full latency (writes, atomics), counted from now even when the stream
+    // is busy: the latency overlaps the entries ahead, it is not skipped.
+    latency = std::max((int64_t)1, latency);
+    self->entries[first_entry].ready_cycle = self->clock.get_cycles() + latency;
+
+    // Start the FSM if it was idle — otherwise the active stream drains the
+    // appended entries at their own pace (see was_idle / schedule_next).
     if (was_idle)
     {
-        self->fsm_event.enqueue(std::max((int64_t)1, latency));
+        self->fsm_event.enqueue(latency);
     }
 
     return vp::IO_REQ_GRANTED;
@@ -347,8 +353,10 @@ void IoV2BeatToSyncAdapter::schedule_next()
         return;
     }
     // stream_interval was set by the entry just emitted (a read beat's own
-    // bandwidth occupancy, one otherwise).
-    this->fsm_event.enqueue(this->stream_interval);
+    // bandwidth occupancy, one otherwise); the next entry may also still be
+    // waiting for its latency.
+    int64_t wait = this->entries.front().ready_cycle - this->clock.get_cycles();
+    this->fsm_event.enqueue(std::max(this->stream_interval, wait));
 }
 
 
@@ -365,6 +373,15 @@ void IoV2BeatToSyncAdapter::fsm_handler(vp::Block *__this, vp::ClockEvent *)
 
     if (self->entries.empty())
     {
+        return;
+    }
+
+    // Reached the next entry before its latency elapsed (the stream was
+    // resumed by a retry): wait for it.
+    int64_t wait = self->entries.front().ready_cycle - self->clock.get_cycles();
+    if (wait > 0)
+    {
+        self->fsm_event.enqueue(wait);
         return;
     }
 

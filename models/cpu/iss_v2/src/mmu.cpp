@@ -47,6 +47,9 @@ void Mmu::reset(bool active)
         this->satp = 0;
         this->mode = MMU_MODE_OFF;
         this->walk_pending = false;
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+        this->pte_denied = false;
+#endif
 
         this->flush(0, 0);
     }
@@ -259,7 +262,11 @@ void Mmu::handle_pte_response()
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Received pte response (value: 0x%lx)\n",
         this->pte_value.raw);
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    if (this->pte_req.status == vp::IO_RESP_INVALID)
+#else
     if (this->pte_req.status == vp::IO_REQ_INVALID)
+#endif
     {
         this->walk_pending = false;
         this->iss.csr.stval.value = this->current_virt_addr;
@@ -289,6 +296,9 @@ bool Mmu::read_pte(iss_addr_t pte_addr)
     req->set_size(this->pte_size);
     req->set_opcode(vp::IoReqOpcode::READ);
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    return this->pte_req_status(this->iss.lsu.data.req(req));
+#else
     vp::IoReqStatus err = this->iss.lsu.data.req(req);
     if (err == vp::IO_REQ_OK)
     {
@@ -310,7 +320,58 @@ bool Mmu::read_pte(iss_addr_t pte_addr)
         // received, through the LSU response callback.
         return true;
     }
+#endif
 }
+
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+bool Mmu::pte_req_status(vp::IoReqStatus status)
+{
+    if (status == vp::IO_REQ_DONE)
+    {
+        if (this->pte_req.status == vp::IO_RESP_INVALID)
+        {
+            this->walk_pending = false;
+            this->iss.csr.stval.value = this->current_virt_addr;
+            this->iss.csr.mtval.value = this->current_virt_addr;
+            this->iss.exception.raise(this->iss.exec.current_insn,
+                this->access_type & ACCESS_LOAD ? ISS_EXCEPT_LOAD_FAULT :
+                this->access_type & ACCESS_STORE ? ISS_EXCEPT_STORE_FAULT : ISS_EXCEPT_INSN_FAULT);
+            return true;
+        }
+        return false;
+    }
+    else if (status == vp::IO_REQ_DENIED)
+    {
+        // The read is sent again when the LSU port fires retry(), and the walk resumes from
+        // there
+        this->pte_denied = true;
+        return true;
+    }
+    else
+    {
+        // The response is asynchronous, the walk will be resumed when it is
+        // received, through the LSU response callback.
+        return true;
+    }
+}
+
+bool Mmu::pte_retry()
+{
+    if (!this->pte_denied) return false;
+
+    // Send the read again now, the port may accept it only during this call
+    vp::IoReqStatus status = this->iss.lsu.data.req(&this->pte_req);
+    if (status == vp::IO_REQ_DENIED) return true;
+
+    this->pte_denied = false;
+    if (!this->pte_req_status(status))
+    {
+        // The PTE is there, continue the walk
+        this->walk_continue();
+    }
+    return true;
+}
+#endif
 
 // Start a page-table walk for the given virtual address. Returns false when the
 // walk completed synchronously and the TLB has been filled, and true when an

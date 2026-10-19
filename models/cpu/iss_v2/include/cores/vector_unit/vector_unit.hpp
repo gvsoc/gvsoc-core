@@ -557,6 +557,115 @@ private:
 
 #else
 
+#if defined(CONFIG_GVSOC_ISS_VLSU_V2)
+
+// One memory burst of the Ara VLSU, io_v2 variant. The request is the first field so that the
+// request coming back in the response callback can be cast to its burst.
+struct VuLsuBurst
+{
+    vp::IoReq req;
+    // Instruction slot the burst belongs to, to account its end
+    VuLsuPendingInsn *slot;
+};
+
+// Block processing load/store vector instructions, io_v2 variant.
+//
+// Same FSM and instruction handling as the v1 ``VuLsu``, but the bursts go through the VLSU
+// own io_v2 master port (``vlsu``) instead of the scalar LSU port:
+//   - DONE: the burst ends ``get_full_latency()`` cycles later, through the delayed bursts queue.
+//   - GRANTED: the burst ends when its response comes back.
+//   - DENIED: the burst is kept and the block stops sending bursts. The burst is sent again
+//     inside the retry() callback, as the io_v2 protocol requires.
+class VuLsu : public VuBlock
+{
+public:
+
+    void reset(bool active) override;
+    VuLsu(Vu &vu, Iss &iss);
+    bool is_full() override { return this->nb_pending_insn.get() == VuLsu::queue_size; }
+    void enqueue_insn(PendingInsn *pending_insn) override;
+    void isa_init() override;
+
+private:
+    // Handler for internal FSM
+    static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    // Handler called when a load instruction starts to be processed, in order to initialize the FSM
+    // for a read burst
+    static void handle_insn_load(VuLsu *vlsu, iss_insn_t *insn);
+    // Handler called when a write instruction starts to be processed, in order to initialize the FSM
+    // for a write burst
+    static void handle_insn_store(VuLsu *vlsu, iss_insn_t *insn);
+    // Handler called when the port can accept the denied burst again
+    static void data_retry(vp::Block *__this, vp::IoRetryChannel channel);
+    // Handler for asynchronous burst responses
+    static vp::IoRespAck data_response(vp::Block *__this, vp::IoReq *req);
+    // Handles the status returned when a burst is sent
+    void handle_burst_status(vp::IoReq *req, vp::IoReqStatus status);
+    void handle_burst_end(vp::IoReq *req);
+
+    // Number of bursts which can be sent at the same time
+    static constexpr int nb_burst = 8;
+    // Number of instruction that can be enqueued at the same time
+    static constexpr int queue_size = 4;
+
+    Vu &vu;
+    vp::Trace trace;
+    // Event for active state
+    vp::Trace event_active;
+    // Event for address of current AXI burst
+    vp::Trace event_addr;
+    // Event for size of current AXI burst
+    vp::Trace event_size;
+    // Event for write or read opcode of current AXI burst
+    vp::Trace event_is_write;
+    // Event for PC of enqueued instructions
+    vp::Trace event_queue;
+    // Event for PC of instruction being processed
+    vp::Trace event_pc;
+    // Event for label of instruction being processed
+    vp::Event event_label;
+    // Clock event used for scheduling FSM handler when at least one instruction has to be processed
+    vp::ClockEvent fsm_event;
+    // Queue of pending instructions to be processed by this block
+    // The block process them in-order
+    std::vector<VuLsuPendingInsn> insns;
+    // Address of the next burst to be sent
+    iss_addr_t pending_addr;
+    // Remaining size of the current load/store operation
+    iss_addr_t pending_size;
+    // Write or read of the current load/store operation
+    bool pending_is_write;
+    // Pointer to vector register file where next burst should read or written
+    uint8_t *pending_velem;
+    // Bursts, and the queue of the available ones
+    VuLsuBurst bursts[VuLsu::nb_burst];
+    std::queue<vp::IoReq *> free_bursts;
+    // Memory interface for load/store bursts
+    vp::IoMaster io_itf{&VuLsu::data_retry, &VuLsu::data_response};
+    // Burst which was denied, sent again when the port fires retry(). No other burst is sent
+    // while it is set.
+    vp::IoReq *denied_burst;
+    // Bursts which have been handled synchronously with a delay. There are hold here until their
+    // delay has elapsed
+    std::queue<vp::IoReq *> delayed_bursts;
+    // Timestamps where burst in delayed_bursts can be released
+    std::queue<int64_t> delayed_bursts_timestamps;
+    // First valid instruction in the queue.
+    int insn_first;
+    // First valid instruction in the queue waiting to be started
+    int insn_first_waiting;
+    // Index in the queue where the next instruction should be pushed.
+    int insn_last;
+    // Number of enqueued instructions
+    vp::Register<uint8_t> nb_pending_insn;
+    // Number of instructions waiting to be started
+    int nb_waiting_insn;
+    int elem_size;
+    int vstart;
+};
+
+#else
+
 // Block processing load/store vector instructions
 class VuLsu : public VuBlock
 {
@@ -653,6 +762,8 @@ private:
     // This also prevents the younger instructions waiting in the queue from consuming its latency while the older instruction is still active.
     int insn_ongoing;
 };
+
+#endif // CONFIG_GVSOC_ISS_VLSU_V2
 
 #endif
 

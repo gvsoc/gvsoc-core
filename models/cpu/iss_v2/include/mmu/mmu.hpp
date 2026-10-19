@@ -75,12 +75,24 @@ public:
     // to resume the page-table walk.
     void handle_pte_response();
 
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    // Called by the LSU when its port fires retry(), to send again a denied PTE read.
+    // Returns true if a PTE read was denied, false if the retry is not for the MMU.
+    bool pte_retry();
+#endif
+
     // Request used for reading the page-table entries through the LSU data port. The
     // LSU response callback compares against it to route the response back to the MMU.
     vp::IoReq pte_req;
 
 private:
     bool read_pte(iss_addr_t pte_addr);
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    // Handles the status of a PTE read sent with io_v2. Same return value as read_pte.
+    bool pte_req_status(vp::IoReqStatus status);
+    // True while the PTE read is denied, waiting for the LSU port to fire retry()
+    bool pte_denied;
+#endif
     bool walk_pgtab(iss_addr_t virt_addr);
     bool walk_continue();
     void raise_exception();

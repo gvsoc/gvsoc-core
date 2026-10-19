@@ -330,11 +330,15 @@ void LsuV2::handle_req_end(LsuReqEntry *entry)
                 data = iss_get_signed_value(data, size * 8);
             }
 
-            this->iss.regfile.set_reg(entry->reg, data);
+            // An LSU subclass may take loads into registers of its own
+            if (!this->iss.lsu.load_end_hook(entry, data))
+            {
+                this->iss.regfile.set_reg(entry->reg, data);
 
 #ifdef VP_MEMCHECK_ACTIVE
-            this->memcheck_handle_load(entry, size);
+                this->memcheck_handle_load(entry, size);
 #endif
+            }
         }
         else if (req->get_opcode() != vp::IoReqOpcode::WRITE)
         {

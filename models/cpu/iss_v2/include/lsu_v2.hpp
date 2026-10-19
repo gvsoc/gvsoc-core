@@ -101,6 +101,10 @@ public:
     inline void req_retire_hook(LsuReqEntry *entry) {}
     // Called when the external IRQ unit receives a new interrupt state.
     inline void irq_req_hook(int irq, bool irq_enabled) {}
+    // Called when a load returns its value, before it is written to
+    // entry->reg. Returns true if the subclass took the value, which then
+    // goes neither to the register file nor to its memcheck shadow.
+    inline bool load_end_hook(LsuReqEntry *entry, iss_reg_t data) { return false; }
 
     // Number of accesses in flight (held instructions or deferred
     // completions). Used by the DBT dispatch to enter translated code

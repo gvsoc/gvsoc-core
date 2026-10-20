@@ -155,9 +155,9 @@ void IssWrapper::reset(bool active)
     this->iss.regfile.reset(active);
     this->iss.decode.reset(active);
     this->iss.gdbserver.reset(active);
+    this->iss.syscalls.reset(active);
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
-    this->iss.syscalls.reset(active);
     this->iss.vector.reset(active);
     this->iss.vu.reset(active);
 

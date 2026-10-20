@@ -46,6 +46,11 @@
 // allocator-backed object carrying our context in initiator — resolves the
 // access in out_resp (the adapter frees the ack).
 //
+// Optional limits (all off by default): accesses in flight in total, per
+// direction, and reads excluded while writes are in flight and conversely
+// (rw_exclusive, an AXI master with a single ID). A request past a limit is
+// denied, and the master is retried when a response frees room.
+//
 // Timing: zero added latency, no clock events. A read completes (one resp
 // upstream) on the cycle its last beat arrives; inline DONEs are relayed
 // inline (writes, zero-size or error reads — a data-less read cannot be
@@ -115,6 +120,11 @@ private:
 
     AccessCtx *alloc_ctx();
     void retire_ctx(AccessCtx *ctx);
+    // True if an access of this direction must be denied for the limits
+    bool limited(bool is_write);
+    // An access of this direction was granted downstream, or completed
+    void pending_inc(bool is_write);
+    void pending_dec(bool is_write);
 
     vp::Trace trace;
 
@@ -129,6 +139,15 @@ private:
     vp::IoReqAllocator *zero_allocator;
     std::vector<AccessCtx *> live;     // in-flight accesses, for reset cleanup
     std::vector<AccessCtx *> ctx_pool; // freelist (process-lifetime)
+
+    // Limits, 0 for none, and the reads and writes in flight downstream
+    bool has_limits;
+    int max_pending;
+    int max_pending_per_dir;
+    bool rw_exclusive;
+    int nb_pending[2] = {0, 0};
+    // A request was denied for the limits, retry the master when room frees
+    bool need_retry = false;
 };
 
 
@@ -140,6 +159,11 @@ IoV2SingleReqToBeatAdapter::IoV2SingleReqToBeatAdapter(vp::ComponentConf &config
     this->beat_width = (int)this->cfg.beat_width;
 
     this->zero_allocator = vp::IoReqAllocator::get(0);
+
+    this->max_pending = this->cfg.max_pending;
+    this->max_pending_per_dir = this->cfg.max_pending_per_dir;
+    this->rw_exclusive = this->cfg.rw_exclusive;
+    this->has_limits = this->max_pending || this->max_pending_per_dir || this->rw_exclusive;
 
     this->new_slave_port("input", &this->in);
     this->new_master_port("output", &this->out);
@@ -173,6 +197,38 @@ void IoV2SingleReqToBeatAdapter::retire_ctx(AccessCtx *ctx)
 }
 
 
+bool IoV2SingleReqToBeatAdapter::limited(bool is_write)
+{
+    int same = this->nb_pending[is_write], other = this->nb_pending[!is_write];
+    return (this->max_pending && same + other >= this->max_pending) ||
+        (this->max_pending_per_dir && same >= this->max_pending_per_dir) ||
+        (this->rw_exclusive && other > 0);
+}
+
+
+void IoV2SingleReqToBeatAdapter::pending_inc(bool is_write)
+{
+    if (this->has_limits)
+    {
+        this->nb_pending[is_write]++;
+    }
+}
+
+
+void IoV2SingleReqToBeatAdapter::pending_dec(bool is_write)
+{
+    if (this->has_limits)
+    {
+        this->nb_pending[is_write]--;
+        if (this->need_retry)
+        {
+            this->need_retry = false;
+            this->in.retry();
+        }
+    }
+}
+
+
 vp::IoReqStatus IoV2SingleReqToBeatAdapter::in_req(vp::Block *__this, vp::IoReq *req)
 {
     auto *self = static_cast<IoV2SingleReqToBeatAdapter *>(__this);
@@ -180,6 +236,15 @@ vp::IoReqStatus IoV2SingleReqToBeatAdapter::in_req(vp::Block *__this, vp::IoReq 
     self->trace.msg(vp::Trace::LEVEL_TRACE,
         "Submit (req=%p, addr=0x%lx, size=%lu, opcode=%d)\n",
         req, req->get_addr(), req->get_size(), (int)req->get_opcode());
+
+    if (self->has_limits && self->limited(req->get_is_write()))
+    {
+        self->trace.msg(vp::Trace::LEVEL_TRACE,
+            "Denied, accesses in flight (reads=%d, writes=%d)\n",
+            self->nb_pending[0], self->nb_pending[1]);
+        self->need_retry = true;
+        return vp::IO_REQ_DENIED;
+    }
 
     // Pure WRITE: the beat target consumes and FREES a granted write beat
     // (io_v2.hpp "Write acknowledgement"), so the master's own object must
@@ -234,6 +299,7 @@ vp::IoReqStatus IoV2SingleReqToBeatAdapter::in_req(vp::Block *__this, vp::IoReq 
         // burst ack arrives in out_resp as a DISTINCT data-less object
         // carrying our context in initiator.
         self->live.push_back(ctx);
+        self->pending_inc(true);
         return vp::IO_REQ_GRANTED;
     }
 
@@ -248,7 +314,12 @@ vp::IoReqStatus IoV2SingleReqToBeatAdapter::in_req(vp::Block *__this, vp::IoReq 
     // forward.
     if (req->get_is_write())
     {
-        return self->out.req(req);
+        vp::IoReqStatus st = self->out.req(req);
+        if (st == vp::IO_REQ_GRANTED)
+        {
+            self->pending_inc(true);
+        }
+        return st;
     }
 
     // READ: the single-req master routes the response by identity, so its
@@ -303,6 +374,7 @@ vp::IoReqStatus IoV2SingleReqToBeatAdapter::in_req(vp::Block *__this, vp::IoReq 
     }
 
     self->live.push_back(ctx);
+    self->pending_inc(false);
     return vp::IO_REQ_GRANTED;
 }
 
@@ -336,6 +408,7 @@ vp::IoRespAck IoV2SingleReqToBeatAdapter::out_resp(vp::Block *__this, vp::IoReq 
             up, up->get_addr(), up->get_size());
         self->traces.assert(self->in.resp(up) == vp::IO_RESP_ACCEPTED,
             "single-req master must accept its response (req=%p)", up);
+        self->pending_dec(true);
         return vp::IO_RESP_ACCEPTED;
     }
 
@@ -345,6 +418,7 @@ vp::IoRespAck IoV2SingleReqToBeatAdapter::out_resp(vp::Block *__this, vp::IoReq 
     {
         self->traces.assert(self->in.resp(req) == vp::IO_RESP_ACCEPTED,
             "single-req master must accept its response (req=%p)", req);
+        self->pending_dec(true);
         return vp::IO_RESP_ACCEPTED;
     }
 
@@ -387,6 +461,7 @@ vp::IoRespAck IoV2SingleReqToBeatAdapter::out_resp(vp::Block *__this, vp::IoReq 
             up, up->get_addr(), up->get_size());
         self->traces.assert(self->in.resp(up) == vp::IO_RESP_ACCEPTED,
             "single-req master must accept its response (req=%p)", up);
+        self->pending_dec(false);
     }
 
     return vp::IO_RESP_ACCEPTED;
@@ -457,6 +532,8 @@ void IoV2SingleReqToBeatAdapter::reset(bool active)
             this->ctx_pool.push_back(ctx);
         }
         this->live.clear();
+        this->nb_pending[0] = this->nb_pending[1] = 0;
+        this->need_retry = false;
     }
 }
 

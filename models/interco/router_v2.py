@@ -238,6 +238,11 @@ class RouterConfig(Config, HasSize):
     nb_input_port: int = cfg_field(default=1, dump=True, desc=(
         "Number of input ports the router exposes."
     ))
+    round_robin_retry: bool = cfg_field(default=False, dump=True, desc=(
+        "Untimed variant: broadcast a retry to the inputs starting after the one "
+        "granted last, as a round-robin arbiter, so that the inputs share what a "
+        "limited output frees. False (default): starting with input 0."
+    ))
 
     mappings: list["RouterMapping"] = cfg_field(default_factory=list, init=False, desc=(
         "List of address mappings for the router"

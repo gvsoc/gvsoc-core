@@ -22,7 +22,9 @@ Auto-inserted by the gvrun2 systree binding pass when a master port declares
 signature ``IoV2SingleReq`` and the bound slave port declares signature
 ``IoV2Beat`` (see ``IoV2SingleReq.bridge_to`` in ``gvsoc/signature.py``). The
 per-combination replacement of the general ``IoV2BeatCollapseAdapter`` for
-single-req masters (the ISS LSU, functional routers): its only substantive job
+single-req masters (the ISS LSU, functional routers). It adds no timing
+unless limits on the accesses in flight are configured (for example the Snitch
+cluster converter of its cores to AXI, instantiated explicitly): its only substantive job
 is translating the two allocation conventions — downstream read data arrives
 in allocator-backed beats the adapter copies out and frees, while the upstream
 response hands the master back its **own** request object (the single-req
@@ -49,13 +51,28 @@ class IoV2SingleReqToBeatAdapterConfig(Config):
         "Beat width in bytes of the downstream beat slave (used for tracing "
         "and the single-beat contract checks in asserts builds)."
     ))
+    max_pending: int = cfg_field(default=0, dump=True, desc=(
+        "Accesses in flight downstream at most, 0 for no limit. A request past "
+        "a limit is denied, and retried when a response frees room."
+    ))
+    max_pending_per_dir: int = cfg_field(default=0, dump=True, desc=(
+        "Reads, or writes, in flight downstream at most, 0 for no limit."
+    ))
+    rw_exclusive: bool = cfg_field(default=False, dump=True, desc=(
+        "No read while writes are in flight and no write while reads are, to "
+        "keep reads and writes in order over a bus which does not order them "
+        "(an AXI master with a single ID). Atomics count as writes."
+    ))
 
 
 class IoV2SingleReqToBeatAdapter(Component):
 
-    def __init__(self, parent: Component, name: str, beat_width: int):
-        super().__init__(parent, name, config=IoV2SingleReqToBeatAdapterConfig(
-            beat_width=beat_width))
+    def __init__(self, parent: Component, name: str, beat_width: int,
+                 config: IoV2SingleReqToBeatAdapterConfig=None):
+        if config is None:
+            config = IoV2SingleReqToBeatAdapterConfig()
+        config.beat_width = beat_width
+        super().__init__(parent, name, config=config)
         self.set_component('utils.io_v2_single_req_to_beat_adapter')
         self._beat_width = beat_width
 

@@ -233,4 +233,23 @@ inline void LsuV2::free_req_entry(LsuReqEntry *entry)
     this->nb_pending_loads -= entry->is_load;
     entry->next = this->req_entry_first;
     this->req_entry_first = entry;
+
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+    // The oldest access retired, the next one retires on the next free slot
+    // if its response is already back
+    this->order_head = (this->order_head + 1) % CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING;
+    this->order_count--;
+    if (this->order_count > 0)
+    {
+        LsuReqEntry *next = this->order[this->order_head];
+        if (next->arrived)
+        {
+            next->arrived = false;
+            int64_t slot = std::max(this->iss.clock.get_cycles() + 1, this->next_retire_cycle);
+            next->timestamp = slot;
+            this->next_retire_cycle = slot + 1;
+            this->iss.exec.enqueue_task(&next->task);
+        }
+    }
+#endif
 }

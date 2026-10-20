@@ -90,6 +90,10 @@ void LsuV2::reset(bool active)
         this->pending_fence = false;
         this->nb_pending_accesses = 0;
         this->nb_pending_loads = 0;
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+        this->order_head = 0;
+        this->order_count = 0;
+#endif
         this->next_retire_cycle = 0;
         this->issuing_misaligned = false;
         this->pending_addr_buffer_id = 0;
@@ -279,6 +283,13 @@ vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
         return vp::IO_RESP_ACCEPTED;
     }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+    if (!_this->retire_in_order(entry))
+    {
+        return vp::IO_RESP_ACCEPTED;
+    }
+#endif
+
     int64_t cur = _this->iss.clock.get_cycles();
 #if defined(CONFIG_GVSOC_ISS_TIMED)
     if (cur < _this->next_retire_cycle)
@@ -311,7 +322,9 @@ vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
 #else
     _this->iss.exec.insn_terminate(insn_entry);
 #endif
-    _this->next_retire_cycle = cur + 1;
+    // Never rewind below a slot reserved meanwhile for a younger response
+    if (_this->next_retire_cycle < cur + 1)
+        _this->next_retire_cycle = cur + 1;
 
     return vp::IO_RESP_ACCEPTED;
 }
@@ -347,6 +360,13 @@ bool LsuV2::handle_req_response(LsuReqEntry *entry)
         {
             return this->fire_misaligned_second(entry);
         }
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+        if (!this->retire_in_order(entry))
+        {
+            // Kept for the older accesses, the instruction must be held
+            return true;
+        }
+#endif
         this->handle_req_end(entry);
         return false;
     }
@@ -456,6 +476,11 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
     }
     entry->is_load = is_load;
     this->nb_pending_loads += is_load;
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+    entry->arrived = false;
+    this->order[(this->order_head + this->order_count++) % CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING] =
+        entry;
+#endif
 
     // Per-bus-transaction accounting: matches RI5CY's mem_load_i /
     // mem_store_i which fire once per memory access. For misaligned
@@ -752,6 +777,13 @@ void LsuV2::task_handle(Iss *iss, Task *task)
         return;
     }
 
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+    if (!iss->lsu.retire_in_order(entry))
+    {
+        return;
+    }
+#endif
+
     // We have reached the unique retire slot (entry->timestamp) that was
     // reserved for this completion when it was deferred (in data_response, or
     // an earlier pass through this handler). That slot is ours, so retire now.
@@ -784,6 +816,19 @@ void LsuV2::task_handle(Iss *iss, Task *task)
     if (iss->lsu.next_retire_cycle < cur + 1)
         iss->lsu.next_retire_cycle = cur + 1;
 }
+
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+bool LsuV2::retire_in_order(LsuReqEntry *entry)
+{
+    if (this->order[this->order_head] == entry)
+    {
+        return true;
+    }
+    this->trace.msg("Response kept for the older accesses (req: %p)\n", &entry->req);
+    entry->arrived = true;
+    return false;
+}
+#endif
 
 bool LsuV2::atomic(iss_insn_t *insn, iss_addr_t addr, int size,
                     int reg_in, int reg_out, vp::IoReqOpcode opcode)

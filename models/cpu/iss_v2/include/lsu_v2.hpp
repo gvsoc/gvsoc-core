@@ -76,6 +76,11 @@ struct LsuReqEntry
     // against CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS
     bool is_load;
 
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+    // True when the response is back but waits for the older accesses
+    bool arrived;
+#endif
+
     // Memcheck shadow of the transferred data (per-byte validity of ``data``)
     uint8_t  memcheck_data[8];
 };
@@ -277,6 +282,17 @@ protected:
     // Loads and atomics in flight, at most CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS
     // of the CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING accesses
     int nb_pending_loads;
+
+#ifdef CONFIG_GVSOC_ISS_LSU_IN_ORDER
+    // Accesses in flight in issue order, their responses retire in this order,
+    // as behind the Snitch core demux which returns them through an ID FIFO
+    LsuReqEntry *order[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
+    int order_head;
+    int order_count;
+    // True if the response of this access can retire now, otherwise it is
+    // kept until the older accesses retire
+    bool retire_in_order(LsuReqEntry *entry);
+#endif
 
     // Earliest cycle at which the next response is allowed to retire.
     // A response landing at `cycle >= next_retire_cycle` retires now

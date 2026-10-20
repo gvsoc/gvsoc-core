@@ -201,8 +201,12 @@ class LsuV2(IssModule):
       both modes.
     """
     def __init__(self, nb_outstanding: int=1, width: int=4,
-                 class_name: str='LsuV2', nb_outstanding_loads: int=None):
+                 class_name: str='LsuV2', nb_outstanding_loads: int=None,
+                 in_order: bool=False):
         self.nb_outstanding = nb_outstanding
+        # Responses retire in issue order, a response coming back before an
+        # older one waits for it
+        self.in_order = in_order
         # Loads and atomics in flight among the nb_outstanding accesses, all
         # of them by default. Stores fill the rest.
         self.nb_outstanding_loads = nb_outstanding if nb_outstanding_loads is None \
@@ -223,6 +227,8 @@ class LsuV2(IssModule):
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS',
                            self.nb_outstanding_loads)
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_WIDTH', self.width)
+        if self.in_order:
+            iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_IN_ORDER', '1')
         iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')
         iss.add_sources(['cpu/iss_v2/src/lsu_v2.cpp'])
         iss.isa.add_implem_include('<cpu/iss_v2/include/lsu_v2_implem.hpp>')

@@ -89,6 +89,7 @@ void LsuV2::reset(bool active)
         }
         this->pending_fence = false;
         this->nb_pending_accesses = 0;
+        this->nb_pending_loads = 0;
         this->next_retire_cycle = 0;
         this->issuing_misaligned = false;
         this->pending_addr_buffer_id = 0;
@@ -435,6 +436,15 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
     this->trace.msg("Data request (addr: 0x%lx, size: 0x%x, opcode: %d)\n",
                      addr, size, opcode);
     this->granted_entry = NULL;
+    // Anything but a store returns data, and only a limited number of them can
+    // be in flight among the accesses (a load queue, as on Snitch)
+    bool is_load = opcode != vp::IoReqOpcode::WRITE;
+    if (CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS < CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING &&
+        is_load && this->nb_pending_loads == CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS)
+    {
+        this->trace.msg("Aborting request, no available load\n");
+        return true;
+    }
     LsuReqEntry *entry = this->get_req_entry();
     if (entry == NULL)
     {
@@ -444,6 +454,8 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
         this->trace.msg("Aborting request, no available request\n");
         return true;
     }
+    entry->is_load = is_load;
+    this->nb_pending_loads += is_load;
 
     // Per-bus-transaction accounting: matches RI5CY's mem_load_i /
     // mem_store_i which fire once per memory access. For misaligned

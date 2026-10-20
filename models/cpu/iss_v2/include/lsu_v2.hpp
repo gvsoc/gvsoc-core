@@ -72,6 +72,10 @@ struct LsuReqEntry
     // True while this access retains the core (see LsuV2::hold_on_async).
     bool holds_core;
 
+    // True for an access returning data (load or atomic), which counts
+    // against CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS
+    bool is_load;
+
     // Memcheck shadow of the transferred data (per-byte validity of ``data``)
     uint8_t  memcheck_data[8];
 };
@@ -270,6 +274,9 @@ protected:
     vp::Signal<bool>       log_is_write;
 
     int nb_pending_accesses;
+    // Loads and atomics in flight, at most CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS
+    // of the CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING accesses
+    int nb_pending_loads;
 
     // Earliest cycle at which the next response is allowed to retire.
     // A response landing at `cycle >= next_retire_cycle` retires now

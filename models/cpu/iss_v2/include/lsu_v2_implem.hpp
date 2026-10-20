@@ -230,6 +230,7 @@ inline bool LsuV2::store_float_perf(iss_insn_t *insn, iss_addr_t addr, int size,
 inline void LsuV2::free_req_entry(LsuReqEntry *entry)
 {
     this->nb_pending_accesses--;
+    this->nb_pending_loads -= entry->is_load;
     entry->next = this->req_entry_first;
     this->req_entry_first = entry;
 }

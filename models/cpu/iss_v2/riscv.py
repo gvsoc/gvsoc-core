@@ -201,8 +201,12 @@ class LsuV2(IssModule):
       both modes.
     """
     def __init__(self, nb_outstanding: int=1, width: int=4,
-                 class_name: str='LsuV2'):
+                 class_name: str='LsuV2', nb_outstanding_loads: int=None):
         self.nb_outstanding = nb_outstanding
+        # Loads and atomics in flight among the nb_outstanding accesses, all
+        # of them by default. Stores fill the rest.
+        self.nb_outstanding_loads = nb_outstanding if nb_outstanding_loads is None \
+            else nb_outstanding_loads
         # Width in bytes of the data port. An access crossing a port-word
         # boundary is split into two serialized beats, so this decides
         # whether an 8-byte FP load is one memory access or two. 4 is the
@@ -216,6 +220,8 @@ class LsuV2(IssModule):
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU', self.class_name)
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_V2', '1')
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING', self.nb_outstanding)
+        iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS',
+                           self.nb_outstanding_loads)
         iss.isa.add_define('CONFIG_GVSOC_ISS_LSU_WIDTH', self.width)
         iss.isa.add_include('<cpu/iss_v2/include/lsu_v2.hpp>')
         iss.add_sources(['cpu/iss_v2/src/lsu_v2.cpp'])

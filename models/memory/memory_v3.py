@@ -387,6 +387,15 @@ class Memory(gvsoc.systree.Component):
         """
         return gvsoc.systree.SlaveItf(self, 'input', signature=IoV2Sync())
 
+    def i_MEMINFO(self) -> gvsoc.systree.SlaveItf:
+        """Returns the port giving the backing array of the memory.
+
+        A master reading it gets the pointer to the array, e.g. a core
+        accessing the memory directly (see the iss_v2 core ``o_MEMINFO``).
+        Writing it replaces the array.
+        """
+        return gvsoc.systree.SlaveItf(self, 'meminfo', signature='wire<void *>')
+
     def gen_gui(self, parent_signal):
         import gvsoc.gui
         top = gvsoc.gui.Signal(self, parent_signal, name=self.name, path="req_addr",

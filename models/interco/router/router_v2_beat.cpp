@@ -99,6 +99,7 @@ struct BurstEntry
     InputPort *input = nullptr;
     int output_id = -1;                // -1 until fsm has decoded the first beat's mapping
     int channel = 0;                   // resolved direction-channel for this burst
+    bool is_write = false;             // direction, for the per-direction limits
     int64_t original_burst_id = -1;    // master's burst_id, restored on response
     // Snapshot of req->is_last as the master submitted each forward beat into
     // this slot — reads and atomics only (pure write beats produce no
@@ -147,6 +148,21 @@ public:
     // a small transaction table).
     int max_pending = 0;
     int nb_pending[NB_CHANNELS] = {0, 0};
+    // Mapping full_registered: cycle at which a transaction completed while
+    // the channel was full, no burst opens on it in that cycle
+    bool full_registered = false;
+    int64_t full_free_cycle[NB_CHANNELS] = {-1, -1};
+    // Mapping max_pending_per_dir and rw_exclusive: the outstanding reads ([0])
+    // and writes ([1]), whatever the channels
+    int max_pending_per_dir = 0;
+    bool rw_exclusive = false;
+    int nb_pending_dir[2] = {0, 0};
+    // Bursts are counted on this output (one of the limits above is set)
+    bool counts = false;
+    // rr_arb_tree: priority pointer of each channel, and the input locked in
+    // (lock_in) because the output could not take its elected request
+    int rr_q[NB_CHANNELS] = {0, 0};
+    int locked_input[NB_CHANNELS] = {-1, -1};
     // Input currently holding this output for a burst, per channel; nullptr when
     // the channel is free. With shared_rw_channel=true only [0] is used.
     InputPort *elected_input[NB_CHANNELS] = {nullptr, nullptr};
@@ -365,15 +381,37 @@ private:
     // decode error), honouring the per-(input, channel) one-beat-per-cycle
     // response pacing.
     void deliver_synth_acks();
+    // Reads and writes share channel 0
+    bool one_channel() const
+    {
+        return this->cfg.shared_rw_channel || this->cfg.ordered_channel;
+    }
     int channel_of(bool is_write) const
     {
-        return this->cfg.shared_rw_channel ? 0 : (is_write ? 1 : 0);
+        return this->one_channel() ? 0 : (is_write ? 1 : 0);
     }
+    // The output is full for a new burst on this channel (max_pending_bursts)
+    bool out_full(OutputPort *out, int ch, int64_t now) const
+    {
+        return out->max_pending > 0 && (out->nb_pending[ch] >= out->max_pending ||
+            out->full_free_cycle[ch] == now);
+    }
+    // The output takes no new burst in this direction for now
+    // (max_pending_per_dir, rw_exclusive)
+    bool dir_blocked(OutputPort *out, bool is_write) const
+    {
+        return (out->max_pending_per_dir > 0 &&
+                out->nb_pending_dir[is_write] >= out->max_pending_per_dir) ||
+            (out->rw_exclusive && out->nb_pending_dir[!is_write] > 0);
+    }
+    // rr_arb_tree: the input elected among the candidates for this channel
+    // of this output, and the candidates (bit i for input i)
+    int rr_tree_winner(OutputPort *out, int ch, int64_t now, std::vector<bool> &req);
     // Retry channel naming channel index `ch` (ANY when the router shares one
     // channel for reads and writes).
     vp::IoRetryChannel retry_channel_of(int ch) const
     {
-        if (this->cfg.shared_rw_channel) return vp::IO_RETRY_ANY;
+        if (this->one_channel()) return vp::IO_RETRY_ANY;
         return ch == 1 ? vp::IO_RETRY_WRITE : vp::IO_RETRY_READ;
     }
     // Channel indices a retry on `channel` should re-issue: ANY -> both;
@@ -381,7 +419,7 @@ private:
     // Fills `out` (capacity NB_CHANNELS) and returns the count.
     int channels_for(vp::IoRetryChannel channel, int *out) const
     {
-        if (this->cfg.shared_rw_channel) { out[0] = 0; return 1; }
+        if (this->one_channel()) { out[0] = 0; return 1; }
         if (channel == vp::IO_RETRY_READ)  { out[0] = 0; return 1; }
         if (channel == vp::IO_RETRY_WRITE) { out[0] = 1; return 1; }
         out[0] = 0; out[1] = 1; return 2;  // IO_RETRY_ANY
@@ -619,6 +657,10 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
         out->remove_offset = m.remove_offset;
         out->add_offset = m.add_offset;
         out->max_pending = m.max_pending_bursts;
+        out->full_registered = m.full_registered;
+        out->max_pending_per_dir = m.max_pending_per_dir;
+        out->rw_exclusive = m.rw_exclusive;
+        out->counts = out->max_pending > 0 || out->max_pending_per_dir > 0 || out->rw_exclusive;
         this->entries.push_back(out);
         // Bind the per-output bus master to the named port. resp() and retry()
         // dispatch back through RouterBeat::resp_muxed / retry_muxed keyed by
@@ -654,7 +696,13 @@ void RouterBeat::free_burst_slot(int slot_idx)
     }
     if (slot.counted_on_output && slot.output_id >= 0)
     {
-        this->entries[slot.output_id]->nb_pending[slot.channel]--;
+        OutputPort *out = this->entries[slot.output_id];
+        if (out->full_registered && out->nb_pending[slot.channel] == out->max_pending)
+        {
+            out->full_free_cycle[slot.channel] = this->clock.get_cycles();
+        }
+        out->nb_pending[slot.channel]--;
+        out->nb_pending_dir[slot.is_write]--;
     }
     slot.counted_on_output = false;
     slot.in_use = false;
@@ -816,9 +864,10 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         queue.pending.pop_front();
         in->pending_bytes -= log_size;
         if (queue.pending.empty()) queue.set_head_cycle(INT64_MAX);
-        if (log_first && out->max_pending > 0)
+        if (log_first && out->counts)
         {
             out->nb_pending[slot.channel]++;
+            out->nb_pending_dir[slot.is_write]++;
             slot.counted_on_output = true;
         }
 
@@ -873,9 +922,10 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         if (queue.pending.empty()) queue.set_head_cycle(INT64_MAX);
         // The downstream took a new transaction: one of its outstanding slots
         // is held until the burst completes (free_burst_slot gives it back).
-        if (log_first && out->max_pending > 0)
+        if (log_first && out->counts)
         {
             out->nb_pending[slot.channel]++;
+            out->nb_pending_dir[slot.is_write]++;
             slot.counted_on_output = true;
         }
         if (is_pure_write)
@@ -984,6 +1034,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         slot.input = in;
         slot.output_id = -1;                          // decoded later by fsm
         slot.channel = _this->channel_of(is_write);
+        slot.is_write = is_write;
         slot.original_burst_id = req->burst_id;
         slot.base_addr = req->get_addr();
         slot.total_bytes = 0;
@@ -1081,9 +1132,46 @@ bool RouterBeat::is_candidate(InputPort *in, OutputPort *out, int ch, int64_t no
 
     if (!ignore_lock && out->elected_input[ch] != nullptr && out->elected_input[ch] != in)
         return false;
-    if (beat->is_first && out->max_pending > 0 &&
-        out->nb_pending[ch] >= out->max_pending) return false;
+    if (beat->is_first && this->out_full(out, ch, now)) return false;
+    // Without lock-in, a request the output cannot take in its direction is
+    // not elected
+    if (beat->is_first && !this->cfg.lock_in &&
+        this->dir_blocked(out, this->burst_table[head.slot_idx].is_write)) return false;
     return true;
+}
+
+int RouterBeat::rr_tree_winner(OutputPort *out, int ch, int64_t now, std::vector<bool> &req)
+{
+    int n = (int)this->inputs.size();
+    req.assign(n, false);
+    bool any = false;
+    for (int j = 0; j < n; j++)
+    {
+        req[j] = this->is_candidate(this->inputs[j], out, ch, now);
+        any |= req[j];
+    }
+    if (!any) return -1;
+    // Locked in: the input keeps the output while it can still go
+    int locked = out->locked_input[ch];
+    if (locked >= 0 && req[locked]) return locked;
+    out->locked_input[ch] = -1;
+    // Down the tree from the root: the right half when the left one has no
+    // request, or both have and the pointer bit of the level is set
+    int nb_levels = 0;
+    while ((1 << nb_levels) < n) nb_levels++;
+    auto any_in = [&](int lo, int hi) {
+        for (int j = lo; j < hi && j < n; j++) if (req[j]) return true;
+        return false;
+    };
+    int lo = 0;
+    for (int bit = nb_levels - 1; bit >= 0; bit--)
+    {
+        int half = 1 << bit;
+        bool left = any_in(lo, lo + half);
+        bool right = any_in(lo + half, lo + 2 * half);
+        if (!left || (right && ((out->rr_q[ch] >> bit) & 1))) lo += half;
+    }
+    return lo;
 }
 
 // Take the write addresses waiting for this output, as an AXI node does while
@@ -1281,9 +1369,24 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // The downstream has no room for another transaction on this channel:
         // nobody opens a burst on it until one completes (resp path schedules
         // the FSM again). Continuation beats of an already-counted burst pass.
-        if (beat->is_first && out->max_pending > 0 &&
-            out->nb_pending[ch] >= out->max_pending) continue;
+        if (beat->is_first && _this->out_full(out, ch, now)) continue;
         bool ordered = write_order && ch == _this->channel_of(true);
+        std::vector<bool> rr_req;
+        if (_this->cfg.rr_arb_tree && !ordered)
+        {
+            if (_this->rr_tree_winner(out, ch, now, rr_req) != i) continue;
+            if (beat->is_first && _this->dir_blocked(out, slot.is_write))
+            {
+                // Elected but the output cannot take it in its direction: with
+                // lock-in, it keeps the output until it can go
+                if (_this->cfg.lock_in) out->locked_input[ch] = i;
+                continue;
+            }
+        }
+        else if (!ordered && beat->is_first && _this->dir_blocked(out, slot.is_write))
+        {
+            continue;
+        }
         if (ordered)
         {
             // The write addresses were taken in an order: only the first one
@@ -1291,7 +1394,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             if (out->write_order.empty() || out->write_order.front().input != i) continue;
         }
         // Several inputs want this channel: the round-robin elects one.
-        else if (!_this->wins_election(i, out, ch, now)) continue;
+        else if (!_this->cfg.rr_arb_tree && !_this->wins_election(i, out, ch, now)) continue;
         bool opens_burst = beat->is_first && !ordered;
 
         // Lock the output channel to this input for the beats of a burst, so
@@ -1330,6 +1433,19 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (opens_burst)
         {
             out->rr_next[ch] = (i + 1) % n;
+            if (_this->cfg.rr_arb_tree)
+            {
+                // rr_arb_tree: the pointer goes to the first requesting input
+                // after it, or the lowest one
+                out->locked_input[ch] = -1;
+                int next = -1;
+                for (int k = 1; k <= n && next == -1; k++)
+                {
+                    int j = (out->rr_q[ch] + k) % n;
+                    if (j == i || rr_req[j]) next = j;
+                }
+                out->rr_q[ch] = next;
+            }
         }
     }
 

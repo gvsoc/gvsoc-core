@@ -118,8 +118,6 @@ private:
     RouterConfig cfg;
     vp::MappingTree mapping_tree;
     int error_id = -1;
-    // Input granted last, a round-robin retry starts after it
-    int last_granted = 0;
     std::vector<InputPort *> inputs;
     std::vector<OutputPort *> entries;
 
@@ -234,12 +232,10 @@ vp::IoReqStatus RouterUntimed::req_muxed(vp::Block *__this, vp::IoReq *req, int 
     if (st == vp::IO_REQ_DONE)
     {
         // Hot path: no InFlight, no initiator touch.
-        _this->last_granted = port;
         return vp::IO_REQ_DONE;
     }
     if (st == vp::IO_REQ_GRANTED)
     {
-        _this->last_granted = port;
         // Install InFlight after the forward so resp_muxed can route back. Safe:
         // resp_muxed won't fire until we return.
         InFlight *ifl = _this->alloc_inflight();
@@ -276,11 +272,9 @@ void RouterUntimed::retry_muxed(vp::Block *__this, int /*id*/, vp::IoRetryChanne
 {
     RouterUntimed *_this = (RouterUntimed *)__this;
     // Broadcast to every input. Masters with nothing held just ignore it.
-    int nb_inputs = _this->inputs.size();
-    int first = _this->cfg.round_robin_retry ? _this->last_granted + 1 : 0;
-    for (int i = 0; i < nb_inputs; i++)
+    for (InputPort *in : _this->inputs)
     {
-        _this->inputs[(first + i) % nb_inputs]->itf.retry();
+        in->itf.retry();
     }
 }
 

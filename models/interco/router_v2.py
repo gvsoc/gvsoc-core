@@ -120,6 +120,22 @@ class RouterMapping(Config, HasSize):
         "to its completion. 0 means unlimited."
     ))
 
+    full_registered: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant: a transaction completing while max_pending_bursts are in flight "
+        "frees its place for the next cycle only, as a FIFO whose full flag is a register."
+    ))
+
+    max_pending_per_dir: int = cfg_field(default=0, dump=True, desc=(
+        "Beat variant: outstanding reads, and outstanding writes, the downstream "
+        "accepts on this output, counted apart whatever the channels. 0 means unlimited."
+    ))
+
+    rw_exclusive: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant: no read is opened on this output while writes are outstanding "
+        "on it, nor a write while reads are, to keep them in order behind a bus which "
+        "does not order them (an AXI master with a single ID). Atomics count as writes."
+    ))
+
 
 class RouterConfig(Config, HasSize):
     """Configuration class for the io_v2 :class:`Router`.
@@ -235,13 +251,25 @@ class RouterConfig(Config, HasSize):
         "bridge): what the election forwards reaches it at the end of the cycle, after any "
         "decision it took in that cycle."
     ))
+    ordered_channel: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant: reads and writes go through one in-order queue per input and one "
+        "election per output, as on a request/response interface (reqrsp, OBI), but "
+        "unlike shared_rw_channel a burst does not hold the output past its last beat."
+    ))
+    rr_arb_tree: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant: elect as the PULP rr_arb_tree (common_cells, FairArb): down a "
+        "binary tree of the inputs steered by a priority pointer, which a grant moves "
+        "to the first requesting input after it, so that an input granted alone keeps "
+        "the priority. False: first input after the last one granted."
+    ))
+    lock_in: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant, with rr_arb_tree: an elected request the output cannot take for "
+        "its max_pending_per_dir or rw_exclusive keeps the output until it goes, as an "
+        "arbiter with lock-in. A request the output is full for (max_pending_bursts) is "
+        "not elected."
+    ))
     nb_input_port: int = cfg_field(default=1, dump=True, desc=(
         "Number of input ports the router exposes."
-    ))
-    round_robin_retry: bool = cfg_field(default=False, dump=True, desc=(
-        "Untimed variant: broadcast a retry to the inputs starting after the one "
-        "granted last, as a round-robin arbiter, so that the inputs share what a "
-        "limited output frees. False (default): starting with input 0."
     ))
 
     mappings: list["RouterMapping"] = cfg_field(default_factory=list, init=False, desc=(

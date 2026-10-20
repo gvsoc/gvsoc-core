@@ -33,7 +33,7 @@ deadlines and FIFO pipelining up to ``depth`` in-flight transactions.
 The four classes share an implementation; subclasses just set
 per-kind defaults. The cdc_*_beh defaults are calibrated against the
 matching common_cells RTL via the io_v2_clkbridge test β€” see
-gvsoc/core/tests/utils/io_v2_clkbridge/rtl_calibration/.
+tests/calibration/io_v2_clkbridge/rtl_calibration/ of the SDK.
 """
 
 from gvsoc.systree import Component, SlaveItf

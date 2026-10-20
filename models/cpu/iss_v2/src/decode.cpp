@@ -247,8 +247,12 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
     if (item->u.insn.stub_handler != NULL)
     {
         insn->stub_handler = insn->handler;
+        insn->stub_fast_handler = insn->fast_handler;
         insn->handler = item->u.insn.stub_handler;
-        insn->fast_handler = item->u.insn.stub_handler;
+        // A stub without a fast variant runs its full one, which calls the
+        // full handler of the instruction, in fast mode too
+        insn->fast_handler = item->u.insn.stub_fast_handler ?
+            item->u.insn.stub_fast_handler : item->u.insn.stub_handler;
     }
 
     // Last word to the core class on the decoded instruction, e.g. to

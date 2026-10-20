@@ -335,7 +335,12 @@ typedef struct iss_decoder_insn_s
 {
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    // Stub executed in front of the instruction, in its full and fast variants,
+    // which the core calls instead of the full and fast handlers. The fast
+    // variant is optional: without it, the full one also runs in fast mode,
+    // with the full handler of the instruction.
     iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*stub_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     void (*decode)(Iss *, iss_insn_t *, iss_reg_t pc);
     char *label;
     int size;
@@ -431,7 +436,9 @@ typedef struct iss_insn_s
     iss_reg_t opcode;
     iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*resource_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    // Full and fast handlers of an instruction with a stub, see iss_stub_handler
     iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*stub_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*breakpoint_saved_handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*breakpoint_saved_fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
     int size;
@@ -455,6 +462,14 @@ typedef struct iss_insn_s
     iss_decoder_insn_t *desc;
 
 } iss_insn_t;
+
+// Handler of the instruction behind a stub: the fast one for the fast variant
+// of the stub, the full one otherwise
+template<bool fast>
+static inline iss_reg_t (*iss_stub_handler(iss_insn_t *insn))(Iss *, iss_insn_t *, iss_reg_t)
+{
+    return fast ? insn->stub_fast_handler : insn->stub_handler;
+}
 
 
 

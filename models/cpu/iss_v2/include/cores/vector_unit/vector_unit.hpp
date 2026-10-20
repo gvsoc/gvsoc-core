@@ -75,6 +75,9 @@ public:
     // drained (the release also gates WAW/WAR, which the RTL frees
     // per-word).
     int64_t chain_release_cycle;
+    // Handler executing the instruction, the full or fast one depending on
+    // the variant of the stub which enqueued it
+    iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
 };
 
 // This represents a generic HW block where vector instructions can be forwarded
@@ -684,7 +687,7 @@ public:
     // Called by the ISS to offload an instruction to vu. The instruction is pushed to the queue
     // of pending instruction, analyzed, and push to a processing block for executing once
     // dependencies are resolved. Can be called only when queue is not full.
-    void insn_enqueue(InsnEntry *insn);
+    void insn_enqueue(InsnEntry *insn, iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t));
     // Return true when queue if full and vu can not accept new instructions
     bool queue_is_full() { return this->queue_full.get(); }
     bool queue_is_empty() { return this->nb_pending_insn == 0; }
@@ -720,8 +723,10 @@ public:
 
 private:
     void insn_commit(PendingInsn *pending_insn);
+    template<bool fast>
     static iss_reg_t vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
 
+    template<bool fast>
     static iss_reg_t load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc);
     // Handler for internal FSM
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -806,7 +811,7 @@ inline void Vu::exec_insn_chunk(iss_insn_t *insn, PendingInsn *pending_insn, int
     this->dump_regs_to_trace(insn, pending_insn, nb_elem, false);
 #endif
 
-    insn->stub_handler(&this->iss, insn, insn->addr);
+    pending_insn->handler(&this->iss, insn, insn->addr);
 
 #ifdef VP_TRACE_ACTIVE
     this->dump_regs_to_trace(insn, pending_insn, nb_elem, true);

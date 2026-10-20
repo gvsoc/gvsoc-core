@@ -85,12 +85,14 @@ Vu::Vu(Iss &iss)
         // Make sure we track snitch load and stores to synchronize with spatz VLSU
         for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("load"))
         {
-            insn->u.insn.stub_handler = &Vu::load_store_handler;
+            insn->u.insn.stub_handler = &Vu::load_store_handler<false>;
+            insn->u.insn.stub_fast_handler = &Vu::load_store_handler<true>;
         }
 
         for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_tag("store"))
         {
-            insn->u.insn.stub_handler = &Vu::load_store_handler;
+            insn->u.insn.stub_handler = &Vu::load_store_handler<false>;
+            insn->u.insn.stub_fast_handler = &Vu::load_store_handler<true>;
         }
 
         this->isa_init();
@@ -105,6 +107,7 @@ Vu::Vu(Iss &iss)
 #endif
 }
 
+template<bool fast>
 iss_reg_t Vu::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // We need to stall snitch if:
@@ -118,7 +121,7 @@ iss_reg_t Vu::load_store_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss->exec.insn_stall();
         return pc;
     }
-    return insn->stub_handler(iss, insn, pc);
+    return iss_stub_handler<fast>(insn)(iss, insn, pc);
 }
 
 void Vu::reset(bool active)
@@ -167,9 +170,10 @@ PendingInsn *Vu::pending_insn_alloc(InsnEntry *entry)
     return pending_insn;
 }
 
-void Vu::insn_enqueue(InsnEntry *entry)
+void Vu::insn_enqueue(InsnEntry *entry, iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t))
 {
     PendingInsn *pending_insn = this->pending_insn_alloc(entry);
+    pending_insn->handler = handler;
     this->trace.msg(vp::Trace::LEVEL_TRACE, "Enqueue instruction (pc: 0x%lx, id: %d)\n",
         entry->addr, pending_insn->id);
 
@@ -259,7 +263,7 @@ void Vu::insn_enqueue(InsnEntry *entry)
         this->current_insn_reg = pending_insn->reg;
         this->current_insn_reg_2 = pending_insn->reg_2;
         // Force trace dump since the core may be stalled which would skip trace
-        insn->stub_handler(&this->iss, insn, insn->addr);
+        pending_insn->handler(&this->iss, insn, insn->addr);
 
         this->insn_end(pending_insn);
     }
@@ -462,7 +466,8 @@ void Vu::isa_init()
     // offloaded to ara
     for (iss_decoder_item_t *insn: *iss.decode.get_insns_from_isa("v"))
     {
-        insn->u.insn.stub_handler = &Vu::vector_insn_stub_handler;
+        insn->u.insn.stub_handler = &Vu::vector_insn_stub_handler<false>;
+        insn->u.insn.stub_fast_handler = &Vu::vector_insn_stub_handler<true>;
         // Vector instructions need to be handled differently in cva6
         insn->u.insn.flags |= ISS_INSN_FLAGS_VECTOR;
     }
@@ -687,6 +692,7 @@ static bool vsetvli_needs_drain(Iss *iss, iss_insn_t *insn)
     return new_vl != iss->csr.vl.value;
 }
 
+template<bool fast>
 iss_reg_t Vu::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     // We stall the instruction if the ara queue is full, or if it is a
@@ -720,7 +726,7 @@ iss_reg_t Vu::vector_insn_stub_handler(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         iss->arch.vu.nb_pending_vstore++;
     }
 
-    iss->arch.vu.insn_enqueue(entry);
+    iss->arch.vu.insn_enqueue(entry, iss_stub_handler<fast>(insn));
 
     return iss_insn_next(iss, insn, pc);
 }

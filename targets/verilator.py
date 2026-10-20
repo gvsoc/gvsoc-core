@@ -5,13 +5,17 @@
 # Authors: Germain Haugou (germain.haugou@gmail.com)
 
 #
-# Generic gvrun target for verilator-driven RTL designs.
+# Generic gvrun target for RTL designs driven through an RTL plugin.
 #
-# Reachable as `--target verilator`. Loads a verilator plugin .so (built
+# Reachable as `--target verilator`. Loads an RTL plugin .so (built
 # against `gvsoc/core/models/utils/verilator_plugin.h`) and drives it from
 # GVSoC's TimeEngine via the generic `utils.verilator` model.
 #
-# Designs typically build two .so flavours:
+# With --rtl-design <dir>, the design compiled by gvsoc-elab in <dir> runs
+# on the gvsoc_svsim plugin (--rtl-plugin defaults to it); with --gui, all
+# its signals are shown.
+#
+# Verilator designs typically build two .so flavours:
 #   .../obj_dir_plugin/<name>.so                --trace-fst, normal runs
 #   .../obj_dir_plugin_inject/<name>_inject.so  --trace, signal injection
 #
@@ -45,6 +49,10 @@ class Target(gvsoc.runner.Target):
                     default=os.environ.get('VLT_PLUGIN'),
                     help='Path to the FST-flavour verilator plugin .so. '
                          'Defaults to $VLT_PLUGIN. Required for --platform rtl.')
+                parser.add_argument('--rtl-design', dest='rtl_design',
+                    default=None,
+                    help='Design compiled by gvsoc-elab, run on the gvsoc_svsim '
+                         'plugin (the default --rtl-plugin then).')
                 parser.add_argument('--rtl-trace', dest='rtl_trace',
                     default=None,
                     help='Optional trace output path. Off by default.')
@@ -69,10 +77,16 @@ class Target(gvsoc.runner.Target):
             return
 
         plugin = args.rtl_plugin
+        if args.rtl_design is not None:
+            from utils.verilator import gvsoc_svsim_setup
+            gvsoc_svsim_setup(self.model, args.rtl_design, 'verilator target',
+                              'gvsoc-elab -o <dir> <sources>')
+            if plugin is None:
+                plugin = self.model.get_parameter('plugin_path')
         if plugin is None:
             raise RuntimeError(
-                'verilator target: --rtl-plugin <path> (or $VLT_PLUGIN) is '
-                'required when --platform rtl is used.')
+                'verilator target: --rtl-plugin <path> (or $VLT_PLUGIN), or '
+                '--rtl-design <dir>, is required when --platform rtl is used.')
 
         if not os.path.exists(plugin):
             raise RuntimeError(

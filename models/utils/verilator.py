@@ -35,6 +35,7 @@ The target's ``run()`` override must call ``self.model.run_objcopy()``
 """
 
 import os
+import shutil
 import subprocess
 
 import gvsoc.gui
@@ -51,6 +52,42 @@ def declare():
     gvsoc platform, so a target which uses this model only on its RTL
     platform calls this to have it built with the target."""
     st.get_generated_component(list(_SOURCES), [], [])
+
+
+def gvsoc_svsim_plugin():
+    """The GVSoC plugin of the gvsoc_svsim RTL simulator, which runs a design
+    compiled by gvsoc-elab (the ``design`` option): $GVSOC_SVSIM_PLUGIN, else
+    libgvsoc_elab.so in the lib directory next to the gvsoc_svsim (or gvrun)
+    found on the PATH. None when there is none."""
+    path = os.environ.get('GVSOC_SVSIM_PLUGIN')
+    if path:
+        return path
+    for tool in ('gvsoc_svsim', 'gvrun'):
+        exe = shutil.which(tool)
+        if exe:
+            lib = os.path.join(os.path.dirname(os.path.realpath(exe)), '..', 'lib', 'libgvsoc_elab.so')
+            if os.path.exists(lib):
+                return os.path.normpath(lib)
+    return None
+
+
+def gvsoc_svsim_setup(board, design, who, build_hint):
+    """Make a :class:`VerilatorBoard` run ``design`` (a directory compiled by
+    gvsoc-elab) on the gvsoc_svsim plugin, unless its ``design`` parameter
+    names another one. ``who`` prefixes the errors, ``build_hint`` says how
+    to compile the design."""
+    plugin = gvsoc_svsim_plugin()
+    if plugin is None or not os.path.exists(plugin):
+        raise RuntimeError(
+            f'{who}: gvsoc_svsim plugin not found (set GVSOC_SVSIM_PLUGIN, or install the SDK '
+            'with gvsoc_svsim: <install>/lib/libgvsoc_elab.so)')
+    design = board.get_parameter('design') or design
+    if design is None:
+        raise RuntimeError(f'{who}: no gvsoc_svsim design ({build_hint})')
+    if not os.path.isdir(design):
+        raise RuntimeError(f'{who}: no compiled design at {design}; build it with: {build_hint}')
+    board.set_parameter('plugin_path', plugin)
+    board.set_parameter('design', design)
 
 
 class VerilatorControl(st.Component):

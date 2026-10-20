@@ -330,7 +330,8 @@ vp::IoReqStatus Memory::req(vp::Block *__this, vp::IoReq *req)
     // contract (no async response). Bandwidth / per-byte duration is
     // deliberately not modelled here — put a shaper (e.g.
     // interco.limiter_v2.Limiter) upstream if that is needed.
-    req->inc_latency((int64_t)_this->cfg.latency);
+    req->inc_latency((int64_t)(req->get_opcode() == vp::WRITE && _this->cfg.write_latency >= 0 ?
+        _this->cfg.write_latency : _this->cfg.latency));
 
 #ifdef VP_TRACE_ACTIVE
     if (_this->cfg.power_trigger)

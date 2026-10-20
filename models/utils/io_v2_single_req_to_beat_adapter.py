@@ -63,6 +63,15 @@ class IoV2SingleReqToBeatAdapterConfig(Config):
         "keep reads and writes in order over a bus which does not order them "
         "(an AXI master with a single ID). Atomics count as writes."
     ))
+    full_registered: bool = cfg_field(default=False, dump=True, desc=(
+        "A slot freed while all the max_pending ones are taken can only be taken again on "
+        "the next cycle, as with a FIFO whose full flag is a register."
+    ))
+    lock_in: bool = cfg_field(default=False, dump=True, desc=(
+        "A request denied for max_pending_per_dir or rw_exclusive keeps the input: any "
+        "other request is denied until it goes, as behind a lock-in arbiter. A request "
+        "denied for max_pending does not, as an arbiter which does not see it."
+    ))
 
 
 class IoV2SingleReqToBeatAdapter(Component):

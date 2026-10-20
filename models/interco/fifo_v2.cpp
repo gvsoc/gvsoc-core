@@ -34,13 +34,22 @@
 #include <deque>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
+#include <vp/debug_mem.hpp>
 #include <interco/fifo_v2/fifo_config.hpp>
 
-class Fifo : public vp::Component
+class Fifo : public vp::Component, public vp::DebugMemIf
 {
 public:
     Fifo(vp::ComponentConf &conf);
     void reset(bool active) override;
+
+    // Backdoor debug path: the FIFO is invisible, forward to the downstream.
+    vp::DebugMemIf *debug_mem_if() override { return this; }
+    int debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size,
+        bool is_write) override;
+    void debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+        uint64_t local_base, uint64_t window_size, uint64_t entry_base,
+        int depth) override;
 
     FifoConfig cfg;
 
@@ -175,7 +184,12 @@ void Fifo::send_head()
 
     if (st == vp::IO_REQ_DONE)
     {
-        this->req_done(req, this->cfg.resp_latency + this->cfg.done_latency);
+        int64_t latency = this->cfg.resp_latency + this->cfg.done_latency;
+        if (this->cfg.done_annotated_latency)
+        {
+            latency += req->get_latency();
+        }
+        this->req_done(req, latency);
     }
     else // IO_REQ_GRANTED: an async slave will drive output_resp later.
     {
@@ -279,6 +293,43 @@ void Fifo::output_retry(vp::Block *__this, vp::IoRetryChannel /*channel*/)
     // DONE inline; req_done then re-arms the pump for the next request.
     _this->downstream_stalled = false;
     _this->send_head();
+}
+
+
+// ---- backdoor debug: transparent pass-through to the downstream ------------
+
+static vp::DebugMemIf *downstream_debug_mem(vp::IoMaster &itf)
+{
+    std::vector<vp::SlavePort *> finals = itf.get_final_ports();
+    if (finals.empty() || finals[0]->get_owner() == nullptr)
+    {
+        return nullptr;
+    }
+    return finals[0]->get_owner()->debug_mem_if();
+}
+
+int Fifo::debug_mem_access(uint64_t addr, uint8_t *data, uint64_t size, bool is_write)
+{
+    vp::DebugMemIf *child = downstream_debug_mem(this->output_itf);
+    if (child == nullptr)
+    {
+        return -1;
+    }
+    return child->debug_mem_access(addr, data, size, is_write);
+}
+
+void Fifo::debug_mem_regions(std::vector<vp::DebugMemRegion> &regions,
+    uint64_t local_base, uint64_t window_size, uint64_t entry_base, int depth)
+{
+    if (depth >= vp::DebugMemIf::MAX_DEPTH)
+    {
+        return;
+    }
+    vp::DebugMemIf *child = downstream_debug_mem(this->output_itf);
+    if (child != nullptr)
+    {
+        child->debug_mem_regions(regions, local_base, window_size, entry_base, depth + 1);
+    }
 }
 
 

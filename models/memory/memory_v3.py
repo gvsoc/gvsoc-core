@@ -110,6 +110,10 @@ class MemoryV3Config(Config, HasSize):
         "incoming request"
     ))
 
+    write_latency: int = cfg_field(default=-1, dump=True, desc=(
+        "Latency of the write requests, -1 (default) for the one of the other requests"
+    ))
+
     truncate: int = cfg_field(default=True, dump=True, desc=(
         "If true, this truncates the global input address with the "
         "memory size to make it relative to the memory"

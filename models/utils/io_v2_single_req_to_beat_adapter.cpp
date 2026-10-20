@@ -117,11 +117,12 @@ private:
     static vp::IoReqStatus in_req(vp::Block *__this, vp::IoReq *req);
     static vp::IoRespAck   out_resp(vp::Block *__this, vp::IoReq *req);
     static void            out_retry(vp::Block *__this, vp::IoRetryChannel channel);
+    static void            retry_handler(vp::Block *__this, vp::ClockEvent *event);
 
     AccessCtx *alloc_ctx();
     void retire_ctx(AccessCtx *ctx);
-    // True if an access of this direction must be denied for the limits
-    bool limited(bool is_write);
+    // True if this request must be denied for the limits
+    bool limited(vp::IoReq *req);
     // An access of this direction was granted downstream, or completed
     void pending_inc(bool is_write);
     void pending_dec(bool is_write);
@@ -148,6 +149,12 @@ private:
     int nb_pending[2] = {0, 0};
     // A request was denied for the limits, retry the master when room frees
     bool need_retry = false;
+    // With lock_in, the request which keeps the input until it goes
+    vp::IoReq *locked_req = nullptr;
+    // With full_registered, cycle at which a slot was freed while all were
+    // taken, and the event retrying the master on the next cycle
+    int64_t full_free_cycle = -1;
+    vp::ClockEvent retry_event{this, &IoV2SingleReqToBeatAdapter::retry_handler};
 };
 
 
@@ -197,12 +204,33 @@ void IoV2SingleReqToBeatAdapter::retire_ctx(AccessCtx *ctx)
 }
 
 
-bool IoV2SingleReqToBeatAdapter::limited(bool is_write)
+bool IoV2SingleReqToBeatAdapter::limited(vp::IoReq *req)
 {
+    if (this->locked_req != nullptr && this->locked_req != req)
+    {
+        return true;
+    }
+    bool is_write = req->get_is_write();
     int same = this->nb_pending[is_write], other = this->nb_pending[!is_write];
-    return (this->max_pending && same + other >= this->max_pending) ||
-        (this->max_pending_per_dir && same >= this->max_pending_per_dir) ||
-        (this->rw_exclusive && other > 0);
+    if (this->max_pending && (same + other >= this->max_pending ||
+        this->full_free_cycle == this->clock.get_cycles()))
+    {
+        return true;
+    }
+    if ((this->max_pending_per_dir && same >= this->max_pending_per_dir) ||
+        (this->rw_exclusive && other > 0))
+    {
+        if (this->cfg.lock_in)
+        {
+            this->locked_req = req;
+        }
+        return true;
+    }
+    if (this->locked_req == req)
+    {
+        this->locked_req = nullptr;
+    }
+    return false;
 }
 
 
@@ -219,13 +247,33 @@ void IoV2SingleReqToBeatAdapter::pending_dec(bool is_write)
 {
     if (this->has_limits)
     {
+        bool was_full = this->nb_pending[0] + this->nb_pending[1] == this->max_pending;
         this->nb_pending[is_write]--;
         if (this->need_retry)
         {
             this->need_retry = false;
-            this->in.retry();
+            if (this->cfg.full_registered && was_full)
+            {
+                this->full_free_cycle = this->clock.get_cycles();
+                this->retry_event.enqueue(1);
+            }
+            else
+            {
+                this->in.retry();
+            }
+        }
+        else if (this->cfg.full_registered && was_full)
+        {
+            this->full_free_cycle = this->clock.get_cycles();
         }
     }
+}
+
+
+void IoV2SingleReqToBeatAdapter::retry_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    auto *self = static_cast<IoV2SingleReqToBeatAdapter *>(__this);
+    self->in.retry();
 }
 
 
@@ -237,7 +285,7 @@ vp::IoReqStatus IoV2SingleReqToBeatAdapter::in_req(vp::Block *__this, vp::IoReq 
         "Submit (req=%p, addr=0x%lx, size=%lu, opcode=%d)\n",
         req, req->get_addr(), req->get_size(), (int)req->get_opcode());
 
-    if (self->has_limits && self->limited(req->get_is_write()))
+    if (self->has_limits && self->limited(req))
     {
         self->trace.msg(vp::Trace::LEVEL_TRACE,
             "Denied, accesses in flight (reads=%d, writes=%d)\n",
@@ -534,6 +582,8 @@ void IoV2SingleReqToBeatAdapter::reset(bool active)
         this->live.clear();
         this->nb_pending[0] = this->nb_pending[1] = 0;
         this->need_retry = false;
+        this->locked_req = nullptr;
+        this->full_free_cycle = -1;
     }
 }
 

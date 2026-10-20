@@ -42,6 +42,10 @@ class FifoConfig(Config):
         Cycles added to ``resp_latency`` when the downstream completes the
         request inline (a synchronous target, which gives its response the
         cycle after it is granted on a real bus). 0 by default.
+    done_annotated_latency : bool
+        True to also add, when the downstream completes the request inline,
+        the latency it annotated on it (a synchronous memory behind a
+        crossbar). False by default.
     max_outstanding : int
         Number of requests which can be waiting for their downstream response
         at the same time. With 1, a request only goes downstream once the
@@ -59,6 +63,10 @@ class FifoConfig(Config):
     ))
     done_latency: int = cfg_field(default=0, dump=True, desc=(
         "Cycles added to the response latency when the downstream completes the request inline"
+    ))
+    done_annotated_latency: bool = cfg_field(default=False, dump=True, desc=(
+        "Add the latency annotated by the downstream to the response latency when it completes "
+        "the request inline"
     ))
     max_outstanding: int = cfg_field(default=1, dump=True, desc=(
         "Number of requests which can be waiting for their downstream response"

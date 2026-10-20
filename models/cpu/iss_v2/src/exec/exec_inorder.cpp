@@ -160,11 +160,13 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
 {
     Iss *const iss = (Iss *)__this;
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (unlikely(iss->exec.stall_cycles > 0))
     {
         iss->exec.stall_cycles--;
         return;
     }
+#endif
 
     iss->exec.trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with fast handler\n");
 
@@ -226,6 +228,7 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         // in the fast path would leave the dependency invisible to the
         // event hooks. The default Events implementation is a no-op so
         // cores without a retire hook pay nothing.
+#if defined(CONFIG_GVSOC_ISS_TIMED)
         iss->timing.event_retire_account(insn);
 
         // Per-instruction extra latency, set at decoder time by a per-core
@@ -237,6 +240,7 @@ void ExecInOrder::exec_instr(vp::Block *__this, vp::ClockEvent *event)
         {
             iss->timing.event_insn_latency_account(insn, insn->latency);
         }
+#endif
 
         // Since power instruction information is filled when the instruction is decoded,
         // make sure we account it only after the instruction is executed
@@ -254,11 +258,13 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
     Iss *iss = (Iss *)__this;
     ExecInOrder *_this = &iss->exec;
 
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (unlikely(iss->exec.stall_cycles > 0))
     {
         iss->exec.stall_cycles--;
         return;
     }
+#endif
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Handling instruction with slow handler (pc: 0x%lx)\n", iss->exec.current_insn);
 
@@ -397,6 +403,7 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         // Per-core hook: lets Ri5kyEvents track the previous insn's
         // destination register so a following jalr can detect the
         // jr_stall hazard. Default in the base Events class is a no-op.
+#if defined(CONFIG_GVSOC_ISS_TIMED)
         _this->iss.timing.event_retire_account(insn);
 
         // Per-instruction extra latency — see the fast-path equivalent
@@ -406,6 +413,7 @@ void ExecInOrder::exec_instr_check_all(vp::Block *__this, vp::ClockEvent *event)
         {
             _this->iss.timing.event_insn_latency_account(insn, insn->latency);
         }
+#endif
 
 #ifdef CONFIG_GVSOC_STATS_ACTIVE
         // Close the per-label duration window: exec + data-load/use wait, plus
@@ -491,6 +499,9 @@ void ExecInOrder::task_unblock_handle(Iss *iss, Task *task)
 
 void ExecInOrder::insn_terminate(InsnEntry *entry, bool defer_scoreboard_release)
 {
+#if !defined(CONFIG_GVSOC_ISS_TIMED)
+    this->retain_dec();
+#endif
 #ifdef CONFIG_GVSOC_ISS_EXEC_INORDER_COMMIT
     // Flip this entry's ready bit and drain the FIFO from the head
     // while heads are ready: the entry may be anywhere in the queue
@@ -676,6 +687,11 @@ void ExecInOrder::flush_cache_ack_sync(vp::Block *__this, bool active)
 InsnEntry *ExecInOrder::insn_hold(iss_insn_t *insn)
 {
     this->is_insn_hold = true;
+#if !defined(CONFIG_GVSOC_ISS_TIMED)
+    // An untimed core has no scoreboard: it executes each instruction to
+    // completion, so a held instruction holds the core until insn_terminate
+    this->retain_inc();
+#endif
     InsnEntry *entry = this->get_entry();
     entry->addr = insn->addr;
     entry->opcode = insn->opcode;

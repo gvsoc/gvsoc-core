@@ -81,7 +81,7 @@ class LsuV2
 public:
     LsuV2(Iss &iss);
 
-    void start() {}
+    void start();
     void stop() {}
     void reset(bool active);
 
@@ -89,6 +89,8 @@ public:
     inline void stack_access_check(int reg, iss_addr_t addr) {}
 
     bool data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2=0);
+    // Data port access with an already translated address
+    bool data_req_phys(iss_insn_t *insn, iss_addr_t phys_addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
     bool data_req(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
     bool data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
     bool data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size, vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2);
@@ -110,6 +112,12 @@ public:
     // completions). Used by the DBT dispatch to enter translated code
     // only from a clean state.
     inline int get_nb_pending_accesses() { return this->nb_pending_accesses; }
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    // True if the size bytes at phys_addr can be accessed directly in the memory
+    // array. Used by the MMU to tell it to the loads and stores.
+    inline bool mem_array_contains(iss_addr_t phys_addr, iss_addr_t size);
+#endif
 
     template<typename T>
     inline bool store(iss_insn_t *insn, iss_addr_t addr, int size, int reg);
@@ -193,6 +201,13 @@ private:
     static vp::IoRespAck data_response(vp::Block *__this, vp::IoReq *req);
     bool handle_req_response(LsuReqEntry *entry);
     void handle_req_end(LsuReqEntry *entry);
+    // Value written to the destination register of a load of ``size`` bytes:
+    // sign-extended if asked, NaN-boxed if the register is a FP one narrower
+    // than the load
+    inline uint64_t load_value(int reg, uint64_t data, int size, bool is_signed);
+    // Stall of a load or store whose address translation missed in the TLB, unless
+    // it raised a page fault. The access is retried until the TLB is filled.
+    inline bool translation_stall();
     // Re-arm and re-issue ``entry`` for the second beat of a misaligned
     // access. Returns true if a second beat was fired (entry still in
     // flight); false if the entry was aligned (no second beat needed).
@@ -239,6 +254,15 @@ protected:
     // True while data_req_misaligned drives data_req_aligned for beat 0, so the
     // memcheck preparation knows not to attach a data shadow
     bool issuing_misaligned;
+
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    // Direct access to the array of a memory (RiscvConfig memory_start /
+    // memory_size), retrieved at start through the meminfo port
+    vp::WireMaster<void *> meminfo;
+    uint8_t *mem_array = nullptr;
+    iss_addr_t memory_start;
+    iss_addr_t memory_size;
+#endif
 
     vp::Signal<bool>       stalled;
     vp::Signal<iss_reg_t>  log_addr;

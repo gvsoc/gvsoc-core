@@ -224,8 +224,9 @@ bool Mmu::walk_continue()
                 {
                     this->tlb_store_tag[index] = tag;
                 }
-                this->tlb_load_use_mem_array[index] = false;
                 this->tlb_ls_phys_addr[index] = phys_base - virt_base;
+                this->tlb_load_use_mem_array[index] =
+                    this->tlb_use_mem_array((tag << MMU_PGSHIFT) + phys_base - virt_base);
             }
 
             this->walk_pending = false;
@@ -424,9 +425,9 @@ bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &u
         {
             this->tlb_ls_phys_addr[index] = 0;
             this->tlb_load_tag[index] = tag;
-            this->tlb_load_use_mem_array[index] = false;
+            this->tlb_load_use_mem_array[index] = this->tlb_use_mem_array(page_virt_addr);
             this->tlb_store_tag[index] = tag;
-            use_mem_array = false;
+            use_mem_array = this->tlb_load_use_mem_array[index];
         }
         return false;
     }
@@ -453,7 +454,7 @@ bool Mmu::virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &u
     else
     {
         phys_addr = virt_addr + this->tlb_ls_phys_addr[index];
-        use_mem_array = false;
+        use_mem_array = this->tlb_load_use_mem_array[index];
     }
     return false;
 }

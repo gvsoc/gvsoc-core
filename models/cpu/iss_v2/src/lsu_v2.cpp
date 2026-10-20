@@ -29,6 +29,12 @@ LsuV2::LsuV2(Iss &iss)
     // of the IoMaster member; no set_retry_meth/set_resp_meth needed in v2.
     this->iss.new_master_port("data", &this->data, (vp::Block *)this);
 
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    this->iss.new_master_port("meminfo", &this->meminfo, (vp::Block *)this);
+    this->memory_start = iss.cfg.memory_start;
+    this->memory_size = iss.cfg.memory_size;
+#endif
+
     this->req_entry_first = NULL;
     for (int i = 0; i < CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING; i++)
     {
@@ -42,6 +48,23 @@ LsuV2::LsuV2(Iss &iss)
         this->req_entry_first = req;
         req->task.callback = &LsuV2::task_handle;
     }
+}
+
+void LsuV2::start()
+{
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    if (this->meminfo.is_bound())
+    {
+        this->meminfo.sync_back((void **)&this->mem_array);
+    }
+
+    if (this->mem_array == nullptr)
+    {
+        this->trace.fatal("Direct memory access is configured but the memory array could not "
+            "be retrieved, the meminfo port must be bound to the memory (start: 0x%lx, "
+            "size: 0x%lx)\n", (uint64_t)this->memory_start, (uint64_t)this->memory_size);
+    }
+#endif
 }
 
 void LsuV2::reset(bool active)
@@ -125,16 +148,15 @@ bool LsuV2::data_req_virtual(iss_insn_t *insn, iss_addr_t addr, int size,
 
     if (miss)
     {
-        // Either an exception was raised (page fault), in which case the core will
-        // jump to the handler, or a page-table walk is pending and the access must
-        // be retried until the TLB is filled.
-        if (!this->iss.exec.has_exception)
-        {
-            this->iss.exec.insn_stall();
-        }
-        return true;
+        return this->translation_stall();
     }
 
+    return this->data_req_phys(insn, phys_addr, size, opcode, is_signed, reg, reg2);
+}
+
+bool LsuV2::data_req_phys(iss_insn_t *insn, iss_addr_t phys_addr, int size,
+    vp::IoReqOpcode opcode, bool is_signed, int reg, int reg2)
+{
     if (this->io_req_denied || this->data_req(insn, phys_addr, size, opcode, is_signed, reg, reg2))
     {
         this->iss.exec.insn_stall();
@@ -197,7 +219,10 @@ void LsuV2::data_retry(vp::Block *__this, vp::IoRetryChannel)
         // Completed inline. The instruction was parked when the deny was
         // taken, so finish it through the deferred task path, honouring
         // the response's annotated latency.
-        entry->timestamp = _this->iss.clock.get_cycles() + entry->req.get_latency();
+        entry->timestamp = _this->iss.clock.get_cycles();
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+        entry->timestamp += entry->req.get_latency();
+#endif
         _this->iss.exec.enqueue_task(&entry->task);
     }
     else
@@ -230,7 +255,6 @@ void LsuV2::release_core(LsuReqEntry *entry)
 vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
 {
     LsuV2 *_this = (LsuV2 *)__this;
-    LsuReqEntry *entry = (LsuReqEntry *)req;
 
     _this->trace.msg("Received data response (req: %p)\n", req);
 
@@ -243,6 +267,8 @@ vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
     }
 #endif
 
+    LsuReqEntry *entry = (LsuReqEntry *)req;
+
     // First beat of a misaligned access just landed: fire beat 1 and
     // keep the insn held. Do NOT touch next_retire_cycle yet — that is
     // reserved for the *final* retire when beat 1 lands.
@@ -253,6 +279,7 @@ vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
     }
 
     int64_t cur = _this->iss.clock.get_cycles();
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     if (cur < _this->next_retire_cycle)
     {
         // Another response already retired this cycle. Defer via the
@@ -264,6 +291,7 @@ vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
         _this->iss.exec.enqueue_task(&entry->task);
         return vp::IO_RESP_ACCEPTED;
     }
+#endif
 
     InsnEntry *insn_entry = entry->insn_entry;
     _this->iss.lsu.req_retire_hook(entry);
@@ -298,6 +326,7 @@ bool LsuV2::handle_req_response(LsuReqEntry *entry)
     // single-slot delayed scoreboard release, scheduled in
     // `data_response` / `task_handle` whenever the regfile has a
     // scoreboard.
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     int64_t latency = req->get_latency();
 
     if (latency > 0)
@@ -307,6 +336,7 @@ bool LsuV2::handle_req_response(LsuReqEntry *entry)
         return true;
     }
     else
+#endif
     {
         // First beat of a misaligned access completing synchronously at
         // zero latency: fire beat 1 in the same cycle. The held insn
@@ -361,7 +391,9 @@ void LsuV2::handle_req_end(LsuReqEntry *entry)
             // An LSU subclass may take loads into registers of its own
             if (!this->iss.lsu.load_end_hook(entry, data))
             {
-                this->iss.regfile.set_reg(entry->reg, data);
+                // NaN-boxing of narrow FP loads
+                this->iss.regfile.set_reg(entry->reg,
+                    this->load_value(entry->reg, data, size, false));
 
 #ifdef VP_MEMCHECK_ACTIVE
                 this->memcheck_handle_load(entry, size);
@@ -421,12 +453,14 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
     if (opcode == vp::IoReqOpcode::READ)
     {
         this->iss.timing.event_load_account(1);
+#ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD
         // Tag this load's destination(s) in the scoreboard so a later
         // dependent insn that stalls on them gets attributed to a
         // load-use hazard (PCER_LD_STALL on Ri5ky). The scoreboard
         // stores the byte opaquely.
         this->iss.regfile.sb_set_reason(insn->sb_out_reg_mask,
                                         ISS_STALL_REASON_LOAD);
+#endif
     }
     else if (opcode == vp::IoReqOpcode::WRITE)
     {
@@ -571,21 +605,26 @@ bool LsuV2::data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size,
     // data2 so fire_misaligned_second can recover the high bytes.
 
     // Peek the entry that data_req_aligned is about to allocate (head of
-    // the free list). After the call returns, this same entry is the
-    // in-flight one — `data_req_aligned` keeps it in flight on the
-    // sync-DONE / GRANTED / DENIED-held paths, all of which return
-    // ``false`` (no stall). Only the LSU-full path (``true``) leaves no
-    // entry allocated, so the misaligned bookkeeping is committed on
-    // ``false``.
+    // the free list). It is NULL when the LSU is full, in which case
+    // data_req_aligned stalls without allocating anything.
     LsuReqEntry *entry = this->req_entry_first;
 
-    // For writes, snapshot the full register value into data2 BEFORE
-    // data_req_aligned overwrites entry->data with the truncated beat-0
-    // payload. fire_misaligned_second will shift this down for beat 1.
-    uint64_t full_write_data = 0;
-    if (opcode == vp::IoReqOpcode::WRITE && entry != nullptr)
+    // The misaligned bookkeeping must be in place BEFORE beat 0 is issued:
+    // a beat 0 completing inline with no latency goes through
+    // handle_req_response from inside data_req_aligned, which must see
+    // ``misaligned_size != 0`` to fire beat 1 instead of retiring the insn
+    // (and the entry may even be freed by the time data_req_aligned
+    // returns). For writes, data2 gets the full register value, which
+    // fire_misaligned_second shifts down for beat 1.
+    if (entry != nullptr)
     {
-        full_write_data = this->iss.regfile.get_reg(reg);
+        entry->misaligned_size        = size1;
+        entry->misaligned_addr        = addr1;
+        entry->misaligned_byte_offset = size0;
+        if (opcode == vp::IoReqOpcode::WRITE)
+        {
+            entry->data2 = this->iss.regfile.get_reg(reg);
+        }
     }
 
     this->issuing_misaligned = true;
@@ -593,22 +632,13 @@ bool LsuV2::data_req_misaligned(iss_insn_t *insn, iss_addr_t addr, int size,
                                           is_signed, reg, reg2);
     this->issuing_misaligned = false;
 
-    if (!stalled && entry != nullptr)
+    // The second half occupies the execute stage one more cycle, so the
+    // next instruction starts one cycle later. A misaligned load needs
+    // nothing here: its user already waits for the second half.
+    if (!stalled && opcode == vp::IoReqOpcode::WRITE &&
+        this->iss.cfg.lsu_misaligned_store_stall)
     {
-        entry->misaligned_size        = size1;
-        entry->misaligned_addr        = addr1;
-        entry->misaligned_byte_offset = size0;
-        if (opcode == vp::IoReqOpcode::WRITE)
-        {
-            entry->data2 = full_write_data;
-            // The second half occupies the execute stage one more cycle, so
-            // the next instruction starts one cycle later. A misaligned load
-            // needs nothing here: its user already waits for the second half.
-            if (this->iss.cfg.lsu_misaligned_store_stall)
-            {
-                this->iss.exec.stall_cycles_inc(1);
-            }
-        }
+        this->iss.exec.stall_cycles_inc(1);
     }
 
     return stalled;

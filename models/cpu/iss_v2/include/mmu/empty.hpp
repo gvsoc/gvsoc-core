@@ -25,15 +25,18 @@ class MmuEmpty
 {
 public:
 
-    MmuEmpty(Iss &iss) {}
+    MmuEmpty(Iss &iss) : iss(iss) {}
 
     void start() {}
     void stop() {}
     void reset(bool active) {}
 
     inline bool insn_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr) { phys_addr = virt_addr; return false; }
-    inline bool load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array) { phys_addr = virt_addr; return false; }
-    inline bool store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array) { phys_addr = virt_addr; return false; }
+    inline bool load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
+    inline bool store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
 
     inline void flush(iss_addr_t address, iss_reg_t address_space) {}
+
+private:
+    Iss &iss;
 };

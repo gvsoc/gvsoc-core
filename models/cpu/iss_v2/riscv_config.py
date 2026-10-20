@@ -83,6 +83,15 @@ class RiscvConfig(Config):
         "half, so the next instruction starts one cycle later (RI5CY: the second access of a "
         "misaligned store is issued from EX while the next instruction waits in ID)."
     ))
+    memory_start: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Start address of a memory whose array the core accesses directly, without going "
+        "through its data port (io_v2 LSU only, the core meminfo port must be bound to the "
+        "memory). Loads and stores to it are then untimed. Used with memory_size."
+    ))
+    memory_size: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Size of the memory accessed directly, see memory_start. 0 (default) disables the "
+        "direct access."
+    ))
     power_insn_groups: list[PowerSourceConfig] = cfg_field(default_factory=list, init=False, desc=(
         "Per-instruction-group dynamic energy tables; the list index matches the isa "
         "power group set with set_power_group. Empty = per-instruction power off."

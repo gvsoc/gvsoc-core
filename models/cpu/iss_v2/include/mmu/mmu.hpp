@@ -67,6 +67,8 @@ public:
     inline bool load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
     inline bool store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
     bool virt_to_phys_miss(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array);
+    // True if the physical page at phys_page is in the memory accessed directly
+    inline bool tlb_use_mem_array(iss_addr_t phys_page);
 
     bool satp_update(iss_insn_t *insn, bool is_write, iss_reg_t &value);
     void flush(iss_addr_t address, iss_reg_t address_space);

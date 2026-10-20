@@ -61,6 +61,15 @@ inline bool Mmu::load_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, 
     return virt_to_phys_miss(virt_addr, phys_addr, use_mem_array);
 }
 
+inline bool Mmu::tlb_use_mem_array(iss_addr_t phys_page)
+{
+#ifdef CONFIG_GVSOC_ISS_MEMORY
+    return this->iss.lsu.mem_array_contains(phys_page, 1 << MMU_PGSHIFT);
+#else
+    return false;
+#endif
+}
+
 inline bool Mmu::store_virt_to_phys(iss_addr_t virt_addr, iss_addr_t &phys_addr, bool &use_mem_array)
 {
     iss_addr_t tag = virt_addr >> MMU_PGSHIFT;

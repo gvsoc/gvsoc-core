@@ -142,7 +142,12 @@ public:
 
     inline void interrupt_taken();
 
+    // Stall cycles are timing only, an untimed core ignores them
+#if defined(CONFIG_GVSOC_ISS_TIMED)
     inline void stall_cycles_inc(int inc) { this->stall_cycles += inc; }
+#else
+    inline void stall_cycles_inc(int inc) {}
+#endif
 
     iss_reg_t current_insn;
     vp::ClockEvent instr_event;

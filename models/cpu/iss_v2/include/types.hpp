@@ -423,7 +423,11 @@ typedef struct iss_decoder_item_s
 
 typedef struct iss_insn_s
 {
+    // The fields read for every executed instruction come first so that, without
+    // a scoreboard, the execution loop and the handlers only touch the first
+    // cache line (the decode check reads handler).
     iss_reg_t (*fast_handler)(Iss *, iss_insn_t *, iss_reg_t);
+    iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     unsigned char out_regs[ISS_MAX_NB_OUT_REGS];
     unsigned char in_regs[ISS_MAX_NB_IN_REGS];
     iss_uim_t uim[ISS_MAX_IMMEDIATES];
@@ -434,7 +438,6 @@ typedef struct iss_insn_s
     uint32_t sb_out_vreg_mask;
     iss_addr_t addr;
     iss_reg_t opcode;
-    iss_reg_t (*handler)(Iss *, iss_insn_t *, iss_reg_t);
     iss_reg_t (*resource_handler)(Iss *, iss_insn_t *, iss_reg_t);
     // Full and fast handlers of an instruction with a stub, see iss_stub_handler
     iss_reg_t (*stub_handler)(Iss *, iss_insn_t *, iss_reg_t);

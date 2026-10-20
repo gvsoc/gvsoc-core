@@ -184,6 +184,17 @@ void Lsu::handle_req_end(LsuReqEntry *entry)
                 data = iss_get_signed_value(data, req->get_size() * 8);
             }
 
+            // A load narrower than the FP registers NaN-boxes its value, as the F and D
+            // extensions require
+            if (this->iss.regfile.is_freg(entry->reg) &&
+                (int)req->get_size() * 8 < CONFIG_GVSOC_ISS_FP_WIDTH)
+            {
+                data = iss_get_float_value(data, (int)req->get_size() * 8);
+#if CONFIG_GVSOC_ISS_FP_WIDTH < 64
+                data &= (1ULL << CONFIG_GVSOC_ISS_FP_WIDTH) - 1;
+#endif
+            }
+
             this->iss.regfile.set_reg(entry->reg, data);
         }
         else if (req->get_opcode() != vp::IoReqOpcode::WRITE)

@@ -90,7 +90,10 @@ class ExecInOrder(IssModule):
         heads are ready. Sets ``CONFIG_GVSOC_ISS_EXEC_INORDER_COMMIT``.
 
     Both features compile out cleanly when not requested; cores that
-    do not opt in see no overhead and no behavioural change.
+    do not opt in see no overhead and no behavioural change. The
+    scoreboard is also left out of an untimed core: it executes each
+    instruction to completion before the next one (a held instruction
+    holds the core), so it has no dependency to track.
     """
     def __init__(self, class_name:str='ExecInOrder', scoreboard: bool=False,
                  inorder_commit: bool=False):
@@ -104,7 +107,7 @@ class ExecInOrder(IssModule):
         iss.isa.add_include('<cpu/iss_v2/include/exec/exec_inorder.hpp>')
         iss.isa.add_implem_include('<cpu/iss_v2/include/exec/exec_inorder_implem.hpp>')
         iss.add_sources(['cpu/iss_v2/src/exec/exec_inorder.cpp'])
-        if self.scoreboard:
+        if self.scoreboard and iss.timed:
             iss.isa.add_define('CONFIG_GVSOC_ISS_EXEC_SCOREBOARD', '1')
         if self.inorder_commit:
             iss.isa.add_define('CONFIG_GVSOC_ISS_EXEC_INORDER_COMMIT', '1')
@@ -118,7 +121,8 @@ class Regfile(IssModule):
         iss.isa.add_define('CONFIG_GVSOC_ISS_REGFILE', 'Regfile')
         iss.isa.add_include('<cpu/iss_v2/include/regfile.hpp>')
         iss.add_sources(['cpu/iss_v2/src/regfile.cpp'])
-        if self.scoreboard:
+        # Untimed cores have no scoreboard, see ExecInOrder
+        if self.scoreboard and iss.timed:
             iss.isa.add_define('CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD', '1')
 
 class Csr(IssModule):
@@ -256,6 +260,7 @@ class MmuEmpty(IssModule):
     def gen(self, iss: RiscvCommon):
         iss.isa.add_define('CONFIG_GVSOC_ISS_MMU', 'MmuEmpty')
         iss.isa.add_include('<cpu/iss_v2/include/mmu/empty.hpp>')
+        iss.isa.add_implem_include('<cpu/iss_v2/include/mmu/empty_implem.hpp>')
 
 class Offload(IssModule):
     @override
@@ -469,6 +474,7 @@ class RiscvCommon(st.Component):
             timed = self.get_timing_level(
                 supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
         self.add_property('timed', timed)
+        self.timed: bool = timed
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -537,6 +543,13 @@ class RiscvCommon(st.Component):
 
         for module in self.modules.values():
             module.gen(self)
+
+        # Direct access to a memory array, bypassing the data port
+        if config.memory_size != 0:
+            if not self._uses_io_v2:
+                raise RuntimeError(f'{self.get_path()}: memory_start/memory_size need the '
+                    'io_v2 LSU (LsuV2)')
+            self.add_c_flags(['-DCONFIG_GVSOC_ISS_MEMORY=1'])
 
         self.add_sources([
             isa.get_source()
@@ -713,7 +726,17 @@ class RiscvCommon(st.Component):
             signature=IoV2SingleReq() if self._uses_io_v2 else 'io')
 
     def o_MEMINFO(self, itf: gvsoc.systree.SlaveItf):
-        self.itf_bind('meminfo', itf, signature='io')
+        """Binds the port giving the core the array of the memory it accesses directly.
+
+        Mandatory when the configuration sets memory_size, see RiscvConfig.memory_start.
+        It instantiates a port of type vp::WireMaster<void *>.
+
+        Parameters
+        ----------
+        itf: gvsoc.systree.SlaveItf
+            The meminfo port of the memory, e.g. memory_v3 Memory.i_MEMINFO()
+        """
+        self.itf_bind('meminfo', itf, signature='wire<void *>')
 
     def o_TIME(self, itf: gvsoc.systree.SlaveItf):
         self.itf_bind('time', itf, signature='wire<uint64_t>')
@@ -862,55 +885,57 @@ class RiscvCommon(st.Component):
 
 
 
+# ISA instances of the generic core, one per ISA string, shared by all the cores
+# which have the same ISA.
+_riscv_isa_instances: dict[str, Isa] = {}
+
+
 class Riscv(RiscvCommon):
-    """Generic riscv model
+    """Generic RISC-V core on the io_v2 protocol.
 
-    This models a generic riscv core using the ISS.
-    The ISA can be chosen from the standard riscv isa.
-    Instantiating several times this core is only possible if they all have the same isa.
-    To get different ISAs, the RiscvCommon class must be used instead so that several ISAs
-    are instantiated.
+    In-order core of the iss_v2 ISS with machine, supervisor and user modes,
+    and the MMU and the PMP when enabled in the configuration. Its fetch and
+    data ports speak io_v2 (``IoV2SingleReq``) through :class:`LsuV2`.
 
-    Attributes
+    Cores which have the same ISA string share the same generated ISA.
+
+    Parameters
     ----------
     parent: gvsoc.systree.Component
         The parent component where this one should be instantiated.
     name: str
         The name of the component within the parent space.
-    isa: str
-        A string describing the ISA to be simulated. The format is the one described by the riscv
-        specifications.
-    binaries: list
-        List of static binaries which will be simulated. This is used when profiler is connected
-        or in instruction traces to get debug symbols.
-    fetch_enable: bool
-        True if the core should immediately start executing instructions.
-    boot_addr: int
-        Boot address, i.e. address where the core will start executing instructions.
+    config: RiscvConfig
+        Core configuration (ISA string, boot address, HTIF, MMU, PMP, ...).
     timed: bool | None
         True if the core should model timing. When None (default), derived
         from the hierarchical timing level (see ``gvrun.timing``).
-    core_id : int, optional
-        The core ID of the core simulated by the ISS (default: 0).
+    binaries: list
+        Static binaries simulated by the core, used to get debug symbols in
+        instruction traces and, with HTIF, the tohost / fromhost addresses.
     """
-    def __init__(self,
-            parent: st.Component, name: str, isa: str='rv64imafdc', binaries: list=[],
-            fetch_enable: bool=False, boot_addr: int=0, timed: bool | None=None,
-            core_id: int=0, memory_start=None, memory_size=None, htif: bool=False,
-            float_lib='flexfloat'):
+    def __init__(self, parent: st.Component, name: str, config: RiscvConfig,
+            timed: bool | None=None, binaries: list[str]=[]):
 
-        # Instantiates the ISA from the provided string.
-        isa_instance = cpu.iss_v2.isa_gen.isa_riscv_gen.RiscvIsa(isa, isa, inc_supervisor=True,
-            inc_user=True)
+        isa_instance = _riscv_isa_instances.get(config.isa)
+        if isa_instance is None:
+            # Named differently from the iss v1 instances so that both models can be
+            # in the same build with the same ISA string.
+            isa_instance = cpu.iss.isa_gen.isa_riscv_gen.RiscvIsa('riscv_v2_' + config.isa,
+                config.isa, inc_supervisor=True, inc_user=True)
+            _riscv_isa_instances[config.isa] = isa_instance
 
-        # And instantiate common class with default parameters
-        super().__init__(parent, name, isa=isa_instance, misa=isa_instance.misa,
-            riscv_exceptions=True, riscv_dbg_unit=True, binaries=binaries, mmu=True, pmp=True,
-            fetch_enable=fetch_enable, boot_addr=boot_addr, internal_atomics=True,
-            supervisor=True, user=True, timed=timed, prefetcher_size=64, core_id=core_id,
-            memory_start=memory_start, memory_size=memory_size, scoreboard=True,
-            htif=htif, float_lib=float_lib)
+        modules: dict[str, IssModule] = {
+            'exec': ExecInOrder(scoreboard=True),
+            'regfile': Regfile(scoreboard=True),
+            'prefetch': PrefetchSingleLine(size=64),
+            # One access per register-wide load or store
+            'lsu': LsuV2(width=isa_instance.word_size // 8),
+            'irq': Irq(),
+        }
 
-        self.add_c_flags([
-            "-DCONFIG_ISS_CORE=riscv",
-        ])
+        super().__init__(parent, name, config=config, isa=isa_instance, timed=timed,
+            binaries=binaries, modules=modules)
+
+        # The core supports user mode, so that mret/sret fall back to it
+        self.add_c_flags(['-DCONFIG_GVSOC_ISS_USER_MODE=1'])

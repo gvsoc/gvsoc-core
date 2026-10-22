@@ -116,6 +116,7 @@ void ExecInOrder::sleep_enter(iss_insn_t *insn)
     this->wfi_start = this->iss.clock.get_cycles();
     this->retain_inc();
     this->wfi_entry = this->insn_hold(insn);
+    this->iss.arch.idle_hook(insn);
 }
 
 void ExecInOrder::sleep_exit()

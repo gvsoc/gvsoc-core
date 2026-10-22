@@ -28,4 +28,8 @@ public:
     // Called by the decoder on every decoded instruction, after its stub
     // handlers are installed
     inline void decode_hook(iss_insn_t *insn) {}
+
+    // Called when the core stops fetching after `insn` (wfi): its fetch port
+    // keeps showing the address of the next instruction, without a request
+    inline void idle_hook(iss_insn_t *insn) {}
 };

@@ -290,16 +290,26 @@ int PrefetchSingleLine::send_fetch_req(uint64_t addr, uint8_t *data, uint64_t si
 #endif
 
     this->iss.timing.event_fetch_account();
-    if (req->get_latency() > 1)
-    {
-        // A line fetched ahead had `ahead` cycles to come in before it is needed
-        if (req->get_latency() > ahead)
-        {
-            this->iss.timing.event_imiss_account(req->get_latency() - ahead);
-        }
-    }
+    this->stall_latency(req, ahead);
 
     return 0;
+}
+
+// Stall the core for the latency of a fetch answered inline. A line fetched
+// ahead had `ahead` cycles to come in before it is needed.
+void PrefetchSingleLine::stall_latency(vp::IoReq *req, int ahead)
+{
+#ifdef CONFIG_GVSOC_ISS_LSU_V2
+    // The inline latency annotation includes the bandwidth occupancy
+    int64_t latency = req->get_full_latency();
+#else
+    int64_t latency = req->get_latency();
+#endif
+    if (latency > 1 && latency > ahead)
+    {
+        this->iss.timing.event_imiss_account(latency - ahead);
+        this->iss.exec.stall_cycles_inc(latency - ahead);
+    }
 }
 
 int PrefetchSingleLine::fill(iss_addr_t addr)
@@ -341,8 +351,13 @@ void PrefetchSingleLine::fetch_retry(vp::Block *__this, vp::IoRetryChannel)
     if (err == vp::IO_REQ_DONE)
     {
         // Served inline this time: finish it exactly like an asynchronous
-        // response would, which un-retains the core and resumes the refill.
+        // response would, which un-retains the core and resumes the refill,
+        // and stall the core for its latency if it is waiting for it.
         // (the port registers the block as a cast of this pointer, cf. build())
+        if (!_this->lookahead_pending || _this->lookahead_waiting)
+        {
+            _this->stall_latency(&_this->fetch_req, 0);
+        }
         _this->fetch_response((vp::Block *)_this, &_this->fetch_req);
     }
     // GRANTED: fetch_response will resume the core when the data arrives.

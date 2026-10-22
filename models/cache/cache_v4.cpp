@@ -57,6 +57,7 @@
 #include <vp/signal.hpp>
 #include <vector>
 #include <deque>
+#include <map>
 #include <cache/cache_v4/cache_config.hpp>
 
 static int ceil_log2(unsigned int n)
@@ -108,6 +109,12 @@ private:
     // Clock events
     static void refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event);
     static void fsm_handler(vp::Block *__this, vp::ClockEvent *event);
+    static void delayed_resp_handler(vp::Block *__this, vp::ClockEvent *event);
+
+    // Answer a request which was queued (its master got IO_REQ_GRANTED) and is
+    // now served: the latency annotated on it is applied as a delay, since the
+    // master does not read it on an asynchronous response.
+    void resp_queued(vp::IoReq *req);
 
     // Wire callbacks
     static void enable_sync(vp::Block *_this, bool active);
@@ -197,6 +204,11 @@ private:
     vp::ClockEvent *fsm_event = nullptr;
     vp::ClockEvent  refill_event_clear_event;
 
+    // Queued requests answered with a latency, by the cycle of their response
+    // (in order for the same cycle)
+    std::multimap<int64_t, vp::IoReq *> delayed_resps;
+    vp::ClockEvent  delayed_resp_event;
+
     // Earliest cycle at which another synchronous refill can complete. Used to
     // fold a previous refill's in-flight window into subsequent synchronous
     // hits/misses so the CPU sees the serialised latency.
@@ -242,7 +254,8 @@ Cache::Cache(vp::ComponentConf &config)
       pending_refill(*this, "refill", 0),
       refill_event(*this, "refill_addr", 32),
       req_event(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
-      refill_event_clear_event(this, &Cache::refill_event_clear_handler)
+      refill_event_clear_event(this, &Cache::refill_event_clear_handler),
+      delayed_resp_event(this, &Cache::delayed_resp_handler)
 {
     // Derived geometry — CacheConfig carries bytes, we unpack into log2s.
     this->line_size_bits = ceil_log2(this->cfg.line_size);
@@ -316,6 +329,8 @@ void Cache::reset(bool active)
         this->refill_retry_pending = false;
         this->input_needs_retry = false;
         this->refill_timestamp = -1;
+        this->delayed_resps.clear();
+        this->delayed_resp_event.cancel();
         this->prefetch_wanted = false;
         this->pending_is_prefetch = false;
         this->drain_blocked = false;
@@ -483,7 +498,7 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         vp::IoReqStatus st = _this->handle_req(req);
         if (st == vp::IO_REQ_DONE)
         {
-            _this->input_itf.resp(req);
+            _this->resp_queued(req);
         }
         else if (st == vp::IO_REQ_DENIED)
         {
@@ -496,6 +511,43 @@ void Cache::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 
     _this->check_state();
+}
+
+
+void Cache::resp_queued(vp::IoReq *req)
+{
+    int64_t latency = req->get_full_latency();
+    if (latency <= 0)
+    {
+        this->input_itf.resp(req);
+        return;
+    }
+
+    // The delay is now carried by the time of the response
+    req->latency = 0;
+    req->duration = 0;
+    int64_t cycle = this->clock.get_cycles() + latency;
+    this->delayed_resps.emplace(cycle, req);
+    this->delayed_resp_event.enqueue(this->delayed_resps.begin()->first - this->clock.get_cycles());
+}
+
+
+void Cache::delayed_resp_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    Cache *_this = (Cache *)__this;
+    int64_t now = _this->clock.get_cycles();
+
+    while (!_this->delayed_resps.empty() && _this->delayed_resps.begin()->first <= now)
+    {
+        vp::IoReq *req = _this->delayed_resps.begin()->second;
+        _this->delayed_resps.erase(_this->delayed_resps.begin());
+        _this->input_itf.resp(req);
+    }
+
+    if (!_this->delayed_resps.empty())
+    {
+        _this->delayed_resp_event.enqueue(_this->delayed_resps.begin()->first - now);
+    }
 }
 
 
@@ -1260,7 +1312,7 @@ void Cache::fsm_multi()
             this->waiting.erase(it);
             if (st == vp::IO_REQ_DONE)
             {
-                this->input_itf.resp(req);
+                this->resp_queued(req);
             }
             break;
         }

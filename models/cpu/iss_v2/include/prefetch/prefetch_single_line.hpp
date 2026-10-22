@@ -83,6 +83,9 @@ private:
     // ahead of its use (0 for a line needed now).
     int send_fetch_req(uint64_t addr, uint8_t *data, uint64_t size, bool is_write, int ahead=0);
 
+    // Stall the core for the latency annotated on a fetch answered inline
+    void stall_latency(vp::IoReq *req, int ahead);
+
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     // Fetch the line at `addr` ahead of its use, while the instruction at
     // `insn_addr` executes

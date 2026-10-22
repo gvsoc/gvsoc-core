@@ -788,15 +788,7 @@ static inline iss_reg_t ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
         return next_pc;
     }
 
-    if (iss->exec.debug_mode)
-    {
-        return iss->irq.debug_handler;
-    }
-    else
-    {
-        iss->exception.raise(pc, ISS_EXCEPT_BREAKPOINT);
-        return pc;
-    }
+    return iss->core.ebreak_handle(pc);
 }
 
 static inline iss_reg_t ecall_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)

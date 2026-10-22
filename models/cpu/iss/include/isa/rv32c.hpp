@@ -326,23 +326,8 @@ static inline iss_reg_t c_add_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 static inline iss_reg_t c_ebreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
 {
     iss->timing.event_rvc_account(1);
-
-    if ((iss->csr.dcsr >> 15) & 1)
-    {
-        // iss->dbgunit.set_halt_mode(true, 1);
-    }
-    else
-    {
-        iss->exception.raise(pc, ISS_EXCEPT_BREAKPOINT);
-    }
-    return iss_insn_next(iss, insn, pc);
-}
-
-static inline iss_reg_t c_sbreak_exec(Iss *iss, iss_insn_t *insn, iss_reg_t pc)
-{
-    iss->timing.event_rvc_account(1);
-    // iss->dbgunit.set_halt_mode(true, 3);
-    return iss_insn_next(iss, insn, pc);
+    // Semihosting is only specified on the uncompressed ebreak
+    return iss->core.ebreak_handle(pc);
 }
 
 #endif

@@ -134,11 +134,54 @@ iss_reg_t Core::sret_handle()
     return this->iss.csr.sepc.value;
 }
 
+iss_reg_t Core::debug_enter(iss_reg_t pc, int cause)
+{
+    this->iss.exec.switch_to_full_mode();
+    this->iss.exec.debug_mode = true;
+    this->iss.csr.depc = pc;
+    // dcsr.cause (bits 8:6) and dcsr.prv (bits 1:0), debug mode runs in machine mode
+    this->iss.csr.dcsr = (this->iss.csr.dcsr & ~((iss_reg_t)0x7 << 6 | 0x3)) |
+        ((iss_reg_t)cause << 6) | this->mode_get();
+    this->mode_set(PRIV_M);
+    this->iss.irq.debug_saved_irq_enable = this->iss.irq.irq_enable.get();
+    this->iss.irq.irq_enable.set(0);
+
+    return this->iss.irq.debug_handler;
+}
+
+// Behaviour of ebreak and c.ebreak: in debug mode it goes back to the debug
+// handler, with the dcsr ebreakm/ebreaks/ebreaku bit of the current privilege
+// mode set it enters debug mode, otherwise it raises a breakpoint exception.
+iss_reg_t Core::ebreak_handle(iss_reg_t pc)
+{
+    if (this->iss.exec.debug_mode)
+    {
+        return this->iss.irq.debug_handler;
+    }
+
+    int mode = this->mode_get();
+    int ebreak_bit = mode == PRIV_M ? 15 : mode == PRIV_S ? 13 : 12;
+    if ((this->iss.csr.dcsr >> ebreak_bit) & 1)
+    {
+        if (!this->iss.dbgunit.riscv_dbg_unit)
+        {
+            // Without a RISC-V debug unit, the core halts on the ebreak
+            this->iss.dbgunit.set_halt_mode(true, HALT_CAUSE_EBREAK);
+            return pc;
+        }
+        return this->debug_enter(pc, HALT_CAUSE_EBREAK);
+    }
+
+    this->iss.exception.raise(pc, ISS_EXCEPT_BREAKPOINT);
+    return pc;
+}
+
 iss_reg_t Core::dret_handle()
 {
     this->iss.exec.switch_to_full_mode();
     this->iss.irq.irq_enable.set(this->iss.irq.debug_saved_irq_enable);
     this->iss.exec.debug_mode = 0;
+    this->mode_set(this->iss.csr.dcsr & 0x3);
 
     return this->iss.csr.depc;
 }

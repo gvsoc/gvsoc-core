@@ -36,57 +36,47 @@ void Exception::raise(iss_reg_t pc, int id)
 
     this->iss.exec.switch_to_full_mode();
 
-    if (id == ISS_EXCEPT_DEBUG)
+    int next_mode = PRIV_M;
+    // Exceptions are delegated to supervisor mode only when they occur in
+    // supervisor or user mode
+    if (this->iss.core.mode_get() < PRIV_M && ((this->iss.csr.medeleg.value >> id) & 1))
     {
-        this->iss.csr.depc = pc;
-        this->iss.irq.debug_saved_irq_enable = this->iss.irq.irq_enable.get();
-        this->iss.irq.irq_enable.set(0);
-        pc = this->iss.irq.debug_handler;
+        next_mode = PRIV_S;
+    }
+
+    if (next_mode == PRIV_M)
+    {
+        this->iss.csr.mepc.value = pc;
+        this->iss.csr.mstatus.mie = 0;
+        this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
+        this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
     }
     else
     {
-        int next_mode = PRIV_M;
-        // Exceptions are delegated to supervisor mode only when they occur in
-        // supervisor or user mode
-        if (this->iss.core.mode_get() < PRIV_M && ((this->iss.csr.medeleg.value >> id) & 1))
-        {
-            next_mode = PRIV_S;
-        }
+        this->iss.csr.sepc.value = pc;
+        this->iss.csr.mstatus.sie = 0;
+        this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
+        this->iss.csr.mstatus.spp = this->iss.core.mode_get();
+    }
+    this->iss.core.mode_set(next_mode);
 
-        if (next_mode == PRIV_M)
-        {
-            this->iss.csr.mepc.value = pc;
-            this->iss.csr.mstatus.mie = 0;
-            this->iss.csr.mstatus.mpie = this->iss.irq.irq_enable.get();
-            this->iss.csr.mstatus.mpp = this->iss.core.mode_get();
-        }
-        else
-        {
-            this->iss.csr.sepc.value = pc;
-            this->iss.csr.mstatus.sie = 0;
-            this->iss.csr.mstatus.spie = this->iss.irq.irq_enable.get();
-            this->iss.csr.mstatus.spp = this->iss.core.mode_get();
-        }
-        this->iss.core.mode_set(next_mode);
-
-        this->iss.irq.irq_enable.set(0);
+    this->iss.irq.irq_enable.set(0);
 
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
-        if (next_mode == PRIV_M)
-        {
-            pc = this->iss.csr.mtvec.value;
-            this->iss.csr.mcause.value = id;
-        }
-        else
-        {
-            pc = this->iss.csr.stvec.value;
-            this->iss.csr.scause.value = id;
-        }
-#else
-        this->iss.csr.mcause.value = 0xb;
-        pc = this->iss.irq.vectors[0];
-#endif
+    if (next_mode == PRIV_M)
+    {
+        pc = this->iss.csr.mtvec.value;
+        this->iss.csr.mcause.value = id;
     }
+    else
+    {
+        pc = this->iss.csr.stvec.value;
+        this->iss.csr.scause.value = id;
+    }
+#else
+    this->iss.csr.mcause.value = 0xb;
+    pc = this->iss.irq.vectors[0];
+#endif
 
     this->iss.exec.has_exception = true;
     this->iss.exec.exception_pc = pc;

@@ -38,6 +38,10 @@ public:
 
     iss_reg_t mret_handle();
     iss_reg_t dret_handle();
+    // Enters debug mode for an event at pc with the given dcsr cause and returns
+    // the debug handler address
+    iss_reg_t debug_enter(iss_reg_t pc, int cause);
+    iss_reg_t ebreak_handle(iss_reg_t pc);
     iss_reg_t sret_handle();
     int mode_get() { return this->mode; }
     void mode_set(int mode);

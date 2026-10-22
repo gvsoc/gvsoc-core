@@ -867,6 +867,45 @@ class Zcmp(IsaSubset):
 
 
 
+# Instruction a compressed one expands to, used as trace label when
+# CONFIG_GVSOC_USE_UNCOMPRESSED_LABELS is set, to compare traces with models
+# tracing the uncompressed instructions
+UNCOMPRESSED_LABELS = {
+    'c.unimp': 'unimp',     'c.addi4spn': 'addi',   'c.lw': 'lw',           'c.sw': 'sw',
+    'c.nop': 'nop',         'c.addi': 'addi',       'c.jal': 'jal',         'c.li': 'addi',
+    'c.addi16sp': 'addi',   'c.lui': 'lui',         'c.srli': 'srli',       'c.srai': 'srai',
+    'c.andi': 'andi',       'c.sub': 'sub',         'c.xor': 'xor',         'c.or': 'or',
+    'c.and': 'and',         'c.j': 'j',             'c.beqz': 'beqz',       'c.bnez': 'bnez',
+    'c.slli': 'slli',       'c.lwsp': 'lw',         'c.jr': 'jr',           'c.mv': 'mv',
+    'c.ebreak': 'ebreak',   'c.jalr': 'jalr',       'c.add': 'add',         'c.swsp': 'sw',
+    'c.flw': 'flw',         'c.fsw': 'fsw',         'c.flwsp': 'flw',       'c.fswsp': 'fsw',
+    'c.ld': 'ld',           'c.sd': 'sd',           'c.addiw': 'addiw',     'c.subw': 'subw',
+    'c.addw': 'addw',       'c.ldsp': 'ld',         'c.sdsp': 'sd',         'c.fld': 'fld',
+    'c.fsd': 'fsd',         'c.fldsp': 'fld',       'c.fsdsp': 'fsd',
+}
+
+
+def set_uncompressed_labels(instrs):
+    if os.environ.get('CONFIG_GVSOC_USE_UNCOMPRESSED_LABELS') is None:
+        return
+
+    for insn in instrs:
+        label = UNCOMPRESSED_LABELS.get(insn.label)
+        if label is not None:
+            insn.trace_label = label
+
+
+
+def RvcReserved(label, encoding):
+    # Encoding the RVC spec reserves inside the pattern of a regular instruction.
+    # The decoder prefers the most specific pattern, so it lands here instead of
+    # in the regular handler, and raises an illegal instruction like c.unimp.
+    instr = Instr(label, Format_Z, encoding)
+    instr.set_exec_label('c_unimp')
+    return instr
+
+
+
 class Rv32c(IsaSubset):
 
     def __init__(self):
@@ -899,25 +938,24 @@ class Rv32c(IsaSubset):
             Instr('c.jalr',     Format_CR3, '100 1-- --- 00 000 10', tags=["branch"], fast_handler=True),
             Instr('c.add',      Format_CR,  '100 1-- --- -- --- 10', fast_handler=True),
             Instr('c.swsp',     Format_CSS, '110 --- --- -- --- 10', fast_handler=True),
-            Instr('c.sbreak',   Format_CI1, '100 000 000 00 000 10'),
+            RvcReserved('c.jr.rsv',         '100 000 000 00 000 10'),
             Instr('c.flwsp',    Format_FCI3, '011 --- --- -- --- 10', fast_handler=True, tags=['load', "fload"], isa_tags=['cf']),
             Instr('c.fswsp',    Format_FCSS, '111 --- --- -- --- 10', fast_handler=True, isa_tags=['cf']),
             Instr('c.fsw',      Format_FCS,  '111 --- --- -- --- 00', fast_handler=True, isa_tags=['cf']),
             Instr('c.flw',      Format_FCL,  '011 --- --- -- --- 00', fast_handler=True, tags=['load', "fload"], isa_tags=['cf']),
+            RvcReserved('c.addi4spn.rsv',   '000 000 000 00 --- 00'),
+            RvcReserved('c.addi16sp.rsv',   '011 000 010 00 000 01'),
+            RvcReserved('c.lui.rsv',        '011 0-- --- 00 000 01'),
+            RvcReserved('c.lwsp.rsv',       '010 -00 000 -- --- 10'),
+            # shamt[5] == 1 is reserved on RV32
+            RvcReserved('c.slli.rsv',       '000 1-- --- -- --- 10'),
+            RvcReserved('c.srli.rsv',       '100 100 --- -- --- 01'),
+            RvcReserved('c.srai.rsv',       '100 101 --- -- --- 01'),
         ], includes=[
             '<cpu/iss/include/isa/rv32c.hpp>',
         ])
 
-
-        if os.environ.get('CONFIG_GVSOC_USE_UNCOMPRESSED_LABELS') is not None:
-            unconmpressed_names = [
-                'addi', 'lw', 'sw', 'nop', 'addi', 'jal', 'addi', 'addi', 'lui', 'srli', 'srai', 'andi', 'sub', 'xor', 'or', 'and', 'j', 'beqz', 'bnez', 'slli',
-                'lw', 'jr', 'mv', 'ebreak', 'jalr', 'add', 'sw', 'sbreak',
-            ]
-
-            for insn in self.instrs:
-                label = unconmpressed_names.pop(0)
-                insn.traceLabel = label
+        set_uncompressed_labels(self.instrs)
 
     def check_compatibilities(self, isa):
         if not isa.has_isa('rvf'):
@@ -964,13 +1002,20 @@ class Rv64c(IsaSubset):
             Instr('c.add',      Format_CR,  '100 1-- --- -- --- 10', fast_handler=True),
             Instr('c.swsp',     Format_CSS, '110 --- --- -- --- 10', fast_handler=True),
             Instr('c.sdsp',     Format_DCSS, '111 --- --- -- --- 10', fast_handler=True),
-            Instr('c.sbreak',   Format_CI1, '100 000 000 00 000 10'),
+            RvcReserved('c.jr.rsv',         '100 000 000 00 000 10'),
             Instr('c.fsdsp',    Format_FCSSD, '101 --- --- -- --- 10', isa_tags=['cf']),
             Instr('c.fldsp',    Format_FCI3D, '001 --- --- -- --- 10', tags=['load', "fload"], isa_tags=['cf']),
+            RvcReserved('c.addi4spn.rsv',   '000 000 000 00 --- 00'),
+            RvcReserved('c.addi16sp.rsv',   '011 000 010 00 000 01'),
+            RvcReserved('c.lui.rsv',        '011 0-- --- 00 000 01'),
+            RvcReserved('c.lwsp.rsv',       '010 -00 000 -- --- 10'),
+            RvcReserved('c.ldsp.rsv',       '011 -00 000 -- --- 10'),
         ], includes=[
             '<cpu/iss/include/isa/rv64c.hpp>',
             '<cpu/iss/include/isa/rv32c.hpp>',
         ])
+
+        set_uncompressed_labels(self.instrs)
 
     def check_compatibilities(self, isa):
         if not isa.has_isa('rvf'):

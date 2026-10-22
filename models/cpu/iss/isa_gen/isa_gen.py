@@ -472,205 +472,240 @@ class InFRegComp(InReg):
 
 
 
+def decode_pattern(instr):
+    # Bits the encoding of an instruction fixes, and their values
+    mask = 0
+    value = 0
+    for bit, char in enumerate(instr.encoding):
+        if char in ['0', '1']:
+            mask |= 1 << bit
+            if char == '1':
+                value |= 1 << bit
+    return mask, value
+
+
+def decode_lowest_field(mask):
+    # Lowest run of contiguous bits of a mask, as (first bit, width)
+    first = (mask & -mask).bit_length() - 1
+    width = 0
+    while mask & (1 << (first + width)):
+        width += 1
+    return first, width
+
+
+def decode_most_specific(instrs, patterns):
+    # Among instructions all matching the same opcodes, the one whose pattern
+    # fixes all the bits the others fix
+    best = [instr for instr in instrs
+        if all(patterns[other][0] & ~patterns[instr][0] == 0 for other in instrs)]
+
+    if len(best) == 0:
+        # Partly overlapping patterns are fine if the opcodes they all match
+        # are decoded elsewhere: an instruction outside this leaf matching all
+        # of them means the decoder never reaches it with one of them (it was
+        # excluded on the way through an OTHERS group).
+        mask = 0
+        value = 0
+        for instr in instrs:
+            mask |= patterns[instr][0]
+            value |= patterns[instr][1]
+        for other, (other_mask, other_value) in patterns.items():
+            if other not in instrs and other_mask & ~mask == 0 and (other_value ^ value) & other_mask == 0:
+                return instrs[0]
+
+    if len(best) != 1:
+        error = 'The decoder cannot choose between the following instructions:\n'
+        for instr in instrs:
+            error += instr.get_str() + '\n'
+        raise Exception(error)
+    return best[0]
+
+
+def decode_node(isa, instrs, patterns, checked, opcode, others):
+    if all(patterns[instr][0] & ~checked[instr] == 0 for instr in instrs):
+        return DecodeLeaf(decode_most_specific(instrs, patterns), opcode, others)
+    return DecodeTree(isa, instrs, opcode, others, patterns, checked)
+
+
+
 class DecodeLeaf(object):
     def __init__(self, instr, opcode, others=False):
         self.instr = instr
-        self.level = 0
         self.opcode = opcode
         self.others = others
+        self.wrapper_id = None
 
-    def dump(self, isaFile, str):
-        isaFile.write(str)
-
-    def gen(self, isaFile, isa):
-        dump(isaFile, '// %s\n' % (self.instr.get_str()))
-        self.instr.gen(isa, isaFile, self.opcode, self.others)
+    def count_positions(self, positions):
+        positions[self.instr] += 1
 
     def get_name(self):
+        if self.wrapper_id is not None:
+            return 'decoder_tree_%d' % self.wrapper_id
         return self.instr.get_full_name()
+
+    def gen_node(self, isaFile, isa, positions, generated):
+        if positions[self.instr] == 1:
+            # Only position of the instruction, its own item carries the opcode
+            dump(isaFile, '// %s\n' % (self.instr.get_str()))
+            self.instr.gen(isa, isaFile, self.opcode, self.others)
+            generated.add(self.instr)
+            return
+
+        # The instruction has several positions in the tree, each one is a group
+        # with no opcode bits holding the instruction item
+        if self.instr not in generated:
+            dump(isaFile, '// %s\n' % (self.instr.get_str()))
+            self.instr.gen(isa, isaFile, '0', True)
+            generated.add(self.instr)
+
+        self.wrapper_id = isa.alloc_decoder_tree_id()
+        name = self.get_name()
+        dump(isaFile, 'static iss_decoder_item_t *%s_groups[] = { &%s, };\n' % (name, self.instr.get_full_name()))
+        dump(isaFile, 'static iss_decoder_item_t %s = {\n' % name)
+        dump(isaFile, '  .is_insn=false,\n')
+        dump(isaFile, '  .is_active=false,\n')
+        dump(isaFile, '  .opcode_others=%d,\n' % (1 if self.others else 0))
+        dump(isaFile, '  .opcode=0b%s,\n' % self.opcode)
+        dump(isaFile, '  .u={\n')
+        dump(isaFile, '    .group={\n')
+        dump(isaFile, '      .bit=0,\n')
+        dump(isaFile, '      .width=0,\n')
+        dump(isaFile, '      .nb_groups=1,\n')
+        dump(isaFile, '      .groups=%s_groups\n' % name)
+        dump(isaFile, '    }\n')
+        dump(isaFile, '  }\n')
+        dump(isaFile, '};\n')
+        dump(isaFile, '\n')
 
 
 
 class DecodeTree(object):
-    def __init__(self, isa, instrs, mask=0xffffffff, opcode='0'):
-        self.opcode = opcode
-        self.level = 0
-        self.subtrees = collections.OrderedDict({})
-        self.firstBit = 0
-        self.tree_id = isa.alloc_decoder_tree_id()
+    # Decoding group: the decoder extracts opcode_width bits at firstBit and
+    # continues with the subtree of the same opcode, or with the OTHERS one if
+    # none matches (see Decode::decode_opcode_group).
+    #
+    # An instruction goes into every subtree whose opcodes its pattern can
+    # match, including the ones where the extracted bits are don't-care for
+    # it, so that the decoder always ends on the instruction with the most
+    # specific matching pattern. checked tells for each instruction which of
+    # its fixed bits the decoder already compared on the way to this group.
+    def __init__(self, isa, instrs, opcode='0', others=False, patterns=None, checked=None):
         self.isa = isa
-
-        if len(instrs) == 0: return
-
-        # Resize the mask to the min size of the instructions to take
-        # into accpount only bits discriminating the various sizes
-        # otherwise we could take invalid bits into account
-        minSize = None
-        for instr in instrs:
-            if minSize == None or instr.len < minSize: minSize = instr.len
-        currentMask = mask & ((1<<minSize)-1)
-
-        # First eliminate the bits in the mask where no instruction has
-        # a discriminating bit
-        searchMask = 0
-        for instr in instrs:
-            for bit in range(0, minSize):
-                if (currentMask & (1<<bit)) == 0: continue
-                if instr.encoding[bit] in ['0', '1']: searchMask |= 1<<bit
-        currentMask &= searchMask
-
-        # Browse all instructions to find the biggest common opcode set
-        searchMask = currentMask
-        for instr in instrs:
-
-            #print ('Parsing instr %s: %s' % (instr.encoding, instr.label))
-            done = False
-            firstBit = None
-            size = instr.len
-
-            for bit in range(0, size):
-                if done or not instr.encoding[bit] in ['0', '1'] or (searchMask & (1<<bit)) == 0: #, '-']:
-                    searchMask &= ~(1<<bit)
-                    if firstBit != None:
-                        done = True
-                    continue
-                elif firstBit == None:
-                    firstBit = bit
-
-            if firstBit != None and firstBit > self.firstBit: self.firstBit = firstBit
-
-        # In case we found no common mask, maybe we still have some discriminating
-        # bits where some instructions don't care
-        # Find a common mask where the opcode is either fully defined or don't care
-        if searchMask == 0 and len(instrs) > 1:
-            # First find the biggest common discriminating bits
-            searchMask = currentMask
-            for instr in instrs:
-                instrMask = 0
-                for bit in range(0, size):
-                    if (currentMask & (1<<bit)) == 0: continue
-                    if instr.encoding[bit] in ['0', '1']:
-                        instrMask |= 1<<bit
-                if instrMask != 0:
-                    searchMask &= instrMask
-
-            for bit in range(0, size):
-                if searchMask & (1<<bit):
-                    self.firstBit = bit
-                    break
-
-        if searchMask == 0 and len(instrs) > 1:
-            error = 'Error the following instructions have the same opcode:\n'
-            for instr in instrs:
-                error += instr.get_str() + '\n'
-            raise Exception(error)
-
-        currentMask = searchMask
-
-        self.currentMask = currentMask
-        mask = mask & ~currentMask
-
-        # Now group them together in sub-groups depending on their
-        # opcode for this mask
-        groups = collections.OrderedDict({})
-        for instr in instrs:
-            size = instr.len
-
-            opcodeList = ['']
-            isOther = False
-            # Extract opcode
-            for bit in range(size-1, -1, -1):
-                if (currentMask & (1<<bit)) == 0: continue
-                instrBit = instr.encoding[bit]
-                if instrBit in ['0', '1']:
-                    instrBits = [instrBit]
-                else:
-                    isOther = True
-                    break
-                newList = []
-                for bit in instrBits:
-                    for opcode in opcodeList:
-                        newList.append(opcode + bit)
-                opcodeList = newList
-
-            # Now register the instruction for each of its possible opcode
-            if not isOther:
-                for opcode in opcodeList:
-                    if groups.get(opcode) == None: groups[opcode] = []
-                    groups[opcode].append(instr)
-            else:
-                if groups.get('OTHERS') == None: groups['OTHERS'] = []
-                groups['OTHERS'].append(instr)
-
+        self.instrs = instrs
+        self.opcode = opcode
+        self.others = others
+        self.tree_id = isa.alloc_decoder_tree_id()
+        self.subtrees = collections.OrderedDict()
+        self.firstBit = 0
         self.opcode_width = 0
-        for opcode, instrs in groups.items():
-            if opcode == 'OTHERS': continue
-            if len(opcode) > self.opcode_width:
-                self.opcode_width = len(opcode)
-            names = []
+
+        if patterns is None:
+            patterns = {instr: decode_pattern(instr) for instr in instrs}
+        if checked is None:
+            checked = {instr: 0 for instr in instrs}
+
+        if len(instrs) == 0:
+            return
+
+        remaining = {instr: patterns[instr][0] & ~checked[instr] for instr in instrs}
+
+        if all(mask == 0 for mask in remaining.values()):
+            # Only happens at the top, when a single pattern remains
+            self.subtrees['OTHERS'] = DecodeLeaf(decode_most_specific(instrs, patterns), '0', True)
+            return
+
+        # Extract bits all instructions still have to check if any, otherwise
+        # bits common to all instructions with bits to check, otherwise bits of
+        # the instruction with the most bits to check. At least one instruction
+        # fixes all of them, which makes each subtree progress.
+        common = ~0
+        for mask in remaining.values():
+            common &= mask
+        if common == 0:
+            common = ~0
+            for mask in remaining.values():
+                if mask != 0:
+                    common &= mask
+        if common == 0:
+            common = max(remaining.values(), key=lambda mask: bin(mask).count('1'))
+
+        self.firstBit, self.opcode_width = decode_lowest_field(common)
+        field_mask = ((1 << self.opcode_width) - 1) << self.firstBit
+
+        def field_value(value):
+            return (value >> self.firstBit) & ((1 << self.opcode_width) - 1)
+
+        keys = []
+        others_instrs = []
+        for instr in instrs:
+            mask, value = patterns[instr]
+            if mask & field_mask == field_mask:
+                if field_value(value) not in keys:
+                    keys.append(field_value(value))
+            else:
+                others_instrs.append(instr)
+
+        for key in keys:
+            group = []
+            group_checked = dict(checked)
             for instr in instrs:
-                names.append(instr.label)
+                mask, value = patterns[instr]
+                if (value ^ (key << self.firstBit)) & mask & field_mask == 0:
+                    group.append(instr)
+                    group_checked[instr] = checked[instr] | (mask & field_mask)
 
-        for opcode, instrs in groups.items():
-            if len(instrs) == 1 and currentMask == 0 or opcode == 'OTHERS':
-                self.subtrees[opcode] = DecodeLeaf(instrs[0], self.opcode, others=opcode == 'OTHERS')
-            else: self.subtrees[opcode] = DecodeTree(self.isa, instrs, mask, opcode)
+            opcode_str = format(key, '0%db' % self.opcode_width)
+            self.subtrees[opcode_str] = decode_node(isa, group, patterns, group_checked, opcode_str, False)
 
-        self.mask = currentMask
+        if len(others_instrs) != 0:
+            self.subtrees['OTHERS'] = decode_node(isa, others_instrs, patterns, checked, '0', True)
 
-        self.needTree = False
-        for opcode, subtree in self.subtrees.items():
-            if len(opcode) != 0: self.needTree = True
-
-    def dump(self, isaFile, str, diff=0):
-        isaFile.write(str)
+    def count_positions(self, positions):
+        for subtree in self.subtrees.values():
+            subtree.count_positions(positions)
 
     def get_name(self):
-        if self.needTree:
-            return 'decoder_tree_%d' % self.tree_id
-        else:
-            return list(self.subtrees.values())[0].get_name()
+        return 'decoder_tree_%d' % self.tree_id
 
     def gen(self, isaFile, isa):
+        positions = collections.Counter()
+        self.count_positions(positions)
+        generated = set()
 
-        if len(self.subtrees) != 0:
+        self.gen_node(isaFile, isa, positions, generated)
 
-            if self.needTree:
-                others = None
-                for opcode, subtree in self.subtrees.items():
-                    if opcode == 'OTHERS':
-                        others = subtree
-                    else:
-                        subtree.gen(isaFile, isa)
-                if others != None:
-                    others.gen(isaFile, isa)
-            else:
-                subtree = list(self.subtrees.values())[0]
-                subtree.gen(isaFile, isa)
+        # Instructions shadowed everywhere by more specific ones are never
+        # decoded but are still referenced by the instruction tables
+        for instr in self.instrs:
+            if instr not in generated:
+                dump(isaFile, '// %s\n' % (instr.get_str()))
+                instr.gen(isa, isaFile, '0', False)
+                generated.add(instr)
 
+    def gen_node(self, isaFile, isa, positions, generated):
+        for subtree in self.subtrees.values():
+            subtree.gen_node(isaFile, isa, positions, generated)
 
-            if self.needTree:
-                dump(isaFile, 'static iss_decoder_item_t *%s_groups[] = {' % self.get_name());
-                for opcode, subtree in self.subtrees.items():
-                    dump(isaFile, ' &%s,' % subtree.get_name())
+        dump(isaFile, 'static iss_decoder_item_t *%s_groups[] = {' % self.get_name())
+        for subtree in self.subtrees.values():
+            dump(isaFile, ' &%s,' % subtree.get_name())
+        dump(isaFile, ' };\n')
 
-                dump(isaFile, ' };\n')
-
-                dump(isaFile, 'static iss_decoder_item_t %s = {\n' % (self.get_name()))
-                dump(isaFile, '  .is_insn=false,\n')
-                dump(isaFile, '  .is_active=false,\n')
-                dump(isaFile, '  .opcode_others=0,\n')
-                dump(isaFile, '  .opcode=0b%s,\n' % self.opcode)
-                dump(isaFile, '  .u={\n')
-                dump(isaFile, '    .group={\n')
-                dump(isaFile, '      .bit=%d,\n' % self.firstBit)
-                dump(isaFile, '      .width=%d,\n' % self.opcode_width)
-                dump(isaFile, '      .nb_groups=%d,\n' % len(self.subtrees))
-                dump(isaFile, '      .groups=%s_groups\n' % self.get_name())
-                dump(isaFile, '    }\n')
-                dump(isaFile, '  }\n')
-                dump(isaFile, '};\n')
-                dump(isaFile, '\n')
+        dump(isaFile, 'static iss_decoder_item_t %s = {\n' % (self.get_name()))
+        dump(isaFile, '  .is_insn=false,\n')
+        dump(isaFile, '  .is_active=false,\n')
+        dump(isaFile, '  .opcode_others=%d,\n' % (1 if self.others else 0))
+        dump(isaFile, '  .opcode=0b%s,\n' % self.opcode)
+        dump(isaFile, '  .u={\n')
+        dump(isaFile, '    .group={\n')
+        dump(isaFile, '      .bit=%d,\n' % self.firstBit)
+        dump(isaFile, '      .width=%d,\n' % self.opcode_width)
+        dump(isaFile, '      .nb_groups=%d,\n' % len(self.subtrees))
+        dump(isaFile, '      .groups=%s_groups\n' % self.get_name())
+        dump(isaFile, '    }\n')
+        dump(isaFile, '  }\n')
+        dump(isaFile, '};\n')
+        dump(isaFile, '\n')
 
 
 

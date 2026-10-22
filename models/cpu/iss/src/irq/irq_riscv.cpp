@@ -273,12 +273,10 @@ int Irq::check()
 {
     if (this->req_debug && !this->iss.exec.debug_mode)
     {
-        this->iss.exec.debug_mode = true;
-        this->iss.csr.depc = this->iss.exec.current_insn;
-        this->debug_saved_irq_enable = this->irq_enable.get();
-        this->irq_enable.set(0);
         this->req_debug = false;
-        this->iss.exec.current_insn = this->debug_handler;
+        // The debug unit stored the cause in dcsr along with the request
+        this->iss.exec.current_insn = this->iss.core.debug_enter(this->iss.exec.current_insn,
+            (this->iss.csr.dcsr >> 6) & 0x7);
         return 1;
     }
     else

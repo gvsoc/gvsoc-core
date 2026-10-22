@@ -129,14 +129,10 @@ class Lsu;
 #define ISS_EXCEPT_INSN_PAGE_FAULT  12
 #define ISS_EXCEPT_LOAD_PAGE_FAULT  13
 #define ISS_EXCEPT_STORE_PAGE_FAULT 15
-
-// TODO for compatibility, should be cleaned-up
-#define ISS_EXCEPT_DEBUG   0
 #else
 #define ISS_EXCEPT_RESET   0
 #define ISS_EXCEPT_ILLEGAL 1
 #define ISS_EXCEPT_ENV_CALL_U_MODE   2
-#define ISS_EXCEPT_DEBUG   3
 
 #define ISS_EXCEPT_INSN_PAGE_FAULT  0
 #define ISS_EXCEPT_LOAD_PAGE_FAULT  0

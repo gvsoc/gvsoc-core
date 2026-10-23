@@ -48,6 +48,12 @@ public:
     bool interleave;
     uint64_t address2;
     bool do_write2;
+    // Support for collective op code and mask
+    int collective_op;
+    uint64_t collective_mask;
+    // When collectives are set, checks incoming data against this externally-supplied 
+    // buffer instead to verify reduce and broadcast results
+    const uint8_t *expected_data;
 };
 
 class TrafficGenerator
@@ -82,7 +88,9 @@ public:
     // Start sending bursts.
     // Send one burst of size <packet_size> at each cycle for a total of <size> bytes.
     inline void start(uint64_t address, size_t size, size_t packet_size,
-        TrafficGeneratorSync *sync, bool do_write=false, bool check=false);
+        TrafficGeneratorSync *sync, bool do_write=false, bool check=false,
+        int collective_op=0, uint64_t collective_mask=0,
+        const uint8_t *expected_data=nullptr);
     // The same with a second stream (address2, do_write2) of the same size,
     // one packet of each in turn.
     inline void start_interleaved(uint64_t address, bool do_write, uint64_t address2,
@@ -93,11 +101,13 @@ public:
 
 
 inline void TrafficGeneratorConfigMaster::start(uint64_t address, size_t size, size_t packet_size,
-    TrafficGeneratorSync *sync, bool do_write, bool check)
+    TrafficGeneratorSync *sync, bool do_write, bool check, int collective_op,
+    uint64_t collective_mask, const uint8_t *expected_data)
 {
     TrafficGeneratorConfig config = { .is_start=true, .address=address, .size=size,
         .packet_size=packet_size, .sync=sync, .do_write=do_write,
-        .check=check
+        .check=check, .collective_op=collective_op,
+        .collective_mask=collective_mask, .expected_data=expected_data
     };
     this->sync(&config);
 }

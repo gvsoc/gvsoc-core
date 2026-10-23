@@ -88,6 +88,9 @@ private:
     uint64_t config_size;
     uint64_t config_address;
     size_t packet_size;
+    int collective_op = 0;
+    uint64_t collective_mask = 0;
+    const uint8_t *expected_data = nullptr;
 };
 
 Generator::Generator(vp::ComponentConf &config)
@@ -159,6 +162,9 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
         _this->config_size = config->size;
         _this->config_address = config->address;
         _this->packet_size = config->packet_size;
+        _this->collective_op = config->collective_op;
+        _this->collective_mask = config->collective_mask;
+        _this->expected_data = config->expected_data;
 
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
@@ -295,11 +301,14 @@ void Generator::handle_end()
 {
     if (this->check)
     {
-        this->check_status |= std::memcmp(this->ref_data, this->current_transfer->data,
+        // [Collective] Compare against an externally-supplied buffer
+        const uint8_t *expected = this->expected_data ? this->expected_data
+                                                       : this->ref_data;
+        this->check_status |= std::memcmp(expected, this->current_transfer->data,
             this->current_transfer->size) != 0;
         // for (int i=0; i<_this->current_transfer->size; i++)
         // {
-        //     printf("%d: %d %d\n", i, _this->ref_data[i], _this->current_transfer->data[i]);
+        //     printf("%d: %d %d\n", i, expected[i], _this->current_transfer->data[i]);
         // }
     }
 
@@ -352,6 +361,17 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         req->set_addr(_this->address);
         req->set_data(_this->data);
         req->set_is_write(_this->current_transfer->do_write);
+
+        if (_this->collective_op != 0)
+        {
+            // [Collective] Stamp the sideband descriptor: 1 byte op code + 8 bytes mask
+            uint8_t *payload = req->get_payload();
+            payload[0] = (uint8_t)_this->collective_op;
+            for (int i = 0; i < 8; i++)
+            {
+                payload[1 + i] = (uint8_t)(_this->collective_mask >> (8 * i));
+            }
+        }
 
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request (req: %p, address: 0x%llx, size: 0x%llx, packet_size: 0x%llx)\n",
             req, _this->address, _this->current_transfer->packet_size, _this->current_transfer->packet_size);

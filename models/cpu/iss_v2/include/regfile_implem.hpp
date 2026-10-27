@@ -113,6 +113,18 @@ inline bool Regfile::scoreboard_insn_check(iss_insn_t *insn)
 {
     uint64_t blocking = insn->sb_reg_mask & this->sb_reg_invalid;
     if (blocking == 0) return false;
+    if (this->iss.cfg.scoreboard_waw_after_writeback)
+    {
+        // Only written registers whose loaded value is already there: no
+        // hazard, the instruction takes them over from the load
+        uint64_t written_back = blocking & ~insn->sb_in_reg_mask &
+            this->iss.exec.delayed_release_mask();
+        if (written_back == blocking)
+        {
+            this->iss.exec.delayed_release_drop(written_back);
+            return false;
+        }
+    }
     // Hand the per-core events class the opaque reason byte that was
     // stored when the first blocking register was invalidated, so it
     // can fire the right producer-specific stall counter. RTL counts

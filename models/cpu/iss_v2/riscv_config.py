@@ -83,6 +83,11 @@ class RiscvConfig(Config):
         "fetched for it, i.e. when it is reached by a jump (RI5CY: the second line is only asked "
         "for once the first one is in). Reached in sequence, the first line is already there."
     ))
+    scoreboard_waw_after_writeback: bool = cfg_field(default=False, dump=True, desc=(
+        "True if an instruction which writes a register without reading it does not wait for a "
+        "load whose value is already in that register and only waits out its load-use delay "
+        "(RI5CY writes back in order: a write after a load is no hazard, only a read waits)."
+    ))
     lsu_misaligned_store_stall: bool = cfg_field(default=False, dump=True, desc=(
         "True if a misaligned store keeps the execute stage one more cycle for its second "
         "half, so the next instruction starts one cycle later (RI5CY: the second access of a "

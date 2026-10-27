@@ -120,6 +120,12 @@ public:
     // ``delay`` is the number of cycles after which the registers become
     // readable (1 = the usual load-use stall).
     void schedule_scoreboard_release(uint64_t mask, int delay=1);
+    // Registers whose value is written back and which only wait out their
+    // load-use delay
+    uint64_t delayed_release_mask() { return this->unblock_slot_valid ? this->unblock_slot_mask : 0; }
+    // A younger instruction writes these registers: their delayed release is
+    // its business now
+    void delayed_release_drop(uint64_t mask) { this->unblock_slot_mask &= ~mask; }
 private:
     static void task_unblock_handle(Iss *iss, Task *task);
 public:

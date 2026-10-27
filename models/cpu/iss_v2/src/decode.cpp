@@ -64,6 +64,7 @@ void Decode::insn_set_in_reg(iss_insn_t *insn, iss_decoder_arg_t *darg, int reg)
     else
     {
         insn->sb_reg_mask |= 1 << reg;
+        insn->sb_in_reg_mask |= 1 << reg;
     }
 }
 
@@ -183,6 +184,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 arg->u.indirect_imm.reg_index += 8;
             insn->in_regs[darg->u.indirect_imm.reg.id] = arg->u.indirect_imm.reg_index;
             insn->sb_reg_mask |= 1 << arg->u.indirect_imm.reg_index;
+            insn->sb_in_reg_mask |= 1 << arg->u.indirect_imm.reg_index;
             if (darg->u.indirect_imm.reg.id >= insn->nb_in_reg)
                 insn->nb_in_reg = darg->u.indirect_imm.reg.id + 1;
             arg->u.indirect_imm.imm = this->decode_info(insn, opcode, &darg->u.indirect_imm.imm.info, darg->u.indirect_imm.imm.is_signed);
@@ -195,6 +197,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 arg->u.indirect_reg.base_reg_index += 8;
             insn->in_regs[darg->u.indirect_reg.base_reg.id] = arg->u.indirect_reg.base_reg_index;
             insn->sb_reg_mask |= 1 << arg->u.indirect_reg.base_reg_index;
+            insn->sb_in_reg_mask |= 1 << arg->u.indirect_reg.base_reg_index;
             if (darg->u.indirect_reg.base_reg.id >= insn->nb_in_reg)
                 insn->nb_in_reg = darg->u.indirect_reg.base_reg.id + 1;
 
@@ -203,6 +206,7 @@ int Decode::decode_insn(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode, iss
                 arg->u.indirect_reg.offset_reg_index += 8;
             insn->in_regs[darg->u.indirect_reg.offset_reg.id] = arg->u.indirect_reg.offset_reg_index;
             insn->sb_reg_mask |= 1 << arg->u.indirect_reg.offset_reg_index;
+            insn->sb_in_reg_mask |= 1 << arg->u.indirect_reg.offset_reg_index;
             if (darg->u.indirect_reg.offset_reg.id >= insn->nb_in_reg)
                 insn->nb_in_reg = darg->u.indirect_reg.offset_reg.id + 1;
 
@@ -305,6 +309,7 @@ int Decode::decode_opcode(iss_insn_t *insn, iss_reg_t pc, iss_opcode_t opcode)
     insn->nb_in_reg = 0;
     insn->sb_reg_mask = 0;
     insn->sb_out_reg_mask = 0;
+    insn->sb_in_reg_mask = 0;
     insn->sb_in_vreg_mask = 0;
     insn->sb_out_vreg_mask = 0;
 

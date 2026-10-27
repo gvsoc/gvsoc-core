@@ -128,8 +128,14 @@ private:
 #endif
 
     // Config field ``fetch_split_jump_stall``: an instruction split over two
-    // lines pays one more cycle when its first line was fetched for it too
+    // lines pays one more cycle when it is reached by a jump (the core empties
+    // its fetch buffer and asks for both lines again), or when its first line
+    // was fetched for it
     bool split_jump_stall = false;
+    // Instruction being fetched, and whether the core jumped to it (it does not
+    // follow the previous one)
+    iss_insn_t *cur_fetch_insn = NULL;
+    bool fetch_jumped = false;
     // The first line of the instruction being fetched was fetched for it
     bool low_line_fetched = false;
     // Split instruction waiting one cycle for its second line, and its opcode

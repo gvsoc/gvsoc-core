@@ -172,14 +172,16 @@ bool PrefetchSingleLine::fetch_check_overflow(iss_insn_t *insn, int index)
             this->split_insn_addr = addr;
             this->split_insn_opcode = opcode;
 
-            // Both lines fetched for this instruction (after a jump): the
+            // Both lines fetched for this instruction (after a jump, the
+            // fetch buffer is emptied even if it held the first line): the
             // second one is only asked for once the first is in, so the
             // instruction issues one cycle later. Nothing is fetched this
             // cycle; the core asks again next cycle and gets the opcode kept
             // here.
-            if (this->low_line_fetched)
+            if (this->low_line_fetched || this->fetch_jumped)
             {
                 this->low_line_fetched = false;
+                this->fetch_jumped = false;
                 return false;
             }
         }
@@ -453,6 +455,14 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
         return false;
     }
 
+    if (unlikely(this->split_jump_stall) && insn != this->cur_fetch_insn)
+    {
+        iss_insn_t *prev = this->cur_fetch_insn;
+        this->fetch_jumped = prev == NULL ||
+            addr != prev->addr + ((prev->opcode & 0x3) == 0x3 ? 4 : 2);
+        this->cur_fetch_insn = insn;
+    }
+
     if (unlikely(this->split_insn_addr != (iss_addr_t)-1))
     {
         if (phys_addr == this->split_insn_addr)
@@ -519,6 +529,7 @@ void PrefetchSingleLine::flush()
     // to refill
     this->buffer_start_addr = -1;
     this->split_insn_addr = -1;
+    this->cur_fetch_insn = NULL;
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     this->ahead_insn_addr = -1;
 #endif

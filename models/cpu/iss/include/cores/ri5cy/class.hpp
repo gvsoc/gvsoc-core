@@ -120,7 +120,6 @@ inline Iss::Iss(IssWrapper &top)
 #include "cpu/iss/include/isa/rv32Xfaux.hpp"
 #include "cpu/iss/include/isa/priv.hpp"
 #include "cpu/iss/include/isa/pulp_v2.hpp"
-#include "cpu/iss/include/isa/rvXgap9.hpp"
 #include "cpu/iss/include/isa/rvXint64.hpp"
 #include "cpu/iss/include/isa/rnnext.hpp"
 #include "cpu/iss/include/isa/pulp_nn.hpp"

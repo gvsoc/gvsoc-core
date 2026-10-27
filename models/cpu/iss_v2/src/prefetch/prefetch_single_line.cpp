@@ -43,6 +43,7 @@ void PrefetchSingleLine::reset(bool active)
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
         this->fetch_denied = false;
         this->lookahead = this->iss.cfg.fetch_lookahead;
+        this->split_jump_stall = this->iss.cfg.fetch_split_jump_stall;
         this->lookahead_pending = false;
         this->lookahead_waiting = false;
 #endif
@@ -71,10 +72,12 @@ bool PrefetchSingleLine::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int ind
     }
 
     this->prefetch_insn = NULL;
+    this->low_line_fetched = false;
 
     // If the instruction is entirely outside the buffer, first fetch the lower part
     if (unlikely(index < 0 || index >= CONFIG_GVSOC_ISS_PREFETCH_SIZE))
     {
+        this->low_line_fetched = true;
         if (int err = this->fill(addr))
         {
             if (err == -1)
@@ -160,6 +163,26 @@ bool PrefetchSingleLine::fetch_check_overflow(iss_insn_t *insn, int index)
         opcode = (opcode  & mask) | ((*(iss_opcode_t *)&this->data[0]) << (nb_bytes*8));
 
         insn->opcode = opcode;
+
+        if (this->split_jump_stall)
+        {
+            // Keep the instruction while the core is on it: when it is
+            // fetched again (it could not issue, e.g. waiting for a register),
+            // the buffer holds its second line only and must not be refilled.
+            this->split_insn_addr = addr;
+            this->split_insn_opcode = opcode;
+
+            // Both lines fetched for this instruction (after a jump): the
+            // second one is only asked for once the first is in, so the
+            // instruction issues one cycle later. Nothing is fetched this
+            // cycle; the core asks again next cycle and gets the opcode kept
+            // here.
+            if (this->low_line_fetched)
+            {
+                this->low_line_fetched = false;
+                return false;
+            }
+        }
     }
 
     return true;
@@ -430,6 +453,19 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
         return false;
     }
 
+    if (unlikely(this->split_insn_addr != (iss_addr_t)-1))
+    {
+        if (phys_addr == this->split_insn_addr)
+        {
+            // Split instruction fetched again (it waited for its second line,
+            // or could not issue): it is still there
+            insn->opcode = this->split_insn_opcode;
+            return true;
+        }
+        // The core moved on
+        this->split_insn_addr = -1;
+    }
+
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     if (unlikely(phys_addr == this->ahead_insn_addr))
     {
@@ -482,6 +518,7 @@ void PrefetchSingleLine::flush()
     // Since the address is an unsigned int, the next index will be negative and will force the prefetcher
     // to refill
     this->buffer_start_addr = -1;
+    this->split_insn_addr = -1;
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     this->ahead_insn_addr = -1;
 #endif

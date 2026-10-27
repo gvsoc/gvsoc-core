@@ -544,6 +544,9 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
         // Synchronous completion. The resp status already reflects
         // OK/INVALID; handle_req_response will re-check it when it fires
         // ``handle_req_end``.
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+        this->sync_latency = req->get_latency();
+#endif
         if (this->handle_req_response(entry))
         {
             entry->insn_entry = this->iss.exec.insn_hold(insn);

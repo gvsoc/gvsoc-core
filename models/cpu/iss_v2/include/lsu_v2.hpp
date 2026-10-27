@@ -231,6 +231,8 @@ protected:
     // Entry parked by the last data_req_aligned that returned GRANTED
     // (scratch used by LSU subclasses, e.g. the ri5ky p.elw, to detect
     // the park). Cleared at issue.
+    // Latency annotated on the last request answered inline (data_req_aligned)
+    int64_t sync_latency = 0;
     LsuReqEntry *granted_entry;
     LsuReqEntry req_entry[CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING];
 

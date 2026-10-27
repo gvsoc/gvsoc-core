@@ -78,10 +78,21 @@ class RiscvConfig(Config):
         "the next word before the decoder needs it; after a jump the target is only asked "
         "for when the jump is taken)."
     ))
+    fetch_split_jump_stall: bool = cfg_field(default=False, dump=True, desc=(
+        "True if an instruction split over two lines costs one more cycle when both lines are "
+        "fetched for it, i.e. when it is reached by a jump (RI5CY: the second line is only asked "
+        "for once the first one is in). Reached in sequence, the first line is already there."
+    ))
     lsu_misaligned_store_stall: bool = cfg_field(default=False, dump=True, desc=(
         "True if a misaligned store keeps the execute stage one more cycle for its second "
         "half, so the next instruction starts one cycle later (RI5CY: the second access of a "
         "misaligned store is issued from EX while the next instruction waits in ID)."
+    ))
+    lsu_elw_resume_cycles: int = cfg_field(default=-1, dump=True, desc=(
+        "Cycles a p.elw event load costs after its response on top of a plain load, whether "
+        "the core was clock-gated or not (RI5CY: the event load drops the busy signal and the "
+        "pipeline is refilled once it is answered). -1 (default) keeps the older rule: only an "
+        "elw which put the core to sleep pays, max(L + 1, 3) - L cycles for a sleep of L cycles."
     ))
     memory_start: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
         "Start address of a memory whose array the core accesses directly, without going "

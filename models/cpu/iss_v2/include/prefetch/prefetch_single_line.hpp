@@ -127,6 +127,15 @@ private:
     iss_opcode_t ahead_insn_opcode = 0;
 #endif
 
+    // Config field ``fetch_split_jump_stall``: an instruction split over two
+    // lines pays one more cycle when its first line was fetched for it too
+    bool split_jump_stall = false;
+    // The first line of the instruction being fetched was fetched for it
+    bool low_line_fetched = false;
+    // Split instruction waiting one cycle for its second line, and its opcode
+    iss_addr_t split_insn_addr = -1;
+    iss_opcode_t split_insn_opcode = 0;
+
     // Callback called when a pending fetch response is received
     void (*fetch_stall_callback)(PrefetchSingleLine *_this);
 

@@ -91,6 +91,7 @@ private:
     int collective_op = 0;
     uint64_t collective_mask = 0;
     const uint8_t *expected_data = nullptr;
+    const uint8_t *write_data = nullptr;
 };
 
 Generator::Generator(vp::ComponentConf &config)
@@ -165,6 +166,7 @@ void Generator::control_sync(vp::Block *__this, TrafficGeneratorConfig *config)
         _this->collective_op = config->collective_op;
         _this->collective_mask = config->collective_mask;
         _this->expected_data = config->expected_data;
+        _this->write_data = config->write_data;
 
         for (int i=0; i<_this->nb_pending_reqs; i++)
         {
@@ -268,7 +270,11 @@ void Generator::handle_transfer()
 
     uint8_t *data = new uint8_t[this->config_size];
 
-    if (this->check && this->check_write)
+    if (this->write_data)
+    {
+        memcpy(data, this->write_data, this->config_size);
+    }
+    else if (this->check && this->check_write)
     {
         memcpy(data, this->ref_data, this->config_size);
     }

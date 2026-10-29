@@ -132,6 +132,13 @@ private:
     // its fetch buffer and asks for both lines again), or when its first line
     // was fetched for it
     bool split_jump_stall = false;
+    // Config field ``fetch_width``: bytes the core gets per fetch, if narrower
+    // than the line (0 otherwise). A 32-bit instruction split over two of them
+    // also pays the extra cycle after a jump.
+    int fetch_width = 0;
+    // Hold for one cycle the instruction reached by a jump which is split over
+    // two fetch words of its line. Returns true if it is held.
+    bool word_split_stall(iss_addr_t addr, iss_opcode_t opcode);
     // Instruction being fetched, and whether the core jumped to it (it does not
     // follow the previous one)
     iss_insn_t *cur_fetch_insn = NULL;

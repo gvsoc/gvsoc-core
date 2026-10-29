@@ -44,6 +44,9 @@ void PrefetchSingleLine::reset(bool active)
         this->fetch_denied = false;
         this->lookahead = this->iss.cfg.fetch_lookahead;
         this->split_jump_stall = this->iss.cfg.fetch_split_jump_stall;
+        this->fetch_width = this->iss.cfg.fetch_width > 0 &&
+            this->iss.cfg.fetch_width < CONFIG_GVSOC_ISS_PREFETCH_SIZE ?
+            this->iss.cfg.fetch_width : 0;
         this->lookahead_pending = false;
         this->lookahead_waiting = false;
 #endif
@@ -111,6 +114,10 @@ bool PrefetchSingleLine::fetch_check_overflow(iss_insn_t *insn, int index)
     if (likely(index + ISS_OPCODE_MAX_SIZE <= CONFIG_GVSOC_ISS_PREFETCH_SIZE))
     {
         insn->opcode = *(iss_opcode_t *)&this->data[index];
+        if (unlikely(this->fetch_width) && this->word_split_stall(addr, insn->opcode))
+        {
+            return false;
+        }
     }
 #ifdef CONFIG_GVSOC_ISS_LSU_V2
     else if (this->lookahead && index + 2 == CONFIG_GVSOC_ISS_PREFETCH_SIZE &&
@@ -177,8 +184,9 @@ bool PrefetchSingleLine::fetch_check_overflow(iss_insn_t *insn, int index)
             // second one is only asked for once the first is in, so the
             // instruction issues one cycle later. Nothing is fetched this
             // cycle; the core asks again next cycle and gets the opcode kept
-            // here.
-            if (this->low_line_fetched || this->fetch_jumped)
+            // here. A compressed instruction in the last two bytes of the
+            // line is not split and does not wait.
+            if ((opcode & 0x3) == 0x3 && (this->low_line_fetched || this->fetch_jumped))
             {
                 this->low_line_fetched = false;
                 this->fetch_jumped = false;
@@ -187,6 +195,27 @@ bool PrefetchSingleLine::fetch_check_overflow(iss_insn_t *insn, int index)
         }
     }
 
+    return true;
+}
+
+bool PrefetchSingleLine::word_split_stall(iss_addr_t addr, iss_opcode_t opcode)
+{
+    // Only a 32-bit instruction reached by a jump whose two halves are in two
+    // fetch words: the core asks for the second word once the first is in.
+    // Reached in sequence, the first word is already in the core.
+    if (!this->split_jump_stall || !this->fetch_jumped || (opcode & 0x3) != 0x3 ||
+        (addr % this->fetch_width) + 4 <= (iss_addr_t)this->fetch_width)
+    {
+        return false;
+    }
+
+    // Held for one cycle: the core asks again next cycle and gets the opcode
+    // kept here.
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Instruction split over two fetch words after a jump, "
+        "one more cycle (addr: 0x%lx)\n", addr);
+    this->fetch_jumped = false;
+    this->split_insn_addr = addr;
+    this->split_insn_opcode = opcode;
     return true;
 }
 
@@ -514,6 +543,10 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
             this->fetch_ahead(phys_addr, insn->opcode, phys_addr + 4);
         }
 #endif
+        if (unlikely(this->fetch_width) && this->word_split_stall(phys_addr, insn->opcode))
+        {
+            return false;
+        }
         return true;
     }
 

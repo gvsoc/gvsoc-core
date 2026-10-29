@@ -83,6 +83,13 @@ class RiscvConfig(Config):
         "fetched for it, i.e. when it is reached by a jump (RI5CY: the second line is only asked "
         "for once the first one is in). Reached in sequence, the first line is already there."
     ))
+    fetch_width: int = cfg_field(default=0, dump=True, desc=(
+        "Bytes the core gets from its instruction cache per fetch, when narrower than the "
+        "prefetch line. With fetch_split_jump_stall, a 32-bit instruction split over two "
+        "such words also costs one more cycle when it is reached by a jump, even inside one "
+        "line (RI5CY with a 32-bit instruction port: the second word is asked for once the "
+        "first is in). 0 (default): the prefetch line size."
+    ))
     scoreboard_waw_after_writeback: bool = cfg_field(default=False, dump=True, desc=(
         "True if an instruction which writes a register without reading it does not wait for a "
         "load whose value is already in that register and only waits out its load-use delay "

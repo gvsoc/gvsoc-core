@@ -93,6 +93,7 @@ private:
     const uint8_t *expected_data = nullptr;
     const uint8_t *write_data = nullptr;
     bool collective_enable = false;
+    bool idle_step_taken = false;
 };
 
 Generator::Generator(vp::ComponentConf &config)
@@ -293,6 +294,8 @@ void Generator::handle_post_transfer()
 {
     this->duration = this->clock.get_cycles() - this->start_cycles;
 
+    this->idle_step_taken = false;  // Transfer done, so next step is allowed
+
     if (this->check && this->check_write)
     {
         this->close_transfer();
@@ -348,6 +351,7 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->pending_size = _this->current_transfer->size;
         _this->address = _this->current_transfer->address;
         _this->data = _this->current_transfer->data;
+        _this->idle_step_taken = false;
     }
 
     if (!_this->stalled && _this->size > 0 && !_this->free_reqs.empty())
@@ -408,8 +412,10 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
     }
 
     if (_this->pending_size == 0 && _this->free_reqs.size() == _this->nb_pending_reqs &&
-            _this->last_req_cyclestamp <= _this->clock.get_cycles())
+            _this->last_req_cyclestamp <= _this->clock.get_cycles() &&
+            !_this->idle_step_taken)
     {
+        _this->idle_step_taken = true;  // Only allow one step while idle, until a new transfer is started
         _this->handle_step();
     }
 

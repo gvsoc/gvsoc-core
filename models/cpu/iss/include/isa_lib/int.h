@@ -1828,6 +1828,17 @@ static inline unsigned long int lib_flexfloat_sqrt_round(Iss *s, unsigned long i
     return flexfloat_get_bits(&ff_res);
 }
 
+static inline unsigned long int lib_flexfloat_exp_round(Iss *s, unsigned long int a, uint8_t e, uint8_t m, unsigned long int round)
+{
+    int old = setFFRoundingMode(s, round);
+    FF_INIT_1(a, e, m)
+    feclearexcept(FE_ALL_EXCEPT);
+    ff_init_double(&ff_res, exp(ff_get_double(&ff_a)), env);
+    update_fflags_fenv(s);
+    restoreFFRoundingMode(old);
+    return flexfloat_get_bits(&ff_res);
+}
+
 static inline unsigned long int lib_flexfloat_sgnj(Iss *s, unsigned long int a, unsigned long int b, uint8_t e, uint8_t m)
 {
 #ifdef OLD

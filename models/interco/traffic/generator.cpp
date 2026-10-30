@@ -198,7 +198,7 @@ void Generator::handle_step()
     {
         case 0:
         {
-            if (this->check && !this->check_write)
+            if (this->check && !this->check_write && !this->expected_data)
             {
                 uint8_t *data = new uint8_t[this->config_size];
                 memcpy(data, this->ref_data, this->config_size);

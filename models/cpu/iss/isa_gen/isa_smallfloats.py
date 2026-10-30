@@ -304,6 +304,8 @@ class Xfvec(IsaSubset):
             Insn('1000110 ----- ----- 010 ----- 0110011', 'vfmax.h',     F_FF('H'),    tags=['fconv', 'fp_op'], isa_tags=['f16vec']),
             Insn('1000110 ----- ----- 110 ----- 0110011', 'vfmax.r.h',   F_FF('H'),    tags=['fconv', 'fp_op'], isa_tags=['f16vec']),
             Insn('1000111 00000 ----- 010 ----- 0110011', 'vfsqrt.h',    F_F('H'),     tags=['fdiv', 'fp_op'], isa_tags=['f16vec']),
+            # Exponential of each lane (not in the Snitch FPU spec, no alt-format variant)
+            Insn('1000111 00001 ----- 010 ----- 0110011', 'vfexp.h',     F_F('H'),     tags=['fexp', 'fp_op'], isa_tags=['f16vec', 'noalt']),
             Insn('1001000 ----- ----- 010 ----- 0110011', 'vfmac.h',     FA_FFF('H'),  tags=['fmadd', 'fp_op'], isa_tags=['f16vec']),
             Insn('1001000 ----- ----- 110 ----- 0110011', 'vfmac.r.h',   FA_FFF('H'),  tags=['fmadd', 'fp_op'], isa_tags=['f16vec']),
             Insn('1001001 ----- ----- 010 ----- 0110011', 'vfmre.h',     FA_FFF('H'),  tags=['fmadd', 'fp_op'], isa_tags=['f16vec']),

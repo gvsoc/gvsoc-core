@@ -92,6 +92,7 @@ private:
     uint64_t collective_mask = 0;
     const uint8_t *expected_data = nullptr;
     const uint8_t *write_data = nullptr;
+    bool collective_enable = false;
 };
 
 Generator::Generator(vp::ComponentConf &config)
@@ -113,6 +114,7 @@ Generator::Generator(vp::ComponentConf &config)
     this->new_slave_port("control", &this->control_itf);
 
     this->nb_pending_reqs = this->get_js_config()->get_int("nb_pending_reqs");
+    this->collective_enable = this->get_js_config()->get_child_bool("collective_enable");
 }
 
 Generator::~Generator()
@@ -312,10 +314,6 @@ void Generator::handle_end()
                                                        : this->ref_data;
         this->check_status |= std::memcmp(expected, this->current_transfer->data,
             this->current_transfer->size) != 0;
-        // for (int i=0; i<_this->current_transfer->size; i++)
-        // {
-        //     printf("%d: %d %d\n", i, expected[i], _this->current_transfer->data[i]);
-        // }
     }
 
     for (int i=0; i<this->nb_pending_reqs; i++)
@@ -368,9 +366,9 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         req->set_data(_this->data);
         req->set_is_write(_this->current_transfer->do_write);
 
-        if (_this->collective_op != 0)
+        if (_this->collective_enable || _this->collective_op != 0)
         {
-            // [Collective] Stamp the sideband descriptor: 1 byte op code + 8 bytes mask
+            // [Collective] Stamp the sideband descriptor: 1 byte op code + 8 bytes mask.
             uint8_t *payload = req->get_payload();
             payload[0] = (uint8_t)_this->collective_op;
             for (int i = 0; i < 8; i++)

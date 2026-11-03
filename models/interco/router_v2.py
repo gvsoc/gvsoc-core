@@ -256,6 +256,15 @@ class RouterConfig(Config, HasSize):
         "election per output, as on a request/response interface (reqrsp, OBI), but "
         "unlike shared_rw_channel a burst does not hold the output past its last beat."
     ))
+    axi_id_ordering: bool = cfg_field(default=False, dump=True, desc=(
+        "Beat variant: keep the responses of each input in the order of its requests, "
+        "as an AXI crossbar does for a master using a single ID (axi_demux). A new "
+        "burst waits while the input still has bursts in flight to another output; "
+        "reads and writes are checked separately. For example, a read to a fast "
+        "memory waits until a read sent before it to a slow memory has all its data, "
+        "otherwise the fast memory would answer first. Needed by masters that expect "
+        "their responses in order, such as the iDMA."
+    ))
     rr_arb_tree: bool = cfg_field(default=False, dump=True, desc=(
         "Beat variant: elect as the PULP rr_arb_tree (common_cells, FairArb): down a "
         "binary tree of the inputs steered by a priority pointer, which a grant moves "

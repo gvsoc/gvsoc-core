@@ -119,6 +119,9 @@ struct BurstEntry
     // (mapping max_pending_bursts): taken when its first beat is forwarded,
     // given back when the slot is freed.
     bool counted_on_output = false;
+    // The burst is counted in its input's bursts in flight to one output
+    // (axi_id_ordering)
+    bool counted_on_id = false;
 };
 
 class OutputPort
@@ -291,6 +294,10 @@ public:
     // and the reads of an input do not hold its writes (an AXI master counts
     // its read and write transactions apart).
     int nb_outstanding_bursts[NB_CHANNELS] = {0, 0};
+    // axi_id_ordering: the output the bursts in flight of each channel go to,
+    // and their number
+    int id_output[NB_CHANNELS] = {-1, -1};
+    int id_count[NB_CHANNELS] = {0, 0};
     // Set when handle_req denied the master (FIFO full or no burst slot). Cleared
     // and propagated to the master via retry() when the blocking condition clears.
     bool denied_upstream = false;
@@ -694,6 +701,11 @@ void RouterBeat::free_burst_slot(int slot_idx)
     {
         slot.input->nb_outstanding_bursts[slot.channel]--;
     }
+    if (slot.counted_on_id && slot.input != nullptr)
+    {
+        slot.input->id_count[slot.channel]--;
+    }
+    slot.counted_on_id = false;
     if (slot.counted_on_output && slot.output_id >= 0)
     {
         OutputPort *out = this->entries[slot.output_id];
@@ -1370,6 +1382,9 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // nobody opens a burst on it until one completes (resp path schedules
         // the FSM again). Continuation beats of an already-counted burst pass.
         if (beat->is_first && _this->out_full(out, ch, now)) continue;
+        // Same ID to another output: wait for the bursts in flight
+        if (beat->is_first && _this->cfg.axi_id_ordering && in->id_count[ch] > 0 &&
+            in->id_output[ch] != slot.output_id) continue;
         bool ordered = write_order && ch == _this->channel_of(true);
         std::vector<bool> rr_req;
         if (_this->cfg.rr_arb_tree && !ordered)
@@ -1417,6 +1432,12 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         // this cycle and wake any FIFO-denied masters; on DENIED stall the
         // output and remember this input so retry() can re-issue the beat
         // synchronously without re-arbitrating.
+        if (beat->is_first && _this->cfg.axi_id_ordering)
+        {
+            in->id_output[ch] = slot.output_id;
+            in->id_count[ch]++;
+            slot.counted_on_id = true;
+        }
         vp::IoReqStatus st = _this->forward_beat(in, out, slot_idx, beat);
         if (st == vp::IO_REQ_GRANTED)
         {

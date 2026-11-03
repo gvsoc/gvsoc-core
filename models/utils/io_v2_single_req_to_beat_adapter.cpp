@@ -356,8 +356,22 @@ vp::IoRespAck IoV2SingleReqToBeatAdapter::out_resp(vp::Block *__this, vp::IoReq 
     AccessCtx *ctx = (AccessCtx *)req->initiator;
     self->traces.assert(ctx != nullptr && ctx->up != nullptr && !ctx->is_write,
         "read beat with no live read access (beat=%p)", req);
-    self->traces.assert(req != &ctx->dn,
-        "downstream round-tripped our read request as a beat (req=%p)", req);
+    // A beat router answers a read it cannot route (no mapping) with our own
+    // request, INVALID and without data: the access completes in error.
+    if (req == &ctx->dn)
+    {
+        self->traces.assert(req->get_resp_status() == vp::IO_RESP_INVALID,
+            "downstream round-tripped our read request as a beat (req=%p)", req);
+        vp::IoReq *up = ctx->up;
+        up->set_resp_status(vp::IO_RESP_INVALID);
+        self->retire_ctx(ctx);
+        self->trace.msg(vp::Trace::LEVEL_TRACE,
+            "Read error (req=%p, addr=0x%lx, size=%lu)\n",
+            up, up->get_addr(), up->get_size());
+        self->traces.assert(self->in.resp(up) == vp::IO_RESP_ACCEPTED,
+            "single-req master must accept its response (req=%p)", up);
+        return vp::IO_RESP_ACCEPTED;
+    }
     self->traces.assert(!ctx->expect_single || (req->is_first && req->is_last),
         "multi-beat response to a beat-sized access (beat=%p, size=%lu)",
         req, req->get_size());

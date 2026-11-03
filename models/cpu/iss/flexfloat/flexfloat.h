@@ -195,6 +195,11 @@ uint_t flexfloat_denorm_frac(const flexfloat_t *a, int_fast16_t exp);
 uint_t flexfloat_pack(flexfloat_desc_t desc, bool sign, int_fast16_t exp, uint_t frac);
 void flexfloat_sanitize(flexfloat_t *a);
 
+// Round-to-nearest, ties away from zero (RISC-V RMM). The C fenv has no such
+// mode: callers set FE_TONEAREST plus this flag, and flexfloat_sanitize then
+// resolves ties away from zero instead of to even.
+extern int flexfloat_rmm;
+
 
 // Bit-level access
 

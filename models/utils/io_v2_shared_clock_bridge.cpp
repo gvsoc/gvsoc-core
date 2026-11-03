@@ -104,12 +104,14 @@ void IoV2SharedClockBridge::reset(bool active)
 }
 
 
-// Channel a request or a response travels on: the write beats and their
-// acknowledgements on one, everything else on the other.
+// Channel a request or a response travels on: the writes, the atomics and
+// their responses on one, the reads on the other. It follows is_write, as the
+// channel of retry() does, so that a slave retrying a denied atomic on the
+// write channel finds it there.
 static inline int channel_of(vp::IoReq *req)
 {
-    return req->get_opcode() == vp::WRITE ? IoV2SharedClockBridge::CH_WRITE
-                                          : IoV2SharedClockBridge::CH_READ;
+    return req->get_is_write() ? IoV2SharedClockBridge::CH_WRITE
+                               : IoV2SharedClockBridge::CH_READ;
 }
 
 // Tell if a retry on `channel` concerns the list of channel `ch`.

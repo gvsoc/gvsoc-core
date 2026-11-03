@@ -43,8 +43,8 @@
 class IoV2SharedClockBridge : public vp::Component, public vp::DebugMemIf
 {
 public:
-    // Channels: write beats and their acknowledgements, and the rest (reads
-    // and their response beats).
+    // Channels: writes and atomics (is_write) with their acknowledgements and
+    // responses, and reads with their response beats.
     enum { CH_READ = 0, CH_WRITE = 1, NB_CHANNELS = 2 };
     // io_v2 protocol of the crossing. Only the beat protocol acknowledges a
     // write burst with a separate data-less request, on the others a write

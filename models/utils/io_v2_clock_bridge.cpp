@@ -129,24 +129,35 @@ void IoV2ClockBridge::reset(bool active)
 
 // ---- Helpers (parametric path) --------------------------------------------
 
-// Channel a request or a response travels on: with axi_channels, the write
-// beats and their acknowledgements on one, everything else on the other;
-// without, everything on the read one.
+// Channel a request or a response travels on: with axi_channels, the writes,
+// the atomics and their responses on one, the reads on the other; without,
+// everything on the read one. It follows is_write, as the channel of retry()
+// does, so that a slave retrying a denied atomic on the write channel finds it
+// there.
 int IoV2ClockBridge::channel_of(vp::IoReq *req) const
 {
-    return this->axi_channels && req->get_opcode() == vp::WRITE ? CH_WRITE : CH_READ;
+    return this->axi_channels && req->get_is_write() ? CH_WRITE : CH_READ;
 }
 
-// Tell if a retry on `channel` concerns the channel `ch`.
-static inline bool covers(vp::IoRetryChannel channel, int ch)
+// Tell if a retry on `channel` concerns the channel `ch`. Without
+// axi_channels, the single channel holds the reads and the writes, so a retry
+// on any channel concerns it.
+bool IoV2ClockBridge::covers(vp::IoRetryChannel channel, int ch) const
 {
-    return channel == vp::IO_RETRY_ANY ||
-        (channel == vp::IO_RETRY_READ) == (ch == IoV2ClockBridge::CH_READ);
+    return !this->axi_channels || channel == vp::IO_RETRY_ANY ||
+        (channel == vp::IO_RETRY_READ) == (ch == CH_READ);
 }
 
-static inline vp::IoRetryChannel retry_channel(int ch)
+// Channel named in the retry() of channel `ch` to the upstream master. Without
+// axi_channels, the request it may send again can be a read or a write: all
+// channels.
+vp::IoRetryChannel IoV2ClockBridge::retry_channel(int ch) const
 {
-    return ch == IoV2ClockBridge::CH_READ ? vp::IO_RETRY_READ : vp::IO_RETRY_WRITE;
+    if (!this->axi_channels)
+    {
+        return vp::IO_RETRY_ANY;
+    }
+    return ch == CH_READ ? vp::IO_RETRY_READ : vp::IO_RETRY_WRITE;
 }
 
 
@@ -373,7 +384,7 @@ void IoV2ClockBridge::out_retry_handler(vp::Block *__this, vp::IoRetryChannel ch
     for (int ch = 0; ch < NB_CHANNELS; ch++)
     {
         Channel &c = self->channels[ch];
-        if (covers(channel, ch) && c.fwd_out_denied)
+        if (self->covers(channel, ch) && c.fwd_out_denied)
         {
             c.fwd_out_denied = false;
             self->fwd_dst_send(ch);
@@ -428,7 +439,7 @@ void IoV2ClockBridge::in_resp_retry_handler(vp::Block *__this, vp::IoRetryChanne
         for (int ch = 0; ch < NB_CHANNELS; ch++)
         {
             Channel &c = self->channels[ch];
-            if (covers(channel, ch) && c.rev_in_denied)
+            if (self->covers(channel, ch) && c.rev_in_denied)
             {
                 c.rev_in_denied = false;
                 self->rev_dst_send(ch);

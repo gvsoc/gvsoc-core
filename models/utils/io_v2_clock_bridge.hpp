@@ -37,9 +37,10 @@
  *
  *     With `axi_channels`, the bridge is an AXI CDC, with one FIFO per
  *     channel: reads (requests and their responses) and writes (write beats
- *     and their acknowledgements) have their own four stages, and `depth`
- *     caps the requests of each crossing at a time (its two forward stages),
- *     the responses crossing in their own FIFO, at the pace they come. A
+ *     and their acknowledgements, atomics and their responses) have their
+ *     own four stages, and `depth` caps the requests of each crossing at a
+ *     time (its two forward stages), the responses crossing in their own
+ *     FIFO, at the pace they come. A
  *     write is then never held behind a read, nor a read behind a write.
  *
  *     A request the downstream denies, or a response the upstream master
@@ -90,8 +91,8 @@
 class IoV2ClockBridge : public vp::Component, public vp::DebugMemIf
 {
 public:
-    // Parametric-path channels: write beats and their acknowledgements, and
-    // the rest (reads and their response beats).
+    // Parametric-path channels: writes and atomics (is_write) with their
+    // acknowledgements and responses, and reads with their response beats.
     enum { CH_READ = 0, CH_WRITE = 1, NB_CHANNELS = 2 };
 
     IoV2ClockBridge(vp::ComponentConf &config);
@@ -138,9 +139,10 @@ private:
                     int64_t now_cycle, int min_spacing_cycles);
 
     // Parametric-path state of a channel. Reads (requests and their
-    // responses) and writes (write beats and their acknowledgements) cross
-    // apart, as the AXI channels of a CDC have their own FIFOs: a write is
-    // not held behind a read, nor a read behind a write.
+    // responses) and writes (write beats and their acknowledgements, atomics
+    // and their responses) cross apart, as the AXI channels of a CDC have
+    // their own FIFOs: a write is not held behind a read, nor a read behind a
+    // write.
     struct Channel
     {
         std::deque<Txn> fwd_src;
@@ -176,6 +178,10 @@ private:
     int occupancy(int ch) const;
     // Channel of a request or response.
     int channel_of(vp::IoReq *req) const;
+    // Tell if a retry on `channel` concerns the channel `ch`.
+    bool covers(vp::IoRetryChannel channel, int ch) const;
+    // Channel named in the retry() of channel `ch` to the upstream master.
+    vp::IoRetryChannel retry_channel(int ch) const;
     // Master-engine context ONLY (in.retry() must fire on the upstream
     // domain): if a retry is owed and a slot is free, service it now.
     void maybe_retry();

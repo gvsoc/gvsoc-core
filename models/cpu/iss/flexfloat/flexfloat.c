@@ -243,6 +243,10 @@ int_t flexfloat_rounding_value(const flexfloat_t *a, int_fast16_t exp, bool sign
 
 #endif // FLEXFLOAT_ROUNDING
 
+// RISC-V RMM support: with FE_TONEAREST set, a tie (round bit 1, sticky 0) is
+// resolved away from zero instead of to even. See flexfloat.h.
+int flexfloat_rmm = 0;
+
 void flexfloat_sanitize(flexfloat_t *a)
 {
     bool sign;
@@ -281,7 +285,8 @@ void flexfloat_sanitize(flexfloat_t *a)
 #endif
         // Rounding mode
         int mode = fegetround();
-        if(mode == FE_TONEAREST && flexfloat_nearest_rounding(a, exp))
+        if(mode == FE_TONEAREST && (flexfloat_rmm ? flexfloat_round_bit(a, exp)
+                                                  : flexfloat_nearest_rounding(a, exp)))
         {
             int_t rounding_value = flexfloat_rounding_value(a, exp, sign);
             a->value +=  CAST_TO_FP(rounding_value);
@@ -362,14 +367,29 @@ void flexfloat_sanitize(flexfloat_t *a)
 #endif
         exp = inf_exp;
     }
-    else if(exp >= inf_exp) // Out of bounds for target format: set infinity
+    else if(exp >= inf_exp) // Out of bounds for target format: overflow
     {
 #ifdef FLEXFLOAT_FLAGS
         // Raise the proper overflow exception
         feraiseexcept(FE_OVERFLOW | FE_INEXACT);
 #endif
-        exp = inf_exp;
-        frac = UINT_C(0);
+        // IEEE 754 overflow: directed roundings that point away from the
+        // overflow direction clamp to the largest finite value instead of
+        // infinity (toward-zero always; downward for positive, upward for
+        // negative). Nearest (even or ties-away) overflows to infinity.
+        int ovf_mode = fegetround();
+        if (ovf_mode == FE_TOWARDZERO ||
+            (ovf_mode == FE_DOWNWARD && !sign) ||
+            (ovf_mode == FE_UPWARD && sign))
+        {
+            exp = inf_exp - 1;
+            frac = (UINT_C(1) << a->desc.frac_bits) - 1;
+        }
+        else
+        {
+            exp = inf_exp;
+            frac = UINT_C(0);
+        }
     }
 
     // printf("ENCODING: %d %d %lu\n", sign, exp, frac);

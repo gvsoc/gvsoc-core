@@ -74,6 +74,23 @@ def build_case(case_name: str) -> dict:
             'targets': _ok_targets(4),
         }
 
+    if case_name == 'lane_by_address':
+        # lane_by_address, 8-byte input, 2 x 4-byte outputs. A 4-byte access
+        # goes to the lane of its address (0x04 -> output_1, 0x10 -> output_0)
+        # and an 8-byte one to both, as the lint64_to_32 RTL bridge does. An
+        # unaligned 8-byte one (0x14) uses output_1 then output_0 (0x18).
+        return {
+            'splitter_config': SplitterConfig(input_width=8, output_width=4,
+                                              lane_by_address=True),
+            'schedule': [
+                dict(cycle=10, addr=0x04, size=4, is_write=False, name='hi'),
+                dict(cycle=12, addr=0x10, size=4, is_write=False, name='lo'),
+                dict(cycle=14, addr=0x08, size=8, is_write=False, name='both'),
+                dict(cycle=16, addr=0x14, size=8, is_write=False, name='unaligned'),
+            ],
+            'targets': _ok_targets(2),
+        }
+
     if case_name == 'write_split':
         # Writes fan out the same way; each output must see is_write=1.
         return {

@@ -36,6 +36,12 @@ class SplitterConfig(Config):
         ``input_width / output_width`` output ports and slices each
         request into consecutive chunks of at most ``output_width``
         bytes, one per output port.
+    lane_by_address : bool
+        When True, each chunk goes to the output selected by its address
+        (``(addr / output_width) % nb_outputs``), so a narrow access at
+        the upper half of a 64-bit word uses ``output_1``. The chunks of a
+        request are consecutive granules, so they still use distinct
+        outputs. When False (default) chunk ``i`` goes to ``output_i``.
     """
 
     input_width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
@@ -43,6 +49,11 @@ class SplitterConfig(Config):
     ))
     output_width: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
         "Width of each output port, in bytes"
+    ))
+    lane_by_address: bool = cfg_field(default=False, dump=True, desc=(
+        "Send each chunk to the output given by its address "
+        "((addr / output_width) % nb_outputs) instead of by its position, "
+        "as a 64-to-32 bit RTL bridge does"
     ))
 
 

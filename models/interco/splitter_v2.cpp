@@ -14,6 +14,12 @@
 // address up to the next ``output_width`` boundary, subsequent chunks are
 // aligned and sized at up to ``output_width`` bytes.
 //
+// With ``lane_by_address``, a chunk instead goes to the output given by its
+// address, ``(addr / output_width) % nb_outputs``, as in a 64-to-32 bit RTL
+// bridge where a 32-bit access to the upper word uses the upper lane. The
+// chunks of a request are consecutive output granules, so they still land
+// on distinct outputs.
+//
 // Stateless, pipelined fan-out
 // ----------------------------
 //
@@ -317,17 +323,20 @@ vp::IoReqStatus Splitter::issue(vp::IoReq *parent)
         data += iter_size;
         size -= iter_size;
 
-        vp::IoReqStatus st = this->outputs[i]->req(sub);
+        int out = this->cfg.lane_by_address
+            ? (int)((chunk_addr / ow) % (uint64_t)this->nb_outputs) : i;
+
+        vp::IoReqStatus st = this->outputs[out]->req(sub);
         if (st == vp::IO_REQ_DENIED)
         {
             // Park on this output; logged only once actually accepted (in
             // output_retry). While any output is stuck we refuse new parents,
             // preserving the one-stuck-chunk-per-output invariant.
-            this->stuck[i] = sub;
+            this->stuck[out] = sub;
         }
         else
         {
-            this->gui_log_output(i, chunk_addr, iter_size);
+            this->gui_log_output(out, chunk_addr, iter_size);
             if (st == vp::IO_REQ_DONE)
             {
                 this->account(sub);

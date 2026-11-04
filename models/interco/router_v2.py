@@ -490,7 +490,7 @@ class Router(gvsoc.systree.Component):
         return gvsoc.systree.SlaveItf(self, name, signature=sig)
 
     def o_MAP(self, itf: gvsoc.systree.SlaveItf, mapping: RouterMapping,
-              name: str = None):
+              name: str = None, clock_bridge=None):
         """Attach a :class:`RouterMapping` to this router and bind a master
         output port to ``itf``.
 
@@ -513,6 +513,9 @@ class Router(gvsoc.systree.Component):
             Override for ``mapping.name``. When neither this kwarg nor
             ``mapping.name`` was set, the binding defaults to
             ``itf.component.name``.
+        clock_bridge : str | tuple(str, dict), optional
+            Clock-bridge kind (and options) inserted if the binding crosses
+            clock domains, see ``Component.itf_bind``.
         """
         if name is not None:
             mapping.name = name
@@ -532,9 +535,11 @@ class Router(gvsoc.systree.Component):
         # auto-insert a collapse converter if the downstream is a beat slave
         # (a multi-beat stream this router could not route back).
         if self.config.kind == KIND_BEAT:
-            self.itf_bind(mapping.name, itf, signature=IoV2Beat(self.config.width))
+            self.itf_bind(mapping.name, itf, signature=IoV2Beat(self.config.width),
+                          clock_bridge=clock_bridge)
         else:
-            self.itf_bind(mapping.name, itf, signature=IoV2SingleReq())
+            self.itf_bind(mapping.name, itf, signature=IoV2SingleReq(),
+                          clock_bridge=clock_bridge)
 
     def o_MAP_DEFAULT(self, itf: gvsoc.systree.SlaveItf, name: str = None,
                       latency: int = 0, is_error: bool = False):

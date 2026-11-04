@@ -470,8 +470,6 @@ class RiscvCommon(st.Component):
                 "cpu/iss/flexfloat/flexfloat.c",
             ])
 
-
-
         if modules is None:
             modules = {}
 

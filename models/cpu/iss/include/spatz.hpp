@@ -61,14 +61,15 @@ public:
 
     inline void reset(bool active);
 
-    iss_Vel_t vregs[ISS_NB_VREGS][(int)NB_VEL];
+class Vector
+{
+public:
+    Vector(Iss &iss);
 
-    //inline iss_reg_t *reg_ref(int reg);
-    //inline iss_reg_t *reg_store_ref(int reg);
-    //inline void set_Vreg(int reg, iss_Vel_t* value);
-    //inline iss_Vel_t* get_Vreg(int reg);
-    //inline iss_reg64_t get_reg64(int reg);
-    //inline void set_reg64(int reg, iss_reg64_t value);
+    void build();
+    void reset(bool reset);
+
+    uint8_t vregs[ISS_NB_VREGS][CONFIG_ISS_VLEN/8];
 
 private:
     Iss &iss;
@@ -111,26 +112,15 @@ public:
     void build();
     void reset(bool reset);
 
-    //const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 0, 0.125f, 0.25f, 0.5f};
-
-    //                          V 1.0
     const float LMUL_VALUES[8] = {1.0f, 2.0f, 4.0f, 8.0f, 1.0f, 0.125f, 0.25f, 0.5f};
-
-    //                          V 0.8
-    // const float LMUL_VALUES[4] = {1.0f, 2.0f, 4.0f, 8.0f};
     const int SEW_VALUES[8] = {8,16,32,64,128,256,512,1024};
 
-
-    int   VLEN   = 256;
-    int   SEW_t    = SEW_VALUES[2];
-    float LMUL_t   = LMUL_VALUES[0];
-    bool  VMA    = 0;
-    bool  VTA    = 0;
-    // int   vstart = 0;
-    // uint8_t counter = 1;
-    // iss_reg_t vtype;
-    // iss_reg_t vl;
-
+    int   sew    = SEW_VALUES[2];
+    float lmul   = LMUL_VALUES[0];
+    unsigned int sewb = 8;
+    uint8_t exp;
+    uint8_t mant;
+    
     VRegfile vregfile;
     Vlsu vlsu;
 

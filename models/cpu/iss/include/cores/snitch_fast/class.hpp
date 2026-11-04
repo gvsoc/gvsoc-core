@@ -36,6 +36,9 @@
 #ifdef CONFIG_ISS_VLEN
 #include <cpu/iss/include/vector.hpp>
 #endif
+#ifdef CONFIG_ISS_TE
+#include <cpu/iss/include/tile.hpp>
+#endif
 #include <cpu/iss/include/cores/snitch_fast/regfile.hpp>
 #ifdef CONFIG_GVSOC_ISS_RISCV_EXCEPTIONS
 #include <cpu/iss/include/irq/irq_riscv.hpp>
@@ -97,6 +100,7 @@ public:
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
     Vector vector;
     Ara vu;
+    Tile tile;
 #endif
 
     IssWrapper &top;
@@ -209,6 +213,7 @@ static inline iss_reg_t fmode_get(Iss *iss, iss_insn_t *insn)
 
 #if defined(CONFIG_GVSOC_ISS_USE_SPATZ)
 #include "cpu/iss/include/isa/rv32v_timed.hpp"
+#include "cpu/iss/include/isa/rv32vme_timed.hpp"
 #endif
 
 #include <cpu/iss/include/exec/exec_inorder_implem.hpp>

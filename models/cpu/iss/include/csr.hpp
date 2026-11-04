@@ -246,6 +246,18 @@ public:
     CsrReg vtype;
     CsrReg vlenb;
 
+    // =====================
+    // VME / ZVT CSRs
+    // =====================
+
+    CsrReg mtype;
+    // XLEN-1:24 : reserved
+    // 23:10     : tm[13:0]
+    // 9:8       : reserved
+    // 7:5       : tk[2:0]
+    // 4:2       : reserved
+    // 1:0       : mtwiden[1:0]
+
 #if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_HWLOOP)
     iss_reg_t hwloop_regs[HWLOOP_NB_REGS];
 #endif

@@ -8,7 +8,7 @@
 #                to isolate the per-case simulation work dir and to
 #                uniquify the COVERAGE info file
 # Optional overrides:
-#   MODULES    — model dir passed to cmake (default $(CURDIR))
+#   TARGETS_DIRS — target dir passed to cmake (default $(CURDIR))
 #   BUILDDIR   — cmake build dir
 #                (default: the root gvsoc build tree —
 #                 $(GVSOC_WORKDIR)/build if set, else
@@ -19,10 +19,12 @@
 #
 # By default every case of a testset shares BUILDDIR and INSTALLDIR
 # with the root gvsoc build, so the platform compiles only once. The
-# test module is passed as an extra module, which is only visible to
-# the test's own generated components — the shared models keep stable
-# compile commands and are neither recompiled nor reinstalled by test
-# builds. The per-case WORKDIR keeps simulation artifacts isolated so
+# test directory is passed as a target directory (TARGETS_DIRS), not as
+# an extra module (MODULES): it is only on the include path of the
+# components compiled from its own sources, so the shared models,
+# generated ones included, keep stable compile commands and are neither
+# recompiled nor reinstalled by test builds, while other tests may be
+# loading them. The per-case WORKDIR keeps simulation artifacts isolated so
 # runs can execute in parallel. Every testset.cfg that drives this
 # fragment MUST serialize its `build` phase through a shared build
 # resource (see `TestsetImpl.new_make_test(build_resource=...)` in
@@ -41,7 +43,7 @@
 # into $(GVSOC_ROOT)/coverage-report/tests/ so
 # `make coverage-report` at the root merges every test's contribution.
 
-MODULES ?= $(CURDIR)
+TARGETS_DIRS ?= $(CURDIR)
 WORKDIR ?= $(CURDIR)/build/work/$(CASE)
 
 # BUILDDIR / INSTALLDIR default to what the root Makefile would pick:
@@ -76,7 +78,7 @@ COV_CAPTURE = mkdir -p $(COV_INFO_DIR) && \
 endif
 
 build:
-	$(MAKE) -C $(GVSOC_ROOT) TARGETS="$(TARGET)" MODULES="$(MODULES)" $(_root_mk_args) GVSOC_ONLY=1 build
+	$(MAKE) -C $(GVSOC_ROOT) TARGETS="$(TARGET)" TARGETS_DIRS="$(TARGETS_DIRS)" $(_root_mk_args) GVSOC_ONLY=1 build
 
 all: build
 

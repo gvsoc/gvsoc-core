@@ -220,10 +220,6 @@ class Limiter(Component):
     # build time; the class docstring above is rendered via autoclass.
     __gvsoc_doc__ = {
         'title': 'Limiter (v2)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/interco/limiter_v2',
-             'component': 'interco.limiter_v2'},
-        ],
     }
 
     def __init__(self, parent: Component, name: str, config: LimiterConfig):

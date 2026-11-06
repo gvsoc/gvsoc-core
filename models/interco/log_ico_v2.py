@@ -288,10 +288,6 @@ class LogIco(Component):
     # build time; the class docstring above is rendered via autoclass.
     __gvsoc_doc__ = {
         'title': 'LogIco (v2)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/interco/log_ico_v2',
-             'component': 'interco.log_ico_v2'},
-        ],
     }
 
     def __init__(self, parent: Component, name: str, config: LogIcoConfig):

@@ -202,10 +202,6 @@ class RwSplitter(Component):
     # build time; the class docstring above is rendered via autoclass.
     __gvsoc_doc__ = {
         'title': 'RwSplitter (v2)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/interco/rw_splitter_v2',
-             'component': 'interco.rw_splitter_v2'},
-        ],
     }
 
     def __init__(self, parent: Component, name: str, config: RwSplitterConfig):

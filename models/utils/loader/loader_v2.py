@@ -234,10 +234,6 @@ class ElfLoader(gvsoc.systree.Component):
     # build time; the class docstring above is rendered via autoclass.
     __gvsoc_doc__ = {
         'title': 'ElfLoader (v2)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/utils/loader_v2',
-             'component': 'utils.loader.loader_v2'},
-        ],
     }
 
     def __init__(self, parent: gvsoc.systree.Component, name: str,

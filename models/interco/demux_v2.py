@@ -252,10 +252,6 @@ class Demux(Component):
     # build time; the class docstring above is rendered via autoclass.
     __gvsoc_doc__ = {
         'title': 'Demux (v2)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/interco/demux_v2',
-             'component': 'interco.demux_v2'},
-        ],
     }
 
     def __init__(self, parent: Component, name: str, config: DemuxConfig,

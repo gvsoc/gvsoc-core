@@ -341,10 +341,6 @@ class Memory(gvsoc.systree.Component):
     # autoclass.
     __gvsoc_doc__ = {
         'title': 'Memory (v3)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/memory/memory_v3',
-             'component': 'memory.memory_v3'},
-        ],
     }
 
     def __init__(self, parent: gvsoc.systree.Component, name: str,

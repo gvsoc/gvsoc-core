@@ -350,10 +350,6 @@ class Cache(Component):
     # build time; the class docstring above is rendered via autoclass.
     __gvsoc_doc__ = {
         'title': 'Cache (v4)',
-        'tests_dirs': [
-            {'dir':       'gvsoc/core/tests/cache/cache_v4',
-             'component': 'cache.cache_v4'},
-        ],
     }
 
     def __init__(self, parent: Component, name: str, config: CacheConfig):

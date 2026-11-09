@@ -112,11 +112,23 @@ active_pc_trace_event(iss, "active_pc", ISS_REG_WIDTH, gv::Vcd_event_type_logica
         // time each label is seen, under the "insn_duration" group.
         this->insn_durations.init(&this->iss.stats, "insn_duration");
 
-        // Flush the in-progress window at dump time so the cycle counters
-        // (and the derived ipc / active_pct) account for activity up to the
-        // dump, even if the core never transitioned before the sim ended.
+        // A window start restarts the open active or idle period, else its
+        // first close would count the cycles before the window start.
+        stats_engine->register_start_callback([this]()
+        {
+            // Called from any clock domain, the cycle count of this core must be current
+            this->iss.clock.get_engine()->sync();
+            int64_t now = this->iss.clock.get_cycles();
+            this->active_start = now;
+            this->idle_start = now;
+        });
+
+        // Flush the in-progress period when the values are taken (stop, or dump
+        // without stop) so the cycle counters (and the derived ipc / active_pct)
+        // account for activity up to there, even if the core never transitioned.
         stats_engine->register_pre_dump([this]()
         {
+            this->iss.clock.get_engine()->sync();
             int64_t now = this->iss.clock.get_cycles();
             if (this->active_open)
             {

@@ -3,11 +3,14 @@
 #
 # Include from a test Makefile after setting:
 #   GVSOC_ROOT — path to the repo root
-#   TARGET     — target name, typically "test:case=$(CASE)"
 #   CASE       — sub-case name — must be unique per test case; used
 #                to isolate the per-case simulation work dir and to
 #                uniquify the COVERAGE info file
 # Optional overrides:
+#   TARGET     — target name (default "<test directory name>:case=$(CASE)",
+#                the target being then <test directory name>.py). Targets
+#                of the same name install the same platform tree library,
+#                the name of the test directory makes it unique
 #   TARGETS_DIRS — target dir passed to cmake (default $(CURDIR))
 #   BUILDDIR   — cmake build dir
 #                (default: the root gvsoc build tree —
@@ -43,6 +46,7 @@
 # into $(GVSOC_ROOT)/coverage-report/tests/ so
 # `make coverage-report` at the root merges every test's contribution.
 
+TARGET ?= $(notdir $(CURDIR)):case=$(CASE)
 TARGETS_DIRS ?= $(CURDIR)
 WORKDIR ?= $(CURDIR)/build/work/$(CASE)
 

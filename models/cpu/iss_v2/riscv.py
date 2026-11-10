@@ -391,6 +391,13 @@ class RiscvCommon(st.Component):
            else:
                misa = 0
 
+        # The compressed FP loads and stores are disabled without F, but the
+        # decoder tables still name their handlers, which come from the F
+        # header
+        if isa is not None and (isa.has_isa('rv32c') or isa.has_isa('rv64c')) \
+                and not isa.has_isa('rvf'):
+            isa.add_implem_include('<cpu/iss/include/isa/rvf.hpp>')
+
         super().__init__(parent, name, config=config)
 
         # Default to v1 IO protocol on the master ports. ``LsuV2.gen()`` flips

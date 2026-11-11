@@ -168,6 +168,14 @@ void Events::reset(bool active)
     }
     else
     {
-        this->iss.exec.busy_exit();
+        // A core leaving reset with fetch enabled is active, otherwise idle until it starts
+        if (this->iss.exec.fetch_enable_reg.get() && !this->iss.exec.wfi.get())
+        {
+            this->iss.exec.busy_enter();
+        }
+        else
+        {
+            this->iss.exec.busy_exit();
+        }
     }
 }

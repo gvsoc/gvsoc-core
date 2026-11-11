@@ -642,11 +642,20 @@ void ExecInOrder::fetchen_sync(vp::Block *__this, bool active)
     {
         _this->pc_set(_this->bootaddr_reg.get());
         _this->retain_dec();
+        // The core starts executing: it is now active, until it sleeps
+        if (!_this->wfi.get())
+        {
+            _this->busy_enter();
+        }
     }
     else if (old_val && !active)
     {
         // In case of a falling edge, stall the core to prevent him from executing
         _this->retain_inc();
+        if (!_this->wfi.get())
+        {
+            _this->busy_exit();
+        }
     }
 }
 

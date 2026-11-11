@@ -230,10 +230,7 @@ void IrqRiscv::wfi_handle(iss_insn_t *insn)
     // so we have to check now if we can really go to sleep.
     if ((this->iss.csr.mie.value & this->iss.csr.mip.value) == 0)
     {
-        this->iss.exec.wfi.set(true);
-        this->iss.exec.wfi_start = this->iss.clock.get_cycles();
-        this->iss.exec.retain_inc();
-        this->wfi_entry = this->iss.exec.insn_hold(insn);
+        this->iss.exec.sleep_enter(insn);
     }
 }
 
@@ -247,9 +244,7 @@ void IrqRiscv::check_interrupts()
 
         if (this->iss.exec.wfi.get())
         {
-            this->iss.exec.wfi.set(false);
-            this->iss.exec.retain_dec();
-            this->iss.exec.insn_terminate(this->wfi_entry);
+            this->iss.exec.sleep_exit();
         }
     }
 }

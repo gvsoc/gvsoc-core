@@ -83,5 +83,4 @@ public:
     vp::WireSlave<bool> mei_itf;
     vp::WireSlave<bool> sei_itf;
     vp::WireSlave<bool> external_irq_itf[20];
-    InsnEntry *wfi_entry;
 };

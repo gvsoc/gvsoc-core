@@ -28,16 +28,16 @@
  *             request; the beat it still owns is freed) through the
  *             response FSM.
  *
- * Per-burst routing table: a fixed-size table (`max_pending_bursts` entries).
- * On is_first of a burst the input allocates a slot; subsequent beats (writes
- * only) reuse it. The slot holds the originating input, the translated output,
- * the burst's direction-channel, the master's original burst_id and the
- * write-burst accounting for the ack (base addr, total bytes, latched error
- * status). On forward we remap beat.burst_id to the slot index; the
- * downstream slave (or auto-inserted adapter) echoes it back on the response
- * (read beats and the write burst ack alike); the response handler looks up
- * the slot in O(1) via the remapped id.
- *
+ * Per-burst routing slots: a pool of `max_pending_bursts` slots (or one
+ * which grows when max_pending_bursts_per_input is -1), by blocks which never
+ * move. On is_first of a burst the input takes a slot; subsequent beats
+ * (writes only) reuse it. The slot holds the originating input, the translated
+ * output, the burst's direction-channel, the master's original burst_id and
+ * the write-burst accounting for the ack (base addr, total bytes, latched
+ * error status). On forward we remap beat.burst_id to the address of the
+ * slot; the downstream slave (or auto-inserted adapter) echoes it back on the
+ * response (read beats and the write burst ack alike); the response handler
+ * gets the slot back from it with a cast. *
  * Master-side is_last preservation (reads/atomics only): when the framework
  * auto-inserts an IoV2BeatAdapter on the path, the adapter mutates
  * ``req->is_last`` per resp() to reflect position within the response stream.
@@ -72,6 +72,7 @@
 
 #include <climits>
 #include <deque>
+#include <memory>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/stats/stats.hpp>
@@ -96,6 +97,7 @@ static constexpr int NB_CHANNELS = 2;
 struct BurstEntry
 {
     bool in_use = false;
+    BurstEntry *next_free = nullptr;   // free list of the slot pool
     InputPort *input = nullptr;
     int output_id = -1;                // -1 until fsm has decoded the first beat's mapping
     int channel = 0;                   // resolved direction-channel for this burst
@@ -174,7 +176,7 @@ public:
     // completing burst only releases the lock if it is the one holding it:
     // otherwise the earlier burst's ack would free the channel under the
     // later burst and let another input's beats interleave with it.
-    int elected_slot[NB_CHANNELS] = {-1, -1};
+    BurstEntry *elected_slot[NB_CHANNELS] = {nullptr, nullptr};
     // Round-robin pointer of each channel: the input with the highest priority
     // the next time several of them want it. It moves past an input each time
     // that input is given a transaction, and only then: a pointer moving with
@@ -255,7 +257,7 @@ public:
     struct PendingBeat
     {
         vp::IoReq *req;
-        int        slot_idx;
+        BurstEntry *slot_idx;
     };
     // The queued beats of one channel, in order. Reads and writes queue apart
     // ([0]=read, [1]=write; all on [0] with shared_rw_channel), as the address
@@ -285,7 +287,7 @@ public:
     // bursts (is_first=is_last=true) don't touch it and can pipeline freely
     // alongside others. Reads and writes use it symmetrically — io_v2 lets a
     // master send a multi-beat read as N reqs the same way it does for writes.
-    int active_multi_beat_slot = -1;
+    BurstEntry *active_multi_beat_slot = nullptr;
     // Number of bursts this input currently has in flight on each channel
     // ([0]=read, [1]=write; both on [0] with shared_rw_channel), from a
     // burst's is_first beat until its last response beat frees the slot. When
@@ -356,7 +358,7 @@ private:
     // Forward arbitration helpers: whether the head beat of `in` wants
     // (out, ch) this cycle and may have it, and whether `in` is the one the
     // round-robin of that channel elects among those.
-    void release_write_lock(OutputPort *out, int slot_idx, bool first_beat, bool last_beat,
+    void release_write_lock(OutputPort *out, BurstEntry *slot_idx, bool first_beat, bool last_beat,
         bool pure_write);
     bool is_candidate(InputPort *in, OutputPort *out, int ch, int64_t now,
         bool ignore_lock=false);
@@ -381,10 +383,10 @@ private:
     // fully roll the beat back so it stays re-issuable at the FIFO head. The
     // caller owns the stall/output_used/wake bookkeeping. Shared by the FSM
     // arbitration sweep and the synchronous retry path.
-    vp::IoReqStatus forward_beat(InputPort *in, OutputPort *out, int slot_idx,
+    vp::IoReqStatus forward_beat(InputPort *in, OutputPort *out, BurstEntry *slot_idx,
                                  vp::IoReq *beat);
-    int alloc_burst_slot();
-    void free_burst_slot(int slot_idx);
+    BurstEntry *alloc_burst_slot();
+    void free_burst_slot(BurstEntry *slot);
     void schedule_resp_fsm();
     // A beat of `out` for `in` must yield: an output after the last one the
     // input took and before `out` in the round robin has a stalled beat for it
@@ -452,13 +454,21 @@ private:
     int error_id = -1;
     std::vector<InputPort *> inputs;
     std::vector<OutputPort *> entries;
-    std::vector<BurstEntry> burst_table;
+    // Pool of the per-burst slots, by blocks which never move: a slot is
+    // named by its address, which the forward puts in burst_id and the
+    // response casts back (no table lookup). Free slots are chained.
+    std::vector<std::unique_ptr<BurstEntry[]>> burst_blocks;
+    BurstEntry *burst_free = nullptr;
+    int burst_used = 0;
+    // max_pending_bursts_per_input < 0: no limit on the slots in use
+    bool burst_unlimited = false;
+    void burst_pool_add(int nb);
     // Synthesized write-burst acks awaiting delivery (recycled last beats;
     // see deliver_synth_acks). Drained by the response FSM.
     struct SynthAck
     {
         vp::IoReq *ack;
-        int slot_idx;
+        BurstEntry *slot_idx;
         int64_t ready;
     };
     std::deque<SynthAck> synth_acks;
@@ -635,7 +645,17 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
     }
     int nb_input = this->cfg.nb_input_port > 0 ? this->cfg.nb_input_port : 1;
     this->max_pending_per_input = this->cfg.max_pending_bursts_per_input;
-    if (this->max_pending_per_input > 0)
+    if (this->max_pending_per_input < 0)
+    {
+        // No outstanding-burst budget (an AXI crossbar such as the PULP
+        // axi_node, which never holds an address back for the transactions in
+        // flight): the masters and the slaves bound them, and the pool grows
+        // with them.
+        this->burst_unlimited = true;
+        this->max_pending_per_input = 0;
+        this->max_pending_bursts = 4 * nb_input * NB_CHANNELS;
+    }
+    else if (this->max_pending_per_input > 0)
     {
         // Per-input outstanding budget: each input independently allows up to
         // max_pending_per_input in-flight bursts on each channel. The shared
@@ -653,7 +673,7 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
         }
     }
 
-    this->burst_table.resize(this->max_pending_bursts);
+    this->burst_pool_add(this->max_pending_bursts);
 
     this->inputs.resize(this->cfg.nb_input_port);
     for (int i = 0; i < this->cfg.nb_input_port; i++)
@@ -690,22 +710,40 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
     this->mapping_tree.build();
 }
 
-int RouterBeat::alloc_burst_slot()
+void RouterBeat::burst_pool_add(int nb)
 {
-    for (int i = 0; i < (int)this->burst_table.size(); i++)
+    BurstEntry *block = new BurstEntry[nb];
+    this->burst_blocks.emplace_back(block);
+    for (int i = nb - 1; i >= 0; i--)
     {
-        if (!this->burst_table[i].in_use)
-        {
-            this->burst_table[i].in_use = true;
-            return i;
-        }
+        block[i].next_free = this->burst_free;
+        this->burst_free = &block[i];
     }
-    return -1;
 }
 
-void RouterBeat::free_burst_slot(int slot_idx)
+BurstEntry *RouterBeat::alloc_burst_slot()
 {
-    BurstEntry &slot = this->burst_table[slot_idx];
+    // The table is full: max_pending_bursts slots in use, unless unlimited
+    if (!this->burst_unlimited && this->burst_used >= this->max_pending_bursts)
+    {
+        return nullptr;
+    }
+    if (this->burst_free == nullptr)
+    {
+        // Unlimited and all taken: one more block, the slots in use stay put
+        this->burst_pool_add(this->burst_used);
+    }
+    BurstEntry *slot = this->burst_free;
+    this->burst_free = slot->next_free;
+    slot->next_free = nullptr;
+    slot->in_use = true;
+    this->burst_used++;
+    return slot;
+}
+
+void RouterBeat::free_burst_slot(BurstEntry *slot_ptr)
+{
+    BurstEntry &slot = *slot_ptr;
     // Release this input's outstanding-burst budget. Decrement before clearing
     // slot.input so we credit the right input.
     if (slot.input != nullptr && slot.input->nb_outstanding_bursts[slot.channel] > 0)
@@ -736,6 +774,9 @@ void RouterBeat::free_burst_slot(int slot_idx)
     slot.base_addr = 0;
     slot.total_bytes = 0;
     slot.status = vp::IO_RESP_OK;
+    slot.next_free = this->burst_free;
+    this->burst_free = slot_ptr;
+    this->burst_used--;
 }
 
 void RouterBeat::schedule_fsm(bool this_cycle)
@@ -820,10 +861,10 @@ void RouterBeat::wake_denied_masters()
 // response. Otherwise an input opening its bursts back to back, each before
 // the acknowledgement of the previous one, would keep the output for itself.
 // A shared read/write channel is a bus, held until the acknowledgement.
-void RouterBeat::release_write_lock(OutputPort *out, int slot_idx, bool first_beat,
+void RouterBeat::release_write_lock(OutputPort *out, BurstEntry *slot_idx, bool first_beat,
     bool last_beat, bool pure_write)
 {
-    int ch = this->burst_table[slot_idx].channel;
+    int ch = (*slot_idx).channel;
     if (this->cfg.shared_rw_channel || ch != this->channel_of(true))
     {
         return;
@@ -842,7 +883,7 @@ void RouterBeat::release_write_lock(OutputPort *out, int slot_idx, bool first_be
     if (pure_write && out->elected_slot[ch] == slot_idx)
     {
         out->elected_input[ch] = nullptr;
-        out->elected_slot[ch] = -1;
+        out->elected_slot[ch] = nullptr;
     }
     // Whatever travels on the write channel took its turn in the order
     if (this->cfg.write_order_depth > 0 && !out->write_order.empty())
@@ -852,9 +893,9 @@ void RouterBeat::release_write_lock(OutputPort *out, int slot_idx, bool first_be
 }
 
 vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
-                                         int slot_idx, vp::IoReq *beat)
+                                         BurstEntry *slot_idx, vp::IoReq *beat)
 {
-    BurstEntry &slot = this->burst_table[slot_idx];
+    BurstEntry &slot = (*slot_idx);
 
     // Translate addr, remap burst_id to slot index. We capture originals only
     // for the rollback-on-DENIED path; on accepted forward the response side
@@ -873,7 +914,7 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
     bool     log_last     = beat->is_last;
     bool     is_pure_write = beat->get_opcode() == vp::WRITE;
     beat->set_addr(original_addr - out->remove_offset + out->add_offset);
-    beat->burst_id = slot_idx;
+    beat->burst_id = (int64_t)(intptr_t)slot_idx;
 
     // Snapshot the master's is_last so the resp handler can detect burst
     // completion — reads and atomics only: a pure write burst produces no
@@ -1026,7 +1067,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     // continuation beats of a multi-beat burst must follow its is_first beat
     // without another multi-beat burst interleaving — that's tracked via
     // active_multi_beat_slot.
-    if (!req->is_first && in->active_multi_beat_slot == -1)
+    if (!req->is_first && in->active_multi_beat_slot == nullptr)
     {
         // Continuation beat without a started multi-beat burst.
         _this->stat_errors++;
@@ -1049,7 +1090,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     }
 
     // Determine the slot this beat belongs to.
-    int slot_idx;
+    BurstEntry *slot_idx;
     if (req->is_first)
     {
         // New burst: deny up front if this input is already at its per-input
@@ -1065,13 +1106,13 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         // Allocate a fresh slot. If the table is full, deny the beat; we'll wake
         // the master when a slot frees.
         slot_idx = _this->alloc_burst_slot();
-        if (slot_idx == -1)
+        if (slot_idx == nullptr)
         {
             in->denied_upstream = true;
             return vp::IO_REQ_DENIED;
         }
         in->nb_outstanding_bursts[_this->channel_of(is_write)]++;
-        BurstEntry &slot = _this->burst_table[slot_idx];
+        BurstEntry &slot = (*slot_idx);
         slot.input = in;
         slot.output_id = -1;                          // decoded later by fsm
         slot.channel = _this->channel_of(is_write);
@@ -1101,14 +1142,14 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         {
             // Last beat of the multi-beat burst — the input is free to start
             // another multi-beat burst as soon as this one is queued.
-            in->active_multi_beat_slot = -1;
+            in->active_multi_beat_slot = nullptr;
         }
     }
 
     if (is_write) { _this->stat_writes++; _this->stat_bytes_written += size; }
     else          { _this->stat_reads++;  _this->stat_bytes_read    += size; }
 
-    InputPort::Queue &queue = in->queue[_this->burst_table[slot_idx].channel];
+    InputPort::Queue &queue = in->queue[(*slot_idx).channel];
     bool was_empty = queue.pending.empty();
     queue.pending.push_back(InputPort::PendingBeat{req, slot_idx});
     in->pending_bytes += fifo_cost;
@@ -1151,7 +1192,7 @@ bool RouterBeat::is_candidate(InputPort *in, OutputPort *out, int ch, int64_t no
 
     InputPort::PendingBeat head = queue.pending.front();
     vp::IoReq *beat = head.req;
-    BurstEntry &slot = this->burst_table[head.slot_idx];
+    BurstEntry &slot = (*head.slot_idx);
 
     int output_id = slot.output_id;
     if (output_id == -1)
@@ -1177,7 +1218,7 @@ bool RouterBeat::is_candidate(InputPort *in, OutputPort *out, int ch, int64_t no
     // Without lock-in, a request the output cannot take in its direction is
     // not elected
     if (beat->is_first && !this->cfg.lock_in &&
-        this->dir_blocked(out, this->burst_table[head.slot_idx].is_write)) return false;
+        this->dir_blocked(out, (*head.slot_idx).is_write)) return false;
     return true;
 }
 
@@ -1329,8 +1370,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         {
             if (queue.head_cycle_now > now) continue;
         }
-        int slot_idx = head.slot_idx;
-        BurstEntry &slot = _this->burst_table[slot_idx];
+        BurstEntry *slot_idx = head.slot_idx;
+        BurstEntry &slot = (*slot_idx);
 
         // First time the fsm sees this burst: decode the mapping.
         if (slot.output_id == -1)
@@ -1364,7 +1405,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                     // future multi-beat burst can start.
                     if (in->active_multi_beat_slot == slot_idx)
                     {
-                        in->active_multi_beat_slot = -1;
+                        in->active_multi_beat_slot = nullptr;
                     }
                     in->itf.resp(beat);
                 }
@@ -1535,8 +1576,8 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
     // The forward path stashed slot_idx in req->burst_id. The downstream
     // adapter (when present) snapshots burst_id at schedule time and restores
     // it per beat, so this is robust across cascaded beat-aware routers.
-    int slot_idx = (int)req->burst_id;
-    BurstEntry &slot = _this->burst_table[slot_idx];
+    BurstEntry *slot_idx = (BurstEntry *)(intptr_t)req->burst_id;
+    BurstEntry &slot = (*slot_idx);
     InputPort *in = slot.input;
     int ch = slot.channel;
     int64_t now = _this->clock.get_cycles();
@@ -1626,7 +1667,7 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
         if (self->elected_slot[slot.channel] == slot_idx)
         {
             self->elected_input[slot.channel] = nullptr;
-            self->elected_slot[slot.channel] = -1;
+            self->elected_slot[slot.channel] = nullptr;
         }
         // The input's in-progress tracker (active_multi_beat_slot) was
         // already cleared by req_muxed at queue-time on the master's is_last
@@ -1781,7 +1822,7 @@ void RouterBeat::deliver_synth_acks()
             ++it;
             continue;
         }
-        BurstEntry &slot = this->burst_table[it->slot_idx];
+        BurstEntry &slot = (*it->slot_idx);
         InputPort *in = slot.input;
         int ch = slot.channel;
         // Same per-(input, channel) one-beat-per-cycle pacing as resp_muxed.
@@ -1794,14 +1835,14 @@ void RouterBeat::deliver_synth_acks()
         in->resp_used_cycle[ch] = now;
 
         vp::IoReq *ack = it->ack;
-        int slot_idx = it->slot_idx;
+        BurstEntry *slot_idx = it->slot_idx;
         it = this->synth_acks.erase(it);
 
         if (slot.output_id >= 0 &&
             this->entries[slot.output_id]->elected_slot[ch] == slot_idx)
         {
             this->entries[slot.output_id]->elected_input[ch] = nullptr;
-            this->entries[slot.output_id]->elected_slot[ch] = -1;
+            this->entries[slot.output_id]->elected_slot[ch] = nullptr;
         }
         this->free_burst_slot(slot_idx);
 

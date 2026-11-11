@@ -233,7 +233,9 @@ class RouterConfig(Config, HasSize):
         "shape, where each AXI master's ID-bounded outstanding is its own and no "
         "shared pool can starve one input. The burst table is sized to hold all "
         "inputs' budgets. When 0 (default), the single shared max_pending_bursts "
-        "table is used instead."
+        "table is used instead. When -1, there is no budget: the burst table grows "
+        "with the bursts in flight, which only the masters and the slaves bound, as "
+        "in an AXI crossbar that does not count them (PULP axi_node)."
     ))
     write_order_depth: int = cfg_field(default=0, dump=True, desc=(
         "Beat variant: number of write bursts whose address an output takes ahead of "

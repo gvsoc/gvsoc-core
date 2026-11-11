@@ -216,6 +216,9 @@ public:
     // held per output and channel because the downstream stops streaming that
     // channel the instant it is denied; R and B stall independently.
     bool resp_stalled[NB_CHANNELS] = {false, false};
+    // Input the stalled beat of each channel is for: an input's round robin
+    // only weighs the stalled outputs which want it.
+    InputPort *resp_stalled_in[NB_CHANNELS] = {nullptr, nullptr};
     // Per-mapping VCD traces split into request and response sub-trees.
     // req/* logs every outgoing forward — read setup reqs and per-beat writes.
     // resp/* logs every read beat returned upstream (writes get no per-resp
@@ -314,6 +317,11 @@ public:
     // done with them), so they are re-sent from here on the master's
     // resp_retry(); later beats for the channel queue behind them.
     std::deque<vp::IoReq *> held_resps[NB_CHANNELS];
+    // Response round robin of this input, per channel (RTL axi_node
+    // axi_BR_allocator / axi_BW_allocator): the output whose beat it took last
+    // (-1: none yet). When several outputs have a beat for the input, the next
+    // one after it goes first.
+    int resp_rr_last[NB_CHANNELS] = {-1, -1};
 };
 
 class RouterBeat : public vp::Component, public vp::DebugMemIf
@@ -378,6 +386,9 @@ private:
     int alloc_burst_slot();
     void free_burst_slot(int slot_idx);
     void schedule_resp_fsm();
+    // A beat of `out` for `in` must yield: an output after the last one the
+    // input took and before `out` in the round robin has a stalled beat for it
+    bool resp_yields(InputPort *in, int ch, OutputPort *out);
     // Re-send the held response beat of every output currently back-pressured,
     // by calling bus.resp_retry() (the downstream re-issues synchronously). An
     // output whose target input is still busy this cycle re-stalls and is
@@ -755,6 +766,24 @@ void RouterBeat::next_cycle_handler(vp::Block *__this, vp::ClockEvent *event)
 {
     RouterBeat *_this = (RouterBeat *)__this;
     _this->fsm_event.enqueue(0);
+}
+
+bool RouterBeat::resp_yields(InputPort *in, int ch, OutputPort *out)
+{
+    int n = (int)this->entries.size();
+    int last = in->resp_rr_last[ch];
+    // Distance from the last output taken, in the round robin order
+    auto rank = [n, last](int id) { return ((id - last - 1) % n + n) % n; };
+    int own = rank(out->id);
+    for (OutputPort *other: this->entries)
+    {
+        if (other != out && other->resp_stalled[ch] && other->resp_stalled_in[ch] == in
+            && rank(other->id) < own)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void RouterBeat::schedule_resp_fsm()
@@ -1526,10 +1555,18 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
     // arbitration), matching the pre-arbitration behaviour — still setting
     // resp_used_cycle below so any *supporting* sibling output is arbitrated
     // against it.
-    if ((in->resp_used_cycle[ch] == now || !in->held_resps[ch].empty())
+    //
+    // Several outputs with a beat for the input are served in round robin, as
+    // the RTL response arbiter does: a beat yields to a stalled one of an
+    // output ahead of it, which the response FSM re-drives. Without this, the
+    // first output to send in a cycle (one streaming from its own clock event)
+    // would take the channel on every cycle and starve a stalled one.
+    if ((in->resp_used_cycle[ch] == now || !in->held_resps[ch].empty()
+         || _this->resp_yields(in, ch, self))
         && self->bus.is_resp_retry_bound())
     {
         self->resp_stalled[ch] = true;
+        self->resp_stalled_in[ch] = in;
         _this->schedule_resp_fsm();
         return vp::IO_RESP_DENIED;
     }
@@ -1626,6 +1663,9 @@ vp::IoRespAck RouterBeat::resp_muxed(vp::Block *__this, vp::IoReq *req, int port
     // adapter unpacking wide beats does): the bookkeeping is done and the
     // downstream is done with the beat, so hold it here and re-send it on the
     // master's resp_retry(), symmetrically to the gate case above.
+    // The beat is taken from the output either way: its turn in the round robin
+    // is used
+    in->resp_rr_last[ch] = self->id;
     if (st == vp::IO_RESP_DENIED)
     {
         _this->trace.msg(vp::Trace::LEVEL_TRACE,

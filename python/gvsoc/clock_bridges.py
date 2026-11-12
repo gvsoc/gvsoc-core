@@ -75,11 +75,13 @@ def _sync_only_factory(parent, name, signature, **opts):
 def _shared_clock_factory(parent, name, signature, **opts):
     # Two domains driven by the same clock (shared edges, no synchronizer):
     # a one-cycle register slice, see utils.io_v2_shared_clock_bridge.
+    # Option: write_depth, the number of write requests it holds (default 1).
     from utils.io_v2_shared_clock_bridge import IoV2SharedClockBridge
-    if opts:
+    unknown = set(opts) - {'write_depth'}
+    if unknown:
         raise RuntimeError(
-            f"'shared_clock' clock bridge takes no options, got {sorted(opts)}")
-    return IoV2SharedClockBridge(parent, name, signature=signature)
+            f"'shared_clock' clock bridge takes only write_depth, got {sorted(unknown)}")
+    return IoV2SharedClockBridge(parent, name, signature=signature, **opts)
 
 
 def _cdc_2phase_beh_factory(parent, name, signature, **opts):

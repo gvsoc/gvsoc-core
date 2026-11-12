@@ -61,6 +61,7 @@ void IoV2SharedClockBridge::init_lists()
         this->req_list[ch].event = &this->req_event;
         this->req_list[ch].src_engine = this->master_engine;
         this->req_list[ch].retry_event = &this->req_retry_event;
+        this->req_list[ch].depth = ch == CH_WRITE ? this->cfg.write_depth : 1;
 
         this->resp_list[ch] = List();
         this->resp_list[ch].engine = this->master_engine;
@@ -128,13 +129,13 @@ bool IoV2SharedClockBridge::can_take(List &list)
     // to date to know its cycle.
     list.engine->sync();
 
-    if (list.head == nullptr)
+    if (list.count < list.depth)
     {
         return true;
     }
-    // The slot frees in this cycle if the one in it is sent in this cycle:
-    // alone, it has waited its cycle and was not denied.
-    return list.head == list.tail && !list.held &&
+    // A slot frees in this cycle if the head is sent in this cycle: it has
+    // waited its cycle and was not denied.
+    return list.count == list.depth && !list.held &&
         list.head_cycle <= list.engine->get_cycles();
 }
 
@@ -154,6 +155,7 @@ void IoV2SharedClockBridge::push(List &list, vp::IoReq *req)
         list.tail->set_next(req);
     }
     list.tail = req;
+    list.count++;
 
     list.engine->enqueue(list.event, 1);
 }
@@ -162,6 +164,7 @@ void IoV2SharedClockBridge::push(List &list, vp::IoReq *req)
 void IoV2SharedClockBridge::pop(List &list, vp::IoReq *next)
 {
     list.head = next;
+    list.count--;
     if (list.head == nullptr)
     {
         list.tail = nullptr;

@@ -70,6 +70,9 @@ private:
     {
         vp::IoReq *head = nullptr;
         vp::IoReq *tail = nullptr;
+        // Number of requests (or responses) in the list, and how many it can hold.
+        int count = 0;
+        int depth = 1;
         // First cycle where the head can be sent.
         int64_t head_cycle = 0;
         // The other side denied the head: it stays there until that side

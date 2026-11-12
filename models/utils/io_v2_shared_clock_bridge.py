@@ -33,17 +33,23 @@ class IoV2SharedClockBridgeConfig(Config):
         "acknowledgement. On the others, a write goes back to its master as itself, as a "
         "read."
     ))
+    write_depth: int = cfg_field(default=1, dump=True, desc=(
+        "Number of write requests (write beats on the beat protocol) the request path holds. "
+        "The other lists hold one."
+    ))
 
 
 class IoV2SharedClockBridge(Component):
 
-    def __init__(self, parent: Component, name: str, *, signature: Signature):
+    def __init__(self, parent: Component, name: str, *, signature: Signature,
+                 write_depth: int = 1):
         protocol = next((p for c, p in PROTOCOLS.items() if isinstance(signature, c)), None)
         if protocol is None:
             raise RuntimeError(
                 f'{parent.get_path()}/{name}: IoV2SharedClockBridge carries the '
                 f'{", ".join(c.__name__ for c in PROTOCOLS)} protocols, got {signature!r}')
-        super().__init__(parent, name, config=IoV2SharedClockBridgeConfig(protocol=protocol))
+        super().__init__(parent, name, config=IoV2SharedClockBridgeConfig(
+            protocol=protocol, write_depth=write_depth))
         self._port_signature = signature
         self.add_sources(['utils/io_v2_shared_clock_bridge.cpp'])
 

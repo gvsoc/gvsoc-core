@@ -39,7 +39,7 @@ Since targets or options can remove commands that do not make sense for the targ
 dedicated commands, the list of commands may be slightly different from this list. It is also good
 to execute this command with the right target and the full list of options: ::
 
-  gvrun --target gap.gap9.evk --attribute boot.mode=flash commands
+  gvrun --target gap.gap9.evk:attr.boot.mode=flash commands
 
 In this example, the attribute is included in case it changes the list of commands.
 

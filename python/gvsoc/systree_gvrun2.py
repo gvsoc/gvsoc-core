@@ -16,6 +16,7 @@
 #
 
 from dataclasses import fields, is_dataclass
+from typing import get_type_hints
 import logging
 import gvsoc.json_tools as js
 import collections
@@ -272,15 +273,44 @@ class Component(gvrun.target.SystemTreeNode):
             for f in fields(config):
                 # Only process the fields which has been assigned
                 if hasattr(config, f.name):
+                    path = self.get_path() + '/' + f.name
+                    self.__apply_cmdline_parameter(config, f.name, path)
                     value = getattr(config, f.name)
                     if isinstance(value, (int, bool, str)):
                         # Check for attribute override using the component path
-                        override = get_attribute_arg_value(
-                            self.get_path() + '/' + f.name)
+                        override = get_attribute_arg_value(path)
                         if override is not None:
                             value = type(value)(override)
                             setattr(config, f.name, value)
                         self.add_property(f.name, value)
+
+    def __apply_cmdline_parameter(self, config, field_name: str, path: str):
+        """Apply the --parameter value given for a config field, if any.
+
+        Only runtime fields (``Annotated[T, Runtime]``) can be set this way: they
+        are passed to the engine at each run, while the other fields are compiled
+        into the platform tree and are set in the target string (attr.).
+        """
+        from gvrun.parameter import get_cmdline_parameter_value
+        value = get_cmdline_parameter_value(path)
+        if value is None:
+            return
+        from gvrun.config_gen import get_config_fields
+        from gvrun.runtime import unwrap_annotated
+        from config_tree.field_type_alias import cast_to_type
+        is_runtime = False
+        for fld in get_config_fields(type(config)):
+            if fld['name'] == field_name:
+                is_runtime = fld['runtime']
+                break
+        if not is_runtime:
+            raise RuntimeError(
+                f"--parameter {path} sets a config field compiled into the platform: give it "
+                f"in the target string instead (--target <target>:attr.{path}=<value>), or "
+                f"declare the field Annotated[T, Runtime] to set it at run time")
+        field_type = get_type_hints(type(config), include_extras=True).get(field_name)
+        setattr(config, field_name, cast_to_type(value, unwrap_annotated(field_type),
+            config=config))
 
 
     def generate(self, builddir):

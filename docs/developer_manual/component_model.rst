@@ -573,10 +573,12 @@ Runtime-carried config fields
 -----------------------------
 
 Config-struct fields are normally baked into the compiled platform tree:
-their values are part of the generated ``tree.cpp`` and of the tree
-signature, so changing them (e.g. through a target parameter) requires
-rebuilding the target. Fields whose values are pure *data* for a fixed
-platform shape can opt out of this by being marked runtime:
+their values are part of the generated ``tree.cpp``, so they can only be
+changed in the target name (``<target>:attr.<path>=<value>``), which is
+built as a target of its own. Fields whose values are pure *data* for a
+fixed platform shape can opt out of this by being marked runtime, and are
+then set at each run with ``--parameter <component path>/<field>=<value>``
+(``--parameter`` refuses the other fields):
 
 .. code-block:: python
 
@@ -604,5 +606,9 @@ component consumes is a fatal error (it catches typos and stale files).
 
 Only mark fields that do **not** influence generation: a field the Python
 generator reads to select sources or compile flags (e.g. an ``atomics``
-flag turning into a ``-D`` define) must stay baked, so that changing it
-keeps invalidating the tree signature and forcing the rebuild it needs.
+flag turning into a ``-D`` define) must stay baked, so that it can only be
+changed in the target name, which builds the platform it needs.
+
+The gvrun parameters (``TargetParameter``) are run-time values as well: a
+generator must not use them to change the platform (components, bindings
+or baked config values), since ``--parameter`` does not rebuild it.

@@ -234,6 +234,8 @@ private:
     // A read burst's last beat reached the master: free its slot and, if the read
     // request channel was back-pressured, raise in.retry().
     void on_read_burst_complete();
+    // Free one read-burst slot and wake the master if it was held for it
+    void release_read_slot();
 
     // Populated from the generated config tree by the Component(config, cfg)
     // constructor (memcpy of tree_config). beat_width / max_read_bursts below are

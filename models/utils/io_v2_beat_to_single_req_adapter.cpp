@@ -406,7 +406,8 @@ bool IoV2BeatToSingleReqAdapter::issue_one_sub_read()
 
     // Once fully issued, the burst leaves the issue chain for the drain chain.
     // Do this BEFORE completing an inline DONE so completion finds it there.
-    if (b.issued_beats == b.nb_beats)
+    bool fully_issued = b.issued_beats == b.nb_beats;
+    if (fully_issued)
     {
         this->drain_bursts.push_back(b);
         this->issue_bursts.pop_front();
@@ -426,6 +427,12 @@ bool IoV2BeatToSingleReqAdapter::issue_one_sub_read()
         // GRANTED: track the req in issue order, awaiting the async resp().
         this->issued.push_back(r);
         this->issued_lane_wait.push_back(lane_wait);
+    }
+    // read_bursts_until_issued: the burst no longer holds its slot, once
+    // everything above is done (the master may send the next one at once)
+    if (fully_issued && this->cfg.read_bursts_until_issued)
+    {
+        this->release_read_slot();
     }
     return true;
 }
@@ -615,8 +622,17 @@ void IoV2BeatToSingleReqAdapter::emit_read_beat(const ReadyBeat &rb)
 // back-pressured at the burst limit, this wakes the master with in.retry().
 void IoV2BeatToSingleReqAdapter::on_read_burst_complete()
 {
-    // A read burst's last beat reached the master: free its in-flight slot and,
-    // if the read request channel was back-pressured at the burst limit, tell the
+    // A read burst's last beat reached the master: free its in-flight slot,
+    // unless it was freed once the burst was issued
+    if (!this->cfg.read_bursts_until_issued)
+    {
+        this->release_read_slot();
+    }
+}
+
+void IoV2BeatToSingleReqAdapter::release_read_slot()
+{
+    // If the read request channel was back-pressured at the burst limit, tell the
     // master it can re-send (synchronously, per the io_v2 contract).
     this->outstanding_read_bursts--;
     if (this->read_blocked)

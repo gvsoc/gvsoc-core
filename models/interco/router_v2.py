@@ -169,6 +169,9 @@ class RouterConfig(Config, HasSize):
         backpressure and beat variants.
     max_input_pending_size : int
         Per-input FIFO depth in bytes. Used by the beat variant.
+    max_input_pending_reads : int
+        Per-input limit on the read addresses waiting for their output
+        (0: no limit). Used by the beat variant.
     bandwidth : int
         Bytes per cycle the router can forward. Used by the bandwidth and
         backpressure variants.
@@ -211,6 +214,12 @@ class RouterConfig(Config, HasSize):
     max_input_pending_size: int = cfg_field(default=0, dump=True, desc=(
         "Size of the FIFO for each input. Only valid for asynchronous mode and only when input "
         "packet size is smaller or equal to the bandwidth."
+    ))
+    max_input_pending_reads: int = cfg_field(default=0, dump=True, desc=(
+        "Beat variant: read addresses an input holds while their output cannot take them. "
+        "Beyond, the input is denied and its master holds the next one, as on a crossbar "
+        "with no address buffer (PULP axi_node), where an address waits upstream and goes "
+        "through the arbitration there again. 0 (default) means no limit."
     ))
     bandwidth: int = cfg_field(default=0, dump=True, desc=(
         "Global bandwidth, in bytes per cycle, applied to all incoming request. This impacts the "
@@ -272,6 +281,14 @@ class RouterConfig(Config, HasSize):
         "binary tree of the inputs steered by a priority pointer, which a grant moves "
         "to the first requesting input after it, so that an input granted alone keeps "
         "the priority. False: first input after the last one granted."
+    ))
+    axi_node_arb: str = cfg_field(default="", dump=True, desc=(
+        "Beat variant: elect as the PULP axi_node (axi_ArbitrationTree): a binary tree of "
+        "the leaves steered by a counter of the grants, which wraps at the number of "
+        "leaves, the root taking its bit 0. The value gives the leaf of each input, "
+        "comma-separated, so that several inputs can share one, as the read and write "
+        "masters of an AXI port do (e.g. '1,0,0,2'). Not used for the writes taken in "
+        "order (write_order_depth). Empty (default): round robin."
     ))
     lock_in: bool = cfg_field(default=False, dump=True, desc=(
         "Beat variant, with rr_arb_tree: an elected request the output cannot take for "
@@ -343,8 +360,10 @@ class Router(gvsoc.systree.Component):
        ``shared_rw_channel``,      –, yes, yes, yes
        ``width``,                  –, –,   –,   yes
        ``max_input_pending_size``, –, –,   –,   yes
+       ``max_input_pending_reads``, –, –,  –,   yes
        ``max_pending_bursts``,     –, –,   –,   yes
        ``combinational``,          –, –,   –,   yes
+       ``axi_node_arb``,           –, –,   –,   yes
        mapping ``max_pending_bursts``, –, –, –, yes
 
     Fields not used by the selected kind are still packed into the compiled

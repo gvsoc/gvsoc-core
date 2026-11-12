@@ -73,6 +73,7 @@
 #include <climits>
 #include <deque>
 #include <memory>
+#include <string>
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/stats/stats.hpp>
@@ -168,6 +169,8 @@ public:
     // (lock_in) because the output could not take its elected request
     int rr_q[NB_CHANNELS] = {0, 0};
     int locked_input[NB_CHANNELS] = {-1, -1};
+    // axi_node_arb: grant counter of each channel, which steers the tree
+    int axi_cnt[NB_CHANNELS] = {0, 0};
     // Input currently holding this output for a burst, per channel; nullptr when
     // the channel is free. With shared_rw_channel=true only [0] is used.
     InputPort *elected_input[NB_CHANNELS] = {nullptr, nullptr};
@@ -281,6 +284,9 @@ public:
     };
     Queue queue[NB_CHANNELS];
     uint64_t pending_bytes = 0;
+    // Read addresses queued here, not yet taken by their output
+    // (max_input_pending_reads)
+    int pending_reads = 0;
     // Tracks the in-progress multi-beat burst on this input (between its
     // is_first and is_last beats). -1 when no such burst is open. Used only by
     // continuation beats (is_first=false) to look up their slot; single-beat
@@ -427,6 +433,15 @@ private:
     // rr_arb_tree: the input elected among the candidates for this channel
     // of this output, and the candidates (bit i for input i)
     int rr_tree_winner(OutputPort *out, int ch, int64_t now, std::vector<bool> &req);
+    // axi_node_arb: the input the PULP axi_node arbitration tree elects
+    int axi_node_winner(OutputPort *out, int ch, int64_t now);
+    // axi_node_arb: the head of the input is a read address the tree elects
+    // again when the output it was denied by is ready
+    bool reelects(InputPort *in, int ch);
+    int input_index(InputPort *in);
+    // axi_node_arb: leaf of each input, and number of leaves (0: not used)
+    std::vector<int> axi_leaf;
+    int axi_nb_leaves = 0;
     // Retry channel naming channel index `ch` (ANY when the router shares one
     // channel for reads and writes).
     vp::IoRetryChannel retry_channel_of(int ch) const
@@ -644,6 +659,30 @@ RouterBeat::RouterBeat(vp::ComponentConf &config)
         this->cfg.max_input_pending_size = (uint64_t)this->cfg.width;
     }
     int nb_input = this->cfg.nb_input_port > 0 ? this->cfg.nb_input_port : 1;
+    if (this->cfg.axi_node_arb != nullptr && this->cfg.axi_node_arb[0] != 0)
+    {
+        // Leaf of each input, comma-separated
+        std::string list = this->cfg.axi_node_arb;
+        size_t pos = 0;
+        while (pos <= list.size())
+        {
+            size_t end = list.find(',', pos);
+            if (end == std::string::npos) end = list.size();
+            int leaf = std::stoi(list.substr(pos, end - pos));
+            this->axi_leaf.push_back(leaf);
+            this->axi_nb_leaves = std::max(this->axi_nb_leaves, leaf + 1);
+            pos = end + 1;
+        }
+        if ((int)this->axi_leaf.size() != nb_input)
+        {
+            this->trace.fatal("axi_node_arb gives %d leaves for %d inputs\n",
+                (int)this->axi_leaf.size(), nb_input);
+        }
+        if (this->cfg.rr_arb_tree)
+        {
+            this->trace.fatal("axi_node_arb and rr_arb_tree are exclusive\n");
+        }
+    }
     this->max_pending_per_input = this->cfg.max_pending_bursts_per_input;
     if (this->max_pending_per_input < 0)
     {
@@ -1001,6 +1040,7 @@ vp::IoReqStatus RouterBeat::forward_beat(InputPort *in, OutputPort *out,
         queue.pending.pop_front();
         // Mirror the directional accounting from req_muxed.
         in->pending_bytes -= log_is_write ? log_size : 0;
+        in->pending_reads -= log_is_write ? 0 : 1;
         if (queue.pending.empty()) queue.set_head_cycle(INT64_MAX);
         // The downstream took a new transaction: one of its outstanding slots
         // is held until the burst completes (free_burst_slot gives it back).
@@ -1088,6 +1128,14 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
         in->denied_upstream = true;
         return vp::IO_REQ_DENIED;
     }
+    // Read addresses waiting for their output: an input of a crossbar with no
+    // address buffer holds its master off instead of queueing them
+    if (!is_write && _this->cfg.max_input_pending_reads > 0
+        && in->pending_reads >= _this->cfg.max_input_pending_reads)
+    {
+        in->denied_upstream = true;
+        return vp::IO_REQ_DENIED;
+    }
 
     // Determine the slot this beat belongs to.
     BurstEntry *slot_idx;
@@ -1153,6 +1201,7 @@ vp::IoReqStatus RouterBeat::req_muxed(vp::Block *__this, vp::IoReq *req, int por
     bool was_empty = queue.pending.empty();
     queue.pending.push_back(InputPort::PendingBeat{req, slot_idx});
     in->pending_bytes += fifo_cost;
+    in->pending_reads += is_write ? 0 : 1;
     if (was_empty)
     {
         // Combinational mode: a beat arriving during or after the election of
@@ -1254,6 +1303,67 @@ int RouterBeat::rr_tree_winner(OutputPort *out, int ch, int64_t now, std::vector
         if (!left || (right && ((out->rr_q[ch] >> bit) & 1))) lo += half;
     }
     return lo;
+}
+
+// The PULP axi_node arbitration tree (axi_ArbitrationTree): a binary tree of
+// fan-in primitives over the leaves, padded to a power of two, steered by a
+// counter of the grants which wraps at the number of leaves. Each node takes
+// its side with requests, and when both have some, the right one if the bit
+// of the counter for its stage is set, the root using bit 0. Unlike a round
+// robin, the counter moves whoever is granted: with 3 leaves, leaf 0 against
+// leaf 1 wins 2 grants out of 3.
+int RouterBeat::axi_node_winner(OutputPort *out, int ch, int64_t now)
+{
+    int n = (int)this->inputs.size();
+    int nb_leaves = this->axi_nb_leaves;
+    // The input asking for each leaf (the first one when several share it)
+    std::vector<int> leaf_input(nb_leaves, -1);
+    bool any = false;
+    for (int j = 0; j < n; j++)
+    {
+        int leaf = this->axi_leaf[j];
+        if (leaf_input[leaf] == -1 && this->is_candidate(this->inputs[j], out, ch, now))
+        {
+            leaf_input[leaf] = j;
+            any = true;
+        }
+    }
+    if (!any) return -1;
+    int nb_stages = 0;
+    while ((1 << nb_stages) < nb_leaves) nb_stages++;
+    auto any_in = [&](int lo, int hi) {
+        for (int j = lo; j < hi && j < nb_leaves; j++) if (leaf_input[j] != -1) return true;
+        return false;
+    };
+    int lo = 0;
+    for (int stage = 0; stage < nb_stages; stage++)
+    {
+        int half = 1 << (nb_stages - stage - 1);
+        bool left = any_in(lo, lo + half);
+        bool right = any_in(lo + half, lo + 2 * half);
+        if (!left || (right && ((out->axi_cnt[ch] >> stage) & 1))) lo += half;
+    }
+    return leaf_input[lo];
+}
+
+bool RouterBeat::reelects(InputPort *in, int ch)
+{
+    if (this->axi_nb_leaves == 0 || this->cfg.axi_id_ordering || this->cfg.shared_rw_channel
+        || in->queue[ch].pending.empty())
+    {
+        return false;
+    }
+    vp::IoReq *beat = in->queue[ch].pending.front().req;
+    return !beat->get_is_write() && beat->is_first && beat->is_last;
+}
+
+int RouterBeat::input_index(InputPort *in)
+{
+    for (int j = 0; j < (int)this->inputs.size(); j++)
+    {
+        if (this->inputs[j] == in) return j;
+    }
+    return -1;
 }
 
 // Take the write addresses waiting for this output, as an AXI node does while
@@ -1390,6 +1500,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
                 uint64_t err_size = beat->get_size();
                 queue.pending.pop_front();
                 // Mirror the directional accounting from req_muxed.
+                in->pending_reads -= beat->get_is_write() ? 0 : 1;
                 in->pending_bytes -= beat->get_is_write() ? err_size : 0;
                 if (queue.pending.empty()) queue.set_head_cycle(INT64_MAX);
 
@@ -1456,6 +1567,8 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (beat->is_first && _this->cfg.axi_id_ordering && in->id_count[ch] > 0 &&
             in->id_output[ch] != slot.output_id) continue;
         bool ordered = write_order && ch == _this->channel_of(true);
+        bool axi_arb = _this->axi_nb_leaves > 0 && !ordered;
+        if (axi_arb && _this->axi_node_winner(out, ch, now) != i) continue;
         std::vector<bool> rr_req;
         if (_this->cfg.rr_arb_tree && !ordered)
         {
@@ -1479,7 +1592,7 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             if (out->write_order.empty() || out->write_order.front().input != i) continue;
         }
         // Several inputs want this channel: the round-robin elects one.
-        else if (!_this->cfg.rr_arb_tree && !_this->wins_election(i, out, ch, now)) continue;
+        else if (!_this->cfg.rr_arb_tree && !axi_arb && !_this->wins_election(i, out, ch, now)) continue;
         bool opens_burst = beat->is_first && !ordered;
 
         // Lock the output channel to this input for the beats of a burst, so
@@ -1524,6 +1637,10 @@ void RouterBeat::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         if (opens_burst)
         {
             out->rr_next[ch] = (i + 1) % n;
+            if (axi_arb && st == vp::IO_REQ_GRANTED)
+            {
+                out->axi_cnt[ch] = (out->axi_cnt[ch] + 1) % _this->axi_nb_leaves;
+            }
             if (_this->cfg.rr_arb_tree)
             {
                 // rr_arb_tree: the pointer goes to the first requesting input
@@ -1933,9 +2050,30 @@ void RouterBeat::retry_muxed(vp::Block *__this, int port, vp::IoRetryChannel cha
         self->stalled[c] = false;
         InputPort *in = self->stalled_input[c];
         self->stalled_input[c] = nullptr;
+        // axi_node_arb: the denied read address did not get the output, whose
+        // tree grants an address only when the downstream takes it; elect
+        // again among the addresses waiting now.
+        bool reelect = _this->reelects(in, c);
+        if (reelect)
+        {
+            int winner = _this->axi_node_winner(self, c, _this->clock.get_cycles());
+            if (winner >= 0 && _this->reelects(_this->inputs[winner], c))
+            {
+                in = _this->inputs[winner];
+            }
+        }
         // Copy the head: forward_beat pops the front on success.
         InputPort::PendingBeat head = in->queue[c].pending.front();
+        if ((*head.slot_idx).output_id == -1)
+        {
+            (*head.slot_idx).output_id = self->id;
+        }
         vp::IoReqStatus st = _this->forward_beat(in, self, head.slot_idx, head.req);
+        if (reelect && st == vp::IO_REQ_GRANTED)
+        {
+            self->axi_cnt[c] = (self->axi_cnt[c] + 1) % _this->axi_nb_leaves;
+            self->rr_next[c] = (_this->input_index(in) + 1) % (int)_this->inputs.size();
+        }
         if (st == vp::IO_REQ_DENIED)
         {
             // Slave filled up again between retry() and our re-send; stay

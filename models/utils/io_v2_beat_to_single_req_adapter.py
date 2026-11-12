@@ -46,6 +46,12 @@ class IoV2BeatToSingleReqAdapterConfig(Config):
         "delivered upstream). The read request channel is back-pressured beyond "
         "this — the HW r_id-FIFO analogue."
     ))
+    read_bursts_until_issued: bool = cfg_field(default=False, dump=True, desc=(
+        "Count a read burst against max_read_bursts only until its last sub-read "
+        "is issued, not until its last beat is delivered, as the RTL axi2mem, whose "
+        "read channel takes the next address once it has sent the memory requests of "
+        "a burst while the data of that burst is still coming back."
+    ))
     max_sub_reads: int = cfg_field(default=32, dump=True, desc=(
         "Maximum number of beat-sized sub-reads outstanding downstream. The default "
         "covers the round-trip latency so reads stream at one beat per cycle. 1 "
@@ -84,13 +90,15 @@ class IoV2BeatToSingleReqAdapter(Component):
 
     def __init__(self, parent: Component, name: str, beat_width: int,
                  max_read_bursts: int = 4, max_sub_reads: int = 32, read_latency: int = 0, write_latency: int = 0,
-                 write_burst_half_cycles: int = 0, read_lane_width: int = 0):
+                 write_burst_half_cycles: int = 0, read_lane_width: int = 0,
+                 read_bursts_until_issued: bool = False):
         super().__init__(parent, name, config=IoV2BeatToSingleReqAdapterConfig(
             beat_width=beat_width, max_read_bursts=max_read_bursts,
             max_sub_reads=max_sub_reads,
             read_latency=read_latency, write_latency=write_latency,
             write_burst_half_cycles=write_burst_half_cycles,
-            read_lane_width=read_lane_width))
+            read_lane_width=read_lane_width,
+            read_bursts_until_issued=read_bursts_until_issued))
         self.set_component('utils.io_v2_beat_to_single_req_adapter')
         self._beat_width = beat_width
 

@@ -114,42 +114,57 @@ file(MAKE_DIRECTORY ${TARGET_CONFIG_DIR})
 set(COMPONENTS)
 set(TREE_SOURCES)
 
+# Lists the components of a target on a platform and generates its compiled tree
+# (<config>.tree.cpp). The RTL platform (the board running the RTL simulator) gets
+# its own tree, named with a .rtl suffix.
+macro(gvsoc_target_components target platform suffix)
+    string(REPLACE ","  "_" TARGET_NAME "${target}")
+    string(REPLACE "/"  "." TARGET_NAME "${TARGET_NAME}")
+    string(REPLACE ":"  "_" TARGET_NAME "${TARGET_NAME}")
+    set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${TARGET_NAME}${suffix}.config)
+    list(APPEND TREE_SOURCES ${TARGET_CONFIG_DIR}/${TARGET_NAME}${suffix}.tree.cpp)
+
+    message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
+
+    # gvrun extracts the list of components out of the specified target
+    set(GVRUN_CMD gvrun --target=${target} ${GVRUN_TARGETS_DIR_OPT}
+        --platform=${platform}
+        --builddir=${CMAKE_CURRENT_BINARY_DIR}
+        --installdir=${CMAKE_INSTALL_PREFIX}/models
+        --component-file=${TARGET_CONFIG} components
+        --py-stack
+    )
+
+    string(REPLACE ";"  " " GVRUN_CMD_STR "    ${GVRUN_CMD}")
+    message(STATUS ${GVRUN_CMD_STR})
+
+    # We generate first the list of components for the specified target
+    execute_process (
+        COMMAND ${GVRUN_CMD} RESULT_VARIABLE ret
+    )
+    if(NOT ret EQUAL "0")
+        message( FATAL_ERROR "Caught error while generating gvsoc config")
+    endif()
+
+    import_kconfig(CONFIG_ ${TARGET_CONFIG} "COMPONENTS")
+endmacro()
+
 if(DEFINED GVSOC_TARGETS)
 
     string(REPLACE " "  ";" GVSOC_TARGETS_LIST "${GVSOC_TARGETS}")
     foreach(target ${GVSOC_TARGETS_LIST})
-
-        string(REPLACE ","  "_" TARGET_NAME "${target}")
-        string(REPLACE "/"  "." TARGET_NAME "${TARGET_NAME}")
-        string(REPLACE ":"  "_" TARGET_NAME "${TARGET_NAME}")
-        set(TARGET_CONFIG ${TARGET_CONFIG_DIR}/${TARGET_NAME}.config)
-        list(APPEND TREE_SOURCES ${TARGET_CONFIG_DIR}/${TARGET_NAME}.tree.cpp)
-
-        message(STATUS "Generating GVSOC config to ${TARGET_CONFIG} with command: ")
-
-        # gvrun extracts the list of components out of the specified target
-        set(GVRUN_CMD gvrun --target=${target} ${GVRUN_TARGETS_DIR_OPT}
-            --platform=gvsoc
-            --builddir=${CMAKE_CURRENT_BINARY_DIR}
-            --installdir=${CMAKE_INSTALL_PREFIX}/models
-            --component-file=${TARGET_CONFIG} components
-            --py-stack
-        )
-
-        string(REPLACE ";"  " " GVRUN_CMD_STR "    ${GVRUN_CMD}")
-        message(STATUS ${GVRUN_CMD_STR})
-
-        # We generate first the list of components for the specified target
-        execute_process (
-            COMMAND ${GVRUN_CMD} RESULT_VARIABLE ret
-        )
-        if(NOT ret EQUAL "0")
-            message( FATAL_ERROR "Caught error while generating gvsoc config")
-        endif()
-
-        import_kconfig(CONFIG_ ${TARGET_CONFIG} "COMPONENTS")
-
+        gvsoc_target_components(${target} gvsoc "")
     endforeach()
+
+    # Targets also run with --platform rtl, by an RTL simulator running inside
+    # GVSoC (gvsoc_svsim, Verilator). Those run by an external simulator (VCS,
+    # Questa) through their own runner do not need it.
+    if(DEFINED GVSOC_RTL_TARGETS)
+        string(REPLACE " "  ";" GVSOC_RTL_TARGETS_LIST "${GVSOC_RTL_TARGETS}")
+        foreach(target ${GVSOC_RTL_TARGETS_LIST})
+            gvsoc_target_components(${target} rtl ".rtl")
+        endforeach()
+    endif()
 
 else()
     set(CONFIG_BUILD_ALL 1)

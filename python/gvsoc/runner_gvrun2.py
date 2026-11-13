@@ -344,6 +344,10 @@ class Runner():
                 .replace(',', '_')
                 .replace('/', '.')
                 .replace(':', '_'))
+            # The RTL platform has its own tree (the board running the RTL
+            # simulator), built for the targets of GVSOC_RTL_TARGETS
+            if getattr(args, 'platform', None) == 'rtl':
+                cfg_base += '.rtl'
             lib_name = re.sub(r'[^a-zA-Z0-9_]', '_', cfg_base)
             gvsoc_config = self.full_config.get('target/gvsoc')
             models_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -355,7 +359,8 @@ class Runner():
                     f"{tree_lib}\n"
                     f"This usually means the build did not produce "
                     f"libplatform_tree_{lib_name}.so. Re-run cmake/build for "
-                    f"this target, or verify GVSOC_TARGETS includes it."
+                    f"this target, or verify GVSOC_TARGETS (GVSOC_RTL_TARGETS for "
+                    f"--platform rtl) includes it."
                 )
             # The compiled tree matches the system tree built here, since the run
             # overrides (--parameter) are refused when they would change it
@@ -1059,6 +1064,15 @@ class Target(gvrun.target.Target):
         self.options = options
         self.rtl_cosim_runner = rtl_cosim_runner
         self.runner = None
+
+    def lists_components(self) -> bool:
+        """True when gvrun only lists the components to build (build time).
+
+        The target is instantiated without running it, so what is only needed
+        to run it (e.g. the RTL simulator plugin or the compiled design of the
+        RTL platform) must not be required.
+        """
+        return self.args is not None and getattr(self.args, 'component_file', None) is not None
 
     def __add_gdbserver(self):
         # Every target gets a gdbserver component so that --gdbserver works

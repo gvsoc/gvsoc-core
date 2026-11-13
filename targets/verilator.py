@@ -73,7 +73,9 @@ class Target(gvsoc.runner.Target):
         super().__init__(parser=parser, options=options, **kwargs)
 
         args = self.args
-        if not _is_rtl(args):
+        if not _is_rtl(args) or self.lists_components():
+            # The plugin is only needed to run on the RTL platform, not when the
+            # build lists the components
             return
 
         plugin = args.rtl_plugin

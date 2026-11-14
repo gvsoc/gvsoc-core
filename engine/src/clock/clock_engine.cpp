@@ -594,7 +594,7 @@ void vp::ClockEngine::reset(bool active)
     this->clock_trace.set(this->period);
 }
 
-vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
+vp::ClockEngine::ClockEngine(vp::ComponentConf &config, int64_t frequency, int64_t factor)
 : vp::Component(config), clock_trace(*this, "period", 64, false),
     cycles(0), period(0), freq(0),
     apply_frequency_event(this, &vp::ClockEngine::apply_frequency_handler)
@@ -607,7 +607,7 @@ vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
     delayed_queue = NULL;
     current_cycle = 0;
 
-    this->apply_frequency(get_js_config()->get_child_int("frequency"));
+    this->apply_frequency(frequency);
 
     new_master_port("out", &out);
 
@@ -616,7 +616,7 @@ vp::ClockEngine::ClockEngine(vp::ComponentConf &config)
 
     this->traces.new_trace_event_real("cycles", &this->cycles_trace);
 
-    this->factor = this->get_js_config()->get_child_int("factor");
+    this->factor = factor;
 
     if (this->factor == 0)
     {

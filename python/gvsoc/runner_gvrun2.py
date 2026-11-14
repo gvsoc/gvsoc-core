@@ -390,8 +390,17 @@ class Runner():
             gvsoc_config.set('platform_tree', tree_lib)
 
         if args.gdbserver:
-            self.full_config.set('**/gdbserver/enabled', True)
-            self.full_config.set('**/gdbserver/port', args.gdbserver_port)
+            # The GDB server is opened from its runtime config, which is
+            # dumped from the system tree at each run
+            from gdbserver.gdbserver import Gdbserver
+
+            def enable_gdbserver(component):
+                if isinstance(component, Gdbserver):
+                    component.enable(args.gdbserver_port)
+                for child in component.components.values():
+                    enable_gdbserver(child)
+
+            enable_gdbserver(self.target)
 
         gvsoc_config = self.full_config.get('target/gvsoc')
 

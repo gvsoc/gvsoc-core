@@ -268,6 +268,7 @@ namespace vp
 
         // Create all ports specified in json config
         void create_ports();
+        void create_port(std::string port_name);
 
         // Create all bindings specified in json config
         void create_bindings();

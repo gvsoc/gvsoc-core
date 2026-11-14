@@ -21,6 +21,7 @@
 
 #include <filesystem>
 #include <string>
+#include <stdexcept>
 #include <dlfcn.h>
 #include <vp/vp.hpp>
 #include <vp/component_tree.hpp>
@@ -80,14 +81,30 @@ vp::Top::Top(std::string config_path, std::string runtime_config_path, bool is_a
     {
         std::string tree_lib_path = tree_lib_cfg->get_str();
         void *tree_lib = dlopen(tree_lib_path.c_str(), RTLD_NOW | RTLD_LOCAL);
-        if (tree_lib != nullptr)
+        if (tree_lib == nullptr)
         {
-            auto get_tree = (const vp::ComponentTreeNode *(*)())dlsym(tree_lib, "vp_get_platform_tree");
-            if (get_tree != nullptr)
-            {
-                platform_tree = get_tree();
-            }
+            throw std::runtime_error("Failed to load platform tree " + tree_lib_path + ": " +
+                dlerror());
         }
+
+        // A tree built against another layout of the tree structures would be
+        // misread, the target must be rebuilt
+        auto get_version = (int (*)())dlsym(tree_lib, "vp_platform_tree_version");
+        int version = get_version != nullptr ? get_version() : 1;
+        if (version != VP_COMPONENT_TREE_VERSION)
+        {
+            throw std::runtime_error("Platform tree " + tree_lib_path + " has layout version " +
+                std::to_string(version) + " while the engine expects " +
+                std::to_string(VP_COMPONENT_TREE_VERSION) + ", rebuild the target");
+        }
+
+        auto get_tree = (const vp::ComponentTreeNode *(*)())dlsym(tree_lib, "vp_get_platform_tree");
+        if (get_tree == nullptr)
+        {
+            throw std::runtime_error("Platform tree " + tree_lib_path +
+                " has no vp_get_platform_tree entry point");
+        }
+        platform_tree = get_tree();
     }
 
     this->time_engine = new vp::TimeEngine(this->gv_config);

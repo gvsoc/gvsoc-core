@@ -23,6 +23,13 @@
 #include <cstdint>
 #include <cstring>
 
+// Layout of the structures below, compiled into each platform tree library
+// (vp_platform_tree_version) and checked by the engine when it loads one, so
+// that a tree built against another layout is refused instead of misread.
+// Bump it at each change of these structures, with the GUI mirror of them
+// (TREE_LAYOUT_VERSION in gvsoc/gui src/model_graph.cpp).
+#define VP_COMPONENT_TREE_VERSION 2
+
 namespace vp {
 
 /**
@@ -108,6 +115,8 @@ struct ComponentTreeNode
     int num_runtime_fields;              // Number of runtime-settable fields
     const TreeMapping *mappings;         // Address mappings (interconnects), or nullptr
     int num_mappings;                    // Number of address mappings
+    const char *const *ports;            // Names of the component ports, or nullptr
+    int num_ports;                       // Number of ports
 
     /**
      * @brief Find a child node by name.

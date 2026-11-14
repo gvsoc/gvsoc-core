@@ -44,8 +44,10 @@ namespace gv {
      *       text-trace recording control, streamed as varlen events.
      * v10 == Vcd gains trace_level_set() (appended vtable slot): runtime global
      *       trace-level control (the --trace-level option).
+     * v11 == vp::ComponentTreeNode gains ports/num_ports (appended fields): the
+     *       port list of each component comes from the compiled tree.
      */
-    #define GV_API_VERSION 10
+    #define GV_API_VERSION 11
 
     /**
      * Return the GV_API_VERSION the engine was built with.

@@ -554,9 +554,17 @@ vp::Component::Component(vp::ComponentConf &config)
 
 void vp::Component::create_ports()
 {
-    // Always use JSON-based ports — the JSON ports list is the authoritative
-    // source since it includes all ports (self-referenced in own bindings AND
-    // referenced by parent bindings), while tree bindings only capture the former.
+    // The compiled tree lists all the ports of the component, the ones used by
+    // its own bindings and the ones used by its parent bindings
+    if (this->tree_node != nullptr)
+    {
+        for (int i = 0; i < this->tree_node->num_ports; i++)
+        {
+            this->create_port(this->tree_node->ports[i]);
+        }
+        return;
+    }
+
     js::Config *config = this->get_js_config();
     js::Config *ports = config->get("vp_ports");
     if (ports == NULL)
@@ -570,17 +578,20 @@ void vp::Component::create_ports()
 
         for (auto x : ports->get_elems())
         {
-            std::string port_name = x->get_str();
-
-            this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating port (name: %s)\n", port_name.c_str());
-
-            if (this->get_port(port_name) == NULL)
-            {
-                vp::VirtualPort *port = new vp::VirtualPort(this);
-                this->add_port(port_name, port);
-                port->set_name(port_name);
-            }
+            this->create_port(x->get_str());
         }
+    }
+}
+
+void vp::Component::create_port(std::string port_name)
+{
+    this->get_trace()->msg(vp::Trace::LEVEL_DEBUG, "Creating port (name: %s)\n", port_name.c_str());
+
+    if (this->get_port(port_name) == NULL)
+    {
+        vp::VirtualPort *port = new vp::VirtualPort(this);
+        this->add_port(port_name, port);
+        port->set_name(port_name);
     }
 }
 

@@ -60,7 +60,8 @@ namespace vp
          *
          * @param config The component config coming from Python generator.
          */
-        ClockEngine(vp::ComponentConf &config);
+        // Frequency and factor from the compiled tree config of the clock domain
+        ClockEngine(vp::ComponentConf &config, int64_t frequency, int64_t factor);
 
         void start();
         void reset(bool active);

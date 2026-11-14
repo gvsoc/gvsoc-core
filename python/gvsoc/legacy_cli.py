@@ -56,10 +56,6 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    # Models and targets pick the gvrun flavour from these when imported
-    os.environ['USE_GVRUN'] = '1'
-    os.environ['USE_GVRUN2'] = '1'
-
     parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     parser.add_argument('--binary', default=None)
     for opt in _UNSUPPORTED:

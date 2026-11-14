@@ -182,10 +182,7 @@ def display_build(display_type: str, format: str=None, aggregation: str=None, me
         return DisplayStateBox(labels, format=format if format is not None else 'hex')
 
 def get_comp_path(comp, inc_top=False, child_path=None):
-    if os.environ.get('USE_GVRUN2') is not None:
-        return '/' + comp.get_path(child_path=child_path)
-    else:
-        return comp.get_comp_path(inc_top, child_path)
+    return '/' + comp.get_path(child_path=child_path)
 
 class SignalGenFunctionFromBinary(object):
     def __init__(self, comp, parent, from_signal, to_signal, binaries):

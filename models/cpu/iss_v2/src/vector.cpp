@@ -47,7 +47,7 @@ void Vector::reset(bool active)
 #ifdef CONFIG_REGFILE_FI
         if (!this->registered_with_fic)
         {
-            bool fic_enabled = this->iss.get_js_config()->get_child_bool("regfile_fi");
+            bool fic_enabled = this->iss.cfg.regfile_fi;
             if (fic_enabled)
             {
                 vp::FIC_registrator *fic = (vp::FIC_registrator *) this->iss.get_service("FIC");

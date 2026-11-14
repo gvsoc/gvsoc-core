@@ -56,6 +56,7 @@
 #include <vp/itf/io_v2.hpp>
 
 #include "elf.h"
+#include <utils/loader/loader_v2/elf_loader_config.hpp>
 
 
 class Section
@@ -77,6 +78,8 @@ public:
     void reset(bool active) override;
 
 private:
+    ElfLoaderConfig cfg;
+
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
     static vp::IoRespAck output_resp(vp::Block *__this, vp::IoReq *req);
     static void output_retry(vp::Block *__this, vp::IoRetryChannel);
@@ -128,7 +131,7 @@ private:
 
 
 Loader::Loader(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -149,26 +152,21 @@ void Loader::reset(bool active)
         // Fresh start: load every configured binary, then enqueue any
         // extra entries (entry_addr / fetchen_addr) before kicking off
         // the streaming event.
-        for (auto x : this->get_js_config()->get("binary")->get_elems())
+        for (size_t i = 0; i < this->cfg.binaries_count; i++)
         {
-            this->load_elf(x->get_str().c_str(), &this->entry);
+            this->load_elf(this->cfg.binaries[i].file, &this->entry);
         }
 
-        js::Config *entry_addr_conf = this->get_js_config()->get("entry_addr");
-        if (entry_addr_conf != NULL)
+        if (this->cfg.has_entry_addr)
         {
-            uint64_t entry_addr = (uint64_t)entry_addr_conf->get_int();
-            this->section_copy(entry_addr, (uint8_t *)&this->entry,
+            this->section_copy(this->cfg.entry_addr, (uint8_t *)&this->entry,
                                this->is_32 ? 4 : 8);
         }
 
-        js::Config *fetchen_addr_conf = this->get_js_config()->get("fetchen_addr");
-        if (fetchen_addr_conf != NULL)
+        if (this->cfg.has_fetchen_addr)
         {
-            uint64_t fetchen_addr = (uint64_t)fetchen_addr_conf->get_int();
-            this->fetchen_value = (uint64_t)
-                this->get_js_config()->get("fetchen_value")->get_int();
-            this->section_copy(fetchen_addr, (uint8_t *)&this->fetchen_value,
+            this->fetchen_value = (uint64_t)this->cfg.fetchen_value;
+            this->section_copy(this->cfg.fetchen_addr, (uint8_t *)&this->fetchen_value,
                                this->is_32 ? 4 : 8);
         }
 
@@ -303,10 +301,9 @@ void Loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
     // (owned raw pointer) and fire the finalisation wires.
     // Note: current_section is already null here; nothing to free.
 
-    js::Config *entry_conf = _this->get_js_config()->get("entry");
-    if (entry_conf != nullptr)
+    if (_this->cfg.has_entry)
     {
-        _this->entry = (uint64_t)entry_conf->get_int();
+        _this->entry = (uint64_t)_this->cfg.entry;
     }
 
     if (_this->entry_itf.is_bound())

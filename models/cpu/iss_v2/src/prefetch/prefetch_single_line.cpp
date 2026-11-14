@@ -53,7 +53,7 @@ void PrefetchSingleLine::reset(bool active)
 #ifdef CONFIG_PREFETCHER_FI
         if (!this->registered_with_fic)
         {
-            bool fic_enabled = this->iss.top.get_js_config()->get_child_bool("prefetcher_fi");
+            bool fic_enabled = this->iss.cfg.prefetcher_fi;
             if (fic_enabled)
             {
                 vp::FIC_registrator *fic = (vp::FIC_registrator *) this->iss.top.get_service("FIC");

@@ -10,14 +10,14 @@
 
 
 IoV2BeatToSyncAdapter::IoV2BeatToSyncAdapter(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       in(&IoV2BeatToSyncAdapter::req_handler, &IoV2BeatToSyncAdapter::resp_retry_in_handler),
       out(&IoV2BeatToSyncAdapter::retry_handler, &IoV2BeatToSyncAdapter::resp_handler),
       fsm_event(this, &IoV2BeatToSyncAdapter::fsm_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    this->beat_width = this->get_js_config()->get_child_int("beat_width");
+    this->beat_width = (int)this->cfg.beat_width;
     if (this->beat_width <= 0)
     {
         this->trace.fatal("IoV2BeatToSyncAdapter requires beat_width > 0 (got %d)\n",

@@ -197,10 +197,10 @@ Router::Router(vp::ComponentConf &config)
     this->stat_write_bw.set_source(&this->stat_bytes_written);
 
 
-    int bandwidth = this->get_js_config()->get_int("bandwidth");
-    int latency = this->get_js_config()->get_int("latency");
-    int nb_input_port = this->get_js_config()->get_int("nb_input_port");
-    bool shared_rw_bandwidth = this->get_js_config()->get_child_bool("shared_rw_bandwidth");
+    int bandwidth = this->cfg.bandwidth;
+    int latency = this->cfg.latency;
+    int nb_input_port = this->cfg.nb_input_port;
+    bool shared_rw_bandwidth = this->cfg.shared_rw_bandwidth;
 
     // Instantiates input ports
     this->inputs.resize(nb_input_port);
@@ -216,26 +216,24 @@ Router::Router(vp::ComponentConf &config)
     }
 
     // Then mappings and output ports
-    js::Config *mappings = this->get_js_config()->get("mappings");
-    if (mappings != NULL)
+    if (this->cfg.mappings_count > 0)
     {
-        int mapping_id = 0;
-        for (auto &mapping : mappings->get_childs())
+        for (size_t mapping_id = 0; mapping_id < this->cfg.mappings_count; mapping_id++)
         {
-            js::Config *config = mapping.second;
-            std::string name = mapping.first;
+            const RouterV1Mapping &mapping = this->cfg.mappings[mapping_id];
+            std::string name = mapping.name;
 
-            this->mapping_tree.insert(mapping_id, name, config);
+            this->mapping_tree.insert(mapping_id, name, mapping.base, mapping.size);
 
-            OutputPort *entry = new OutputPort(this, name, bandwidth, config->get_int("latency"), shared_rw_bandwidth);
+            OutputPort *entry = new OutputPort(this, name, bandwidth, mapping.latency, shared_rw_bandwidth);
 
             entry->itf.set_resp_meth(&Router::response);
             this->new_master_port(name, &entry->itf);
 
-            entry->remove_offset = config->get_uint("remove_offset");
-            entry->add_offset = config->get_uint("add_offset");
-            entry->base = config->get_uint("base");
-            entry->size = config->get_uint("size");
+            entry->remove_offset = mapping.remove_offset;
+            entry->add_offset = mapping.add_offset;
+            entry->base = mapping.base;
+            entry->size = mapping.size;
 
             this->entries.push_back(entry);
 
@@ -243,8 +241,6 @@ Router::Router(vp::ComponentConf &config)
             {
                 this->error_id = mapping_id;
             }
-
-            mapping_id++;
         }
 
         this->mapping_tree.build();

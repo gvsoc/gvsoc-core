@@ -12,8 +12,50 @@ the boot-time binary loader (``loader_v2.cpp``).
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import gvsoc.systree
 import gvsoc.signature
+from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
+
+
+class ElfLoaderBinaryConfig(Config):
+    """One ELF binary loaded by the loader."""
+
+    file: str = cfg_field(default='', desc=(
+        "Path of the ELF binary"
+    ))
+
+
+class ElfLoaderConfig(Config):
+    """Configuration of the io_v2 ELF loader."""
+
+    binaries: Annotated[list[ElfLoaderBinaryConfig], Runtime] = cfg_field(
+        default_factory=list, init=False, desc=(
+        "ELF binaries, loaded in order. They are known at run time"
+    ))
+    has_entry: bool = cfg_field(default=False, dump=True, desc=(
+        "True if entry overrides the entry address of the ELF header"
+    ))
+    entry: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Address of the first instruction, sent on the ENTRY wire, when has_entry is True"
+    ))
+    has_entry_addr: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the entry address is written in memory at entry_addr"
+    ))
+    entry_addr: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Address where the entry address is written, when has_entry_addr is True"
+    ))
+    has_fetchen_addr: bool = cfg_field(default=False, dump=True, desc=(
+        "True if fetchen_value is written in memory at fetchen_addr"
+    ))
+    fetchen_addr: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Address where fetchen_value is written, when has_fetchen_addr is True"
+    ))
+    fetchen_value: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Value written at fetchen_addr"
+    ))
 
 
 class ElfLoader(gvsoc.systree.Component):
@@ -240,7 +282,19 @@ class ElfLoader(gvsoc.systree.Component):
                  binary: str = None, binaries: list = None,
                  entry: int = None, entry_addr: int = None,
                  fetchen_addr: int = None, fetchen_value=None):
-        super().__init__(parent, name)
+        config = ElfLoaderConfig()
+        if entry is not None:
+            config.has_entry = True
+            config.entry = entry
+        if entry_addr is not None:
+            config.has_entry_addr = True
+            config.entry_addr = entry_addr
+        if fetchen_addr is not None:
+            config.has_fetchen_addr = True
+            config.fetchen_addr = fetchen_addr
+            config.fetchen_value = int(fetchen_value) if fetchen_value is not None else 0
+
+        super().__init__(parent, name, config=config)
 
         whole_binaries = []
         if binary is not None:
@@ -248,19 +302,13 @@ class ElfLoader(gvsoc.systree.Component):
         if binaries is not None:
             whole_binaries += binaries
 
-        self.set_component('utils.loader.loader_v2')
+        self.__set_binaries(whole_binaries)
 
-        self.add_properties({'binary': whole_binaries})
+        self.add_sources(['utils/loader/loader_v2.cpp'])
 
-        if entry is not None:
-            self.add_properties({'entry': entry})
-        if entry_addr is not None:
-            self.add_properties({'entry_addr': entry_addr})
-        if fetchen_addr is not None:
-            self.add_properties({
-                'fetchen_addr': fetchen_addr,
-                'fetchen_value': fetchen_value,
-            })
+    def __set_binaries(self, binaries: list):
+        self._component_config.binaries = [ElfLoaderBinaryConfig(file=binary)
+            for binary in binaries if binary is not None]
 
     def set_binary(self, binary: str):
         """Replace the list of binaries with a single one.
@@ -268,7 +316,7 @@ class ElfLoader(gvsoc.systree.Component):
         Typically called late in the build flow when the actual ELF
         path is only known once the application has been compiled.
         """
-        self.add_properties({'binary': [binary]})
+        self.__set_binaries([binary])
 
     def o_OUT(self, itf: gvsoc.systree.SlaveItf):
         """Binds the output io_v2 master port.

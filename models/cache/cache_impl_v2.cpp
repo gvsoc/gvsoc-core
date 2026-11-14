@@ -23,6 +23,7 @@
 #include <vp/queue.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/signal.hpp>
+#include <cache/cache/cache_config.hpp>
 #include <vector>
 #include <sstream>
 
@@ -57,6 +58,7 @@ public:
 
     bool enabled = false;
     bool enabled_at_reset;
+    CacheConfig cfg;
 
 private:
     static void refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -535,21 +537,21 @@ void Cache::refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event)
 }
 
 Cache::Cache(vp::ComponentConf &config)
-    : vp::Component(config), refill_pending_reqs(this, "refill_queue"),
+    : vp::Component(config, this->cfg), refill_pending_reqs(this, "refill_queue"),
     pending_refill(*this, "refill", 0), refill_event(*this, "refill_addr", 32),
     refill_event_clear_event(this, &Cache::refill_event_clear_handler)
 {
-    this->enabled_at_reset = this->get_js_config()->get_child_bool("enabled");
-    this->nb_ports = this->get_js_config()->get_child_int("nb_ports");
-    this->nb_sets_bits = this->get_js_config()->get_child_int("nb_sets_bits");
-    this->nb_ways_bits = this->get_js_config()->get_child_int("nb_ways_bits");
-    this->line_size_bits = this->get_js_config()->get_child_int("line_size_bits");
+    this->enabled_at_reset = this->cfg.enabled;
+    this->nb_ports = this->cfg.nb_ports;
+    this->nb_sets_bits = this->cfg.nb_sets_bits;
+    this->nb_ways_bits = this->cfg.nb_ways_bits;
+    this->line_size_bits = this->cfg.line_size_bits;
     this->nb_ways = 1 << this->nb_ways_bits;
     this->nb_sets = 1 << this->nb_sets_bits;
     this->line_size = 1 << this->line_size_bits;
-    this->refill_latency = this->get_js_config()->get_child_int("refill_latency");
-    this->refill_shift = this->get_js_config()->get_child_int("refill_shift");
-    this->add_offset = this->get_js_config()->get_child_int("add_offset");
+    this->refill_latency = this->cfg.refill_latency;
+    this->refill_shift = this->cfg.refill_shift;
+    this->add_offset = this->cfg.add_offset;
 
     this->input_itf.resize(this->nb_ports);
 

@@ -56,13 +56,9 @@ Trace::Trace(Iss &iss)
 
 #if !defined(__M32_MODE__)
     // Register the ELF binaries; trace symbols are resolved lazily on demand.
-    js::Config *binaries_config = this->iss.get_js_config()->get("**/binaries");
-    if (binaries_config != NULL)
+    for (size_t i = 0; i < this->iss.cfg.binaries_count; i++)
     {
-        for (auto x : binaries_config->get_elems())
-        {
-            iss_register_debug_elf(&this->iss, x->get_str().c_str());
-        }
+        iss_register_debug_elf(&this->iss, this->iss.cfg.binaries[i].file);
     }
 #endif
 
@@ -104,21 +100,19 @@ void Trace::reset(bool active)
     {
         if (this->declare_binaries)
         {
-            if (this->iss.get_js_config()->get("**/binaries") != NULL)
+            std::string binaries = "static_enable";
+            for (size_t i = 0; i < this->iss.cfg.binaries_count; i++)
             {
-                std::string binaries = "static_enable";
-                for (auto x : this->iss.get_js_config()->get("**/binaries")->get_elems())
-                {
-                    binaries += ":" + x->get_str();
-                    // Alongside the GUI-facing "binaries" trace event, tell any connected proxy
-                    // front-end (e.g. the console) about each binary so it can auto-load its
-                    // symbols. Done at reset (not in the Trace ctor) so the component is linked
-                    // into the hierarchy and get_launcher() can reach the real launcher.
-                    this->iss.get_launcher()->declare_binary(x->get_str());
-                }
-
-                this->binaries_trace_event.event_string(binaries.c_str(), true);
+                std::string binary = this->iss.cfg.binaries[i].file;
+                binaries += ":" + binary;
+                // Alongside the GUI-facing "binaries" trace event, tell any connected proxy
+                // front-end (e.g. the console) about each binary so it can auto-load its
+                // symbols. Done at reset (not in the Trace ctor) so the component is linked
+                // into the hierarchy and get_launcher() can reach the real launcher.
+                this->iss.get_launcher()->declare_binary(binary);
             }
+
+            this->binaries_trace_event.event_string(binaries.c_str(), true);
             this->declare_binaries = false;
         }
     }

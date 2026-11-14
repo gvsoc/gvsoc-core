@@ -256,11 +256,11 @@ Router::Router(vp::ComponentConf &config)
 {
     this->traces.new_trace("trace", &trace, vp::DEBUG);
 
-    this->bandwidth = this->get_js_config()->get_int("bandwidth");
-    this->latency = this->get_js_config()->get_int("latency");
-    this->nb_input_port = this->get_js_config()->get_int("nb_input_port");
-    this->shared_rw_bandwidth = this->get_js_config()->get_child_bool("shared_rw_bandwidth");
-    this->max_input_pending_size = this->get_js_config()->get_child_int("max_input_pending_size");
+    this->bandwidth = this->cfg.bandwidth;
+    this->latency = this->cfg.latency;
+    this->nb_input_port = this->cfg.nb_input_port;
+    this->shared_rw_bandwidth = this->cfg.shared_rw_bandwidth;
+    this->max_input_pending_size = this->cfg.max_input_pending_size;
     if (this->max_input_pending_size == 0)
     {
         // If no FIFO is specified, set to max to not have any limitation
@@ -278,16 +278,14 @@ Router::Router(vp::ComponentConf &config)
     }
 
     // Then mappings and output ports
-    js::Config *mappings = this->get_js_config()->get("mappings");
-    if (mappings != NULL)
+    if (this->cfg.mappings_count > 0)
     {
-        int mapping_id = 0;
-        for (auto &mapping : mappings->get_childs())
+        for (size_t mapping_id = 0; mapping_id < this->cfg.mappings_count; mapping_id++)
         {
-            js::Config *config = mapping.second;
-            std::string name = mapping.first;
+            const RouterV1Mapping &mapping = this->cfg.mappings[mapping_id];
+            std::string name = mapping.name;
 
-            this->mapping_tree.insert(mapping_id, name, config);
+            this->mapping_tree.insert(mapping_id, name, mapping.base, mapping.size);
 
             vp::IoMaster *itf = new vp::IoMaster();
             this->output_itfs.push_back(itf);
@@ -295,19 +293,17 @@ Router::Router(vp::ComponentConf &config)
             itf->set_grant_meth_muxed(&Router::grant, mapping_id);
             this->new_master_port(name, itf);
 
-            this->remove_offset.push_back(config->get_uint("remove_offset"));
-            this->add_offset.push_back(config->get_uint("add_offset"));
-            this->map_base.push_back(config->get_uint("base"));
-            this->map_size.push_back(config->get_uint("size"));
+            this->remove_offset.push_back(mapping.remove_offset);
+            this->add_offset.push_back(mapping.add_offset);
+            this->map_base.push_back(mapping.base);
+            this->map_size.push_back(mapping.size);
             this->mapping_names.push_back(name);
-            this->mapping_latency.push_back(config->get_int("latency"));
+            this->mapping_latency.push_back(mapping.latency);
 
             if (name == "error")
             {
                 this->error_id = mapping_id;
             }
-
-            mapping_id++;
         }
 
         this->mapping_tree.build();

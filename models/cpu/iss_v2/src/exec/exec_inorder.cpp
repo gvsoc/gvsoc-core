@@ -49,7 +49,7 @@ ExecInOrder::ExecInOrder(Iss &iss)
 
     this->iss.new_reg("busy", &this->busy, 1);
 
-    this->iss.new_reg("bootaddr", &this->bootaddr_reg, this->iss.get_js_config()->get_child_int("boot_addr"));
+    this->iss.new_reg("bootaddr", &this->bootaddr_reg, this->iss.cfg.boot_addr);
 
     this->iss.new_reg("fetch_enable", &this->fetch_enable_reg, 0, true);
     this->iss.new_reg("retained", &this->retained, 0);
@@ -105,7 +105,7 @@ void ExecInOrder::reset(bool active)
     {
         // Check if the core should start fetching, if so this will unstall it and it will start
         // executing instructions.
-        this->fetchen_sync((vp::Block *)this, this->iss.get_js_config()->get("fetch_enable")->get_bool());
+        this->fetchen_sync((vp::Block *)this, this->iss.cfg.fetch_enable);
     }
 }
 

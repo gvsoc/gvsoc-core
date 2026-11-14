@@ -27,16 +27,24 @@ adapter forwards the whole burst as a single request and spreads the inline
 response into a per-beat ``resp()`` stream.
 """
 
+from config_tree import Config, cfg_field
 from gvsoc.systree import Component, SlaveItf
 from gvsoc.signature import IoV2Beat, IoV2Sync
+
+
+class IoV2BeatToSyncAdapterConfig(Config):
+    """Configuration for the io_v2 beat -> sync adapter."""
+
+    beat_width: int = cfg_field(default=0, dump=True, desc=(
+        "Width in bytes of the beats of the upstream stream"
+    ))
 
 
 class IoV2BeatToSyncAdapter(Component):
 
     def __init__(self, parent: Component, name: str, beat_width: int):
-        super().__init__(parent, name)
-        self.set_component('utils.io_v2_beat_to_sync_adapter')
-        self.add_property('beat_width', beat_width)
+        super().__init__(parent, name, config=IoV2BeatToSyncAdapterConfig(beat_width=beat_width))
+        self.add_sources(['utils/io_v2_beat_to_sync_adapter.cpp'])
         self._beat_width = beat_width
 
     def i_INPUT(self) -> SlaveItf:

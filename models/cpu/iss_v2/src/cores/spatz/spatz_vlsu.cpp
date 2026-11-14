@@ -33,7 +33,7 @@ event_label(*this, "label", 0, gv::Vcd_event_type_string)
 
     this->insns.resize(VuLsu::queue_size);
 
-    int nb_ports = iss.get_js_config()->get_child_int("vu/nb_ports");
+    int nb_ports = iss.cfg.vu.nb_ports;
     this->nb_ports = nb_ports;
 
     this->event_addr.resize(nb_ports);
@@ -59,7 +59,7 @@ event_label(*this, "label", 0, gv::Vcd_event_type_string)
         iss.new_master_port("vlsu_" + std::to_string(i), &this->ports[i], this);
     }
 
-    int nb_outstanding_reqs = iss.get_js_config()->get_child_int("vu/nb_outstanding_reqs");
+    int nb_outstanding_reqs = iss.cfg.vu.nb_outstanding_reqs;
     this->req_queues.resize(nb_ports);
     for (int i=0; i<nb_ports; i++)
     {
@@ -109,8 +109,8 @@ void VuLsu::reset(bool active)
 
         // Since the request queues are cleared with the reset, we need to put back requests
         // in each queue
-        int nb_ports = this->vu.iss.get_js_config()->get_child_int("vu/nb_ports");
-        int nb_outstanding_reqs = this->vu.iss.get_js_config()->get_child_int("vu/nb_outstanding_reqs");
+        int nb_ports = this->vu.iss.cfg.vu.nb_ports;
+        int nb_outstanding_reqs = this->vu.iss.cfg.vu.nb_outstanding_reqs;
         int req_id = 0;
         for (int i=0; i<nb_ports; i++)
         {

@@ -16,8 +16,68 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import gvsoc.systree
+from config_tree import Config, cfg_field
 from interco.router_config import RouterMapping, RouterConfig
+
+
+class RouterV1Mapping(Config):
+    """One output mapping of the router. The Config name is the name of the
+    output port."""
+
+    _defer_parent_init: ClassVar[bool] = True
+
+    base: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Base address of the mapping"
+    ))
+    size: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Size of the mapping, 0 for the default mapping"
+    ))
+    remove_offset: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Offset removed from the address of the requests going through the mapping"
+    ))
+    add_offset: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Offset added to the address of the requests going through the mapping"
+    ))
+    latency: int = cfg_field(default=0, dump=True, desc=(
+        "Latency of the requests going through the mapping"
+    ))
+
+
+class RouterV1Config(Config):
+    """Configuration of the router, filled from its properties when the system
+    tree is finalized (see Router.finalize)."""
+
+    latency: int = cfg_field(default=0, dump=True, desc=(
+        "Global latency applied to all incoming requests"
+    ))
+    bandwidth: int = cfg_field(default=0, dump=True, desc=(
+        "Global bandwidth, in bytes per cycle"
+    ))
+    shared_rw_bandwidth: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the read and write requests share the bandwidth"
+    ))
+    max_input_pending_size: int = cfg_field(default=0, dump=True, desc=(
+        "Size of the FIFO of each input (asynchronous mode)"
+    ))
+    nb_input_port: int = cfg_field(default=1, dump=True, desc=(
+        "Number of input ports"
+    ))
+    mappings: list[RouterV1Mapping] = cfg_field(default_factory=list, init=False, desc=(
+        "Output mappings, in the order of the output ports"
+    ))
+
+
+def _to_int(value) -> int:
+    # Unset values are 0, as for the JSON configuration
+    if value is None:
+        return 0
+    if isinstance(value, str):
+        # Some JSON files have a trailing comma in the value
+        return int(value.strip().rstrip(","), 0)
+    return int(value)
 
 class Router(gvsoc.systree.Component):
     """Interconnect router
@@ -93,7 +153,9 @@ class Router(gvsoc.systree.Component):
     def __init__(self, parent: gvsoc.systree.Component, name: str, latency: int=0, bandwidth: int=0,
             synchronous: bool=True, shared_rw_bandwidth: bool=False, max_input_pending_size=0,
             attributes: RouterConfig | None=None, config: RouterConfig | None=None):
-        super(Router, self).__init__(parent, name, config=config)
+        # The typed config is filled from the properties in finalize, since the
+        # properties can still be changed by the parent (e.g. mappings)
+        super(Router, self).__init__(parent, name, config=RouterV1Config())
 
         if config is not None:
             attributes = config
@@ -239,6 +301,23 @@ class Router(gvsoc.systree.Component):
             name = itf.component.name
         self.add_mapping(name, base=base, remove_offset=remove_offset, size=size, latency=latency)
         self.itf_bind(name, itf, signature='io')
+
+    def finalize(self):
+        # The properties are the reference, since the parents change them directly
+        config = self._component_config
+        config.latency = _to_int(self.get_property('latency'))
+        config.bandwidth = _to_int(self.get_property('bandwidth'))
+        config.shared_rw_bandwidth = bool(self.get_property('shared_rw_bandwidth'))
+        config.max_input_pending_size = _to_int(self.get_property('max_input_pending_size'))
+        config.nb_input_port = _to_int(self.get_property('nb_input_port'))
+        config.mappings = []
+        for name, mapping in self.get_property('mappings').items():
+            config.mappings.append(RouterV1Mapping(name=name,
+                base=_to_int(mapping.get('base', 0)),
+                size=_to_int(mapping.get('size', 0)),
+                remove_offset=_to_int(mapping.get('remove_offset', 0)),
+                add_offset=_to_int(mapping.get('add_offset', 0)),
+                latency=_to_int(mapping.get('latency', 0))))
 
     def gen_gui(self, parent_signal):
 

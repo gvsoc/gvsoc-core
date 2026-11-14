@@ -23,6 +23,7 @@
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <math.h>
+#include <interco/interleaver/interleaver_config.hpp>
 
 class interleaver : public vp::Component
 {
@@ -39,6 +40,7 @@ public:
   static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
+  InterleaverConfig cfg;
   vp::Trace     trace;
 
   vp::IoMaster **out;
@@ -56,20 +58,20 @@ private:
 };
 
 interleaver::interleaver(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
   in.set_req_meth(&interleaver::req);
   new_slave_port("input", &in);
 
-  nb_slaves = get_js_config()->get_child_int("nb_slaves");
-  nb_masters = get_js_config()->get_child_int("nb_masters");
-  stage_bits = get_js_config()->get_child_int("stage_bits");
-  interleaving_bits = get_js_config()->get_child_int("interleaving_bits");
-  remove_offset = get_js_config()->get_child_int("remove_offset");
-  enable_shift = get_js_config()->get_child_int("enable_shift");
-  offset_translation = get_js_config()->get_child_bool("offset_translation");
+  nb_slaves = this->cfg.nb_slaves;
+  nb_masters = this->cfg.nb_masters;
+  stage_bits = this->cfg.stage_bits;
+  interleaving_bits = this->cfg.interleaving_bits;
+  remove_offset = this->cfg.remove_offset;
+  enable_shift = this->cfg.enable_shift;
+  offset_translation = this->cfg.offset_translation;
 
   if (stage_bits == 0)
   {

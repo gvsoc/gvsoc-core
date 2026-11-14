@@ -15,9 +15,10 @@
 #
 
 
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
 from vp.power_config import PowerSourceConfig
 
 
@@ -36,6 +37,45 @@ class RiscvPowerConfig(Config):
     ))
     background: PowerSourceConfig = cfg_field(default_factory=PowerSourceConfig, desc=(
         "Core background power (dynamic + leakage)"
+    ))
+
+
+class RiscvVectorUnitConfig(Config):
+    """Vector unit of the core, filled by pulp.ara.ara_v2.attach when the core
+    has one."""
+
+    _defer_parent_init: ClassVar[bool] = True
+
+    nb_lanes: int = cfg_field(default=0, dump=True, desc=(
+        "Number of vector lanes"
+    ))
+    nb_ipus: int = cfg_field(default=0, dump=True, desc=(
+        "Number of integer units, 0 for one per lane"
+    ))
+    lane_width: int = cfg_field(default=0, dump=True, desc=(
+        "Width in bytes of a lane"
+    ))
+    nb_ports: int = cfg_field(default=0, dump=True, desc=(
+        "Number of memory ports of the Spatz vector LSU"
+    ))
+    nb_outstanding_reqs: int = cfg_field(default=0, dump=True, desc=(
+        "Number of outstanding requests per memory port of the Spatz vector LSU"
+    ))
+
+
+class RiscvBinaryConfig(Config):
+    """One binary simulated by the core."""
+
+    file: str = cfg_field(default='', desc=(
+        "Path of the ELF binary"
+    ))
+
+
+class RiscvArgConfig(Config):
+    """One command-line argument given to the application through HTIF."""
+
+    value: str = cfg_field(default='', desc=(
+        "Argument"
     ))
 
 
@@ -122,4 +162,40 @@ class RiscvConfig(Config):
     power: RiscvPowerConfig = cfg_field(default_factory=RiscvPowerConfig,
         init=False, desc=(
         "Named core power sources (stall_first, stall_next, background)."
+    ))
+    misa: int = cfg_field(default=0, init=False, fmt="hex", desc=(
+        "Reset value of the misa CSR, set by the core generator from its ISA"
+    ))
+    has_double: bool = cfg_field(default=False, init=False, desc=(
+        "True if the ISA has the D extension, set by the core generator from its ISA"
+    ))
+    cluster_id: int = cfg_field(default=0, init=False, desc=(
+        "Cluster ID of the core, put in the upper bits of mhartid"
+    ))
+    debug_handler: int = cfg_field(default=0, init=False, fmt="hex", desc=(
+        "Address of the debug handler"
+    ))
+    regfile_fi: bool = cfg_field(default=False, init=False, desc=(
+        "True if the register files are fault-injected"
+    ))
+    prefetcher_fi: bool = cfg_field(default=False, init=False, desc=(
+        "True if the prefetcher buffer is fault-injected"
+    ))
+    vu: RiscvVectorUnitConfig = cfg_field(default_factory=RiscvVectorUnitConfig,
+        init=False, desc=(
+        "Vector unit, when the core has one"
+    ))
+    binaries: Annotated[list[RiscvBinaryConfig], Runtime] = cfg_field(default_factory=list,
+        init=False, desc=(
+        "Binaries simulated by the core, for the debug symbols of the traces"
+    ))
+    args: Annotated[list[RiscvArgConfig], Runtime] = cfg_field(default_factory=list,
+        init=False, desc=(
+        "Command-line arguments given to the application through HTIF"
+    ))
+    htif_tohost: Annotated[int, Runtime] = cfg_field(default=0, init=False, fmt="hex", desc=(
+        "Address of the HTIF tohost symbol of the binary, 0 if none"
+    ))
+    htif_fromhost: Annotated[int, Runtime] = cfg_field(default=0, init=False, fmt="hex", desc=(
+        "Address of the HTIF fromhost symbol of the binary, 0 if none"
     ))

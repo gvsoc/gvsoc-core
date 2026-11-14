@@ -24,6 +24,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include "vp/gdbserver/gdbserver_engine.hpp"
+#include <gdbserver/gdbserver/gdbserver_config.hpp>
 #include <mutex>
 #include <condition_variable>
 
@@ -34,6 +35,7 @@ class Rsp;
 class Gdb_server : public vp::Component, vp::Gdbserver_engine
 {
 public:
+    GdbserverConfig cfg;
     Gdb_server(vp::ComponentConf &conf);
 
     void start() override;

@@ -29,9 +29,8 @@ Decode::Decode(Iss &iss)
     iss.traces.new_trace("decoder", &this->trace, vp::DEBUG);
     // this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
     this->iss.new_slave_port("flush_cache", &this->flush_cache_itf, (vp::Block *)this);
-    string isa = this->iss.get_js_config()->get_child_str("isa");
-    this->isa = strdup(isa.c_str());
-    this->has_double = this->iss.get_js_config()->get_child_bool("has_double");
+    this->isa = strdup(this->iss.cfg.isa);
+    this->has_double = this->iss.cfg.has_double;
 }
 
 uint64_t Decode::decode_ranges(iss_opcode_t opcode, iss_decoder_range_set_t *range_set, bool is_signed)

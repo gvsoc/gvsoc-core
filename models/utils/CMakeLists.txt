@@ -33,16 +33,6 @@ vp_model(NAME utils.io_v2_beat_collapse_adapter
 )
 
 # ---------------------------------------------------------------------------
-# IoV2BeatToSyncAdapter — dedicated adapter for the IoV2Beat master <-> IoV2Sync
-# slave case. The sync slave always replies IO_REQ_DONE inline, so this drops
-# the general adapter's per-beat sub-read pipeline and just spreads the inline
-# response into a per-beat resp() stream.
-# ---------------------------------------------------------------------------
-vp_model(NAME utils.io_v2_beat_to_sync_adapter
-    SOURCES "io_v2_beat_to_sync_adapter.cpp"
-)
-
-# ---------------------------------------------------------------------------
 # IoV2BeatToSingleReqAdapter — dedicated adapter for the IoV2Beat master <->
 # IoV2SingleReq slave case. A single-req slave answers each request with a
 # single-beat response (inline DONE / async GRANTED+resp / DENIED+retry, never

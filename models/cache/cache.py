@@ -16,6 +16,39 @@
 
 import gvsoc.systree as st
 import gvsoc.gui
+from config_tree import Config, cfg_field
+
+class CacheConfig(Config):
+    """Configuration of the cache."""
+
+    nb_sets_bits: int = cfg_field(default=0, dump=True, desc=(
+        "Number of sets, in log2"
+    ))
+    nb_ways_bits: int = cfg_field(default=0, dump=True, desc=(
+        "Number of ways, in log2"
+    ))
+    line_size_bits: int = cfg_field(default=0, dump=True, desc=(
+        "Size of a line in bytes, in log2"
+    ))
+    nb_ports: int = cfg_field(default=1, dump=True, desc=(
+        "Number of input ports"
+    ))
+    refill_latency: int = cfg_field(default=0, dump=True, desc=(
+        "Latency added to refills"
+    ))
+    refill_shift: int = cfg_field(default=0, dump=True, desc=(
+        "Shift applied to the refill address"
+    ))
+    add_offset: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Offset added to the refill address"
+    ))
+    enabled: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the cache is enabled at reset"
+    ))
+    fic_enabled: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the cache is registered to the fault injector"
+    ))
+
 
 class Cache(st.Component):
     """
@@ -30,24 +63,15 @@ class Cache(st.Component):
 
     def __init__(self, parent, name, nb_sets_bits, nb_ways_bits, line_size_bits, refill_latency=0, refill_shift=0, nb_ports=1, add_offset=0, enabled=False, cache_v2=False, fic_enabled=False):
 
-        super(Cache, self).__init__(parent, name)
+        super(Cache, self).__init__(parent, name, config=CacheConfig(nb_sets_bits=nb_sets_bits,
+            nb_ways_bits=nb_ways_bits, line_size_bits=line_size_bits, nb_ports=nb_ports,
+            refill_latency=refill_latency, refill_shift=refill_shift, add_offset=add_offset,
+            enabled=enabled, fic_enabled=fic_enabled))
 
         if cache_v2:
-            self.set_component('cache.cache_impl_v2')
+            self.add_sources(['cache/cache_impl_v2.cpp'])
         else:
-            self.set_component('cache.cache_impl')
-
-        self.add_properties({
-            'nb_sets_bits': nb_sets_bits,
-            'nb_ways_bits': nb_ways_bits,
-            'line_size_bits': line_size_bits,
-            'nb_ports': nb_ports,
-            'refill_latency': refill_latency,
-            'add_offset': add_offset,
-            'refill_shift': refill_shift,
-            'enabled': enabled,
-            'fic_enabled': fic_enabled,
-        })
+            self.add_sources(['cache/cache_impl.cpp'])
 
     def i_INPUT(self) -> st.SlaveItf:
         return st.SlaveItf(self, 'input', signature='io')

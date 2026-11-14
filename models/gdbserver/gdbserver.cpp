@@ -24,12 +24,11 @@
 
 
 Gdb_server::Gdb_server(vp::ComponentConf &conf)
-: vp::Component(conf)
+: vp::Component(conf, this->cfg)
 {
-    js::Config *config = this->get_js_config();
     this->rsp = NULL;
 
-    if (config->get_child_bool("enabled"))
+    if (this->cfg.enabled)
     {
         this->rsp = new Rsp(this);
     }
@@ -37,7 +36,7 @@ Gdb_server::Gdb_server(vp::ComponentConf &conf)
     this->default_hartid = 0;
     this->active_core = 0;
 
-    if (this->get_js_config()->get_child_bool("enabled"))
+    if (this->cfg.enabled)
     {
         new_service("gdbserver", static_cast<Gdbserver_engine *>(this));
     }
@@ -56,8 +55,8 @@ int Gdb_server::register_core(vp::Gdbserver_core *core)
     this->cores[id] = core;
     this->cores_list.push_back(core);
 
-    js::Config *config = this->get_js_config();
-    if (core->gdbserver_get_name() == config->get_child_str("default_hartid"))
+    if (this->cfg.default_hartid != nullptr &&
+        core->gdbserver_get_name() == this->cfg.default_hartid)
     {
         this->default_hartid = core->gdbserver_get_id();
         this->active_core = core->gdbserver_get_id();
@@ -78,7 +77,7 @@ void Gdb_server::start()
 {
     if (this->rsp)
     {
-        this->rsp->start(this->get_js_config()->get_child_int("port"));
+        this->rsp->start(this->cfg.port);
     }
 }
 

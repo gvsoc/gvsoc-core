@@ -27,7 +27,7 @@ Exception::Exception(Iss &iss)
 {
     this->iss.traces.new_trace("exception", &this->trace, vp::DEBUG);
 
-    this->debug_handler_addr = this->iss.get_js_config()->get_int("debug_handler");
+    this->debug_handler_addr = this->iss.cfg.debug_handler;
 }
 
 void Exception::raise(iss_reg_t pc, int id)

@@ -32,7 +32,7 @@ from cpu.iss.isa_gen.isa_gen import Isa
 from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
 from gvrun.systree import ExecutableContainer
-from cpu.iss_v2.riscv_config import RiscvConfig
+from cpu.iss_v2.riscv_config import RiscvConfig, RiscvBinaryConfig, RiscvArgConfig
 
 binaries_info = {}
 
@@ -585,21 +585,18 @@ class RiscvCommon(st.Component):
             "cpu/iss_v2/src/gdbserver.cpp",
         ])
 
-        self.add_properties({
-            'isa': isa.isa_string,
-            'misa': misa,
-            'first_external_pcer': first_external_pcer,
-            'riscv_dbg_unit': riscv_dbg_unit,
-            'binaries': binaries.copy(),
-            'debug_handler': debug_handler,
-            'power_models': power_models,
-            'cluster_id': cluster_id,
-            'core_id': config.hart_id,
-            'fetch_enable': config.fetch_enable,
-            'boot_addr': config.boot_addr,
-            'has_double': isa.has_isa('rvd'),
-            'regfile_fi': regfile_fi,
-        })
+        config.misa = misa
+        config.has_double = isa.has_isa('rvd')
+        config.cluster_id = cluster_id
+        config.debug_handler = debug_handler
+        config.regfile_fi = regfile_fi
+        config.prefetcher_fi = prefetcher_fi
+        # The binaries and their HTIF addresses are known at run time, they go
+        # to the runtime config
+        if binaries is not None:
+            for binary in binaries:
+                if binary is not None:
+                    self.__add_binary(binary)
 
         self.htif = config.htif
         if config.htif:
@@ -620,11 +617,18 @@ class RiscvCommon(st.Component):
                 if binary is not None:
                     self.add_executable(ExecutableContainer(binary))
 
+    def __add_binary(self, binary):
+        self._component_config.binaries.append(RiscvBinaryConfig(file=binary))
+
+    def set_args(self, args: list[str]):
+        """Set the command-line arguments given to the application through HTIF."""
+        self._component_config.args = [RiscvArgConfig(value=arg) for arg in args]
+
     def handle_executable(self, binary):
 
         # Record the binary; the ISS resolves trace symbols from it lazily at
         # runtime from the ELF binary (no precompute step, no binary-size cap).
-        self.get_property('binaries').append(binary)
+        self.__add_binary(binary)
 
         if self.htif:
             self.handle_htif(binary)
@@ -653,10 +657,10 @@ class RiscvCommon(st.Component):
             tohost_addr, fromhost_addr = binary_info
 
         if fromhost_addr is not None:
-            self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
+            self._component_config.htif_fromhost = fromhost_addr
 
         if tohost_addr is not None:
-            self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+            self._component_config.htif_tohost = tohost_addr
 
     def generate(self, builddir):
         for executable in self.get_executables():

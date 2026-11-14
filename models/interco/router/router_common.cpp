@@ -24,7 +24,7 @@
 #include <vp/proxy.hpp>
 
 RouterCommon::RouterCommon(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
     this->proxy_req.set_data(new uint8_t[4]);
 }

@@ -54,15 +54,15 @@ Vu::Vu(Iss &iss)
     this->traces.new_trace_event("pc", &this->event_pc, 64);
     this->traces.new_trace_event("queue", &this->event_queue, 64);
 
-    this->nb_lanes = iss.get_js_config()->get_int("vu/nb_lanes");
+    this->nb_lanes = iss.cfg.vu.nb_lanes;
     // Number of integer units. Defaults to the number of lanes when the
     // configuration does not specify it.
-    this->nb_ipus = iss.get_js_config()->get_int("vu/nb_ipus");
+    this->nb_ipus = iss.cfg.vu.nb_ipus;
     if (this->nb_ipus == 0)
     {
         this->nb_ipus = this->nb_lanes;
     }
-    this->lane_width = iss.get_js_config()->get_child_int("vu/lane_width");
+    this->lane_width = iss.cfg.vu.lane_width;
     this->blocks.resize(Vu::nb_blocks);
     this->blocks[Vu::vlsu_id] = new VuLsu(*this, iss);
     this->blocks[Vu::vfpu_id] = new VuCompute(*this, "vfpu");

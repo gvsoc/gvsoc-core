@@ -89,8 +89,8 @@ Htif::Htif(Iss &iss)
 void Htif::build()
 {
 #ifdef CONFIG_GVSOC_ISS_HTIF
-    this->tohost_addr = this->iss.get_js_config()->get_uint("htif_tohost");
-    this->fromhost_addr = this->iss.get_js_config()->get_uint("htif_fromhost");
+    this->tohost_addr = this->iss.cfg.htif_tohost;
+    this->fromhost_addr = this->iss.cfg.htif_fromhost;
 #endif
 }
 
@@ -376,9 +376,9 @@ iss_reg_t Htif::sys_getmainvars(iss_reg_t pbuf, iss_reg_t limit, iss_reg_t a2, i
 {
     std::vector<std::string> args = { "app" };
 
-    for (auto x: this->iss.get_js_config()->get("args")->get_elems())
+    for (size_t i = 0; i < this->iss.cfg.args_count; i++)
     {
-        args.push_back(x->get_str());
+        args.push_back(this->iss.cfg.args[i].value);
     }
 
     std::vector<uint64_t> words(args.size() + 3);

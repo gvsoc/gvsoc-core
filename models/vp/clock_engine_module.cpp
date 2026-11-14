@@ -21,8 +21,11 @@
 
 #include <vp/vp.hpp>
 #include <vp/clock/clock_engine.hpp>
+#include <vp/component_tree.hpp>
+#include <vp/clock_domain/clock_domain_config.hpp>
 
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    return new vp::ClockEngine(config);
+    const ClockDomainConfig *cfg = (const ClockDomainConfig *)config.tree_node->config;
+    return new vp::ClockEngine(config, cfg->frequency, cfg->factor);
 }

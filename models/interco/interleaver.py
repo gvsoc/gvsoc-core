@@ -15,6 +15,33 @@
 #
 
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+
+
+class InterleaverConfig(Config):
+    """Configuration of the memory interleaver."""
+
+    nb_slaves: int = cfg_field(default=0, dump=True, desc=(
+        "Number of slave ports where the accesses are dispatched"
+    ))
+    nb_masters: int = cfg_field(default=0, dump=True, desc=(
+        "Number of master ports"
+    ))
+    interleaving_bits: int = cfg_field(default=0, dump=True, desc=(
+        "Size in bits of the accesses dispatched to banks"
+    ))
+    stage_bits: int = cfg_field(default=0, dump=True, desc=(
+        "Number of bits used for dispatching the accesses, 0 for log2(nb_slaves)"
+    ))
+    remove_offset: int = cfg_field(default=0, dump=True, fmt="hex", desc=(
+        "Offset removed from the address of the dispatched accesses"
+    ))
+    enable_shift: int = cfg_field(default=0, dump=True, desc=(
+        "Shift applied to the address"
+    ))
+    offset_translation: bool = cfg_field(default=True, dump=True, desc=(
+        "True if the address is translated into the bank offset"
+    ))
 
 class Interleaver(st.Component):
     """
@@ -42,16 +69,9 @@ class Interleaver(st.Component):
 
     def __init__(self, parent, name, nb_slaves: int, interleaving_bits: int, nb_masters: int=0, stage_bits: int=0, remove_offset: int=0, enable_shift: int=0, offset_translation: bool=True):
 
-        super(Interleaver, self).__init__(parent, name)
+        super(Interleaver, self).__init__(parent, name, config=InterleaverConfig(
+            nb_slaves=nb_slaves, nb_masters=nb_masters, interleaving_bits=interleaving_bits,
+            stage_bits=stage_bits, remove_offset=remove_offset, enable_shift=enable_shift,
+            offset_translation=offset_translation))
 
-        self.set_component('interco.interleaver_impl')
-
-        self.add_properties({
-            'nb_slaves': nb_slaves,
-            'nb_masters': nb_masters,
-            'interleaving_bits': interleaving_bits,
-            'stage_bits': stage_bits,
-            'remove_offset': remove_offset,
-            'enable_shift': enable_shift,
-            'offset_translation': offset_translation
-        })
+        self.add_sources(['interco/interleaver_impl.cpp'])

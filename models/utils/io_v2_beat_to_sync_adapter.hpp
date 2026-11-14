@@ -69,6 +69,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/debug_mem.hpp>
+#include <utils/io_v2_beat_to_sync_adapter/io_v2_beat_to_sync_adapter_config.hpp>
 
 
 class IoV2BeatToSyncAdapter : public vp::Component, public vp::DebugMemIf
@@ -155,6 +156,7 @@ private:
     // that entry's latency has not elapsed yet.
     void schedule_next();
 
+    IoV2BeatToSyncAdapterConfig cfg;
     int beat_width;
     // Shared pool serving beat-sized requests with their payload co-allocated;
     // read beats are drawn from it and freed by the terminal master.

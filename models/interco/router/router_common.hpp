@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <functional>
 #include <vector>
+#include <interco/router/router_v1_config.hpp>
 
 namespace vp_router_legacy_debug
 {
@@ -110,6 +111,9 @@ class RouterCommon : public vp::Component
 {
 public:
     RouterCommon(vp::ComponentConf &conf);
+
+    // Router configuration, from the compiled tree
+    RouterV1Config cfg;
 
     std::string handle_command(gv::GvProxy *proxy, FILE *req_file,
         FILE *reply_file, std::vector<std::string> args, std::string cmd_req) override;

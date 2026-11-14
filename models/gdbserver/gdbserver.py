@@ -14,16 +14,42 @@
 # limitations under the License.
 #
 
+from typing import Annotated
+
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
+
+
+class GdbserverConfig(Config):
+    """Configuration of the GDB server."""
+
+    enabled: Annotated[bool, Runtime] = cfg_field(default=False, dump=True, desc=(
+        "True if the GDB server is opened (the --gdbserver option)"
+    ))
+    port: Annotated[int, Runtime] = cfg_field(default=12345, dump=True, desc=(
+        "Port of the GDB server (the --gdbserver-port option)"
+    ))
+    default_hartid: str = cfg_field(default='', dump=True, desc=(
+        "Name of the core active when GDB connects"
+    ))
+
 
 class Gdbserver(st.Component):
 
     def __init__(self, parent, name, enabled=False, port=12345, default_hartid=""):
 
-        super(Gdbserver, self).__init__(parent, name)
+        super(Gdbserver, self).__init__(parent, name, config=GdbserverConfig(enabled=enabled,
+            port=port, default_hartid=default_hartid))
 
-        self.add_property('enabled', enabled)
-        self.add_property('port', port)
-        self.add_property('default_hartid', default_hartid)
+        self.add_sources([
+            'gdbserver/gdbserver.cpp',
+            'gdbserver/rsp.cpp',
+            'gdbserver/rsp-packet-codec.cpp',
+            'gdbserver/circular-buffer.cpp',
+        ])
 
-        self.set_component('gdbserver.gdbserver')
+    def enable(self, port: int):
+        """Open the GDB server on the given port for this run."""
+        self._component_config.enabled = True
+        self._component_config.port = port

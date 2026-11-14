@@ -27,46 +27,68 @@
 #include <vp/component_tree.hpp>
 #include "vp/top.hpp"
 
+// The runner dumps the files of a run next to the engine options and stores
+// work-dir-relative names in them, counting on the engine running from the
+// work dir. Launchers like the GUI run from anywhere, so a relative name is
+// resolved against the directory of the options file, falling back to the
+// plain cwd-relative name when not there.
+static std::string resolve_config_relative(std::string config_path, std::string path)
+{
+    if (!path.empty() && path[0] != '/')
+    {
+        std::filesystem::path resolved = std::filesystem::path(config_path).parent_path() / path;
+        if (std::filesystem::exists(resolved))
+        {
+            return resolved.string();
+        }
+    }
+    return path;
+}
+
 vp::Top::Top(std::string config_path, std::string runtime_config_path, bool is_async,
     gv::Controller *launcher)
 {
-    js::Config *js_config = js::import_config_from_file(config_path);
-    if (js_config == NULL)
+    // The configuration file holds the engine options (traces, events, proxy,
+    // platform tree, ...)
+    this->gv_config = js::import_config_from_file(config_path);
+    if (this->gv_config == NULL)
     {
         throw std::invalid_argument("Invalid configuration.");
     }
 
-    this->gv_config = js_config->get("target/gvsoc");
+    if (this->gv_config->get("target") != nullptr)
+    {
+        throw std::runtime_error(config_path + " is a configuration of an older GVSoC, "
+            "run gvrun again to generate it");
+    }
 
     // Load the per-run runtime config values, overlaid onto the compiled
     // tree configs at component construction. Launchers which do not forward
     // the --runtime-config option (e.g. the GUI) get the path from the
-    // gvsoc config instead.
+    // engine options instead.
     if (runtime_config_path == "")
     {
         js::Config *runtime_config_cfg = this->gv_config->get("runtime_config");
         if (runtime_config_cfg != nullptr)
         {
-            runtime_config_path = runtime_config_cfg->get_str();
-
-            // The runner dumps the file next to the gvsoc config and stores
-            // a work-dir-relative name, counting on the engine running from
-            // the work dir. Launchers like the GUI run from anywhere, so
-            // resolve a relative name against the config's own directory
-            // (falling back to the plain cwd-relative name when not there,
-            // since a missing runtime config silently applies the baked
-            // defaults).
-            if (!runtime_config_path.empty() && runtime_config_path[0] != '/')
-            {
-                std::filesystem::path resolved =
-                    std::filesystem::path(config_path).parent_path()
-                    / runtime_config_path;
-                if (std::filesystem::exists(resolved))
-                {
-                    runtime_config_path = resolved.string();
-                }
-            }
+            // A missing runtime config silently applies the baked defaults
+            runtime_config_path = resolve_config_relative(config_path,
+                runtime_config_cfg->get_str());
         }
+    }
+
+    // Properties of the components still configured from JSON, in a file of
+    // their own
+    js::Config *platform_config;
+    js::Config *platform_config_cfg = this->gv_config->get("platform_config");
+    if (platform_config_cfg != nullptr)
+    {
+        platform_config = js::import_config_from_file(
+            resolve_config_relative(config_path, platform_config_cfg->get_str()));
+    }
+    else
+    {
+        platform_config = js::import_config_from_string("{}");
     }
     this->runtime_config = new vp::RuntimeConfig();
     if (runtime_config_path != "")
@@ -113,7 +135,7 @@ vp::Top::Top(std::string config_path, std::string runtime_config_path, bool is_a
     this->stats_engine = new vp::StatsEngine(this->gv_config);
     this->memcheck = new vp::MemCheck(launcher);
 
-    this->top_instance = vp::Component::load_component(js_config->get("**/target"), this->gv_config,
+    this->top_instance = vp::Component::load_component(platform_config, this->gv_config,
         NULL, "", this->time_engine, this->trace_engine, this->power_engine, this->memcheck,
         platform_tree, this->stats_engine, this->runtime_config);
 

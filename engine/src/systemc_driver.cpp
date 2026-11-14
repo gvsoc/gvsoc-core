@@ -111,14 +111,10 @@ int requires_systemc(const char *config_path)
 {
     // In case GVSOC was compiled with SystemC, check if we have at least one SystemC component
     // and if so, forward the launch to the dedicated SystemC launcher
-    js::Config *js_config = js::import_config_from_file(config_path);
-    if (js_config)
+    js::Config *gv_config = js::import_config_from_file(config_path);
+    if (gv_config)
     {
-        js::Config *gv_config = js_config->get("target/gvsoc");
-        if (gv_config)
-        {
-            return gv_config->get_child_bool("systemc");
-        }
+        return gv_config->get_child_bool("systemc");
     }
 
     return 0;

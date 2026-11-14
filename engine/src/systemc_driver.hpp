@@ -30,7 +30,7 @@ namespace gv
 };
 
 // Returns true if the configuration at config_path contains at least one SystemC
-// component (target/gvsoc/systemc=true).
+// component (systemc=true in the engine options).
 int requires_systemc(const char *config_path);
 
 // Standalone (CLI) entry point: instantiate a synchronous GVSOC, then drive its time

@@ -34,7 +34,7 @@ libsystemc runtime dependency on every run, the SystemC-capable binaries are bui
 when ``$SYSTEMC_HOME`` is defined: the launchers ``gvsoc_launcher_sc`` / ``gvsoc_launcher_profile_sc`` /
 ``gvsoc_launcher_debug_sc`` and the GUI ``gvsoc-gui3-sc``. The default ``gvsoc_launcher`` and
 ``gvsoc-gui3`` stay SystemC-free. gvrun automatically selects the ``_sc`` variant for targets that
-require SystemC (``target/gvsoc/systemc``); when such a target runs, the engine is driven by the
+require SystemC (the ``systemc`` engine option); when such a target runs, the engine is driven by the
 SystemC kernel instead of the internal engine thread.
 
 Inside the GVSOC library, the launcher module is in charge of implementing the API for the 2 available modes:

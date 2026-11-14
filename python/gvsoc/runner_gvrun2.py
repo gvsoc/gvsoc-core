@@ -190,9 +190,26 @@ def _strip_tree_data(config):
         for v in config.items.values():
             _strip_tree_data(v)
 
+# Properties of the components still configured from JSON, dumped next to the
+# engine options which refer to it
+PLATFORM_CONFIG_PATH = 'gvsoc_platform.json'
+
+
 def dump_config(full_config, gvsoc_config_path):
+    """Dump the engine options (target/gvsoc) to gvsoc_config_path and the
+    rest of the target to the platform config file."""
+    target = full_config.get('target')
+    gvsoc_config = target.items.pop('gvsoc')
+    try:
+        platform_path = os.path.join(os.path.dirname(gvsoc_config_path), PLATFORM_CONFIG_PATH)
+        with open(platform_path, 'w') as file:
+            file.write(target.dump_to_string())
+    finally:
+        target.items['gvsoc'] = gvsoc_config
+
+    gvsoc_config.set('platform_config', PLATFORM_CONFIG_PATH)
     with open(gvsoc_config_path, 'w') as file:
-        file.write(full_config.dump_to_string())
+        file.write(gvsoc_config.dump_to_string())
 
 
 # Control scripts loaded so far, by path. A script can declare its own options

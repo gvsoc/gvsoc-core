@@ -257,7 +257,7 @@ class CampaignManager:
                 req = final_caches_data_req_str()
                 ff.write(f'{req}\n')
 
-            cmd_line += [f'--config-opt={fic}/faults_path={ffp}']
+            cmd_line += [f'--parameter={fic}/faults_path={ffp}']
         
         start_time = time.perf_counter()
         self.run_gvsoc(GOLDEN_RUN_TID, GOLDEN_RUN_RID, fault_opts=cmd_line, golden_run=True)
@@ -422,7 +422,7 @@ class CampaignManager:
                 ffp = f"{self.workdir}/faults/{san_fic}_{tid}"
                 with open(ffp, 'w') as ff:
                     ff.write('\n'.join(lines))
-                cmd_parts.append(f'--config-opt={fic}/faults_path={ffp}')
+                cmd_parts.append(f'--parameter={fic}/faults_path={ffp}')
 
             status = self.run_gvsoc(tid, current_run, fault_opts=cmd_parts)
 

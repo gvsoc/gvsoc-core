@@ -825,7 +825,10 @@ class Component(gvrun.target.SystemTreeNode):
         for component_name, component in self.components.items():
             config[component_name] = component.get_json_config()
 
-        config.update(self.properties)
+        # A property named like a sub-component (e.g. a config field enabling
+        # it) must not replace the sub-component's own config
+        config.update({name: value for name, value in self.properties.items()
+            if name not in self.components})
 
         if len(self.bindings) != 0:
             if config.get('bindings') is None:

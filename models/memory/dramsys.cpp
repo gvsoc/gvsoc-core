@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <cstdint>
 #include <dlfcn.h>  // Linux specific header for dynamic loading
+#include <unistd.h>
 
 typedef void*   CallbackInstance_t;
 typedef void    (AsynCallbackResp_Meth)(CallbackInstance_t instance, int is_write);
@@ -120,7 +121,15 @@ ddr::ddr(vp::ComponentConf &config)
     this->new_slave_port("pim_data", &pim_data_itf);
 
     // Load DRAMSys dynamic library and get function pointers
-    libraryHandle = dlopen("libDRAMSys_Simulator.so", RTLD_LAZY);
+    // The library of DRAMSYS_PATH when it has one (where the CI installs it,
+    // with the configs), else the one of the library search path
+    const char *lib_dir = std::getenv("DRAMSYS_PATH");
+    std::string lib_path = lib_dir ? std::string(lib_dir) + "/libDRAMSys_Simulator.so" : "";
+    if (lib_path.empty() || access(lib_path.c_str(), F_OK) != 0)
+    {
+        lib_path = "libDRAMSys_Simulator.so";
+    }
+    libraryHandle = dlopen(lib_path.c_str(), RTLD_LAZY);
     if (!libraryHandle) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         abort();

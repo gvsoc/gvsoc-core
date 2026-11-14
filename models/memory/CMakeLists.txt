@@ -33,6 +33,9 @@ set_source_files_properties(dramsys.cpp dramsys_v2.cpp PROPERTIES
 # src/ headers — see the build instructions). Like DRAMSYS_PATH for dramsys.
 # Ramulator exposes a C++ API (not a C ABI), so it is linked directly and the
 # model is compiled with -std=c++20.
+# Looked up again at each configuration: a cached one would stay when
+# RAMULATOR_HOME changes or goes.
+unset(RAMULATOR_LIB CACHE)
 if(DEFINED ENV{RAMULATOR_HOME})
     set(RAMULATOR_DIR $ENV{RAMULATOR_HOME})
     find_library(RAMULATOR_LIB ramulator

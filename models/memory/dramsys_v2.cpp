@@ -72,6 +72,7 @@ struct GvsocMemspec {
 #include <cstdint>
 #include <cstdlib>
 #include <dlfcn.h>
+#include <unistd.h>
 #include <vector>
 #include <deque>
 #include <unordered_map>
@@ -179,7 +180,15 @@ ddr_v2::ddr_v2(vp::ComponentConf &config)
     traces.new_trace("trace", &this->trace, vp::DEBUG);
     new_slave_port("input", &this->in_itf);
 
-    libraryHandle = dlopen("libDRAMSys_Simulator.so", RTLD_LAZY);
+    // The library of DRAMSYS_PATH when it has one (where the CI installs it,
+    // with the configs), else the one of the library search path
+    const char *lib_dir = std::getenv("DRAMSYS_PATH");
+    std::string lib_path = lib_dir ? std::string(lib_dir) + "/libDRAMSys_Simulator.so" : "";
+    if (lib_path.empty() || access(lib_path.c_str(), F_OK) != 0)
+    {
+        lib_path = "libDRAMSys_Simulator.so";
+    }
+    libraryHandle = dlopen(lib_path.c_str(), RTLD_LAZY);
     if (!libraryHandle) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         abort();

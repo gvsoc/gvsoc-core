@@ -195,6 +195,29 @@ def dump_config(full_config, gvsoc_config_path):
         file.write(full_config.dump_to_string())
 
 
+# Control scripts loaded so far, by path. A script can declare its own options
+# with parse_args(parser, args): they must be on the parser before gvrun parses the
+# whole command line, so the script is loaded when the target is built and only
+# once.
+_gvcontrol_scripts = {}
+
+def _load_gvcontrol_script(parser, args):
+    path = args.gvcontrol
+    module = _gvcontrol_scripts.get(path)
+    if module is None:
+        try:
+            spec = importlib.util.spec_from_file_location(path, path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["module.name"] = module
+            spec.loader.exec_module(module)
+        except FileNotFoundError as exc:
+            raise RuntimeError('Unable to open test configuration file: ' + path)
+        _gvcontrol_scripts[path] = module
+        if hasattr(module, 'parse_args'):
+            module.parse_args(parser, args)
+    return module
+
+
 class Runner():
 
     class ExpectLoopThread(threading.Thread):
@@ -373,19 +396,8 @@ class Runner():
         gvsoc_config = self.full_config.get('target/gvsoc')
 
         if args.gvcontrol:
-            # Import the user gvcontrol script
-            try:
-                spec = importlib.util.spec_from_file_location(args.gvcontrol, args.gvcontrol)
-                module = importlib.util.module_from_spec(spec)
-                sys.modules["module.name"] = module
-                spec.loader.exec_module(module)
-            except FileNotFoundError as exc:
-                raise RuntimeError('Unable to open test configuration file: ' + args.gvcontrol)
-
+            module = _load_gvcontrol_script(parser, args)
             self.gvcontrol_module = module
-
-            if hasattr(module, 'parse_args'):
-                module.parse_args(parser, args)
 
         if gvsoc_config.get_bool('events/gen_gtkw'):
             path = os.path.join(args.work_dir, 'view.gtkw')
@@ -1038,6 +1050,9 @@ class Target(gvrun.target.Target):
                 help='Specifies verbose level.')
 
             [args, otherArgs] = parser.parse_known_args()
+
+            if args.gvcontrol:
+                _load_gvcontrol_script(parser, args)
 
         if model is None:
             # New way of instantiating the model through gvrun. The signature is taken

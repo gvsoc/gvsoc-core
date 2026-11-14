@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# The legacy gvsoc command: translates its options and runs gvrun
+# (python/gvsoc/legacy_cli.py).
+
 if [  -n "${ZSH_VERSION:-}" ]; then
         DIR="$(readlink -f -- "${(%):-%x}")"
         DIRNAME="$(dirname $DIR)"
@@ -12,4 +15,9 @@ export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$INSTALL_DIR/python:$PYTHONPATH
 export PATH=$INSTALL_DIR/bin:$PATH
 
-exec gapy --platform=gvsoc --target-dir=$INSTALL_DIR/generators --model-dir=$INSTALL_DIR/models "$@"
+if [ -z "$GVRUN_MODEL_PATH" ]; then
+    GVRUN_MODEL_PATH=$INSTALL_DIR/models
+fi
+
+exec python3 -m gvsoc.legacy_cli "$@" --target-dir="$INSTALL_DIR/targets" \
+    --target-dir="$INSTALL_DIR/generators" --model-dir="$GVRUN_MODEL_PATH"

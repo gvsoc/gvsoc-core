@@ -343,6 +343,10 @@ function(vp_model)
 
             if(DEFINED ENV{SYSTEMC_HOME})
                 target_include_directories(${VP_MODEL_NAME_OPTIM} PRIVATE $ENV{SYSTEMC_HOME}/include)
+                # SystemC from the _sc launcher which loads the model, as on Linux
+                if(APPLE)
+                    target_link_options(${VP_MODEL_NAME_OPTIM} PRIVATE "LINKER:-undefined,dynamic_lookup")
+                endif()
             endif()
 
             if(VP_MODEL_OUTPUT_NAME)
@@ -378,6 +382,10 @@ function(vp_model)
 
             if(DEFINED ENV{SYSTEMC_HOME})
                 target_include_directories(${VP_MODEL_NAME_ASSERTS} PRIVATE $ENV{SYSTEMC_HOME}/include)
+                # SystemC from the _sc launcher which loads the model, as on Linux
+                if(APPLE)
+                    target_link_options(${VP_MODEL_NAME_ASSERTS} PRIVATE "LINKER:-undefined,dynamic_lookup")
+                endif()
             endif()
 
             if(VP_MODEL_OUTPUT_NAME)
@@ -443,6 +451,10 @@ function(vp_model)
 
             if(DEFINED ENV{SYSTEMC_HOME})
                 target_include_directories(${VP_MODEL_NAME_PROFILE} PRIVATE $ENV{SYSTEMC_HOME}/include)
+                # SystemC from the _sc launcher which loads the model, as on Linux
+                if(APPLE)
+                    target_link_options(${VP_MODEL_NAME_PROFILE} PRIVATE "LINKER:-undefined,dynamic_lookup")
+                endif()
             endif()
 
             if(VP_MODEL_OUTPUT_NAME)
@@ -478,6 +490,10 @@ function(vp_model)
 
             if(DEFINED ENV{SYSTEMC_HOME})
                 target_include_directories(${VP_MODEL_NAME_DEBUG} PRIVATE $ENV{SYSTEMC_HOME}/include)
+                # SystemC from the _sc launcher which loads the model, as on Linux
+                if(APPLE)
+                    target_link_options(${VP_MODEL_NAME_DEBUG} PRIVATE "LINKER:-undefined,dynamic_lookup")
+                endif()
             endif()
 
             if(VP_MODEL_OUTPUT_NAME)

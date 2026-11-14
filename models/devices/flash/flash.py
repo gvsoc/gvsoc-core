@@ -15,93 +15,12 @@
 # limitations under the License.
 #
 
-import os
+import gvsoc.systree as st
 
-if os.environ.get('USE_GVRUN') is None:
-    import gvsoc.systree as st
+class Flash(st.Component):
 
+    def __init__(self, parent, name):
+        super(Flash, self).__init__(parent, name)
 
-    class Flash(st.Component):
-
-        def __init__(self, parent, name):
-            super(Flash, self).__init__(parent, name)
-
-            self.declare_flash()
-
-        def get_image_path(self):
-            return self.get_path().replace('/', '.') + '.bin'
-
-elif os.environ.get('USE_GVRUN2') is None:
-
-    import gvsoc.systree as st
-    import gvrun.flash
-    import gvrun.target
-
-
-    class Flash(st.Component, gvrun.target.BinaryLoader):
-
-        def __init__(self, parent, name, size=0, type='undefined'):
-            super(Flash, self).__init__(parent, name)
-
-            self.size = size
-            self.type = type
-            self.binaries = []
-
-            self.declare_flash()
-
-            self.declare_target_property(
-                gvrun.target.Property(
-                    name='template', value=None,
-                    description='Specify the template describing how to generate flash image'
-                )
-            )
-
-            self.declare_target_property(
-                gvrun.target.Property(
-                    name='section_start_align', value=16, cast=int,
-                    description='Specify flash section start alignment'
-                )
-            )
-
-            self.declare_target_property(
-                gvrun.target.Property(
-                    name='section_size_align', value=16, cast=int,
-                    description='Specify flash section size alignment'
-                )
-            )
-
-            self.generator = gvrun.flash.Flash(self, self.name)
-
-        def dump_flash_layout(self, layout_level):
-            self.generator.dump_layout(layout_level)
-
-        def register_binary(self, binary):
-            self.binaries.append(binary)
-
-        def get_image_path(self):
-            return self.get_path().replace('/', '.') + '.bin'
-
-        def generate(self, builddir):
-            self.generator.generate_image(builddir)
-
-        def configure_after_compile(self):
-            self.generator.configure_after_compile()
-
-        def configure(self):
-            self.generator.parse_content(self.get_target_property('template'))
-
-
-        def register_section_template(self, name, template):
-            self.generator.register_section_template(name, template)
-
-else:
-
-    import gvsoc.systree as st
-
-    class Flash(st.Component):
-
-        def __init__(self, parent, name):
-            super(Flash, self).__init__(parent, name)
-
-        def get_image_path(self):
-            return self.get_path().replace('/', '.') + '.bin'
+    def get_image_path(self):
+        return self.get_path().replace('/', '.') + '.bin'

@@ -1,6 +1,5 @@
 GVSOC_ROOT ?= ../../../../../..
 WORK_DIR ?= work
-USE_GVRUN = 1
 
 clean:
 	make -C $(GVSOC_ROOT) TARGETS=test MODULES=$(CURDIR) clean

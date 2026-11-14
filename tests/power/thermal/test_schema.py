@@ -20,10 +20,6 @@ import shutil
 import sys
 import tempfile
 
-# The generator imports gvsoc.systree, whose installed dispatcher needs this
-# to pick the gvrun2 implementation (gvrun exports it, a plain shell doesn't).
-os.environ.setdefault('USE_GVRUN2', '1')
-
 try:
     from thermal.thermal_model import (ThermalModelConfig, apply_thermal_yaml,
                                        load_thermal_yaml)

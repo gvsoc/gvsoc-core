@@ -23,6 +23,7 @@
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <math.h>
+#include <interco/converter/converter_config.hpp>
 
 class converter : public vp::Component
 {
@@ -37,6 +38,7 @@ public:
 
 
 private:
+  ConverterConfig cfg;
 
   static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
 
@@ -73,7 +75,7 @@ private:
 };
 
 converter::converter(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -84,8 +86,8 @@ converter::converter(vp::ComponentConf &config)
   out.set_grant_meth(&converter::grant);
   new_master_port("out", &out);
 
-  output_width = get_js_config()->get_child_int("output_width");
-  output_align = get_js_config()->get_child_int("output_align");
+  output_width = this->cfg.output_width;
+  output_align = this->cfg.output_align;
 
   event = event_new(converter::event_handler);
 

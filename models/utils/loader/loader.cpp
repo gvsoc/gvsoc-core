@@ -30,6 +30,7 @@
 #include <fcntl.h>
 
 #include "elf.h"
+#include <utils/loader/loader_v2/elf_loader_config.hpp>
 
 
 class Section
@@ -56,6 +57,7 @@ public:
     static void response(vp::Block *__this, vp::IoReq *req);
 
 private:
+    ElfLoaderConfig cfg;
     static void event_handler(vp::Block *__this, vp::ClockEvent *event);
     bool load_elf(const char* file, uint64_t *entry);
     bool load_elf32(unsigned char* file, uint64_t *entry);
@@ -79,7 +81,7 @@ private:
 
 
 loader::loader(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -115,24 +117,21 @@ void loader::reset(bool active)
 {
     if (!active)
     {
-        for (auto x:this->get_js_config()->get("binary")->get_elems())
+        for (size_t i = 0; i < this->cfg.binaries_count; i++)
         {
-            this->load_elf(x->get_str().c_str(), &this->entry);
+            this->load_elf(this->cfg.binaries[i].file, &this->entry);
         }
 
-        js::Config *entry_addr_conf = this->get_js_config()->get("entry_addr");
-        if (entry_addr_conf != NULL)
+        if (this->cfg.has_entry_addr)
         {
-            uint64_t entry_addr = entry_addr_conf->get_int();
-            this->section_copy(entry_addr, (uint8_t *)&this->entry, this->is_32 ? 4 : 8);
+            this->section_copy(this->cfg.entry_addr, (uint8_t *)&this->entry, this->is_32 ? 4 : 8);
         }
 
-        js::Config *fetchen_addr_conf = this->get_js_config()->get("fetchen_addr");
-        if (fetchen_addr_conf != NULL)
+        if (this->cfg.has_fetchen_addr)
         {
-            uint64_t fetchen_addr = fetchen_addr_conf->get_int();
-            this->fetchen_value = this->get_js_config()->get("fetchen_value")->get_int();
-            this->section_copy(fetchen_addr, (uint8_t *)&this->fetchen_value, this->is_32 ? 4 : 8);
+            this->fetchen_value = (uint64_t)this->cfg.fetchen_value;
+            this->section_copy(this->cfg.fetchen_addr, (uint8_t *)&this->fetchen_value,
+                this->is_32 ? 4 : 8);
         }
 
         if (this->sections.size() > 0)
@@ -212,10 +211,9 @@ void loader::event_handler(vp::Block *__this, vp::ClockEvent *event)
     }
     else
     {
-        js::Config *entry_conf = _this->get_js_config()->get("entry");
-        if (entry_conf != NULL)
+        if (_this->cfg.has_entry)
         {
-            _this->entry = entry_conf->get_int();
+            _this->entry = (uint64_t)_this->cfg.entry;
         }
 
         if (_this->entry_itf.is_bound())

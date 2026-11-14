@@ -31,6 +31,7 @@
 
 #include <vp/itf/hyper.hpp>
 #include <vp/itf/wire.hpp>
+#include <devices/hyperbus/hyperram/hyperram_config.hpp>
 
 #define REGS_AREA_SIZE 1024
 
@@ -55,6 +56,7 @@ public:
   static void cs_sync(vp::Block *__this, int cs, int value);
 
 protected:
+  HyperramConfig cfg;
   vp::Trace     trace;
   vp::HyperSlave   in_itf;
 
@@ -113,7 +115,7 @@ void Hyperram::handle_access(int reg_access, int address, int read, uint8_t data
 
 
 Hyperram::Hyperram(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -121,9 +123,7 @@ Hyperram::Hyperram(vp::ComponentConf &config)
   in_itf.set_cs_sync_meth(&Hyperram::cs_sync);
   new_slave_port("input", &in_itf);
 
-  js::Config *conf = this->get_js_config();
-
-  this->size = conf->get("size")->get_int();
+  this->size = this->cfg.size;
 
   this->data = new uint8_t[this->size];
   memset(this->data, 0xff, this->size);

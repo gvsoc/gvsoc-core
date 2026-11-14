@@ -4,10 +4,6 @@ vp_model(NAME interco.testandset
     SOURCES "testandset.cpp"
     )
 
-vp_model(NAME interco.converter_impl
-    SOURCES "converter_impl.cpp"
-    )
-
 vp_model(NAME interco.bus_watchpoint_64
     SOURCES "bus_watchpoint.cpp"
     )

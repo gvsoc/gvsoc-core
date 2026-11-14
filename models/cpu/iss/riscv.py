@@ -27,6 +27,9 @@ from cpu.iss.isa_gen.isa_riscv_gen import *
 from elftools.elf.elffile import *
 from gvrun.systree import ExecutableContainer
 import gvrun.timing
+from cpu.iss.riscv_config import IssConfig
+from cpu.iss_v2.riscv_config import RiscvBinaryConfig
+from vp.power_config import apply_power_yaml, load_power_yaml_list
 
 binaries_info = {}
 
@@ -37,6 +40,7 @@ class IssModule:
     def gen(self, iss):
         pass
 
+
 class ExecInOrder(IssModule):
     def __init__(self, scoreboard: bool=False):
         self.scoreboard = scoreboard
@@ -44,6 +48,7 @@ class ExecInOrder(IssModule):
     def gen(self, iss):
         if self.scoreboard:
             iss.add_c_flags([f'-DCONFIG_GVSOC_ISS_EXEC_SCOREBOARD=1'])
+
 
 class RiscvCommon(st.Component):
     """
@@ -123,6 +128,12 @@ class RiscvCommon(st.Component):
             config=None
         ):
 
+        # A core may come with its own config, derived from IssConfig
+        if config is None:
+            config = IssConfig()
+        elif not isinstance(config, IssConfig):
+            raise RuntimeError(f'{type(config).__name__} must derive from IssConfig')
+
         super().__init__(parent, name, config=config)
 
         self.isa = isa
@@ -169,23 +180,27 @@ class RiscvCommon(st.Component):
                 "cpu/iss/flexfloat/flexfloat.c",
             ])
 
+        # Power models come from a YAML file, as for iss_v2
+        if len(power_models) != 0:
+            raise RuntimeError('power_models is not supported anymore, use a YAML power_models_file')
         if power_models_file is not None:
-            power_models = self.load_property_file(power_models_file)
+            if not power_models_file.endswith(('.yaml', '.yml')):
+                raise RuntimeError(f'Power models must be in YAML: {power_models_file}')
+            config.power_insn_groups = load_power_yaml_list(power_models_file, 'insn_groups')
+            apply_power_yaml(config.power, power_models_file,
+                names=['stall_first', 'stall_next', 'background'])
 
-        self.add_properties({
-            'isa': isa.isa_string,
-            'misa': misa,
-            'first_external_pcer': first_external_pcer,
-            'riscv_dbg_unit': riscv_dbg_unit,
-            'binaries': binaries.copy(),
-            'debug_handler': debug_handler,
-            'power_models': power_models,
-            'cluster_id': cluster_id,
-            'core_id': core_id,
-            'fetch_enable': fetch_enable,
-            'boot_addr': boot_addr,
-            'has_double': isa.has_isa('rvd'),
-        })
+        config.isa = isa.isa_string
+        config.misa = misa
+        config.riscv_dbg_unit = riscv_dbg_unit
+        config.binaries = [RiscvBinaryConfig(file=binary) for binary in binaries
+            if binary is not None]
+        config.debug_handler = debug_handler
+        config.cluster_id = cluster_id
+        config.core_id = core_id
+        config.fetch_enable = fetch_enable
+        config.boot_addr = boot_addr
+        config.has_double = isa.has_isa('rvd')
 
         fp_size = fp_width if fp_width is not None else  64 if isa.has_isa('rvd') else 32
         self.add_c_flags([f'-DCONFIG_GVSOC_ISS_FP_WIDTH={fp_size}'])
@@ -193,10 +208,9 @@ class RiscvCommon(st.Component):
         if memory_start is not None and memory_size is not None:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MEMORY=1'])
 
-            self.add_properties({
-                'memory_start': memory_start,
-                'memory_size': memory_size,
-            })
+            config.has_memory = True
+            config.memory_start = memory_start
+            config.memory_size = memory_size
 
 
         if cflags is not None:
@@ -251,7 +265,6 @@ class RiscvCommon(st.Component):
         if timed is None:
             timed = self.get_timing_level(
                 supported=[gvrun.timing.FUNCTIONAL, gvrun.timing.TIMED]) != gvrun.timing.FUNCTIONAL
-        self.add_property('timed', timed)
 
         if timed:
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_TIMED=1'])
@@ -344,7 +357,7 @@ class RiscvCommon(st.Component):
 
         # Record the binary; the ISS resolves trace symbols from it lazily at
         # runtime from the ELF binary (no precompute step, no binary-size cap).
-        self.get_property('binaries').append(binary)
+        self._component_config.binaries.append(RiscvBinaryConfig(file=binary))
 
         if self.htif:
             self.handle_htif(binary)
@@ -373,10 +386,10 @@ class RiscvCommon(st.Component):
             tohost_addr, fromhost_addr = binary_info
 
         if fromhost_addr is not None:
-            self.add_property('htif_fromhost', f'0x{fromhost_addr:x}')
+            self._component_config.htif_fromhost = fromhost_addr
 
         if tohost_addr is not None:
-            self.add_property('htif_tohost', f'0x{tohost_addr:x}')
+            self._component_config.htif_tohost = tohost_addr
 
     def generate(self, builddir):
         for executable in self.get_executables():

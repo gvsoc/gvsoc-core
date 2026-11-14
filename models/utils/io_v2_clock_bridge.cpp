@@ -8,22 +8,17 @@
 
 
 IoV2ClockBridge::IoV2ClockBridge(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
     this->new_slave_port("input", &this->in);
     this->new_master_port("output", &this->out);
 
-    js::Config *js = this->get_js_config();
-    if (js::Config *c = js->get("k_src_per_dir"); c != nullptr)
-        this->k_src_per_dir = c->get_int();
-    if (js::Config *c = js->get("k_dst_per_dir"); c != nullptr)
-        this->k_dst_per_dir = c->get_int();
-    if (js::Config *c = js->get("depth"); c != nullptr)
-        this->depth = c->get_int();
-    if (js::Config *c = js->get("axi_channels"); c != nullptr)
-        this->axi_channels = c->get_bool();
+    this->k_src_per_dir = this->cfg.k_src_per_dir;
+    this->k_dst_per_dir = this->cfg.k_dst_per_dir;
+    this->depth = this->cfg.depth;
+    this->axi_channels = this->cfg.axi_channels;
 
     if (this->k_src_per_dir < 0) this->k_src_per_dir = 0;
     if (this->k_dst_per_dir < 0) this->k_dst_per_dir = 0;

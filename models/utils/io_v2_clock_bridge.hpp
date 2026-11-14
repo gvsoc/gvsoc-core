@@ -86,6 +86,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <utils/io_v2_clock_bridge/io_v2_clock_bridge_config.hpp>
 
 
 class IoV2ClockBridge : public vp::Component, public vp::DebugMemIf
@@ -110,6 +111,7 @@ public:
         int depth) override;
 
 private:
+    IoV2ClockBridgeConfig cfg;
     struct Txn
     {
         vp::IoReq *req;

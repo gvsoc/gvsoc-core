@@ -18,6 +18,20 @@
 import gvsoc.systree as st
 
 from devices.flash.flash import Flash
+from config_tree import Config, cfg_field
+
+
+class HyperflashConfig(Config):
+    """Configuration of the HyperFlash."""
+
+    size: int = cfg_field(default=0x04000000, fmt="hex", desc="Size of the flash")
+    preload_file: str = cfg_field(default='', desc=(
+        "Image the flash is loaded with, empty for none"))
+    writeback: bool = cfg_field(default=True, desc=(
+        "Map the preloaded image so that the flash writes go to it"))
+    writeback_file: str = cfg_field(default='', desc=(
+        "File where the flash content is written back, empty for none"))
+
 
 class Hyperflash(Flash):
     """
@@ -33,7 +47,9 @@ class Hyperflash(Flash):
     """
 
     def __init__(self, parent, name, size=0x04000000):
-        super(Hyperflash, self).__init__(parent, name)
+        config = HyperflashConfig(size=size)
+        super(Hyperflash, self).__init__(parent, name, config=config)
+        config.preload_file = self.get_image_path()
 
         # Register all parameters as properties so that they can be overwritten from the command-line
         self.add_property('content/image', self.get_image_path())
@@ -49,10 +65,8 @@ class Hyperflash(Flash):
         self.add_property('content/partitions/lfs/type', 'lfs')
         self.add_property('content/partitions/lfs/enabled', False)
 
-        self.set_component('devices.hyperbus.hyperflash_impl')
+        self.add_sources(['devices/hyperbus/hyperflash_impl.cpp'])
 
-        self.add_property('writeback', True)
-        self.add_property('size', size)
 
         # TODO this is needed by GAPY but is not aligned with the size given to model
         # That should be resolved once the flash images are built by the system tree instead of gapy

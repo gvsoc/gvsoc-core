@@ -16,17 +16,25 @@
 
 import gvsoc.systree
 from gvsoc.signature import IoV2Sync
+from config_tree import Config, cfg_field
+
+
+class PlicV2Config(Config):
+    """Configuration of the io_v2 PLIC."""
+
+    ndev: int = cfg_field(default=0, desc=(
+        "Number of interrupt sources"
+    ))
+
 
 class PlicV2(gvsoc.systree.Component):
     """io_v2 variant of Plic, answering every access inline."""
 
     def __init__(self, parent, name, ndev=0):
 
-        super(PlicV2, self).__init__(parent, name)
+        super(PlicV2, self).__init__(parent, name, config=PlicV2Config(ndev=ndev))
 
         self.add_sources(['cpu/plic_v2.cpp'])
-
-        self.add_property('ndev', ndev)
 
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

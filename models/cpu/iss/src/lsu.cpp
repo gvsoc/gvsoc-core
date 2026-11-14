@@ -348,11 +348,10 @@ void Lsu::build()
     this->memory_start = -1;
     this->memory_end = -1;
 
-    if (this->iss.top.get_js_config()->get("memory_start") != NULL)
+    if (this->iss.cfg.has_memory)
     {
-        this->memory_start = this->iss.top.get_js_config()->get("memory_start")->get_int();
-        this->memory_end = this->memory_start +
-            this->iss.top.get_js_config()->get("memory_size")->get_int();
+        this->memory_start = this->iss.cfg.memory_start;
+        this->memory_end = this->memory_start + this->iss.cfg.memory_size;
     }
 
 #ifdef CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING

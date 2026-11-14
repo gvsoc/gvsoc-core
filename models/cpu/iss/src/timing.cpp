@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/controller.hpp>
+#include <vp/power/power_table_convert.hpp>
 #include "cpu/iss/include/iss.hpp"
 #include ISS_CORE_INC(class.hpp)
 
@@ -46,25 +47,32 @@ void Timing::build()
     this->iss.top.traces.new_trace_event_string("user_file", &user_file_trace_event);
     this->iss.top.traces.new_trace_event("user_line", &user_line_trace_event, 32);
 
-    if (this->iss.top.get_js_config()->get("**/insn_groups"))
+    // Power tables from the compiled config: power_insn_groups indexed by isa
+    // power group, and the named stall/background sources. Without instruction
+    // groups, a single inert instruction source is used.
+    if (this->iss.cfg.power_insn_groups_count > 0)
     {
-        js::Config *config = this->iss.top.get_js_config()->get("**/insn_groups");
-        this->insn_groups_power.resize(config->get_size());
-        for (int i = 0; i < config->get_size(); i++)
+        this->insn_groups_power.resize(this->iss.cfg.power_insn_groups_count);
+        for (size_t i = 0; i < this->iss.cfg.power_insn_groups_count; i++)
         {
-            this->iss.top.power.new_power_source("power_insn_" + std::to_string(i), &this->insn_groups_power[i], config->get_elem(i));
+            vp::new_power_source_from_config(this->iss.top.power, "power_insn_" + std::to_string(i),
+                &this->insn_groups_power[i], this->iss.cfg.power_insn_groups[i]);
         }
     }
     else
     {
         this->insn_groups_power.resize(1);
-        this->iss.top.power.new_power_source("power_insn", &this->insn_groups_power[0], this->iss.top.get_js_config()->get("**/insn"));
+        vp::new_power_source_from_config(this->iss.top.power, "power_insn",
+            &this->insn_groups_power[0], decltype(this->iss.cfg.power.stall_first){});
     }
 
-    this->iss.top.power.new_power_source("power_stall_first", &this->power_stall_first, this->iss.top.get_js_config()->get("**/power_models/stall_first"));
-    this->iss.top.power.new_power_source("power_stall_next", &this->power_stall_next, this->iss.top.get_js_config()->get("**/power_models/stall_next"));
+    vp::new_power_source_from_config(this->iss.top.power, "power_stall_first",
+        &this->power_stall_first, this->iss.cfg.power.stall_first);
+    vp::new_power_source_from_config(this->iss.top.power, "power_stall_next",
+        &this->power_stall_next, this->iss.cfg.power.stall_next);
 
-    this->iss.top.power.new_power_source("background", &background_power, this->iss.top.get_js_config()->get("**/power_models/background"));
+    vp::new_power_source_from_config(this->iss.top.power, "background", &background_power,
+        this->iss.cfg.power.background);
 
     for (int i = 0; i < 32; i++)
     {
@@ -90,17 +98,17 @@ void Timing::reset(bool active)
 
         if (this->declare_binaries)
         {
-            if (this->iss.top.get_js_config()->get("**/binaries") != NULL)
             {
                 std::string binaries = "static_enable";
-                for (auto x : this->iss.top.get_js_config()->get("**/binaries")->get_elems())
+                for (size_t i = 0; i < this->iss.cfg.binaries_count; i++)
                 {
-                    binaries += ":" + x->get_str();
+                    std::string binary = this->iss.cfg.binaries[i].file;
+                    binaries += ":" + binary;
                     // Alongside the GUI-facing "binaries" trace event, tell any connected proxy
                     // front-end (e.g. the console) about each binary so it can auto-load its
                     // symbols. Done at reset so the component is linked into the hierarchy and
                     // get_launcher() can reach the real launcher.
-                    this->iss.top.get_launcher()->declare_binary(x->get_str());
+                    this->iss.top.get_launcher()->declare_binary(binary);
                 }
 
                 this->binaries_trace_event.event_string(binaries.c_str(), true);

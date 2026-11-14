@@ -17,6 +17,22 @@
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
 from gvrun.parameter import TargetParameter
+from typing import Annotated
+from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
+
+
+class UartCheckerConfig(Config):
+    """Configuration of the UART checker."""
+
+    baudrate: int = cfg_field(default=115200, desc="UART baudrate")
+    loopback: Annotated[bool, Runtime] = cfg_field(default=False, desc=(
+        "Send back what is received"))
+    stdout: bool = cfg_field(default=True, desc="Print what is received on the standard output")
+    stdin: bool = cfg_field(default=False, desc="Send what is typed on the standard input")
+    tx_file: str = cfg_field(default='tx_uart.log', desc=(
+        "File where what is received is dumped, empty for none"))
+
 
 
 class Uart_checker(st.Component):
@@ -36,18 +52,13 @@ class Uart_checker(st.Component):
     class Uart_checker_implem(st.Component):
 
         def __init__(self, parent, name):
-            super(Uart_checker.Uart_checker_implem, self).__init__(parent, name)
+            config = UartCheckerConfig()
+            super(Uart_checker.Uart_checker_implem, self).__init__(parent, name, config=config)
 
-            self.set_component('devices.uart.uart_checker')
+            self.add_sources(['devices/uart/uart_checker.cpp'])
 
-            self.add_property('verbose', False)
-            self.add_property('baudrate', 115200)
             loopback = TargetParameter(
                 self, name='loopback', value=False, description='Enable uart loopback',
                 cast=bool
             )
-            self.add_property('loopback', loopback.value)
-            self.add_property('stdout', True)
-            self.add_property('stdin', False)
-            self.add_property('telnet', False)
-            self.add_property('tx_file', 'tx_uart.log')
+            config.loopback = loopback.value

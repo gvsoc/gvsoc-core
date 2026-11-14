@@ -8,6 +8,7 @@
 #include <vp/itf/io.hpp>
 #include <vp/mapping_tree.hpp>
 #include <vp/fault_injector.hpp>
+#include <fault_injection/fic/fic_config.hpp>
 
 // Simple FNV hash
 #define HASH_SIZE 	8
@@ -50,6 +51,7 @@ public:
     static vp::FIRequest *fir_deep_copy(vp::FIRequest *req);
 
 private:
+  FicConfig cfg;
     vp::FIRequest *assemble_request(int cmd, int kind, int target_type, int target, 
         uint64_t addr, uint64_t bit, uint64_t duration, uint8_t is_high, uint64_t delay, 
         uint64_t size, uint64_t id);
@@ -116,7 +118,7 @@ private:
 };
 
 FIC::FIC(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     new_service("FIC", static_cast<vp::FIC_registrator *>(this));
 
@@ -124,7 +126,7 @@ FIC::FIC(vp::ComponentConf &config)
 
     this->event = new vp::ClockEvent(this, this, &FIC::handle_event);
 
-    long long int cutoff_cycle = get_js_config()->get_int("max_cycle");
+    long long int cutoff_cycle = this->cfg.max_cycle;
     if (cutoff_cycle > 0)
     {
         vp::FIRequest *fir = new vp::FIRequest();
@@ -133,7 +135,7 @@ FIC::FIC(vp::ComponentConf &config)
         this->fault_queue.push(fir);
     }
 
-    std::string faults_path = get_js_config()->get("faults_path")->get_str();
+    std::string faults_path = this->cfg.faults_path;
     if (faults_path != "")
     {
         std::ifstream file(faults_path.c_str());

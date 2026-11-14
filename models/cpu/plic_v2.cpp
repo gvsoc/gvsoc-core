@@ -28,6 +28,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/itf/wire.hpp>
+#include <cpu/plic_v2/plic_v2_config.hpp>
 
 #define PLIC_PRIO_BITS     4
 #define PLIC_SIZE         0x01000000
@@ -120,6 +121,7 @@ public:
     Plic(vp::ComponentConf &conf);
 
 private:
+    PlicV2Config cfg;
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     static void irq_sync(vp::Block *__this, bool active, int port);
 
@@ -479,7 +481,7 @@ bool Plic::store(reg_t addr, size_t len, const uint8_t* bytes)
 
 
 Plic::Plic(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -487,7 +489,7 @@ Plic::Plic(vp::ComponentConf &config)
     bool smode = true;
     int nb_procs = 1;
 
-    this->ndev = this->get_js_config()->get("ndev")->get_int();
+    this->ndev = this->cfg.ndev;
 
     this->irq_itfs.resize(this->ndev);
     for (int i=0; i<this->ndev; i++)

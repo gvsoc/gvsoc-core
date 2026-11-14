@@ -83,7 +83,6 @@ vp_model(NAME utils.io_v2_single_req_width_adapter
     SOURCES "io_v2_single_req_width_adapter.cpp"
 )
 
-add_subdirectory(loader)
 
 # ---------------------------------------------------------------------------
 # Optional FSDB dumper (mirrors vcd_dumper for FSDB files). Enabled when

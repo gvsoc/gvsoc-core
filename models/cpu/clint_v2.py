@@ -16,6 +16,19 @@
 
 import gvsoc.systree
 from gvsoc.signature import IoV2Sync
+from config_tree import Config, cfg_field
+
+
+class ClintV2Config(Config):
+    """Configuration of the io_v2 CLINT."""
+
+    nb_cores: int = cfg_field(default=1, desc=(
+        "Number of harts (one msip / mtimecmp pair each)"
+    ))
+    frequency: int = cfg_field(default=10000000, desc=(
+        "Frequency of the mtime counter in Hz, 0 for the default one"
+    ))
+
 
 class ClintV2(gvsoc.systree.Component):
     """io_v2 variant of Clint, answering every access inline."""
@@ -31,12 +44,10 @@ class ClintV2(gvsoc.systree.Component):
             CLINT time base is a real-time clock).
         """
 
-        super(ClintV2, self).__init__(parent, name)
+        super(ClintV2, self).__init__(parent, name, config=ClintV2Config(
+            nb_cores=nb_cores, frequency=frequency))
 
         self.add_sources(['cpu/clint_v2.cpp'])
-
-        self.add_property('nb_cores', nb_cores)
-        self.add_property('frequency', frequency)
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'input', signature=IoV2Sync())

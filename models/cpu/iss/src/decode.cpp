@@ -33,9 +33,9 @@ void Decode::build()
     iss.top.traces.new_trace("decoder", &this->trace, vp::DEBUG);
     this->flush_cache_itf.set_sync_meth(&Decode::flush_cache_sync);
     this->iss.top.new_slave_port("flush_cache", &this->flush_cache_itf, (vp::Block *)this);
-    string isa = this->iss.top.get_js_config()->get_child_str("isa");
+    string isa = this->iss.cfg.isa;
     this->isa = strdup(isa.c_str());
-    this->has_double = this->iss.top.get_js_config()->get_child_bool("has_double");
+    this->has_double = this->iss.cfg.has_double;
 }
 
 void Decode::reset(bool active)

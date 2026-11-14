@@ -15,18 +15,23 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class ConverterConfig(Config):
+    """Configuration of the width converter."""
+
+    output_width: int = cfg_field(default=4, desc="Width in bytes of the output accesses")
+    output_align: int = cfg_field(default=4, desc="Alignment in bytes of the output accesses")
+
 
 class Converter(gvsoc.systree.Component):
 
     def __init__(self, parent, name, output_width=4, output_align=4):
-        super(Converter, self).__init__(parent, name)
+        super(Converter, self).__init__(parent, name, config=ConverterConfig(
+            output_width=output_width, output_align=output_align))
 
-        self.set_component('interco.converter_impl')
-
-        self.add_properties({
-            'output_width': output_width,
-            'output_align': output_align,
-        })
+        self.add_sources(['interco/converter_impl.cpp'])
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
             return gvsoc.systree.SlaveItf(self, 'input', signature='io')

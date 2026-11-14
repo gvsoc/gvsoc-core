@@ -19,8 +19,8 @@ import gvsoc.systree as st
 
 class Flash(st.Component):
 
-    def __init__(self, parent, name):
-        super(Flash, self).__init__(parent, name)
+    def __init__(self, parent, name, config=None):
+        super(Flash, self).__init__(parent, name, config=config)
 
     def get_image_path(self):
         return self.get_path().replace('/', '.') + '.bin'

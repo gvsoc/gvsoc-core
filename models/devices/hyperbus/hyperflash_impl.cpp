@@ -31,6 +31,7 @@
 
 #include <vp/itf/hyper.hpp>
 #include <vp/itf/wire.hpp>
+#include <devices/hyperbus/hyperflash/hyperflash_config.hpp>
 
 #define REGS_AREA_SIZE 1024
 
@@ -84,6 +85,7 @@ public:
   int get_nb_word() {return nb_word;}
 
 protected:
+  HyperflashConfig cfg;
   vp::Trace     trace;
   vp::HyperSlave   in_itf;
 
@@ -333,7 +335,7 @@ int Hyperflash::preload_file(char *path)
 {
   this->trace.msg(vp::Trace::LEVEL_INFO, "Preloading memory with stimuli file (path: %s)\n", path);
 
-  if (this->get_js_config()->get_child_bool("writeback"))
+  if (this->cfg.writeback)
   {
     int fd = open(path, O_RDWR | O_CREAT, 0600);
     if (fd < 0) {
@@ -420,7 +422,7 @@ int Hyperflash::setup_writeback_file(const char *path)
 
 
 Hyperflash::Hyperflash(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -429,9 +431,7 @@ Hyperflash::Hyperflash(vp::ComponentConf &config)
   new_slave_port("input", &in_itf);
 
 
-  js::Config *conf = this->get_js_config();
-
-  this->size = conf->get("size")->get_int();
+  this->size = this->cfg.size;
   this->trace.msg(vp::Trace::LEVEL_INFO, "Building flash (size: 0x%x)\n", this->size);
 
   this->data = new uint8_t[this->size];
@@ -446,26 +446,18 @@ Hyperflash::Hyperflash(vp::ComponentConf &config)
   this->pending_bytes = 0;
   this->pending_cmd = 0;
 
-  js::Config *preload_file_conf = conf->get("preload_file");
-  if (preload_file_conf == NULL)
+  if (this->cfg.preload_file[0] != 0)
   {
-    preload_file_conf = conf->get("content/image");
-  }
-
-  if (preload_file_conf)
-  {
-    if (this->preload_file((char *)preload_file_conf->get_str().c_str()))
+    if (this->preload_file((char *)this->cfg.preload_file))
     {
       this->trace.fatal("Unable to preload file\n");
       return;
     }
   }
 
-  js::Config *writeback_file_conf = conf->get("writeback_file");
-
-  if (writeback_file_conf)
+  if (this->cfg.writeback_file[0] != 0)
   {
-    if (this->setup_writeback_file(writeback_file_conf->get_str().c_str()))
+    if (this->setup_writeback_file(this->cfg.writeback_file))
     {
       this->trace.fatal("Unable to preload file\n");
       return;

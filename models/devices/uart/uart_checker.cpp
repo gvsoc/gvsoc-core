@@ -31,6 +31,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <iostream>
+#include <devices/uart/uart_checker/uart_checker_config.hpp>
 
 class Uart_checker : public vp::Component
 {
@@ -44,6 +45,7 @@ public:
     void rx_sampling();
 
 private:
+  UartCheckerConfig cfg;
     void dpi_task(void);
     bool rx_is_sampling(void);
     void stdin_task(void);
@@ -96,16 +98,16 @@ private:
 };
 
 Uart_checker::Uart_checker(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
     this->new_master_port("clock_cfg", &clock_cfg);
 
-    baudrate = get_js_config()->get("baudrate")->get_int();
-    loopback = get_js_config()->get("loopback")->get_bool();
-    print_stdout = get_js_config()->get("stdout")->get_bool();
-    stdin = get_js_config()->get("stdin")->get_bool();
+    baudrate = this->cfg.baudrate;
+    loopback = this->cfg.loopback;
+    print_stdout = this->cfg.stdout;
+    stdin = this->cfg.stdin;
 
     this->in.set_sync_meth(&Uart_checker::sync);
     new_slave_port("input", &in);
@@ -114,7 +116,7 @@ Uart_checker::Uart_checker(vp::ComponentConf &config)
 
     period = 1000000000000UL / baudrate;
 
-    std::string tx_filename = get_js_config()->get("tx_file")->get_str();
+    std::string tx_filename = this->cfg.tx_file;
     if (tx_filename != "") {
         tx_file = fopen(tx_filename.c_str(), (char *)"w");
     }

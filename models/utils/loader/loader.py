@@ -15,6 +15,8 @@
 #
 
 import gvsoc.systree
+from utils.loader.loader_v2 import ElfLoaderConfig, ElfLoaderBinaryConfig
+
 
 class ElfLoader(gvsoc.systree.Component):
     """ELF loader
@@ -45,7 +47,19 @@ class ElfLoader(gvsoc.systree.Component):
             binaries: list=None, entry: int=None, entry_addr: int=None,
             fetchen_addr: int=None, fetchen_value=None):
 
-        super().__init__(parent, name)
+        config = ElfLoaderConfig()
+        if entry is not None:
+            config.has_entry = True
+            config.entry = entry
+        if entry_addr is not None:
+            config.has_entry_addr = True
+            config.entry_addr = entry_addr
+        if fetchen_addr is not None:
+            config.has_fetchen_addr = True
+            config.fetchen_addr = fetchen_addr
+            config.fetchen_value = int(fetchen_value) if fetchen_value is not None else 0
+
+        super().__init__(parent, name, config=config)
 
         whole_binaries = []
         if binary is not None:
@@ -54,33 +68,16 @@ class ElfLoader(gvsoc.systree.Component):
         if binaries is not None:
             whole_binaries += binaries
 
-        self.set_component('utils.loader.loader')
+        self.__set_binaries(whole_binaries)
 
-        self.add_properties({
-            'binary': whole_binaries
-        })
+        self.add_sources(['utils/loader/loader.cpp'])
 
-        if entry is not None:
-            self.add_properties({
-                'entry': entry
-            })
-
-        if entry_addr is not None:
-            self.add_properties({
-                'entry_addr': entry_addr
-            })
-
-        if fetchen_addr is not None:
-            self.add_properties({
-                'fetchen_addr': fetchen_addr,
-                'fetchen_value': fetchen_value
-            })
+    def __set_binaries(self, binaries: list):
+        self._component_config.binaries = [ElfLoaderBinaryConfig(file=binary)
+            for binary in binaries if binary is not None]
 
     def set_binary(self, binary: str):
-
-        self.add_properties({
-            'binary': [binary]
-        })
+        self.__set_binaries([binary])
 
     def o_OUT(self, itf: gvsoc.systree.SlaveItf):
         """Binds the output port.

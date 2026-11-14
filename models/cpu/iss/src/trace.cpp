@@ -58,13 +58,9 @@ void Trace::build()
 
 #if !defined(__M32_MODE__)
     // Register the ELF binaries; trace symbols are resolved lazily on demand.
-    js::Config *binaries_config = this->iss.top.get_js_config()->get("**/binaries");
-    if (binaries_config != NULL)
+    for (size_t i = 0; i < this->iss.cfg.binaries_count; i++)
     {
-        for (auto x : binaries_config->get_elems())
-        {
-            iss_register_debug_elf(&this->iss, x->get_str().c_str());
-        }
+        iss_register_debug_elf(&this->iss, this->iss.cfg.binaries[i].file);
     }
 #endif
 

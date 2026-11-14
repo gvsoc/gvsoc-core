@@ -15,6 +15,14 @@
 #
 
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+
+
+class HyperramConfig(Config):
+    """Configuration of the HyperRAM."""
+
+    size: int = cfg_field(default=0x00800000, fmt="hex", desc="Size of the memory")
+
 
 
 class Hyperram(st.Component):
@@ -31,9 +39,8 @@ class Hyperram(st.Component):
     """
 
     def __init__(self, parent, name, size=0x00800000):
-        super(Hyperram, self).__init__(parent, name)
+        super(Hyperram, self).__init__(parent, name, config=HyperramConfig(size=size))
 
         # Register all parameters as properties so that they can be overwritten from the command-line
-        self.add_property('size', size)
 
-        self.set_component('devices.hyperbus.hyperram_impl')
+        self.add_sources(['devices/hyperbus/hyperram_impl.cpp'])

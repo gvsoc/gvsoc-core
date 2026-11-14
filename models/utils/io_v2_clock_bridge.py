@@ -38,6 +38,19 @@ tests/calibration/io_v2_clkbridge/rtl_calibration/ of the SDK.
 
 from gvsoc.systree import Component, SlaveItf
 from gvsoc.signature import Signature
+from config_tree import Config, cfg_field
+
+
+class IoV2ClockBridgeConfig(Config):
+    """Configuration of the io_v2 clock-domain bridge."""
+
+    k_src_per_dir: int = cfg_field(default=0, desc=(
+        "Source-side cycles of each crossing, 0 for the plain sync-only bridge"))
+    k_dst_per_dir: int = cfg_field(default=0, desc=(
+        "Destination-side cycles of each crossing, 0 for the plain sync-only bridge"))
+    depth: int = cfg_field(default=1, desc="Number of requests in flight in each direction")
+    axi_channels: bool = cfg_field(default=False, desc=(
+        "Reads and writes cross apart, each with its own FIFO"))
 
 
 class IoV2ClockBridge(Component):
@@ -53,7 +66,11 @@ class IoV2ClockBridge(Component):
                  depth: int | None = None,
                  axi_channels: bool = False,
                  signature: Signature = None):
-        super().__init__(parent, name)
+        super().__init__(parent, name, config=IoV2ClockBridgeConfig(
+            k_src_per_dir=k_src_per_dir if k_src_per_dir is not None else self._DEFAULT_K_SRC,
+            k_dst_per_dir=k_dst_per_dir if k_dst_per_dir is not None else self._DEFAULT_K_DST,
+            depth=depth if depth is not None else self._DEFAULT_DEPTH,
+            axi_channels=axi_channels))
         self._port_signature = signature
         # Compile the bridge .cpp on demand alongside any target that uses
         # it (the framework dedupes by source-hash, so many bridges sharing
@@ -65,17 +82,6 @@ class IoV2ClockBridge(Component):
         # GVSOC_MODULES); gvsoc/core/models is one of those, so prefixing
         # with utils/ resolves to this file's location.
         self.add_sources(['utils/io_v2_clock_bridge.cpp'])
-        self.add_property('k_src_per_dir',
-                          k_src_per_dir if k_src_per_dir is not None
-                                        else self._DEFAULT_K_SRC)
-        self.add_property('k_dst_per_dir',
-                          k_dst_per_dir if k_dst_per_dir is not None
-                                        else self._DEFAULT_K_DST)
-        self.add_property('depth',
-                          depth if depth is not None else self._DEFAULT_DEPTH)
-        # Reads and writes cross apart, each with its own FIFO and depth of
-        # requests, as in an AXI CDC (one FIFO per channel); see the C++.
-        self.add_property('axi_channels', axi_channels)
 
     def i_INPUT(self) -> SlaveItf:
         return SlaveItf(self, 'input', signature=self._signature())

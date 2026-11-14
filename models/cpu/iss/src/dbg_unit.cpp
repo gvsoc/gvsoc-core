@@ -38,7 +38,7 @@ void DbgUnit::build()
 
     this->iss.top.new_reg("do_step", &this->do_step, false);
 
-    this->riscv_dbg_unit = this->iss.top.get_js_config()->get_child_bool("riscv_dbg_unit");
+    this->riscv_dbg_unit = this->iss.cfg.riscv_dbg_unit;
 }
 
 void DbgUnit::debug_req()

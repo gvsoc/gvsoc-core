@@ -24,6 +24,7 @@
 
 
 #include <vp/vp.hpp>
+#include <cpu/iss/riscv_config/iss_config.hpp>
 #include <vp/register.hpp>
 #include <cpu/iss/include/lsu.hpp>
 #include <cpu/iss/include/decode.hpp>
@@ -77,6 +78,11 @@ class Iss
 {
 public:
     Iss(IssWrapper &top);
+
+    // Compiled config, filled by the IssWrapper constructor before the
+    // members below are built. A core may come with a subclassed config,
+    // only its IssConfig prefix is copied.
+    IssConfig cfg;
 
     Exec exec;
     InsnCache insn_cache;

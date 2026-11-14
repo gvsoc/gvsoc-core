@@ -144,7 +144,7 @@ void Csr::reset(bool active)
             }
         }
 
-        this->misa.value = this->iss.top.get_js_config()->get_int("misa");
+        this->misa.value = this->iss.cfg.misa;
 
 #if ISS_REG_WIDTH == 64
         this->misa.value |= 2ULL << 62;
@@ -210,7 +210,7 @@ void Csr::build()
 
     this->iss.top.new_master_port("time", &this->time_itf, (vp::Block *)this);
 
-    this->mhartid = (this->iss.top.get_js_config()->get_child_int("cluster_id") << 5) | this->iss.top.get_js_config()->get_child_int("core_id");
+    this->mhartid = (this->iss.cfg.cluster_id << 5) | this->iss.cfg.core_id;
 
     this->tselect.register_callback(std::bind(&Csr::tselect_access, this, std::placeholders::_1, std::placeholders::_2));
 

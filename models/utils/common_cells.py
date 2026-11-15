@@ -15,17 +15,23 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class GateConfig(Config):
+    """Configuration of the AND and OR gates."""
+
+    nb_input: int = cfg_field(default=0, desc=(
+        "Number of inputs"
+    ))
+
 
 class And(gvsoc.systree.Component):
     def __init__(self, parent: gvsoc.systree.Component, name: str, nb_input: int=0):
 
-        super().__init__(parent, name)
+        super().__init__(parent, name, config=GateConfig(nb_input=nb_input))
 
         self.add_sources(['utils/common_cells/and.cpp'])
-
-        self.add_properties({
-            'nb_input': nb_input
-        })
 
     def i_INPUT(self, id: int) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='wire<bool>')
@@ -37,13 +43,9 @@ class And(gvsoc.systree.Component):
 class Or(gvsoc.systree.Component):
     def __init__(self, parent: gvsoc.systree.Component, name: str, nb_input: int=0):
 
-        super().__init__(parent, name)
+        super().__init__(parent, name, config=GateConfig(nb_input=nb_input))
 
         self.add_sources(['utils/common_cells/or.cpp'])
-
-        self.add_properties({
-            'nb_input': nb_input
-        })
 
     def i_INPUT(self, id: int) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, f'input_{id}', signature='wire<bool>')

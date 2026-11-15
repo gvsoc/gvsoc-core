@@ -23,6 +23,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/wire.hpp>
+#include <utils/common_cells/gate_config.hpp>
 
 
 class And : public vp::Component
@@ -34,6 +35,7 @@ public:
     void reset(bool active);
 
 private:
+  GateConfig cfg;
     static void sync(vp::Block *__this, bool value, int id);
 
     vp::Trace trace;
@@ -49,11 +51,11 @@ private:
 
 
 And::And(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
-    this->nb_input = this->get_js_config()->get_child_int("nb_input");
+    this->nb_input = this->cfg.nb_input;
     this->input_itfs.resize(this->nb_input);
 
     for (int i=0; i<this->nb_input; i++)

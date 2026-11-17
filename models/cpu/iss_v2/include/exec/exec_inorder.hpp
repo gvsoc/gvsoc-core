@@ -120,6 +120,10 @@ public:
     // ``delay`` is the number of cycles after which the registers become
     // readable (1 = the usual load-use stall).
     void schedule_scoreboard_release(uint64_t mask, int delay=1);
+    // Move the parked release due at `cycle` one cycle later, for a core
+    // whose load response is written back after its retire cycle (its
+    // write port taken). Returns false if no release is due then.
+    bool postpone_scoreboard_release(int64_t cycle);
     // Registers whose value is written back and which only wait out their
     // load-use delay
     uint64_t delayed_release_mask() { return this->unblock_slot_valid ? this->unblock_slot_mask : 0; }

@@ -478,6 +478,16 @@ void ExecInOrder::schedule_scoreboard_release(uint64_t mask, int delay)
     }
 }
 
+bool ExecInOrder::postpone_scoreboard_release(int64_t cycle)
+{
+    if (this->unblock_slot_valid && this->unblock_slot_timestamp == cycle)
+    {
+        this->unblock_slot_timestamp++;
+        return true;
+    }
+    return false;
+}
+
 void ExecInOrder::task_unblock_handle(Iss *iss, Task *task)
 {
     ExecInOrder *_this = &iss->exec;

@@ -40,6 +40,12 @@ class LogIcoConfig(Config):
         port presenting one request per cycle. Needed when an input merges
         several masters (a router in front of it) whose requests would
         otherwise be served in the same cycle on different banks.
+    multicast_width : int
+        Multicast of a bank grant (0: none). When a bank grants an input,
+        every other input waiting on the same bank for the same
+        ``1 << multicast_width``-byte block is served in the same cycle
+        (e.g. the PULP icache interconnect, which hands a refilled line to
+        all the cores fetching it).
     """
 
     nb_masters: int = cfg_field(default=0, dump=True, desc=(
@@ -53,6 +59,10 @@ class LogIcoConfig(Config):
     ))
     one_access_per_input: bool = cfg_field(default=False, dump=True, desc=(
         "Grant each input at most one bank per cycle (one request per cycle per master port)"
+    ))
+    multicast_width: int = cfg_field(default=0, dump=True, desc=(
+        "Serve with the winner of a bank every input waiting on it for the same "
+        "1 << multicast_width byte block (0: no multicast)"
     ))
 
 

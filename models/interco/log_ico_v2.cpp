@@ -45,6 +45,12 @@
 // (e.g. a second master merged on the same input and woken by the same
 // retry) is recorded as pending and denied, for a later cycle.
 //
+// With multicast_width, a bank grant also serves, in the same cycle, every
+// other input waiting on that bank for the same 1 << multicast_width byte
+// block (the PULP icache interconnect: one TCPM read hands the line to all
+// the cores fetching it). The address of each pending request is kept for
+// that comparison.
+//
 // Output side (IoV2Sync): the bank must answer inline with
 // IO_REQ_DONE and never drives resp()/retry(). Bind only to a sync
 // slave such as memory.memory_v3.
@@ -99,6 +105,8 @@ struct BankState
     uint64_t pending_mask = 0;
     // Next round-robin scan start (in [0, nb_masters)).
     int rr_next = 0;
+    // multicast_width: address of the pending request of each input.
+    std::vector<uint64_t> pending_addr;
     // GUI trace: the address of the access currently served by this bank.
     vp::Signal<uint64_t> gui_addr;
 };
@@ -214,6 +222,7 @@ LogIco::LogIco(vp::ComponentConf &config)
     {
         std::string name = "output_" + std::to_string(i);
         auto b = std::make_unique<BankState>(this, i);
+        b->pending_addr.resize(nb_masters, 0);
         this->new_master_port(name, &b->itf);
         this->banks.push_back(std::move(b));
     }
@@ -384,6 +393,7 @@ vp::IoReqStatus LogIco::input_req(vp::Block *__this, vp::IoReq *req, int id)
         bank_id);
 
     _this->banks[bank_id]->pending_mask |= (1ULL << id);
+    _this->banks[bank_id]->pending_addr[id] = addr;
     _this->fsm_event.enqueue(0);
     return vp::IO_REQ_DENIED;
 }
@@ -436,6 +446,27 @@ void LogIco::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
         _this->inputs[winner]->itf.retry();
         _this->elected_input = -1;
         _this->elected_bank = -1;
+        if (_this->cfg.multicast_width > 0)
+        {
+            // The other inputs waiting for the same block take the same
+            // grant (in input order, as the bank answers them all at once).
+            int width = (int)_this->cfg.multicast_width;
+            uint64_t block = bank->pending_addr[winner] >> width;
+            uint64_t others = candidates & bank->pending_mask;
+            for (int i = 0; i < nb; i++)
+            {
+                if (!((others >> i) & 1) || (bank->pending_addr[i] >> width) != block)
+                    continue;
+                bank->pending_mask &= ~(1ULL << i);
+                _this->trace.msg(vp::Trace::LEVEL_DEBUG,
+                    "Multicast (bank: %d, input: %d, with: %d)\n", bank->id, i, winner);
+                _this->elected_input = i;
+                _this->elected_bank = bank->id;
+                _this->inputs[i]->itf.retry();
+                _this->elected_input = -1;
+                _this->elected_bank = -1;
+            }
+        }
 
         if (bank->pending_mask != 0) any_remaining = true;
     }

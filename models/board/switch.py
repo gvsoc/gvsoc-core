@@ -15,13 +15,20 @@
 #
 
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+
+
+class BoardSwitchConfig(Config):
+    """Configuration of the board switch."""
+
+    value: int = cfg_field(default=0, dump=True, desc=(
+        "Value driven by the switch on its output"
+    ))
 
 
 class Switch(st.Component):
 
     def __init__(self, parent, name, value):
-        super(Switch, self).__init__(parent, name)
+        super(Switch, self).__init__(parent, name, config=BoardSwitchConfig(value=value))
 
         self.set_component('board.switch_impl')
-
-        self.add_property('value', value)

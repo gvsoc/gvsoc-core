@@ -28,7 +28,7 @@
 class I2c_corruptor : public vp::Component
 {
     public:
-        I2c_corruptor(js::Config* config);
+        I2c_corruptor(vp::ComponentConf &config);
 
         void reset(bool active);
 

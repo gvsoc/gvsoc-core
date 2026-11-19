@@ -15,16 +15,26 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class TransferFunctionConfig(Config):
+    """Configuration of the audio transfer function."""
+
+    sample_rate: int = cfg_field(default=0, dump=True, desc=(
+        "Sample rate of the audio stream, in Hz"
+    ))
+
 
 
 class TransferFunction(gvsoc.systree.Component):
 
     def __init__(self, parent, name, sample_rate=44100):
-        super(TransferFunction, self).__init__(parent, name)
+        super(TransferFunction, self).__init__(parent, name,
+            config=TransferFunctionConfig(sample_rate=sample_rate))
 
         self.set_component('devices.sound.transfer_function')
 
-        self.add_property('sample_rate', sample_rate)
 
     def i_AUDIO(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'audio_in', signature='audio')

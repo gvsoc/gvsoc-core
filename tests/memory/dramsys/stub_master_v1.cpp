@@ -1,7 +1,7 @@
 /*
  * Testbench master for the memory.dramsys wrapper (io v1 protocol).
  *
- * Reads a schedule from get_js_config()/schedule: a list of entries with
+ * Reads a schedule from the schedule of its config: a list of entries with
  *   { cycle, addr, size, is_write, name, data_hex }
  * For each entry the master allocates an IoReq, fills its data buffer
  * (from data_hex for writes, zeroed for reads), and sends it at the
@@ -23,6 +23,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <stub_master_v1/dramsys_stub_master_v1_config.hpp>
 #include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include <cstdio>
@@ -37,6 +38,7 @@ public:
     void reset(bool active) override;
 
 private:
+    DramsysStubMasterV1Config cfg;
     struct ScheduleEntry {
         int64_t  cycle;
         uint64_t addr;
@@ -88,7 +90,7 @@ private:
 };
 
 StubMasterV1::StubMasterV1(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       issue_event(this, &StubMasterV1::issue_handler),
       chain_event(this, &StubMasterV1::chain_handler),
       quit_event(this, &StubMasterV1::quit_handler),
@@ -103,30 +105,29 @@ StubMasterV1::StubMasterV1(vp::ComponentConf &config)
     this->out.set_grant_meth(&StubMasterV1::grant_handler);
     this->new_master_port("output", &this->out);
 
-    this->logname = this->get_js_config()->get_child_str("logname");
+    this->logname = this->cfg.logname;
     if (this->logname.empty()) this->logname = this->get_name();
 
-    int qac = this->get_js_config()->get_child_int("quit_after_cycles");
+    int qac = this->cfg.quit_after_cycles;
     if (qac > 0) this->quit_after_cycles = qac;
 
-    js::Config *schedule_cfg = this->get_js_config()->get("schedule");
-    if (schedule_cfg != nullptr)
     {
-        for (auto &item : schedule_cfg->get_elems())
+        for (int si = 0; si < this->cfg.schedule_count; si++)
         {
+            const DramsysStubMasterV1EntryConfig *item = &this->cfg.schedule[si];
             ScheduleEntry *e = new ScheduleEntry();
-            e->cycle    = item->get_int("cycle");
-            e->addr     = (uint64_t)item->get_int("addr");
-            e->size     = (uint64_t)item->get_int("size");
-            e->is_write = item->get_child_bool("is_write");
-            e->name     = item->get_child_str("name");
+            e->cycle    = item->cycle;
+            e->addr     = (uint64_t)item->addr;
+            e->size     = (uint64_t)item->size;
+            e->is_write = item->is_write;
+            e->name     = item->req_name;
             if (e->name.empty()) e->name = "req" + std::to_string(this->schedule.size());
 
             e->data = new uint8_t[e->size];
             for (uint64_t i = 0; i < e->size; i++) e->data[i] = 0;
 
             // Optional contiguous hex pre-fill (e.g. "deadbeef" for a 4-byte write).
-            std::string data_hex = item->get_child_str("data_hex");
+            std::string data_hex = item->data_hex;
             auto hexv = [](char c) -> int {
                 if (c >= '0' && c <= '9') return c - '0';
                 if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -138,7 +139,7 @@ StubMasterV1::StubMasterV1(vp::ComponentConf &config)
                 e->data[i] = (hexv(data_hex[i*2]) << 4) | hexv(data_hex[i*2+1]);
             }
 
-            e->chain_to_prev = item->get_child_bool("chain_to_prev");
+            e->chain_to_prev = item->chain_to_prev;
             e->idx = this->schedule.size();
             e->req = new vp::IoReq(e->addr, e->data, e->size, e->is_write);
             this->schedule.push_back(e);

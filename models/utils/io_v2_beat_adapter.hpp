@@ -59,6 +59,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <vp/debug_mem.hpp>
+#include <utils/io_v2_beat_adapter/io_v2_beat_adapter_config.hpp>
 
 
 class IoV2BeatAdapter : public vp::Component, public vp::DebugMemIf
@@ -77,6 +78,7 @@ public:
         int depth) override;
 
 private:
+    IoV2BeatAdapterConfig cfg;
     vp::DebugMemIf *resolve_debug_mem();
 
     // One scheduled beat, sitting in the pending deque until its ready cycle.

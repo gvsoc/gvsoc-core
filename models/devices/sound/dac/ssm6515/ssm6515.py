@@ -15,27 +15,37 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
 import regmap.regmap
 import regmap.regmap_md
 import regmap.regmap_c_header
 
 
+class Ssm6515Config(Config):
+    """Configuration of the SSM6515 DAC."""
+
+    i2c_address: int = cfg_field(default=0, fmt="hex", dump=True, desc="I2C address")
+    output_filepath: str = cfg_field(default="", dump=True, desc="Output audio file")
+    sd: str = cfg_field(default="", dump=True, desc="I2S data wire, 'sdi' or 'sdo'")
+    global_gain: int = cfg_field(default=0, dump=True, desc=(
+        "Global gain, multiplied by 1000"
+    ))
+
+
 class Ssm6515(gvsoc.systree.Component):
 
     def __init__(self, parent, name, i2c_address=0x00, sd = "sdi", output_filepath = "ssm6515.wav", gain = 0.613):
-        super(Ssm6515, self).__init__(parent, name)
+        super(Ssm6515, self).__init__(parent, name, config=Ssm6515Config(
+            i2c_address=i2c_address, output_filepath=output_filepath, sd=sd,
+            global_gain=int(gain * 1000))) # gain is passed as integer
 
         self.set_component('devices.sound.dac.ssm6515.ssm6515')
         #self.add_sources(['devices/sound/dac/ssm6515/ssm6515.cpp'])
 
 
-        self.add_property('i2c_address', i2c_address)
-        self.add_property('output_filepath', output_filepath)
-        self.add_property('sd', sd)
-        self.add_property('global_gain', gain * 1000) # gain is passed as integer
 
     def set_gain(self, gain):
-        self.add_property('global_gain', gain * 1000)
+        self.get_config().global_gain = int(gain * 1000)
 
     def gen(self, builddir, installdir):
         comp_path = 'devices/sound/dac/ssm6515'

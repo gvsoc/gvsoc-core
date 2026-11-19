@@ -41,7 +41,6 @@ I2c_corruptor::I2c_corruptor(vp::ComponentConf &config)
     start_threshold(2),
     is_started(false)
 {
-    assert(NULL != config);
     /* set helper callback */
     this->i2c_helper.register_callback(std::bind(&I2c_corruptor::i2c_helper_callback,
                 this,

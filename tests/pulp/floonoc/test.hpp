@@ -21,6 +21,7 @@
 #include <vp/itf/io.hpp>
 #include "interco/traffic/generator.hpp"
 #include "interco/traffic/receiver.hpp"
+#include <floonoc_test_config/floonoc_test_config.hpp>
 
 class TestCommon : public vp::Block
 {
@@ -51,6 +52,7 @@ public:
     int mem_bw;
 
 private:
+    FloonocTestConfig cfg;
     int get_cluster_id(int x, int y);
     void exec_next_test();
 

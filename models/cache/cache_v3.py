@@ -85,16 +85,6 @@ class Cache(Component):
         super(Cache, self).__init__(parent, name, config=config)
         self.add_sources(['cache/cache_v3.cpp'])
 
-        self.add_properties({
-            'size': config.size,
-            'ways': config.ways,
-            'line_size': config.line_size,
-            'refill_latency': config.refill_latency,
-            'refill_offset': config.refill_offset,
-            'refill_shift': config.refill_shift,
-            'enabled': config.enabled,
-        })
-
     def i_INPUT(self) -> SlaveItf:
         """Returns the input slave port for memory access requests.
 

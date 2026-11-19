@@ -28,6 +28,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
+#include <utils/fst_dumper/fst_dumper_config.hpp>
 
 #include "fstapi.h"
 
@@ -80,6 +81,8 @@ public:
 
 class FstDumper : public vp::Component
 {
+    FstDumperConfig cfg;
+
 public:
     FstDumper(vp::ComponentConf &config);
     ~FstDumper();
@@ -167,29 +170,27 @@ private:
 
 
 FstDumper::FstDumper(vp::ComponentConf &config)
-    : vp::Component(config), event(this, &FstDumper::event_handler)
+    : vp::Component(config, this->cfg), event(this, &FstDumper::event_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    js::Config *es_cfg = this->get_js_config()->get("element_size");
-    if (es_cfg != NULL)
     {
-        for (auto it : es_cfg->get_childs())
+        for (int i = 0; i < this->cfg.element_size_count; i++)
         {
             // Accept keys with or without a leading '/'. The full_name we
             // build from the FST scope stack has no leading '/' but the
             // natural form a user would write (matching GVSoC trace paths)
             // has one, so normalise on lookup.
-            std::string key = it.first;
+            std::string key = this->cfg.element_size[i].signal;
             if (!key.empty() && key.front() == '/')
             {
                 key.erase(0, 1);
             }
-            this->element_size_map[key] = it.second->get_int();
+            this->element_size_map[key] = this->cfg.element_size[i].size;
         }
     }
 
-    std::string fst_path = this->get_js_config()->get_child_str("fst_file");
+    std::string fst_path = this->cfg.fst_file;
     if (fst_path == "")
     {
         return;

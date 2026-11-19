@@ -16,6 +16,7 @@
 
 
 #include <vp/vp.hpp>
+#include <devices/sound/dac/ssm6515/ssm6515/ssm6515_config.hpp>
 #include <vp/itf/i2c.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/audio.hpp>
@@ -147,6 +148,8 @@ class Ssm6515 : public vp::Component
 {
 public:
     Ssm6515(vp::ComponentConf &conf);
+
+    Ssm6515Config cfg;
     ~Ssm6515();
 
 protected:
@@ -308,7 +311,7 @@ protected:
  ***********************************************************/
 
 Ssm6515::Ssm6515(vp::ComponentConf &config)
-    : vp::Component(config), regmap(*this, "regmap"), starting_event(this, Ssm6515::start_dac)
+    : vp::Component(config, this->cfg), regmap(*this, "regmap"), starting_event(this, Ssm6515::start_dac)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -329,10 +332,10 @@ Ssm6515::Ssm6515(vp::ComponentConf &config)
     this->i2c_prev_sda = 1;
     this->i2c_prev_scl = 1;
     this->i2c_being_addressed = false;
-    this->device_address = this->get_js_config()->get_child_int("i2c_address");
-    this->output_filepath = this->get_js_config()->get_child_str("output_filepath");
-    this->global_gain = ((double)this->get_js_config()->get_child_int("global_gain")) / 1000.0;
-    if (this->get_js_config()->get_child_str("sd") == "sdi")
+    this->device_address = this->cfg.i2c_address;
+    this->output_filepath = this->cfg.output_filepath;
+    this->global_gain = ((double)this->cfg.global_gain) / 1000.0;
+    if (std::string(this->cfg.sd) == "sdi")
     {
         this->i2s_wire = SDI;
         this->trace.msg(vp::Trace::LEVEL_TRACE, "Init sd=sdi gain %f i2c addr %u\n", this->global_gain, this->device_address);

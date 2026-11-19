@@ -26,6 +26,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <stub_master_v2/dramsys_stub_master_v2_config.hpp>
 #include <vp/signal.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <cstdio>
@@ -44,6 +45,7 @@ public:
     void reset(bool active) override;
 
 private:
+    DramsysStubMasterV2Config cfg;
     struct ScheduleEntry {
         int64_t  cycle;
         uint64_t addr;
@@ -115,7 +117,7 @@ private:
 
 
 StubMasterV2::StubMasterV2(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       out(&StubMasterV2::retry_handler, &StubMasterV2::resp_handler),
       issue_event(this, &StubMasterV2::issue_handler),
       chain_event(this, &StubMasterV2::chain_handler),
@@ -129,42 +131,38 @@ StubMasterV2::StubMasterV2(vp::ComponentConf &config)
     this->new_master_port("output", &this->out);
 
     this->wr_allocator = vp::IoReqAllocator::get(0);
-    this->logname = this->get_js_config()->get_child_str("logname");
+    this->logname = this->cfg.logname;
     if (this->logname.empty()) this->logname = this->get_name();
 
-    int qac = this->get_js_config()->get_child_int("quit_after_cycles");
+    int qac = this->cfg.quit_after_cycles;
     if (qac > 0) this->quit_after_cycles = qac;
 
-    js::Config *schedule_cfg = this->get_js_config()->get("schedule");
-    if (schedule_cfg != nullptr)
     {
-        for (auto &item : schedule_cfg->get_elems())
+        for (int si = 0; si < this->cfg.schedule_count; si++)
         {
+            const DramsysStubMasterV2EntryConfig *item = &this->cfg.schedule[si];
             ScheduleEntry *e = new ScheduleEntry();
-            e->cycle    = item->get_int("cycle");
-            e->addr     = (uint64_t)item->get_int("addr");
-            e->size     = (uint64_t)item->get_int("size");
-            e->is_write = item->get_child_bool("is_write");
-            e->name     = item->get_child_str("name");
+            e->cycle    = item->cycle;
+            e->addr     = (uint64_t)item->addr;
+            e->size     = (uint64_t)item->size;
+            e->is_write = item->is_write;
+            e->name     = item->req_name;
             if (e->name.empty()) e->name = "req" + std::to_string(this->schedule.size());
 
             // Per-beat metadata. Defaults: a single-beat single-req burst.
             // get_child_bool returns false by default, so the explicit
             // is_first/is_last fields below override only when present.
-            js::Config *if_cfg = item->get("is_first");
-            js::Config *il_cfg = item->get("is_last");
-            e->is_first = if_cfg ? if_cfg->get_bool() : true;
-            e->is_last  = il_cfg ? il_cfg->get_bool() : true;
-            js::Config *bid_cfg = item->get("burst_id");
-            e->burst_id = bid_cfg ? bid_cfg->get_int() : -1;
-            e->chain_to_prev = item->get_child_bool("chain_to_prev");
+            e->is_first = item->is_first;
+            e->is_last  = item->is_last;
+            e->burst_id = item->burst_id;
+            e->chain_to_prev = item->chain_to_prev;
             e->idx = this->schedule.size();
 
             e->data = new uint8_t[e->size > 0 ? e->size : 1];
             for (uint64_t i = 0; i < e->size; i++) e->data[i] = 0;
 
             // Optional contiguous hex pre-fill.
-            std::string data_hex = item->get_child_str("data_hex");
+            std::string data_hex = item->data_hex;
             e->data_hex = data_hex;
             auto hexv = [](char c) -> int {
                 if (c >= '0' && c <= '9') return c - '0';

@@ -20,6 +20,7 @@
 #include <limits>
 #include <fstream>
 #include <vector>
+#include <devices/sound/transfer_function/transfer_function_config.hpp>
 
 
 
@@ -52,6 +53,7 @@ public:
     void start() override;
 
 private:
+    TransferFunctionConfig cfg;
     static void set_rate_out(vp::Block *__this, int rate);
     static void set_rate_in(vp::Block *__this, int rate);
     static void push_sample(vp::Block *__this, double value);
@@ -101,7 +103,7 @@ double TransferFunction::apply(double sample) {
 
 
 TransferFunction::TransferFunction(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -112,7 +114,7 @@ TransferFunction::TransferFunction(vp::ComponentConf &config)
     this->audio_out_itf.set_set_rate_meth(&TransferFunction::set_rate_out);
     this->new_master_port("audio_out", &this->audio_out_itf);
 
-    this->sample_rate = this->get_js_config()->get_child_int("sample_rate");
+    this->sample_rate = this->cfg.sample_rate;
     this->period = 1000000000000ULL / this->sample_rate;
 
     delay_line = new DelayLine(filter.size());

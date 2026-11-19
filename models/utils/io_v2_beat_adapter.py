@@ -28,14 +28,23 @@ will then keep the user-instantiated adapter on the path.
 import gvsoc.systree as st
 from gvsoc.systree import Component, SlaveItf
 from gvsoc.signature import IoV2Beat
+from config_tree import Config, cfg_field
+
+
+class IoV2BeatAdapterConfig(Config):
+    """Configuration of the io_v2 beat adapter."""
+
+    beat_width: int = cfg_field(default=0, dump=True, desc=(
+        "Width in bytes of the beats on both ports"
+    ))
+
 
 
 class IoV2BeatAdapter(Component):
 
     def __init__(self, parent: Component, name: str, beat_width: int):
-        super().__init__(parent, name)
+        super().__init__(parent, name, config=IoV2BeatAdapterConfig(beat_width=beat_width))
         self.set_component('utils.io_v2_beat_adapter')
-        self.add_property('beat_width', beat_width)
         self._beat_width = beat_width
 
     def i_INPUT(self) -> SlaveItf:

@@ -15,16 +15,25 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class Ns16550Config(Config):
+    """Configuration of the ns16550 UART."""
+
+    offset_shift: int = cfg_field(default=0, dump=True, desc=(
+        "Shift applied to the register offsets (log2 of the register stride)"
+    ))
+
 
 class Ns16550(gvsoc.systree.Component):
 
     def __init__(self, parent, name, offset_shift=0):
 
-        super(Ns16550, self).__init__(parent, name)
+        super(Ns16550, self).__init__(parent, name, config=Ns16550Config(offset_shift=offset_shift))
 
         self.set_component('devices.uart.ns16550')
         
-        self.add_property('offset_shift', offset_shift)
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'input', signature='io')

@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <memory/dramsys/dramsys_config.hpp>
 #include <vp/itf/io.hpp>
 #include <pim.hpp>
 #include <stdio.h>
@@ -65,6 +66,7 @@ public:
     static void pimCallback(void *__this, PimInfo pimInfo);
 
 private:
+    DramsysConfig cfg;
     vp::Trace trace;
     vp::IoSlave in_itf;
     vp::WireMaster<GvsocMemspec> send_memspec_itf;
@@ -107,7 +109,7 @@ private:
 };
 
 ddr::ddr(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -170,7 +172,7 @@ ddr::ddr(vp::ComponentConf &config)
 
     // Configure DRAMSys according to the type of DRAM specified in the model configuration
     std::string resources_path = current_path + "/dramsys_configs";
-    std::string dram_type = get_js_config()->get("dram-type")->get_str();
+    std::string dram_type = std::string(this->cfg.dram_type);
     std::string simulationJson_path;
     if (dram_type == "")    dram_type = "hbm2-example.json";  // Default DRAM type if not specified in the configuration
     simulationJson_path = resources_path + "/" + dram_type;
@@ -180,7 +182,7 @@ ddr::ddr(vp::ComponentConf &config)
     dram_register_async_callback(dram_id, (CallbackInstance_t)this, (AsynCallbackResp_Meth *)&ddr::rspCallback, (AsynCallbackUpdateReq_Meth*)&ddr::reqCallback);
 
     // Signal PIM support in DRAMSys and enable PIM callback
-    pim_support = get_js_config()->get("pim-support")->get_bool();
+    pim_support = this->cfg.pim_support;
     if (pim_support) {
         for (int i = 0; i < memspec.nb_channels; i++) {
             pim_stride_channel.push_back(new PimStride());

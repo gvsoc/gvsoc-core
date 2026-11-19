@@ -15,6 +15,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <devices/sound/microphone/pdm/pdm_microphone/pdm_microphone_config.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/audio.hpp>
 #include <string.h>
@@ -29,6 +30,8 @@ class Microphone_pdm : public vp::Component
 
 public:
     Microphone_pdm(vp::ComponentConf &conf);
+
+    PdmMicrophoneConfig cfg;
     ~Microphone_pdm();
 
 protected:
@@ -125,7 +128,7 @@ Microphone_pdm::~Microphone_pdm()
 }
 
 Microphone_pdm::Microphone_pdm(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -138,8 +141,8 @@ Microphone_pdm::Microphone_pdm(vp::ComponentConf &config)
 
     this->i2s_itf.set_sync_meth(&Microphone_pdm::i2s_sync);
     this->new_master_port("i2s", &this->i2s_itf);
-    this->slot = this->get_js_config()->get_child_int("slot");
-    this->generated_freq = this->get_js_config()->get_child_int("generated_freq");
+    this->slot = this->cfg.slot;
+    this->generated_freq = this->cfg.generated_freq;
     this->id = slot;
 
     this->pcm2pdm = new PcmToPdm(6, 0); // interpolation ratio 64 and interpolation type LINEAR

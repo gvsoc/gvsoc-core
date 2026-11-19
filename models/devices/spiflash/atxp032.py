@@ -17,6 +17,8 @@
 
 import gvsoc.systree as st
 
+from devices.spiflash.spiflash import SpiflashConfig
+
 
 class Atxp032(st.Component):
     """
@@ -32,7 +34,7 @@ class Atxp032(st.Component):
     """
 
     def __init__(self, parent, name, size=0x08000000):
-        super(Atxp032, self).__init__(parent, name)
+        super(Atxp032, self).__init__(parent, name, config=SpiflashConfig(size=size))
 
         # Register all parameters as properties so that they can be overwritten from the command-line
         self.add_property('content/partitions/readfs/files', [])
@@ -48,8 +50,6 @@ class Atxp032(st.Component):
 
         self.set_component('devices.spiflash.spiflash_impl')
 
-        self.add_property('writeback', True)
-        self.add_property('size', size)
 
         # TODO this is needed by GAPY but is not aligned with the size given to model
         # That should be resolved once the flash images are built by the system tree instead of gapy

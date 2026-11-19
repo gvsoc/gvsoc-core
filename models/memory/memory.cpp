@@ -31,6 +31,7 @@
 #include <vp/itf/wire.hpp>
 #include <vp/debug_mem.hpp>
 #include <memory/memory_config/memory_config.hpp>
+#include <vp/power/power_table_convert.hpp>
 
 class Memory : public vp::Component, public vp::DebugMemIf
 {
@@ -136,14 +137,6 @@ log_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
 log_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
 log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
 {
-    // If no compiled tree config, fall back to JSON
-    if (!this->has_tree_config())
-    {
-        js::Config *js = get_js_config();
-        this->cfg.size = js->get("size") ? js->get("size")->get_int() : 0;
-        this->cfg.atomics = js->get("atomics") ? js->get("atomics")->get_bool() : false;
-        this->cfg.latency = js->get("latency") ? js->get("latency")->get_int() : 0;
-    }
 
     traces.new_trace("trace", &trace, vp::DEBUG);
     in.set_req_meth(&Memory::req);
@@ -166,26 +159,33 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     this->meminfo_itf.set_sync_meth(&Memory::meminfo_sync);
     new_slave_port("meminfo", &this->meminfo_itf);
 
-    js::Config *js_config = get_js_config()->get("power_trigger");
-    this->power_trigger = js_config != NULL && js_config->get_bool();
+    this->power_trigger = this->cfg.power_trigger;
 
-    power.new_power_source("leakage", &background_power, this->get_js_config()->get("**/background"));
-    power.new_power_source("read_8", &read_8_power, this->get_js_config()->get("**/read_8"));
-    power.new_power_source("read_16", &read_16_power, this->get_js_config()->get("**/read_16"));
-    power.new_power_source("read_32", &read_32_power, this->get_js_config()->get("**/read_32"));
-    power.new_power_source("write_8", &write_8_power, this->get_js_config()->get("**/write_8"));
-    power.new_power_source("write_16", &write_16_power, this->get_js_config()->get("**/write_16"));
-    power.new_power_source("write_32", &write_32_power, this->get_js_config()->get("**/write_32"));
+    // Power sources from the config power tables; a source whose tables
+    // were left empty (no entry in the power model file) stays inert.
+    vp::new_power_source_from_config(power, "leakage", &background_power,
+        this->cfg.power.background);
+    vp::new_power_source_from_config(power, "read_8", &read_8_power,
+        this->cfg.power.read_8);
+    vp::new_power_source_from_config(power, "read_16", &read_16_power,
+        this->cfg.power.read_16);
+    vp::new_power_source_from_config(power, "read_32", &read_32_power,
+        this->cfg.power.read_32);
+    vp::new_power_source_from_config(power, "write_8", &write_8_power,
+        this->cfg.power.write_8);
+    vp::new_power_source_from_config(power, "write_16", &write_16_power,
+        this->cfg.power.write_16);
+    vp::new_power_source_from_config(power, "write_32", &write_32_power,
+        this->cfg.power.write_32);
 
-    // Fields not yet in MemoryConfig (still via JSON)
-    this->check = get_js_config()->get_child_bool("check");
-    this->width_bits = get_js_config()->get_child_int("width_bits");
-    int align = get_js_config()->get_child_int("align");
+    this->check = this->cfg.check;
+    this->width_bits = this->cfg.width_bits;
+    int align = this->cfg.align;
 
     // Optional address truncation. 0 means inactive; any non-zero value (which
     // should be a power of 2) is taken as the truncation window — incoming addresses
     // are AND-masked with (truncate_size - 1) before being used as offsets.
-    int64_t truncate_size = get_js_config()->get_int("truncate_size");
+    int64_t truncate_size = this->cfg.truncate_size;
     if (truncate_size > 0)
     {
         this->truncate_mask = (uint64_t)truncate_size - 1;
@@ -223,16 +223,15 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
     // Initialize the Memory with a special value to detect uninitialized
     // variables.
     // Only do it for small memories to not slow down too much simulation init.
-    if (this->get_js_config()->get_child_bool("init") && this->cfg.size < (2<<24))
+    if (this->cfg.init && this->cfg.size < (2<<24))
     {
         memset(mem_data, 0x57, this->cfg.size);
     }
 
     // Preload the Memory
-    js::Config *stim_file_conf = this->get_js_config()->get("stim_file");
-    if (stim_file_conf != NULL)
+    if (this->cfg.stim_file != NULL)
     {
-        string path = stim_file_conf->get_str();
+        string path = this->cfg.stim_file;
         if (path != "")
         {
             trace.msg("Preloading Memory with stimuli file (path: %s)\n", path.c_str());
@@ -646,7 +645,7 @@ void Memory::reset(bool active)
 #ifdef CONFIG_FAULT_INJECTION
         if (!this->registered_with_fic)
         {
-            bool fic_enabled = this->get_js_config()->get_child_bool("fic_enabled");
+            bool fic_enabled = this->cfg.fic_enabled;
             if (fic_enabled)
             {
                 vp::FIC_registrator *fic = (vp::FIC_registrator *) this->get_service("FIC");

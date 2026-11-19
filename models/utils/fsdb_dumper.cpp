@@ -25,6 +25,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
+#include <utils/fsdb_dumper/fsdb_dumper_config.hpp>
 
 #ifdef NOVAS_FSDB
 #undef NOVAS_FSDB
@@ -82,6 +83,8 @@ public:
 
 class FsdbDumper : public vp::Component
 {
+    FsdbDumperConfig cfg;
+
 public:
     FsdbDumper(vp::ComponentConf &config);
     ~FsdbDumper();
@@ -147,29 +150,27 @@ private:
 
 
 FsdbDumper::FsdbDumper(vp::ComponentConf &config)
-    : vp::Component(config), event(this, &FsdbDumper::event_handler)
+    : vp::Component(config, this->cfg), event(this, &FsdbDumper::event_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    js::Config *es_cfg = this->get_js_config()->get("element_size");
-    if (es_cfg != NULL)
     {
-        for (auto it : es_cfg->get_childs())
+        for (int i = 0; i < this->cfg.element_size_count; i++)
         {
             // Accept keys with or without a leading '/'. The full_name we
             // build from the FSDB scope stack has no leading '/' but the
             // natural form a user would write (matching GVSoC trace paths)
             // has one, so normalise on lookup.
-            std::string key = it.first;
+            std::string key = this->cfg.element_size[i].signal;
             if (!key.empty() && key.front() == '/')
             {
                 key.erase(0, 1);
             }
-            this->element_size_map[key] = it.second->get_int();
+            this->element_size_map[key] = this->cfg.element_size[i].size;
         }
     }
 
-    std::string fsdb_path = this->get_js_config()->get_child_str("fsdb_file");
+    std::string fsdb_path = this->cfg.fsdb_file;
     if (fsdb_path == "")
     {
         return;

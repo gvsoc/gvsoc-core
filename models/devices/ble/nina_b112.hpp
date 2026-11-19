@@ -20,6 +20,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/clock.hpp>
 #include <vp/itf/uart.hpp>
+#include <devices/ble/nina_b112/nina_b112_config.hpp>
 
 #include <queue>
 #include <random>
@@ -199,9 +200,9 @@ public:
     /**
      * \brief construct the model using given configuration
      *
-     * \param config JSON model configuration
+     * \param config model configuration
      */
-    Nina_b112(js::Config *config);
+    Nina_b112(vp::ComponentConf &config);
 
     /**
      * \brief called when the model starts
@@ -212,6 +213,7 @@ public:
     void reset(bool active);
 
 private:
+    NinaB112Config cfg;
 
     /**
      * TODO

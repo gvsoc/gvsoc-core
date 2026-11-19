@@ -21,6 +21,7 @@
 
 
 #include <vp/vp.hpp>
+#include <devices/sound/i2s_microphone/sound_i2s_microphone_config.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/clock.hpp>
@@ -45,6 +46,8 @@ class Microphone : public vp::Component
 
 public:
     Microphone(vp::ComponentConf &conf);
+
+    SoundI2sMicrophoneConfig cfg;
 
 protected:
     static void sync(vp::Block *__this, int sck, int ws, int sd, bool is_full_duplex);
@@ -268,7 +271,7 @@ long long Stim_txt::get_data(int64_t timestamp)
 
 
 Microphone::Microphone(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -281,21 +284,21 @@ Microphone::Microphone(vp::ComponentConf &config)
 
     this->i2s_itf.set_sync_meth(&Microphone::sync);
 
-    this->channel_ws = this->get_js_config()->get_child_str("channel") != "left";
+    this->channel_ws = std::string(this->cfg.channel) != "left";
     this->prev_ws = 0;
-    this->ws_delay = this->get_js_config()->get_int("ws-delay");
-    this->width = this->get_js_config()->get_int("width");
-    this->frequency = this->get_js_config()->get_int("frequency");
-    this->enabled = this->get_js_config()->get_child_bool("enabled");
-    this->pdm = this->get_js_config()->get_int("pdm");
+    this->ws_delay = this->cfg.ws_delay;
+    this->width = this->cfg.width;
+    this->frequency = this->cfg.frequency;
+    this->enabled = this->cfg.enabled;
+    this->pdm = this->cfg.pdm;
     this->pdm_error = 1;
     this->stim_incr = false;
     this->stim = NULL;
     this->is_active = false;
-    std::string mode = this->get_js_config()->get_child_str("stim_mode");
+    std::string mode = this->cfg.stim_mode;
     if (mode == "file")
     {
-        std::string stim_file = this->get_js_config()->get_child_str("stim");
+        std::string stim_file = this->cfg.stim;
 
         if (stim_file != "") {
 
@@ -328,9 +331,9 @@ Microphone::Microphone(vp::ComponentConf &config)
     else if (mode == "incr")
     {
         this->stim_incr = true;
-        this->stim_incr_start = this->get_js_config()->get_int("stim_incr_start");
+        this->stim_incr_start = this->cfg.stim_incr_start;
         this->current_stim = this->stim_incr_start;
-        this->stim_incr_value = this->get_js_config()->get_int("stim_incr_value");
+        this->stim_incr_value = this->cfg.stim_incr_value;
     }
     this->current_ws_delay = 0;
     this->pending_bits = -1;

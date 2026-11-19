@@ -21,6 +21,7 @@
 
 
 #include <vp/vp.hpp>
+#include <devices/sound/i2s_clock/i2s_clock_config.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/clock.hpp>
@@ -32,6 +33,8 @@ class I2s_clock : public vp::Component
 
 public:
     I2s_clock(vp::ComponentConf &conf);
+
+    I2sClockConfig cfg;
 
     void start();
 
@@ -49,21 +52,21 @@ protected:
 
 
 I2s_clock::I2s_clock(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->new_master_port("i2s", &this->i2s_itf);
     this->new_master_port("clock_cfg", &this->clock_cfg);
 
     this->event = this->event_new(I2s_clock::handler);
     this->sck = 0;
-    this->is_ws = this->get_js_config()->get_child_bool("is_ws");
+    this->is_ws = this->cfg.is_ws;
 
 }
 
 
 void I2s_clock::start()
 {
-    int frequency = this->get_js_config()->get_child_int("frequency");
+    int frequency = this->cfg.frequency;
 
     if (frequency != 0)
     {

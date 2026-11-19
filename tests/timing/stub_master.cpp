@@ -7,7 +7,7 @@
 /*
  * Testbench master for router_v2 (io_v2 protocol).
  *
- * Reads a schedule from get_js_config()/schedule: a list of entries with
+ * Reads a schedule from the schedule of its config: a list of entries with
  *   { cycle, addr, size, is_write, name }
  * The master sends each request at its issue cycle. If the send returns DENIED, the
  * master remembers the request and re-sends it as soon as retry() fires. Each event
@@ -16,6 +16,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <stub_master/timing_stub_master_config.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <cstdio>
 #include <deque>
@@ -28,6 +29,7 @@ public:
     void reset(bool active) override;
 
 private:
+    TimingStubMasterConfig cfg;
     struct ScheduleEntry {
         int64_t cycle;
         uint64_t addr;
@@ -61,7 +63,7 @@ private:
 };
 
 StubMaster::StubMaster(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       out(&StubMaster::retry_handler, &StubMaster::resp_handler),
       issue_event(this, &StubMaster::issue_handler),
       quit_event(this, &StubMaster::quit_handler)
@@ -69,23 +71,22 @@ StubMaster::StubMaster(vp::ComponentConf &config)
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->new_master_port("output", &this->out);
 
-    this->logname = this->get_js_config()->get_child_str("logname");
+    this->logname = this->cfg.logname;
     if (this->logname.empty()) this->logname = this->get_name();
 
-    int qac = this->get_js_config()->get_child_int("quit_after_cycles");
+    int qac = this->cfg.quit_after_cycles;
     if (qac > 0) this->quit_after_cycles = qac;
 
-    js::Config *schedule_cfg = this->get_js_config()->get("schedule");
-    if (schedule_cfg != NULL)
     {
-        for (auto &item : schedule_cfg->get_elems())
+        for (int si = 0; si < this->cfg.schedule_count; si++)
         {
+            const TimingStubMasterEntryConfig *item = &this->cfg.schedule[si];
             ScheduleEntry *e = new ScheduleEntry();
-            e->cycle = item->get_int("cycle");
-            e->addr = (uint64_t)item->get_int("addr");
-            e->size = (uint64_t)item->get_int("size");
-            e->is_write = item->get_child_bool("is_write");
-            e->name = item->get_child_str("name");
+            e->cycle = item->cycle;
+            e->addr = (uint64_t)item->addr;
+            e->size = (uint64_t)item->size;
+            e->is_write = item->is_write;
+            e->name = item->req_name;
             if (e->name.empty()) e->name = "req" + std::to_string(this->schedule.size());
             e->data = new uint8_t[e->size];
             for (uint64_t i = 0; i < e->size; i++) e->data[i] = 0;

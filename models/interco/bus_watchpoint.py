@@ -14,24 +14,56 @@
 # limitations under the License.
 #
 
+from typing import Annotated
+
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
+
+
+class BusWatchpointArgConfig(Config):
+    """One argument given to the application through the getmainvars syscall."""
+
+    value: str = cfg_field(default='', desc=(
+        "Argument string"
+    ))
+
+
+class BusWatchpointConfig(Config):
+    """Configuration of the bus watchpoint (riscv fesvr syscall proxy)."""
+
+    # Runtime: computed in configure() from the binary given for the run
+    riscv_fesvr_tohost_addr: Annotated[int, Runtime] = cfg_field(default=0, fmt="hex",
+        dump=True, desc=(
+        "Address of the tohost variable"
+    ))
+    riscv_fesvr_fromhost_addr: Annotated[int, Runtime] = cfg_field(default=0, fmt="hex",
+        dump=True, desc=(
+        "Address of the fromhost variable"
+    ))
+    args: list[BusWatchpointArgConfig] = cfg_field(default_factory=list, desc=(
+        "Arguments given to the application, after the application name"
+    ))
+
 
 class Bus_watchpoint(st.Component):
 
     def __init__(self, parent, name, riscv_fesvr_tohost_addr, riscv_fesvr_fromhost_addr, word_size, args=None):
 
-        super(Bus_watchpoint, self).__init__(parent, name)
-
         if args is None:
             args = []
+
+        super(Bus_watchpoint, self).__init__(parent, name, config=BusWatchpointConfig(
+            riscv_fesvr_tohost_addr=riscv_fesvr_tohost_addr,
+            riscv_fesvr_fromhost_addr=riscv_fesvr_fromhost_addr,
+            args=[BusWatchpointArgConfig(value=arg) for arg in args]))
 
         if word_size == 64:
             self.set_component('interco.bus_watchpoint_64')
         else:
             self.set_component('interco.bus_watchpoint_32')
 
-        self.add_properties({
-            "riscv_fesvr_tohost_addr": riscv_fesvr_tohost_addr,
-            "riscv_fesvr_fromhost_addr": riscv_fesvr_fromhost_addr,
-            "args": args
-        })
+    def set_fesvr_addresses(self, tohost_addr: int, fromhost_addr: int):
+        """Set the tohost/fromhost addresses, e.g. from the binary of the run."""
+        self.get_config().riscv_fesvr_tohost_addr = tohost_addr
+        self.get_config().riscv_fesvr_fromhost_addr = fromhost_addr

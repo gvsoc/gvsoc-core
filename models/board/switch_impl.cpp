@@ -23,6 +23,7 @@
 #include <vp/itf/wire.hpp>
 #include <stdio.h>
 #include <string.h>
+#include <board/switch/board_switch_config.hpp>
 
 class Switch : public vp::Component
 {
@@ -35,17 +36,18 @@ public:
 private:
     static void sync(vp::Block *__this, int value);
 
+    BoardSwitchConfig cfg;
     vp::WireSlave<int> in_itf;
     int value;
 };
 
 Switch::Switch(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->in_itf.set_sync_meth(&Switch::sync);
     this->new_slave_port("input", &this->in_itf);
 
-    this->value = this->get_js_config()->get_child_int("value");
+    this->value = this->cfg.value;
 }
 
 void Switch::sync(vp::Block *__this, int value)

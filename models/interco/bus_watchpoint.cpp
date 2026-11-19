@@ -25,6 +25,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
+#include <interco/bus_watchpoint/bus_watchpoint_config.hpp>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
@@ -117,6 +118,7 @@ public:
     void reset(bool active);
 
 private:
+    BusWatchpointConfig cfg;
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     void handle_syscall(uint64_t cmd);
     void dispatch(uint64_t cmd);
@@ -169,7 +171,7 @@ private:
 };
 
 bus_watchpoint::bus_watchpoint(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -179,8 +181,8 @@ bus_watchpoint::bus_watchpoint(vp::ComponentConf &config)
     out.set_resp_meth(&bus_watchpoint::data_response);
     new_master_port("output", &out);
 
-    this->riscv_fesvr_tohost_addr = this->get_js_config()->get_child_int("riscv_fesvr_tohost_addr");
-    this->riscv_fesvr_fromhost_addr = this->get_js_config()->get_child_int("riscv_fesvr_fromhost_addr");
+    this->riscv_fesvr_tohost_addr = this->cfg.riscv_fesvr_tohost_addr;
+    this->riscv_fesvr_fromhost_addr = this->cfg.riscv_fesvr_fromhost_addr;
 
     table.resize(2048);
     table[17] = &bus_watchpoint::sys_getcwd;
@@ -550,9 +552,9 @@ reg_t bus_watchpoint::sys_getmainvars(reg_t pbuf, reg_t limit, reg_t a2, reg_t a
 {
     std::vector<std::string> args = { "app" };
 
-    for (auto x: this->get_js_config()->get("args")->get_elems())
+    for (int i = 0; i < this->cfg.args_count; i++)
     {
-        args.push_back(x->get_str());
+        args.push_back(this->cfg.args[i].value);
     }
 
     std::vector<uint64_t> words(args.size() + 3);

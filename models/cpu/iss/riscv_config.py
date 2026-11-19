@@ -23,12 +23,26 @@ ISS copies the IssConfig prefix of the compiled struct.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from config_tree import Config, cfg_field
 from gvrun.runtime import Runtime
 from vp.power_config import PowerSourceConfig
 from cpu.iss_v2.riscv_config import RiscvPowerConfig, RiscvBinaryConfig, RiscvArgConfig
+
+
+class IssVuConfig(Config):
+    """Vector unit (Ara / Spatz) attached to the v1 ISS, see pulp.ara.ara.attach."""
+
+    _defer_parent_init: ClassVar[bool] = True
+
+    nb_lanes: int = cfg_field(default=0, desc="Number of vector lanes")
+    lsu_width: int = cfg_field(default=0, desc="Width in bytes of the vector LSU, per port")
+    compute_width: int = cfg_field(default=0, desc="Width in bytes of the vector compute units")
+    nb_ports: int = cfg_field(default=0, desc="Number of memory ports of the Spatz VLSU")
+    nb_outstanding_reqs: int = cfg_field(default=0, desc=(
+        "Number of outstanding requests per port of the Spatz VLSU"
+    ))
 
 
 class IssConfig(Config):
@@ -91,4 +105,7 @@ class IssConfig(Config):
     ))
     htif_fromhost: Annotated[int, Runtime] = cfg_field(default=0, fmt="hex", desc=(
         "Address of the HTIF fromhost symbol of the binary, known at run time"
+    ))
+    vu: IssVuConfig = cfg_field(default_factory=IssVuConfig, desc=(
+        "Vector unit, when one is attached"
     ))

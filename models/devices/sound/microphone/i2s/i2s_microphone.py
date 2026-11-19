@@ -15,21 +15,38 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
 import regmap.regmap
 import regmap.regmap_md
 import regmap.regmap_c_header
 
 
+class I2sMicrophoneConfig(Config):
+    """Configuration of the I2S microphone (devices.sound.microphone.i2s)."""
+
+    channel: str = cfg_field(default="", dump=True, desc=(
+        "Channel of the microphone, 'left' or 'right'"
+    ))
+    ws_delay: int = cfg_field(default=0, dump=True, desc=(
+        "Number of cycles after the ws edge before the first bit is sent"
+    ))
+    frequency: int = cfg_field(default=0, dump=True, desc="Frequency of the I2S clock")
+    width: int = cfg_field(default=0, dump=True, desc="Width of the samples, in bits")
+    generated_freq: int = cfg_field(default=0, dump=True, desc=(
+        "Frequency of the generated sine wave when there is no input file"
+    ))
+    input_filepath: str = cfg_field(default="", dump=True, desc=(
+        "Input audio file, empty for none"
+    ))
+
+
 class Microphone_i2s(gvsoc.systree.Component):
 
     def __init__(self, parent, name, channel, frequency, width, generated_freq = 1000, input_file = None, ws_delay = 1):
-        super(Microphone_i2s, self).__init__(parent, name)
+        super(Microphone_i2s, self).__init__(parent, name, config=I2sMicrophoneConfig(
+            channel=channel, ws_delay=ws_delay, frequency=frequency, width=width,
+            generated_freq=generated_freq,
+            input_filepath=input_file if input_file is not None else ''))
 
         self.set_component('devices.sound.microphone.i2s.i2s_microphone')
 
-        self.add_property('channel', channel)
-        self.add_property('ws-delay', ws_delay)
-        self.add_property('frequency', frequency)
-        self.add_property('width', width)
-        self.add_property('generated_freq', generated_freq)
-        self.add_property('input_filepath', input_file)

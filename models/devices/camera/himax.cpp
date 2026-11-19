@@ -22,6 +22,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/cpi.hpp>
 #include <vp/itf/i2c.hpp>
+#include <devices/camera/himax/himax_config.hpp>
 #include <unistd.h>
 #include <byteswap.h>
 
@@ -96,6 +97,8 @@ public:
     Himax(vp::ComponentConf &conf);
 
     void reset(bool active);
+
+    HimaxConfig cfg;
 
 protected:
 
@@ -515,7 +518,7 @@ void Himax::reset(bool active)
 
 
 Himax::Himax(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -533,26 +536,24 @@ Himax::Himax(vp::ComponentConf &config)
     this->stream = NULL;
 
     // Default color mode is 8bit gray
-    std::string color_mode = get_js_config()->get("color-mode")->get_str();
+    std::string color_mode = this->cfg.color_mode;
     if (color_mode == "raw")
       this->color_mode = COLOR_MODE_RAW;
     else
       this->color_mode = COLOR_MODE_GRAY;
 
-    this->width = get_js_config()->get("width")->get_int();
-    this->height = get_js_config()->get("height")->get_int();
-    this->pixel_size = get_js_config()->get("pixel-size")->get_int();
-    this->vsync_polarity = get_js_config()->get("vsync-polarity")->get_int();
-    this->hsync_polarity = get_js_config()->get("hsync-polarity")->get_int();
-    this->little = get_js_config()->get("endianness")->get_str() == "little";
+    this->width = this->cfg.width;
+    this->height = this->cfg.height;
+    this->pixel_size = this->cfg.pixel_size;
+    this->vsync_polarity = this->cfg.vsync_polarity;
+    this->hsync_polarity = this->cfg.hsync_polarity;
+    this->little = std::string(this->cfg.endianness) == "little";
 
     // Default color mode is 16bits RGB565
     //color_mode = COLOR_MODE_RGB565;
-    js::Config *stream_config = get_js_config()->get("image-stream");
-
-    if (stream_config)
+    if (this->cfg.image_stream != NULL)
     {
-        string stream_path = stream_config->get_str();
+        string stream_path = this->cfg.image_stream;
 
         if (stream_path != "")
         {

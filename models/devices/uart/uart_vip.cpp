@@ -24,6 +24,7 @@
 #include <vp/itf/uart.hpp>
 #include <vp/proxy.hpp>
 #include "utils/uart/uart_adapter.hpp"
+#include <devices/uart/uart_vip/uart_vip_config.hpp>
 
 class UartVip : public vp::Component
 {
@@ -35,6 +36,7 @@ public:
         std::vector<std::string> args, std::string req) override;
 
 private:
+    UartVipConfig cfg;
 
     void tx_edge(int64_t timestamp, int tx);
     void rx_edge(int64_t timestamp, int rx);
@@ -88,20 +90,20 @@ private:
 
 
 UartVip::UartVip(vp::ComponentConf &config)
-    : vp::Component(config), adapter(this, this, "adapter", "input"),
+    : vp::Component(config, this->cfg), adapter(this, this, "adapter", "input"),
     clear_event(this, &UartVip::clear_event_handler),
     rx_event(this, &UartVip::rx_event_handler),
     tx_empty_event(this, &UartVip::tx_empty_event_handler)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    int baudrate = this->get_js_config()->get("baudrate")->get_int();
+    int baudrate = this->cfg.baudrate;
 
-    int data_bits = this->get_js_config()->get("data_bits")->get_int();
-    int stop_bits = this->get_js_config()->get("stop_bits")->get_int();
-    bool parity = this->get_js_config()->get("parity")->get_bool();
-    bool ctrl_flow = this->get_js_config()->get("ctrl_flow")->get_bool();
-    int ctrl_flow_limiter = this->get_js_config()->get("ctrl_flow_limiter")->get_int();
+    int data_bits = this->cfg.data_bits;
+    int stop_bits = this->cfg.stop_bits;
+    bool parity = this->cfg.parity;
+    bool ctrl_flow = this->cfg.ctrl_flow;
+    int ctrl_flow_limiter = this->cfg.ctrl_flow_limiter;
 
     this->adapter.baudrate_set(baudrate);
     this->adapter.data_bits_set(data_bits);
@@ -113,10 +115,10 @@ UartVip::UartVip(vp::ComponentConf &config)
     this->adapter.tx_empty_event_set(&this->tx_empty_event);
     this->adapter.rx_flow_limiter_set(ctrl_flow_limiter);
 
-    this->adapter.loopback_set(this->get_js_config()->get("loopback")->get_bool());
-    this->stdout = this->get_js_config()->get("stdout")->get_bool();
+    this->adapter.loopback_set(this->cfg.loopback);
+    this->stdout = this->cfg.stdout;
 
-    std::string rx_filename = this->get_js_config()->get("rx_file")->get_str();
+    std::string rx_filename = this->cfg.rx_file;
     if (rx_filename != "")
     {
         this->rx_file = fopen(rx_filename.c_str(), (char *)"w");

@@ -15,15 +15,27 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class TrafficGenConfig(Config):
+    """Configuration of the traffic generator."""
+
+    nb_pending_reqs: int = cfg_field(default=0, dump=True, desc=(
+        "Maximum number of requests the generator can have pending"
+    ))
+    collective_enable: bool = cfg_field(default=False, dump=True, desc=(
+        "True to enable the collective operations"
+    ))
+
 
 class Generator(gvsoc.systree.Component):
 
     def __init__(self, parent, name, nb_pending_reqs=64, collective_enable=False):
 
-        super(Generator, self).__init__(parent, name)
+        super(Generator, self).__init__(parent, name, config=TrafficGenConfig(
+            nb_pending_reqs=nb_pending_reqs, collective_enable=collective_enable))
 
-        self.add_property('nb_pending_reqs', nb_pending_reqs)
-        self.add_property('collective_enable', collective_enable)
 
         self.add_sources(['interco/traffic/generator.cpp'])
 

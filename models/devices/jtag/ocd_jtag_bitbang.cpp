@@ -29,6 +29,7 @@
 #include <vp/itf/jtag.hpp>
 
 #include <vp/vp.hpp>
+#include <devices/jtag/ocd_jtag_bitbang/ocd_jtag_bitbang_config.hpp>
 
 class Jtag : public vp::Component
 {
@@ -36,6 +37,7 @@ public:
     Jtag(vp::ComponentConf &conf);
 
 private:
+    OcdJtagBitbangConfig cfg;
     vp::Trace trace;
 
     void proxy_listener();
@@ -56,16 +58,16 @@ private:
 };
 
 Jtag::Jtag(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
     this->jtag_itf.set_sync_meth(&Jtag::sync);
     this->new_master_port("jtag", &this->jtag_itf);
 
-    this->port = this->get_js_config()->get_child_int("port");
+    this->port = this->cfg.port;
 
-    if (this->get_js_config()->get_child_bool("enabled"))
+    if (this->cfg.enabled)
     {
         this->open_proxy();
     }

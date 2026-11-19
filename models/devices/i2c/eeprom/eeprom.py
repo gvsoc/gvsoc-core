@@ -17,6 +17,21 @@
 
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
+from config_tree import Config, cfg_field
+
+
+class I2cEepromConfig(Config):
+    """Configuration of the I2C eeprom."""
+
+    address: int = cfg_field(default=80, dump=True, desc=(
+        "I2C address of the eeprom"
+    ))
+    page_size: int = cfg_field(default=8, dump=True, desc=(
+        "Size of a page in bytes"
+    ))
+    number_of_pages: int = cfg_field(default=128, dump=True, desc=(
+        "Number of pages"
+    ))
 
 
 class Eeprom(st.Component):
@@ -36,10 +51,7 @@ class Eeprom(st.Component):
     class Eeprom_implem(st.Component):
 
         def __init__(self, parent, name, address):
-            super(Eeprom.Eeprom_implem, self).__init__(parent, name)
+            super(Eeprom.Eeprom_implem, self).__init__(parent, name, config=I2cEepromConfig(
+                address=address, page_size=16, number_of_pages=256))
 
             self.set_component('devices.i2c.eeprom.i2c_eeprom')
-
-            self.add_property('address', address)
-            self.add_property('page_size', 16)
-            self.add_property('number_of_pages', 256)

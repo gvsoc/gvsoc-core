@@ -15,16 +15,24 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class PlicConfig(Config):
+    """Configuration of the PLIC."""
+
+    ndev: int = cfg_field(default=0, dump=True, desc=(
+        "Number of interrupt sources"
+    ))
+
 
 class Plic(gvsoc.systree.Component):
 
     def __init__(self, parent, name, ndev=0):
 
-        super(Plic, self).__init__(parent, name)
+        super(Plic, self).__init__(parent, name, config=PlicConfig(ndev=ndev))
 
         self.set_component('cpu.plic')
-
-        self.add_property('ndev', ndev)
 
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:

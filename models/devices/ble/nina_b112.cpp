@@ -23,95 +23,52 @@
 #include <regex>
 
 Nina_b112::Nina_b112(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     /* Behavior configuration */
-    this->behavior.loopback_size = 200;
-    js::Config* behavior = config->get("behavior");
-    if (NULL != behavior)
+    /* configure loopback size */
+    int loopback_size = this->cfg.behavior.loopback_size;
+    if (loopback_size <= 0)
     {
-        /* configure loopback size */
-        js::Config* loopback_size_elt = behavior->get("loopback_size");
-        int loopback_size = 200;
-        if (NULL != loopback_size_elt)
-        {
-            loopback_size = loopback_size_elt->get_int();
-            if (loopback_size <= 0)
-            {
-                loopback_size = 200;
-            }
-        }
-
-        this->behavior.loopback_size = loopback_size;
+        loopback_size = 200;
     }
+    this->behavior.loopback_size = loopback_size;
+
     /* RTS generation configuration */
-    this->rts_gen.enabled = false;
-    js::Config* rts = config->get("rts");
-    if (NULL != rts)
     {
         /* configure whether rts generation is enabled */
-        js::Config* enabled_elt = rts->get("enabled");
-        bool enabled = false;
-        if (NULL != enabled_elt)
-        {
-            enabled = enabled_elt->get_bool();
-        }
+        bool enabled = this->cfg.rts.enabled;
 
         /* configure how many words the model can receive before triggering a rts event */
-        js::Config* buffer_limit_elt = rts->get("buffer_limit");
-        int buffer_limit = 0;
-        if (NULL != buffer_limit_elt)
+        int buffer_limit = this->cfg.rts.buffer_limit;
+        if (buffer_limit <= 0)
         {
-            buffer_limit = buffer_limit_elt->get_int();
-            if (buffer_limit <= 0)
-            {
-                buffer_limit = 1;
-            }
+            buffer_limit = 1;
         }
 
         /* configure how long the rts will last (in uart cycles) */
-        js::Config* duration_elt = rts->get("duration");
-        int duration = 0;
-        if (NULL != duration_elt)
+        int duration = this->cfg.rts.duration;
+        if (duration <= 0)
         {
-            duration = duration_elt->get_int();
-            if (duration <= 0)
-            {
-                duration = 1;
-            }
+            duration = 1;
         }
 
         /* configure random seed */
-        js::Config* random_seed_elt = rts->get("random_seed");
-        int random_seed = 1234;
-        if (NULL != random_seed_elt)
-        {
-            random_seed = random_seed_elt->get_int();
-        }
+        int random_seed = this->cfg.rts.random_seed;
 
         /* configure random high limit */
-        js::Config* random_high_elt = rts->get("random_high");
-        int random_high = 0;
-        if (NULL != random_high_elt)
+        int random_high = this->cfg.rts.random_high;
+        if (random_high <= 0)
         {
-            random_high = random_high_elt->get_int();
-            if (random_high <= 0)
-            {
-                random_high = 10000;
-            }
+            random_high = 10000;
         }
 
         /* configure random threshold */
         /* Below this threshold, RTS will trigger */
-        js::Config* random_threshold_elt = rts->get("random_threshold");
-        int random_threshold = 0;
-        if (NULL != random_threshold_elt)
+        int random_threshold = this->cfg.rts.random_threshold;
+        if (!(random_threshold >= 0 && random_threshold < random_high))
         {
-            random_threshold = random_threshold_elt->get_int();
-            if (!(random_threshold >= 0 && random_threshold < random_high))
-            {
-                random_threshold = 0;
-            }
+            random_threshold = 0;
         }
 
         std::mt19937 rd_gen(random_seed);

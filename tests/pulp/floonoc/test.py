@@ -26,19 +26,15 @@ import interco.traffic.generator
 from interco.traffic.receiver import Receiver
 from memory.memory import Memory
 from gvrun.parameter import TargetParameter
+from floonoc_test_config import FloonocTestConfig
 
 
 class FloonocTest(gvsoc.systree.Component):
 
     def __init__(self, parent, name, nb_cluster_x, nb_cluster_y, cluster_base, cluster_size, use_memory, mem_bw):
-        super().__init__(parent, name)
-
-        self.add_property('nb_cluster_x', nb_cluster_x)
-        self.add_property('nb_cluster_y', nb_cluster_y)
-        self.add_property('cluster_base', cluster_base)
-        self.add_property('cluster_size', cluster_size)
-        self.add_property('use_memory', use_memory)
-        self.add_property('mem_bw', mem_bw)
+        super().__init__(parent, name, config=FloonocTestConfig(nb_cluster_x=nb_cluster_x,
+            nb_cluster_y=nb_cluster_y, cluster_base=cluster_base, cluster_size=cluster_size,
+            use_memory=use_memory, mem_bw=mem_bw))
 
         self.add_sources(['test.cpp'])
         self.add_sources(['test0.cpp'])

@@ -49,8 +49,3 @@ class Clock_generator(st.Component):
         super(Clock_generator, self).__init__(parent, name, config=config)
 
         self.add_sources(['utils/clock_impl.cpp'])
-
-        self.add_properties({
-            'powered_on': powered_on,
-            'powerup_time': powerup_time
-        })

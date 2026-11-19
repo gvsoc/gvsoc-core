@@ -65,7 +65,8 @@ public:
     // Compiled config struct. The component may be instantiated with a
     // subclassed config (e.g. Ri5kyConfig); only the RiscvConfig prefix is
     // copied here, which is safe because dataclass fields are emitted
-    // base-first in the generated structs.
+    // base-first in the generated structs. The fields of the subclass are
+    // read with get_tree_config<SubclassConfig>().
     RiscvConfig cfg;
 
     InsnCache insn_cache;

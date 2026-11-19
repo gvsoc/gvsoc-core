@@ -34,6 +34,7 @@
 
 #include <vp/itf/hyper.hpp>
 #include <vp/itf/wire.hpp>
+#include <devices/ram/aps256xxn/aps256xxn_config.hpp>
 
 // Enum for ram state
 typedef enum
@@ -55,6 +56,7 @@ public:
     void reset(bool active) override;
 
 private:
+    Aps256xxnConfig cfg;
     void stop() override;
     /**
      * @brief Handle octospi clock edges
@@ -453,7 +455,7 @@ void Aps::reset(bool active)
 
 
 Aps::Aps(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     // This method is called when the simulated system is built.
     // We just need here to take care of anything which must be done once at platform startup.
@@ -466,11 +468,9 @@ Aps::Aps(vp::ComponentConf &config)
     in_itf.set_sync_cycle_meth(&Aps::sync_cycle_stub);
     new_slave_port("input", &in_itf);
 
-    js::Config *conf = this->get_js_config();
-
     // Allocate an array for the ram and fill it with special value to help SW detecting reads
     // to non-initialized data.
-    this->size = conf->get("size")->get_int();
+    this->size = this->cfg.size;
 
     this->data = new uint8_t[this->size];
     memset(this->data, 0x57, this->size);

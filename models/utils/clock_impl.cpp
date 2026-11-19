@@ -53,11 +53,6 @@ private:
 Clock::Clock(vp::ComponentConf &config)
     : vp::Component(config, this->cfg)
 {
-    if (!this->has_tree_config())
-    {
-        this->cfg.powerup_time = this->get_js_config()->get_child_int("powerup_time");
-        this->cfg.powered_on = this->get_js_config()->get("powered_on") == NULL || this->get_js_config()->get_child_bool("powered_on");
-    }
 
     traces.new_trace("trace", &trace, vp::DEBUG);
     this->event = this->event_new(Clock::edge_handler);

@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <memory/dramsys_old/ddr_sc/ddr_sc_config.hpp>
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <string.h>
@@ -60,6 +61,7 @@ protected:
   vp::IoReq *first_stalled_req = nullptr;
 
 private:
+  DdrScConfig cfg;
   vp::Trace trace;
   vp::IoSlave in;
 
@@ -90,7 +92,7 @@ private:
 
 #include "ems_gvsoc_tlm_br.h"
 
-ddr::ddr(vp::ComponentConf &config) : vp::Component(config)
+ddr::ddr(vp::ComponentConf &config) : vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
   in.set_req_meth(&ddr::req);
@@ -149,7 +151,7 @@ void ddr::elab()
 
 #ifdef __VP_USE_SYSTEMC_GEM5
   pcbt->set_num_checks(0);
-  std::string cfg = std::string(__GEM5_PATH) + std::string("/") + get_js_config()->get_child_str("tlm/gem5-config");
+  std::string cfg = std::string(__GEM5_PATH) + std::string("/") + this->cfg.gem5_config;
   debug("gem5-config: " << cfg);
   g5tbr = new ems::gem5_tlm_br("g5tbr", cfg);
   for (auto adapt : g5tbr->adapters) {
@@ -158,7 +160,7 @@ void ddr::elab()
 #endif /* __VP_USE_SYSTEMC_GEM5 */
 #ifdef __VP_USE_SYSTEMC_DRAMSYS
   std::string res = std::string(__DRAMSYS_PATH) + std::string("/DRAMSys/library/resources/");
-  std::string sim = res + std::string("simulations/") + get_js_config()->get_child_str("tlm/dramsys-config");
+  std::string sim = res + std::string("simulations/") + this->cfg.dramsys_config;
   debug("dramsys-config: " << sim);
   dramsys = new DRAMSys("DRAMSys", sim, res);
   pcbt->initiator_socket.bind(dramsys->tSocket);
@@ -170,7 +172,7 @@ void ddr::elab()
 
 void ddr::start()
 {
-  size = get_js_config()->get_child_int("size");
+  size = this->cfg.size;
   trace.msg("Building ddr (size: 0x%lx)\n", size);
 }
 

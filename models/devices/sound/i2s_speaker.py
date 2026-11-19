@@ -16,22 +16,30 @@
 
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
+from config_tree import Config, cfg_field
+
+
+class I2sSpeakerConfig(Config):
+    """Configuration of the I2S speaker."""
+
+    ws_delay: int = cfg_field(default=0, dump=True, desc=(
+        "Number of cycles after the ws edge before the first bit is sampled"
+    ))
+    width: int = cfg_field(default=0, dump=True, desc="Width of the samples, in bits")
+    sample_rate: int = cfg_field(default=0, dump=True, desc="Sample rate, in Hz")
+    out_mode: str = cfg_field(default="", dump=True, desc="Output mode, 'file' to dump to a file")
+    outfile: str = cfg_field(default="", dump=True, desc=(
+        "Output file (.hex or .wav) in 'file' mode, empty for none"
+    ))
 
 class Speaker_implem(st.Component):
 
     def __init__(self, parent, name):
 
-        super(Speaker_implem, self).__init__(parent, name)
+        super(Speaker_implem, self).__init__(parent, name, config=I2sSpeakerConfig(
+            ws_delay=1, width=16, out_mode="file", outfile=""))
 
         self.set_component('devices.sound.i2s_speaker')
-
-        self.add_properties({
-            "verbose": False,
-            "ws-delay": 1,
-            "width": 16,
-            "out_mode": "file",
-            "outfile": None
-        })
 
 
 class Speaker(st.Component):

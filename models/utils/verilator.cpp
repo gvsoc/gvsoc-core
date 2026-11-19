@@ -44,6 +44,7 @@
 #include <string>
 #include <vector>
 #include "verilator_plugin.h"
+#include <utils/verilator/verilator_control_config.hpp>
 
 // A vp::Signal whose enable state (set by the GUI's subscriptions) the
 // component can read, to forward it to a v2 plugin.
@@ -64,6 +65,7 @@ public:
     void on_pause() override;
 
 private:
+    VerilatorControlConfig cfg;
     static void step_handler(vp::Block *_this, vp::TimeEvent *event);
     static int should_stop(void *engine);
 
@@ -125,85 +127,48 @@ private:
 };
 
 VerilatorControl::VerilatorControl(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       step_event(this, &VerilatorControl::step_handler)
 {
     traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    js::Config *js = this->get_js_config();
+    auto str = [](const char *value) { return value ? std::string(value) : std::string(); };
 
-    js::Config *path_cfg = js->get("plugin_path");
-    if (path_cfg == nullptr)
+    if (this->cfg.plugin_path == nullptr || this->cfg.plugin_path[0] == 0)
     {
         this->trace.fatal("verilator_control: missing 'plugin_path' property\n");
     }
-    this->plugin_path = path_cfg->get_str();
+    this->plugin_path = this->cfg.plugin_path;
 
-    js::Config *trace_cfg = js->get("trace_path");
-    if (trace_cfg != nullptr)
+    this->trace_path = str(this->cfg.trace_path);
+
+    for (int i = 0; i < this->cfg.firmwares_count; i++)
     {
-        this->trace_path = trace_cfg->get_str();
+        this->firmwares.push_back(this->cfg.firmwares[i].value);
     }
 
-    js::Config *fw_cfg = js->get("firmwares");
-    if (fw_cfg != nullptr)
-    {
-        for (auto *elem : fw_cfg->get_elems())
-        {
-            this->firmwares.push_back(elem->get_str());
-        }
-    }
+    this->inject_signals = this->cfg.inject_signals;
 
-    js::Config *inject_cfg = js->get("inject_signals");
-    if (inject_cfg != nullptr)
-    {
-        this->inject_signals = inject_cfg->get_bool();
-    }
+    this->design_path = str(this->cfg.design);
 
-    js::Config *design_cfg = js->get("design");
-    if (design_cfg != nullptr)
-    {
-        this->design_path = design_cfg->get_str();
-    }
+    this->stats = this->cfg.stats;
 
-    js::Config *stats_cfg = js->get("stats");
-    if (stats_cfg != nullptr)
-    {
-        this->stats = stats_cfg->get_bool();
-    }
+    this->time_slice = str(this->cfg.time_slice);
 
-    js::Config *slice_cfg = js->get("time_slice");
-    if (slice_cfg != nullptr)
-    {
-        this->time_slice = slice_cfg->get_str();
-    }
+    this->exit_signal = str(this->cfg.exit_signal);
 
-    js::Config *exit_signal_cfg = js->get("exit_signal");
-    if (exit_signal_cfg != nullptr)
+    for (int i = 0; i < this->cfg.gui_scopes_count; i++)
     {
-        this->exit_signal = exit_signal_cfg->get_str();
-    }
-
-    js::Config *scopes_cfg = js->get("gui_scopes");
-    if (scopes_cfg != nullptr)
-    {
-        for (auto *elem : scopes_cfg->get_elems())
-        {
-            this->gui_scopes.push_back(elem->get_str());
-        }
+        this->gui_scopes.push_back(this->cfg.gui_scopes[i].value);
     }
 
     /* Free-form plusarg pass-through: each element in the `plusargs`
        array is appended verbatim to the plugin's argv. Target files
        use this to plumb design-specific options (e.g. audio source /
        sink specs) without modifying this component. */
-    js::Config *plusargs_cfg = js->get("plusargs");
-    if (plusargs_cfg != nullptr)
+    for (int i = 0; i < this->cfg.plusargs_count; i++)
     {
-        for (auto *elem : plusargs_cfg->get_elems())
-        {
-            this->plusargs.push_back(elem->get_str());
-        }
+        this->plusargs.push_back(this->cfg.plusargs[i].value);
     }
 }
 

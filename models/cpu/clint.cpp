@@ -26,6 +26,7 @@
 #include <vp/vp.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/wire.hpp>
+#include <cpu/clint/clint_config.hpp>
 
 /* 0000 msip hart 0
  * 0004 msip hart 1
@@ -54,6 +55,7 @@ public:
     void reset(bool active);
 
 private:
+    ClintConfig cfg;
     static void event_handler(vp::Block *_this, vp::ClockEvent *event);
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     static void time_sync_back(vp::Block *__this, uint64_t *value);
@@ -237,7 +239,7 @@ bool Clint::store(unsigned int addr, size_t len, const uint8_t *bytes)
 }
 
 Clint::Clint(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -247,10 +249,10 @@ Clint::Clint(vp::ComponentConf &config)
     this->input_itf.set_req_meth(&Clint::req);
     new_slave_port("input", &this->input_itf);
 
-    this->nb_cores = this->get_js_config()->get_child_int("nb_cores");
+    this->nb_cores = this->cfg.nb_cores;
 
     // mtime tick frequency, e.g. the RTC frequency when the CLINT time base is the RTC
-    int64_t frequency = this->get_js_config()->get_child_int("frequency");
+    int64_t frequency = this->cfg.frequency;
     if (frequency == 0)
     {
         frequency = DEFAULT_FREQUENCY;

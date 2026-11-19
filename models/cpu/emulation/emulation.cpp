@@ -27,6 +27,7 @@
 #include <condition_variable>
 #include <gv/gvsoc.hpp>
 #include <vp/controller.hpp>
+#include <cpu/iss/core_emulation/core_emulation_config.hpp>
 
 static int nb_running = 0;
 
@@ -47,6 +48,7 @@ public:
     void access(gv::Io_request *req);
 
 private:
+    CoreEmulationConfig cfg;
     void sync_state(std::unique_lock<std::mutex> &lock);
     void check_state();
     static void clock_sync(vp::Block *__this, bool active);
@@ -108,7 +110,7 @@ static __thread void *__this;
 
 
 emulation::emulation(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -162,9 +164,9 @@ emulation::emulation(vp::ComponentConf &config)
     this->stalled = false;
     this->sleeping = false;
     this->irq_enabled = false;
-    this->fetchen_value = get_js_config()->get("fetch_enable")->get_bool();
-    this->core_id = get_js_config()->get_child_int("core_id");
-    this->cluster_id = get_js_config()->get_child_int("cluster_id");
+    this->fetchen_value = this->cfg.fetch_enable;
+    this->core_id = this->cfg.core_id;
+    this->cluster_id = this->cfg.cluster_id;
 
 }
 

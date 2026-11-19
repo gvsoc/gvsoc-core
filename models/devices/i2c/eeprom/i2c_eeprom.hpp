@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vp/vp.hpp>
+#include <devices/i2c/eeprom/eeprom/i2c_eeprom_config.hpp>
 #include <vp/itf/clock.hpp>
 #include <vp/itf/i2c.hpp>
 
@@ -56,11 +57,13 @@ class I2c_eeprom_memory
 class I2c_eeprom : public vp::Component
 {
     public:
-        I2c_eeprom(js::Config* config);
+        I2c_eeprom(vp::ComponentConf &config);
 
         void reset(bool active);
 
     private:
+        I2cEepromConfig cfg;
+
         static void event_handler(vp::Block *__this, vp::ClockEvent *event);
 
         void i2c_enqueue_event(vp::ClockEvent* event, uint64_t time_ps);

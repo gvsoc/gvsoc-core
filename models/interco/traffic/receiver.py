@@ -15,18 +15,25 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class TrafficRecvConfig(Config):
+    """Configuration of the traffic receiver."""
+
+    mem_size: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Size of the memory backing the received data, 0 for none"
+    ))
+
 
 class Receiver(gvsoc.systree.Component):
 
     def __init__(self, parent, name, mem_size: int=0):
 
-        super(Receiver, self).__init__(parent, name)
+        super(Receiver, self).__init__(parent, name, config=TrafficRecvConfig(mem_size=mem_size))
 
         self.add_sources(['interco/traffic/receiver.cpp'])
 
-        self.add_properties({
-            "mem_size": mem_size
-        });
 
     def i_CONTROL(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'control', signature='wire<TrafficReceiverConfig>')

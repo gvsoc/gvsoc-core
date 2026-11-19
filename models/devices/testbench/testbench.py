@@ -14,9 +14,64 @@
 # limitations under the License.
 #
 
+from typing import ClassVar
+
 import gvsoc.systree as st
 from vp.clock_domain import Clock_domain
 from elftools.elf.elffile import ELFFile
+from config_tree import Config, cfg_field
+
+
+class CoreTestbenchSpislaveBootConfig(Config):
+    """Boot of the chip through its SPI slave, driven by the testbench."""
+
+    _defer_parent_init: ClassVar[bool] = True
+
+    enabled: bool = cfg_field(default=False, dump=True, desc=(
+        "True to boot the chip through its SPI slave at startup"
+    ))
+    entry: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Entry point the chip jumps to once the binary is loaded"
+    ))
+    delay_ps: int = cfg_field(default=0, dump=True, desc=(
+        "Delay before starting the load, in ps"
+    ))
+    itf: int = cfg_field(default=0, dump=True, desc=(
+        "SPI interface used for the boot"
+    ))
+    frequency: int = cfg_field(default=0, dump=True, desc=(
+        "SPI frequency of the boot, in Hz"
+    ))
+    stim_file: str = cfg_field(default="", dump=True, desc=(
+        "SLM file containing the binary to load"
+    ))
+    dummy_cycles: int = cfg_field(default=0, dump=True, desc=(
+        "Number of dummy cycles of the SPI slave"
+    ))
+    full_duplex: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the SPI slave works in full duplex"
+    ))
+
+
+class CoreTestbenchConfig(Config):
+    """Configuration of the testbench model (devices.testbench.testbench)."""
+
+    ctrl_type: str = cfg_field(default="", dump=True, desc=(
+        "Interface used to control the testbench, 'uart' for a UART"
+    ))
+    nb_gpio: int = cfg_field(default=0, dump=True, desc="Number of GPIOs")
+    nb_spi: int = cfg_field(default=0, dump=True, desc="Number of SPI interfaces")
+    nb_uart: int = cfg_field(default=0, dump=True, desc="Number of UART interfaces")
+    nb_i2c: int = cfg_field(default=0, dump=True, desc="Number of I2C interfaces")
+    nb_i2s: int = cfg_field(default=0, dump=True, desc="Number of I2S interfaces")
+    uart_id: int = cfg_field(default=0, dump=True, desc=(
+        "UART interface controlling the testbench"
+    ))
+    uart_baudrate: int = cfg_field(default=0, dump=True, desc=(
+        "Baudrate of the UART controlling the testbench"
+    ))
+    spislave_boot: CoreTestbenchSpislaveBootConfig = cfg_field(
+        default_factory=CoreTestbenchSpislaveBootConfig, desc="Boot through the SPI slave")
 
 
 class Testbench(st.Component):
@@ -82,43 +137,24 @@ class Testbench(st.Component):
     class Testbench_implem(st.Component):
 
         def __init__(self, parent, name, uart_id=0, uart_baudrate=115200, nb_gpio=0,
-                     spislave_dummy_cycles=0, spislave_full_duplex=True):
-            super(Testbench.Testbench_implem, self).__init__(parent, name)
+                     spislave_dummy_cycles=0, spislave_full_duplex=True, spislave_binary=None):
 
-            # Register all parameters as properties so that they can be overwritten from the command-line
-            self.add_property('uart_id', uart_id)
-            self.add_property('uart_baudrate', 115200)
-            spislave_binary = self.add_property('spislave_boot/binary', None)
+            # The baudrate given as argument has never been used, the testbench is always
+            # controlled at 115200
+            config = CoreTestbenchConfig(
+                ctrl_type="uart", nb_gpio=nb_gpio, nb_spi=7, nb_uart=5, nb_i2c=3, nb_i2s=4,
+                uart_id=uart_id, uart_baudrate=115200,
+                spislave_boot=CoreTestbenchSpislaveBootConfig(
+                    enabled=False, delay_ps=1000000000, itf=4, frequency=50000000,
+                    dummy_cycles=spislave_dummy_cycles, full_duplex=spislave_full_duplex))
+
+            super(Testbench.Testbench_implem, self).__init__(parent, name, config=config)
 
             self.set_component('devices.testbench.testbench')
 
-            entry = None
-            stim_file = None
             if spislave_binary is not None:
                 stim_file = self.get_target().get_abspath('spislave.slm')
                 testbench.gen_jtag_stimuli(spislave_binary, stim_file)
                 with open(spislave_binary, 'rb') as file:
-                    entry = ELFFile(file)['e_entry']
-
-            self.add_properties({
-                "verbose": False,
-                "ctrl_type": "uart",
-                "nb_gpio": nb_gpio,
-                "nb_spi": 7,
-                "nb_uart": 5,
-                "nb_i2c": 3,
-                "nb_i2s": 4,
-                "uart_id": self.get_property('uart_id'),
-                "uart_baudrate": self.get_property('uart_baudrate'),
-
-                "spislave_boot": {
-                    "enabled": False,
-                    "entry": entry,
-                    "delay_ps": "1000000000",
-                    "itf": 4,
-                    "frequency": 50000000,
-                    "stim_file": stim_file,
-                    "dummy_cycles": spislave_dummy_cycles,
-                    "full_duplex": spislave_full_duplex
-                }
-            })
+                    config.spislave_boot.entry = ELFFile(file)['e_entry']
+                config.spislave_boot.stim_file = stim_file

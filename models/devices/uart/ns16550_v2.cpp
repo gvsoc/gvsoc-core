@@ -38,6 +38,7 @@
 #include <vp/itf/io_v2.hpp>
 #include <thread>
 #include <vp/controller.hpp>
+#include <devices/uart/ns16550_v2/ns16550_v2_config.hpp>
 
 #define UART_QUEUE_SIZE 64
 
@@ -116,6 +117,7 @@ public:
     void stop();
 
 private:
+    Ns16550V2Config cfg;
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     bool load(unsigned int addr, size_t len, uint8_t *bytes);
     bool store(unsigned int addr, size_t len, const uint8_t *bytes);
@@ -483,7 +485,7 @@ void Ns16550::write(char ch)
 }
 
 Ns16550::Ns16550(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
@@ -499,7 +501,7 @@ Ns16550::Ns16550(vp::ComponentConf &config)
 
     reg_io_width = 1;
 
-    this->reg_shift = this->get_js_config()->get_child_int("offset_shift");
+    this->reg_shift = this->cfg.offset_shift;
 
     new_slave_port("input", &this->input_itf);
 

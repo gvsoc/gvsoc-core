@@ -20,8 +20,23 @@
 #
 
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
 
 from devices.flash.flash import Flash
+
+
+class Mx25uw6445gConfig(Config):
+    """Configuration of the mx25uw6445g octospi flash."""
+
+    size: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Size of the flash in bytes"
+    ))
+    writeback: bool = cfg_field(default=False, dump=True, desc=(
+        "True to map the preload file so that the flash content is written back to it"
+    ))
+    preload_file: str = cfg_field(default="", dump=True, desc=(
+        "File preloaded into the flash, empty for none"
+    ))
 
 
 class Mx25uw6445g(Flash):
@@ -38,14 +53,13 @@ class Mx25uw6445g(Flash):
     """
 
     def __init__(self, parent, name, size=None):
-        super().__init__(parent, name)
-
         if size is None:
             size = 0x08000000
 
+        config = Mx25uw6445gConfig(size=size, writeback=True)
+
+        super().__init__(parent, name, config=config)
+
         self.set_component('devices.flash.mx25uw6445g')
 
-        self.add_property('preload_file', self.get_image_path())
-
-        self.add_property('writeback', True)
-        self.add_property('size', size)
+        config.preload_file = self.get_image_path()

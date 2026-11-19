@@ -20,6 +20,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <memory/ddr/ddr_config.hpp>
 #include <vp/itf/io.hpp>
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +41,8 @@ protected:
   vp::IoReq *first_stalled_req = NULL;
 
 private:
+
+  DdrConfig cfg;
 
   vp::Trace     trace;
   vp::IoSlave in;
@@ -72,14 +75,14 @@ private:
 
 
 ddr::ddr(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
   in.set_req_meth(&ddr::req);
   new_slave_port("input", &in);
 
-  size = get_js_config()->get_child_int("size");
+  size = this->cfg.size;
 
   trace.msg("Building ddr (size: 0x%lx)\n", size);
 

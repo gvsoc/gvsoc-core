@@ -10,6 +10,7 @@
 #include <vp/itf/io.hpp>
 #include <vp/signal.hpp>
 #include <vector>
+#include <cache/cache_v3/cache_config.hpp>
 
 int ceil_log2(unsigned int n)
 {
@@ -38,6 +39,7 @@ public:
     void reset(bool active);
 
 private:
+    CacheConfig cfg;
     static void refill_event_clear_handler(vp::Block *__this, vp::ClockEvent *event);
     static void enable_sync(vp::Block *_this, bool active);
     static void flush_sync(vp::Block *_this, bool active);
@@ -121,23 +123,23 @@ private:
 };
 
 Cache::Cache(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
     refill_pending_reqs(this, "refill_queue"),
     pending_refill(*this, "refill", 0),
     refill_event(*this, "refill_addr", 32),
     refill_event_clear_event(this, &Cache::refill_event_clear_handler),
     req_event(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ)
 {
-    this->enabled_at_reset = this->get_js_config()->get_child_bool("enabled");
-    this->size = this->get_js_config()->get_child_int("size");
-    this->nb_ways = this->get_js_config()->get_child_int("ways");
-    this->line_size = this->get_js_config()->get_child_int("line_size");
+    this->enabled_at_reset = this->cfg.enabled;
+    this->size = this->cfg.size;
+    this->nb_ways = this->cfg.ways;
+    this->line_size = this->cfg.line_size;
     this->line_size_bits = ceil_log2(line_size);
     this->nb_sets = this->size / this->nb_ways / this->line_size;
     this->nb_sets_bits = ceil_log2(this->nb_sets);
-    this->refill_latency = this->get_js_config()->get_child_int("refill_latency");
-    this->refill_shift = this->get_js_config()->get_child_int("refill_shift");
-    this->refill_offset = this->get_js_config()->get_child_int("refill_offset");
+    this->refill_latency = this->cfg.refill_latency;
+    this->refill_shift = this->cfg.refill_shift;
+    this->refill_offset = this->cfg.refill_offset;
 
     this->R1 = 0xd3b6;
     this->R2 = 0x7775;

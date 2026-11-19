@@ -29,8 +29,8 @@
 //     the LR/SC reservation table is rekeyed on the pointer.
 //   - **No JSON access.** Every tunable (size, latency, stim file,
 //     atomics, ...) is read exclusively from the compiled
-//     :class:`MemoryV3Config` struct. The model reads zero entries via
-//     ``get_js_config()``.
+//     :class:`MemoryV3Config` struct; the model reads nothing from the
+//     legacy JSON configuration.
 //   - Memcheck bookkeeping is entirely dropped. v1 / v2 carried a
 //     shadow buffer, an allocator wire port, and a per-request memcheck
 //     sideband; none of that is reproduced here. v3 is a plain backing

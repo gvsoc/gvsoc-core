@@ -38,9 +38,13 @@ import os
 import shutil
 import subprocess
 
+from typing import Annotated
+
 import gvsoc.gui
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
 from gvrun.parameter import TargetParameter
+from gvrun.runtime import Runtime
 
 
 _SOURCES = ['utils/verilator.cpp']
@@ -90,6 +94,52 @@ def gvsoc_svsim_setup(board, design, who, build_hint):
     board.set_parameter('design', design)
 
 
+class VerilatorStrConfig(Config):
+    """One string of a list option of the verilator control."""
+
+    value: str = cfg_field(default='', desc="String value")
+
+
+class VerilatorControlConfig(Config):
+    """Configuration of the verilator control (utils.verilator).
+
+    Except inject_signals, everything comes from target parameters, binaries
+    or run options, which can change from one run to another, hence Runtime.
+    """
+
+    plugin_path: Annotated[str, Runtime] = cfg_field(default='', dump=True, desc=(
+        "Path of the RTL simulator plugin .so loaded at runtime"
+    ))
+    trace_path: Annotated[str, Runtime] = cfg_field(default='', dump=True, desc=(
+        "VCD/FST trace output path forwarded to the plugin, empty for none"
+    ))
+    firmwares: Annotated[list[VerilatorStrConfig], Runtime] = cfg_field(default_factory=list,
+        desc="Verilog hex firmwares given to the plugin")
+    inject_signals: bool = cfg_field(default=False, dump=True, desc=(
+        "True to inject the RTL signals into the GVSoC traces"
+    ))
+    design: Annotated[str, Runtime] = cfg_field(default='', dump=True, desc=(
+        "Compiled design the RTL simulator runs, empty for none"
+    ))
+    stats: Annotated[bool, Runtime] = cfg_field(default=False, dump=True, desc=(
+        "True to print the RTL simulator's statistics at the end"
+    ))
+    time_slice: Annotated[str, Runtime] = cfg_field(default='', dump=True, desc=(
+        "Simulated time per step, empty for the default"
+    ))
+    gui_scopes: Annotated[list[VerilatorStrConfig], Runtime] = cfg_field(default_factory=list,
+        desc="Scopes S[:N] of the signals shown in the GUI, empty for all")
+    exit_signal: Annotated[str, Runtime] = cfg_field(default='', dump=True, desc=(
+        "Signal holding the exit code when the design stops, empty for none"
+    ))
+    plusargs: Annotated[list[VerilatorStrConfig], Runtime] = cfg_field(default_factory=list,
+        desc="Plusargs appended verbatim to the plugin's argv")
+
+
+def _str_list(values):
+    return [VerilatorStrConfig(value=value) for value in values]
+
+
 class VerilatorControl(st.Component):
     """Bind to the C++ ``utils.verilator`` model that owns the
     :class:`VerilatedContext` and steps the design once per clock cycle."""
@@ -105,32 +155,37 @@ class VerilatorControl(st.Component):
         (--gui-scope=S[:N] each, the signals shown in the GUI) and
         ``exit_signal`` (--exit-signal=NAME, the signal holding the exit code
         when the design stops, for simulators which support it)."""
-        super().__init__(parent, name)
+        config = VerilatorControlConfig(inject_signals=bool(inject_signals), stats=bool(stats))
+        super().__init__(parent, name, config=config)
         self.add_sources(list(_SOURCES))
         if plugin_path is not None:
-            self.add_property('plugin_path', plugin_path)
+            config.plugin_path = plugin_path
         if firmwares:
-            self.add_property('firmwares', list(firmwares))
+            config.firmwares = _str_list(firmwares)
         if trace_path is not None:
-            self.add_property('trace_path', trace_path)
-        if inject_signals:
-            self.add_property('inject_signals', True)
+            config.trace_path = trace_path
         if design is not None:
-            self.add_property('design', design)
-        if stats:
-            self.add_property('stats', True)
+            config.design = design
         if time_slice is not None:
-            self.add_property('time_slice', time_slice)
+            config.time_slice = time_slice
         if gui_scopes:
-            self.add_property('gui_scopes', list(gui_scopes))
+            config.gui_scopes = _str_list(gui_scopes)
         if exit_signal is not None:
-            self.add_property('exit_signal', exit_signal)
+            config.exit_signal = exit_signal
+
+    def get_plusargs(self) -> list[str]:
+        """Plusargs given so far to the plugin."""
+        return [arg.value for arg in self.get_config().plusargs]
+
+    def set_plusargs(self, plusargs: list[str]):
+        """Set the plusargs appended verbatim to the plugin's argv."""
+        self.get_config().plusargs = _str_list(plusargs)
 
     def gen_gui(self, parent_signal):
         # Only emit the SignalGenAll entry when the plugin will actually
         # inject signals. Otherwise the GUI subscribes to a stream that
         # never produces events.
-        if not self.properties.get('inject_signals'):
+        if not self.get_config().inject_signals:
             return parent_signal
         # SignalGenAll ("type": "all") tells the GUI to listen for trace-
         # creation events under prefix and auto-populate the signal tree
@@ -262,41 +317,41 @@ class VerilatorBoard(st.Component):
             self._firmwares.append(binary)
 
     def configure(self):
+        config = self.verilator.get_config()
         # plugin_path is a runtime requirement only — the per-target SDK
         # build (gvrun ... components) walks the systree without it, so
         # leaving it unset must not raise. If we still don't have one at
         # actual run time the C++ model raises a clear fatal.
         plugin_path = self.get_parameter('plugin_path')
         if plugin_path is not None:
-            self.verilator.add_property('plugin_path', plugin_path)
+            config.plugin_path = plugin_path
         trace_path = self.get_parameter('trace_path')
         if trace_path is not None:
-            self.verilator.add_property('trace_path', trace_path)
+            config.trace_path = trace_path
         design = self.get_parameter('design')
         if design is not None:
-            self.verilator.add_property('design', design)
+            config.design = design
         if self.get_parameter('stats'):
-            self.verilator.add_property('stats', True)
+            config.stats = True
         time_slice = self.get_parameter('time_slice')
         if time_slice is not None:
-            self.verilator.add_property('time_slice', time_slice)
+            config.time_slice = time_slice
         exit_signal = self.get_parameter('exit_signal')
         if exit_signal is not None:
-            self.verilator.add_property('exit_signal', exit_signal)
+            config.exit_signal = exit_signal
         gui_scopes = self.get_parameter('gui_scopes')
         if gui_scopes:
-            self.verilator.add_property(
-                'gui_scopes', [scope.strip() for scope in gui_scopes.split(';') if scope.strip()])
+            config.gui_scopes = _str_list(
+                [scope.strip() for scope in gui_scopes.split(';') if scope.strip()])
 
         # Register the predicted .hex paths *now*. The ELF→hex conversion
         # itself is deferred to :meth:`run_objcopy` because configure()
         # runs before the user's `clean`/`build` commands; producing the
         # actual hex here would get wiped by `clean`. The C++ model
-        # serialises this property to JSON at build-time, so it must be
+        # gets this (runtime) config field from the run configuration, so it must be
         # set early even though the file doesn't exist yet.
         if self._firmwares:
-            self.verilator.add_property(
-                'firmwares', [elf + '.hex' for elf in self._firmwares])
+            config.firmwares = _str_list([elf + '.hex' for elf in self._firmwares])
 
     def run_objcopy(self):
         """Create the .hex files from the registered ELFs. Must be called

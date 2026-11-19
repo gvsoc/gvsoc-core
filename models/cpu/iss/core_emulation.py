@@ -16,6 +16,22 @@
 
 import gvsoc.systree as st
 import os.path
+from config_tree import Config, cfg_field
+
+
+class CoreEmulationConfig(Config):
+    """Configuration of the core emulation model."""
+
+    fetch_enable: bool = cfg_field(default=False, dump=True, desc=(
+        "True if the core starts fetching at reset"
+    ))
+    core_id: int = cfg_field(default=0, dump=True, desc=(
+        "Core identifier"
+    ))
+    cluster_id: int = cfg_field(default=0, dump=True, desc=(
+        "Cluster identifier"
+    ))
+
 
 class CoreEmulation(st.Component):
     def __init__(self,
@@ -26,9 +42,9 @@ class CoreEmulation(st.Component):
             fetch_enable: bool=False,
             *kargs, **kwargs):
 
-        super().__init__(parent, name)
+        # core_id and cluster_id were never given to the model, which then
+        # always saw 0: keep it so.
+        super().__init__(parent, name, config=CoreEmulationConfig(fetch_enable=fetch_enable))
 
         self.set_component('cpu.emulation.emulation')
-
-        self.add_property('fetch_enable', fetch_enable)
 

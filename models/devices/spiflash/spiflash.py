@@ -15,14 +15,39 @@
 # limitations under the License.
 #
 
+from typing import Annotated
+
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
 
 from devices.flash.flash import Flash
+
+
+class SpiflashConfig(Config):
+    """Configuration of the SPI flash model (devices.spiflash.spiflash_impl)."""
+
+    size: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Size of the flash in bytes"
+    ))
+    # Runtime: files which can change from one run to another
+    stim_file: Annotated[str, Runtime] = cfg_field(default="", dump=True, desc=(
+        "Raw binary file preloaded into the flash, empty for none. Takes precedence over "
+        "preload_file"
+    ))
+    slm_stim_file: Annotated[str, Runtime] = cfg_field(default="", dump=True, desc=(
+        "SLM file (@addr value lines) preloaded into the flash, empty for none"
+    ))
+    preload_file: str = cfg_field(default="", dump=True, desc=(
+        "Flash image preloaded into the flash if stim_file is empty, empty for none"
+    ))
 
 class Spiflash(Flash):
 
     def __init__(self, parent, name, size=0x04000000):
-        super(Spiflash, self).__init__(parent, name)
+        config = SpiflashConfig(size=size)
+
+        super(Spiflash, self).__init__(parent, name, config=config)
 
         # Register all parameters as properties so that they can be overwritten from the command-line
         self.add_property('content/partitions/readfs/files', [])
@@ -38,10 +63,7 @@ class Spiflash(Flash):
 
         self.set_component('devices.spiflash.spiflash_impl')
 
-        self.add_property('writeback', True)
-        self.add_property('size', size)
-
-        self.add_property('preload_file', self.get_image_path())
+        config.preload_file = self.get_image_path()
 
         # TODO this is needed by GAPY but is not aligned with the size given to model
         # That should be resolved once the flash images are built by the system tree instead of gapy

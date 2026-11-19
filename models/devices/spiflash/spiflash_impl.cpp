@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <vp/itf/qspim.hpp>
+#include <devices/spiflash/spiflash/spiflash_config.hpp>
 
 #define CMD_READ_ID       0x9f
 #define CMD_RDCR          0x35
@@ -109,6 +110,7 @@ protected:
   vp::WireSlave<bool> cs_itf;
 
 private:
+  SpiflashConfig cfg;
 
   static void sync(vp::Block *__this, int sck, int data_0, int data_1, int data_2, int data_3, int mask);
   static void cs_sync(vp::Block *__this, bool active);
@@ -443,7 +445,7 @@ void spiflash::cs_sync(vp::Block *__this, bool active)
 
 
 spiflash::spiflash(vp::ComponentConf &config)
-: vp::Component(config)
+: vp::Component(config, this->cfg)
 {
   traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -461,7 +463,7 @@ spiflash::spiflash(vp::ComponentConf &config)
     this->commands[command->id] = command;
   }
 
-  this->size = this->get_js_config()->get_child_int("size");
+  this->size = this->cfg.size;
 
   this->mem_data = new uint8_t[this->size];
 
@@ -477,19 +479,15 @@ spiflash::spiflash(vp::ComponentConf &config)
   this->trace.msg(vp::Trace::LEVEL_INFO, "Building spiFlash (size: 0x%x)\n", this->size);
 
   // Preload the memory
-  js::Config *stim_file_conf = this->get_js_config()->get("stim_file");
-  if (stim_file_conf == NULL)
+  const char *stim_file = this->cfg.stim_file;
+  if (stim_file == NULL || stim_file[0] == 0)
   {
-    stim_file_conf = this->get_js_config()->get("content/image");
-  }
-  if (stim_file_conf == NULL)
-  {
-    stim_file_conf = this->get_js_config()->get("preload_file");
+    stim_file = this->cfg.preload_file;
   }
 
-  if (stim_file_conf != NULL)
+  if (stim_file != NULL && stim_file[0] != 0)
   {
-    string path = stim_file_conf->get_str();
+    string path = stim_file;
     this->trace.msg(vp::Trace::LEVEL_INFO, "Preloading memory with stimuli file (path: %s)\n", path.c_str());
 
     FILE *file = fopen(path.c_str(), "rb");
@@ -505,10 +503,9 @@ spiflash::spiflash(vp::ComponentConf &config)
     }
   }
 
-  js::Config *slm_stim_file_conf = this->get_js_config()->get("slm_stim_file");
-  if (slm_stim_file_conf != NULL)
+  if (this->cfg.slm_stim_file != NULL && this->cfg.slm_stim_file[0] != 0)
   {
-    string path = stim_file_conf->get_str();
+    string path = this->cfg.slm_stim_file;
     this->trace.msg(vp::Trace::LEVEL_INFO, "Preloading memory with slm stimuli file (path: %s)\n", path.c_str());
 
     FILE *file = fopen(path.c_str(), "r");

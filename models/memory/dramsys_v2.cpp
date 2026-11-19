@@ -40,6 +40,7 @@
  */
 
 #include <vp/vp.hpp>
+#include <memory/dramsys/dramsys_config.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <systemc.h>
 
@@ -91,6 +92,7 @@ public:
     void reset(bool active) override;
 
 private:
+    DramsysConfig cfg;
     // Per-in-flight read. Master submits ONE data-less req with the full burst
     // size (beat protocol: read burst requests carry no data); the wrapper
     // drains DRAMSys bytes into its own staging buffer via a mask queue
@@ -173,7 +175,7 @@ private:
 
 
 ddr_v2::ddr_v2(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       in_itf(&ddr_v2::req_handler),
       beat_event(this, &ddr_v2::beat_handler)
 {
@@ -213,7 +215,7 @@ ddr_v2::ddr_v2(vp::ComponentConf &config)
               << (env_path ? " (from env)" : " (from compile-time default)") << std::endl;
 
     std::string resources_path = current_path + "/dramsys_configs";
-    std::string dram_type = get_js_config()->get("dram-type")->get_str();
+    std::string dram_type = std::string(this->cfg.dram_type);
     if (dram_type.empty()) dram_type = "hbm2-example.json";
     std::string simulationJson_path = resources_path + "/" + dram_type;
 
@@ -225,7 +227,7 @@ ddr_v2::ddr_v2(vp::ComponentConf &config)
     // real beat width only exists here, once the DRAMSys library has loaded
     // the memspec. A mismatch means the target description lies about the
     // protocol width every neighbour was bound against — fail loudly.
-    int64_t declared = get_js_config()->get("access-size")->get_int();
+    int64_t declared = this->cfg.access_size;
     if (declared != (int64_t)memspec.access_size)
     {
         trace.fatal("Declared access-size %ld does not match the DRAMSys "

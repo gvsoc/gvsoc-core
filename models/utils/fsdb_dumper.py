@@ -19,13 +19,36 @@ import gvsoc.runner
 import gvsoc.systree as st
 from gvsoc.gui import WaveLayout
 from gvrun.parameter import TargetParameter
+from gvrun.runtime import Runtime
+from config_tree import Config, cfg_field
+from typing import Annotated
+
+
+class FsdbElementSizeConfig(Config):
+    """Splits a FSDB signal into elements of a given width."""
+
+    signal: str = cfg_field(default="", desc="Path of the signal, with or without a leading '/'")
+    size: int = cfg_field(default=0, desc="Width in bits of each element")
+
+
+class FsdbDumperConfig(Config):
+    """Configuration of the FSDB dumper."""
+
+    # Runtime: both come from target parameters, set for each run
+    fsdb_file: Annotated[str, Runtime] = cfg_field(default="", dump=True, desc=(
+        "FSDB file to replay, empty for none"
+    ))
+    element_size: Annotated[list[FsdbElementSizeConfig], Runtime] = cfg_field(
+        default_factory=list, desc="Signals to split into elements, from the layout file")
 
 
 class FsdbDumper(st.Component):
 
     def __init__(self, parent, name, parser, options):
 
-        super(FsdbDumper, self).__init__(parent, name, options=options)
+        config = FsdbDumperConfig()
+
+        super(FsdbDumper, self).__init__(parent, name, options=options, config=config)
 
         self.set_component('utils.fsdb_dumper')
 
@@ -45,19 +68,17 @@ class FsdbDumper(st.Component):
         ).get_value()
 
         if self.fsdb_file is not None:
-            self.add_properties({
-                'fsdb_file': self.fsdb_file
-            })
+            config.fsdb_file = self.fsdb_file
 
         # Pre-load the layout so any element_size overrides it carries can be
-        # handed to the C++ side as a component property before the simulator
+        # handed to the C++ side through the config before the simulator
         # config is dumped. gen_gui() will pick up `self._layout` again to
         # emit the signals_generate rules at GUI-config time.
         self._layout = None
         if self.layout_file is not None:
             self._layout = WaveLayout.load(self.layout_file)
-            if self._layout.element_sizes:
-                self.add_properties({'element_size': self._layout.element_sizes})
+            config.element_size = [FsdbElementSizeConfig(signal=signal, size=int(size))
+                for signal, size in self._layout.element_sizes.items()]
 
     def gen_gui(self, parent_signal):
         root = gvsoc.gui.Signal(self, parent_signal, name='fsdb', opened=True)

@@ -19,6 +19,7 @@ from __future__ import annotations
 import gvsoc.systree
 
 from memory.memory_config import MemoryConfig
+from vp.power_config import consume_power_model
 
 class Memory(gvsoc.systree.Component):
     """Memory array
@@ -55,15 +56,17 @@ class Memory(gvsoc.systree.Component):
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int=0, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
-            align: int=0, atomics: bool=False, latency=0, init=True,
+            align: int=0, atomics: bool=False, latency=0, init=True, power_model: str='',
             attributes: MemoryConfig | None=None, config: MemoryConfig | None=None):
 
         if config is not None:
             attributes = config
 
-        # Always create a MemoryConfig for the compiled tree
         if attributes is None:
-            attributes = MemoryConfig(size=size, atomics=atomics, latency=latency)
+            attributes = MemoryConfig(size=size, atomics=atomics, latency=latency,
+                width_bits=width_log2, align=align, init=init,
+                stim_file=stim_file if stim_file is not None else '',
+                power_trigger=power_trigger, power_model=power_model)
 
         super().__init__(parent, name, config=attributes)
 
@@ -72,18 +75,13 @@ class Memory(gvsoc.systree.Component):
         # Since atomics are slowing down the model, this is better to compile the support only
         # if needed. Note that the framework will take care of compiling this model twice
         # if both memories with and without atomics are instantiated.
-        if atomics or attributes is not None and attributes.atomics:
+        if atomics or attributes.atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
-        self.add_properties({
-            'init': init,
-            'size': size if attributes is None else attributes.size,
-            'stim_file': stim_file,
-            'power_trigger': power_trigger,
-            'width_bits': width_log2,
-            'align': align,
-            'latency': latency if attributes is None else attributes.latency,
-        })
+    def configure(self):
+        # Consumed here rather than in __init__ so the power_model path can
+        # also be set after instantiation.
+        consume_power_model(self.get_config())
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         """Returns the input port.

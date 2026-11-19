@@ -15,6 +15,16 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
+
+
+class Ns16550V2Config(Config):
+    """Configuration of the ns16550 UART."""
+
+    offset_shift: int = cfg_field(default=0, dump=True, desc=(
+        "Shift applied to the register offsets (log2 of the register stride)"
+    ))
+
 from gvsoc.signature import IoV2Sync
 
 class Ns16550V2(gvsoc.systree.Component):
@@ -22,11 +32,10 @@ class Ns16550V2(gvsoc.systree.Component):
 
     def __init__(self, parent, name, offset_shift=0):
 
-        super(Ns16550V2, self).__init__(parent, name)
+        super(Ns16550V2, self).__init__(parent, name, config=Ns16550V2Config(offset_shift=offset_shift))
 
         self.add_sources(['devices/uart/ns16550_v2.cpp'])
         
-        self.add_property('offset_shift', offset_shift)
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'input', signature=IoV2Sync())

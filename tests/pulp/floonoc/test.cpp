@@ -24,18 +24,18 @@
 #define CYCLES_ERROR 0.01f
 
 Testbench::Testbench(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    this->nb_cluster_x = this->get_js_config()->get_int("nb_cluster_x");
-    this->nb_cluster_y = this->get_js_config()->get_int("nb_cluster_y");
+    this->nb_cluster_x = this->cfg.nb_cluster_x;
+    this->nb_cluster_y = this->cfg.nb_cluster_y;
 
-    this->cluster_base = this->get_js_config()->get_uint("cluster_base");
-    this->cluster_size = this->get_js_config()->get_uint("cluster_size");
+    this->cluster_base = this->cfg.cluster_base;
+    this->cluster_size = this->cfg.cluster_size;
 
-    this->use_memory = this->get_js_config()->get_child_bool("use_memory");
-    this->mem_bw = this->get_js_config()->get_int("mem_bw");
+    this->use_memory = this->cfg.use_memory;
+    this->mem_bw = this->cfg.mem_bw;
 
     int nb_cluster = this->nb_cluster_x*this->nb_cluster_y;
 

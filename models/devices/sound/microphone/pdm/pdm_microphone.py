@@ -15,20 +15,29 @@
 #
 
 import gvsoc.systree
+from config_tree import Config, cfg_field
 import regmap.regmap
 import regmap.regmap_md
 import regmap.regmap_c_header
 
 
+class PdmMicrophoneConfig(Config):
+    """Configuration of the PDM microphone."""
+
+    slot: int = cfg_field(default=0, dump=True, desc="PDM slot of the microphone")
+    generated_freq: int = cfg_field(default=0, dump=True, desc=(
+        "Frequency of the generated sine wave"
+    ))
+
+
 class Microphone_pdm(gvsoc.systree.Component):
 
     def __init__(self, parent, name, slot = None,  generated_freq = 1000):
-        super(Microphone_pdm, self).__init__(parent, name)
+        super(Microphone_pdm, self).__init__(parent, name, config=PdmMicrophoneConfig(
+            slot=slot if slot is not None else 0, generated_freq=generated_freq))
 
         self.set_component('devices.sound.microphone.pdm.pdm_microphone')
 
-        self.add_property('slot', slot)
-        self.add_property('generated_freq', generated_freq)
 
     def i_AUDIO(self) -> gvsoc.systree.SlaveItf:
         return gvsoc.systree.SlaveItf(self, 'audio_input', signature='audio')

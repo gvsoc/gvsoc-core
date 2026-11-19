@@ -116,7 +116,7 @@ void I2c_eeprom_memory::erase_memory(void)
 }
 
 I2c_eeprom::I2c_eeprom(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
     i2c_helper(this,
             &this->i2c_itf,
             std::bind(&I2c_eeprom::i2c_enqueue_event,
@@ -128,32 +128,9 @@ I2c_eeprom::I2c_eeprom(vp::ComponentConf &config)
                 std::placeholders::_1)
             )
 {
-    this->page_size = 8;
-    this->number_of_pages = 128;
-    this->i2c_address = 80;
-
-    if (NULL != config)
-    {
-        /* configure address */
-        js::Config* address_elt = config->get("address");
-        if (NULL != address_elt)
-        {
-            this->i2c_address = address_elt->get_int();
-        }
-
-        /* configure page size */
-        js::Config* page_size_elt = config->get("page_size");
-        if (NULL != page_size_elt)
-        {
-            this->page_size = page_size_elt->get_int();
-        }
-        /* configure number of pages*/
-        js::Config* number_of_pages_elt= config->get("number_of_pages");
-        if (NULL != number_of_pages_elt)
-        {
-            this->number_of_pages = number_of_pages_elt->get_int();
-        }
-    }
+    this->i2c_address = this->cfg.address;
+    this->page_size = this->cfg.page_size;
+    this->number_of_pages = this->cfg.number_of_pages;
 
     assert(this->i2c_address > 0 && this->i2c_address < 128);
     assert(this->page_size > 0);

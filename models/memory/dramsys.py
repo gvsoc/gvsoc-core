@@ -16,6 +16,21 @@
 
 import gvsoc.systree as st
 import gvsoc.signature
+from config_tree import Config, cfg_field
+
+
+class DramsysConfig(Config):
+    """Configuration of the DRAMSys wrapper (memory.dramsys and memory.dramsys_v2)."""
+
+    dram_type: str = cfg_field(default="", dump=True, desc=(
+        "DRAMSys simulation config file, in dramsys_configs. Empty for hbm2-example.json"
+    ))
+    pim_support: bool = cfg_field(default=False, dump=True, desc=(
+        "True to enable PIM support (v1 only)"
+    ))
+    access_size: int = cfg_field(default=0, dump=True, desc=(
+        "Access size in bytes of the memspec, checked against it (v2 only)"
+    ))
 
 
 class Dramsys(st.Component):
@@ -23,7 +38,8 @@ class Dramsys(st.Component):
     def __init__(self, parent, name, pim_support=False, version=1,
                  dram_type='hbm2-example.json', access_size: int = 0):
 
-        super(Dramsys, self).__init__(parent, name)
+        super(Dramsys, self).__init__(parent, name, config=DramsysConfig(
+            dram_type=dram_type, pim_support=pim_support, access_size=access_size))
 
         if version not in (1, 2):
             raise ValueError(f"Dramsys: version must be 1 or 2, got {version}")
@@ -51,11 +67,9 @@ class Dramsys(st.Component):
                 "validates it against the DRAMSys memspec at startup")
         self.access_size = access_size
 
+        # Read by the runner, which then starts the engine with SystemC
         self.add_properties({
             'require_systemc': True,
-            'dram-type': dram_type,
-            'pim-support': pim_support,
-            'access-size': access_size,
         })
 
     def i_INPUT(self) -> st.SlaveItf:

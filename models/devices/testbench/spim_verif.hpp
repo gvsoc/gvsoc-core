@@ -127,7 +127,7 @@ public:
     void transfer(pi_testbench_req_spim_verif_transfer_t *transfer);
     void spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config);
     int64_t exec();
-    void enqueue_spi_load(js::Config *config);
+    void enqueue_spi_load(const CoreTestbenchSpislaveBootConfig *config);
     void enqueue_cmd(uint64_t cmd);
     void enqueue_buffer(uint8_t* buff);
     void enqueue_master_cmd(pi_testbench_req_spim_verif_transfer_t* cmd);
@@ -164,7 +164,7 @@ private:
     void enqueue_boot_protocol_jump(int address);
 
     void start_spi_load();
-    void spi_load(js::Config *config);
+    void spi_load(const CoreTestbenchSpislaveBootConfig *config);
 
     vp::Trace trace;
     vp::QspimSlave *itf;
@@ -233,7 +233,7 @@ private:
     int current_section_load;
 
     bool init_pads;
-    js::Config *spi_load_config;
+    const CoreTestbenchSpislaveBootConfig *spi_load_config;
 
     bool is_enqueued;
     bool slave_boot_jump;

@@ -224,19 +224,19 @@ void Testbench::reset(bool active)
 
 
 Testbench::Testbench(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     this->state = STATE_WAITING_CMD;
     this->current_req_size = 0;
     this->is_pdm = false;
     traces.new_trace("trace", &trace, vp::DEBUG);
 
-    this->ctrl_type = get_js_config()->get("ctrl_type")->get_str();
-    this->nb_gpio = get_js_config()->get("nb_gpio")->get_int();
-    this->nb_spi = get_js_config()->get("nb_spi")->get_int();
-    this->nb_i2s = get_js_config()->get("nb_i2s")->get_int();
-    this->nb_i2c = get_js_config()->get("nb_i2c")->get_int();
-    this->nb_uart = get_js_config()->get("nb_uart")->get_int();
+    this->ctrl_type = this->cfg.ctrl_type;
+    this->nb_gpio = this->cfg.nb_gpio;
+    this->nb_spi = this->cfg.nb_spi;
+    this->nb_i2s = this->cfg.nb_i2s;
+    this->nb_i2c = this->cfg.nb_i2c;
+    this->nb_uart = this->cfg.nb_uart;
 
     for (int i=0; i<this->nb_uart; i++)
     {
@@ -278,8 +278,8 @@ Testbench::Testbench(vp::ComponentConf &config)
 
     if (this->ctrl_type == "uart")
     {
-        int uart_id = get_js_config()->get("uart_id")->get_int();
-        int uart_baudrate = get_js_config()->get("uart_baudrate")->get_int();
+        int uart_id = this->cfg.uart_id;
+        int uart_baudrate = this->cfg.uart_baudrate;
 
         this->uarts[uart_id]->set_control(true, uart_baudrate);
         this->uarts[uart_id]->set_dev(new Uart_reply(this, this->uarts[uart_id]));
@@ -292,10 +292,10 @@ Testbench::Testbench(vp::ComponentConf &config)
 
 void Testbench::start()
 {
-    if (get_js_config()->get_child_bool("spislave_boot/enabled"))
+    if (this->cfg.spislave_boot.enabled)
     {
-        int itf = get_js_config()->get_child_int("spislave_boot/itf");
-        this->spis[itf*4]->create_loader(get_js_config()->get("spislave_boot"));
+        int itf = this->cfg.spislave_boot.itf;
+        this->spis[itf*4]->create_loader(&this->cfg.spislave_boot);
     }
 
     for (int i=0; i<this->nb_uart; i++)
@@ -863,7 +863,7 @@ void Testbench::handle_received_byte(uint8_t byte)
 }
 
 
-void Spi::create_loader(js::Config *load_config)
+void Spi::create_loader(const CoreTestbenchSpislaveBootConfig *load_config)
 {
     uint8_t enabled;
     uint8_t itf;
@@ -876,7 +876,7 @@ void Spi::create_loader(js::Config *load_config)
     config.cs = 0;
     config.is_master = 1;
     config.mem_size_log2 = 20;
-    config.dummy_cycles = load_config->get_child_int("dummy_cycles");
+    config.dummy_cycles = load_config->dummy_cycles;
 
     this->spim_verif = new Spim_verif(this->top, this, &this->itf, &config, false);
 

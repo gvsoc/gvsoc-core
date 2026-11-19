@@ -21,6 +21,7 @@
 
 
 #include <vp/vp.hpp>
+#include <devices/sound/i2s_speaker/i2s_speaker_config.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/clock.hpp>
@@ -82,6 +83,8 @@ class Speaker : public vp::Component
 
 public:
     Speaker(vp::ComponentConf &conf);
+
+    I2sSpeakerConfig cfg;
 
     void stop();
     int push_data();
@@ -168,7 +171,7 @@ void Outfile_wav::write_data(int64_t timestamp, long long int data)
 
 
 Speaker::Speaker(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -179,16 +182,16 @@ Speaker::Speaker(vp::ComponentConf &config)
 
     this->is_active = false;
     this->prev_ws = 0;
-    this->ws_delay = this->get_js_config()->get_int("ws-delay");
+    this->ws_delay = this->cfg.ws_delay;
     this->current_ws_delay = 0;
     this->pending_bits = 0;
-    this->width = this->get_js_config()->get_int("width");
-    this->sample_rate = this->get_js_config()->get_int("sample-rate");
+    this->width = this->cfg.width;
+    this->sample_rate = this->cfg.sample_rate;
 
-    std::string mode = this->get_js_config()->get_child_str("out_mode");
+    std::string mode = this->cfg.out_mode;
     if (mode == "file")
     {
-        std::string out_file = this->get_js_config()->get_child_str("outfile");
+        std::string out_file = this->cfg.outfile;
 
         if (out_file != "") {
 

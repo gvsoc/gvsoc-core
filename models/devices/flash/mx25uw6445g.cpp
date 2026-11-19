@@ -35,6 +35,7 @@
 
 #include <vp/itf/hyper.hpp>
 #include <vp/itf/wire.hpp>
+#include <devices/flash/mx25uw6445g/mx25uw6445g_config.hpp>
 
 // Flash sector size
 #define MX25_SECTOR_SIZE (1 << 12)
@@ -61,7 +62,7 @@ public:
     /**
      * @brief Construct a new Mx25 object
      *
-     * @param config JSON configuration of this component coming from system generators
+     * @param config configuration of this component coming from system generators
      */
     Mx25(vp::ComponentConf &conf);
 
@@ -69,6 +70,7 @@ public:
     void reset(bool active);
 
 private:
+    Mx25uw6445gConfig cfg;
     /**
      * @brief Handle octospi clock edges
      *
@@ -1004,7 +1006,7 @@ void Mx25::reset(bool active)
 
 
 Mx25::Mx25(vp::ComponentConf &config)
-    : vp::Component(config), busy_event(this)
+    : vp::Component(config, this->cfg), busy_event(this)
 {
     // This method is called when the simulated system is built.
     // We just need here to take care of anything which must be done once at platform startup.
@@ -1017,23 +1019,21 @@ Mx25::Mx25(vp::ComponentConf &config)
     in_itf.set_cs_sync_meth(&Mx25::cs_sync_stub);
     new_slave_port("input", &in_itf);
 
-    js::Config *conf = this->get_js_config();
-
     // Prepare the event for managing the periods where the flash is busy (program and erase).
     // It will be pushed when flash is busy and will put the flash back to available state.
     this->busy_event.set_callback(Mx25::set_available_handler);
 
     // Now take care of the flash content
-    js::Config *preload_file_conf = conf->get("preload_file");
-    bool writeback = this->get_js_config()->get_child_bool("writeback");
-    this->size = conf->get("size")->get_int();
+    bool has_preload_file = this->cfg.preload_file != NULL && this->cfg.preload_file[0] != 0;
+    bool writeback = this->cfg.writeback;
+    this->size = this->cfg.size;
 
     this->trace.msg(vp::Trace::LEVEL_INFO, "Building flash (size: 0x%x)\n", this->size);
 
     // If there is no preload file or if the preload file is a classi input file,
     // Allocate an array for the flash and fill it with clean state which is 1 everywhere so that
     //. the whole flash can be programmed without being erased.
-    if (!preload_file_conf || !writeback)
+    if (!has_preload_file || !writeback)
     {
         this->data = new uint8_t[this->size];
         memset(this->data, 0xff, this->size);
@@ -1041,9 +1041,9 @@ Mx25::Mx25(vp::ComponentConf &config)
 
     // The preload file can be either input file, or memory-mapped file to keep flash content
     // on workstation
-    if (preload_file_conf)
+    if (has_preload_file)
     {
-        if (this->preload_file((char *)preload_file_conf->get_str().c_str(), writeback))
+        if (this->preload_file((char *)this->cfg.preload_file, writeback))
         {
             this->trace.fatal("Unable to preload file\n");
         }

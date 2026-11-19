@@ -29,6 +29,7 @@
 #include <vp/itf/i2c.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/qspim.hpp>
+#include <devices/testbench/testbench/core_testbench_config.hpp>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -376,7 +377,7 @@ public:
     void spim_verif_transfer(pi_testbench_req_spim_verif_transfer_t *transfer);
     void spim_verif_spi_wakeup(pi_testbench_req_spim_verif_spi_wakeup_t *config);
 
-    void create_loader(js::Config *config);
+    void create_loader(const CoreTestbenchSpislaveBootConfig *config);
 
     Testbench *top;
 
@@ -651,6 +652,7 @@ public:
     int nb_i2s;
 
 private:
+    CoreTestbenchConfig cfg;
 
 
     void handle_gpio_loopback();

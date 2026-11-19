@@ -21,6 +21,7 @@
 
 
 #include <vp/vp.hpp>
+#include <devices/sound/microphone/i2s/i2s_microphone/i2s_microphone_config.hpp>
 #include <vp/itf/io.hpp>
 #include <vp/itf/i2s.hpp>
 #include <vp/itf/clock.hpp>
@@ -36,6 +37,8 @@ class Microphone : public vp::Component
 
 public:
     Microphone(vp::ComponentConf &conf);
+
+    I2sMicrophoneConfig cfg;
     ~Microphone();
 
 protected:
@@ -130,7 +133,7 @@ void Microphone::start()
 }
 
 Microphone::Microphone(vp::ComponentConf &config)
-    : vp::Component(config)
+    : vp::Component(config, this->cfg)
 {
     traces.new_trace("trace", &trace, vp::DEBUG);
 
@@ -138,14 +141,14 @@ Microphone::Microphone(vp::ComponentConf &config)
     this->new_master_port("i2s", &this->i2s_itf);
 
 
-    this->channel_ws = this->get_js_config()->get_child_str("channel") != "left";
+    this->channel_ws = std::string(this->cfg.channel) != "left";
     this->prev_ws = 0;
-    this->ws_delay = this->get_js_config()->get_int("ws-delay");
-    this->width = this->get_js_config()->get_int("width");
-    this->frequency = this->get_js_config()->get_int("frequency");
-    this->generated_freq = this->get_js_config()->get_child_int("generated_freq");
+    this->ws_delay = this->cfg.ws_delay;
+    this->width = this->cfg.width;
+    this->frequency = this->cfg.frequency;
+    this->generated_freq = this->cfg.generated_freq;
 
-    this->input_file_path = this->get_js_config()->get_child_str("input_filepath");
+    this->input_file_path = this->cfg.input_filepath;
     this->is_active = false;
     
     this->current_ws_delay = 0;

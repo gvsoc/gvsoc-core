@@ -24,6 +24,7 @@
 #include <vp/signal.hpp>
 #include <vp/itf/io.hpp>
 #include "interco/traffic/receiver.hpp"
+#include <interco/traffic/receiver/traffic_recv_config.hpp>
 
 class Receiver : public vp::Component
 {
@@ -33,6 +34,7 @@ public:
     ~Receiver();
 
 private:
+    TrafficRecvConfig cfg;
     static vp::IoReqStatus req(vp::Block *__this, vp::IoReq *req);
     static void control_sync(vp::Block *__this, TrafficReceiverConfig config);
     static void pending_fsm_handler(vp::Block *__this, vp::ClockEvent *event);
@@ -66,7 +68,7 @@ private:
 };
 
 Receiver::Receiver(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
     pending_fsm_event(this, Receiver::pending_fsm_handler),
     ready_fsm_event(this, Receiver::ready_fsm_handler),
     pending_reqs(this, "pending_reqs", &this->pending_fsm_event),
@@ -84,7 +86,7 @@ Receiver::Receiver(vp::ComponentConf &config)
     this->control_itf.set_sync_meth(&Receiver::control_sync);
     this->new_slave_port("control", &this->control_itf);
 
-    this->size = this->get_js_config()->get("mem_size")->get_int();
+    this->size = this->cfg.mem_size;
     if (this->size > 0)
     {
         this->mem_data = (uint8_t *)calloc(this->size, 1);

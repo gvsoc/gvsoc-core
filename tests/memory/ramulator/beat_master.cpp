@@ -16,6 +16,7 @@
 // Schedule entry keys: cycle, addr, size, is_write, name, [data_hex].
 
 #include <vp/vp.hpp>
+#include <beat_master/ramulator_beat_master_config.hpp>
 #include <vp/itf/io_v2.hpp>
 #include <cstdio>
 #include <deque>
@@ -29,6 +30,7 @@ public:
     void reset(bool active) override;
 
 private:
+    RamulatorBeatMasterConfig cfg;
     struct Entry {
         int64_t cycle;
         uint64_t addr;
@@ -89,7 +91,7 @@ private:
 };
 
 BeatMaster::BeatMaster(vp::ComponentConf &config)
-    : vp::Component(config),
+    : vp::Component(config, this->cfg),
       out(&BeatMaster::retry_handler, &BeatMaster::resp_handler),
       issue_event(this, &BeatMaster::issue_handler),
       quit_event(this, &BeatMaster::quit_handler)
@@ -97,33 +99,32 @@ BeatMaster::BeatMaster(vp::ComponentConf &config)
     this->traces.new_trace("trace", &this->trace, vp::DEBUG);
     this->new_master_port("output", &this->out);
 
-    this->logname = this->get_js_config()->get_child_str("logname");
+    this->logname = this->cfg.logname;
     if (this->logname.empty()) this->logname = this->get_name();
-    this->beat_width = this->get_js_config()->get_child_int("beat_width");
-    int qac = this->get_js_config()->get_child_int("quit_after_cycles");
+    this->beat_width = this->cfg.beat_width;
+    int qac = this->cfg.quit_after_cycles;
     if (qac > 0) this->quit_after_cycles = qac;
-    this->quiet = this->get_js_config()->get_child_bool("quiet");
-    this->chain = this->get_js_config()->get_child_bool("chain");
-    int rep = this->get_js_config()->get_child_int("repeat");
+    this->quiet = this->cfg.quiet;
+    this->chain = this->cfg.chain;
+    int rep = this->cfg.repeat;
     this->repeat = rep > 0 ? rep : 1;
 
-    js::Config *sched = this->get_js_config()->get("schedule");
     int64_t burst_id = 0;
-    if (sched != NULL)
     {
-        for (auto &item : sched->get_elems())
+        for (int si = 0; si < this->cfg.schedule_count; si++)
         {
+            const RamulatorBeatMasterEntryConfig *item = &this->cfg.schedule[si];
             Entry *e = new Entry();
-            e->cycle = item->get_int("cycle");
-            e->addr = (uint64_t)item->get_int("addr");
-            e->size = (uint64_t)item->get_int("size");
-            e->is_write = item->get_child_bool("is_write");
+            e->cycle = item->cycle;
+            e->addr = (uint64_t)item->addr;
+            e->size = (uint64_t)item->size;
+            e->is_write = item->is_write;
             e->burst_id = burst_id++;
-            e->name = item->get_child_str("name");
+            e->name = item->req_name;
             if (e->name.empty()) e->name = "b" + std::to_string(this->schedule.size());
 
             // Decode optional hex write payload.
-            std::string data_hex = item->get_child_str("data_hex");
+            std::string data_hex = item->data_hex;
             e->data_hex_len = 0;
             e->data_hex_buf = nullptr;
             if (!data_hex.empty())

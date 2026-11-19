@@ -18,6 +18,15 @@
 #
 
 import gvsoc.systree as st
+from config_tree import Config, cfg_field
+
+
+class Aps256xxnConfig(Config):
+    """Configuration of the aps256xxn octospi RAM."""
+
+    size: int = cfg_field(default=0, fmt="hex", dump=True, desc=(
+        "Size of the RAM in bytes"
+    ))
 
 
 class Aps256xxn(st.Component):
@@ -34,12 +43,9 @@ class Aps256xxn(st.Component):
     """
 
     def __init__(self, parent, name, size=None):
-        super(Aps256xxn, self).__init__(parent, name)
-
         if size is None:
             size = 0x04000000
 
-        # Register all parameters as properties so that they can be overwritten from the command-line
-        self.add_property('size', size)
+        super(Aps256xxn, self).__init__(parent, name, config=Aps256xxnConfig(size=size))
 
         self.set_component('devices.ram.aps256xxn')

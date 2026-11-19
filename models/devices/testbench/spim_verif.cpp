@@ -84,17 +84,6 @@ Spim_verif::Spim_verif(Testbench *top, Spi *spi, vp::QspimSlave *itf, pi_testben
         this->init_pads = true;
     }
 
-#if 0
-  js::Config *tx_file_config = config->get("tx_file");
-  if (tx_file_config != NULL)
-  {
-    js::Config *path_config = tx_file_config->get("path");
-    js::Config *qpi_config = tx_file_config->get("qpi");
-    this->tx_dump_bits = 0;
-    this->tx_file = fopen(path_config->get_str().c_str(), "wb");
-    this->tx_dump_qpi = qpi_config != NULL && qpi_config->get_bool();
-  }
-#endif
 
     this->slave_state = SPIS_STATE_IDLE;
     this->slave_boot_state = SPIS_BOOT_STATE_IDLE;
@@ -434,7 +423,7 @@ int64_t Spim_verif::exec()
     if (this->spi_load_config)
     {
         this->spi_load(this->spi_load_config);
-        int64_t delay = this->spi_load_config->get_int("delay_ps");
+        int64_t delay = this->spi_load_config->delay_ps;
         this->spi_load_config = NULL;
         return delay;
     }
@@ -1069,18 +1058,18 @@ void Spim_verif::start_spi_load()
 }
 
 
-void Spim_verif::enqueue_spi_load(js::Config *config)
+void Spim_verif::enqueue_spi_load(const CoreTestbenchSpislaveBootConfig *config)
 {
     this->spi_load_config = config;
 
-    this->slave_period = 1000000000000ULL / config->get_child_int("frequency") / 2;
+    this->slave_period = 1000000000000ULL / config->frequency / 2;
 }
 
 
-void Spim_verif::spi_load(js::Config *config)
+void Spim_verif::spi_load(const CoreTestbenchSpislaveBootConfig *config)
 {
-    std::string path = config->get_child_str("stim_file");
-    bool full_duplex = config->get_child_bool("full_duplex");
+    std::string path = config->stim_file;
+    bool full_duplex = config->full_duplex;
     FILE *file = fopen(path.c_str(), "r");
     if (file == NULL)
     {
@@ -1133,7 +1122,7 @@ void Spim_verif::spi_load(js::Config *config)
         this->sections.push_back(new Spi_loader_section(true, (uint8_t *)buffer, pending_start_addr, pending_index*4));
     }
 
-    this->sections.push_back(new Spi_loader_section(false, NULL, config->get_child_int("entry"), 0));
+    this->sections.push_back(new Spi_loader_section(false, NULL, config->entry, 0));
 
     this->trace.msg(vp::Trace::LEVEL_INFO, "Starting SPI loading\n");
     this->do_spi_load = true;

@@ -26,6 +26,7 @@
 #include <vp/itf/io.hpp>
 #include <vp/queue.hpp>
 #include "interco/traffic/generator.hpp"
+#include <interco/traffic/generator/traffic_gen_config.hpp>
 
 class Transfer
 {
@@ -45,6 +46,7 @@ public:
     ~Generator();
 
 private:
+    TrafficGenConfig cfg;
     void start_transfer() override;
     static void grant(vp::Block *__this, vp::IoReq *req);
     static void response(vp::Block *__this, vp::IoReq *req);
@@ -97,7 +99,7 @@ private:
 };
 
 Generator::Generator(vp::ComponentConf &config)
-    : vp::Component(config), fsm_event(this, Generator::fsm_handler),
+    : vp::Component(config, this->cfg), fsm_event(this, Generator::fsm_handler),
     size(*this, "send_size", 64), pending_size(*this, "pending_size", 64),
     signal_req_addr(*this, "req_addr", 64, vp::SignalCommon::ResetKind::HighZ),
     signal_req_size(*this, "req_size", 64, vp::SignalCommon::ResetKind::HighZ),
@@ -114,8 +116,8 @@ Generator::Generator(vp::ComponentConf &config)
     this->control_itf.set_sync_meth(&Generator::control_sync);
     this->new_slave_port("control", &this->control_itf);
 
-    this->nb_pending_reqs = this->get_js_config()->get_int("nb_pending_reqs");
-    this->collective_enable = this->get_js_config()->get_child_bool("collective_enable");
+    this->nb_pending_reqs = this->cfg.nb_pending_reqs;
+    this->collective_enable = this->cfg.collective_enable;
 }
 
 Generator::~Generator()

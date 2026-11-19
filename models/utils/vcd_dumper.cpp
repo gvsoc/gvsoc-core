@@ -21,6 +21,7 @@
 
 #include <vp/vp.hpp>
 #include <vp/signal.hpp>
+#include <utils/vcd_dumper/vcd_dumper_config.hpp>
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
@@ -64,6 +65,7 @@ public:
     VcdDumper(vp::ComponentConf &config);
 
 private:
+    VcdDumperConfig cfg;
     void reset(bool active);
     bool read_next();
     void handle_next_timestamp();
@@ -107,20 +109,18 @@ void SignalWire::finalize(VcdDumper *dumper)
 }
 
 VcdDumper::VcdDumper(vp::ComponentConf &config)
-    : vp::Component(config), event(this, &VcdDumper::event_handler)
+    : vp::Component(config, this->cfg), event(this, &VcdDumper::event_handler)
 {
     this->current_time = -1;
 
-    js::Config *element_size = this->get_js_config()->get("element_size");
-    if (element_size != NULL)
     {
-        for (auto it: element_size->get_childs())
+        for (int i = 0; i < this->cfg.element_size_count; i++)
         {
-            this->element_size[it.first] = it.second->get_int();
+            this->element_size[this->cfg.element_size[i].signal] = this->cfg.element_size[i].size;
         }
     }
 
-    std::string vcd_file_path = this->get_js_config()->get_child_str("vcd_file");
+    std::string vcd_file_path = this->cfg.vcd_file;
     if (vcd_file_path != "")
     {
 

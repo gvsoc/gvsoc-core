@@ -19,6 +19,7 @@ from __future__ import annotations
 import gvsoc.systree
 
 from memory.memory_config import MemoryConfig
+from vp.power_config import consume_power_model
 
 class Memory(gvsoc.systree.Component):
     """Memory array
@@ -59,19 +60,27 @@ class Memory(gvsoc.systree.Component):
         used as-is). truncate_size must be a power of 2 if used.
     fic_enabled: bool
         If True, this memory is being fault injected.
+    power_model: str
+        Path of a YAML power model file giving the power tables of the memory (see
+        :class:`memory.memory_config.MemoryPowerConfig`), resolved from PYTHONPATH.
+    attributes, config: MemoryConfig
+        Full configuration. When given, the other parameters are ignored.
     """
     def __init__(self, parent: gvsoc.systree.Component, name: str, size: int=0, width_log2: int=-1,
             stim_file: str=None, power_trigger: bool=False,
             align: int=0, atomics: bool=False, latency=0, init=True,
-            truncate_size: int=0, fic_enabled=False,
+            truncate_size: int=0, fic_enabled=False, power_model: str='',
             attributes: MemoryConfig | None=None, config: MemoryConfig | None=None):
 
         if config is not None:
             attributes = config
 
-        # Always create a MemoryConfig for the compiled tree
         if attributes is None:
-            attributes = MemoryConfig(size=size, atomics=atomics, latency=latency)
+            attributes = MemoryConfig(size=size, atomics=atomics, latency=latency,
+                width_bits=width_log2, align=align, init=init,
+                stim_file=stim_file if stim_file is not None else '',
+                power_trigger=power_trigger, truncate_size=truncate_size,
+                fic_enabled=fic_enabled, power_model=power_model)
 
         super().__init__(parent, name, config=attributes)
 
@@ -80,23 +89,16 @@ class Memory(gvsoc.systree.Component):
         # Since atomics are slowing down the model, this is better to compile the support only
         # if needed. Note that the framework will take care of compiling this model twice
         # if both memories with and without atomics are instantiated.
-        if atomics or attributes is not None and attributes.atomics:
+        if atomics or attributes.atomics:
             self.add_c_flags(['-DCONFIG_ATOMICS=1'])
 
-        if fic_enabled:
+        if fic_enabled or attributes.fic_enabled:
             self.add_c_flags(['-DCONFIG_FAULT_INJECTION=1'])
 
-        self.add_properties({
-            'init': init,
-            'size': size if attributes is None else attributes.size,
-            'stim_file': stim_file,
-            'power_trigger': power_trigger,
-            'width_bits': width_log2,
-            'align': align,
-            'latency': latency if attributes is None else attributes.latency,
-            'truncate_size': truncate_size,
-            'fic_enabled': fic_enabled,
-        })
+    def configure(self):
+        # Consumed here rather than in __init__ so the power_model path can
+        # also be set after instantiation.
+        consume_power_model(self.get_config())
 
     def i_INPUT(self) -> gvsoc.systree.SlaveItf:
         """Returns the input port.

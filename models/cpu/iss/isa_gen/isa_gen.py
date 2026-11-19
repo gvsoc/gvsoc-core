@@ -128,24 +128,25 @@ class Indirect(OpcodeField):
             funcName = 'traceSetIndirectReg'
         if self.postInc:
             funcName += 'PostInc'
-            self.flags.append('ISS_DECODER_ARG_FLAG_POSTINC')
         if self.preInc:
             funcName += 'PreInc'
-            self.flags.append('ISS_DECODER_ARG_FLAG_PREINC')
         if self.offset is not None:
             dump(isaFile, level, '  %s(pc, %s, %s);\n' % (funcName, self.base.genTraceIndirect(), self.offset.genTraceIndirect()))
         else:
             dump(isaFile, level, '  %s(pc, %s, 0);\n' % (funcName, self.base.genTraceIndirect()))
 
+    def get_flags(self):
+        # Not kept in the object: the operands are shared by all the ISAs
+        # generated, each generation would add them again
+        return self.flags + \
+            (['ISS_DECODER_ARG_FLAG_POSTINC'] if self.postInc else []) + \
+            (['ISS_DECODER_ARG_FLAG_PREINC'] if self.preInc else [])
+
     def gen(self, isaFile, indent=0):
-        if self.postInc:
-            self.flags.append('ISS_DECODER_ARG_FLAG_POSTINC')
-        if self.preInc:
-            self.flags.append('ISS_DECODER_ARG_FLAG_PREINC')
         if self.offset.is_reg():
             dump(isaFile, '%s{\n' % (' '*indent))
             dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_INDIRECT_REG,\n' % (' '*indent))
-            dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
+            dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.get_flags())))
             dump(isaFile, '%s  .u= {\n' % (' '*indent))
             dump(isaFile, '%s    .indirect_reg= {\n' % (' '*indent))
             dump(isaFile, '%s      .base_reg= ' % (' '*indent))
@@ -158,7 +159,7 @@ class Indirect(OpcodeField):
         else:
             dump(isaFile, '%s{\n' % (' '*indent))
             dump(isaFile, '%s  .type=ISS_DECODER_ARG_TYPE_INDIRECT_IMM,\n' % (' '*indent))
-            dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.flags)))
+            dump(isaFile, '%s  .flags=(iss_decoder_arg_flag_e)(%s),\n' % (' '*indent, ' | '.join(self.get_flags())))
             dump(isaFile, '%s  .u= {\n' % (' '*indent))
             dump(isaFile, '%s    .indirect_imm= {\n' % (' '*indent))
             dump(isaFile, '%s      .reg= ' % (' '*indent))
@@ -765,15 +766,25 @@ class Isa(object):
 
         return includes
 
+    def _check_not_named(self, what: str):
+        # The name of the generated files hashes the defines and includes
+        if getattr(self, '_full_name', None) is not None:
+            raise RuntimeError(f'ISA {self.name}: {what} added after the name of its '
+                'generated files was taken (get_header/get_source)')
+
     def add_include(self, include: str):
         if not include in self.includes:
+            self._check_not_named(f'include {include}')
             self.includes.append(include)
 
     def add_implem_include(self, include: str):
         if not include in self.implem_includes:
+            self._check_not_named(f'include {include}')
             self.implem_includes.append(include)
 
     def add_define(self, name: str, value: str):
+        if self.defines.get(name, object()) != value:
+            self._check_not_named(f'define {name}')
         self.defines[name] = value
 
     def alloc_decoder_tree_id(self):

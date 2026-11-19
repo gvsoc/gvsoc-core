@@ -1106,13 +1106,26 @@ class RiscvIsa(Isa):
 
         self.misa = misa
 
-        if no_hash:
-            self.full_name = f'isa_{self.name}'
-        else:
-            name = ''.join(self.isas.keys())
-            name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
+        self.no_hash = no_hash
+        self._full_name = None
 
-            self.full_name = f'isa_{self.name}_{name_hash}'
+    @property
+    def full_name(self):
+        """The name of the generated files, taken once the cores have added
+        their defines and includes: with them in its hash, two ISAs which
+        generate different headers never share the files, which the build of
+        several targets would otherwise write in turn (rebuilding everything
+        including them, each core compiled with the last one written)."""
+        if self._full_name is None:
+            if self.no_hash:
+                self._full_name = f'isa_{self.name}'
+            else:
+                name = ''.join(self.isas.keys())
+                name += ''.join(f'{k}={v};' for k, v in self.defines.items())
+                name += ''.join(self.includes) + ''.join(self.implem_includes)
+                name_hash = int(hashlib.md5(name.encode('utf-8')).hexdigest()[0:7], 16)
+                self._full_name = f'isa_{self.name}_{name_hash}'
+        return self._full_name
 
     def has_extension(self, extension: str):
         return extension in self.extensions

@@ -146,14 +146,6 @@ class RiscvCommon(st.Component):
             module.gen(self)
 
         self.add_sources([
-            isa.get_source()
-        ])
-
-        self.add_c_flags([
-            f'--include {isa.get_header()}'
-        ])
-
-        self.add_sources([
             wrapper
         ])
 
@@ -615,6 +607,13 @@ class RiscvCommon(st.Component):
 
     def gen(self, builddir, installdir):
         self.isa.gen(self, builddir, installdir)
+
+    def prepare_sources(self):
+        # The generated ISA files are named from the defines and includes the
+        # modules and the constructors of the derived cores add, all done now
+        self.add_sources([self.isa.get_source()])
+        self.add_c_flags([f'--include {self.isa.get_header()}'])
+        super().prepare_sources()
 
 
 

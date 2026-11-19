@@ -407,10 +407,6 @@ class RiscvCommon(st.Component):
 
         self.isa: Isa = isa
 
-        self.add_c_flags([
-            f'--include {isa.get_header()}'
-        ])
-
         if not float_lib in ['flexfloat', 'native', 'softfloat']:
             raise RuntimeError(f'Unsupported float lib: {float_lib}')
 
@@ -563,16 +559,13 @@ class RiscvCommon(st.Component):
         for module in self.modules.values():
             module.gen(self)
 
+
         # Direct access to a memory array, bypassing the data port
         if config.memory_size != 0:
             if not self._uses_io_v2:
                 raise RuntimeError(f'{self.get_path()}: memory_start/memory_size need the '
                     'io_v2 LSU (LsuV2)')
             self.add_c_flags(['-DCONFIG_GVSOC_ISS_MEMORY=1'])
-
-        self.add_sources([
-            isa.get_source()
-        ])
 
         self.add_sources([
             "cpu/iss_v2/src/iss.cpp",
@@ -902,6 +895,13 @@ class RiscvCommon(st.Component):
 
     def gen(self, builddir, installdir):
         self.isa.gen(self, builddir, installdir)
+
+    def prepare_sources(self):
+        # The generated ISA files are named from the defines and includes the
+        # modules and the constructors of the derived cores add, all done now
+        self.add_c_flags([f'--include {self.isa.get_header()}'])
+        self.add_sources([self.isa.get_source()])
+        super().prepare_sources()
 
 
 

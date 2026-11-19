@@ -379,6 +379,7 @@ void Generator::fsm_handler(vp::Block *__this, vp::ClockEvent *event)
             {
                 payload[1 + i] = (uint8_t)(_this->collective_mask >> (8 * i));
             }
+            req->set_payload_valid(true);
         }
 
         _this->trace.msg(vp::Trace::LEVEL_DEBUG, "Sending request (req: %p, address: 0x%llx, size: 0x%llx, packet_size: 0x%llx)\n",

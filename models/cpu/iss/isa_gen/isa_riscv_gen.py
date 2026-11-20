@@ -1146,14 +1146,19 @@ class RiscvIsa(Isa):
 
             os.makedirs(os.path.dirname(full_name), mode=0o750, exist_ok=True)
 
-            with open(f'{full_name}.cpp.new', 'w') as isaFile:
-                with open(f'{full_name}.hpp.new', 'w') as isaFileHeader:
+            # The files are generated under names of this process, then renamed
+            # over the previous ones only if they changed, so that targets
+            # sharing this ISA can be generated in parallel on the same build
+            # directory
+            new_suffix = f'.new.{os.getpid()}'
+            with open(f'{full_name}.cpp{new_suffix}', 'w') as isaFile:
+                with open(f'{full_name}.hpp{new_suffix}', 'w') as isaFileHeader:
                     Isa.gen(self, isaFile, isaFileHeader)
 
-            if not os.path.exists(f'{full_name}.cpp') or \
-                    not filecmp.cmp(f'{full_name}.cpp.new', f'{full_name}.cpp', shallow=False):
-                shutil.move(f'{full_name}.cpp.new', f'{full_name}.cpp')
-
-            if not os.path.exists(f'{full_name}.hpp') or \
-                    not filecmp.cmp(f'{full_name}.hpp.new', f'{full_name}.hpp', shallow=False):
-                shutil.move(f'{full_name}.hpp.new', f'{full_name}.hpp')
+            for ext in ['cpp', 'hpp']:
+                new_file = f'{full_name}.{ext}{new_suffix}'
+                file = f'{full_name}.{ext}'
+                if not os.path.exists(file) or not filecmp.cmp(new_file, file, shallow=False):
+                    os.replace(new_file, file)
+                else:
+                    os.remove(new_file)

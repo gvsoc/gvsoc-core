@@ -54,8 +54,9 @@ def declare():
     """Register the C++ model of :class:`VerilatorControl` for compilation
     without instantiating it. The components of a target are listed on its
     gvsoc platform, so a target which uses this model only on its RTL
-    platform calls this to have it built with the target."""
-    st.get_generated_component(list(_SOURCES), [], [])
+    platform calls this to have it built with the target. Its config header is
+    generated with the module, since no instance makes it."""
+    st.get_generated_component(list(_SOURCES), [], [], config_classes=[VerilatorControlConfig])
 
 
 def gvsoc_svsim_plugin():

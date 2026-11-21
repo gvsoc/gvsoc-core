@@ -124,7 +124,9 @@ iss_reg_t Sequencer::sequence_buffer_handler(Iss *iss, iss_insn_t *insn, iss_reg
         if (_this->buffer.size() == 16)
         {
             _this->input_insn = insn;
-            _this->input_insn_reg = REG_GET(0);
+            // Instructions without an integer input (e.g. csrrci) have in_regs[0]
+            // at 0xFF: reading it would index the scoreboard out of bounds
+            _this->input_insn_reg = REG_IN(0) != 0xFF ? REG_GET(0) : 0;
             _this->input_insn_is_sequence = true;
             return iss_insn_next(iss, insn, pc);
         }
@@ -180,7 +182,9 @@ iss_reg_t Sequencer::direct_branch_handler(Iss *iss, iss_insn_t *insn, iss_reg_t
             }
 
             _this->input_insn = insn;
-            _this->input_insn_reg = REG_GET(0);
+            // Instructions without an integer input (e.g. csrrci) have in_regs[0]
+            // at 0xFF: reading it would index the scoreboard out of bounds
+            _this->input_insn_reg = REG_IN(0) != 0xFF ? REG_GET(0) : 0;
             _this->input_insn_is_sequence = false;
             return iss_insn_next(iss, insn, pc);
         }

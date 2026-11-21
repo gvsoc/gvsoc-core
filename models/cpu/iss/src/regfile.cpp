@@ -67,14 +67,19 @@ void Regfile::reset(bool active)
         // scratch destination used by instructions writing to x0 and must be
         // cleared too, otherwise scoreboard_reg_check() reads a garbage timestamp
         // and stalls the core for a huge number of cycles.
+        // No stall reason either (-1): a stall on a register never set by
+        // scoreboard_*_set_timestamp would otherwise index the performance
+        // counters with a garbage reason and write anywhere in the core.
         for (int i = 0; i < ISS_NB_REGS + 1; i++)
         {
             this->scoreboard_reg_timestamp[i] = 0;
+            this->scoreboard_reg_stall_reason[i] = -1;
         }
 #if !defined(ISS_SINGLE_REGFILE)
         for (int i = 0; i < ISS_NB_FREGS; i++)
         {
             this->scoreboard_freg_timestamp[i] = 0;
+            this->scoreboard_freg_stall_reason[i] = -1;
         }
 #endif
 #endif

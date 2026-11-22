@@ -440,9 +440,9 @@ class Cache(Component):
         _ = Signal(self, cache, name='refill', path='refill_addr', groups=['cache'])
         tags = Signal(self, cache, name='tags')
 
-        ways = self.get_property('ways')
-        size = self.get_property('size')
-        line_size = self.get_property('line_size')
+        ways = self.get_config().ways
+        size = self.get_config().size
+        line_size = self.get_config().line_size
 
         for way in range(0, ways):
             set_trace = Signal(self, tags, name=f'set_{way}')

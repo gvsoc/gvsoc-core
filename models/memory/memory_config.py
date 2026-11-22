@@ -133,6 +133,7 @@ class MemoryConfig(Config, HasSize):
         "'power' tables. Empty for no power numbers"
     ))
 
-    power: MemoryPowerConfig = cfg_field(default_factory=MemoryPowerConfig, init=False, desc=(
-        "Per-source power tables, filled from 'power_model'"
+    power: MemoryPowerConfig = cfg_field(default=None, init=False, desc=(
+        "Per-source power tables, filled from 'power_model'. None (all sources "
+        "inert) without a power model"
     ))

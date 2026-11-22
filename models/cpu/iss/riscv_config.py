@@ -90,8 +90,8 @@ class IssConfig(Config):
     power_insn_groups: list[PowerSourceConfig] = cfg_field(default_factory=list, desc=(
         "Energy of the instructions, indexed by ISA power group"
     ))
-    power: RiscvPowerConfig = cfg_field(default_factory=RiscvPowerConfig, desc=(
-        "Named core power sources"
+    power: RiscvPowerConfig = cfg_field(default=None, desc=(
+        "Named core power sources. None (all sources inert) without a power model"
     ))
     binaries: Annotated[list[RiscvBinaryConfig], Runtime] = cfg_field(default_factory=list,
         desc=(

@@ -29,7 +29,12 @@ the path of a YAML power model file::
 
     class MyModelConfig(Config):
         power_model: str = cfg_field(default='')
-        power: MyModelPowerConfig = cfg_field(default_factory=MyModelPowerConfig)
+        power: MyModelPowerConfig = cfg_field(default=None)
+
+The ``power`` tables are only created when a power model is given (see
+:func:`power_tables`): without one, the field stays None, which is compiled
+as an all-empty struct, so that the models without power numbers do not pay
+for them.
 
 The component consumes the file in its ``configure()`` hook with
 :func:`consume_power_model`, and the C++ model initializes its power sources
@@ -60,7 +65,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import fields
-from typing import ClassVar
+from typing import ClassVar, get_type_hints
 
 import yaml
 
@@ -213,6 +218,30 @@ def apply_power_yaml(config: Config, path: str, names: list[str] | None = None):
         setattr(config, name, _get_source_config(path, name, content[name]))
 
 
+def power_tables(config: Config) -> Config:
+    """Return the ``power`` tables of a config, creating them if needed.
+
+    The ``power`` field of a model config is None until a power model is
+    given: this creates it, empty, with the class the field declares, so that
+    the power model can be applied onto it.
+
+    Parameters
+    ----------
+    config: Config
+        The component config, carrying the ``power`` field.
+
+    Returns
+    -------
+    Config
+        The power tables of the config.
+    """
+    power = config.power
+    if power is None:
+        power = get_type_hints(type(config))['power']()
+        config.power = power
+    return power
+
+
 def consume_power_model(config: Config):
     """Apply the power model file named by ``config.power_model``, if any.
 
@@ -227,7 +256,7 @@ def consume_power_model(config: Config):
         The component config, carrying ``power_model`` and ``power`` fields.
     """
     if getattr(config, 'power_model', ''):
-        apply_power_yaml(config.power, config.power_model)
+        apply_power_yaml(power_tables(config), config.power_model)
 
 
 def load_power_yaml_list(path: str, key: str) -> list[PowerSourceConfig]:

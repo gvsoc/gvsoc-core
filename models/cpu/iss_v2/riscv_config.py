@@ -159,9 +159,10 @@ class RiscvConfig(Config):
         "Per-instruction-group dynamic energy tables; the list index matches the isa "
         "power group set with set_power_group. Empty = per-instruction power off."
     ))
-    power: RiscvPowerConfig = cfg_field(default_factory=RiscvPowerConfig,
+    power: RiscvPowerConfig = cfg_field(default=None,
         init=False, desc=(
-        "Named core power sources (stall_first, stall_next, background)."
+        "Named core power sources (stall_first, stall_next, background). None "
+        "(all sources inert) without a power model."
     ))
     misa: int = cfg_field(default=0, init=False, fmt="hex", desc=(
         "Reset value of the misa CSR, set by the core generator from its ISA"

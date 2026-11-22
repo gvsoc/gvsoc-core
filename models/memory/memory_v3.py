@@ -151,9 +151,10 @@ class MemoryV3Config(Config, HasSize):
         "(all sources inert)."
     ))
 
-    power: MemoryV3PowerConfig = cfg_field(default_factory=MemoryV3PowerConfig,
+    power: MemoryV3PowerConfig = cfg_field(default=None,
         init=False, desc=(
-        "Per-source power tables, filled from 'power_model'."
+        "Per-source power tables, filled from 'power_model'. None (all sources "
+        "inert) without a power model."
     ))
 
 

@@ -29,7 +29,7 @@ from gvrun.systree import ExecutableContainer
 import gvrun.timing
 from cpu.iss.riscv_config import IssConfig
 from cpu.iss_v2.riscv_config import RiscvBinaryConfig
-from vp.power_config import apply_power_yaml, load_power_yaml_list
+from vp.power_config import apply_power_yaml, load_power_yaml_list, power_tables
 
 binaries_info = {}
 
@@ -179,7 +179,7 @@ class RiscvCommon(st.Component):
             if not power_models_file.endswith(('.yaml', '.yml')):
                 raise RuntimeError(f'Power models must be in YAML: {power_models_file}')
             config.power_insn_groups = load_power_yaml_list(power_models_file, 'insn_groups')
-            apply_power_yaml(config.power, power_models_file,
+            apply_power_yaml(power_tables(config), power_models_file,
                 names=['stall_first', 'stall_next', 'background'])
 
         config.isa = isa.isa_string

@@ -140,6 +140,10 @@ class RiscvConfig(Config):
         "half, so the next instruction starts one cycle later (RI5CY: the second access of a "
         "misaligned store is issued from EX while the next instruction waits in ID)."
     ))
+    mtvec_writable: bool = cfg_field(default=True, dump=True, desc=(
+        "False if software writes to mtvec are ignored, mtvec staying on the 256-byte page of "
+        "the boot address (RI5CY built without PULP_SECURE)."
+    ))
     lsu_elw_resume_cycles: int = cfg_field(default=-1, dump=True, desc=(
         "Cycles a p.elw event load costs after its response on top of a plain load, whether "
         "the core was clock-gated or not (RI5CY: the event load drops the busy signal and the "

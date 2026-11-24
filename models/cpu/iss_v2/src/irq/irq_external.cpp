@@ -72,6 +72,12 @@ bool IrqExternal::mtvec_access(iss_insn_t *insn, bool is_write, iss_reg_t &value
 {
     if (is_write)
     {
+        // A read-only mtvec follows the boot address (written without instruction)
+        if (insn != NULL && !this->iss.cfg.mtvec_writable)
+        {
+            return false;
+        }
+
         this->mtvec_set(value);
     }
 

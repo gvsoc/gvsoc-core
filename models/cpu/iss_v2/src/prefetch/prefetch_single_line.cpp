@@ -65,7 +65,7 @@ void PrefetchSingleLine::reset(bool active)
     }
 }
 
-bool PrefetchSingleLine::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index)
+bool PrefetchSingleLine::fetch_refill(iss_insn_t *insn, iss_addr_t addr, iss_addr_t index)
 {
     // We get here either if the instruction is entirely outside the buffer or if it is only
     // partially within.
@@ -78,7 +78,7 @@ bool PrefetchSingleLine::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int ind
     this->low_line_fetched = false;
 
     // If the instruction is entirely outside the buffer, first fetch the lower part
-    if (unlikely(index < 0 || index >= CONFIG_GVSOC_ISS_PREFETCH_SIZE))
+    if (unlikely(index >= CONFIG_GVSOC_ISS_PREFETCH_SIZE))
     {
         this->low_line_fetched = true;
         if (int err = this->fill(addr))
@@ -529,7 +529,8 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
     }
 #endif
 
-    unsigned int index = phys_addr - this->buffer_start_addr;
+    // Full width, so that an address several times 4 GiB away from the buffer does not alias it
+    iss_addr_t index = phys_addr - this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.
     if (likely(index <= CONFIG_GVSOC_ISS_PREFETCH_SIZE - sizeof(iss_opcode_t)))
@@ -558,9 +559,10 @@ bool PrefetchSingleLine::fetch(iss_reg_t addr)
 
 void PrefetchSingleLine::flush()
 {
-    // Since the address is an unsigned int, the next index will be negative and will force the prefetcher
-    // to refill
-    this->buffer_start_addr = -1;
+    // Make the buffer start one line below address 0: the offset of any fetch address from it is
+    // then at least one line, which forces a refill without any check on the fetch path. Only the
+    // last line of the address space would wrap around into the buffer, and no code runs there.
+    this->buffer_start_addr = -(iss_addr_t)(CONFIG_GVSOC_ISS_PREFETCH_SIZE);
     this->split_insn_addr = -1;
     this->cur_fetch_insn = NULL;
 #ifdef CONFIG_GVSOC_ISS_LSU_V2

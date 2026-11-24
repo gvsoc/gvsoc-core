@@ -50,7 +50,8 @@ inline bool Prefetcher::fetch(iss_reg_t addr)
         return false;
     }
 
-    unsigned int index = phys_addr - this->buffer_start_addr;
+    // Full width, so that an address several times 4 GiB away from the buffer does not alias it
+    iss_addr_t index = phys_addr - this->buffer_start_addr;
 
     // If it is entirely within the buffer, get the opcode and decode it.
     if (likely(index <= ISS_PREFETCHER_SIZE - sizeof(iss_opcode_t)))
@@ -67,9 +68,10 @@ inline bool Prefetcher::fetch(iss_reg_t addr)
 
 inline void Prefetcher::flush()
 {
-    // Since the address is an unsigned int, the next index will be negative and will force the prefetcher
-    // to refill
-    this->buffer_start_addr = -1;
+    // Make the buffer start one line below address 0: the offset of any fetch address from it is
+    // then at least one line, which forces a refill without any check on the fetch path. Only the
+    // last line of the address space would wrap around into the buffer, and no code runs there.
+    this->buffer_start_addr = -(iss_addr_t)(ISS_PREFETCHER_SIZE);
 }
 
 inline void Prefetcher::handle_stall(void (*callback)(Prefetcher *), iss_insn_t *current_insn)

@@ -43,7 +43,7 @@ void Prefetcher::reset(bool active)
     }
 }
 
-bool Prefetcher::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index)
+bool Prefetcher::fetch_refill(iss_insn_t *insn, iss_addr_t addr, iss_addr_t index)
 {
     // We get here either if the instruction is entirely outside the buffer or if it is only
     // partially within.
@@ -55,7 +55,7 @@ bool Prefetcher::fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index)
     this->prefetch_insn = NULL;
 
     // If the instruction is entirely outside the buffer, first fetch the lower part
-    if (unlikely(index < 0 || index >= ISS_PREFETCHER_SIZE))
+    if (unlikely(index >= ISS_PREFETCHER_SIZE))
     {
         if (int err = this->fill(addr))
         {

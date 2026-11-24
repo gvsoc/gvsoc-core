@@ -49,7 +49,7 @@ public:
 
 private:
     // Refill of the prefetch buffer
-    bool fetch_refill(iss_insn_t *insn, iss_addr_t addr, int index);
+    bool fetch_refill(iss_insn_t *insn, iss_addr_t addr, iss_addr_t index);
 
     // Callback called when the fetch of the low part is received asynchronously.
     static void fetch_resume_after_low_refill(Prefetcher *_this);

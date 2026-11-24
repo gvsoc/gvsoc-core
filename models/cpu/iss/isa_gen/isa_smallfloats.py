@@ -230,7 +230,7 @@ class Xf8Snitch(IsaSubset):
 
 class Xfvec(IsaSubset):
 
-    def __init__(self, inc_vfsum=False, force_f32vec=False):
+    def __init__(self, inc_vfsum=False, inc_vfexp=False, force_f32vec=False):
 
         self.force_f32vec = force_f32vec
 
@@ -304,8 +304,6 @@ class Xfvec(IsaSubset):
             Insn('1000110 ----- ----- 010 ----- 0110011', 'vfmax.h',     F_FF('H'),    tags=['fconv', 'fp_op'], isa_tags=['f16vec']),
             Insn('1000110 ----- ----- 110 ----- 0110011', 'vfmax.r.h',   F_FF('H'),    tags=['fconv', 'fp_op'], isa_tags=['f16vec']),
             Insn('1000111 00000 ----- 010 ----- 0110011', 'vfsqrt.h',    F_F('H'),     tags=['fdiv', 'fp_op'], isa_tags=['f16vec']),
-            # Exponential of each lane (not in the Snitch FPU spec, no alt-format variant)
-            Insn('1000111 00001 ----- 010 ----- 0110011', 'vfexp.h',     F_F('H'),     tags=['fexp', 'fp_op'], isa_tags=['f16vec', 'noalt']),
             Insn('1001000 ----- ----- 010 ----- 0110011', 'vfmac.h',     FA_FFF('H'),  tags=['fmadd', 'fp_op'], isa_tags=['f16vec']),
             Insn('1001000 ----- ----- 110 ----- 0110011', 'vfmac.r.h',   FA_FFF('H'),  tags=['fmadd', 'fp_op'], isa_tags=['f16vec']),
             Insn('1001001 ----- ----- 010 ----- 0110011', 'vfmre.h',     FA_FFF('H'),  tags=['fmadd', 'fp_op'], isa_tags=['f16vec']),
@@ -498,6 +496,12 @@ class Xfvec(IsaSubset):
 
             ]
 
+        if inc_vfexp:
+            instrs += [
+                # Exponential of each lane (not in the Snitch FPU spec, no alt-format variant)
+                Insn('1000111 00001 ----- 010 ----- 0110011', 'vfexp.h',     F_F('H'),     tags=['fexp', 'fp_op'], isa_tags=['f16vec', 'noalt']),
+            ]
+
         super().__init__(name='fvec', instrs=instrs, includes=[
             '<cpu/iss/include/isa/rv32Xfvec.hpp>',
             '<cpu/iss/include/isa/rv32Xfaux.hpp>',
@@ -548,8 +552,8 @@ class Xfvec(IsaSubset):
 
 class XfvecSnitch(Xfvec):
 
-    def __init__(self):
-        super().__init__(inc_vfsum=True)
+    def __init__(self, inc_vfexp=False):
+        super().__init__(inc_vfsum=True, inc_vfexp=inc_vfexp)
 
 #
 # Auxiliary Float operations

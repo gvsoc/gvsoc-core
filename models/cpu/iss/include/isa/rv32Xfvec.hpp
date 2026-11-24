@@ -161,7 +161,7 @@ static inline iss_reg_t vf##op##_##fmt##_exec(Iss *iss, iss_insn_t *insn, iss_re
     return iss_insn_next(iss, insn, pc);                                                                                \
 }
 
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_XFVEC_FPNEW)
 
 #define VF_CMP(op,fmt,fmt_size,exp,mant)                                                                                 \
                                                                                                                 \
@@ -304,7 +304,7 @@ VF_OP(max, max, h, 16, 5, 10)
 VF_OP1(sqrt, sqrt_round, h, 16, 5, 10)
 VF_OP1(exp, exp_round, h, 16, 5, 10)
 VF_OP3(mac, madd_round, h, 16, 5, 10)
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_XFVEC_FPNEW)
 VF_OP3(mre, msub_round, h, 16, 5, 10)
 #else
 VF_OP3(mre, nmsub_round, h, 16, 5, 10)
@@ -467,7 +467,7 @@ VF_OP(min, min, ah, 16, 8, 7)
 VF_OP(max, max, ah, 16, 8, 7)
 VF_OP1(sqrt, sqrt_round, ah, 16, 8, 7)
 VF_OP3(mac, madd_round, ah, 16, 8, 7)
-#if defined(CONFIG_GVSOC_ISS_RI5KY)
+#if defined(CONFIG_GVSOC_ISS_RI5KY) || defined(CONFIG_GVSOC_ISS_XFVEC_FPNEW)
 VF_OP3(mre, msub_round, ah, 16, 8, 7)
 #else
 VF_OP3(mre, nmsub_round, ah, 16, 8, 7)

@@ -19,469 +19,350 @@
  * Authors: Germain Haugou, GreenWaves Technologies (germain.haugou@greenwaves-technologies.com)
  */
 
-/**
- * @brief Aps256 octospi ram model
+/*
+ * AP Memory APS256XXN octal DDR PSRAM (Xccela, x8), driven edge by edge through the hyper
+ * interface: cs_sync at each chip select change, then one sync_cycle per useful CK edge (both
+ * edges, the command being repeated on the falling edge of its clock). The read data go back
+ * with a sync_cycle on the edges carrying data; the write data carry their mask (DM high) in
+ * bit 8.
+ *
+ * Behaviour of the datasheet (APS256XXN-OBx9):
+ *   - edge 0: command, edges 2-5: address A3..A0 (byte address, A[0] ignored);
+ *   - reads (00h, 20h, 40h): data from the rising edge of clock 2 + latency (edge
+ *     2 * (2 + latency)), latency the MR0 read latency code, doubled with fixed latency; mode
+ *     register reads give the register then the next readable one, repeated;
+ *   - writes (80h, A0h): data from edge 2 * (2 + write latency of MR4); mode register writes
+ *     (C0h): the byte of edge 6;
+ *   - bursts wrap inside their 2 KB row (no row boundary crossing unless the rbx option and
+ *     MR8[3]), sync bursts wrap following MR8;
+ *   - global reset (FFh) puts the mode registers back to their default.
+ * Not modelled: the variable latency refresh pushout, x16, half sleep, deep power down.
+ *
+ * In legacy mode (for the OctoSPI interface of gvsoc/gap), the data come one clock later, the
+ * start address is taken as is and the bursts do not wrap.
  */
 
 #include <vp/vp.hpp>
 #include <string.h>
-
-#include <sys/mman.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <vector>
 
 #include <vp/itf/hyper.hpp>
-#include <vp/itf/wire.hpp>
 #include <devices/ram/aps256xxn/aps256xxn_config.hpp>
 
-// Enum for ram state
-typedef enum
-{
-    APS_STATE_CMD,  // RAM is receiving the command header
-    APS_STATE_ADDR, // RAM is receiving the address
-    APS_STATE_DATA  // RAM is receiving or sending data
-} Aps_state_e;
 
-/**
- * @brief Class for Aps RAM model
- */
-class Aps : public vp::Component
+#define ROW_BYTES 2048
+
+
+class Aps256xxn : public vp::Component
 {
 public:
-    Aps(vp::ComponentConf &conf);
-
-    // GVSOC reset function overloading
+    Aps256xxn(vp::ComponentConf &config);
     void reset(bool active) override;
 
 private:
-    Aps256xxnConfig cfg;
-    void stop() override;
-    /**
-     * @brief Handle octospi clock edges
-     *
-     * This is called everytime a usefull clock edge occurs on the octospi line.
-     * This is called on both raising and falling edges in DDR mode and only on raising edge
-     * in STR mode.
-     * This method will enqueue the incoming data and handle any impact on the flash state, like
-     * handling transmitted commands.
-     *
-     * @param data   Data transmitted through the octospi data line.
-     */
-    void sync_cycle(int data);
-
-    /**
-     * @brief Stub for sync_cycle method
-     *
-     * This is just a stub method which is called when a useful clock cycle occurs on the
-     * octospi line.
-     * It is static since gvsoc requires static methods for handling inter-components communication.
-     * It will just call the real method handling it.
-     *
-     * @param __this This pointer used to call the real method.
-     * @param data   Data transmitted through the octospi data line.
-     */
     static void sync_cycle_stub(vp::Block *__this, int data);
+    static void cs_sync_stub(vp::Block *__this, int cs, int active);
+    // Handle a useful edge of the OctoSPI clock, data being the byte on the bus (and the mask
+    // in bit 8 for write data)
+    void edge(int data);
+    void cs_sync(int active);
+    int read_latency();
+    int write_latency();
+    int mr_read(int index, bool *defined);
+    int mr_next(int index);
+    // Address in the array of byte j of the current burst, -1 if out of the RAM
+    int64_t byte_addr(int j);
+    void mr_reset();
 
-    /**
-     * @brief Handle chip select update
-     *
-     * This is called everytime thechip select is updated on the octospi line.
-     * It is active low.
-     *
-     * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
-     */
-    void cs_sync(int cs, int value);
-
-    /**
-     * @brief Stub for cs_sync method
-     *
-     * This is just a stub method which is called when the chip select is updated on the
-     * octospi line.
-     * It is static since gvsoc requires static methods for handling inter-components communication.
-     * It will just call the real method handling it.
-     *
-     * @param __this This pointer used to call the real method.
-     * @param value   Value of the chip select, 0 when it is active, 1 when it is inactive.
-     */
-    static void cs_sync_stub(vp::Block *__this, int cs, int value);
-
-    /**
-     * @brief Handle an access to the ram array
-     *
-     * This is called for both read and program operations.
-     *
-     * @param address Address of the access.
-     * @param read    True if the access is a read, false if it is a write.
-     * @param data    Data byte in case of a write
-     */
-    void handle_array_access(int address, bool is_write, uint8_t data);
-
-    /**
-     * @brief Parse the current command.
-     *
-     * This is called once the command header has been received in order to parse it and
-     * extract useful information for FSM.
-     *
-     * @param addr_bits  Number of expected address bits are returned here.
-     */
-    void parse_command();
-
-    /**
-     * @brief Handle current command after address has been received.
-     *
-     * This will determine if the command does not need to send or receive data and will
-     * execute it.
-     */
-    void handle_command_address();
-
-    /**
-     * @brief Handle an incoming data byte
-     *
-     * This is called when command header and possibly address has already been received and a data
-     * byte is received, in order to process it.
-     *
-     * @param byte The input data byte.
-     */
-    void handle_data_byte(uint8_t byte);
-
-    // Trace for dumping debug messages.
+    Aps256xxnConfig cfg;
     vp::Trace trace;
-    // Input octospi interface.
     vp::HyperSlave in_itf;
-    // Size of the ram, retrieved from JSON component configuration.
-    int size;
-    // RAM array
-    uint8_t *data;
-    // Current command being process
-    uint32_t current_command;
-    // Currrent address of the command being processed.
-    int current_address;
-    // Number of remaining bytes to be processed. Used when receiving command header and address to
-    // known when enough bytes are ready.
-    int pending_bytes;
-    // Number of remaining latency cycles of the current command.
-    int latency_count;
-    // True if the current command is a write command.
-    bool is_write;
-    // Register read latency code.
-    uint32_t read_latency_code;
-    // Register write latency code.
-    uint32_t write_latency_code;
-    // Number of read latency cycle associated to the read register latency code.
-    int read_latency;
-    // Number of write latency cycle associated to the write register latency code.
-    int write_latency;
-    // RAM state
-    Aps_state_e state;
+
+    // RAM array, filled with a special value to help detecting reads of uninitialized data
+    std::vector<uint8_t> mem;
+
+    // Mode registers
+    uint8_t mr0, mr4, mr8;
+
+    // Transaction state
+    bool selected;
+    // Index of the current edge since the chip select went active
+    int edge_idx;
+    uint8_t cmd;
+    uint32_t addr;
+    bool is_read, is_write, is_reg, is_sync, is_reset;
+    // Edge of the first data, -1 until the command and address are received
+    int data_edge;
 };
 
 
-
-void Aps::handle_array_access(int address, bool is_write, uint8_t data)
-{
-    if (address >= this->size)
-    {
-        this->trace.force_warning
-            ("Received out-of-bound request (addr: 0x%x, ram_size: 0x%x)\n", address, this->size);
-    }
-    else
-    {
-        if (!is_write)
-        {
-            uint8_t data = this->data[address];
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", data);
-            this->in_itf.sync_cycle(data);
-        }
-        else
-        {
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n", data);
-            this->data[address] = data;
-        }
-    }
-}
-
-
-
-void Aps::parse_command()
-{
-    this->trace.msg(vp::Trace::LEVEL_TRACE,
-        "Handling command (cmd: 0x%x)\n", this->current_command);
-
-    if (this->current_command == 0x40)
-    {
-        // Register read
-        this->is_write = false;
-        this->latency_count = this->read_latency;
-    }
-    else if (this->current_command == 0xc0)
-    {
-        // Register write
-        this->is_write = true;
-        this->latency_count = 1;
-    }
-    else if (this->current_command == 0x20)
-    {
-        // Burst read
-        this->is_write = false;
-        this->latency_count = this->read_latency;
-    }
-    else if (this->current_command == 0xA0)
-    {
-        // Burst write
-        this->is_write = true;
-        this->latency_count = this->write_latency;
-    }
-    else
-    {
-        this->trace.force_warning("Received unknown RAM command (cmd: 0x%x)\n", this->current_command);
-    }
-
-    // Since the latency is a number of raising edges, we need to double it in DDR mode
-    // since the model is called at each edge.
-    this->latency_count *= 2;
-}
-
-
-
-void Aps::handle_command_address()
-{
-    if (this->current_command == 0x20 || this->current_command == 0xa0)
-    {
-        this->trace.msg(vp::Trace::LEVEL_DEBUG,
-            "Received burst command (command: 0x%x, address: 0x%x, is_write: %d)\n",
-            this->current_command, this->current_address, this->is_write);
-    }
-}
-
-
-
-void Aps::handle_data_byte(uint8_t data)
-{
-    // Register read
-    if (this->current_command == 0x40)
-    {
-        uint32_t value = 0;
-
-        if (this->current_address == 0)
-        {
-            value = this->read_latency_code << 2;
-        }
-        else if (this->current_address == 4)
-        {
-            value = this->write_latency_code << 4;
-        }
-
-        this->trace.msg(vp::Trace::LEVEL_INFO,
-            "Reading ram register (addr: %d, data: 0x%x)\n",
-            this->current_address, value);
-
-        this->in_itf.sync_cycle(value);
-    }
-    // Register write
-    else if (this->current_command == 0xc0)
-    {
-        this->trace.msg(vp::Trace::LEVEL_INFO,
-            "Writing ram register (addr: %d, data: 0x%x)\n",
-            this->current_address, data);
-
-        if (this->current_address == 0)
-        {
-            // Compute the number of latency cycle out of the register code
-            this->read_latency_code = (data >> 2) & 0x7;
-            this->read_latency = this->read_latency_code + 3;
-            this->trace.msg(vp::Trace::LEVEL_INFO,
-                "Set read latency (latency: %d)\n",
-                this->read_latency);
-        }
-        else if (this->current_address == 4)
-        {
-            // Compute the number of latency cycle out of the register code
-            this->write_latency_code = (data >> 5) & 0x7;
-            switch (this->write_latency_code)
-            {
-                case 0x0: this->write_latency = 3; break;
-                case 0x4: this->write_latency = 4; break;
-                case 0x2: this->write_latency = 5; break;
-                case 0x6: this->write_latency = 6; break;
-                case 0x1: this->write_latency = 7; break;
-            }
-            this->trace.msg(vp::Trace::LEVEL_INFO, "Set write latency (latency: %d)\n",
-                this->write_latency);
-        }
-    }
-    // Read or write burst
-    else
-    {
-        this->handle_array_access(this->current_address, this->is_write, data);
-        this->current_address++;
-    }
-}
-
-
-
-void Aps::sync_cycle(int data)
-{
-    // This method is called whenever there is a usefull clock edge on the octospi line.
-    // This is called on both raising and falling edges in DDR mode and only on raising edge
-    // in STR mode.
-    // Most of the time, the model does not have to care if we are in DDR or STR mode since this
-    // method is called only for useful edges. Only the handling of latency needs to care since it
-    // is a number of full cycles, so special care needs to be taken in DDR mode.
-
-    // This method mostly implements an FSM, which is first sampling command, address and data, and
-    // is then handling the commands. It can also send back data on the octospi line for read
-    // commands.
-
-    if (this->state == APS_STATE_CMD)
-    {
-        // State when we are sampling the command header
-
-        // Queue the incoming byte
-        this->pending_bytes--;
-        this->current_command = (this->current_command >> 8) | (data << 8);
-
-        this->trace.msg(vp::Trace::LEVEL_TRACE,
-            "Received command byte (byte: 0x%x, command: 0x%x, pending_bytes: %d)\n",
-            data, this->current_command, this->pending_bytes);
-
-        // Only do something once the full command is received
-        if (this->pending_bytes == 0)
-        {
-            // Parse the command
-            this->parse_command();
-
-            // And then wait for the address since all commands expect an address
-            this->state = APS_STATE_ADDR;
-            this->pending_bytes = 4;
-        }
-    }
-    else if (this->state == APS_STATE_ADDR)
-    {
-        // State where we are sampling the command address
-
-        // Queue the incoming byte
-        this->pending_bytes--;
-        this->current_address = (this->current_address << 8) | data;
-
-        this->trace.msg(vp::Trace::LEVEL_TRACE,
-            "Received address byte (byte: 0x%x, address: 0x%x, pending_bytes: %d)\n",
-            data, this->current_address, this->pending_bytes);
-
-        // Only do something once the full address is received
-        if (this->pending_bytes == 0)
-        {
-            // Handle the command now that we have the address
-            this->handle_command_address();
-
-            // Now wait for data since all commands deal with data.
-            this->state = APS_STATE_DATA;
-        }
-    }
-    else if (this->state == APS_STATE_DATA)
-    {
-        // State where we are receiving or sending data
-
-        // First check if we need to skip data due to ongoing latency
-        if (this->latency_count > 0)
-        {
-            this->latency_count--;
-
-            this->trace.msg(vp::Trace::LEVEL_TRACE, "Accounting latency (remaining: %d)\n",
-                this->latency_count);
-        }
-        else
-        {
-            // Otherwise take care of the data
-
-            if (this->is_write)
-            {
-                this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data (data: 0x%x)\n",
-                    data);
-            }
-
-            this->handle_data_byte(data);
-        }
-    }
-}
-
-
-
-void Aps::sync_cycle_stub(vp::Block *__this, int data)
-{
-    // Stub for real method, just forward the call
-    Aps *_this = (Aps *)__this;
-    _this->sync_cycle(data);
-}
-
-
-
-void Aps::cs_sync(int cs, int value)
-{
-    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (value: %d)\n", value);
-
-    this->state = APS_STATE_CMD;
-    this->pending_bytes = 2;
-}
-
-
-
-void Aps::cs_sync_stub(vp::Block *__this, int cs, int value)
-{
-    // Stub for real method, just forward the call
-    Aps *_this = (Aps *)__this;
-    _this->cs_sync(cs, value);
-}
-
-
-void Aps::stop()
-{
-    delete[] this->data;
-}
-
-void Aps::reset(bool active)
-{
-    // This function is called everytime the flash is reset.
-    // Both active and inactive levels trigger a call.
-    if (active)
-    {
-        // When reset is active, we must put back the ram into the initial state
-        this->read_latency = 5;
-        this->write_latency = 5;
-        this->current_command = 0;
-    }
-}
-
-
-Aps::Aps(vp::ComponentConf &config)
+Aps256xxn::Aps256xxn(vp::ComponentConf &config)
     : vp::Component(config, this->cfg)
 {
-    // This method is called when the simulated system is built.
-    // We just need here to take care of anything which must be done once at platform startup.
+    this->traces.new_trace("trace", &this->trace, vp::DEBUG);
 
-    // Trace for outputting debug messages
-    traces.new_trace("trace", &trace, vp::DEBUG);
+    this->in_itf.set_cs_sync_meth(&Aps256xxn::cs_sync_stub);
+    this->in_itf.set_sync_cycle_meth(&Aps256xxn::sync_cycle_stub);
+    this->new_slave_port("input", &this->in_itf);
 
-    // Input interface for exchanging octospi data
-    in_itf.set_cs_sync_meth(&Aps::cs_sync_stub);
-    in_itf.set_sync_cycle_meth(&Aps::sync_cycle_stub);
-    new_slave_port("input", &in_itf);
-
-    // Allocate an array for the ram and fill it with special value to help SW detecting reads
-    // to non-initialized data.
-    this->size = this->cfg.size;
-
-    this->data = new uint8_t[this->size];
-    memset(this->data, 0x57, this->size);
-
+    this->mem.resize(this->cfg.size, 0x57);
+    this->mr_reset();
+    this->selected = false;
 }
 
 
+void Aps256xxn::mr_reset()
+{
+    this->mr0 = 0x08;      // variable latency, read latency code 5
+    this->mr4 = 0x40;      // write latency code 5, 4x refresh
+    this->mr8 = 0x05;      // hybrid wrap 32
+}
 
-// Constructor function needed by GVSOC to instantiate this module.
-// Just instantiate the flash class.
+
+void Aps256xxn::reset(bool active)
+{
+    if (active)
+    {
+        this->mr_reset();
+        this->selected = false;
+    }
+}
+
+
+int Aps256xxn::read_latency()
+{
+    static const int lc[] = { 3, 4, 5, 6, 7, 9, 10, 10 };
+    static const int fl[] = { 6, 8, 10, 12, 14, 16, 18, 18 };
+    int code = (this->mr0 >> 2) & 7;
+    return (this->mr0 >> 5) & 1 ? fl[code] : lc[code];
+}
+
+
+int Aps256xxn::write_latency()
+{
+    // MR4[7:5] codes: 000:3 100:4 010:5 110:6 001:7 101:8 011:9
+    static const int wl[] = { 3, 7, 5, 9, 4, 8, 6, 9 };
+    return wl[(this->mr4 >> 5) & 7];
+}
+
+
+int Aps256xxn::mr_read(int index, bool *defined)
+{
+    *defined = true;
+    switch (index)
+    {
+        case 0: return this->mr0;
+        case 1: return 0xad;    // ULP, vendor APM
+        case 2: return 0xdf;    // good die, generation 4, 256 Mb
+        case 3:
+        {
+            // RBX support, self refresh flag from the MR4 refresh frequency
+            int srf = !(this->mr4 & (1 << 3)) ? 2 : (this->mr4 & (1 << 4)) ? 1 : 0;
+            return (this->cfg.rbx << 7) | (srf << 4);
+        }
+        case 4: return this->mr4;
+        case 8: return this->mr8;
+        default: *defined = false; return 0;
+    }
+}
+
+
+int Aps256xxn::mr_next(int index)
+{
+    switch (index)
+    {
+        case 0: return 1;
+        case 1: return 2;
+        case 2: return 3;
+        case 3: return 4;
+        case 4: case 5: case 6: case 7: return 8;
+        default: return 0;
+    }
+}
+
+
+int64_t Aps256xxn::byte_addr(int j)
+{
+    if (this->cfg.legacy)
+    {
+        int64_t addr = (int64_t)this->addr + j;
+        return addr < (int64_t)this->mem.size() ? addr : -1;
+    }
+
+    uint32_t base = this->addr & (this->cfg.size - 1) & ~1u;
+    uint32_t row = base & ~(ROW_BYTES - 1);
+
+    if (this->is_sync && (this->mr8 & 3) != 3)
+    {
+        uint32_t bl = 16 << (this->mr8 & 3);
+        uint32_t block = base & ~(bl - 1);
+        if (!(this->mr8 & (1 << 2)) || (uint32_t)j < bl)
+        {
+            return block | ((base + j) & (bl - 1));
+        }
+        return row | ((block + j) & (ROW_BYTES - 1));
+    }
+    if (this->is_read && this->cfg.rbx && (this->mr8 & (1 << 3)))
+    {
+        return (base + j) & (this->cfg.size - 1);
+    }
+    return row | ((base + j) & (ROW_BYTES - 1));
+}
+
+
+void Aps256xxn::edge(int data)
+{
+    if (!this->selected)
+    {
+        return;
+    }
+
+    int e = this->edge_idx++;
+
+    if (e == 0)
+    {
+        this->cmd = data & 0xff;
+    }
+    else if (e >= 2 && e <= 5)
+    {
+        this->addr = (this->addr << 8) | (data & 0xff);
+        if (e == 5)
+        {
+            uint8_t c = this->cmd;
+            this->is_read = c == 0x00 || c == 0x20 || c == 0x40;
+            this->is_write = c == 0x80 || c == 0xa0 || c == 0xc0;
+            this->is_reg = c == 0x40 || c == 0xc0;
+            this->is_sync = c == 0x00 || c == 0x80;
+            this->is_reset = c == 0xff;
+            if (this->is_read)
+                this->data_edge = 2 * (2 + this->read_latency());
+            else if (this->is_reg)
+                this->data_edge = 2 * (2 + 1);
+            else if (this->is_write)
+                this->data_edge = 2 * (2 + this->write_latency());
+            else if (!this->is_reset)
+                this->trace.force_warning("Unknown command (cmd: 0x%x)\n", c);
+
+            if (this->data_edge >= 0 && this->cfg.legacy)
+            {
+                this->data_edge += 2;
+            }
+
+            this->trace.msg(vp::Trace::LEVEL_DEBUG, "Command (cmd: 0x%x, addr: 0x%x)\n",
+                c, this->addr);
+        }
+    }
+
+    if (this->data_edge >= 0 && e >= this->data_edge)
+    {
+        int j = e - this->data_edge;
+        if (this->is_read)
+        {
+            int value = 0;
+            if (this->is_reg)
+            {
+                bool defined;
+                int reg = this->addr & 0xff;
+                value = this->mr_read(reg, &defined);
+                if (defined && (j & 1))
+                {
+                    value = this->mr_read(this->mr_next(reg), &defined);
+                }
+            }
+            else
+            {
+                int64_t addr = this->byte_addr(j);
+                if (addr < 0)
+                {
+                    this->trace.force_warning("Out-of-bound read (addr: 0x%x, size: 0x%x)\n",
+                        this->addr + j, this->cfg.size);
+                }
+                else
+                {
+                    value = this->mem[addr];
+                }
+            }
+            this->trace.msg(vp::Trace::LEVEL_TRACE, "Sending data byte (value: 0x%x)\n", value);
+            this->in_itf.sync_cycle(value);
+        }
+        else if (this->is_write && !(data & 0x100))
+        {
+            if (this->is_reg)
+            {
+                if (j == 0)
+                {
+                    int reg = this->addr & 0xff;
+                    this->trace.msg(vp::Trace::LEVEL_INFO,
+                        "Mode register write (reg: %d, value: 0x%x)\n", reg, data & 0xff);
+                    if (reg == 0) this->mr0 = data & 0x3f;
+                    else if (reg == 4) this->mr4 = data & 0xff;
+                    else if (reg == 8)
+                    {
+                        this->mr8 = data & 0x7f;
+                        if (this->mr8 & (1 << 6))
+                        {
+                            this->trace.force_warning("x16 mode is not modelled\n");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                int64_t addr = this->byte_addr(j);
+                this->trace.msg(vp::Trace::LEVEL_TRACE, "Received data byte (value: 0x%x)\n",
+                    data & 0xff);
+                if (addr < 0)
+                {
+                    this->trace.force_warning("Out-of-bound write (addr: 0x%x, size: 0x%x)\n",
+                        this->addr + j, this->cfg.size);
+                }
+                else
+                {
+                    this->mem[addr] = data & 0xff;
+                }
+            }
+        }
+    }
+}
+
+
+void Aps256xxn::cs_sync(int active)
+{
+    this->trace.msg(vp::Trace::LEVEL_TRACE, "Received CS sync (active: %d)\n", active);
+
+    if (active)
+    {
+        this->selected = true;
+        this->edge_idx = 0;
+        this->cmd = 0;
+        this->addr = 0;
+        this->is_read = this->is_write = this->is_reg = this->is_sync = this->is_reset = false;
+        this->data_edge = -1;
+    }
+    else
+    {
+        if (this->selected && this->is_reset)
+        {
+            this->mr_reset();
+        }
+        this->selected = false;
+    }
+}
+
+
+void Aps256xxn::sync_cycle_stub(vp::Block *__this, int data)
+{
+    ((Aps256xxn *)__this)->edge(data);
+}
+
+
+void Aps256xxn::cs_sync_stub(vp::Block *__this, int cs, int active)
+{
+    ((Aps256xxn *)__this)->cs_sync(active);
+}
+
+
 extern "C" vp::Component *gv_new(vp::ComponentConf &config)
 {
-    return new Aps(config);
+    return new Aps256xxn(config);
 }

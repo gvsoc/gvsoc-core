@@ -1,6 +1,5 @@
 add_subdirectory(ble)
 add_subdirectory(camera)
-add_subdirectory(ram)
 add_subdirectory(flash)
 add_subdirectory(i2c)
 add_subdirectory(jtag)

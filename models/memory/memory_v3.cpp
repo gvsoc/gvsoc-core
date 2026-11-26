@@ -245,12 +245,20 @@ log_is_write(*this, "req_is_write", 1, vp::SignalCommon::ResetKind::HighZ)
                                this->cfg.stim_file, strerror(errno));
             return;
         }
-        if (fread(this->mem_data, 1, this->cfg.size, file) == 0)
+        size_t len = fread(this->mem_data, 1, this->cfg.size, file);
+        if (len == 0)
         {
             this->trace.fatal("Failed to read stim file: %s, %s\n",
                                this->cfg.stim_file, strerror(errno));
             return;
         }
+#ifdef VP_MEMCHECK_ACTIVE
+        // The preloaded content is initialized
+        if (this->memcheck_enabled)
+        {
+            this->memcheck_set_range_valid(0, len);
+        }
+#endif
     }
 }
 

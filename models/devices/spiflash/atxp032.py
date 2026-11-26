@@ -1,58 +1,55 @@
+# SPDX-FileCopyrightText: 2026 ETH Zurich, University of Bologna and EssilorLuxottica SAS
 #
-# Copyright (C) 2022 GreenWaves Technologies, SAS, ETH Zurich and
-#                    University of Bologna
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+# Authors: Germain Haugou (germain.haugou@gmail.com)
 
-import gvsoc.systree as st
+"""ATXP032 octal SPI NOR flash, at command level.
 
-from devices.spiflash.spiflash import SpiflashConfig
+The flash controller hands over each command with its opcode, address and
+data once the bus phase is over (wire<SpiflashCmd*>, spiflash_cmd.hpp). Any
+bulk read returns the array, a bulk write programs it (after a write enable),
+and the usual single commands are decoded: write enable/disable, status read,
+JEDEC ID, status write, the block and chip erases. Everything else is accepted
+and ignored. Programs, erases and status writes keep the flash busy, in its
+status register, for the time they take on the device.
+"""
 
+from typing import Annotated
 
-class Atxp032(st.Component):
-    """
-    Atxp032
-
-    This instantiates an atxp032 flash (octospi flash).
-
-    Attributes
-    ----------
-    size : int
-        Size of the flash (default: 0x08000000).
-
-    """
-
-    def __init__(self, parent, name, size=0x08000000):
-        super(Atxp032, self).__init__(parent, name, config=SpiflashConfig(size=size))
-
-        # Register all parameters as properties so that they can be overwritten from the command-line
-        self.add_property('content/partitions/readfs/files', [])
-        self.add_property('content/partitions/readfs/type', 'readfs')
-        self.add_property('content/partitions/readfs/enabled', False)
-
-        self.add_property('content/partitions/hostfs/files', [])
-        self.add_property('content/partitions/hostfs/type', 'hostfs')
-
-        self.add_property('content/partitions/lfs/root_dir', None)
-        self.add_property('content/partitions/lfs/type', 'lfs')
-        self.add_property('content/partitions/lfs/enabled', False)
-
-        self.set_component('devices.spiflash.spiflash_impl')
+from config_tree import Config, cfg_field
+from gvrun.runtime import Runtime
+from gvsoc.systree import Component, SlaveItf
 
 
-        # TODO this is needed by GAPY but is not aligned with the size given to model
-        # That should be resolved once the flash images are built by the system tree instead of gapy
-        self.add_property('datasheet/type', 'spi')
-        self.add_property('datasheet/size', '4MB')
-        self.add_property('datasheet/block-size', '4KB')
+class Atxp032Config(Config):
+    size: int = cfg_field(default=4 * 1024 * 1024, fmt="hex", dump=True,
+        desc="Flash size in bytes")
+    image: Annotated[str, Runtime] = cfg_field(default=None, dump=True,
+        desc="Preload image path; set late by the board")
+    # Busy time of the operations, in ns: the typical ones of the ATXP032
+    # datasheet
+    program_byte_ns: int = cfg_field(default=8_000, dump=True,
+        desc="Program time per byte; a program takes the smaller of this times its bytes "
+             "and the page program time")
+    program_page_ns: int = cfg_field(default=1_250_000, dump=True,
+        desc="Page program time")
+    erase_4k_ns: int = cfg_field(default=35_000_000, dump=True, desc="4 KB block erase time")
+    erase_32k_ns: int = cfg_field(default=250_000_000, dump=True, desc="32 KB block erase time")
+    erase_64k_ns: int = cfg_field(default=450_000_000, dump=True, desc="64 KB block erase time")
+    erase_chip_ns: int = cfg_field(default=3_500_000_000, dump=True, desc="Chip erase time")
+    write_status_ns: int = cfg_field(default=200, dump=True,
+        desc="Status register write time")
+
+
+class Atxp032(Component):
+
+    def __init__(self, parent: Component, name: str, config: Atxp032Config | None = None):
+        if config is None:
+            config = Atxp032Config()
+        super().__init__(parent, name, config=config)
+
+        self.add_sources(['devices/spiflash/atxp032.cpp'])
+
+    def i_INPUT(self) -> SlaveItf:
+        return SlaveItf(self, 'input', signature='wire<SpiflashCmd*>')

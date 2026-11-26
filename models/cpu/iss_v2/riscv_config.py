@@ -111,6 +111,28 @@ class RiscvConfig(Config):
         "(the response stands for the grant of a core which is only granted such an access "
         "when it completes, like a PULP core behind its demux for anything but the TCDM)."
     ))
+    lsu_hold_on_latency: bool = cfg_field(default=False, dump=True, desc=(
+        "True if a data access answered at once with a latency also holds the core until "
+        "that latency is over, like one answered later with lsu_hold_on_async (RI5CY: the "
+        "pipeline waits for the response of any access, an APB register for example)."
+    ))
+    irq_latency: int = cfg_field(default=0, dump=True, desc=(
+        "Cycles from a change of the interrupt request input to the core seeing it, when it "
+        "raises an interrupt (RI5CY behind a registered interrupt controller). A request "
+        "removed is seen at once."
+    ))
+    wfi_wake_stall: int = cfg_field(default=0, dump=True, desc=(
+        "Cycles a core asleep in wfi takes to restart once woken (RI5CY: its clock is "
+        "enabled again and its pipeline refilled)."
+    ))
+    mret_stall: int = cfg_field(default=0, dump=True, desc=(
+        "Cycles an mret costs on top of the jump to the interrupted code (RI5CY: the pipeline "
+        "is flushed)."
+    ))
+    csr_mstatus_write_stall: int = cfg_field(default=0, dump=True, desc=(
+        "Cycles an instruction writing mstatus costs on top of one (RI5CY: 3, the pipeline "
+        "is flushed after the write, e.g. for the interrupt enable)."
+    ))
     fetch_lookahead: bool = cfg_field(default=False, dump=True, desc=(
         "True if the line which follows the one being executed is fetched while its last "
         "instruction executes, so that a line which takes one cycle to come in costs "

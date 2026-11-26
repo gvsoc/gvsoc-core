@@ -93,6 +93,7 @@ void Core::reset(bool active)
 iss_reg_t Core::mret_handle()
 {
     this->iss.exec.switch_to_full_mode();
+    this->iss.exec.stall_cycles_inc(this->iss.cfg.mret_stall);
 
     this->mode_set(this->iss.csr.mstatus.mpp);
 #ifdef CONFIG_GVSOC_ISS_USER_MODE
@@ -193,6 +194,7 @@ bool Core::mstatus_update(iss_insn_t *insn, bool is_write, iss_reg_t &value)
     #endif
 
         this->iss.timing.stall_insn_dependency_account(4);
+        this->iss.exec.stall_cycles_inc(this->iss.cfg.csr_mstatus_write_stall);
         this->iss.irq.global_enable(this->iss.csr.mstatus.mie);
     }
     else

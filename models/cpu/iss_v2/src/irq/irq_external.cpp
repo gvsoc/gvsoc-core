@@ -22,8 +22,9 @@
 #include <vp/vp.hpp>
 
 IrqExternal::IrqExternal(Iss &iss)
-    : iss(iss)
+    : iss(iss), irq_latency_event(&iss, &IrqExternal::irq_latency_handler)
 {
+    this->delayed_irq = -1;
     for (int i = 0; i < 32; i++)
     {
         this->vectors[i] = 0;
@@ -58,6 +59,7 @@ void IrqExternal::reset(bool active)
         this->irq_req = -1;
         this->irq_enable.set(0);
         this->req_irq = -1;
+        this->irq_latency_event.cancel();
         this->req_debug = false;
         this->debug_handler = this->iss.exception.debug_handler_addr;
     }
@@ -142,19 +144,40 @@ void IrqExternal::irq_req_sync(vp::Block *__this, int irq)
 
     _this->trace.msg(vp::Trace::LEVEL_TRACE, "Received IRQ (irq: %d)\n", irq);
 
-    _this->req_irq = irq;
-
-    if (irq != -1 && _this->iss.exec.wfi.get())
+    // A request is seen irq_latency cycles later; its removal at once, so
+    // that an interrupt which has been taken or cleared is not taken again
+    if (_this->iss.cfg.irq_latency > 0 && irq != -1)
     {
-        _this->iss.exec.sleep_exit();
+        _this->delayed_irq = irq;
+        _this->irq_latency_event.enqueue(_this->iss.cfg.irq_latency);
+        return;
+    }
+
+    _this->irq_latency_event.cancel();
+    _this->irq_req_apply(irq);
+}
+
+void IrqExternal::irq_latency_handler(vp::Block *__this, vp::ClockEvent *event)
+{
+    Iss *iss = (Iss *)__this;
+    iss->irq.irq_req_apply(iss->irq.delayed_irq);
+}
+
+void IrqExternal::irq_req_apply(int irq)
+{
+    this->req_irq = irq;
+
+    if (irq != -1 && this->iss.exec.wfi.get())
+    {
+        this->iss.exec.sleep_exit();
     }
 
     // Let the LSU react to the new interrupt state (e.g. the ri5ky p.elw
     // event load abandons its parked request and replays the instruction
     // after the handler).
-    _this->iss.lsu.irq_req_hook(irq, _this->irq_enable.get());
+    this->iss.lsu.irq_req_hook(irq, this->irq_enable.get());
 
-    _this->iss.exec.switch_to_full_mode();
+    this->iss.exec.switch_to_full_mode();
 }
 
 int IrqExternal::check()

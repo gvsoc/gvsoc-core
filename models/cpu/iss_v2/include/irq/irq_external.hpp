@@ -45,6 +45,12 @@ public:
     int check();
     void wfi_handle(iss_insn_t *insn);
     static void irq_req_sync(vp::Block *__this, int irq);
+    // Config field ``irq_latency``: an interrupt request is seen by the core
+    // this many cycles after it is raised
+    static void irq_latency_handler(vp::Block *__this, vp::ClockEvent *event);
+    void irq_req_apply(int irq);
+    vp::ClockEvent irq_latency_event;
+    int delayed_irq;
 
     Iss &iss;
     iss_reg_t vectors[35];

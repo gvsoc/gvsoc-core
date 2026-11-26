@@ -25,6 +25,7 @@ LsuV2::LsuV2(Iss &iss)
     iss.traces.new_trace("lsu", &this->trace, vp::DEBUG);
 
     this->hold_on_async = iss.cfg.lsu_hold_on_async;
+    this->hold_on_latency = iss.cfg.lsu_hold_on_latency;
     // data's retry/resp callbacks are passed via the in-class initializer
     // of the IoMaster member; no set_retry_meth/set_resp_meth needed in v2.
     this->iss.new_master_port("data", &this->data, (vp::Block *)this);
@@ -45,6 +46,8 @@ LsuV2::LsuV2(Iss &iss)
         req->misaligned_size = 0;
         req->misaligned_byte_offset = 0;
         req->holds_core = false;
+        req->held_core = false;
+        req->holds_latency = false;
         this->req_entry_first = req;
         req->task.callback = &LsuV2::task_handle;
     }
@@ -82,6 +85,8 @@ void LsuV2::reset(bool active)
         {
             LsuReqEntry *req = &this->req_entry[i];
             req->holds_core = false;
+            req->held_core = false;
+            req->holds_latency = false;
             req->misaligned_size = 0;
             req->misaligned_byte_offset = 0;
             req->next = this->req_entry_first;
@@ -240,9 +245,10 @@ void LsuV2::data_retry(vp::Block *__this, vp::IoRetryChannel)
 
 void LsuV2::hold_core(LsuReqEntry *entry)
 {
-    if (this->hold_on_async && !entry->holds_core)
+    if ((this->hold_on_async || this->hold_on_latency) && !entry->holds_core)
     {
         entry->holds_core = true;
+        this->trace.msg("Holding core (req: %p)\n", &entry->req);
         this->iss.exec.retain_inc();
     }
 }
@@ -253,6 +259,7 @@ void LsuV2::release_core(LsuReqEntry *entry)
     if (entry->holds_core)
     {
         entry->holds_core = false;
+        this->trace.msg("Releasing core (req: %p)\n", &entry->req);
         this->iss.exec.retain_dec();
     }
 }
@@ -300,6 +307,14 @@ vp::IoRespAck LsuV2::data_response(vp::Block *__this, vp::IoReq *req)
         // unambiguous (one writeback per cycle).
         entry->timestamp = _this->next_retire_cycle;
         _this->next_retire_cycle++;
+        // The response is back, the core is not held any more. It must be
+        // released now: a held core does not run its tasks, so this one
+        // would never release it.
+        if (entry->holds_core)
+        {
+            entry->held_core = true;
+            _this->release_core(entry);
+        }
         _this->iss.exec.enqueue_task(&entry->task);
         return vp::IO_RESP_ACCEPTED;
     }
@@ -550,6 +565,13 @@ bool LsuV2::data_req_aligned(iss_insn_t *insn, iss_addr_t addr, int size,
         if (this->handle_req_response(entry))
         {
             entry->insn_entry = this->iss.exec.insn_hold(insn);
+#if defined(CONFIG_GVSOC_ISS_TIMED)
+            if (this->hold_on_latency && req->get_latency() > 0)
+            {
+                this->hold_core(entry);
+                entry->holds_latency = true;
+            }
+#endif
         }
 
         return false;
@@ -799,7 +821,9 @@ void LsuV2::task_handle(Iss *iss, Task *task)
 
     InsnEntry *insn_entry = entry->insn_entry;
     // handle_req_end releases the core, remember if this access was holding it
-    bool held_core = entry->holds_core;
+    bool held_core = (entry->holds_core || entry->held_core) && !entry->holds_latency;
+    entry->held_core = false;
+    entry->holds_latency = false;
     iss->lsu.req_retire_hook(entry);
     iss->lsu.handle_req_end(entry);
 #ifdef CONFIG_GVSOC_ISS_REGFILE_SCOREBOARD

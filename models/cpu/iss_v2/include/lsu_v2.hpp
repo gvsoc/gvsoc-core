@@ -71,6 +71,15 @@ struct LsuReqEntry
 
     // True while this access retains the core (see LsuV2::hold_on_async).
     bool holds_core;
+    // True if this access held the core until its response, which came back
+    // in a cycle where another access had already retired: the core is
+    // released at once and the write-back done on the next free cycle, with
+    // the load-use delay of a held access.
+    bool held_core;
+    // True if the core is held for the latency of an access answered at once
+    // (lsu_hold_on_latency): the data come with the end of the latency, so a
+    // dependent instruction has the load-use delay of an unheld access.
+    bool holds_latency;
 
     // True for an access returning data (load or atomic), which counts
     // against CONFIG_GVSOC_ISS_LSU_NB_OUTSTANDING_LOADS
@@ -255,6 +264,8 @@ protected:
     // anything during the access, load or store alike. When set, an access
     // answered asynchronously retains the core until its response is back.
     bool hold_on_async = false;
+    // Same for an access answered at once with a latency (lsu_hold_on_latency)
+    bool hold_on_latency = false;
     // With the core held, the response stands for the grant of the access:
     // the core resumes on the next cycle, but the data of a load only comes
     // one cycle after the grant, so a dependent instruction waits one more.

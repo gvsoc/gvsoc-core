@@ -123,6 +123,8 @@ void ExecInOrder::sleep_exit()
 {
     this->busy_enter();
     this->iss.exec.wfi.set(false);
+    // Restart of the core (wfi_wake_stall)
+    this->stall_cycles_inc(this->iss.cfg.wfi_wake_stall);
     this->iss.exec.retain_dec();
     this->iss.exec.insn_terminate(this->wfi_entry);
 }

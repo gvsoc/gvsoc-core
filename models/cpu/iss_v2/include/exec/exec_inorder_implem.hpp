@@ -65,6 +65,16 @@ inline void ExecInOrder::enqueue_task(Task *task)
 {
     task->next = this->first_task;
     this->first_task = task;
+
+    // A retained core has its instruction event disabled when it has no task, and only a
+    // retain count change re-enables it. A task enqueued meanwhile (e.g. the second part
+    // of a misaligned access completing from a response callback) must wake it up, or it
+    // never runs; handle_tasks parks the core again once the tasks are done.
+    if (unlikely(this->instr_disabled))
+    {
+        this->instr_disabled = false;
+        this->instr_event.enable();
+    }
 }
 
 inline void ExecInOrder::insn_exec_profiling()
